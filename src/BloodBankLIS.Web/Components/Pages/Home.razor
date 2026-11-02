@@ -328,7 +328,16 @@
             case DashboardQueueCatalog.Disposition:
                 return await CountList(card.Key, Api.GetOverdueDispositionAsync());
             case DashboardQueueCatalog.PendingTests:
-                return await CountList(card.Key, Api.GetPendingTestWorklistAsync());
+            {
+                var result = await Api.GetPendingTestWorklistAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var dueSoon = PendingTestAttentionRule.CountVerifyBeforeExpiry(result.Value);
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(dueSoon, "to verify before its specimen expires", "to verify before their specimens expire"));
+            }
             case DashboardQueueCatalog.PendingSpecimens:
                 return await CountList(card.Key, Api.GetPendingSpecimensAsync());
             case DashboardQueueCatalog.Reactions:

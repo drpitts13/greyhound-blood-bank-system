@@ -510,6 +510,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-471 / FRS-BB-507 | Corrections can be completed after the specimen expires | `ResultService` | TEST-BB-366 | I | |
 | URS-BB-471 / FRS-BB-507 (worklist path, invalidation) | Worklist correction and invalidation after the specimen expires | `ResultService.SaveTestResultAsync`, `InvalidateResultAsync` | TEST-BB-367 | I | |
 | URS-BB-472 / FRS-BB-508 | Verification deadline before the specimen expires | `VerificationDeadlineRule`; `TestWorklistService`; `SupervisorQueueService`; `TestWorklist.razor` | TEST-BB-368 | D / I | |
+| URS-BB-473 / FRS-BB-509 | Dashboard count of results to verify before specimen expiry | `PendingTestAttentionRule`; `Home.razor` | TEST-BB-369 | D | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

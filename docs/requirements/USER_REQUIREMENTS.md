@@ -478,3 +478,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-470 | A result arriving from an instrument or the HL7 interface is refused on a specimen that manual entry would refuse, including when it re-sends or replaces an earlier result. | P1 | FRS-BB-506 |
 | URS-BB-471 | A verified result can be corrected, and the correction verified, after its specimen has expired, so a wrong value on the record can always be fixed. | P1 | FRS-BB-507 |
 | URS-BB-472 | A result waiting for verification whose specimen expires soon says by when it must be verified and is listed ahead of other routine work, so it is not lost when the specimen expires. A pending correction can be worked from the worklist after the specimen expires. | P1 | FRS-BB-508 |
+| URS-BB-473 | The dashboard says how many pending results must be verified before their specimen expires. | P2 | FRS-BB-509 |

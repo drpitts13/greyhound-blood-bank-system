@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Tests;
@@ -53,6 +54,33 @@ public class DashboardDueCountTests
 
         Assert.Equal(2, count);
     }
+
+    // TEST-BB-369: the pending tests card says how many results must be verified before their specimen expires.
+    [Fact]
+    public void PendingTests_CountsOnlyRowsWithAVerificationDeadline()
+    {
+        var count = PendingTestAttentionRule.CountVerifyBeforeExpiry(
+        [
+            Work("Verify before 2026-11-02 15:00 UTC, when the specimen expires. After that this result cannot be verified."),
+            Work(null),
+            Work("Verify before 2026-11-02 18:00 UTC, when the specimen expires. After that this result cannot be verified.")
+        ]);
+
+        Assert.Equal(2, count);
+        Assert.Equal("2 to verify before their specimens expire",
+            DashboardQueueCatalog.AttentionNote(count, "to verify before its specimen expires", "to verify before their specimens expire"));
+        Assert.Equal("1 to verify before its specimen expires",
+            DashboardQueueCatalog.AttentionNote(1, "to verify before its specimen expires", "to verify before their specimens expire"));
+        Assert.Equal(0, PendingTestAttentionRule.CountVerifyBeforeExpiry([Work(null)]));
+    }
+
+    private static TestWorkItemDto Work(string? deadline) => new(
+        OrderLineId: 1, OrderId: 1, PatientId: 1, PatientName: "Patient", Mrn: "MRN", TestCode: "ABSC", TestName: "Antibody screen",
+        OrderNumber: "ORD", Priority: OrderPriority.Routine, OrderedUtc: DateTime.UtcNow, AccessionNumber: "ACC", SpecimenId: 1,
+        SpecimenStatus: SpecimenStatus.Accepted, SpecimenExpiresUtc: null, SpecimenExpired: false, CurrentBloodType: null,
+        HasAntibodyHistory: false, AntibodySummary: null, CurrentResultId: 1, CurrentResultStatus: ResultStatus.PendingVerification,
+        CurrentResultValue: "Negative", CurrentResultInterpretation: null, CurrentResultSource: ResultSource.Manual,
+        CanEnterResults: true, BlockReason: null, VerificationDeadlineNotice: deadline);
 
     // TEST-BB-362: the Ready to issue board lists rows that can be issued now first.
     [Fact]

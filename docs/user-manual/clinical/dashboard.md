@@ -18,7 +18,7 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 
 - Ready to issue, second ABO/Rh, retrospective crossmatch, and in transit, when you can issue. The Ready to issue card names how many reserved units need a new crossmatch because theirs has expired.
 - Outstanding issued units and final disposition, when you can issue, return, or document transfusion.
-- Pending tests, when you can enter results. Pending specimens, when you can accession.
+- Pending tests, when you can enter results. The card names how many results must be verified before their specimen expires. Pending specimens, when you can accession.
 - Reaction investigations, when you can investigate reactions. A closed case is not in that count. A case that still needs fatality follow-up is named on the card, including after the investigation is closed.
 - Supervisor queue, when you can review antibody identification, verify results, or release quarantine.
 - Shift handoff, when you can read the audit trail. An open packet says it needs acknowledgment.

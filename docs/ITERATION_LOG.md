@@ -10172,3 +10172,33 @@ Also found: the worklist's own entry gate still blocked a pending correction on 
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the dashboard's pending-tests card could say how many results must be verified before their specimen expires, as the Ready to issue card does for expired crossmatches.
+
+## Iteration 327 — Dashboard names results to verify before their specimen expires (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 326 other than the operations row (unreviewed results).
+
+### Finding (question 5)
+
+Cycle 326 put the verification deadline on the worklist and supervisor queue, but the dashboard Pending tests card counted all pending rows alike.
+
+### Design
+
+- `PendingTestAttentionRule.CountVerifyBeforeExpiry` counts rows that carry a `VerificationDeadlineNotice`.
+- The card uses the existing `AttentionNote`, the same form as the Ready to issue and retrospective cards.
+- It reuses the list the card already loads. Read only.
+
+### Requirements / risk
+
+- URS-BB-473, FRS-BB-509, RISK-BB-572. Help: dashboard page.
+
+### Tests
+
+- TEST-BB-369: counts only rows with a deadline; singular and plural wording; zero when none.
+- Full suite: 3,496 passed, 0 failed (previously 3,495).
+- Run check (development API and web): the dashboard shows Pending tests 7 with no note (no demo result is near its specimen deadline); no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the shift handoff packet could carry the same count of results to verify before specimen expiry, so the next shift sees them.
