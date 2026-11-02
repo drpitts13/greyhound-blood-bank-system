@@ -508,13 +508,15 @@ public sealed class SpecimenService
         specimen.Status = SpecimenStatus.Rejected;
         specimen.RejectionReason = reason;
         specimen.RejectionReasonCode = storedCode;
+        specimen.RejectedUtc = _clock.UtcNow;
+        specimen.RejectedBy = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? null : _currentUser.UserName;
         _specimens.Update(specimen);
         _audit?.Record(
             AuditEventType.Specimen,
             nameof(Specimen),
             specimen.Id,
             oldValue: new { Status = previousStatus },
-            newValue: new { specimen.Status, specimen.RejectionReason, specimen.RejectionReasonCode },
+            newValue: new { specimen.Status, specimen.RejectionReason, specimen.RejectionReasonCode, specimen.RejectedUtc },
             reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
 

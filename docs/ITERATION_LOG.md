@@ -8662,3 +8662,52 @@ Specimen rejection took a free-text reason. Rejections could not be counted by c
 ### Next ranked residual
 
 A rejection-by-cause report (by reason, ward and collector) on the new codes. Pending product decisions: downtime back-entry, and who holds `override.approve`.
+
+## Iteration 291 — Specimen rejection reports by cause (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 290 other than the specimen rejection row.
+
+### Finding
+
+Cycle 290 coded rejection reasons, but no report used them. The time and user of a rejection were only in the audit trail, so a rejection could not be dated or attributed in a report.
+
+### Design
+
+- **Specimen:**
+  - `RejectedUtc` and `RejectedBy` are set at rejection and included in the audit
+  - specimens rejected before this change report their last modification time instead
+- **Report source** `specimen_rejections`:
+  - SQL view `rpt_specimen_rejections` for SQL reports, plus an EF loader for visual reports, with the same columns
+  - rejected specimens only
+  - a missing code shows as `UNCODED`, so free-text rejections made before Cycle 290 are counted rather than dropped
+- **Seeded reports:**
+  - `RPT-SPECIMEN-REJECTIONS`: a list
+  - `RPT-REJECTIONS-BY-CAUSE`: counts by month, code, draw location, and collector
+  - both prompt for a date range; existing databases get them from the seeder
+- **Schema:** migration `20261103180000_SpecimenRejectionReport` (columns and views), plus the dev bootstrap columns.
+- **Not done:** a draw location picked from the ordering-location catalog. Draw location stays as recorded at collection.
+
+### Requirements / risk
+
+- URS-BB-443, FRS-BB-479, SRS-BB-441, RISK-BB-545. Help: the specimen rejection reasons page names the two reports.
+
+### Tests
+
+- TEST-BB-335:
+  - grouped report: two WBIT rejections from one ward and collector count as 2, and uncoded rejections show as UNCODED
+  - an accepted specimen is excluded
+  - the list report returns only rejected specimens
+  - the seeded-report count is now 11
+  - rejection records its time and user
+- Full suite: 3,317 passed, 0 failed (previously 3,316).
+- Run check (development API):
+  - both reports are seeded and run (no rejected specimens in dev data, so no rows)
+  - a SQL preview against `rpt_specimen_rejections` runs on SQLite
+  - no server errors
+- SQL Server view syntax is not exercised locally.
+
+### Next ranked residual
+
+Product decisions are still pending: who holds `override.approve`, and downtime back-entry. The remaining Partial matrix rows wait on a licensed ICCBBA extract (OCD-004) or the downtime back-entry decision. The next cycle re-audits a high-risk workflow (emergency release and massive transfusion) against the seven workflow questions.

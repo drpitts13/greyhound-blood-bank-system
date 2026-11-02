@@ -44,6 +44,9 @@ public static class ReportViewSql
         var dateOfBirth = sqlServer ? "CONVERT(varchar(10), p.DateOfBirth, 23)" : "p.DateOfBirth";
         var activeTest = "td.Code = r.TestCode AND td.IsActive = 1 AND td.IsDraft = 0";
         var discardedMonth = sqlServer ? "CONVERT(varchar(7), h.DiscardedUtc, 126)" : "substr(h.DiscardedUtc, 1, 7)";
+        // Specimens rejected before RejectedUtc was recorded fall back to their last modification time.
+        var rejectedAt = "COALESCE(s.RejectedUtc, s.ModifiedUtc)";
+        var rejectedMonth = sqlServer ? $"CONVERT(varchar(7), {rejectedAt}, 126)" : $"substr({rejectedAt}, 1, 7)";
         var testName = sqlServer
             ? $"(SELECT TOP 1 td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC)"
             : $"(SELECT td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC LIMIT 1)";
@@ -226,6 +229,26 @@ public static class ReportViewSql
             FROM TestResults r
             INNER JOIN Patients p ON p.Id = r.PatientId
             INNER JOIN Specimens s ON s.Id = r.SpecimenId
+            """);
+
+        yield return (ReportViewCatalog.SpecimenRejections, $"""
+            SELECT
+                {rejectedAt} AS rejected_utc,
+                {rejectedMonth} AS rejected_month,
+                COALESCE(s.RejectionReasonCode, 'UNCODED') AS rejection_reason_code,
+                s.RejectionReason AS rejection_reason,
+                s.RejectedBy AS rejected_by,
+                s.AccessionNumber AS accession_number,
+                s.SpecimenType AS specimen_type,
+                COALESCE(s.DrawLocation, '') AS draw_location,
+                COALESCE(s.Collector, '') AS collector,
+                s.CollectedUtc AS collected_utc,
+                s.ReceivedUtc AS received_utc,
+                p.MedicalRecordNumber AS mrn,
+                {person} AS patient_name
+            FROM Specimens s
+            INNER JOIN Patients p ON p.Id = s.PatientId
+            WHERE s.Status = {(int)SpecimenStatus.Rejected}
             """);
     }
 

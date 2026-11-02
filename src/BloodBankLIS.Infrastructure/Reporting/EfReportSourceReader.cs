@@ -24,6 +24,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Overrides => OverridesAsync(cancellationToken),
             ReportSourceCatalog.CrossmatchTransfusion => ActivityAsync(cancellationToken),
             ReportSourceCatalog.LabResults => LabResultsAsync(cancellationToken),
+            ReportSourceCatalog.SpecimenRejections => SpecimenRejectionsAsync(cancellationToken),
             _ => throw new InvalidOperationException($"Unknown report source '{sourceCode}'.")
         };
 
@@ -376,5 +377,45 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 ("entered_utc", ReportValueFormat.Date(row.EnteredUtc)),
                 ("verified_utc", ReportValueFormat.Date(row.VerifiedUtc)));
         }).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> SpecimenRejectionsAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from specimen in _db.Specimens.AsNoTracking()
+            join patient in _db.Patients.AsNoTracking() on specimen.PatientId equals patient.Id
+            where specimen.Status == SpecimenStatus.Rejected
+            select new
+            {
+                // Specimens rejected before RejectedUtc was recorded fall back to their last modification time.
+                RejectedUtc = specimen.RejectedUtc ?? specimen.ModifiedUtc,
+                specimen.RejectionReasonCode,
+                specimen.RejectionReason,
+                specimen.RejectedBy,
+                specimen.AccessionNumber,
+                specimen.SpecimenType,
+                specimen.DrawLocation,
+                specimen.Collector,
+                specimen.CollectedUtc,
+                specimen.ReceivedUtc,
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("rejected_utc", ReportValueFormat.Date(row.RejectedUtc)),
+            ("rejected_month", row.RejectedUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("rejection_reason_code", string.IsNullOrWhiteSpace(row.RejectionReasonCode) ? "UNCODED" : row.RejectionReasonCode),
+            ("rejection_reason", ReportValueFormat.Text(row.RejectionReason)),
+            ("rejected_by", ReportValueFormat.Text(row.RejectedBy)),
+            ("accession_number", ReportValueFormat.Text(row.AccessionNumber)),
+            ("specimen_type", ReportValueFormat.Text(row.SpecimenType)),
+            ("draw_location", ReportValueFormat.Text(row.DrawLocation) ?? string.Empty),
+            ("collector", ReportValueFormat.Text(row.Collector) ?? string.Empty),
+            ("collected_utc", ReportValueFormat.Date(row.CollectedUtc)),
+            ("received_utc", ReportValueFormat.Date(row.ReceivedUtc)),
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)))).ToList();
     }
 }

@@ -28,7 +28,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(9, list.Value!.Count);
+        Assert.Equal(11, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -184,6 +184,57 @@ public class ReportServiceTests : IDisposable
         Assert.Equal("ABO/Rh", sqlRow[3]);
         Assert.Equal("AboRh", sqlRow[4]);
         Assert.Equal("O Pos", sqlRow[5]);
+    }
+
+    // TEST-BB-335: rejections are counted by month, reason code, draw location, and collector.
+    [Fact]
+    public async Task RejectionsByCause_GroupsRejectedSpecimens_AndSkipsOthers()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-RPT-REJ", LastName = "Report", FirstName = "Reject", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        db.Patients.Add(patient);
+        await db.SaveChangesAsync();
+
+        var rejectedAt = new DateTime(2026, 10, 15, 8, 0, 0, DateTimeKind.Utc);
+        Specimen Make(string accession, SpecimenStatus status, string? code, string location, string collector, DateTime? rejected) => new()
+        {
+            AccessionNumber = accession,
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = rejectedAt.AddHours(-2),
+            DrawLocation = location,
+            Collector = collector,
+            Status = status,
+            RejectionReasonCode = code,
+            RejectionReason = code is null ? (status == SpecimenStatus.Rejected ? "legacy free text" : null) : code + " text",
+            RejectedUtc = rejected,
+            RejectedBy = rejected is null ? null : "tech-test"
+        };
+        db.Specimens.AddRange(
+            Make("RPT-REJ-1", SpecimenStatus.Rejected, "WBIT", "4 West", "RN Lee", rejectedAt),
+            Make("RPT-REJ-2", SpecimenStatus.Rejected, "WBIT", "4 West", "RN Lee", rejectedAt.AddDays(1)),
+            Make("RPT-REJ-3", SpecimenStatus.Rejected, "HEMOLYZED", "ED", "RN Diaz", rejectedAt),
+            Make("RPT-REJ-4", SpecimenStatus.Rejected, null, "ED", "RN Diaz", rejectedAt),
+            Make("RPT-OK-5", SpecimenStatus.Accepted, null, "4 West", "RN Lee", null));
+        await db.SaveChangesAsync();
+
+        var service = Service(db);
+        var list = await service.ListAsync();
+        var byCause = list.Value!.Single(r => r.Code == "RPT-REJECTIONS-BY-CAUSE");
+        var run = await service.RunAsync(byCause.Id, new Dictionary<string, string?>());
+        Assert.True(run.Succeeded, run.Error);
+        var rows = run.Value!.Rows;
+        Assert.Equal(3, rows.Count);
+        Assert.Contains(rows, r => r.Contains("2026-10") && r.Contains("WBIT") && r.Contains("4 West") && r.Contains("RN Lee") && r.Contains("2"));
+        Assert.Contains(rows, r => r.Contains("HEMOLYZED") && r.Contains("ED") && r.Contains("1"));
+        Assert.Contains(rows, r => r.Contains("UNCODED") && r.Contains("ED") && r.Contains("1"));
+
+        var detail = list.Value!.Single(r => r.Code == "RPT-SPECIMEN-REJECTIONS");
+        var detailRun = await service.RunAsync(detail.Id, new Dictionary<string, string?>());
+        Assert.True(detailRun.Succeeded, detailRun.Error);
+        Assert.Equal(4, detailRun.Value!.Rows.Count);
+        Assert.DoesNotContain(detailRun.Value.Rows, r => r.Contains("RPT-OK-5"));
     }
 
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>

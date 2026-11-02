@@ -149,6 +149,8 @@ public sealed class SpecimenConfiguration : IEntityTypeConfiguration<Specimen>
         b.Property(s => s.DrawLocation).HasMaxLength(100);
         b.Property(s => s.Collector).HasMaxLength(100);
         b.Property(s => s.RejectionReason).HasMaxLength(500);
+        b.Property(s => s.RejectionReasonCode).HasMaxLength(20);
+        b.Property(s => s.RejectedBy).HasMaxLength(100);
         b.Property(s => s.Comment).HasMaxLength(2000);
         b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(s => s.ModifiedBy).HasMaxLength(100);

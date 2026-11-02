@@ -63,7 +63,21 @@ public static class ReportSeedCatalog
             ReportSourceCatalog.CrossmatchTransfusion,
             ["occurred_utc", "event_type", "unit_number", "product_name", "mrn", "detail"],
             filters: [DateRange("activity-range", "occurred_utc")],
-            sorts: [Sort("occurred_utc", ReportSortDirection.Descending)])
+            sorts: [Sort("occurred_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-SPECIMEN-REJECTIONS", "Specimen rejections",
+            "Rejected specimens with the coded reason, draw location, collector, and who rejected them.",
+            ReportSourceCatalog.SpecimenRejections,
+            ["rejected_utc", "rejection_reason_code", "rejection_reason", "accession_number", "mrn", "draw_location", "collector", "rejected_by"],
+            filters: [DateRange("rejected-range", "rejected_utc")],
+            sorts: [Sort("rejected_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-REJECTIONS-BY-CAUSE", "Specimen rejections by cause",
+            "Count of rejected specimens by month, reason code, draw location, and collector.",
+            ReportSourceCatalog.SpecimenRejections,
+            ["rejected_month", "rejection_reason_code", "draw_location", "collector"],
+            filters: [DateRange("rejected-range", "rejected_utc")],
+            sorts: [Sort("rejected_month", ReportSortDirection.Descending), Sort("rejection_reason_code"), Sort("draw_location"), Sort("collector")],
+            groupBy: ["rejected_month", "rejection_reason_code", "draw_location", "collector"],
+            aggregates: [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "specimens" }])
     ];
 
     private static ReportDefinition Visual(

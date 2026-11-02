@@ -51,6 +51,12 @@ public class Specimen : BaseEntity
     /// <summary>Catalog code chosen at rejection (SpecimenRejectionReason), for reporting by cause.</summary>
     public string? RejectionReasonCode { get; set; }
 
+    /// <summary>When the specimen was rejected. Null on specimens rejected before this was recorded.</summary>
+    public DateTime? RejectedUtc { get; set; }
+
+    /// <summary>User who rejected the specimen.</summary>
+    public string? RejectedBy { get; set; }
+
     /// <summary>Free-text specimen comment. Coded comments from the Specimen catalog may be inserted.</summary>
     public string? Comment { get; set; }
 }

@@ -14,4 +14,6 @@ The starter list is an example for your facility to edit: hemolyzed, clotted, qu
 
 Tick **Comment required** for a code that needs an explanation. The starter list requires one for suspected wrong blood in tube and for Other. Other codes accept an optional comment. The specimen stores the reason text, followed by the comment when there is one.
 
+On **Reports**, **Specimen rejections by cause** counts rejections by month, reason code, draw location, and collector, and **Specimen rejections** lists each one with who rejected it and when. Rejections made before coded reasons existed appear as UNCODED.
+
 Deactivate a code to stop new rejections from using it. Specimens already rejected keep the code they were given. Changes are kept in configuration history.

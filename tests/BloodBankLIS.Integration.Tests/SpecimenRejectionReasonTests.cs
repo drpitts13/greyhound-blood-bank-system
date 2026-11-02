@@ -62,6 +62,8 @@ public class SpecimenRejectionReasonTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(SpecimenStatus.Rejected, specimen.Status);
         Assert.Equal("CLOTTED", specimen.RejectionReasonCode);
         Assert.Equal("Clotted", specimen.RejectionReason);
+        Assert.Equal(_factory.Clock.UtcNow, specimen.RejectedUtc);
+        Assert.Equal(_factory.CurrentUser.UserName, specimen.RejectedBy);
         Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(Specimen) && a.EntityId == id
             && a.NewValueJson != null && a.NewValueJson.Contains("CLOTTED")));
     }
