@@ -9201,3 +9201,45 @@ The product owner approved adding the vulnerable-package check to CI.
 ### Next ranked residual
 
 A CI job that builds and runs the test suite on pull requests. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 304 — Reminder for transfusions not completed (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 303 other than the transfusion row. PR #13 is open; its vulnerable-package check was pending when this cycle started.
+
+### Finding
+
+With start and complete as separate steps (Cycle 299), a transfusion started and never completed leaves the unit "Transfusion started" indefinitely. The record also lacks stop, volume, outcome, and any reaction. Nothing flagged it.
+
+### Design
+
+- Facility policy `Transfusion.CompletionReminderHours` (Transfusion category; default 6; 0 to 24; 0 turns it off).
+  - Its description says it is a documentation reminder, not an infusion time limit; the facility sets its own.
+- `TransfusionCompletionRule` decides when a start is overdue and builds the Warning alert. The alert carries the unit, MRN, and start time, and links to the transfusion desk for that issue.
+- `AlertScanner` syncs these alerts on its schedule. An alert resolves on the first scan after the transfusion is completed.
+  - The scanner's new sources are optional constructor parameters, so existing callers are unchanged.
+- The issued-units board shows the "Transfusing since" badge in red with "completion overdue".
+
+### Requirements / risk
+
+- URS-BB-451, FRS-BB-487, RISK-BB-553. No schema change. Help: issuing page.
+
+### Tests
+
+- TEST-BB-346:
+  - rule tests: overdue at and after the hours, not before; never when off; no start; alert key, link, and wording
+  - integration:
+    - a 7-hour-old start raises one warning and a 1-hour-old start raises nothing
+    - completing it resolves the alert on the next scan
+    - hours set to 0 raise nothing
+- Full suite: 3,381 passed, 0 failed (previously 3,373).
+- Run check (development API):
+  - the facility-policy list shows `Transfusion.CompletionReminderHours` = 6
+  - the alert scanner started (every 300 s) and its startup scan ran
+  - no server errors
+  - no alert was expected, since the development data has no running transfusion
+
+### Next ranked residual
+
+Show the in-progress transfusion on the patient chart's Products tab and timeline, so the clinical team sees it without the issue desk. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

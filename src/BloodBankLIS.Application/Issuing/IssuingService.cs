@@ -764,6 +764,7 @@ public sealed class IssuingService
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
+        var reminderHours = await _policy.GetTransfusionCompletionReminderHoursAsync(ct);
         // An issue still Issued with a transfusion record was started at the bedside and is not yet completed.
         var outstandingIds = rows.Select(i => i.Id).ToList();
         var startedByIssue = outstandingIds.Count == 0
@@ -792,7 +793,11 @@ public sealed class IssuingService
                     i, now, row.Mrn, row.DisplayName, row.DateOfBirth, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
                     row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces,
-                    governed, acceptable) with { TransfusionStartedUtc = startedByIssue.GetValueOrDefault(i.Id) };
+                    governed, acceptable) with
+                {
+                    TransfusionStartedUtc = startedByIssue.GetValueOrDefault(i.Id),
+                    TransfusionCompletionOverdue = TransfusionCompletionRule.IsOverdue(startedByIssue.GetValueOrDefault(i.Id), now, reminderHours)
+                };
             })
             .ToList();
     }

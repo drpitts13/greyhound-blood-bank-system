@@ -13,6 +13,9 @@ public static class FacilityPolicyKeys
 
     /// <summary>Minutes after issue when a unit may still return to Available inventory.</summary>
     public const string ReturnToAvailableMinutes = "Issue.ReturnToAvailableMinutes";
+
+    /// <summary>Hours after a bedside start when an uncompleted transfusion is raised as a reminder (0 = off).</summary>
+    public const string TransfusionCompletionReminderHours = "Transfusion.CompletionReminderHours";
     public const string RequireQuarantineReleaseVerifier = "Inventory.RequireQuarantineReleaseVerifier";
     public const string RequireReceiveVisualInspection = "Inventory.RequireReceiveVisualInspection";
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";

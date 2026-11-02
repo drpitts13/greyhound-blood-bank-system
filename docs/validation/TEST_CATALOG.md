@@ -354,5 +354,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-343 | I | `Phase4IssuingTests.StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord`, `Start_WithoutIdentifiers_IsRefused_AndRecordsNothing`, `Complete_WithoutStart_OrWithStopBeforeStart_IsRefused`, `FinishedRecordOnAnIssuedIssue_IsNotShownAsStarted_AndCannotBeStartedAgain`, `StartOnlyPermission_CanStart_ButNotComplete` | URS-BB-450 / FRS-BB-486 / RISK-BB-552 |
 | TEST-BB-344 | I | `DemoTransfusionConsistencyTests.EveryTransfusionOnAnIssuedIssue_IsARunningTransfusion`; `FdaAabbScenarioTests.LookbackByDin_ListsSeededRecipientAndPendingNotification` (running transfusion counts as reaching the patient) | FRS-BB-486 |
 | TEST-BB-345 | I | `DemoDataInvariantTests.SeededUnitsIssuesAndRecords_AreConsistent` | Demo data |
+| TEST-BB-346 | D / I | `TransfusionCompletionRuleTests`; `AlertWorkflowTests.Scanner_RaisesTransfusionNotCompleted_AfterReminderHours_AndResolvesWhenCompleted`, `Scanner_TransfusionReminder_OffWhenHoursAreZero` | URS-BB-451 / FRS-BB-487 / RISK-BB-553 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

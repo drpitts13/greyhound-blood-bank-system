@@ -48,6 +48,9 @@ public sealed class FacilityPolicyService
     public Task<int> GetInTransitDueHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.InTransitDueHours, 4, ct);
 
+    public Task<int> GetTransfusionCompletionReminderHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.TransfusionCompletionReminderHours, TransfusionCompletionRule.DefaultReminderHours, ct);
+
     public Task<int> GetReturnToAvailableMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.ReturnToAvailableMinutes, ReturnReissueRule.DefaultReturnToAvailableMinutes, ct);
 

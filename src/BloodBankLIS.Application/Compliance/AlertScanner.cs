@@ -1,4 +1,7 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Compliance;
@@ -13,13 +16,35 @@ public sealed class AlertScanner
     private readonly MinimumStockService _minimumStock;
     private readonly InventoryService _inventory;
     private readonly ReagentQcService _reagents;
+    private readonly IRepository<TransfusionEvent>? _transfusions;
+    private readonly IRepository<Issue>? _issues;
+    private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<Patient>? _patients;
+    private readonly FacilityPolicyService? _policy;
+    private readonly IClock? _clock;
 
-    public AlertScanner(AlertService alerts, MinimumStockService minimumStock, InventoryService inventory, ReagentQcService reagents)
+    public AlertScanner(
+        AlertService alerts,
+        MinimumStockService minimumStock,
+        InventoryService inventory,
+        ReagentQcService reagents,
+        IRepository<TransfusionEvent>? transfusions = null,
+        IRepository<Issue>? issues = null,
+        IRepository<BloodUnit>? units = null,
+        IRepository<Patient>? patients = null,
+        FacilityPolicyService? policy = null,
+        IClock? clock = null)
     {
         _alerts = alerts;
         _minimumStock = minimumStock;
         _inventory = inventory;
         _reagents = reagents;
+        _transfusions = transfusions;
+        _issues = issues;
+        _units = units;
+        _patients = patients;
+        _policy = policy;
+        _clock = clock;
     }
 
     public async Task<(int Raised, int Resolved)> ScanAsync(CancellationToken ct = default)
@@ -61,6 +86,11 @@ public sealed class AlertScanner
             .ToList();
         Add(await _alerts.SyncAsync(AlertRule.ReagentQc, qc, ct));
 
+        if (await TransfusionsNotCompletedAsync(ct) is { } incomplete)
+        {
+            Add(await _alerts.SyncAsync(AlertRule.TransfusionNotCompleted, incomplete, ct));
+        }
+
         return (raised, resolved);
 
         void Add((int Raised, int Resolved) result)
@@ -68,6 +98,40 @@ public sealed class AlertScanner
             raised += result.Raised;
             resolved += result.Resolved;
         }
+    }
+
+    /// <summary>
+    /// Transfusions started at the bedside (record with no stop on an issue still Issued) and not completed within
+    /// the facility reminder hours. Null when the scanner was built without these sources.
+    /// </summary>
+    private async Task<List<AlertCandidate>?> TransfusionsNotCompletedAsync(CancellationToken ct)
+    {
+        if (_transfusions is null || _issues is null || _units is null || _patients is null || _policy is null || _clock is null)
+        {
+            return null;
+        }
+
+        var hours = await _policy.GetTransfusionCompletionReminderHoursAsync(ct);
+        var now = _clock.UtcNow;
+        var open = (await _transfusions.ListAsync(t => t.StopUtc == null && t.StartUtc != null, ct))
+            .Where(t => TransfusionCompletionRule.IsOverdue(t.StartUtc, now, hours))
+            .ToList();
+        var candidates = new List<AlertCandidate>();
+        foreach (var record in open)
+        {
+            var issue = await _issues.GetByIdAsync(record.IssueId, ct);
+            if (issue is null || issue.Status != IssueStatus.Issued)
+            {
+                continue;
+            }
+
+            var unit = await _units.GetByIdAsync(record.BloodProductId, ct);
+            var patient = await _patients.GetByIdAsync(record.PatientId, ct);
+            candidates.Add(TransfusionCompletionRule.Alert(
+                issue.Id, unit?.UnitNumber ?? $"unit {record.BloodProductId}", patient?.MedicalRecordNumber, record.StartUtc!.Value));
+        }
+
+        return candidates;
     }
 
     /// <summary>Event alert after the scheduled expiration sweep moved units to Expired.</summary>

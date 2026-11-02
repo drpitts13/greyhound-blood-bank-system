@@ -487,6 +487,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-448 / FRS-BB-484 | Reserve a returned unit again in one step | `ReturnDto`; issue desk; unit page | TEST-BB-341 | I | |
 | URS-BB-449 / FRS-BB-485 | Transfusion judged against the unit at its start | `TransfusionDocumentationRule`; `IssuingService` | TEST-BB-342 | D / I | |
 | URS-BB-450 / FRS-BB-486 | Start a transfusion at the bedside, complete it later | `IssuingService`; issuing endpoints; issue desk | TEST-BB-343 | I | |
+| URS-BB-451 / FRS-BB-487 | Reminder for transfusions not completed | `TransfusionCompletionRule`; `AlertScanner`; issue desk | TEST-BB-346 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

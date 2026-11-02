@@ -572,7 +572,7 @@
                                 <span class="nowrap">@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</span>
                                 @if (row.TransfusionStartedUtc is DateTime transfusingSince)
                                 {
-                                    <span class="badge badge-amber">Transfusing since @transfusingSince.ToLocalTime().ToString("HH:mm")</span>
+                                    <span class="badge @(row.TransfusionCompletionOverdue ? "badge-red" : "badge-amber")">Transfusing since @transfusingSince.ToLocalTime().ToString("HH:mm")@(row.TransfusionCompletionOverdue ? " · completion overdue" : "")</span>
                                 }
                                 else
                                 {

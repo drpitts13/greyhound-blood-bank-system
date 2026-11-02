@@ -33,6 +33,7 @@ public static class AlertRule
     public const string ReagentQc = "reagent-qc";
     public const string BackupFailed = "backup-failed";
     public const string BackupOverdue = "backup-overdue";
+    public const string TransfusionNotCompleted = "transfusion-not-completed";
 
     /// <summary>Sources the scan keeps in step with the current condition.</summary>
     public static readonly IReadOnlyList<string> ConditionSources = [MinimumStockShortage, NearExpiry, ReagentQc, BackupOverdue];

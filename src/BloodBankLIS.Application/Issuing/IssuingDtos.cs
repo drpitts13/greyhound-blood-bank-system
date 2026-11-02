@@ -237,7 +237,9 @@ public sealed record OutstandingIssueWorkItemDto(
     bool StorageTimeOutGoverned = true,
     bool StorageTimeOutAcceptable = true,
     // Set when the transfusion was started at the bedside and is not yet completed.
-    DateTime? TransfusionStartedUtc = null)
+    DateTime? TransfusionStartedUtc = null,
+    // Started and still not completed after the facility completion reminder hours.
+    bool TransfusionCompletionOverdue = false)
 {
     public static OutstandingIssueWorkItemDto From(
         Issue i,

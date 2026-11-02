@@ -36,7 +36,76 @@ public class AlertWorkflowTests : IDisposable
         var reagents = new ReagentQcService(
             new EfRepository<Reagent>(c), new EfRepository<ReagentLot>(c), new EfRepository<ReagentDailyQc>(c),
             c, _factory.Clock, _factory.CurrentUser, audit);
-        return new AlertScanner(Alerts(c), minimumStock, inventory, reagents);
+        return new AlertScanner(Alerts(c), minimumStock, inventory, reagents,
+            new EfRepository<TransfusionEvent>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
+            new EfRepository<Patient>(c), new FacilityPolicyService(new EfRepository<SystemSetting>(c)), _factory.Clock);
+    }
+
+    // TEST-BB-346: a transfusion started and not completed within the reminder hours raises a warning,
+    // which resolves once the transfusion is completed. A recent start raises nothing.
+    private async Task<(long IssueId, long EventId)> StartedTransfusionAsync(string key, DateTime startUtc)
+    {
+        await using var c = _factory.Create();
+        var product = new ProductType { ProductCode = $"RBC-{key}", Name = "Red cells" };
+        var patient = new Patient { MedicalRecordNumber = $"MRN-{key}", LastName = "Bedside", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        c.ProductTypes.Add(product);
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = startUtc.AddDays(20), Status = UnitStatus.TransfusionStarted
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var issue = new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = startUtc.AddMinutes(-20), IssuedBy = "tech", Status = IssueStatus.Issued };
+        c.Issues.Add(issue);
+        await c.SaveChangesAsync();
+        var record = new TransfusionEvent { IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, StartUtc = startUtc, DocumentedBy = "nurse" };
+        c.TransfusionEvents.Add(record);
+        await c.SaveChangesAsync();
+        return (issue.Id, record.Id);
+    }
+
+    [Fact]
+    public async Task Scanner_RaisesTransfusionNotCompleted_AfterReminderHours_AndResolvesWhenCompleted()
+    {
+        var now = _factory.Clock.UtcNow;
+        var (oldIssue, oldEvent) = await StartedTransfusionAsync("TXOLD", now.AddHours(-7));
+        await StartedTransfusionAsync("TXNEW", now.AddHours(-1));
+
+        await using (var c = _factory.Create())
+        {
+            await Scanner(c).ScanAsync();
+            var alert = Assert.Single(await c.Alerts.Where(a => a.Source == AlertRule.TransfusionNotCompleted).ToListAsync());
+            Assert.Equal($"TXINCOMPLETE:ISSUE-{oldIssue}", alert.Key);
+            Assert.Equal(AlertSeverity.Warning, alert.Severity);
+            Assert.Contains("U-TXOLD", alert.Title);
+            Assert.Contains("MRN-TXOLD", alert.Message);
+            Assert.Equal($"/issuing?desk=transfuse&issueId={oldIssue}", alert.Link);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var record = await c.TransfusionEvents.SingleAsync(t => t.Id == oldEvent);
+            record.StopUtc = now.AddMinutes(-5);
+            var issue = await c.Issues.SingleAsync(i => i.Id == oldIssue);
+            issue.Status = IssueStatus.Transfused;
+            await c.SaveChangesAsync();
+            await Scanner(c).ScanAsync();
+            Assert.NotNull((await c.Alerts.SingleAsync(a => a.Source == AlertRule.TransfusionNotCompleted)).ResolvedUtc);
+        }
+    }
+
+    [Fact]
+    public async Task Scanner_TransfusionReminder_OffWhenHoursAreZero()
+    {
+        await StartedTransfusionAsync("TXOFF", _factory.Clock.UtcNow.AddHours(-30));
+        await using var c = _factory.Create();
+        c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.TransfusionCompletionReminderHours, Value = "0" });
+        await c.SaveChangesAsync();
+        await Scanner(c).ScanAsync();
+        Assert.False(await c.Alerts.AnyAsync(a => a.Source == AlertRule.TransfusionNotCompleted));
     }
 
     private static AlertCandidate Candidate(string source, string key) =>
