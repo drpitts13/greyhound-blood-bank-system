@@ -357,5 +357,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-346 | D / I | `TransfusionCompletionRuleTests`; `AlertWorkflowTests.Scanner_RaisesTransfusionNotCompleted_AfterReminderHours_AndResolvesWhenCompleted`, `Scanner_TransfusionReminder_OffWhenHoursAreZero` | URS-BB-451 / FRS-BB-487 / RISK-BB-553 |
 | TEST-BB-347 | I | `DemoTransfusionConsistencyTests.RunningTransfusion_IsShownAsStarted_OnProductHistoryAndTimeline` | URS-BB-452 / FRS-BB-488 / RISK-BB-554 |
 | TEST-BB-348 | D / I | `TransfusionRecordStateTests`; `FdaAabbScenarioTests.RunningTransfusion_HasNoDispositionInLookback_AndReportsInProgress` | URS-BB-453 / FRS-BB-489 / RISK-BB-555 |
+| TEST-BB-349 | D / I | `SpecimenLabelIdentityRuleTests`; `SpecimenLabelIdentityTests.WithoutLabelIdentifiers_IsRefused_AndNothingIsAccessioned`, `LabelIdentifiersThatDoNotMatch_AreRefused`, `MatchingLabelIdentifiers_AreRecorded_WithCollectorAndDrawLocation`, `WhenTheFacilityPrefills_TheRecordIsUsed` | URS-BB-454 / FRS-BB-490 / RISK-BB-556 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

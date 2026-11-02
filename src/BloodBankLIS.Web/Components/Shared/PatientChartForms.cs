@@ -14,6 +14,8 @@ public sealed class PatientAccessionForm
     public int? ValidityHours { get; set; }
     public string? Identifier1Value { get; set; }
     public string? Identifier2Value { get; set; }
+    public string? Collector { get; set; }
+    public string? DrawLocation { get; set; }
     public string? Comment { get; set; }
     public bool AcceptImmediately { get; set; } = true;
 }

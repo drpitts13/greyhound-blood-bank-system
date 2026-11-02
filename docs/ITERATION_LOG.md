@@ -9326,3 +9326,61 @@ The final-disposition board and billing were already correct: the board reads is
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy. Next engineering candidate: re-audit specimen collection and receipt (identification at draw, collector, and draw time) against the seven workflow questions.
+
+## Iteration 307 — Tube-label identifiers and collector at accession (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 306 other than the specimen row. This cycle audits specimen collection and receipt against the seven workflow questions.
+
+### Audit
+
+- **Controls already in place:**
+  - `specimen.accession` permission
+  - active specimen type
+  - no future collection time
+  - merged-patient block
+  - unique accession number
+  - two-identifier match
+  - expiry calculated from policy and type
+  - relabel needs a reason
+  - receive and accept steps
+  - coded rejection
+- **Finding 1 (question 6, critical):** blank identifiers were filled from the patient record (MRN and date of birth) and then matched against the same record. The check could not fail, and a mislabeled tube (wrong blood in tube) would pass. Both chart accession forms said "Defaults to patient MRN".
+- **Finding 2:** neither chart accession form sent Collected by or Draw location, so specimens accessioned in the app never recorded who drew them or where. The rejection-by-collector report (Cycle 291) could not group them.
+
+### Design
+
+- `SpecimenLabelIdentityRule`: both identifiers must come from the tube label (`SPEC-LABEL-IDS`), unless the facility pre-fills identifiers.
+  - The policy is `Issue.PrefillPatientIdentifiers`, OCD-039, default off. It already governs issue and bedside.
+  - The existing match against the record is unchanged.
+  - Without a policy service (unit tests) the earlier behavior remains, so other tests are unaffected.
+- **Chart forms:**
+  - Specimens and Orders: fields labelled "on the tube", starting empty, with the live match hint (no expected value shown)
+  - new Collected by and Draw location fields
+- Collector and draw location are stored and added to the accession audit.
+- Interface (HL7) specimens are not affected; they do not use this path.
+
+### Requirements / risk
+
+- URS-BB-454, FRS-BB-490, RISK-BB-556. OCD-039 note extended. Help: patient specimens page.
+
+### Tests
+
+- TEST-BB-349:
+  - rule: missing identifier refused unless pre-fill is on
+  - integration:
+    - no identifiers is refused and nothing is accessioned
+    - mismatched identifiers are refused
+    - matching identifiers are stored, with collector, draw location, and the audit
+    - with pre-fill on, the record is used
+- Full suite: 3,396 passed, 0 failed (previously 3,388).
+- Run check (development API and web):
+  - posting an accession without identifiers returned "SPEC-LABEL-IDS: Enter both patient identifiers as they appear on the tube label…" and nothing was created (lookup 404)
+  - the chart Specimens form shows the "on the tube" fields, a match hint for MRN0001, and Collected by and Draw location
+  - nothing was submitted
+  - no server errors
+
+### Next ranked residual
+
+Receipt: check the tube in hand against the accession at receive, by scanning the label. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

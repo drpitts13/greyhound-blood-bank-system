@@ -144,8 +144,16 @@
                             </div>
                         }
                         <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="OrderAcc.ValidityHours" /></div>
-                        <div class="field"><label>Identifier 1 (MRN)</label><input @bind="OrderAcc.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
-                        <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="OrderAcc.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
+                        <div class="field"><label>Patient ID 1 (MRN) on the tube</label>
+                            <input @bind="OrderAcc.Identifier1Value" @bind:event="oninput" placeholder="Scan or type from the tube label" autocomplete="off" />
+                            <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@OrderAcc.Identifier1Value" Patient="Patient" />
+                        </div>
+                        <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd) on the tube</label>
+                            <input @bind="OrderAcc.Identifier2Value" @bind:event="oninput" placeholder="From the tube label" autocomplete="off" />
+                            <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@OrderAcc.Identifier2Value" Patient="Patient" />
+                        </div>
+                        <div class="field"><label>Collected by</label><input @bind="OrderAcc.Collector" placeholder="Who drew the specimen" /></div>
+                        <div class="field"><label>Draw location</label><input @bind="OrderAcc.DrawLocation" placeholder="Ward or unit" /></div>
                     </div>
                     <div class="field">
                         <label>Specimen comment</label>
@@ -511,6 +519,9 @@
 </div>
 
 @code {
+    // The chart patient, for the live match hint under the tube-label identifiers.
+    [Parameter] public PatientDto? Patient { get; set; }
+
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public bool ShowAddOrder { get; set; }

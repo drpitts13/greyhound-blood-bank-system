@@ -48,8 +48,16 @@
                     </div>
                 }
                 <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Accession.ValidityHours" /></div>
-                <div class="field"><label>Identifier 1 (MRN)</label><input @bind="Accession.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
-                <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="Accession.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
+                <div class="field"><label>Patient ID 1 (MRN) on the tube</label>
+                    <input @bind="Accession.Identifier1Value" @bind:event="oninput" placeholder="Scan or type from the tube label" autocomplete="off" />
+                    <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@Accession.Identifier1Value" Patient="Patient" />
+                </div>
+                <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd) on the tube</label>
+                    <input @bind="Accession.Identifier2Value" @bind:event="oninput" placeholder="From the tube label" autocomplete="off" />
+                    <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@Accession.Identifier2Value" Patient="Patient" />
+                </div>
+                <div class="field"><label>Collected by</label><input @bind="Accession.Collector" placeholder="Who drew the specimen" /></div>
+                <div class="field"><label>Draw location</label><input @bind="Accession.DrawLocation" placeholder="Ward or unit" /></div>
             </div>
                 <div class="field">
                     <label>Comment</label>
@@ -244,6 +252,9 @@
 </div>
 
 @code {
+    // The chart patient, for the live match hint under the tube-label identifiers.
+    [Parameter] public PatientDto? Patient { get; set; }
+
     /// <summary>A specimen whose history opens when the tab opens (a scanned accession in the find box).</summary>
     [Parameter] public long? OpenHistoryId { get; set; }
 

@@ -166,6 +166,7 @@ else
             </div>
         }
         <PatientChartOrdersTab
+            Patient="_patient"
             Busy="_busy"
             Loading="_ordersLoading"
             ShowAddOrder="_showAddOrder"
@@ -248,6 +249,7 @@ else
     @if (_tab == "specimens")
     {
         <PatientChartSpecimensTab
+            Patient="_patient"
             ShowAccession="_showAccession"
             Feedback="_accessionFb"
             EditFeedback="_editFb"
@@ -1890,6 +1892,8 @@ else
                 ValidityHours: _orderAcc.ValidityHours,
                 Identifier1Value: string.IsNullOrWhiteSpace(_orderAcc.Identifier1Value) ? null : _orderAcc.Identifier1Value,
                 Identifier2Value: string.IsNullOrWhiteSpace(_orderAcc.Identifier2Value) ? null : _orderAcc.Identifier2Value,
+                Collector: string.IsNullOrWhiteSpace(_orderAcc.Collector) ? null : _orderAcc.Collector.Trim(),
+                DrawLocation: string.IsNullOrWhiteSpace(_orderAcc.DrawLocation) ? null : _orderAcc.DrawLocation.Trim(),
                 Comment: string.IsNullOrWhiteSpace(_orderAcc.Comment) ? null : _orderAcc.Comment);
             var acc = await Api.AccessionSpecimenAsync(accReq);
             if (!acc.Succeeded || acc.Value is null)
@@ -2459,6 +2463,8 @@ else
             DateTime.SpecifyKind(_acc.CollectedLocal, DateTimeKind.Utc), ValidityHours: _acc.ValidityHours,
             Identifier1Value: string.IsNullOrWhiteSpace(_acc.Identifier1Value) ? null : _acc.Identifier1Value,
             Identifier2Value: string.IsNullOrWhiteSpace(_acc.Identifier2Value) ? null : _acc.Identifier2Value,
+            Collector: string.IsNullOrWhiteSpace(_acc.Collector) ? null : _acc.Collector.Trim(),
+            DrawLocation: string.IsNullOrWhiteSpace(_acc.DrawLocation) ? null : _acc.DrawLocation.Trim(),
             Comment: string.IsNullOrWhiteSpace(_acc.Comment) ? null : _acc.Comment,
             AcceptImmediately: _acc.AcceptImmediately);
         var r = await Api.AccessionSpecimenAsync(req);

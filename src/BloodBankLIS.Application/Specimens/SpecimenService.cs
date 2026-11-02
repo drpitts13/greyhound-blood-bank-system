@@ -173,6 +173,14 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail($"Accession number '{request.AccessionNumber}' already exists.");
         }
 
+        // The identifiers come from the tube label. Without a policy service (unit tests) the record is used, as before.
+        var prefill = _policy is null || await _policy.GetPrefillPatientIdentifiersAsync(ct);
+        var label = SpecimenLabelIdentityRule.Evaluate(request.Identifier1Value, request.Identifier2Value, prefill);
+        if (label.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail($"{label.Code}: {label.Message}");
+        }
+
         var id1Type = request.Identifier1Type ?? IdentityTokenType.MedicalRecordNumber;
         var id1Value = string.IsNullOrWhiteSpace(request.Identifier1Value) ? patient.MedicalRecordNumber : request.Identifier1Value;
         var id2Type = request.Identifier2Type ?? IdentityTokenType.DateOfBirth;
@@ -220,7 +228,7 @@ public sealed class SpecimenService
             AuditEventType.Specimen,
             nameof(Specimen),
             specimen.Id,
-            newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status },
+            newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status, specimen.Collector, specimen.DrawLocation },
             reason: acceptNow ? "Specimen accessioned." : "Specimen collected; awaiting receipt.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
