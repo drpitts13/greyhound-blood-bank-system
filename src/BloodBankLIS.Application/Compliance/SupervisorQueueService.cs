@@ -16,7 +16,8 @@ public sealed record SupervisorQueueItemDto(
     string NextAction,
     long? PatientId = null,
     long? ContextId = null,
-    string? Mrn = null);
+    string? Mrn = null,
+    bool DueSoon = false);
 
 /// <summary>
 /// Aggregates supervisor-scoped work already owned by ABID review, result
@@ -90,15 +91,17 @@ public sealed class SupervisorQueueService
                          && r.CanEnterResults
                          && !r.IsAboSelfVerifyBlocked(_currentUser.UserName)))
             {
+                var detail = $"{row.CurrentResultSource}: {row.CurrentResultValue ?? "—"}. Posted value needs verification.";
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindResultVerify,
                     $"Verify {row.TestCode} — {row.PatientName} ({row.Mrn})",
-                    $"{row.CurrentResultSource}: {row.CurrentResultValue ?? "—"}. Posted value needs verification.",
+                    row.VerificationDeadlineNotice is null ? detail : $"{detail} {row.VerificationDeadlineNotice}",
                     $"/test-worklist?patientId={row.PatientId}&orderLineId={row.OrderLineId}",
                     "Verify",
                     row.PatientId,
                     row.CurrentResultId,
-                    row.Mrn));
+                    row.Mrn,
+                    DueSoon: row.VerificationDeadlineNotice is not null));
             }
         }
 
@@ -139,6 +142,7 @@ public sealed class SupervisorQueueService
         return OperationResult<IReadOnlyList<SupervisorQueueItemDto>>.Ok(
             items
                 .OrderBy(i => SupervisorQueueRule.KindSortOrder(i.Kind))
+                .ThenBy(i => i.DueSoon ? 0 : 1)
                 .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList());
     }

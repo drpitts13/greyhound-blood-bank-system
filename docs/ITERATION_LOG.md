@@ -10129,3 +10129,46 @@ Tests only; no code change.
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: a result entered while the specimen was in date but not verified before it expired can no longer be verified (TEST-BB-366 pins this). Show pending-verification results whose specimen expires soon at the top of the worklist, so they are verified in time.
+
+## Iteration 326 — Verify before the specimen expires (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 325 other than the operations row (unreviewed results).
+
+### Finding (questions 2 and 5)
+
+The residual from Cycle 325:
+
+- A result entered while the specimen was in date, but not verified before it expired, can no longer be verified.
+- The worklist ordered rows by priority and order time only, and the supervisor queue by title, so nothing told the verifier that time was running out. The tech had to remember the specimen's expiration.
+
+Also found: the worklist's own entry gate still blocked a pending correction on an expired specimen ("has expired"), although since Cycle 324 the server verifies it. The screen and the server disagreed.
+
+### Design
+
+- `VerificationDeadlineRule.Notice`:
+  - applies to Entered or Pending verification results whose specimen expires within the facility near-expiry window (`NearExpiryWarningHours`, default 24; an existing setting, no new one)
+  - text: "Verify before … UTC, when the specimen expires. After that this result cannot be verified."
+- **Worklist:**
+  - rush priorities first, then deadline rows (earliest expiration first), then the rest as before
+  - a "Verify before HH:mm" badge under the specimen expiration
+- **Supervisor queue:** the notice is added to the result-verify detail, and those items come first within result verification.
+- `VerificationDeadlineRule.AllowsExpiredSpecimen` (Corrected only) is used by the worklist entry gate, matching `ResultService` (OCD-051).
+- Display only. Nothing is stored, so nothing to audit; the server verification gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-472, FRS-BB-508, RISK-BB-571. Help: test worklist page.
+
+### Tests
+
+- TEST-BB-368:
+  - rule: deadline inside the window for Entered and Pending verification; none outside it, after expiry, or without an expiration; none for corrections or finished results; only Corrected allows an expired specimen
+  - integration: a pending result whose specimen expires in two hours is listed before a routine row without a deadline and carries the notice; a pending correction on an expired, Expired-status specimen can be worked from the worklist
+- Full suite: 3,495 passed, 0 failed (previously 3,486).
+- Run check (development API and web): the test worklist (7 rows) and supervisor queue (6 items) render with no server errors. No demo result is pending on a specimen expiring within 24 hours, so no badge shows there.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the dashboard's pending-tests card could say how many results must be verified before their specimen expires, as the Ready to issue card does for expired crossmatches.

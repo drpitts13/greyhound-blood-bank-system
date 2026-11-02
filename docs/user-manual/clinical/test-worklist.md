@@ -10,7 +10,7 @@ routes:
 
 ![Test worklist](figures/test-worklist.png)
 
-The **Test Worklist** is the bench queue for specimens and results. It opens when you have permission to enter results. Rows are ordered so STAT and ASAP work is visible, and blocked rows stay visible with the reason rather than disappearing.
+The **Test Worklist** is the bench queue for specimens and results. It opens when you have permission to enter results. Rows are ordered so STAT and ASAP work is visible, and blocked rows stay visible with the reason rather than disappearing. A result waiting for verification whose specimen expires within the facility near-expiry window comes next, with a **Verify before** time: after the specimen expires that result can no longer be verified. The supervisor queue lists those first among results to verify.
 
 ## Specimens on the worklist
 

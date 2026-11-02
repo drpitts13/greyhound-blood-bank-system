@@ -197,6 +197,7 @@ public sealed class TestWorklistService
         // Same read as ResultService.VerifyAsync, so the Verify button matches what the server allows.
         // Fail closed: a missing policy service still blocks ABO self-verify.
         var blockAboSelfVerify = _policy is null || await _policy.GetBlockAboSelfVerifyAsync(ct);
+        var deadlineWindow = TimeSpan.FromHours(_policy is null ? 12 : await _policy.GetNearExpiryWarningHoursAsync(ct));
 
         var items = new List<TestWorkItemDto>();
         foreach (var line in lines.OrderByDescending(l => orderById[l.OrderId].OrderedUtc).ThenBy(l => l.LineNumber))
@@ -265,7 +266,8 @@ public sealed class TestWorklistService
                 specimen,
                 line.TestCode!,
                 testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType,
-                specimenTypeDefs);
+                specimenTypeDefs,
+                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status));
             if (OrderControlRule.BlocksResultEntry(order.Status))
             {
                 canEnter = false;
@@ -313,11 +315,15 @@ public sealed class TestWorklistService
                 aboRhDeltaHold,
                 aboRhDeltaDetail,
                 line.Comment,
-                blockAboSelfVerify));
+                blockAboSelfVerify,
+                VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow)));
         }
 
+        // Results that stop being verifiable when their specimen expires come right after rush work.
         return items
             .OrderBy(i => IsRush(i.Priority) ? 0 : 1)
+            .ThenBy(i => i.VerificationDeadlineNotice is null ? 1 : 0)
+            .ThenBy(i => i.VerificationDeadlineNotice is null ? DateTime.MaxValue : i.SpecimenExpiresUtc ?? DateTime.MaxValue)
             .ThenByDescending(i => i.OrderedUtc)
             .ThenBy(i => i.TestCode, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -354,19 +360,22 @@ public sealed class TestWorklistService
         Specimen? specimen,
         string testCode,
         string? requiredSpecimenType,
-        IReadOnlyDictionary<string, SpecimenTypeDefinition> specimenTypeDefs)
+        IReadOnlyDictionary<string, SpecimenTypeDefinition> specimenTypeDefs,
+        bool allowExpired = false)
     {
         if (specimen is null)
         {
             return (false, "No specimen is linked to this order. Accession a specimen and link it before entering results.");
         }
 
-        if (specimen.Status != SpecimenStatus.Accepted)
+        // Same rule as ResultService: a pending correction is not stopped by expiration (OCD-051).
+        if (specimen.Status != SpecimenStatus.Accepted
+            && !(allowExpired && specimen.Status == SpecimenStatus.Expired))
         {
             return (false, $"Specimen {specimen.AccessionNumber} is {specimen.Status}; only Accepted specimens allow result entry.");
         }
 
-        if (specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
+        if (!allowExpired && specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
         {
             return (false, $"Specimen {specimen.AccessionNumber} has expired.");
         }

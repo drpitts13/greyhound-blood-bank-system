@@ -45,7 +45,8 @@ public sealed record TestWorkItemDto(
     bool AboRhDeltaHold = false,
     string? AboRhDeltaDetail = null,
     string? Comment = null,
-    bool BlockAboSelfVerify = true)
+    bool BlockAboSelfVerify = true,
+    string? VerificationDeadlineNotice = null)
 {
     public bool HasPostedInterfaceOrInstrumentValue =>
         CurrentResultStatus is ResultStatus.PendingVerification

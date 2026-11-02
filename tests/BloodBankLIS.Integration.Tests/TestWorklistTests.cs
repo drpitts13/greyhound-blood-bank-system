@@ -637,6 +637,54 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.NotNull(original.SupersededByResultId);
     }
 
+    // TEST-BB-368: a pending result whose specimen expires soon names the deadline and is listed first.
+    [Fact]
+    public async Task PendingResult_WhoseSpecimenExpiresSoon_NamesTheDeadline_AndComesFirst()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var pending = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(pending.Succeeded, pending.Error);
+
+        var other = await SeedOrderWithTestAsync(c);
+        other.specimen!.ExpiresUtc = _factory.Clock.UtcNow.AddDays(3);
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(2);
+        await c.SaveChangesAsync();
+
+        var rows = (await Worklist(c).ListPendingGlobalAsync())
+            .Where(r => r.OrderLineId == seed.line.Id || r.OrderLineId == other.line.Id)
+            .ToList();
+        Assert.Equal(seed.line.Id, rows[0].OrderLineId);
+        Assert.StartsWith("Verify before", rows[0].VerificationDeadlineNotice);
+        Assert.Null(rows[1].VerificationDeadlineNotice);
+    }
+
+    [Fact]
+    public async Task PendingCorrection_OnAnExpiredSpecimen_CanStillBeWorkedFromTheWorklist()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: true, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Positive", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: "Transcription error", UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        seed.specimen.Status = SpecimenStatus.Expired;
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.Equal(ResultStatus.Corrected, row.CurrentResultStatus);
+        Assert.True(row.CanEnterResults, row.BlockReason);
+    }
+
     // TEST-BB-367 (OCD-051): the worklist correction of a verified result works after the specimen expires.
     [Fact]
     public async Task WorklistCorrection_AfterTheSpecimenExpires_CreatesTheCorrectedVersion()
