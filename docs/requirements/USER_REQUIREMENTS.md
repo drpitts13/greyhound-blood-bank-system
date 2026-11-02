@@ -470,3 +470,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-462 | A result sent to the EHR says whether it is final, a correction, or withdrawn as wrong, so the EHR does not keep showing a corrected or invalidated value as final. | P1 | FRS-BB-498 |
 | URS-BB-463 | When a verified result is corrected or invalidated, the EHR is updated automatically, without anyone having to remember to send it. | P1 | FRS-BB-499 |
 | URS-BB-464 | When a reserved unit expires, its reservation ends and the alert says how many expired units were reserved for patients, so a replacement is reserved instead of the team believing blood is still held. | P1 | FRS-BB-500 |
+| URS-BB-465 | A reserved unit whose only compatible crossmatch has expired is not shown as ready for issue on the patient chart or the issue desk. | P1 | FRS-BB-501 |

@@ -202,10 +202,13 @@ public sealed class PatientAllocationService
                 .FirstOrDefault();
             var hasException = await HasCompatibilityExceptionAsync(patientId, unit, product, ct);
 
+            // Only a unit still waiting to be issued needs an in-date crossmatch.
             var display = ProductAllocationDisplayStatusRule.Evaluate(
                 requiresXm,
                 xm?.Result,
-                hasException);
+                hasException,
+                allocation.Status != AllocationStatus.Reserved
+                    || unitCrossmatches.Any(x => CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, _clock.UtcNow)));
 
             issues.TryGetValue(unit.Id, out var issue);
             var thawCode = await AutoThawCodeAsync(allocation, unit, product, issue, ct);
@@ -928,7 +931,11 @@ public sealed class PatientAllocationService
             product.ProductCode,
             product.Name,
             RequiresCrossmatch(product),
-            ProductAllocationDisplayStatusRule.Evaluate(RequiresCrossmatch(product), latestXm?.Result, hasException),
+            ProductAllocationDisplayStatusRule.Evaluate(
+                RequiresCrossmatch(product),
+                latestXm?.Result,
+                hasException,
+                unitCrossmatches.Any(x => CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, _clock.UtcNow))),
             allocation.Status,
             RecordedCrossmatchResult(latestXm?.Result),
             xmTestCode,

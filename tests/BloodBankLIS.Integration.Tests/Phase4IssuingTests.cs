@@ -3675,6 +3675,27 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null(bothRow.CrossmatchNotice);
     }
 
+    // TEST-BB-360: once the only compatible crossmatch expires, the issue desk no longer shows the unit as ready.
+    [Fact]
+    public async Task ListReadyToIssue_AnExpiredCrossmatch_ShowsCrossmatchExpired_NotReady()
+    {
+        var s = await SeedAsync("RDYXMEXP");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using (var aged = _factory.Create())
+        {
+            var xm = await aged.Crossmatches.SingleAsync(x => x.BloodProductId == s.UnitId);
+            xm.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+            await aged.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var row = Assert.Single(await Issuing(c).ListReadyToIssueAllocationsAsync(), r => r.BloodUnitId == s.UnitId);
+        Assert.Equal(ProductAllocationDisplayStatus.CrossmatchExpired, row.DisplayStatus);
+        Assert.True(row.CrossmatchBlocksRoutineIssue);
+        Assert.Null(row.CrossmatchExpiresUtc);
+    }
+
     [Fact]
     public async Task ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate()
     {

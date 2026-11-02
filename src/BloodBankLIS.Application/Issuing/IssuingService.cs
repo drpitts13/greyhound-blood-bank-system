@@ -881,7 +881,8 @@ public sealed class IssuingService
             var display = ProductAllocationDisplayStatusRule.Evaluate(
                 requiresXm,
                 latestXm?.Result,
-                latestXm?.Result == CrossmatchResult.Incompatible);
+                latestXm?.Result == CrossmatchResult.Incompatible,
+                hasValidCrossmatch);
             var specimen = SelectCurrentSpecimen(specimens.Where(s => s.PatientId == allocation.PatientId));
             var expires = specimen?.ExpiresUtc;
             var specimenExpired = expires is DateTime exp && now >= exp;

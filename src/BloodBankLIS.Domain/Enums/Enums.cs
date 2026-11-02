@@ -862,7 +862,10 @@ public enum ProductAllocationDisplayStatus
 {
     Reserved = 0,
     Exception = 1,
-    ReadyForIssue = 2
+    ReadyForIssue = 2,
+
+    /// <summary>The unit was crossmatched compatible, but no compatible crossmatch is still in date.</summary>
+    CrossmatchExpired = 3
 }
 
 /// <summary>Antigen typing result on a patient or unit.</summary>

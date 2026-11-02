@@ -9825,3 +9825,43 @@ The expiration sweep moved a unit to Expired but left any reservation on it Rese
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same check for reservations whose crossmatch or specimen expires before the unit does.
+
+## Iteration 318 — An expired crossmatch no longer shows "Ready for issue" (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 317 other than the reservation row.
+
+### Finding (questions 5 and 6)
+
+The residual from Cycle 317 asked what happens to a reservation whose crossmatch or specimen expires before the unit does.
+
+- **Specimen:** the expired-specimen sweep already unlinks pending crossmatch orders, and the issue desk already flags an expired specimen. No change needed.
+- **Crossmatch:** the display status used only the latest crossmatch result, not its expiration. After a compatible crossmatch expired:
+  - the chart Products tab still showed a green "Ready for issue"
+  - the issue desk showed a green badge next to a blocking crossmatch notice
+  - issue then hard-stopped
+
+### Design
+
+- New display state `CrossmatchExpired` ("Crossmatch expired", amber).
+- `ProductAllocationDisplayStatusRule.Evaluate` gains an optional "has a current compatible crossmatch" input, computed with the same predicate as issue (`CrossmatchValidityRule.IsCurrentCompatible`).
+- **Chart:** applied only to Reserved allocations, so units already issued keep their status. **Issue desk:** passes the existing `hasValidCrossmatch`.
+- Display only. No stored state changes and nothing is overwritten; the issue gate is unchanged.
+- The reservation is not ended automatically. Repeating the crossmatch is the usual next step, and the clinical procedure is not invented here.
+
+### Requirements / risk
+
+- URS-BB-465, FRS-BB-501, RISK-BB-564. Help: issuing page.
+
+### Tests
+
+- TEST-BB-360:
+  - rule: Compatible with none in date gives Crossmatch expired; in date gives Ready; incompatible, missing, and non-crossmatch products unchanged
+  - integration: a reserved unit whose only compatible crossmatch expired a minute ago shows Crossmatch expired on the issue desk, blocks routine issue, and has no crossmatch expiration time
+- Full suite: 3,466 passed, 0 failed (previously 3,460).
+- Run check (development API): `GET /api/issues/ready-to-issue` returns 200 with unchanged statuses for the in-date demo reservations; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: a work-queue count of reservations with an expired crossmatch on the dashboard, so they are repeated before the ward calls.
