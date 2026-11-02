@@ -153,6 +153,13 @@ public sealed class CompatibilityService
             return EvaluationResult<Crossmatch>.Fail("Specimen not found.");
         }
 
+        var specimenCheck = CrossmatchSpecimenRule.Evaluate(
+            specimen.AccessionNumber, specimen.ExpiresUtc, _clock.UtcNow);
+        if (specimenCheck.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([specimenCheck]));
+        }
+
         var result = request.Result;
 
         if (request.Method == CrossmatchMethod.Electronic)

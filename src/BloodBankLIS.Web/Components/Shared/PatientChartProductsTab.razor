@@ -54,6 +54,10 @@
                     <tr class="row-actions">
                         <td colspan="7">
                             <div class="row-actions-bar">
+                                @if (a.DisplayStatus == ProductAllocationDisplayStatus.CrossmatchExpired && a.IssueId is null)
+                                {
+                                    <span class="muted">Crossmatch expired. Repeat it on a current specimen before issue.</span>
+                                }
                                 @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && Session.Has(PermissionCodes.ResultEnter) && NeedsCrossmatchEntry(a))
                                 {
                                     @if (a.OrderSpecimenLinked)
@@ -535,7 +539,8 @@
             allocation.CrossmatchResult,
             allocation.CrossmatchTestCode,
             allocation.AllocationStatus,
-            allocation.IssueId);
+            allocation.IssueId,
+            allocation.DisplayStatus == ProductAllocationDisplayStatus.CrossmatchExpired);
 
     private bool CanOfferAutoThaw(PatientAllocationRowDto allocation) =>
         Session.Has(PermissionCodes.CompatibilityAllocate)

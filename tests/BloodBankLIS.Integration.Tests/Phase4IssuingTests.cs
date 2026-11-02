@@ -3675,6 +3675,29 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null(bothRow.CrossmatchNotice);
     }
 
+    // TEST-BB-363: a crossmatch recorded directly on an expired specimen is refused and nothing is saved.
+    [Fact]
+    public async Task RecordCrossmatch_OnAnExpiredSpecimen_IsRefused_AndNothingIsSaved()
+    {
+        var s = await SeedAsync("XMSPECEXP");
+        await using (var aged = _factory.Create())
+        {
+            var specimen = await aged.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+            specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-5);
+            await aged.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var result = await Compatibility(c).RecordCrossmatchAsync(
+            new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+
+        Assert.False(result.Succeeded);
+        var stop = Assert.Single(result.Evaluation!.HardStops);
+        Assert.Equal(CrossmatchSpecimenRule.Code, stop.Code);
+        Assert.Contains("ACC-XMSPECEXP", stop.Message);
+        Assert.False(await c.Crossmatches.AnyAsync(x => x.BloodProductId == s.UnitId));
+    }
+
     // TEST-BB-360: once the only compatible crossmatch expires, the issue desk no longer shows the unit as ready.
     [Fact]
     public async Task ListReadyToIssue_AnExpiredCrossmatch_ShowsCrossmatchExpired_NotReady()

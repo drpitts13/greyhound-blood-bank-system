@@ -371,5 +371,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-360 | D / I | `ProductAllocationDisplayStatusRuleTests.Evaluate_AnExpiredCrossmatch_IsNotReadyForIssue`; `Phase4IssuingTests.ListReadyToIssue_AnExpiredCrossmatch_ShowsCrossmatchExpired_NotReady` | URS-BB-465 / FRS-BB-501 / RISK-BB-564 |
 | TEST-BB-361 | D | `DashboardDueCountTests.ReadyToIssue_CountsOnlyReservationsWhoseCrossmatchExpired` | URS-BB-466 / FRS-BB-502 / RISK-BB-565 |
 | TEST-BB-362 | D | `DashboardDueCountTests.ReadyToIssue_IssuableRowsComeFirst_AndKeepTheirOrder`; `DashboardDueCountTests.ReadyToIssue_EachBlockingMark_StopsRoutineIssue` | URS-BB-467 / FRS-BB-503 / RISK-BB-566 |
+| TEST-BB-363 | D / I | `CrossmatchSpecimenRuleTests.ExpiredSpecimen_IsAHardStop_NamingTheSpecimenAndTheNextStep`, `AtTheExpirationTime_TheSpecimenHasExpired`, `InDateOrUndatedSpecimen_Passes`, `ExpiredCompatibleCrossmatch_NeedsRepeating_UnlessElectronicOrIssued`; `Phase4IssuingTests.RecordCrossmatch_OnAnExpiredSpecimen_IsRefused_AndNothingIsSaved` | URS-BB-468 / FRS-BB-504 / RISK-BB-567 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

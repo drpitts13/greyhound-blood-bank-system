@@ -504,6 +504,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-465 / FRS-BB-501 | Expired crossmatch is not shown as ready | `ProductAllocationDisplayStatusRule`; `PatientAllocationService`; `IssuingService` | TEST-BB-360 | D / I | |
 | URS-BB-466 / FRS-BB-502 | Dashboard count of reservations needing a new crossmatch | `ReadyToIssueAttentionRule`; `Home.razor` | TEST-BB-361 | D | |
 | URS-BB-467 / FRS-BB-503 | Ready to issue board lists issuable units first | `ReadyToIssueAttentionRule`; `IssuingService`; `Issuing.razor` | TEST-BB-362 | D | |
+| URS-BB-468 / FRS-BB-504 | No crossmatch on an expired specimen; repeat offered when a crossmatch expires | `CrossmatchSpecimenRule`; `CompatibilityService`; `CrossmatchEntryNeed`; `PatientChartProductsTab.razor` | TEST-BB-363 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

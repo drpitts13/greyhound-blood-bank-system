@@ -2115,7 +2115,10 @@ public sealed class ResultService
 
         if (!xm.Succeeded)
         {
-            return OperationResult<TestResult>.Fail(xm.Error ?? "Crossmatch could not be recorded.");
+            return OperationResult<TestResult>.Fail(
+                xm.Error
+                ?? xm.Evaluation?.HardStops.Select(h => h.Message).FirstOrDefault()
+                ?? "Crossmatch could not be recorded.");
         }
 
         return OperationResult<TestResult>.Ok(result, xm.Evaluation?.Warnings);

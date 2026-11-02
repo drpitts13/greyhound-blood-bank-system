@@ -473,3 +473,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-465 | A reserved unit whose only compatible crossmatch has expired is not shown as ready for issue on the patient chart or the issue desk. | P1 | FRS-BB-501 |
 | URS-BB-466 | The dashboard says how many reserved units need a new crossmatch, so they are repeated before the ward asks for the blood. | P2 | FRS-BB-502 |
 | URS-BB-467 | On the Ready to issue board, the units that can be issued now are listed first, with a line saying how many can be issued and how many need attention. | P2 | FRS-BB-503 |
+| URS-BB-468 | A crossmatch cannot be recorded on an expired specimen, and when a reserved unit's crossmatch has expired the chart tells the user to repeat it on a current specimen and offers the crossmatch. | P1 | FRS-BB-504 |

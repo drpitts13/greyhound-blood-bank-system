@@ -9929,3 +9929,45 @@ The Ready to issue board listed reservations in reservation order. A unit that c
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the patient chart's Products tab says what to do next for a Crossmatch expired row (order a crossmatch on a current specimen) instead of only showing the status.
+
+## Iteration 321 — No crossmatch on an expired specimen; repeat offered on the chart (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 320 other than the safety rules row (sample expiration).
+
+### Finding (questions 5 and 6)
+
+The planned change was next-step guidance on the chart for a Crossmatch expired row. Checking how the repeat crossmatch would be recorded found a larger gap:
+
+- `CompatibilityService.RecordCrossmatchAsync` (the direct API) and the automatic electronic crossmatch did not check the specimen's expiration.
+- A crossmatch on an expired specimen was saved with an expiration already in the past, so it never counted for issue, and the user was not told.
+- Result entry already refused expired specimens for every test, but it reported a blocked crossmatch only as "Crossmatch could not be recorded."
+- On the chart, a reserved unit with an expired compatible crossmatch still offered Issue, which the gate refuses, and did not offer Crossmatch.
+
+### Design
+
+- `CrossmatchSpecimenRule`: a specimen at or past its expiration is a hard stop `XM-SPEC-EXPIRED` naming the specimen and the next step ("Collect a new specimen and crossmatch on it.").
+  - Applied in `RecordCrossmatchCoreAsync` before anything is saved, for direct and electronic crossmatch.
+  - An undated specimen keeps the existing default crossmatch validity.
+- Retrospective crossmatches are refused too. Result entry already refused them, and allowing an exception is a clinical decision, recorded as OCD-050 rather than invented.
+- Result entry passes the hard-stop message through.
+- `CrossmatchEntryNeed` gains "compatible crossmatch expired". The chart offers Crossmatch on that row (serologic only; issued units excluded) and shows "Crossmatch expired. Repeat it on a current specimen before issue."
+- No schema change. The refusal saves nothing, so there is no clinical record to audit.
+
+### Requirements / risk
+
+- URS-BB-468, FRS-BB-504, RISK-BB-567, OCD-050. `safety-rules.md` gains `XM-SPEC-EXPIRED`. Help: compatibility page.
+
+### Tests
+
+- TEST-BB-363:
+  - rule: hard stop past and at expiration, with the specimen named; pass in date or undated
+  - entry need: expired compatible needs repeating; not when electronic, issued, or incompatible
+  - integration: a direct serologic crossmatch on a specimen expired five minutes ago is refused with `XM-SPEC-EXPIRED`, and no crossmatch row is saved
+- Full suite: 3,474 passed, 0 failed (previously 3,469). No existing test relied on crossmatching an expired specimen.
+- Run check (development API and web): the demo patient's Products tab renders the in-date reservation as Ready for issue with Issue offered; no server errors. No crossmatch was attempted against development data.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, OCD-050, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check whether antibody screen and ABO/Rh entry through the instrument interface apply the same specimen-expiration refusal as manual result entry.
