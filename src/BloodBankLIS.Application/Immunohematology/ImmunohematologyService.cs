@@ -72,11 +72,19 @@ public sealed class ImmunohematologyService
     /// writes a named audit event in addition to appending append-only history.
     /// </summary>
     public async Task<OperationResult<PatientBloodTypeHistory>> RecordBloodTypeManualAsync(
-        long patientId, AboGroup abo, RhType rhD, string reason, AboSubgroup aboSubgroup = AboSubgroup.Unknown, CancellationToken ct = default)
+        long patientId, AboGroup abo, RhType rhD, string reason, AboSubgroup aboSubgroup = AboSubgroup.Unknown,
+        ManualTypeDocumentation documentation = ManualTypeDocumentation.NotDocumented, string? documentationReference = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
             return OperationResult<PatientBloodTypeHistory>.Fail("A reason is required to manually record ABO/Rh.");
+        }
+
+        var documented = ManualBloodTypeDocumentationRule.Evaluate(documentation, documentationReference);
+        if (documented.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<PatientBloodTypeHistory>.Fail($"{documented.Code}: {documented.Message}");
         }
 
         var denied = await RejectUnauthorizedAsync<PatientBloodTypeHistory>(
@@ -111,7 +119,9 @@ public sealed class ImmunohematologyService
             AboSubgroup = resolvedSubgroup,
             Source = BloodTypeSource.ManualEntry,
             IsCurrent = true,
-            Reason = reason
+            Reason = reason,
+            ManualDocumentation = documentation,
+            ManualDocumentationReference = documentation == ManualTypeDocumentation.NotDocumented ? null : documentationReference!.Trim()
         };
         await _bloodTypes.AddAsync(entry, ct);
 
@@ -120,7 +130,7 @@ public sealed class ImmunohematologyService
             nameof(PatientBloodTypeHistory),
             patientId,
             oldValue: current is null ? null : new { current.Abo, current.RhD },
-            newValue: new { entry.Abo, entry.RhD, entry.Source },
+            newValue: new { entry.Abo, entry.RhD, entry.Source, entry.ManualDocumentation, entry.ManualDocumentationReference },
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);

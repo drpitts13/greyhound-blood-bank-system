@@ -30,6 +30,8 @@ public static class DevelopmentSqliteBootstrap
         ("Overrides", "ReviewNote", """ALTER TABLE "Overrides" ADD COLUMN "ReviewNote" TEXT NULL"""),
         ("PatientBloodTypeHistory", "InvalidatedUtc", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "InvalidatedUtc" TEXT NULL"""),
         ("PatientBloodTypeHistory", "SpecimenId", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "SpecimenId" INTEGER NULL"""),
+        ("PatientBloodTypeHistory", "ManualDocumentation", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "ManualDocumentation" INTEGER NULL"""),
+        ("PatientBloodTypeHistory", "ManualDocumentationReference", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "ManualDocumentationReference" TEXT NULL"""),
         ("Specimens", "RejectionReasonCode", """ALTER TABLE "Specimens" ADD COLUMN "RejectionReasonCode" TEXT NULL"""),
         ("Specimens", "RejectedUtc", """ALTER TABLE "Specimens" ADD COLUMN "RejectedUtc" TEXT NULL"""),
         ("Specimens", "RejectedBy", """ALTER TABLE "Specimens" ADD COLUMN "RejectedBy" TEXT NULL"""),

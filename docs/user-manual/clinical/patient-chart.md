@@ -16,7 +16,7 @@ Open a patient from **Patients**. The overview is the default tab. The ribbon ac
 
 The header shows the current name, MRN, date of birth, and sex. Below that, the overview summarizes the facts the rest of the system will enforce:
 
-- Current ABO and Rh, and whether history disagrees with it.
+- Current ABO and Rh, and whether history disagrees with it. A supervisor can record a type by hand with a reason. Say where it came from: **Previous blood bank system** or **Documented outside source** (name the record or report), or **Not documented**. Only a documented type counts as one of the two ABO/Rh determinations needed for red-cell issue; an undocumented one is recorded but does not count.
 - Antibody history, including antibodies that are no longer detectable. A deactivated antibody still counts as history.
 - Special requirements that are still active.
 - Whether electronic crossmatch can be considered. Eligibility is calculated. It is not a checkbox you tick.

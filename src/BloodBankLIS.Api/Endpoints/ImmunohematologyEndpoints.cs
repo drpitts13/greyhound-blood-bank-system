@@ -27,7 +27,8 @@ public static class ImmunohematologyEndpoints
         });
 
         patients.MapPost("/{patientId:long}/blood-type", async (long patientId, RecordBloodTypeRequest request, ImmunohematologyService service, CancellationToken ct) =>
-            EndpointResults.Created(await service.RecordBloodTypeManualAsync(patientId, request.Abo, request.RhD, request.Reason, request.AboSubgroup, ct),
+            EndpointResults.Created(await service.RecordBloodTypeManualAsync(patientId, request.Abo, request.RhD, request.Reason, request.AboSubgroup,
+                    request.Documentation, request.DocumentationReference, ct),
                 h => ($"/api/patients/{patientId}/blood-type", (object)BloodTypeDto.From(h))))
             .RequirePermission(PermissionCodes.ImmunoOverride);
 

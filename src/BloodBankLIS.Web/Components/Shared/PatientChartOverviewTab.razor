@@ -114,6 +114,22 @@
                 }
             </div>
             <div class="field"><label>Reason (required)</label><input @bind="TypeReason" @bind:after="() => TypeReasonChanged.InvokeAsync(TypeReason)" /></div>
+            <div class="form-row">
+                <div class="field"><label>Documented source</label>
+                    <select @bind="TypeDocumentation" @bind:after="() => TypeDocumentationChanged.InvokeAsync(TypeDocumentation)">
+                        <option value="@ManualTypeDocumentation.NotDocumented">Not documented</option>
+                        <option value="@ManualTypeDocumentation.PreviousBloodBankSystem">Previous blood bank system</option>
+                        <option value="@ManualTypeDocumentation.OutsideSource">Documented outside source</option>
+                    </select>
+                </div>
+                @if (TypeDocumentation != ManualTypeDocumentation.NotDocumented)
+                {
+                    <div class="field" style="flex:1;"><label>Record or report (required)</label>
+                        <input @bind="TypeDocumentationReference" @bind:after="() => TypeDocumentationReferenceChanged.InvokeAsync(TypeDocumentationReference)" placeholder="e.g. legacy LIS record, or outside lab, date, report number" />
+                    </div>
+                }
+            </div>
+            <p class="muted">Only a type documented from a previous blood bank system or an outside source counts as one of the two ABO/Rh determinations needed for red-cell issue. An undocumented type is recorded but does not count.</p>
             <button class="btn btn-danger" disabled="@Busy" @onclick="OnRecordType">Record blood type</button>
         }
     </div>
@@ -432,6 +448,10 @@
     [Parameter] public EventCallback<AboSubgroup> TypeSubgroupChanged { get; set; }
     [Parameter] public string TypeReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> TypeReasonChanged { get; set; }
+    [Parameter] public ManualTypeDocumentation TypeDocumentation { get; set; } = ManualTypeDocumentation.NotDocumented;
+    [Parameter] public EventCallback<ManualTypeDocumentation> TypeDocumentationChanged { get; set; }
+    [Parameter] public string TypeDocumentationReference { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> TypeDocumentationReferenceChanged { get; set; }
     [Parameter] public long? SrDeactivateId { get; set; }
     [Parameter] public string SrDeactivateReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> SrDeactivateReasonChanged { get; set; }

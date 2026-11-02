@@ -3,7 +3,13 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Immunohematology;
 
-public sealed record RecordBloodTypeRequest(AboGroup Abo, RhType RhD, string Reason, AboSubgroup AboSubgroup = AboSubgroup.Unknown);
+public sealed record RecordBloodTypeRequest(
+    AboGroup Abo,
+    RhType RhD,
+    string Reason,
+    AboSubgroup AboSubgroup = AboSubgroup.Unknown,
+    ManualTypeDocumentation Documentation = ManualTypeDocumentation.NotDocumented,
+    string? DocumentationReference = null);
 
 public sealed record AddAntibodyRequest(
     long? BloodAttributeDefinitionId,

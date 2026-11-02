@@ -1200,6 +1200,43 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-355 (OCD-048): a documented manual type needs its record named; the documentation is stored and audited.
+    [Fact]
+    public async Task ManualBloodType_Documented_NeedsAReference_AndIsStored()
+    {
+        var patientId = await EnsurePatientAsync("MRN-MANUAL-DOC");
+        await using (var context = _factory.Create())
+        {
+            var noRef = await Immuno(context).RecordBloodTypeManualAsync(patientId, AboGroup.A, RhType.Positive, "Outside records",
+                documentation: ManualTypeDocumentation.OutsideSource, documentationReference: "  ");
+            Assert.False(noRef.Succeeded);
+            Assert.Contains(ManualBloodTypeDocumentationRule.Code, noRef.Error);
+            Assert.False(await context.PatientBloodTypeHistory.AnyAsync(h => h.PatientId == patientId));
+
+            var ok = await Immuno(context).RecordBloodTypeManualAsync(patientId, AboGroup.A, RhType.Positive, "Outside records",
+                documentation: ManualTypeDocumentation.OutsideSource, documentationReference: "St Mary's lab, 2026-10-01, report 44821");
+            Assert.True(ok.Succeeded, ok.Error);
+            Assert.Equal(ManualTypeDocumentation.OutsideSource, ok.Value!.ManualDocumentation);
+            Assert.Equal("St Mary's lab, 2026-10-01, report 44821", ok.Value.ManualDocumentationReference);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == patientId
+            && a.NewValueJson!.Contains("report 44821")));
+    }
+
+    [Fact]
+    public async Task ManualBloodType_Undocumented_StoresNoDocumentation()
+    {
+        var patientId = await EnsurePatientAsync("MRN-MANUAL-UNDOC");
+        await using var context = _factory.Create();
+        var r = await Immuno(context).RecordBloodTypeManualAsync(patientId, AboGroup.O, RhType.Negative, "Verbal report",
+            documentation: ManualTypeDocumentation.NotDocumented, documentationReference: "ignored");
+        Assert.True(r.Succeeded, r.Error);
+        Assert.Equal(ManualTypeDocumentation.NotDocumented, r.Value!.ManualDocumentation);
+        Assert.Null(r.Value.ManualDocumentationReference);
+    }
+
     [Fact]
     public async Task ManualBloodType_WithoutImmunoOverride_IsRejected()
     {

@@ -16,24 +16,29 @@ public static class SecondAboDeterminationRule
     public const string IssueCode = "ISS-SECOND-ABO";
 
     /// <param name="SpecimenId">The specimen tested, when known; null for manual or historical types.</param>
-    public sealed record Determination(AboRh BloodType, bool IsCurrent, long? SpecimenId = null);
+    /// <param name="Counts">False for an undocumented manual entry, which is never a determination (OCD-048).</param>
+    public sealed record Determination(AboRh BloodType, bool IsCurrent, long? SpecimenId = null, bool Counts = true);
 
     /// <summary>Determinations from stored history, leaving out types whose source result was invalidated.</summary>
     public static IReadOnlyList<Determination> FromHistory(IEnumerable<PatientBloodTypeHistory> rows) =>
-        rows.Where(r => r.InvalidatedUtc is null).Select(r => new Determination(r.BloodType, r.IsCurrent, r.SpecimenId)).ToList();
+        rows.Where(r => r.InvalidatedUtc is null)
+            .Select(r => new Determination(r.BloodType, r.IsCurrent, r.SpecimenId,
+                ManualBloodTypeDocumentationRule.CountsAsDetermination(r.Source, r.ManualDocumentation)))
+            .ToList();
 
     public static bool HasSecondConcordant(IReadOnlyList<Determination> history)
     {
         ArgumentNullException.ThrowIfNull(history);
 
         var current = history.FirstOrDefault(h => h.IsCurrent && h.BloodType.IsKnown);
-        if (current is null)
+        if (current is null || !current.Counts)
         {
             return false;
         }
 
         return history.Any(h =>
             !h.IsCurrent
+            && h.Counts
             && h.BloodType.IsKnown
             && h.BloodType == current.BloodType
             && !SameSpecimen(h, current));

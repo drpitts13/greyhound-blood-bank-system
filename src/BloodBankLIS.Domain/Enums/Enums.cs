@@ -236,6 +236,14 @@ public enum BloodTypeSource
     HistoricalImport = 3
 }
 
+/// <summary>Where a hand-recorded ABO/Rh came from (OCD-048).</summary>
+public enum ManualTypeDocumentation
+{
+    NotDocumented = 0,
+    PreviousBloodBankSystem = 1,
+    OutsideSource = 2
+}
+
 public enum AntibodyStatus
 {
     Identified = 0,

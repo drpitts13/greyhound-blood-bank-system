@@ -276,6 +276,7 @@ public sealed class PatientBloodTypeHistoryConfiguration : IEntityTypeConfigurat
     public void Configure(EntityTypeBuilder<PatientBloodTypeHistory> b)
     {
         b.ToTable("PatientBloodTypeHistory");
+        b.Property(h => h.ManualDocumentationReference).HasMaxLength(300);
         b.HasKey(h => h.Id);
         b.Property(h => h.Reason).HasMaxLength(500);
         b.Property(h => h.CreatedBy).HasMaxLength(100).IsRequired();

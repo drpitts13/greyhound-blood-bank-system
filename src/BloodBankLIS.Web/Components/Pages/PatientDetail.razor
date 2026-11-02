@@ -83,6 +83,8 @@ else
             @bind-TypeRh="_typeRh"
             @bind-TypeSubgroup="_typeSubgroup"
             @bind-TypeReason="_typeReason"
+            @bind-TypeDocumentation="_typeDocumentation"
+            @bind-TypeDocumentationReference="_typeDocumentationReference"
             SrDeactivateId="_srDeactivateId"
             @bind-SrDeactivateReason="_srDeactivateReason"
             @bind-SrDefinitionId="_srDefinitionId"
@@ -628,6 +630,8 @@ else
     private RhType _typeRh = RhType.Positive;
     private AboSubgroup _typeSubgroup = AboSubgroup.Unknown;
     private string _typeReason = string.Empty;
+    private ManualTypeDocumentation _typeDocumentation = ManualTypeDocumentation.NotDocumented;
+    private string _typeDocumentationReference = string.Empty;
     private Feedback? _typeFb;
 
     // antibody add / deactivate
@@ -2226,10 +2230,11 @@ else
     private async Task RecordTypeAsync()
     {
         _busy = true;
-        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(_typeAbo, _typeRh, _typeReason, _typeSubgroup));
+        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(_typeAbo, _typeRh, _typeReason, _typeSubgroup,
+            _typeDocumentation, string.IsNullOrWhiteSpace(_typeDocumentationReference) ? null : _typeDocumentationReference));
         _busy = false;
         _typeFb = r.ToFeedback("Blood type recorded.");
-        if (r.Succeeded) { _typeReason = string.Empty; await LoadAsync(); }
+        if (r.Succeeded) { _typeReason = string.Empty; _typeDocumentation = ManualTypeDocumentation.NotDocumented; _typeDocumentationReference = string.Empty; await LoadAsync(); }
     }
 
     private static string AbidNextLabel(AntibodyIdWorkupListItemDto workup) =>

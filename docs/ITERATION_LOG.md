@@ -9610,3 +9610,52 @@ The shift handoff packet counted retrospective crossmatches, issued and in-trans
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, OCD-048, the authorizer directory policy, and whether receipt must be by scan.
+
+## Iteration 313 — Manual ABO/Rh counts only when documented (OCD-048) (2026-11-02)
+
+### Decision
+
+The product owner decided OCD-048: a hand-recorded ABO/Rh counts as a determination only if documented from a previous blood bank application or a documented outside source.
+
+### Change
+
+- **Manual entry:**
+  - records `ManualDocumentation`: Not documented, Previous blood bank system, or Documented outside source
+  - records `ManualDocumentationReference`, the record or report, which is required for the two documented kinds (`BT-MANUAL-SOURCE`)
+  - both are stored and included in the override audit
+- `SecondAboDeterminationRule.FromHistory` marks an undocumented manual entry as not a determination. `HasSecondConcordant` then requires both the current and the earlier type to count.
+  - Older manual rows have no documentation recorded, so they no longer count. That is the decision applied to history; their type and audit are unchanged.
+  - Imported history (`HistoricalImport`, from a previous system) and tested types are unchanged.
+- **Chart overview form:**
+  - a Documented source choice, with the reference field shown when documented
+  - a line explaining that only documented types count
+- **Schema:** migration `20261104000000_ManualBloodTypeDocumentation`, dev bootstrap.
+- **Tidy-up:** the service's new parameters come before the cancellation token, following the code's convention; the endpoint passes them by position.
+
+### Requirements / risk
+
+- URS-BB-460, FRS-BB-496, SRS-BB-446, RISK-BB-560. OCD-048 closed. Help: patient chart page.
+
+### Tests
+
+- TEST-BB-355:
+  - rule:
+    - an undocumented manual type does not count as either the earlier or the current determination
+    - documented types count
+    - imported history counts
+    - a reference is required when documented
+  - integration:
+    - a documented type without a reference is refused and nothing is recorded
+    - a documented type stores the source and reference, and they are audited
+    - an undocumented type stores no reference
+- Full suite: 3,433 passed, 0 failed (previously 3,424).
+- Run check (development API and web):
+  - the API started with the new columns
+  - posting a documented type without a reference returned the `BT-MANUAL-SOURCE` message
+  - the chart form shows the three choices, the required reference field, and the note
+  - nothing was recorded
+  - no server errors
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.

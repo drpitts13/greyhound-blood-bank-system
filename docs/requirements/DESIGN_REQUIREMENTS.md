@@ -449,3 +449,4 @@
 | SRS-BB-443 | Migration `20261103200000_OverrideActionMassiveTransfusion` re-installs the report views so `rpt_overrides` names the new action value; no column change (the action is stored as an integer). | FRS-BB-482 |
 | SRS-BB-444 | Nullable `PatientBloodTypeHistory.SpecimenId` (migration `20261103220000_BloodTypeSpecimen` adds and backfills it from `TestResults.SpecimenId`; the development SQLite bootstrap adds the column and runs the same idempotent backfill after the additive columns). | FRS-BB-494 |
 | SRS-BB-445 | `ShiftHandoffs.TransfusionsRunning`, `TransfusionsCompletionOverdue`, `RetrospectiveIncompatible` int not null default 0 (migration `20261103230000_ShiftHandoffTransfusionCounts`, dev bootstrap). | FRS-BB-495 |
+| SRS-BB-446 | Nullable `PatientBloodTypeHistory.ManualDocumentation` int and `ManualDocumentationReference` nvarchar(300) (migration `20261104000000_ManualBloodTypeDocumentation`, dev bootstrap). | FRS-BB-496 |
