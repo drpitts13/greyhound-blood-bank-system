@@ -289,7 +289,16 @@
         switch (card.Key)
         {
             case DashboardQueueCatalog.Ready:
-                return await CountList(card.Key, Api.GetReadyToIssueAllocationsAsync());
+            {
+                var result = await Api.GetReadyToIssueAllocationsAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var expired = ReadyToIssueAttentionRule.CountCrossmatchExpired(result.Value.Select(item => item.DisplayStatus));
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(expired, "needs a new crossmatch", "need a new crossmatch"));
+            }
             case DashboardQueueCatalog.SecondAbo:
                 return await CountList(card.Key, Api.GetPendingSecondAboAsync());
             case DashboardQueueCatalog.Retrospective:

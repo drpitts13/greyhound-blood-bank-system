@@ -502,6 +502,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-463 / FRS-BB-499 | Corrections and withdrawals reach the EHR automatically | `IResultReleasePublisher`; `Hl7OutboundService`; `ResultService` | TEST-BB-358 | D / I | |
 | URS-BB-464 / FRS-BB-500 | Expiring units end their reservations | `InventoryService`; `AlertScanner`; `ExpiredUnitSweepService` | TEST-BB-359 | I | |
 | URS-BB-465 / FRS-BB-501 | Expired crossmatch is not shown as ready | `ProductAllocationDisplayStatusRule`; `PatientAllocationService`; `IssuingService` | TEST-BB-360 | D / I | |
+| URS-BB-466 / FRS-BB-502 | Dashboard count of reservations needing a new crossmatch | `ReadyToIssueAttentionRule`; `Home.razor` | TEST-BB-361 | D | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

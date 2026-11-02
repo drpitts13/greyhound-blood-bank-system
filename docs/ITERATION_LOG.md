@@ -9865,3 +9865,33 @@ The residual from Cycle 317 asked what happens to a reservation whose crossmatch
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: a work-queue count of reservations with an expired crossmatch on the dashboard, so they are repeated before the ward calls.
+
+## Iteration 319 — Dashboard names reservations that need a new crossmatch (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 318 other than the operations row (worklists).
+
+### Finding (question 5)
+
+Cycle 318 made an expired crossmatch visible on the chart and the issue desk, but only to someone who opened them. The dashboard Ready to issue card counted all reservations alike, so the repeat crossmatch was often found only when the ward called.
+
+### Design
+
+- `ReadyToIssueAttentionRule.CountCrossmatchExpired` counts ready-to-issue rows with display status `CrossmatchExpired`.
+- The card note uses the existing `DashboardQueueCatalog.AttentionNote`, the same form as the retrospective ("past due") and in-transit cards: "1 needs a new crossmatch" or "N need a new crossmatch".
+- It uses the list the card already loads, so there is no new API call. Read only, so nothing to audit.
+
+### Requirements / risk
+
+- URS-BB-466, FRS-BB-502, RISK-BB-565. Help: dashboard page.
+
+### Tests
+
+- TEST-BB-361: counts only Crossmatch expired rows, singular/plural wording, no note when none.
+- Full suite: 3,467 passed, 0 failed (previously 3,466).
+- Run check (development API and web): the dashboard shows Ready to issue 3 with no note (no demo reservation has an expired crossmatch); no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: on the issue desk Ready to issue board, put rows that cannot be issued routinely (crossmatch expired, specimen expired, outdated unit) after those that can, or let the user filter to them.

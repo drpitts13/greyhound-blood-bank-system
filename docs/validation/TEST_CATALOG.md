@@ -369,5 +369,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-358 | D / I | `ResultReleaseRuleTests.OnlyCorrectionsAndWithdrawals_AreSentAutomatically`; `ResultEhrUpdateTests.InvalidatingAVerifiedResult_QueuesAWithdrawal_WhenAResultsInterfaceIsEnabled`, `VerifyingACorrection_QueuesACorrection`, `WithoutAnEnabledResultsInterface_NothingIsQueued`, `WhenQueueingFails_TheInvalidationStands_AndAWarningSaysToSendByHand` | URS-BB-463 / FRS-BB-499 / RISK-BB-562 |
 | TEST-BB-359 | I | `InventoryServiceTests.ExpireDueUnits_EndsTheReservationOnAnExpiredUnit_AndLeavesOthers`; `AlertWorkflowTests.UnitsExpiredAndExcursion_RaiseEventAlerts` | URS-BB-464 / FRS-BB-500 / RISK-BB-563 |
 | TEST-BB-360 | D / I | `ProductAllocationDisplayStatusRuleTests.Evaluate_AnExpiredCrossmatch_IsNotReadyForIssue`; `Phase4IssuingTests.ListReadyToIssue_AnExpiredCrossmatch_ShowsCrossmatchExpired_NotReady` | URS-BB-465 / FRS-BB-501 / RISK-BB-564 |
+| TEST-BB-361 | D | `DashboardDueCountTests.ReadyToIssue_CountsOnlyReservationsWhoseCrossmatchExpired` | URS-BB-466 / FRS-BB-502 / RISK-BB-565 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

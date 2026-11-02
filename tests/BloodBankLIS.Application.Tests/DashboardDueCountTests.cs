@@ -20,6 +20,27 @@ public class DashboardDueCountTests
         Assert.Equal(0, RetrospectiveCrossmatchAttentionRule.CountOverdue([Retro(isOverdue: false)]));
     }
 
+    // TEST-BB-361: the ready-to-issue card says how many reservations need a new crossmatch.
+    [Fact]
+    public void ReadyToIssue_CountsOnlyReservationsWhoseCrossmatchExpired()
+    {
+        var count = ReadyToIssueAttentionRule.CountCrossmatchExpired(
+        [
+            ProductAllocationDisplayStatus.CrossmatchExpired,
+            ProductAllocationDisplayStatus.ReadyForIssue,
+            ProductAllocationDisplayStatus.Reserved,
+            ProductAllocationDisplayStatus.Exception,
+            ProductAllocationDisplayStatus.CrossmatchExpired
+        ]);
+
+        Assert.Equal(2, count);
+        Assert.Equal("2 need a new crossmatch", DashboardQueueCatalog.AttentionNote(count, "needs a new crossmatch", "need a new crossmatch"));
+        Assert.Null(DashboardQueueCatalog.AttentionNote(
+            ReadyToIssueAttentionRule.CountCrossmatchExpired([ProductAllocationDisplayStatus.ReadyForIssue]),
+            "needs a new crossmatch",
+            "need a new crossmatch"));
+    }
+
     [Fact]
     public void FatalityFollowUpDue_CountsClosedCasesThatStillNeedFollowUp()
     {
