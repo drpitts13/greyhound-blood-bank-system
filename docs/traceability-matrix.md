@@ -480,6 +480,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-441 / FRS-BB-477 | Invalid results never stay behind the type of record | `DerivedFromSourceRule`; `ResultService`; `SecondAboDeterminationRule`; `SpecimenService`; issue and compatibility services | TEST-BB-333 | D / I | |
 | URS-BB-442 / FRS-BB-478 | Coded specimen rejection reasons | `SpecimenRejectionReasonRule`; `SpecimenService`; `SpecimenRejectionReasonAdminService`; reason picker; admin page | TEST-BB-334 | D / I | |
 | URS-BB-443 / FRS-BB-479 | Specimen rejection reports by cause | `SpecimenService`; `ReportSourceCatalog`; `ReportViewSql`; `EfReportSourceReader`; `ReportSeedCatalog` | TEST-BB-335 | D / I | |
+| URS-BB-444 / FRS-BB-480 | Incompatible retrospective crossmatch alert | `RetrospectiveCrossmatchIncompatibleRule`; `CompatibilityService`; `AlertService`; `IssuingService`; issue desk | TEST-BB-336 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

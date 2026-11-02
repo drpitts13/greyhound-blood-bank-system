@@ -346,7 +346,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Retrospective crossmatch due</h3></div>
-        <p class="muted">Emergency and massive-transfusion issues stay here until a compatible crossmatch is recorded.</p>
+        <p class="muted">Emergency and massive-transfusion issues stay here until a compatible crossmatch is recorded. An incompatible result is listed first and raises a critical alert.</p>
         @if (_retroItems.Count == 0)
         {
             <div class="muted">No retrospective crossmatches pending.</div>
@@ -390,7 +390,15 @@
                                 {
                                     <div class="muted">@retroXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                @if (row.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible)
+                                {
+                                    <span class="badge badge-red">Incompatible after release</span>
+                                    <span class="sub">See the critical alert; record who was told when acknowledging it.</span>
+                                }
+                                else
+                                {
+                                    <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                }
                             </td>
                             <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
@@ -467,7 +475,7 @@
                                 {
                                     <div class="muted">@transitXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
                             <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
                             <td>@(row.IssuedToLocation ?? "—")<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
@@ -545,7 +553,7 @@
                                 {
                                     <div class="muted">@issuedXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
                             <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
                             <td>
@@ -1610,6 +1618,11 @@
     };
 
     // "NotCrossmatchedEmergency" -> "Not Crossmatched Emergency", so a long status can wrap in a narrow column.
+    // The issue's crossmatch status changes to Incompatible when a later crossmatch is incompatible,
+    // so that value is not labeled as the status at issue.
+    private static string CrossmatchStatusLine(CrossmatchClinicalStatus status) =>
+        status == CrossmatchClinicalStatus.Incompatible ? "Incompatible after release" : $"At issue: {Words(status)}";
+
     private static string Words(object value) =>
         System.Text.RegularExpressions.Regex.Replace(value.ToString() ?? "", "(?<=[a-z])(?=[A-Z])", " ");
 

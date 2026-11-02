@@ -54,7 +54,7 @@ Record each container you send with **Pack a cooler…** on the banner, then pri
 
 When the protocol ends, choose **Close…** and give the reason. The units stay linked to it on the record. Emergency release of a single unit does not need an activation.
 
-You still need a current specimen for the patient, an in-date unit, acceptable appearance, and two identity tokens. You record the reason and sign. The issue is flagged for retrospective crossmatch. It stays on the retrospective queue until someone records the crossmatch, by default within the hours set in facility policy (the shipped default is 24). **Record crossmatch** opens Compatibility with the issue filled in.
+You still need a current specimen for the patient, an in-date unit, acceptable appearance, and two identity tokens. You record the reason and sign. The issue is flagged for retrospective crossmatch. It stays on the retrospective queue until someone records the crossmatch, by default within the hours set in facility policy (the shipped default is 24). **Record crossmatch** opens Compatibility with the issue filled in. If that crossmatch is incompatible, the row stays on the queue, moves to the top, and is marked **Incompatible after release**, and a critical alert is raised naming the patient and whether the unit is issued, being transfused, or already transfused. Follow your facility's procedure, then acknowledge the alert on **Alerts** and note who you told and when.
 
 ## Document transfusion
 

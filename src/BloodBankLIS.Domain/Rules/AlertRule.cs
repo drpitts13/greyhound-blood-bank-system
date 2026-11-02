@@ -25,6 +25,7 @@ public sealed record AlertCandidate(
 public static class AlertRule
 {
     public const string TemperatureExcursion = "temperature-excursion";
+    public const string RetrospectiveCrossmatchIncompatible = "retro-xm-incompatible";
     public const string UnitsExpired = "units-expired";
     // The stored source value predates the "minimum stock" name; changing it would orphan open alerts.
     public const string MinimumStockShortage = "par-shortage";

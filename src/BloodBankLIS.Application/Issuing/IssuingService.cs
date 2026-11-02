@@ -643,8 +643,10 @@ public sealed class IssuingService
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
+        // An incompatible retrospective crossmatch is the most urgent row on the board.
         return rows
-            .OrderBy(i => i.RetrospectiveCrossmatchDueUtc ?? i.IssuedUtc)
+            .OrderByDescending(i => i.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible)
+            .ThenBy(i => i.RetrospectiveCrossmatchDueUtc ?? i.IssuedUtc)
             .Select(i =>
             {
                 var row = context.For(i, now);

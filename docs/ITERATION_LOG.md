@@ -8711,3 +8711,64 @@ Cycle 290 coded rejection reasons, but no report used them. The time and user of
 ### Next ranked residual
 
 Product decisions are still pending: who holds `override.approve`, and downtime back-entry. The remaining Partial matrix rows wait on a licensed ICCBBA extract (OCD-004) or the downtime back-entry decision. The next cycle re-audits a high-risk workflow (emergency release and massive transfusion) against the seven workflow questions.
+
+## Iteration 292 — Incompatible crossmatch after emergency release raises a critical alert (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 291. This cycle re-audits emergency release and massive transfusion against the seven workflow questions.
+
+### Audit (emergency release and MTP)
+
+- **Controls already in place:**
+  - permission `issue.emergency-release`
+  - an MTP issue needs an active activation
+  - reason and authorizer required, and second-person review in the supervisor queue
+  - ABO conflict is a hard stop (OCD-044)
+  - fresh unit scan and two identity tokens
+  - late-entry reason
+  - retrospective crossmatch queue with a due time
+- **Finding (critical, question 6):** an incompatible crossmatch recorded after release only changed `Issue.CrossmatchStatus`.
+  - Nobody was alerted.
+  - The person recording it got no warning.
+  - On the board the row sorted by due time, and its status was labeled "At issue: Incompatible", which is wrong: it was not incompatible at issue.
+  - A unit being transfused, or one already given, could go unnoticed.
+- **Lesser findings, not changed this cycle:**
+  - the emergency authorizer is free text, not checked against the provider directory
+  - an MTP issue's override is recorded as a warning override rather than as an emergency release
+
+### Design
+
+- `RetrospectiveCrossmatchIncompatibleRule`:
+  - states where the unit stands (issued / transfusion started / transfused) in plain words
+  - builds the warning `ISS-RETRO-XM-INCOMPATIBLE` and a Critical alert (source `retro-xm-incompatible`, key per issue, link to the retrospective board)
+- `CompatibilityService`:
+  - on an incompatible result against an open follow-up, keeps the follow-up open (unchanged), returns the warning, and raises the alert
+  - the existing alert de-duplication keeps a repeat result from raising a second alert
+  - acknowledging the alert records who, when, and a note
+- Retrospective board:
+  - incompatible rows first, with a red "Incompatible after release" flag
+  - the in-transit and issued boards use the same label instead of "At issue"
+- No automatic stop, notification, deviation, or reaction investigation. That is facility procedure: OCD-046 asks the SME / medical director.
+
+### Requirements / risk
+
+- URS-BB-444, FRS-BB-480, RISK-BB-546, OCD-046. No schema change. Help: issuing and compatibility pages.
+
+### Tests
+
+- TEST-BB-336:
+  - rule tests (unit state wording, warning, alert key, severity, and patient naming)
+  - integration:
+    - an incompatible crossmatch after emergency release returns the warning, raises exactly one critical alert even when repeated, and lists the row before an older pending row
+    - a compatible crossmatch raises no alert
+- Full suite: 3,325 passed, 0 failed (previously 3,317).
+- Run check (development API and web, DevMode):
+  - the crossmatch service resolves with the alert dependency (compatibility evaluate returns 200)
+  - the retrospective board renders its three demo rows with the new guidance
+  - no server errors
+  - no incompatible crossmatch was written to development data
+
+### Next ranked residual
+
+Check the emergency-release authorizer against the provider directory (lesser finding above), unless OCD-046 or the pending product decisions (`override.approve` holders, downtime back-entry) come back first.

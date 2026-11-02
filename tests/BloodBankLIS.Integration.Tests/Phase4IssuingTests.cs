@@ -51,6 +51,17 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             workups: new EfRepository<AntibodyIdentificationWorkup>(c),
             retypes: new EfRepository<ProductRetypeResult>(c));
 
+    private CompatibilityService CompatibilityWithAlerts(BloodBankDbContext c) =>
+        new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c),
+            alerts: new AlertService(new EfRepository<Alert>(c), c, _factory.Clock, _factory.CurrentUser,
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)));
+
     private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
@@ -1559,6 +1570,74 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         Assert.Equal(CrossmatchClinicalStatus.Incompatible, (await verify.Issues.FindAsync(issueId))!.CrossmatchStatus);
         Assert.Null((await verify.Issues.FindAsync(issueId))!.RetrospectiveCrossmatchCompletedUtc);
+    }
+
+    // TEST-BB-336: an incompatible retrospective crossmatch warns, raises one critical alert, and leads the board.
+    [Fact]
+    public async Task EmergencyRelease_IncompatibleXm_RaisesCriticalAlert_AndLeadsTheBoard()
+    {
+        var calm = await SeedAsync("RETROCALM");
+        await AllocateAsync(calm);
+        var s = await SeedAsync("RETROALRT");
+        await AllocateAsync(s);
+
+        long issueId;
+        long calmIssueId;
+        await using (var c = _factory.Create())
+        {
+            // The calm issue is older, so by due time alone it would be listed first.
+            calmIssueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                calm, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var xm = await CompatibilityWithAlerts(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible));
+            Assert.True(xm.Succeeded, xm.Error);
+            var warning = Assert.Single(xm.Evaluation!.Warnings, w => w.Code == RetrospectiveCrossmatchIncompatibleRule.Code);
+            Assert.Contains("issued", warning.Message);
+
+            // A repeat incompatible crossmatch does not raise a second alert while the first is open.
+            Assert.True((await CompatibilityWithAlerts(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible))).Succeeded);
+
+            var pending = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
+            var ids = pending.Select(p => p.IssueId).ToList();
+            Assert.True(ids.IndexOf(issueId) < ids.IndexOf(calmIssueId), "The incompatible row should lead the board.");
+        }
+
+        await using var verify = _factory.Create();
+        var alerts = await verify.Alerts.Where(a => a.Source == AlertRule.RetrospectiveCrossmatchIncompatible && a.Key == $"RETROXM:ISSUE-{issueId}").ToListAsync();
+        var alert = Assert.Single(alerts);
+        Assert.Equal(AlertSeverity.Critical, alert.Severity);
+        Assert.Contains("MRN", alert.Message);
+        Assert.Equal("/issuing?desk=retro", alert.Link);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_CompatibleXm_RaisesNoAlert()
+    {
+        var s = await SeedAsync("RETRONOALRT");
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+            var xm = await CompatibilityWithAlerts(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+            Assert.True(xm.Succeeded, xm.Error);
+            Assert.DoesNotContain(xm.Evaluation?.Warnings ?? [], w => w.Code == RetrospectiveCrossmatchIncompatibleRule.Code);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.Alerts.AnyAsync(a => a.Key == $"RETROXM:ISSUE-{issueId}"));
     }
 
     [Fact]

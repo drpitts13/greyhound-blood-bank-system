@@ -42,6 +42,7 @@ public sealed class CompatibilityService
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
+    private readonly AlertService? _alerts;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
@@ -68,7 +69,8 @@ public sealed class CompatibilityService
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
         IRepository<Override>? overrides = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
-        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null,
+        AlertService? alerts = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -93,6 +95,7 @@ public sealed class CompatibilityService
         _overrides = overrides;
         _aboCompatibilities = aboCompatibilities;
         _rhCompatibilities = rhCompatibilities;
+        _alerts = alerts;
     }
 
     public Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(
@@ -202,30 +205,36 @@ public sealed class CompatibilityService
                 ? "Electronic crossmatch recorded."
                 : "Serologic crossmatch recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
-        await TryCloseRetrospectiveCrossmatchAsync(crossmatch, ct);
+        var retroIncompatible = await TryCloseRetrospectiveCrossmatchAsync(crossmatch, unit, ct);
 
-        RuleEvaluation? evaluation = null;
+        var notices = new List<RuleResult>();
+        if (retroIncompatible is not null)
+        {
+            notices.Add(retroIncompatible);
+        }
+
         if (request.Method != CrossmatchMethod.Electronic)
         {
             var xmOpen = await EvaluateSerologicOpenWorkupAsync(request.PatientId, ct);
             if (xmOpen.Severity != RuleSeverity.Pass)
             {
-                evaluation = new RuleEvaluation([xmOpen]);
+                notices.Add(xmOpen);
             }
         }
 
-        return EvaluationResult<Crossmatch>.Ok(crossmatch, evaluation);
+        return EvaluationResult<Crossmatch>.Ok(crossmatch, notices.Count == 0 ? null : new RuleEvaluation(notices));
     }
 
     /// <summary>
     /// Completes an emergency/MTP follow-up when a post-issue compatible XM is recorded.
-    /// Incompatible results stay on the worklist with an updated clinical status.
+    /// Incompatible results stay on the worklist with an updated clinical status, raise a critical
+    /// alert, and return a warning for the person who recorded the crossmatch.
     /// </summary>
-    private async Task TryCloseRetrospectiveCrossmatchAsync(Crossmatch xm, CancellationToken ct)
+    private async Task<RuleResult?> TryCloseRetrospectiveCrossmatchAsync(Crossmatch xm, BloodUnit unit, CancellationToken ct)
     {
         if (_issues is null)
         {
-            return;
+            return null;
         }
 
         var open = await _issues.FirstOrDefaultAsync(i =>
@@ -238,9 +247,10 @@ public sealed class CompatibilityService
 
         if (open is null)
         {
-            return;
+            return null;
         }
 
+        RuleResult? notice = null;
         if (xm.Result == CrossmatchResult.Compatible)
         {
             open.CrossmatchStatus = CrossmatchClinicalStatus.Compatible;
@@ -264,13 +274,23 @@ public sealed class CompatibilityService
                 open.Id,
                 newValue: new { xm.Id, xm.Result },
                 reason: "Retrospective crossmatch incompatible; follow-up remains open.");
+            notice = RetrospectiveCrossmatchIncompatibleRule.Warning(unit.UnitNumber, unit.Status);
         }
         else
         {
-            return;
+            return null;
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+        if (notice is not null && _alerts is not null)
+        {
+            var patient = await _patients.GetByIdAsync(open.PatientId, ct);
+            var name = patient is null ? null : string.Join(", ", new[] { patient.LastName, patient.FirstName }.Where(n => !string.IsNullOrWhiteSpace(n)));
+            await _alerts.RaiseAsync(RetrospectiveCrossmatchIncompatibleRule.Alert(
+                open.Id, patient?.MedicalRecordNumber, name, unit.UnitNumber, unit.Status), ct);
+        }
+
+        return notice;
     }
 
     public async Task<EvaluationResult<RuleEvaluation>> EvaluateCompatibilityAsync(
