@@ -6,7 +6,8 @@ using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Api.Endpoints;
 
-public sealed record RejectSpecimenRequest(string Reason);
+/// <summary>ReasonCode from the rejection-reason catalog; Reason is the older free-text field, read as the code.</summary>
+public sealed record RejectSpecimenRequest(string? Reason = null, string? ReasonCode = null, string? Comment = null);
 
 public static class SpecimenEndpoints
 {
@@ -106,7 +107,7 @@ public static class SpecimenEndpoints
 
         group.MapPost("/{id:long}/reject", async (long id, RejectSpecimenRequest request, SpecimenService service, CancellationToken ct) =>
         {
-            var result = await service.RejectAsync(id, request.Reason, ct);
+            var result = await service.RejectAsync(id, request.ReasonCode ?? request.Reason, request.Comment, ct);
             if (!result.Succeeded)
             {
                 return Results.BadRequest(new { error = result.Error });

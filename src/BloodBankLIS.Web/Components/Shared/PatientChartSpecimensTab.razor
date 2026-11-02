@@ -189,8 +189,9 @@
                                         This specimen has an open antibody-identification workup. Reject still succeeds. Interpretation is withdrawn; void the workup or link a usable specimen before a new identification can post.
                                     </div>
                                 }
-                                <input @bind="RejectReason" @bind:after="() => RejectReasonChanged.InvokeAsync(RejectReason)" placeholder="Rejection reason" style="flex:1;" />
-                                <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="() => OnReject.InvokeAsync(s.Id)">Confirm reject</button>
+                                <SpecimenRejectReasonPicker Code="@RejectReason" CodeChanged="v => RejectReasonChanged.InvokeAsync(v)"
+                                                            Comment="@RejectComment" CommentChanged="v => RejectCommentChanged.InvokeAsync(v)" />
+                                <button class="btn btn-danger btn-sm" disabled="@(Busy || string.IsNullOrWhiteSpace(RejectReason))" @onclick="() => OnReject.InvokeAsync(s.Id)">Confirm reject</button>
                                 <button class="btn btn-secondary btn-sm" @onclick="OnCancelReject">Cancel</button>
                             </div>
                         </td></tr>
@@ -280,6 +281,8 @@
     [Parameter] public long? RejectId { get; set; }
     [Parameter] public string RejectReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> RejectReasonChanged { get; set; }
+    [Parameter] public string RejectComment { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> RejectCommentChanged { get; set; }
     [Parameter] public IReadOnlyList<TestWorkItemDto> SpecimenWorklist { get; set; } = [];
     [Parameter] public IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups { get; set; } = [];
     [Parameter] public string AbidHref { get; set; } = "/antibody-id";

@@ -44,6 +44,7 @@ public static partial class DatabaseSeeder
         await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
         await SeedOrderCancellationReasonsAsync(context, cancellationToken);
         await SeedUnitDiscardReasonsAsync(context, cancellationToken);
+        await SeedSpecimenRejectionReasonsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
@@ -1078,6 +1079,47 @@ public static partial class DatabaseSeeder
     /// Starter discard codes for wastage reporting. They are facility-editable examples,
     /// not a regulatory list. OTHER requires a comment.
     /// </summary>
+    /// <summary>Starter list for the facility to edit (Admin › Specimen Rejection Reasons); not a regulatory list.</summary>
+    private static async Task SeedSpecimenRejectionReasonsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var seeds = new (string Code, string Text, bool RequiresComment, int Sort)[]
+        {
+            ("HEMOLYZED", "Hemolyzed", false, 10),
+            ("CLOTTED", "Clotted", false, 20),
+            ("QNS", "Quantity not sufficient", false, 30),
+            ("UNLABELED", "Unlabeled", false, 40),
+            ("LABEL", "Label incomplete, illegible, or does not match the requisition", false, 50),
+            ("WBIT", "Suspected wrong blood in tube", true, 60),
+            ("TUBE", "Wrong tube type", false, 70),
+            ("AGE", "Too old to test", false, 80),
+            ("OTHER", "Other", true, 90)
+        };
+
+        var changed = false;
+        foreach (var (code, text, requiresComment, sort) in seeds)
+        {
+            if (await context.SpecimenRejectionReasons.AnyAsync(r => r.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.SpecimenRejectionReasons.Add(new SpecimenRejectionReason
+            {
+                Code = code,
+                Text = text,
+                RequiresComment = requiresComment,
+                SortOrder = sort,
+                IsActive = true
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
     private static async Task SeedUnitDiscardReasonsAsync(BloodBankDbContext context, CancellationToken ct)
     {
         var seeds = new (string Code, string Text, bool RequiresComment, int Sort)[]

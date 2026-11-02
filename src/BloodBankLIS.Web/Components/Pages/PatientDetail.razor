@@ -262,6 +262,7 @@ else
             @bind-RelabelReason="_relabelReason"
             RejectId="_rejectId"
             @bind-RejectReason="_rejectReason"
+            @bind-RejectComment="_rejectComment"
             SpecimenWorklist="_specimenWorklist"
             OpenAbidWorkups="OpenAbidWorkups"
             AbidHref="@AbidHref()"
@@ -647,6 +648,7 @@ else
     private Feedback? _accessionFb;
     private long? _rejectId;
     private string _rejectReason = string.Empty;
+    private string _rejectComment = string.Empty;
     private long? _editId;
     private long? _relabelId;
     private string _relabelBarcode = string.Empty;
@@ -2473,6 +2475,7 @@ else
         _relabelId = null;
         _rejectId = s.Id;
         _rejectReason = string.Empty;
+        _rejectComment = string.Empty;
     }
 
     private void BeginRelabel(SpecimenDto s)
@@ -2590,7 +2593,7 @@ else
     private async Task RejectAsync(long specimenId)
     {
         _busy = true;
-        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason);
+        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason, _rejectComment);
         _busy = false;
         _accessionFb = r.ToFeedback("Specimen rejected.");
         if (r.Succeeded) { _rejectId = null; await LoadAsync(); }

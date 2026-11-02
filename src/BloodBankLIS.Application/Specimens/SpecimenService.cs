@@ -40,6 +40,7 @@ public sealed class SpecimenService
     private readonly IRepository<TestResult>? _results;
     private readonly IRepository<Allocation>? _allocations;
     private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<SpecimenRejectionReason>? _rejectionReasons;
     private readonly AntibodyScreenCompatLoader? _antibodyScreen;
 
     public SpecimenService(
@@ -60,7 +61,8 @@ public sealed class SpecimenService
         AntibodyScreenCompatLoader? antibodyScreen = null,
         IRepository<TestResult>? results = null,
         IRepository<Allocation>? allocations = null,
-        IRepository<BloodUnit>? units = null)
+        IRepository<BloodUnit>? units = null,
+        IRepository<SpecimenRejectionReason>? rejectionReasons = null)
     {
         _specimens = specimens;
         _patients = patients;
@@ -78,6 +80,7 @@ public sealed class SpecimenService
         _results = results;
         _allocations = allocations;
         _units = units;
+        _rejectionReasons = rejectionReasons;
         _overrides = overrides;
         _antibodyScreen = antibodyScreen;
     }
@@ -426,11 +429,46 @@ public sealed class SpecimenService
         return OperationResult<Specimen>.Ok(specimen);
     }
 
-    public async Task<OperationResult<Specimen>> RejectAsync(long specimenId, string reason, CancellationToken ct = default)
+    /// <summary>
+    /// Rejects with a coded reason from the catalog (and a comment when the code requires one). Without the catalog
+    /// (unit tests that construct the service directly) the code is stored as the reason text.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> RejectAsync(
+        long specimenId, string reasonCode, CancellationToken ct = default) =>
+        await RejectAsync(specimenId, reasonCode, null, ct);
+
+    public async Task<OperationResult<Specimen>> RejectAsync(
+        long specimenId, string? reasonCode, string? comment, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(reason))
+        if (string.IsNullOrWhiteSpace(reasonCode))
         {
+            if (_rejectionReasons is not null)
+            {
+                var blank = SpecimenRejectionReasonRule.Evaluate(reasonCode, null, comment);
+                return OperationResult<Specimen>.Fail($"{blank.Code}: {blank.Message}");
+            }
+
             return OperationResult<Specimen>.Fail("A reason is required to reject a specimen.");
+        }
+
+        string reason;
+        string? storedCode = null;
+        if (_rejectionReasons is not null)
+        {
+            var code = reasonCode.Trim().ToUpperInvariant();
+            var catalog = await _rejectionReasons.FirstOrDefaultAsync(r => r.Code == code, ct);
+            var coded = SpecimenRejectionReasonRule.Evaluate(code, catalog, comment);
+            if (coded.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Specimen>.Fail($"{coded.Code}: {coded.Message}");
+            }
+
+            reason = SpecimenRejectionReasonRule.StoredText(catalog!, comment);
+            storedCode = catalog!.Code;
+        }
+        else
+        {
+            reason = string.IsNullOrWhiteSpace(comment) ? reasonCode.Trim() : $"{reasonCode.Trim()}: {comment.Trim()}";
         }
 
         var denied = await RejectUnauthorizedAsync(
@@ -469,13 +507,14 @@ public sealed class SpecimenService
         var previousStatus = specimen.Status;
         specimen.Status = SpecimenStatus.Rejected;
         specimen.RejectionReason = reason;
+        specimen.RejectionReasonCode = storedCode;
         _specimens.Update(specimen);
         _audit?.Record(
             AuditEventType.Specimen,
             nameof(Specimen),
             specimen.Id,
             oldValue: new { Status = previousStatus },
-            newValue: new { specimen.Status, specimen.RejectionReason },
+            newValue: new { specimen.Status, specimen.RejectionReason, specimen.RejectionReasonCode },
             reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
 

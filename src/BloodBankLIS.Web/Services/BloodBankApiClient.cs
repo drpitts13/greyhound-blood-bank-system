@@ -253,8 +253,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecimenDto>> GetSpecimenByAccessionAsync(string accessionNumber, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/by-accession/{Uri.EscapeDataString(accessionNumber.Trim())}", ct: ct);
 
-    public Task<ApiResult<SpecimenDto>> RejectSpecimenAsync(long id, string reason, CancellationToken ct = default) =>
-        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/reject", new ReasonRequestVm(reason), ct);
+    public Task<ApiResult<SpecimenDto>> RejectSpecimenAsync(long id, string reasonCode, string? comment = null, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/reject",
+            new { ReasonCode = reasonCode, Comment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim() }, ct);
+
+    public Task<ApiResult<List<SpecimenRejectionReasonRefDto>>> GetSpecimenRejectionReasonsAsync(CancellationToken ct = default) =>
+        SendAsync<List<SpecimenRejectionReasonRefDto>>(HttpMethod.Get, "api/reference/specimen-rejection-reasons", ct: ct);
 
     public Task<ApiResult<List<PendingSpecimenWorkItemDto>>> GetPendingSpecimensAsync(CancellationToken ct = default) =>
         SendAsync<List<PendingSpecimenWorkItemDto>>(HttpMethod.Get, "api/specimens/pending", ct: ct);
@@ -1240,6 +1244,28 @@ public sealed class BloodBankApiClient
         SendAsync<OrderCancellationReasonDto>(
             HttpMethod.Post,
             $"api/admin/order-cancellation-reasons/{id}/{(active ? "activate" : "deactivate")}",
+            ct: ct);
+
+    public Task<ApiResult<List<SpecimenRejectionReasonDto>>> GetAdminSpecimenRejectionReasonsAsync(
+        bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<SpecimenRejectionReasonDto>>(
+            HttpMethod.Get,
+            $"api/admin/specimen-rejection-reasons?includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            ct: ct);
+
+    public Task<ApiResult<SpecimenRejectionReasonDto>> CreateAdminSpecimenRejectionReasonAsync(
+        SaveSpecimenRejectionReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenRejectionReasonDto>(HttpMethod.Post, "api/admin/specimen-rejection-reasons", req, ct);
+
+    public Task<ApiResult<SpecimenRejectionReasonDto>> UpdateAdminSpecimenRejectionReasonAsync(
+        long id, SaveSpecimenRejectionReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenRejectionReasonDto>(HttpMethod.Put, $"api/admin/specimen-rejection-reasons/{id}", req, ct);
+
+    public Task<ApiResult<SpecimenRejectionReasonDto>> SetAdminSpecimenRejectionReasonActiveAsync(
+        long id, bool active, CancellationToken ct = default) =>
+        SendAsync<SpecimenRejectionReasonDto>(
+            HttpMethod.Post,
+            $"api/admin/specimen-rejection-reasons/{id}/{(active ? "activate" : "deactivate")}",
             ct: ct);
 
     public Task<ApiResult<List<UnitDiscardReasonDto>>> GetAdminUnitDiscardReasonsAsync(

@@ -144,6 +144,16 @@ public static class ReferenceEndpoints
             return Results.Ok(items.Select(r => new OrderCancellationReasonRefDto(r.Code, r.Text, r.SortOrder)));
         });
 
+        group.MapGet("/specimen-rejection-reasons", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var items = await context.SpecimenRejectionReasons.AsNoTracking()
+                .Where(r => r.IsActive)
+                .OrderBy(r => r.SortOrder)
+                .ThenBy(r => r.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(r => new SpecimenRejectionReasonRefDto(r.Code, r.Text, r.RequiresComment, r.SortOrder)));
+        });
+
         group.MapGet("/discard-reasons", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var items = await context.UnitDiscardReasons.AsNoTracking()

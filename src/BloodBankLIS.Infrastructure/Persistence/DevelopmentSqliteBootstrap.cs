@@ -27,6 +27,7 @@ public static class DevelopmentSqliteBootstrap
         ("Overrides", "ReviewedUtc", """ALTER TABLE "Overrides" ADD COLUMN "ReviewedUtc" TEXT NULL"""),
         ("Overrides", "ReviewNote", """ALTER TABLE "Overrides" ADD COLUMN "ReviewNote" TEXT NULL"""),
         ("PatientBloodTypeHistory", "InvalidatedUtc", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "InvalidatedUtc" TEXT NULL"""),
+        ("Specimens", "RejectionReasonCode", """ALTER TABLE "Specimens" ADD COLUMN "RejectionReasonCode" TEXT NULL"""),
         ("ShiftHandoffs", "ActiveMtp", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ActiveMtp" INTEGER NOT NULL DEFAULT 0"""),
         ("ReactionInvestigations", "ReopenedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedUtc" TEXT NULL"""),
         ("ReactionInvestigations", "ReopenedBy", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedBy" TEXT NULL"""),
@@ -193,6 +194,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureCompetitorGapTablesAsync(context, cancellationToken);
         await EnsureStorageTemperatureTableAsync(context, cancellationToken);
         await EnsureUnitDiscardReasonsTableAsync(context, cancellationToken);
+        await EnsureSpecimenRejectionReasonsTableAsync(context, cancellationToken);
         await EnsureAlertsTableAsync(context, cancellationToken);
         await EnsureSupplierOrderTablesAsync(context, cancellationToken);
         await EnsureDatabaseBackupsTableAsync(context, cancellationToken);
@@ -1057,6 +1059,37 @@ public static class DevelopmentSqliteBootstrap
             """CREATE INDEX "IX_Alerts_Source_ResolvedUtc" ON "Alerts" ("Source", "ResolvedUtc")""", ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE INDEX "IX_Alerts_Key" ON "Alerts" ("Key")""", ct);
+    }
+
+    private static async Task EnsureSpecimenRejectionReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "SpecimenRejectionReasons", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SpecimenRejectionReasons" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SpecimenRejectionReasons" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Text" TEXT NOT NULL,
+                "RequiresComment" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_SpecimenRejectionReasons_Code" ON "SpecimenRejectionReasons" ("Code")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_SpecimenRejectionReasons_IsActive_SortOrder" ON "SpecimenRejectionReasons" ("IsActive", "SortOrder")""", ct);
     }
 
     private static async Task EnsureUnitDiscardReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)

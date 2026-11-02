@@ -236,9 +236,9 @@
                         <tr>
                             <td colspan="8">
                                 <div class="flex gap" style="flex-wrap:wrap;">
-                                    <input @bind="_rejectReason" @bind:event="oninput" placeholder="Rejection reason" style="flex:1;" />
+                                    <SpecimenRejectReasonPicker @bind-Code="_rejectReason" @bind-Comment="_rejectComment" />
                                     <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_rejectReason))" @onclick="() => RejectPendingAsync(row.SpecimenId)">Confirm reject</button>
-                                    <button class="btn btn-secondary btn-sm" @onclick="() => { _rejectingSpecimenId = null; _rejectReason = string.Empty; }">Cancel</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => { _rejectingSpecimenId = null; _rejectReason = string.Empty; _rejectComment = string.Empty; }">Cancel</button>
                                 </div>
                             </td>
                         </tr>
@@ -340,6 +340,7 @@
     private string _specimenScan = string.Empty;
     private long? _rejectingSpecimenId;
     private string _rejectReason = string.Empty;
+    private string _rejectComment = string.Empty;
 
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabQuery { get; set; }
@@ -461,13 +462,14 @@
     private async Task RejectPendingAsync(long specimenId)
     {
         _busy = true;
-        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason);
+        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason, _rejectComment);
         _busy = false;
         _fb = r.ToFeedback("Specimen rejected.");
         if (r.Succeeded)
         {
             _rejectingSpecimenId = null;
             _rejectReason = string.Empty;
+            _rejectComment = string.Empty;
             await LoadPendingSpecimensAsync();
         }
     }

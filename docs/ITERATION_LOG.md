@@ -8621,3 +8621,44 @@ No change since Cycle 288. This cycle audits specimen receipt and rejection.
 ### Next ranked residual
 
 Coded specimen rejection reasons (rejection reasons are free text, so rejection rates cannot be reported by cause). Pending product decisions: downtime back-entry, and who holds `override.approve`.
+
+## Iteration 290 — Coded specimen rejection reasons (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 289 other than the specimen rejection row.
+
+### Finding
+
+Specimen rejection took a free-text reason. Rejections could not be counted by cause, so a ward that keeps sending mislabeled tubes or a run of suspected wrong blood in tube had no reliable signal.
+
+### Design
+
+- **Catalog:** `SpecimenRejectionReason` (Code, Text, RequiresComment, SortOrder, IsActive), maintained at Admin → Specimen Rejection Reasons with configuration history, cloned from Discard Reasons.
+- **Starter list**, seeded as an editable example, not a regulatory list: hemolyzed, clotted, quantity not sufficient, unlabeled, label problem, suspected wrong blood in tube (comment required), wrong tube type, too old to test, Other (comment required).
+- **Rejection** (`SpecimenService.RejectAsync`):
+  - requires an active code (`SPEC-REJECT-REASON-REQUIRED`, `SPEC-REJECT-REASON-UNKNOWN`)
+  - requires a comment when the code says so (`SPEC-REJECT-COMMENT-REQUIRED`)
+  - stores `RejectionReasonCode` and the text plus comment; the audit records the code
+  - the earlier refusals (active results, `SPEC-REJECT-RESULTS`) are unchanged
+- **UI:** a shared picker (reason list plus comment) on the chart Specimens tab and the test worklist; Confirm is disabled until a reason is chosen, and the comment box says when a comment is required.
+- **Schema:** table `SpecimenRejectionReasons` and `Specimens.RejectionReasonCode` (migration `20261103170000_SpecimenRejectionReasons`, dev bootstrap, migrator order).
+
+### Requirements / risk
+
+- URS-BB-442, FRS-BB-478, SRS-BB-440, RISK-BB-544. Help: new Specimen rejection reasons page; patient specimens page updated.
+
+### Tests
+
+- TEST-BB-334: rule tests (blank, unknown, inactive, comment required, pass, stored text); integration tests (coded rejection stores code, text, and audit; comment-required refusal then success; unknown, inactive, or blank code refused with the specimen unchanged).
+- Full suite: 3,316 passed, 0 failed (previously 3,305).
+- Run check (development API and web, DevMode):
+  - the reference endpoint lists the nine starter codes
+  - rejecting with OTHER and no comment returns 400 `SPEC-REJECT-COMMENT-REQUIRED`
+  - the admin page lists the codes
+  - the chart picker shows the reasons, keeps Confirm disabled until one is chosen, and asks for a required comment for Other
+  - no server errors
+
+### Next ranked residual
+
+A rejection-by-cause report (by reason, ward and collector) on the new codes. Pending product decisions: downtime back-entry, and who holds `override.approve`.

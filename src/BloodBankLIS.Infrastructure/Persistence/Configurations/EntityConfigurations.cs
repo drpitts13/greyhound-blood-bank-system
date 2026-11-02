@@ -1123,6 +1123,22 @@ public sealed class OrderCancellationReasonConfiguration : IEntityTypeConfigurat
     }
 }
 
+public sealed class SpecimenRejectionReasonConfiguration : IEntityTypeConfiguration<SpecimenRejectionReason>
+{
+    public void Configure(EntityTypeBuilder<SpecimenRejectionReason> b)
+    {
+        b.ToTable("SpecimenRejectionReasons");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.Code).HasMaxLength(20).IsRequired();
+        b.Property(r => r.Text).HasMaxLength(500).IsRequired();
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(r => r.Code).IsUnique();
+        b.HasIndex(r => new { r.IsActive, r.SortOrder });
+    }
+}
+
 public sealed class UnitDiscardReasonConfiguration : IEntityTypeConfiguration<UnitDiscardReason>
 {
     public void Configure(EntityTypeBuilder<UnitDiscardReason> b)

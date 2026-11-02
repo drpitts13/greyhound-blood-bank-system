@@ -20,7 +20,7 @@ Print the specimen label from **Printing** or the print action on the specimen. 
 
 ## Receive and accept
 
-A collected specimen is received into the laboratory, then accepted for testing. Until it is accepted, the worklist shows it as not ready. Reject the specimen when it is hemolyzed, mislabeled, or otherwise unsuitable. Rejection stops testing on that specimen. If results were already recorded on it, rejection is refused and names them: invalidate each result first (on the Tests tab), then reject. That way nothing from the bad specimen, such as its ABO/Rh, stays in use. If units are still reserved against the specimen, the rejection lists them so you can release them on Compatibility.
+A collected specimen is received into the laboratory, then accepted for testing. Until it is accepted, the worklist shows it as not ready. Reject the specimen when it is hemolyzed, mislabeled, or otherwise unsuitable. Choose the reason from the list, and add a comment; some reasons, such as Other, require one. The list is kept by your administrator under Specimen Rejection Reasons. Rejection stops testing on that specimen. If results were already recorded on it, rejection is refused and names them: invalidate each result first (on the Tests tab), then reject. That way nothing from the bad specimen, such as its ABO/Rh, stays in use. If units are still reserved against the specimen, the rejection lists them so you can release them on Compatibility.
 
 > Hard stop. Results cannot be verified on a rejected specimen or on a specimen past its testing window. Collect a new specimen rather than overriding the window for routine work.
 
