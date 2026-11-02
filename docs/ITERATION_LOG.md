@@ -9569,3 +9569,44 @@ The first version ran the backfill before the bootstrap added the new column. Th
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.
+
+## Iteration 312 — Handoff counts running transfusions and incompatible retrospective crossmatches (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 311 other than the handoff row.
+
+### Audit of manual blood type entry (no change)
+
+Recording a patient ABO/Rh by hand is a controlled dangerous action: `immuno.override`, a required reason, audited as an override. It becomes the current type and counts as a determination, so with a concordant earlier type it can satisfy the second-determination rule. Whether a typed-in type should count is clinical policy, recorded as OCD-048 for the SME or medical director. Behavior is unchanged.
+
+### Finding (operations)
+
+The shift handoff packet counted retrospective crossmatches, issued and in-transit units, pending work, reactions, and active MTPs. It had no count for the states added in Cycles 292, 299, and 304: transfusions running at the bedside, those overdue for completion, and emergency releases whose retrospective crossmatch came back incompatible. These are what an incoming shift most needs to be told.
+
+### Design
+
+- Three counts on the snapshot, from the same queues as the issue desk:
+  - `TransfusionsRunning`
+  - `TransfusionsCompletionOverdue`
+  - `RetrospectiveIncompatible`
+- Stored on the handoff (migration `20261103230000_ShiftHandoffTransfusionCounts`, dev bootstrap) and included in the handoff audit snapshot.
+- **Packet wording:** "INCOMPATIBLE AFTER RELEASE: N" right after an active MTP, then "transfusing N, M completion overdue".
+
+### Requirements
+
+- URS-BB-459, FRS-BB-495, SRS-BB-445, OCD-048. Help: shift handoff page.
+
+### Tests
+
+- TEST-BB-354: with a transfusion started 7 hours ago and an emergency release with an incompatible retrospective crossmatch, the next handoff counts one more running, one more overdue, and one more incompatible, and the DTO carries them.
+- Full suite: 3,424 passed, 0 failed (previously 3,423).
+- Run check (development API):
+  - the API started with the new columns
+  - the handoff list loaded (no handoffs in development data)
+  - no server errors
+  - no handoff was recorded
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, OCD-048, the authorizer directory policy, and whether receipt must be by scan.

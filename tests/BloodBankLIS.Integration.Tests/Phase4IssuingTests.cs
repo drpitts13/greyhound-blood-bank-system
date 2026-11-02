@@ -977,14 +977,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     private static StartTransfusionRequest StartReq(Scenario s, DateTime? startUtc = null) =>
         new(StartUtc: startUtc, PatientIdentifier1Value: s.Mrn, PatientIdentifier2Value: s.DateOfBirth);
 
-    private async Task<long> IssuedAndReceivedAsync(Scenario s)
+    private async Task<long> IssuedAndReceivedAsync(Scenario s, int issuedHoursAgo = 1)
     {
         await RecordCompatibleCrossmatchAsync(s);
         await AllocateAsync(s);
         await using var c = _factory.Create();
         var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
         {
-            IssuedUtc = _factory.Clock.UtcNow.AddHours(-1), LateEntryReason = "Charted after the shift"
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-issuedHoursAgo), LateEntryReason = "Charted after the shift"
         });
         Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
         Assert.True((await Issuing(c).RecordWardReceiptAsync(issued.Value!.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
@@ -1091,6 +1091,40 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.False(again.Succeeded);
         Assert.Contains("already has a transfusion record", again.Error);
     }
+
+    // TEST-BB-354: the shift handoff counts running transfusions and incompatible retrospective crossmatches.
+    [Fact]
+    public async Task ShiftHandoff_CountsRunningTransfusions_AndIncompatibleRetrospectiveCrossmatches()
+    {
+        var running = await SeedAsync("HO-RUN");
+        var runningIssue = await IssuedAndReceivedAsync(running, issuedHoursAgo: 8);
+        var emergency = await SeedAsync("HO-RETRO");
+        await AllocateAsync(emergency);
+
+        ShiftHandoff before;
+        await using (var c = _factory.Create())
+        {
+            before = (await Handoff(c).CreateAsync(new CreateShiftHandoffRequest("Before"))).Value!;
+            Assert.True((await Issuing(c).StartTransfusionAsync(runningIssue, StartReq(running, _factory.Clock.UtcNow.AddHours(-7)))).Succeeded);
+            Assert.True((await Issuing(c).IssueUnitAsync(IssueReq(
+                emergency, IssueType.EmergencyRelease, overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Succeeded);
+            Assert.True((await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+                emergency.UnitId, emergency.PatientId, emergency.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible))).Succeeded);
+        }
+
+        await using var v = _factory.Create();
+        var after = await Handoff(v).CreateAsync(new CreateShiftHandoffRequest("After"));
+        Assert.True(after.Succeeded, after.Error);
+        Assert.Equal(before.TransfusionsRunning + 1, after.Value!.TransfusionsRunning);
+        Assert.Equal(before.TransfusionsCompletionOverdue + 1, after.Value.TransfusionsCompletionOverdue);
+        Assert.Equal(before.RetrospectiveIncompatible + 1, after.Value.RetrospectiveIncompatible);
+        Assert.Equal(after.Value.RetrospectiveIncompatible, ShiftHandoffDto.From(after.Value).RetrospectiveIncompatible);
+    }
+
+    private ShiftHandoffService Handoff(BloodBankDbContext c) =>
+        new(new EfRepository<ShiftHandoff>(c), c, _factory.Clock, _factory.CurrentUser,
+            issuing: Issuing(c), audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ShiftHandoff));
 
     [Fact]
     public async Task StartOnlyPermission_CanStart_ButNotComplete()

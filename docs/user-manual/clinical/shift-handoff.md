@@ -14,6 +14,6 @@ routes:
 
 The counts are a snapshot, not a sign-out of each patient. Write the handoff note for anything the count cannot say: a unit in a cooler that has not been received, a patient whose specimen is unacceptable, an interface that has been down, a retrospective crossmatch that is overdue. The note is required. An empty handoff is not a completed handoff.
 
-If you name the incoming technologist, pick them from the list; the name must be an active user other than you. Leave it blank to hand off to whoever is on the next shift. An active massive transfusion protocol is listed first on the packet.
+If you name the incoming technologist, pick them from the list; the name must be an active user other than you. Leave it blank to hand off to whoever is on the next shift. An active massive transfusion protocol is listed first on the packet, then any emergency release whose retrospective crossmatch came back incompatible, then transfusions still running at the bedside (and how many are overdue for completion).
 
 The next shift should read the note before relying on the dashboard alone. The note does not assign tasks inside the software. It is the record of what you said you left.

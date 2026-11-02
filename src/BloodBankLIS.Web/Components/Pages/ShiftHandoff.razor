@@ -200,6 +200,10 @@ else
 
     private static string QueueSummary(ShiftHandoffDto row) =>
         (row.ActiveMtp > 0 ? $"MASSIVE TRANSFUSION ACTIVE: {row.ActiveMtp}; " : "") +
+        (row.RetrospectiveIncompatible > 0 ? $"INCOMPATIBLE AFTER RELEASE: {row.RetrospectiveIncompatible}; " : "") +
+        (row.TransfusionsRunning > 0
+            ? $"transfusing {row.TransfusionsRunning}" + (row.TransfusionsCompletionOverdue > 0 ? $", {row.TransfusionsCompletionOverdue} completion overdue" : "") + "; "
+            : "") +
         $"Retro {row.RetrospectiveDue}" +
         (row.RetrospectiveOverdue > 0 ? $", {row.RetrospectiveOverdue} overdue" : "") +
         $"; issued {row.OutstandingIssued}; transit {row.InTransit}" +

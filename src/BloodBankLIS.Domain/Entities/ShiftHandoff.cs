@@ -38,6 +38,15 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Massive transfusion protocols still active at handoff.</summary>
     public int ActiveMtp { get; set; }
 
+    /// <summary>Transfusions started at the bedside and not yet completed at handoff.</summary>
+    public int TransfusionsRunning { get; set; }
+
+    /// <summary>Of those, how many are past the facility completion reminder hours.</summary>
+    public int TransfusionsCompletionOverdue { get; set; }
+
+    /// <summary>Emergency or MTP issues whose retrospective crossmatch came back incompatible and are still open.</summary>
+    public int RetrospectiveIncompatible { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

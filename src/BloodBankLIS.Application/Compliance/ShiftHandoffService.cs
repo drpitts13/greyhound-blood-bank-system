@@ -29,7 +29,10 @@ public sealed record ShiftHandoffDto(
     int FatalityFollowUpDue,
     string? AcknowledgedBy,
     DateTime? AcknowledgedUtc,
-    int ActiveMtp = 0)
+    int ActiveMtp = 0,
+    int TransfusionsRunning = 0,
+    int TransfusionsCompletionOverdue = 0,
+    int RetrospectiveIncompatible = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -37,7 +40,8 @@ public sealed record ShiftHandoffDto(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
         h.RetrospectiveDue, h.RetrospectiveOverdue, h.OutstandingIssued,
         h.InTransit, h.InTransitOverdue, h.PendingTests, h.PendingSpecimens,
-        h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc, h.ActiveMtp);
+        h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc, h.ActiveMtp,
+        h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible);
 }
 
 /// <summary>
@@ -179,7 +183,10 @@ public sealed class ShiftHandoffService
             FatalityFollowUpDue = OpenReactionInvestigationRule.CountFatalityFollowUpDue(reactions),
             ActiveMtp = _mtpActivations is null
                 ? 0
-                : (await _mtpActivations.ListAsync(a => a.Status == MtpActivationStatus.Active, ct)).Count
+                : (await _mtpActivations.ListAsync(a => a.Status == MtpActivationStatus.Active, ct)).Count,
+            TransfusionsRunning = outstanding.Count(o => o.TransfusionStartedUtc is not null),
+            TransfusionsCompletionOverdue = outstanding.Count(o => o.TransfusionCompletionOverdue),
+            RetrospectiveIncompatible = retro.Count(r => r.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -243,7 +250,10 @@ public sealed class ShiftHandoffService
         row.PendingSpecimens,
         row.OpenReactions,
         row.FatalityFollowUpDue,
-        row.ActiveMtp
+        row.ActiveMtp,
+        row.TransfusionsRunning,
+        row.TransfusionsCompletionOverdue,
+        row.RetrospectiveIncompatible
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
