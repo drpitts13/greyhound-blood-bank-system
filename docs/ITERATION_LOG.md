@@ -9516,3 +9516,56 @@ No change since Cycle 309 other than the results row. This cycle audits result e
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: delta checks between the new ABO/Rh and the historical type at entry (before verification), shown to the verifier.
+
+## Iteration 311 — Second ABO/Rh determination from a separate specimen (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 310 other than the results row.
+
+### Ruled out
+
+The planned next item, a delta check between a new ABO/Rh and the historical type, already exists:
+- `AboRhDeltaRule` runs at verification, with an override controlled through the exception catalog
+- `TestWorklistService` already shows the mismatch on worklist rows
+
+Nothing was rebuilt.
+
+### Finding (question 6, critical)
+
+`SecondAboDeterminationRule.HasSecondConcordant` accepted any earlier concordant type as the second determination, including one tested on the same specimen. A repeat ABO/Rh on a wrong-blood-in-tube specimen would confirm itself and unlock routine red-cell issue and electronic crossmatch. The facility policy already describes the requirement as "historical or second-sample type"; the implementation did not enforce the separate sample.
+
+### Design
+
+- `PatientBloodTypeHistory.SpecimenId`: set when a type is recorded from a verified result. Older rows are backfilled from their source result (migration `20261103220000_BloodTypeSpecimen`, plus the dev bootstrap).
+- `HasSecondConcordant` counts a historical type only when it is not from the same specimen as the current one. Rows with no known specimen (manual or historical types) still count.
+- The issue hard stop and the chart notice now say "separate specimens".
+- Every caller goes through `FromHistory`, so issue, ready to issue, worklists, allocation, and electronic crossmatch all follow.
+
+### Found by the run check
+
+The first version ran the backfill before the bootstrap added the new column. The development API failed to start with "no such column: SpecimenId". Tests use EnsureCreated and could not see this. The backfill now runs after the additive columns, and the API starts.
+
+### Requirements / risk
+
+- URS-BB-458, FRS-BB-494, SRS-BB-444, RISK-BB-559.
+
+### Tests
+
+- TEST-BB-353:
+  - rule: the same specimen does not count, a different specimen counts, an unknown specimen counts, and the issue message wording
+  - integration:
+    - two verified B Positive results on one tube are not two determinations, and a second tube makes it two
+    - each row records its specimen
+    - the backfill SQL fills a row on SQLite
+- The chart-notice wording test was updated to the new message.
+- Full suite: 3,423 passed, 0 failed (previously 3,417).
+- Run check (development API):
+  - the API started after the fix
+  - the dev database has no blood-type rows from test results, so the backfill filled nothing and there are no same-specimen pairs
+  - no server errors
+- SQL Server: the backfill SQL is standard (correlated UPDATE) but was not run there.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.

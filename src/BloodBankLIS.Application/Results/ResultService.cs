@@ -1124,6 +1124,7 @@ public sealed class ResultService
             AboSubgroup = SpecialRequirementCatalog.DefaultSubgroup(aboRh.Abo),
             Source = BloodTypeSource.TestResult,
             SourceResultId = result.Id,
+            SpecimenId = result.SpecimenId,
             IsCurrent = true
         }, ct);
     }

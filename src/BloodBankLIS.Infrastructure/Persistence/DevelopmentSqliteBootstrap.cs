@@ -29,6 +29,7 @@ public static class DevelopmentSqliteBootstrap
         ("Overrides", "ReviewedUtc", """ALTER TABLE "Overrides" ADD COLUMN "ReviewedUtc" TEXT NULL"""),
         ("Overrides", "ReviewNote", """ALTER TABLE "Overrides" ADD COLUMN "ReviewNote" TEXT NULL"""),
         ("PatientBloodTypeHistory", "InvalidatedUtc", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "InvalidatedUtc" TEXT NULL"""),
+        ("PatientBloodTypeHistory", "SpecimenId", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "SpecimenId" INTEGER NULL"""),
         ("Specimens", "RejectionReasonCode", """ALTER TABLE "Specimens" ADD COLUMN "RejectionReasonCode" TEXT NULL"""),
         ("Specimens", "RejectedUtc", """ALTER TABLE "Specimens" ADD COLUMN "RejectedUtc" TEXT NULL"""),
         ("Specimens", "RejectedBy", """ALTER TABLE "Specimens" ADD COLUMN "RejectedBy" TEXT NULL"""),
@@ -228,6 +229,9 @@ public static class DevelopmentSqliteBootstrap
         {
             await ApplyAdditiveColumnsAsync(context, logger, cancellationToken);
         }
+
+        // After the additive columns, so SpecimenId exists on upgraded databases (idempotent).
+        await context.Database.ExecuteSqlRawAsync(BloodTypeSpecimenBackfill.Sql, cancellationToken);
 
         logger.LogInformation(
             recreate || created

@@ -463,3 +463,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-455 | A tube arriving in the blood bank can be received by scanning its accession or label barcode, so the tube in hand is the one received, without picking a row. | P2 | FRS-BB-491 |
 | URS-BB-456 | A received tube can be accepted by scanning it, as a deliberate mode, and the pending list shows how long each tube took from draw to receipt or has been waiting since draw. | P3 | FRS-BB-492 |
 | URS-BB-457 | Correcting a verified ABO/Rh result takes the blood type recorded from it out of use at once; the corrected type applies only once the correction is verified. | P1 | FRS-BB-493 |
+| URS-BB-458 | The second ABO/Rh determination required before red-cell issue and for electronic crossmatch comes from a separate specimen; a repeat test of the same tube does not count. | P1 | FRS-BB-494 |

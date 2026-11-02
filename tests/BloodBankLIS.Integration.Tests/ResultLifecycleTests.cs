@@ -223,6 +223,44 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
             await verify.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync())));
     }
 
+    // TEST-BB-353: a second ABO/Rh determination must come from a separate specimen.
+    [Fact]
+    public async Task SameSpecimenRetest_IsNotASecondDetermination_ButASecondTubeIs()
+    {
+        var patientId = await EnsurePatientAsync("MRN-2ND-TUBE");
+        var first = await AccessionAsync("ACC-2ND-TUBE-A", patientId);
+        await VerifiedAboRhAsync(first, AboGroup.B, RhType.Positive);
+        await VerifiedAboRhAsync(first, AboGroup.B, RhType.Positive);
+
+        await using (var verify = _factory.Create())
+        {
+            var history = await verify.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync();
+            Assert.Equal(2, history.Count);
+            Assert.All(history, h => Assert.Equal(first, h.SpecimenId));
+            Assert.False(SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(history)));
+        }
+
+        var second = await AccessionAsync("ACC-2ND-TUBE-B", patientId);
+        await VerifiedAboRhAsync(second, AboGroup.B, RhType.Positive);
+        await using var again = _factory.Create();
+        var all = await again.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync();
+        Assert.True(SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(all)));
+    }
+
+    [Fact]
+    public async Task Backfill_FillsTheSpecimenFromTheSourceResult()
+    {
+        var patientId = await EnsurePatientAsync("MRN-2ND-FILL");
+        var specimenId = await AccessionAsync("ACC-2ND-FILL", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.A, RhType.Negative);
+        await using var c = _factory.Create();
+        await c.PatientBloodTypeHistory.Where(h => h.SourceResultId == resultId)
+            .ExecuteUpdateAsync(u => u.SetProperty(h => h.SpecimenId, (long?)null));
+
+        await c.Database.ExecuteSqlRawAsync(BloodTypeSpecimenBackfill.Sql);
+        Assert.Equal(specimenId, (await c.PatientBloodTypeHistory.AsNoTracking().SingleAsync(h => h.SourceResultId == resultId)).SpecimenId);
+    }
+
     [Fact]
     public async Task InvalidatedType_IsNotASecondConcordantDetermination()
     {

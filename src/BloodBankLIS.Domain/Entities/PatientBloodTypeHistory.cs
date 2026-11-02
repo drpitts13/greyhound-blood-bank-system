@@ -25,6 +25,12 @@ public class PatientBloodTypeHistory : BaseEntity
 
     public long? SourceResultId { get; set; }
 
+    /// <summary>
+    /// The specimen the source result was tested on. Two determinations from the same specimen are not two
+    /// determinations: a mislabeled tube would confirm itself. Null for manual or historical types.
+    /// </summary>
+    public long? SpecimenId { get; set; }
+
     public bool IsCurrent { get; set; }
 
     /// <summary>Required for manual edits (a dangerous action; see docs/safety-rules.md).</summary>
