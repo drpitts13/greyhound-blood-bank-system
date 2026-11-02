@@ -1138,12 +1138,18 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([label]));
         }
 
+        var stock = await StockStatusAsync(unit, ct);
         unit.QuarantineReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.Unspecified;
         var reason = string.IsNullOrWhiteSpace(secondVerifier)
             ? "Released from quarantine"
             : $"Released from quarantine; second verifier {secondVerifier.Trim()}";
-        var changed = await ChangeStatusAsync(unit, UnitStatus.Available, reason, ct);
+        if (stock == UnitStatus.Received)
+        {
+            reason = $"{reason} ({RetypeStockStatus.PendingReason})";
+        }
+
+        var changed = await ChangeStatusAsync(unit, stock, reason, ct);
         if (!changed.Succeeded)
         {
             return changed;
@@ -1159,6 +1165,7 @@ public sealed class InventoryService
                 unit.UnitNumber,
                 unit.Status,
                 Path = "QuarantineRelease",
+                RetypePending = stock == UnitStatus.Received,
                 SecondVerifier = string.IsNullOrWhiteSpace(secondVerifier) ? null : secondVerifier.Trim(),
                 ModificationLabelScan = isModificationResult ? unit.UnitNumber : null
             },
@@ -1348,7 +1355,11 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Only a unit on operational hold can be released from hold.");
 
         unit.HoldReason = null;
-        var changed = await ChangeStatusAsync(unit, UnitStatus.Available, "Released from operational hold", ct);
+        var stock = await StockStatusAsync(unit, ct);
+        var changed = await ChangeStatusAsync(unit, stock,
+            stock == UnitStatus.Received
+                ? $"Released from operational hold ({RetypeStockStatus.PendingReason})"
+                : "Released from operational hold", ct);
         if (!changed.Succeeded)
         {
             return changed;
@@ -1911,6 +1922,19 @@ public sealed class InventoryService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.OkSweep(expired);
+    }
+
+    /// <summary>Available, or Received when the product requires a retype that is not yet confirmed.</summary>
+    private async Task<UnitStatus> StockStatusAsync(BloodUnit unit, CancellationToken ct)
+    {
+        var product = unit.ProductType ?? await _repository.GetProductTypeAsync(unit.ProductTypeId, ct);
+        if (product?.RequiresRetype != true)
+        {
+            return UnitStatus.Available;
+        }
+
+        var confirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypeResults, product, unit.Id, ct);
+        return RetypeStockStatus.ForStock(requiresRetype: true, confirmed);
     }
 
     private async Task<InventoryActionResult> ChangeStatusAsync(BloodUnit unit, UnitStatus toStatus, string reason, CancellationToken ct)

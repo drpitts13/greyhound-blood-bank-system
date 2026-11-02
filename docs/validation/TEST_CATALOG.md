@@ -331,5 +331,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-320 | I | `FhirReadServiceTests` | URS-BB-429 / FRS-BB-464 / RISK-BB-531 |
 | TEST-BB-321 | D / I | `IssueGateTests.Emergency_*`, `NonEmergency_AboConflict_UsesTheOrdinaryHardStop`; `Phase4IssuingTests.EmergencyRelease_RedCellsConflictingWithEstablishedType_AreRefused_EvenWithOverride`, `EmergencyRelease_GroupORedCells_ForEstablishedGroupA_StillIssueWithOverride`; `IssueGateSafetyRegressionTests.Emergency_GroupARedCells_ForEstablishedGroupO_IsHardStopped` | URS-BB-430 / FRS-BB-465 / RISK-BB-532 |
 | TEST-BB-322 | D | `RequestReadErrorTests` | URS-BB-431 / FRS-BB-466 / RISK-BB-533 |
+| TEST-BB-323 | D / I | `RetypeStockStatusTests`; `IssueGateTests.VerifiedRetypeMismatch_IsHardStopped_OnAnyIssueType`, `NoRetypeMismatch_Passes`; `Phase4IssuingTests.Return_OfUnretypedEmergencyUnit_GoesBackToReceived_ForRetype`, `Return_OfRetypedUnit_StillGoesToAvailable`, `EmergencyRelease_OfUnitWithVerifiedRetypeMismatch_IsHardStopped`; `InventoryServiceTests.QuarantineRelease_RespectsPendingRetype`, `HoldRelease_RespectsPendingRetype` | URS-BB-432 / FRS-BB-467 / RISK-BB-534 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -18,6 +18,85 @@ namespace BloodBankLIS.Integration.Tests;
 
 public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 {
+    private async Task<long> SeedRetypeUnitAsync(string key, UnitStatus status, bool retypeVerified)
+    {
+        await EnsureSecondVerifierAsync();
+        await using var c = _factory.Create();
+        var product = new ProductType
+        {
+            ProductCode = $"RBC-{key}", Name = "Retype RBC", ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true, RequiresRetype = true
+        };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = status,
+            QuarantineReasonCode = status == UnitStatus.Quarantine ? UnitQuarantineReason.SupervisorReview : UnitQuarantineReason.Unspecified,
+            QuarantineReason = status == UnitStatus.Quarantine ? "Supervisor review" : null,
+            HoldReason = status == UnitStatus.OnHold ? "Paperwork" : null
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        if (retypeVerified)
+        {
+            var test = new TestDefinition
+            {
+                Code = $"RT-{key}", Name = "Product retype", Category = TestCategory.AboRhRetype,
+                ResultValueType = ResultValueType.AboRh, IsActive = true, IsDraft = false, Version = 1
+            };
+            c.TestDefinitions.Add(test);
+            await c.SaveChangesAsync();
+            c.ProductRetypeResults.Add(new ProductRetypeResult
+            {
+                BloodProductId = unit.Id, TestDefinitionId = test.Id, TestCode = test.Code, Value = "O|Positive",
+                InterpretedAbo = AboGroup.O, InterpretedRh = RhType.Positive, MatchesLabel = true,
+                Status = ResultStatus.Verified, EnteredBy = "tech1", EnteredUtc = _factory.Clock.UtcNow,
+                VerifiedBy = "tech2", VerifiedUtc = _factory.Clock.UtcNow
+            });
+            await c.SaveChangesAsync();
+        }
+
+        return unit.Id;
+    }
+
+    // TEST-BB-323: a retype-required unit with no confirmed retype goes back to Received, where it can be retyped.
+    [Theory]
+    [InlineData(false, UnitStatus.Received)]
+    [InlineData(true, UnitStatus.Available)]
+    public async Task QuarantineRelease_RespectsPendingRetype(bool retypeVerified, UnitStatus expected)
+    {
+        var unitId = await SeedRetypeUnitAsync($"QREL-RT-{retypeVerified}", UnitStatus.Quarantine, retypeVerified);
+        await using var c = _factory.Create();
+
+        var released = await CreateService(c).ReleaseFromQuarantineAsync(unitId, "tech2");
+
+        Assert.True(released.Succeeded, released.Error);
+        Assert.Equal(expected, released.Unit!.Status);
+        var pending = await new InventoryRepository(c).ListPendingRetypeAsync();
+        Assert.Equal(expected == UnitStatus.Received, pending.Any(u => u.Id == unitId));
+        if (expected == UnitStatus.Received)
+        {
+            var last = await c.InventoryStatusHistory.Where(h => h.BloodProductId == unitId).OrderByDescending(h => h.Id).FirstAsync();
+            Assert.Contains(RetypeStockStatus.PendingReason, last.Reason);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, UnitStatus.Received)]
+    [InlineData(true, UnitStatus.Available)]
+    public async Task HoldRelease_RespectsPendingRetype(bool retypeVerified, UnitStatus expected)
+    {
+        var unitId = await SeedRetypeUnitAsync($"HREL-RT-{retypeVerified}", UnitStatus.OnHold, retypeVerified);
+        await using var c = _factory.Create();
+
+        var released = await CreateService(c).ReleaseFromHoldAsync(unitId);
+
+        Assert.True(released.Succeeded, released.Error);
+        Assert.Equal(expected, released.Unit!.Status);
+    }
+
     private readonly SqliteContextFactory _factory;
 
     public InventoryServiceTests(SqliteContextFactory factory) => _factory = factory;

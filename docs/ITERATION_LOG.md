@@ -8042,3 +8042,59 @@ No change since Cycle 277. The remaining Partial rows still wait on a license or
 ### Next ranked residual
 
 FHIR endpoints should answer an unreadable search the FHIR way (OperationOutcome) rather than problem+json; this is minor because they take no body. Next safety audit: MTP packs, then return and reissue.
+
+## Iteration 279 — Units come back to stock through retype; mislabeled units never leave (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 278. This cycle continues the safety audit ranked there: massive transfusion, then return and reissue.
+
+### Findings
+
+1. **Unretyped units stranded as "Available".**
+   - An emergency or MTP release may issue a unit that is still Received, before its ABO/Rh retype.
+   - When that unit came back unused and passed inspection, the return sent it to Available.
+   - Retype can be recorded only while a unit is Received, and the retype worklist lists only Received units. The unit could therefore never be retyped. It counted as available stock, yet allocation and routine issue refused it. The only way out was another emergency release, still unretyped.
+   - Quarantine release and operational-hold release did the same, for example after an automatic temperature quarantine of a Received unit.
+2. **Known mislabeled unit could be emergency-released.**
+   - A verified retype that disagrees with the label quarantines the unit. After a quarantine release it was Available.
+   - The issue gate saw only "retype not confirmed", which emergency release downgrades to an overridable warning. A unit proven to carry the wrong ABO/Rh label could therefore leave uncrossmatched with an override.
+
+### Design
+
+- `RetypeStockStatus.ForStock`: a retype-required unit with no verified matching retype goes back to Received; otherwise it goes to Available. Applied at return (only when the destination would be Available), quarantine release, and hold release.
+- Status transitions Returned, Quarantine, and OnHold to Received are now allowed. Issued to Received is still refused.
+- The status history reason adds "ABO/Rh retype not yet confirmed; back to Received for retype". The return evaluation and the audit record `RetypePending`. The release and hold audits do too.
+- The Return, quarantine release, and hold release screens now say the unit went back to Received and that the retype must be recorded before allocation or issue.
+- `ISS-RETYPE-MISMATCH`: when the latest verified retype disagrees with the label, it is a hard stop on every issue type. It sits outside the emergency conversion: "not yet retyped" may be overridden, "retyped and wrong" may not.
+- No clinical rule was invented. Both changes enforce the existing retype requirement. No schema change.
+
+### Seven questions (return and reissue)
+
+- Information to remember: the user had to know that a returned emergency unit still needed a retype. Now the system infers it from the retype record and says so.
+- Safety risk: both findings could lead to a wrong-type unit leaving the blood bank. Both are closed.
+- Override control: the mismatch is not overridable; "not yet retyped" stays overridable only for emergency, as before.
+
+### Requirements / risk
+
+- URS-BB-432, FRS-BB-467, SRS-BB-429, RISK-BB-534. Help: issuing and inventory pages.
+
+### Tests
+
+- TEST-BB-323:
+  - `RetypeStockStatusTests`: the decision table and the new transitions; issued to received is still refused
+  - `IssueGateTests`: a mismatch is a hard stop for routine and emergency issue; no mismatch passes
+  - `Phase4IssuingTests`:
+    - an unretyped emergency unit returned with acceptable inspection goes to Received and is back on the retype worklist; the history reason, the return evaluation, the audit, and `ReturnDto.RetypePending` all say so
+    - a retyped unit still returns to Available
+    - emergency release of a unit with a verified mismatch is a hard stop and the unit stays put
+  - `InventoryServiceTests`: quarantine release and hold release go to Received without a retype and to Available with one
+- Full suite: 3,171 passed, 0 failed (previously 3,152). Domain 1,779, Integration 1,156, Application 104, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API and Web, DevMode):
+  - the Inventory and Issue & Transfuse pages render with the changed code and no server errors
+  - no unit was returned or released, to leave the development data unchanged, so the new messages were not seen on screen
+  - the behavior is covered by the integration tests above
+
+### Next ranked residual
+
+Massive transfusion protocol: check MTP pack issue for ratio guidance, cooler tracking, and that every unit in a pack passes the same gate. Then reaction investigation.

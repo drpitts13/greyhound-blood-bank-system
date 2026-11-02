@@ -432,3 +432,4 @@
 | SRS-BB-426 | `GET /fhir/metadata`, `/fhir/{Patient,Observation,Flag,ServiceRequest,BiologicallyDerivedProduct}` read and search, content type `application/fhir+json`, authenticated users only, no write routes. JSON built with System.Text.Json; no new package. No schema change. | FRS-BB-464 |
 | SRS-BB-427 | Red-cell direction only: whole blood is judged on its red cells so low-titer group O whole blood stays overridable. No schema, API, or configuration change. | FRS-BB-465 |
 | SRS-BB-428 | `RouteHandlerOptions.ThrowOnBadRequest = true` in all environments so `BadHttpRequestException` reaches the single exception handler. The Web client already shows `detail`. No schema change. | FRS-BB-466 |
+| SRS-BB-429 | Status transitions Returned, Quarantine, and OnHold to Received are allowed. `ReturnDto.RetypePending` derives from the stored return evaluation. No schema change. | FRS-BB-467 |

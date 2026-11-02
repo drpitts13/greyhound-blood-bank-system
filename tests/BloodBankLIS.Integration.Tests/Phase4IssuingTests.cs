@@ -799,6 +799,103 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(allocated.Evaluation.HardStops, r => r.Code == AboCompatibilityRule.AboCode);
     }
 
+    private async Task AddVerifiedRetypeAsync(long unitId, string key, bool matchesLabel)
+    {
+        await using var c = _factory.Create();
+        var test = new TestDefinition
+        {
+            Code = $"RETYPE-{key}", Name = "Product retype", Category = TestCategory.AboRhRetype,
+            ResultValueType = ResultValueType.AboRh, IsActive = true, IsDraft = false, Version = 1
+        };
+        c.TestDefinitions.Add(test);
+        await c.SaveChangesAsync();
+        c.ProductRetypeResults.Add(new ProductRetypeResult
+        {
+            BloodProductId = unitId, TestDefinitionId = test.Id, TestCode = test.Code,
+            Value = matchesLabel ? "O|Positive" : "A|Positive",
+            InterpretedAbo = matchesLabel ? AboGroup.O : AboGroup.A, InterpretedRh = RhType.Positive,
+            MatchesLabel = matchesLabel, DiscrepancyDetail = matchesLabel ? null : "Labeled O Positive; interpreted A Positive.",
+            Status = ResultStatus.Verified, EnteredBy = "tech1", EnteredUtc = _factory.Clock.UtcNow,
+            VerifiedBy = "tech2", VerifiedUtc = _factory.Clock.UtcNow
+        });
+        await c.SaveChangesAsync();
+    }
+
+    // TEST-BB-323: an emergency-released unit that was never retyped goes back to Received, not Available, on return.
+    [Fact]
+    public async Task Return_OfUnretypedEmergencyUnit_GoesBackToReceived_ForRetype()
+    {
+        var s = await SeedAsync("RET-UNRETYPED", requiresRetype: true, unitStatus: UnitStatus.Received);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease, overrideReason: "Emergency before retype", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = issued.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed; cooler intact", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            Assert.Contains("\"RetypePending\":true", returned.Value!.ReissueEvaluationJson);
+            Assert.True(ReturnDto.From(returned.Value).RetypePending);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Received, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var last = await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).OrderByDescending(h => h.Id).FirstAsync();
+        Assert.Equal(UnitStatus.Received, last.ToStatus);
+        Assert.Contains(RetypeStockStatus.PendingReason, last.Reason);
+        Assert.Contains(await new InventoryRepository(verify).ListPendingRetypeAsync(), u => u.Id == s.UnitId);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Return && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains("\"RetypePending\":true")));
+    }
+
+    [Fact]
+    public async Task Return_OfRetypedUnit_StillGoesToAvailable()
+    {
+        var s = await SeedAsync("RET-RETYPED", requiresRetype: true, unitStatus: UnitStatus.Available);
+        await AddVerifiedRetypeAsync(s.UnitId, "RET-RETYPED", matchesLabel: true);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease, overrideReason: "Emergency", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = issued.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    // TEST-BB-323: a unit whose verified retype disagrees with its label cannot leave on any issue type.
+    [Fact]
+    public async Task EmergencyRelease_OfUnitWithVerifiedRetypeMismatch_IsHardStopped()
+    {
+        var s = await SeedAsync("RET-MISMATCH", requiresRetype: true, unitStatus: UnitStatus.Received);
+        await AddVerifiedRetypeAsync(s.UnitId, "RET-MISMATCH", matchesLabel: false);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Emergency", authorizedBy: "dr-authorizer"));
+
+        Assert.False(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == IssueGate.UnitRetypeMismatchCode);
+        Assert.Equal(UnitStatus.Received, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
     // TEST-BB-321: emergency override cannot release red cells that conflict with an established ABO group.
     [Fact]
     public async Task EmergencyRelease_RedCellsConflictingWithEstablishedType_AreRefused_EvenWithOverride()

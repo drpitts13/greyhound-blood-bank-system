@@ -60,11 +60,11 @@ You still need a current specimen for the patient, an in-date unit, acceptable a
 
 ## Return
 
-**Return** on an issued row opens the Return board for a unit that came back unused. Record temperature, seal, and appearance. A unit that fails those checks does not go back to available stock. The issued-units board shows whether the storage device is governed. A governed device cannot return to available stock after the facility window, which ships at 30 minutes. Saying the time out was acceptable does not change that. An exempt device does not fail the window. Reissue follows the return rules on the product. Do not document a transfusion for a unit you are returning, and do not return a unit that was transfused.
+**Return** on an issued row opens the Return board for a unit that came back unused. Record temperature, seal, and appearance. A unit that fails those checks does not go back to available stock. The issued-units board shows whether the storage device is governed. A governed device cannot return to available stock after the facility window, which ships at 30 minutes. Saying the time out was acceptable does not change that. An exempt device does not fail the window. Reissue follows the return rules on the product. A unit that left on an emergency release before its ABO/Rh retype goes back to **Received**, not available stock: record the retype on the Retype board before it can be allocated or issued. Do not document a transfusion for a unit you are returning, and do not return a unit that was transfused.
 
 ## What the gate will not do
 
-The gate will not issue the losing chart of a merged patient, a unit allocated to someone else, an autologous or directed unit to the wrong patient, a unit that fails appearance, or a unit that does not meet an enforced special requirement. Fix the record or choose another unit. See [Safety checks](safety) for the list you will see most often.
+The gate will not issue a unit whose verified retype does not match its label (even for emergency release), the losing chart of a merged patient, a unit allocated to someone else, an autologous or directed unit to the wrong patient, a unit that fails appearance, or a unit that does not meet an enforced special requirement. Fix the record or choose another unit. See [Safety checks](safety) for the list you will see most often.
 
 ## Return inspection
 

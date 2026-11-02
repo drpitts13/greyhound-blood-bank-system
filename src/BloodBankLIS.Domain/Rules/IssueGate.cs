@@ -132,6 +132,9 @@ public sealed record IssueGateContext
     /// Products that do not require retype are confirmed.
     /// </summary>
     public bool RetypeConfirmed { get; init; } = true;
+
+    /// <summary>The latest verified product retype disagrees with the label: a known mislabeled unit.</summary>
+    public bool UnitRetypeMismatch { get; init; }
 }
 
 /// <summary>
@@ -153,6 +156,7 @@ public static class IssueGate
     public const string SpecialReqCode = "ISS-SPECIAL-REQ";
     public const string AboRhDiscrepancyCode = "ISS-ABORH-DISCREPANCY";
     public const string VisualInspectionCode = "ISS-VISUAL";
+    public const string UnitRetypeMismatchCode = "ISS-RETYPE-MISMATCH";
 
     private static readonly UnitStatus[] IssuableStatuses =
     {
@@ -199,6 +203,12 @@ public static class IssueGate
                 : RuleResult.HardStop(AllocationCode, "Unit is not allocated/reserved to this patient."),
 
             ProductRetypeAllocationRule.EvaluateForIssue(c.RetypeConfirmed, c.IsEmergencyRelease),
+
+            // Never converted for emergency: "not yet retyped" may be overridden, "retyped and wrong" may not.
+            c.UnitRetypeMismatch
+                ? RuleResult.HardStop(UnitRetypeMismatchCode,
+                    "This unit's verified ABO/Rh retype does not match its label. It cannot be issued, even for emergency release, until the discrepancy is resolved.")
+                : RuleResult.Pass(UnitRetypeMismatchCode),
 
             CrossmatchValidityRule.Evaluate(
                 RequiresCrossmatchEffective(c),

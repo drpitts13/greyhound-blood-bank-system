@@ -253,6 +253,7 @@ public sealed class IssuingService
         var exmEligible = facilityAllowsExm && await IsElectronicCrossmatchEligibleAsync(request.PatientId, ct);
         var issueType = ResolveIssueType(request.IssueType, location, exmEligible, hasValidCrossmatch);
         var retypeConfirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypes, productType, unit.Id, ct);
+        var retypeMismatch = await ProductRetypeConfirmation.HasVerifiedMismatchAsync(_retypes, unit.Id, ct);
         var nearExpiryHours = await _policy.GetNearExpiryWarningHoursAsync(ct);
         var postThawDating = await IsPostThawDatingAsync(unit.Id, unit.ExpiresUtc, ct);
         var emergencyUnretyped = issueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion
@@ -274,6 +275,7 @@ public sealed class IssuingService
                 postThawDating, TimeSpan.FromHours(nearExpiryHours)),
             AllocatedToThisPatient = allocation is not null || emergencyUnretyped,
             RetypeConfirmed = retypeConfirmed,
+            UnitRetypeMismatch = retypeMismatch,
             RequiresCrossmatch = productType?.RequiresCrossmatch ?? false,
             HasValidCrossmatch = hasValidCrossmatch,
             HasIncompatibleCrossmatch = hasIncompatibleCrossmatch,
@@ -1180,6 +1182,17 @@ public sealed class IssuingService
             }
         }
 
+        // An emergency release can issue a unit before its retype. Back in stock it goes to Received, not Available,
+        // so the retype worklist lists it again and the retype can still be recorded.
+        var retypePending = false;
+        if (destination == UnitStatus.Available)
+        {
+            var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+            var retypeConfirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypes, productType, unit.Id, ct);
+            destination = RetypeStockStatus.ForStock(productType?.RequiresRetype == true, retypeConfirmed);
+            retypePending = destination == UnitStatus.Received;
+        }
+
         var returnRecord = new Return
         {
             IssueId = issue.Id,
@@ -1198,6 +1211,7 @@ public sealed class IssuingService
                 TimeOutOfStorageAcceptable = timeOk,
                 TimeOutGoverned = governed,
                 CallerTimeOutOfStorageAcceptable = request.TimeOutOfStorageAcceptable,
+                RetypePending = retypePending,
                 destination
             })
         };
@@ -1213,14 +1227,15 @@ public sealed class IssuingService
             unit.QuarantineReasonCode = UnitQuarantineReason.FailedReturnInspection;
         }
 
-        AppendStatus(unit, destination, request.Reason, now, nameof(Return), issue.Id);
+        AppendStatus(unit, destination, retypePending ? $"{request.Reason} ({RetypeStockStatus.PendingReason})" : request.Reason,
+            now, nameof(Return), issue.Id);
 
         _audit.Record(
             AuditEventType.Return,
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = destination, ReissueEligible = reissueOk },
+            newValue: new { Status = destination, ReissueEligible = reissueOk, RetypePending = retypePending },
             reason: request.Reason);
 
         await _unitOfWork.SaveChangesAsync(ct);

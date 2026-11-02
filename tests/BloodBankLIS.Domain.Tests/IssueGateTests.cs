@@ -485,6 +485,30 @@ public class IssueGateTests
         Assert.False(evaluation.IsHardStopped);
     }
 
+    // TEST-BB-323: "retyped and wrong" is never converted to a warning, unlike "not yet retyped".
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VerifiedRetypeMismatch_IsHardStopped_OnAnyIssueType(bool emergency)
+    {
+        var context = PassingContext() with
+        {
+            UnitRetypeMismatch = true,
+            RetypeConfirmed = false,
+            IsEmergencyRelease = emergency,
+            HasValidCrossmatch = !emergency
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.UnitRetypeMismatchCode);
+    }
+
+    [Fact]
+    public void NoRetypeMismatch_Passes()
+    {
+        var evaluation = IssueGate.Evaluate(PassingContext());
+        Assert.DoesNotContain(evaluation.HardStops, r => r.Code == IssueGate.UnitRetypeMismatchCode);
+    }
+
     [Fact]
     public void NonEmergency_AboConflict_UsesTheOrdinaryHardStop()
     {

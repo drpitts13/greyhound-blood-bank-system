@@ -379,10 +379,13 @@ public sealed record ReturnDto(
     DateTime ReturnedUtc,
     string ReturnedBy,
     string Reason,
-    bool ReissueEligible)
+    bool ReissueEligible,
+    // The unit went back to Received because its required retype is not confirmed (RetypeStockStatus).
+    bool RetypePending = false)
 {
     public static ReturnDto From(Return r) => new(
-        r.Id, r.IssueId, r.BloodProductId, r.ReturnedUtc, r.ReturnedBy, r.Reason, r.ReissueEligible);
+        r.Id, r.IssueId, r.BloodProductId, r.ReturnedUtc, r.ReturnedBy, r.Reason, r.ReissueEligible,
+        r.ReissueEvaluationJson?.Contains("\"RetypePending\":true", StringComparison.Ordinal) == true);
 }
 
 public sealed record TransfusionEventDto(

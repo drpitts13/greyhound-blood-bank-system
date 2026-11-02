@@ -1574,7 +1574,9 @@
             _returnSealOk,
             _returnVisualOk,
             Destination: _returnDestination));
-        _returnFb = r.ToFeedback("Unit returned.");
+        _returnFb = r.Succeeded && r.Value is { RetypePending: true }
+            ? Feedback.Succeed("Unit returned. Its ABO/Rh retype is not confirmed yet, so it went back to Received. Record the retype before it can be allocated or issued.")
+            : r.ToFeedback("Unit returned.");
         if (r.Succeeded)
         {
             _lastReturn = r.Value;

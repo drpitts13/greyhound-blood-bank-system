@@ -1052,7 +1052,9 @@
             _releaseSecondVerifier,
             requiresLabelScan ? _releaseScannedUnitNumber : null));
         _busy = false;
-        _actionFb = r.ToFeedback("Unit released from quarantine.");
+        _actionFb = r.Succeeded && r.Value is { Status: UnitStatus.Received }
+            ? Feedback.Succeed("Unit released from quarantine, but its ABO/Rh retype is not confirmed yet, so it went back to Received. Record the retype before it can be allocated or issued.")
+            : r.ToFeedback("Unit released from quarantine.");
         if (r.Succeeded)
         {
             _topFb = _actionFb;
@@ -1068,7 +1070,9 @@
         _busy = true;
         var r = await Api.ReleaseHoldAsync(id);
         _busy = false;
-        _topFb = r.ToFeedback("Unit released from operational hold.");
+        _topFb = r.Succeeded && r.Value is { Status: UnitStatus.Received }
+            ? Feedback.Succeed("Unit released from operational hold, but its ABO/Rh retype is not confirmed yet, so it went back to Received. Record the retype before it can be allocated or issued.")
+            : r.ToFeedback("Unit released from operational hold.");
         await Js.ScrollIntoViewAsync("inventory-top-outcome");
         if (r.Succeeded) await ReloadBoardsAsync();
     }

@@ -437,3 +437,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-429 | The EHR can read a patient's current blood type, antibodies, transfusion requirements, orders, and blood product status from the LIS without being able to change them, and every such read is traceable. | P8 | FRS-BB-464 |
 | URS-BB-430 | An emergency release can never send red cells that are ABO-incompatible with a patient's established blood group, whatever override is entered. | P1 | FRS-BB-465 |
 | URS-BB-431 | When a screen or interface sends a request the system cannot read, the user or interface team is told in plain words which value was wrong, and nothing internal is revealed. | P6 | FRS-BB-466 |
+| URS-BB-432 | A unit that still needs its ABO/Rh retype never reappears as available stock without that retype, and a unit whose retype proved its label wrong cannot be issued at all. | P1 | FRS-BB-467 |
