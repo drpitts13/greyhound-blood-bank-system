@@ -88,6 +88,7 @@ public static partial class DatabaseSeeder
         await SeedDemoClinicalDataAsync(context, cancellationToken);
         await EnsureIsbtPermissionsAsync(context, cancellationToken);
         await EnsureEmergencyReleasePermissionGrantAsync(context, cancellationToken);
+        await EnsureOverrideApproveSupervisorGrantAsync(context, cancellationToken);
         await SeedIsbt128LookupsAsync(context, cancellationToken);
         await EnsureCompatibilityRuleCatalogAsync(context, cancellationToken);
         await SeedInstrumentInterfacesAsync(context, cancellationToken);
@@ -178,6 +179,42 @@ public static partial class DatabaseSeeder
             }
         }
 
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Marks that the one-time Supervisor grant of <c>override.approve</c> has run.</summary>
+    internal const string OverrideApproveSupervisorGrantKey = "Seed.OverrideApproveSupervisorGrant";
+
+    /// <summary>
+    /// Product owner decision (2026-11-02): Supervisors review overrides (<c>override.approve</c>). Granted once on
+    /// existing databases; the marker keeps a later administrator removal from being undone at the next start.
+    /// </summary>
+    private static async Task EnsureOverrideApproveSupervisorGrantAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == OverrideApproveSupervisorGrantKey, ct))
+        {
+            return;
+        }
+
+        var perm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == PermissionCodes.OverrideApprove, ct);
+        var supervisor = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Supervisor", ct);
+        if (perm is null || supervisor is null)
+        {
+            return;
+        }
+
+        if (!await context.RolePermissions.AnyAsync(rp => rp.RoleId == supervisor.Id && rp.PermissionId == perm.Id, ct))
+        {
+            context.RolePermissions.Add(new RolePermission { RoleId = supervisor.Id, PermissionId = perm.Id });
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = OverrideApproveSupervisorGrantKey,
+            Value = "done",
+            Category = "System",
+            Description = "One-time grant of override.approve to Supervisor has run. Removing the permission from the role afterwards is kept."
+        });
         await context.SaveChangesAsync(ct);
     }
 
@@ -970,6 +1007,7 @@ public static partial class DatabaseSeeder
             PermissionCodes.InventoryDiscard,
             PermissionCodes.IssueOverride,
             PermissionCodes.IssueEmergencyRelease,
+            PermissionCodes.OverrideApprove,
             PermissionCodes.PatientMerge,
             PermissionCodes.PrintReprint,
             PermissionCodes.BillingCancel, PermissionCodes.BillingExport,

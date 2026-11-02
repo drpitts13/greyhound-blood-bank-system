@@ -8861,3 +8861,28 @@ An override made while issuing under a massive transfusion protocol was recorded
 ### Next ranked residual
 
 The iteration 292 audit findings are now closed. Pending product decisions: `override.approve` holders, downtime back-entry, OCD-046, and whether an authorizer outside the directory should be refused. Next engineering candidate: re-audit return and reissue against the seven workflow questions.
+
+## Iteration 295 — Supervisors review overrides (2026-11-02)
+
+### Decision
+
+The product owner decided that Supervisors hold `override.approve` (OCD-047). Until now only Administrator and Dev Admin had it on a new install, so in practice the supervisor queue's override review was reachable only by administrators.
+
+### Change
+
+- `override.approve` is added to the Supervisor role for new installs.
+- `EnsureOverrideApproveSupervisorGrantAsync` grants it once on existing databases.
+  - It records the marker setting `Seed.OverrideApproveSupervisorGrant`, so an administrator who later removes the permission from the role is not overridden at the next start.
+  - The marker is not a facility policy and does not appear on the policy page.
+- `override.approve` is MFA-privileged. Nothing changes at sign-in while both MFA settings stay at their default (off). If the facility turns on "Require MFA for privileged users", Supervisors must enroll an authenticator.
+- Self-review stays refused.
+
+### Tests
+
+- TEST-BB-339: fresh install grants it and records the marker; an older database without the marker is granted once; an administrator removal after the grant is not undone.
+- Full suite: 3,351 passed, 0 failed (previously 3,348).
+- Run check (development API): after startup the dev database shows Supervisor holding `override.approve`, with the marker set.
+
+### Next ranked residual
+
+Re-audit return and reissue against the seven workflow questions. Pending product decisions: downtime back-entry, OCD-046, and whether an authorizer outside the directory should be refused.

@@ -15,7 +15,7 @@ The **Supervisor queue** collects work that a technologist cannot finish alone:
 - Antibody-identification workups waiting for review.
 - Results waiting for verification when you are the verifier.
 - Quarantine releases that require the release permission and, when policy says so, a second verifier.
-- Overrides waiting for review, when you hold the override approval permission (`override.approve`).
+- Overrides waiting for review, when you hold the override approval permission (`override.approve`). The Supervisor role has it by default; your administrator can change that.
 
 Open the row, read the underlying record, and complete the review on that record. The queue is a list. The decision is recorded on the workup, the result, or the unit, not as a checkmark that skips the screen.
 
