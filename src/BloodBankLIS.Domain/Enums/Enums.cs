@@ -477,7 +477,8 @@ public enum TransfusionDisposition
 public enum OverrideAction
 {
     WarningOverride = 0,
-    EmergencyRelease = 1
+    EmergencyRelease = 1,
+    MassiveTransfusion = 2
 }
 
 /// <summary>Second-person review of an override after the fact.</summary>

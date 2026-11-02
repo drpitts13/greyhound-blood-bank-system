@@ -23,7 +23,7 @@ You see the sections your permissions allow. A supervisor who cannot release inv
 
 ## Override review
 
-Every override (an emergency release, or an issue or result that went ahead despite a warning) waits here for a second person. The row shows what was overridden, the rule, the reason, who authorized it, who performed it, and when. **Open** goes to the unit when the override was on an issue.
+Every override (an emergency release, a massive-transfusion release, or an issue or result that went ahead despite a warning) waits here for a second person. The title says which kind it was. The row shows what was overridden, the rule, the reason, who authorized it, who performed it, and when. **Open** goes to the unit when the override was on an issue.
 
 Choose **Review**, then **Acceptable** or **Needs follow-up**. Follow-up needs a note saying what must happen. You cannot review an override you performed or authorized. The review is recorded on the override and in the audit trail; it does not undo anything. Who may review, and how soon, is your facility's policy.
 

@@ -1266,6 +1266,24 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             && a.NewValueJson!.Contains($"\"MtpActivationId\":{activationId}")));
     }
 
+    // TEST-BB-338: an MTP issue's override is recorded as a massive-transfusion release, not a warning override.
+    [Fact]
+    public async Task MassiveTransfusionIssue_RecordsAMassiveTransfusionOverride_AndQueueNamesIt()
+    {
+        var s = await SeedAsync("MTP-ACTION");
+        await AllocateAsync(s);
+        await ActivateMtpAsync(s.PatientId);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.MassiveTransfusion, overrideReason: "MTP: hemorrhage", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.NotNull(issued.Value!.OverrideId);
+
+        var row = await c.Overrides.AsNoTracking().SingleAsync(o => o.Id == issued.Value.OverrideId);
+        Assert.Equal(OverrideAction.MassiveTransfusion, row.Action);
+        Assert.Equal("Massive transfusion release", OverrideActionRule.Describe(row.Action));
+    }
+
     [Fact]
     public async Task EmergencyRelease_DoesNotNeedOrLinkAnActivation()
     {

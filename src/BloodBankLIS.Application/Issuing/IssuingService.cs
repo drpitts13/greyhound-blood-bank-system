@@ -433,7 +433,7 @@ public sealed class IssuingService
 
             authorizedOverride = new Override
             {
-                Action = issueType == IssueType.EmergencyRelease ? OverrideAction.EmergencyRelease : OverrideAction.WarningOverride,
+                Action = OverrideActionRule.ForIssue(issueType),
                 ContextType = nameof(Issue),
                 ContextId = unit.Id,
                 RuleCode = string.Join(",", evaluation.Warnings.Select(r => r.Code)),

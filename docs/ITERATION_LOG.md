@@ -8824,3 +8824,40 @@ No change since Cycle 292 other than the supervisor-queue row.
 ### Next ranked residual
 
 The MTP issue's override is recorded as a warning override rather than an emergency release (iteration 292 lesser finding). Pending product decisions: `override.approve` holders, downtime back-entry, and OCD-046.
+
+## Iteration 294 — MTP overrides recorded as massive-transfusion releases (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 293 other than the supervisor-queue row.
+
+### Finding
+
+An override made while issuing under a massive transfusion protocol was recorded as `WarningOverride`; only an emergency-release issue got `EmergencyRelease`. Second-person review showed MTP releases as ordinary warning overrides, and the overrides report could not count them. Iteration 292 listed this as a lesser finding.
+
+### Design
+
+- `OverrideAction.MassiveTransfusion` (2).
+- `OverrideActionRule.ForIssue` maps the issue type to the action. `OverrideActionRule.Describe` gives the review wording, which the supervisor queue now uses.
+- Migration `20261103200000_OverrideActionMassiveTransfusion` re-installs the report views so `rpt_overrides` names the new value. The dev seeder already refreshes views at startup.
+- Historical rows are not rewritten: changing a recorded action would alter history.
+
+### Requirements / risk
+
+- URS-BB-446, FRS-BB-482, SRS-BB-443, RISK-BB-548. Help: supervisor page.
+
+### Tests
+
+- TEST-BB-338:
+  - the issue-type mapping and wording
+  - a real MTP issue records a `MassiveTransfusion` override
+- Full suite: 3,348 passed, 0 failed (previously 3,341).
+- Run check (development API):
+  - the API started and rebuilt the views
+  - the overrides report ran
+  - a SQL preview grouping `rpt_overrides` by kind returned EmergencyRelease 2 and MassiveTransfusion 4 (the MTP rows are issue rows in the demo data)
+  - no server errors
+
+### Next ranked residual
+
+The iteration 292 audit findings are now closed. Pending product decisions: `override.approve` holders, downtime back-entry, OCD-046, and whether an authorizer outside the directory should be refused. Next engineering candidate: re-audit return and reissue against the seven workflow questions.

@@ -125,7 +125,7 @@ public sealed class SupervisorQueueService
         {
             foreach (var o in await _overrides.ListPendingAsync(ct))
             {
-                var what = o.Action == OverrideAction.EmergencyRelease ? "Emergency release" : "Warning override";
+                var what = OverrideActionRule.Describe(o.Action);
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindOverrideReview,
                     $"{what} — {o.ContextType} {o.ContextId}",
