@@ -78,6 +78,29 @@ a:hover { text-decoration: underline; }
 .bb-nav details.nav-group > summary::after { content: " ▾"; font-size: .7em; }
 .bb-nav details.nav-group:not([open]) > summary::after { content: " ▸"; }
 .bb-nav details.nav-group a { padding-left: 1.15rem; }
+.bb-nav details.nav-section { margin-top: .35rem; }
+.bb-nav details.nav-section > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .55rem .75rem;
+    border-radius: 8px;
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #8f9aab;
+    user-select: none;
+}
+.bb-nav details.nav-section > summary:hover { background: rgba(255,255,255,.04); color: #fff; }
+.bb-nav details.nav-section > summary::-webkit-details-marker { display: none; }
+.bb-nav details.nav-section > summary::after { content: "▸"; font-size: .8em; transition: transform .15s; }
+.bb-nav details.nav-section[open] > summary::after { transform: rotate(90deg); }
+.bb-nav details.nav-section > a,
+.bb-nav details.nav-section > details.nav-group { margin-left: .5rem; }
+.bb-nav .nav-footer { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid rgba(255,255,255,.08); }
 
 .workflow-ribbon {
     display: flex;

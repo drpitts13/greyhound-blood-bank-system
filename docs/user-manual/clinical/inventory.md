@@ -30,6 +30,6 @@ The system moves units that have reached their expiration date to Expired by its
 
 ## Start the next task
 
-**New delivery** starts a shipment from a supplier. **ISBT Receive** and **Modify Products** are in the sidebar under Receive and modify. Open a unit number to see its full chart: status, attributes, history, and the actions that are legal for the state it is in.
+**New delivery** starts a shipment from a supplier. **ISBT Receive** and **Modify Products** are in the sidebar under Inventory. Open a unit number to see its full chart: status, attributes, history, and the actions that are legal for the state it is in.
 
 > Facility policy. Which statuses can move to which other statuses is fixed. If an action is missing, the unit is not in a state that allows it. Do not expect a button for discard, transfer, or release on every row.

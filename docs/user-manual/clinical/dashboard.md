@@ -48,7 +48,7 @@ The page is arranged in this order:
 
 Every queue you can open is still on the page. Focus changes only the order and grouping.
 
-Patients on file, available units, and units in quarantine stay on the next row. Charges waiting for review appear when you can see billing. Use a card or the sidebar to open the queue. The sidebar is the full map: Patient and Lab, Transfusion, Operations, and Administration. **Help** is always present.
+Patients on file, available units, and units in quarantine stay on the next row. Charges waiting for review appear when you can see billing. Use a card or the sidebar to open the queue. The sidebar is the full map, grouped under headers: Patients and Testing, Inventory, Transfusion, Quality and Review, Reports and Billing, Interfaces, and Administration. Click a header to open or fold it. The header for the screen you are on opens by itself. **Help** is always present at the bottom.
 
 ## Your access
 
