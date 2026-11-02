@@ -104,7 +104,7 @@ public class FdaAabbScenarioTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(report.Value.Recipients, r => r.MedicalRecordNumber == "MRN0001");
         Assert.Contains(report.Value.Notifications, n =>
             n.Status == LookbackNotificationStatus.Pending && n.Din == LookbackDin);
-        Assert.Contains(report.Value.Units, u => u.Status == UnitStatus.Issued || u.Status == UnitStatus.Transfused);
+        Assert.Contains(report.Value.Units, u => u.Status is UnitStatus.Issued or UnitStatus.TransfusionStarted or UnitStatus.Transfused);
         Assert.Contains(report.Value.Units, u => u.Status == UnitStatus.Available);
 
         var trace = await Lookback(c).FindByRecipientAsync("MRN0001", null);

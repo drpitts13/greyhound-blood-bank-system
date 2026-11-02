@@ -9084,3 +9084,28 @@ The `transfusion.start` and `transfusion.complete` permissions existed but nothi
 ### Next ranked residual
 
 Fix the demo seed so issue 1 is consistent: either a transfused issue, or an issued one without a finished record. The incompatible retrospective crossmatch alert can now say "has started" for a running transfusion. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 300 — Demo transfusion made consistent (2026-11-02)
+
+### Finding
+
+The base demo (`SeedDemoClinicalDataAsync`, patient MRN0001, unit W0001230000099) recorded a finished transfusion (stop time, 250 mL, Completed), while the issue and unit stayed Issued. Iteration 299 surfaced it when the board briefly showed the issue as "transfusing". Demo data that contradicts itself trains users on states the system never produces and hides defects in tests.
+
+### Change
+
+- The demo is now a transfusion running at the bedside:
+  - started 15 minutes ago by RN Jones on 4W Med/Surg, with no stop, volume, or outcome yet
+  - unit status TransfusionStarted, with a status-history row (Issued to TransfusionStarted, "Transfusion started at the bedside")
+  - the issue stays Issued
+- It shows the new "Transfusing since" display, and the Complete flow can be tried on it.
+- New databases get this. Existing development databases keep their earlier demo rows (the demo seeds once per MRN); nothing was rewritten.
+
+### Tests
+
+- TEST-BB-344: after seeding, every transfusion record on an Issued issue has no stop and no volume, and its unit is TransfusionStarted. The demo unit is among them.
+- The lookback scenario test now counts a running transfusion as reaching the patient (Issued, TransfusionStarted, or Transfused); recipient tracing is unchanged.
+- Full suite: 3,372 passed, 0 failed (previously 3,371).
+
+### Next ranked residual
+
+The incompatible retrospective crossmatch alert (Cycle 292) already distinguishes "has started" from "issued". Run a demo-data consistency sweep across the other seeded scenarios with the same invariant style (issued units versus allocations, returns, and discards). Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

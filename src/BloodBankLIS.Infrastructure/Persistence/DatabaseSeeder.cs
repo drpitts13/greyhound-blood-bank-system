@@ -3146,7 +3146,8 @@ public static partial class DatabaseSeeder
             RhD = RhType.Positive,
             ExpiresUtc = now.AddDays(25),
             CurrentLocationId = fridge.Id,
-            Status = UnitStatus.Issued,
+            // A transfusion running at the bedside (started, not yet completed), shown as "Transfusing since".
+            Status = UnitStatus.TransfusionStarted,
             CollectionFacility = "Regional Blood Center"
         };
         context.BloodUnits.AddRange(unit1, unit2, unitIssued);
@@ -3211,18 +3212,32 @@ public static partial class DatabaseSeeder
         context.Issues.Add(issue);
         await context.SaveChangesAsync(ct);
 
-        context.TransfusionEvents.Add(new TransfusionEvent
+        // Started at the bedside 15 minutes ago and still running: no stop, volume, or outcome yet. The issue stays
+        // Issued until the transfusion is completed (a finished record on an Issued issue would be inconsistent).
+        var transfusion = new TransfusionEvent
         {
             IssueId = issue.Id,
             BloodProductId = unitIssued.Id,
             PatientId = patient.Id,
             StartUtc = now.AddMinutes(-15),
-            StopUtc = now.AddMinutes(-5),
-            VolumeTransfused = 250m,
             Transfusionist = "RN Jones",
-            ReactionSuspected = false,
-            FinalDisposition = TransfusionDisposition.Completed,
-            DocumentedBy = "tech2"
+            DocumentedBy = "tech2",
+            PatientIdentificationMethod = "MedicalRecordNumber+DateOfBirth",
+            Location = "4W Med/Surg"
+        };
+        context.TransfusionEvents.Add(transfusion);
+        context.InventoryStatusHistory.Add(new InventoryStatusHistory
+        {
+            BloodProductId = unitIssued.Id,
+            FromStatus = UnitStatus.Issued,
+            ToStatus = UnitStatus.TransfusionStarted,
+            FromLocationId = fridge.Id,
+            ToLocationId = fridge.Id,
+            Reason = "Transfusion started at the bedside",
+            ChangedBy = "tech2",
+            ChangedUtc = now.AddMinutes(-15),
+            RelatedEntityType = nameof(TransfusionEvent),
+            RelatedEntityId = issue.Id
         });
 
         await context.SaveChangesAsync(ct);
