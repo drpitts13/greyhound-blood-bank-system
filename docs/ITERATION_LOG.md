@@ -8772,3 +8772,55 @@ No change since Cycle 291. This cycle re-audits emergency release and massive tr
 ### Next ranked residual
 
 Check the emergency-release authorizer against the provider directory (lesser finding above), unless OCD-046 or the pending product decisions (`override.approve` holders, downtime back-entry) come back first.
+
+## Iteration 293 — Override authorizer checked against the directory (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 292 other than the supervisor-queue row.
+
+### Finding
+
+"Authorized by" on every override, including emergency release, was free text: misspellings, nicknames, or names of people who are not clinicians could not be told apart. Iteration 292 listed this as a lesser finding. The field can name a physician or a supervisor (OCD-041), so checking providers alone would be wrong.
+
+### Design
+
+- **Matching** (`AuthorizerDirectoryRule`):
+  - against active ordering providers and active non-service LIS users
+  - matches the id, the name, or the "Name (id)" suggestion text, ignoring case and extra spaces
+  - a single provider match wins over a user with the same name
+  - two entries in one list are ambiguous
+- **Recording:** `BloodBankDbContext` stamps every new override with `AuthorizerMatch` and `AuthorizerReference` before audit capture.
+  - This covers all six services that record overrides.
+  - The stamp is fixed at override time; later edits do not recompute it.
+  - Older rows show "not checked".
+- **Never blocks:** an unknown name is accepted and recorded as typed. Whether a name outside the directory should be refused is a policy choice; it is not made here.
+- **UI:**
+  - the authorizer field suggests directory entries
+  - it hints when a name is not found or is ambiguous
+  - the supervisor queue shows the match in plain words
+- **Schema:** migration `20261103190000_OverrideAuthorizerMatch`, plus dev bootstrap.
+
+### Requirements / risk
+
+- URS-BB-445, FRS-BB-481, SRS-BB-442, RISK-BB-547. Help: issuing page.
+
+### Tests
+
+- TEST-BB-337:
+  - rule tests: provider by id, name, and suggestion; provider wins over a same-name user; user match; ambiguous providers; unknown and blank; suggestion round-trip; wording
+  - integration:
+    - provider, user, and unknown names are stamped on save
+    - an inactive provider is not in the directory
+    - a preset match is kept, and later edits do not restamp
+- Full suite: 3,341 passed, 0 failed (previously 3,325).
+- Run check (development API and web, DevMode):
+  - the bootstrap added the columns
+  - the supervisor queue shows "not checked against the directory" for the older demo override
+  - on the issue desk, the field offered 12 directory suggestions, hinted on "Dr Nobody", and cleared for "Dr. Amy Lee (PROV-LEE)"
+  - nothing was submitted
+  - no server errors
+
+### Next ranked residual
+
+The MTP issue's override is recorded as a warning override rather than an emergency release (iteration 292 lesser finding). Pending product decisions: `override.approve` holders, downtime back-entry, and OCD-046.

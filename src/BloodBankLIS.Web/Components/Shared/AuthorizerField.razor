@@ -1,13 +1,34 @@
 @inject UserSession Session
+@inject BloodBankApiClient Api
 
 @* OCD-041: names who approved an override. Starts empty so the approving physician or supervisor is recorded;
-   "Me" fills the signed-in user only when they press it. The e-signature separately records who signed. *@
+   "Me" fills the signed-in user only when they press it. The e-signature separately records who signed.
+   Suggestions come from active ordering providers and LIS users; a name not in either is still accepted
+   (an emergency must not wait on the directory) and is recorded as not in the directory for review. *@
 <div class="field">
     <label>@Label</label>
     <div class="flex gap" style="flex-wrap:nowrap;">
-        <input value="@Value" @oninput="OnInputAsync" placeholder="Physician or supervisor who approved" autocomplete="off" />
+        <input value="@Value" @oninput="OnInputAsync" placeholder="Physician or supervisor who approved" autocomplete="off" list="@_listId" />
         <button type="button" class="btn btn-secondary btn-sm" title="I authorized this override" @onclick="UseMeAsync">Me</button>
     </div>
+    <datalist id="@_listId">
+        @foreach (var s in _suggestions)
+        {
+            <option value="@s"></option>
+        }
+    </datalist>
+    @if (_loaded && !string.IsNullOrWhiteSpace(Value))
+    {
+        var match = AuthorizerDirectoryRule.Match(Value, _providers, _users).Match;
+        if (match == AuthorizerDirectoryMatch.NotInDirectory)
+        {
+            <span class="sub" role="status">Not in the provider or user directory. Check the spelling; it will be recorded as typed and flagged for review.</span>
+        }
+        else if (match == AuthorizerDirectoryMatch.Ambiguous)
+        {
+            <span class="sub" role="status">Matches more than one person. Pick the right one from the list.</span>
+        }
+    }
 </div>
 
 @code {
@@ -17,6 +38,28 @@
 
     /// <summary>The message to show when an override is submitted without an authorizer.</summary>
     public const string MissingMessage = "Name who authorized the override, or press Me if it was you.";
+
+    private readonly string _listId = "authorizers-" + Guid.NewGuid().ToString("N");
+    private List<AuthorizerDirectoryRule.Entry> _providers = new();
+    private List<AuthorizerDirectoryRule.Entry> _users = new();
+    private List<string> _suggestions = new();
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var providers = await Api.GetOrderingProvidersAsync();
+        var users = await Api.GetDirectoryUsersAsync();
+        if (!providers.Succeeded || !users.Succeeded)
+        {
+            // Without the directory there is nothing to suggest or check; the name is still recorded.
+            return;
+        }
+
+        _providers = (providers.Value ?? new()).Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name)).ToList();
+        _users = (users.Value ?? new()).Select(u => new AuthorizerDirectoryRule.Entry(u.UserName, u.DisplayName)).ToList();
+        _suggestions = _providers.Concat(_users).Select(AuthorizerDirectoryRule.Suggestion).Distinct().ToList();
+        _loaded = true;
+    }
 
     private async Task OnInputAsync(ChangeEventArgs e)
     {

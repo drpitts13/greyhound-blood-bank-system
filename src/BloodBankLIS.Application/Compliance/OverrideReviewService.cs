@@ -22,13 +22,15 @@ public sealed record OverrideReviewItemDto(
     OverrideReviewOutcome? ReviewOutcome = null,
     string? ReviewedBy = null,
     DateTime? ReviewedUtc = null,
-    string? ReviewNote = null)
+    string? ReviewNote = null,
+    AuthorizerDirectoryMatch? AuthorizerMatch = null,
+    string? AuthorizerReference = null)
 {
     public static OverrideReviewItemDto From(Override o) => new(
         o.Id, o.Action, o.ContextType, o.ContextId, o.RuleCode, o.Reason, o.AuthorizedBy, o.CreatedBy, o.OverriddenUtc,
         // Issue overrides carry the unit id; the unit page shows its issue and status history.
         o.ContextType == nameof(Issue) ? $"/inventory/units/{o.ContextId}" : null,
-        o.ReviewOutcome, o.ReviewedBy, o.ReviewedUtc, o.ReviewNote);
+        o.ReviewOutcome, o.ReviewedBy, o.ReviewedUtc, o.ReviewNote, o.AuthorizerMatch, o.AuthorizerReference);
 }
 
 /// <summary>

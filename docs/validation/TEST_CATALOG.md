@@ -345,5 +345,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-334 | D / I | `SpecimenRejectionReasonRuleTests`; `SpecimenRejectionReasonTests.CodedRejection_StoresCodeAndText_AndAudits`, `CommentRequiredReason_WithoutComment_IsRefused_ThenStoresComment`, `UnknownInactiveOrBlankReason_IsRefused_AndSpecimenUnchanged` | URS-BB-442 / FRS-BB-478 / RISK-BB-544 |
 | TEST-BB-335 | I | `ReportServiceTests.RejectionsByCause_GroupsRejectedSpecimens_AndSkipsOthers`, `SeededReports_Exist_Run_AndCannotBeDeleted`; `SpecimenRejectionReasonTests.CodedRejection_StoresCodeAndText_AndAudits` (rejection time and user) | URS-BB-443 / FRS-BB-479 / RISK-BB-545 |
 | TEST-BB-336 | D / I | `RetrospectiveCrossmatchIncompatibleRuleTests`; `Phase4IssuingTests.EmergencyRelease_IncompatibleXm_RaisesCriticalAlert_AndLeadsTheBoard`, `EmergencyRelease_CompatibleXm_RaisesNoAlert`, `EmergencyRelease_IncompatibleXm_StaysOnWorklist` | URS-BB-444 / FRS-BB-480 / RISK-BB-546 |
+| TEST-BB-337 | D / I | `AuthorizerDirectoryRuleTests`; `OverrideAuthorizerMatchTests.Provider_User_AndUnknown_AreStamped`, `InactiveProvider_IsNotInDirectory`, `ExistingMatch_IsNotRecomputed_AndLaterEditsDoNotRestamp` | URS-BB-445 / FRS-BB-481 / RISK-BB-547 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

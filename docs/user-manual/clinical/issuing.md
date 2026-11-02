@@ -92,4 +92,4 @@ When you return a unit, answer **Temperature**, **Seal**, and **Visual inspectio
 
 ## Who authorized an override
 
-**Authorized by** starts empty. Type the name of the physician or supervisor who approved the override. If you approved it yourself, press **Me**. A blank field is never filled in for you. If you give a reason but no name, the message says so. Your electronic signature separately records who signed.
+**Authorized by** starts empty. Type the name of the physician or supervisor who approved the override. If you approved it yourself, press **Me**. As you type, the field suggests ordering providers and LIS users; picking one records exactly who it was. A name that is not in either list is still accepted, so an emergency is never held up, but the field says so and the supervisor review shows it as not in the directory. A blank field is never filled in for you. If you give a reason but no name, the message says so. Your electronic signature separately records who signed.

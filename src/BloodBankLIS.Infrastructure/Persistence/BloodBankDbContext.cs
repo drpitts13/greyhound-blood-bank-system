@@ -210,6 +210,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         RejectAuditEventMutations();
+        await StampOverrideAuthorizersAsync(cancellationToken);
         ApplyAuditMetadata();
         var captures = CaptureAuditEntries();
 
@@ -243,6 +244,41 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     {
         // Route synchronous saves through the async pipeline to keep one audit path.
         return SaveChangesAsync(acceptAllChangesOnSuccess).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Records, on each new override, how its typed authorizer matched the active provider and user
+    /// directory at that moment. Done here so every service that records an override is covered.
+    /// </summary>
+    private async Task StampOverrideAuthorizersAsync(CancellationToken cancellationToken)
+    {
+        var pending = ChangeTracker.Entries<Override>()
+            .Where(e => e.State == EntityState.Added && e.Entity.AuthorizerMatch is null)
+            .Select(e => e.Entity)
+            .ToList();
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        var providers = (await OrderingProviders.AsNoTracking()
+                .Where(p => p.IsActive)
+                .Select(p => new { p.ProviderId, p.Name })
+                .ToListAsync(cancellationToken))
+            .Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name))
+            .ToList();
+        var users = (await Users.AsNoTracking()
+                .Where(u => u.IsActive && !u.IsServiceAccount)
+                .Select(u => new { u.UserName, u.DisplayName })
+                .ToListAsync(cancellationToken))
+            .Select(u => new AuthorizerDirectoryRule.Entry(u.UserName, u.DisplayName))
+            .ToList();
+        foreach (var row in pending)
+        {
+            var match = AuthorizerDirectoryRule.Match(row.AuthorizedBy, providers, users);
+            row.AuthorizerMatch = match.Match;
+            row.AuthorizerReference = match.Reference;
+        }
     }
 
     private void RejectAuditEventMutations()

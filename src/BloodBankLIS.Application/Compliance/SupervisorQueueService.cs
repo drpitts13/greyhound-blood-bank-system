@@ -129,7 +129,7 @@ public sealed class SupervisorQueueService
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindOverrideReview,
                     $"{what} — {o.ContextType} {o.ContextId}",
-                    $"{o.OverriddenUtc:yyyy-MM-dd HH:mm} UTC. Rule {o.RuleCode}. Reason: {o.Reason}. Authorized by {o.AuthorizedBy}, performed by {o.PerformedBy}.",
+                    $"{o.OverriddenUtc:yyyy-MM-dd HH:mm} UTC. Rule {o.RuleCode}. Reason: {o.Reason}. Authorized by {o.AuthorizedBy} ({AuthorizerDirectoryRule.Describe(o.AuthorizerMatch, o.AuthorizerReference)}), performed by {o.PerformedBy}.",
                     o.ContextHref ?? "/supervisor",
                     "Review",
                     ContextId: o.Id));

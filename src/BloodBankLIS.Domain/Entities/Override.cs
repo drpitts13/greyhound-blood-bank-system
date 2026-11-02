@@ -23,6 +23,12 @@ public class Override : BaseEntity
 
     public string AuthorizedBy { get; set; } = string.Empty;
 
+    /// <summary>How <see cref="AuthorizedBy"/> matched the provider and user directory when recorded. Null on older rows.</summary>
+    public AuthorizerDirectoryMatch? AuthorizerMatch { get; set; }
+
+    /// <summary>Provider id or user name matched, when exactly one entry matched.</summary>
+    public string? AuthorizerReference { get; set; }
+
     public long? SignatureId { get; set; }
 
     public DateTime OverriddenUtc { get; set; }
