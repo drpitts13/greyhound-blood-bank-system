@@ -102,4 +102,7 @@ public class Issue : BaseEntity
 
     /// <summary>The massive transfusion protocol activation this unit was issued under.</summary>
     public long? MtpActivationId { get; set; }
+
+    /// <summary>The MTP pack (container) this unit was packed into, once packed.</summary>
+    public long? MtpPackRecordId { get; set; }
 }

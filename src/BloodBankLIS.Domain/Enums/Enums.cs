@@ -445,6 +445,14 @@ public enum IssueType
     RemoteIssue = 4
 }
 
+public enum TransportContainerType
+{
+    Cooler = 0,
+    InsulatedBag = 1,
+    Box = 2,
+    Other = 9
+}
+
 public enum MtpActivationStatus
 {
     Active = 0,

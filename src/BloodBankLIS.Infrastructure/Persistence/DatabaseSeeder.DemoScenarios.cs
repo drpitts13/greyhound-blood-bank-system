@@ -57,6 +57,7 @@ public static partial class DatabaseSeeder
         await SeedBillingCaptureScenarioAsync(context, ct);
         await SeedUnitAntigenTypingScenarioAsync(context, ct);
         await SeedPendingSpecimenReceiptScenarioAsync(context, ct);
+        await SeedMassiveTransfusionScenarioAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -1142,6 +1143,133 @@ public static partial class DatabaseSeeder
         await context.SaveChangesAsync(ct);
 
         release.ContextId = issue.Id;
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Demo only: an active massive transfusion protocol with two red cells and two plasma issued under it and one
+    /// recorded cooler, so the protocol banner and the pack report can be seen. The demo cooler has no temperature
+    /// range or validated hours (those come from a facility's own validation), and no pack definition is used.
+    /// Close the protocol on Issue &amp; Transfuse to clear the banner.
+    /// </summary>
+    private static async Task SeedMassiveTransfusionScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0021", ct))
+        {
+            return;
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var plasma = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "FFP", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        var freezer = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FREEZER-1", ct);
+        if (redCells is null || plasma is null || fridge is null || freezer is null)
+        {
+            return;
+        }
+
+        // The scenario brings its own units so it never takes stock another scenario relies on.
+        var now = DateTime.UtcNow;
+        var cells = new List<BloodUnit>
+        {
+            NewUnit(9101, redCells.Id, AboGroup.O, RhType.Negative, fridge.Id, now.AddDays(30), 300m),
+            NewUnit(9102, redCells.Id, AboGroup.O, RhType.Negative, fridge.Id, now.AddDays(31), 300m)
+        };
+        var plasmaUnits = new List<BloodUnit>
+        {
+            NewUnit(9103, plasma.Id, AboGroup.AB, RhType.Positive, freezer.Id, now.AddDays(300), 250m),
+            NewUnit(9104, plasma.Id, AboGroup.AB, RhType.Positive, freezer.Id, now.AddDays(301), 250m)
+        };
+        context.BloodUnits.AddRange(cells.Concat(plasmaUnits));
+        await context.SaveChangesAsync(ct);
+
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0021",
+            last: "Demo-Massive",
+            first: "Morgan",
+            dateOfBirth: new DateOnly(1979, 2, 14),
+            sex: Sex.Unknown,
+            visitNumber: "VIS-2026-021",
+            encounterType: EncounterType.Emergency,
+            currentLocation: "Trauma Bay 1",
+            accession: "ACC0021",
+            specimenType: "EDTA",
+            collectedUtc: now.AddMinutes(-50),
+            ct);
+
+        var activation = new MtpActivation
+        {
+            PatientId = visit.Patient.Id,
+            Status = MtpActivationStatus.Active,
+            RequestedBy = "Dr. Demo Trauma (demo)",
+            Reason = "Demo scenario: hemorrhage after motor vehicle collision",
+            Location = "Trauma Bay 1",
+            ActivatedUtc = now.AddMinutes(-45),
+            ActivatedBy = "tech2"
+        };
+        context.MtpActivations.Add(activation);
+
+        var cooler = await context.TransportContainers.FirstOrDefaultAsync(c => c.Code == "DEMO-COOLER", ct);
+        if (cooler is null)
+        {
+            cooler = new TransportContainer
+            {
+                Code = "DEMO-COOLER",
+                Name = "Demo cooler (not validated)",
+                ContainerType = TransportContainerType.Cooler,
+                Description = "Demo data only. Replace with your facility's validated containers.",
+                SortOrder = 10,
+                IsActive = true
+            };
+            context.TransportContainers.Add(cooler);
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        var pack = new MtpPackRecord
+        {
+            MtpActivationId = activation.Id,
+            PackNumber = 1,
+            TransportContainerId = cooler.Id,
+            ContainerLabel = "Cooler 1",
+            TemperatureC = 4.0m,
+            PackedUtc = now.AddMinutes(-38),
+            PackedBy = "tech2",
+            Comment = "Demo pack"
+        };
+        context.MtpPackRecords.Add(pack);
+        await context.SaveChangesAsync(ct);
+
+        var minute = 44;
+        foreach (var unit in cells.Concat(plasmaUnits))
+        {
+            unit.Status = UnitStatus.Issued;
+            var isCells = unit.ProductTypeId == redCells.Id;
+            context.Issues.Add(new Issue
+            {
+                BloodProductId = unit.Id,
+                PatientId = visit.Patient.Id,
+                EncounterId = visit.Encounter.Id,
+                IssuedUtc = now.AddMinutes(-minute),
+                IssuedBy = "tech2",
+                IssuedTo = "RN Demo",
+                IssuedToLocation = "Trauma Bay 1",
+                CoolerId = "Cooler 1",
+                InTransitDueUtc = now.AddHours(1),
+                IssueType = IssueType.MassiveTransfusion,
+                CrossmatchStatus = isCells ? CrossmatchClinicalStatus.NotCrossmatchedEmergency : CrossmatchClinicalStatus.NotPerformed,
+                EmergencyReleaseDetails = isCells ? "Demo scenario: uncrossmatched group O under MTP." : null,
+                TestsIncompleteAtIssue = isCells,
+                RetrospectiveCrossmatchDueUtc = isCells ? now.AddHours(23) : null,
+                Status = IssueStatus.Issued,
+                UnitExpirationAtIssueUtc = unit.ExpiresUtc,
+                MtpActivationId = activation.Id,
+                MtpPackRecordId = pack.Id
+            });
+            minute -= 1;
+        }
+
         await context.SaveChangesAsync(ct);
     }
 

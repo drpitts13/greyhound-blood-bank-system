@@ -697,6 +697,7 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasOne(i => i.Unit).WithMany().HasForeignKey(i => i.BloodProductId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(i => i.Override).WithMany().HasForeignKey(i => i.OverrideId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<MtpActivation>().WithMany().HasForeignKey(i => i.MtpActivationId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<MtpPackRecord>().WithMany().HasForeignKey(i => i.MtpPackRecordId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(i => i.BloodProductId);
         b.HasIndex(i => i.BloodProductId)
             .IsUnique()
@@ -1839,6 +1840,41 @@ public sealed class MtpActivationConfiguration : IEntityTypeConfiguration<MtpAct
         b.HasIndex(x => new { x.PatientId, x.Status });
         b.HasOne<Patient>().WithMany().HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<MtpPackDefinition>().WithMany().HasForeignKey(x => x.PackDefinitionId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class TransportContainerConfiguration : IEntityTypeConfiguration<TransportContainer>
+{
+    public void Configure(EntityTypeBuilder<TransportContainer> b)
+    {
+        b.ToTable("TransportContainers");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(500);
+        b.Property(x => x.MinTemperatureC).HasPrecision(5, 1);
+        b.Property(x => x.MaxTemperatureC).HasPrecision(5, 1);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Code).IsUnique();
+    }
+}
+
+public sealed class MtpPackRecordConfiguration : IEntityTypeConfiguration<MtpPackRecord>
+{
+    public void Configure(EntityTypeBuilder<MtpPackRecord> b)
+    {
+        b.ToTable("MtpPackRecords");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ContainerLabel).HasMaxLength(100);
+        b.Property(x => x.TemperatureC).HasPrecision(5, 1);
+        b.Property(x => x.PackedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Comment).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.MtpActivationId, x.PackNumber }).IsUnique();
+        b.HasOne<MtpActivation>().WithMany().HasForeignKey(x => x.MtpActivationId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<TransportContainer>().WithMany().HasForeignKey(x => x.TransportContainerId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

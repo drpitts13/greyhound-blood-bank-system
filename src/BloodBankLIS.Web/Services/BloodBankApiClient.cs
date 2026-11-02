@@ -1623,6 +1623,32 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<LoadDraftCriteriaResultDto>> LoadDraftTransfusionCriteriaAsync(CancellationToken ct = default) =>
         SendAsync<LoadDraftCriteriaResultDto>(HttpMethod.Post, "api/admin/transfusion-criteria/load-drafts", ct: ct);
 
+    public Task<ApiResult<List<TransportContainerDto>>> GetTransportContainersAsync(CancellationToken ct = default) =>
+        SendAsync<List<TransportContainerDto>>(HttpMethod.Get, "api/admin/transport-containers", ct: ct);
+
+    public Task<ApiResult<List<TransportContainerDto>>> GetActiveTransportContainersAsync(CancellationToken ct = default) =>
+        SendAsync<List<TransportContainerDto>>(HttpMethod.Get, "api/transport-containers", ct: ct);
+
+    public Task<ApiResult<TransportContainerDto>> SaveTransportContainerAsync(long? id, SaveTransportContainerRequest req, CancellationToken ct = default) =>
+        id is long existing
+            ? SendAsync<TransportContainerDto>(HttpMethod.Put, $"api/admin/transport-containers/{existing}", req, ct)
+            : SendAsync<TransportContainerDto>(HttpMethod.Post, "api/admin/transport-containers", req, ct);
+
+    public Task<ApiResult<TransportContainerDto>> SetTransportContainerActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<TransportContainerDto>(HttpMethod.Post, $"api/admin/transport-containers/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<MtpPackSummaryDto>> PackMtpAsync(long activationId, PackMtpRequest req, CancellationToken ct = default) =>
+        SendAsync<MtpPackSummaryDto>(HttpMethod.Post, $"api/mtp/{activationId}/packs", req, ct);
+
+    public Task<ApiResult<List<MtpPackSummaryDto>>> GetMtpPackRecordsAsync(long activationId, CancellationToken ct = default) =>
+        SendAsync<List<MtpPackSummaryDto>>(HttpMethod.Get, $"api/mtp/{activationId}/packs", ct: ct);
+
+    public Task<ApiResult<MtpPackReportDto>> GetMtpPackReportAsync(long packRecordId, CancellationToken ct = default) =>
+        SendAsync<MtpPackReportDto>(HttpMethod.Get, $"api/mtp/pack-records/{packRecordId}/report", ct: ct);
+
+    public Task<ApiResult<bool>> RecordMtpPackPrintedAsync(long packRecordId, CancellationToken ct = default) =>
+        SendAsync<bool>(HttpMethod.Post, $"api/mtp/pack-records/{packRecordId}/printed", ct: ct);
+
     public Task<ApiResult<List<MtpPackDefinitionDto>>> GetMtpPacksAsync(CancellationToken ct = default) =>
         SendAsync<List<MtpPackDefinitionDto>>(HttpMethod.Get, "api/admin/mtp-packs", ct: ct);
 

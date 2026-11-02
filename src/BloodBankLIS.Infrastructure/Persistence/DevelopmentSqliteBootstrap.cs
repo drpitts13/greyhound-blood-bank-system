@@ -20,6 +20,7 @@ public static class DevelopmentSqliteBootstrap
         ("Issues", "Comment", """ALTER TABLE "Issues" ADD COLUMN "Comment" TEXT NULL"""),
         ("Issues", "MtpActivationId", """ALTER TABLE "Issues" ADD COLUMN "MtpActivationId" INTEGER NULL"""),
         ("MtpActivations", "PackDefinitionId", """ALTER TABLE "MtpActivations" ADD COLUMN "PackDefinitionId" INTEGER NULL"""),
+        ("Issues", "MtpPackRecordId", """ALTER TABLE "Issues" ADD COLUMN "MtpPackRecordId" INTEGER NULL"""),
         ("DatElutionWorkups", "VerifiedBy", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedBy" TEXT NULL"""),
         ("DatElutionWorkups", "VerifiedUtc", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedUtc" TEXT NULL"""),
         ("Issues", "VerifiedScanJson", """ALTER TABLE "Issues" ADD COLUMN "VerifiedScanJson" TEXT NULL"""),
@@ -191,6 +192,8 @@ public static class DevelopmentSqliteBootstrap
         await EnsureEluateFindingsTableAsync(context, cancellationToken);
         await EnsureMtpPackDefinitionsTableAsync(context, cancellationToken);
         await EnsureMtpActivationsTableAsync(context, cancellationToken);
+        await EnsureTransportContainersTableAsync(context, cancellationToken);
+        await EnsureMtpPackRecordsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
@@ -303,6 +306,74 @@ public static class DevelopmentSqliteBootstrap
     /// <summary>
     /// Creates the DAT/elution workup table when an existing dev database predates it.
     /// </summary>
+    private static async Task EnsureTransportContainersTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "TransportContainers", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "TransportContainers" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_TransportContainers" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "ContainerType" INTEGER NOT NULL,
+                "Description" TEXT NULL,
+                "MinTemperatureC" TEXT NULL,
+                "MaxTemperatureC" TEXT NULL,
+                "ValidatedHours" INTEGER NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_TransportContainers_Code" ON "TransportContainers" ("Code")""", ct);
+    }
+
+    private static async Task EnsureMtpPackRecordsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "MtpActivations", ct)
+            || await TableExistsAsync(context, "MtpPackRecords", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "MtpPackRecords" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_MtpPackRecords" PRIMARY KEY AUTOINCREMENT,
+                "MtpActivationId" INTEGER NOT NULL,
+                "PackNumber" INTEGER NOT NULL,
+                "TransportContainerId" INTEGER NOT NULL,
+                "ContainerLabel" TEXT NULL,
+                "TemperatureC" TEXT NOT NULL,
+                "TemperatureOutsideRange" INTEGER NOT NULL,
+                "PackedUtc" TEXT NOT NULL,
+                "PackedBy" TEXT NOT NULL,
+                "Comment" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_MtpPackRecords_MtpActivations_MtpActivationId" FOREIGN KEY ("MtpActivationId") REFERENCES "MtpActivations" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_MtpPackRecords_TransportContainers_TransportContainerId" FOREIGN KEY ("TransportContainerId") REFERENCES "TransportContainers" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_MtpPackRecords_MtpActivationId_PackNumber" ON "MtpPackRecords" ("MtpActivationId", "PackNumber")""", ct);
+    }
+
     private static async Task EnsureMtpPackDefinitionsTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct)

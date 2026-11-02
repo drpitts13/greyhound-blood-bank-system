@@ -379,8 +379,20 @@ tr.row-muted td { opacity: .75; }
 .bb-help-missing-figure { font-style: italic; }
 
 /* Printed reports: page content only. */
+/* MTP pack report: a sheet that travels with the container. Blank cells are for the receiving clinicians. */
+.mtp-report h1 { font-size: 1.25rem; margin-bottom: .1rem; }
+.mtp-report h2 { font-size: 1rem; margin: 1rem 0 .35rem; }
+.mtp-report-sub { color: var(--bb-muted); margin: 0 0 .75rem; }
+.mtp-report table { width: 100%; border-collapse: collapse; }
+.mtp-report th, .mtp-report td { border: 1px solid var(--bb-border); padding: .3rem .4rem; text-align: left; vertical-align: top; font-size: .88rem; }
+.mtp-report-facts th, .mtp-report-sign th { width: 14%; background: var(--bb-surface-2, transparent); }
+.mtp-report .mtp-blank { min-width: 9rem; height: 1.9rem; }
+.mtp-report .mtp-blank-narrow { min-width: 4rem; }
+.mtp-report-disclaimers { padding-left: 1.1rem; font-size: .85rem; }
+
 @media print {
     .bb-sidebar, .no-print, details.bb-help { display: none !important; }
+    .mtp-report th, .mtp-report td { border-color: #000; color: #000; }
     .bb-main { margin: 0 !important; padding: 0 !important; }
     .bb-card { box-shadow: none; break-inside: avoid; }
 }

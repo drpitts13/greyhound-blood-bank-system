@@ -920,6 +920,133 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
     }
 
+    private TransportContainerAdminService Containers(BloodBankDbContext c)
+    {
+        var env = new BloodBankLIS.Infrastructure.Common.StaticEnvironmentInfo("Development", isDevMode: false);
+        return new(new EfRepository<TransportContainer>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
+    }
+
+    private MtpPackingService Packing(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+        new(new EfRepository<MtpPackRecord>(c), new EfRepository<MtpActivation>(c), new EfRepository<TransportContainer>(c),
+            new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new EfRepository<Patient>(c),
+            new EfRepository<MtpPackDefinition>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3));
+
+    /// <summary>Activates MTP for a seeded patient and issues its unit under it; returns (activation, issue, container).</summary>
+    private async Task<(Scenario S, long ActivationId, long IssueId, long ContainerId)> IssuedUnderMtpAsync(string key, string containerCode)
+    {
+        var s = await SeedAsync(key);
+        await AllocateAsync(s);
+        var activationId = await ActivateMtpAsync(s.PatientId);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.MassiveTransfusion, overrideReason: "MTP", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        var container = await Containers(c).CreateAsync(new SaveTransportContainerRequest(
+            containerCode, "Large cooler", TransportContainerType.Cooler, null, 1m, 10m, 4, 10));
+        Assert.True(container.Succeeded, container.Error);
+        return (s, activationId, issued.Value!.Id, container.Value!.Id);
+    }
+
+    // TEST-BB-326: a pack records container, temperature, packer, and units; its report carries everything printed.
+    [Fact]
+    public async Task MtpPack_IsRecorded_Audited_AndReported()
+    {
+        var (s, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-COOL", "COOL-A");
+
+        long packId;
+        await using (var c = _factory.Create())
+        {
+            var packed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, "Cooler 3", 4.5m, [issueId], "To trauma bay"));
+            Assert.True(packed.Succeeded, packed.Error ?? string.Join("; ", packed.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(1, packed.Value!.PackNumber);
+            Assert.Equal(1, packed.Value.UnitCount);
+            Assert.False(packed.Value.TemperatureOutsideRange);
+            packId = packed.Value.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.Equal(packId, (await c.Issues.FindAsync(issueId))!.MtpPackRecordId);
+            var audit = await c.AuditEvents.SingleAsync(a => a.EventType == AuditEventType.MassiveTransfusionProtocol
+                && a.EntityType == nameof(MtpPackRecord) && a.EntityId == packId);
+            Assert.Contains("Packed", audit.NewValueJson);
+            Assert.Contains("U-MTP-COOL", audit.NewValueJson);
+
+            var report = await Packing(c).GetReportAsync(packId);
+            Assert.NotNull(report);
+            Assert.Equal(1, report.PackNumber);
+            Assert.Equal(activationId, report.MtpActivationId);
+            Assert.Equal("MRN-MTP-COOL", report.MedicalRecordNumber);
+            Assert.Equal("Dr. Rivera, trauma", report.RequestedBy);
+            Assert.Equal("COOL-A", report.ContainerCode);
+            Assert.Equal("Cooler 3", report.ContainerLabel);
+            Assert.Equal("1.0 to 10.0 °C", report.ContainerRange);
+            Assert.Equal(4.5m, report.TemperatureC);
+            Assert.Equal(_factory.CurrentUser.UserName, report.PackedBy);
+            var unit = Assert.Single(report.Units);
+            Assert.Equal("U-MTP-COOL", unit.UnitNumber);
+            Assert.Equal("RBC-MTP-COOL", unit.ProductCode);
+            Assert.Equal("Test RBC", unit.ProductName);
+            Assert.Equal("O Pos", unit.BloodType);
+            Assert.True(unit.ExpiresUtc > _factory.Clock.UtcNow);
+            Assert.True(unit.Uncrossmatched);
+            Assert.Equal("Uncrossmatched", unit.Crossmatch);
+            Assert.Contains(report.Disclaimers, l => l.Contains("Uncrossmatched"));
+            Assert.Contains(report.Disclaimers, l => l.Contains("up to 4 hours"));
+
+            Assert.True(await Packing(c).RecordPrintedAsync(packId));
+            Assert.True(await c.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Print && a.EntityType == nameof(MtpPackRecord) && a.EntityId == packId));
+            Assert.Equal(1, Assert.Single(await Packing(c).ListForActivationAsync(activationId)).UnitCount);
+        }
+    }
+
+    [Fact]
+    public async Task MtpPack_OutOfRangeTemperature_IsRecordedAndFlagged()
+    {
+        var (_, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-WARM", "COOL-W");
+        await using var c = _factory.Create();
+
+        var packed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 12.0m, [issueId]));
+
+        Assert.True(packed.Succeeded, packed.Error);
+        Assert.True(packed.Value!.TemperatureOutsideRange);
+        Assert.Contains(packed.Evaluation!.Warnings, r => r.Code == TransportContainerRule.PackCode);
+        var report = await Packing(c).GetReportAsync(packed.Value.Id);
+        Assert.True(report!.TemperatureOutsideRange);
+        Assert.Contains(report.Disclaimers, l => l.Contains("outside the range"));
+    }
+
+    [Fact]
+    public async Task MtpPack_Refusals_WriteNothing()
+    {
+        var (s, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-NOPK", "COOL-N");
+        await using var c = _factory.Create();
+
+        var noTemperature = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, null, [issueId]));
+        Assert.True(noTemperature.Evaluation!.IsHardStopped);
+
+        var notOurs = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId, 999_999]));
+        Assert.Contains(notOurs.Evaluation!.HardStops, r => r.Message.Contains("issue 999999"));
+
+        var noPermission = await Packing(c, new FixedPermissionEvaluator(1, PermissionCodes.IssueReturn))
+            .PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.True(noPermission.Evaluation!.IsHardStopped);
+
+        Assert.False(await c.MtpPackRecords.AnyAsync(p => p.MtpActivationId == activationId));
+        Assert.Null((await c.Issues.FindAsync(issueId))!.MtpPackRecordId);
+
+        // A unit can be in only one pack, and a closed protocol takes no more packs.
+        Assert.True((await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]))).Succeeded);
+        var twice = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.Contains(twice.Evaluation!.HardStops, r => r.Message.Contains("U-MTP-NOPK"));
+        Assert.True((await Mtp(c).CloseAsync(activationId, new CloseMtpRequest("Bleeding controlled"))).Succeeded);
+        var closed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.Contains(closed.Evaluation!.HardStops, r => r.Message.Contains("closed"));
+        Assert.Equal(1, await c.MtpPackRecords.CountAsync(p => p.MtpActivationId == activationId));
+    }
+
     // TEST-BB-325: a facility pack chosen at activation gives round guidance on the board; it never blocks an issue.
     [Fact]
     public async Task MtpPack_ChosenAtActivation_ShowsRoundProgress_AndIgnoresReturnedUnits()

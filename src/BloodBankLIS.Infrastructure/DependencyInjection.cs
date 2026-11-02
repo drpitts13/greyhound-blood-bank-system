@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<TransfusionIndicationService>();
         services.AddScoped<TransfusionIndicationAdminService>();
         services.AddScoped<MtpPackAdminService>();
+        services.AddScoped<TransportContainerAdminService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();
         services.AddScoped<SpecialRequirementService>();
@@ -111,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<UniversalLookupService>();
         services.AddScoped<BloodBankLIS.Application.Interop.Fhir.FhirReadService>();
         services.AddScoped<BloodBankLIS.Application.Issuing.MtpActivationService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.MtpPackingService>();
         services.AddScoped<ExpiredSpecimenOrderService>();
         services.AddScoped<OrderingProviderService>();
         services.AddScoped<OrderingLocationService>();

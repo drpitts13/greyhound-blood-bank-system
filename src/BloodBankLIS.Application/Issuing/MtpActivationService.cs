@@ -22,7 +22,9 @@ public sealed record MtpIssuedUnitDto(
     ComponentClass ComponentClass,
     string BloodType,
     DateTime IssuedUtc,
-    IssueStatus IssueStatus);
+    IssueStatus IssueStatus,
+    // The pack (container) the unit went into; null while not yet packed.
+    long? PackRecordId = null);
 
 /// <summary>One pack component: units per round, sent (issued and not returned), and sent in the current round.</summary>
 public sealed record MtpPackComponentDto(ComponentClass ComponentClass, int PerRound, int Sent, int InCurrentRound);
@@ -259,7 +261,8 @@ public sealed class MtpActivationService
                     product?.ComponentClass ?? ComponentClass.Other,
                     u is null ? "Unknown" : $"{u.Abo} {RhText(u.RhD)}",
                     i.IssuedUtc,
-                    i.Status);
+                    i.Status,
+                    i.MtpPackRecordId);
             })
             .ToList();
 

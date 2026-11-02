@@ -97,6 +97,46 @@ public static class IssuingEndpoints
                 EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
+        // Physical packs sent during a protocol, and the printable pack report.
+        app.MapPost("/api/mtp/{id:long}/packs", async (long id, PackMtpRequest request, MtpPackingService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.PackAsync(id, request, ct), d => d))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueCreate);
+        app.MapGet("/api/mtp/{id:long}/packs", async (long id, MtpPackingService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListForActivationAsync(id, ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        app.MapGet("/api/mtp/pack-records/{id:long}/report", async (long id, MtpPackingService svc, CancellationToken ct) =>
+                await svc.GetReportAsync(id, ct) is { } report ? Results.Ok(report) : Results.NotFound())
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        app.MapPost("/api/mtp/pack-records/{id:long}/printed", async (long id, MtpPackingService svc, CancellationToken ct) =>
+                await svc.RecordPrintedAsync(id, ct) ? Results.NoContent() : Results.NotFound())
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+
+        // Coolers and other transport vessels: active ones for the desk; the admin catalog below.
+        app.MapGet("/api/transport-containers", async (TransportContainerAdminService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListActiveAsync(ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        var containers = app.MapGroup("/api/admin/transport-containers").WithTags("Admin: Transport Containers").RequireAuthenticatedUser();
+        containers.MapGet("", async (TransportContainerAdminService svc, CancellationToken ct) => Results.Ok(await svc.ListAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        containers.MapPost("", async (SaveTransportContainerRequest req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        containers.MapPut("/{id:long}", async (long id, SaveTransportContainerRequest req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        containers.MapPost("/{id:long}/activate", async (long id, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+        containers.MapPost("/{id:long}/deactivate", async (long id, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
         app.MapPost("/api/mtp/{id:long}/close", async (long id, CloseMtpRequest request, MtpActivationService svc, CancellationToken ct) =>
                 EndpointResults.FromEvaluation(await svc.CloseAsync(id, request, ct), d => d))
             .WithTags("Issuing")

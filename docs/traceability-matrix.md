@@ -471,6 +471,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-432 / FRS-BB-467 | Units come back to stock through retype; mislabeled units never leave | `RetypeStockStatus`; `IssueGate`; `IssuingService`; `InventoryService`; `Issuing.razor`; `Inventory.razor` | TEST-BB-323 | D / I | |
 | URS-BB-433 / FRS-BB-468 | MTP activation, board, and close | `MtpActivation`; `MtpActivationRule`; `MtpActivationService`; `IssuingService`; `IssuingEndpoints`; `Issuing.razor` | TEST-BB-324 | D / I | Pack composition and ratios not configured (facility policy) |
 | URS-BB-434 / FRS-BB-469 | Facility MTP packs and round guidance | `MtpPackDefinition`; `MtpPackRule`; `MtpPackAdminService`; `MtpActivationService`; `IssuingEndpoints`; `AdminMtpPacks.razor`; `Issuing.razor` | TEST-BB-325 | D / I | None shipped (OCD-012) |
+| URS-BB-435 / FRS-BB-470 | MTP pack records, transport containers, printable pack report | `TransportContainer`; `MtpPackRecord`; `TransportContainerRule`; `MtpPackReportText`; `MtpPackingService`; `TransportContainerAdminService`; `IssuingEndpoints`; `MtpPackReport.razor`; `AdminTransportContainers.razor`; `Issuing.razor` | TEST-BB-326 | D / I | OCD-045 wording review |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

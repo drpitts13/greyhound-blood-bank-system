@@ -8203,3 +8203,72 @@ Decision (product owner, 2026-11-01): "Yes, empty packs". MTP packs are configur
 ### Next ranked residual
 
 Reaction investigation workflow audit.
+
+## Iteration 282 — MTP pack records, transport containers, and the pack report (2026-11-01)
+
+Requested by the product owner (2026-11-01):
+- a pack report for the MTP workflow listing the units, pack name and code, date and time packed, the tech who packed it, and for each unit the product type, code, ABO/Rh, and expiration date and time
+- the temperature of the pack, recorded
+- disclaimers
+- spaces for recipients to record the date and time they check, with initials
+- space for the ordering provider's name and date
+- pack setup in Admin with selectable coolers or other transport vessels
+
+### Design
+
+- **Transport containers** (Admin › Transport Containers, `TransportContainer`):
+  - code, name, type (cooler, insulated bag, box, other), description, and optional lowest and highest °C and validated hours
+  - none shipped; ranges and hours are the facility's own validation and the form starts them blank
+  - changes go to configuration history
+- **Pack record** (`MtpPackRecord`), made from **Pack a cooler…** on the protocol banner:
+  - container, optional "which one" label, temperature, comment, and the issued units ticked into it
+  - nothing is pre-ticked and the temperature starts blank, so the tech records what is actually in the container
+  - the system sets the pack number, the packed time (UTC), and the packer (the signed-in user)
+  - `Issues.MtpPackRecordId` links each unit
+- **Packing rules** (`TransportContainerRule.EvaluatePacking`):
+  - needs an active protocol, an active container, a temperature from -40 to 60 °C (catching typing errors, not a specification), and at least one unit
+  - every unit must have been issued under this protocol, still be issued, and be in no other pack
+  - a reading outside the container's facility range is a warning: recorded, flagged on the banner and the sheet, not blocked
+  - packing needs `issue.create` and is audited (`MassiveTransfusionProtocol`, action Packed, units listed)
+- **Pack report** (`/mtp/pack-records/{id}`, printable landscape; times UTC):
+  - patient, MRN, date of birth; protocol number, when activated, who called it and why
+  - pack definition name and code, pack number, packed time and packer, container and label, temperature and range
+  - per unit: number, product type, facility and ISBT product code, ABO/Rh, expiration, and the crossmatch status the issue recorded
+  - blank "Checked (date/time)" and "Initials" columns; blank "Received by / date/time / initials"; blank "Ordering provider (print name) / Date / Signature"
+  - the statements; printing is audited (`Print`)
+- **Statements** (`MtpPackReportText`): they describe how the units were released and give general handling reminders, with no clinical or time-limit claim of their own. A time limit is printed only from the container's validated hours. Wording is recorded for SME review as OCD-045.
+- **Found in the live check:** the first version labelled plasma "Crossmatched" because it inferred from "not uncrossmatched". The column now prints the status the issue recorded ("Uncrossmatched", "Compatible", "Not crossmatched", ...).
+- **Demo data:**
+  - patient MRN0021 with an **active** protocol: two O Neg red cells and two AB Pos plasma issued under it, each its own new demo unit
+  - one demo cooler with no range or hours, labelled not validated, and one recorded pack
+  - this lets the banner, packing form, and report be seen; close the protocol to clear the banner
+- **Schema:** tables `TransportContainers` and `MtpPackRecords`, and `Issues.MtpPackRecordId`, through migration `20261103110000_MtpPackRecords`, the dev bootstrap, and the SQL Server copy order.
+
+### Requirements / risk
+
+- URS-BB-435, FRS-BB-470, SRS-BB-432, RISK-BB-537, OCD-045. Help: new topics `transport-containers` and `mtp-pack-report`; issuing page updated.
+
+### Tests
+
+- TEST-BB-326:
+  - `TransportContainerRuleTests`: container validation, inclusive range limits, the packing refusals, and an out-of-range reading is a warning
+  - `MtpPackReportTextTests`: base statements carry no time limit; uncrossmatched, out-of-range, and validated-hours statements are added only when they apply
+  - `MtpPackCrossmatchTextTests`: crossmatch wording from the recorded status
+  - `Phase4IssuingTests`:
+    - a pack is recorded, linked, and audited, and the report carries every field; printing is audited
+    - an out-of-range reading is recorded and flagged
+    - refusals write nothing: no temperature, a foreign issue, no permission; a unit already packed; a closed protocol
+  - `SeederTests`: the demo protocol, its four units, and its pack; the demo cooler has no range
+- Full suite: 3,232 passed, 0 failed before the crossmatch-label fix (previously 3,204).
+- After the fix, the full suite found one test-catalog citation the packaging check could not parse; that was corrected. The final counts are 3,237 passed: Domain 1,829, Integration 1,172, Application 104, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API and Web, DevMode, with the demo data seeded on startup):
+  - the banner shows MTP #1 with "Red cells 2 issued · Plasma 2 issued" and "Pack 1 · Demo cooler (not validated) Cooler 1 · 4 units · 4.0 °C"
+  - **Pack a cooler…** opens the form with the container list; it says every unit is already packed, and **Record pack** stays disabled
+  - the report shows every field, the blanks, and the statements; after the fix the plasma rows read "Not crossmatched"
+  - Admin › Transport Containers lists DEMO-COOLER
+  - no server errors
+  - **Print** was not clicked, to avoid leaving a print dialog open in the preview; the print audit is covered by the integration test
+
+### Next ranked residual
+
+Reaction investigation workflow audit. OCD-045 wording and local-time printing await SME and product-owner review.
