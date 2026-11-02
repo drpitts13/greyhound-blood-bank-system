@@ -637,6 +637,47 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.NotNull(original.SupersededByResultId);
     }
 
+    // TEST-BB-367 (OCD-051): the worklist correction of a verified result works after the specimen expires.
+    [Fact]
+    public async Task WorklistCorrection_AfterTheSpecimenExpires_CreatesTheCorrectedVersion()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var verified = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: true, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(verified.Succeeded, verified.Error);
+
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        seed.specimen.Status = SpecimenStatus.Expired;
+        await c.SaveChangesAsync();
+
+        var corrected = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Positive", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: "Transcription error", UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(corrected.Succeeded, corrected.Error);
+        Assert.Equal(ResultStatus.Corrected, corrected.Value!.Status);
+    }
+
+    [Fact]
+    public async Task CorrectionReason_DoesNotLetAFirstResultPost_OnAnExpiredSpecimen()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        seed.specimen!.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        await c.SaveChangesAsync();
+
+        var save = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: "Not really a correction", UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.False(save.Succeeded);
+        Assert.Contains("has expired", save.Error);
+        Assert.False(await c.TestResults.AnyAsync(r => r.SpecimenId == seed.specimen.Id));
+    }
+
     [Fact]
     public async Task XmSave_WithUnitNumber_CreatesCrossmatchRecord()
     {

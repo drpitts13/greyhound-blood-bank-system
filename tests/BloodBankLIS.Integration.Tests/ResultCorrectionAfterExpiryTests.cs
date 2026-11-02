@@ -81,6 +81,19 @@ public class ResultCorrectionAfterExpiryTests : IDisposable
         Assert.Equal(ResultStatus.Verified, (await v.TestResults.SingleAsync(r => r.Id == correctionId)).Status);
     }
 
+    // TEST-BB-367: a verified result can still be invalidated after its specimen expires.
+    [Fact]
+    public async Task VerifiedResult_CanBeInvalidated_AfterTheSpecimenExpires()
+    {
+        var (specimenId, resultId) = await AboRhAsync("INV-EXP", verify: true);
+        await SetSpecimenAsync(specimenId, SpecimenStatus.Expired);
+
+        await using var c = _factory.Create();
+        var invalidated = await Results(c).InvalidateResultAsync(resultId, "Wrong blood in tube");
+        Assert.True(invalidated.Succeeded, invalidated.Error);
+        Assert.Equal(ResultStatus.Invalidated, invalidated.Value!.Status);
+    }
+
     [Fact]
     public async Task APendingFirstResult_IsStillNotVerified_OnAnExpiredSpecimen()
     {

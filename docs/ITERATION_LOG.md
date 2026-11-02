@@ -10095,3 +10095,37 @@ The residual from Cycle 323 asked whether a verified result can still be correct
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. OCD-051 was confirmed by the product owner the same day ("keep it"). Next engineering candidate: an integration test for the worklist correction path on an expired specimen, then review invalidation on an expired specimen the same way.
+
+## Iteration 325 — Worklist correction and invalidation after specimen expiry, covered by tests (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 324.
+
+### Finding
+
+The residual from Cycle 324 asked for two things:
+
+- a test of the worklist correction path on an expired specimen
+- a review of invalidation the same way
+
+Findings:
+
+- `InvalidateResultAsync` does not run the specimen gate, so a verified result can be invalidated after its specimen expires. That is correct, because invalidation withdraws a wrong value; no change needed.
+- The worklist correction path had no test of its own. Cycle 324 changed it so a correction reason opens the gate only when the save is a correction, and that guard needed a failure-path test.
+
+### Design
+
+Tests only; no code change.
+
+### Tests
+
+- TEST-BB-367:
+  - a worklist correction of a verified result after the specimen expired (and was marked Expired) creates the Corrected version
+  - a correction reason sent with a first result on an expired specimen does not let it post; nothing is saved
+  - a verified ABO/Rh can be invalidated after its specimen expires
+- Full suite: 3,486 passed, 0 failed (previously 3,483).
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: a result entered while the specimen was in date but not verified before it expired can no longer be verified (TEST-BB-366 pins this). Show pending-verification results whose specimen expires soon at the top of the worklist, so they are verified in time.
