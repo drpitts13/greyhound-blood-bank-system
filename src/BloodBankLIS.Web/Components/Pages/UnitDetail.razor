@@ -548,7 +548,7 @@ else
     private string _allocAuthorizedBy = string.Empty;
     private long _selectedEligibleRuleId;
     private long? _selectedIssueId;
-    private DateTime? _selectedIssuedUtc;
+    private bool? _selectedTimeOutAcceptable;
     private UnitStatus _changeStatusDestination = UnitStatus.Available;
     private string _changeStatusReason = string.Empty;
     // OCD-040: null = not answered; required only when the unit would go back to Available.
@@ -594,10 +594,9 @@ else
     private IEnumerable<DirectoryUserDto> VerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
-    private bool IssuedCanReturnToAvailable =>
-        _selectedIssuedUtc is DateTime issued
-        && ReturnReissueRule.IsWithinReturnToAvailableWindow(
-            issued, DateTime.UtcNow, ReturnReissueRule.DefaultReturnToAvailableMinutes);
+    // The server's decision for this issue (facility window and storage-location exemption), not a default here.
+    // Without an outstanding issue row the unit is offered Quarantine only.
+    private bool IssuedCanReturnToAvailable => _selectedTimeOutAcceptable == true;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -694,14 +693,13 @@ else
         _allocatableOrders = (await Api.GetUnitAllocatableOrdersAsync(id)).Value ?? new();
         _eligibleMods = (await Api.GetEligibleModificationsAsync(id)).Value ?? new();
         _selectedIssueId = null;
-        _selectedIssuedUtc = null;
+        _selectedTimeOutAcceptable = null;
         if (_unit.Status == UnitStatus.Issued)
         {
             var outstanding = await Api.GetOutstandingIssuesAsync();
             var row = outstanding.Value?.FirstOrDefault(i => i.BloodUnitId == id);
             _selectedIssueId = row?.IssueId;
-            _selectedIssuedUtc = row?.IssuedUtc
-                ?? _activity.LastOrDefault(a => a.EventType == "Issue")?.WhenUtc;
+            _selectedTimeOutAcceptable = row?.StorageTimeOutAcceptable;
             _changeStatusDestination = IssuedCanReturnToAvailable ? UnitStatus.Available : UnitStatus.Quarantine;
             var inspectionDefault = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.InspectionDefaultAcceptable);
             bool? start = inspectionDefault.Succeeded && inspectionDefault.Value?.Enabled == true ? true : null;

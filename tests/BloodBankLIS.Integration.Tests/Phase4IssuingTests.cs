@@ -2259,6 +2259,49 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-374: the outstanding-issue row's time-out decision follows the facility window, which the unit chart now uses.
+    [Fact]
+    public async Task OutstandingIssue_TimeOutDecision_FollowsTheFacilityWindow()
+    {
+        var s = await SeedAsync("RETURN-WIN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "WIN-RET", Name = "Governed fridge 2", TimeOutGoverned = true };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            var stored = await c.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await c.SaveChangesAsync();
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40), LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
+        }
+
+        try
+        {
+            await using (var c = _factory.Create())
+            {
+                Assert.False(Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId).StorageTimeOutAcceptable);
+                c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.ReturnToAvailableMinutes, Value = "60", Category = "Inventory" });
+                await c.SaveChangesAsync();
+            }
+
+            await using var v = _factory.Create();
+            var row = Assert.Single(await Issuing(v).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.True(row.StorageTimeOutGoverned);
+            Assert.True(row.StorageTimeOutAcceptable);
+        }
+        finally
+        {
+            await using var cleanup = _factory.Create();
+            cleanup.SystemSettings.RemoveRange(cleanup.SystemSettings.Where(x => x.Key == FacilityPolicyKeys.ReturnToAvailableMinutes));
+            await cleanup.SaveChangesAsync();
+        }
+    }
+
     [Fact]
     public async Task Return_ExemptLocation_AfterThirtyMinutes_CanReturnToAvailable()
     {

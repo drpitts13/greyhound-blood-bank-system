@@ -20,7 +20,7 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Overview** shows where the unit is, why it is quarantined or on hold if it is, and the receipt inspection (appearance, temperature, visual notes).
 
-**Actions** are the moves that are legal from the current status: quarantine, hold, release, transfer to another location, allocate to a patient order, discard, return to the supplier, or mark missing or damaged. Each action asks for the reason the rule requires. Discard and some releases need a higher permission than everyday receive and transfer. If the button is disabled, you either lack the permission or the unit status does not allow the move.
+**Actions** are the moves that are legal from the current status: quarantine, hold, release, transfer to another location, allocate to a patient order, discard, return to the supplier, or mark missing or damaged. Each action asks for the reason the rule requires. Discard and some releases need a higher permission than everyday receive and transfer. If the button is disabled, you either lack the permission or the unit status does not allow the move. For an issued unit, **Change status** offers Available only when the unit is still inside the facility return window, or is stored in a location exempt from it; otherwise it offers Quarantine.
 
 **Discard** asks for a coded reason from the list an administrator keeps in Admin › Discard Reasons, plus an optional comment. A code marked comment required, such as Other, needs the comment before Discard is enabled. The unit stores the code, and the **Wastage by product and reason** report counts discards by month, product, and code.
 

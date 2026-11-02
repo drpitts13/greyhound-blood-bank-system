@@ -10344,3 +10344,47 @@ The residual from Cycle 330 asked whether the chart's ABO/Rh discrepancy banner 
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: look for other Web components that re-derive a server rule from DTOs (for example ready-to-issue form cues and electronic crossmatch display), and give each a parity test or a server-computed field.
+
+## Iteration 332 — The unit chart's return choice follows the server (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 331.
+
+### Finding (questions 3 and 6)
+
+The residual from Cycle 331 asked for other screens that re-derive a server rule.
+
+- Most web calls into domain rules are display helpers, or counts over rows the server computed.
+- One was a decision: the unit chart's Change status choice for an issued unit offered Available using `ReturnReissueRule.DefaultReturnToAvailableMinutes` (30) and the current time. It ignored two things:
+  - the facility `ReturnToAvailableMinutes`
+  - storage locations exempt from the window
+- The outstanding-issue row the page already loads carries the server's decision (`StorageTimeOutAcceptable`), and the page ignored it.
+- Effects:
+  - with a longer facility window, or an exempt location, the page offered only Quarantine, so units that could return to stock were quarantined
+  - with a shorter window, it offered Available and the return was then refused
+- The server return gate was correct throughout.
+
+### Design
+
+- The page uses the row's `StorageTimeOutAcceptable`. Without an outstanding row it offers Quarantine only (fail safe).
+- The unused issued-time field was removed. No API or schema change.
+
+### Requirements / risk
+
+- URS-BB-477, FRS-BB-514, RISK-BB-575. Help: unit detail page.
+
+### Tests
+
+- TEST-BB-374: a unit issued 40 minutes ago to a governed location is not acceptable under the default 30-minute window, and becomes acceptable when the facility window is 60 minutes. The test removes its setting afterwards; the class shares one database.
+- Existing tests already cover the exempt location and the elapsed window on the same row.
+- Full suite: 3,512 passed, 0 failed (previously 3,511).
+- Run check (development API and web):
+  - every outstanding demo issue is governed with the window elapsed
+  - unit W0001230009101's Actions tab offers Quarantine only, matching the server
+  - no server errors
+  - no return was made
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: continue the screen-versus-server audit with `SpecimenExpirationOverrideRule.Evaluate` and `UnitModificationEligibilityRule` uses in the web project.
