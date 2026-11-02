@@ -516,7 +516,9 @@ public static partial class DatabaseSeeder
 
         var discarded = NewUnit(serial++, platelets.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(-1), 300m);
         discarded.Status = UnitStatus.Discarded;
-        discarded.DiscardReason = "Expired before issue.";
+        // Coded like a real discard, so the wastage report groups it under its reason.
+        discarded.DiscardReasonCode = "EXPIRED";
+        discarded.DiscardReason = "Expired before use";
 
         var expired = NewUnit(serial++, redCells.Id, AboGroup.AB, RhType.Negative, fridge.Id, now.AddDays(-3), 300m);
         expired.Status = UnitStatus.Expired;

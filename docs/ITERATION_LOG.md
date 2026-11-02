@@ -9109,3 +9109,32 @@ The base demo (`SeedDemoClinicalDataAsync`, patient MRN0001, unit W0001230000099
 ### Next ranked residual
 
 The incompatible retrospective crossmatch alert (Cycle 292) already distinguishes "has started" from "issued". Run a demo-data consistency sweep across the other seeded scenarios with the same invariant style (issued units versus allocations, returns, and discards). Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 301 — Demo data held to the system's own rules (2026-11-02)
+
+### Sweep
+
+Following iteration 300, one test now holds all seeded demo data to states the system itself produces (TEST-BB-345):
+- issued or transfusing units against open issues
+- open, transfused, and returned issues against their unit, transfusion, and return records
+- coded discards and coded specimen rejections
+- reservations against unit status
+
+### Finding and fix
+
+One violation: demo unit W0001230001027 (`SeedExtendedInventoryAsync`) was Discarded with free text and no discard reason code. A real discard always carries a code, and the wastage report groups by it. The seed now records `EXPIRED`, "Expired before use". Existing development databases keep their earlier row; nothing was rewritten.
+
+### Tests
+
+- TEST-BB-345 lists every violation in one message, so a future seed that breaks a rule says exactly what and where.
+- Full suite: 3,373 passed, 0 failed (previously 3,372).
+
+### Also found
+
+`dotnet list package --vulnerable --include-transitive` reports high-severity advisories:
+- `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 (GHSA-2m69-gcr7-jv3q) and `System.Security.Cryptography.Pkcs` 9.0.4 (GHSA-846f-f764-76mx), in Api, Infrastructure, and Integration.Tests
+- `Microsoft.OpenApi` 2.0.0 (GHSA-v5pm-xwqc-g5wc), in Api
+
+### Next ranked residual
+
+Update those packages to patched versions and verify with the full suite and a run check. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
