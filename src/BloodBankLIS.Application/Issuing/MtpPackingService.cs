@@ -35,7 +35,8 @@ public sealed record MtpPackReportUnitDto(
     DateTime ExpiresUtc,
     bool Uncrossmatched,
     // What the issue recorded: never inferred, so plasma is not printed as "crossmatched".
-    string Crossmatch);
+    string Crossmatch,
+    DateTime? ExpiresLocal = null);
 
 /// <summary>Everything printed on the pack report, including the blanks the receiving clinicians fill in.</summary>
 public sealed record MtpPackReportDto(
@@ -64,7 +65,11 @@ public sealed record MtpPackReportDto(
     bool TemperatureOutsideRange,
     string? Comment,
     IReadOnlyList<MtpPackReportUnitDto> Units,
-    IReadOnlyList<string> Disclaimers);
+    IReadOnlyList<string> Disclaimers,
+    // Bedside sheets print local time (product owner, 2026-11-01); the UTC fields above stay the record.
+    string TimeZoneLabel = "UTC",
+    DateTime? ActivatedLocal = null,
+    DateTime? PackedLocal = null);
 
 /// <summary>
 /// Records each physical pack sent during a massive transfusion protocol (container, temperature, who and when,
@@ -86,6 +91,7 @@ public sealed class MtpPackingService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IFacilityTimeZone? _timeZone;
 
     public MtpPackingService(
         IRepository<MtpPackRecord> packs,
@@ -100,8 +106,10 @@ public sealed class MtpPackingService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZone = timeZone;
         _packs = packs;
         _activations = activations;
         _containers = containers;
@@ -275,7 +283,8 @@ public sealed class MtpPackingService
                     u is null ? "Unknown" : $"{u.Abo} {RhText(u.RhD)}",
                     u?.ExpiresUtc ?? i.UnitExpirationAtIssueUtc ?? DateTime.MinValue,
                     i.TestsIncompleteAtIssue,
-                    CrossmatchText(i));
+                    CrossmatchText(i),
+                    Local(u?.ExpiresUtc ?? i.UnitExpirationAtIssueUtc ?? DateTime.MinValue));
             })
             .ToList();
 
@@ -294,8 +303,15 @@ public sealed class MtpPackingService
             container?.ValidatedHours,
             record.TemperatureC, record.TemperatureOutsideRange, record.Comment,
             lines,
-            MtpPackReportText.Disclaimers(lines.Any(l => l.Uncrossmatched), container?.ValidatedHours, record.TemperatureOutsideRange));
+            MtpPackReportText.Disclaimers(lines.Any(l => l.Uncrossmatched), container?.ValidatedHours, record.TemperatureOutsideRange),
+            _timeZone?.Label ?? "UTC",
+            Local(activation.ActivatedUtc),
+            Local(record.PackedUtc));
     }
+
+    /// <summary>UTC when no facility time zone is configured (for example in tests that pass none).</summary>
+    private DateTime Local(DateTime utc) =>
+        utc == DateTime.MinValue || _timeZone is null ? utc : _timeZone.ToLocal(utc);
 
     /// <summary>Audits that the pack report was printed (it carries patient data off the unit).</summary>
     public async Task<bool> RecordPrintedAsync(long packRecordId, CancellationToken ct = default)

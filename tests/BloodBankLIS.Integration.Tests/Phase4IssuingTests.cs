@@ -928,11 +928,31 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
     }
 
-    private MtpPackingService Packing(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+    private MtpPackingService Packing(BloodBankDbContext c, IPermissionEvaluator? permissions = null, IFacilityTimeZone? timeZone = null) =>
         new(new EfRepository<MtpPackRecord>(c), new EfRepository<MtpActivation>(c), new EfRepository<TransportContainer>(c),
             new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new EfRepository<Patient>(c),
             new EfRepository<MtpPackDefinition>(c), c, _factory.Clock, _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3), timeZone);
+
+    // TEST-BB-328: the pack report prints the facility's local time and names the zone; the UTC record is unchanged.
+    [Fact]
+    public async Task MtpPackReport_PrintsLocalTime_AndNamesTheZone()
+    {
+        var (_, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-LOCAL", "COOL-T");
+        var chicago = BloodBankLIS.Infrastructure.Common.FacilityTimeZone.FromId("America/Chicago");
+        await using var c = _factory.Create();
+        var packed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.True(packed.Succeeded, packed.Error);
+
+        var report = await Packing(c, timeZone: chicago).GetReportAsync(packed.Value!.Id);
+
+        Assert.Equal(chicago.Label, report!.TimeZoneLabel);
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(report.PackedUtc, DateTimeKind.Utc), chicago.Zone), report.PackedLocal);
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(report.ActivatedUtc, DateTimeKind.Utc), chicago.Zone), report.ActivatedLocal);
+        var unit = Assert.Single(report.Units);
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(unit.ExpiresUtc, DateTimeKind.Utc), chicago.Zone), unit.ExpiresLocal);
+        Assert.NotEqual(report.PackedUtc, report.PackedLocal);
+    }
 
     /// <summary>Activates MTP for a seeded patient and issues its unit under it; returns (activation, issue, container).</summary>
     private async Task<(Scenario S, long ActivationId, long IssueId, long ContainerId)> IssuedUnderMtpAsync(string key, string containerCode)

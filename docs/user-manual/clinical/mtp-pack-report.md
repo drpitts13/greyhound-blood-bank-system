@@ -29,6 +29,6 @@ Under **Packs sent** on the banner, open the pack and choose **Print**. Printing
 - blank lines for who received the pack, the date and time, and initials, and for the ordering provider's printed name, date, and signature
 - the statements printed on every pack report
 
-All times on the sheet are UTC, like the rest of the system.
+Times on the sheet are your facility's local time, and the sheet names the time zone at the top. The rest of the system still shows UTC. If the sheet says "server time zone", nobody has set the facility time zone yet; ask your administrator to set `Facility:TimeZone` in the API settings (for example `Central Standard Time` or `America/Chicago`). If it says the configured zone "was not found", the setting has a typo.
 
 The statements are general handling reminders and say how the units were released. They make no time limit of their own: a time limit appears only when your facility has entered the container's validated hours. Your transfusion committee should review the wording before go-live (OCD-045).

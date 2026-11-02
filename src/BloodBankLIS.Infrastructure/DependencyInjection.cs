@@ -195,6 +195,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         // Default environment descriptor; the host (API/Web) overrides with the real one.
         services.TryAddSingleton<IEnvironmentInfo>(new StaticEnvironmentInfo());
+        services.TryAddSingleton<IFacilityTimeZone>(sp => FacilityTimeZone.FromConfiguration(sp.GetService<IConfiguration>()));
         services.TryAddCurrentUser();
 
         return services;

@@ -8328,3 +8328,33 @@ No change since Cycle 282. This cycle is the ranked audit of the reaction invest
 ### Next ranked residual
 
 Continue the workflow audits: transfusion administration documentation (bedside start, stop, vitals, and volume), then shift handoff.
+
+## Iteration 284 — MTP pack report in local time (2026-11-01)
+
+Decision (product owner, 2026-11-01): "Yes, local time". The pack report travels to the bedside, so its times print in the facility's local time. Recorded under OCD-045.
+
+### Design
+
+- No facility time zone existed. The ISBT expiration parser still marks it as a policy item.
+- New `IFacilityTimeZone`, resolved from configuration `Facility:TimeZone` (a Windows or IANA id, empty by default):
+  - blank uses the server's zone, and the label says "(server time zone)"
+  - an unknown id also falls back to the server's zone, and the label names the id that was not found, so a typo is visible on paper instead of silently printing the wrong zone
+- The API converts, so the result does not depend on the machine that displays the page. Stored times stay UTC.
+- The report DTO adds `TimeZoneLabel`, `ActivatedLocal`, `PackedLocal`, and per unit `ExpiresLocal`. The header reads "All times: (UTC-05:00) Eastern Time (US & Canada) …".
+- Only the pack report changes; the rest of the system still shows UTC.
+
+### Tests
+
+- TEST-BB-328:
+  - `FacilityTimeZoneTests`: conversion across daylight saving (January UTC-6, July UTC-5 for America/Chicago), unspecified kind treated as UTC, blank and unknown zones fall back with a visible label, and the configuration key is read
+  - `Phase4IssuingTests.MtpPackReport_PrintsLocalTime_AndNamesTheZone`
+- Full suite: 3,258 passed, 0 failed (previously 3,251). Domain 1,840, Integration 1,182, Application 104, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development, no zone configured, server on Eastern Time):
+  - the demo pack report reads "All times: (UTC-05:00) Eastern Time (US & Canada) (server time zone)"
+  - packed 2026-11-02 01:47 UTC prints as 2026-11-01 20:47, which is correct after daylight saving ended on 1 November
+  - unit expirations are converted the same way
+  - no server errors
+
+### Next ranked residual
+
+Transfusion administration documentation audit (bedside start, stop, vitals, volume), then shift handoff. Whether the rest of the screens should also show local time is a separate product decision.
