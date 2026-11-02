@@ -42,6 +42,14 @@ Emergency and MTP are a different issue type. They are not an instruction to ign
 
 > Hard stop. When the patient's blood group is established, red cells or whole blood whose group conflicts with it cannot be issued, even as an emergency release. For example, group A red cells for a group O patient are refused whatever reason is entered. Choose group O or another ABO-compatible unit. Rh mismatch and missing crossmatch stay warnings that an authorized person can override.
 
+### Massive transfusion protocol
+
+Before the first unit, **activate** the protocol: choose **MassiveTransfusion** as the issue type, pick the patient, and record who called it, why, and where. A unit cannot be issued under MTP until the protocol is active. Only people with the emergency-release permission can activate or close it.
+
+While it is active, a red banner on every Issue & Transfuse desk shows the patient, how long it has run, and how many units of each component have been issued, returned, and transfused. **Issue under this MTP** opens the issue form for that patient. **Use as override reason** fills the reason from the activation. Every unit still goes through every safety check and its own signature.
+
+When the protocol ends, choose **Close…** and give the reason. The units stay linked to it on the record. Emergency release of a single unit does not need an activation.
+
 You still need a current specimen for the patient, an in-date unit, acceptable appearance, and two identity tokens. You record the reason and sign. The issue is flagged for retrospective crossmatch. It stays on the retrospective queue until someone records the crossmatch, by default within the hours set in facility policy (the shipped default is 24). **Record crossmatch** opens Compatibility with the issue filled in.
 
 ## In transit and ward receipt

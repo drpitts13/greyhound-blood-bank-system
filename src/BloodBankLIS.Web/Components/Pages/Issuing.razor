@@ -48,6 +48,54 @@
     </div>
 </div>
 
+@if (_activeMtp.Count > 0)
+{
+    @* Every active massive transfusion protocol stays in view on every desk until someone closes it. *@
+    <div class="alert alert-danger" role="status" style="margin-top:.75rem;">
+        <strong>Massive transfusion protocol active</strong>
+        <Outcome Value="_mtpBoardFb" />
+        @foreach (var mtp in _activeMtp)
+        {
+            <div style="margin-top:.5rem;">
+                <strong>@mtp.PatientName</strong> @(mtp.MedicalRecordNumber is null ? "" : $"({mtp.MedicalRecordNumber})")
+                &middot; MTP #@mtp.Id, @mtp.MinutesActive min &middot; called by @mtp.RequestedBy &middot; @mtp.Reason
+                <div class="muted">
+                    @if (mtp.Counts.Count == 0)
+                    {
+                        <span>No units issued yet.</span>
+                    }
+                    else
+                    {
+                        @string.Join(" · ", mtp.Counts.Select(c => $"{ComponentLabel(c.ComponentClass)} {c.Issued} issued" + (c.Returned > 0 ? $", {c.Returned} returned" : "") + (c.Transfused > 0 ? $", {c.Transfused} transfused" : "")))
+                    }
+                </div>
+                <div class="flex gap" style="flex-wrap:wrap;align-items:end;margin-top:.35rem;">
+                    @if (Session.Has(PermissionCodes.IssueCreate))
+                    {
+                        <button type="button" class="btn btn-sm btn-danger" @onclick="() => IssueUnderMtpAsync(mtp)">Issue under this MTP</button>
+                    }
+                    @if (Session.Has(PermissionCodes.IssueEmergencyRelease))
+                    {
+                        @if (_closingMtpId == mtp.Id)
+                        {
+                            <div class="field" style="min-width:16rem;margin:0;">
+                                <label>Why is it ending?</label>
+                                <input @bind="_mtpCloseReason" placeholder="e.g. Bleeding controlled; protocol stood down" />
+                            </div>
+                            <button type="button" class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => CloseMtpAsync(mtp)">Close MTP</button>
+                            <button type="button" class="btn btn-sm btn-ghost" @onclick="() => _closingMtpId = null">Cancel</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-sm btn-ghost" @onclick="() => { _closingMtpId = mtp.Id; _mtpCloseReason = null; }">Close…</button>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
 @if (Session.Has(PermissionCodes.IssueCreate) && _desk == "second")
 {
     <div class="bb-card">
@@ -551,6 +599,33 @@
                     Placeholder="Different active user" />
             </div>
         </div>
+        @if (_issue.IssueType == IssueType.MassiveTransfusion && _issue.PatientId > 0)
+        {
+            @if (IssueMtp is { } activeMtp)
+            {
+                <div class="alert alert-info" style="margin-top:.5rem;">
+                    Issuing under <strong>MTP #@activeMtp.Id</strong>, active @activeMtp.MinutesActive min, called by @activeMtp.RequestedBy: @activeMtp.Reason.
+                    <button type="button" class="btn btn-sm btn-ghost" @onclick="() => UseMtpReason(activeMtp)">Use as override reason</button>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning" style="margin-top:.5rem;">
+                    <strong>No massive transfusion protocol is active for this patient.</strong>
+                    Record who called it and why before issuing under MTP.
+                    @if (Session.Has(PermissionCodes.IssueEmergencyRelease))
+                    {
+                        <div class="form-row" style="margin-top:.5rem;">
+                            <div class="field"><label>Called by (clinician)</label><input @bind="_mtpRequestedBy" placeholder="e.g. Dr. Rivera, trauma" /></div>
+                            <div class="field"><label>Reason</label><input @bind="_mtpReason" placeholder="e.g. Hemorrhagic shock" /></div>
+                            <div class="field"><label>Location</label><input @bind="_mtpLocation" placeholder="Optional, e.g. ED trauma 1" /></div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger" disabled="@_busy" @onclick="ActivateMtpAsync">Activate MTP</button>
+                    }
+                    <Outcome Value="_mtpFb" />
+                </div>
+            }
+        }
         <div class="flex gap" style="flex-wrap:wrap;margin:.5rem 0 1rem;">
             <AppearanceSelect Label="Appearance at issue" Style="min-width:14rem;" @bind-Value="_issue.Appearance" />
         </div>
@@ -1054,6 +1129,77 @@
 
     private void SelectDesk(string desk) => _desk = desk;
 
+    private List<MtpActivationDto> _activeMtp = new();
+    private Feedback? _mtpFb;
+    private Feedback? _mtpBoardFb;
+    private string? _mtpRequestedBy;
+    private string? _mtpReason;
+    private string? _mtpLocation;
+    private long? _closingMtpId;
+    private string? _mtpCloseReason;
+
+    private MtpActivationDto? IssueMtp => _activeMtp.FirstOrDefault(m => m.PatientId == _issue.PatientId);
+
+    private static string ComponentLabel(ComponentClass c) => c switch
+    {
+        ComponentClass.RedBloodCells => "Red cells",
+        ComponentClass.WholeBlood => "Whole blood",
+        ComponentClass.Cryoprecipitate => "Cryo",
+        _ => c.ToString()
+    };
+
+    private async Task LoadActiveMtpAsync()
+    {
+        var active = await Api.GetActiveMtpAsync();
+        if (active.Succeeded) _activeMtp = active.Value ?? new();
+    }
+
+    private async Task IssueUnderMtpAsync(MtpActivationDto mtp)
+    {
+        _desk = "issue";
+        _issue.IssueType = IssueType.MassiveTransfusion;
+        _issue.PatientId = mtp.PatientId;
+        _overrideOn = true;
+        await OnIssuePatientChangedAsync();
+    }
+
+    // An explicit click, never a silent default: the reason text names the activation it came from.
+    private void UseMtpReason(MtpActivationDto mtp)
+    {
+        _overrideOn = true;
+        _overrideReason = $"MTP #{mtp.Id}: {mtp.Reason}";
+    }
+
+    private async Task ActivateMtpAsync()
+    {
+        _busy = true;
+        var r = await Api.ActivateMtpAsync(_issue.PatientId, new ActivateMtpRequest(_mtpRequestedBy, _mtpReason, _mtpLocation));
+        _busy = false;
+        _mtpFb = r.ToFeedback("Massive transfusion protocol activated.");
+        if (r.Succeeded)
+        {
+            _mtpRequestedBy = null;
+            _mtpReason = null;
+            _mtpLocation = null;
+            _overrideOn = true;
+            await LoadActiveMtpAsync();
+        }
+    }
+
+    private async Task CloseMtpAsync(MtpActivationDto mtp)
+    {
+        _busy = true;
+        var r = await Api.CloseMtpAsync(mtp.Id, new CloseMtpRequest(_mtpCloseReason));
+        _busy = false;
+        _mtpBoardFb = r.ToFeedback($"MTP #{mtp.Id} closed. Its units stay on the record.");
+        if (r.Succeeded)
+        {
+            _closingMtpId = null;
+            _mtpCloseReason = null;
+            await LoadActiveMtpAsync();
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _desk = IssuingDeskQuery.Resolve(
@@ -1390,6 +1536,7 @@
 
     private async Task LoadWorklistsAsync()
     {
+        await LoadActiveMtpAsync();
         if (Session.Has(PermissionCodes.IssueCreate))
         {
             var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();

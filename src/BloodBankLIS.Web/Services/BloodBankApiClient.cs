@@ -585,6 +585,15 @@ public sealed class BloodBankApiClient
         SendAsync<AllocationDto>(HttpMethod.Post, $"api/allocations/{id}/release", new ReasonRequestVm(reason), ct);
 
     // ---- Issuing ----
+    public Task<ApiResult<List<MtpActivationDto>>> GetActiveMtpAsync(CancellationToken ct = default) =>
+        SendAsync<List<MtpActivationDto>>(HttpMethod.Get, "api/mtp/active", ct: ct);
+
+    public Task<ApiResult<MtpActivationDto>> ActivateMtpAsync(long patientId, ActivateMtpRequest req, CancellationToken ct = default) =>
+        SendAsync<MtpActivationDto>(HttpMethod.Post, $"api/patients/{patientId}/mtp", req, ct);
+
+    public Task<ApiResult<MtpActivationDto>> CloseMtpAsync(long activationId, CloseMtpRequest req, CancellationToken ct = default) =>
+        SendAsync<MtpActivationDto>(HttpMethod.Post, $"api/mtp/{activationId}/close", req, ct);
+
     public Task<ApiResult<IssueDto>> IssueUnitAsync(IssueUnitRequest req, long? signatureId = null, CancellationToken ct = default)
     {
         var headers = signatureId is not null

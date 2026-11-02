@@ -438,3 +438,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-430 | An emergency release can never send red cells that are ABO-incompatible with a patient's established blood group, whatever override is entered. | P1 | FRS-BB-465 |
 | URS-BB-431 | When a screen or interface sends a request the system cannot read, the user or interface team is told in plain words which value was wrong, and nothing internal is revealed. | P6 | FRS-BB-466 |
 | URS-BB-432 | A unit that still needs its ABO/Rh retype never reappears as available stock without that retype, and a unit whose retype proved its label wrong cannot be issued at all. | P1 | FRS-BB-467 |
+| URS-BB-433 | When a massive transfusion protocol is called, the blood bank records who called it and why, sees every unit issued under it as it happens, and records when and why it ended. | P1 | FRS-BB-468 |

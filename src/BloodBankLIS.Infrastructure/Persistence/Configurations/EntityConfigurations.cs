@@ -696,6 +696,7 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
 
         b.HasOne(i => i.Unit).WithMany().HasForeignKey(i => i.BloodProductId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(i => i.Override).WithMany().HasForeignKey(i => i.OverrideId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<MtpActivation>().WithMany().HasForeignKey(i => i.MtpActivationId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(i => i.BloodProductId);
         b.HasIndex(i => i.BloodProductId)
             .IsUnique()
@@ -1818,6 +1819,25 @@ public sealed class DatElutionEluateFindingConfiguration : IEntityTypeConfigurat
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => x.WorkupId);
         b.HasOne<DatElutionWorkup>().WithMany().HasForeignKey(x => x.WorkupId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class MtpActivationConfiguration : IEntityTypeConfiguration<MtpActivation>
+{
+    public void Configure(EntityTypeBuilder<MtpActivation> b)
+    {
+        b.ToTable("MtpActivations");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.RequestedBy).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+        b.Property(x => x.Location).HasMaxLength(100);
+        b.Property(x => x.ActivatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ClosedBy).HasMaxLength(100);
+        b.Property(x => x.CloseReason).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.PatientId, x.Status });
+        b.HasOne<Patient>().WithMany().HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

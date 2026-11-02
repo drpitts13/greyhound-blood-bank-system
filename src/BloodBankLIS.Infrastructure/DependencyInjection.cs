@@ -109,6 +109,7 @@ public static class DependencyInjection
         services.AddScoped<SpecimenService>();
         services.AddScoped<UniversalLookupService>();
         services.AddScoped<BloodBankLIS.Application.Interop.Fhir.FhirReadService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.MtpActivationService>();
         services.AddScoped<ExpiredSpecimenOrderService>();
         services.AddScoped<OrderingProviderService>();
         services.AddScoped<OrderingLocationService>();

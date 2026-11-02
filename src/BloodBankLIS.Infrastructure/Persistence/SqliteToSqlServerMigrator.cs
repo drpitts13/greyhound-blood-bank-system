@@ -122,6 +122,7 @@ public sealed class SqliteToSqlServerMigrator
         "Allocations",
         "AutoThawRequests",
         "Overrides",
+        "MtpActivations",
         "Issues",
         "Returns",
         "TransfusionEvents",

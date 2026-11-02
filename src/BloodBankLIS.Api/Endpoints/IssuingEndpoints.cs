@@ -61,6 +61,26 @@ public static class IssuingEndpoints
             return EndpointResults.CreatedEvaluation(result, i => ($"/api/issues/{i.Id}", (object)IssueDto.From(i)));
         }).RequirePermission(PermissionCodes.IssueCreate);
 
+        // Massive transfusion protocol: activate (who called it and why), board, close. OCD-012 permission.
+        app.MapPost("/api/patients/{patientId:long}/mtp", async (long patientId, ActivateMtpRequest request, MtpActivationService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.ActivateAsync(patientId, request, ct), d => d))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueEmergencyRelease);
+        app.MapGet("/api/patients/{patientId:long}/mtp", async (long patientId, MtpActivationService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListForPatientAsync(patientId, ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        app.MapGet("/api/mtp/active", async (MtpActivationService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListActiveAsync(ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        app.MapPost("/api/mtp/{id:long}/close", async (long id, CloseMtpRequest request, MtpActivationService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.CloseAsync(id, request, ct), d => d))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueEmergencyRelease);
+
         issues.MapGet("/pending-retrospective-crossmatch", async (IssuingService service, CancellationToken ct) =>
             Results.Ok(await service.ListPendingRetrospectiveCrossmatchesAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);

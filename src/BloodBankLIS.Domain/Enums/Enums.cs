@@ -445,6 +445,12 @@ public enum IssueType
     RemoteIssue = 4
 }
 
+public enum MtpActivationStatus
+{
+    Active = 0,
+    Closed = 1
+}
+
 public enum IssueStatus
 {
     Issued = 0,
@@ -694,7 +700,10 @@ public enum AuditEventType
     DatElution = 43,
 
     /// <summary>A patient merge was undone and history was restored to the duplicate record.</summary>
-    Unmerge = 44
+    Unmerge = 44,
+
+    /// <summary>A massive transfusion protocol was activated or closed for a patient.</summary>
+    MassiveTransfusionProtocol = 45
 }
 
 /// <summary>

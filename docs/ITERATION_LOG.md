@@ -8098,3 +8098,63 @@ No change since Cycle 278. This cycle continues the safety audit ranked there: m
 ### Next ranked residual
 
 Massive transfusion protocol: check MTP pack issue for ratio guidance, cooler tracking, and that every unit in a pack passes the same gate. Then reaction investigation.
+
+## Iteration 280 — Massive transfusion protocol activation and board (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 279 apart from this row. The cycle continues the ranked safety audit: massive transfusion.
+
+### Finding (seven questions, MTP)
+
+- MTP was only an issue type picked unit by unit. Nothing recorded who called the protocol, why, or when it ended.
+- Nothing tied a protocol's units together, so the desk had to remember how many units of each component had gone. Each unit was entered as if it were the first.
+- Safety: untraceable uncrossmatched release and over-issue or wastage. Benchmarked products treat MTP as an activation.
+
+### Design
+
+- **Activation record** (`MtpActivation`):
+  - patient, the requesting clinician, the reason, an optional location, and who activated it and when
+  - closed with a reason and the user; rows are never deleted
+  - one active per patient; refused on a merged chart
+  - activate and close need `issue.emergency-release` (OCD-012); both are audited (`MassiveTransfusionProtocol`)
+- **Issue link:**
+  - a massive-transfusion issue is refused without an active activation (`MTP-NOT-ACTIVE`, with a message pointing to activation or to emergency release for a single unit), and otherwise links to it
+  - the issue audit records the activation id
+  - every unit still passes the full issue gate and needs its own override and signature
+  - emergency release of a single unit is unchanged
+- **Board:**
+  - every Issue & Transfuse desk shows each active protocol: patient, minutes active, clinician, reason, and units issued, returned, and transfused per component class
+  - **Issue under this MTP** opens the issue form for the patient with the MTP type and override on
+  - **Close…** asks for the reason
+- **Issue form:** with MTP selected and no activation, the form asks for the clinician, reason, and location and offers **Activate MTP**. With one, it names the activation and offers **Use as override reason**, an explicit click, never a silent default (OCD-041 spirit). The authorizer stays empty.
+- **Not invented:** pack composition and component ratios. These are facility policy and require SME sign-off (OCD-012 note), so the board shows counts only.
+- **Schema:** table `MtpActivations` and nullable `Issues.MtpActivationId`, through migration `20261103090000_MtpActivations`, the dev SQLite bootstrap, and the SQL Server copy order.
+
+### Requirements / risk
+
+- URS-BB-433, FRS-BB-468, SRS-BB-430, RISK-BB-535. OCD-012 note. Help: issuing page.
+
+### Tests
+
+- TEST-BB-324:
+  - `MtpActivationRuleTests` (14 cases): activation needs a clinician and a reason, one active per patient, not on a merged chart; close needs a reason and an active protocol; an MTP issue needs an activation, other issue types do not
+  - `Phase4IssuingTests`:
+    - an MTP issue without an activation is refused and nothing is written
+    - with an activation it links, appears on the board with a red-cell count of 1 and its unit number, and the issue audit carries the activation id
+    - emergency release does not link
+    - lifecycle: a second activation is refused; closing needs a reason; close is audited; a closed protocol is not on the board and cannot be closed again; a new activation after close works
+    - activation without the emergency permission is refused and nothing is written
+  - The existing MTP test now activates first.
+- Full suite: 3,190 passed, 0 failed (previously 3,171). Domain 1,793, Integration 1,161, Application 104, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API and Web, DevMode):
+  - the dev database gained the table on startup
+  - `GET /api/mtp/active` and `GET /api/patients/1/mtp` return `[]`
+  - an activation with a blank reason returns 422 with the readable hard stop
+  - on Issue & Transfuse, choosing MassiveTransfusion for patient 1 shows the activation panel; **Activate MTP** with empty fields shows "Name the clinician who called the massive transfusion protocol." and writes nothing
+  - no server errors
+  - no activation was created, to leave the development data unchanged, so the red board was not seen live
+
+### Next ranked residual
+
+Reaction investigation workflow audit. Pack composition for MTP waits on SME input (OCD-012).

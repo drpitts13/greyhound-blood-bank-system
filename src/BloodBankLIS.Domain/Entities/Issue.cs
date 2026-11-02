@@ -99,4 +99,7 @@ public class Issue : BaseEntity
 
     /// <summary>Comma-separated special-requirement codes acknowledged at issue (warmer / Other).</summary>
     public string? AcknowledgedSpecialRequirementCodes { get; set; }
+
+    /// <summary>The massive transfusion protocol activation this unit was issued under.</summary>
+    public long? MtpActivationId { get; set; }
 }

@@ -59,6 +59,7 @@ public sealed class IssuingService
     private readonly IRepository<LabelLayout>? _labelLayouts;
     private readonly IRepository<PtagIdentifier>? _ptagIdentifiers;
     private readonly IRepository<ProductRetypeResult>? _retypes;
+    private readonly IRepository<MtpActivation>? _mtpActivations;
     private readonly IRepository<AutoThawRequest>? _autoThawRequests;
     private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
@@ -103,7 +104,8 @@ public sealed class IssuingService
         IRepository<AutoThawRequest>? autoThawRequests = null,
         ElectronicCrossmatchEligibilityService? electronicCrossmatch = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
-        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null,
+        IRepository<MtpActivation>? mtpActivations = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -144,6 +146,7 @@ public sealed class IssuingService
         _electronicCrossmatch = electronicCrossmatch;
         _aboCompatibilities = aboCompatibilities;
         _rhCompatibilities = rhCompatibilities;
+        _mtpActivations = mtpActivations;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -163,6 +166,22 @@ public sealed class IssuingService
         if (emergencyAuth.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<Issue>.Blocked(new RuleEvaluation([emergencyAuth]));
+        }
+
+        // A massive-transfusion issue belongs to the patient's active protocol activation.
+        long? mtpActivationId = null;
+        if (_mtpActivations is not null && request.IssueType == IssueType.MassiveTransfusion)
+        {
+            mtpActivationId = (await _mtpActivations.ListAsync(
+                    a => a.PatientId == request.PatientId && a.Status == MtpActivationStatus.Active, ct))
+                .OrderByDescending(a => a.ActivatedUtc)
+                .Select(a => (long?)a.Id)
+                .FirstOrDefault();
+            var mtp = MtpActivationRule.EvaluateIssue(request.IssueType, mtpActivationId is not null);
+            if (mtp.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Issue>.Blocked(new RuleEvaluation([mtp]));
+            }
         }
 
         var unit = await _inventory.GetUnitAsync(request.BloodUnitId, ct);
@@ -468,6 +487,7 @@ public sealed class IssuingService
             SecondVerifier = request.SecondVerifier,
             PatientIdentifier1 = request.PatientIdentifier1Value,
             PatientIdentifier2 = request.PatientIdentifier2Value,
+            MtpActivationId = mtpActivationId,
             AcknowledgedSpecialRequirementCodes = JoinAcknowledgedCodes(request.AcknowledgedSpecialRequirementCodes),
             PtagCode = matchedPtag.Identifier?.Code
         };
@@ -518,7 +538,8 @@ public sealed class IssuingService
                 unit.Din,
                 BloodProductId = unit.Id,
                 IssueAppearance = issueAppearance.Appearance,
-                AppearanceFromFacilityDefault = issueAppearance.UsedDefault
+                AppearanceFromFacilityDefault = issueAppearance.UsedDefault,
+                MtpActivationId = mtpActivationId
             },
             reason: authorizedOverride?.Reason);
 

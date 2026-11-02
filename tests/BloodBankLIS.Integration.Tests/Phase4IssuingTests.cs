@@ -81,6 +81,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             orderActions: new EfRepository<OrderAction>(c),
             retypes: new EfRepository<ProductRetypeResult>(c),
             autoThawRequests: new EfRepository<AutoThawRequest>(c),
+            mtpActivations: new EfRepository<MtpActivation>(c),
             electronicCrossmatch: new ElectronicCrossmatchEligibilityService(
                 new EfRepository<Patient>(c),
                 new EfRepository<PatientBloodTypeHistory>(c),
@@ -896,6 +897,122 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Received, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    private MtpActivationService Mtp(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+        new(new EfRepository<MtpActivation>(c), new EfRepository<Patient>(c), new EfRepository<Issue>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3));
+
+    private async Task<long> ActivateMtpAsync(long patientId)
+    {
+        await using var c = _factory.Create();
+        var activated = await Mtp(c).ActivateAsync(patientId, new ActivateMtpRequest("Dr. Rivera, trauma", "Hemorrhagic shock", "ED trauma 1"));
+        Assert.True(activated.Succeeded, activated.Error ?? string.Join("; ", activated.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        return activated.Value!.Id;
+    }
+
+    // TEST-BB-324: a massive-transfusion issue needs an active protocol activation for the patient.
+    [Fact]
+    public async Task MassiveTransfusionIssue_WithoutActivation_IsRefused()
+    {
+        var s = await SeedAsync("MTP-NONE");
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.MassiveTransfusion, overrideReason: "MTP", authorizedBy: "dr-authorizer"));
+
+        Assert.False(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == MtpActivationRule.NotActiveCode);
+        Assert.False(await c.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+    }
+
+    [Fact]
+    public async Task MassiveTransfusionIssue_LinksToActivation_AndCountsOnTheBoard()
+    {
+        var s = await SeedAsync("MTP-LINK");
+        await AllocateAsync(s);
+        var activationId = await ActivateMtpAsync(s.PatientId);
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.MassiveTransfusion, overrideReason: $"MTP #{activationId}: Hemorrhagic shock", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(activationId, issued.Value!.MtpActivationId);
+        }
+
+        await using var verify = _factory.Create();
+        var board = Assert.Single(await Mtp(verify).ListActiveAsync(), a => a.Id == activationId);
+        var count = Assert.Single(board.Counts);
+        Assert.Equal(ComponentClass.RedBloodCells, count.ComponentClass);
+        Assert.Equal(1, count.Issued);
+        Assert.Equal("U-MTP-LINK", Assert.Single(board.Units).UnitNumber);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains($"\"MtpActivationId\":{activationId}")));
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_DoesNotNeedOrLinkAnActivation()
+    {
+        var s = await SeedAsync("MTP-EMERG");
+        await AllocateAsync(s);
+        await ActivateMtpAsync(s.PatientId);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Single uncrossmatched unit", authorizedBy: "dr-authorizer"));
+
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Null(issued.Value!.MtpActivationId);
+    }
+
+    [Fact]
+    public async Task MtpActivation_OncePerPatient_ClosedWithReason_AndAudited()
+    {
+        var s = await SeedAsync("MTP-LIFE");
+        var activationId = await ActivateMtpAsync(s.PatientId);
+
+        await using var c = _factory.Create();
+        var again = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Lee", "Still bleeding"));
+        Assert.Contains(again.Evaluation!.HardStops, r => r.Code == MtpActivationRule.AlreadyActiveCode);
+
+        var noReason = await Mtp(c).CloseAsync(activationId, new CloseMtpRequest(" "));
+        Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == MtpActivationRule.CloseCode);
+
+        var closed = await Mtp(c).CloseAsync(activationId, new CloseMtpRequest("Bleeding controlled"));
+        Assert.True(closed.Succeeded, closed.Error);
+        Assert.Equal(MtpActivationStatus.Closed, closed.Value!.Status);
+        Assert.Equal("Bleeding controlled", closed.Value.CloseReason);
+        Assert.DoesNotContain(await Mtp(c).ListActiveAsync(), a => a.Id == activationId);
+
+        var twice = await Mtp(c).CloseAsync(activationId, new CloseMtpRequest("Again"));
+        Assert.True(twice.Evaluation!.IsHardStopped);
+
+        var events = await c.AuditEvents.Where(a => a.EventType == AuditEventType.MassiveTransfusionProtocol && a.EntityId == activationId).ToListAsync();
+        Assert.Equal(2, events.Count);
+        Assert.Contains(events, e => e.NewValueJson!.Contains("Activated") && e.Reason == "Hemorrhagic shock");
+        Assert.Contains(events, e => e.NewValueJson!.Contains("Closed") && e.Reason == "Bleeding controlled");
+
+        // After closing, a new protocol can be activated, and a new MTP issue needs it.
+        var reopened = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Lee", "Rebleed"));
+        Assert.True(reopened.Succeeded, reopened.Error);
+        Assert.Equal(2, (await Mtp(c).ListForPatientAsync(s.PatientId)).Count);
+    }
+
+    [Fact]
+    public async Task MtpActivation_WithoutEmergencyPermission_IsRefused()
+    {
+        var s = await SeedAsync("MTP-PERM");
+        await using var c = _factory.Create();
+
+        var denied = await Mtp(c, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
+            .ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Rivera", "Shock"));
+
+        Assert.False(denied.Succeeded);
+        Assert.True(denied.Evaluation!.IsHardStopped);
+        Assert.False(await c.MtpActivations.AnyAsync(a => a.PatientId == s.PatientId));
+    }
+
     // TEST-BB-321: emergency override cannot release red cells that conflict with an established ABO group.
     [Fact]
     public async Task EmergencyRelease_RedCellsConflictingWithEstablishedType_AreRefused_EvenWithOverride()
@@ -998,6 +1115,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     {
         var s = await SeedAsync("MTP");
         await AllocateAsync(s);
+        await ActivateMtpAsync(s.PatientId);
 
         await using var c = _factory.Create();
         var issued = await Issuing(c).IssueUnitAsync(IssueReq(

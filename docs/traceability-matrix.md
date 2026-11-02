@@ -469,6 +469,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-430 / FRS-BB-465 | Emergency release cannot override an established ABO conflict for red cells | `EmergencyUncrossmatchedAboRule`; `IssueGate`; `IssuingService` | TEST-BB-321 | D / I | OCD-044 |
 | URS-BB-431 / FRS-BB-466 | Readable 400 for unreadable requests | `RequestReadError`; `Program.cs` | TEST-BB-322 | D / I | Live check on the development API |
 | URS-BB-432 / FRS-BB-467 | Units come back to stock through retype; mislabeled units never leave | `RetypeStockStatus`; `IssueGate`; `IssuingService`; `InventoryService`; `Issuing.razor`; `Inventory.razor` | TEST-BB-323 | D / I | |
+| URS-BB-433 / FRS-BB-468 | MTP activation, board, and close | `MtpActivation`; `MtpActivationRule`; `MtpActivationService`; `IssuingService`; `IssuingEndpoints`; `Issuing.razor` | TEST-BB-324 | D / I | Pack composition and ratios not configured (facility policy) |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

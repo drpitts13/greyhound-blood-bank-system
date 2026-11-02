@@ -18,6 +18,7 @@ public static class DevelopmentSqliteBootstrap
     private static readonly (string Table, string Column, string AlterSql)[] AdditiveColumns =
     [
         ("Issues", "Comment", """ALTER TABLE "Issues" ADD COLUMN "Comment" TEXT NULL"""),
+        ("Issues", "MtpActivationId", """ALTER TABLE "Issues" ADD COLUMN "MtpActivationId" INTEGER NULL"""),
         ("DatElutionWorkups", "VerifiedBy", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedBy" TEXT NULL"""),
         ("DatElutionWorkups", "VerifiedUtc", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedUtc" TEXT NULL"""),
         ("Issues", "VerifiedScanJson", """ALTER TABLE "Issues" ADD COLUMN "VerifiedScanJson" TEXT NULL"""),
@@ -187,6 +188,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsureEluateFindingsTableAsync(context, cancellationToken);
+        await EnsureMtpActivationsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
@@ -299,6 +301,41 @@ public static class DevelopmentSqliteBootstrap
     /// <summary>
     /// Creates the DAT/elution workup table when an existing dev database predates it.
     /// </summary>
+    private static async Task EnsureMtpActivationsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "MtpActivations", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "MtpActivations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_MtpActivations" PRIMARY KEY AUTOINCREMENT,
+                "PatientId" INTEGER NOT NULL,
+                "Status" INTEGER NOT NULL,
+                "RequestedBy" TEXT NOT NULL,
+                "Reason" TEXT NOT NULL,
+                "Location" TEXT NULL,
+                "ActivatedUtc" TEXT NOT NULL,
+                "ActivatedBy" TEXT NOT NULL,
+                "ClosedUtc" TEXT NULL,
+                "ClosedBy" TEXT NULL,
+                "CloseReason" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_MtpActivations_Patients_PatientId" FOREIGN KEY ("PatientId") REFERENCES "Patients" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_MtpActivations_PatientId_Status" ON "MtpActivations" ("PatientId", "Status")""", ct);
+    }
+
     private static async Task EnsureEluateFindingsTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct)
