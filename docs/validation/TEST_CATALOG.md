@@ -351,5 +351,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-340 | D / I | `ReturnDisposalRuleTests`; `Phase4IssuingTests.Return_AfterThirtyMinutes_DisposalRequested_QuarantinesInstead`, `Return_FailedVisual_QuarantinesAndLeavesOutstanding` | URS-BB-447 / FRS-BB-483 / RISK-BB-549 |
 | TEST-BB-341 | I | `Phase4IssuingTests.Return_ToStock_OffersReserveAgain_ThenReissues`, `Return_ToQuarantine_OffersNoReserveAgain` | URS-BB-448 / FRS-BB-484 / RISK-BB-550 |
 | TEST-BB-342 | D / I | `TransfusionUnitLifeRuleTests`; `Phase4IssuingTests.DocumentTransfusion_UnitExpiredAfterItStarted_CanBeDocumented`, `DocumentTransfusion_StartedAfterExpiry_IsRefused`, `DocumentTransfusion_StartBeforeIssue_IsRefused`, `DocumentTransfusion_InconsistentTimesOrVolume_AreRefused` (now issued before its documented start) | URS-BB-449 / FRS-BB-485 / RISK-BB-551 |
+| TEST-BB-343 | I | `Phase4IssuingTests.StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord`, `Start_WithoutIdentifiers_IsRefused_AndRecordsNothing`, `Complete_WithoutStart_OrWithStopBeforeStart_IsRefused`, `FinishedRecordOnAnIssuedIssue_IsNotShownAsStarted_AndCannotBeStartedAgain`, `StartOnlyPermission_CanStart_ButNotComplete` | URS-BB-450 / FRS-BB-486 / RISK-BB-552 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

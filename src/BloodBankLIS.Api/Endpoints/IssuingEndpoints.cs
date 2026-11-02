@@ -198,6 +198,30 @@ public static class IssuingEndpoints
             return EndpointResults.FromEvaluation(result, r => ReturnDto.From(r));
         }).RequirePermission(PermissionCodes.IssueReturn);
 
+        // Bedside start, then completion. The service accepts transfusion.start / transfusion.complete or transfusion.document.
+        issues.MapPost("/{id:long}/transfusion/start", async (
+            long id,
+            StartTransfusionRequest request,
+            IssuingService service,
+            CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await service.StartTransfusionAsync(id, request, ct), t => TransfusionEventDto.From(t)));
+
+        issues.MapPost("/{id:long}/transfusion/complete", async (
+            long id,
+            CompleteTransfusionRequest request,
+            IssuingService service,
+            BillingService billing,
+            CancellationToken ct) =>
+        {
+            var result = await service.CompleteTransfusionAsync(id, request, ct);
+            if (result.Succeeded)
+            {
+                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);
+            }
+
+            return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
+        });
+
         issues.MapPost("/{id:long}/transfusion", async (
             long id,
             DocumentTransfusionRequest request,

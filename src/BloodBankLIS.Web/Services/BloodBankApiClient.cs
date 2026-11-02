@@ -644,6 +644,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<TransfusionEventDto>> DocumentTransfusionAsync(long issueId, DocumentTransfusionRequest req, CancellationToken ct = default) =>
         SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/transfusion", req, ct);
 
+    public Task<ApiResult<TransfusionEventDto>> StartTransfusionAsync(long issueId, StartTransfusionRequest req, CancellationToken ct = default) =>
+        SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/transfusion/start", req, ct);
+
+    public Task<ApiResult<TransfusionEventDto>> CompleteTransfusionAsync(long issueId, CompleteTransfusionRequest req, CancellationToken ct = default) =>
+        SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/transfusion/complete", req, ct);
+
     // ---- Signatures ----
     public Task<ApiResult<SignatureCreatedVm>> RecordSignatureAsync(SignatureRequestVm req, CancellationToken ct = default) =>
         SendAsync<SignatureCreatedVm>(HttpMethod.Post, "api/signatures", req, ct);

@@ -764,6 +764,13 @@ public sealed class IssuingService
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
+        // An issue still Issued with a transfusion record was started at the bedside and is not yet completed.
+        var outstandingIds = rows.Select(i => i.Id).ToList();
+        var startedByIssue = outstandingIds.Count == 0
+            ? new Dictionary<long, DateTime?>()
+            : (await _transfusions.ListAsync(tx => outstandingIds.Contains(tx.IssueId) && tx.StopUtc == null, ct))
+                .GroupBy(tx => tx.IssueId)
+                .ToDictionary(g => g.Key, g => g.Max(tx => tx.StartUtc));
         var locationIds = rows.Select(i => context.StorageLocationId(i)).OfType<long>().Distinct().ToList();
         var locations = locationIds.Count == 0
             ? new Dictionary<long, InventoryLocation>()
@@ -785,7 +792,7 @@ public sealed class IssuingService
                     i, now, row.Mrn, row.DisplayName, row.DateOfBirth, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
                     row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces,
-                    governed, acceptable);
+                    governed, acceptable) with { TransfusionStartedUtc = startedByIssue.GetValueOrDefault(i.Id) };
             })
             .ToList();
     }
@@ -1344,50 +1351,10 @@ public sealed class IssuingService
                 $"{IsbtErrorCodes.InvalidStatusTransition}: Unit status {unit.Status} cannot enter transfusion documentation.");
         }
 
-        var patient = await _patients.GetByIdAsync(issue.PatientId, ct);
-        if (patient is null)
+        if (await FindStartedTransfusionAsync(issue, ct) is TransfusionEvent started)
         {
-            return EvaluationResult<TransfusionEvent>.Fail("Patient not found.");
-        }
-
-        var identity = PatientIdentityMatchRule.Evaluate(
-            patient.MedicalRecordNumber,
-            patient.DateOfBirth,
-            patient.LastName,
-            patient.FirstName,
-            string.IsNullOrWhiteSpace(request.PatientIdentifier1Value)
-                ? null
-                : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier1Type, request.PatientIdentifier1Value),
-            string.IsNullOrWhiteSpace(request.PatientIdentifier2Value)
-                ? null
-                : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier2Type, request.PatientIdentifier2Value));
-        if (identity.Severity == RuleSeverity.HardStop)
-        {
-            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([identity]));
-        }
-
-        // ISBT-normalized components require a fresh bedside unit scan.
-        // Legacy units without ComponentIdentity keep the prior scan policy.
-        var bedsideScanVerified = false;
-        if (!string.IsNullOrEmpty(unit.ComponentIdentity))
-        {
-            if (request.BedsideScan is null)
-            {
-                return EvaluationResult<TransfusionEvent>.Fail(
-                    $"{IsbtErrorCodes.UnitScanMismatch}: Fresh unit scan is required at bedside.");
-            }
-
-            var bedside = ComponentScanVerifier.Verify(
-                unit,
-                request.BedsideScan.Din,
-                request.BedsideScan.ProductCodeData,
-                request.BedsideScan.ExtendedDivisionCode,
-                request.BedsideScan.AboRhdCode,
-                request.BedsideScan.ExpirationEncoded);
-            if (bedside.IsHardStopped)
-                return EvaluationResult<TransfusionEvent>.Blocked(bedside);
-
-            bedsideScanVerified = true;
+            return EvaluationResult<TransfusionEvent>.Fail(
+                $"{TransfusionDocumentationRule.Code}: This transfusion was started at {started.StartUtc:yyyy-MM-dd HH:mm} UTC. Complete it instead of documenting it again.");
         }
 
         var documentation = TransfusionDocumentationRule.Evaluate(
@@ -1397,33 +1364,13 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Blocked(documentation);
         }
 
-        // Judge the unit at the moment it was started, not when the record is entered (documentation is often later).
-        var unitLife = TransfusionDocumentationRule.EvaluateAgainstUnit(
-            request.StartUtc ?? _clock.UtcNow, issue.IssuedUtc, unit.ExpiresUtc);
-        if (unitLife.IsHardStopped)
+        var bedside = await EvaluateBedsideAsync(issue, unit, request.StartUtc ?? _clock.UtcNow, new BedsideIdentification(
+            request.PatientIdentifier1Type, request.PatientIdentifier1Value,
+            request.PatientIdentifier2Type, request.PatientIdentifier2Value,
+            request.BedsideScan, request.SecondVerifier), ct);
+        if (bedside.Blocked is not null)
         {
-            return EvaluationResult<TransfusionEvent>.Blocked(unitLife);
-        }
-
-        var requireReceipt = await _policy.GetRequireWardReceiptAsync(ct);
-        var receipt = WardReceiptRule.Evaluate(requireReceipt, issue.WardReceivedUtc is not null);
-        if (receipt.Severity == RuleSeverity.HardStop)
-        {
-            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([receipt]));
-        }
-
-        var requireSecond = await _policy.GetRequireSecondVerifierAsync(ct);
-        var electronicId = identity.Severity == RuleSeverity.Pass && bedsideScanVerified;
-        var dual = DualIdentificationRule.Evaluate(_currentUser.UserName, request.SecondVerifier, electronicId, requireSecond);
-        if (dual.Severity == RuleSeverity.HardStop)
-        {
-            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([dual]));
-        }
-
-        var directory = await EvaluateSecondVerifierDirectoryAsync(request.SecondVerifier, ct);
-        if (directory.Severity == RuleSeverity.HardStop)
-        {
-            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([directory]));
+            return bedside.Blocked;
         }
 
         var now = _clock.UtcNow;
@@ -1478,6 +1425,266 @@ public sealed class IssuingService
         }
 
         return EvaluationResult<TransfusionEvent>.Ok(transfusion);
+    }
+
+    /// <summary>
+    /// Records the start of a transfusion at the bedside, when the unit is spiked: the same identity, unit scan,
+    /// ward receipt, second-verifier, and unit-life checks as one-step documentation. The unit shows as
+    /// Transfusion started until <see cref="CompleteTransfusionAsync"/> records the stop and outcome.
+    /// </summary>
+    public async Task<EvaluationResult<TransfusionEvent>> StartTransfusionAsync(long issueId, StartTransfusionRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var auth = IssueAuthorizationRule.EvaluateStartTransfusion(
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionStart, ct)
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionDocument, ct));
+        if (auth.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([auth]));
+        }
+
+        var issue = await _issues.GetByIdAsync(issueId, ct);
+        if (issue is null)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail("Issue not found.");
+        }
+
+        if (issue.Status != IssueStatus.Issued)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail($"An issue with status {issue.Status} cannot be started.");
+        }
+
+        var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
+        if (unit is null)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail("Unit not found.");
+        }
+
+        if (unit.Status != UnitStatus.Issued || await _transfusions.AnyAsync(t => t.IssueId == issue.Id, ct))
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(
+                $"{IsbtErrorCodes.InvalidStatusTransition}: This issue already has a transfusion record, so it cannot be started again.");
+        }
+
+        var startUtc = request.StartUtc ?? _clock.UtcNow;
+        var times = TransfusionDocumentationRule.Evaluate(startUtc, null, null, unit.Volume, _clock.UtcNow);
+        if (times.IsHardStopped)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(times);
+        }
+
+        var bedside = await EvaluateBedsideAsync(issue, unit, startUtc, new BedsideIdentification(
+            request.PatientIdentifier1Type, request.PatientIdentifier1Value,
+            request.PatientIdentifier2Type, request.PatientIdentifier2Value,
+            request.BedsideScan, request.SecondVerifier), ct);
+        if (bedside.Blocked is not null)
+        {
+            return bedside.Blocked;
+        }
+
+        var now = _clock.UtcNow;
+        var transfusion = new TransfusionEvent
+        {
+            IssueId = issue.Id,
+            BloodProductId = unit.Id,
+            PatientId = issue.PatientId,
+            StartUtc = startUtc,
+            Transfusionist = request.Transfusionist,
+            DocumentedBy = _currentUser.UserName,
+            SecondVerifier = request.SecondVerifier,
+            Location = request.Location,
+            PatientIdentificationMethod = $"{request.PatientIdentifier1Type}+{request.PatientIdentifier2Type}",
+            UnitIdentificationMethod = request.BedsideScan is null ? null : "BedsideScan",
+            WorkstationId = _currentUser.Workstation,
+            BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan)
+        };
+        await _transfusions.AddAsync(transfusion, ct);
+        AppendStatus(unit, UnitStatus.TransfusionStarted, "Transfusion started at the bedside", now, nameof(TransfusionEvent), issue.Id);
+        _audit.Record(
+            AuditEventType.Transfusion,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.Issued },
+            newValue: new { Status = UnitStatus.TransfusionStarted, StartUtc = startUtc, request.SecondVerifier },
+            reason: "Transfusion started.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<TransfusionEvent>.Ok(transfusion);
+    }
+
+    /// <summary>
+    /// Completes a transfusion started at the bedside: stop time, volume, outcome, and a suspected reaction (which
+    /// opens an investigation). The patient was identified at the start, so this does not ask again.
+    /// </summary>
+    public async Task<EvaluationResult<TransfusionEvent>> CompleteTransfusionAsync(long issueId, CompleteTransfusionRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var auth = IssueAuthorizationRule.EvaluateCompleteTransfusion(
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionComplete, ct)
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionDocument, ct));
+        if (auth.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([auth]));
+        }
+
+        if (request.FinalDisposition == TransfusionDisposition.Returned)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail("A started transfusion cannot be returned to inventory. Record it as stopped or wasted.");
+        }
+
+        var issue = await _issues.GetByIdAsync(issueId, ct);
+        if (issue is null)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail("Issue not found.");
+        }
+
+        var transfusion = issue.Status == IssueStatus.Issued ? await FindStartedTransfusionAsync(issue, ct) : null;
+        var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
+        if (transfusion is null || unit is null || unit.Status != UnitStatus.TransfusionStarted)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail("No started transfusion to complete for this issue. Start it at the bedside, or document it in one step.");
+        }
+
+        var stopUtc = request.StopUtc ?? _clock.UtcNow;
+        var times = TransfusionDocumentationRule.Evaluate(transfusion.StartUtc, stopUtc, request.VolumeTransfused, unit.Volume, _clock.UtcNow);
+        if (times.IsHardStopped)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(times);
+        }
+
+        var now = _clock.UtcNow;
+        transfusion.StopUtc = stopUtc;
+        transfusion.VolumeTransfused = request.VolumeTransfused;
+        transfusion.FinalDisposition = request.FinalDisposition;
+        transfusion.ReactionSuspected = request.ReactionSuspected;
+        _transfusions.Update(transfusion);
+
+        var terminal = request.FinalDisposition == TransfusionDisposition.Stopped
+            ? UnitStatus.TransfusionStopped
+            : UnitStatus.Transfused;
+        issue.Status = IssueStatus.Transfused;
+        AppendStatus(unit, terminal, $"Transfusion {request.FinalDisposition}", now, nameof(TransfusionEvent), issue.Id);
+        _audit.Record(
+            AuditEventType.Transfusion,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.TransfusionStarted },
+            newValue: new { Status = terminal, request.FinalDisposition, request.ReactionSuspected, StopUtc = stopUtc, request.VolumeTransfused },
+            reason: "Transfusion completed.");
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        if (request.ReactionSuspected)
+        {
+            await _reactions.OpenForTransfusionAsync(transfusion, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return EvaluationResult<TransfusionEvent>.Ok(transfusion);
+    }
+
+    /// <summary>
+    /// A transfusion started at the bedside and not completed: a record with no stop time on an issue that is still
+    /// Issued. A record that already has a stop time is a finished transfusion, never an open one.
+    /// </summary>
+    private async Task<TransfusionEvent?> FindStartedTransfusionAsync(Issue issue, CancellationToken ct) =>
+        issue.Status != IssueStatus.Issued
+            ? null
+            : (await _transfusions.ListAsync(t => t.IssueId == issue.Id && t.StopUtc == null, ct)).OrderByDescending(t => t.Id).FirstOrDefault();
+
+    private sealed record BedsideIdentification(
+        IdentityTokenType Identifier1Type,
+        string? Identifier1Value,
+        IdentityTokenType Identifier2Type,
+        string? Identifier2Value,
+        ComponentScanVerificationRequest? BedsideScan,
+        string? SecondVerifier);
+
+    /// <summary>
+    /// The bedside checks shared by starting and one-step documentation: two patient identifiers match the issued
+    /// patient, a fresh unit scan for ISBT units, the unit was in date and issued at the start time, ward receipt when
+    /// the facility requires it, and the second verifier (or electronic identification) with a directory check.
+    /// </summary>
+    private async Task<(EvaluationResult<TransfusionEvent>? Blocked, bool ScanVerified)> EvaluateBedsideAsync(
+        Issue issue, BloodUnit unit, DateTime startUtc, BedsideIdentification ids, CancellationToken ct)
+    {
+        var patient = await _patients.GetByIdAsync(issue.PatientId, ct);
+        if (patient is null)
+        {
+            return (EvaluationResult<TransfusionEvent>.Fail("Patient not found."), false);
+        }
+
+        var identity = PatientIdentityMatchRule.Evaluate(
+            patient.MedicalRecordNumber,
+            patient.DateOfBirth,
+            patient.LastName,
+            patient.FirstName,
+            string.IsNullOrWhiteSpace(ids.Identifier1Value)
+                ? null
+                : new PatientIdentityMatchRule.IdentityToken(ids.Identifier1Type, ids.Identifier1Value),
+            string.IsNullOrWhiteSpace(ids.Identifier2Value)
+                ? null
+                : new PatientIdentityMatchRule.IdentityToken(ids.Identifier2Type, ids.Identifier2Value));
+        if (identity.Severity == RuleSeverity.HardStop)
+        {
+            return (EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([identity])), false);
+        }
+
+        // ISBT-normalized components require a fresh bedside unit scan.
+        // Legacy units without ComponentIdentity keep the prior scan policy.
+        var bedsideScanVerified = false;
+        if (!string.IsNullOrEmpty(unit.ComponentIdentity))
+        {
+            if (ids.BedsideScan is null)
+            {
+                return (EvaluationResult<TransfusionEvent>.Fail(
+                    $"{IsbtErrorCodes.UnitScanMismatch}: Fresh unit scan is required at bedside."), false);
+            }
+
+            var scan = ComponentScanVerifier.Verify(
+                unit,
+                ids.BedsideScan.Din,
+                ids.BedsideScan.ProductCodeData,
+                ids.BedsideScan.ExtendedDivisionCode,
+                ids.BedsideScan.AboRhdCode,
+                ids.BedsideScan.ExpirationEncoded);
+            if (scan.IsHardStopped)
+            {
+                return (EvaluationResult<TransfusionEvent>.Blocked(scan), false);
+            }
+
+            bedsideScanVerified = true;
+        }
+
+        // Judge the unit at the moment it was started, not when the record is entered (documentation is often later).
+        var unitLife = TransfusionDocumentationRule.EvaluateAgainstUnit(startUtc, issue.IssuedUtc, unit.ExpiresUtc);
+        if (unitLife.IsHardStopped)
+        {
+            return (EvaluationResult<TransfusionEvent>.Blocked(unitLife), false);
+        }
+
+        var requireReceipt = await _policy.GetRequireWardReceiptAsync(ct);
+        var receipt = WardReceiptRule.Evaluate(requireReceipt, issue.WardReceivedUtc is not null);
+        if (receipt.Severity == RuleSeverity.HardStop)
+        {
+            return (EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([receipt])), false);
+        }
+
+        var requireSecond = await _policy.GetRequireSecondVerifierAsync(ct);
+        var electronicId = identity.Severity == RuleSeverity.Pass && bedsideScanVerified;
+        var dual = DualIdentificationRule.Evaluate(_currentUser.UserName, ids.SecondVerifier, electronicId, requireSecond);
+        if (dual.Severity == RuleSeverity.HardStop)
+        {
+            return (EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([dual])), false);
+        }
+
+        var directory = await EvaluateSecondVerifierDirectoryAsync(ids.SecondVerifier, ct);
+        if (directory.Severity == RuleSeverity.HardStop)
+        {
+            return (EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([directory])), false);
+        }
+
+        return (null, bedsideScanVerified);
     }
 
     private async Task<Specimen?> GetCurrentSpecimenAsync(long patientId, CancellationToken ct)

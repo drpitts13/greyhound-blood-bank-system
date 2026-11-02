@@ -30,7 +30,7 @@ Ready to issue opens first. Reserved units are listed so you do not retype the p
 
 Then complete appearance, location, and who is taking the unit.
 
-**Scanning without the mouse.** On Issue, Ward receipt, and Document transfusion, Enter moves to the next field: patient ID 1, patient ID 2, then the unit label fields (DIN, product code, ABO/RhD, expiration, extended division). A scanner sends Enter after each scan, so you can scan wristband, requisition, and bag in a row. After the last field the form gets a green outline and keeps the focus. **Issue unit**, **Acknowledge receipt**, and **Document** are never pressed by Enter, so a stray scan cannot issue a unit. Click the button, or press Tab to reach it and then Enter. Press **?** (outside a text field) for the list of shortcuts. Print the compatibility tag when the issue requires a P-tag, then scan the P-tag id before you issue. Facility policy decides whether the tag is required.
+**Scanning without the mouse.** On Issue, Ward receipt, and Transfusion, Enter moves to the next field: patient ID 1, patient ID 2, then the unit label fields (DIN, product code, ABO/RhD, expiration, extended division). A scanner sends Enter after each scan, so you can scan wristband, requisition, and bag in a row. After the last field the form gets a green outline and keeps the focus. **Issue unit**, **Acknowledge receipt**, and **Document** are never pressed by Enter, so a stray scan cannot issue a unit. Click the button, or press Tab to reach it and then Enter. Press **?** (outside a text field) for the list of shortcuts. Print the compatibility tag when the issue requires a P-tag, then scan the P-tag id before you issue. Facility policy decides whether the tag is required.
 
 > Hard stop. Two independent identity tokens are required. Confirming a single checkbox does not satisfy the check. A hard stop cannot be signed away.
 
@@ -56,9 +56,11 @@ When the protocol ends, choose **Close…** and give the reason. The units stay 
 
 You still need a current specimen for the patient, an in-date unit, acceptable appearance, and two identity tokens. You record the reason and sign. The issue is flagged for retrospective crossmatch. It stays on the retrospective queue until someone records the crossmatch, by default within the hours set in facility policy (the shipped default is 24). **Record crossmatch** opens Compatibility with the issue filled in. If that crossmatch is incompatible, the row stays on the queue, moves to the top, and is marked **Incompatible after release**, and a critical alert is raised naming the patient and whether the unit is issued, being transfused, or already transfused. Follow your facility's procedure, then acknowledge the alert on **Alerts** and note who you told and when.
 
-## Document transfusion
+## Transfusion
 
-Document transfusion records the bedside checks and the transfusion itself. The chart, product history, and unit pages open it with the unit already selected. Times and volume must make sense: a start or stop time more than a few minutes in the future, a stop before the start, a volume of zero, or more volume than the bag held is refused so it can be corrected. A start time before the unit was issued is refused too. The unit is judged at the moment the transfusion started: if it was in date then, you can document it even after it has expired; if it had already expired when it was started, documentation is refused and names the expiry.
+**Start transfusion** records the bedside checks when the unit is spiked: both patient identifiers, the unit scan, and the second verifier. The unit then shows **Transfusing since** on Issued units and cannot be returned. When the transfusion ends, open it again and choose **Complete transfusion** with the disposition, volume, and any suspected reaction; you are not asked to identify the patient again. **Document start and finish** records everything at once, for a transfusion charted afterwards; it is refused once a transfusion has been started, so the same transfusion is not recorded twice.
+
+The transfusion desk records the bedside checks and the transfusion itself. The chart, product history, and unit pages open it with the unit already selected. Times and volume must make sense: a start or stop time more than a few minutes in the future, a stop before the start, a volume of zero, or more volume than the bag held is refused so it can be corrected. A start time before the unit was issued is refused too. The unit is judged at the moment the transfusion started: if it was in date then, you can document it even after it has expired; if it had already expired when it was started, documentation is refused and names the expiry.
 
 ## In transit and ward receipt
 
@@ -66,7 +68,7 @@ Document transfusion records the bedside checks and the transfusion itself. The 
 
 ## Document the transfusion
 
-**Issued units** lists outstanding issues so you can document or return them without looking up an internal issue number. **Document** opens Document transfusion and records the identifiers checked at the bedside, the start, and the disposition your procedure captures. Dual identification is required here the same way it is required at issue. Read both identifiers from the patient's wristband at the bedside. The fields start empty unless your facility has turned on pre-fill, and the same match line shows under each.
+**Issued units** lists outstanding issues so you can document or return them without looking up an internal issue number. **Start / document** (or **Complete**, once started) opens the transfusion desk and records the identifiers checked at the bedside, the start, and the disposition your procedure captures. Dual identification is required here the same way it is required at issue. Read both identifiers from the patient's wristband at the bedside. The fields start empty unless your facility has turned on pre-fill, and the same match line shows under each.
 
 ## Final disposition
 

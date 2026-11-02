@@ -44,7 +44,7 @@
         <button type="button" class="btn btn-sm @DeskClass("issue")" @onclick='() => SelectDesk("issue")'>Issue</button>
         <button type="button" class="btn btn-sm @DeskClass("receipt")" @onclick='() => SelectDesk("receipt")'>Ward receipt</button>
         <button type="button" class="btn btn-sm @DeskClass("return")" @onclick='() => SelectDesk("return")'>Return</button>
-        <button type="button" class="btn btn-sm @DeskClass("transfuse")" @onclick='() => SelectDesk("transfuse")'>Document transfusion</button>
+        <button type="button" class="btn btn-sm @DeskClass("transfuse")" @onclick='() => SelectDesk("transfuse")'>Transfusion</button>
     </div>
 </div>
 
@@ -568,19 +568,29 @@
                                 <span class="sub">Appearance: @(string.IsNullOrWhiteSpace(row.WardAppearance) ? "—" : row.WardAppearance)</span>
                             </td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
-                            <td><span class="nowrap">@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</span><span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span></td>
+                            <td>
+                                <span class="nowrap">@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</span>
+                                @if (row.TransfusionStartedUtc is DateTime transfusingSince)
+                                {
+                                    <span class="badge badge-amber">Transfusing since @transfusingSince.ToLocalTime().ToString("HH:mm")</span>
+                                }
+                                else
+                                {
+                                    <span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span>
+                                }
+                            </td>
                             <td class="right nowrap">
                                 @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
                                 }
-                                @if (Session.Has(PermissionCodes.IssueReturn))
+                                @if (Session.Has(PermissionCodes.IssueReturn) && row.TransfusionStartedUtc is null)
                                 {
                                     <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
                                 }
-                                @if (row.WardReceivedUtc is not null && Session.Has(PermissionCodes.TransfusionDocument))
+                                @if (row.WardReceivedUtc is not null && CanRecordTransfusion)
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">Document</button>
+                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">@(row.TransfusionStartedUtc is null ? "Start / document" : "Complete")</button>
                                 }
                             </td>
                         </tr>
@@ -970,10 +980,10 @@
 @if (_desk == "transfuse")
 {
     <div class="bb-card" tabindex="-1" data-enter-flow>
-        <div class="bb-card-title"><h3>Document transfusion</h3></div>
-        @if (!Session.Has(PermissionCodes.TransfusionDocument))
+        <div class="bb-card-title"><h3>@(_txStartedUtc is null ? "Start or document transfusion" : "Complete transfusion")</h3></div>
+        @if (!CanRecordTransfusion)
         {
-            <div class="muted">No permission to document transfusions.</div>
+            <div class="muted">No permission to record transfusions.</div>
         }
         else
         {
@@ -1037,9 +1047,24 @@
             </div>
             <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
             <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with matching patient identifiers." />
-            <div style="margin-top:.75rem;">
-                <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document</button>
-            </div>
+            @if (_txStartedUtc is DateTime txStarted)
+            {
+                <div class="alert alert-info" style="margin-top:.75rem;">
+                    Transfusion started at @txStarted.ToLocalTime().ToString("yyyy-MM-dd HH:mm"). The patient was identified then.
+                    Set the disposition, volume, and any suspected reaction, then complete it when it ends.
+                </div>
+                <div style="margin-top:.75rem;">
+                    <button class="btn btn-primary" disabled="@_busy" @onclick="CompleteTransfusionAsync">Complete transfusion</button>
+                </div>
+            }
+            else
+            {
+                <p class="muted" style="margin-top:.75rem;">Start records the bedside check when the unit is spiked; complete it when it ends. Document records start and finish together, for a transfusion charted afterwards.</p>
+                <div class="flex gap" style="margin-top:.5rem;">
+                    <button class="btn btn-primary" disabled="@_busy" @onclick="StartTransfusionAsync">Start transfusion</button>
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document start and finish</button>
+                </div>
+            }
             @if (_lastTransfusion is not null)
             {
                 <p class="muted" style="margin-top:.75rem;">
@@ -1154,6 +1179,13 @@
 
     private Feedback? _txFb;
     private TransfusionEventDto? _lastTransfusion;
+    // Set when the selected issue's transfusion was started at the bedside and is not yet completed.
+    private DateTime? _txStartedUtc;
+
+    private bool CanRecordTransfusion =>
+        Session.Has(PermissionCodes.TransfusionDocument)
+        || Session.Has(PermissionCodes.TransfusionStart)
+        || Session.Has(PermissionCodes.TransfusionComplete);
     private long? _openedReactionId;
     private readonly UnitScanModel _issueScan = new();
     private readonly UnitScanModel _txScan = new();
@@ -1580,6 +1612,7 @@
     {
         _desk = "transfuse";
         _txIssueId = row.IssueId;
+        _txStartedUtc = row.TransfusionStartedUtc;
         _txUnitLookup = row.UnitNumber ?? string.Empty;
         _txProductName = row.ProductName;
         _txExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(row.UnitExpiresUtc);
@@ -1920,6 +1953,45 @@
             await LoadWorklistsAsync();
         }
         _busy = false;
+    }
+
+    private async Task StartTransfusionAsync()
+    {
+        _busy = true;
+        var r = await Api.StartTransfusionAsync(_txIssueId, new StartTransfusionRequest(
+            Transfusionist: string.IsNullOrWhiteSpace(_txTransfusionist) ? null : _txTransfusionist,
+            BedsideScan: _txScan.ToRequest(),
+            SecondVerifier: _txSecondVerifier,
+            PatientIdentifier1Value: _txPatientIdentifier1,
+            PatientIdentifier2Value: _txPatientIdentifier2));
+        _busy = false;
+        _txFb = r.ToFeedback("Transfusion started. Complete it here when it ends.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            _txStartedUtc = r.Value.StartUtc;
+            await LoadWorklistsAsync();
+        }
+    }
+
+    private async Task CompleteTransfusionAsync()
+    {
+        _busy = true;
+        var r = await Api.CompleteTransfusionAsync(_txIssueId, new CompleteTransfusionRequest(
+            _txDisposition, VolumeTransfused: _txVolume, ReactionSuspected: _txReaction));
+        _busy = false;
+        _txFb = r.ToFeedback("Transfusion completed.");
+        _openedReactionId = null;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _lastTransfusion = r.Value;
+            _txStartedUtc = null;
+            await LoadWorklistsAsync();
+            if (_txReaction)
+            {
+                var cases = await Api.GetReactionInvestigationsAsync();
+                _openedReactionId = cases.Value?.FirstOrDefault(x => x.TransfusionEventId == r.Value.Id)?.Id;
+            }
+        }
     }
 
     private async Task DocumentTransfusionAsync()

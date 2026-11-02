@@ -973,6 +973,138 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    // TEST-BB-343: start at the bedside, then complete; the unit shows as transfusing in between.
+    private static StartTransfusionRequest StartReq(Scenario s, DateTime? startUtc = null) =>
+        new(StartUtc: startUtc, PatientIdentifier1Value: s.Mrn, PatientIdentifier2Value: s.DateOfBirth);
+
+    private async Task<long> IssuedAndReceivedAsync(Scenario s)
+    {
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+        {
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-1), LateEntryReason = "Charted after the shift"
+        });
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.True((await Issuing(c).RecordWardReceiptAsync(issued.Value!.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+        return issued.Value!.Id;
+    }
+
+    [Fact]
+    public async Task StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord()
+    {
+        var s = await SeedAsync("TX-STARTCOMP");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var now = _factory.Clock.UtcNow;
+
+        long transfusionId;
+        await using (var c = _factory.Create())
+        {
+            var started = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s, now.AddMinutes(-40)));
+            Assert.True(started.Succeeded, started.Error ?? string.Join("; ", started.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            transfusionId = started.Value!.Id;
+            Assert.Null(started.Value.StopUtc);
+            Assert.Equal(UnitStatus.TransfusionStarted, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+            Assert.Equal(IssueStatus.Issued, (await c.Issues.FindAsync(issueId))!.Status);
+
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
+            Assert.Equal(now.AddMinutes(-40), row.TransfusionStartedUtc);
+
+            // While it runs: no second start, no one-step documentation, no return.
+            Assert.False((await Issuing(c).StartTransfusionAsync(issueId, StartReq(s))).Succeeded);
+            var again = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s));
+            Assert.False(again.Succeeded);
+            Assert.Contains("Complete it", again.Error);
+            Assert.False((await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var completed = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(
+                TransfusionDisposition.Completed, StopUtc: now.AddMinutes(-5), VolumeTransfused: 280m, ReactionSuspected: true));
+            Assert.True(completed.Succeeded, completed.Error ?? string.Join("; ", completed.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(transfusionId, completed.Value!.Id);
+        }
+
+        await using var verify = _factory.Create();
+        var record = await verify.TransfusionEvents.SingleAsync(t => t.IssueId == issueId);
+        Assert.Equal(now.AddMinutes(-40), record.StartUtc);
+        Assert.Equal(now.AddMinutes(-5), record.StopUtc);
+        Assert.Equal(280m, record.VolumeTransfused);
+        // The suspected reaction then quarantines the remainder (existing reaction behavior).
+        Assert.Contains(await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).ToListAsync(),
+            h => h.FromStatus == UnitStatus.TransfusionStarted && h.ToStatus == UnitStatus.Transfused);
+        Assert.Equal(IssueStatus.Transfused, (await verify.Issues.FindAsync(issueId))!.Status);
+        Assert.True(await verify.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId && a.Reason == "Transfusion started."));
+    }
+
+    [Fact]
+    public async Task Start_WithoutIdentifiers_IsRefused_AndRecordsNothing()
+    {
+        var s = await SeedAsync("TX-STARTNOID");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using var c = _factory.Create();
+        var started = await Issuing(c).StartTransfusionAsync(issueId, new StartTransfusionRequest());
+        Assert.False(started.Succeeded);
+        Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+    }
+
+    [Fact]
+    public async Task Complete_WithoutStart_OrWithStopBeforeStart_IsRefused()
+    {
+        var s = await SeedAsync("TX-COMPBAD");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await using var c = _factory.Create();
+        var notStarted = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.False(notStarted.Succeeded);
+        Assert.Contains("No started transfusion", notStarted.Error);
+
+        Assert.True((await Issuing(c).StartTransfusionAsync(issueId, StartReq(s, now.AddMinutes(-10)))).Succeeded);
+        var backwards = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(
+            TransfusionDisposition.Completed, StopUtc: now.AddMinutes(-30)));
+        Assert.Contains(backwards.Evaluation!.HardStops, r => r.Code == TransfusionDocumentationRule.Code);
+        Assert.Equal(UnitStatus.TransfusionStarted, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task FinishedRecordOnAnIssuedIssue_IsNotShownAsStarted_AndCannotBeStartedAgain()
+    {
+        var s = await SeedAsync("TX-LEGACY");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await using var c = _factory.Create();
+        c.TransfusionEvents.Add(new TransfusionEvent
+        {
+            IssueId = issueId, BloodProductId = s.UnitId, PatientId = s.PatientId,
+            StartUtc = now.AddMinutes(-30), StopUtc = now.AddMinutes(-10), DocumentedBy = "legacy"
+        });
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
+        Assert.Null(row.TransfusionStartedUtc);
+        var again = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s));
+        Assert.False(again.Succeeded);
+        Assert.Contains("already has a transfusion record", again.Error);
+    }
+
+    [Fact]
+    public async Task StartOnlyPermission_CanStart_ButNotComplete()
+    {
+        var s = await SeedAsync("TX-STARTPERM");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var startOnly = new FixedPermissionEvaluator(1, PermissionCodes.TransfusionStart);
+        await using var c = _factory.Create();
+        Assert.True((await Issuing(c, startOnly).StartTransfusionAsync(issueId, StartReq(s))).Succeeded);
+        var complete = await Issuing(c, startOnly).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.False(complete.Succeeded);
+        Assert.Contains(complete.Evaluation!.HardStops, r => r.Message.Contains("transfusion.complete"));
+    }
+
     // TEST-BB-342: a transfusion is judged against the unit's life at its start time, not when it is charted.
     private async Task<long> IssuedThreeHoursAgoAsync(Scenario s)
     {

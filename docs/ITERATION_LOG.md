@@ -9030,3 +9030,57 @@ No change since Cycle 297 other than the transfusion row. This cycle audits beds
 ### Next ranked residual
 
 A real-time "transfusion started" step at the bedside (start recorded when spiked, stop and outcome later), so in-progress transfusions show on boards and alerts. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 299 — Start a transfusion at the bedside, complete it later (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 298 other than the transfusion row.
+
+### Finding (questions 5 and 6)
+
+A transfusion was recorded once, after it ended, with start and stop together. While it ran, the unit looked merely issued:
+- the issued-units board could not show it as being transfused
+- the incompatible retrospective crossmatch alert (Cycle 292) could not say the unit was in the patient
+- a unit being transfused could still be returned
+
+The `transfusion.start` and `transfusion.complete` permissions existed but nothing used them.
+
+### Design
+
+- **Start** (`transfusion.start` or `transfusion.document`) runs the bedside checks shared with one-step documentation, now in one place (`EvaluateBedsideAsync`):
+  - two identifiers
+  - a fresh unit scan for ISBT units
+  - the unit in date and already issued at the start time
+  - ward receipt when the facility requires it
+  - second verifier or electronic identification, with a directory check
+- Start records a transfusion with a start and no stop, and moves the unit to TransfusionStarted.
+- **Complete** (`transfusion.complete` or `transfusion.document`) adds the stop, volume, disposition, and suspected reaction to the same record. It finishes the unit and the issue, opens a reaction investigation when suspected, and captures billing. The patient is not identified again.
+- **Started** means a record with no stop on an issue still Issued. Start refuses an issue that already has any transfusion record.
+- While started, one-step documentation and return are refused.
+- **UI:** the issued-units board shows "Transfusing since HH:mm" and offers Complete; the desk offers Start, Document start and finish, or Complete; the desk tab is now "Transfusion".
+- **Permissions:** accepting either code keeps today's technologist and supervisor access (`transfusion.document`) while allowing a bedside role with only start and complete.
+- **Demo data:** issue 1 in the demo data has a finished transfusion record while the issue and unit are still Issued (`SeedDemoClinicalDataAsync`). The stricter rule above does not treat it as started; the seed inconsistency is recorded as a residual.
+
+### Requirements / risk
+
+- URS-BB-450, FRS-BB-486, RISK-BB-552. No schema change. Help: issuing page.
+
+### Tests
+
+- TEST-BB-343:
+  - start then complete: the unit shows as transfusing, the board shows the start, and a second start, one-step documentation, and return are all refused; completion fills in the same record, finishes the issue, and opens the reaction investigation
+  - start without identifiers is refused and records nothing
+  - complete without a start, or with a stop before the start, is refused
+  - a finished record on an issued issue is not shown as started and cannot be started again
+  - start-only permission can start but not complete
+- Full suite: 3,371 passed, 0 failed (previously 3,366).
+- Run check (development API and web):
+  - the desk shows "Start or document transfusion" with Start transfusion and Document start and finish
+  - after the fix, no demo issue is shown as started
+  - no server errors
+  - nothing was started
+
+### Next ranked residual
+
+Fix the demo seed so issue 1 is consistent: either a transfused issue, or an issued one without a finished record. The incompatible retrospective crossmatch alert can now say "has started" for a running transfusion. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

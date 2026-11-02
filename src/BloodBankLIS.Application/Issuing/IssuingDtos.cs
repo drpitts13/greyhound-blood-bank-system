@@ -58,6 +58,25 @@ public sealed record WardReceiptRequest(
     ComponentScanVerificationRequest? VerifiedScan = null,
     UnitAppearance? Appearance = null);
 
+/// <summary>Bedside start: who the patient is, the unit scan, and when it was spiked. Stop and outcome come later.</summary>
+public sealed record StartTransfusionRequest(
+    DateTime? StartUtc = null,
+    string? Transfusionist = null,
+    ComponentScanVerificationRequest? BedsideScan = null,
+    string? SecondVerifier = null,
+    string? Location = null,
+    IdentityTokenType PatientIdentifier1Type = IdentityTokenType.MedicalRecordNumber,
+    string? PatientIdentifier1Value = null,
+    IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
+    string? PatientIdentifier2Value = null);
+
+/// <summary>Completes a started transfusion: when it stopped, how much was given, and the outcome.</summary>
+public sealed record CompleteTransfusionRequest(
+    TransfusionDisposition FinalDisposition,
+    DateTime? StopUtc = null,
+    decimal? VolumeTransfused = null,
+    bool ReactionSuspected = false);
+
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition FinalDisposition,
     DateTime? StartUtc = null,
@@ -216,7 +235,9 @@ public sealed record OutstandingIssueWorkItemDto(
     string? PtagCode = null,
     CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed,
     bool StorageTimeOutGoverned = true,
-    bool StorageTimeOutAcceptable = true)
+    bool StorageTimeOutAcceptable = true,
+    // Set when the transfusion was started at the bedside and is not yet completed.
+    DateTime? TransfusionStartedUtc = null)
 {
     public static OutstandingIssueWorkItemDto From(
         Issue i,
