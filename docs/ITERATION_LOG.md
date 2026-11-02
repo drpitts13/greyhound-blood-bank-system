@@ -7991,3 +7991,54 @@ OCD-044 (product owner, 2026-11-01): red cells conflicting with an established A
 ### Next ranked residual
 
 Malformed request bodies return 500 instead of a readable 400 across the API: an error-handling and human-readable-errors gap. Then continue auditing safety-critical workflows: MTP packs, then return and reissue.
+
+## Iteration 278 — Readable 400 for requests the API cannot read (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 277. The remaining Partial rows still wait on a license or SME sign-off. This cycle takes the ranked residual from Cycle 277.
+
+### Finding
+
+- Development: a body the API could not read, such as an enum sent as text, a missing body, broken JSON, or an address or query value in the wrong format, went to the development exception handler. That handler answered 500 "An unexpected error occurred." and included the serializer message, which names internal types.
+- Production: minimal APIs answered an empty 400. Nothing told the user or the interface team which value was wrong.
+- Production had no exception handler at all.
+
+### Design
+
+- `RouteHandlerOptions.ThrowOnBadRequest = true` in every environment, so these failures reach one exception handler.
+- The handler now runs in every environment:
+  - `BadHttpRequestException` returns its status (400, or 415 for a wrong content type) as problem+json, titled "The request could not be read." The detail comes from `RequestReadError`:
+    - "The request body is not valid JSON." for a JSON syntax error (detected from the reader exception, not from the path)
+    - "The value for 'scan.count' … is the wrong type, or is not one of the allowed values." for a field
+    - "The value for 'fromUtc' in the address or query is not in the expected format." for a bind failure
+    - "The request body is missing or is not JSON."
+  - The submitted value, .NET type names, and stack are never returned.
+  - Production: any other exception returns a bare 500 with no detail.
+  - Development keeps its database-unavailable 503 and detailed 500.
+- The Web client already shows `detail`, so screens show the new text unchanged.
+- Enums stay numeric on the wire. Accepting text names would also change every response the Web client reads, so that is not done here.
+
+### Tests
+
+- TEST-BB-322, `RequestReadErrorTests` (13 cases):
+  - an enum sent as text names the field and does not echo the value or the type name
+  - a nested field uses its dotted path
+  - three kinds of broken or truncated JSON say the body is not valid JSON
+  - JSON path rendering, including array indexes
+  - route and query bind failures name the parameter and not the value, including a nullable DateTime
+  - a missing body
+  - an unknown failure gets a generic message
+- Full suite before the syntax-error refinement: 3,152 passed, 0 failed (previously 3,139). Application 103, Domain 1,768, Integration 1,149, Help 29, HL7 63, Printing 21, Astm 19. After the refinement, Application ran 104 passed. Only `RequestReadError` and its tests changed.
+- Run check (development API, DevMode):
+  - an enum as text on `POST /api/issues` returns 400 naming 'issueType'
+  - truncated JSON on `/api/lookup` returns 400 "The request body is not valid JSON."
+  - no body returns 400 "missing or is not JSON"
+  - `fromUtc=yesterday` on the audit query returns 400 naming 'fromUtc'
+  - a number where text is expected returns 400 naming 'query'
+  - a valid lookup returns 200, and FHIR still returns 200
+  - nothing reached the database for the bad requests
+
+### Next ranked residual
+
+FHIR endpoints should answer an unreadable search the FHIR way (OperationOutcome) rather than problem+json; this is minor because they take no body. Next safety audit: MTP packs, then return and reissue.

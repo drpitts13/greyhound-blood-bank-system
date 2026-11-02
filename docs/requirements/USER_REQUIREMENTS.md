@@ -436,3 +436,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-428 | The transfusion committee can start from an unverified draft set of transfusion indications, and no draft can take effect until the committee has reviewed it. | P7 | FRS-BB-463 |
 | URS-BB-429 | The EHR can read a patient's current blood type, antibodies, transfusion requirements, orders, and blood product status from the LIS without being able to change them, and every such read is traceable. | P8 | FRS-BB-464 |
 | URS-BB-430 | An emergency release can never send red cells that are ABO-incompatible with a patient's established blood group, whatever override is entered. | P1 | FRS-BB-465 |
+| URS-BB-431 | When a screen or interface sends a request the system cannot read, the user or interface team is told in plain words which value was wrong, and nothing internal is revealed. | P6 | FRS-BB-466 |

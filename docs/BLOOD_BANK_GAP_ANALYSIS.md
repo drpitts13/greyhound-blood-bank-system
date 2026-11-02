@@ -39,7 +39,7 @@ Cycle 263 adds the UX objectives as rows, because they were not tracked.
 | Next-step guidance | Present | Patient workflow ribbon and inventory desk ribbon. |
 | Timeline views | Present (patient Cycle 264, specimen Cycle 265) | Patient chart **Timeline** tab (RISK-BB-520). Specimen **History** panel from audit rows with user, workstation, and field changes; a scanned accession opens it (RISK-BB-521). Units have status history and activity. |
 | Alert / warning / hard-stop separation | Present | Rule severities Pass / Warning / HardStop with override reasons where allowed. |
-| Human-readable errors | Present | Recent cycles rewrote messages in plain wording. |
+| Human-readable errors | Present | Recent cycles rewrote messages in plain wording. Cycle 278: a request the API cannot read returns a 400 naming the field, not a 500 (Development) or an empty 400 (production). |
 
 Cycle 264 added the patient timeline, Cycle 265 the specimen history, and Cycle 266 the role-focused home. The remaining UX Partial row is keyboard: there is no shortcut map and no keyboard path through the issue desk. See the iteration log for the next ranking. Cycle 267 found and closed a two-identifier bypass (OCD-039) while inspecting the issue desk.
 

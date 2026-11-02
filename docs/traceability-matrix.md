@@ -467,6 +467,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-428 / FRS-BB-463 | Unverified draft PBM criteria, inactive until reviewed | `PbmDraftCriteria`; `TransfusionIndicationRule`; `TransfusionIndicationAdminService`; `PbmEndpoints`; `AdminTransfusionCriteria.razor` | TEST-BB-319 | D / I | OCD-038 content still requires SME verification |
 | URS-BB-429 / FRS-BB-464 | Read-only FHIR R4 API for the EHR | `FhirMapper`; `FhirReadService`; `FhirEndpoints` | TEST-BB-320 | I | OCD-043; terminology mapping and EHR authentication require interface / SME verification |
 | URS-BB-430 / FRS-BB-465 | Emergency release cannot override an established ABO conflict for red cells | `EmergencyUncrossmatchedAboRule`; `IssueGate`; `IssuingService` | TEST-BB-321 | D / I | OCD-044 |
+| URS-BB-431 / FRS-BB-466 | Readable 400 for unreadable requests | `RequestReadError`; `Program.cs` | TEST-BB-322 | D / I | Live check on the development API |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
