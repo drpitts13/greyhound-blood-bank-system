@@ -13,7 +13,7 @@ routes:
 Alerts come from five places:
 
 - **Temperature excursion**: a storage reading outside the location range. Critical.
-- **Units expired**: the scheduled expiration sweep moved units to Expired. Remove them from storage.
+- **Units expired**: the scheduled expiration sweep moved units to Expired. Remove them from storage. If any were reserved for patients, the alert says how many; those reservations have ended, so reserve replacement units.
 - **Below minimum stock**: a product is under its minimum stock level.
 - **Near expiry**: a unit is inside the near-expiry window.
 - **Reagent QC**: QC is overdue, failed (critical), or waiting for review.

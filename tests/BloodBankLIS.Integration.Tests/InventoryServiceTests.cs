@@ -134,7 +134,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             permissions: permissions,
             retype: retype,
             retypeResults: new EfRepository<ProductRetypeResult>(context),
-            discardReasons: new EfRepository<UnitDiscardReason>(context));
+            discardReasons: new EfRepository<UnitDiscardReason>(context),
+            allocations: new EfRepository<Allocation>(context));
     }
 
     /// <summary>The three discard codes these tests use, added once per database.</summary>
@@ -3729,6 +3730,44 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(UnitStatus.Expired, (await verify.BloodUnits.FindAsync(pastDueId))!.Status);
             Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(futureId))!.Status);
         }
+    }
+
+    // TEST-BB-359: an expiring unit ends its reservation, so it stops showing as blood held for the patient.
+    [Fact]
+    public async Task ExpireDueUnits_EndsTheReservationOnAnExpiredUnit_AndLeavesOthers()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long expiringAllocationId;
+        long liveAllocationId;
+        await using (var context = _factory.Create())
+        {
+            var patient = new Patient { MedicalRecordNumber = "MRN-EXP-RES", LastName = "Expiry", FirstName = "Res", DateOfBirth = new DateOnly(1970, 5, 5), Sex = Sex.Unknown };
+            context.Patients.Add(patient);
+            var expiring = new BloodUnit { UnitNumber = "U-EXP-RES", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-30), Status = UnitStatus.Crossmatched };
+            var live = new BloodUnit { UnitNumber = "U-LIVE-RES", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Crossmatched };
+            context.BloodUnits.AddRange(expiring, live);
+            await context.SaveChangesAsync();
+            var a1 = new Allocation { BloodProductId = expiring.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-5), AllocatedBy = "tech" };
+            var a2 = new Allocation { BloodProductId = live.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-5), AllocatedBy = "tech" };
+            context.Allocations.AddRange(a1, a2);
+            await context.SaveChangesAsync();
+            expiringAllocationId = a1.Id;
+            liveAllocationId = a2.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var swept = await CreateService(context).ExpireDueUnitsAsync();
+            Assert.True(swept.Succeeded, swept.Error);
+            Assert.True(swept.ReservationsEnded >= 1);
+        }
+
+        await using var verify = _factory.Create();
+        var ended = await verify.Allocations.AsNoTracking().SingleAsync(a => a.Id == expiringAllocationId);
+        Assert.Equal(AllocationStatus.Expired, ended.Status);
+        Assert.Contains("U-EXP-RES expired", ended.ReleaseReason);
+        Assert.Equal(AllocationStatus.Reserved, (await verify.Allocations.AsNoTracking().SingleAsync(a => a.Id == liveAllocationId)).Status);
+        Assert.True(await verify.AuditEvents.AnyAsync(e => e.EntityType == nameof(Allocation) && e.EntityId == expiringAllocationId));
     }
 
     [Fact]

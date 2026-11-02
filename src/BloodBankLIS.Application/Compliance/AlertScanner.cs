@@ -135,7 +135,7 @@ public sealed class AlertScanner
     }
 
     /// <summary>Event alert after the scheduled expiration sweep moved units to Expired.</summary>
-    public Task<bool> RaiseUnitsExpiredAsync(int count, DateTime sweptUtc, CancellationToken ct = default) =>
+    public Task<bool> RaiseUnitsExpiredAsync(int count, DateTime sweptUtc, int reservationsEnded = 0, CancellationToken ct = default) =>
         count <= 0
             ? Task.FromResult(false)
             : _alerts.RaiseAsync(new AlertCandidate(
@@ -143,6 +143,9 @@ public sealed class AlertScanner
                 $"EXPIRED:{sweptUtc:yyyyMMddHHmmss}",
                 AlertSeverity.Warning,
                 $"{count} unit(s) expired",
-                $"The scheduled sweep moved {count} unit(s) to Expired at {sweptUtc:yyyy-MM-dd HH:mm} UTC. Remove them from storage.",
+                $"The scheduled sweep moved {count} unit(s) to Expired at {sweptUtc:yyyy-MM-dd HH:mm} UTC. Remove them from storage." +
+                (reservationsEnded > 0
+                    ? $" {reservationsEnded} of them were reserved for patients; those reservations have ended. Reserve replacement units."
+                    : string.Empty),
                 "/inventory?status=Expired"), ct);
 }

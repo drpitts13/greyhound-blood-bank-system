@@ -367,5 +367,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-356 | D / A | `BloodTypeHistoryLabelTests`; `BloodTypeDtoTests.RetiredTestedType_IsMarked_AndDoesNotCount`, `DocumentedManualType_NamesItsRecord_AndCounts` | URS-BB-461 / FRS-BB-497 |
 | TEST-BB-357 | D / I | `ResultReleaseRuleTests`; `Hl7OruBuilderTests.FirstVerifiedResult_IsFinal`, `VerifiedCorrection_IsCorrected`, `InvalidatedAfterVerification_IsPostedAsWrong`; `ResultLifecycleTests.Outbound_InvalidatedVerifiedResult_IsSentAsWrong_UnverifiedIsRefused` | URS-BB-462 / FRS-BB-498 / RISK-BB-561 |
 | TEST-BB-358 | D / I | `ResultReleaseRuleTests.OnlyCorrectionsAndWithdrawals_AreSentAutomatically`; `ResultEhrUpdateTests.InvalidatingAVerifiedResult_QueuesAWithdrawal_WhenAResultsInterfaceIsEnabled`, `VerifyingACorrection_QueuesACorrection`, `WithoutAnEnabledResultsInterface_NothingIsQueued`, `WhenQueueingFails_TheInvalidationStands_AndAWarningSaysToSendByHand` | URS-BB-463 / FRS-BB-499 / RISK-BB-562 |
+| TEST-BB-359 | I | `InventoryServiceTests.ExpireDueUnits_EndsTheReservationOnAnExpiredUnit_AndLeavesOthers`; `AlertWorkflowTests.UnitsExpiredAndExcursion_RaiseEventAlerts` | URS-BB-464 / FRS-BB-500 / RISK-BB-563 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -54,6 +54,7 @@ public sealed class InventoryService
     private readonly DeliveryService? _deliveries;
     private readonly IRepository<UnitModificationUnit>? _modificationUnits;
     private readonly IRepository<UnitDiscardReason>? _discardReasons;
+    private readonly IRepository<Allocation>? _allocations;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -74,7 +75,8 @@ public sealed class InventoryService
         IRepository<ProductRetypeResult>? retypeResults = null,
         DeliveryService? deliveries = null,
         IRepository<UnitModificationUnit>? modificationUnits = null,
-        IRepository<UnitDiscardReason>? discardReasons = null)
+        IRepository<UnitDiscardReason>? discardReasons = null,
+        IRepository<Allocation>? allocations = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -95,6 +97,7 @@ public sealed class InventoryService
         _retypeResults = retypeResults;
         _modificationUnits = modificationUnits;
         _discardReasons = discardReasons;
+        _allocations = allocations;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -1882,6 +1885,7 @@ public sealed class InventoryService
         }
 
         var expired = 0;
+        var reservationsEnded = 0;
         foreach (var unit in due)
         {
             if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Expired))
@@ -1918,10 +1922,39 @@ public sealed class InventoryService
                 },
                 reason: "Unit expired.");
             expired++;
+
+            // An expired unit can no longer be issued, so its reservation must not keep showing as blood held for the patient.
+            reservationsEnded += await EndReservationsAsync(unit, now, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return InventoryActionResult.OkSweep(expired);
+        return InventoryActionResult.OkSweep(expired, reservationsEnded);
+    }
+
+    private async Task<int> EndReservationsAsync(BloodUnit unit, DateTime now, CancellationToken ct)
+    {
+        if (_allocations is null)
+        {
+            return 0;
+        }
+
+        var reserved = await _allocations.ListAsync(a => a.BloodProductId == unit.Id && a.Status == AllocationStatus.Reserved, ct);
+        foreach (var row in reserved)
+        {
+            var tracked = await _allocations.GetByIdAsync(row.Id, ct) ?? row;
+            tracked.Status = AllocationStatus.Expired;
+            tracked.ReleaseReason = $"Unit {unit.UnitNumber} expired at {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC.";
+            _allocations.Update(tracked);
+            _audit.Record(
+                AuditEventType.Assignment,
+                nameof(Allocation),
+                tracked.Id,
+                oldValue: new { Status = AllocationStatus.Reserved },
+                newValue: new { Status = AllocationStatus.Expired, tracked.PatientId, unit.UnitNumber },
+                reason: tracked.ReleaseReason);
+        }
+
+        return reserved.Count;
     }
 
     /// <summary>Available, or Received when the product requires a retype that is not yet confirmed.</summary>

@@ -237,6 +237,12 @@ public class AlertWorkflowTests : IDisposable
         Assert.True(await scanner.RaiseUnitsExpiredAsync(3, _factory.Clock.UtcNow));
         var expired = await c.Alerts.SingleAsync(a => a.Source == AlertRule.UnitsExpired);
         Assert.Equal("3 unit(s) expired", expired.Title);
+        Assert.DoesNotContain("reserved for patients", expired.Message);
+
+        // TEST-BB-359: the alert says when expired units were reserved for patients.
+        Assert.True(await scanner.RaiseUnitsExpiredAsync(2, _factory.Clock.UtcNow.AddMinutes(1), reservationsEnded: 2));
+        Assert.Contains(await c.Alerts.Where(a => a.Source == AlertRule.UnitsExpired).Select(a => a.Message).ToListAsync(),
+            m => m.Contains("2 of them were reserved for patients"));
 
         var location = new InventoryLocation { Code = "ALRT-FRIDGE", Name = "Alert fridge", StorageTempMinC = 1m, StorageTempMaxC = 6m };
         c.InventoryLocations.Add(location);

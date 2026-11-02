@@ -9788,3 +9788,40 @@ The product owner decided OCD-049: send result corrections and invalidations to 
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.
+
+## Iteration 317 — Expiring units end their reservations (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 316 other than the reservation row.
+
+### Finding (question 6)
+
+The expiration sweep moved a unit to Expired but left any reservation on it Reserved. The patient's chart and reservation lists still showed blood held that could not be issued, and staff would find out only when issue refused the unit. This is the same state the demo-data invariant (TEST-BB-345) treats as inconsistent, and the sweep itself created it. `AllocationStatus.Expired` existed but nothing set it.
+
+### Design
+
+- **The sweep (scheduled and manual):** for each unit it expires, every Reserved allocation becomes Expired, with release reason "Unit … expired at …", audited as Assignment.
+- `InventoryActionResult.ReservationsEnded` carries the count to the hosted sweep.
+- **The units-expired alert** adds "N of them were reserved for patients; those reservations have ended. Reserve replacement units."
+- `InventoryService` takes the allocation repository as an optional dependency, resolved by dependency injection in the app.
+- Issue still refuses an expired unit; this change makes the earlier screens tell the truth.
+
+### Requirements / risk
+
+- URS-BB-464, FRS-BB-500, RISK-BB-563. Help: alerts and inventory pages.
+
+### Tests
+
+- TEST-BB-359:
+  - a reserved, crossmatched unit 30 minutes past expiry ends its reservation, with the reason and the audit; a reservation on an in-date unit is untouched
+  - the alert wording for reserved units
+  - one existing alert test was reordered, because the new assertion created a second units-expired alert
+- Full suite: 3,460 passed, 0 failed (previously 3,459).
+- Run check (development API):
+  - the expired-unit sweep service started (every 300 s) with no errors
+  - development data has no reservation left on an expired unit
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same check for reservations whose crossmatch or specimen expires before the unit does.
