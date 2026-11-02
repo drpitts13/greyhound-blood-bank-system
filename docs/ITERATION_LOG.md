@@ -10094,4 +10094,4 @@ The residual from Cycle 323 asked whether a verified result can still be correct
 
 ### Next ranked residual
 
-Pending decisions: downtime back-entry, OCD-046, OCD-051, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: an integration test for the worklist correction path on an expired specimen, then review invalidation on an expired specimen the same way.
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. OCD-051 was confirmed by the product owner the same day ("keep it"). Next engineering candidate: an integration test for the worklist correction path on an expired specimen, then review invalidation on an expired specimen the same way.
