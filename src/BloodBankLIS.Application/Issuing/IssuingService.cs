@@ -961,7 +961,7 @@ public sealed class IssuingService
                 specimen?.AccessionNumber));
         }
 
-        return items;
+        return ReadyToIssueAttentionRule.IssuableFirst(items);
     }
 
     private async Task<string?> StorageLocationNameAsync(

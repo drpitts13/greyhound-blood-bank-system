@@ -9895,3 +9895,37 @@ Cycle 318 made an expired crossmatch visible on the chart and the issue desk, bu
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: on the issue desk Ready to issue board, put rows that cannot be issued routinely (crossmatch expired, specimen expired, outdated unit) after those that can, or let the user filter to them.
+
+## Iteration 320 — Ready to issue lists issuable units first (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 319 other than the operations row (worklists).
+
+### Finding (questions 1 and 5)
+
+The Ready to issue board listed reservations in reservation order. A unit that could not be issued routinely (expired crossmatch, expired specimen, outdated unit, special requirement, ABO/Rh discrepancy, second ABO/Rh) sat between units that could. When blood was needed, the tech had to scan each row's marks to find one with an Issue button.
+
+### Design
+
+- `ReadyToIssueAttentionRule.CanIssueRoutinely` encodes the same conditions the board already uses to show the Issue button, so the order and the button agree.
+- The API returns issuable rows first; each group keeps reservation order.
+- A status line above the table: "All N can be issued now." or "N can be issued now. M need attention first and are listed after them."
+- Display only. The issue gate, the marks on each row, and the emergency button are unchanged.
+
+### Requirements / risk
+
+- URS-BB-467, FRS-BB-503, RISK-BB-566. Help: issuing page.
+
+### Tests
+
+- TEST-BB-362:
+  - ordering puts issuable rows first and keeps order within each group
+  - summary wording (all issuable, mixed, empty)
+  - each blocking mark alone stops routine issue; non-blocking marks (open antibody workup, near expiry, antigen notice) do not
+- Full suite: 3,469 passed, 0 failed (previously 3,467).
+- Run check (development API and web): the board shows "1 can be issued now. 2 need attention first and are listed after them.", with the crossmatched demo unit first and the two units without a crossmatch after it; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the patient chart's Products tab says what to do next for a Crossmatch expired row (order a crossmatch on a current specimen) instead of only showing the status.

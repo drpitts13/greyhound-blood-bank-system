@@ -14,7 +14,7 @@ routes:
 
 ## Ready to issue
 
-Ready to issue opens first. Reserved units are listed so you do not retype the patient and the unit. The row tells you when something is wrong before you start:
+Ready to issue opens first. Reserved units are listed so you do not retype the patient and the unit. Units you can issue now come first, oldest reservation first; a line above the list says how many can be issued now and how many need attention, and those are listed after them. The row tells you when something is wrong before you start:
 
 - A red cell that still needs a second concordant ABO or Rh is not offered for routine issue.
 - A missing or expired specimen is not offered for routine or emergency issue.
