@@ -153,11 +153,24 @@ public sealed class CompatibilityService
             return EvaluationResult<Crossmatch>.Fail("Specimen not found.");
         }
 
+        var retroIssue = await OpenRetrospectiveIssueAsync(unit.Id, request.PatientId, ct);
         var specimenCheck = CrossmatchSpecimenRule.Evaluate(
-            specimen.AccessionNumber, specimen.ExpiresUtc, _clock.UtcNow);
+            specimen.AccessionNumber,
+            specimen.ExpiresUtc,
+            _clock.UtcNow,
+            retroIssue is not null && CrossmatchSpecimenRule.IsPreTransfusionSpecimen(specimen.CollectedUtc, retroIssue.IssuedUtc));
         if (specimenCheck.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([specimenCheck]));
+        }
+
+        if (specimenCheck.Severity == RuleSeverity.Warning)
+        {
+            var refused = await EvaluateExpiredSpecimenExceptionAsync(specimenCheck, request, ct);
+            if (refused is not null)
+            {
+                return EvaluationResult<Crossmatch>.Blocked(refused);
+            }
         }
 
         var result = request.Result;
@@ -211,10 +224,37 @@ public sealed class CompatibilityService
             reason: request.Method == CrossmatchMethod.Electronic
                 ? "Electronic crossmatch recorded."
                 : "Serologic crossmatch recorded.");
+        if (specimenCheck.Severity == RuleSeverity.Warning)
+        {
+            await _overrides!.AddAsync(new Override
+            {
+                Action = OverrideAction.WarningOverride,
+                ContextType = nameof(Crossmatch),
+                ContextId = crossmatch.Id,
+                RuleCode = CrossmatchSpecimenRule.RetrospectiveCode,
+                Reason = request.OverrideReason!.Trim(),
+                AuthorizedBy = request.AuthorizedBy!.Trim(),
+                OverriddenUtc = _clock.UtcNow
+            }, ct);
+            _audit?.Record(
+                AuditEventType.Override,
+                nameof(Crossmatch),
+                crossmatch.Id,
+                newValue: new { crossmatch.BloodProductId, crossmatch.PatientId, crossmatch.SpecimenId, RuleCode = CrossmatchSpecimenRule.RetrospectiveCode },
+                reason: $"Retrospective crossmatch on expired pre-transfusion specimen {specimen.AccessionNumber}: {request.OverrideReason!.Trim()} (authorized by {request.AuthorizedBy!.Trim()}).");
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
         var retroIncompatible = await TryCloseRetrospectiveCrossmatchAsync(crossmatch, unit, ct);
 
         var notices = new List<RuleResult>();
+        if (specimenCheck.Severity == RuleSeverity.Warning)
+        {
+            notices.Add(RuleResult.Warning(
+                CrossmatchSpecimenRule.RetrospectiveCode,
+                $"Recorded as an exception on expired pre-transfusion specimen {specimen.AccessionNumber}. The override goes to supervisor review."));
+        }
+
         if (retroIncompatible is not null)
         {
             notices.Add(retroIncompatible);
@@ -230,6 +270,46 @@ public sealed class CompatibilityService
         }
 
         return EvaluationResult<Crossmatch>.Ok(crossmatch, notices.Count == 0 ? null : new RuleEvaluation(notices));
+    }
+
+    /// <summary>The issue still waiting for a retrospective crossmatch for this unit and patient, if any.</summary>
+    private async Task<Issue?> OpenRetrospectiveIssueAsync(long unitId, long patientId, CancellationToken ct) =>
+        _issues is null
+            ? null
+            : await _issues.FirstOrDefaultAsync(i =>
+                i.BloodProductId == unitId
+                && i.PatientId == patientId
+                && i.TestsIncompleteAtIssue
+                && i.RetrospectiveCrossmatchCompletedUtc == null
+                && i.Status != IssueStatus.Returned, ct);
+
+    /// <summary>
+    /// OCD-050: the exception needs a reason, the authorizer, and an active exception definition
+    /// the user may use. Returns the refusal, or null when the crossmatch may be recorded.
+    /// </summary>
+    private async Task<RuleEvaluation?> EvaluateExpiredSpecimenExceptionAsync(
+        RuleResult warning,
+        RecordCrossmatchRequest request,
+        CancellationToken ct)
+    {
+        var evaluation = new RuleEvaluation([warning]);
+        if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
+        {
+            return OverrideFieldsRule.WithMissing(evaluation, request.OverrideReason, request.AuthorizedBy);
+        }
+
+        if (_permissions is null || _exceptionDefinitions is null || _overrides is null)
+        {
+            return new RuleEvaluation([RuleResult.HardStop(
+                "EXC-DEF-MISSING",
+                "The expired-specimen exception cannot be authorized here.")]);
+        }
+
+        var definition = await _exceptionDefinitions.FirstOrDefaultAsync(
+            e => e.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode && e.IsActive, ct);
+        var userLevel = await _permissions.GetMaxSecurityLevelAsync(_currentUser.UserName, ct);
+        var access = ExceptionOverridePolicy.EvaluateAccess(userLevel, definition, CrossmatchSpecimenRule.RetrospectiveCode);
+        return access.Severity == RuleSeverity.HardStop ? new RuleEvaluation([access]) : null;
     }
 
     /// <summary>

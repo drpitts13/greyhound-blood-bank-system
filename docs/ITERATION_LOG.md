@@ -9971,3 +9971,46 @@ The planned change was next-step guidance on the chart for a Crossmatch expired 
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, OCD-050, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check whether antibody screen and ABO/Rh entry through the instrument interface apply the same specimen-expiration refusal as manual result entry.
+
+## Iteration 322 — Retrospective crossmatch on an expired pre-transfusion specimen, as an exception (OCD-050) (2026-11-02)
+
+### Decision
+
+The product owner decided OCD-050: a retrospective crossmatch after emergency release may be performed on the pre-transfusion sample after it expires, with an exception, because this is common in many labs.
+
+### Design
+
+- **What qualifies:**
+  - the unit has an open retrospective crossmatch for the patient (emergency or MTP issue with tests incomplete, not returned, not yet completed)
+  - the specimen was collected at or before the issue
+  - anything else on an expired specimen stays hard stop `XM-SPEC-EXPIRED`
+- **The exception uses the existing override path:**
+  - warning `XM-SPEC-EXPIRED-RETRO`, overridden with a reason and the authorizer (`OverrideFieldsRule`)
+  - access checked against an `ExceptionDefinition` (seeded at security level 0 so the tech on shift can record it; editable in the exception catalog)
+  - an `Override` row with context Crossmatch, matched to the provider and user directory on save like other overrides
+  - an Override audit event naming the specimen, the reason, and the authorizer
+  - the override is unreviewed, so it appears in supervisor review
+- The crossmatch then closes the retrospective worklist item exactly as before; an incompatible result still raises its alert.
+- **Compatibility page:** when the warning comes back, the crossmatch form shows the exception reason and authorizer fields with a plain explanation.
+- No schema change: two optional request fields and one seeded exception definition.
+
+### Requirements / risk
+
+- URS-BB-469, FRS-BB-505, RISK-BB-568, OCD-050 decided. `safety-rules.md` gains `XM-SPEC-EXPIRED-RETRO`. Help: compatibility page.
+
+### Tests
+
+- TEST-BB-364:
+  - rule: warning on the pre-transfusion specimen; pass when in date; collected at or before issue counts as pre-transfusion
+  - integration:
+    - first attempt returns only the overridable warning and saves nothing
+    - a reason without an authorizer is asked for again
+    - with both, the crossmatch is saved, the override is recorded against it and unreviewed, the issue's retrospective crossmatch is set, and the audit event is written
+    - a specimen collected after issue still hard-stops
+    - without an active exception definition, the exception is refused
+- Full suite: 3,479 passed, 0 failed (previously 3,474).
+- Run check (development API): the seeder adds the `XM-SPEC-EXPIRED-RETRO` exception definition (active, level 0); no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check whether ABO/Rh and antibody screen results arriving from instruments are refused on an expired specimen, as manual entry is.

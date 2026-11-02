@@ -1342,6 +1342,15 @@ public static partial class DatabaseSeeder
 
         changed |= await EnsureExceptionDefinitionAsync(
             context,
+            CrossmatchSpecimenRule.RetrospectiveCode,
+            "Retrospective crossmatch on an expired pre-transfusion specimen",
+            "After emergency release, the retrospective crossmatch may be recorded on the pre-transfusion specimen after it expires (OCD-050). Requires a reason and the authorizer; the override goes to supervisor review.",
+            minSecurityLevel: 0,
+            isOverridable: true,
+            ct);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
             SpecimenExpirationOverrideRule.Code,
             "Specimen expiration override",
             "Changing a specimen expiration away from the policy-computed collection window requires an authorized override by supervisor or higher.",

@@ -33,6 +33,26 @@ public class CrossmatchSpecimenRuleTests
         Assert.Equal(RuleSeverity.Pass, CrossmatchSpecimenRule.Evaluate("ACC-1", null, Now).Severity);
     }
 
+    // TEST-BB-364 (OCD-050): on the pre-transfusion specimen, the retrospective crossmatch is an exception, not a hard stop.
+    [Fact]
+    public void RetrospectiveOnPreTransfusionSpecimen_IsAWarningToOverride()
+    {
+        var result = CrossmatchSpecimenRule.Evaluate("ACC-1", Now.AddMinutes(-1), Now, retrospectiveOnPreTransfusionSpecimen: true);
+
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(CrossmatchSpecimenRule.RetrospectiveCode, result.Code);
+        Assert.Contains("pre-transfusion specimen", result.Message);
+        Assert.Equal(RuleSeverity.Pass, CrossmatchSpecimenRule.Evaluate("ACC-1", Now.AddMinutes(1), Now, retrospectiveOnPreTransfusionSpecimen: true).Severity);
+    }
+
+    [Fact]
+    public void PreTransfusionSpecimen_IsCollectedAtOrBeforeIssue()
+    {
+        Assert.True(CrossmatchSpecimenRule.IsPreTransfusionSpecimen(Now.AddHours(-2), Now));
+        Assert.True(CrossmatchSpecimenRule.IsPreTransfusionSpecimen(Now, Now));
+        Assert.False(CrossmatchSpecimenRule.IsPreTransfusionSpecimen(Now.AddMinutes(1), Now));
+    }
+
     [Fact]
     public void ExpiredCompatibleCrossmatch_NeedsRepeating_UnlessElectronicOrIssued()
     {

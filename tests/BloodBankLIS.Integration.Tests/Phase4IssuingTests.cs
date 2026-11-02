@@ -3675,6 +3675,119 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null(bothRow.CrossmatchNotice);
     }
 
+    private CompatibilityService CompatibilityWithExceptions(BloodBankDbContext c) =>
+        new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityCrossmatch),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c),
+            exceptionDefinitions: new EfRepository<ExceptionDefinition>(c),
+            overrides: new EfRepository<Override>(c));
+
+    /// <summary>Emergency release, then the pre-transfusion specimen expires. Returns the issue id.</summary>
+    private async Task<long> EmergencyReleaseThenExpireSpecimenAsync(Scenario s, bool collectedAfterIssue = false, bool withDefinition = true)
+    {
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease,
+            overrideReason: "Uncrossmatched release for hemorrhage", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded, issued.Error);
+        var specimen = await c.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+        specimen.CollectedUtc = collectedAfterIssue ? issued.Value!.IssuedUtc.AddMinutes(1) : issued.Value!.IssuedUtc.AddMinutes(-30);
+        specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-5);
+        var definition = await c.ExceptionDefinitions.FirstOrDefaultAsync(e => e.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode);
+        if (definition is null)
+        {
+            definition = new ExceptionDefinition
+            {
+                RuleCode = CrossmatchSpecimenRule.RetrospectiveCode, Name = "Retro XM on expired specimen",
+                MinSecurityLevel = 0, IsOverridable = true
+            };
+            c.ExceptionDefinitions.Add(definition);
+        }
+
+        definition.IsActive = withDefinition;
+
+        await c.SaveChangesAsync();
+        return issued.Value.Id;
+    }
+
+    private static RecordCrossmatchRequest RetroXm(Scenario s, string? reason = null, string? authorizedBy = null) =>
+        new(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible,
+            OverrideReason: reason, AuthorizedBy: authorizedBy);
+
+    // TEST-BB-364 (OCD-050): the retrospective crossmatch on an expired pre-transfusion specimen is an exception, not a hard stop.
+    [Fact]
+    public async Task RetrospectiveXm_OnExpiredPreTransfusionSpecimen_AsksForAnException_ThenRecordsIt()
+    {
+        var s = await SeedAsync("RETROEXC");
+        var issueId = await EmergencyReleaseThenExpireSpecimenAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            var asked = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s));
+            Assert.False(asked.Succeeded);
+            Assert.Empty(asked.Evaluation!.HardStops);
+            Assert.Contains(asked.Evaluation.Warnings, w => w.Code == CrossmatchSpecimenRule.RetrospectiveCode);
+            Assert.False(await c.Crossmatches.AnyAsync(x => x.BloodProductId == s.UnitId));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var halfway = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s, reason: "Pre-transfusion sample; patient transfused since"));
+            Assert.False(halfway.Succeeded);
+            Assert.Contains(halfway.Evaluation!.Warnings, w => w.Code == OverrideFieldsRule.Code);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recorded = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(
+                RetroXm(s, reason: "Pre-transfusion sample; patient transfused since", authorizedBy: "dr-supervisor"));
+            Assert.True(recorded.Succeeded, recorded.Error);
+            Assert.Contains(recorded.Evaluation!.Warnings, w => w.Code == CrossmatchSpecimenRule.RetrospectiveCode);
+        }
+
+        await using var v = _factory.Create();
+        var xm = await v.Crossmatches.SingleAsync(x => x.BloodProductId == s.UnitId);
+        var exception = await v.Overrides.SingleAsync(o => o.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode);
+        Assert.Equal(nameof(Crossmatch), exception.ContextType);
+        Assert.Equal(xm.Id, exception.ContextId);
+        Assert.Equal("dr-supervisor", exception.AuthorizedBy);
+        Assert.Null(exception.ReviewOutcome);
+        Assert.Equal(xm.Id, (await v.Issues.SingleAsync(i => i.Id == issueId)).RetrospectiveCrossmatchId);
+        Assert.True(await v.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Override && a.EntityType == nameof(Crossmatch) && a.EntityId == xm.Id));
+    }
+
+    [Fact]
+    public async Task RetrospectiveXm_OnSpecimenCollectedAfterIssue_ThatExpired_IsStillAHardStop()
+    {
+        var s = await SeedAsync("RETROPOST");
+        await EmergencyReleaseThenExpireSpecimenAsync(s, collectedAfterIssue: true);
+
+        await using var c = _factory.Create();
+        var r = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s, "reason", "dr-supervisor"));
+        Assert.False(r.Succeeded);
+        Assert.Contains(r.Evaluation!.HardStops, h => h.Code == CrossmatchSpecimenRule.Code);
+        Assert.False(await c.Overrides.AnyAsync(o => o.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode));
+    }
+
+    [Fact]
+    public async Task RetrospectiveXm_Exception_WithoutAnActiveDefinition_IsRefused()
+    {
+        var s = await SeedAsync("RETRONODEF");
+        await EmergencyReleaseThenExpireSpecimenAsync(s, withDefinition: false);
+
+        await using var c = _factory.Create();
+        var r = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s, "reason", "dr-supervisor"));
+        Assert.False(r.Succeeded);
+        Assert.Contains(r.Evaluation!.HardStops, h => h.Code == "EXC-DEF-MISSING");
+        Assert.False(await c.Crossmatches.AnyAsync(x => x.BloodProductId == s.UnitId));
+    }
+
     // TEST-BB-363: a crossmatch recorded directly on an expired specimen is refused and nothing is saved.
     [Fact]
     public async Task RecordCrossmatch_OnAnExpiredSpecimen_IsRefused_AndNothingIsSaved()
