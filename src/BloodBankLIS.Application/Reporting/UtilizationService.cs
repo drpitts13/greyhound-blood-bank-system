@@ -78,11 +78,14 @@ public sealed class UtilizationService
             .ToList();
 
         var patientIds = pairs.Select(p => p.PatientId).Distinct().ToList();
-        var issued = (await _issues.ListAsync(i => patientIds.Contains(i.PatientId), ct))
+        var patientIssues = await _issues.ListAsync(i => patientIds.Contains(i.PatientId), ct);
+        var issued = patientIssues
             .Select(i => (i.PatientId, i.BloodProductId))
             .ToHashSet();
+        var issueStatusById = patientIssues.ToDictionary(i => i.Id, i => i.Status);
         var transfused = (await _transfusions.ListAsync(t => patientIds.Contains(t.PatientId), ct))
-            .Where(t => UtilizationRule.CountsAsTransfused(t.FinalDisposition))
+            .Where(t => !TransfusionRecordState.IsRunning(t.StopUtc, issueStatusById.GetValueOrDefault(t.IssueId, IssueStatus.Transfused))
+                && UtilizationRule.CountsAsTransfused(t.FinalDisposition))
             .Select(t => (t.PatientId, t.BloodProductId))
             .ToHashSet();
 

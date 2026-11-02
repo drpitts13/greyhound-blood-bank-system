@@ -1,6 +1,7 @@
 using System.Globalization;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Reporting;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Infrastructure.Reporting;
 
@@ -83,7 +84,7 @@ public static class ReportViewSql
                 {CaseEnum("i.Status", typeof(IssueStatus))} AS issue_status,
                 t.StartUtc AS transfusion_start_utc,
                 t.StopUtc AS transfusion_stop_utc,
-                {CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition))} AS disposition
+                CASE WHEN t.Id IS NULL THEN NULL ELSE {TransfusionRecordState.SqlDisposition("t.StopUtc", "i.Status", CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition)))} END AS disposition
             FROM Issues i
             INNER JOIN BloodProducts u ON u.Id = i.BloodProductId
             INNER JOIN ProductTypes pt ON pt.Id = u.ProductTypeId
@@ -197,8 +198,9 @@ public static class ReportViewSql
                 u.UnitNumber AS unit_number,
                 pt.Name AS product_name,
                 p.MedicalRecordNumber AS mrn,
-                {CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition))} AS detail
+                {TransfusionRecordState.SqlDisposition("t.StopUtc", "ti.Status", CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition)))} AS detail
             FROM TransfusionEvents t
+            INNER JOIN Issues ti ON ti.Id = t.IssueId
             INNER JOIN BloodProducts u ON u.Id = t.BloodProductId
             INNER JOIN ProductTypes pt ON pt.Id = u.ProductTypeId
             INNER JOIN Patients p ON p.Id = t.PatientId

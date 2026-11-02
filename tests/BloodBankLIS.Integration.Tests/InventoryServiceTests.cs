@@ -742,7 +742,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             PatientId = blank.Id,
             IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-8),
             IssuedBy = "tech",
-            Status = IssueStatus.Issued
+            // It carries a Wasted outcome, so it was completed (TEST-BB-348).
+            Status = IssueStatus.Transfused
         };
         context.Issues.AddRange(namedIssue, missingIssue, blankIssue);
         await context.SaveChangesAsync();

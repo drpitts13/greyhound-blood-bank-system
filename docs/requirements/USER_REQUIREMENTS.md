@@ -458,3 +458,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-450 | A transfusion can be started at the bedside when the unit is spiked, with the identity checks done then, and completed later with stop time, volume, outcome, and any suspected reaction; while it runs the unit shows as transfusing. | P1 | FRS-BB-486 |
 | URS-BB-451 | A transfusion started at the bedside and not completed within the facility reminder hours is flagged so the record gets finished. | P2 | FRS-BB-487 |
 | URS-BB-452 | The patient chart and timeline show a transfusion that is running as running, never as transfused, and offer to complete it. | P1 | FRS-BB-488 |
+| URS-BB-453 | Reports, lookback, unit activity, and utilization never report a running transfusion with an outcome it has not had. | P2 | FRS-BB-489 |

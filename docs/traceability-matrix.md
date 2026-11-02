@@ -489,6 +489,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-450 / FRS-BB-486 | Start a transfusion at the bedside, complete it later | `IssuingService`; issuing endpoints; issue desk | TEST-BB-343 | I | |
 | URS-BB-451 / FRS-BB-487 | Reminder for transfusions not completed | `TransfusionCompletionRule`; `AlertScanner`; issue desk | TEST-BB-346 | D / I | |
 | URS-BB-452 / FRS-BB-488 | Chart and timeline show running transfusions as running | `PatientProductHistoryService`; `PatientTimelineService`; product history tab | TEST-BB-347 | I | |
+| URS-BB-453 / FRS-BB-489 | Running transfusions never reported with an outcome | `TransfusionRecordState`; report readers and views; lookback; unit activity; utilization | TEST-BB-348 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

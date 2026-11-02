@@ -113,6 +113,31 @@ public class FdaAabbScenarioTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(trace.Value.Units, u => u.UnitNumber == "W000123LSIB001");
     }
 
+    // TEST-BB-348: a running transfusion is never reported with its default disposition.
+    [Fact]
+    public async Task RunningTransfusion_HasNoDispositionInLookback_AndReportsInProgress()
+    {
+        await using var c = await SeededAsync();
+        var trace = await Lookback(c).FindByRecipientAsync("MRN0001", null);
+        Assert.True(trace.Succeeded, trace.Error);
+        var running = Assert.Single(trace.Value!.Units, u => u.UnitNumber == "W0001230000099");
+        Assert.NotNull(running.TransfusionEventId);
+        Assert.Null(running.TransfusionDisposition);
+
+        var reader = new BloodBankLIS.Infrastructure.Reporting.EfReportSourceReader(c);
+        var issues = await reader.LoadAsync(BloodBankLIS.Application.Reporting.ReportSourceCatalog.IssueTransfusion);
+        Assert.Contains(issues, r => r["unit_number"] == "W0001230000099" && r["disposition"] == TransfusionRecordState.InProgress);
+        var activity = await reader.LoadAsync(BloodBankLIS.Application.Reporting.ReportSourceCatalog.CrossmatchTransfusion);
+        Assert.Contains(activity, r => r["unit_number"] == "W0001230000099" && r["event_type"] == "Transfusion" && r["detail"] == TransfusionRecordState.InProgress);
+
+        // The SQL view says the same.
+        var connection = c.Database.GetDbConnection();
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT disposition FROM rpt_issue_transfusion WHERE unit_number = 'W0001230000099'";
+        Assert.Equal(TransfusionRecordState.InProgress, (string?)await command.ExecuteScalarAsync());
+    }
+
     [Fact]
     public async Task EmergencyRelease_CarriesIncompleteTestingStatement()
     {

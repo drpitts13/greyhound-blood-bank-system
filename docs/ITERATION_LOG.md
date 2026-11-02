@@ -9278,3 +9278,51 @@ The patient chart's product history showed a running transfusion as **Transfused
 ### Next ranked residual
 
 PR #13 holds Cycles 263 to 303; Cycles 304 and 305 are local commits. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 306 — No reader reports a running transfusion as finished (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 305 other than the transfusion row.
+
+### Sweep
+
+After Cycle 305 fixed the chart and timeline, every other reader of transfusion records was checked. A running record keeps its disposition field's default (Completed) until it is completed. These readers reported that default as if it were real:
+- the issues and transfusions report, both the SQL view and the visual reader (disposition "Completed")
+- the crossmatch and transfusion activity report (detail "Completed")
+- the lookback recipient trace (disposition Completed)
+- unit activity ("Completed for …")
+- utilization (counted as transfused)
+
+The final-disposition board and billing were already correct: the board reads issues still Issued, and billing is captured only at completion.
+
+### Design
+
+- `TransfusionRecordState`: a record is running when it has no stop and its issue is still Issued, and then it has no outcome. `SqlDisposition` gives the same rule for report views.
+- **Reports:** `InProgress`.
+- **Lookback trace:** no disposition.
+- **Unit activity:** "Started for …, not yet completed".
+- **Utilization:** not counted as transfused.
+- Migration `20261103210000_RunningTransfusionReportViews` re-installs the views on existing databases.
+- **Test fixtures:** two tests (unit activity naming and utilization grouping) seeded a recorded outcome on an issue still Issued, a state the system never produces. Their issues are now Transfused; what they test is unchanged.
+
+### Requirements / risk
+
+- URS-BB-453, FRS-BB-489, RISK-BB-555.
+
+### Tests
+
+- TEST-BB-348:
+  - rule tests: running state, outcome, and the SQL fragment
+  - on the seeded running transfusion (W0001230000099):
+    - the lookback trace has a transfusion record but no disposition
+    - both report readers say InProgress
+    - the SQL view `rpt_issue_transfusion` says InProgress
+- Full suite: 3,388 passed, 0 failed (previously 3,382).
+- Run check (development API):
+  - both rebuilt views queried through the report preview on SQLite
+  - no server errors
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy. Next engineering candidate: re-audit specimen collection and receipt (identification at draw, collector, and draw time) against the seven workflow questions.

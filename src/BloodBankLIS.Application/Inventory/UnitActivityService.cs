@@ -184,14 +184,16 @@ public sealed class UnitActivityService
                 r.Id));
         }
 
+        var issueStatusById = issues.ToDictionary(i => i.Id, i => i.Status);
         foreach (var t in transfusions)
         {
             patients.TryGetValue(t.PatientId, out var patient);
             var who = PatientActivityLabel.Format(t.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+            var running = TransfusionRecordState.IsRunning(t.StopUtc, issueStatusById.GetValueOrDefault(t.IssueId));
             rows.Add(new UnitActivityDto(
                 t.StopUtc ?? t.StartUtc ?? t.CreatedUtc,
                 "Transfusion",
-                $"{t.FinalDisposition} for {who}",
+                running ? $"Started for {who}, not yet completed" : $"{t.FinalDisposition} for {who}",
                 t.Transfusionist ?? t.CreatedBy,
                 nameof(TransfusionEvent),
                 t.Id));

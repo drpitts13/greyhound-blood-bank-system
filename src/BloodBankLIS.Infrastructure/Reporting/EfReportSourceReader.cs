@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Reporting;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -83,7 +84,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 issue.Status,
                 StartUtc = transfusion != null ? transfusion.StartUtc : null,
                 StopUtc = transfusion != null ? transfusion.StopUtc : null,
-                Disposition = transfusion != null ? (TransfusionDisposition?)transfusion.FinalDisposition : null
+                Disposition = transfusion != null ? (TransfusionDisposition?)transfusion.FinalDisposition : null,
+                Running = transfusion != null && transfusion.StopUtc == null && issue.Status == IssueStatus.Issued
             }).ToListAsync(cancellationToken);
 
         return rows.Select(row => ReportValueFormat.Row(
@@ -98,7 +100,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("issue_status", row.Status.ToString()),
             ("transfusion_start_utc", ReportValueFormat.Date(row.StartUtc)),
             ("transfusion_stop_utc", ReportValueFormat.Date(row.StopUtc)),
-            ("disposition", row.Disposition?.ToString()))).ToList();
+            ("disposition", row.Running ? TransfusionRecordState.InProgress : row.Disposition?.ToString()))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> DiscardsAsync(CancellationToken cancellationToken)
@@ -284,13 +286,15 @@ public sealed class EfReportSourceReader : IReportSourceReader
             join unit in _db.BloodUnits.AsNoTracking() on transfusion.BloodProductId equals unit.Id
             join product in _db.ProductTypes.AsNoTracking() on unit.ProductTypeId equals product.Id
             join patient in _db.Patients.AsNoTracking() on transfusion.PatientId equals patient.Id
+            join issue in _db.Issues.AsNoTracking() on transfusion.IssueId equals issue.Id
             select new
             {
                 transfusion.StartUtc,
                 unit.UnitNumber,
                 ProductName = product.Name,
                 patient.MedicalRecordNumber,
-                transfusion.FinalDisposition
+                transfusion.FinalDisposition,
+                Running = transfusion.StopUtc == null && issue.Status == IssueStatus.Issued
             }).ToListAsync(cancellationToken);
 
         var rows = crossmatches.Select(row => ReportValueFormat.Row(
@@ -307,7 +311,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_name", ReportValueFormat.Text(row.ProductName)),
             ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
-            ("detail", row.FinalDisposition.ToString()))));
+            ("detail", row.Running ? TransfusionRecordState.InProgress : row.FinalDisposition.ToString()))));
 
         return rows;
     }
