@@ -10766,3 +10766,49 @@ The first version of the column labeled the seeded placeholder row `RBC-ABO-BASE
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: users and roles audit. Check that granting a role, changing a role's permissions or security level, and unlocking a user are audited with a reason.
+
+## Iteration 343 — Access changes record why (2026-11-03)
+
+### Capability matrix rescan
+
+The administration row was rescanned for users, roles, and permissions.
+
+### Finding (question 7)
+
+- `UserAdminService` required a reason only when a new user was given an administrative role, or a user was newly granted one. Everything else recorded a reason only if one happened to be typed:
+  - changing a role's permission codes or security level, which decides who may override safety rules (Cycle 339)
+  - giving a user a non-administrative role such as Supervisor, or removing one
+  - activating or deactivating an account
+  - unlocking an account
+- Activation and lock changes recorded only the state after, not before.
+- Two help pages were stale. users.md said a role change takes effect only when the person signs in again, and roles.md said the same for role edits. The code ends those sessions immediately.
+
+### Design
+
+- `AccessChangeReasonRule`: a reason of at least 8 characters, `ACCESS.REASON.REQUIRED`, checked before anything changes.
+- Required for:
+  - any change to a user's role set (resending the same set needs none)
+  - any change to a role's permissions or security level (a description-only edit needs none)
+  - activating or deactivating an account
+  - unlocking an account
+- Locking stays reason-optional, because it protects.
+- Activation and lock changes now record the before state.
+- The roles page label now says when the reason is required. Both help pages were corrected.
+
+### Requirements / risk
+
+- URS-BB-483, FRS-BB-524, RISK-BB-581. Help: users and roles pages.
+
+### Tests
+
+- TEST-BB-385:
+  - roles: a change needs a reason, and the same set again does not
+  - deactivation: a blank reason is refused and the user stays active; with a reason, the history row has the before state
+  - locking: allowed without a reason; unlocking with a 2-character reason is refused; with a real reason it succeeds
+  - roles: a description-only edit needs no reason; a security-level change without one is refused and leaves the level; with one it succeeds
+- Full suite: 3,551 passed, 0 failed (previously 3,549).
+- Run check (development API): `PUT /api/admin/roles/4` raising ReadOnly's security level with no reason returned 400 "Give a reason of at least 8 characters for this access change."; the level stayed 0; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: other help pages may describe behavior that has since changed. Check each admin help page's specific behavioral claims against the code, as Cycles 339–343 found three that were wrong.

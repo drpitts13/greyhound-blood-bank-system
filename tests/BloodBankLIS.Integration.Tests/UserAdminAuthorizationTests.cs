@@ -35,6 +35,62 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
             permissionEvaluator: permissions);
     }
 
+    // TEST-BB-385: access changes (roles, permissions, security level, activation, unlock) record why.
+    [Fact]
+    public async Task AccessChanges_RequireAReason_AndKeepTheBeforeState()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+        var svc = Users(c);
+        var created = await svc.CreateUserAsync(new SaveUserRequest($"rsn-{Guid.NewGuid():N}"[..14], "Reason Tech", null, false, null, null));
+        Assert.True(created.Succeeded, created.Error);
+        var userId = created.Value!.Id;
+
+        // Roles: a change needs a reason; resending the same roles does not.
+        Assert.False((await svc.AssignRolesAsync(userId, new AssignRolesRequest(["Technologist"], null))).Succeeded);
+        Assert.True((await svc.AssignRolesAsync(userId, new AssignRolesRequest(["Technologist"], "New bench technologist"))).Succeeded);
+        Assert.True((await svc.AssignRolesAsync(userId, new AssignRolesRequest(["Technologist"], null))).Succeeded);
+
+        // Deactivate needs a reason and records the state before.
+        var noReason = await svc.SetActiveAsync(userId, false, "  ");
+        Assert.False(noReason.Succeeded);
+        Assert.Contains("at least 8 characters", noReason.Error);
+        Assert.True((await c.Users.AsNoTracking().SingleAsync(u => u.Id == userId)).IsActive);
+        Assert.True((await svc.SetActiveAsync(userId, false, "Left the department")).Succeeded);
+        var history = await c.ConfigurationChangeHistory.AsNoTracking()
+            .Where(h => h.EntityId == userId && h.ChangeReason == "Left the department").SingleAsync();
+        Assert.False(string.IsNullOrWhiteSpace(history.OldValueJson));
+
+        // Locking protects and needs no reason; unlocking does.
+        Assert.True((await svc.SetLockedAsync(userId, true, null)).Succeeded);
+        Assert.False((await svc.SetLockedAsync(userId, false, "ok")).Succeeded);
+        Assert.True((await c.Users.AsNoTracking().SingleAsync(u => u.Id == userId)).IsLocked);
+        Assert.True((await svc.SetLockedAsync(userId, false, "Identity confirmed by phone")).Succeeded);
+    }
+
+    [Fact]
+    public async Task RolePermissionOrLevelChange_NeedsAReason_DescriptionDoesNot()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+        var svc = Users(c);
+        var role = await c.Roles.AsNoTracking().SingleAsync(r => r.Name == "ReadOnly");
+        var current = (await svc.GetRoleAsync(role.Id))!;
+
+        Assert.True((await svc.UpdateRoleAsync(role.Id, new SaveRoleRequest(
+            current.Name, "Read-only access for auditors", current.SecurityLevel, current.Permissions, null))).Succeeded);
+
+        var raised = await svc.UpdateRoleAsync(role.Id, new SaveRoleRequest(
+            current.Name, current.Description, current.SecurityLevel + 1, current.Permissions, null));
+        Assert.False(raised.Succeeded);
+        Assert.Equal(current.SecurityLevel, (await c.Roles.AsNoTracking().SingleAsync(r => r.Id == role.Id)).SecurityLevel);
+
+        var withReason = await svc.UpdateRoleAsync(role.Id, new SaveRoleRequest(
+            current.Name, current.Description, current.SecurityLevel + 1, current.Permissions, "Auditors may sign off reviews"));
+        Assert.True(withReason.Succeeded, withReason.Error);
+        Assert.Equal(current.SecurityLevel + 1, withReason.Value!.SecurityLevel);
+    }
+
     [Fact]
     public async Task AssignRoles_WithoutAdminUsersManage_IsRejected()
     {

@@ -393,5 +393,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-382 | D / I | `CompatibilityTableChangeReasonRuleTests.ActiveTable_WithoutAReason_IsAHardStop`, `ActiveTableWithReason_OrDraftTable_Passes`; `CompatibilityRuleAdminTests.RuleInTheActiveTable_ChangesOnlyWithAReason` | URS-BB-481 / FRS-BB-521 / RISK-BB-579 |
 | TEST-BB-383 | D / I | `CompatibilityTablePolicyTests.ActiveHardStopRow_MakesAMatchingWarningAHardStop`, `SeededRowsEqualToTheBuiltInDefault_ChangeNothing`, `Table_NeverSoftensAHardStop`, `InactiveRow_OtherComponentClass_OtherCode_OrPass_LeaveTheResultAlone`, `Admin_CannotSaveARowSofterThanTheBuiltInRule`; `CompatibilityRuleValidatorTests.Rule_ValidObject_Passes`; `Phase4IssuingTests.Issue_ActiveCompatibilityTable_MakesAWarningAHardStop_AndNeverSoftens` | URS-BB-482 / FRS-BB-522 / RISK-BB-580 / OCD-052 |
 | TEST-BB-384 | D | `CompatibilityTablePolicyTests.DescribeAtIssue_MatchesWhatTheGateDoes` | URS-BB-482 / FRS-BB-523 / RISK-BB-580 |
+| TEST-BB-385 | I | `UserAdminAuthorizationTests.AccessChanges_RequireAReason_AndKeepTheBeforeState`, `RolePermissionOrLevelChange_NeedsAReason_DescriptionDoesNot` | URS-BB-483 / FRS-BB-524 / RISK-BB-581 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

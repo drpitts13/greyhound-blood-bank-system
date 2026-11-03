@@ -256,12 +256,18 @@ public sealed class UserAdminService : ConfigAdminServiceBase
             return OperationResult<AdminUserDto>.Fail("You cannot deactivate your own account.");
         }
 
+        if (AccessChangeReasonRule.Missing(reason) is { } missingReason)
+        {
+            return OperationResult<AdminUserDto>.Fail(missingReason);
+        }
+
+        var before = await GetUserAsync(id, ct);
         user.IsActive = active;
         _users.Update(user);
 
         var action = active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate;
         var dto = await GetUserAsync(id, ct);
-        RecordChange(UserEntity, user.Id, 1, action, ToAuditType(action), null, dto, reason);
+        RecordChange(UserEntity, user.Id, 1, action, ToAuditType(action), before, dto, reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         if (!active && _sessions is not null)
         {
@@ -291,11 +297,19 @@ public sealed class UserAdminService : ConfigAdminServiceBase
             return OperationResult<AdminUserDto>.Fail("You cannot lock your own account.");
         }
 
+        // Locking protects; unlocking lets someone act again, so it records why.
+        if (!locked && AccessChangeReasonRule.Missing(reason) is { } missingReason)
+        {
+            return OperationResult<AdminUserDto>.Fail(missingReason);
+        }
+
+        var before = await GetUserAsync(id, ct);
         user.IsLocked = locked;
         _users.Update(user);
 
         var dto = await GetUserAsync(id, ct);
-        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, null, dto, reason ?? (locked ? "Locked" : "Unlocked"));
+        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, dto,
+            string.IsNullOrWhiteSpace(reason) ? (locked ? "Locked" : "Unlocked") : reason.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         if (locked && _sessions is not null)
         {
@@ -396,8 +410,18 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         }
 
         var before = await GetRoleAsync(id, ct);
+        var newLevel = Math.Max(0, req.SecurityLevel);
+        var accessChanged = before is not null
+            && (before.SecurityLevel != newLevel
+                || !before.Permissions.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                    .SetEquals((req.Permissions ?? []).Select(p => p.Trim()).Where(p => p.Length > 0)));
+        if (accessChanged && AccessChangeReasonRule.Missing(req.ChangeReason) is { } missingReason)
+        {
+            return OperationResult<AdminRoleDto>.Fail(missingReason);
+        }
+
         role.Description = req.Description?.Trim();
-        role.SecurityLevel = Math.Max(0, req.SecurityLevel);
+        role.SecurityLevel = newLevel;
         _roles.Update(role);
         await _identity.StageRolePermissionsAsync(role.Id, permissionIds, ct);
 
@@ -449,9 +473,10 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         var currentlyAdmin = await UserGrantsAdminAsync(user.Id, ct);
         var willBeAdmin = await GrantsAdminAsync(roleIds, ct);
 
-        if (willBeAdmin && !currentlyAdmin && string.IsNullOrWhiteSpace(reason))
+        var currentRoleIds = (await _userRoles.ListAsync(ur => ur.UserId == user.Id, ct)).Select(l => l.RoleId).ToHashSet();
+        if (!currentRoleIds.SetEquals(roleIds) && AccessChangeReasonRule.Missing(reason) is { } missingReason)
         {
-            return OperationResult<bool>.Fail("A change reason is required when granting administrative roles.");
+            return OperationResult<bool>.Fail(missingReason);
         }
 
         if (editingSelf && currentlyAdmin && !willBeAdmin)

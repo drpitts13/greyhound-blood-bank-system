@@ -22,6 +22,6 @@ Status is active, locked, or inactive. Lock is what you do after five failed pas
 
 ## Privilege changes
 
-Adding a role that grants more permission, especially emergency release, result correction, user administration, or configuration edit, requires a reason. The reason is audited. Removing a role should also say why. After you change roles, tell the person to sign out and sign in. The session they already have keeps the old permissions until it ends.
+Any change to a person's roles, adding or removing, requires a reason of at least 8 characters, and so does activating, deactivating, or unlocking an account. Locking does not, because it stops access. The reason and the account as it was before are kept in the change history. When roles change, the person's open sessions end at once, so they sign in again with the new permissions.
 
 > Warning. An administrator account can change every clinical rule. Do not use it for routine bench work. The audit trail will attribute those results and issues to the administrator.
