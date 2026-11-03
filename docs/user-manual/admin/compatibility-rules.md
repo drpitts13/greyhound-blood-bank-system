@@ -17,3 +17,5 @@ Edit a table only under medical-director review. The screen versions the change.
 Component class matters. A rule written for red cells is not automatically the rule for plasma. Check the class on the row before you save.
 
 Electronic-crossmatch rows in this table do not turn electronic crossmatch on. Facility policy does that. These rows say which ABO and Rh pairs are acceptable when electronic crossmatch is already allowed.
+
+Rules in the table in use can still be added, edited, activated, or deactivated, but each change asks for a reason (at least 8 characters) in **Reason for changing the active table**, kept with the change history. A draft table can be built without one; its reason is given when you activate it.

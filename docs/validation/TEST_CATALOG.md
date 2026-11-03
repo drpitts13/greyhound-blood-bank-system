@@ -390,5 +390,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-379 | I | `InventoryServiceTests.NearExpiry_NamesThePatientAReservedUnitIsHeldFor`; `AlertWorkflowTests.NearExpiryAlert_OnAReservedUnit_NamesThePatient_AndIsAWarning` | URS-BB-479 / FRS-BB-518 / RISK-BB-577 |
 | TEST-BB-380 | D | `DashboardDueCountTests.ReadyToIssueCard_NamesExpiringSoonAndExpiredCrossmatches` | URS-BB-479 / FRS-BB-519 / RISK-BB-577 |
 | TEST-BB-381 | D / I | `ExceptionCatalogChangeReasonRuleTests.MissingOrShortReason_IsAHardStop`, `EightCharactersAfterTrimming_Passes`; `AdminCatalogTests.ExceptionDefinition_CreateAndUpdate_WriteConfigure`; `ExceptionDefinitionAuthorizationTests.Deactivate_WithoutAdminConfigActivate_IsRejected` | URS-BB-480 / FRS-BB-520 / RISK-BB-578 |
+| TEST-BB-382 | D / I | `CompatibilityTableChangeReasonRuleTests.ActiveTable_WithoutAReason_IsAHardStop`, `ActiveTableWithReason_OrDraftTable_Passes`; `CompatibilityRuleAdminTests.RuleInTheActiveTable_ChangesOnlyWithAReason` | URS-BB-481 / FRS-BB-521 / RISK-BB-579 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

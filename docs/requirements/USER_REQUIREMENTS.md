@@ -486,3 +486,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-478 | When a specimen is edited on the chart, the expiration it proposes, and whether an override is needed, follow the same policy as the save, including the shorter window for a patient recently transfused or pregnant. An override's authorizer is always named by the user. | P1 | FRS-BB-515 |
 | URS-BB-479 | A unit near expiry that is reserved for a patient says so, names the patient, and says to issue it first or reserve a replacement, before it expires. | P1 | FRS-BB-518 |
 | URS-BB-480 | Changing an override exception (who may override a safety rule, whether it can be overridden, or switching it on or off) records why. | P1 | FRS-BB-520 |
+| URS-BB-481 | Adding, changing, or switching a rule in the compatibility table in use records why; a draft table can be built freely. | P2 | FRS-BB-521 |

@@ -799,12 +799,12 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.UpdateRuleAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
-        rules.MapPost("/{id:long}/activate", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, true, ct), d => d))
+        rules.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, true, ct, req?.Reason), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
-        rules.MapPost("/{id:long}/deactivate", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, false, ct), d => d))
+        rules.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, false, ct, req?.Reason), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 

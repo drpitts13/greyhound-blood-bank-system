@@ -10641,3 +10641,47 @@ The exception catalog decides who may override each safety rule (minimum securit
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check the other safety-relevant admin catalogs (special requirements, antigen and antibody configuration, crossmatch settings) for the same missing-reason gap.
+
+## Iteration 340 — Changes to the active compatibility table record why (2026-11-03)
+
+### Capability matrix rescan
+
+The other safety-relevant admin catalogs were rescanned:
+
+- Crossmatch settings require a reason.
+- Special requirements and blood attributes require one when the definition is active.
+- Compatibility table versions require one to activate or retire.
+
+### Finding (question 7)
+
+- Rules inside a compatibility table version could be added, edited (for example severity Hard stop to Warning), or switched off with no reason, including in the active, approved table.
+- The domain marks that table MEDICAL_DIRECTOR_APPROVAL configuration.
+- The rows are reference configuration, not evaluated at issue, but the approved table could still change with nothing saying why.
+- There is no "copy version" function, so freezing the active table would force re-entering every row. A reason requirement follows the pattern the special requirement and blood attribute catalogs already use.
+
+### Design
+
+- `CompatibilityTableChangeReasonRule`: when the rule's version is active, a reason of at least 8 characters is required; draft versions need none. Hard stop `COMPAT.REASON.REQUIRED`.
+- Applied to rule create, update, activate, and deactivate, before anything changes. The reason is stored with the configuration history.
+- The rule activate and deactivate endpoints take `{ "reason": … }`.
+- **Admin page:** a "Reason for changing the active table" field appears above the rules when the active version is selected.
+
+### Requirements / risk
+
+- URS-BB-481, FRS-BB-521, RISK-BB-579. Help: compatibility tables page.
+
+### Tests
+
+- TEST-BB-382:
+  - rule: in an active table, a missing, blank, or 7-character reason is refused; 8 passes; a draft table needs none
+  - service:
+    - a rule created in a draft table needs no reason
+    - after the table is activated, softening the rule without a reason is refused and the severity stays Hard stop
+    - deactivating it or adding another rule without a reason is refused
+    - with a reason the change succeeds and the history row carries it
+- Full suite: 3,531 passed, 0 failed (previously 3,526).
+- Run check (development API and web): Admin › Compatibility Tables opens on the active table (PLACEHOLDER-1, 16 rules) and shows the reason field above its rules; nothing changed; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: users and roles. Check that granting a role, changing a role's permissions or security level, and unlocking a user are audited with a reason, since those decide who may override.

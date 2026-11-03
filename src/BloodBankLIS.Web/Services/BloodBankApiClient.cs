@@ -1475,8 +1475,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<CompatibilityRuleDto>> UpdateAdminCompatibilityRuleAsync(long id, SaveCompatibilityRuleRequest req, CancellationToken ct = default) =>
         SendAsync<CompatibilityRuleDto>(HttpMethod.Put, $"api/admin/compatibility-rules/{id}", req, ct);
 
-    public Task<ApiResult<CompatibilityRuleDto>> SetAdminCompatibilityRuleActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<CompatibilityRuleDto>(HttpMethod.Post, $"api/admin/compatibility-rules/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<CompatibilityRuleDto>> SetAdminCompatibilityRuleActiveAsync(long id, bool active, string? reason, CancellationToken ct = default) =>
+        SendAsync<CompatibilityRuleDto>(HttpMethod.Post, $"api/admin/compatibility-rules/{id}/{(active ? "activate" : "deactivate")}", new ReasonOnlyRequest(reason), ct);
 
     // ---- Admin: Test/service billing ----
     public Task<ApiResult<List<TestServiceBillingDto>>> GetAdminTestServiceBillingsAsync(bool includeInactive = true, CancellationToken ct = default) =>
