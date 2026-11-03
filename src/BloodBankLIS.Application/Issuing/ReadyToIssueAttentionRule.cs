@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Issuing;
@@ -11,6 +12,21 @@ public static class ReadyToIssueAttentionRule
 {
     public static int CountCrossmatchExpired(IEnumerable<ProductAllocationDisplayStatus> statuses) =>
         statuses.Count(static status => status == ProductAllocationDisplayStatus.CrossmatchExpired);
+
+    /// <summary>Reserved units inside the near-expiry window: issue them first or reserve replacements.</summary>
+    public static int CountExpiringSoon(IEnumerable<ReadyToIssueWorkItemDto> rows) =>
+        rows.Count(static row => row.ExpiresSoon && !row.UnitOutdated);
+
+    /// <summary>The Ready to issue card note: what needs a new crossmatch and what expires soon, or null.</summary>
+    public static string? CardNote(IReadOnlyCollection<ReadyToIssueWorkItemDto> rows)
+    {
+        var parts = new[]
+        {
+            DashboardQueueCatalog.AttentionNote(CountCrossmatchExpired(rows.Select(r => r.DisplayStatus)), "needs a new crossmatch", "need a new crossmatch"),
+            DashboardQueueCatalog.AttentionNote(CountExpiringSoon(rows), "expires soon", "expire soon")
+        }.OfType<string>().ToList();
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
 
     /// <summary>
     /// True when the board shows the Issue button: no mark on the row blocks routine issue.

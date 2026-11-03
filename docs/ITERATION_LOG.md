@@ -10570,3 +10570,37 @@ Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the dashboard's near-expiry or inventory card could count reserved units near expiry, as the Ready to issue card counts expired crossmatches.
+
+## Iteration 338 — The dashboard counts reserved units expiring soon (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 337.
+
+### Finding (question 5)
+
+- Cycle 337 named the patient on a near-expiry reserved unit on the Near expiry board and in the alert.
+- The dashboard has no near-expiry card, but reserved units are exactly what the Ready to issue card counts, and each of its rows already carries `ExpiresSoon`.
+- Its note said only how many need a new crossmatch.
+
+### Design
+
+- `ReadyToIssueAttentionRule.CardNote` joins two notes with " · ":
+  - "N need(s) a new crossmatch"
+  - "N expire(s) soon": reserved units inside the near-expiry window and not already outdated
+- It uses the existing `DashboardQueueCatalog.AttentionNote`.
+- Read only; no new call.
+
+### Requirements / risk
+
+- FRS-BB-519 (under URS-BB-479 and RISK-BB-577). Help: dashboard page.
+
+### Tests
+
+- TEST-BB-380: no note when neither applies; "1 expires soon"; "1 needs a new crossmatch · 2 expire soon"; an outdated unit is not counted as expiring soon.
+- Full suite: 3,520 passed, 0 failed (previously 3,519).
+- Run check (development API and web): the dashboard shows Ready to issue 3 with no note (no demo reservation expires soon or has an expired crossmatch); no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next: rescan administration (configuration screens, roles, audit settings) for gaps, which recent cycles have not touched.

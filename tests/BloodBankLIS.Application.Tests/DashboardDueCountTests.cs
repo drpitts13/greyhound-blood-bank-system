@@ -82,6 +82,24 @@ public class DashboardDueCountTests
         CurrentResultValue: "Negative", CurrentResultInterpretation: null, CurrentResultSource: ResultSource.Manual,
         CanEnterResults: true, BlockReason: null, VerificationDeadlineNotice: deadline);
 
+    // TEST-BB-380: the Ready to issue card also says how many reserved units expire soon.
+    [Fact]
+    public void ReadyToIssueCard_NamesExpiringSoonAndExpiredCrossmatches()
+    {
+        Assert.Null(ReadyToIssueAttentionRule.CardNote([Ready(1), Ready(2)]));
+        Assert.Equal("1 expires soon", ReadyToIssueAttentionRule.CardNote([Ready(1) with { ExpiresSoon = true }, Ready(2)]));
+        Assert.Equal(
+            "1 needs a new crossmatch · 2 expire soon",
+            ReadyToIssueAttentionRule.CardNote(
+            [
+                Ready(1) with { DisplayStatus = ProductAllocationDisplayStatus.CrossmatchExpired },
+                Ready(2) with { ExpiresSoon = true },
+                Ready(3) with { ExpiresSoon = true }
+            ]));
+        // An outdated unit is already past expiry, not about to expire.
+        Assert.Equal(0, ReadyToIssueAttentionRule.CountExpiringSoon([Ready(1) with { ExpiresSoon = true, UnitOutdated = true }]));
+    }
+
     // TEST-BB-362: the Ready to issue board lists rows that can be issued now first.
     [Fact]
     public void ReadyToIssue_IssuableRowsComeFirst_AndKeepTheirOrder()

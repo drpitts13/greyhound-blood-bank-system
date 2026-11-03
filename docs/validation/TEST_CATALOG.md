@@ -388,5 +388,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-377 | I | `SeederTests.Seed_DemoPatientSpecimens_ExpireAsPolicySays` | URS-BB-478 / RISK-BB-576 |
 | TEST-BB-378 | I | `Phase4IssuingTests.EmergencyRelease_Override_StoresTrimmedFields_AndNeedsAnAuthorizer` | FRS-BB-517 / OCD-041 |
 | TEST-BB-379 | I | `InventoryServiceTests.NearExpiry_NamesThePatientAReservedUnitIsHeldFor`; `AlertWorkflowTests.NearExpiryAlert_OnAReservedUnit_NamesThePatient_AndIsAWarning` | URS-BB-479 / FRS-BB-518 / RISK-BB-577 |
+| TEST-BB-380 | D | `DashboardDueCountTests.ReadyToIssueCard_NamesExpiringSoonAndExpiredCrossmatches` | URS-BB-479 / FRS-BB-519 / RISK-BB-577 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

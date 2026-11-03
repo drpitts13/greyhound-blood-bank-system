@@ -296,8 +296,7 @@
                     return (card.Key, null, null);
                 }
 
-                var expired = ReadyToIssueAttentionRule.CountCrossmatchExpired(result.Value.Select(item => item.DisplayStatus));
-                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(expired, "needs a new crossmatch", "need a new crossmatch"));
+                return (card.Key, result.Value.Count, ReadyToIssueAttentionRule.CardNote(result.Value));
             }
             case DashboardQueueCatalog.SecondAbo:
                 return await CountList(card.Key, Api.GetPendingSecondAboAsync());
