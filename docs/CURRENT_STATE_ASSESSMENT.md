@@ -7,7 +7,7 @@ repository.
 
 ## Product
 
-Greyhound Blood Bank LIS is a hospital transfusion-service laboratory
+HemoCore is a hospital transfusion-service laboratory
 information system: patients, specimens, immunohematology, compatibility,
 inventory, issue, transfusion, lookback, reactions, and quality deviations.
 It is **not** a blood-collection establishment and does not implement donor

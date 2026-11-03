@@ -77,7 +77,7 @@ public class FhirReadServiceTests : IDisposable
 
     [Theory]
     [InlineData("MRN-FHIR1", 1)]
-    [InlineData("urn:greyhound-lis:mrn|MRN-FHIR1", 1)]
+    [InlineData("urn:hemocore:mrn|MRN-FHIR1", 1)]
     [InlineData("|MRN-FHIR1", 1)]
     [InlineData("http://other-hospital/mrn|MRN-FHIR1", 0)]
     [InlineData("MRN-NOBODY", 0)]

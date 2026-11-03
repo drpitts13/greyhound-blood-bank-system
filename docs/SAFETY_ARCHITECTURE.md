@@ -1,6 +1,6 @@
 # Safety architecture
 
-This document describes how Greyhound Blood Bank LIS prevents an incompatible,
+This document describes how HemoCore prevents an incompatible,
 expired, quarantined, recalled, misidentified, or otherwise unsuitable
 component from being transfused. It does not claim automatic accreditation.
 

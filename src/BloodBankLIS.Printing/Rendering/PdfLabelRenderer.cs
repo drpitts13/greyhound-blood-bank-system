@@ -66,7 +66,7 @@ public sealed class PdfLabelRenderer : ILabelRenderer
         }).WithMetadata(new DocumentMetadata
         {
             Title = titleSource.Length > 240 ? titleSource[..240] : titleSource,
-            Creator = "Greyhound Blood Bank LIS"
+            Creator = "HemoCore"
         }).GeneratePdf();
 
         return LabelRenderResult.PdfContent(pdf);

@@ -22,7 +22,7 @@ public sealed class WindowsRawSpooler : IRawSpooler
         {
             var info = new DocInfo
             {
-                DocumentName = "Greyhound Blood Bank label",
+                DocumentName = "HemoCore label",
                 DataType = "RAW"
             };
             if (StartDocPrinter(handle, 1, info) == 0)

@@ -1,4 +1,4 @@
-# Blood Bank LIS
+# HemoCore
 
 An original, safety-critical Blood Bank Laboratory Information System built on C# / .NET, SQL Server, and EF Core, using a layered, API-first architecture. Accuracy, traceability, auditability, and workflow controls are prioritized over development speed.
 

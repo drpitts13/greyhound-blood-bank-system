@@ -11,12 +11,12 @@ namespace BloodBankLIS.Application.Interop.Fhir;
 /// </summary>
 public static class FhirMapper
 {
-    public const string MrnSystem = "urn:greyhound-lis:mrn";
-    public const string OrderNumberSystem = "urn:greyhound-lis:order-number";
-    public const string UnitNumberSystem = "urn:greyhound-lis:unit-number";
-    public const string DinSystem = "urn:greyhound-lis:isbt128-din";
-    public const string ObservationCodeSystem = "urn:greyhound-lis:observation";
-    public const string FlagCodeSystem = "urn:greyhound-lis:transfusion-requirement";
+    public const string MrnSystem = "urn:hemocore:mrn";
+    public const string OrderNumberSystem = "urn:hemocore:order-number";
+    public const string UnitNumberSystem = "urn:hemocore:unit-number";
+    public const string DinSystem = "urn:hemocore:isbt128-din";
+    public const string ObservationCodeSystem = "urn:hemocore:observation";
+    public const string FlagCodeSystem = "urn:hemocore:transfusion-requirement";
 
     public static JsonObject Patient(Patient p, Patient? survivor = null)
     {

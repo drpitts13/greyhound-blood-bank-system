@@ -5,7 +5,7 @@ namespace BloodBankLIS.Domain.Rules;
 /// <summary>
 /// AABB-style transfusion-reaction workup gate (clerical check, visual inspection,
 /// post-transfusion DAT). SoftBank and SafeTrace block close until these steps are
-/// recorded; Greyhound previously allowed close on free-text findings alone.
+/// recorded; HemoCore previously allowed close on free-text findings alone.
 /// </summary>
 public static class ReactionWorkupCompletenessRule
 {

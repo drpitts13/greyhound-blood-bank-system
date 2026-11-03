@@ -1,7 +1,7 @@
-# Creates or updates a desktop shortcut for Greyhound Blood Bank LIS with the ABO quadrant icon.
+# Creates or updates a desktop shortcut for HemoCore with the ABO quadrant icon.
 $ErrorActionPreference = "Stop"
 $Desktop = [Environment]::GetFolderPath("Desktop")
-$ShortcutPath = Join-Path $Desktop "Greyhound Blood Bank LIS.lnk"
+$ShortcutPath = Join-Path $Desktop "HemoCore.lnk"
 $Launcher = Join-Path $PSScriptRoot "Start-BloodBankLIS.ps1"
 $IconPath = Join-Path $PSScriptRoot "bloodbank-lis-icon.ico"
 $PngPath = Join-Path $PSScriptRoot "bloodbank-lis-icon.png"
@@ -20,7 +20,7 @@ $shortcut.TargetPath = if ($pwsh) { $pwsh.Source } else { (Get-Command powershel
 $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Launcher`""
 $shortcut.WorkingDirectory = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $shortcut.IconLocation = "$IconPath,0"
-$shortcut.Description = "Start Greyhound Blood Bank LIS (API + Web). Closing the app stops the API."
+$shortcut.Description = "Start HemoCore (API + Web). Closing the app stops the API."
 $shortcut.Save()
 
 Write-Host "Desktop shortcut created:"
