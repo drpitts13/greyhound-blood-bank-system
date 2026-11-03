@@ -10971,3 +10971,33 @@ Cycle 346 let the gate accept emergency release without a usable specimen, but t
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: continue the help claim check with the transfusion, returns, and alerts pages.
+
+## Iteration 348 — Help claims checked: alerts and reactions (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 347.
+
+### Results
+
+- **alerts.md was incomplete.** It said "Alerts come from five places", but `AlertRule` defines nine. Four were missing:
+
+  | Alert | Severity | How it is raised | Closes |
+  | --- | --- | --- | --- |
+  | Incompatible after release (`retro-xm-incompatible`) | Critical | Raised once | When acknowledged |
+  | Transfusion not completed | Warning | Synced each scan | On its own when cleared |
+  | Backup failed | Critical | Raised once | When acknowledged |
+  | Backup overdue | Critical | Synced | On its own when cleared |
+
+  The page now lists all nine, what each means and what to do, and which close on their own (every synced source) versus at acknowledgment.
+- **Dead code:** `AlertRule.ConditionSources` was never read, and had already gone stale (it left out transfusion not completed). Removed.
+- **reactions.md:** the claims hold. The remaining product is quarantined (`TryQuarantineRemainderAsync`), and closing is refused while clerical, visual, or DAT items are unfinished (`ReactionWorkupCompletenessRule`).
+
+### Tests
+
+- Documentation, plus removal of an unused constant.
+- Full suite: 3,567 passed, 0 failed.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: a test that keeps the alerts help in step with `AlertRule`, so a new alert source fails a test until it is documented.
