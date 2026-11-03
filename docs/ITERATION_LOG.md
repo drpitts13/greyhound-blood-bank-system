@@ -10719,11 +10719,8 @@ The product owner decided OCD-052: make the issue gate read the compatibility ta
   - an inactive row, another component class, a non-matching code, a Pass result, and an empty table change nothing
   - softer-than-default rows are refused at save
   - integration: with an active table row raising `UNIT-NEAR-EXPIRY` for red cells, issuing a unit that expires in 3 hours is refused with the escalated hard stop, and the unit is not issued; a row trying to soften ABO is present and ignored
-- Test runs: Domain 2,009, Application 125, Integration 1,273, HL7 66, ASTM 19, Printing 21, all passed.
-- **Not run this iteration (the user's running HemoCore instance holds the API and web binaries):**
-  - Help.Tests
-  - the full-solution build
-  - the live check
+- Full-solution build and full suite (after the user closed their running HemoCore instance): 3,542 passed, 0 failed (previously 3,531), Help.Tests included.
+- Run check (development API): `PUT /api/admin/compatibility-rules/2`, trying to set the active table's `ISS-ABO-COMPAT` row to Warning with a reason, returned 422 `COMPAT.SEVERITY.SOFTER` with the plain message; the row is still HardStop; no server errors. No unit was issued, to avoid writing development data.
 
 ### Next ranked residual
 
