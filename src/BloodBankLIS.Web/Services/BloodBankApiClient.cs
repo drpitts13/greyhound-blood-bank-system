@@ -1229,8 +1229,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ExceptionDefinitionDto>> UpdateAdminExceptionAsync(long id, SaveExceptionDefinitionRequest req, CancellationToken ct = default) =>
         SendAsync<ExceptionDefinitionDto>(HttpMethod.Put, $"api/admin/exceptions/{id}", req, ct);
 
-    public Task<ApiResult<ExceptionDefinitionDto>> SetAdminExceptionActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<ExceptionDefinitionDto>(HttpMethod.Post, $"api/admin/exceptions/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<ExceptionDefinitionDto>> SetAdminExceptionActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<ExceptionDefinitionDto>(HttpMethod.Post, $"api/admin/exceptions/{id}/{(active ? "activate" : "deactivate")}", new ExceptionDefinitionActiveRequest(reason), ct);
 
     public Task<ApiResult<List<CodedCommentDefinitionDto>>> GetAdminCodedCommentsAsync(
         bool includeInactive = true, CommentPage? page = null, CancellationToken ct = default)

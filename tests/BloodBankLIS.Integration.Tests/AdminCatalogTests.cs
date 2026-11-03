@@ -542,16 +542,29 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
             && a.EntityId == created.Value!.Id
             && a.EventType == AuditEventType.Configure));
 
-        var updated = await svc.UpdateAsync(created.Value!.Id, new SaveExceptionDefinitionRequest(
+        // TEST-BB-381: changing an exception needs a reason, which is kept with the change.
+        var noReason = await svc.UpdateAsync(created.Value!.Id, new SaveExceptionDefinitionRequest(
             code, "Result-audit exception", "Raised security level", 3, false));
+        Assert.False(noReason.Succeeded);
+        Assert.Contains(noReason.Evaluation!.HardStops, h => h.Code == ExceptionCatalogChangeReasonRule.Code);
+        Assert.Equal(2, (await c.ExceptionDefinitions.AsNoTracking().SingleAsync(e => e.Id == created.Value.Id)).MinSecurityLevel);
+
+        var updated = await svc.UpdateAsync(created.Value!.Id, new SaveExceptionDefinitionRequest(
+            code, "Result-audit exception", "Raised security level", 3, false, "Medical director asked for supervisor sign-off"));
         Assert.True(updated.Succeeded);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ExceptionDefinition) && a.EntityId == created.Value.Id
+            && a.Reason == "Medical director asked for supervisor sign-off"));
 
         var configure = await c.AuditEvents
             .Where(a => a.EntityType == nameof(ExceptionDefinition) && a.EntityId == created.Value.Id)
             .ToListAsync();
         Assert.Equal(2, configure.Count(a => a.EventType == AuditEventType.Configure));
 
-        var deactivated = await svc.SetActiveAsync(created.Value.Id, false);
+        Assert.False((await svc.SetActiveAsync(created.Value.Id, false, reason: "short")).Succeeded);
+        Assert.True((await c.ExceptionDefinitions.AsNoTracking().SingleAsync(e => e.Id == created.Value.Id)).IsActive);
+
+        var deactivated = await svc.SetActiveAsync(created.Value.Id, false, reason: "Retired with the old override workflow");
         Assert.True(deactivated.Succeeded);
         Assert.True(await c.AuditEvents.AnyAsync(a =>
             a.EntityType == nameof(ExceptionDefinition)

@@ -389,5 +389,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-378 | I | `Phase4IssuingTests.EmergencyRelease_Override_StoresTrimmedFields_AndNeedsAnAuthorizer` | FRS-BB-517 / OCD-041 |
 | TEST-BB-379 | I | `InventoryServiceTests.NearExpiry_NamesThePatientAReservedUnitIsHeldFor`; `AlertWorkflowTests.NearExpiryAlert_OnAReservedUnit_NamesThePatient_AndIsAWarning` | URS-BB-479 / FRS-BB-518 / RISK-BB-577 |
 | TEST-BB-380 | D | `DashboardDueCountTests.ReadyToIssueCard_NamesExpiringSoonAndExpiredCrossmatches` | URS-BB-479 / FRS-BB-519 / RISK-BB-577 |
+| TEST-BB-381 | D / I | `ExceptionCatalogChangeReasonRuleTests.MissingOrShortReason_IsAHardStop`, `EightCharactersAfterTrimming_Passes`; `AdminCatalogTests.ExceptionDefinition_CreateAndUpdate_WriteConfigure`; `ExceptionDefinitionAuthorizationTests.Deactivate_WithoutAdminConfigActivate_IsRejected` | URS-BB-480 / FRS-BB-520 / RISK-BB-578 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

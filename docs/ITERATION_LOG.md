@@ -10604,3 +10604,40 @@ No change since Cycle 337.
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next: rescan administration (configuration screens, roles, audit settings) for gaps, which recent cycles have not touched.
+
+## Iteration 339 — Override exception changes record why (2026-11-03)
+
+### Capability matrix rescan
+
+The administration row was rescanned:
+
+- Every admin configuration service records before-and-after configuration history through `ConfigAdminServiceBase.RecordChange`.
+- Facility policy and compatibility rule edits require a reason.
+
+### Finding (question 7)
+
+The exception catalog decides who may override each safety rule (minimum security level) and whether it can be overridden at all. Its edits and activation changes were recorded with no reason. An administrator could lower the level for antigen-negative overrides, or switch an exception off, with nothing saying why. The admin help page already told users "The reason you type is the change-control note", but the page never asked for one.
+
+### Design
+
+- `ExceptionCatalogChangeReasonRule`: a reason of at least 8 characters, as for facility policy; hard stop `EXC.REASON.REQUIRED`.
+- **Required** on update and on activate/deactivate, checked before anything changes. **Optional** on create (recorded when given).
+- The reason is stored with the configuration history and audit event.
+- The activate and deactivate endpoints take `{ "reason": … }`.
+- **Admin page:** a "Reason for the change" field on the edit form, and an inline "Why activate/deactivate …?" with the confirm button disabled until a reason is typed.
+
+### Requirements / risk
+
+- URS-BB-480, FRS-BB-520, RISK-BB-578. Help: admin exceptions page.
+
+### Tests
+
+- TEST-BB-381:
+  - rule: missing, blank, or under 8 characters after trimming is refused; 8 passes
+  - service: update without a reason is refused and leaves the level unchanged; with a reason it succeeds and the audit event carries it; deactivation with a short reason is refused and the exception stays active; the authorization test now gives a reason
+- Full suite: 3,526 passed, 0 failed (previously 3,520).
+- Run check (development API and web): on Admin › Exceptions (9 rows), Deactivate opens "Why deactivate ALLOC-XM-AB-HISTORY?" with Deactivate disabled until a reason is entered. Cancelled; nothing changed; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check the other safety-relevant admin catalogs (special requirements, antigen and antibody configuration, crossmatch settings) for the same missing-reason gap.

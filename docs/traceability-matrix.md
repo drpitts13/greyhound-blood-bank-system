@@ -521,6 +521,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-478 (demo data) | Demo specimens seeded with the policy expiration | `DatabaseSeeder` | TEST-BB-377 | I | |
 | URS-BB-479 / FRS-BB-518 | Near-expiry reserved units name the patient | `InventoryService`; `AlertScanner`; `Inventory.razor` | TEST-BB-379 | I | |
 | URS-BB-479 / FRS-BB-519 | Dashboard counts reserved units expiring soon | `ReadyToIssueAttentionRule.CardNote`; `Home.razor` | TEST-BB-380 | D | |
+| URS-BB-480 / FRS-BB-520 | Exception catalog changes need a reason | `ExceptionCatalogChangeReasonRule`; `ExceptionDefinitionAdminService`; `AdminExceptions.razor` | TEST-BB-381 | D / I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
