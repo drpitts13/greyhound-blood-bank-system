@@ -489,3 +489,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-481 | Adding, changing, or switching a rule in the compatibility table in use records why; a draft table can be built freely. | P2 | FRS-BB-521 |
 | URS-BB-482 | The issue gate follows the active compatibility table: a medical director can make a rule stricter for a component class there (for example platelet ABO mismatch a hard stop), and the table can never make a rule weaker than the built-in one. | P1 | FRS-BB-522 |
 | URS-BB-483 | Changing who may do what (a user's roles, a role's permissions or security level) and letting someone act again (activating or unlocking an account) records why and what was there before. | P1 | FRS-BB-524 |
+| URS-BB-484 | Emergency or massive-transfusion release can go ahead before a specimen is drawn, limited to group O red cells and group AB or A plasma, as an authorized override, and staff are prompted to collect a pre-transfusion specimen. | P1 | FRS-BB-525 |

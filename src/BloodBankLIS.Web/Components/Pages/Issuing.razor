@@ -384,6 +384,12 @@
                             <td>
                                 @(row.AccessionNumber ?? "—")
                                 <div>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</div>
+                                @if (row.SpecimenId is null || row.SpecimenExpired)
+                                {
+                                    @* OCD-053: released before a usable specimen; the retrospective crossmatch needs one. *@
+                                    <span class="badge badge-red">@(row.SpecimenId is null ? "No specimen on file: collect one" : "Specimen expired: collect a new one")</span>
+                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">Accession</a>
+                                }
                             </td>
                             <td>
                                 @(row.LatestCrossmatchResult is CrossmatchResult retroXm ? retroXm.ToString() : "—")

@@ -526,6 +526,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-482 / FRS-BB-522 | Issue gate reads the active compatibility table, stricter only (OCD-052) | `CompatibilityTablePolicy`; `CompatibilityRuleValidator`; `IssuingService` | TEST-BB-383 | D / I | |
 | URS-BB-482 / FRS-BB-523 | Admin table says what each row does at issue | `CompatibilityTablePolicy.DescribeAtIssue`; `AdminCompatibilityRules.razor` | TEST-BB-384 | D | |
 | URS-BB-483 / FRS-BB-524 | Access changes need a reason and keep the before state | `AccessChangeReasonRule`; `UserAdminService` | TEST-BB-385 | I | |
+| URS-BB-484 / FRS-BB-525 | Pre-specimen emergency release with controls (OCD-053) | `EmergencyPreSpecimenRule`; `IssueGate`; `Issuing.razor` | TEST-BB-386 | D / I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

@@ -4365,6 +4365,37 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    // TEST-BB-386 (OCD-053): emergency release of group O red cells goes ahead without a usable specimen, as an override that names the rule.
+    [Fact]
+    public async Task EmergencyRelease_WithAnExpiredSpecimen_GroupORedCells_IssuesUnderOverride()
+    {
+        var s = await SeedAsync("PRE-SPEC");
+        await AllocateAsync(s);
+        await using (var setup = _factory.Create())
+        {
+            var specimen = await setup.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+            specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var routine = await Issuing(c).IssueUnitAsync(IssueReq(s));
+        Assert.False(routine.Succeeded);
+        Assert.Contains(routine.Evaluation!.HardStops, h => h.Code == SpecimenExpirationRule.ExpiredCode);
+
+        var asked = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+        Assert.False(asked.Succeeded);
+        Assert.Empty(asked.Evaluation!.HardStops);
+        Assert.Contains(asked.Evaluation.Warnings, w => w.Code == EmergencyPreSpecimenRule.Code);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Trauma bay, no sample yet", authorizedBy: "dr-trauma"));
+        Assert.True(issued.Succeeded, issued.Error);
+        var exception = await c.Overrides.AsNoTracking().SingleAsync(o => o.Id == issued.Value!.OverrideId);
+        Assert.Contains(EmergencyPreSpecimenRule.Code, exception.RuleCode);
+        Assert.Equal("dr-trauma", exception.AuthorizedBy);
+    }
+
     // TEST-BB-383 (OCD-052): the active compatibility table makes a gate warning a hard stop for its component class.
     [Fact]
     public async Task Issue_ActiveCompatibilityTable_MakesAWarningAHardStop_AndNeverSoftens()

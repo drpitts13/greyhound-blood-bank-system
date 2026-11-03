@@ -10892,3 +10892,46 @@ Documentation only; the full suite stands at 3,551 passed.
 ### Next ranked residual
 
 Pending decisions: OCD-053 (new), downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: if OCD-053 is decided to allow pre-specimen emergency release, implement it with the controls chosen. Otherwise, continue the help claim check with the transfusion, returns, and alerts pages.
+
+## Iteration 346 — Emergency release before a specimen is drawn, with controls (OCD-053) (2026-11-03)
+
+### Decision
+
+The product owner decided OCD-053: allow emergency or massive-transfusion release before a specimen is drawn, with controls.
+
+### Design
+
+- **When it applies:** an emergency or MTP issue where the patient has no current specimen, or only an expired one (`EmergencyPreSpecimenRule.Applies`). The gate's specimen checks (`ISS-SPEC-EXISTS`, `ISS-SPEC-PATIENT`, `SPEC-EXPIRED`, `SPEC-NEAR-EXPIRY`) are replaced by `EmergencyPreSpecimenRule`.
+- **What it allows:**
+  - group O red cells or whole blood, and group AB or A plasma: overridable warning `ISS-PRE-SPECIMEN`, whose message ends "Collect a pre-transfusion specimen now."
+  - any other group, and any other component (platelets and cryoprecipitate included): hard stop with a plain message
+- **Controls:**
+  - The warning is accepted only through the existing emergency override: emergency-release permission, reason, and authorizer, recorded on the Override with the rule code and sent to supervisor review.
+  - The other emergency rules still apply: unknown patient type is a warning; uncrossmatched group and Rh rules; an established ABO conflict is a hard stop (OCD-044).
+- **Unchanged:**
+  - A specimen that belongs to another patient is a wrong-patient signal and stays a hard stop.
+  - Routine issue without a specimen is unchanged (hard stop).
+- **Follow-up:** the retrospective crossmatch board shows "No specimen on file: collect one" (or "Specimen expired: collect a new one") with an Accession link. The retrospective crossmatch still has to be filed on a specimen.
+- Help updated: issuing (including the stale "not offered for … emergency issue" line) and `safety-rules.md`.
+
+### Requirements / risk
+
+- URS-BB-484, FRS-BB-525, RISK-BB-582, OCD-053 decided.
+
+### Tests
+
+- TEST-BB-386:
+  - rule: each component and group, and when it applies
+  - gate:
+    - emergency group O red cells without a specimen and with an unknown patient type has no hard stops and gives the overridable warning with the collect-now prompt
+    - group A red cells is a hard stop
+    - routine issue is still a hard stop
+    - another patient's specimen is still a hard stop
+    - an expired specimen uses the pre-specimen rule
+  - integration: with the patient's only specimen expired, routine issue is refused with `SPEC-EXPIRED`. Emergency release without an override is blocked with only warnings. With a reason and authorizer it issues, and the Override names `ISS-PRE-SPECIMEN`.
+- Full suite: 3,566 passed, 0 failed (previously 3,551), safety regression tests included.
+- Run check (development API and web): the issue desk Retrospective board renders its 3 demo items with no collect cue, since each patient has an in-date specimen; no server errors. No unit was issued.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: continue the help claim check with the transfusion, returns, and alerts pages.

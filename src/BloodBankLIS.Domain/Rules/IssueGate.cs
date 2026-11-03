@@ -242,6 +242,15 @@ public static class IssueGate
             OrderControlRule.EvaluateIssue(c.OrderLinked, c.OrderIsFulfillable)
         };
 
+        // OCD-053: an emergency with no usable specimen replaces the specimen checks with the pre-specimen rule.
+        // A specimen that belongs to another patient is a wrong-patient signal and stays a hard stop.
+        if (c.SpecimenExists == c.SpecimenBelongsToPatient
+            && EmergencyPreSpecimenRule.Applies(c.IsEmergencyRelease, c.SpecimenExists, c.SpecimenExpiresUtc, c.NowUtc))
+        {
+            results.RemoveAll(r => r.Code is SpecExistsCode or SpecPatientCode or SpecimenExpirationRule.ExpiredCode or SpecimenExpirationRule.NearExpiryCode);
+            results.Add(EmergencyPreSpecimenRule.Evaluate(c.ComponentClass, c.UnitAboRh));
+        }
+
         results.AddRange(EmergencyUncrossmatchedAboRule.Evaluate(
             c.IsEmergencyRelease,
             c.ComponentClass,

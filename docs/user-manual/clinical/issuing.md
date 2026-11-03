@@ -17,7 +17,7 @@ routes:
 Ready to issue opens first. Reserved units are listed so you do not retype the patient and the unit. Units you can issue now come first, oldest reservation first; a line above the list says how many can be issued now and how many need attention, and those are listed after them. The row tells you when something is wrong before you start:
 
 - A red cell that still needs a second concordant ABO or Rh is not offered for routine issue.
-- A missing or expired specimen is not offered for routine or emergency issue.
+- A missing or expired specimen is not offered for routine issue. For emergency release see below.
 - An outdated unit is not offered.
 - A unit that still needs a compatible crossmatch is not offered for routine issue. When its compatible crossmatch has expired, the status reads **Crossmatch expired** instead of Ready for issue, here and on the patient's Products tab. Repeat the crossmatch on a current specimen.
 - An open antibody workup is marked and can still be issued.
@@ -41,6 +41,8 @@ Then complete appearance, location, and who is taking the unit.
 Emergency and MTP are a different issue type. They are not an instruction to ignore every rule. The missing crossmatch becomes a warning only inside this issue type, and only for someone who has the emergency-release permission. Technologists who can issue routine units cannot release uncrossmatched blood unless that permission was granted.
 
 > Hard stop. When the patient's blood group is established, red cells or whole blood whose group conflicts with it cannot be issued, even as an emergency release. For example, group A red cells for a group O patient are refused whatever reason is entered. Choose group O or another ABO-compatible unit. Rh mismatch and missing crossmatch stay warnings that an authorized person can override.
+
+**Before a specimen is drawn.** An emergency or massive-transfusion release can go ahead when the patient has no current specimen (or only an expired one), but only for group O red cells or whole blood and group AB or A plasma, and only through the emergency override with a reason and the authorizer (OCD-053). Any other group, platelets, and cryoprecipitate are refused until a specimen is accessioned. A specimen that belongs to someone else is always refused. Collect a pre-transfusion specimen as soon as you can: the Retrospective board says **No specimen on file: collect one** for that patient, with a link to accession it.
 
 ### Massive transfusion protocol
 
