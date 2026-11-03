@@ -94,6 +94,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             retypes: new EfRepository<ProductRetypeResult>(c),
             autoThawRequests: new EfRepository<AutoThawRequest>(c),
             mtpActivations: new EfRepository<MtpActivation>(c),
+            compatibilityVersions: new EfRepository<CompatibilityRuleVersion>(c),
+            compatibilityRules: new EfRepository<CompatibilityRule>(c),
             electronicCrossmatch: new ElectronicCrossmatchEligibilityService(
                 new EfRepository<Patient>(c),
                 new EfRepository<PatientBloodTypeHistory>(c),
@@ -4361,6 +4363,60 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             issued.Evaluation?.Warnings ?? [],
             r => r.Code == BloodUnitExpirationRule.NearExpiryCode);
         Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    // TEST-BB-383 (OCD-052): the active compatibility table makes a gate warning a hard stop for its component class.
+    [Fact]
+    public async Task Issue_ActiveCompatibilityTable_MakesAWarningAHardStop_AndNeverSoftens()
+    {
+        var s = await SeedAsync("COMPAT-TABLE");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long versionId;
+        await using (var setup = _factory.Create())
+        {
+            var unit = await setup.BloodUnits.SingleAsync(u => u.Id == s.UnitId);
+            unit.ExpiresUtc = _factory.Clock.UtcNow.AddHours(3);
+            var version = new CompatibilityRuleVersion
+            {
+                Version = "TABLE-GATE", PolicyVersion = "P-GATE", EffectiveDate = new DateOnly(2026, 11, 1),
+                Notes = "Gate test", IsActive = true
+            };
+            setup.CompatibilityRuleVersions.Add(version);
+            await setup.SaveChangesAsync();
+            setup.CompatibilityRules.AddRange(
+                new CompatibilityRule
+                {
+                    CompatibilityRuleVersionId = version.Id, RuleCode = BloodUnitExpirationRule.NearExpiryCode,
+                    ComponentClass = ComponentClass.RedBloodCells, Severity = "HardStop", Description = "Near-expiry red cells need a fresh unit.", IsActive = true
+                },
+                // A row asking to soften the ABO hard stop is ignored by the gate.
+                new CompatibilityRule
+                {
+                    CompatibilityRuleVersionId = version.Id, RuleCode = AboCompatibilityRule.AboCode,
+                    ComponentClass = ComponentClass.RedBloodCells, Severity = "Warning", Description = "Softening attempt.", IsActive = true
+                });
+            await setup.SaveChangesAsync();
+            versionId = version.Id;
+        }
+
+        try
+        {
+            await using var c = _factory.Create();
+            var blocked = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.False(blocked.Succeeded);
+            var stop = Assert.Single(blocked.Evaluation!.HardStops, h => h.Code == BloodUnitExpirationRule.NearExpiryCode);
+            Assert.EndsWith(CompatibilityTablePolicy.EscalatedNote, stop.Message);
+            Assert.NotEqual(UnitStatus.Issued, (await c.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == s.UnitId)).Status);
+        }
+        finally
+        {
+            await using var cleanup = _factory.Create();
+            var version = await cleanup.CompatibilityRuleVersions.SingleAsync(v => v.Id == versionId);
+            version.IsActive = false;
+            await cleanup.SaveChangesAsync();
+        }
     }
 
     [Fact]

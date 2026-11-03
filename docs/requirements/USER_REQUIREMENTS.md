@@ -487,3 +487,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-479 | A unit near expiry that is reserved for a patient says so, names the patient, and says to issue it first or reserve a replacement, before it expires. | P1 | FRS-BB-518 |
 | URS-BB-480 | Changing an override exception (who may override a safety rule, whether it can be overridden, or switching it on or off) records why. | P1 | FRS-BB-520 |
 | URS-BB-481 | Adding, changing, or switching a rule in the compatibility table in use records why; a draft table can be built freely. | P2 | FRS-BB-521 |
+| URS-BB-482 | The issue gate follows the active compatibility table: a medical director can make a rule stricter for a component class there (for example platelet ABO mismatch a hard stop), and the table can never make a rule weaker than the built-in one. | P1 | FRS-BB-522 |

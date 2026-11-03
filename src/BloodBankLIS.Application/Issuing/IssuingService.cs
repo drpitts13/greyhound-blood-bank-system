@@ -60,6 +60,8 @@ public sealed class IssuingService
     private readonly IRepository<PtagIdentifier>? _ptagIdentifiers;
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly IRepository<MtpActivation>? _mtpActivations;
+    private readonly IRepository<CompatibilityRuleVersion>? _compatibilityVersions;
+    private readonly IRepository<CompatibilityRule>? _compatibilityRules;
     private readonly IRepository<AutoThawRequest>? _autoThawRequests;
     private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
@@ -105,7 +107,9 @@ public sealed class IssuingService
         ElectronicCrossmatchEligibilityService? electronicCrossmatch = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
         IRepository<ProductRhCompatibility>? rhCompatibilities = null,
-        IRepository<MtpActivation>? mtpActivations = null)
+        IRepository<MtpActivation>? mtpActivations = null,
+        IRepository<CompatibilityRuleVersion>? compatibilityVersions = null,
+        IRepository<CompatibilityRule>? compatibilityRules = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -147,6 +151,8 @@ public sealed class IssuingService
         _aboCompatibilities = aboCompatibilities;
         _rhCompatibilities = rhCompatibilities;
         _mtpActivations = mtpActivations;
+        _compatibilityVersions = compatibilityVersions;
+        _compatibilityRules = compatibilityRules;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -360,7 +366,9 @@ public sealed class IssuingService
             NowUtc = now
         };
 
-        var evaluation = IssueGate.Evaluate(context);
+        // OCD-052: the active compatibility table can make a gate rule stricter for this component class, never weaker.
+        var evaluation = CompatibilityTablePolicy.Apply(
+            IssueGate.Evaluate(context), context.ComponentClass, await LoadActiveCompatibilityTableAsync(ct));
         var requireSecond = await _policy.GetRequireSecondVerifierAsync(ct);
         var electronicId = request.VerifiedScan is not null
             && identity.Severity == RuleSeverity.Pass;
@@ -962,6 +970,25 @@ public sealed class IssuingService
         }
 
         return ReadyToIssueAttentionRule.IssuableFirst(items);
+    }
+
+    /// <summary>The rows of the active compatibility table version; empty when none is active or configured.</summary>
+    private async Task<IReadOnlyList<CompatibilityTableRow>> LoadActiveCompatibilityTableAsync(CancellationToken ct)
+    {
+        if (_compatibilityVersions is null || _compatibilityRules is null)
+        {
+            return [];
+        }
+
+        var active = await _compatibilityVersions.FirstOrDefaultAsync(v => v.IsActive, ct);
+        if (active is null)
+        {
+            return [];
+        }
+
+        return (await _compatibilityRules.ListAsync(r => r.CompatibilityRuleVersionId == active.Id && r.IsActive, ct))
+            .Select(r => new CompatibilityTableRow(r.RuleCode, r.ComponentClass, r.Severity, r.IsActive))
+            .ToList();
     }
 
     private async Task<string?> StorageLocationNameAsync(

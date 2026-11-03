@@ -10686,3 +10686,48 @@ The other safety-relevant admin catalogs were rescanned:
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, OCD-052, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: users and roles. Check that granting a role, changing a role's permissions or security level, and unlocking a user are audited with a reason, since those decide who may override.
+
+## Iteration 341 — The issue gate reads the active compatibility table, stricter only (OCD-052) (2026-11-03)
+
+### Decision
+
+The product owner decided OCD-052: make the issue gate read the compatibility tables.
+
+### Design
+
+- **What a row means:** the table rows hold a rule code (optionally with a component suffix), a component class, a severity, and an active flag. At issue, a failing gate result is matched to an active row of the active version for the unit's component class, by code or code plus suffix.
+- **Stricter only:**
+  - A matching HardStop row turns a gate Warning into a hard stop, with " The active compatibility table makes this a hard stop." appended to the message.
+  - A hard stop is never softened.
+  - A missing or deactivated row leaves the built-in result.
+  - Softening ABO or Rh through configuration would be a new clinical rule, which this loop does not invent.
+- **Escalation only above the built-in default:** the seeded table copies `CompatibilityRuleCatalog.Defaults`, and some defaults read HardStop for rules the gate lets a supervisor override (antigen-negative, antibody-history crossmatch). Escalating on those would remove established override workflows at go-live. So a row escalates only where it is stricter than its default, and the seeded table changes nothing.
+- **Admin save:** a row softer than its built-in default is refused (`COMPAT.SEVERITY.SOFTER`), so the table never says something the gate will not do. The existing validator test that used ABO as a Warning now uses HardStop.
+- **Scope:** applied in `IssuingService` to the issue gate. Allocation and ready-to-issue cues are unchanged and still use the built-in rules.
+- **Escalation reaches emergency issue too.** A row that makes emergency uncrossmatched-ABO a hard stop blocks non-O emergency release. Changing an active row needs a reason (Cycle 340).
+
+### Requirements / risk
+
+- URS-BB-482, FRS-BB-522, RISK-BB-580, OCD-052 decided. Help: compatibility tables page rewritten for the new behavior.
+
+### Tests
+
+- TEST-BB-383:
+  - a `.PLT` HardStop row raises a platelet ABO warning
+  - the full seeded table leaves an antigen-negative warning a warning
+  - a Warning row does not soften the ABO hard stop
+  - an inactive row, another component class, a non-matching code, a Pass result, and an empty table change nothing
+  - softer-than-default rows are refused at save
+  - integration: with an active table row raising `UNIT-NEAR-EXPIRY` for red cells, issuing a unit that expires in 3 hours is refused with the escalated hard stop, and the unit is not issued; a row trying to soften ABO is present and ignored
+- Test runs: Domain 2,009, Application 125, Integration 1,273, HL7 66, ASTM 19, Printing 21, all passed.
+- **Not run this iteration (the user's running HemoCore instance holds the API and web binaries):**
+  - Help.Tests
+  - the full-solution build
+  - the live check
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidates:
+
+1. Show on the admin compatibility page which rows currently raise a rule above its built-in default.
+2. Users and roles audit (carried from Cycle 340).
