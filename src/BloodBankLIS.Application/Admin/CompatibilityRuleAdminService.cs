@@ -31,6 +31,10 @@ public sealed record CompatibilityRuleDto(
     bool IsActive,
     string Description)
 {
+    /// <summary>What the row does at issue when its version is the active table (OCD-052).</summary>
+    public string AtIssue => CompatibilityTablePolicy.DescribeAtIssue(
+        new CompatibilityTableRow(RuleCode, ComponentClass, Severity, IsActive));
+
     public static CompatibilityRuleDto From(CompatibilityRule r) => new(
         r.Id, r.CompatibilityRuleVersionId, r.RuleCode, r.ComponentClass, r.RuleFamily,
         r.ExpressionJson, r.Severity, r.IsActive, r.Description);

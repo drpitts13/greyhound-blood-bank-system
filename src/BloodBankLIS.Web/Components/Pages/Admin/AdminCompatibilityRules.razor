@@ -137,7 +137,7 @@
         else
         {
             <table class="bb">
-                <thead><tr><th>Code</th><th>Component</th><th>Severity</th><th>Description</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Code</th><th>Component</th><th>Severity</th><th>At issue</th><th>Description</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var r in _rules)
                     {
@@ -145,6 +145,20 @@
                             <td class="mono">@r.RuleCode</td>
                             <td>@r.ComponentClass</td>
                             <td>@r.Severity</td>
+                            <td>
+                                @if (r.AtIssue == CompatibilityTablePolicy.AtIssueRaises)
+                                {
+                                    <span class="badge badge-red">@r.AtIssue</span>
+                                }
+                                else if (r.AtIssue == CompatibilityTablePolicy.AtIssueRaisesIfReported)
+                                {
+                                    <span class="badge badge-amber" title="This code is not a built-in issue rule, so it applies only if a gate rule reports it.">@r.AtIssue</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">@r.AtIssue</span>
+                                }
+                            </td>
                             <td>@r.Description</td>
                             <td>@(r.IsActive ? "Active" : "Inactive")</td>
                             <td class="right nowrap">

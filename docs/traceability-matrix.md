@@ -524,6 +524,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-480 / FRS-BB-520 | Exception catalog changes need a reason | `ExceptionCatalogChangeReasonRule`; `ExceptionDefinitionAdminService`; `AdminExceptions.razor` | TEST-BB-381 | D / I | |
 | URS-BB-481 / FRS-BB-521 | Active compatibility table rule changes need a reason | `CompatibilityTableChangeReasonRule`; `CompatibilityRuleAdminService`; `AdminCompatibilityRules.razor` | TEST-BB-382 | D / I | |
 | URS-BB-482 / FRS-BB-522 | Issue gate reads the active compatibility table, stricter only (OCD-052) | `CompatibilityTablePolicy`; `CompatibilityRuleValidator`; `IssuingService` | TEST-BB-383 | D / I | |
+| URS-BB-482 / FRS-BB-523 | Admin table says what each row does at issue | `CompatibilityTablePolicy.DescribeAtIssue`; `AdminCompatibilityRules.razor` | TEST-BB-384 | D | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

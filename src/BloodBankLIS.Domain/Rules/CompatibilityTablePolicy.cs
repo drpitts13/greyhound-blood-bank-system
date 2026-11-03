@@ -63,6 +63,30 @@ public static class CompatibilityTablePolicy
             $"{builtIn.RuleCode} is a {builtIn.Severity} by default. The issue gate makes rules stricter from this table, never weaker, so {severity} cannot be saved here.");
     }
 
+    public const string AtIssueRaises = "Raises to hard stop";
+    public const string AtIssueRaisesIfReported = "Hard stop if the gate reports this code";
+    public const string AtIssueSame = "Same as built-in";
+    public const string AtIssueNoEffect = "No effect at issue";
+    public const string AtIssueOff = "Off – built-in rule applies";
+
+    /// <summary>What this row does at issue, for the admin table: the same decision <see cref="Apply"/> makes.</summary>
+    public static string DescribeAtIssue(CompatibilityTableRow row)
+    {
+        if (!row.IsActive)
+        {
+            return AtIssueOff;
+        }
+
+        var builtIn = CompatibilityRuleCatalog.Find(row.RuleCode);
+        if (RaisesAboveBuiltIn(row))
+        {
+            // Only catalog codes are known to come from the gate; any other code applies only if a gate rule reports it.
+            return builtIn is null ? AtIssueRaisesIfReported : AtIssueRaises;
+        }
+
+        return builtIn is null ? AtIssueNoEffect : AtIssueSame;
+    }
+
     /// <summary>A HardStop row raises a rule only when its built-in default is not already HardStop.</summary>
     public static bool RaisesAboveBuiltIn(CompatibilityTableRow row) =>
         IsHardStop(row.Severity) && !IsHardStop(CompatibilityRuleCatalog.Find(row.RuleCode)?.Severity ?? string.Empty);

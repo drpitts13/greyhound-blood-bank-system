@@ -19,3 +19,5 @@ Component class matters. A rule written for red cells is not automatically the r
 Electronic-crossmatch rows in this table do not turn electronic crossmatch on. Facility policy does that. These rows say which ABO and Rh pairs are acceptable when electronic crossmatch is already allowed.
 
 Rules in the table in use can still be added, edited, activated, or deactivated, but each change asks for a reason (at least 8 characters) in **Reason for changing the active table**, kept with the change history. A draft table can be built without one; its reason is given when you activate it.
+
+The **At issue** column says what each row does when its table is in use: **Raises to hard stop** (a built-in rule made stricter), **Hard stop if the gate reports this code** (your own code, which applies only if an issue rule reports it), **Same as built-in**, **No effect at issue**, or **Off – built-in rule applies**.

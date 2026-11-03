@@ -65,6 +65,20 @@ public class CompatibilityTablePolicyTests
         Assert.Equal(RuleSeverity.Warning, CompatibilityTablePolicy.Apply(Gate(warning), ComponentClass.Platelets, []).Results[0].Severity);
     }
 
+    // TEST-BB-384: the admin table says what each row does at issue, the same decision Apply makes.
+    [Theory]
+    [InlineData("ISS-ABO-COMPAT.PLT", ComponentClass.Platelets, "HardStop", true, CompatibilityTablePolicy.AtIssueRaises)]
+    [InlineData("ISS-ABO-COMPAT.PLT", ComponentClass.Platelets, "Warning", true, CompatibilityTablePolicy.AtIssueSame)]
+    [InlineData("ISS-ANTIGEN-NEG", ComponentClass.RedBloodCells, "HardStop", true, CompatibilityTablePolicy.AtIssueSame)]
+    [InlineData("UNIT-NEAR-EXPIRY", ComponentClass.RedBloodCells, "HardStop", true, CompatibilityTablePolicy.AtIssueRaisesIfReported)]
+    [InlineData("RBC-ABO-BASE", ComponentClass.RedBloodCells, "HardStop", true, CompatibilityTablePolicy.AtIssueRaisesIfReported)]
+    [InlineData("UNIT-NEAR-EXPIRY", ComponentClass.RedBloodCells, "Warning", true, CompatibilityTablePolicy.AtIssueNoEffect)]
+    [InlineData("ISS-ABO-COMPAT.PLT", ComponentClass.Platelets, "HardStop", false, CompatibilityTablePolicy.AtIssueOff)]
+    public void DescribeAtIssue_MatchesWhatTheGateDoes(string code, ComponentClass cls, string severity, bool active, string expected)
+    {
+        Assert.Equal(expected, CompatibilityTablePolicy.DescribeAtIssue(Row(code, cls, severity, active)));
+    }
+
     [Theory]
     [InlineData("ISS-ABO-COMPAT", "Warning", true)]
     [InlineData("ISS-ABO-COMPAT", "Pass", true)]

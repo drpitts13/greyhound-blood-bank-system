@@ -10728,3 +10728,41 @@ Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy
 
 1. Show on the admin compatibility page which rows currently raise a rule above its built-in default.
 2. Users and roles audit (carried from Cycle 340).
+
+## Iteration 342 — The admin compatibility table says what each row does at issue (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 341.
+
+### Finding (question 2)
+
+After Cycle 341 the active table's rows change issue behavior only when stricter than their built-in default, and only for codes the gate reports. An administrator had to work that out from the catalog and the severity column. The table did not say which rows do anything.
+
+### Design
+
+`CompatibilityTablePolicy.DescribeAtIssue` makes the same decision `Apply` makes, and the admin table shows it as an **At issue** column:
+
+| Label | When |
+| --- | --- |
+| Raises to hard stop | A built-in rule made stricter (red badge). |
+| Hard stop if the gate reports this code | A HardStop row for a code that is not a built-in issue rule (amber badge). It applies only if a gate rule reports that code. |
+| Same as built-in | The row matches the built-in default. |
+| No effect at issue | A non-HardStop row for a code the catalog does not know. |
+| Off – built-in rule applies | The row is deactivated. |
+
+The first version of the column labeled the seeded placeholder row `RBC-ABO-BASE` (HardStop, a code no gate rule reports) as "Raises to hard stop". The run check caught it before commit, and that is why the "if the gate reports this code" label exists.
+
+### Requirements / risk
+
+- FRS-BB-523 (under URS-BB-482 and RISK-BB-580). Help: compatibility tables page.
+
+### Tests
+
+- TEST-BB-384: one case per label, including the placeholder code and the seeded antigen-negative row (Same as built-in).
+- Full suite: 3,549 passed, 0 failed (previously 3,542).
+- Run check (development API and web): the active table shows 15 "Same as built-in" and 1 "Hard stop if the gate reports this code" (`RBC-ABO-BASE`). No row of the seeded development table changes issue behavior; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: users and roles audit. Check that granting a role, changing a role's permissions or security level, and unlocking a user are audited with a reason.
