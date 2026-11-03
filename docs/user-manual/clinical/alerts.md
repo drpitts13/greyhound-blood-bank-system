@@ -15,7 +15,7 @@ Alerts come from five places:
 - **Temperature excursion**: a storage reading outside the location range. Critical.
 - **Units expired**: the scheduled expiration sweep moved units to Expired. Remove them from storage. If any were reserved for patients, the alert says how many; those reservations have ended, so reserve replacement units.
 - **Below minimum stock**: a product is under its minimum stock level.
-- **Near expiry**: a unit is inside the near-expiry window.
+- **Near expiry**: a unit is inside the near-expiry window. When the unit is reserved for a patient, the alert is a warning that names the patient: issue it first or reserve a replacement.
 - **Reagent QC**: QC is overdue, failed (critical), or waiting for review.
 
 Below minimum stock, near expiry, and reagent QC alerts close on their own once the worklist no longer shows the condition. The system checks every five minutes by default. Temperature excursion and expired-unit alerts stay open until someone acknowledges them.

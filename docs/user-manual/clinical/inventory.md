@@ -22,7 +22,7 @@ The row shows the storage location by name. A missing name falls back to the loc
 
 **Quarantine** (`board=quarantine`) opens units held for a coded quality reason. The row shows product, location, volume, and any ABO or Rh retype mismatch. Release uses the same second-verifier gate as the unit's manage actions when policy requires two people. A unit created by a modification also asks for the unit number on the new label. That scan has to match the result. Other quarantine releases do not ask for it. A unit whose product needs a retype that has not been confirmed goes back to **Received** and onto the Retype board, not to available stock. Releasing a unit from operational hold works the same way.
 
-The other boards cover expected inbound units, units near expiry, units on hold, discrepancy units (missing or damaged), and open deliveries. Open the row rather than changing status from memory.
+The other boards cover expected inbound units, units near expiry, units on hold, discrepancy units (missing or damaged), and open deliveries. On Near expiry, a unit reserved for a patient says **Reserved for** and the patient, with a link to their products: issue it first or reserve a replacement. Open the row rather than changing status from memory.
 
 ## Expiration
 

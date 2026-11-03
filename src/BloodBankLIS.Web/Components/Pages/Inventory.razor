@@ -296,7 +296,13 @@
                 @foreach (var row in _nearExpiryItems)
                 {
                     <tr>
-                        <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
+                        <td>
+                            <UnitLink Id="row.UnitId" Number="@row.UnitNumber" />
+                            @if (row.ReservedPatientId is long reservedPatientId)
+                            {
+                                <span class="sub">Reserved for <a href="@($"/patients/{reservedPatientId}?tab=products")">@row.ReservedPatientLabel</a></span>
+                            }
+                        </td>
                         <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                         <td>@ProductName(row.ProductTypeId)</td>
                         <td>@row.LocationLabel</td>
@@ -304,6 +310,10 @@
                         <td class="nowrap">
                             @row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
                             <span class="badge badge-amber">Near expiry</span>
+                            @if (row.IsReserved)
+                            {
+                                <span class="badge badge-amber" title="@NearExpiryWorkItemDto.ReservedNextStep">Reserved</span>
+                            }
                         </td>
                         <td class="right nowrap">
                             @if (Session.Has(PermissionCodes.InventoryDiscard))

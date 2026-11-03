@@ -68,9 +68,12 @@ public sealed class AlertScanner
             .Select(unit => new AlertCandidate(
                 AlertRule.NearExpiry,
                 $"NEAREXP:{unit.UnitId}",
-                AlertSeverity.Info,
+                unit.IsReserved ? AlertSeverity.Warning : AlertSeverity.Info,
                 $"Near expiry: {unit.UnitNumber}",
-                $"Expires {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC at {unit.LocationLabel}.",
+                $"Expires {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC at {unit.LocationLabel}." +
+                (unit.IsReserved
+                    ? $" Reserved for {unit.ReservedPatientLabel}. {NearExpiryWorkItemDto.ReservedNextStep}"
+                    : string.Empty),
                 $"/inventory/units/{unit.UnitId}"))
             .ToList();
         Add(await _alerts.SyncAsync(AlertRule.NearExpiry, nearExpiry, ct));

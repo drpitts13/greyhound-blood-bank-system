@@ -10534,3 +10534,39 @@ The residual from Cycle 335: are any other overrides defaulting Authorized by to
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next: rescan the capability matrix rows for operations and administration, which have had the least attention in recent cycles.
+
+## Iteration 337 — Near-expiry units reserved for a patient say so (2026-11-03)
+
+### Capability matrix rescan
+
+- Operations and administration rows: Present; no change since Cycle 336.
+- The application was renamed HemoCore in commit c99c68e, outside this loop. No effect on this work.
+
+### Finding (questions 2 and 5)
+
+- The Near expiry board and the near-expiry alert showed unit, type, location, and expiry, but not whether a patient's reservation was on the unit.
+- A reserved unit about to expire looked like any other. Staff learned of the reservation only after the sweep expired it and ended the reservation (Cycle 317), when the replacement was already late.
+
+### Design
+
+- `ListNearExpiryAsync` adds the patient on each unit's Reserved allocation (the latest, if several) as id, MRN, and name, with a "Name (MRN)" label.
+- **Board:** "Reserved for …" under the unit number, linked to the patient's Products tab, plus a Reserved badge with the next step: "Issue it first or reserve a replacement."
+- **Alert:** for a reserved unit it is a Warning (Info otherwise), and the message names the patient and the next step.
+- Read only, so nothing to audit. No schema change.
+
+### Requirements / risk
+
+- URS-BB-479, FRS-BB-518, RISK-BB-577. Help: inventory and alerts pages.
+
+### Tests
+
+- TEST-BB-379:
+  - a crossmatched unit expiring in 3 hours with a Reserved allocation names "Nearby, Rosa (MRN-NEAR-RES)"
+  - a unit whose allocation was released is not marked reserved
+  - the scan raises a Warning near-expiry alert whose message names the patient and the next step
+- Full suite: 3,519 passed, 0 failed (previously 3,517).
+- Run check (development API and web): the near-expiry endpoint returns 200 and an empty list (no development unit is inside the window), so the board shows nothing to mark; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the dashboard's near-expiry or inventory card could count reserved units near expiry, as the Ready to issue card counts expired crossmatches.

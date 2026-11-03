@@ -168,6 +168,7 @@ public sealed class InventoryService
             .OrderBy(u => u.ExpiresUtc)
             .ToList();
         var locationNames = await LoadLocationNamesAsync(near.Select(u => u.CurrentLocationId).OfType<long>(), ct);
+        var reservedFor = await LoadReservedPatientsAsync(near.Select(u => u.Id).ToList(), ct);
 
         return near
             .Select(u =>
@@ -178,9 +179,51 @@ public sealed class InventoryService
                     locationNames.TryGetValue(locationId, out locationName);
                 }
 
-                return NearExpiryWorkItemDto.From(u, locationName);
+                var row = NearExpiryWorkItemDto.From(u, locationName);
+                return reservedFor.TryGetValue(u.Id, out var patient)
+                    ? row with { ReservedPatientId = patient.Id, ReservedPatientMrn = patient.Mrn, ReservedPatientName = patient.Name }
+                    : row;
             })
             .ToList();
+    }
+
+    /// <summary>The patient on each unit's Reserved allocation; units without one are left out.</summary>
+    private async Task<Dictionary<long, (long Id, string? Mrn, string? Name)>> LoadReservedPatientsAsync(
+        IReadOnlyList<long> unitIds, CancellationToken ct)
+    {
+        var result = new Dictionary<long, (long Id, string? Mrn, string? Name)>();
+        if (_allocations is null || unitIds.Count == 0)
+        {
+            return result;
+        }
+
+        var reserved = await _allocations.ListAsync(
+            a => unitIds.Contains(a.BloodProductId) && a.Status == AllocationStatus.Reserved, ct);
+        if (reserved.Count == 0)
+        {
+            return result;
+        }
+
+        var patientIds = reserved.Select(a => a.PatientId).Distinct().ToList();
+        var patients = _patients is null
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        foreach (var allocation in reserved.OrderByDescending(a => a.AllocatedUtc))
+        {
+            if (result.ContainsKey(allocation.BloodProductId))
+            {
+                continue;
+            }
+
+            patients.TryGetValue(allocation.PatientId, out var patient);
+            var name = patient is null ? null : $"{patient.LastName}, {patient.FirstName}".Trim(' ', ',');
+            result[allocation.BloodProductId] = (
+                allocation.PatientId,
+                string.IsNullOrWhiteSpace(patient?.MedicalRecordNumber) ? null : patient.MedicalRecordNumber.Trim(),
+                string.IsNullOrWhiteSpace(name) ? null : name);
+        }
+
+        return result;
     }
 
     /// <summary>

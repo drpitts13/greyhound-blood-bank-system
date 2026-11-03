@@ -32,7 +32,8 @@ public class AlertWorkflowTests : IDisposable
             new EfRepository<UnitBloodAttribute>(c),
             new EfRepository<BloodAttributeDefinition>(c),
             new IsbtLookupCatalog(new EfRepository<IsbtAboRhdCode>(c), new EfRepository<IsbtProductCode>(c)),
-            c, _factory.Clock, _factory.CurrentUser, audit);
+            c, _factory.Clock, _factory.CurrentUser, audit,
+            patients: new EfRepository<Patient>(c), allocations: new EfRepository<Allocation>(c));
         var reagents = new ReagentQcService(
             new EfRepository<Reagent>(c), new EfRepository<ReagentLot>(c), new EfRepository<ReagentDailyQc>(c),
             c, _factory.Clock, _factory.CurrentUser, audit);
@@ -147,6 +148,30 @@ public class AlertWorkflowTests : IDisposable
         Assert.Equal(["PAR:2", "TEMP:1"], open.Select(a => a.Title.Replace("Title ", "")).OrderBy(k => k));
         var withClosed = await alerts.ListAsync(openOnly: false);
         Assert.Equal(3, withClosed.Count);
+    }
+
+    // TEST-BB-379: a near-expiry alert on a reserved unit is a warning that names the patient and the next step.
+    [Fact]
+    public async Task NearExpiryAlert_OnAReservedUnit_NamesThePatient_AndIsAWarning()
+    {
+        await using var c = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var product = new ProductType { ProductCode = "RBC-NEAR-RES", Name = "Red cells" };
+        var patient = new Patient { MedicalRecordNumber = "MRN-ALRT-RES", LastName = "Alert", FirstName = "Ana", DateOfBirth = new DateOnly(1981, 3, 3), Sex = Sex.Female };
+        c.ProductTypes.Add(product);
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "U-ALRT-RES", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddHours(5), Status = UnitStatus.Crossmatched };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        c.Allocations.Add(new Allocation { BloodProductId = unit.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now.AddHours(-1), AllocatedBy = "tech" });
+        await c.SaveChangesAsync();
+
+        await Scanner(c).ScanAsync();
+
+        var alert = await c.Alerts.SingleAsync(a => a.Source == AlertRule.NearExpiry && a.Title == "Near expiry: U-ALRT-RES");
+        Assert.Equal(AlertSeverity.Warning, alert.Severity);
+        Assert.Contains("Reserved for Alert, Ana (MRN-ALRT-RES). Issue it first or reserve a replacement.", alert.Message);
     }
 
     [Fact]

@@ -3770,6 +3770,44 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(await verify.AuditEvents.AnyAsync(e => e.EntityType == nameof(Allocation) && e.EntityId == expiringAllocationId));
     }
 
+    // TEST-BB-379: a near-expiry unit names the patient it is reserved for, so it is issued first or replaced in time.
+    [Fact]
+    public async Task NearExpiry_NamesThePatientAReservedUnitIsHeldFor()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long reservedUnitId;
+        long freeUnitId;
+        long patientId;
+        await using (var context = _factory.Create())
+        {
+            var patient = new Patient { MedicalRecordNumber = "MRN-NEAR-RES", LastName = "Nearby", FirstName = "Rosa", DateOfBirth = new DateOnly(1972, 2, 2), Sex = Sex.Female };
+            context.Patients.Add(patient);
+            var reserved = new BloodUnit { UnitNumber = "U-NEAR-RES", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddHours(3), Status = UnitStatus.Crossmatched };
+            var free = new BloodUnit { UnitNumber = "U-NEAR-FREE", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddHours(4), Status = UnitStatus.Available };
+            context.BloodUnits.AddRange(reserved, free);
+            await context.SaveChangesAsync();
+            context.Allocations.AddRange(
+                new Allocation { BloodProductId = reserved.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-2), AllocatedBy = "tech" },
+                new Allocation { BloodProductId = free.Id, PatientId = patient.Id, Status = AllocationStatus.Released, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-6), AllocatedBy = "tech" });
+            await context.SaveChangesAsync();
+            reservedUnitId = reserved.Id;
+            freeUnitId = free.Id;
+            patientId = patient.Id;
+        }
+
+        await using var c = _factory.Create();
+        var rows = await CreateService(c).ListNearExpiryAsync();
+
+        var reservedRow = Assert.Single(rows, r => r.UnitId == reservedUnitId);
+        Assert.True(reservedRow.IsReserved);
+        Assert.Equal(patientId, reservedRow.ReservedPatientId);
+        Assert.Equal("Nearby, Rosa (MRN-NEAR-RES)", reservedRow.ReservedPatientLabel);
+
+        var freeRow = Assert.Single(rows, r => r.UnitId == freeUnitId);
+        Assert.False(freeRow.IsReserved);
+        Assert.Null(freeRow.ReservedPatientLabel);
+    }
+
     [Fact]
     public async Task ExpireDueUnits_WithoutInventoryDiscard_IsHardStopped()
     {
