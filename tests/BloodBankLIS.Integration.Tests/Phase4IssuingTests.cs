@@ -4365,6 +4365,38 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    // TEST-BB-387 (OCD-053): the Ready to issue board offers emergency release on a specimen-blocked row only for an eligible unit.
+    [Fact]
+    public async Task ReadyToIssue_ExpiredSpecimen_OffersEmergencyOnlyForGroupORedCells()
+    {
+        var groupO = await SeedAsync("PRE-BOARD-O");
+        var groupA = await SeedAsync("PRE-BOARD-A", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await AllocateAsync(groupO);
+        await AllocateAsync(groupA);
+        await using (var setup = _factory.Create())
+        {
+            foreach (var specimen in await setup.Specimens.Where(x => x.Id == groupO.SpecimenId || x.Id == groupA.SpecimenId).ToListAsync())
+            {
+                specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            }
+
+            await setup.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var rows = await Issuing(c).ListReadyToIssueAllocationsAsync();
+
+        var oRow = Assert.Single(rows, r => r.BloodUnitId == groupO.UnitId);
+        Assert.True(oRow.SpecimenBlocksIssue);
+        Assert.True(oRow.PreSpecimenEmergencyAllowed);
+        Assert.Contains("OCD-053", oRow.SpecimenBlockReason);
+
+        var aRow = Assert.Single(rows, r => r.BloodUnitId == groupA.UnitId);
+        Assert.True(aRow.SpecimenBlocksIssue);
+        Assert.False(aRow.PreSpecimenEmergencyAllowed);
+        Assert.Contains("only group O red cells", aRow.SpecimenBlockReason);
+    }
+
     // TEST-BB-386 (OCD-053): emergency release of group O red cells goes ahead without a usable specimen, as an override that names the rule.
     [Fact]
     public async Task EmergencyRelease_WithAnExpiredSpecimen_GroupORedCells_IssuesUnderOverride()

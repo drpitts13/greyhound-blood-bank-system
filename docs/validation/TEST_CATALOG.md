@@ -395,5 +395,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-384 | D | `CompatibilityTablePolicyTests.DescribeAtIssue_MatchesWhatTheGateDoes` | URS-BB-482 / FRS-BB-523 / RISK-BB-580 |
 | TEST-BB-385 | I | `UserAdminAuthorizationTests.AccessChanges_RequireAReason_AndKeepTheBeforeState`, `RolePermissionOrLevelChange_NeedsAReason_DescriptionDoesNot` | URS-BB-483 / FRS-BB-524 / RISK-BB-581 |
 | TEST-BB-386 | D / I | `EmergencyPreSpecimenRuleTests.OnlyGroupORedCellsAndAbOrAPlasma`, `Applies_OnlyToEmergency_WithNoUsableSpecimen`, `Gate_EmergencyGroupORedCells_WithoutSpecimen_IsAnOverridableWarning_ThatSaysToCollectOne`, `Gate_EmergencyGroupARedCells_WithoutSpecimen_IsAHardStop`, `Gate_RoutineIssue_WithoutSpecimen_StaysAHardStop`, `Gate_Emergency_WithAnotherPatientsSpecimen_StaysAHardStop`, `Gate_Emergency_WithAnExpiredSpecimen_UsesThePreSpecimenRule`; `Phase4IssuingTests.EmergencyRelease_WithAnExpiredSpecimen_GroupORedCells_IssuesUnderOverride` | URS-BB-484 / FRS-BB-525 / RISK-BB-582 / OCD-053 |
+| TEST-BB-387 | I | `Phase4IssuingTests.ReadyToIssue_ExpiredSpecimen_OffersEmergencyOnlyForGroupORedCells` | URS-BB-484 / FRS-BB-526 / RISK-BB-582 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

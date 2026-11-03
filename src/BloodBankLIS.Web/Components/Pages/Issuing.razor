@@ -307,6 +307,10 @@
                                 {
                                     <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>
                                     <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">New specimen</a>
+                                    @if (row.PreSpecimenEmergencyAllowed && Session.Has(PermissionCodes.IssueEmergencyRelease))
+                                    {
+                                        <button type="button" class="btn btn-secondary btn-sm" title="@row.SpecimenBlockReason" @onclick="() => SelectEmergencyIssue(row)">Emergency</button>
+                                    }
                                 }
                                 else if (row.UnitOutdated)
                                 {

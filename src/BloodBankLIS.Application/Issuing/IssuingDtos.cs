@@ -318,7 +318,9 @@ public sealed record ReadyToIssueWorkItemDto(
     string? UnitBloodType = null,
     DateTime? CrossmatchExpiresUtc = null,
     string? StorageLocationName = null,
-    string? SpecimenAccession = null);
+    string? SpecimenAccession = null,
+    // OCD-053: no usable specimen, but this unit may be released as an emergency under override.
+    bool PreSpecimenEmergencyAllowed = false);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

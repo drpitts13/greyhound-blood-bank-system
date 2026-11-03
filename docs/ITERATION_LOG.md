@@ -10935,3 +10935,39 @@ The product owner decided OCD-053: allow emergency or massive-transfusion releas
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: continue the help claim check with the transfusion, returns, and alerts pages.
+
+## Iteration 347 — The Ready to issue board offers pre-specimen emergency release (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 346.
+
+### Finding (questions 1 and 5)
+
+Cycle 346 let the gate accept emergency release without a usable specimen, but the Ready to issue board decided first:
+
+- A specimen-blocked row offered only **New specimen**, never Emergency.
+- So the release that OCD-053 allows could not be started from the board.
+- The row text gave no hint that it was possible.
+
+### Design
+
+- The list sets `PreSpecimenEmergencyAllowed` when the specimen is missing or expired and the unit qualifies under the same `EmergencyPreSpecimenRule` the gate uses.
+- **Row text:**
+  - a qualifying row adds "Emergency release of this unit is possible with an authorized override (OCD-053)."
+  - any other row adds "Before a specimen is drawn only group O red cells or group AB or A plasma can be released."
+- **Button:** a qualifying row shows **Emergency** beside **New specimen** for users with emergency-release permission. It opens the same emergency issue form, and the gate and override still decide.
+
+### Requirements / risk
+
+- FRS-BB-526 (under URS-BB-484 and RISK-BB-582). Help: issuing page.
+
+### Tests
+
+- TEST-BB-387: with both patients' specimens expired, the group O red cell row is blocked, offers emergency, and names OCD-053. The group A row is blocked, does not offer emergency, and says only group O red cells can be released.
+- Full suite: 3,567 passed, 0 failed (previously 3,566).
+- Run check (development API and web): the Ready to issue board renders its 3 rows ("1 can be issued now. 2 need attention first …"); no demo specimen is missing or expired, so no row offers pre-specimen emergency; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: continue the help claim check with the transfusion, returns, and alerts pages.

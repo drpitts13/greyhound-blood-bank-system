@@ -895,6 +895,17 @@ public sealed class IssuingService
             var expires = specimen?.ExpiresUtc;
             var specimenExpired = expires is DateTime exp && now >= exp;
             var (specimenBlocksIssue, specimenBlockReason) = DescribeSpecimenBlock(specimen, specimenExpired);
+            var preSpecimenEmergency = false;
+            if (specimenBlocksIssue
+                && unit?.ProductType is { } preSpecimenProduct
+                && EmergencyPreSpecimenRule.Applies(true, specimen is not null, specimen?.ExpiresUtc, now))
+            {
+                preSpecimenEmergency = EmergencyPreSpecimenRule.Evaluate(
+                    preSpecimenProduct.ComponentClass, new AboRh(unit.Abo, unit.RhD)).Severity == RuleSeverity.Warning;
+                specimenBlockReason += preSpecimenEmergency
+                    ? " Emergency release of this unit is possible with an authorized override (OCD-053)."
+                    : " Before a specimen is drawn only group O red cells or group AB or A plasma can be released.";
+            }
             var unitOutdated = unit is not null && BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, now);
             var postThaw = unit is not null && await IsPostThawDatingAsync(unit.Id, unit.ExpiresUtc, ct);
             var expiresSoon = unit is not null && BloodUnitExpirationRule.IsNearExpiry(
@@ -966,7 +977,8 @@ public sealed class IssuingService
                     unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)),
                     now),
                 await StorageLocationNameAsync(unit?.CurrentLocationId, storageLocationNames, ct),
-                specimen?.AccessionNumber));
+                specimen?.AccessionNumber,
+                preSpecimenEmergency));
         }
 
         return ReadyToIssueAttentionRule.IssuableFirst(items);
