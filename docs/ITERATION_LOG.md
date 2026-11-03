@@ -10857,3 +10857,38 @@ No code change; the full suite stands at 3,551 passed (Cycle 343).
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same claim-versus-code check for the clinical help chapter, starting with issuing, compatibility, and patient-specimens, where the claims are safety-critical.
+
+## Iteration 345 — Clinical help claims checked: issuing, compatibility, patient specimens (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 344.
+
+### Method
+
+The behavioral claims in the three most safety-critical clinical help pages (issuing, compatibility, patient specimens) were extracted. Those touching rules changed in recent cycles, or emergency behavior, were checked against the code.
+
+### Results
+
+- **Two statements made stale by OCD-051 (Cycle 324):**
+  - patient-specimens.md said "Results cannot be verified … on a specimen past its testing window"
+  - test-worklist.md said "Verify is refused when the specimen is rejected or expired"
+  - Both are now corrected: a correction of an already verified result can be verified after the specimen expires.
+- **Held:**
+  - an established-group ABO conflict is refused even at emergency release (OCD-044)
+  - a unit whose transfusion has started cannot be returned
+  - a governed device's return window ships at 30 minutes and follows the facility setting (Cycle 332)
+  - crossmatch on an expired specimen is refused (Cycles 321–322)
+- **Found, recorded as OCD-053:**
+  - the issue gate hard-stops every issue type, emergency and MTP included, when there is no current specimen or it has expired
+  - a trauma patient who needs uncrossmatched group O red cells before a sample is drawn cannot be issued blood
+  - the help describes this accurately, so it is a policy question, not a documentation error
+  - behavior is unchanged pending a decision
+
+### Tests
+
+Documentation only; the full suite stands at 3,551 passed.
+
+### Next ranked residual
+
+Pending decisions: OCD-053 (new), downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: if OCD-053 is decided to allow pre-specimen emergency release, implement it with the controls chosen. Otherwise, continue the help claim check with the transfusion, returns, and alerts pages.

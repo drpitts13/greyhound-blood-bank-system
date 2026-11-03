@@ -22,7 +22,7 @@ Open the row, enter the values the test definition asks for, and save. Entry and
 
 For patient ABO and Rh, the person who entered the result cannot verify it.
 
-> Hard stop. Verify is refused when the specimen is rejected or expired, when the order is on hold, or when you are verifying your own patient ABO or Rh entry.
+> Hard stop. Verify is refused when the specimen is rejected or expired (a correction of an already verified result is the exception and can be verified after expiry, OCD-051), when the order is on hold, or when you are verifying your own patient ABO or Rh entry.
 
 ## Discrepancies
 
