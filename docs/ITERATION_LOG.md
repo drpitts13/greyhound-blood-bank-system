@@ -10812,3 +10812,48 @@ The administration row was rescanned for users, roles, and permissions.
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: other help pages may describe behavior that has since changed. Check each admin help page's specific behavioral claims against the code, as Cycles 339–343 found three that were wrong.
+
+## Iteration 344 — Admin help claims checked against the code (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 343.
+
+### Why
+
+Cycles 339–343 found four admin help statements that did not match the code:
+
+- the exception reason was promised but never asked for
+- the issue gate was said to read the compatibility table when it did not
+- role changes were said to apply only at next sign-in, in both the users and roles help
+
+This cycle extracted the behavioral claims from all 50 admin help pages ("cannot be", "requires a reason", "is refused", "is audited", and similar) and checked each one with safety or inventory consequences against the code path that should enforce it.
+
+### Result
+
+All checked claims hold; no code or help change was needed.
+
+| Claim | Enforced by |
+| --- | --- |
+| A location or storage device that holds units cannot be deactivated | `InventoryLocationAdminService` (both admin pages use it) |
+| No discard without an active reason code | `DiscardReasonRule` in `InventoryService.DiscardAsync` |
+| No specimen rejection without an active code | `SpecimenRejectionReasonRule` whenever the catalog repository is configured, as in the app |
+| No order cancellation without an active code | `OrderService`; expiry auto-cancel resolves catalog text |
+| A withdrawn panel lot cannot be used on a new workup or completed | `AntibodyPanelLotValidityRule` at create, attach, and complete |
+| A DRAFT transfusion criterion cannot be activated | `TransfusionIndicationRule.DraftCode` |
+| FHIR reads are audited as patient access | `FhirReadService` |
+| Facility policy edits need a reason | `FacilityPolicyValidator` |
+
+Not checked this cycle (lower consequence, or display-only):
+
+- actions "an action with no rule cannot be completed"
+- tests "a test that is not here cannot be ordered"
+- products and blood-attributes catalog-only statements
+
+### Tests
+
+No code change; the full suite stands at 3,551 passed (Cycle 343).
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same claim-versus-code check for the clinical help chapter, starting with issuing, compatibility, and patient-specimens, where the claims are safety-critical.
