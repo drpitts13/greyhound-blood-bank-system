@@ -10657,6 +10657,7 @@ The other safety-relevant admin catalogs were rescanned:
 - Rules inside a compatibility table version could be added, edited (for example severity Hard stop to Warning), or switched off with no reason, including in the active, approved table.
 - The domain marks that table MEDICAL_DIRECTOR_APPROVAL configuration.
 - The rows are reference configuration, not evaluated at issue, but the approved table could still change with nothing saying why.
+- The admin help page said "The issue gate reads the active version". It does not: the gate reads each product's ABO/Rh matrix and the built-in rules. The help page is corrected, and whether the table should drive the gate is recorded as OCD-052.
 - There is no "copy version" function, so freezing the active table would force re-entering every row. A reason requirement follows the pattern the special requirement and blood attribute catalogs already use.
 
 ### Design
@@ -10668,7 +10669,7 @@ The other safety-relevant admin catalogs were rescanned:
 
 ### Requirements / risk
 
-- URS-BB-481, FRS-BB-521, RISK-BB-579. Help: compatibility tables page.
+- URS-BB-481, FRS-BB-521, RISK-BB-579, OCD-052. Help: compatibility tables page (reason, and the corrected statement of what the issue gate reads).
 
 ### Tests
 
@@ -10684,4 +10685,4 @@ The other safety-relevant admin catalogs were rescanned:
 
 ### Next ranked residual
 
-Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: users and roles. Check that granting a role, changing a role's permissions or security level, and unlocking a user are audited with a reason, since those decide who may override.
+Pending decisions: downtime back-entry, OCD-046, OCD-052, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: users and roles. Check that granting a role, changing a role's permissions or security level, and unlocking a user are audited with a reason, since those decide who may override.

@@ -10,7 +10,7 @@ routes:
 
 ![Compatibility tables](figures/admin-compatibility-rules.png)
 
-**Compatibility Tables** are the ABO, Rh, antigen, and electronic-crossmatch rules for each component class. The issue gate reads the active version. A unit that the table calls incompatible is a hard stop, not a warning you can sign.
+**Compatibility Tables** record the approved ABO, Rh, antigen, and electronic-crossmatch rules for each component class, with their codes and severities, for medical-director review. The issue gate does not read this table: its ABO and Rh decisions come from each product's ABO/Rh matrix (Admin › Products) and the built-in rules. Editing or deactivating a row here does not change what the issue gate allows (OCD-052). A unit the issue gate calls ABO-incompatible is a hard stop, not a warning you can sign.
 
 Edit a table only under medical-director review. The screen versions the change. The previous version remains available in history so you can see what was in force when an earlier unit was issued. Do not "fix" a historical issue by editing the table that was active that day. The issue stored the decision it made at the time.
 
