@@ -2528,7 +2528,10 @@ else
             return;
         }
 
-        var policyExpires = SpecimenTypeOrderHint.PreviewExpiresUtc(s.CollectedUtc, s.SpecimenType, _specimenTypes)
+        // The server's policy expiration (including the alloimmunization-risk window), as the save will compute it.
+        var preview = await Api.PreviewSpecimenExpirationAsync(Id, s.SpecimenType, s.CollectedUtc);
+        var policyExpires = (preview.Succeeded ? preview.Value?.PolicyExpiresUtc : null)
+            ?? SpecimenTypeOrderHint.PreviewExpiresUtc(s.CollectedUtc, s.SpecimenType, _specimenTypes)
             ?? s.ExpiresUtc
             ?? s.CollectedUtc.AddHours(SpecimenValidityPolicy.DefaultStandardHours);
         var hours = Math.Max(1, (int)Math.Round((policyExpires - s.CollectedUtc).TotalHours));
@@ -2577,6 +2580,13 @@ else
                 _editFb = Feedback.Fail("An override comment is required when changing specimen expiration from the policy-computed value.");
                 return;
             }
+
+            // OCD-041: the authorizer is named by the user (Me fills it on request), never filled in for them.
+            if (string.IsNullOrWhiteSpace(_edit.AuthorizedBy))
+            {
+                _editFb = Feedback.Fail("Name who authorized the expiration override, or choose Me if you authorized it.");
+                return;
+            }
         }
 
         _busy = true;
@@ -2589,9 +2599,7 @@ else
             string.IsNullOrWhiteSpace(_edit.Comment) ? null : _edit.Comment,
             DateTime.SpecifyKind(_edit.ExpiresLocal, DateTimeKind.Utc),
             NeedsSpecimenExpiryOverride ? _edit.OverrideReason.Trim() : null,
-            NeedsSpecimenExpiryOverride
-                ? (string.IsNullOrWhiteSpace(_edit.AuthorizedBy) ? Session.UserName : _edit.AuthorizedBy.Trim())
-                : null));
+            NeedsSpecimenExpiryOverride ? _edit.AuthorizedBy.Trim() : null));
         _busy = false;
         _editFb = r.ToFeedback("Specimen updated.");
         if (r.Succeeded)

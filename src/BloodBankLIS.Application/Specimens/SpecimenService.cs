@@ -239,6 +239,30 @@ public sealed class SpecimenService
     /// patient, identity tokens, barcode, and status are immutable here. Use
     /// <see cref="RelabelAsync"/> to change the barcode with a required reason.
     /// </summary>
+    /// <summary>
+    /// The policy expiration the save uses (<see cref="ComputeExpiresUtcAsync"/>), so a form can show it and decide
+    /// whether an override is needed without recomputing the policy itself.
+    /// </summary>
+    public async Task<OperationResult<SpecimenExpirationPreviewDto>> PreviewExpirationAsync(
+        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return OperationResult<SpecimenExpirationPreviewDto>.Fail("Patient not found.");
+        }
+
+        var code = specimenType?.Trim();
+        var typeDef = string.IsNullOrEmpty(code)
+            ? null
+            : await _specimenTypes.FirstOrDefaultAsync(t => t.IsActive && !t.IsDraft && t.Code == code, ct);
+        var collected = DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc);
+        var withRisk = await ComputeExpiresUtcAsync(collected, typeDef, patient, null, ct);
+        var catalogOnly = await ComputeExpiresUtcAsync(collected, typeDef, null, null, ct);
+        return OperationResult<SpecimenExpirationPreviewDto>.Ok(
+            new SpecimenExpirationPreviewDto(withRisk, withRisk < catalogOnly));
+    }
+
     public async Task<OperationResult<Specimen>> UpdateAsync(long specimenId, UpdateSpecimenRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);

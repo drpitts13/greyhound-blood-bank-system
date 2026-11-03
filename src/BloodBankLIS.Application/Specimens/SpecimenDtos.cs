@@ -36,6 +36,12 @@ public sealed record UpdateSpecimenRequest(
 
 public sealed record RelabelSpecimenRequest(string Barcode, string Reason);
 
+/// <summary>
+/// The expiration the facility policy gives a specimen of this type collected at this time for this patient,
+/// including the shorter window for a patient at alloimmunization risk. Saving a different expiration needs an override.
+/// </summary>
+public sealed record SpecimenExpirationPreviewDto(DateTime PolicyExpiresUtc, bool ShortenedForAlloimmunizationRisk);
+
 public sealed record SpecimenDto(
     long Id,
     string AccessionNumber,

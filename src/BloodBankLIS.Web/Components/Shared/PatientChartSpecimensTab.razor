@@ -1,4 +1,5 @@
 @inject UserSession Session
+@inject BloodBankApiClient Api
 
 <div class="bb-card">
     <p class="muted" style="margin:0 0 .75rem;">For order-driven result entry, use the <strong>Tests</strong> tab.</p>
@@ -325,9 +326,18 @@
             Edit.ExpiresLocal,
             overrideAuthorized: false).Severity == RuleSeverity.Warning;
 
-    private void OnCollectedChanged()
+    private async Task OnCollectedChanged()
     {
-        var preview = SpecimenTypeOrderHint.PreviewExpiresUtc(Edit.CollectedLocal, Edit.SpecimenType, SpecimenTypes)
+        // The server's policy for this patient (a recently transfused or pregnant patient gets the shorter window).
+        DateTime? server = null;
+        if (Patient is not null)
+        {
+            var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Edit.SpecimenType, Edit.CollectedLocal);
+            server = r.Succeeded ? r.Value?.PolicyExpiresUtc : null;
+        }
+
+        var preview = server
+            ?? SpecimenTypeOrderHint.PreviewExpiresUtc(Edit.CollectedLocal, Edit.SpecimenType, SpecimenTypes)
             ?? Edit.CollectedLocal.AddHours(Edit.PolicyHours);
         Edit.PolicyExpires = preview;
         if (!Edit.ExpiryTouched)

@@ -10388,3 +10388,54 @@ The residual from Cycle 331 asked for other screens that re-derive a server rule
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: continue the screen-versus-server audit with `SpecimenExpirationOverrideRule.Evaluate` and `UnitModificationEligibilityRule` uses in the web project.
+
+## Iteration 333 — Chart specimen edit uses the server's policy expiration (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 332.
+
+### Finding (questions 3, 6 and 7)
+
+Continuing the screen-versus-server audit.
+
+- **Unit modification eligibility:** the web uses `OfferModification` and the pool checks only to show or hide choices, and the server re-evaluates every modification in full. No finding.
+- **Specimen expiration override:**
+  - The server's policy expiration is `ComputeExpiresUtcAsync`. It shortens the window for a patient at alloimmunization risk (transfused or pregnant within the lookback) to `SpecimenAlloHours`, default 72.
+  - The chart's edit form computed "policy" from the specimen-type catalog only.
+  - For an at-risk patient, changing the collected time refilled the expiration with the longer catalog value, and the chart asked for an override.
+  - A supervisor completing that override extended the specimen beyond the risk window. A new alloantibody could then be missed at crossmatch.
+  - Conversely, a routine edit could demand an override the server did not need.
+- **Authorizer default:** the override's Authorized by defaulted to the signed-in user when left blank, contrary to OCD-041.
+
+### Design
+
+- `SpecimenService.PreviewExpirationAsync` and an authenticated endpoint return the policy expiration from the same `ComputeExpiresUtcAsync`, and say whether the allo-risk window shortened it.
+- The chart uses it when the edit form opens and when the collected time changes. The catalog preview is only a fallback if the call fails.
+- The expiration override now requires the authorizer to be named. The page asks for it, and the Me button fills it on request.
+- The server override gate is unchanged: reason, authorizer, security level, and audit.
+
+### Requirements / risk
+
+- URS-BB-478, FRS-BB-515, RISK-BB-576. Help: patient specimens page.
+
+### Tests
+
+- TEST-BB-375:
+  - for a patient with a recent pregnancy, the preview is collection + 72 h and flagged as shortened
+  - saving that expiration needs no override, while saving the catalog window does
+  - without risk, the preview is the catalog window
+  - an unknown patient fails
+- Full suite: 3,514 passed, 0 failed (previously 3,512).
+- Run check (development API and web):
+  - the preview for the demo patient (transfused) returns collection + 72 h, shortened
+  - opening the edit form on ACC0001 loads without server errors (nothing saved)
+  - the form asks for an override because the demo seed stored expiration = collection + 74 h, two hours past policy; the server agrees
+  - the seed quirk is pre-existing and left as is (development data not rewritten)
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidates:
+
+1. The accession form's expiration preview has the same catalog-only gap. It is display only, because the server computes at accession, but it is misleading for at-risk patients.
+2. The demo seeder should store specimen expiration from its own collection time, so the demo does not invite overrides.

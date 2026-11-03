@@ -469,6 +469,52 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(SpecimenStatus.Accepted, updated.Value.Status);
     }
 
+    // TEST-BB-375: the expiration preview the chart uses is the one the save enforces, including the allo-risk window.
+    [Fact]
+    public async Task ExpirationPreview_MatchesTheSave_ForAnAlloRiskPatient()
+    {
+        var patientId = await EnsurePatientAsync("MRN-PREVIEW-ALLO");
+        var specimenId = await AccessionAsync("ACC-PREVIEW-ALLO", patientId);
+        await using (var setup = _factory.Create())
+        {
+            var patient = await setup.Patients.FindAsync(patientId);
+            patient!.RecentPregnancyUtc = _factory.Clock.UtcNow.AddDays(-10);
+            await setup.SaveChangesAsync();
+        }
+
+        var collected = _factory.Clock.UtcNow.AddHours(-6);
+        await using var context = _factory.Create();
+        var preview = await Specimens(context).PreviewExpirationAsync(patientId, "EDTA", collected);
+        Assert.True(preview.Succeeded, preview.Error);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours), preview.Value!.PolicyExpiresUtc);
+        Assert.True(preview.Value.ShortenedForAlloimmunizationRisk);
+
+        // Saving the previewed expiration needs no override.
+        var kept = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, DrawLocation: "4W", ExpiresUtc: preview.Value.PolicyExpiresUtc));
+        Assert.True(kept.Succeeded, kept.Error);
+        Assert.Equal(preview.Value.PolicyExpiresUtc, kept.Value!.ExpiresUtc);
+
+        // The catalog window the chart used to fill in is longer than policy, so it needs an override.
+        var longer = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, DrawLocation: "4W", ExpiresUtc: collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours)));
+        Assert.False(longer.Succeeded);
+    }
+
+    [Fact]
+    public async Task ExpirationPreview_WithoutRisk_IsTheCatalogWindow_AndUnknownPatientFails()
+    {
+        var patientId = await EnsurePatientAsync("MRN-PREVIEW-STD");
+        var collected = _factory.Clock.UtcNow.AddHours(-1);
+        await using var context = _factory.Create();
+        var preview = await Specimens(context).PreviewExpirationAsync(patientId, "EDTA", collected);
+        Assert.True(preview.Succeeded, preview.Error);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours), preview.Value!.PolicyExpiresUtc);
+        Assert.False(preview.Value.ShortenedForAlloimmunizationRisk);
+
+        Assert.False((await Specimens(context).PreviewExpirationAsync(999_999, "EDTA", collected)).Succeeded);
+    }
+
     [Fact]
     public async Task Update_BarcodeChange_IsHardStopped()
     {

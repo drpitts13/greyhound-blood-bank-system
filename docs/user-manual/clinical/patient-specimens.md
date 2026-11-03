@@ -14,7 +14,7 @@ The **Specimens** tab lists every specimen on the chart and lets you accession a
 
 ## Accession
 
-Record the specimen type, collection time, who collected it, and where. Scan or type the two patient identifiers **from the tube label**: they start empty, a line under each says whether it matches the patient record, and accession is refused without both or when they do not match. They are not copied from the record unless your facility has turned on identifier pre-fill. The testing window is calculated from facility policy and the specimen type. You do not type an expiration that contradicts that rule.
+Record the specimen type, collection time, who collected it, and where. Scan or type the two patient identifiers **from the tube label**: they start empty, a line under each says whether it matches the patient record, and accession is refused without both or when they do not match. They are not copied from the record unless your facility has turned on identifier pre-fill. The testing window is calculated from facility policy and the specimen type, and is shorter for a patient transfused or pregnant recently. You do not type an expiration that contradicts that rule. When you edit a specimen, the expiration offered is the one the policy gives for this patient; a different expiration needs an override with a comment and the name of whoever authorized it (choose **Me** if that is you).
 
 Print the specimen label from **Printing** or the print action on the specimen. The label layout (what sits on the 2×1 inch label) is an administrator setting. You choose the printer and confirm the identifiers.
 

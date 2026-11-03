@@ -278,6 +278,13 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<SpecimenDto>>> GetPatientSpecimensAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<SpecimenDto>>(HttpMethod.Get, $"api/patients/{patientId}/specimens", ct: ct);
 
+    public Task<ApiResult<SpecimenExpirationPreviewDto>> PreviewSpecimenExpirationAsync(
+        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default) =>
+        SendAsync<SpecimenExpirationPreviewDto>(
+            HttpMethod.Get,
+            $"api/patients/{patientId}/specimen-expiration?specimenType={Uri.EscapeDataString(specimenType ?? string.Empty)}&collectedUtc={Uri.EscapeDataString(DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc).ToString("O"))}",
+            ct: ct);
+
     // ---- Results ----
     public Task<ApiResult<TestResultDto>> EnterResultAsync(EnterResultRequest req, CancellationToken ct = default) =>
         SendAsync<TestResultDto>(HttpMethod.Post, "api/results", req, ct);
