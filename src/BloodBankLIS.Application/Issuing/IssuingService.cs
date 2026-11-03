@@ -437,8 +437,8 @@ public sealed class IssuingService
                 ContextType = nameof(Issue),
                 ContextId = unit.Id,
                 RuleCode = string.Join(",", evaluation.Warnings.Select(r => r.Code)),
-                Reason = request.OverrideReason,
-                AuthorizedBy = request.AuthorizedBy,
+                Reason = request.OverrideReason.Trim(),
+                AuthorizedBy = request.AuthorizedBy.Trim(),
                 OverriddenUtc = now
             };
             await _overrides.AddAsync(authorizedOverride, ct);

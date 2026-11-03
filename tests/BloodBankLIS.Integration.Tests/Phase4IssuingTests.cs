@@ -1765,6 +1765,27 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(queue, q => q.IssueId == persisted.Id && q.IssueType == IssueType.MassiveTransfusion);
     }
 
+    // TEST-BB-378 (OCD-041): the issue override stores the reason and authorizer as named, trimmed, and refuses a blank authorizer.
+    [Fact]
+    public async Task EmergencyRelease_Override_StoresTrimmedFields_AndNeedsAnAuthorizer()
+    {
+        var s = await SeedAsync("OVR-TRIM");
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var blank = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Hemorrhage", authorizedBy: "   "));
+        Assert.False(blank.Succeeded);
+        Assert.Contains(blank.Evaluation!.Warnings, w => w.Code == OverrideFieldsRule.Code);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "  Hemorrhage  ", authorizedBy: "  dr-authorizer "));
+        Assert.True(issued.Succeeded, issued.Error);
+        var stored = await c.Overrides.AsNoTracking().SingleAsync(o => o.Id == issued.Value!.OverrideId);
+        Assert.Equal("Hemorrhage", stored.Reason);
+        Assert.Equal("dr-authorizer", stored.AuthorizedBy);
+    }
+
     [Fact]
     public async Task EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm()
     {

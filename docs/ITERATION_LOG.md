@@ -10499,3 +10499,38 @@ The residual from Cycle 333:
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: rescan for other overrides whose authorizer is defaulted to the signed-in user (OCD-041), as the specimen expiration override was until Cycle 333.
+
+## Iteration 336 — Override authorizers audited across every path (OCD-041) (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 335.
+
+### Finding (question 7)
+
+The residual from Cycle 335: are any other overrides defaulting Authorized by to the signed-in user, as the chart specimen expiration override did until Cycle 333?
+
+- **Web:**
+  - no other page fills the authorizer
+  - `AuthorizerField`'s Me button fills it only when pressed
+  - every second-verifier list excludes the signed-in user
+- **Server:**
+  - every override path requires both reason and authorizer: issue, allocation, crossmatch exception, order, result, specimen expiration
+  - none substitutes the current user
+  - directory matching normalizes whitespace
+- **One inconsistency:** the issue override (emergency release, MTP, warning overrides) stored the reason and authorizer exactly as typed, padding included, while every other override trims them.
+
+### Design
+
+- The issue override trims both fields on write, like the others.
+- No schema or screen change. Older rows are read through DTOs that already trim.
+
+### Tests
+
+- TEST-BB-378: an emergency release with a blank authorizer is refused with `OVR-FIELDS`. With padded fields it is issued, and the override stores "Hemorrhage" and "dr-authorizer".
+- Full suite: 3,517 passed, 0 failed (previously 3,516).
+- Run check: not run (server write-path normalization only).
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next: rescan the capability matrix rows for operations and administration, which have had the least attention in recent cycles.

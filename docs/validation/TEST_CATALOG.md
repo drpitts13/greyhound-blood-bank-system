@@ -386,5 +386,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-375 | I | `Phase3ServicesTests.ExpirationPreview_MatchesTheSave_ForAnAlloRiskPatient`, `ExpirationPreview_WithoutRisk_IsTheCatalogWindow_AndUnknownPatientFails` | URS-BB-478 / FRS-BB-515 / RISK-BB-576 |
 | TEST-BB-376 | I | `Phase3ServicesTests.ExpirationPreview_WithValidityHours_MatchesAccession` | URS-BB-478 / FRS-BB-516 / RISK-BB-576 |
 | TEST-BB-377 | I | `SeederTests.Seed_DemoPatientSpecimens_ExpireAsPolicySays` | URS-BB-478 / RISK-BB-576 |
+| TEST-BB-378 | I | `Phase4IssuingTests.EmergencyRelease_Override_StoresTrimmedFields_AndNeedsAnAuthorizer` | FRS-BB-517 / OCD-041 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
