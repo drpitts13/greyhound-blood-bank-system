@@ -35,6 +35,24 @@ public static class AlertRule
     public const string BackupOverdue = "backup-overdue";
     public const string TransfusionNotCompleted = "transfusion-not-completed";
 
+    /// <summary>
+    /// The name the alerts help page uses for each source. A help test fails when a source has no name here
+    /// or the page does not describe it, so a new alert cannot ship undocumented.
+    /// </summary>
+    public static string? HelpName(string source) => source switch
+    {
+        TemperatureExcursion => "Temperature excursion",
+        RetrospectiveCrossmatchIncompatible => "Incompatible after release",
+        UnitsExpired => "Units expired",
+        MinimumStockShortage => "Below minimum stock",
+        NearExpiry => "Near expiry",
+        ReagentQc => "Reagent QC",
+        BackupFailed => "Backup failed",
+        BackupOverdue => "Backup overdue",
+        TransfusionNotCompleted => "Transfusion not completed",
+        _ => null
+    };
+
     /// <summary>Still active: the condition has not cleared. An acknowledged alert can still be active.</summary>
     public static bool IsActive(Alert alert) => alert.ResolvedUtc is null;
 
