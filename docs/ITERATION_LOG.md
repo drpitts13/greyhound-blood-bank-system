@@ -11001,3 +11001,39 @@ No change since Cycle 347.
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: a test that keeps the alerts help in step with `AlertRule`, so a new alert source fails a test until it is documented.
+
+## Iteration 349 — The alerts help cannot fall behind the alert sources (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 348.
+
+### Finding
+
+Cycle 348 found the alerts help four sources behind the code. Nothing would have caught it, and nothing would catch the next one.
+
+### Design
+
+- `AlertRule.HelpName` maps each alert source to the name the help uses.
+- TEST-BB-388 enumerates every public string constant on `AlertRule` by reflection and fails when:
+  - a source has no help name, or
+  - alerts.md does not describe that name in bold, or
+  - the page's "Alerts come from N places" count is wrong
+- Adding an alert source now fails the tests until it is documented.
+
+### Tests
+
+- TEST-BB-388 (2 tests). It was confirmed to fail when one bold name was removed from the page, and the page was restored.
+- Full suite: 3,569 passed, 0 failed (previously 3,567).
+
+### Process note
+
+The first commit of this cycle (ef9205c) emptied `docs/validation/TEST_CATALOG.md`. A documentation script opened the file for writing before computing its new content, the insert then failed, and the empty file was staged.
+
+- `TestCatalogPackagingTests` caught it.
+- The catalog was restored from the previous commit and the row added in a follow-up commit.
+- Scripts now compute every new file before writing any.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same kind of coverage test for the exception catalog (every overridable rule code the issue gate can emit has an exception definition seeded), since an override with no definition is refused at the bedside.
