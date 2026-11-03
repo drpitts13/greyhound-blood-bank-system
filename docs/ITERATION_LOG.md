@@ -10470,3 +10470,32 @@ The residual from Cycle 333: the accession form's "Expires (preview)" used the s
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the demo seeder should store specimen expiration from its own collection time and the patient's risk, so the demo does not invite unnecessary overrides.
+
+## Iteration 335 — Demo specimens seeded with the policy expiration (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 334.
+
+### Finding
+
+The residual from Cycle 333:
+
+- The demo patient's three specimens (ACC0001, ACC-PEND-COL, ACC-PEND-RCV) were seeded with expiration = seed time + 3 days, but collected 1–2 hours before that.
+- The demo patient is transfused, so policy is collection + 72 h. The stored value was 1–2 hours past policy.
+- Opening any of them for an edit therefore asked for an expiration override. That is correct behavior for the data, but it trains demo users to override.
+
+### Design
+
+- The seeder computes those three expirations with `SpecimenValidityPolicy.ComputeExpiresUtc(collected, alloimmunizationRisk: true)`, as another demo scenario already does.
+- Seed data only. An existing development database keeps its rows (the seeder does not rewrite them); a freshly seeded database gets the corrected values.
+
+### Tests
+
+- TEST-BB-377: after seeding, each of the three specimens' expiration equals `SpecimenService.PreviewExpirationAsync` for that patient. The test fails against the previous seeder.
+- Full suite: 3,516 passed, 0 failed (previously 3,515).
+- Run check: not run. The existing development database is not reseeded, so nothing would change there.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: rescan for other overrides whose authorizer is defaulted to the signed-in user (OCD-041), as the specimen expiration override was until Cycle 333.

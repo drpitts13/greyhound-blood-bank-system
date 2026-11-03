@@ -2841,7 +2841,7 @@ public static partial class DatabaseSeeder
                 Barcode = "SPC-ACC-PEND-COL",
                 CollectedUtc = now.AddHours(-1),
                 ReceivedUtc = null,
-                ExpiresUtc = now.AddDays(3),
+                ExpiresUtc = SpecimenValidityPolicy.ComputeExpiresUtc(now.AddHours(-1), alloimmunizationRisk: true),
                 Status = SpecimenStatus.Collected,
                 Collector = "Floor phlebotomy"
             },
@@ -2853,7 +2853,7 @@ public static partial class DatabaseSeeder
                 Barcode = "SPC-ACC-PEND-RCV",
                 CollectedUtc = now.AddHours(-2),
                 ReceivedUtc = now.AddMinutes(-20),
-                ExpiresUtc = now.AddDays(3),
+                ExpiresUtc = SpecimenValidityPolicy.ComputeExpiresUtc(now.AddHours(-2), alloimmunizationRisk: true),
                 Status = SpecimenStatus.Received,
                 Collector = "Floor phlebotomy"
             });

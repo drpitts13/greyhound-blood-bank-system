@@ -259,6 +259,29 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             && e.Status == BillingEventStatus.Pending));
     }
 
+    // TEST-BB-377: the demo patient's specimens are seeded with the expiration policy gives them, so editing one needs no override.
+    [Fact]
+    public async Task Seed_DemoPatientSpecimens_ExpireAsPolicySays()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var patient = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
+        var service = new BloodBankLIS.Application.Specimens.SpecimenService(
+            new EfRepository<Specimen>(verify), new EfRepository<Patient>(verify), new EfRepository<SpecimenTypeDefinition>(verify),
+            verify, _factory.Clock, transfusions: new EfRepository<TransfusionEvent>(verify));
+        foreach (var accession in new[] { "ACC0001", "ACC-PEND-COL", "ACC-PEND-RCV" })
+        {
+            var specimen = await verify.Specimens.SingleAsync(s => s.AccessionNumber == accession);
+            var preview = await service.PreviewExpirationAsync(patient.Id, specimen.SpecimenType, specimen.CollectedUtc);
+            Assert.True(preview.Succeeded, preview.Error);
+            Assert.Equal(preview.Value!.PolicyExpiresUtc, specimen.ExpiresUtc);
+        }
+    }
+
     [Fact]
     public async Task Seed_HelenHl7Messages_SurfacePlacerTestAndUnit()
     {

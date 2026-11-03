@@ -518,6 +518,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-477 / FRS-BB-514 | Unit chart return choice follows the server | `UnitDetail.razor`; `IssuingService` | TEST-BB-374 | I | |
 | URS-BB-478 / FRS-BB-515 | Chart specimen edit uses the server's policy expiration | `SpecimenService.PreviewExpirationAsync`; `PatientChartSpecimensTab.razor`; `PatientDetail.razor` | TEST-BB-375 | I | |
 | URS-BB-478 / FRS-BB-516 | Accession expiration preview matches accession | `PatientChartSpecimensTab.razor`; `SpecimenService.PreviewExpirationAsync` | TEST-BB-376 | I | |
+| URS-BB-478 (demo data) | Demo specimens seeded with the policy expiration | `DatabaseSeeder` | TEST-BB-377 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

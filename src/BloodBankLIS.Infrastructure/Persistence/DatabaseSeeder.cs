@@ -3020,7 +3020,8 @@ public static partial class DatabaseSeeder
             Barcode = "SPC-ACC0001",
             CollectedUtc = now.AddHours(-2),
             ReceivedUtc = now.AddHours(-1),
-            ExpiresUtc = now.AddDays(3),
+            // The demo patient is transfused, so the policy window runs from collection, as accession would compute it.
+            ExpiresUtc = SpecimenValidityPolicy.ComputeExpiresUtc(now.AddHours(-2), alloimmunizationRisk: true),
             Status = SpecimenStatus.Accepted
         };
         context.Specimens.Add(specimen);
