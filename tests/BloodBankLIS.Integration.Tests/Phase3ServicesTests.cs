@@ -501,6 +501,29 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.False(longer.Succeeded);
     }
 
+    // TEST-BB-376: the accession preview with validity hours matches accession, still capped by the allo-risk window.
+    [Fact]
+    public async Task ExpirationPreview_WithValidityHours_MatchesAccession()
+    {
+        var patientId = await EnsurePatientAsync("MRN-PREVIEW-HRS");
+        await using (var setup = _factory.Create())
+        {
+            var patient = await setup.Patients.FindAsync(patientId);
+            patient!.RecentPregnancyUtc = _factory.Clock.UtcNow.AddDays(-10);
+            await setup.SaveChangesAsync();
+        }
+
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+        await using var context = _factory.Create();
+        var preview = await Specimens(context).PreviewExpirationAsync(patientId, "EDTA", collected, validityHours: 168);
+        var accessioned = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest("ACC-PREVIEW-HRS", patientId, "EDTA", collected, ValidityHours: 168));
+
+        Assert.True(accessioned.Succeeded, accessioned.Error);
+        Assert.Equal(accessioned.Value!.ExpiresUtc, preview.Value!.PolicyExpiresUtc);
+        Assert.True(preview.Value.ShortenedForAlloimmunizationRisk);
+    }
+
     [Fact]
     public async Task ExpirationPreview_WithoutRisk_IsTheCatalogWindow_AndUnknownPatientFails()
     {

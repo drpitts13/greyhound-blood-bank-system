@@ -10439,3 +10439,34 @@ Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy
 
 1. The accession form's expiration preview has the same catalog-only gap. It is display only, because the server computes at accession, but it is misleading for at-risk patients.
 2. The demo seeder should store specimen expiration from its own collection time, so the demo does not invite overrides.
+
+## Iteration 334 — Accession expiration preview matches accession (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 333.
+
+### Finding (question 2)
+
+The residual from Cycle 333: the accession form's "Expires (preview)" used the specimen-type catalog window. For a patient transfused or pregnant recently, it showed a later expiration than accession would save. The tech saw one date on screen and another on the label and specimen record. Display only (the server computes the stored value), but misleading.
+
+### Design
+
+- The preview comes from the Cycle 333 server preview, which now also takes the optional validity hours the accession will use. Those hours are still capped by the risk window.
+- It refreshes when the specimen type, collection time, or validity hours change, and only calls when one of them changed.
+- When the window was shortened, the form says "Shorter window: patient transfused or pregnant recently."
+- The catalog value shows only while the call loads or if it fails.
+
+### Requirements / risk
+
+- FRS-BB-516 (under URS-BB-478 and RISK-BB-576). Help: patient specimens page.
+
+### Tests
+
+- TEST-BB-376: for an at-risk patient, the preview with 168 validity hours equals the expiration accession then stores, and is flagged as shortened.
+- Full suite: 3,515 passed, 0 failed (previously 3,514).
+- Run check (development API and web): on the demo patient (transfused), the accession form shows collection + 72 h with the shorter-window note. The form was cancelled and nothing was accessioned; no server errors.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the demo seeder should store specimen expiration from its own collection time and the patient's risk, so the demo does not invite unnecessary overrides.

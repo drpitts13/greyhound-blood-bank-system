@@ -244,7 +244,7 @@ public sealed class SpecimenService
     /// whether an override is needed without recomputing the policy itself.
     /// </summary>
     public async Task<OperationResult<SpecimenExpirationPreviewDto>> PreviewExpirationAsync(
-        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default)
+        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default, int? validityHours = null)
     {
         var patient = await _patients.GetByIdAsync(patientId, ct);
         if (patient is null)
@@ -257,8 +257,9 @@ public sealed class SpecimenService
             ? null
             : await _specimenTypes.FirstOrDefaultAsync(t => t.IsActive && !t.IsDraft && t.Code == code, ct);
         var collected = DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc);
-        var withRisk = await ComputeExpiresUtcAsync(collected, typeDef, patient, null, ct);
-        var catalogOnly = await ComputeExpiresUtcAsync(collected, typeDef, null, null, ct);
+        var hours = validityHours is > 0 ? validityHours : null;
+        var withRisk = await ComputeExpiresUtcAsync(collected, typeDef, patient, hours, ct);
+        var catalogOnly = await ComputeExpiresUtcAsync(collected, typeDef, null, hours, ct);
         return OperationResult<SpecimenExpirationPreviewDto>.Ok(
             new SpecimenExpirationPreviewDto(withRisk, withRisk < catalogOnly));
     }

@@ -153,9 +153,9 @@ public static class SpecimenEndpoints
         }).WithTags("Specimens");
 
         app.MapGet("/api/patients/{patientId:long}/specimen-expiration", async (
-            long patientId, string? specimenType, DateTime collectedUtc, SpecimenService service, CancellationToken ct) =>
+            long patientId, string? specimenType, DateTime collectedUtc, int? validityHours, SpecimenService service, CancellationToken ct) =>
         {
-            var preview = await service.PreviewExpirationAsync(patientId, specimenType, collectedUtc, ct);
+            var preview = await service.PreviewExpirationAsync(patientId, specimenType, collectedUtc, ct, validityHours);
             return preview.Succeeded ? Results.Ok(preview.Value) : Results.NotFound(new { error = preview.Error });
         }).WithTags("Specimens").RequireAuthenticatedUser();
     }

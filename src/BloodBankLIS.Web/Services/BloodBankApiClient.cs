@@ -279,10 +279,11 @@ public sealed class BloodBankApiClient
         SendAsync<List<SpecimenDto>>(HttpMethod.Get, $"api/patients/{patientId}/specimens", ct: ct);
 
     public Task<ApiResult<SpecimenExpirationPreviewDto>> PreviewSpecimenExpirationAsync(
-        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default) =>
+        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default, int? validityHours = null) =>
         SendAsync<SpecimenExpirationPreviewDto>(
             HttpMethod.Get,
-            $"api/patients/{patientId}/specimen-expiration?specimenType={Uri.EscapeDataString(specimenType ?? string.Empty)}&collectedUtc={Uri.EscapeDataString(DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc).ToString("O"))}",
+            $"api/patients/{patientId}/specimen-expiration?specimenType={Uri.EscapeDataString(specimenType ?? string.Empty)}&collectedUtc={Uri.EscapeDataString(DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc).ToString("O"))}"
+                + (validityHours is > 0 ? $"&validityHours={validityHours}" : string.Empty),
             ct: ct);
 
     // ---- Results ----

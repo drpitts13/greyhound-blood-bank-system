@@ -27,7 +27,7 @@
             <div class="form-row">
                 <div class="field"><label>Accession #</label><input @bind="Accession.AccessionNumber" /></div>
                 <div class="field"><label>Specimen type</label>
-                    <select @bind="Accession.SpecimenType">
+                    <select @bind="Accession.SpecimenType" @bind:after="RefreshAccessionPreviewAsync">
                         @if (SpecimenTypes.Count == 0)
                         {
                             <option value="EDTA">EDTA — EDTA Whole Blood</option>
@@ -41,14 +41,18 @@
                         }
                     </select>
                 </div>
-                <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Accession.CollectedLocal" /></div>
+                <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Accession.CollectedLocal" @bind:after="RefreshAccessionPreviewAsync" /></div>
                 @if (AccessionPreviewExpires is { } preview)
                 {
                     <div class="field"><label>Expires (preview)</label>
                         <input value="@preview.ToString("yyyy-MM-dd HH:mm")" disabled />
+                        @if (_accessionPreview?.ShortenedForAlloimmunizationRisk == true)
+                        {
+                            <span class="sub">Shorter window: patient transfused or pregnant recently.</span>
+                        }
                     </div>
                 }
-                <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Accession.ValidityHours" /></div>
+                <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Accession.ValidityHours" @bind:after="RefreshAccessionPreviewAsync" /></div>
                 <div class="field"><label>Patient ID 1 (MRN) on the tube</label>
                     <input @bind="Accession.Identifier1Value" @bind:event="oninput" placeholder="Scan or type from the tube label" autocomplete="off" />
                     <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@Accession.Identifier1Value" Patient="Patient" />
@@ -317,8 +321,34 @@
     [Parameter] public EventCallback OnOpenOrders { get; set; }
     [Parameter] public int ExceptionMinLevel { get; set; } = 2;
 
+    // The server's policy for this patient, as accession will compute it; the catalog value only while it loads or if it fails.
+    private SpecimenExpirationPreviewDto? _accessionPreview;
+    private (string? Type, DateTime Collected, int? Hours)? _accessionPreviewKey;
+
     private DateTime? AccessionPreviewExpires =>
-        SpecimenTypeOrderHint.PreviewExpiresUtc(Accession.CollectedLocal, Accession.SpecimenType, SpecimenTypes);
+        _accessionPreview?.PolicyExpiresUtc
+        ?? SpecimenTypeOrderHint.PreviewExpiresUtc(Accession.CollectedLocal, Accession.SpecimenType, SpecimenTypes);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ShowAccession)
+        {
+            await RefreshAccessionPreviewAsync();
+        }
+    }
+
+    private async Task RefreshAccessionPreviewAsync()
+    {
+        var key = (Accession.SpecimenType, Accession.CollectedLocal, Accession.ValidityHours);
+        if (Patient is null || _accessionPreviewKey == key)
+        {
+            return;
+        }
+
+        _accessionPreviewKey = key;
+        var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Accession.SpecimenType, Accession.CollectedLocal, validityHours: Accession.ValidityHours);
+        _accessionPreview = r.Succeeded ? r.Value : null;
+    }
 
     private bool NeedsExpirationOverride =>
         SpecimenExpirationOverrideRule.Evaluate(
