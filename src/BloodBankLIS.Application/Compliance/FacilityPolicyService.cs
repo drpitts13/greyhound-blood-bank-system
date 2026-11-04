@@ -37,7 +37,8 @@ public sealed class FacilityPolicyService
         GetIntAsync(FacilityPolicyKeys.SpecimenLookbackDays, SpecimenValidityPolicy.DefaultLookbackDays, ct);
 
     public Task<bool> GetRequireSecondVerifierAsync(CancellationToken ct = default) =>
-        GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, false, ct);
+        // Same default as the catalog and the seeded setting (OCD-008: a facility may turn it off).
+        GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, true, ct);
 
     public Task<bool> GetRequireWardReceiptAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireWardReceipt, true, ct);

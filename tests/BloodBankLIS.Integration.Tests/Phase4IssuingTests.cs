@@ -4305,12 +4305,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        ctx.SystemSettings.Add(new SystemSetting
-        {
-            Key = FacilityPolicyKeys.RequireSecondVerifier,
-            Value = "true",
-            Category = "Transfusion"
-        });
+        // The fixture runs with the second verifier off; turn it on for this test only.
+        var required = await ctx.SystemSettings.SingleAsync(x => x.Key == FacilityPolicyKeys.RequireSecondVerifier);
+        required.Value = "true";
         ctx.Users.Add(new User { UserName = "ward-nurse", DisplayName = "Ward Nurse", IsActive = true });
         await ctx.SaveChangesAsync();
 
@@ -4328,12 +4325,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
         finally
         {
-            var flag = await ctx.SystemSettings.SingleOrDefaultAsync(x => x.Key == FacilityPolicyKeys.RequireSecondVerifier);
-            if (flag is not null)
-            {
-                ctx.SystemSettings.Remove(flag);
-                await ctx.SaveChangesAsync();
-            }
+            required.Value = "false";
+            await ctx.SaveChangesAsync();
         }
     }
 

@@ -11392,3 +11392,39 @@ The downtime snapshot counted every open issue together. After recovery, the sup
 ### Next ranked residual
 
 Rescan for the highest remaining gap. Candidate: the facility policy key coverage check, a test that every `FacilityPolicyKeys` constant is in `FacilityPolicyCatalog` with a default, so no setting is invisible to administrators.
+
+## Iteration 358 — Facility policy defaults match what administrators see (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 357 apart from this cycle's row (administration).
+
+### Finding (questions 6 and 7)
+
+A coverage check of facility policy keys against the Facility Policies catalog found:
+
+- Every key is listed, except `Inventory.BlockRetypeSelfVerify`, which is retired and read by nothing.
+- One default disagreed. `FacilityPolicyService.GetRequireSecondVerifierAsync` fell back to **false** when the setting was unset, but the catalog showed **true**, and fresh databases seed it true.
+- The settings seeder only runs when the settings table is empty. A database upgraded from before the setting existed therefore has no row.
+- On such a database, issue and bedside documentation ran without a second verifier while Facility Policies showed it as on.
+
+### Design
+
+- The service default for `Transfusion.RequireSecondVerifier` is now true. That is what the catalog shows and what a fresh database seeds. OCD-008 still lets a facility turn it off, with a reason.
+- **TEST-BB-397**, an Application-layer test with no database:
+  - every `FacilityPolicyKeys` constant is in the catalog unless listed as retired
+  - every `FacilityPolicyService` getter is called against an empty settings store; which key it read is recovered from its query, and its fallback must equal the catalog default
+- **Behavior change:** an existing database with no `Transfusion.RequireSecondVerifier` row will now require a second verifier at issue and bedside, as its Facility Policies page already said. A facility that does not want this saves the setting off.
+- **Integration fixture:** it now records the setting off explicitly, instead of relying on the missing row. The one test that needs it on toggles that row and restores it.
+
+### Requirements / risk
+
+- URS-BB-488, FRS-BB-534, RISK-BB-585. Help: Facility Policies page.
+
+### Tests
+
+- TEST-BB-397 (2 tests), which found the mismatch. Full suite: 3,620 passed, 0 failed.
+
+### Next ranked residual
+
+The same drift exists for settings the seeder never adds to an existing database. Consider a startup step that adds any catalog key missing from SystemSettings with its catalog default, recorded in configuration history, so the stored value is always visible and auditable.

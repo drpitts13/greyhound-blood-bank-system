@@ -493,3 +493,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-485 | An override authorizer who is not in the directory is never refused, and can be added to the directory as an outside provider so later overrides they authorize are recognized. | P2 | FRS-BB-528 |
 | URS-BB-486 | An issue made on paper during downtime can be entered afterwards by a role that allows it, judged as of the time on the paper record, even if the unit or specimen has expired since. | P1 | FRS-BB-529 |
 | URS-BB-487 | A facility can require that specimens are received only by scanning the tube in hand. | P2 | FRS-BB-530 |
+| URS-BB-488 | Every facility setting the system reads is listed on Facility Policies, and the default it uses when the setting has never been saved is the default the page shows. | P1 | FRS-BB-534 |
