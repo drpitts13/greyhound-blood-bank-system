@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.Rules.Config;
 using BloodBankLIS.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
@@ -2030,6 +2031,7 @@ public static partial class DatabaseSeeder
     {
         if (await context.SpecialRequirementDefinitions.AnyAsync(ct))
         {
+            await EnsureCategorizedSpecialRequirementExamplesAsync(context, ct);
             return;
         }
 
@@ -2042,8 +2044,10 @@ public static partial class DatabaseSeeder
             SpecialRequirementEnforcementKind kind,
             int sort,
             string? productAttribute = null,
-            string? instruction = null) => new()
+            string? instruction = null,
+            string? unitTest = null) => new()
         {
+            UnitTestCode = unitTest,
             Code = code,
             Name = name,
             Level = level,
@@ -2054,16 +2058,18 @@ public static partial class DatabaseSeeder
             IsActive = true,
             IsDraft = false,
             EffectiveUtc = now,
-            Version = 1
+            Version = 1,
+            Category = SpecialRequirementDefinitionValidator.CategoryFor(kind)
         };
 
         context.SpecialRequirementDefinitions.AddRange(
             Def(SpecialRequirementCatalog.Irradiated, "Irradiated", SpecialRequirementLevel.Unit,
                 SpecialRequirementEnforcementKind.RequireProductAttribute, 10, "IRRAD",
                 "Issue only irradiated units."),
+            // Met by the product code or a negative CMV test recorded on the unit.
             Def(SpecialRequirementCatalog.CmvNegative, "CMV-negative", SpecialRequirementLevel.Unit,
-                SpecialRequirementEnforcementKind.RequireProductAttribute, 20, "CMVNEG",
-                "Issue only CMV-negative units."),
+                SpecialRequirementEnforcementKind.RequireUnitTestNegative, 20, "CMVNEG",
+                "Issue only CMV-negative units.", unitTest: "CMV"),
             Def(SpecialRequirementCatalog.Leukoreduced, "Leukoreduced", SpecialRequirementLevel.Unit,
                 SpecialRequirementEnforcementKind.RequireProductAttribute, 30, "LR",
                 "Issue only leukoreduced units."),
@@ -2086,6 +2092,71 @@ public static partial class DatabaseSeeder
                 SpecialRequirementEnforcementKind.RequireAboSubgroup, 90,
                 instruction: "Record A1/A2 subgroup on group A or AB patients before issue."));
 
+        await context.SaveChangesAsync(ct);
+        await EnsureCategorizedSpecialRequirementExamplesAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Starter entries for one unit category each, added by code when missing. They are examples the facility edits
+    /// or deactivates, not clinical policy.
+    /// </summary>
+    private static async Task EnsureCategorizedSpecialRequirementExamplesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        SpecialRequirementDefinition Example(
+            string code,
+            string name,
+            SpecialRequirementCategory category,
+            SpecialRequirementEnforcementKind kind,
+            ComponentClass? componentClass,
+            int sort,
+            string? productAttribute = null,
+            string? allowedAbo = null,
+            string? unitTest = null,
+            string? instruction = null) => new()
+        {
+            Code = code,
+            Name = name,
+            Level = category == SpecialRequirementCategory.Informational ? SpecialRequirementLevel.Patient : SpecialRequirementLevel.Unit,
+            Category = category,
+            EnforcementKind = kind,
+            ComponentClass = componentClass,
+            ProductAttributeCode = productAttribute,
+            AllowedAboGroups = allowedAbo,
+            UnitTestCode = unitTest,
+            Instruction = instruction,
+            SortOrder = sort,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        };
+
+        var examples = new[]
+        {
+            Example("GRPO-RBC", "Group O red cells only", SpecialRequirementCategory.UnitTyping,
+                SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, 100, allowedAbo: "O"),
+            Example("CMVNEG-RBC", "CMV-negative red cells", SpecialRequirementCategory.UnitTyping,
+                SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells, 110, "CMVNEG", unitTest: "CMV"),
+            Example("HBSNEG-RBC", "HbS-negative red cells", SpecialRequirementCategory.UnitTyping,
+                SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells, 120, unitTest: "HBS"),
+            Example("IRRAD-RBC", "Irradiated red cells", SpecialRequirementCategory.UnitModification,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.RedBloodCells, 130, "IRRAD"),
+            Example("IRRAD-PLT", "Irradiated platelets", SpecialRequirementCategory.UnitModification,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.Platelets, 140, "IRRAD"),
+            Example("CALL-TSMD", "Call the transfusion service physician", SpecialRequirementCategory.Informational,
+                SpecialRequirementEnforcementKind.Informational, null, 150,
+                instruction: "Call the transfusion service physician before issuing products to this patient."),
+        };
+
+        var existing = await context.SpecialRequirementDefinitions.Select(d => d.Code).ToListAsync(ct);
+        var missing = examples.Where(e => !existing.Contains(e.Code)).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        context.SpecialRequirementDefinitions.AddRange(missing);
         await context.SaveChangesAsync(ct);
     }
 

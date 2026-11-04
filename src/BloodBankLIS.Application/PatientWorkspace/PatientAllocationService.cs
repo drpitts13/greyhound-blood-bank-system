@@ -47,6 +47,7 @@ public sealed class PatientAllocationService
     private readonly FacilityPolicyService? _policy;
     private readonly IRepository<SpecialTransfusionRequirement>? _specialRequirements;
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<BloodComponentSpecialTest>? _unitSpecialTests;
     private readonly IRepository<ProductAttributeAssignment>? _productAttributeAssignments;
     private readonly IRepository<ProductAttribute>? _productAttributes;
     private readonly IRepository<InventoryLocation>? _locations;
@@ -91,7 +92,8 @@ public sealed class PatientAllocationService
         IRepository<ProductAttribute>? productAttributes = null,
         IRepository<InventoryLocation>? locations = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
-        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null,
+        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null)
     {
         _compatibility = compatibility;
         _orders = orders;
@@ -126,6 +128,7 @@ public sealed class PatientAllocationService
         _policy = policy;
         _specialRequirements = specialRequirements;
         _requirementDefinitions = requirementDefinitions;
+        _unitSpecialTests = unitSpecialTests;
         _productAttributeAssignments = productAttributeAssignments;
         _productAttributes = productAttributes;
         _locations = locations;
@@ -317,8 +320,14 @@ public sealed class PatientAllocationService
         var retypedUnitIds = await ConfirmedRetypeUnitIdsAsync(available.Select(u => u.Id).ToList(), ct);
         var ranked = new List<RankedCompatibleUnit>();
         var nearExpiryWindow = await NearExpiryWindowAsync(ct);
-        var specialRequirements = await UnitSelectionRequirementsAsync(patientId, ct);
-        var attributesByProduct = await ProductAttributeCodesByProductTypeAsync(ct);
+        var specialRequirements = await SpecialRequirementLoader.ForPatientAsync(
+            _specialRequirements, _requirementDefinitions, patientId, ct);
+        var attributesByProduct = await SpecialRequirementLoader.ProductAttributeCodesByProductTypeAsync(
+            _productAttributeAssignments, _productAttributes, ct);
+        var negativeTestsByUnit = specialRequirements.Count == 0
+            ? []
+            : await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(
+                _unitSpecialTests, available.Select(u => u.Id).ToList(), ct);
         var crossmatchExpires = await CurrentCompatibleCrossmatchExpirationsAsync(patientId, ct);
         var latestCrossmatchResults = await LatestRecordedCrossmatchResultsAsync(patientId, ct);
         var crossmatchedUnitIds = crossmatchExpires.Keys.ToHashSet();
@@ -364,7 +373,8 @@ public sealed class PatientAllocationService
                     specialRequirements,
                     attributeCodes ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                     bloodAttrs.UnitAntigens,
-                    _clock.UtcNow))
+                    _clock.UtcNow,
+                    SpecialRequirementLoader.Typing(unit, product.ComponentClass, negativeTestsByUnit)))
             {
                 continue;
             }
@@ -534,69 +544,30 @@ public sealed class PatientAllocationService
             .ToHashSet();
     }
 
-    private async Task<IReadOnlyList<SpecialTransfusionRequirementRule.RequirementRef>> UnitSelectionRequirementsAsync(
-        long patientId, CancellationToken ct)
+    /// <summary>
+    /// A unit that fails one of the patient's unit typings or modifications cannot be reserved, as it could not be
+    /// issued outside an emergency release.
+    /// </summary>
+    private async Task<string?> UnmetSpecialRequirementAsync(long patientId, BloodUnit unit, ProductType product, CancellationToken ct)
     {
-        if (_specialRequirements is null)
+        var requirements = await SpecialRequirementLoader.ForPatientAsync(
+            _specialRequirements, _requirementDefinitions, patientId, ct);
+        if (requirements.Count == 0)
         {
-            return [];
+            return null;
         }
 
-        var rows = await _specialRequirements.ListAsync(r => r.PatientId == patientId && r.IsActive, ct);
-        var definitions = _requirementDefinitions is null
-            ? new Dictionary<long, SpecialRequirementDefinition>()
-            : (await _requirementDefinitions.ListAsync(ct)).ToDictionary(d => d.Id);
-        return rows.Select(row => ToRequirementRef(row, definitions)).ToList();
-    }
-
-    private async Task<Dictionary<long, HashSet<string>>> ProductAttributeCodesByProductTypeAsync(CancellationToken ct)
-    {
-        if (_productAttributeAssignments is null || _productAttributes is null)
-        {
-            return [];
-        }
-
-        var assignments = await _productAttributeAssignments.ListAsync(a => a.IsActive, ct);
-        var attributes = (await _productAttributes.ListAsync(a => a.IsActive, ct))
-            .ToDictionary(a => a.Id);
-        var byProduct = new Dictionary<long, HashSet<string>>();
-        foreach (var assignment in assignments)
-        {
-            if (!attributes.TryGetValue(assignment.ProductAttributeId, out var attribute))
-            {
-                continue;
-            }
-
-            if (!byProduct.TryGetValue(assignment.ProductTypeId, out var codes))
-            {
-                codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                byProduct[assignment.ProductTypeId] = codes;
-            }
-
-            codes.Add(attribute.Code);
-        }
-
-        return byProduct;
-    }
-
-    private static SpecialTransfusionRequirementRule.RequirementRef ToRequirementRef(
-        SpecialTransfusionRequirement row,
-        IReadOnlyDictionary<long, SpecialRequirementDefinition> definitions)
-    {
-        if (row.RequirementDefinitionId is long id && definitions.TryGetValue(id, out var definition))
-        {
-            return new SpecialTransfusionRequirementRule.RequirementRef(
-                definition.Code,
-                definition.EnforcementKind,
-                definition.ProductAttributeCode,
-                row.AntigenCode,
-                row.EffectiveUtc,
-                row.ExpiresUtc,
-                row.IsActive);
-        }
-
-        return SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
-            row.RequirementType, row.AntigenCode, row.EffectiveUtc, row.ExpiresUtc, row.IsActive);
+        var attributesByProduct = await SpecialRequirementLoader.ProductAttributeCodesByProductTypeAsync(
+            _productAttributeAssignments, _productAttributes, ct);
+        var negativeTests = await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(_unitSpecialTests, [unit.Id], ct);
+        var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);
+        return SpecialTransfusionRequirementRule.UnmetUnitRequirements(
+                requirements,
+                attributesByProduct.GetValueOrDefault(unit.ProductTypeId) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                bloodAttrs.UnitAntigens,
+                _clock.UtcNow,
+                SpecialRequirementLoader.Typing(unit, product.ComponentClass, negativeTests))
+            .FirstOrDefault();
     }
 
     public async Task<IReadOnlyList<CrossmatchTestOptionDto>> ListCrossmatchTestsAsync(CancellationToken ct = default)
@@ -743,6 +714,12 @@ public sealed class PatientAllocationService
         {
             return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
                 "Link a current type-and-screen specimen to the product order before allocating this unit.");
+        }
+
+        if (await UnmetSpecialRequirementAsync(patientId, unit, product, ct) is { } unmetRequirement)
+        {
+            return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(
+                new RuleEvaluation([RuleResult.HardStop(SpecialTransfusionRequirementRule.Code, unmetRequirement)]));
         }
 
         var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);

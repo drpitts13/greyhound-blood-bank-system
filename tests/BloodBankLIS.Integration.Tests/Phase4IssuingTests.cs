@@ -97,6 +97,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             mtpActivations: new EfRepository<MtpActivation>(c),
             compatibilityVersions: new EfRepository<CompatibilityRuleVersion>(c),
             compatibilityRules: new EfRepository<CompatibilityRule>(c),
+            unitSpecialTests: new EfRepository<BloodComponentSpecialTest>(c),
             electronicCrossmatch: new ElectronicCrossmatchEligibilityService(
                 new EfRepository<Patient>(c),
                 new EfRepository<PatientBloodTypeHistory>(c),
@@ -2689,6 +2690,135 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
         Assert.True(issued.Evaluation!.IsHardStopped);
         Assert.Contains(issued.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+    }
+
+    /// <summary>Adds a catalog entry for one unit category and puts it on the patient's chart.</summary>
+    private async Task RequireAsync(
+        long patientId,
+        string code,
+        SpecialRequirementCategory category,
+        SpecialRequirementEnforcementKind kind,
+        ComponentClass componentClass,
+        string? attribute = null,
+        string? allowedAbo = null,
+        string? unitTest = null)
+    {
+        await using var c = _factory.Create();
+        var definition = new SpecialRequirementDefinition
+        {
+            Code = code,
+            Name = code,
+            Level = SpecialRequirementLevel.Unit,
+            Category = category,
+            EnforcementKind = kind,
+            ComponentClass = componentClass,
+            ProductAttributeCode = attribute,
+            AllowedAboGroups = allowedAbo,
+            UnitTestCode = unitTest,
+            IsActive = true,
+            Version = 1
+        };
+        c.SpecialRequirementDefinitions.Add(definition);
+        await c.SaveChangesAsync();
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = patientId,
+            RequirementDefinitionId = definition.Id,
+            RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Ordered by the transfusion service physician",
+            EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        });
+        await c.SaveChangesAsync();
+    }
+
+    // TEST-BB-412: a red-cell typing stops a group A red cell but not group A plasma for the same patient.
+    [Fact]
+    public async Task Issue_GroupORedCellsOnly_RefusesAGroupARedCell_ButNotGroupAPlasma()
+    {
+        var rbc = await SeedAsync("GRPO-RBC", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await RecordCompatibleCrossmatchAsync(rbc);
+        await AllocateAsync(rbc);
+        await RequireAsync(rbc.PatientId, "GRPO-T1", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+
+        await using (var c = _factory.Create())
+        {
+            var refused = await Issuing(c).IssueUnitAsync(IssueReq(rbc));
+            Assert.True(refused.Evaluation!.IsHardStopped);
+            var stop = Assert.Single(refused.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+            Assert.Contains("must be group O", stop.Message);
+            Assert.NotEqual(UnitStatus.Issued, (await c.BloodUnits.FindAsync(rbc.UnitId))!.Status);
+        }
+
+        var plasma = await SeedAsync("GRPO-FFP", patientAbo: AboGroup.A, unitAbo: AboGroup.A,
+            requiresCrossmatch: false, componentClass: ComponentClass.Plasma);
+        await AllocateAsync(plasma);
+        await RequireAsync(plasma.PatientId, "GRPO-T2", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(plasma));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+    }
+
+    // TEST-BB-412: on emergency release an unmet modification needs the authorized override, which is recorded.
+    [Fact]
+    public async Task Issue_UnmetModification_OnEmergencyRelease_IssuesUnderTheRecordedOverride()
+    {
+        var s = await SeedAsync("IRRAD-EMERG");
+        await AllocateAsync(s);
+        await RequireAsync(s.PatientId, "IRR-EM", SpecialRequirementCategory.UnitModification,
+            SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.RedBloodCells, attribute: "IRRAD");
+
+        await using (var c = _factory.Create())
+        {
+            var routine = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.Contains(routine.Evaluation!.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+
+            var withoutOverride = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+            Assert.False(withoutOverride.Succeeded);
+            Assert.True(withoutOverride.RequiresOverride);
+            Assert.Contains(withoutOverride.Evaluation!.Results, r =>
+                r.Code == IssueGate.SpecialReqCode && r.Severity == RuleSeverity.Warning);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Exsanguinating, no irradiated units on the shelf", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        }
+
+        await using var verify = _factory.Create();
+        var ovr = await verify.Overrides.Where(o => o.ContextType == nameof(Issue) && o.ContextId == s.UnitId).SingleAsync();
+        Assert.Contains(IssueGate.SpecialReqCode, ovr.RuleCode);
+    }
+
+    // TEST-BB-412: a CMV-negative typing is met by a negative CMV test recorded on the unit.
+    [Fact]
+    public async Task Issue_CmvNegativeTyping_IsMetByANegativeTestRecordedOnTheUnit()
+    {
+        var s = await SeedAsync("CMV-TEST");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await RequireAsync(s.PatientId, "CMV-T", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells,
+            attribute: "CMVNEG", unitTest: "CMV");
+
+        await using (var c = _factory.Create())
+        {
+            var refused = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+            c.BloodComponentSpecialTests.Add(new BloodComponentSpecialTest { BloodProductId = s.UnitId, TestCode = "cmv", Result = "Negative" });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
     }
 
     [Fact]

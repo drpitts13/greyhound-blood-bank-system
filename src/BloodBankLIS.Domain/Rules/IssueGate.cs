@@ -50,8 +50,17 @@ public sealed record IssueGateContext
     /// <summary>Unit antigen phenotype results.</summary>
     public IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> UnitAntigens { get; init; } = [];
 
-    /// <summary>All clinically active special transfusion requirements satisfied (unit attributes, acknowledgments, A2 subgroup).</summary>
+    /// <summary>
+    /// Clinically active special requirements are satisfied: the issue procedures (acknowledgments, A1/A2 subgroup),
+    /// and, for callers that do not give <see cref="UnmetUnitRequirements"/>, the unit facts too.
+    /// </summary>
     public required bool SpecialRequirementsMet { get; init; }
+
+    /// <summary>
+    /// What each unmet unit typing or modification requires (e.g. "Patient requires Irradiated – RBC").
+    /// A hard stop, except on emergency or MTP release, where it needs an authorized override.
+    /// </summary>
+    public IReadOnlyList<string> UnmetUnitRequirements { get; init; } = [];
 
     /// <summary>A current vs historical ABO/Rh discrepancy that has not been resolved.</summary>
     public required bool UnresolvedAboRhDiscrepancy { get; init; }
@@ -163,6 +172,28 @@ public static class IssueGate
         UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Assigned, UnitStatus.Crossmatched, UnitStatus.Selected
     };
 
+    /// <summary>
+    /// Unmet issue procedures always stop the issue. An unmet unit typing or modification stops it too, except on
+    /// emergency or MTP release, where it becomes a warning that needs the authorized emergency override.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> EvaluateSpecialRequirements(IssueGateContext c)
+    {
+        var results = new List<RuleResult>();
+        if (!c.SpecialRequirementsMet)
+        {
+            results.Add(RuleResult.HardStop(SpecialReqCode, "One or more active special transfusion requirements are not satisfied."));
+        }
+
+        foreach (var unmet in c.UnmetUnitRequirements)
+        {
+            results.Add(c.IsEmergencyRelease
+                ? RuleResult.Warning(SpecialReqCode, $"{unmet} Emergency or MTP release requires an authorized override.")
+                : RuleResult.HardStop(SpecialReqCode, unmet));
+        }
+
+        return results.Count == 0 ? [RuleResult.Pass(SpecialReqCode)] : results;
+    }
+
     public static RuleEvaluation Evaluate(IssueGateContext c)
     {
         ArgumentNullException.ThrowIfNull(c);
@@ -217,10 +248,6 @@ public static class IssueGate
                 c.ElectronicCrossmatchEligible && (c.IsElectronicIssue || c.IsRemoteIssue),
                 c.HasIncompatibleCrossmatch),
 
-            c.SpecialRequirementsMet
-                ? RuleResult.Pass(SpecialReqCode)
-                : RuleResult.HardStop(SpecialReqCode, "One or more active special transfusion requirements are not satisfied."),
-
             c.VisualInspectionAcceptable
                 ? RuleResult.Pass(VisualInspectionCode)
                 : RuleResult.HardStop(VisualInspectionCode, "Unit failed visual inspection and cannot be issued."),
@@ -241,6 +268,8 @@ public static class IssueGate
 
             OrderControlRule.EvaluateIssue(c.OrderLinked, c.OrderIsFulfillable)
         };
+
+        results.AddRange(EvaluateSpecialRequirements(c));
 
         // OCD-053: an emergency with no usable specimen replaces the specimen checks with the pre-specimen rule.
         // A specimen that belongs to another patient is a wrong-patient signal and stays a hard stop.

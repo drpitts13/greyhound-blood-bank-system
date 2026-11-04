@@ -1710,6 +1710,9 @@ public sealed class SpecialRequirementDefinitionConfiguration : IEntityTypeConfi
         b.Property(x => x.Name).HasMaxLength(100).IsRequired();
         b.Property(x => x.ProductAttributeCode).HasMaxLength(20);
         b.Property(x => x.Instruction).HasMaxLength(500);
+        b.Property(x => x.AllowedAboGroups).HasMaxLength(20);
+        b.Property(x => x.AntigenCode).HasMaxLength(20);
+        b.Property(x => x.UnitTestCode).HasMaxLength(20);
         b.Property(x => x.ChangeReason).HasMaxLength(500);
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);

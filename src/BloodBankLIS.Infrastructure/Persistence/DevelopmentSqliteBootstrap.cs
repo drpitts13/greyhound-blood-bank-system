@@ -198,6 +198,11 @@ public static class DevelopmentSqliteBootstrap
         ("SpecimenTypeDefinitions", "ExpirationMode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationMode" INTEGER NOT NULL DEFAULT 0"""),
         ("SpecialTransfusionRequirements", "RequirementDefinitionId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "RequirementDefinitionId" INTEGER NULL"""),
         ("SpecialTransfusionRequirements", "ReactionInvestigationId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "ReactionInvestigationId" INTEGER NULL"""),
+        ("SpecialRequirementDefinitions", "Category", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "Category" INTEGER NOT NULL DEFAULT -1"""),
+        ("SpecialRequirementDefinitions", "ComponentClass", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "ComponentClass" INTEGER NULL"""),
+        ("SpecialRequirementDefinitions", "AllowedAboGroups", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "AllowedAboGroups" TEXT NULL"""),
+        ("SpecialRequirementDefinitions", "AntigenCode", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "AntigenCode" TEXT NULL"""),
+        ("SpecialRequirementDefinitions", "UnitTestCode", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "UnitTestCode" TEXT NULL"""),
         ("PatientBloodTypeHistory", "AboSubgroup", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "AboSubgroup" INTEGER NOT NULL DEFAULT 0"""),
         ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL"""),
         ("InstrumentInterfaces", "InterpretationMatch", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationMatch" INTEGER NOT NULL DEFAULT 0"""),
@@ -663,6 +668,7 @@ public static class DevelopmentSqliteBootstrap
 
         await BackfillUnitAttributeTypingSourceAsync(context, ct);
         await BackfillModificationCodesAsync(context, ct);
+        await BackfillSpecialRequirementCategoriesAsync(context, ct);
         await ReplaceModificationRuleCodeIndexAsync(context, logger, ct);
         await BackfillInventoryLocationPolicyAsync(context, ct);
         await ApplyAdditiveIndexesAsync(context, logger, ct);
@@ -764,6 +770,18 @@ public static class DevelopmentSqliteBootstrap
             WHERE SourceResultId IS NOT NULL AND TypingSource <> 2
             """,
             ct);
+    }
+
+    /// <summary>Same mapping as migration 20261112000000 for definitions made before categories.</summary>
+    private static async Task BackfillSpecialRequirementCategoriesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "SpecialRequirementDefinitions", ct)
+            || !await ColumnExistsAsync(context, "SpecialRequirementDefinitions", "Category", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(SpecialRequirementCategoryBackfill.Sql("Category = -1"), ct);
     }
 
     private static async Task BackfillModificationCodesAsync(BloodBankDbContext context, CancellationToken ct)

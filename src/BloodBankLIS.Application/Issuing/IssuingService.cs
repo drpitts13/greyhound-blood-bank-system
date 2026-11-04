@@ -62,6 +62,7 @@ public sealed class IssuingService
     private readonly IRepository<MtpActivation>? _mtpActivations;
     private readonly IRepository<CompatibilityRuleVersion>? _compatibilityVersions;
     private readonly IRepository<CompatibilityRule>? _compatibilityRules;
+    private readonly IRepository<BloodComponentSpecialTest>? _unitSpecialTests;
     private readonly IRepository<AutoThawRequest>? _autoThawRequests;
     private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
@@ -109,7 +110,8 @@ public sealed class IssuingService
         IRepository<ProductRhCompatibility>? rhCompatibilities = null,
         IRepository<MtpActivation>? mtpActivations = null,
         IRepository<CompatibilityRuleVersion>? compatibilityVersions = null,
-        IRepository<CompatibilityRule>? compatibilityRules = null)
+        IRepository<CompatibilityRule>? compatibilityRules = null,
+        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -153,6 +155,7 @@ public sealed class IssuingService
         _mtpActivations = mtpActivations;
         _compatibilityVersions = compatibilityVersions;
         _compatibilityRules = compatibilityRules;
+        _unitSpecialTests = unitSpecialTests;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -313,8 +316,8 @@ public sealed class IssuingService
                 ? null
                 : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier2Type, request.PatientIdentifier2Value));
 
-        var specialMet = await SpecialRequirementsSatisfiedAsync(
-            request.PatientId, unit, bloodAttrs.UnitAntigens, gateTime, request.AcknowledgedSpecialRequirementCodes, bloodType, ct);
+        var (specialMet, unmetUnitRequirements) = await SpecialRequirementsSatisfiedAsync(
+            request.PatientId, unit, productType, bloodAttrs.UnitAntigens, gateTime, request.AcknowledgedSpecialRequirementCodes, bloodType, ct);
         var productMatches = await ProductMatchesOrderAsync(allocation, request.OrderId, unit.ProductTypeId, ct);
         var linkedOrderId = request.OrderId ?? allocation?.OrderId;
         var linkedOrder = linkedOrderId is long oid ? await _orders.GetByIdAsync(oid, ct) : null;
@@ -366,6 +369,7 @@ public sealed class IssuingService
             UnitSignificantAntibodies = bloodAttrs.UnitSignificantAntibodies,
             UnitAntigens = bloodAttrs.UnitAntigens,
             SpecialRequirementsMet = specialMet,
+            UnmetUnitRequirements = unmetUnitRequirements,
             UnresolvedAboRhDiscrepancy = unresolvedDelta,
             VisualInspectionAcceptable = request.VisualInspectionAcceptable
                 && IssueAppearanceRule.IsAcceptable(issueAppearance.Appearance),
@@ -886,8 +890,12 @@ public sealed class IssuingService
             .Select(t => t.PatientId)
             .ToHashSet();
         var electronicCrossmatchNotices = await ElectronicCrossmatchNoticesAsync(patientIds, ct);
-        var requirementsByPatient = await ReadyToIssueRequirementsByPatientAsync(patientIds, ct);
-        var attributesByProduct = await ProductAttributeCodesByProductTypeAsync(ct);
+        var requirementsByPatient = await SpecialRequirementLoader.ByPatientAsync(
+            _specialRequirements, _requirementDefinitions, patientIds, ct);
+        var attributesByProduct = await SpecialRequirementLoader.ProductAttributeCodesByProductTypeAsync(
+            _productAttributeAssignments, _productAttributes, ct);
+        var negativeTestsByUnit = await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(
+            _unitSpecialTests, reserved.Select(a => a.BloodProductId).Distinct().ToList(), ct);
 
         var items = new List<ReadyToIssueWorkItemDto>();
         var storageLocationNames = new Dictionary<long, string?>();
@@ -962,7 +970,10 @@ public sealed class IssuingService
                     attributesByProduct.GetValueOrDefault(unit.ProductTypeId)
                         ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                     bloodAttrs.UnitAntigens,
-                    now);
+                    now,
+                    unit.ProductType is { } typedProduct
+                        ? SpecialRequirementLoader.Typing(unit, typedProduct.ComponentClass, negativeTestsByUnit)
+                        : null);
                 if (unit.ProductType is { } issuedProduct)
                 {
                     antigenNotice = BloodAttributeCompatibilityRule.ReadyToIssueNotice(
@@ -1863,21 +1874,24 @@ public sealed class IssuingService
         return (false, null);
     }
 
-    private async Task<bool> SpecialRequirementsSatisfiedAsync(
+    /// <summary>
+    /// Whether the issue procedures are met, and what each unmet unit typing or modification requires for this unit.
+    /// </summary>
+    private async Task<(bool ProceduresMet, IReadOnlyList<string> UnmetUnitRequirements)> SpecialRequirementsSatisfiedAsync(
         long patientId,
         BloodUnit unit,
+        ProductType? productType,
         IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
         DateTime nowUtc,
         IReadOnlyList<string>? acknowledgedCodes,
         PatientBloodTypeHistory? bloodType,
         CancellationToken ct)
     {
-        var rows = await _specialRequirements.ListAsync(r => r.PatientId == patientId && r.IsActive, ct);
-        var definitions = _requirementDefinitions is null
-            ? []
-            : await _requirementDefinitions.ListAsync(ct);
-        var byId = definitions.ToDictionary(d => d.Id);
-        var refs = rows.Select(r => ToRequirementRef(r, byId)).ToList();
+        var refs = await SpecialRequirementLoader.ForPatientAsync(_specialRequirements, _requirementDefinitions, patientId, ct);
+        if (refs.Count == 0)
+        {
+            return (true, []);
+        }
 
         var assignments = await _productAttributeAssignments.ListAsync(
             a => a.ProductTypeId == unit.ProductTypeId && a.IsActive, ct);
@@ -1888,77 +1902,18 @@ public sealed class IssuingService
             .Where(c => !string.IsNullOrWhiteSpace(c))
             .Select(c => c.Trim())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var negativeTests = await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(_unitSpecialTests, [unit.Id], ct);
+        var typing = SpecialRequirementLoader.Typing(
+            unit, productType?.ComponentClass ?? ComponentClass.Other, negativeTests);
 
-        var results = SpecialTransfusionRequirementRule.Evaluate(
+        var proceduresMet = SpecialTransfusionRequirementRule.ProceduresMet(
             refs,
-            codes,
-            unitAntigens,
             nowUtc,
             acks,
             bloodType?.Abo ?? AboGroup.Unknown,
             bloodType?.AboSubgroup ?? AboSubgroup.Unknown);
-        return SpecialTransfusionRequirementRule.AllMet(results);
-    }
-
-    private async Task<Dictionary<long, IReadOnlyList<SpecialTransfusionRequirementRule.RequirementRef>>> ReadyToIssueRequirementsByPatientAsync(
-        IReadOnlyList<long> patientIds, CancellationToken ct)
-    {
-        var rows = await _specialRequirements.ListAsync(
-            r => patientIds.Contains(r.PatientId) && r.IsActive, ct);
-        var definitions = _requirementDefinitions is null
-            ? new Dictionary<long, SpecialRequirementDefinition>()
-            : (await _requirementDefinitions.ListAsync(ct)).ToDictionary(d => d.Id);
-        return rows
-            .GroupBy(r => r.PatientId)
-            .ToDictionary(
-                g => g.Key,
-                g => (IReadOnlyList<SpecialTransfusionRequirementRule.RequirementRef>)g
-                    .Select(r => ToRequirementRef(r, definitions))
-                    .ToList());
-    }
-
-    private async Task<Dictionary<long, HashSet<string>>> ProductAttributeCodesByProductTypeAsync(CancellationToken ct)
-    {
-        var assignments = await _productAttributeAssignments.ListAsync(a => a.IsActive, ct);
-        var attributes = (await _productAttributes.ListAsync(a => a.IsActive, ct)).ToDictionary(a => a.Id);
-        var byProduct = new Dictionary<long, HashSet<string>>();
-        foreach (var assignment in assignments)
-        {
-            if (!attributes.TryGetValue(assignment.ProductAttributeId, out var attribute))
-            {
-                continue;
-            }
-
-            if (!byProduct.TryGetValue(assignment.ProductTypeId, out var codes))
-            {
-                codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                byProduct[assignment.ProductTypeId] = codes;
-            }
-
-            codes.Add(attribute.Code);
-        }
-
-        return byProduct;
-    }
-
-    private static SpecialTransfusionRequirementRule.RequirementRef ToRequirementRef(
-        SpecialTransfusionRequirement row,
-        IReadOnlyDictionary<long, SpecialRequirementDefinition> definitions)
-    {
-        if (row.RequirementDefinitionId is long id && definitions.TryGetValue(id, out var definition))
-        {
-            return new SpecialTransfusionRequirementRule.RequirementRef(
-                definition.Code,
-                definition.EnforcementKind,
-                definition.ProductAttributeCode,
-                row.AntigenCode,
-                row.EffectiveUtc,
-                row.ExpiresUtc,
-                row.IsActive);
-        }
-
-        return SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
-            row.RequirementType, row.AntigenCode, row.EffectiveUtc, row.ExpiresUtc, row.IsActive);
+        var unmet = SpecialTransfusionRequirementRule.UnmetUnitRequirements(refs, codes, unitAntigens, nowUtc, typing);
+        return (proceduresMet, unmet);
     }
 
     private static string? JoinAcknowledgedCodes(IReadOnlyList<string>? codes)

@@ -89,6 +89,7 @@ else
             @bind-SrDeactivateReason="_srDeactivateReason"
             @bind-SrDefinitionId="_srDefinitionId"
             @bind-SrAntigen="_srAntigen"
+            @bind-SrStartDate="_srStartDate"
             @bind-SrEndDate="_srEndDate"
             @bind-SrReason="_srReason"
             RecentPregnancyUtc="_patient?.RecentPregnancyUtc"
@@ -546,6 +547,7 @@ else
     private List<SpecialRequirementDefinitionDto> _srCatalog = new();
     private Feedback? _srFb;
     private long _srDefinitionId;
+    private DateTime? _srStartDate = DateTime.Today;
     private DateTime? _srEndDate;
     private string? _srAntigen;
     private string _srReason = string.Empty;
@@ -2313,19 +2315,18 @@ else
         var type = selected is null
             ? SpecialTransfusionRequirementType.Other
             : SpecialRequirementCatalog.TypeFor(selected.Code) ?? SpecialTransfusionRequirementType.Other;
-        DateTime? expires = _srEndDate is { } end
-            ? DateTime.SpecifyKind(end.Date, DateTimeKind.Utc)
-            : null;
+        // Facility dates: the server takes them as facility midnight, so the requirement stops applying on the end date.
         var r = await Api.AddSpecialRequirementAsync(Id, new AddSpecialRequirementRequest(
             type,
             _srReason,
             string.IsNullOrWhiteSpace(_srAntigen) ? null : _srAntigen,
-            ExpiresUtc: expires,
             RequirementDefinitionId: _srDefinitionId == 0 ? null : _srDefinitionId,
-            ReactionInvestigationId: _srReactionId));
+            ReactionInvestigationId: _srReactionId,
+            StartDate: DateOnly.FromDateTime(_srStartDate ?? DateTime.Today),
+            EndDate: _srEndDate is { } end ? DateOnly.FromDateTime(end) : null));
         _busy = false;
         _srFb = r.ToFeedback("Special requirement added.");
-        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; _srEndDate = null; _srReactionId = null; await LoadAsync(); }
+        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; _srStartDate = DateTime.Today; _srEndDate = null; _srReactionId = null; await LoadAsync(); }
     }
 
     private void BeginDeactivateSr(SpecialRequirementDto r)

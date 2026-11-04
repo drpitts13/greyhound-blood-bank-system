@@ -1309,6 +1309,88 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, (await c.BloodUnits.FindAsync(missing.Id))!.Status);
     }
 
+    // TEST-BB-412: "Group O red cells only" leaves out group A red cells but still offers group A plasma;
+    // after its end date it no longer applies.
+    [Fact]
+    public async Task ListCompatibleUnits_GroupORedCellsOnly_AppliesToRedCellsOnly_UntilItsEndDate()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-GO-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "GroupO",
+            DateOfBirth = new DateOnly(1990, 3, 3)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        var plasma = new ProductType
+        {
+            ProductCode = $"FFP-{Guid.NewGuid():N}"[..12],
+            Name = "FFP",
+            ComponentClass = ComponentClass.Plasma,
+            RequiresCrossmatch = false
+        };
+        c.ProductTypes.AddRange(rbc, plasma);
+        var definition = new SpecialRequirementDefinition
+        {
+            Code = $"GO{Guid.NewGuid():N}"[..10],
+            Name = "Group O red cells only",
+            Level = SpecialRequirementLevel.Unit,
+            Category = SpecialRequirementCategory.UnitTyping,
+            EnforcementKind = SpecialRequirementEnforcementKind.RequireUnitAbo,
+            ComponentClass = ComponentClass.RedBloodCells,
+            AllowedAboGroups = "O",
+            IsActive = true,
+            Version = 1
+        };
+        c.SpecialRequirementDefinitions.Add(definition);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        var groupARbc = Unit(rbc.Id, "U-GOA-", AboGroup.A, days: 5);
+        var groupORbc = Unit(rbc.Id, "U-GOO-", AboGroup.O, days: 6);
+        var groupAPlasma = Unit(plasma.Id, "U-GOP-", AboGroup.A, days: 7);
+        c.BloodUnits.AddRange(groupARbc, groupORbc, groupAPlasma);
+        var requirement = new SpecialTransfusionRequirement
+        {
+            PatientId = patient.Id,
+            RequirementDefinitionId = definition.Id,
+            RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Ordered by the transfusion service physician",
+            EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        };
+        c.SpecialTransfusionRequirements.Add(requirement);
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c, includeSpecialRequirements: true).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Select(u => u.UnitNumber).ToArray();
+        Assert.Contains(groupORbc.UnitNumber, listed);
+        Assert.Contains(groupAPlasma.UnitNumber, listed);
+        Assert.DoesNotContain(groupARbc.UnitNumber, listed);
+
+        // Ended today: on and after the end date it no longer applies.
+        requirement.ExpiresUtc = _factory.Clock.UtcNow;
+        await c.SaveChangesAsync();
+        var ended = await Allocations(c, includeSpecialRequirements: true).ListCompatibleUnitsAsync(patient.Id);
+        Assert.Contains(groupARbc.UnitNumber, ended.Value!.Select(u => u.UnitNumber));
+    }
+
     [Fact]
     public async Task ListCompatibleUnits_KeepsUnitForAcknowledgmentOnlyRequirement()
     {

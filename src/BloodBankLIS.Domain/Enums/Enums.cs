@@ -39,7 +39,24 @@ public enum SpecialRequirementEnforcementKind
     RequireAntigenNegative = 1,
     RequireIssueAcknowledgment = 2,
     RequireComplexCrossmatch = 3,
-    RequireAboSubgroup = 4
+    RequireAboSubgroup = 4,
+    /// <summary>The unit's ABO group must be one of the definition's allowed groups.</summary>
+    RequireUnitAbo = 5,
+    /// <summary>The unit must be RhD negative.</summary>
+    RequireRhNegative = 6,
+    /// <summary>The product code carries the attribute, or the unit has a negative test result recorded (CMV, HbS).</summary>
+    RequireUnitTestNegative = 7,
+    /// <summary>Shown as a banner; never enforced.</summary>
+    Informational = 8
+}
+
+/// <summary>Which admin table a special requirement belongs to.</summary>
+public enum SpecialRequirementCategory
+{
+    UnitTyping = 0,
+    UnitModification = 1,
+    Informational = 2,
+    IssueProcedure = 3
 }
 
 public enum RhType

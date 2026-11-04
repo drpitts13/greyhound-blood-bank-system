@@ -1007,7 +1007,47 @@ public static class RuleDefinitionValidator
 
 public static class SpecialRequirementDefinitionValidator
 {
-    public static RuleEvaluation Validate(SpecialRequirementDefinition d, bool duplicateActiveCode, bool knownProductAttribute)
+    /// <summary>The enforcement kinds each admin table offers.</summary>
+    public static IReadOnlyList<SpecialRequirementEnforcementKind> KindsFor(SpecialRequirementCategory category) => category switch
+    {
+        SpecialRequirementCategory.UnitTyping =>
+        [
+            SpecialRequirementEnforcementKind.RequireUnitAbo,
+            SpecialRequirementEnforcementKind.RequireRhNegative,
+            SpecialRequirementEnforcementKind.RequireAntigenNegative,
+            SpecialRequirementEnforcementKind.RequireUnitTestNegative
+        ],
+        SpecialRequirementCategory.UnitModification => [SpecialRequirementEnforcementKind.RequireProductAttribute],
+        SpecialRequirementCategory.Informational => [SpecialRequirementEnforcementKind.Informational],
+        _ =>
+        [
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment,
+            SpecialRequirementEnforcementKind.RequireComplexCrossmatch,
+            SpecialRequirementEnforcementKind.RequireAboSubgroup
+        ]
+    };
+
+    /// <summary>The table an entry belongs in when only its enforcement kind is known.</summary>
+    public static SpecialRequirementCategory CategoryFor(SpecialRequirementEnforcementKind kind) => kind switch
+    {
+        SpecialRequirementEnforcementKind.RequireProductAttribute => SpecialRequirementCategory.UnitModification,
+        SpecialRequirementEnforcementKind.RequireAntigenNegative
+            or SpecialRequirementEnforcementKind.RequireUnitAbo
+            or SpecialRequirementEnforcementKind.RequireRhNegative
+            or SpecialRequirementEnforcementKind.RequireUnitTestNegative => SpecialRequirementCategory.UnitTyping,
+        SpecialRequirementEnforcementKind.Informational => SpecialRequirementCategory.Informational,
+        _ => SpecialRequirementCategory.IssueProcedure
+    };
+
+    /// <param name="requireComponentClass">
+    /// New unit typings and modifications name the unit category they apply to. Entries made before categories keep
+    /// "All categories" when edited.
+    /// </param>
+    public static RuleEvaluation Validate(
+        SpecialRequirementDefinition d,
+        bool duplicateActiveCode,
+        bool knownProductAttribute,
+        bool requireComponentClass = false)
     {
         var results = new List<RuleResult>();
 
@@ -1025,6 +1065,51 @@ public static class SpecialRequirementDefinitionValidator
         {
             results.Add(RuleResult.HardStop("SRDEF.CODE.DUPLICATE",
                 $"Another active special requirement already uses code '{d.Code}'."));
+        }
+
+        if (!KindsFor(d.Category).Contains(d.EnforcementKind))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.KIND.CATEGORY",
+                $"{SpecialRequirementLabel.Category(d.Category)} cannot use the enforcement '{SpecialRequirementLabel.Kind(d.EnforcementKind)}'."));
+        }
+
+        var unitFact = d.Category is SpecialRequirementCategory.UnitTyping or SpecialRequirementCategory.UnitModification;
+        if (unitFact && requireComponentClass && d.ComponentClass is null)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.CLASS.REQUIRED",
+                "Choose the unit category this requirement applies to (for example RBC or platelets)."));
+        }
+
+        if (!unitFact && d.ComponentClass is not null)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.CLASS.NOT.APPLICABLE",
+                "Only unit typings and modifications apply to a unit category."));
+        }
+
+        if (d.Category == SpecialRequirementCategory.Informational && string.IsNullOrWhiteSpace(d.Instruction))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.BANNER.REQUIRED", "Give the banner text shown on the patient chart."));
+        }
+
+        if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitAbo
+            && SpecialTransfusionRequirementRule.ParseAboGroups(d.AllowedAboGroups).Count == 0)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.ABO.REQUIRED", "Choose at least one allowed unit ABO group."));
+        }
+
+        if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitTestNegative
+            && string.IsNullOrWhiteSpace(d.UnitTestCode))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.TEST.REQUIRED",
+                "Give the unit test code whose negative result meets this requirement (for example CMV or HBS)."));
+        }
+
+        if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitTestNegative
+            && !string.IsNullOrWhiteSpace(d.ProductAttributeCode)
+            && !knownProductAttribute)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.ATTR.UNKNOWN",
+                $"Product attribute '{d.ProductAttributeCode}' is not in the active product-attribute catalog."));
         }
 
         if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireProductAttribute)

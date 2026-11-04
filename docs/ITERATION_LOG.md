@@ -12052,3 +12052,100 @@ Their endpoints already enforce the admin permissions.
 ### Next ranked residual
 
 The remaining no-reason catalogs are billing (charge codes and rules, billing maps), coded-reason lists, and printers. They are low clinical risk and are recorded with who and when. Next: rescan the capability matrix for the highest operational gap rather than finish those lists.
+
+## Iteration 373 — Special requirements by unit category (2026-11-04)
+
+### Request (product owner, 2026-11-04)
+
+Special requirements on the patient chart that enforce product constraints, for example only group O red cells, or only irradiated and CMV-negative red cells:
+
+- They are set up in admin tables: unit typings, unit modifications, informational.
+- Typings and modifications are specific to a unit category.
+- Informational ones show as a banner.
+- They are enforced unless informational.
+- Each has a start and end date, and stops applying on and after the end date.
+
+Decisions in the same session:
+
+- An unmet typing or modification is a hard stop, overridable only on emergency or MTP release through the existing emergency override.
+- Warmer, extended crossmatch, A2 typing, and Other stay as a fourth table, Issue procedures.
+- CMV- and HbS-negative are met by the product code or a negative test on the unit.
+- Each entry has one unit category; existing entries become All categories.
+
+### Capability matrix rescan
+
+Compatibility and special requirements: the row changes this cycle. No other change since Cycle 372.
+
+### Finding
+
+The catalog had no unit category, so an irradiation requirement applied to every component. It had no way to require:
+
+- a unit ABO group
+- RhD-negative units
+- HbS-negative units
+
+A negative CMV test recorded on a unit (`BloodComponentSpecialTest`) was never read. Issue gave one generic message and had no emergency path. The chart end date was UTC midnight. The banner was one line, with informational notes mixed into the enforced ones.
+
+### Design
+
+- **Catalog:** `SpecialRequirementDefinition` gains:
+  - Category (the four tables)
+  - ComponentClass (null = All categories)
+  - AllowedAboGroups, AntigenCode (fixed antigen), UnitTestCode
+  - new kinds: RequireUnitAbo, RequireRhNegative, RequireUnitTestNegative, Informational
+- **Admin:** four tables on Admin › Special requirements, each with only its own fields. The validator checks the table against the kind and asks for what each kind needs. New typings and modifications must name a unit category.
+- **One rule for every caller:** `SpecialTransfusionRequirementRule` takes the unit's typing (category, ABO/Rh, negative tests). A typing or modification applies only to its unit category, and informational entries never block. `SpecialRequirementLoader` replaces the two copies of the requirement and attribute loaders in issue and allocation, and adds the unit's negative tests.
+- **Selection and allocation:** selection leaves out units that fail; reserving one is refused.
+- **Issue:** `IssueGate.EvaluateSpecialRequirements` names each unmet typing or modification. That is a hard stop, or on emergency or MTP release a warning that goes through the existing override (authorizer, reason, override record). Issue procedures stay a hard stop.
+- **Chart:**
+  - the list is grouped by table, with "Name – unit category"
+  - start date (default today) and end date are sent as facility dates and stored as facility midnight via `IFacilityTimeZone`
+  - the end must follow the start
+  - the table shows type and unit category
+- **Banners:** informational requirements show as their own blue banner on the chart header and the issue form. Enforced ones keep the warning line, with the unit category.
+- **Schema:** migration `20261112000000_SpecialRequirementCategories` and the bootstrap place earlier rows with one shared backfill:
+  - product attribute → modification
+  - antigen negative → typing
+  - CMVNEG → typing met by the product attribute or a negative CMV test
+  - the rest → procedures
+  - unit category is left empty, so current patients keep the same protection
+- **Seeding:** adds editable examples, one unit category each: Group O red cells only, CMV-negative red cells, HbS-negative red cells, Irradiated red cells, Irradiated platelets, and an informational "Call the transfusion service physician".
+
+### Requirements
+
+- URS-BB-493, FRS-BB-549, FRS-BB-550, SRS-BB-454, RISK-BB-589.
+- Help: special requirements (admin), patient chart, issuing.
+
+### Tests
+
+- TEST-BB-412. Domain:
+  - unit-category scoping, and All categories applies to every unit
+  - allowed ABO groups and RhD negative
+  - CMV/HbS met by the product code or a unit test, and not otherwise
+  - informational never blocks
+  - start inclusive, end exclusive
+  - the emergency warning versus the procedure stop
+  - validator per table
+  - choice labels
+- TEST-BB-412. Integration:
+  - a group A red cell is refused for a group-O-only patient while group A plasma issues
+  - an unmet modification issues on emergency release only with the override, which is recorded
+  - a negative CMV test on the unit meets a CMV typing
+  - selection omits the group A red cell, keeps group A plasma, and offers it again after the end date
+  - admin create per table with the refusals
+  - the backfill keeps All categories
+  - chart dates are facility midnight, and an end on the start date is refused
+- Full suite: 3,677 passed, 0 failed.
+- Run check (development API and web):
+  - the bootstrap placed the earlier catalog rows (CMVNEG now a typing with test CMV) and seeding added the examples
+  - Admin › Special requirements shows four tables, and the typing form shows unit category, kind, and ABO check boxes
+  - on demo patient 1, "Irradiated platelets" removed the platelets from the compatible-unit list and kept the plasma
+  - the informational entry showed as a blue banner above the enforced warning line
+  - an end date before the start was refused
+  - the start was stored at facility midnight
+  - both run-check requirements were then ended, and the platelets were offered again
+  - no server errors
+
+### Next ranked residual
+
+Unit tests (CMV, HbS) can only arrive with the unit today; there is no screen to record one. Next: a Unit tests entry on the unit page (test code, result, audited), so a unit tested after receipt can meet a typing.

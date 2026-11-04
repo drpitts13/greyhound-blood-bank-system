@@ -804,6 +804,12 @@
                 </ul>
             </div>
         }
+        @foreach (var info in _issueInfoRequirements)
+        {
+            <div class="alert alert-info" style="margin-top:.75rem;" data-special-requirement-banner>
+                <strong>@(info.Name ?? info.Code):</strong> @(info.Instruction ?? info.Reason)
+            </div>
+        }
         @if (_issueAckRequirements.Count > 0)
         {
             <div class="alert alert-warning" style="margin-top:.75rem;">
@@ -1137,6 +1143,8 @@
 
     private IssueModel _issue = new();
     private List<SpecialRequirementDto> _issueAckRequirements = new();
+    // Informational requirements for the patient being issued to: shown, never enforced.
+    private List<SpecialRequirementDto> _issueInfoRequirements = new();
     private HashSet<string> _issueAcks = new(StringComparer.OrdinalIgnoreCase);
     private Feedback? _issueFb;
     private Feedback? _ptagFb;
@@ -1748,6 +1756,7 @@
     private async Task LoadIssueRequirementsAsync()
     {
         _issueAckRequirements = [];
+        _issueInfoRequirements = [];
         _issueAcks.Clear();
         if (_issue.PatientId <= 0)
         {
@@ -1758,6 +1767,7 @@
         _issueAckRequirements = rows
             .Where(r => r.IsClinicallyActive && r.EnforcementKind == SpecialRequirementEnforcementKind.RequireIssueAcknowledgment)
             .ToList();
+        _issueInfoRequirements = rows.Where(r => r.IsClinicallyActive && r.IsInformational).ToList();
     }
 
     private void ToggleIssueAck(string? code, bool on)
