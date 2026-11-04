@@ -43,6 +43,7 @@ public sealed class CompatibilityService
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
     private readonly AlertService? _alerts;
+    private readonly IRepository<Deviation>? _deviations;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
@@ -70,7 +71,8 @@ public sealed class CompatibilityService
         IRepository<Override>? overrides = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
         IRepository<ProductRhCompatibility>? rhCompatibilities = null,
-        AlertService? alerts = null)
+        AlertService? alerts = null,
+        IRepository<Deviation>? deviations = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -85,6 +87,7 @@ public sealed class CompatibilityService
         _clock = clock;
         _currentUser = currentUser;
         _issues = issues;
+        _deviations = deviations;
         _audit = audit;
         _policy = policy;
         _permissions = permissions;
@@ -369,15 +372,63 @@ public sealed class CompatibilityService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        if (notice is not null && _alerts is not null)
+        if (notice is not null)
         {
             var patient = await _patients.GetByIdAsync(open.PatientId, ct);
             var name = patient is null ? null : string.Join(", ", new[] { patient.LastName, patient.FirstName }.Where(n => !string.IsNullOrWhiteSpace(n)));
-            await _alerts.RaiseAsync(RetrospectiveCrossmatchIncompatibleRule.Alert(
-                open.Id, patient?.MedicalRecordNumber, name, unit.UnitNumber, unit.Status), ct);
+            var deviationId = await OpenRetrospectiveIncompatibleDeviationAsync(open, xm, unit, patient?.MedicalRecordNumber, name, ct);
+            notice = RetrospectiveCrossmatchIncompatibleRule.Warning(unit.UnitNumber, unit.Status, deviationId);
+            if (_alerts is not null)
+            {
+                await _alerts.RaiseAsync(RetrospectiveCrossmatchIncompatibleRule.Alert(
+                    open.Id, patient?.MedicalRecordNumber, name, unit.UnitNumber, unit.Status, deviationId), ct);
+            }
         }
 
         return notice;
+    }
+
+    /// <summary>
+    /// OCD-046: an incompatible retrospective crossmatch requires a deviation. One is opened per issue; a repeat
+    /// incompatible crossmatch on the same issue reuses it.
+    /// </summary>
+    private async Task<long?> OpenRetrospectiveIncompatibleDeviationAsync(
+        Issue issue, Crossmatch xm, BloodUnit unit, string? mrn, string? patientName, CancellationToken ct)
+    {
+        if (_deviations is null)
+        {
+            return null;
+        }
+
+        var existing = await _deviations.FirstOrDefaultAsync(
+            d => d.ContextType == RetrospectiveCrossmatchIncompatibleRule.DeviationContextType && d.ContextId == issue.Id, ct);
+        if (existing is not null)
+        {
+            return existing.Id;
+        }
+
+        var deviation = new Deviation
+        {
+            Title = RetrospectiveCrossmatchIncompatibleRule.DeviationTitle(unit.UnitNumber),
+            Description = RetrospectiveCrossmatchIncompatibleRule.DeviationDescription(
+                issue.Id, mrn, patientName, unit.UnitNumber, unit.Status, xm.Id),
+            Severity = RetrospectiveCrossmatchIncompatibleRule.DeviationSeverityLevel,
+            Status = DeviationStatus.Open,
+            ContextType = RetrospectiveCrossmatchIncompatibleRule.DeviationContextType,
+            ContextId = issue.Id,
+            ReportedBy = _currentUser.UserName,
+            ReportedUtc = _clock.UtcNow
+        };
+        await _deviations.AddAsync(deviation, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit?.Record(
+            AuditEventType.Deviation,
+            nameof(Deviation),
+            deviation.Id,
+            newValue: new { deviation.Title, deviation.Severity, deviation.ContextType, deviation.ContextId, CrossmatchId = xm.Id },
+            reason: "Incompatible retrospective crossmatch after emergency release (OCD-046).");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return deviation.Id;
     }
 
     public async Task<EvaluationResult<RuleEvaluation>> EvaluateCompatibilityAsync(

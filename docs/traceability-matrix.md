@@ -528,6 +528,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-483 / FRS-BB-524 | Access changes need a reason and keep the before state | `AccessChangeReasonRule`; `UserAdminService` | TEST-BB-385 | I | |
 | URS-BB-484 / FRS-BB-525 | Pre-specimen emergency release with controls (OCD-053) | `EmergencyPreSpecimenRule`; `IssueGate`; `Issuing.razor` | TEST-BB-386 | D / I | |
 | URS-BB-484 / FRS-BB-526 | Ready to issue board offers pre-specimen emergency release | `IssuingService`; `Issuing.razor` | TEST-BB-387 | I | |
+| URS-BB-444 / FRS-BB-527 | Incompatible retrospective crossmatch opens a deviation | `RetrospectiveCrossmatchIncompatibleRule`; `CompatibilityService` | TEST-BB-390 | D / I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

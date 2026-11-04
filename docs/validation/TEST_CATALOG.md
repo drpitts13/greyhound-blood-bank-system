@@ -398,5 +398,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-387 | I | `Phase4IssuingTests.ReadyToIssue_ExpiredSpecimen_OffersEmergencyOnlyForGroupORedCells` | URS-BB-484 / FRS-BB-526 / RISK-BB-582 |
 | TEST-BB-388 | D | `AlertHelpCoverageTests.EverySource_HasAHelpName_AndIsDescribedOnTheAlertsPage`, `ThePageCount_MatchesTheSources` | Alerts help / `AlertRule.HelpName` |
 | TEST-BB-389 | I | `ExceptionDefinitionCoverageTests.TheScan_FindsTheKnownOverridePaths`, `EveryCheckedCode_HasAnActiveOverridableSeededDefinition` | Exception catalog / `ExceptionOverridePolicy` |
+| TEST-BB-390 | D / I | `RetrospectiveCrossmatchIncompatibleRuleTests.Deviation_IsCritical_AndItsNumberIsNamedInTheWarningAndAlert`; `Phase4IssuingTests.EmergencyRelease_IncompatibleXm_RaisesCriticalAlert_AndLeadsTheBoard`, `EmergencyRelease_CompatibleXm_RaisesNoAlert` | URS-BB-444 / FRS-BB-527 / RISK-BB-546 / OCD-046 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

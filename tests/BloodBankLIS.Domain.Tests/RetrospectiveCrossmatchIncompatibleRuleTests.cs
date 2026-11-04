@@ -32,6 +32,20 @@ public class RetrospectiveCrossmatchIncompatibleRuleTests
         Assert.Contains("Doe, Jane (MRN MRN9)", a.Message);
     }
 
+    // TEST-BB-390 (OCD-046)
+    [Fact]
+    public void Deviation_IsCritical_AndItsNumberIsNamedInTheWarningAndAlert()
+    {
+        Assert.Equal(DeviationSeverity.Critical, RetrospectiveCrossmatchIncompatibleRule.DeviationSeverityLevel);
+        var description = RetrospectiveCrossmatchIncompatibleRule.DeviationDescription(42, "MRN9", "Doe, Jane", "W1", UnitStatus.Transfused, 7);
+        Assert.Contains("Issue 42", description);
+        Assert.Contains("crossmatch 7", description);
+        Assert.Contains("has been transfused", description);
+        Assert.Contains("Deviation 15 was opened.", RetrospectiveCrossmatchIncompatibleRule.Warning("W1", UnitStatus.Issued, 15).Message);
+        Assert.Contains("Deviation 15 was opened.", RetrospectiveCrossmatchIncompatibleRule.Alert(42, "MRN9", null, "W1", UnitStatus.Issued, 15).Message);
+        Assert.DoesNotContain("Deviation", RetrospectiveCrossmatchIncompatibleRule.Warning("W1", UnitStatus.Issued).Message);
+    }
+
     [Fact]
     public void Alert_WithoutPatientDetails_SaysNotRecorded() =>
         Assert.Contains("Patient not recorded", RetrospectiveCrossmatchIncompatibleRule.Alert(1, null, " ", "W1", UnitStatus.Issued).Message);

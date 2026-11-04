@@ -60,7 +60,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             workups: new EfRepository<AntibodyIdentificationWorkup>(c),
             retypes: new EfRepository<ProductRetypeResult>(c),
             alerts: new AlertService(new EfRepository<Alert>(c), c, _factory.Clock, _factory.CurrentUser,
-                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)));
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)),
+            deviations: new EfRepository<Deviation>(c));
 
     private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
     {
@@ -1939,8 +1940,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True(xm.Succeeded, xm.Error);
             var warning = Assert.Single(xm.Evaluation!.Warnings, w => w.Code == RetrospectiveCrossmatchIncompatibleRule.Code);
             Assert.Contains("issued", warning.Message);
+            Assert.Contains("Deviation ", warning.Message);
 
-            // A repeat incompatible crossmatch does not raise a second alert while the first is open.
+            // A repeat incompatible crossmatch does not raise a second alert or open a second deviation.
             Assert.True((await CompatibilityWithAlerts(c).RecordCrossmatchAsync(
                 new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible))).Succeeded);
 
@@ -1955,6 +1957,16 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(AlertSeverity.Critical, alert.Severity);
         Assert.Contains("MRN", alert.Message);
         Assert.Equal("/issuing?desk=retro", alert.Link);
+
+        // TEST-BB-390 (OCD-046): the incompatible result opened exactly one critical deviation linked to the issue, audited.
+        var deviation = Assert.Single(await verify.Deviations
+            .Where(d => d.ContextType == RetrospectiveCrossmatchIncompatibleRule.DeviationContextType && d.ContextId == issueId)
+            .ToListAsync());
+        Assert.Equal(DeviationSeverity.Critical, deviation.Severity);
+        Assert.Equal(DeviationStatus.Open, deviation.Status);
+        Assert.Contains($"Issue {issueId}", deviation.Description);
+        Assert.Contains($"Deviation {deviation.Id} was opened.", alert.Message);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Deviation && a.EntityId == deviation.Id));
     }
 
     [Fact]
@@ -1976,6 +1988,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using var verify = _factory.Create();
         Assert.False(await verify.Alerts.AnyAsync(a => a.Key == $"RETROXM:ISSUE-{issueId}"));
+        Assert.False(await verify.Deviations.AnyAsync(d => d.ContextType == RetrospectiveCrossmatchIncompatibleRule.DeviationContextType && d.ContextId == issueId));
     }
 
     [Fact]

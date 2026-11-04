@@ -11073,3 +11073,51 @@ TEST-BB-389:
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same seeded-coverage check for facility policy keys (every `FacilityPolicyKeys` constant read by a service is listed in the facility policy admin catalog with its default), so no setting is invisible to administrators.
+
+## Iteration 351 — An incompatible retrospective crossmatch opens a deviation (2026-11-04)
+
+### Decisions received (product owner, 2026-11-04)
+
+- OCD-046: an incompatible retrospective crossmatch requires a deviation.
+- OCD-054: downtime back-entry of since-expired units is controlled by role.
+- OCD-055: an authorizer outside the directory is not refused; they can be added to the directory as an outside provider.
+- OCD-056: receipt by scan is a facility setting, off by default.
+
+### Capability matrix rescan
+
+No change since Cycle 350 apart from this cycle's row.
+
+### Finding (questions 6 and 7)
+
+An incompatible retrospective crossmatch raised a critical alert, but nothing made sure the event entered the quality system. Whether a deviation was opened depended on someone remembering to open one by hand on **Deviations**.
+
+### Design
+
+- When the incompatible result is recorded against an open retrospective follow-up, the system opens a Critical deviation:
+  - context `Issue` and the issue id, so there is one per issue
+  - the description names the issue, unit, patient, crossmatch, and where the unit stands
+  - audited as a Deviation event with the crossmatch id
+- A repeat incompatible result on the same issue reuses the deviation. A compatible result opens none.
+- The warning on Compatibility and the critical alert name the deviation number.
+- Severity is Critical, matching the alert. Notification and clinical follow-up stay facility procedure and are recorded in the acknowledgement and the corrective action.
+
+### Requirements / risk
+
+- FRS-BB-527 (under URS-BB-444 and RISK-BB-546). Help: issuing, alerts, and compatibility pages.
+
+### Tests
+
+- TEST-BB-390:
+  - the deviation is Critical, and its number is named in the warning and the alert
+  - an incompatible result opens exactly one deviation linked to the issue, audited, even after a repeat
+  - a compatible result opens none
+- Full suite: 3,593 passed, 0 failed.
+
+### Next ranked residual
+
+Implement the other three decisions, one per cycle:
+1. OCD-055: add an outside provider to the directory from the override form.
+2. OCD-054: a permission for back-entry of downtime transfusions of since-expired units.
+3. OCD-056: a facility setting that requires specimen receipt by scan.
+
+Next: OCD-055, because it touches every override.

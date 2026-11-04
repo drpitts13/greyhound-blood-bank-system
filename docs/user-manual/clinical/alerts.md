@@ -13,7 +13,7 @@ routes:
 Alerts come from nine places:
 
 - **Temperature excursion**: a storage reading outside the location range. Critical.
-- **Incompatible after release**: a retrospective crossmatch for a unit released as an emergency or under MTP came back incompatible. Critical. Tell the clinical team at once; the unit may already be transfusing.
+- **Incompatible after release**: a retrospective crossmatch for a unit released as an emergency or under MTP came back incompatible. Critical. Tell the clinical team at once; the unit may already be transfusing. A critical deviation is opened for it too, and the alert gives its number.
 - **Units expired**: the scheduled expiration sweep moved units to Expired. Remove them from storage. If any were reserved for patients, the alert says how many; those reservations have ended, so reserve replacement units.
 - **Below minimum stock**: a product is under its minimum stock level.
 - **Near expiry**: a unit is inside the near-expiry window. When the unit is reserved for a patient, the alert is a warning that names the patient: issue it first or reserve a replacement.
