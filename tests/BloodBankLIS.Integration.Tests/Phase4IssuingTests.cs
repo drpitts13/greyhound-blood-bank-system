@@ -839,6 +839,92 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("EnteredUtc", audit.NewValueJson);
     }
 
+    // TEST-BB-392 (OCD-054): a paper issue from downtime, whose unit, specimen, and crossmatch have expired since, can be
+    // back-entered only by a role holding issue.downtime-backentry, with the paper record's time, a reason, and its DIN.
+    [Fact]
+    public async Task DowntimeBackEntry_JudgesExpiryAsOfThePaperTime_AndIsControlledByRole()
+    {
+        var s = await SeedAsync("DOWNTIME-BE");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        var now = _factory.Clock.UtcNow;
+        var paperTime = now.AddHours(-3);
+
+        // Downtime: the unit went out on paper; since then the unit, specimen, and crossmatch expired and the sweep ran.
+        await using (var c = _factory.Create())
+        {
+            var unit = await c.BloodUnits.SingleAsync(u => u.Id == s.UnitId);
+            unit.ExpiresUtc = now.AddHours(-1);
+            unit.Status = UnitStatus.Expired;
+            var specimen = await c.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+            specimen.CollectedUtc = now.AddHours(-6);
+            specimen.ExpiresUtc = now.AddMinutes(-30);
+            foreach (var xm in await c.Crossmatches.Where(x => x.BloodProductId == s.UnitId).ToListAsync())
+            {
+                xm.PerformedUtc = now.AddHours(-5);
+                xm.ExpiresUtc = now.AddMinutes(-30);
+            }
+
+            var allocation = await c.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId);
+            allocation.AllocatedUtc = now.AddHours(-5);
+            allocation.Status = AllocationStatus.Expired;
+            await c.SaveChangesAsync();
+        }
+
+        IssueUnitRequest BackEntry(DateTime? at = null, string? din = null) => IssueReq(s) with
+        {
+            IssuedUtc = at ?? paperTime,
+            LateEntryReason = "Issued on paper during LIS downtime",
+            DowntimeBackEntry = true,
+            BackEntryDin = din ?? s.UnitNumber.ToLowerInvariant()
+        };
+
+        await using (var c = _factory.Create())
+        {
+            // An ordinary late entry is still judged now, so the expired unit is refused.
+            var ordinary = await Issuing(c).IssueUnitAsync(IssueReq(s) with { IssuedUtc = paperTime, LateEntryReason = "Issued on paper during LIS downtime" });
+            Assert.False(ordinary.Succeeded);
+
+            var noRole = await Issuing(c, new FixedPermissionEvaluator(3, PermissionCodes.IssueCreate)).IssueUnitAsync(BackEntry());
+            Assert.Contains(noRole.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.PermissionCode);
+
+            var noTime = await Issuing(c).IssueUnitAsync(BackEntry() with { IssuedUtc = null });
+            Assert.Contains(noTime.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.TimeCode);
+
+            var wrongDin = await Issuing(c).IssueUnitAsync(BackEntry(din: "W0000 26 999999"));
+            Assert.Contains(wrongDin.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.DinCode);
+
+            // Paper time after the unit expired: still expired then, so still refused.
+            var afterExpiry = await Issuing(c).IssueUnitAsync(BackEntry(at: now.AddMinutes(-20)));
+            Assert.False(afterExpiry.Succeeded);
+            Assert.False(await c.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            // As of the paper time the unit and specimen were near expiry: those warnings still need an override.
+            var unacknowledged = await Issuing(c).IssueUnitAsync(BackEntry());
+            Assert.True(unacknowledged.Evaluation!.RequiresOverride);
+            Assert.Contains(unacknowledged.Evaluation.Warnings, w => w.Code == "UNIT-NEAR-EXPIRY");
+
+            var entered = await Issuing(c).IssueUnitAsync(BackEntry() with
+            {
+                OverrideReason = "Near-expiry unit issued on paper during downtime", AuthorizedBy = "dr-authorizer"
+            });
+            Assert.True(entered.Succeeded, entered.Error ?? string.Join("; ", entered.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.True(entered.Value!.DowntimeBackEntry);
+            Assert.Equal(paperTime, entered.Value.IssuedUtc);
+            Assert.True(IssueDto.From(entered.Value).DowntimeBackEntry);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Issued, (await verify.BloodUnits.SingleAsync(u => u.Id == s.UnitId)).Status);
+        var audit = await verify.AuditEvents.Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains("\"DowntimeBackEntry\":true")).SingleAsync();
+        Assert.Contains("Issued on paper during LIS downtime", audit.NewValueJson);
+        Assert.True(await verify.InventoryStatusHistory.AnyAsync(h => h.BloodProductId == s.UnitId && h.Reason!.StartsWith("Downtime back-entry")));
+    }
+
     [Fact]
     public async Task Issue_WithoutStatedTime_IsNotALateEntry()
     {

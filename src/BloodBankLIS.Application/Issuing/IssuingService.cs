@@ -185,6 +185,18 @@ public sealed class IssuingService
             ? request.LateEntryReason!.Trim()
             : null;
 
+        // OCD-054: a downtime back-entry is judged as of the paper record's issue time, by a role that allows it.
+        var backEntry = request.DowntimeBackEntry;
+        var backEntryCheck = DowntimeBackEntryRule.Evaluate(
+            backEntry,
+            backEntry && await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueDowntimeBackEntry, ct),
+            requestedIssuedUtc,
+            _clock.UtcNow);
+        if (backEntryCheck.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([backEntryCheck]));
+        }
+
         var emergencyAuth = IssueAuthorizationRule.EvaluateEmergency(
             request.IssueType,
             await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueEmergencyRelease, ct));
@@ -236,11 +248,23 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail("Patient not found.");
         }
 
-        // Fresh scan verification required when the unit has a canonical ISBT identity.
-        var issueScan = EvaluateRequiredScan(unit, request.VerifiedScan, "at issue");
-        if (issueScan is not null)
+        // Fresh scan verification required when the unit has a canonical ISBT identity. A downtime back-entry has no
+        // bag to scan, so the DIN typed from the paper record must match the unit instead.
+        if (backEntry)
         {
-            return issueScan;
+            var din = DowntimeBackEntryRule.ConfirmDin(request.BackEntryDin, unit.UnitNumber, unit.Din);
+            if (din.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Issue>.Blocked(new RuleEvaluation([din]));
+            }
+        }
+        else
+        {
+            var issueScan = EvaluateRequiredScan(unit, request.VerifiedScan, "at issue");
+            if (issueScan is not null)
+            {
+                return issueScan;
+            }
         }
 
         // OCD-040: appearance is what the issuer saw on the bag, never assumed.
@@ -252,16 +276,28 @@ public sealed class IssuingService
         }
 
         var now = _clock.UtcNow;
+        var gateTime = DowntimeBackEntryRule.GateTime(backEntry, requestedIssuedUtc, now);
         var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
-        var specimen = await GetCurrentSpecimenAsync(request.PatientId, ct);
-        var allocation = await _allocations.FirstOrDefaultAsync(
-            a => a.BloodProductId == unit.Id && a.PatientId == request.PatientId && a.Status == AllocationStatus.Reserved, ct);
+        var specimen = backEntry
+            ? SelectCurrentSpecimen(await _specimens.ListAsync(
+                s => s.PatientId == request.PatientId && s.Status == SpecimenStatus.Accepted && s.CollectedUtc <= gateTime, ct))
+            : await GetCurrentSpecimenAsync(request.PatientId, ct);
+        var allocationId = (await _allocations.ListAsync(
+                a => a.BloodProductId == unit.Id && a.PatientId == request.PatientId
+                    && (a.Status == AllocationStatus.Reserved || a.Status == AllocationStatus.Expired), ct))
+            .Where(a => DowntimeBackEntryRule.ReservationCounts(backEntry, a.Status, a.AllocatedUtc, gateTime))
+            .OrderBy(a => a.Status == AllocationStatus.Reserved ? 0 : 1)
+            .Select(a => (long?)a.Id)
+            .FirstOrDefault();
+        // Loaded by id so the issue can mark it consumed.
+        var allocation = allocationId is long chosen ? await _allocations.GetByIdAsync(chosen, ct) : null;
 
         var unitCrossmatches = await _crossmatches.ListAsync(
             x => x.BloodProductId == unit.Id && x.PatientId == request.PatientId, ct);
         var hasValidCrossmatch = unitCrossmatches.Any(x =>
-            CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, now));
+            (!backEntry || x.PerformedUtc <= gateTime)
+            && CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, gateTime));
         var hasIncompatibleCrossmatch = unitCrossmatches.Any(x =>
             CrossmatchValidityRule.CountsAsIncompatible(x.Result));
         var bloodAttrs = await _bloodAttributeCompat.LoadAsync(request.PatientId, unit.Id, ct);
@@ -278,7 +314,7 @@ public sealed class IssuingService
                 : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier2Type, request.PatientIdentifier2Value));
 
         var specialMet = await SpecialRequirementsSatisfiedAsync(
-            request.PatientId, unit, bloodAttrs.UnitAntigens, now, request.AcknowledgedSpecialRequirementCodes, bloodType, ct);
+            request.PatientId, unit, bloodAttrs.UnitAntigens, gateTime, request.AcknowledgedSpecialRequirementCodes, bloodType, ct);
         var productMatches = await ProductMatchesOrderAsync(allocation, request.OrderId, unit.ProductTypeId, ct);
         var linkedOrderId = request.OrderId ?? allocation?.OrderId;
         var linkedOrder = linkedOrderId is long oid ? await _orders.GetByIdAsync(oid, ct) : null;
@@ -313,7 +349,7 @@ public sealed class IssuingService
             PatientAboRh = bloodType?.BloodType ?? new AboRh(AboGroup.Unknown, RhType.Unknown),
             UnitAboRh = unit.BloodType,
             ComponentClass = productType?.ComponentClass ?? ComponentClass.Other,
-            UnitStatus = unit.Status,
+            UnitStatus = DowntimeBackEntryRule.StatusForGate(backEntry, unit.Status, unit.ExpiresUtc, gateTime),
             UnitExpiresUtc = unit.ExpiresUtc,
             UnitNearExpiryWindow = BloodUnitExpirationRule.NearExpiryWindow(
                 postThawDating, TimeSpan.FromHours(nearExpiryHours)),
@@ -353,7 +389,7 @@ public sealed class IssuingService
                 ? null
                 : await ProductAboRhPolicyLoader.ForProductAsync(
                     _aboCompatibilities, _rhCompatibilities, productType.Id, ct),
-            PatientAgeYears = AgeYears(patient.DateOfBirth, now),
+            PatientAgeYears = AgeYears(patient.DateOfBirth, gateTime),
             UncrossmatchedMustBeGroupO = uncrossmatchedGroupO,
             UncrossmatchedONegForChildbearing = uncrossmatchedONeg,
             ChildbearingAgeYears = childbearingAge,
@@ -363,7 +399,7 @@ public sealed class IssuingService
             PatientStatus = patient.Status,
             OrderLinked = linkedOrder is not null,
             OrderIsFulfillable = linkedOrder is null || OrderControlRule.IsFulfillable(linkedOrder.Status),
-            NowUtc = now
+            NowUtc = gateTime
         };
 
         // OCD-052: the active compatibility table can make a gate rule stricter for this component class, never weaker.
@@ -516,6 +552,7 @@ public sealed class IssuingService
             PatientIdentifier2 = request.PatientIdentifier2Value,
             MtpActivationId = mtpActivationId,
             LateEntryReason = lateEntryReason,
+            DowntimeBackEntry = backEntry,
             AcknowledgedSpecialRequirementCodes = JoinAcknowledgedCodes(request.AcknowledgedSpecialRequirementCodes),
             PtagCode = matchedPtag.Identifier?.Code
         };
@@ -540,7 +577,7 @@ public sealed class IssuingService
             ToStatus = UnitStatus.Issued,
             FromLocationId = unit.CurrentLocationId,
             ToLocationId = unit.CurrentLocationId,
-            Reason = issueType switch
+            Reason = backEntry ? $"Downtime back-entry: issued {issuedUtc:yyyy-MM-dd HH:mm} UTC on paper" : issueType switch
             {
                 IssueType.EmergencyRelease => "Emergency release",
                 IssueType.ElectronicIssue => "Electronic issue",
@@ -570,7 +607,9 @@ public sealed class IssuingService
                 MtpActivationId = mtpActivationId,
                 IssuedUtc = issuedUtc,
                 EnteredUtc = now,
-                LateEntryReason = lateEntryReason
+                LateEntryReason = lateEntryReason,
+                DowntimeBackEntry = backEntry,
+                BackEntryDin = backEntry ? request.BackEntryDin?.Trim() : null
             },
             reason: authorizedOverride?.Reason);
 

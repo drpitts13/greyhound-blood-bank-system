@@ -1009,6 +1009,7 @@ public static partial class DatabaseSeeder
             PermissionCodes.InventoryDiscard,
             PermissionCodes.IssueOverride,
             PermissionCodes.IssueEmergencyRelease,
+            PermissionCodes.IssueDowntimeBackEntry,
             PermissionCodes.OverrideApprove,
             PermissionCodes.PatientMerge,
             PermissionCodes.PrintReprint,

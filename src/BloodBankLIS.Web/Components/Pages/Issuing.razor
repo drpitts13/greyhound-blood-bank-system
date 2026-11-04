@@ -656,9 +656,31 @@
     else
     {
         <Outcome Value="_issueFb" RequiresSignature="true" />
+        @if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
+        {
+            @* OCD-054: an issue made on paper during downtime, judged as of the paper record's time. *@
+            <label class="flex" style="margin-bottom:.5rem;"><input type="checkbox" @bind="_issue.DowntimeBackEntry" @bind:after="OnBackEntryToggled" />&nbsp;Downtime back-entry from a paper issue record</label>
+            @if (_issue.DowntimeBackEntry)
+            {
+                <div class="alert alert-info">
+                    Expiration is checked as of the time on the paper record, so a unit or specimen that has expired since can be entered. Every other check still applies. Type the unit number from the paper record in place of a scan.
+                </div>
+                <div class="form-row">
+                    <div class="field"><label>Issued at (from paper record)</label>
+                        <input type="datetime-local" @bind="_issue.BackEntryLocalTime" />
+                    </div>
+                    <div class="field"><label>Unit number on the paper record</label>
+                        <input @bind="_issue.BackEntryDin" autocomplete="off" placeholder="DIN as written on the record" />
+                    </div>
+                    <div class="field"><label>Reason</label>
+                        <input @bind="_issue.LateEntryReason" placeholder="e.g. Issued on paper during LIS downtime" />
+                    </div>
+                </div>
+            }
+        }
         <div class="form-row">
             <div class="field"><label>Unit number</label>
-                <UnitPickerComboBox Scope="UnitPickerScope.Issuable" @bind-Value="_issue.BloodUnitId" />
+                <UnitPickerComboBox @key="_issue.DowntimeBackEntry" Scope="@(_issue.DowntimeBackEntry ? UnitPickerScope.DowntimeBackEntry : UnitPickerScope.Issuable)" @bind-Value="_issue.BloodUnitId" />
             </div>
             <div class="field"><label>Patient</label>
                 <FilterableComboBox TItem="PatientDto" TValue="long?"
@@ -740,7 +762,10 @@
         <div class="flex gap" style="flex-wrap:wrap;margin:.5rem 0 1rem;">
             <AppearanceSelect Label="Appearance at issue" Style="min-width:14rem;" @bind-Value="_issue.Appearance" />
         </div>
-        <UnitScanVerificationPanel Scan="_issueScan" />
+        @if (!_issue.DowntimeBackEntry)
+        {
+            <UnitScanVerificationPanel Scan="_issueScan" />
+        }
         @if (_ptagRequired)
         {
             <div class="alert alert-warning" style="margin-top:.75rem;">
@@ -1785,7 +1810,22 @@
         CoolerId: string.IsNullOrWhiteSpace(_issue.CoolerId) ? null : _issue.CoolerId.Trim(),
         Appearance: _issue.Appearance,
         AcknowledgedSpecialRequirementCodes: _issueAcks.ToList(),
-        PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim());
+        PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim(),
+        IssuedUtc: _issue.DowntimeBackEntry && _issue.BackEntryLocalTime is DateTime paper
+            ? DateTime.SpecifyKind(paper, DateTimeKind.Local).ToUniversalTime()
+            : null,
+        LateEntryReason: _issue.DowntimeBackEntry && !string.IsNullOrWhiteSpace(_issue.LateEntryReason) ? _issue.LateEntryReason.Trim() : null,
+        DowntimeBackEntry: _issue.DowntimeBackEntry,
+        BackEntryDin: _issue.DowntimeBackEntry ? _issue.BackEntryDin : null);
+
+    private void OnBackEntryToggled()
+    {
+        // The two pickers list different units, so a unit picked under one is not carried to the other.
+        _issue.BloodUnitId = null;
+        _issue.BackEntryLocalTime = null;
+        _issue.BackEntryDin = null;
+        _issue.LateEntryReason = null;
+    }
 
     private async Task IssueAsync()
     {
@@ -2047,5 +2087,9 @@
         public UnitAppearance? Appearance { get; set; }
         public string? SecondVerifier { get; set; }
         public string? CoolerId { get; set; }
+        public bool DowntimeBackEntry { get; set; }
+        public DateTime? BackEntryLocalTime { get; set; }
+        public string? BackEntryDin { get; set; }
+        public string? LateEntryReason { get; set; }
     }
 }

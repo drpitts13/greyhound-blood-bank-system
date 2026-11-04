@@ -42,6 +42,9 @@ public static class PermissionCodes
     public const string IssueOverride = "issue.override";
     public const string IssueReturn = "issue.return";
     public const string IssueEmergencyRelease = "issue.emergency-release";
+
+    /// <summary>Back-enter an issue made on paper during downtime, judged as of the paper record's time (OCD-054).</summary>
+    public const string IssueDowntimeBackEntry = "issue.downtime-backentry";
     public const string TransfusionDocument = "transfusion.document";
     public const string TransfusionStart = "transfusion.start";
     public const string TransfusionComplete = "transfusion.complete";
@@ -109,7 +112,7 @@ public static class PermissionCodes
         InventoryReceive, InventoryTransfer, InventoryRelease, InventoryDiscard,
         InventoryRecall, InventoryCorrectIdentity, InventoryModify,
         CompatibilityCrossmatch, CompatibilityAllocate,
-        IssueCreate, IssueOverride, IssueReturn, IssueEmergencyRelease,
+        IssueCreate, IssueOverride, IssueReturn, IssueEmergencyRelease, IssueDowntimeBackEntry,
         TransfusionDocument, TransfusionStart, TransfusionComplete, OverrideApprove,
         PrintLabel, PrintReprint,
         BillingReview, BillingCancel, BillingExport,

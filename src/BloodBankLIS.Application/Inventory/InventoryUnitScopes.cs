@@ -19,6 +19,9 @@ public static class InventoryUnitScopes
         UnitStatus.Selected
     ];
 
+    /// <summary>OCD-054: a downtime back-entry may name a unit the expiry sweep has marked Expired since.</summary>
+    public static readonly IReadOnlyList<UnitStatus> DowntimeBackEntry = [..Issuable, UnitStatus.Expired];
+
     public static readonly IReadOnlyList<UnitStatus> OnHand =
     [
         UnitStatus.Quarantine,

@@ -11173,3 +11173,60 @@ OCD-055 decided that an authorizer outside the directory is not refused and can 
 
 - OCD-054: a permission for back-entry of downtime transfusions of since-expired units.
 - Then OCD-056: a facility setting that requires specimen receipt by scan.
+
+## Iteration 353 — Downtime back-entry of paper issues, controlled by role (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 352 apart from this cycle's row (interoperability and downtime).
+
+### Finding (questions 6 and 7)
+
+Cycle 287 recorded that a paper issue from downtime could not be entered once its unit or specimen had expired:
+
+- the gate ran at entry time
+- the expiry sweep had marked the unit Expired and ended its reservation
+- the issue wanted a fresh scan of a bag that was gone
+
+OCD-054 decided this is allowed, controlled by role.
+
+### Design
+
+- **Permission:** `issue.downtime-backentry`, seeded to Supervisor and Administrator.
+- **Request:** `DowntimeBackEntry`, the paper time (`IssuedUtc`, earlier than now) with a late-entry reason, and `BackEntryDin`.
+- **`DowntimeBackEntryRule`:**
+  - `ISS-DOWNTIME-PERM`: without the permission, a hard stop
+  - `ISS-DOWNTIME-TIME`: the stated time must be earlier than now
+  - `ISS-DOWNTIME-DIN`: the typed DIN must match the unit, ignoring spaces and case
+- **The gate as of the paper time:**
+  - unit and specimen expiry, crossmatch validity, special requirements, and age are judged as of the paper time
+  - the specimen is the latest accepted one collected by then
+  - only crossmatches performed by then count
+  - a reservation the sweep ended counts if it was made by then
+  - a unit marked Expired counts as issuable only if it was in date then
+- **Unchanged:** identity, ABO/Rh, antigen, discrepancy, location, and every warning. Warnings true at the paper time, such as near expiry, still need an override.
+- **Record:** `Issues.DowntimeBackEntry` (migration `20261106000000_IssueDowntimeBackEntry`, plus the bootstrap); the issue audit carries `DowntimeBackEntry` and `BackEntryDin`; the status history reads "Downtime back-entry: issued … on paper".
+- **Issue desk:** for permitted users, a **Downtime back-entry from a paper issue record** toggle shows:
+  - the paper time, the DIN on the record, and the reason
+  - a unit picker that includes Expired units
+  - no scan panel
+
+### Requirements / risk
+
+- URS-BB-486, FRS-BB-529, SRS-BB-448, RISK-BB-584. Help: downtime page and the downtime plan.
+
+### Tests
+
+- TEST-BB-392 (8 domain tests and 1 integration scenario). The integration scenario covers:
+  - an ordinary late entry of the since-expired unit is refused
+  - without the permission, with no paper time, with the wrong DIN, and with a paper time after the unit expired, the back-entry is refused, with nothing written
+  - with near-expiry warnings unacknowledged, an override is required
+  - with an override, the back-entry is issued, flagged, audited, and named in the status history
+- One regression found and fixed while testing: the allocation is now loaded by id, so the issue still marks it Consumed.
+- Full suite: 3,610 passed, 0 failed.
+- Run check (development API and web): on the Issue desk, the toggle shows the paper time, DIN, and reason fields and hides the scan panel; no server errors. No issue was submitted.
+
+### Next ranked residual
+
+- OCD-056: a facility setting, off by default, that requires specimen receipt by scan.
+- Then the bedside half of downtime back-entry: documenting a transfusion of a back-entered unit without a fresh bedside scan.

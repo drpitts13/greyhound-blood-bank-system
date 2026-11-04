@@ -34,7 +34,11 @@ public sealed record IssueUnitRequest(
     /// <summary>Scanned P-tag ID. Required when the active P-tag layout places that field.</summary>
     string? PtagId = null,
     /// <summary>Required when IssuedUtc is earlier than now (late entry, for example after downtime).</summary>
-    string? LateEntryReason = null);
+    string? LateEntryReason = null,
+    /// <summary>OCD-054: a paper issue record entered after downtime; needs issue.downtime-backentry.</summary>
+    bool DowntimeBackEntry = false,
+    /// <summary>The unit number typed from the paper record, in place of the fresh scan, for a downtime back-entry.</summary>
+    string? BackEntryDin = null);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,
@@ -118,7 +122,8 @@ public sealed record IssueDto(
     UnitAppearance WardAppearance = UnitAppearance.Acceptable,
     string? AcknowledgedSpecialRequirementCodes = null,
     string? LateEntryReason = null,
-    DateTime? EnteredUtc = null)
+    DateTime? EnteredUtc = null,
+    bool DowntimeBackEntry = false)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
@@ -127,7 +132,7 @@ public sealed record IssueDto(
         i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc,
         i.CoolerId, i.InTransitDueUtc, i.IssueAppearance, i.WardAppearance,
         i.AcknowledgedSpecialRequirementCodes,
-        i.LateEntryReason, i.LateEntryReason is null ? null : i.CreatedUtc);
+        i.LateEntryReason, i.LateEntryReason is null ? null : i.CreatedUtc, i.DowntimeBackEntry);
 }
 
 public sealed record InTransitWorkItemDto(

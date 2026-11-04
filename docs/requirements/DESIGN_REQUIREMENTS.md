@@ -451,3 +451,4 @@
 | SRS-BB-445 | `ShiftHandoffs.TransfusionsRunning`, `TransfusionsCompletionOverdue`, `RetrospectiveIncompatible` int not null default 0 (migration `20261103230000_ShiftHandoffTransfusionCounts`, dev bootstrap). | FRS-BB-495 |
 | SRS-BB-446 | Nullable `PatientBloodTypeHistory.ManualDocumentation` int and `ManualDocumentationReference` nvarchar(300) (migration `20261104000000_ManualBloodTypeDocumentation`, dev bootstrap). | FRS-BB-496 |
 | SRS-BB-447 | `ShiftHandoffs.PendingTestsVerifyBeforeExpiry` int not null default 0 (migration `20261105000000_ShiftHandoffVerifyBeforeExpiry`, dev bootstrap). | FRS-BB-510 |
+| SRS-BB-448 | `Issues.DowntimeBackEntry` (bit, not null, default 0), migration `20261106000000_IssueDowntimeBackEntry` and the development SQLite bootstrap; `IssueDto.DowntimeBackEntry`; `InventoryUnitScopes.DowntimeBackEntry` adds Expired to the issuable statuses for the back-entry unit picker. | FRS-BB-529 |

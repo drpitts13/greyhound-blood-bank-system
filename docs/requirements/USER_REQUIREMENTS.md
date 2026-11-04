@@ -491,3 +491,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-483 | Changing who may do what (a user's roles, a role's permissions or security level) and letting someone act again (activating or unlocking an account) records why and what was there before. | P1 | FRS-BB-524 |
 | URS-BB-484 | Emergency or massive-transfusion release can go ahead before a specimen is drawn, limited to group O red cells and group AB or A plasma, as an authorized override, and staff are prompted to collect a pre-transfusion specimen. | P1 | FRS-BB-525 |
 | URS-BB-485 | An override authorizer who is not in the directory is never refused, and can be added to the directory as an outside provider so later overrides they authorize are recognized. | P2 | FRS-BB-528 |
+| URS-BB-486 | An issue made on paper during downtime can be entered afterwards by a role that allows it, judged as of the time on the paper record, even if the unit or specimen has expired since. | P1 | FRS-BB-529 |

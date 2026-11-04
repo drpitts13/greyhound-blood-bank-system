@@ -111,4 +111,10 @@ public class Issue : BaseEntity
     /// entry time is CreatedUtc.
     /// </summary>
     public string? LateEntryReason { get; set; }
+
+    /// <summary>
+    /// OCD-054: entered after downtime from a paper issue record, with expiration judged as of IssuedUtc and the DIN
+    /// typed from the paper record in place of a fresh scan.
+    /// </summary>
+    public bool DowntimeBackEntry { get; set; }
 }
