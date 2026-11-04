@@ -1994,6 +1994,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<InstrumentMessageDetailDto>> GetInstrumentMessageAsync(long id, CancellationToken ct = default) =>
         SendAsync<InstrumentMessageDetailDto>(HttpMethod.Get, $"api/instruments/messages/{id}", ct: ct);
 
+    public Task<ApiResult<InstrumentMessageSummaryDto>> ResolveInstrumentMessageAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<InstrumentMessageSummaryDto>(HttpMethod.Post, $"api/instruments/messages/{id}/resolve", new ReasonRequestVm(reason), ct);
+
     public Task<ApiResult<object>> ReplayInstrumentMessageAsync(long id, CancellationToken ct = default) =>
         SendAsync<object>(HttpMethod.Post, $"api/instruments/messages/{id}/replay", ct: ct);
 

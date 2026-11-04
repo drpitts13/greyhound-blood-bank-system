@@ -2072,6 +2072,8 @@ public sealed class InstrumentMessageLogConfiguration : IEntityTypeConfiguration
         b.Property(e => e.SpecimenId).HasMaxLength(80);
         b.Property(e => e.PatientId).HasMaxLength(80);
         b.Property(e => e.ErrorDetail).HasMaxLength(2000);
+        b.Property(e => e.ResolvedBy).HasMaxLength(100);
+        b.Property(e => e.ResolutionNote).HasMaxLength(500);
         b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
         b.HasIndex(e => e.InterfaceId);

@@ -71,7 +71,12 @@
         }
     </div>
     <div class="bb-card">
-        <div class="bb-card-title"><h3>Messages</h3></div>
+        <div class="bb-card-title"><h3>Messages</h3>
+            @if (_messages.Count(m => m.OpenFailure) is var open && open > 0)
+            {
+                <span class="badge badge-red" title="Failed messages not yet replayed successfully or resolved">@open failed, open</span>
+            }
+        </div>
         @if (_messages.Count == 0)
         {
             <div class="empty">No messages.</div>
@@ -86,7 +91,7 @@
                         <tr class="@(_detail?.Message.Id == msg.Id ? "row-active" : null)">
                             <td class="nowrap">@msg.ReceivedUtc.ToString("HH:mm:ss")</td>
                             <td>@msg.MessageKind</td>
-                            <td>@msg.Status</td>
+                            <td>@msg.Status@(msg.ResolvedUtc is not null ? " · resolved" : "")</td>
                             <td class="mono">@msg.SpecimenId</td>
                             <td><button class="btn btn-ghost btn-sm" @onclick="() => OpenAsync(msg.Id)">View</button></td>
                         </tr>
@@ -102,12 +107,27 @@
     @* Opens below both tables; keyed so each View re-adds the card and scrolls it into view. *@
     <div @key="_detail.Message.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <div class="bb-card-title"><h3>Message @_detail.Message.Id</h3>
-            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ReplayAsync">Replay</button>
+            @if (_detail.Message.OpenFailure)
+            {
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ReplayAsync">Replay</button>
+            }
             <button class="btn btn-ghost btn-sm" @onclick="() => _detail = null">Close</button>
         </div>
         @if (!string.IsNullOrWhiteSpace(_detail.Message.ErrorDetail))
         {
             <div class="alert alert-danger">@_detail.Message.ErrorDetail</div>
+        }
+        @if (_detail.Message.ResolvedUtc is DateTime resolvedAt)
+        {
+            <div class="alert alert-info">Resolved @resolvedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @_detail.Message.ResolvedBy: @_detail.Message.ResolutionNote</div>
+        }
+        else if (_detail.Message.OpenFailure)
+        {
+            @* Handled outside replay (for example the result was entered by hand): close it with the reason. *@
+            <div class="form-row">
+                <div class="field"><label>Resolve without replay: how was it handled?</label><input @bind="_resolveReason" @bind:event="oninput" placeholder="e.g. Result entered by hand from the instrument printout" /></div>
+                <div class="field"><label>&nbsp;</label><button class="btn btn-ghost btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_resolveReason))" @onclick="ResolveAsync">Resolve</button></div>
+            </div>
         }
         <h4>Raw ASTM</h4>
         <pre class="pre">@_detail.RawMessage</pre>
@@ -189,6 +209,24 @@
         }
 
         _detail = result.Value;
+    }
+
+    private string? _resolveReason;
+
+    private async Task ResolveAsync()
+    {
+        if (_detail is null) return;
+        _busy = true;
+        var result = await Api.ResolveInstrumentMessageAsync(_detail.Message.Id, _resolveReason ?? string.Empty);
+        _feedback = result.ToFeedback("Message resolved.");
+        if (result.Succeeded)
+        {
+            _resolveReason = null;
+            await LoadAsync();
+            await OpenAsync(_detail.Message.Id);
+        }
+
+        _busy = false;
     }
 
     private async Task ReplayAsync()

@@ -64,6 +64,65 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.True(await context.InstrumentMessages.AnyAsync(m => m.SpecimenId == "ACC-INST-GRP"));
     }
 
+    // TEST-BB-400: a failed instrument message stays open until a replay applies it or someone resolves it with a
+    // reason; a processed or resolved message is never replayed, so results are not filed twice.
+    [Fact]
+    public async Task FailedMessage_ClosesOnASuccessfulReplay_AndProcessedMessages_AreNotReplayed()
+    {
+        await using var context = _factory.Create();
+        await DatabaseSeeder.SeedInstrumentInterfacesAsync(context, CancellationToken.None);
+        var iface = await context.InstrumentInterfaces.SingleAsync(i => i.Name == DatabaseSeeder.EchoInterfaceName);
+        var generated = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-LATE", "MRN-INST-LATE", "Patient", "Late", "19590422", "M", 3));
+
+        // The result arrives before its order exists.
+        var first = await Processor(context).ProcessAsync(generated.RawMessage, iface.Id);
+        Assert.False(first.Accepted);
+        var failedId = first.Log.Id;
+        Assert.True(InstrumentMessageFollowUpRule.IsOpenFailure(first.Log.Status, first.Log.ResolvedUtc));
+
+        await SeedOrderAsync(context, "MRN-INST-LATE", "ACC-INST-LATE", "ABORH");
+        var replay = await Processor(context).ReplayAsync(failedId);
+        Assert.True(replay!.Accepted, string.Join("; ", replay.Notes));
+        var closed = await context.InstrumentMessages.AsNoTracking().SingleAsync(m => m.Id == failedId);
+        Assert.NotNull(closed.ResolvedUtc);
+        Assert.Equal(InstrumentMessageFollowUpRule.ReplayResolutionNote, closed.ResolutionNote);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(InstrumentMessageLog) && a.EntityId == failedId));
+
+        // Neither the closed failure nor the processed replay can be replayed again.
+        var count = await context.InstrumentMessages.CountAsync();
+        var again = await Processor(context).ReplayAsync(failedId);
+        Assert.True(again!.Refused);
+        var processedAgain = await Processor(context).ReplayAsync(replay.Log.Id);
+        Assert.True(processedAgain!.Refused);
+        Assert.Contains("twice", processedAgain.Notes.Single());
+        Assert.Equal(count, await context.InstrumentMessages.CountAsync());
+    }
+
+    [Fact]
+    public async Task FailedMessage_ResolvedByHand_NeedsAReason_AndIsAudited()
+    {
+        await using var context = _factory.Create();
+        await DatabaseSeeder.SeedInstrumentInterfacesAsync(context, CancellationToken.None);
+        var iface = await context.InstrumentInterfaces.SingleAsync(i => i.Name == DatabaseSeeder.EchoInterfaceName);
+        var failed = await Processor(context).ProcessAsync("not an ASTM message", iface.Id);
+        Assert.False(failed.Accepted);
+
+        var blank = await Processor(context).ResolveAsync(failed.Log.Id, "  ");
+        Assert.Null(blank.Message);
+        Assert.Contains(InstrumentMessageFollowUpRule.ResolveCode, blank.Error);
+
+        var resolved = await Processor(context).ResolveAsync(failed.Log.Id, "Instrument resent after a cable fault; result entered by hand.");
+        Assert.NotNull(resolved.Message);
+        Assert.Equal("tech-test", resolved.Message!.ResolvedBy);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(InstrumentMessageLog)
+            && a.EntityId == failed.Log.Id && a.Reason!.StartsWith("Instrument resent")));
+
+        var twice = await Processor(context).ResolveAsync(failed.Log.Id, "Again");
+        Assert.Contains("already resolved", twice.Error);
+        Assert.True((await Processor(context).ReplayAsync(failed.Log.Id))!.Refused);
+    }
+
     [Fact]
     public async Task InboundScreenResult_PostsInstrumentPendingVerification()
     {
@@ -226,7 +285,9 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             context,
             results,
-            NullLogger<AstmInboundProcessor>.Instance);
+            NullLogger<AstmInboundProcessor>.Instance,
+            _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser, env));
     }
 
     private async Task<(long SpecimenId, long OrderId)> SeedOrderAsync(

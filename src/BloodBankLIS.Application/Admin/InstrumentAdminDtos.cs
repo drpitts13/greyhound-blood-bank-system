@@ -76,7 +76,14 @@ public sealed record InstrumentMessageSummaryDto(
     DateTime? ProcessedUtc,
     string? SpecimenId,
     string? PatientId,
-    string? ErrorDetail);
+    string? ErrorDetail,
+    DateTime? ResolvedUtc = null,
+    string? ResolvedBy = null,
+    string? ResolutionNote = null)
+{
+    /// <summary>A failed message nobody has replayed successfully or resolved yet.</summary>
+    public bool OpenFailure => Status == InstrumentMessageStatus.Failed && ResolvedUtc is null;
+}
 
 public sealed record InstrumentParsedFieldDto(string DataItem, string? Value);
 

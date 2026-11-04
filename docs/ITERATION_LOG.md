@@ -11510,3 +11510,53 @@ No change since Cycle 359 apart from this cycle's row (interoperability).
 ### Next ranked residual
 
 The instrument interface has its own error handling. Check that instrument result errors also offer a next action and keep why they were resolved, the same as HL7.
+
+## Iteration 361 — Failed instrument messages are followed up (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 360 apart from this cycle's row (interoperability).
+
+### Finding (questions 5, 6, and 7)
+
+- A failed instrument (ASTM) message stayed **Failed** forever:
+  - a replay that worked created a new log and left the original looking unhandled
+  - nobody could record that it was handled another way
+- **Any** message could be replayed, including one that had already processed. Replaying that would file its results again.
+
+### Design
+
+- **`InstrumentMessageFollowUpRule`:**
+  - only an open failed message can be replayed (`INST-REPLAY`); a processed, replayed, or resolved one is refused with the reason
+  - resolve needs an open failure and a reason (`INST-RESOLVE`)
+- **`InstrumentMessages`** gains `ResolvedUtc`, `ResolvedBy`, and `ResolutionNote` (migration `20261108000000_InstrumentMessageResolution`, plus the bootstrap).
+- **`AstmInboundProcessor`:**
+  - `ReplayAsync` refuses as above and, when the replay applies, closes the original with the replay note
+  - `ResolveAsync` closes it with the given reason
+  - each close is an Interface audit event, with the replay log id when there is one
+- **API:** `POST /api/instruments/messages/{id}/resolve`. A refused replay returns 422 with the reason.
+- **Instruments page:**
+  - "N failed, open" badge on Messages
+  - status shows "· resolved"
+  - Replay only for open failures
+  - the detail shows **Resolve without replay** or the resolution
+
+### Also fixed
+
+The Cycle 360 TEST-BB-399 catalog row cited the test class with a description instead of method names, so `TestCatalogPackagingTests` failed. Iteration 360 only ran the Help tests after its doc edits. The row now names the three methods.
+
+### Requirements / risk
+
+- FRS-BB-537 (under URS-BB-489), SRS-BB-450, RISK-BB-586. Help: instruments page.
+
+### Tests
+
+- TEST-BB-400:
+  - domain: replay only for an open failure; resolve needs an open failure and a reason
+  - integration: a result arriving before its order fails and stays open; after the order is placed the replay applies and closes the original (note and audit); replaying the closed failure, or the processed replay, is refused and writes no new log
+  - integration: blank reason refused; resolved with a reason by the current user and audited; a second resolve and a replay after it are refused
+- Full suite: 3,629 passed, 0 failed.
+
+### Next ranked residual
+
+Count open instrument failures and open HL7 errors together on the dashboard's interface card and on the downtime snapshot, so a failed instrument result is not missed after an outage.

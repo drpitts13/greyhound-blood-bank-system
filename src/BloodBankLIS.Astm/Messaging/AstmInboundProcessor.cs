@@ -5,6 +5,7 @@ using BloodBankLIS.Astm.Parsing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Instruments;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
 
@@ -25,6 +26,8 @@ public sealed class AstmInboundProcessor
     private readonly IUnitOfWork _unitOfWork;
     private readonly ResultService _results;
     private readonly ILogger<AstmInboundProcessor> _logger;
+    private readonly ICurrentUser? _currentUser;
+    private readonly IAuditWriter? _audit;
 
     public AstmInboundProcessor(
         IInstrumentInterfaceRepository interfaces,
@@ -37,8 +40,12 @@ public sealed class AstmInboundProcessor
         IClock clock,
         IUnitOfWork unitOfWork,
         ResultService results,
-        ILogger<AstmInboundProcessor> logger)
+        ILogger<AstmInboundProcessor> logger,
+        ICurrentUser? currentUser = null,
+        IAuditWriter? audit = null)
     {
+        _currentUser = currentUser;
+        _audit = audit;
         _interfaces = interfaces;
         _messages = messages;
         _specimens = specimens;
@@ -126,6 +133,10 @@ public sealed class AstmInboundProcessor
         await _unitOfWork.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Replays an open failed message. A message that processed or was already resolved is refused, so its results are
+    /// never filed twice. When the replay applies, the failed message is closed as resolved by that replay.
+    /// </summary>
     public async Task<AstmProcessOutcome?> ReplayAsync(long messageId, CancellationToken ct = default)
     {
         var existing = await _messages.GetByIdAsync(messageId, ct);
@@ -134,7 +145,55 @@ public sealed class AstmInboundProcessor
             return null;
         }
 
-        return await ProcessAsync(existing.RawMessage, existing.InterfaceId, isReplay: true, ct);
+        var allowed = InstrumentMessageFollowUpRule.EvaluateReplay(existing.Status, existing.ResolvedUtc);
+        if (allowed.Severity == RuleSeverity.HardStop)
+        {
+            return new AstmProcessOutcome(false, existing, null, [allowed.Message]) { Refused = true };
+        }
+
+        var outcome = await ProcessAsync(existing.RawMessage, existing.InterfaceId, isReplay: true, ct);
+        if (outcome.Accepted)
+        {
+            Close(existing, InstrumentMessageFollowUpRule.ReplayResolutionNote, outcome.Log.Id);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return outcome;
+    }
+
+    /// <summary>Closes an open failed message that was handled outside replay, with the reason recorded and audited.</summary>
+    public async Task<(InstrumentMessageLog? Message, string? Error)> ResolveAsync(long messageId, string? reason, CancellationToken ct = default)
+    {
+        var existing = await _messages.GetByIdAsync(messageId, ct);
+        if (existing is null)
+        {
+            return (null, $"Message {messageId} not found.");
+        }
+
+        var check = InstrumentMessageFollowUpRule.EvaluateResolve(existing.Status, existing.ResolvedUtc, reason);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return (null, $"{check.Code}: {check.Message}");
+        }
+
+        Close(existing, reason!.Trim(), replayLogId: null);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return (existing, null);
+    }
+
+    private void Close(InstrumentMessageLog message, string note, long? replayLogId)
+    {
+        message.ResolvedUtc = _clock.UtcNow;
+        message.ResolvedBy = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? "system" : _currentUser.UserName;
+        message.ResolutionNote = note.Length <= 500 ? note : note[..500];
+        _messages.Update(message);
+        _audit?.Record(
+            AuditEventType.Interface,
+            nameof(InstrumentMessageLog),
+            message.Id,
+            oldValue: new { message.Status, ResolvedUtc = (DateTime?)null },
+            newValue: new { message.ResolvedUtc, message.ResolvedBy, message.ResolutionNote, ReplayLogId = replayLogId, message.SpecimenId },
+            reason: message.ResolutionNote);
     }
 
     private async Task HandleResultsAsync(
