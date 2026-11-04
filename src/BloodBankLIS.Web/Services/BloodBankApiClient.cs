@@ -1279,6 +1279,22 @@ public sealed class BloodBankApiClient
             $"api/admin/order-cancellation-reasons/{id}/{(active ? "activate" : "deactivate")}",
             ct: ct);
 
+    public Task<ApiResult<List<ReactionCatalogEntryDto>>> GetAdminReactionCatalogAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReactionCatalogEntryDto>>(HttpMethod.Get, "api/admin/reaction-catalog?includeInactive=true", ct: ct);
+
+    public Task<ApiResult<ReactionCatalogEntryDto>> CreateAdminReactionCatalogEntryAsync(SaveReactionCatalogEntryRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionCatalogEntryDto>(HttpMethod.Post, "api/admin/reaction-catalog", req, ct);
+
+    public Task<ApiResult<ReactionCatalogEntryDto>> UpdateAdminReactionCatalogEntryAsync(long id, SaveReactionCatalogEntryRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionCatalogEntryDto>(HttpMethod.Put, $"api/admin/reaction-catalog/{id}", req, ct);
+
+    public Task<ApiResult<ReactionCatalogEntryDto>> SetAdminReactionCatalogEntryActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ReactionCatalogEntryDto>(HttpMethod.Post, $"api/admin/reaction-catalog/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    /// <summary>OCD-057: the active reaction and treatment lists, for concluding an investigation.</summary>
+    public Task<ApiResult<List<ReactionCatalogEntryDto>>> GetReactionCatalogAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReactionCatalogEntryDto>>(HttpMethod.Get, "api/reference/reaction-catalog", ct: ct);
+
     public Task<ApiResult<List<SpecimenRejectionReasonDto>>> GetAdminSpecimenRejectionReasonsAsync(
         bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<SpecimenRejectionReasonDto>>(

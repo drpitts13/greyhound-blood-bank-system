@@ -35,6 +35,16 @@ public class ReactionNextStepRuleTests
         Assert.Equal(ReactionNextStepRule.Done, ReactionNextStepRule.For(Facts(ReactionInvestigationStatus.Closed)).Priority);
     }
 
+    // TEST-BB-409 (OCD-057)
+    [Fact]
+    public void AWorkedUpCase_WithoutAConclusion_AsksForIt()
+    {
+        var facts = new ReactionNextStepRule.Facts(ReactionInvestigationStatus.Open, false, null, true, null, false, false, null, ConclusionMissing: true);
+        var step = ReactionNextStepRule.For(facts);
+        Assert.Equal(5, step.Priority);
+        Assert.Contains("Choose the reaction concluded", step.Text);
+    }
+
     [Fact]
     public void ARemainderThatCannotBeHeld_IsNotAskedToBeHeld()
     {

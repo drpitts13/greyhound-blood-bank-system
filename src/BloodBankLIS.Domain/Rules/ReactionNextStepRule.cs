@@ -18,7 +18,9 @@ public static class ReactionNextStepRule
         string? RemainderHoldNote,
         bool AboRhDiscrepancy,
         bool WorkupIncomplete,
-        string? WorkupHoldReason);
+        string? WorkupHoldReason,
+        // OCD-057: the reaction and treatment are chosen from the admin lists before closing.
+        bool ConclusionMissing = false);
 
     public sealed record Step(int Priority, string Text);
 
@@ -52,6 +54,8 @@ public static class ReactionNextStepRule
             return new Step(4, f.WorkupHoldReason ?? "Complete the workup.");
         }
 
-        return new Step(5, "Ready to close: review and sign.");
+        return f.ConclusionMissing
+            ? new Step(5, "Choose the reaction concluded and the treatment, then sign to close.")
+            : new Step(5, "Ready to close: review and sign.");
     }
 }

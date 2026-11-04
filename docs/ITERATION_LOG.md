@@ -11895,3 +11895,71 @@ On the discrepancy board and the unit page, **Locate** (missing) and **Inspect**
 ### Next ranked residual
 
 Pending: OCD-057. The inventory board rescan is complete (near expiry, quarantine, discrepancy, hold). Next: rescan the administration area for question 7. Check that every admin catalog change records a reason. Cycles 339–343 covered exceptions, compatibility, and users and roles; check the rest (products, tests, locations, special requirement definitions).
+
+## Iteration 370 — Reaction and treatment lists for the provider's conclusion (OCD-057) (2026-11-04)
+
+### Decision received (product owner, 2026-11-04)
+
+OCD-057:
+- The treatments are an admin list the provider selects from, always with a "No treatment" option.
+- The reaction the provider concludes is chosen from a similar list, always with "No reaction".
+
+### Capability matrix rescan
+
+No change since Cycle 369 apart from this cycle's row (patient-product workflows: reaction investigation; administration).
+
+### Design
+
+- **Admin lists:** one catalog, `ReactionCatalogEntry`, with two kinds:
+  - ReactionType: the reaction concluded
+  - Treatment: the treatment for future transfusions
+  - each entry has a code (unique per list), text, sort order, and active flag; changes are recorded in configuration history
+- **Fixed none entries:** NONE (No reaction, No treatment) is seeded on both lists. It cannot be deactivated or recoded, NONE is reserved, and its text can be reworded.
+- **Starter content:**
+  - the reaction list follows the CDC NHSN Hemovigilance adverse reaction categories, as an example to edit
+  - no treatments are seeded; that list is the medical director's
+- **`ReactionConclusionRule` (`RXN-CONCLUSION`)** applies when closing:
+  - a reaction and at least one treatment are required
+  - codes must be active entries on the right list
+  - No treatment stands alone
+- **Interpretation, adjustable:**
+  - more than one treatment is allowed, since a patient may need more than one product modification
+  - both choices are required to close
+- **Recorded on the investigation:** `ConcludedReactionCode/Text` and `TreatmentCodes/Texts`, keeping the list text as it read, in the audit snapshot, and protected by the closed-case lock.
+- **Screens and API:**
+  - **Admin › Reactions and Treatments** (`/admin/reaction-lists`) has tabs for the two lists, with the none rows locked; `/api/admin/reaction-catalog`
+  - the reference endpoint `/api/reference/reaction-catalog` feeds the Reactions page, which has a **Provider conclusion** section: a reaction drop-down, and treatment check boxes where No treatment clears the others
+- **Next step:** the board's next step asks "Choose the reaction concluded and the treatment, then sign to close" when the workup is complete but the conclusion is not.
+- **Special requirements:** a treatment does not create one by itself. Cycle 364's linked **Add special requirement** still does that, so the requirement is enforced at selection and issue.
+- **Schema:** migration `20261111000000_ReactionCatalog`, the bootstrap, and the SQLite-to-SQL Server table list.
+
+### Requirements
+
+- URS-BB-492, FRS-BB-546, SRS-BB-453. OCD-057 moved to decided. Help: new admin topic "Reactions and treatments"; reactions page.
+
+### Tests
+
+- TEST-BB-409. Domain:
+  - close needs both, and NONE counts for each
+  - codes must be on the active list of the right kind
+  - No treatment stands alone
+  - the none entries are locked
+  - the next step asks for the conclusion
+- TEST-BB-409. Integration:
+  - seeding gives NONE on both lists and the starter reactions
+  - the none rows cannot be deactivated or recoded; NONE is reserved; duplicates are refused
+  - a new treatment is added with history
+  - closing without a reaction, without a treatment, with an unknown code, or with No treatment plus another is refused and the case stays open
+  - a valid close records codes and texts, which later list renames do not change, and is audited
+  - No reaction with No treatment closes a case
+- The eight existing close requests in tests now pass No reaction and No treatment.
+- Full suite: 3,654 passed, 0 failed.
+- Run check (development API and web):
+  - the reference list returns No reaction and the NHSN starter reactions
+  - the admin page shows "Always offered"
+  - the investigation form shows Provider conclusion with No treatment
+  - no server errors
+
+### Next ranked residual
+
+Administration rescan for question 7 (deferred from Cycle 369): check that product, test, location, and special requirement definition catalogs record a reason with each change.

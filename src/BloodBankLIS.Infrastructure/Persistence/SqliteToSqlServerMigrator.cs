@@ -45,6 +45,7 @@ public sealed class SqliteToSqlServerMigrator
         "OrderCancellationReasons",
         "UnitDiscardReasons",
         "SpecimenRejectionReasons",
+        "ReactionCatalogEntries",
         "TransfusionIndicationCriteria",
         "ChargeCodes",
         "ActionDefinitions",

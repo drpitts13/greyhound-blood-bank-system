@@ -186,7 +186,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
                 ClosedSignatureId: 7,
                 ClericalCheckCompleted: true,
                 VisualInspectionCompleted: true,
-                DatResult: DatWorkupResult.Negative));
+                DatResult: DatWorkupResult.Negative, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.True(closed.Succeeded, closed.Error);
         return opened.Id;
     }
@@ -253,11 +253,11 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.Contains("Bacterial contamination suspected", editAudit.NewValueJson);
 
         var unsigned = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
-            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed));
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.False(unsigned.Succeeded);
 
         var signed = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
-            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ClosedSignatureId: 8));
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ClosedSignatureId: 8, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.True(signed.Succeeded, signed.Error);
         Assert.Equal(8, signed.Value!.ClosedSignatureId);
     }
@@ -272,7 +272,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.True((await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
             "Hemolytic", ReactionSeverity.Fatal, null, "Fatal acute hemolytic reaction", null, null, null, true,
             ReactionInvestigationStatus.Closed, ClosedSignatureId: 9,
-            ClericalCheckCompleted: true, VisualInspectionCompleted: true, DatResult: DatWorkupResult.Negative))).Succeeded);
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true, DatResult: DatWorkupResult.Negative, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]))).Succeeded);
 
         var cber = await CreateService(context).RecordCberNotificationAsync(opened.Id);
 
@@ -293,7 +293,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             new UpdateReactionInvestigationRequest(
                 null, null, null, null, null, null, null, null,
                 ReactionInvestigationStatus.Closed,
-                ClosedSignatureId: 1));
+                ClosedSignatureId: 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.False(closed.Succeeded);
         Assert.Contains(ReactionWorkupCompletenessRule.Code, closed.Error);
         Assert.Equal(ReactionInvestigationStatus.Open, (await context.ReactionInvestigations.FindAsync(opened.Id))!.Status);
@@ -310,7 +310,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
                 ClosedSignatureId: 1,
                 ClericalCheckCompleted: true,
                 VisualInspectionCompleted: true,
-                DatResult: DatWorkupResult.Negative));
+                DatResult: DatWorkupResult.Negative, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.True(completed.Succeeded, completed.Error);
         Assert.Equal(ReactionInvestigationStatus.Closed, completed.Value!.Status);
         var ready = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);

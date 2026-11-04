@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -27,7 +28,11 @@ public sealed record UpdateReactionInvestigationRequest(
     string? RepeatUnitAboRh = null,
     DatWorkupResult? DatResult = null,
     string? ElutionResult = null,
-    bool? RemainderQuarantined = null);
+    bool? RemainderQuarantined = null,
+    /// <summary>OCD-057: the reaction concluded, a code from the reaction list (NONE for No reaction).</summary>
+    string? ConcludedReactionCode = null,
+    /// <summary>OCD-057: treatment codes from the treatment list (NONE for No treatment).</summary>
+    IReadOnlyList<string>? TreatmentCodes = null);
 
 public sealed record ReactionInvestigationDto(
     long Id,
@@ -85,13 +90,18 @@ public sealed record ReactionInvestigationDto(
     DateTime? ReopenedUtc = null,
     string? ReopenReason = null,
     bool ReportedAfterTransfusion = false,
-    DateTime? OnsetUtc = null)
+    DateTime? OnsetUtc = null,
+    string? ConcludedReactionCode = null,
+    string? ConcludedReactionText = null,
+    string? TreatmentCodes = null,
+    string? TreatmentTexts = null)
 {
     /// <summary>The one thing to do next, from <see cref="ReactionNextStepRule"/>.</summary>
     public ReactionNextStepRule.Step NextStep => ReactionNextStepRule.For(new ReactionNextStepRule.Facts(
         Status, FatalityFollowUpDue, FatalityFollowUpDetail, RemainderQuarantined, RemainderHoldNote,
         AboRhIncompatible || RepeatPatientAboRhDiscrepancy || RepeatUnitAboRhDiscrepancy,
-        WorkupIncomplete, WorkupHoldReason));
+        WorkupIncomplete, WorkupHoldReason,
+        string.IsNullOrWhiteSpace(ConcludedReactionCode) || string.IsNullOrWhiteSpace(TreatmentCodes)));
 
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -142,7 +152,8 @@ public sealed record ReactionInvestigationDto(
             followUp.Severity == RuleSeverity.Warning,
             followUp.Severity == RuleSeverity.Warning ? followUp.Message : null,
             r.ClosedBy, r.ClosedUtc, r.ReopenedBy, r.ReopenedUtc, r.ReopenReason,
-            r.ReportedAfterTransfusion, r.OnsetUtc);
+            r.ReportedAfterTransfusion, r.OnsetUtc,
+            r.ConcludedReactionCode, r.ConcludedReactionText, r.TreatmentCodes, r.TreatmentTexts);
     }
 }
 
@@ -168,6 +179,7 @@ public sealed class ReactionInvestigationService
     private readonly IRepository<ProductType>? _productTypes;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
+    private readonly IRepository<ReactionCatalogEntry>? _catalog;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -184,8 +196,10 @@ public sealed class ReactionInvestigationService
         IRepository<Issue>? issues = null,
         IRepository<ProductType>? productTypes = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
-        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null,
+        IRepository<ReactionCatalogEntry>? catalog = null)
     {
+        _catalog = catalog;
         _investigations = investigations;
         _transfusions = transfusions;
         _inventory = inventory;
@@ -405,6 +419,37 @@ public sealed class ReactionInvestigationService
             }
         }
 
+        // OCD-057: the conclusion comes from the admin lists; it is required to close.
+        var conclusionSent = request.ConcludedReactionCode is not null || request.TreatmentCodes is not null;
+        var closing = request.Status == ReactionInvestigationStatus.Closed;
+        if (conclusionSent || closing)
+        {
+            var entries = _catalog is null ? [] : await _catalog.ListAsync(e => e.IsActive, ct);
+            var reaction = request.ConcludedReactionCode ?? row.ConcludedReactionCode;
+            var treatments = request.TreatmentCodes ?? SplitCodes(row.TreatmentCodes);
+            var conclusion = ReactionConclusionRule.Evaluate(reaction, treatments, entries, requireComplete: closing);
+            if (conclusion.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<ReactionInvestigation>.Fail($"{conclusion.Code}: {conclusion.Message}");
+            }
+
+            if (request.ConcludedReactionCode is not null)
+            {
+                var code = ReactionConclusionRule.Normalize(request.ConcludedReactionCode);
+                row.ConcludedReactionCode = code.Length == 0 ? null : code;
+                row.ConcludedReactionText = code.Length == 0 ? null : ReactionConclusionRule.TextFor(code, ReactionCatalogKind.ReactionType, entries);
+            }
+
+            if (request.TreatmentCodes is not null)
+            {
+                var codes = request.TreatmentCodes.Select(ReactionConclusionRule.Normalize).Where(c => c.Length > 0).Distinct().ToList();
+                row.TreatmentCodes = codes.Count == 0 ? null : string.Join("|", codes);
+                row.TreatmentTexts = codes.Count == 0
+                    ? null
+                    : string.Join("; ", codes.Select(c => ReactionConclusionRule.TextFor(c, ReactionCatalogKind.Treatment, entries)));
+            }
+        }
+
         if ((request.IsFatality == true || request.Severity == ReactionSeverity.Fatal) && !row.IsFatality)
         {
             row.IsFatality = true;
@@ -517,7 +562,12 @@ public sealed class ReactionInvestigationService
         || Differs(r.RepeatUnitAboRh, row.RepeatUnitAboRh)
         || (r.DatResult is not null && r.DatResult != row.DatResult)
         || Differs(r.ElutionResult, row.ElutionResult)
-        || (r.RemainderQuarantined == true && !row.RemainderQuarantined);
+        || (r.RemainderQuarantined == true && !row.RemainderQuarantined)
+        || Differs(r.ConcludedReactionCode, row.ConcludedReactionCode)
+        || (r.TreatmentCodes is not null && string.Join("|", r.TreatmentCodes.Select(ReactionConclusionRule.Normalize).Where(c => c.Length > 0).Distinct()) != (row.TreatmentCodes ?? string.Empty));
+
+    private static IReadOnlyList<string> SplitCodes(string? joined) =>
+        string.IsNullOrWhiteSpace(joined) ? [] : joined.Split('|', StringSplitOptions.RemoveEmptyEntries);
 
     // A null request field means "not sent"; blank and null stored values are the same.
     private static bool Differs(string? requested, string? stored) =>
@@ -649,7 +699,11 @@ public sealed class ReactionInvestigationService
         row.VisualInspectionCompleted,
         row.RemainderQuarantined,
         row.IsFatality,
-        row.ProductAtFault
+        row.ProductAtFault,
+        row.ConcludedReactionCode,
+        row.ConcludedReactionText,
+        row.TreatmentCodes,
+        row.TreatmentTexts
     };
 
     private static bool CanHoldReactionRemainder(UnitStatus status) =>

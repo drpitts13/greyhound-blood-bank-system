@@ -90,4 +90,16 @@ public class ReactionInvestigation : BaseEntity
 
     /// <summary>When the signs began, if the late report gives it.</summary>
     public DateTime? OnsetUtc { get; set; }
+
+    /// <summary>OCD-057: the reaction the provider concluded, from the admin list (NONE for No reaction).</summary>
+    public string? ConcludedReactionCode { get; set; }
+
+    /// <summary>The list text as it read when chosen, so later edits to the list do not change this record.</summary>
+    public string? ConcludedReactionText { get; set; }
+
+    /// <summary>OCD-057: treatment codes for future transfusions, "|"-separated (NONE for No treatment).</summary>
+    public string? TreatmentCodes { get; set; }
+
+    /// <summary>The treatment texts as they read when chosen, "; "-separated.</summary>
+    public string? TreatmentTexts { get; set; }
 }

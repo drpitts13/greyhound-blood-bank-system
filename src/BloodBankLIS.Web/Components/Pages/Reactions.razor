@@ -201,6 +201,32 @@ else
                 </div>
                 <div class="field"><label>Disposition</label><input @bind="_disposition" /></div>
             </div>
+            @* OCD-057: the provider's conclusion, from the admin lists. Both are required to close. *@
+            <h4>Provider conclusion</h4>
+            <p class="muted">Choose the reaction concluded and the treatment for future transfusions. Both are required to close; <strong>No reaction</strong> and <strong>No treatment</strong> are always available. The lists are kept in Administration › Reactions and Treatments.</p>
+            <div class="form-row">
+                <div class="field"><label>Reaction concluded</label>
+                    <select @bind="_concludedReaction">
+                        <option value="">Not decided yet</option>
+                        @foreach (var e in _catalog.Where(e => e.Kind == ReactionCatalogKind.ReactionType))
+                        {
+                            <option value="@e.Code">@e.Text</option>
+                        }
+                    </select>
+                </div>
+                <div class="field" style="flex:2;"><label>Treatment for future transfusions</label>
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        @foreach (var e in _catalog.Where(e => e.Kind == ReactionCatalogKind.Treatment))
+                        {
+                            <label class="flex"><input type="checkbox" checked="@_treatments.Contains(e.Code)" @onchange="() => ToggleTreatment(e.Code)" />&nbsp;@e.Text</label>
+                        }
+                    </div>
+                </div>
+            </div>
+            @if (AlreadyClosed && !string.IsNullOrWhiteSpace(_selected.ConcludedReactionText))
+            {
+                <p class="muted">Recorded at close: @_selected.ConcludedReactionText; treatment: @(_selected.TreatmentTexts ?? "—").</p>
+            }
             <h4>AABB workup checklist</h4>
             <p class="muted">Clerical check, visual inspection, and post-transfusion DAT are required before close (same gate as SoftBank / SafeTrace). Compare patient <strong>@(_selected.CurrentBloodType ?? "—")</strong> with labeled unit <strong>@(_selected.UnitBloodType ?? "—")</strong> <span class="mono">@(_selected.UnitNumber ?? "")</span>. Checking remainder holds the bag in quality quarantine when the unit is still Issued, stopped, or Transfused.</p>
             @if (_selected.AboRhIncompatible)
@@ -371,7 +397,34 @@ else
     private bool _remainderHeld;
     private string _closeSecret = string.Empty;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        var catalog = await Api.GetReactionCatalogAsync();
+        _catalog = catalog.Value ?? [];
+        await LoadAsync();
+    }
+
+    private List<ReactionCatalogEntryDto> _catalog = [];
+    private string? _concludedReaction;
+    private readonly HashSet<string> _treatments = new(StringComparer.OrdinalIgnoreCase);
+
+    // No treatment stands alone: choosing it clears the others, and choosing another clears it.
+    private void ToggleTreatment(string code)
+    {
+        if (!_treatments.Remove(code))
+        {
+            if (string.Equals(code, ReactionConclusionRule.NoneCode, StringComparison.OrdinalIgnoreCase))
+            {
+                _treatments.Clear();
+            }
+            else
+            {
+                _treatments.Remove(ReactionConclusionRule.NoneCode);
+            }
+
+            _treatments.Add(code);
+        }
+    }
 
     protected override void OnParametersSet()
     {
@@ -437,6 +490,13 @@ else
         _dat = r.DatResult;
         _elution = r.ElutionResult;
         _remainderHeld = r.RemainderQuarantined;
+        _concludedReaction = r.ConcludedReactionCode;
+        _treatments.Clear();
+        foreach (var code in (r.TreatmentCodes ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries))
+        {
+            _treatments.Add(code);
+        }
+
         _closeSecret = string.Empty;
     }
 
@@ -484,7 +544,9 @@ else
         var r = await Api.UpdateReactionInvestigationAsync(_selected.Id, new UpdateReactionInvestigationRequest(
             // An already-closed case keeps its original close signature, so do not resend the Closed status.
             _type, _severity, _findings, _conclusions, _followUp, _disposition, _productAtFault, _isFatality, AlreadyClosed && _status == ReactionInvestigationStatus.Closed ? null : _status, sigId,
-            _clerical, _clericalNotes, _visual, _visualOk, _repeatPatient, _repeatUnit, _dat, _elution, _remainderHeld));
+            _clerical, _clericalNotes, _visual, _visualOk, _repeatPatient, _repeatUnit, _dat, _elution, _remainderHeld,
+            ConcludedReactionCode: _concludedReaction ?? string.Empty,
+            TreatmentCodes: _treatments.ToList()));
         _busy = false;
         _fb = r.ToFeedback("Investigation updated.");
         if (r.Succeeded)

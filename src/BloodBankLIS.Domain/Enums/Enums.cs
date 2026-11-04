@@ -986,6 +986,13 @@ public enum IdentityTokenType
     Other = 99
 }
 
+/// <summary>Which reaction list an admin catalog entry belongs to (OCD-057).</summary>
+public enum ReactionCatalogKind
+{
+    ReactionType = 0,
+    Treatment = 1
+}
+
 public enum ReactionInvestigationStatus
 {
     Open = 0,

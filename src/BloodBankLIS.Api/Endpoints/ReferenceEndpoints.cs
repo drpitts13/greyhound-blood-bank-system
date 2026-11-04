@@ -148,6 +148,16 @@ public static class ReferenceEndpoints
             return Results.Ok(items.Select(r => new OrderCancellationReasonRefDto(r.Code, r.Text, r.SortOrder)));
         });
 
+        // OCD-057: the active reaction and treatment lists the provider chooses from when concluding an investigation.
+        group.MapGet("/reaction-catalog", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var items = await context.ReactionCatalogEntries.AsNoTracking()
+                .Where(e => e.IsActive)
+                .OrderBy(e => e.Kind).ThenBy(e => e.SortOrder).ThenBy(e => e.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(ReactionCatalogEntryDto.From));
+        });
+
         group.MapGet("/specimen-rejection-reasons", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var items = await context.SpecimenRejectionReasons.AsNoTracking()

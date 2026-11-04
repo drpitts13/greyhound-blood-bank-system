@@ -14,7 +14,9 @@ routes:
 
 A reaction noticed after the transfusion was documented, such as a fever hours later or a delayed hemolytic reaction, is reported from the patient's chart: on **Product history**, choose **Report reaction** on the transfused row, describe what was seen and who reported it, and give the onset if known. That opens the investigation here, holds any remainder of the unit, and marks the transfusion as reaction suspected so the chart and the patient's next issue show it. The onset cannot be before the transfusion started or in the future, and a transfusion that already has an investigation is refused with its number.
 
-If the investigation leads to a requirement for future products, choose **Add special requirement** on it. The patient's chart opens with the requirement form naming the investigation, and the requirement is linked to it. Which requirement a reaction calls for is your medical director's decision; the system does not suggest one.
+Before closing, the provider records the **Reaction concluded** and the **Treatment for future transfusions**, each from the lists kept in Administration › Reactions and Treatments. **No reaction** and **No treatment** are always available. You can choose more than one treatment, but No treatment cannot be combined with another. The case cannot be closed until both are chosen, and what is recorded keeps the wording of the list at the time.
+
+If the investigation leads to a requirement for future products, choose **Add special requirement** on it. The patient's chart opens with the requirement form naming the investigation, and the requirement is linked to it. Choosing a treatment does not by itself add a special requirement to the chart; add the requirement there so it is enforced at selection and issue.
 
 ## What you record
 

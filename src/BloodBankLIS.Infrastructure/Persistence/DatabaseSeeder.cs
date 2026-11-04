@@ -46,6 +46,7 @@ public static partial class DatabaseSeeder
         await SeedOrderCancellationReasonsAsync(context, cancellationToken);
         await SeedUnitDiscardReasonsAsync(context, cancellationToken);
         await SeedSpecimenRejectionReasonsAsync(context, cancellationToken);
+        await SeedReactionCatalogAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
@@ -1162,6 +1163,62 @@ public static partial class DatabaseSeeder
     /// not a regulatory list. OTHER requires a comment.
     /// </summary>
     /// <summary>Starter list for the facility to edit (Admin › Specimen Rejection Reasons); not a regulatory list.</summary>
+    /// <summary>
+    /// OCD-057. No reaction and No treatment always exist. The starter reaction list follows the adverse reaction
+    /// categories of the CDC NHSN Hemovigilance Module, as an example for the facility to edit. No treatments are
+    /// seeded: the facility's medical director defines them in Administration.
+    /// </summary>
+    private static async Task SeedReactionCatalogAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var existing = await context.ReactionCatalogEntries.ToListAsync(ct);
+        foreach (var kind in new[] { ReactionCatalogKind.ReactionType, ReactionCatalogKind.Treatment })
+        {
+            if (!existing.Any(e => e.Kind == kind && e.Code == ReactionConclusionRule.NoneCode))
+            {
+                context.ReactionCatalogEntries.Add(new ReactionCatalogEntry
+                {
+                    Kind = kind,
+                    Code = ReactionConclusionRule.NoneCode,
+                    Text = kind == ReactionCatalogKind.ReactionType ? ReactionConclusionRule.NoReactionText : ReactionConclusionRule.NoTreatmentText,
+                    SortOrder = 0,
+                    IsActive = true,
+                    IsNoneOption = true
+                });
+            }
+        }
+
+        if (!existing.Any(e => e.Kind == ReactionCatalogKind.ReactionType && !e.IsNoneOption))
+        {
+            var starter = new (string Code, string Text)[]
+            {
+                ("AHTR", "Acute hemolytic transfusion reaction"),
+                ("DHTR", "Delayed hemolytic transfusion reaction"),
+                ("DSTR", "Delayed serologic transfusion reaction"),
+                ("ALLERGIC", "Allergic reaction"),
+                ("HYPOTENSIVE", "Hypotensive transfusion reaction"),
+                ("FNHTR", "Febrile non-hemolytic transfusion reaction"),
+                ("TACO", "Transfusion-associated circulatory overload"),
+                ("TRALI", "Transfusion-related acute lung injury"),
+                ("TAD", "Transfusion-associated dyspnea"),
+                ("TAGVHD", "Transfusion-associated graft-versus-host disease"),
+                ("PTP", "Post-transfusion purpura"),
+                ("TTI", "Transfusion-transmitted infection"),
+                ("OTHER", "Other or unknown")
+            };
+            var sort = 10;
+            foreach (var (code, text) in starter)
+            {
+                context.ReactionCatalogEntries.Add(new ReactionCatalogEntry
+                {
+                    Kind = ReactionCatalogKind.ReactionType, Code = code, Text = text, SortOrder = sort, IsActive = true
+                });
+                sort += 10;
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
     private static async Task SeedSpecimenRejectionReasonsAsync(BloodBankDbContext context, CancellationToken ct)
     {
         var seeds = new (string Code, string Text, bool RequiresComment, int Sort)[]

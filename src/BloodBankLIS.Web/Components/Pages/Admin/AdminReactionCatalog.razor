@@ -1,0 +1,156 @@
+@page "/admin/reaction-lists"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Reactions and Treatments &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Reactions and treatments</h1>
+    @if (CanEdit)
+    {
+        <button type="button" class="btn btn-primary" @onclick="NewDraft">@(_kind == ReactionCatalogKind.ReactionType ? "New reaction" : "New treatment")</button>
+    }
+</div>
+<p class="muted">
+    The lists a provider chooses from when closing a reaction investigation: the reaction concluded, and the treatment for future transfusions.
+    <strong>No reaction</strong> and <strong>No treatment</strong> are always offered and cannot be removed. The starter reaction list follows the
+    CDC NHSN Hemovigilance categories as an example to edit; treatments are defined by your medical director.
+</p>
+<div class="flex gap" style="margin-bottom:.75rem;">
+    <button type="button" class="btn btn-sm @(_kind == ReactionCatalogKind.ReactionType ? "btn-primary" : "btn-secondary")" @onclick="() => SelectKind(ReactionCatalogKind.ReactionType)">Reactions</button>
+    <button type="button" class="btn btn-sm @(_kind == ReactionCatalogKind.Treatment ? "btn-primary" : "btn-secondary")" @onclick="() => SelectKind(ReactionCatalogKind.Treatment)">Treatments</button>
+</div>
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Text</th><th>Sort</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var entry in Visible)
+                {
+                    <tr>
+                        <td class="mono">@entry.Code</td>
+                        <td>@entry.Text@if (entry.IsNoneOption) { <span class="sub">Always offered</span> }</td>
+                        <td>@entry.SortOrder</td>
+                        <td>
+                            @if (entry.IsActive) { <span class="badge badge-green">Active</span> }
+                            else { <span class="badge badge-gray">Inactive</span> }
+                        </td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(entry)">Edit</button>
+                            }
+                            @if (CanActivate && !entry.IsNoneOption)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SetActiveAsync(entry)">@(entry.IsActive ? "Deactivate" : "Activate")</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing)
+{
+    <div @key="_editId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        <h2>@(_editId is null ? (_kind == ReactionCatalogKind.ReactionType ? "New reaction" : "New treatment") : "Edit entry")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_code" maxlength="30" disabled="@_editingNone" /></div>
+            <div class="field" style="flex:2;"><label>Text shown to the provider</label><input @bind="_text" maxlength="200" /></div>
+            <div class="field"><label>Sort</label><input type="number" @bind="_sortOrder" /></div>
+        </div>
+        <div class="flex gap">
+            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => _editing = false">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _feedback;
+    private List<ReactionCatalogEntryDto> _items = [];
+    private ReactionCatalogKind _kind = ReactionCatalogKind.ReactionType;
+    private bool _editing;
+    private bool _editingNone;
+    private long? _editId;
+    private string _code = string.Empty;
+    private string _text = string.Empty;
+    private int _sortOrder;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private IEnumerable<ReactionCatalogEntryDto> Visible => _items.Where(e => e.Kind == _kind);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var result = await Api.GetAdminReactionCatalogAsync();
+        _items = result.Value ?? [];
+        if (!result.Succeeded) _feedback = result.ToFeedback();
+        _loading = false;
+    }
+
+    private void SelectKind(ReactionCatalogKind kind)
+    {
+        _kind = kind;
+        _editing = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _editingNone = false;
+        _code = string.Empty;
+        _text = string.Empty;
+        _sortOrder = (Visible.Count() + 1) * 10;
+        _editing = true;
+    }
+
+    private void Edit(ReactionCatalogEntryDto entry)
+    {
+        _editId = entry.Id;
+        _editingNone = entry.IsNoneOption;
+        _code = entry.Code;
+        _text = entry.Text;
+        _sortOrder = entry.SortOrder;
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        var request = new SaveReactionCatalogEntryRequest(_kind, _code, _text, _sortOrder);
+        _busy = true;
+        var result = _editId is long id
+            ? await Api.UpdateAdminReactionCatalogEntryAsync(id, request)
+            : await Api.CreateAdminReactionCatalogEntryAsync(request);
+        _busy = false;
+        _feedback = result.ToFeedback(_editId is null ? "Entry added." : "Entry updated.");
+        if (result.Succeeded)
+        {
+            _editing = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task SetActiveAsync(ReactionCatalogEntryDto entry)
+    {
+        _busy = true;
+        var result = await Api.SetAdminReactionCatalogEntryActiveAsync(entry.Id, !entry.IsActive);
+        _busy = false;
+        _feedback = result.ToFeedback(entry.IsActive ? "Entry deactivated." : "Entry activated.");
+        if (result.Succeeded) await LoadAsync();
+    }
+}

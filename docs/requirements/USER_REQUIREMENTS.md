@@ -497,3 +497,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-489 | For every closed interface error, staff can see who closed it, when, and why, whether it was closed by hand, by a replay, or by a later send. | P2 | FRS-BB-536 |
 | URS-BB-490 | A transfusion reaction noticed after the transfusion was documented without one can be reported and investigated like one reported at the bedside. | P1 | FRS-BB-539 |
 | URS-BB-491 | A quarantined unit goes back to stock only when the reason it is held allows it, and the quarantine board says what to do with each unit. | P1 | FRS-BB-543 |
+| URS-BB-492 | When a reaction investigation closes, the provider records the reaction concluded and the treatment for future transfusions, each chosen from an admin list that always offers No reaction and No treatment. | P1 | FRS-BB-546 |

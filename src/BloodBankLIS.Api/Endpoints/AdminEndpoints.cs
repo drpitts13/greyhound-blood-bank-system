@@ -49,6 +49,7 @@ public static class AdminEndpoints
         MapOrderCancellationReasons(app);
         MapUnitDiscardReasons(app);
         MapSpecimenRejectionReasons(app);
+        MapReactionCatalog(app);
         MapCompatibilityRules(app);
         MapHl7(app);
         MapInstruments(app);
@@ -684,6 +685,33 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, UnitDiscardReasonAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapReactionCatalog(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/reaction-catalog")
+            .WithTags("Admin: Reaction Lists")
+            .RequireAuthenticatedUser();
+
+        group.MapGet("", async (ReactionCatalogAdminService svc, ReactionCatalogKind? kind, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(kind, includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveReactionCatalogEntryRequest req, ReactionCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveReactionCatalogEntryRequest req, ReactionCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReactionCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReactionCatalogAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }

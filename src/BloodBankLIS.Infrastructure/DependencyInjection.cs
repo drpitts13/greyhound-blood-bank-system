@@ -183,6 +183,7 @@ public static class DependencyInjection
         services.AddScoped<OrderCancellationReasonAdminService>();
         services.AddScoped<UnitDiscardReasonAdminService>();
         services.AddScoped<SpecimenRejectionReasonAdminService>();
+        services.AddScoped<ReactionCatalogAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();
         services.AddScoped<InterfaceTranslationAdminService>();
         services.AddScoped<IInstrumentInterfaceRepository, InstrumentInterfaceRepository>();

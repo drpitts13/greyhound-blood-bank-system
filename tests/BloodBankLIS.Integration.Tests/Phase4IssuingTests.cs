@@ -3021,7 +3021,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             ctx, _factory.Clock, _factory.CurrentUser, audit);
 
         var closed = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
-            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1));
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.False(closed.Succeeded);
         Assert.Contains(ReactionWorkupCompletenessRule.Code, closed.Error);
 
@@ -3033,7 +3033,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(saved.Succeeded);
 
         var closeOk = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
-            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1));
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.True(closeOk.Succeeded);
         Assert.Equal(ReactionInvestigationStatus.Closed, closeOk.Value!.Status);
     }

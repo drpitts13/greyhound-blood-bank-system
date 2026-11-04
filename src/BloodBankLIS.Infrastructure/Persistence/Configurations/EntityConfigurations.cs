@@ -1128,6 +1128,21 @@ public sealed class OrderCancellationReasonConfiguration : IEntityTypeConfigurat
     }
 }
 
+public sealed class ReactionCatalogEntryConfiguration : IEntityTypeConfiguration<ReactionCatalogEntry>
+{
+    public void Configure(EntityTypeBuilder<ReactionCatalogEntry> b)
+    {
+        b.ToTable("ReactionCatalogEntries");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.Code).HasMaxLength(30).IsRequired();
+        b.Property(r => r.Text).HasMaxLength(200).IsRequired();
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(r => new { r.Kind, r.Code }).IsUnique();
+    }
+}
+
 public sealed class SpecimenRejectionReasonConfiguration : IEntityTypeConfiguration<SpecimenRejectionReason>
 {
     public void Configure(EntityTypeBuilder<SpecimenRejectionReason> b)
@@ -1742,6 +1757,10 @@ public sealed class ReactionInvestigationConfiguration : IEntityTypeConfiguratio
         b.ToTable("ReactionInvestigations");
         b.Property(x => x.ReopenedBy).HasMaxLength(100);
         b.Property(x => x.ReopenReason).HasMaxLength(500);
+        b.Property(x => x.ConcludedReactionCode).HasMaxLength(30);
+        b.Property(x => x.ConcludedReactionText).HasMaxLength(200);
+        b.Property(x => x.TreatmentCodes).HasMaxLength(500);
+        b.Property(x => x.TreatmentTexts).HasMaxLength(2000);
         b.HasKey(x => x.Id);
         b.Property(x => x.ReportedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ReactionType).HasMaxLength(100);
