@@ -54,6 +54,12 @@
                     <tr class="row-actions">
                         <td colspan="7">
                             <div class="row-actions-bar">
+                                @if (!string.IsNullOrWhiteSpace(a.SpecialRequirementNotice))
+                                {
+                                    @* A requirement added after the unit was reserved: issue will refuse it outside emergency release. *@
+                                    <span class="badge badge-red" data-special-requirement-unmet>Does not meet a special requirement</span>
+                                    <span class="muted">@a.SpecialRequirementNotice Modify it if a modification meets it, or release it and choose another unit.</span>
+                                }
                                 @if (a.DisplayStatus == ProductAllocationDisplayStatus.CrossmatchExpired && a.IssueId is null)
                                 {
                                     <span class="muted">Crossmatch expired. Repeat it on a current specimen before issue.</span>

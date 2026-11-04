@@ -1391,6 +1391,72 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(groupARbc.UnitNumber, ended.Value!.Select(u => u.UnitNumber));
     }
 
+    // TEST-BB-414: a unit reserved before a requirement was added says what it lacks on the allocated list;
+    // a reserved unit that meets it says nothing.
+    [Fact]
+    public async Task ListActive_ReservedUnitThatFailsALaterRequirement_SaysWhatItLacks()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-RQ-{Guid.NewGuid():N}",
+            LastName = "Reserved",
+            FirstName = "Later",
+            DateOfBirth = new DateOnly(1985, 6, 6)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        var definition = new SpecialRequirementDefinition
+        {
+            Code = $"GO{Guid.NewGuid():N}"[..10],
+            Name = "Group O red cells only",
+            Level = SpecialRequirementLevel.Unit,
+            Category = SpecialRequirementCategory.UnitTyping,
+            EnforcementKind = SpecialRequirementEnforcementKind.RequireUnitAbo,
+            ComponentClass = ComponentClass.RedBloodCells,
+            AllowedAboGroups = "O",
+            IsActive = true,
+            Version = 1
+        };
+        c.SpecialRequirementDefinitions.Add(definition);
+        await c.SaveChangesAsync();
+        var groupA = Unit(rbc.Id, "U-RQA-", AboGroup.A, days: 5);
+        var groupO = Unit(rbc.Id, "U-RQO-", AboGroup.O, days: 5);
+        c.BloodUnits.AddRange(groupA, groupO);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        c.Allocations.AddRange(
+            new Allocation { BloodProductId = groupA.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now.AddHours(-2), AllocatedBy = "tech" },
+            new Allocation { BloodProductId = groupO.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now.AddHours(-2), AllocatedBy = "tech" });
+        await c.SaveChangesAsync();
+
+        var before = await Allocations(c, includeSpecialRequirements: true).ListActiveAsync(patient.Id);
+        Assert.All(before, r => Assert.Null(r.SpecialRequirementNotice));
+
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = patient.Id,
+            RequirementDefinitionId = definition.Id,
+            RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Ordered after the units were reserved",
+            EffectiveUtc = now.AddMinutes(-5),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        });
+        await c.SaveChangesAsync();
+
+        var after = await Allocations(c, includeSpecialRequirements: true).ListActiveAsync(patient.Id);
+        Assert.Contains("must be group O", after.Single(r => r.BloodUnitId == groupA.Id).SpecialRequirementNotice);
+        Assert.Null(after.Single(r => r.BloodUnitId == groupO.Id).SpecialRequirementNotice);
+    }
+
     [Fact]
     public async Task ListCompatibleUnits_KeepsUnitForAcknowledgmentOnlyRequirement()
     {

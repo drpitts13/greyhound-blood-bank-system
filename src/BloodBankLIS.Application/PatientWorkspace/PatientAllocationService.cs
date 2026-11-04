@@ -188,6 +188,17 @@ public sealed class PatientAllocationService
                 .GroupBy(i => i.BloodProductId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(i => i.IssuedUtc).First());
 
+        // A requirement added after a unit was reserved: say so here rather than first at issue.
+        var requirements = await SpecialRequirementLoader.ForPatientAsync(
+            _specialRequirements, _requirementDefinitions, patientId, ct);
+        var attributesByProduct = requirements.Count == 0
+            ? []
+            : await SpecialRequirementLoader.ProductAttributeCodesByProductTypeAsync(
+                _productAttributeAssignments, _productAttributes, ct);
+        var negativeTestsByUnit = requirements.Count == 0
+            ? []
+            : await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(_unitSpecialTests, unitIds, ct);
+
         var rows = new List<PatientAllocationRowDto>();
         foreach (var allocation in allocations.OrderByDescending(a => a.AllocatedUtc))
         {
@@ -215,6 +226,19 @@ public sealed class PatientAllocationService
 
             issues.TryGetValue(unit.Id, out var issue);
             var thawCode = await AutoThawCodeAsync(allocation, unit, product, issue, ct);
+            string? requirementNotice = null;
+            if (requirements.Count > 0 && allocation.Status == AllocationStatus.Reserved && issue is null && product is not null)
+            {
+                var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);
+                requirementNotice = SpecialTransfusionRequirementRule.UnmetUnitRequirements(
+                        requirements,
+                        attributesByProduct.GetValueOrDefault(unit.ProductTypeId) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                        bloodAttrs.UnitAntigens,
+                        _clock.UtcNow,
+                        SpecialRequirementLoader.Typing(unit, product.ComponentClass, negativeTestsByUnit))
+                    .FirstOrDefault();
+            }
+
             rows.Add(new PatientAllocationRowDto(
                 allocation.Id,
                 unit.Id,
@@ -245,7 +269,8 @@ public sealed class PatientAllocationService
                 await StorageLocationNameAsync(unit.CurrentLocationId, ct),
                 CrossmatchValidityRule.CurrentCompatibleExpiresUtc(
                     unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)),
-                    _clock.UtcNow)));
+                    _clock.UtcNow),
+                requirementNotice));
         }
 
         return rows;

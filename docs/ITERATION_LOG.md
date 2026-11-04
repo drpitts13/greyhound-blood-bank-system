@@ -12203,3 +12203,50 @@ A CMV- or HbS-negative unit typing could be met by a negative test on the unit (
 ### Next ranked residual
 
 Rescan the capability matrix for the highest remaining operational gap.
+
+## Iteration 375 — Reserved units checked against a later special requirement (2026-11-04)
+
+### Capability matrix rescan
+
+The ranked gap list is closed or waiting on SME decisions:
+- RhIG indications
+- the licensed ICCBBA extract (OCD-004)
+- the administration-device protocol
+
+The rescan of the special-requirement workflow from Cycles 373–374 found the next operational gap, with questions 5 and 6 applying.
+
+### Finding
+
+A requirement added after units were reserved, for example "Irradiated red cells" ordered the day after crossmatch, showed nothing on the patient's allocated products. The tech found out only at the issue desk:
+- the Ready-to-issue badge
+- the issue hard stop
+
+That is minutes before the product is needed, with a crossmatched unit that cannot go.
+
+### Design
+
+- `PatientAllocationService.ListActiveAsync` checks each reserved, unissued unit against the patient's active requirements, with the same rule and unit facts as selection and issue (`SpecialRequirementLoader`). It returns the first thing the unit lacks as `SpecialRequirementNotice`.
+- The Products tab row shows a red **Does not meet a special requirement** badge, the message, and what to do: modify it if a modification meets the requirement, or release it and choose another unit.
+- After a requirement is added on the Overview tab, the chart reloads allocations. The confirmation lists each reserved unit that does not meet it.
+- No new enforcement: issue already refuses the unit outside emergency release.
+
+### Requirements
+
+- FRS-BB-552 (under URS-BB-493). Help: patient products.
+
+### Tests
+
+- TEST-BB-414. Integration:
+  - two reserved red cells (A and O) show no notice
+  - after a group-O-only requirement is added, the A unit says "must be group O" and the O unit says nothing
+- Full suite: 3,683 passed, 0 failed.
+- Run check (development API and web), demo patient 1 with a reserved O+ leukoreduced red cell:
+  - "Irradiated red cells" was added
+  - the row showed the red badge and "Patient requires Irradiated red cells: the unit's product does not carry IRRAD.", with Modify and Release beside it
+  - ending the requirement cleared the notice
+  - no server errors
+- The product-attribute and antigen-negative messages now name the requirement in the same form as the others ("Patient requires …: the unit …").
+
+### Next ranked residual
+
+The row's allocation status still reads Ready for issue next to the unmet-requirement badge. Consider a distinct display status for a reserved unit that cannot be issued routinely, if the bench finds the pair confusing.

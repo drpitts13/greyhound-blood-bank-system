@@ -126,7 +126,7 @@ public static class SpecialTransfusionRequirementRule
                     if (!unitByAntigen.TryGetValue(antigen, out var typed)
                         || typed.Result != AntigenResult.Negative)
                     {
-                        results.Add(RuleResult.HardStop(Code, $"Unit is not antigen-negative for required antigen {antigen}."));
+                        results.Add(RuleResult.HardStop(Code, $"Patient requires {requirement.Label}: the unit is not typed {antigen} negative."));
                     }
 
                     break;
@@ -209,7 +209,7 @@ public static class SpecialTransfusionRequirementRule
     {
         if (!codes.Contains(expectedCode))
         {
-            results.Add(RuleResult.HardStop(Code, $"Unit product attributes do not include required {label} ({expectedCode})."));
+            results.Add(RuleResult.HardStop(Code, $"Patient requires {label}: the unit's product does not carry {expectedCode}."));
         }
     }
 

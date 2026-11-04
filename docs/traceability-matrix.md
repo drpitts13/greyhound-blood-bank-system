@@ -552,6 +552,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-483 / FRS-BB-548 | Transport container and MTP pack changes record a reason | `ValidatedConfigChangeReasonRule`; container and pack admin | TEST-BB-411 | D / I | |
 | URS-BB-493 / FRS-BB-549, FRS-BB-550 | Special requirements by unit category: typings, modifications, informational banner, issue procedures; start and end dates | `SpecialTransfusionRequirementRule`; `IssueGate`; `SpecialRequirementLoader`; `SpecialRequirementAdminService`; `SpecialRequirementService` | TEST-BB-412 | D / I | |
 | URS-BB-493 / FRS-BB-551 | Unit tests (CMV, HbS) recorded on the unit, latest result counts, corrections with a reason | `UnitSpecialTestRule`; `UnitSpecialTestService` | TEST-BB-413 | D / I | |
+| URS-BB-493 / FRS-BB-552 | Reserved units checked against a later special requirement on the chart | `PatientAllocationService.ListActiveAsync` | TEST-BB-414 | I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

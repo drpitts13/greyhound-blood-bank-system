@@ -16,6 +16,8 @@ The **Products** tab lists units reserved or issued to this patient. It is the c
 
 Each row shows the unit number, product, expiration, unit ABO and Rh, storage location, crossmatch result, and status. A row without a crossmatch result says so. A reserved unit that still needs a crossmatch offers **Crossmatch** when you have permission to record one.
 
+A reserved unit that does not meet one of the patient's special requirements, for example one added after the unit was reserved, shows **Does not meet a special requirement** and what the patient requires. Issue will refuse it outside emergency release. Modify the unit if a modification meets the requirement, or release it and choose another unit. Adding a requirement on the Overview tab also lists any reserved units that do not meet it.
+
 ![Crossmatch dialog](figures/patient-crossmatch-dialog.png)
 
 The crossmatch dialog asks for the specimen and the method. Electronic crossmatch is offered only when the patient is eligible and facility policy allows it. Otherwise record a serologic crossmatch and the reactions your test definition requires. Saving the crossmatch updates the row.

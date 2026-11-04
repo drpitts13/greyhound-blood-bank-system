@@ -2326,7 +2326,22 @@ else
             EndDate: _srEndDate is { } end ? DateOnly.FromDateTime(end) : null));
         _busy = false;
         _srFb = r.ToFeedback("Special requirement added.");
-        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; _srStartDate = DateTime.Today; _srEndDate = null; _srReactionId = null; await LoadAsync(); }
+        if (r.Succeeded)
+        {
+            _srReason = string.Empty; _srAntigen = null; _srStartDate = DateTime.Today; _srEndDate = null; _srReactionId = null;
+            await LoadAsync();
+            // Units reserved before the requirement are checked now, not first at issue.
+            await LoadAllocationsAsync();
+            var unmet = _allocations.Where(a => !string.IsNullOrWhiteSpace(a.SpecialRequirementNotice)).ToList();
+            if (unmet.Count > 0 && _srFb is { Success: true } added)
+            {
+                _srFb = added with
+                {
+                    Warnings = [.. added.Warnings, .. unmet.Select(a => new RuleMessage(
+                        "ISS-SPECIAL-REQ", $"Reserved unit {a.UnitNumber} does not meet it: {a.SpecialRequirementNotice} See Products."))]
+                };
+            }
+        }
     }
 
     private void BeginDeactivateSr(SpecialRequirementDto r)
