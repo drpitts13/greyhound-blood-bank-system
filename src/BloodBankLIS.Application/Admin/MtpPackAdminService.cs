@@ -40,7 +40,9 @@ public sealed record SaveMtpPackRequest(
     int PlateletUnits,
     int CryoUnits,
     int WholeBloodUnits,
-    int SortOrder);
+    int SortOrder,
+    // Why an existing entry is changed; required for an update.
+    string? Reason = null);
 
 /// <summary>
 /// Facility catalog of MTP packs (OCD-012). Nothing is seeded: each pack is a medical-director decision, versioned
@@ -93,6 +95,12 @@ public sealed class MtpPackAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<MtpPackDefinitionDto>> UpdateAsync(long id, SaveMtpPackRequest request, CancellationToken ct = default)
     {
+        var why = ValidatedConfigChangeReasonRule.Evaluate(request.Reason, "an MTP pack");
+        if (why.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<MtpPackDefinitionDto>.Blocked(new RuleEvaluation([why]));
+        }
+
         var entity = await _packs.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -109,13 +117,19 @@ public sealed class MtpPackAdminService : ConfigAdminServiceBase
 
         _packs.Update(entity);
         var dto = MtpPackDefinitionDto.From(entity);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, request.Reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<MtpPackDefinitionDto>.Ok(dto);
     }
 
-    public async Task<EvaluationResult<MtpPackDefinitionDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
+    public async Task<EvaluationResult<MtpPackDefinitionDto>> SetActiveAsync(long id, bool active, string? reason = null, CancellationToken ct = default)
     {
+        var why = ValidatedConfigChangeReasonRule.Evaluate(reason, "an MTP pack");
+        if (why.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<MtpPackDefinitionDto>.Blocked(new RuleEvaluation([why]));
+        }
+
         var entity = await _packs.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -128,7 +142,7 @@ public sealed class MtpPackAdminService : ConfigAdminServiceBase
         var dto = MtpPackDefinitionDto.From(entity);
         RecordChange(EntityType, entity.Id, 1,
             active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate,
-            active ? AuditEventType.Activate : AuditEventType.Deactivate, old, dto, null);
+            active ? AuditEventType.Activate : AuditEventType.Deactivate, old, dto, reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<MtpPackDefinitionDto>.Ok(dto);
     }

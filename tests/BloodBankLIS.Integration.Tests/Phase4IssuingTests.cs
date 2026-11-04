@@ -1442,6 +1442,28 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         return (s, activationId, issued.Value!.Id, container.Value!.Id);
     }
 
+    // TEST-BB-411: a transport container's validated range and hours change only with a reason.
+    [Fact]
+    public async Task TransportContainer_Update_And_Deactivate_NeedAReason()
+    {
+        await using var c = _factory.Create();
+        var created = await Containers(c).CreateAsync(new SaveTransportContainerRequest(
+            "COOL-RSN", "Reason cooler", TransportContainerType.Cooler, null, 1m, 10m, 4, 10));
+        Assert.True(created.Succeeded, created.Error);
+
+        var change = new SaveTransportContainerRequest("COOL-RSN", "Reason cooler", TransportContainerType.Cooler, null, 1m, 6m, 6, 10);
+        var refused = await Containers(c).UpdateAsync(created.Value!.Id, change);
+        Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == ValidatedConfigChangeReasonRule.Code);
+        Assert.Equal(10m, (await c.TransportContainers.AsNoTracking().SingleAsync(x => x.Id == created.Value.Id)).MaxTemperatureC);
+
+        var updated = await Containers(c).UpdateAsync(created.Value.Id, change with { Reason = "Revalidated 2026-11-04, report QA-17" });
+        Assert.True(updated.Succeeded, updated.Error);
+        Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityId == created.Value.Id && h.ChangeReason == "Revalidated 2026-11-04, report QA-17"));
+
+        Assert.False((await Containers(c).SetActiveAsync(created.Value.Id, false)).Succeeded);
+        Assert.True((await Containers(c).SetActiveAsync(created.Value.Id, false, "Cooler lid cracked, retired")).Succeeded);
+    }
+
     // TEST-BB-326: a pack records container, temperature, packer, and units; its report carries everything printed.
     [Fact]
     public async Task MtpPack_IsRecorded_Audited_AndReported()
@@ -1590,7 +1612,12 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var s = await SeedAsync("MTP-PACK-OFF");
         await using var c = _factory.Create();
         var pack = await Packs(c).CreateAsync(new SaveMtpPackRequest("PK-OFF", "Retired pack", 4, 4, 1, 0, 0, 10));
-        Assert.True((await Packs(c).SetActiveAsync(pack.Value!.Id, false)).Succeeded);
+        // TEST-BB-411: switching a pack off says why.
+        var noReason = await Packs(c).SetActiveAsync(pack.Value!.Id, false);
+        Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == ValidatedConfigChangeReasonRule.Code);
+        Assert.True((await Packs(c).SetActiveAsync(pack.Value!.Id, false, "Pack retired by medical director 2026-11-04")).Succeeded);
+        Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityId == pack.Value.Id
+            && h.ChangeReason == "Pack retired by medical director 2026-11-04"));
 
         foreach (var id in new long[] { pack.Value.Id, 999_999 })
         {

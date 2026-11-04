@@ -14,6 +14,13 @@
 <p class="muted">How many units of each component make up one round of your massive transfusion protocol. The software ships none: enter only packs your medical director has approved.</p>
 <div class="alert alert-danger">Pack contents are clinical decisions. <strong>REQUIRES SME VERIFICATION</strong> (OCD-012). A pack is guidance on the issue desk only: it never blocks or adds a unit, and every unit still goes through every safety check.</div>
 <Outcome Value="_feedback" />
+@if (CanActivate || Session.Has(PermissionCodes.AdminConfigEdit))
+{
+    @* These entries record a validation or a medical-director decision, so edits and activation say why. *@
+    <div class="field" style="max-width:32rem;"><label>Reason for the change</label>
+        <input @bind="_changeReason" @bind:event="oninput" placeholder="e.g. Revalidated 2026-11-04, report QA-17" />
+    </div>
+}
 
 <div class="bb-card" style="margin-top:1rem;">
     @if (_items.Count == 0)
@@ -34,7 +41,7 @@
                         <td>@if (p.IsActive) { <span class="badge badge-green">Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
                         <td class="right nowrap">
                             @if (CanEdit) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(p)">Edit</button> }
-                            @if (CanActivate) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(p)">@(p.IsActive ? "Deactivate" : "Activate")</button> }
+                            @if (CanActivate) { <button type="button" class="btn btn-ghost btn-sm" disabled="@(!HasReason)" title="@(HasReason ? null : "Give the reason for the change first")" @onclick="() => SetActiveAsync(p)">@(p.IsActive ? "Deactivate" : "Activate")</button> }
                         </td>
                     </tr>
                 }
@@ -62,7 +69,7 @@
             <div class="field"><label>Whole blood</label><input type="number" min="0" max="50" @bind="_wb" /></div>
         </div>
         <div class="flex gap">
-            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-primary" disabled="@(_busy || (_editId is not null && !HasReason))" title="@(_editId is not null && !HasReason ? "Give the reason for the change at the top of the page" : null)" @onclick="SaveAsync">Save</button>
             <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => _editing = false">Cancel</button>
         </div>
     </div>
@@ -85,6 +92,8 @@
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private string _changeReason = string.Empty;
+    private bool HasReason => _changeReason.Trim().Length >= ValidatedConfigChangeReasonRule.MinimumLength;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -122,7 +131,7 @@
     private async Task SaveAsync()
     {
         _busy = true;
-        var r = await Api.SaveMtpPackAsync(_editId, new SaveMtpPackRequest(_code, _name, _rbc, _plasma, _plt, _cryo, _wb, _sort));
+        var r = await Api.SaveMtpPackAsync(_editId, new SaveMtpPackRequest(_code, _name, _rbc, _plasma, _plt, _cryo, _wb, _sort, _editId is null ? null : _changeReason));
         _busy = false;
         _feedback = r.ToFeedback(_editId is null ? "Pack added." : "Pack updated.");
         if (r.Succeeded)
@@ -135,7 +144,7 @@
     private async Task SetActiveAsync(MtpPackDefinitionDto p)
     {
         _busy = true;
-        var r = await Api.SetMtpPackActiveAsync(p.Id, !p.IsActive);
+        var r = await Api.SetMtpPackActiveAsync(p.Id, !p.IsActive, _changeReason);
         _busy = false;
         _feedback = r.ToFeedback(p.IsActive ? "Pack deactivated." : "Pack activated.");
         if (r.Succeeded) await LoadAsync();

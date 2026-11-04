@@ -549,6 +549,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-491 / FRS-BB-545 | Locate and inspect record what was found | `InventoryService`; discrepancy board and unit page | TEST-BB-408 | I | |
 | URS-BB-492 / FRS-BB-546 | Reaction concluded and treatment chosen from admin lists at close | `ReactionConclusionRule`; `ReactionCatalogAdminService`; `ReactionInvestigationService` | TEST-BB-409 | D / I | |
 | URS-BB-483 / FRS-BB-547 | Storage location changes record a reason | `StorageLocationChangeReasonRule`; `InventoryLocationAdminService` | TEST-BB-410 | D / I | |
+| URS-BB-483 / FRS-BB-548 | Transport container and MTP pack changes record a reason | `ValidatedConfigChangeReasonRule`; container and pack admin | TEST-BB-411 | D / I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

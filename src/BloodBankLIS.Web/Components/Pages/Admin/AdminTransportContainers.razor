@@ -14,6 +14,13 @@
 <p class="muted">The coolers, insulated bags, and boxes the blood bank packs units into. When a massive transfusion pack is recorded, the tech picks one of these.</p>
 <div class="alert alert-warning">The temperature range and validated hours are your facility's own container validation results. The software supplies none. Leave them blank until they are validated. A packing temperature outside the range is recorded and printed on the pack report; it is not blocked.</div>
 <Outcome Value="_feedback" />
+@if (CanActivate || Session.Has(PermissionCodes.AdminConfigEdit))
+{
+    @* These entries record a validation or a medical-director decision, so edits and activation say why. *@
+    <div class="field" style="max-width:32rem;"><label>Reason for the change</label>
+        <input @bind="_changeReason" @bind:event="oninput" placeholder="e.g. Revalidated 2026-11-04, report QA-17" />
+    </div>
+}
 
 <div class="bb-card" style="margin-top:1rem;">
     @if (_items.Count == 0)
@@ -36,7 +43,7 @@
                         <td>@if (c.IsActive) { <span class="badge badge-green">Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
                         <td class="right nowrap">
                             @if (CanEdit) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(c)">Edit</button> }
-                            @if (CanActivate) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(c)">@(c.IsActive ? "Deactivate" : "Activate")</button> }
+                            @if (CanActivate) { <button type="button" class="btn btn-ghost btn-sm" disabled="@(!HasReason)" title="@(HasReason ? null : "Give the reason for the change first")" @onclick="() => SetActiveAsync(c)">@(c.IsActive ? "Deactivate" : "Activate")</button> }
                         </td>
                     </tr>
                 }
@@ -71,7 +78,7 @@
             <div class="field"><label>Validated hours</label><input type="number" min="1" max="168" @bind="_hours" /></div>
         </div>
         <div class="flex gap">
-            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-primary" disabled="@(_busy || (_editId is not null && !HasReason))" title="@(_editId is not null && !HasReason ? "Give the reason for the change at the top of the page" : null)" @onclick="SaveAsync">Save</button>
             <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => _editing = false">Cancel</button>
         </div>
     </div>
@@ -94,6 +101,8 @@
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private string _changeReason = string.Empty;
+    private bool HasReason => _changeReason.Trim().Length >= ValidatedConfigChangeReasonRule.MinimumLength;
 
     public static string TypeLabel(TransportContainerType t) => t switch
     {
@@ -141,7 +150,7 @@
     {
         _busy = true;
         var r = await Api.SaveTransportContainerAsync(_editId,
-            new SaveTransportContainerRequest(_code, _name, _type, _description, _min, _max, _hours, _sort));
+            new SaveTransportContainerRequest(_code, _name, _type, _description, _min, _max, _hours, _sort, _editId is null ? null : _changeReason));
         _busy = false;
         _feedback = r.ToFeedback(_editId is null ? "Container added." : "Container updated.");
         if (r.Succeeded)
@@ -154,7 +163,7 @@
     private async Task SetActiveAsync(TransportContainerDto c)
     {
         _busy = true;
-        var r = await Api.SetTransportContainerActiveAsync(c.Id, !c.IsActive);
+        var r = await Api.SetTransportContainerActiveAsync(c.Id, !c.IsActive, _changeReason);
         _busy = false;
         _feedback = r.ToFeedback(c.IsActive ? "Container deactivated." : "Container activated.");
         if (r.Succeeded) await LoadAsync();

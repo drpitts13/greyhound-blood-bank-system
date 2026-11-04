@@ -39,7 +39,9 @@ public sealed record SaveTransportContainerRequest(
     decimal? MinTemperatureC,
     decimal? MaxTemperatureC,
     int? ValidatedHours,
-    int SortOrder);
+    int SortOrder,
+    // Why an existing entry is changed; required for an update.
+    string? Reason = null);
 
 /// <summary>
 /// Facility catalog of coolers and other transport vessels. Nothing is seeded; ranges and validated hours are the
@@ -92,6 +94,12 @@ public sealed class TransportContainerAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<TransportContainerDto>> UpdateAsync(long id, SaveTransportContainerRequest request, CancellationToken ct = default)
     {
+        var why = ValidatedConfigChangeReasonRule.Evaluate(request.Reason, "a transport container");
+        if (why.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransportContainerDto>.Blocked(new RuleEvaluation([why]));
+        }
+
         var entity = await _containers.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -108,13 +116,19 @@ public sealed class TransportContainerAdminService : ConfigAdminServiceBase
 
         _containers.Update(entity);
         var dto = TransportContainerDto.From(entity);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, request.Reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TransportContainerDto>.Ok(dto);
     }
 
-    public async Task<EvaluationResult<TransportContainerDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
+    public async Task<EvaluationResult<TransportContainerDto>> SetActiveAsync(long id, bool active, string? reason = null, CancellationToken ct = default)
     {
+        var why = ValidatedConfigChangeReasonRule.Evaluate(reason, "a transport container");
+        if (why.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransportContainerDto>.Blocked(new RuleEvaluation([why]));
+        }
+
         var entity = await _containers.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -127,7 +141,7 @@ public sealed class TransportContainerAdminService : ConfigAdminServiceBase
         var dto = TransportContainerDto.From(entity);
         RecordChange(EntityType, entity.Id, 1,
             active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate,
-            active ? AuditEventType.Activate : AuditEventType.Deactivate, old, dto, null);
+            active ? AuditEventType.Activate : AuditEventType.Deactivate, old, dto, reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TransportContainerDto>.Ok(dto);
     }

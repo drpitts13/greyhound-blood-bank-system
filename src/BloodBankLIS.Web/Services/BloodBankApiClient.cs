@@ -1712,8 +1712,8 @@ public sealed class BloodBankApiClient
             ? SendAsync<TransportContainerDto>(HttpMethod.Put, $"api/admin/transport-containers/{existing}", req, ct)
             : SendAsync<TransportContainerDto>(HttpMethod.Post, "api/admin/transport-containers", req, ct);
 
-    public Task<ApiResult<TransportContainerDto>> SetTransportContainerActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<TransportContainerDto>(HttpMethod.Post, $"api/admin/transport-containers/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<TransportContainerDto>> SetTransportContainerActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<TransportContainerDto>(HttpMethod.Post, $"api/admin/transport-containers/{id}/{(active ? "activate" : "deactivate")}", new ConfigActiveRequest(reason), ct);
 
     public Task<ApiResult<MtpPackSummaryDto>> PackMtpAsync(long activationId, PackMtpRequest req, CancellationToken ct = default) =>
         SendAsync<MtpPackSummaryDto>(HttpMethod.Post, $"api/mtp/{activationId}/packs", req, ct);
@@ -1738,8 +1738,8 @@ public sealed class BloodBankApiClient
             ? SendAsync<MtpPackDefinitionDto>(HttpMethod.Put, $"api/admin/mtp-packs/{existing}", req, ct)
             : SendAsync<MtpPackDefinitionDto>(HttpMethod.Post, "api/admin/mtp-packs", req, ct);
 
-    public Task<ApiResult<MtpPackDefinitionDto>> SetMtpPackActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<MtpPackDefinitionDto>(HttpMethod.Post, $"api/admin/mtp-packs/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<MtpPackDefinitionDto>> SetMtpPackActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<MtpPackDefinitionDto>(HttpMethod.Post, $"api/admin/mtp-packs/{id}/{(active ? "activate" : "deactivate")}", new ConfigActiveRequest(reason), ct);
 
     public Task<ApiResult<MfaStatusDto>> GetMfaStatusAsync(CancellationToken ct = default) =>
         SendAsync<MfaStatusDto>(HttpMethod.Get, "api/account/mfa", ct: ct);

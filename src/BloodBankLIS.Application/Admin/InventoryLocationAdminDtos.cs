@@ -61,3 +61,6 @@ public sealed record SaveInventoryLocationRequest(
     string? Reason = null);
 
 public sealed record InventoryLocationActiveRequest(string? Reason);
+
+/// <summary>Activating or deactivating a validated configuration entry (transport container, MTP pack) says why.</summary>
+public sealed record ConfigActiveRequest(string? Reason);

@@ -12013,3 +12013,42 @@ A count of `RecordChange` calls with no reason across the admin services found t
 ### Next ranked residual
 
 Same check for transport containers (validated temperature and hours) and MTP pack definitions, which also lack reasons. Then the remaining low-risk lists, if worth it.
+
+## Iteration 372 — Transport container and MTP pack changes record why (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 371 apart from this cycle's row (administration).
+
+### Finding (question 7, administration rescan continued)
+
+Two catalogs were edited, activated, or deactivated with no reason recorded:
+
+- **Transport containers:** they carry the facility's validated temperature range and hours.
+- **MTP pack definitions:** they record medical-director decisions on pack contents.
+
+Their endpoints already enforce the admin permissions.
+
+### Design
+
+- **`ValidatedConfigChangeReasonRule` (`CFG.REASON.REQUIRED`):** at least 8 characters, and the message names what is being changed.
+- **Services:** `UpdateAsync` needs the request's `Reason`, and `SetActiveAsync` needs a reason. Without one, the change is refused with nothing changed; with one, it goes to the audit and configuration history.
+- **Creating an entry:** does not need a reason.
+- **API:** activate and deactivate take `{ reason }` (`ConfigActiveRequest`).
+- **Both admin pages:** a "Reason for the change" field. Edit Save and Activate or Deactivate stay disabled until it is filled.
+
+### Requirements
+
+- FRS-BB-548 (under URS-BB-483). Help: transport containers and MTP packs topics.
+
+### Tests
+
+- TEST-BB-411:
+  - domain: the length rule, and the message names what is changed
+  - integration: a container edit without a reason is refused and the range is unchanged; with a reason it saves and history keeps it; deactivation needs a reason
+  - integration: a pack deactivation without a reason is refused; with one it succeeds, and history keeps the reason; the existing inactive-pack test is unchanged otherwise
+- Full suite: 3,662 passed, 0 failed.
+
+### Next ranked residual
+
+The remaining no-reason catalogs are billing (charge codes and rules, billing maps), coded-reason lists, and printers. They are low clinical risk and are recorded with who and when. Next: rescan the capability matrix for the highest operational gap rather than finish those lists.

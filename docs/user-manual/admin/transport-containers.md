@@ -14,4 +14,4 @@ routes:
 - **Lowest °C**, **Highest °C**, and **Validated hours** come from your facility's own container validation. Leave them blank until you have validated the container. The software does not supply them.
 - When a range is set, a temperature recorded at packing that falls outside it is saved, flagged, and printed on the pack report. It is not blocked.
 - When validated hours are set, the pack report says the container is validated for that many hours from the packed time.
-- Changes go to configuration history. Deactivate a container that is out of service; past packs keep showing it.
+- Changing, activating, or deactivating a container asks for the reason (for example the revalidation report), and it goes to configuration history. Adding a new container does not ask. Deactivate a container that is out of service; past packs keep showing it.

@@ -90,11 +90,11 @@ public static class IssuingEndpoints
         packs.MapPut("/{id:long}", async (long id, SaveMtpPackRequest req, MtpPackAdminService svc, CancellationToken ct) =>
                 EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
-        packs.MapPost("/{id:long}/activate", async (long id, MtpPackAdminService svc, CancellationToken ct) =>
-                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+        packs.MapPost("/{id:long}/activate", async (long id, ConfigActiveRequest? req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
-        packs.MapPost("/{id:long}/deactivate", async (long id, MtpPackAdminService svc, CancellationToken ct) =>
-                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+        packs.MapPost("/{id:long}/deactivate", async (long id, ConfigActiveRequest? req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         // Physical packs sent during a protocol, and the printable pack report.
@@ -130,11 +130,11 @@ public static class IssuingEndpoints
         containers.MapPut("/{id:long}", async (long id, SaveTransportContainerRequest req, TransportContainerAdminService svc, CancellationToken ct) =>
                 EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
-        containers.MapPost("/{id:long}/activate", async (long id, TransportContainerAdminService svc, CancellationToken ct) =>
-                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+        containers.MapPost("/{id:long}/activate", async (long id, ConfigActiveRequest? req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
-        containers.MapPost("/{id:long}/deactivate", async (long id, TransportContainerAdminService svc, CancellationToken ct) =>
-                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+        containers.MapPost("/{id:long}/deactivate", async (long id, ConfigActiveRequest? req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         app.MapPost("/api/mtp/{id:long}/close", async (long id, CloseMtpRequest request, MtpActivationService svc, CancellationToken ct) =>
