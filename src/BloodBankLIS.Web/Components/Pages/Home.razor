@@ -355,6 +355,10 @@
                 return await CountList(card.Key, Api.GetSupervisorQueueAsync());
             case DashboardQueueCatalog.TemperatureExcursions:
                 return await CountList(card.Key, Api.GetOpenTemperatureExcursionsAsync());
+            case DashboardQueueCatalog.InstrumentFailures:
+                return await CountList(card.Key, Api.GetOpenInstrumentFailuresAsync());
+            case DashboardQueueCatalog.Hl7Errors:
+                return await CountList(card.Key, Api.GetHl7ErrorsAsync());
             case DashboardQueueCatalog.Handoff:
             {
                 var result = await Api.GetOpenShiftHandoffAsync();

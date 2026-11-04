@@ -112,6 +112,16 @@ public class DashboardQueueCatalogTests
             card => card.Key == DashboardQueueCatalog.TemperatureExcursions);
     }
 
+    // TEST-BB-401
+    [Fact]
+    public void InterfaceCards_FollowTheInterfacePermissions()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.Hl7Manage)), c => c.Key == DashboardQueueCatalog.Hl7Errors && c.Href == "/hl7");
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.InstrumentManage)), c => c.Key == DashboardQueueCatalog.InstrumentFailures && c.Href == "/instruments");
+        var bench = DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter));
+        Assert.DoesNotContain(bench, c => c.Key is DashboardQueueCatalog.Hl7Errors or DashboardQueueCatalog.InstrumentFailures);
+    }
+
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
 }

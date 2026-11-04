@@ -112,5 +112,24 @@ public class DashboardHomeTests
         Assert.Equal([Retrospective], layout.Queues.Select(c => c.Card.Key));
     }
 
+    // TEST-BB-401: an open instrument failure or HL7 error needs attention whenever there is one, after storage,
+    // reaction, and emergency follow-up items; zero is clear.
+    [Fact]
+    public void InterfaceFailures_AreAttention_WhenNonZero_AfterPatientSafetyItems()
+    {
+        var layout = DashboardHome.Arrange(
+        [
+            State(Hl7Errors, 2),
+            State(InstrumentFailures, 1),
+            State(Retrospective, 1, "1 past due"),
+            State(PendingTests, 4)
+        ], WorkFocus.Bench);
+
+        Assert.Equal([Retrospective, InstrumentFailures, Hl7Errors], layout.Attention.Select(c => c.Card.Key));
+
+        var clear = DashboardHome.Arrange([State(Hl7Errors, 0), State(InstrumentFailures, 0)], WorkFocus.Bench);
+        Assert.Empty(clear.Attention);
+    }
+
     private static Func<string, bool> Has(params string[] codes) => code => codes.Contains(code);
 }

@@ -21,7 +21,8 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 - Pending tests, when you can enter results. The card names how many results must be verified before their specimen expires. Pending specimens, when you can accession.
 - Reaction investigations, when you can investigate reactions. A closed case is not in that count. A case that still needs fatality follow-up is named on the card, including after the investigation is closed.
 - Supervisor queue, when you can review antibody identification, verify results, or release quarantine.
-- Shift handoff, when you can read the audit trail. An open packet says it needs acknowledgment.
+- Instrument failures, when you manage instrument interfaces: failed instrument messages nobody has replayed successfully or resolved. HL7 errors, when you manage HL7: interface errors still open.
+- Shift handoff, when you can hand off a shift. An open packet says it needs acknowledgment.
 
 A retrospective count names how many items are past their stored due time. An in-transit count names how many units are past the arrival window. Those notes appear only when the number is above zero.
 
@@ -40,7 +41,7 @@ A queue you cannot open is left off the row. A queue that does not load shows an
 The page is arranged in this order:
 
 1. **Start here**: one link to the most urgent queue. When nothing is urgent, it links to the first focus queue that has work.
-2. **Needs attention**: any queue with an overdue or follow-up note, plus temperature excursions, reaction investigations, and an open shift handoff whenever they are above zero. These show **whatever the focus is**, so changing focus never hides them. The most urgent comes first: temperature excursions, reactions, retrospective crossmatch, in transit, then shift handoff.
+2. **Needs attention**: any queue with an overdue or follow-up note, plus temperature excursions, reaction investigations, instrument failures, HL7 errors, and an open shift handoff whenever they are above zero. These show **whatever the focus is**, so changing focus never hides them. The most urgent comes first: temperature excursions, reactions, retrospective crossmatch, in transit, instrument failures, HL7 errors, then shift handoff.
 3. **Queues with work**: focus queues above zero, in workflow order.
 4. **Could not load**: any queue whose count failed. It is never counted as clear. Open it to check.
 5. **Clear**: focus queues at zero, as small links.

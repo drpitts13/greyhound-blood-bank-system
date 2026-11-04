@@ -409,5 +409,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-398 | I | `FacilityPolicyStorageTests.Seeding_AnUpgradedDatabase_StoresEveryMissingPolicy_AtItsDefault_WithHistory`, `Seeding_Twice_AddsNothingMore` | URS-BB-488 / FRS-BB-535 / RISK-BB-585 |
 | TEST-BB-399 | I | `Phase5Hl7Tests.ResolveQueueItem_ClearsTheRow_WithoutReprocessing`, `Replay_AfterPatientExists_ResolvesMappingError`, `OutboundSender_Aa_ResolvesErrorQueue` | URS-BB-489 / FRS-BB-536 |
 | TEST-BB-400 | D / I | `InstrumentMessageFollowUpRuleTests`; `InstrumentInterfaceTests.FailedMessage_ClosesOnASuccessfulReplay_AndProcessedMessages_AreNotReplayed`, `FailedMessage_ResolvedByHand_NeedsAReason_AndIsAudited` | URS-BB-489 / FRS-BB-537 / RISK-BB-586 |
+| TEST-BB-401 | A / I | `DashboardQueueCatalogTests.InterfaceCards_FollowTheInterfacePermissions`; `DashboardHomeTests.InterfaceFailures_AreAttention_WhenNonZero_AfterPatientSafetyItems`; `DowntimeReconciliationTests.GetSnapshot_CountsOpenWorkAndReportsChain` | URS-BB-489 / FRS-BB-538 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

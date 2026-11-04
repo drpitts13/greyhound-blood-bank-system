@@ -18,7 +18,9 @@ public sealed record DowntimeReconciliationSnapshot(
     string AuditChainMessage,
     // OCD-054: paper issues entered after downtime whose transfusion (and ward receipt) are still to be entered.
     int BackEntriesAwaitingTransfusion = 0,
-    int BackEntriesAwaitingWardReceipt = 0);
+    int BackEntriesAwaitingWardReceipt = 0,
+    // Failed instrument messages not yet replayed successfully or resolved: results that did not file.
+    int OpenInstrumentFailures = 0);
 
 /// <summary>
 /// Aggregates existing queues for post-downtime review. Does not import paper
@@ -33,6 +35,7 @@ public sealed class DowntimeReconciliationService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
 
     public DowntimeReconciliationService(
         IRepository<InterfaceErrorQueueItem> errors,
@@ -41,8 +44,10 @@ public sealed class DowntimeReconciliationService
         IAuditQuery audit,
         IClock clock,
         ICurrentUser currentUser,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<InstrumentMessageLog>? instrumentMessages = null)
     {
+        _instrumentMessages = instrumentMessages;
         _errors = errors;
         _hl7 = hl7;
         _issues = issues;
@@ -78,6 +83,9 @@ public sealed class DowntimeReconciliationService
         var retro = await _issues.ListAsync(
             i => i.RetrospectiveCrossmatchDueUtc != null && i.RetrospectiveCrossmatchCompletedUtc == null,
             ct);
+        var instrumentFailures = _instrumentMessages is null
+            ? 0
+            : (await _instrumentMessages.ListAsync(m => m.Status == InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct)).Count;
         var events = await _audit.ListAsync(ct);
         var hashed = events.Count(e => !string.IsNullOrWhiteSpace(e.RecordHash));
         var chain = AuditHashChainRule.Verify(events);
@@ -93,7 +101,8 @@ public sealed class DowntimeReconciliationService
             chain.Code,
             chain.Message,
             openBackEntries.Count,
-            openBackEntries.Count(i => i.WardReceivedUtc is null));
+            openBackEntries.Count(i => i.WardReceivedUtc is null),
+            instrumentFailures);
 
         return EvaluationResult<DowntimeReconciliationSnapshot>.Ok(snapshot, new RuleEvaluation([chain]));
     }

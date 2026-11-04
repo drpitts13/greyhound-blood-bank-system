@@ -31,17 +31,21 @@ public sealed record DashboardHomeLayout(
 public static class DashboardHome
 {
     /// <summary>Worth attention whenever the count is above zero, even without an overdue note.</summary>
-    private static readonly string[] UrgentWhenNonZero = [TemperatureExcursions, Reactions, Handoff];
+    /// <summary>
+    /// Interface failures count too: a failed instrument message is a patient result that did not file, and an HL7
+    /// error is an order, result, or admission that did not reach its destination.
+    /// </summary>
+    private static readonly string[] UrgentWhenNonZero = [TemperatureExcursions, Reactions, Handoff, InstrumentFailures, Hl7Errors];
 
     /// <summary>Most urgent first: storage safety, patient harm, then emergency follow-up and lost units.</summary>
     private static readonly string[] UrgencyOrder =
-        [TemperatureExcursions, Reactions, Retrospective, InTransit, Handoff, Disposition, Supervisor];
+        [TemperatureExcursions, Reactions, Retrospective, InTransit, InstrumentFailures, Hl7Errors, Handoff, Disposition, Supervisor];
 
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
-        [WorkFocus.Bench] = [PendingSpecimens, PendingTests, SecondAbo, Supervisor],
+        [WorkFocus.Bench] = [PendingSpecimens, PendingTests, InstrumentFailures, SecondAbo, Supervisor],
         [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition],
-        [WorkFocus.Supervisor] = [Supervisor, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff]
+        [WorkFocus.Supervisor] = [Supervisor, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Hl7Errors, InstrumentFailures]
     };
 
     public static IReadOnlyList<WorkFocus> Choices { get; } =

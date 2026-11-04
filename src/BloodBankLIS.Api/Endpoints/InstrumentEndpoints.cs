@@ -59,6 +59,13 @@ public static class InstrumentEndpoints
                 .ToList());
         });
 
+        // Failed messages nobody has replayed successfully or resolved yet, oldest first.
+        group.MapGet("/messages/failed", async (IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
+            Results.Ok((await messages.ListAsync(m => m.Status == Domain.Enums.InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct))
+                .OrderBy(m => m.ReceivedUtc)
+                .Select(ToSummary)
+                .ToList()));
+
         group.MapGet("/messages/{id:long}", async (
             long id,
             IRepository<InstrumentMessageLog> messages,

@@ -22,7 +22,8 @@ public class DowntimeReconciliationTests : IClassFixture<SqliteContextFactory>
             new AuditQuery(c),
             _factory.Clock,
             _factory.CurrentUser,
-            permissions);
+            permissions,
+            new EfRepository<InstrumentMessageLog>(c));
 
     [Fact]
     public async Task GetSnapshot_WithoutAuditRead_IsBlocked()
@@ -162,6 +163,21 @@ public class DowntimeReconciliationTests : IClassFixture<SqliteContextFactory>
 
         await c.SaveChangesAsync();
 
+        // TEST-BB-401: only the open instrument failure counts.
+        foreach (var (status, resolved) in new[] { (InstrumentMessageStatus.Failed, (DateTime?)null), (InstrumentMessageStatus.Failed, _factory.Clock.UtcNow), (InstrumentMessageStatus.Processed, null) })
+        {
+            c.InstrumentMessages.Add(new InstrumentMessageLog
+            {
+                InterfaceId = 1,
+                RawMessage = "H|",
+                Status = status,
+                ReceivedUtc = _factory.Clock.UtcNow,
+                ResolvedUtc = resolved
+            });
+        }
+
+        await c.SaveChangesAsync();
+
         var after = await Service(c, new FixedPermissionEvaluator(1, PermissionCodes.AuditRead))
             .GetSnapshotAsync();
         Assert.True(after.Succeeded, after.Error);
@@ -171,6 +187,7 @@ public class DowntimeReconciliationTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(before.Value.OpenIssues + 3, snap.OpenIssues);
         Assert.Equal(before.Value.BackEntriesAwaitingTransfusion + 2, snap.BackEntriesAwaitingTransfusion);
         Assert.Equal(before.Value.BackEntriesAwaitingWardReceipt + 1, snap.BackEntriesAwaitingWardReceipt);
+        Assert.Equal(before.Value.OpenInstrumentFailures + 1, snap.OpenInstrumentFailures);
         Assert.Equal(before.Value.PendingRetrospectiveCrossmatches + 1, snap.PendingRetrospectiveCrossmatches);
         Assert.Equal(AuditHashChainRule.OkCode, snap.AuditChainCode);
         Assert.True(snap.HashedAuditRows >= 0);

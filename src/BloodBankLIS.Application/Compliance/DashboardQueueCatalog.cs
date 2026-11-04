@@ -23,6 +23,8 @@ public static class DashboardQueueCatalog
     public const string Supervisor = "supervisor";
     public const string Handoff = "handoff";
     public const string TemperatureExcursions = "temp-excursions";
+    public const string Hl7Errors = "hl7-errors";
+    public const string InstrumentFailures = "instrument-failures";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -47,6 +49,8 @@ public static class DashboardQueueCatalog
             || has(PermissionCodes.InventoryRelease) || has(PermissionCodes.OverrideApprove), Supervisor, "Supervisor queue", "/supervisor");
         Add(cards, has(PermissionCodes.InventoryReceive)
             || has(PermissionCodes.DeviationManage), TemperatureExcursions, "Temperature excursions", "/storage-temps");
+        Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments");
+        Add(cards, has(PermissionCodes.Hl7Manage), Hl7Errors, "HL7 errors", "/hl7");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
         return cards;
     }

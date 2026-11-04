@@ -11560,3 +11560,44 @@ The Cycle 360 TEST-BB-399 catalog row cited the test class with a description in
 ### Next ranked residual
 
 Count open instrument failures and open HL7 errors together on the dashboard's interface card and on the downtime snapshot, so a failed instrument result is not missed after an outage.
+
+## Iteration 362 — Interface failures on the dashboard and downtime snapshot (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 361 apart from this cycle's row (interoperability and operations).
+
+### Finding (question 5)
+
+- The dashboard had no interface card. An instrument result that failed to file, or an HL7 order that failed, was seen only by someone who opened the HL7 or Instruments page.
+- The downtime snapshot counted HL7 errors but not failed instrument messages, which pile up during an outage.
+
+### Design
+
+- **Dashboard cards:**
+  - **Instrument failures** (`instrument.manage`, opens Instruments)
+  - **HL7 errors** (`hl7.manage`, opens HL7)
+- **Placement:** both are in the urgent-when-non-zero set, after temperature excursions, reactions, retrospective crossmatch, and in transit. Instrument failures is on the Bench desk; both are on the Supervisor desk.
+- **Endpoint:** `GET /api/instruments/messages/failed` lists open failures oldest first.
+- **Downtime snapshot:** gains `OpenInstrumentFailures`, read through an optional instrument-message repository, with a row linking to Instruments.
+
+### Also fixed
+
+The dashboard help said the Shift handoff card needed audit-read permission. The code shows it to holders of `shift.handoff`, and the help now says so.
+
+### Requirements
+
+- FRS-BB-538 (under URS-BB-489). Help: dashboard and downtime pages.
+
+### Tests
+
+- TEST-BB-401:
+  - the cards follow the interface permissions and are absent for a bench-only user
+  - non-zero failures are Needs attention in urgency order; zero is clear
+  - the snapshot counts only the open failure (not a resolved failure or a processed message)
+- Full suite: 3,632 passed, 0 failed.
+- Run check (development API and web): the failed-messages endpoint returns `[]`; the dashboard lists Instrument failures and HL7 errors under Clear; no server errors.
+
+### Next ranked residual
+
+Rescan the capability matrix for the next operational gap outside interfaces. Candidate: the reaction investigation workflow, checked against the seven workflow questions, since it has not been re-audited since the fatality follow-up cycle.
