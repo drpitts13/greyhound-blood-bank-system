@@ -12,12 +12,29 @@
             <input value="@Value" @onchange="OnChangedAsync" autocomplete="off" placeholder="Only for an issue entered as a downtime back-entry" />
             <span class="sub">Used in place of the scan. It must match the unit, and it does not count as electronic identification.</span>
         </div>
+        @if (TimeLabel is not null)
+        {
+            <div class="field">
+                <label>@TimeLabel</label>
+                <input type="datetime-local" value="@Time?.ToString("yyyy-MM-ddTHH:mm")" @onchange="OnTimeChangedAsync" />
+            </div>
+        }
     </details>
 }
 
 @code {
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    /// <summary>When set, also asks for a time from the paper record (local time), for example the receipt time.</summary>
+    [Parameter] public string? TimeLabel { get; set; }
+    [Parameter] public DateTime? Time { get; set; }
+    [Parameter] public EventCallback<DateTime?> TimeChanged { get; set; }
+
+    private async Task OnTimeChangedAsync(ChangeEventArgs e)
+    {
+        Time = DateTime.TryParse(e.Value?.ToString(), out var parsed) ? parsed : null;
+        await TimeChanged.InvokeAsync(Time);
+    }
 
     private async Task OnChangedAsync(ChangeEventArgs e)
     {

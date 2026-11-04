@@ -11313,3 +11313,51 @@ Cycle 353 let a paper issue be back-entered, but the rest of its record still co
 ### Next ranked residual
 
 - A back-entered issue's ward receipt is stamped with the entry time, not the time on the paper record. The same applies to its in-transit due time, which is computed from the paper issue time and so is already past. Check whether back-entered issues raise in-transit or outstanding-transfusion alerts they should not, and let ward receipt take the paper time for a back-entry.
+
+## Iteration 356 — A back-entered ward receipt keeps the paper time (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 355 apart from this cycle's row (downtime).
+
+### Finding (questions 2, 5, and 6)
+
+A back-entered issue:
+
+- showed **Overdue** on In transit straight away, because its due time came from the paper issue time
+- had its ward receipt stamped with the time it was typed in, not when the ward received it
+- had that receipt flagged late in the audit
+
+So the board showed an alarm that was not real, and the record gave a wrong custody time.
+
+The other alerts were checked and left alone:
+
+- **Retrospective crossmatch due** for a back-entered emergency issue is a real obligation.
+- **Transfusion not completed** only follows a started transfusion.
+
+### Design
+
+- **`DowntimeBackEntryRule.EvaluateReceiptTime`** (`ISS-DOWNTIME-RECEIPT-TIME`): a ward receipt identified from the paper record needs the receipt time from that record. It cannot be before the issue or in the future.
+- **The receipt:**
+  - `WardReceivedUtc` is the paper time
+  - lateness is judged against it
+  - the audit adds `EnteredUtc` and `FromPaperRecord`
+- **In transit:** `InTransitWorkItemDto.DowntimeBackEntry` is set and `IsOverdue` is false for a back-entered issue. The row shows a **Back-enter receipt** badge.
+- **UI:** `PaperRecordDinField` takes an optional time. Ward receipt asks "Received at (from paper record)".
+
+### Requirements / risk
+
+- FRS-BB-532 (under URS-BB-486 and RISK-BB-584). Help: downtime page.
+
+### Tests
+
+- TEST-BB-395:
+  - domain: required, not before the issue, not in the future, and the boundaries
+  - integration: In transit shows the row as back-entry and not overdue; a missing, too-early, or future receipt time is refused; the receipt is stamped at the paper time; the audit carries `FromPaperRecord` and `Late: false`
+- Full suite: 3,618 passed, 0 failed.
+
+### Next ranked residual
+
+The downtime back-entry chain is complete: issue, receipt, and transfusion. Next: rescan the capability matrix for the highest remaining operational gap. Candidates:
+- the facility policy key coverage check named in Cycle 350
+- the downtime snapshot counting back-entered issues still missing a receipt or transfusion record

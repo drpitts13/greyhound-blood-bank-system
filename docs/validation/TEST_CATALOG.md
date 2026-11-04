@@ -403,5 +403,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-392 | D / I | `DowntimeBackEntryRuleTests`; `Phase4IssuingTests.DowntimeBackEntry_JudgesExpiryAsOfThePaperTime_AndIsControlledByRole` | URS-BB-486 / FRS-BB-529 / RISK-BB-584 / OCD-054 |
 | TEST-BB-393 | D / I | `SpecimenReceiptScanRuleListTests`; `SpecimenReceiptScanTests.ScanRequired_RefusesReceiptFromARow_ButAcceptsTheScan`, `ScanNotRequired_ByDefault_ReceiptFromARowIsAllowed`, `ScanRequired_DuplicateLabel_DoesNotSendTheUserToTheRow` | URS-BB-487 / FRS-BB-530 / OCD-056 |
 | TEST-BB-394 | D / I | `DowntimeBackEntryRuleTests.FollowOn_OnlyForABackEnteredIssue_WithThePermission_AndTheRightDin`; `Phase4IssuingTests.DowntimeBackEntry_WardReceiptAndTransfusion_UseThePaperDin_InPlaceOfTheScan` | URS-BB-486 / FRS-BB-531 / RISK-BB-584 / OCD-054 |
+| TEST-BB-395 | D / I | `DowntimeBackEntryRuleTests.ReceiptTime_IsRequired_NotBeforeTheIssue_AndNotInTheFuture`; `Phase4IssuingTests.DowntimeBackEntry_WardReceiptAndTransfusion_UseThePaperDin_InPlaceOfTheScan` (In transit row, receipt time checks, stamped time, audit) | URS-BB-486 / FRS-BB-532 / RISK-BB-584 / OCD-054 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

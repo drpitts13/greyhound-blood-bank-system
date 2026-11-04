@@ -89,6 +89,30 @@ public static class DowntimeBackEntryRule
                 "Identifying the unit from the paper record requires the issue.downtime-backentry permission.");
     }
 
+    public const string ReceiptTimeCode = "ISS-DOWNTIME-RECEIPT-TIME";
+
+    /// <summary>
+    /// A ward receipt back-entered from the paper record carries the receipt time written on it: not before the issue,
+    /// and not in the future.
+    /// </summary>
+    public static RuleResult EvaluateReceiptTime(DateTime? receivedUtc, DateTime issuedUtc, DateTime nowUtc)
+    {
+        if (receivedUtc is not { } received)
+        {
+            return RuleResult.HardStop(ReceiptTimeCode, "Enter the receipt time from the paper record.");
+        }
+
+        if (received < issuedUtc)
+        {
+            return RuleResult.HardStop(ReceiptTimeCode,
+                $"The receipt time is before the unit was issued at {issuedUtc:yyyy-MM-dd HH:mm} UTC. Check the paper record.");
+        }
+
+        return received > nowUtc + IssueTimeRule.ClockAllowance
+            ? RuleResult.HardStop(ReceiptTimeCode, "The receipt time is in the future. Check the paper record.")
+            : RuleResult.Pass(ReceiptTimeCode);
+    }
+
     private static string Normalize(string? value) =>
         new string((value ?? string.Empty).Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
 }

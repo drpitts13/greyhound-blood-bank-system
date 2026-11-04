@@ -57,6 +57,18 @@ public class DowntimeBackEntryRuleTests
         Assert.Equal(RuleSeverity.Pass, DowntimeBackEntryRule.EvaluateFollowOn(true, true, "w1", "W1", null).Severity);
     }
 
+    // TEST-BB-395
+    [Fact]
+    public void ReceiptTime_IsRequired_NotBeforeTheIssue_AndNotInTheFuture()
+    {
+        var issued = Now.AddHours(-3);
+        Assert.Equal(RuleSeverity.HardStop, DowntimeBackEntryRule.EvaluateReceiptTime(null, issued, Now).Severity);
+        Assert.Equal(RuleSeverity.HardStop, DowntimeBackEntryRule.EvaluateReceiptTime(issued.AddMinutes(-1), issued, Now).Severity);
+        Assert.Equal(RuleSeverity.HardStop, DowntimeBackEntryRule.EvaluateReceiptTime(Now.AddHours(1), issued, Now).Severity);
+        Assert.Equal(RuleSeverity.Pass, DowntimeBackEntryRule.EvaluateReceiptTime(issued, issued, Now).Severity);
+        Assert.Equal(RuleSeverity.Pass, DowntimeBackEntryRule.EvaluateReceiptTime(issued.AddMinutes(20), issued, Now).Severity);
+    }
+
     [Theory]
     [InlineData("W0000 26 123456", true)]
     [InlineData("w000026123456", true)]

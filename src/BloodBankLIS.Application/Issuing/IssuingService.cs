@@ -1181,6 +1181,12 @@ public sealed class IssuingService
             {
                 return EvaluationResult<Issue>.Blocked(new RuleEvaluation([paper]));
             }
+
+            var paperTime = DowntimeBackEntryRule.EvaluateReceiptTime(ToUtc(request.ReceivedUtc), issue.IssuedUtc, _clock.UtcNow);
+            if (paperTime.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Issue>.Blocked(new RuleEvaluation([paperTime]));
+            }
         }
         else
         {
@@ -1192,8 +1198,10 @@ public sealed class IssuingService
         }
 
         var now = _clock.UtcNow;
-        var overdue = InTransitPendingRule.EvaluateOverdue(issue.InTransitDueUtc, now);
-        issue.WardReceivedUtc = now;
+        // A receipt back-entered from paper is judged, and stamped, at the time on the paper record.
+        var receivedUtc = wardPaperDin ? ToUtc(request.ReceivedUtc)!.Value : now;
+        var overdue = InTransitPendingRule.EvaluateOverdue(issue.InTransitDueUtc, receivedUtc);
+        issue.WardReceivedUtc = receivedUtc;
         issue.WardReceivedBy = request.ReceivedBy.Trim();
         issue.WardVisualAcceptable = true;
         issue.WardAppearance = wardAppearance.Appearance;
@@ -1215,7 +1223,9 @@ public sealed class IssuingService
                 unit.UnitNumber,
                 unit.Din,
                 BloodProductId = unit.Id,
-                IssueId = issue.Id
+                IssueId = issue.Id,
+                EnteredUtc = now,
+                FromPaperRecord = wardPaperDin
             },
             reason: overdue.Severity == RuleSeverity.Warning
                 ? "Ward receipt of issued unit (late — past in-transit due time)."
@@ -1698,6 +1708,14 @@ public sealed class IssuingService
         ComponentScanVerificationRequest? BedsideScan,
         string? SecondVerifier,
         string? BackEntryDin = null);
+
+    private static DateTime? ToUtc(DateTime? value) => value switch
+    {
+        null => null,
+        { Kind: DateTimeKind.Unspecified } v => DateTime.SpecifyKind(v, DateTimeKind.Utc),
+        { Kind: DateTimeKind.Local } v => v.ToUniversalTime(),
+        var v => v
+    };
 
     /// <summary>
     /// OCD-054: a downtime back-entered issue may be identified by the DIN on its paper record instead of a scan, by a

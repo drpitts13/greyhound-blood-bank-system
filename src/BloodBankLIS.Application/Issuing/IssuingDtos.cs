@@ -62,7 +62,9 @@ public sealed record WardReceiptRequest(
     ComponentScanVerificationRequest? VerifiedScan = null,
     UnitAppearance? Appearance = null,
     /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the scan.</summary>
-    string? BackEntryDin = null);
+    string? BackEntryDin = null,
+    /// <summary>With BackEntryDin: the receipt time written on the paper record (required).</summary>
+    DateTime? ReceivedUtc = null);
 
 /// <summary>Bedside start: who the patient is, the unit scan, and when it was spiked. Stop and outcome come later.</summary>
 public sealed record StartTransfusionRequest(
@@ -173,7 +175,9 @@ public sealed record InTransitWorkItemDto(
     string? EmergencyReleaseAuthorizer = null,
     UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
     string? PtagCode = null,
-    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed)
+    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed,
+    // OCD-054: custody was on paper, so the row asks for the receipt to be back-entered instead of showing overdue.
+    bool DowntimeBackEntry = false)
 {
     public static InTransitWorkItemDto From(
         Issue i,
@@ -197,7 +201,7 @@ public sealed record InTransitWorkItemDto(
         i.Id, i.PatientId, mrn, displayName, i.BloodProductId, unitNumber, currentBloodType,
         hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
         i.IssuedUtc, i.InTransitDueUtc,
-        InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning,
+        !i.DowntimeBackEntry && InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning,
         i.CoolerId, IssueDestinationCue.Format(i.IssuedToLocation, issuePlaces), i.Status, productName, unitExpiresUtc, unitBloodType, specimenAccession, crossmatchExpiresUtc, latestCrossmatchResult,
         string.IsNullOrWhiteSpace(i.IssuedTo) ? null : i.IssuedTo.Trim(),
         i.IssueType,
@@ -207,7 +211,8 @@ public sealed record InTransitWorkItemDto(
         string.IsNullOrWhiteSpace(emergencyReleaseAuthorizer) ? null : emergencyReleaseAuthorizer.Trim(),
         i.IssueAppearance,
         string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
-        i.CrossmatchStatus);
+        i.CrossmatchStatus,
+        i.DowntimeBackEntry);
 }
 
 public sealed record OutstandingIssueWorkItemDto(

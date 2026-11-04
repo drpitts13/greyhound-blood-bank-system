@@ -4436,9 +4436,31 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.False((await Issuing(c).DocumentTransfusionAsync(paperIssueId, TxReq(paper))).Succeeded);
             Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == paperIssueId));
 
-            var ward = await Issuing(c).RecordWardReceiptAsync(paperIssueId, new WardReceiptRequest(
-                "RN Paper", Appearance: UnitAppearance.Acceptable, BackEntryDin: din.ToLowerInvariant()));
+            // TEST-BB-395: on In transit the back-entered issue asks for its receipt, not "overdue".
+            var transit = Assert.Single(await Issuing(c).ListInTransitAsync(), r => r.IssueId == paperIssueId);
+            Assert.True(transit.DowntimeBackEntry);
+            Assert.False(transit.IsOverdue);
+
+            WardReceiptRequest Ward(DateTime? at) => new(
+                "RN Paper", Appearance: UnitAppearance.Acceptable, BackEntryDin: din.ToLowerInvariant(), ReceivedUtc: at);
+            var issuedAt = _factory.Clock.UtcNow.AddHours(-1);
+            foreach (var bad in new DateTime?[] { null, issuedAt.AddMinutes(-5), _factory.Clock.UtcNow.AddHours(1) })
+            {
+                var refused = await Issuing(c).RecordWardReceiptAsync(paperIssueId, Ward(bad));
+                Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.ReceiptTimeCode);
+            }
+
+            var ward = await Issuing(c).RecordWardReceiptAsync(paperIssueId, Ward(issuedAt.AddMinutes(10)));
             Assert.True(ward.Succeeded, ward.Error ?? string.Join("; ", ward.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(issuedAt.AddMinutes(10), ward.Value!.WardReceivedUtc);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var receiptAudit = await c.AuditEvents.Where(a => a.EntityType == nameof(Issue) && a.EntityId == paperIssueId
+                && a.NewValueJson!.Contains("FromPaperRecord")).SingleAsync();
+            Assert.Contains("\"FromPaperRecord\":true", receiptAudit.NewValueJson);
+            Assert.Contains("\"Late\":false", receiptAudit.NewValueJson);
         }
 
         await using (var c = _factory.Create())
