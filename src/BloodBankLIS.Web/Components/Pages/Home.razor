@@ -338,7 +338,16 @@
                 return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(dueSoon, "to verify before its specimen expires", "to verify before their specimens expire"));
             }
             case DashboardQueueCatalog.PendingSpecimens:
-                return await CountList(card.Key, Api.GetPendingSpecimensAsync());
+            {
+                var result = await Api.GetPendingSpecimensAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var expired = PendingSpecimenAttentionRule.CountExpired(result.Value);
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(expired, "expired, to reject", "expired, to reject"));
+            }
             case DashboardQueueCatalog.Reactions:
             {
                 var result = await Api.GetReactionInvestigationsAsync();

@@ -11738,3 +11738,36 @@ It names only work the investigation already requires; it decides no clinical ou
 ### Next ranked residual
 
 Pending: OCD-057. Continue the worklist rescan with question 5 on the specimen and test worklists: does each row name its blocking reason and next action (accept, result, verify)?
+
+## Iteration 366 — Expired waiting tubes say what to do (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 365 apart from this cycle's row (orders and specimens, operations).
+
+### Finding (question 5, worklist rescan continued)
+
+- **Test worklist:** already names each row's bench action and blocking reason.
+- **Pending-specimen list:** an expired tube showed a greyed-out **Receive** or **Accept** with no reason; only the paragraph at the top of the page said to reject it.
+- **Dashboard:** the Pending specimens card counted expired tubes as ordinary waiting work, so nothing flagged that they needed rejecting and recollecting.
+
+### Design
+
+- **Row:** an expired row shows "Expired: reject it" (red, with a tooltip saying to request a new specimen) in place of the dead button, and **Reject** is emphasized.
+- **Dashboard:** `PendingSpecimenAttentionRule.CountExpired` feeds the Pending specimens card note "N expired, to reject". A note puts the card under Needs attention.
+- **Server:** unchanged; it still refuses receipt or acceptance of an expired tube.
+
+### Requirements
+
+- FRS-BB-542 (under URS-BB-487). Help: test worklist and dashboard pages.
+
+### Tests
+
+- TEST-BB-405:
+  - expired tubes (collected or received) are counted, and the note puts the card under Needs attention
+  - with none expired the note is absent
+- Full suite: 3,642 passed, 0 failed.
+
+### Next ranked residual
+
+Pending: OCD-057. The worklist rescan (question 5) is complete for issue, reactions, supervisor, test, and specimen boards. Next: rescan inventory boards (near-expiry, quarantine, modifications) for the same question.

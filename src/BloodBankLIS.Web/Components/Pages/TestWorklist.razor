@@ -223,7 +223,12 @@
                         </td>
                         <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
                         <td class="right nowrap">
-                            @if (row.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
+                            @if (row.IsExpired)
+                            {
+                                @* An expired tube can no longer be received or accepted; say what to do instead of showing a dead button. *@
+                                <span class="badge badge-red" title="The tube expired before it was accepted. Reject it and request a new specimen.">@PendingSpecimenAttentionRule.ExpiredNextStep</span>
+                            }
+                            else if (row.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
                             {
                                 @if (_receiptByScanOnly)
                                 {
@@ -231,16 +236,16 @@
                                 }
                                 else
                                 {
-                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => ReceivePendingAsync(row.SpecimenId)">Receive</button>
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceivePendingAsync(row.SpecimenId)">Receive</button>
                                 }
                             }
-                            @if (row.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
+                            else if (row.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
                             {
-                                <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => AcceptPendingAsync(row.SpecimenId)">Accept</button>
+                                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => AcceptPendingAsync(row.SpecimenId)">Accept</button>
                             }
                             @if (Session.Has(PermissionCodes.SpecimenReject) && _rejectingSpecimenId != row.SpecimenId)
                             {
-                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => _rejectingSpecimenId = row.SpecimenId">Reject</button>
+                                <button class="btn @(row.IsExpired ? "btn-danger" : "btn-ghost") btn-sm" disabled="@_busy" @onclick="() => _rejectingSpecimenId = row.SpecimenId">Reject</button>
                             }
                             <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">Chart</a>
                         </td>
