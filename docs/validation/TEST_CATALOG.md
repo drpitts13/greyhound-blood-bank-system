@@ -399,5 +399,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-388 | D | `AlertHelpCoverageTests.EverySource_HasAHelpName_AndIsDescribedOnTheAlertsPage`, `ThePageCount_MatchesTheSources` | Alerts help / `AlertRule.HelpName` |
 | TEST-BB-389 | I | `ExceptionDefinitionCoverageTests.TheScan_FindsTheKnownOverridePaths`, `EveryCheckedCode_HasAnActiveOverridableSeededDefinition` | Exception catalog / `ExceptionOverridePolicy` |
 | TEST-BB-390 | D / I | `RetrospectiveCrossmatchIncompatibleRuleTests.Deviation_IsCritical_AndItsNumberIsNamedInTheWarningAndAlert`; `Phase4IssuingTests.EmergencyRelease_IncompatibleXm_RaisesCriticalAlert_AndLeadsTheBoard`, `EmergencyRelease_CompatibleXm_RaisesNoAlert` | URS-BB-444 / FRS-BB-527 / RISK-BB-546 / OCD-046 |
+| TEST-BB-391 | D / I | `OutsideProviderRuleTests`; `OutsideProviderTests.Add_WithPermissionAndReason_CreatesAnOutsideProvider_WithAnAssignedId_AndAuditsTheReason`, `Add_WithoutPermission_IsRefused_AndNothingIsAdded`, `Add_WithoutReason_WithoutName_OrAlreadyListed_IsRefused`, `AnOverrideAuthorizedByTheAddedProvider_IsRecordedAsOutsideProvider` | URS-BB-485 / FRS-BB-528 / RISK-BB-583 / OCD-055 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

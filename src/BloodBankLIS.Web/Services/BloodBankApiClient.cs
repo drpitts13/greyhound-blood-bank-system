@@ -820,6 +820,13 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<OrderingProviderRefDto>>> GetOrderingProvidersAsync(CancellationToken ct = default) =>
         SendAsync<List<OrderingProviderRefDto>>(HttpMethod.Get, "api/reference/ordering-providers", ct: ct);
 
+    /// <summary>Ordering providers plus outside providers (OCD-055), for the override authorizer field.</summary>
+    public Task<ApiResult<List<OrderingProviderRefDto>>> GetAuthorizerProvidersAsync(CancellationToken ct = default) =>
+        SendAsync<List<OrderingProviderRefDto>>(HttpMethod.Get, "api/reference/ordering-providers?includeOutside=true", ct: ct);
+
+    public Task<ApiResult<OrderingProviderDto>> AddOutsideProviderAsync(AddOutsideProviderRequest req, CancellationToken ct = default) =>
+        SendAsync<OrderingProviderDto>(HttpMethod.Post, "api/admin/providers/outside", req, ct);
+
     public Task<ApiResult<List<DirectoryUserDto>>> GetDirectoryUsersAsync(CancellationToken ct = default) =>
         SendAsync<List<DirectoryUserDto>>(HttpMethod.Get, "api/reference/users", ct: ct);
 

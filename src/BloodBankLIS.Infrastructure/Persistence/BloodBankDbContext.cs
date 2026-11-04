@@ -263,9 +263,9 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
 
         var providers = (await OrderingProviders.AsNoTracking()
                 .Where(p => p.IsActive)
-                .Select(p => new { p.ProviderId, p.Name })
+                .Select(p => new { p.ProviderId, p.Name, p.SourceSystem })
                 .ToListAsync(cancellationToken))
-            .Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name))
+            .Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name, OutsideProviderRule.IsOutside(p.SourceSystem)))
             .ToList();
         var users = (await Users.AsNoTracking()
                 .Where(u => u.IsActive && !u.IsServiceAccount)

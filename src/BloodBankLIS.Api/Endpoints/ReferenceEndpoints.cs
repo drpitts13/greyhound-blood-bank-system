@@ -92,13 +92,16 @@ public static class ReferenceEndpoints
             return Results.Ok(locations.Select(OrderingLocationRefDto.From));
         });
 
-        group.MapGet("/ordering-providers", async (BloodBankDbContext context, CancellationToken ct) =>
+        // Outside providers (OCD-055) are listed only when asked for, by the override authorizer field; they are not ordering providers.
+        group.MapGet("/ordering-providers", async (BloodBankDbContext context, bool? includeOutside, CancellationToken ct) =>
         {
             var providers = await context.OrderingProviders.AsNoTracking()
                 .Where(p => p.IsActive)
                 .OrderBy(p => p.Name)
                 .ToListAsync(ct);
-            return Results.Ok(providers.Select(OrderingProviderRefDto.From));
+            return Results.Ok(providers
+                .Where(p => includeOutside == true || !OutsideProviderRule.IsOutside(p.SourceSystem))
+                .Select(OrderingProviderRefDto.From));
         });
 
         group.MapGet("/users", async (BloodBankDbContext context, CancellationToken ct) =>

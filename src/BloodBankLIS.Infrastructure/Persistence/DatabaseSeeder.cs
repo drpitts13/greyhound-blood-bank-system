@@ -139,7 +139,7 @@ public static partial class DatabaseSeeder
 
         // Technologist is not in the admin grant list above; give them bench permissions
         // (specimen.edit, shift.handoff) when they are introduced on an upgraded database.
-        foreach (var benchCode in new[] { PermissionCodes.SpecimenEdit, PermissionCodes.ShiftHandoff })
+        foreach (var benchCode in new[] { PermissionCodes.SpecimenEdit, PermissionCodes.ShiftHandoff, PermissionCodes.ProviderOutsideAdd })
         {
             if (!missing.Contains(benchCode))
             {
@@ -996,7 +996,8 @@ public static partial class DatabaseSeeder
             PermissionCodes.PrintLabel,
             PermissionCodes.BillingReview,
             PermissionCodes.Hl7Manage, PermissionCodes.InstrumentManage,
-            PermissionCodes.AuditRead, PermissionCodes.ShiftHandoff
+            PermissionCodes.AuditRead, PermissionCodes.ShiftHandoff,
+            PermissionCodes.ProviderOutsideAdd
         };
 
         // Supervisor: technologist plus the dangerous/override actions.

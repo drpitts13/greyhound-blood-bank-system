@@ -81,6 +81,65 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
         return EvaluationResult<OrderingProviderDto>.Ok(dto, validation);
     }
 
+    /// <summary>
+    /// OCD-055: adds an override authorizer who is not in the directory as an outside provider, with a reason, so later
+    /// overrides they authorize match the directory. Needs <c>provider.outside.add</c>, not admin configuration rights.
+    /// </summary>
+    public async Task<EvaluationResult<OrderingProviderDto>> AddOutsideAsync(AddOutsideProviderRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(PermissionCodes.ProviderOutsideAdd, OutsideProviderRule.EvaluatePermission, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var name = request.Name?.Trim() ?? string.Empty;
+        var active = await _providers.ListAsync(p => p.IsActive, ct);
+        var listed = name.Length > 0 && AuthorizerDirectoryRule.Match(
+            name,
+            active.Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name)).ToList(),
+            []).Match != AuthorizerDirectoryMatch.NotInDirectory;
+        var validation = OutsideProviderRule.Validate(name, request.Reason, listed);
+        if (validation.IsHardStopped)
+        {
+            return EvaluationResult<OrderingProviderDto>.Blocked(validation);
+        }
+
+        var providerId = request.Identifier?.Trim();
+        if (string.IsNullOrEmpty(providerId))
+        {
+            var count = await _providers.ListAsync(p => p.SourceSystem == OutsideProviderRule.SourceSystem, ct);
+            var sequence = count.Count + 1;
+            do
+            {
+                providerId = OutsideProviderRule.GeneratedId(sequence++);
+            }
+            while (await _providers.AnyAsync(p => p.ProviderId == providerId, ct));
+        }
+        else if (await _providers.AnyAsync(p => p.ProviderId == providerId, ct))
+        {
+            return EvaluationResult<OrderingProviderDto>.Blocked(new RuleEvaluation([
+                RuleResult.HardStop("PROVIDER.ID.DUPLICATE", $"Provider id '{providerId}' already exists. Pick that provider from the list.")]));
+        }
+
+        var entity = new OrderingProvider
+        {
+            ProviderId = providerId,
+            Name = name,
+            IsActive = true,
+            SourceSystem = OutsideProviderRule.SourceSystem
+        };
+        await _providers.AddAsync(entity, ct);
+        await UnitOfWork.SaveChangesAsync(ct);
+        var dto = OrderingProviderDto.From(entity);
+        RecordChange("OrderingProvider", entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto,
+            $"Outside provider added for overrides: {request.Reason!.Trim()}");
+        await UnitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<OrderingProviderDto>.Ok(dto, validation);
+    }
+
     public async Task<EvaluationResult<OrderingProviderDto>> UpdateAsync(long id, SaveOrderingProviderRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);

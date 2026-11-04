@@ -70,10 +70,10 @@ public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, 
         StorageLocationLabel.Format(l.Id, l.Name));
 }
 
-public sealed record OrderingProviderRefDto(long Id, string ProviderId, string Name, string? Specialty, string? Location)
+public sealed record OrderingProviderRefDto(long Id, string ProviderId, string Name, string? Specialty, string? Location, bool Outside = false)
 {
     public static OrderingProviderRefDto From(OrderingProvider p) => new(
-        p.Id, p.ProviderId, p.Name, p.Specialty, p.Location);
+        p.Id, p.ProviderId, p.Name, p.Specialty, p.Location, OutsideProviderRule.IsOutside(p.SourceSystem));
 }
 
 public sealed record TestDefinitionListItemDto(

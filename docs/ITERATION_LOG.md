@@ -11121,3 +11121,55 @@ Implement the other three decisions, one per cycle:
 3. OCD-056: a facility setting that requires specimen receipt by scan.
 
 Next: OCD-055, because it touches every override.
+
+## Iteration 352 — Add an override authorizer as an outside provider (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 351 apart from this cycle's row.
+
+### Finding (questions 2, 3, and 7)
+
+OCD-055 decided that an authorizer outside the directory is not refused and can be added as an outside provider. Before this cycle:
+
+- A transferring or visiting physician was always recorded as "not in the provider or user directory".
+- Reviewers could not tell a real outside authorizer from a misspelling.
+- Only an administrator with admin configuration rights could add a provider, and only from the admin catalog, away from the override.
+
+### Design
+
+- **Permission:** new `provider.outside.add`, seeded to Technologist, Supervisor, and Administrator. Technologist gets it on upgraded databases too.
+- **Field:** when the typed authorizer is not in the directory, the authorizer field offers **Add as outside provider** to users with the permission. The form takes an optional identifier (NPI or local id) and a required reason.
+- **Rule (`OutsideProviderRule`):**
+  - the name is required
+  - the reason must be at least 8 characters
+  - a name already in the directory is refused, so the same person is not added twice
+  - an identifier already in use is refused
+  - without an identifier, `OUT-0001`, `OUT-0002`, … is assigned
+- **Storage:** an `OrderingProvider` row with source `Outside`. No schema change.
+- **Audit:** the addition is audited and recorded in configuration history with the reason.
+- **Directory matching:** `AuthorizerDirectoryMatch.OutsideProvider` (4) is recorded on overrides that name them. Review describes them as "outside provider <id>".
+- **Orders:** outside providers are left out of the ordering-provider list unless `includeOutside=true`, which only the authorizer field asks for.
+
+### Requirements / risk
+
+- URS-BB-485, FRS-BB-528, RISK-BB-583. Help: issuing (authorizer) and providers pages.
+
+### Tests
+
+- TEST-BB-391:
+  - rule validation, permission, generated id, and directory match
+  - added with an assigned id and an explicit id; audited with the reason; recorded in configuration history
+  - refused without the permission, without a reason, without a name, for a name already listed, and for a duplicate id, with nothing written
+  - a later override naming the provider is stamped OutsideProvider
+- Full suite: 3,601 passed, 0 failed.
+- Run check (development API and web):
+  - the ordering-provider list leaves outside providers out by default and marks `outside` when asked
+  - on Issue, an unknown authorizer shows **Add as outside provider**
+  - the form opens, and saving with no reason shows the reason message and adds nothing
+  - no server errors
+
+### Next ranked residual
+
+- OCD-054: a permission for back-entry of downtime transfusions of since-expired units.
+- Then OCD-056: a facility setting that requires specimen receipt by scan.

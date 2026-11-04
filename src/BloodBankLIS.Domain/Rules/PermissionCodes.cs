@@ -74,6 +74,9 @@ public static class PermissionCodes
     public const string ReactionInvestigate = "reaction.investigate";
     public const string DeviationManage = "deviation.manage";
 
+    /// <summary>Add an override authorizer who is not in the directory as an outside provider (OCD-055).</summary>
+    public const string ProviderOutsideAdd = "provider.outside.add";
+
     // --- Administration / configuration ---
 
     /// <summary>View any admin configuration area (read-only).</summary>
@@ -112,6 +115,7 @@ public static class PermissionCodes
         BillingReview, BillingCancel, BillingExport,
         Hl7Manage, InstrumentManage,
         AuditRead, ShiftHandoff, ReportRun, ReportDesign, LookbackManage, ReactionInvestigate, DeviationManage,
+        ProviderOutsideAdd,
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminInstrumentsManage,

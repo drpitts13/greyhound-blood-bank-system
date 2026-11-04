@@ -568,6 +568,10 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
+        group.MapPost("/outside", async (AddOutsideProviderRequest req, OrderingProviderAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.AddOutsideAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.ProviderOutsideAdd);
+
         group.MapPut("/{id:long}", async (long id, SaveOrderingProviderRequest req, OrderingProviderAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);

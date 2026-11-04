@@ -15,6 +15,9 @@ public sealed record OrderingProviderDto(
         p.Id, p.ProviderId, p.Name, p.Specialty, p.Location, p.IsActive, p.SourceSystem);
 }
 
+/// <summary>OCD-055: add an override authorizer who is not in the directory. Identifier is optional (an NPI or local id).</summary>
+public sealed record AddOutsideProviderRequest(string? Name, string? Identifier, string? Reason);
+
 public sealed record SaveOrderingProviderRequest(
     string ProviderId,
     string Name,

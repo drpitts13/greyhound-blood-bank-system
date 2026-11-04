@@ -3,8 +3,9 @@
 
 @* OCD-041: names who approved an override. Starts empty so the approving physician or supervisor is recorded;
    "Me" fills the signed-in user only when they press it. The e-signature separately records who signed.
-   Suggestions come from active ordering providers and LIS users; a name not in either is still accepted
-   (an emergency must not wait on the directory) and is recorded as not in the directory for review. *@
+   Suggestions come from active ordering providers, outside providers, and LIS users; a name not in any is still
+   accepted (an emergency must not wait on the directory) and is recorded as not in the directory for review.
+   OCD-055: a user with provider.outside.add can add that name to the directory as an outside provider. *@
 <div class="field">
     <label>@Label</label>
     <div class="flex gap" style="flex-wrap:nowrap;">
@@ -23,10 +24,43 @@
         if (match == AuthorizerDirectoryMatch.NotInDirectory)
         {
             <span class="sub" role="status">Not in the provider or user directory. Check the spelling; it will be recorded as typed and flagged for review.</span>
+            @if (Session.Has(PermissionCodes.ProviderOutsideAdd))
+            {
+                @if (!_adding)
+                {
+                    <div><button type="button" class="btn btn-ghost btn-sm" @onclick="StartAdding">Add as outside provider</button></div>
+                }
+                else
+                {
+                    <div class="card" style="margin-top:.5rem;padding:.75rem;">
+                        <div class="sub">Adds <strong>@Value.Trim()</strong> to the directory as an outside provider, so this and later overrides they authorize are matched.</div>
+                        <div class="field">
+                            <label>Identifier (optional)</label>
+                            <input @bind="_identifier" placeholder="NPI or local id; one is assigned if blank" autocomplete="off" />
+                        </div>
+                        <div class="field">
+                            <label>Reason</label>
+                            <input @bind="_reason" placeholder="Who they are and where they practise" autocomplete="off" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(_addError))
+                        {
+                            <div class="alert alert-danger" role="alert">@_addError</div>
+                        }
+                        <div class="flex gap">
+                            <button type="button" class="btn btn-primary btn-sm" disabled="@_saving" @onclick="AddOutsideAsync">Add provider</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="CancelAdding">Cancel</button>
+                        </div>
+                    </div>
+                }
+            }
         }
         else if (match == AuthorizerDirectoryMatch.Ambiguous)
         {
             <span class="sub" role="status">Matches more than one person. Pick the right one from the list.</span>
+        }
+        else if (match == AuthorizerDirectoryMatch.OutsideProvider)
+        {
+            <span class="sub" role="status">Outside provider in the directory.</span>
         }
     }
 </div>
@@ -44,10 +78,17 @@
     private List<AuthorizerDirectoryRule.Entry> _users = new();
     private List<string> _suggestions = new();
     private bool _loaded;
+    private bool _adding;
+    private bool _saving;
+    private string? _identifier;
+    private string? _reason;
+    private string? _addError;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadDirectoryAsync();
+
+    private async Task LoadDirectoryAsync()
     {
-        var providers = await Api.GetOrderingProvidersAsync();
+        var providers = await Api.GetAuthorizerProvidersAsync();
         var users = await Api.GetDirectoryUsersAsync();
         if (!providers.Succeeded || !users.Succeeded)
         {
@@ -55,7 +96,7 @@
             return;
         }
 
-        _providers = (providers.Value ?? new()).Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name)).ToList();
+        _providers = (providers.Value ?? new()).Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name, p.Outside)).ToList();
         _users = (users.Value ?? new()).Select(u => new AuthorizerDirectoryRule.Entry(u.UserName, u.DisplayName)).ToList();
         _suggestions = _providers.Concat(_users).Select(AuthorizerDirectoryRule.Suggestion).Distinct().ToList();
         _loaded = true;
@@ -64,12 +105,44 @@
     private async Task OnInputAsync(ChangeEventArgs e)
     {
         Value = e.Value?.ToString() ?? string.Empty;
+        _adding = false;
         await ValueChanged.InvokeAsync(Value);
     }
 
     private async Task UseMeAsync()
     {
         Value = Session.UserName ?? string.Empty;
+        _adding = false;
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    private void StartAdding()
+    {
+        _adding = true;
+        _identifier = null;
+        _reason = null;
+        _addError = null;
+    }
+
+    private void CancelAdding() => _adding = false;
+
+    private async Task AddOutsideAsync()
+    {
+        _saving = true;
+        _addError = null;
+        var result = await Api.AddOutsideProviderAsync(new AddOutsideProviderRequest(Value, _identifier, _reason));
+        _saving = false;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _addError = result.HardStops.Count > 0
+                ? string.Join(" ", result.HardStops.Select(h => h.Message))
+                : result.Error ?? "The provider could not be added.";
+            return;
+        }
+
+        _adding = false;
+        await LoadDirectoryAsync();
+        Value = AuthorizerDirectoryRule.Suggestion(new AuthorizerDirectoryRule.Entry(result.Value.ProviderId, result.Value.Name, true));
         await ValueChanged.InvokeAsync(Value);
     }
 }

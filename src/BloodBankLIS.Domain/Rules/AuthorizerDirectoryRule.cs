@@ -10,8 +10,8 @@ namespace BloodBankLIS.Domain.Rules;
 /// </summary>
 public static partial class AuthorizerDirectoryRule
 {
-    /// <summary>A directory entry: provider id or user name, and the display name.</summary>
-    public sealed record Entry(string Id, string? Name);
+    /// <summary>A directory entry: provider id or user name, the display name, and whether it is an outside provider.</summary>
+    public sealed record Entry(string Id, string? Name, bool Outside = false);
 
     public sealed record Result(AuthorizerDirectoryMatch Match, string? Reference);
 
@@ -36,7 +36,9 @@ public static partial class AuthorizerDirectoryRule
 
         if (providerHits.Count == 1)
         {
-            return new Result(AuthorizerDirectoryMatch.OrderingProvider, providerHits[0].Id.Trim());
+            return new Result(
+                providerHits[0].Outside ? AuthorizerDirectoryMatch.OutsideProvider : AuthorizerDirectoryMatch.OrderingProvider,
+                providerHits[0].Id.Trim());
         }
 
         var userHits = Hits(typed, users);
@@ -59,6 +61,7 @@ public static partial class AuthorizerDirectoryRule
     {
         AuthorizerDirectoryMatch.OrderingProvider => $"provider {reference}",
         AuthorizerDirectoryMatch.User => $"LIS user {reference}",
+        AuthorizerDirectoryMatch.OutsideProvider => $"outside provider {reference}",
         AuthorizerDirectoryMatch.Ambiguous => "matches more than one directory entry",
         AuthorizerDirectoryMatch.NotInDirectory => "not in the provider or user directory",
         _ => "not checked against the directory"
