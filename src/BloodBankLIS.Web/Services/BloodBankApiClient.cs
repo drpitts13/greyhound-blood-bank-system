@@ -701,6 +701,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<Hl7ErrorVm>>> GetHl7ErrorsAsync(CancellationToken ct = default) =>
         SendAsync<List<Hl7ErrorVm>>(HttpMethod.Get, "api/hl7/errors", ct: ct);
 
+    public Task<ApiResult<List<Hl7ErrorVm>>> GetResolvedHl7ErrorsAsync(CancellationToken ct = default) =>
+        SendAsync<List<Hl7ErrorVm>>(HttpMethod.Get, "api/hl7/errors/resolved?take=50", ct: ct);
+
     public Task<ApiResult<Hl7ErrorVm>> ResolveHl7ErrorAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<Hl7ErrorVm>(HttpMethod.Post, $"api/hl7/errors/{id}/resolve", new ReasonRequestVm(reason), ct);
 

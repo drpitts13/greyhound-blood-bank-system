@@ -16,6 +16,8 @@ The **HL7 Interface** console is the operational log. Admission, order, and resu
 
 Open an error and read the reason. A rejected order or result did not update the chart. Replaying a message sends it through processing again. Replay when the failure was transient or when the map has been fixed. Do not replay a message that filed on the wrong patient until the map or the translation is corrected, or you will file it wrong again.
 
+Every error that closes keeps a note of why: the reason you gave on **Resolve**, a replay that applied, or a later send the receiver acknowledged. **Recently resolved** under the error queue lists the latest ones with who closed them and when.
+
 Outbound messages, including billing DFT and result messages your interfaces send, appear with their acknowledgement status. A message that has not been acknowledged is still pending. The downtime snapshot counts those so you can see the backlog after an outage.
 
 ## What the bench should do

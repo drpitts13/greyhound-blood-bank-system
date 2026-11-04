@@ -108,6 +108,28 @@
             </div>
         }
     }
+    @if (_resolvedErrors.Count > 0)
+    {
+        @* Who closed each error and why: a reason given by hand, or the replay or resend that delivered it. *@
+        <details style="margin-top:1rem;">
+            <summary>Recently resolved (@_resolvedErrors.Count)</summary>
+            <table class="bb" style="margin-top:.5rem;">
+                <thead><tr><th>Resolved</th><th>By</th><th>Message</th><th>Error</th><th>Why</th></tr></thead>
+                <tbody>
+                    @foreach (var r in _resolvedErrors)
+                    {
+                        <tr>
+                            <td class="nowrap">@(r.ResolvedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td>@(r.ResolvedBy ?? "—")</td>
+                            <td>@(string.IsNullOrEmpty(r.MessageType) ? $"#{r.Hl7MessageId}" : $"{r.MessageType}{(string.IsNullOrEmpty(r.TriggerEvent) ? "" : $"^{r.TriggerEvent}")}")<span class="sub mono">@r.MessageControlId</span></td>
+                            <td>@r.ErrorType<span class="sub">@r.ErrorDetail</span></td>
+                            <td>@(r.ResolutionNote ?? "Not recorded (resolved before notes were kept)")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </details>
+    }
 </div>
 
 <div class="bb-card">
@@ -250,6 +272,7 @@
 
     private List<Hl7MessageVm> _messages = new();
     private List<Hl7ErrorVm> _errors = new();
+    private List<Hl7ErrorVm> _resolvedErrors = new();
     private bool _loading = true;
     private bool _busy;
     private long? _viewId;
@@ -278,6 +301,8 @@
         var errors = await Api.GetHl7ErrorsAsync();
         _messages = messages.Value ?? new();
         _errors = errors.Value ?? new();
+        var resolved = await Api.GetResolvedHl7ErrorsAsync();
+        _resolvedErrors = resolved.Value ?? new();
         // A refused or failed load must not look like an empty log.
         _logFb = !messages.Succeeded ? messages.ToFeedback() : !errors.Succeeded ? errors.ToFeedback() : null;
         _loading = false;

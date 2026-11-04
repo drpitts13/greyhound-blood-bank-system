@@ -801,6 +801,11 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True(original.Resolved);
         Assert.False(string.IsNullOrWhiteSpace(original.ResolvedBy));
         Assert.NotNull(original.ResolvedUtc);
+        // TEST-BB-399: a replay that applies records why the error closed, and audits it.
+        Assert.Equal(Hl7InboundProcessor.ReplayResolutionNote, original.ResolutionNote);
+        Assert.True(await verify.AuditEvents.AnyAsync(e => e.EventType == AuditEventType.Interface
+            && e.EntityType == nameof(InterfaceErrorQueueItem) && e.EntityId == original.Id
+            && e.Reason == Hl7InboundProcessor.ReplayResolutionNote));
         Assert.True(await verify.Orders.AnyAsync(o => o.OrderNumber == "PLACER-FIX"));
     }
 
@@ -973,6 +978,7 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         var row = await verify.InterfaceErrorQueue.SingleAsync(e => e.Id == errorId);
         Assert.True(row.Resolved);
+        Assert.Equal("Entered on the chart.", row.ResolutionNote);
         var still = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-RES");
         Assert.Equal("Corrected", still.LastName);
         Assert.Equal(1, await verify.Hl7Messages.CountAsync(m => m.MessageControlId == "CTRL-RESOLVE"));
@@ -1345,7 +1351,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
                 new EfRepository<InterfaceEndpoint>(context),
                 new EfRepository<InterfaceErrorQueueItem>(context),
                 context,
-                _factory.Clock);
+                _factory.Clock,
+                new AuditWriter(context, _factory.Clock, _factory.CurrentUser));
             var result = await sender.SendOneAsync(messageId);
             Assert.True(result.Succeeded, result.Error);
             Assert.Equal(Hl7MessageStatus.Acked, result.Value!.Status);
@@ -1359,6 +1366,11 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True(item.Resolved);
         Assert.Equal("outbound", item.ResolvedBy);
         Assert.NotNull(item.ResolvedUtc);
+        // TEST-BB-399: a later successful send records why the error closed, and audits it.
+        Assert.Equal(Hl7OutboundSender.DeliveredResolutionNote, item.ResolutionNote);
+        Assert.True(await verify.AuditEvents.AnyAsync(e => e.EventType == AuditEventType.Interface
+            && e.EntityType == nameof(InterfaceErrorQueueItem) && e.EntityId == item.Id
+            && e.Reason == Hl7OutboundSender.DeliveredResolutionNote));
         Assert.True(Hl7MessageIdentity.TryRead(
             (await verify.Hl7Messages.FindAsync(messageId))!.RawMessage, out var identity));
         Assert.Equal("PLACER-OUT", identity.PlacerOrderNumber);

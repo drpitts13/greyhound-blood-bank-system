@@ -127,13 +127,14 @@ public sealed class Hl7InboundProcessor
         item.Resolved = true;
         item.ResolvedBy = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? "system" : _currentUser.UserName;
         item.ResolvedUtc = _clock.UtcNow;
+        item.ResolutionNote = Truncate(reason.Trim());
         _errors.Update(item);
         _audit?.Record(
             AuditEventType.Interface,
             nameof(InterfaceErrorQueueItem),
             item.Id,
             oldValue: new { Resolved = false, item.Hl7MessageId },
-            newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId },
+            newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId, item.ResolutionNote },
             reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<InterfaceErrorQueueItem>.Ok(item);
@@ -207,11 +208,23 @@ public sealed class Hl7InboundProcessor
             item.Resolved = true;
             item.ResolvedBy = resolvedBy;
             item.ResolvedUtc = now;
+            item.ResolutionNote = ReplayResolutionNote;
             _errors.Update(item);
+            _audit?.Record(
+                AuditEventType.Interface,
+                nameof(InterfaceErrorQueueItem),
+                item.Id,
+                oldValue: new { Resolved = false, item.Hl7MessageId },
+                newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId, item.ResolutionNote },
+                reason: ReplayResolutionNote);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
     }
+
+    public const string ReplayResolutionNote = "Resolved by a successful replay of the stored message.";
+
+    private static string Truncate(string value) => value.Length <= 500 ? value : value[..500];
 
     public async Task<Hl7ProcessResult> ProcessAsync(string rawMessage, long? endpointId = null, bool isReplay = false, CancellationToken ct = default)
     {

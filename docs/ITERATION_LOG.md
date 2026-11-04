@@ -11469,3 +11469,44 @@ Rescan the capability matrix. The remaining Partial rows are:
 - HL7 and interfaces
 
 In the interfaces area, check whether instrument and HL7 error queues offer a next action for every error type, with a reason recorded on resolve.
+
+## Iteration 360 — Interface errors keep why they were resolved (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 359 apart from this cycle's row (interoperability).
+
+### Finding (question 7)
+
+- **Manual resolve** required a reason, but it was stored only in the audit trail. The row showed only who closed it and when.
+- **Replay that applied** closed the row with no audit entry and no note.
+- **Acknowledged outbound resend** did the same.
+- **The HL7 page** listed open errors only, so nobody could review how errors were closed.
+
+### Design
+
+- **`InterfaceErrorQueueItem.ResolutionNote`** (nvarchar(500)), set on all three paths:
+  - manual: the reason
+  - replay: "Resolved by a successful replay of the stored message."
+  - resend: "Resolved: the message was delivered and acknowledged on a later send."
+- **Audit:** replay and resend closes now write an Interface audit event per row, with the note as the reason. `Hl7OutboundSender` gains an optional `IAuditWriter`.
+- **Endpoint:** `GET /api/hl7/errors/resolved?take=` lists the newest closed rows (default 50, at most 200) with who, when, why, and the message type.
+- **HL7 page:** a collapsed **Recently resolved** list under the error queue. Older rows closed before notes existed say "Not recorded".
+- **Schema:** migration `20261107000000_InterfaceErrorResolutionNote`, plus the bootstrap.
+
+### Requirements
+
+- URS-BB-489, FRS-BB-536, SRS-BB-449. Help: HL7 page.
+
+### Tests
+
+- TEST-BB-399, by extending existing HL7 tests:
+  - manual resolve stores its reason
+  - a replay that applies stores the replay note and an audit event
+  - an acknowledged resend stores the delivery note and an audit event
+- Full suite: 3,622 passed, 0 failed.
+- Run check (development API and web): `/api/hl7/errors/resolved` returns `[]` on the development database, which has no closed errors; the HL7 page loads and hides the empty section; no server errors.
+
+### Next ranked residual
+
+The instrument interface has its own error handling. Check that instrument result errors also offer a next action and keep why they were resolved, the same as HL7.

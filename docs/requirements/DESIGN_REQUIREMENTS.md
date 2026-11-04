@@ -452,3 +452,4 @@
 | SRS-BB-446 | Nullable `PatientBloodTypeHistory.ManualDocumentation` int and `ManualDocumentationReference` nvarchar(300) (migration `20261104000000_ManualBloodTypeDocumentation`, dev bootstrap). | FRS-BB-496 |
 | SRS-BB-447 | `ShiftHandoffs.PendingTestsVerifyBeforeExpiry` int not null default 0 (migration `20261105000000_ShiftHandoffVerifyBeforeExpiry`, dev bootstrap). | FRS-BB-510 |
 | SRS-BB-448 | `Issues.DowntimeBackEntry` (bit, not null, default 0), migration `20261106000000_IssueDowntimeBackEntry` and the development SQLite bootstrap; `IssueDto.DowntimeBackEntry`; `InventoryUnitScopes.DowntimeBackEntry` adds Expired to the issuable statuses for the back-entry unit picker. | FRS-BB-529 |
+| SRS-BB-449 | `InterfaceErrorQueue.ResolutionNote` (nvarchar(500), null), migration `20261107000000_InterfaceErrorResolutionNote` and the development SQLite bootstrap; `Hl7OutboundSender` takes an optional `IAuditWriter`. | FRS-BB-536 |

@@ -537,6 +537,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-486 / FRS-BB-533 | Downtime snapshot counts back-entered issues still to complete | `DowntimeReconciliationService`; downtime page | TEST-BB-396 | I | |
 | URS-BB-488 / FRS-BB-534 | Facility policy keys and defaults match the admin catalog | `FacilityPolicyService`; `FacilityPolicyCatalog` | TEST-BB-397 | A | |
 | URS-BB-488 / FRS-BB-535 | Missing facility policies stored at their defaults with history | `DatabaseSeeder` | TEST-BB-398 | I | |
+| URS-BB-489 / FRS-BB-536 | Interface error resolution note, audit, and recently resolved list | `Hl7InboundProcessor`; `Hl7OutboundSender`; HL7 page | TEST-BB-399 | I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
