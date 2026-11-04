@@ -414,5 +414,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-403 | I | `SpecialRequirementReactionLinkTests.Requirement_AddedFromAReaction_IsLinked_AndAudited`, `Requirement_CannotLinkAnotherPatientsReaction_OrOneThatDoesNotExist` | URS-BB-490 / FRS-BB-540 / OCD-057 |
 | TEST-BB-404 | D | `ReactionNextStepRuleTests.FatalityFollowUp_LeadsEverything_EvenWhenClosed`, `Steps_FollowTheUrgencyOrder`, `ARemainderThatCannotBeHeld_IsNotAskedToBeHeld` | URS-BB-490 / FRS-BB-541 |
 | TEST-BB-405 | A | `PendingSpecimenAttentionRuleTests.ExpiredTubes_AreCounted_AndMakeTheCardNeedAttention`, `NoExpiredTubes_KeepsAPlainCount` | URS-BB-487 / FRS-BB-542 |
+| TEST-BB-406 | D / I | `QuarantineReleaseRuleTests.OrdinaryHolds_CanBeReleased`, `ReactionRemainder_WaitsForTheInvestigation`, `Expired_RetypeMismatch_AndDisposal_AreNeverReleased_AndSayWhatToDo`; `InventoryServiceTests.QuarantineRelease_FollowsWhyTheUnitIsHeld` | URS-BB-491 / FRS-BB-543 / RISK-BB-588 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

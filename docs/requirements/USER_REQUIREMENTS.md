@@ -496,3 +496,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-488 | Every facility setting the system reads is listed on Facility Policies, and the default it uses when the setting has never been saved is the default the page shows. | P1 | FRS-BB-534 |
 | URS-BB-489 | For every closed interface error, staff can see who closed it, when, and why, whether it was closed by hand, by a replay, or by a later send. | P2 | FRS-BB-536 |
 | URS-BB-490 | A transfusion reaction noticed after the transfusion was documented without one can be reported and investigated like one reported at the bedside. | P1 | FRS-BB-539 |
+| URS-BB-491 | A quarantined unit goes back to stock only when the reason it is held allows it, and the quarantine board says what to do with each unit. | P1 | FRS-BB-543 |

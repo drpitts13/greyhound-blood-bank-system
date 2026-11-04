@@ -11771,3 +11771,49 @@ No change since Cycle 365 apart from this cycle's row (orders and specimens, ope
 ### Next ranked residual
 
 Pending: OCD-057. The worklist rescan (question 5) is complete for issue, reactions, supervisor, test, and specimen boards. Next: rescan inventory boards (near-expiry, quarantine, modifications) for the same question.
+
+## Iteration 367 — Quarantine release follows why the unit is held (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 366 apart from this cycle's row (blood products: status history and quarantine).
+
+### Finding (questions 5 and 6, inventory board rescan)
+
+The quarantine board offered **Release** on every row, and the server checked only the second verifier and the label scan. It never looked at why the unit was held, so any of these could go back to Available:
+
+- the remainder of a unit whose reaction investigation was still open, which is evidence for that investigation
+- a unit whose verified ABO/Rh retype disagreed with its label (the issue gate already refuses it)
+- an expired unit
+- a unit returned with disposal requested
+
+The board also never said what to do with each unit.
+
+### Design
+
+- **`QuarantineReleaseRule` (`QREL-REASON`)** refuses release for the four cases above, each with what to do instead:
+  - discard
+  - discard or return to the supplier
+  - release after the investigation closes
+  - discard
+
+  Every other hold releases as before. Each stop follows a gate or request that already exists; no new clinical policy.
+- **Server:** `ReleaseFromQuarantineAsync` applies the rule before the label check.
+  - open investigations are read through a new optional reaction-investigation repository
+  - verified mismatches come through `ProductRetypeConfirmation`, the same check the issue gate uses
+- **Board:** `QuarantineWorkItemDto` gains `NextStep` and `CanRelease`. A **Next step** column shows refusals in red, and Release appears only when allowed.
+
+### Requirements / risk
+
+- URS-BB-491, FRS-BB-543, RISK-BB-588. Help: inventory page.
+
+### Tests
+
+- TEST-BB-406:
+  - domain: ordinary holds release; a reaction remainder waits for its investigation; expired, mismatch, and disposal are refused, with what to do
+  - integration: the board marks the remainder, expired, and disposal units as not releasable and a visual-defect unit as releasable; each refused release leaves the unit in Quarantine; the routine one releases; closing the investigation lets the remainder release
+- Full suite: 3,646 passed, 0 failed. One test assertion was fixed for letter case during the run.
+
+### Next ranked residual
+
+Pending: OCD-057. Continue the inventory rescan: the near-expiry board (Cycle 337 gave reserved units a next step) and the discrepancy and hold boards. Check that each row says what to do.

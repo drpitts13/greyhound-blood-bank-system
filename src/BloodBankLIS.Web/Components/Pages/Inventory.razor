@@ -386,6 +386,7 @@
                         <th>Reason</th>
                         <th>Notes</th>
                         <th>Expires</th>
+                        <th>Next step</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -415,8 +416,18 @@
                             <td>@row.ReasonCode</td>
                             <td>@(row.Notes ?? "—")</td>
                             <td class="nowrap">@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @if (row.CanRelease)
+                                {
+                                    @row.NextStep
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red">@row.NextStep</span>
+                                }
+                            </td>
                             <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.InventoryRelease))
+                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.CanRelease)
                                 {
                                     <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ToggleQuarantineRelease(row.UnitId)">
                                         @(_releasingQuarantineId == row.UnitId ? "Hide" : "Release")
@@ -428,7 +439,7 @@
                         @if (_releasingQuarantineId == row.UnitId && Session.Has(PermissionCodes.InventoryRelease))
                         {
                             <tr>
-                                <td colspan="10">
+                                <td colspan="11">
                                     <div class="alert alert-info" style="margin:.25rem 0;">
                                         <p class="muted" style="margin:0 0 .5rem;">
                                             Release <span class="mono">@row.UnitNumber</span> with the same second-verifier gate as Manage. @row.ReleasePlaceSentence @row.VolumeLabel.

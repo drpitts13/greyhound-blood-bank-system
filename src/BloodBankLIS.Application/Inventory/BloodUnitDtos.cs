@@ -175,7 +175,10 @@ public sealed record QuarantineWorkItemDto(
     long? CurrentLocationId = null,
     string? CurrentLocationName = null,
     decimal? Volume = null,
-    bool RequiresLabelScan = false)
+    bool RequiresLabelScan = false,
+    // From QuarantineReleaseRule: what to do with the unit, and whether Release is allowed.
+    string? NextStep = null,
+    bool CanRelease = true)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 

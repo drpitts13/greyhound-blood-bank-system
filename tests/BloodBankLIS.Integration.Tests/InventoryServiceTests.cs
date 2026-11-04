@@ -135,7 +135,90 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             retype: retype,
             retypeResults: new EfRepository<ProductRetypeResult>(context),
             discardReasons: new EfRepository<UnitDiscardReason>(context),
-            allocations: new EfRepository<Allocation>(context));
+            allocations: new EfRepository<Allocation>(context),
+            reactions: new EfRepository<ReactionInvestigation>(context));
+    }
+
+    /// <summary>A quarantined unit held for the given reason; optionally the remainder of a transfusion with an investigation.</summary>
+    private async Task<(long UnitId, long? ReactionId)> SeedQuarantinedAsync(
+        string unitNumber, UnitQuarantineReason reason, DateTime expiresUtc, ReactionInvestigationStatus? reaction = null)
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var c = _factory.Create();
+        var unit = new BloodUnit
+        {
+            UnitNumber = unitNumber, ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = expiresUtc, Status = UnitStatus.Quarantine, QuarantineReasonCode = reason, QuarantineReason = "Test hold"
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        if (reaction is not { } status)
+        {
+            return (unit.Id, null);
+        }
+
+        var patient = new Patient { MedicalRecordNumber = $"MRN-{unitNumber}", LastName = "Hold", FirstName = "Test", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var issue = new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-6), IssuedBy = "tech-test", Status = IssueStatus.Transfused };
+        c.Issues.Add(issue);
+        await c.SaveChangesAsync();
+        var tx = new TransfusionEvent
+        {
+            IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, StartUtc = _factory.Clock.UtcNow.AddHours(-5),
+            FinalDisposition = TransfusionDisposition.Stopped, ReactionSuspected = true, DocumentedBy = "tech-test"
+        };
+        c.TransfusionEvents.Add(tx);
+        await c.SaveChangesAsync();
+        var investigation = new ReactionInvestigation
+        {
+            TransfusionEventId = tx.Id, PatientId = patient.Id, BloodProductId = unit.Id, ReportedUtc = _factory.Clock.UtcNow, Status = status
+        };
+        c.ReactionInvestigations.Add(investigation);
+        await c.SaveChangesAsync();
+        return (unit.Id, investigation.Id);
+    }
+
+    // TEST-BB-406: a quarantined unit goes back to stock only when its hold allows it, and the board says so.
+    [Fact]
+    public async Task QuarantineRelease_FollowsWhyTheUnitIsHeld()
+    {
+        var future = _factory.Clock.UtcNow.AddDays(10);
+        var (remainder, reactionId) = await SeedQuarantinedAsync("U-QR-RXN", UnitQuarantineReason.ReactionRemainder, future, ReactionInvestigationStatus.Open);
+        var (expired, _) = await SeedQuarantinedAsync("U-QR-EXP", UnitQuarantineReason.VisualDefect, _factory.Clock.UtcNow.AddHours(-1));
+        var (disposal, _) = await SeedQuarantinedAsync("U-QR-DISP", UnitQuarantineReason.ReturnedForDisposal, future);
+        var (routine, _) = await SeedQuarantinedAsync("U-QR-OK", UnitQuarantineReason.VisualDefect, future);
+
+        await using (var c = _factory.Create())
+        {
+            var service = CreateService(c);
+            var board = await service.ListQuarantineAsync();
+            Assert.False(board.Single(r => r.UnitId == remainder).CanRelease);
+            Assert.Contains("reaction investigation", board.Single(r => r.UnitId == remainder).NextStep);
+            Assert.False(board.Single(r => r.UnitId == expired).CanRelease);
+            Assert.False(board.Single(r => r.UnitId == disposal).CanRelease);
+            Assert.True(board.Single(r => r.UnitId == routine).CanRelease);
+
+            foreach (var held in new[] { remainder, expired, disposal })
+            {
+                var refused = await service.ReleaseFromQuarantineAsync(held, "tech2");
+                Assert.False(refused.Succeeded);
+                Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == QuarantineReleaseRule.Code);
+                Assert.Equal(UnitStatus.Quarantine, (await c.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == held)).Status);
+            }
+
+            Assert.True((await service.ReleaseFromQuarantineAsync(routine, "tech2")).Succeeded);
+        }
+
+        // Once the investigation is closed, the remainder can be released.
+        await using (var c = _factory.Create())
+        {
+            var inv = await c.ReactionInvestigations.SingleAsync(r => r.Id == reactionId);
+            inv.Status = ReactionInvestigationStatus.Closed;
+            await c.SaveChangesAsync();
+            var released = await CreateService(c).ReleaseFromQuarantineAsync(remainder, "tech2");
+            Assert.True(released.Succeeded, released.Error ?? string.Join("; ", released.Evaluation?.HardStops.Select(h => h.Message) ?? []));
+        }
     }
 
     /// <summary>The three discard codes these tests use, added once per database.</summary>

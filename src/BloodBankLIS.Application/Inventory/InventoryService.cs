@@ -76,8 +76,10 @@ public sealed class InventoryService
         DeliveryService? deliveries = null,
         IRepository<UnitModificationUnit>? modificationUnits = null,
         IRepository<UnitDiscardReason>? discardReasons = null,
-        IRepository<Allocation>? allocations = null)
+        IRepository<Allocation>? allocations = null,
+        IRepository<ReactionInvestigation>? reactions = null)
     {
+        _reactions = reactions;
         _repository = repository;
         _unitAttributes = unitAttributes;
         _bloodAttributes = bloodAttributes;
@@ -230,6 +232,23 @@ public sealed class InventoryService
     /// SoftBank/SafeTrace quality-quarantine worklist: units in
     /// <see cref="UnitStatus.Quarantine"/> with a coded disposition.
     /// </summary>
+    private readonly IRepository<ReactionInvestigation>? _reactions;
+
+    /// <summary>Units whose reaction investigation is still open (not closed), among those given.</summary>
+    private async Task<HashSet<long>> OpenReactionUnitIdsAsync(IReadOnlyCollection<long> unitIds, CancellationToken ct) =>
+        _reactions is null || unitIds.Count == 0
+            ? []
+            : (await _reactions.ListAsync(r => unitIds.Contains(r.BloodProductId) && r.Status != ReactionInvestigationStatus.Closed, ct))
+                .Select(r => r.BloodProductId)
+                .ToHashSet();
+
+    private async Task<QuarantineReleaseRule.Decision> EvaluateQuarantineReleaseAsync(BloodUnit unit, CancellationToken ct) =>
+        QuarantineReleaseRule.Evaluate(
+            unit.QuarantineReasonCode,
+            (await OpenReactionUnitIdsAsync([unit.Id], ct)).Contains(unit.Id),
+            _retypeResults is not null && await ProductRetypeConfirmation.HasVerifiedMismatchAsync(_retypeResults, unit.Id, ct),
+            unit.ExpiresUtc <= _clock.UtcNow);
+
     public async Task<IReadOnlyList<QuarantineWorkItemDto>> ListQuarantineAsync(CancellationToken ct = default)
     {
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine), ct);
@@ -246,7 +265,20 @@ public sealed class InventoryService
         var locationIds = rows.Select(u => u.CurrentLocationId).OfType<long>().Distinct().ToList();
         var locationNames = await LoadLocationNamesAsync(locationIds, ct);
         var modificationResultIds = await ModificationResultUnitIdsAsync(unitIds, ct);
+        var openReactions = await OpenReactionUnitIdsAsync(unitIds, ct);
+        var verifiedMismatches = new HashSet<long>();
+        if (_retypeResults is not null)
+        {
+            foreach (var id in unitIds)
+            {
+                if (await ProductRetypeConfirmation.HasVerifiedMismatchAsync(_retypeResults, id, ct))
+                {
+                    verifiedMismatches.Add(id);
+                }
+            }
+        }
 
+        var now = _clock.UtcNow;
         return rows
             .OrderBy(u => u.CreatedUtc)
             .Select(u =>
@@ -259,8 +291,11 @@ public sealed class InventoryService
                     locationNames.TryGetValue(locationId, out locationName);
                 }
 
+                var release = QuarantineReleaseRule.Evaluate(
+                    u.QuarantineReasonCode, openReactions.Contains(u.Id), verifiedMismatches.Contains(u.Id), u.ExpiresUtc <= now);
                 return QuarantineWorkItemDto.From(
-                    u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id));
+                    u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id))
+                    with { NextStep = release.NextStep, CanRelease = release.CanRelease };
             })
             .ToList();
     }
@@ -1175,6 +1210,13 @@ public sealed class InventoryService
         if (directory.Severity == RuleSeverity.HardStop)
         {
             return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
+        }
+
+        // Why the unit is held decides whether it may go back to stock at all.
+        var releasable = await EvaluateQuarantineReleaseAsync(unit, ct);
+        if (!releasable.CanRelease)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([releasable.Result]));
         }
 
         var isModificationResult = await IsModificationResultAsync(unit.Id, ct);
