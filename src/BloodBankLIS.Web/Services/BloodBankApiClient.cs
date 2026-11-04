@@ -1460,8 +1460,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<InventoryLocationAdminDto>> UpdateAdminInventoryLocationAsync(long id, SaveInventoryLocationRequest req, CancellationToken ct = default) =>
         SendAsync<InventoryLocationAdminDto>(HttpMethod.Put, $"api/admin/inventory-locations/{id}", req, ct);
 
-    public Task<ApiResult<InventoryLocationAdminDto>> SetAdminInventoryLocationActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<InventoryLocationAdminDto>(HttpMethod.Post, $"api/admin/inventory-locations/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<InventoryLocationAdminDto>> SetAdminInventoryLocationActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<InventoryLocationAdminDto>(HttpMethod.Post, $"api/admin/inventory-locations/{id}/{(active ? "activate" : "deactivate")}", new InventoryLocationActiveRequest(reason), ct);
 
     // ---- Admin: Facility policy ----
     public Task<ApiResult<List<FacilityPolicyDto>>> GetAdminFacilityPoliciesAsync(CancellationToken ct = default) =>

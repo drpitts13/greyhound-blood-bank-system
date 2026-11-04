@@ -11963,3 +11963,53 @@ No change since Cycle 369 apart from this cycle's row (patient-product workflows
 ### Next ranked residual
 
 Administration rescan for question 7 (deferred from Cycle 369): check that product, test, location, and special requirement definition catalogs record a reason with each change.
+
+## Iteration 371 — Storage location changes record why (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 370 apart from this cycle's row (administration).
+
+### Finding (question 7, administration rescan)
+
+A count of `RecordChange` calls with no reason across the admin services found the gaps:
+
+- **Billing catalogs:** charge codes and rules, billing maps. Low clinical risk.
+- **Coded-reason lists:** discard, rejection, cancellation, and reaction lists. Their changes are recorded with who and when.
+- **Printers.**
+- **Inventory and storage locations:** a location's settings are enforced at transfer and issue:
+  - storage range and allowed components
+  - remote and electronic issue
+  - second verifier
+  - whether it is time-out governed
+
+  Yet an edit, activation, or deactivation recorded no reason. That is the safety-relevant gap.
+
+### Design
+
+- **`StorageLocationChangeReasonRule` (`LOC.REASON.REQUIRED`):** at least 8 characters, the same minimum as the exception, compatibility, and access reasons.
+- **Service:**
+  - `InventoryLocationAdminService.UpdateAsync` needs `SaveInventoryLocationRequest.Reason`
+  - `SetActiveAsync` needs a reason
+  - without one, the change is refused with nothing changed
+  - the reason goes to the audit and configuration history
+- **What doesn't need a reason:** creating a location. A new location affects nothing until units are moved into it.
+- **API:** activate and deactivate take `{ reason }` (`InventoryLocationActiveRequest`).
+- **Admin › Inventory locations:** a "Reason for the change" field at the top. Edit Save, Activate, and Deactivate stay disabled until it is filled.
+- **Admin › Refrigerators & Freezers:** Edit asks for the reason; Deactivate and Activate ask in their confirm panel.
+
+### Requirements
+
+- FRS-BB-547 (under URS-BB-483). Help: inventory locations and storage devices topics.
+
+### Tests
+
+- TEST-BB-410:
+  - domain: the reason length
+  - integration: an edit without a reason is refused; with one it saves and configuration history keeps the reason
+  - the existing deactivate tests now pass a reason; the permission and stored-units refusals are unchanged
+- Full suite: 3,658 passed, 0 failed.
+
+### Next ranked residual
+
+Same check for transport containers (validated temperature and hours) and MTP pack definitions, which also lack reasons. Then the remaining low-risk lists, if worth it.

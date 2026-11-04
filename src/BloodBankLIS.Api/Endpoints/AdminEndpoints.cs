@@ -983,12 +983,12 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
-        group.MapPost("/{id:long}/activate", async (long id, InventoryLocationAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+        group.MapPost("/{id:long}/activate", async (long id, InventoryLocationActiveRequest? req, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
-        group.MapPost("/{id:long}/deactivate", async (long id, InventoryLocationAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+        group.MapPost("/{id:long}/deactivate", async (long id, InventoryLocationActiveRequest? req, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 
