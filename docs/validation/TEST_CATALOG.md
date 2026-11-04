@@ -412,5 +412,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-401 | A / I | `DashboardQueueCatalogTests.InterfaceCards_FollowTheInterfacePermissions`; `DashboardHomeTests.InterfaceFailures_AreAttention_WhenNonZero_AfterPatientSafetyItems`; `DowntimeReconciliationTests.GetSnapshot_CountsOpenWorkAndReportsChain` | URS-BB-489 / FRS-BB-538 |
 | TEST-BB-402 | D / I | `LateReactionReportRuleTests.AValidReport_Passes_WithOrWithoutAnOnset`, `Refusals_SayWhy`; `Phase4IssuingTests.LateReactionReport_OpensAnInvestigation_AndMarksTheTransfusion` | URS-BB-490 / FRS-BB-539 / RISK-BB-587 |
 | TEST-BB-403 | I | `SpecialRequirementReactionLinkTests.Requirement_AddedFromAReaction_IsLinked_AndAudited`, `Requirement_CannotLinkAnotherPatientsReaction_OrOneThatDoesNotExist` | URS-BB-490 / FRS-BB-540 / OCD-057 |
+| TEST-BB-404 | D | `ReactionNextStepRuleTests.FatalityFollowUp_LeadsEverything_EvenWhenClosed`, `Steps_FollowTheUrgencyOrder`, `ARemainderThatCannotBeHeld_IsNotAskedToBeHeld` | URS-BB-490 / FRS-BB-541 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

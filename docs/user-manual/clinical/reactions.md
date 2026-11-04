@@ -10,7 +10,7 @@ routes:
 
 ![Reaction investigations](figures/reactions.png)
 
-**Reactions** is the investigation board. You need permission to investigate reactions. Open an existing investigation or start one from the transfusion it belongs to.
+**Reactions** is the investigation board. You need permission to investigate reactions. Each row has a **Next step**, and the board lists the most urgent first: fatality reporting that is due, a unit remainder that is not held, an ABO/Rh discrepancy to review, the next missing workup item, then cases ready to close and sign. The first three are shown in red. Work the board from the top. Open an existing investigation or start one from the transfusion it belongs to.
 
 A reaction noticed after the transfusion was documented, such as a fever hours later or a delayed hemolytic reaction, is reported from the patient's chart: on **Product history**, choose **Report reaction** on the transfused row, describe what was seen and who reported it, and give the onset if known. That opens the investigation here, holds any remainder of the unit, and marks the transfusion as reaction suspected so the chart and the patient's next issue show it. The onset cannot be before the transfusion started or in the future, and a transfusion that already has an investigation is refused with its number.
 

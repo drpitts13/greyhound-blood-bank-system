@@ -87,6 +87,12 @@ public sealed record ReactionInvestigationDto(
     bool ReportedAfterTransfusion = false,
     DateTime? OnsetUtc = null)
 {
+    /// <summary>The one thing to do next, from <see cref="ReactionNextStepRule"/>.</summary>
+    public ReactionNextStepRule.Step NextStep => ReactionNextStepRule.For(new ReactionNextStepRule.Facts(
+        Status, FatalityFollowUpDue, FatalityFollowUpDetail, RemainderQuarantined, RemainderHoldNote,
+        AboRhIncompatible || RepeatPatientAboRhDiscrepancy || RepeatUnitAboRhDiscrepancy,
+        WorkupIncomplete, WorkupHoldReason));
+
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
         string? mrn = null,

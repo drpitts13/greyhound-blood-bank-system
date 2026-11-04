@@ -43,6 +43,7 @@ else
                 <thead>
                     <tr>
                         <th>Patient / MRN</th>
+                        <th>Next step</th>
                         <th>Unit</th>
                         <th>Patient type</th>
                         <th>Unit type</th>
@@ -60,6 +61,16 @@ else
                     {
                         <tr>
                             <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a><span class="sub mono">@(r.MedicalRecordNumber ?? "—")</span></td>
+                            <td>
+                                @if (r.NextStep.Priority <= 3)
+                                {
+                                    <span class="badge badge-red">@r.NextStep.Text</span>
+                                }
+                                else
+                                {
+                                    @r.NextStep.Text
+                                }
+                            </td>
                             <td><UnitLink Id="r.BloodProductId" Number="@r.UnitNumber" /></td>
                             <td>
                                 <strong>@(r.CurrentBloodType ?? "—")</strong>
@@ -278,7 +289,10 @@ else
 
     private bool _showClosed;
 
-    private IEnumerable<ReactionInvestigationDto> VisibleRows => _rows.Where(IncludeOnBoard);
+    // Worked top down: the most urgent next step first, then the oldest report.
+    private IEnumerable<ReactionInvestigationDto> VisibleRows => _rows.Where(IncludeOnBoard)
+        .OrderBy(r => r.NextStep.Priority)
+        .ThenBy(r => r.ReportedUtc);
 
     private string? WorkupHoldMessage
     {

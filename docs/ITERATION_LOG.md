@@ -11694,3 +11694,47 @@ Which reactions call for which requirements is a medical decision, so it is not 
 ### Next ranked residual
 
 Pending decision: OCD-057. Next engineering candidate: rescan the capability matrix for the operations area (worklists and supervisor queues), checking each queue against question 5 (is the next action surfaced on the row?).
+
+## Iteration 365 — The reaction board says what to do next (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 364 apart from this cycle's row (operations: worklists).
+
+### Finding (questions 1, 2, and 5; worklist rescan)
+
+- **Already fine:** the supervisor queue gives every row a next action and a link.
+- **Reactions board:**
+  - each row spreads its state over up to six badges across ten columns (workup, remainder, discrepancies, fatality), so the reader had to work out what to do next
+  - rows were in list order, so a fatality report that was due could sit below a routine case
+
+### Design
+
+**`ReactionNextStepRule`** gives one step per investigation, in this order:
+1. fatality reporting due, even after closing, since the report stays due
+2. hold the remainder, when it is not held and there is no note saying why it cannot be
+3. review the ABO/Rh discrepancy, if the repeat patient or unit type disagrees or the unit was ABO/Rh incompatible
+4. the first missing workup item, from the completeness rule
+5. ready to close: review and sign
+
+It names only work the investigation already requires; it decides no clinical outcome.
+
+- **DTO:** `ReactionInvestigationDto.NextStep` computes it from the facts the DTO already carries.
+- **Reactions board:** a **Next step** column, with steps 1–3 in red, and rows ordered by step, then oldest report.
+
+### Requirements
+
+- FRS-BB-541 (under URS-BB-490). Help: reactions page.
+
+### Tests
+
+- TEST-BB-404 (3 domain tests):
+  - fatality reporting leads, even when closed
+  - the urgency order holds
+  - a remainder that cannot be held is not asked to be held
+- Full suite: 3,640 passed, 0 failed.
+- Run check (development API and web): the API returns `nextStep` (the demo case is "Ready to close: review and sign."); the board shows the column; no server errors.
+
+### Next ranked residual
+
+Pending: OCD-057. Continue the worklist rescan with question 5 on the specimen and test worklists: does each row name its blocking reason and next action (accept, result, verify)?
