@@ -45,6 +45,18 @@ public class DowntimeBackEntryRuleTests
         Assert.False(DowntimeBackEntryRule.ReservationCounts(true, AllocationStatus.Released, Now.AddHours(-5), Now.AddHours(-3)));
     }
 
+    // TEST-BB-394
+    [Fact]
+    public void FollowOn_OnlyForABackEnteredIssue_WithThePermission_AndTheRightDin()
+    {
+        Assert.Equal(DowntimeBackEntryRule.NotBackEntryCode,
+            DowntimeBackEntryRule.EvaluateFollowOn(false, true, "W1", "W1", null).Code);
+        Assert.Equal(DowntimeBackEntryRule.PermissionCode,
+            DowntimeBackEntryRule.EvaluateFollowOn(true, false, "W1", "W1", null).Code);
+        Assert.Equal(RuleSeverity.HardStop, DowntimeBackEntryRule.EvaluateFollowOn(true, true, "W2", "W1", null).Severity);
+        Assert.Equal(RuleSeverity.Pass, DowntimeBackEntryRule.EvaluateFollowOn(true, true, "w1", "W1", null).Severity);
+    }
+
     [Theory]
     [InlineData("W0000 26 123456", true)]
     [InlineData("w000026123456", true)]

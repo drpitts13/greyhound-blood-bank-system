@@ -875,6 +875,7 @@
         <UnitScanVerificationPanel Scan="_wardScan"
             Title="Ward receipt scan"
             Help="Scan the unit label at the receiving location. Required for ISBT-labeled units (SoftBank remote-issue chain)." />
+        <PaperRecordDinField @bind-Value="_wardBackEntryDin" />
         <div class="flex gap" style="margin-top:.75rem;">
             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RecordWardReceiptAsync">Acknowledge receipt</button>
             <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadIssueAsync">Check status</button>
@@ -1083,6 +1084,7 @@
             </div>
             <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
             <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with matching patient identifiers." />
+            <PaperRecordDinField @bind-Value="_txBackEntryDin" />
             @if (_txStartedUtc is DateTime txStarted)
             {
                 <div class="alert alert-info" style="margin-top:.75rem;">
@@ -1224,6 +1226,8 @@
         || Session.Has(PermissionCodes.TransfusionComplete);
     private long? _openedReactionId;
     private readonly UnitScanModel _issueScan = new();
+    private string? _wardBackEntryDin;
+    private string? _txBackEntryDin;
     private readonly UnitScanModel _txScan = new();
     private readonly UnitScanModel _wardScan = new();
     private List<DirectoryUserDto> _directoryUsers = new();
@@ -1942,7 +1946,8 @@
             string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy,
             _wardAppearance == UnitAppearance.Acceptable,
             _wardScan.ToRequest(),
-            _wardAppearance));
+            _wardAppearance,
+            BackEntryDin: string.IsNullOrWhiteSpace(_wardBackEntryDin) ? null : _wardBackEntryDin.Trim()));
         _busy = false;
         _wardFb = r.ToFeedback("Ward receipt recorded.");
         if (r.Succeeded)
@@ -2014,7 +2019,8 @@
             BedsideScan: _txScan.ToRequest(),
             SecondVerifier: _txSecondVerifier,
             PatientIdentifier1Value: _txPatientIdentifier1,
-            PatientIdentifier2Value: _txPatientIdentifier2));
+            PatientIdentifier2Value: _txPatientIdentifier2,
+            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim()));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion started. Complete it here when it ends.");
         if (r.Succeeded && r.Value is not null)
@@ -2055,7 +2061,8 @@
             BedsideScan: _txScan.ToRequest(),
             SecondVerifier: _txSecondVerifier,
             PatientIdentifier1Value: _txPatientIdentifier1,
-            PatientIdentifier2Value: _txPatientIdentifier2));
+            PatientIdentifier2Value: _txPatientIdentifier2,
+            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim()));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;

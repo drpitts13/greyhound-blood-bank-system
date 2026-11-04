@@ -66,6 +66,29 @@ public static class DowntimeBackEntryRule
             : RuleResult.HardStop(DinCode, $"The unit number typed from the paper record does not match unit {unitNumber}.");
     }
 
+    public const string NotBackEntryCode = "ISS-DOWNTIME-NOT-BACKENTRY";
+
+    /// <summary>How a unit identified from the paper record, not a scan, is recorded on ward receipt and transfusion.</summary>
+    public const string PaperDinMethod = "PaperRecordDin";
+
+    /// <summary>
+    /// Ward receipt and bedside documentation of an issue that was itself back-entered may identify the unit by the DIN
+    /// on the paper record instead of a fresh scan, by a role that allows back-entry. Any other issue must be scanned.
+    /// </summary>
+    public static RuleResult EvaluateFollowOn(bool issueIsBackEntry, bool hasPermission, string? typedDin, string unitNumber, string? din)
+    {
+        if (!issueIsBackEntry)
+        {
+            return RuleResult.HardStop(NotBackEntryCode,
+                "Only an issue entered as a downtime back-entry can be identified from the paper record. Scan the unit.");
+        }
+
+        return hasPermission
+            ? ConfirmDin(typedDin, unitNumber, din)
+            : RuleResult.HardStop(PermissionCode,
+                "Identifying the unit from the paper record requires the issue.downtime-backentry permission.");
+    }
+
     private static string Normalize(string? value) =>
         new string((value ?? string.Empty).Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
 }

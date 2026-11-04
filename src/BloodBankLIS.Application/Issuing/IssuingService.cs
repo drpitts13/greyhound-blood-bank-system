@@ -1173,10 +1173,22 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail("Unit not found.");
         }
 
-        var wardScan = EvaluateRequiredScan(unit, request.VerifiedScan, "at ward receipt");
-        if (wardScan is not null)
+        var wardPaperDin = !string.IsNullOrWhiteSpace(request.BackEntryDin);
+        if (wardPaperDin)
         {
-            return wardScan;
+            var paper = await EvaluatePaperDinAsync(issue, unit, request.BackEntryDin, ct);
+            if (paper.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Issue>.Blocked(new RuleEvaluation([paper]));
+            }
+        }
+        else
+        {
+            var wardScan = EvaluateRequiredScan(unit, request.VerifiedScan, "at ward receipt");
+            if (wardScan is not null)
+            {
+                return wardScan;
+            }
         }
 
         var now = _clock.UtcNow;
@@ -1451,7 +1463,7 @@ public sealed class IssuingService
         var bedside = await EvaluateBedsideAsync(issue, unit, request.StartUtc ?? _clock.UtcNow, new BedsideIdentification(
             request.PatientIdentifier1Type, request.PatientIdentifier1Value,
             request.PatientIdentifier2Type, request.PatientIdentifier2Value,
-            request.BedsideScan, request.SecondVerifier), ct);
+            request.BedsideScan, request.SecondVerifier, request.BackEntryDin), ct);
         if (bedside.Blocked is not null)
         {
             return bedside.Blocked;
@@ -1476,7 +1488,8 @@ public sealed class IssuingService
             PatientIdentificationMethod = request.PatientIdentificationMethod
                 ?? $"{request.PatientIdentifier1Type}+{request.PatientIdentifier2Type}",
             UnitIdentificationMethod = request.UnitIdentificationMethod
-                ?? (request.BedsideScan is null ? null : "BedsideScan"),
+                ?? (!string.IsNullOrWhiteSpace(request.BackEntryDin) ? DowntimeBackEntryRule.PaperDinMethod
+                    : request.BedsideScan is null ? null : "BedsideScan"),
             WorkstationId = _currentUser.Workstation,
             BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan)
         };
@@ -1561,7 +1574,7 @@ public sealed class IssuingService
         var bedside = await EvaluateBedsideAsync(issue, unit, startUtc, new BedsideIdentification(
             request.PatientIdentifier1Type, request.PatientIdentifier1Value,
             request.PatientIdentifier2Type, request.PatientIdentifier2Value,
-            request.BedsideScan, request.SecondVerifier), ct);
+            request.BedsideScan, request.SecondVerifier, request.BackEntryDin), ct);
         if (bedside.Blocked is not null)
         {
             return bedside.Blocked;
@@ -1579,7 +1592,8 @@ public sealed class IssuingService
             SecondVerifier = request.SecondVerifier,
             Location = request.Location,
             PatientIdentificationMethod = $"{request.PatientIdentifier1Type}+{request.PatientIdentifier2Type}",
-            UnitIdentificationMethod = request.BedsideScan is null ? null : "BedsideScan",
+            UnitIdentificationMethod = !string.IsNullOrWhiteSpace(request.BackEntryDin) ? DowntimeBackEntryRule.PaperDinMethod
+                : request.BedsideScan is null ? null : "BedsideScan",
             WorkstationId = _currentUser.Workstation,
             BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan)
         };
@@ -1682,7 +1696,20 @@ public sealed class IssuingService
         IdentityTokenType Identifier2Type,
         string? Identifier2Value,
         ComponentScanVerificationRequest? BedsideScan,
-        string? SecondVerifier);
+        string? SecondVerifier,
+        string? BackEntryDin = null);
+
+    /// <summary>
+    /// OCD-054: a downtime back-entered issue may be identified by the DIN on its paper record instead of a scan, by a
+    /// role holding issue.downtime-backentry. It is not electronic identification, so a required second verifier stays.
+    /// </summary>
+    private async Task<RuleResult> EvaluatePaperDinAsync(Issue issue, BloodUnit unit, string? typedDin, CancellationToken ct) =>
+        DowntimeBackEntryRule.EvaluateFollowOn(
+            issue.DowntimeBackEntry,
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueDowntimeBackEntry, ct),
+            typedDin,
+            unit.UnitNumber,
+            unit.Din);
 
     /// <summary>
     /// The bedside checks shared by starting and one-step documentation: two patient identifiers match the issued
@@ -1717,7 +1744,15 @@ public sealed class IssuingService
         // ISBT-normalized components require a fresh bedside unit scan.
         // Legacy units without ComponentIdentity keep the prior scan policy.
         var bedsideScanVerified = false;
-        if (!string.IsNullOrEmpty(unit.ComponentIdentity))
+        if (!string.IsNullOrWhiteSpace(ids.BackEntryDin))
+        {
+            var paper = await EvaluatePaperDinAsync(issue, unit, ids.BackEntryDin, ct);
+            if (paper.Severity == RuleSeverity.HardStop)
+            {
+                return (EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([paper])), false);
+            }
+        }
+        else if (!string.IsNullOrEmpty(unit.ComponentIdentity))
         {
             if (ids.BedsideScan is null)
             {

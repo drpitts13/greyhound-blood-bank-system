@@ -60,7 +60,9 @@ public sealed record WardReceiptRequest(
     string ReceivedBy,
     bool VisualInspectionAcceptable = true,
     ComponentScanVerificationRequest? VerifiedScan = null,
-    UnitAppearance? Appearance = null);
+    UnitAppearance? Appearance = null,
+    /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the scan.</summary>
+    string? BackEntryDin = null);
 
 /// <summary>Bedside start: who the patient is, the unit scan, and when it was spiked. Stop and outcome come later.</summary>
 public sealed record StartTransfusionRequest(
@@ -72,7 +74,9 @@ public sealed record StartTransfusionRequest(
     IdentityTokenType PatientIdentifier1Type = IdentityTokenType.MedicalRecordNumber,
     string? PatientIdentifier1Value = null,
     IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
-    string? PatientIdentifier2Value = null);
+    string? PatientIdentifier2Value = null,
+    /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the bedside scan.</summary>
+    string? BackEntryDin = null);
 
 /// <summary>Completes a started transfusion: when it stopped, how much was given, and the outcome.</summary>
 public sealed record CompleteTransfusionRequest(
@@ -96,7 +100,9 @@ public sealed record DocumentTransfusionRequest(
     IdentityTokenType PatientIdentifier1Type = IdentityTokenType.MedicalRecordNumber,
     string? PatientIdentifier1Value = null,
     IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
-    string? PatientIdentifier2Value = null);
+    string? PatientIdentifier2Value = null,
+    /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the bedside scan.</summary>
+    string? BackEntryDin = null);
 
 public sealed record IssueDto(
     long Id,

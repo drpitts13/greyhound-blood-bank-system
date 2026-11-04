@@ -532,6 +532,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-485 / FRS-BB-528 | Add an override authorizer as an outside provider | `OutsideProviderRule`; `OrderingProviderAdminService`; `AuthorizerField.razor` | TEST-BB-391 | D / I | |
 | URS-BB-486 / FRS-BB-529 | Downtime back-entry of a paper issue, judged as of its time | `DowntimeBackEntryRule`; `IssuingService`; `Issuing.razor` | TEST-BB-392 | D / I | |
 | URS-BB-487 / FRS-BB-530 | Facility setting: receive specimens by scan only | `SpecimenReceiptScanRule`; `SpecimenService`; specimen worklist; chart | TEST-BB-393 | D / I | |
+| URS-BB-486 / FRS-BB-531 | Ward receipt and transfusion of a back-entered issue identified from the paper record | `DowntimeBackEntryRule`; `IssuingService`; `Issuing.razor` | TEST-BB-394 | D / I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

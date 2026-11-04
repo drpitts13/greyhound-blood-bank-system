@@ -1,0 +1,27 @@
+@inject UserSession Session
+
+@* OCD-054: for an issue entered as a downtime back-entry, the bag is usually gone, so the unit can be identified by the
+   unit number on the paper record instead of a scan. Shown only to roles that may back-enter; the server refuses it for
+   any other issue. *@
+@if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
+{
+    <details style="margin-top:.5rem;">
+        <summary>Downtime back-entry: no bag to scan</summary>
+        <div class="field" style="margin-top:.5rem;">
+            <label>Unit number on the paper record</label>
+            <input value="@Value" @onchange="OnChangedAsync" autocomplete="off" placeholder="Only for an issue entered as a downtime back-entry" />
+            <span class="sub">Used in place of the scan. It must match the unit, and it does not count as electronic identification.</span>
+        </div>
+    </details>
+}
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private async Task OnChangedAsync(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

@@ -11269,3 +11269,47 @@ Since Cycle 308 a tube can be received by scanning it, but **Receive** on a work
 ### Next ranked residual
 
 All four decisions from 2026-11-04 are now implemented. Next: the bedside half of downtime back-entry, documenting the transfusion of a back-entered unit without a fresh bedside scan (the DIN typed from the paper record, the same role).
+
+## Iteration 355 — Ward receipt and transfusion of a back-entered issue (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 354 apart from this cycle's row (downtime).
+
+### Finding (questions 4 and 6)
+
+Cycle 353 let a paper issue be back-entered, but the rest of its record still could not be completed:
+
+- ward receipt asked for a fresh scan of an ISBT unit
+- so did transfusion start and one-step documentation
+- the bag is gone, so the transfusion stayed on paper
+
+### Design
+
+- The three requests accept `BackEntryDin`.
+- **`DowntimeBackEntryRule.EvaluateFollowOn`** allows it only when:
+  - the issue is a downtime back-entry (`ISS-DOWNTIME-NOT-BACKENTRY` otherwise, so an ordinary issue can never skip its scan)
+  - the user holds `issue.downtime-backentry`
+  - the DIN matches the unit
+- **Identification:** the paper DIN is not electronic identification, so a required second verifier must be a directory user.
+- **Record:** the transfusion's unit identification is `PaperRecordDin`, with no bedside scan stored. Without a scan or a paper DIN, the scan is still required.
+- **UI:** the shared `PaperRecordDinField`, a collapsed "Downtime back-entry: no bag to scan" panel, appears under the scan panel on Ward receipt and the transfusion desk, for permitted users only.
+
+### Requirements / risk
+
+- FRS-BB-531 (under URS-BB-486 and RISK-BB-584). Help: downtime page.
+
+### Tests
+
+- TEST-BB-394. Domain: the follow-on rule. Integration, with ISBT units:
+  - an ordinary issue is refused the paper DIN
+  - the back-entered issue is refused without the permission and with the wrong DIN
+  - with neither a scan nor the paper DIN, it is refused and nothing is written
+  - ward receipt by paper DIN works
+  - documentation works with a directory second verifier, and the free-text verifier is refused
+  - the transfusion records `PaperRecordDin`
+- Full suite: 3,617 passed, 0 failed.
+
+### Next ranked residual
+
+- A back-entered issue's ward receipt is stamped with the entry time, not the time on the paper record. The same applies to its in-transit due time, which is computed from the paper issue time and so is already past. Check whether back-entered issues raise in-transit or outstanding-transfusion alerts they should not, and let ward receipt take the paper time for a back-entry.

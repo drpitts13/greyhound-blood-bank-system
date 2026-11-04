@@ -4375,6 +4375,88 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.False(string.IsNullOrWhiteSpace(stored!.WardScanJson));
     }
 
+    // TEST-BB-394 (OCD-054): a back-entered issue's ward receipt and transfusion can identify the unit by the DIN on the
+    // paper record instead of a scan, only for that issue and only for a role holding issue.downtime-backentry.
+    [Fact]
+    public async Task DowntimeBackEntry_WardReceiptAndTransfusion_UseThePaperDin_InPlaceOfTheScan()
+    {
+        var paper = await SeedAsync("BE-BEDSIDE");
+        await RecordCompatibleCrossmatchAsync(paper);
+        await AllocateAsync(paper);
+        await AttachIsbtIdentityAsync(paper.UnitId);
+        var live = await SeedAsync("BE-LIVE");
+        await RecordCompatibleCrossmatchAsync(live);
+        await AllocateAsync(live);
+        await AttachIsbtIdentityAsync(live.UnitId);
+        var din = $"W{paper.UnitId:D12}";
+        await using (var c = _factory.Create())
+        {
+            // The crossmatch was done before the paper issue.
+            foreach (var xm in await c.Crossmatches.Where(x => x.BloodProductId == paper.UnitId).ToListAsync())
+            {
+                xm.PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-90);
+            }
+
+            c.Users.Add(new User { UserName = "be-witness", DisplayName = "Back-entry Witness", IsActive = true });
+            await c.SaveChangesAsync();
+        }
+
+        long paperIssueId;
+        long liveIssueId;
+        await using (var c = _factory.Create())
+        {
+            var backEntered = await Issuing(c).IssueUnitAsync(IssueReq(paper) with
+            {
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-1),
+                LateEntryReason = "Issued on paper during LIS downtime",
+                DowntimeBackEntry = true,
+                BackEntryDin = din
+            });
+            Assert.True(backEntered.Succeeded, backEntered.Error ?? string.Join("; ", backEntered.Evaluation?.Results.Where(r => r.Severity != RuleSeverity.Pass).Select(r => r.Code) ?? []));
+            paperIssueId = backEntered.Value!.Id;
+            var ordinary = await Issuing(c).IssueUnitAsync(IssueReq(live) with { VerifiedScan = MatchingScan(live.UnitId) });
+            Assert.True(ordinary.Succeeded, ordinary.Error);
+            liveIssueId = ordinary.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            // The ordinary issue must still be scanned.
+            var notBackEntry = await Issuing(c).DocumentTransfusionAsync(liveIssueId, TxReq(live) with { BackEntryDin = $"W{live.UnitId:D12}" });
+            Assert.Contains(notBackEntry.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.NotBackEntryCode);
+
+            var noRole = await Issuing(c, new FixedPermissionEvaluator(3, PermissionCodes.TransfusionDocument))
+                .DocumentTransfusionAsync(paperIssueId, TxReq(paper) with { BackEntryDin = din });
+            Assert.Contains(noRole.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.PermissionCode);
+
+            var wrongDin = await Issuing(c).DocumentTransfusionAsync(paperIssueId, TxReq(paper) with { BackEntryDin = "W999999999999" });
+            Assert.Contains(wrongDin.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.DinCode);
+
+            // Neither a scan nor the paper DIN: the scan is still required.
+            Assert.False((await Issuing(c).DocumentTransfusionAsync(paperIssueId, TxReq(paper))).Succeeded);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == paperIssueId));
+
+            var ward = await Issuing(c).RecordWardReceiptAsync(paperIssueId, new WardReceiptRequest(
+                "RN Paper", Appearance: UnitAppearance.Acceptable, BackEntryDin: din.ToLowerInvariant()));
+            Assert.True(ward.Succeeded, ward.Error ?? string.Join("; ", ward.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var documented = await Issuing(c).DocumentTransfusionAsync(paperIssueId, TxReq(paper) with
+            {
+                StartUtc = _factory.Clock.UtcNow.AddMinutes(-50),
+                StopUtc = _factory.Clock.UtcNow.AddMinutes(-20),
+                BackEntryDin = din,
+                // The paper DIN is not electronic identification, so the second verifier is still required.
+                SecondVerifier = "be-witness"
+            });
+            Assert.True(documented.Succeeded, documented.Error ?? string.Join("; ", documented.Evaluation?.HardStops.Select(r => r.Code + " " + r.Message) ?? []));
+            Assert.Equal(DowntimeBackEntryRule.PaperDinMethod, documented.Value!.UnitIdentificationMethod);
+            Assert.Null(documented.Value.BedsideScanVerificationJson);
+        }
+    }
+
     private static ComponentScanVerificationRequest MatchingScan(long unitId) =>
         new($"W{unitId:D12}", "E0206000", null, "DEMO", "2250200");
 
