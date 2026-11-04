@@ -11817,3 +11817,43 @@ The board also never said what to do with each unit.
 ### Next ranked residual
 
 Pending: OCD-057. Continue the inventory rescan: the near-expiry board (Cycle 337 gave reserved units a next step) and the discrepancy and hold boards. Check that each row says what to do.
+
+## Iteration 368 — Hold release says why, and keeps why it was held (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 367 apart from this cycle's row (blood products: status history).
+
+### Finding (questions 6 and 7, inventory board rescan continued)
+
+- **Discrepancy board:** Locate and Inspect move missing or damaged units into quality quarantine, which now has its own release checks (Cycle 367). Its rows already name the action.
+- **Operational hold, release:** one click with no reason. The unit's hold reason was cleared, and the audit's old value did not include it, so the record lost why the unit had been held: important history silently overwritten.
+- **Operational hold, expired units:** an expired held unit could be released to stock.
+- **Help:** the help said hold release "works the same way" as quarantine release, which needs a second verifier. Hold release never did.
+
+### Design
+
+- **`HoldReleaseRule` (`HOLD-RELEASE`):** a reason is required, and an expired unit is refused (discard it).
+- **Service:** `ReleaseFromHoldAsync(unitId, reason)`:
+  - the audit's old value includes the hold reason, and its new value includes the release reason
+  - the audit reason and the status history read "Released from operational hold: <reason>"
+- **API:** `POST /api/inventory/units/{id}/release-hold` takes `{ reason }`.
+- **Hold board:** **Release from hold** opens a "How was the hold resolved?" field. An expired row shows "Expired: discard it." instead.
+- **Unit page:** asks for the reason next to its Release button.
+- **Help:** corrected to say hold release takes a reason and no second verifier.
+
+### Requirements
+
+- FRS-BB-544 (under URS-BB-491). Help: inventory page.
+
+### Tests
+
+- TEST-BB-407:
+  - domain: reason and expiry
+  - integration: the audit keeps "Pending paperwork" as the old reason and "Paperwork received" as the new one; a blank reason is refused; an expired held unit is refused and stays OnHold
+- The seven existing hold-release test calls now pass a reason. One existing assertion of the exact audit text was updated.
+- Full suite: 3,647 passed, 0 failed.
+
+### Next ranked residual
+
+Pending: OCD-057. Remaining inventory question: Locate (missing) and Inspect (damaged) are one-click and record neither where the unit was found nor what the inspection showed. Ask for those facts and keep them on the quarantine record.

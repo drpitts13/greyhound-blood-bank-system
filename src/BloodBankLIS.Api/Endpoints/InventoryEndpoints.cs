@@ -179,8 +179,8 @@ public static class InventoryEndpoints
             ToHttpResult(await service.HoldAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
-        group.MapPost("/units/{id:long}/release-hold", async (long id, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.ReleaseFromHoldAsync(id, ct)))
+        group.MapPost("/units/{id:long}/release-hold", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ReleaseFromHoldAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/missing", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>

@@ -569,13 +569,30 @@
                             <td>@(row.HoldReason ?? "—")</td>
                             <td>@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.InventoryRelease))
+                                @if (row.ExpiresUtc <= DateTime.UtcNow)
                                 {
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(row.UnitId)">Release from hold</button>
+                                    <span class="badge badge-red">@HoldReleaseRule.ExpiredNextStep</span>
+                                }
+                                else if (Session.Has(PermissionCodes.InventoryRelease))
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => BeginHoldRelease(row.UnitId)">@(_releasingHoldId == row.UnitId ? "Hide" : "Release from hold")</button>
                                 }
                                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
                             </td>
                         </tr>
+                        @if (_releasingHoldId == row.UnitId)
+                        {
+                            <tr>
+                                <td colspan="7">
+                                    <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
+                                        <div class="field" style="min-width:18rem;margin:0;"><label>How was the hold resolved?</label>
+                                            <input @bind="_holdReleaseReason" @bind:event="oninput" placeholder="e.g. Supplier paperwork received" />
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReleaseReason))" @onclick="() => ReleaseHoldAsync(row.UnitId)">Release from hold</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -1086,10 +1103,24 @@
         }
     }
 
+    private long? _releasingHoldId;
+    private string _holdReleaseReason = string.Empty;
+
+    private void BeginHoldRelease(long id)
+    {
+        _releasingHoldId = _releasingHoldId == id ? null : id;
+        _holdReleaseReason = string.Empty;
+    }
+
     private async Task ReleaseHoldAsync(long id)
     {
         _busy = true;
-        var r = await Api.ReleaseHoldAsync(id);
+        var r = await Api.ReleaseHoldAsync(id, _holdReleaseReason);
+        if (r.Succeeded)
+        {
+            _releasingHoldId = null;
+            _holdReleaseReason = string.Empty;
+        }
         _busy = false;
         _topFb = r.Succeeded && r.Value is { Status: UnitStatus.Received }
             ? Feedback.Succeed("Unit released from operational hold, but its ABO/Rh retype is not confirmed yet, so it went back to Received. Record the retype before it can be allocated or issued.")

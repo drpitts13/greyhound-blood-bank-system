@@ -91,7 +91,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var unitId = await SeedRetypeUnitAsync($"HREL-RT-{retypeVerified}", UnitStatus.OnHold, retypeVerified);
         await using var c = _factory.Create();
 
-        var released = await CreateService(c).ReleaseFromHoldAsync(unitId);
+        var released = await CreateService(c).ReleaseFromHoldAsync(unitId, "Paperwork received");
 
         Assert.True(released.Succeeded, released.Error);
         Assert.Equal(expected, released.Unit!.Status);
@@ -2858,7 +2858,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var released = await CreateService(context).ReleaseFromHoldAsync(unitId);
+            var released = await CreateService(context).ReleaseFromHoldAsync(unitId, "Paperwork received");
             Assert.True(released.Succeeded);
             Assert.Equal(UnitStatus.Available, released.Unit!.Status);
             Assert.Null(released.Unit.HoldReason);
@@ -2888,13 +2888,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var act = _factory.Create();
         var denied = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive));
-        var result = await denied.ReleaseFromHoldAsync(unitId);
+        var result = await denied.ReleaseFromHoldAsync(unitId, "Paperwork received");
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.HoldReleaseCode);
         Assert.Equal(UnitStatus.OnHold, (await act.BloodUnits.FindAsync(unitId))!.Status);
 
         var allowed = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease));
-        var ok = await allowed.ReleaseFromHoldAsync(unitId);
+        var ok = await allowed.ReleaseFromHoldAsync(unitId, "Paperwork received");
         Assert.True(ok.Succeeded, ok.Error);
         Assert.Equal(UnitStatus.Available, ok.Unit!.Status);
         Assert.Null(ok.Unit.HoldReason);
@@ -2931,7 +2931,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).ReleaseFromHoldAsync(unitId);
+            var result = await CreateService(context).ReleaseFromHoldAsync(unitId, "Paperwork received");
             Assert.False(result.Succeeded);
             Assert.Contains("operational hold", result.Error);
         }
@@ -3340,7 +3340,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Pending packing slip", row.HoldReason);
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-HOLD-OK");
 
-        var afterRelease = await service.ReleaseFromHoldAsync(held.Unit.Id);
+        var afterRelease = await service.ReleaseFromHoldAsync(held.Unit.Id, "Paperwork received");
         Assert.True(afterRelease.Succeeded, afterRelease.Error);
         Assert.DoesNotContain(await service.ListOnHoldAsync(), i => i.UnitNumber == "U-HOLD-BOARD");
     }
@@ -4302,7 +4302,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(forHold.Succeeded, forHold.Error);
         Assert.True((await svc.ReleaseFromQuarantineAsync(forHold.Unit!.Id, "tech2")).Succeeded);
         Assert.True((await svc.HoldAsync(forHold.Unit.Id, "Pending paperwork")).Succeeded);
-        var fromHold = await svc.ReleaseFromHoldAsync(forHold.Unit.Id);
+        var fromHold = await svc.ReleaseFromHoldAsync(forHold.Unit.Id, "Paperwork received");
         Assert.True(fromHold.Succeeded, fromHold.Error);
 
         var events = context.AuditEvents.ToList();
@@ -4315,9 +4315,22 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(events, e =>
             e.EventType == AuditEventType.ProductStatus
             && e.EntityId == forHold.Unit.Id
-            && e.Reason == "Unit released from hold."
-            && e.OldValueJson is not null
-            && e.NewValueJson is not null);
+            && e.Reason == "Unit released from hold: Paperwork received"
+            && e.OldValueJson!.Contains("Pending paperwork")
+            && e.NewValueJson!.Contains("Paperwork received"));
+
+        // TEST-BB-407: a hold release needs a reason, and an expired unit is not released to stock.
+        var blank = await svc.ReceiveUnitAsync(NewUnitRequest(hNumber + "B", productTypeId));
+        Assert.True((await svc.ReleaseFromQuarantineAsync(blank.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await svc.HoldAsync(blank.Unit.Id, "Pending paperwork")).Succeeded);
+        var noReason = await svc.ReleaseFromHoldAsync(blank.Unit.Id, " ");
+        Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == HoldReleaseRule.Code);
+        var unit = await context.BloodUnits.SingleAsync(u => u.Id == blank.Unit.Id);
+        unit.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        await context.SaveChangesAsync();
+        var expired = await svc.ReleaseFromHoldAsync(blank.Unit.Id, "Paperwork received");
+        Assert.Contains(expired.Evaluation!.HardStops, r => r.Message.Contains("expired"));
+        Assert.Equal(UnitStatus.OnHold, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == blank.Unit.Id)).Status);
     }
 
     [Fact]

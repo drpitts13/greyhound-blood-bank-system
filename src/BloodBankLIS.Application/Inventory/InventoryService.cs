@@ -1426,7 +1426,7 @@ public sealed class InventoryService
         return held;
     }
 
-    public async Task<InventoryActionResult> ReleaseFromHoldAsync(long unitId, CancellationToken ct = default)
+    public async Task<InventoryActionResult> ReleaseFromHoldAsync(long unitId, string? reason = null, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateHoldRelease, ct);
@@ -1442,12 +1442,21 @@ public sealed class InventoryService
         if (unit.Status != UnitStatus.OnHold)
             return InventoryActionResult.Fail("Only a unit on operational hold can be released from hold.");
 
+        var check = HoldReleaseRule.Evaluate(reason, unit.ExpiresUtc <= _clock.UtcNow);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([check]));
+        }
+
+        // Keep why it was held alongside why it was released; the hold reason is cleared from the unit.
+        var heldFor = unit.HoldReason;
+        var releaseReason = reason!.Trim();
         unit.HoldReason = null;
         var stock = await StockStatusAsync(unit, ct);
         var changed = await ChangeStatusAsync(unit, stock,
             stock == UnitStatus.Received
-                ? $"Released from operational hold ({RetypeStockStatus.PendingReason})"
-                : "Released from operational hold", ct);
+                ? $"Released from operational hold: {releaseReason} ({RetypeStockStatus.PendingReason})"
+                : $"Released from operational hold: {releaseReason}", ct);
         if (!changed.Succeeded)
         {
             return changed;
@@ -1457,9 +1466,9 @@ public sealed class InventoryService
             AuditEventType.ProductStatus,
             nameof(BloodUnit),
             unit.Id,
-            oldValue: new { Status = UnitStatus.OnHold },
-            newValue: new { unit.UnitNumber, unit.Status, Path = "HoldRelease" },
-            reason: "Unit released from hold.");
+            oldValue: new { Status = UnitStatus.OnHold, HoldReason = heldFor },
+            newValue: new { unit.UnitNumber, unit.Status, Path = "HoldRelease", ReleaseReason = releaseReason },
+            reason: $"Unit released from hold: {releaseReason}");
         await _unitOfWork.SaveChangesAsync(ct);
         return changed;
     }

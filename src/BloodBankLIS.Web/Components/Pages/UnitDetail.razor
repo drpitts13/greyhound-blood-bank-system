@@ -188,7 +188,10 @@ else
                     }
                     @if (_unit.Status == UnitStatus.OnHold && Session.Has(PermissionCodes.InventoryRelease))
                     {
-                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(_unit.Id)">Release from hold</button>
+                        <div class="field" style="min-width:16rem;"><label>How was the hold resolved?</label>
+                            <input @bind="_holdReleaseReason" @bind:event="oninput" placeholder="e.g. Supplier paperwork received" />
+                        </div>
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReleaseReason))" @onclick="() => ReleaseHoldAsync(_unit.Id)">Release from hold</button>
                     }
                     @if (_unit.Status == UnitStatus.Missing && Session.Has(PermissionCodes.InventoryRelease))
                     {
@@ -951,10 +954,13 @@ else
         await AfterActionAsync(r, "Unit placed in quality quarantine.");
     }
 
+    private string _holdReleaseReason = string.Empty;
+
     private async Task ReleaseHoldAsync(long id)
     {
         _busy = true;
-        var r = await Api.ReleaseHoldAsync(id);
+        var r = await Api.ReleaseHoldAsync(id, _holdReleaseReason);
+        if (r.Succeeded) _holdReleaseReason = string.Empty;
         _busy = false;
         await AfterActionAsync(r, "Unit released from operational hold.");
     }
