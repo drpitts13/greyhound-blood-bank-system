@@ -11655,3 +11655,42 @@ The issue's Issued row and its Transfused row share an issue id, so the form fir
 ### Next ranked residual
 
 Continue the reaction audit. Check that closing an investigation records what follows for the patient, for example a new special requirement such as washed products after a severe allergic reaction, and that this reaches selection. The medical decision itself is the facility's, so record it as an OCD if no linkage exists.
+
+## Iteration 364 — Special requirements linked to the reaction that led to them (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 363 apart from this cycle's row (patient-product workflows, antibody/antigen history).
+
+### Finding (questions 2, 5, and 6)
+
+Nothing connected a reaction investigation to the patient's special requirements:
+
+- A requirement decided after a reaction (for example washed products after a severe allergic reaction) had to be typed on the chart by hand.
+- The investigation it came from had to be remembered and copied into the reason.
+- Nothing showed later why the requirement existed.
+
+Which reactions call for which requirements is a medical decision, so it is not invented. It is recorded as **OCD-057** (REQUIRES SME / MEDICAL DIRECTOR DECISION).
+
+### Design
+
+- **Link:** `SpecialTransfusionRequirements.ReactionInvestigationId` (migration `20261110000000_SpecialRequirementReactionLink`, plus the bootstrap).
+- **Add request:** takes the id. It must be one of the same patient's investigations; otherwise the add is refused with nothing written. The audit and the requirement DTO carry it.
+- **Reactions page:** **Add special requirement** (`immuno.record`) opens `/patients/{id}?reaction={investigation}`. The chart switches to Overview, starts the reason with "After reaction investigation N:", and links the requirement on save.
+- **Chart:** the requirement list shows "From reaction investigation N".
+- **Not done (OCD-057):** the software suggests no requirement and does not require a decision at close.
+
+### Requirements
+
+- FRS-BB-540 (under URS-BB-490), SRS-BB-452, OCD-057. Help: reactions and patient chart pages.
+
+### Tests
+
+- TEST-BB-403:
+  - a requirement added from the patient's own investigation is linked, listed with the link, and audited with it
+  - linking another patient's investigation, or one that does not exist, is refused with nothing written
+- Full suite: 3,637 passed, 0 failed.
+
+### Next ranked residual
+
+Pending decision: OCD-057. Next engineering candidate: rescan the capability matrix for the operations area (worklists and supervisor queues), checking each queue against question 5 (is the next action surfaced on the row?).

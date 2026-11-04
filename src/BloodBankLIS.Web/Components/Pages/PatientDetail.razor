@@ -495,6 +495,10 @@ else
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
     [SupplyParameterFromQuery(Name = "panel")] public string? PanelQuery { get; set; }
     [SupplyParameterFromQuery(Name = "specimen")] public long? SpecimenQuery { get; set; }
+    // From a reaction investigation: the special requirement form starts naming it, and the requirement is linked to it.
+    [SupplyParameterFromQuery(Name = "reaction")] public long? ReactionQuery { get; set; }
+    private long? _srReactionId;
+    private bool _reactionQueryApplied;
 
     private bool _loading = true;
     private string? _error;
@@ -818,6 +822,14 @@ else
         {
             _appliedTabQuery = TabQuery;
             await SelectTab(TabQuery.Trim().ToLowerInvariant());
+        }
+
+        if (!_reactionQueryApplied && ReactionQuery is long reactionId)
+        {
+            _reactionQueryApplied = true;
+            _srReactionId = reactionId;
+            _srReason = $"After reaction investigation {reactionId}: ";
+            await SelectTab("overview");
         }
 
         if (!_panelFromQueryApplied
@@ -2309,10 +2321,11 @@ else
             _srReason,
             string.IsNullOrWhiteSpace(_srAntigen) ? null : _srAntigen,
             ExpiresUtc: expires,
-            RequirementDefinitionId: _srDefinitionId == 0 ? null : _srDefinitionId));
+            RequirementDefinitionId: _srDefinitionId == 0 ? null : _srDefinitionId,
+            ReactionInvestigationId: _srReactionId));
         _busy = false;
         _srFb = r.ToFeedback("Special requirement added.");
-        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; _srEndDate = null; await LoadAsync(); }
+        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; _srEndDate = null; _srReactionId = null; await LoadAsync(); }
     }
 
     private void BeginDeactivateSr(SpecialRequirementDto r)

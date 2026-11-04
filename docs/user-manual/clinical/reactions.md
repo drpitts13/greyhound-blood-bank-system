@@ -14,6 +14,8 @@ routes:
 
 A reaction noticed after the transfusion was documented, such as a fever hours later or a delayed hemolytic reaction, is reported from the patient's chart: on **Product history**, choose **Report reaction** on the transfused row, describe what was seen and who reported it, and give the onset if known. That opens the investigation here, holds any remainder of the unit, and marks the transfusion as reaction suspected so the chart and the patient's next issue show it. The onset cannot be before the transfusion started or in the future, and a transfusion that already has an investigation is refused with its number.
 
+If the investigation leads to a requirement for future products, choose **Add special requirement** on it. The patient's chart opens with the requirement form naming the investigation, and the requirement is linked to it. Which requirement a reaction calls for is your medical director's decision; the system does not suggest one.
+
 ## What you record
 
 Record the clerical check, the visual check of the unit and the specimen, and the DAT, along with the symptoms and the timeline the ward reported. The investigation stays open while those items are incomplete. Closing is a separate step with its own gate and a signature when the close action requires one.

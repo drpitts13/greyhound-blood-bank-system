@@ -154,6 +154,11 @@ else
             <div class="bb-card-title">
                 <h3>Investigation #@_selected.Id</h3>
                 <a class="btn btn-ghost btn-sm" href="@($"/patients/{_selected.PatientId}")">Open chart</a>
+                @if (Session.Has(PermissionCodes.ImmunoRecord))
+                {
+                    @* What this reaction means for future products is the medical director's decision (OCD-057); this records it, linked here. *@
+                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{_selected.PatientId}?reaction={_selected.Id}")" title="Record a special requirement for this patient, linked to this investigation">Add special requirement</a>
+                }
                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(_selected.BloodProductId)">Open Inventory</a>
             </div>
             @if (AlreadyClosed)

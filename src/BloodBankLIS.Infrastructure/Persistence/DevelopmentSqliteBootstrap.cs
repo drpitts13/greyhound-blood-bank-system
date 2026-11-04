@@ -193,6 +193,7 @@ public static class DevelopmentSqliteBootstrap
         ("SpecimenTypeDefinitions", "ExpirationCode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationCode" TEXT NOT NULL DEFAULT '7D'"""),
         ("SpecimenTypeDefinitions", "ExpirationMode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationMode" INTEGER NOT NULL DEFAULT 0"""),
         ("SpecialTransfusionRequirements", "RequirementDefinitionId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "RequirementDefinitionId" INTEGER NULL"""),
+        ("SpecialTransfusionRequirements", "ReactionInvestigationId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "ReactionInvestigationId" INTEGER NULL"""),
         ("PatientBloodTypeHistory", "AboSubgroup", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "AboSubgroup" INTEGER NOT NULL DEFAULT 0"""),
         ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL"""),
         ("InstrumentInterfaces", "InterpretationMatch", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationMatch" INTEGER NOT NULL DEFAULT 0"""),

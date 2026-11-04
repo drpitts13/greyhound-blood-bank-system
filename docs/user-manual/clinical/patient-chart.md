@@ -33,4 +33,4 @@ Merging is for a confirmed duplicate. It requires supervisor permission. You mer
 
 ## Special requirements
 
-Active special requirements (irradiated, antigen-negative, and the others your laboratory defined) are enforced when a unit is selected and issued. An end-dated requirement is inactive. Adding or ending one is audited. The catalog of requirement types is maintained in Administration.
+Active special requirements (irradiated, antigen-negative, and the others your laboratory defined) are enforced when a unit is selected and issued. An end-dated requirement is inactive. Adding or ending one is audited. A requirement added from a reaction investigation shows which investigation it came from. The catalog of requirement types is maintained in Administration.

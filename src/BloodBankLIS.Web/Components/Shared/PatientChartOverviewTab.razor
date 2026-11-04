@@ -169,7 +169,7 @@
                             <td>@(r.Name ?? r.Code ?? r.RequirementType.ToString())</td>
                             <td>@r.Level</td>
                             <td class="mono">@r.AntigenCode</td>
-                            <td>@r.Reason</td>
+                            <td>@r.Reason@if (r.ReactionInvestigationId is long fromReaction) { <span class="sub"><a href="/reactions">From reaction investigation @fromReaction</a></span> }</td>
                             <td class="nowrap">@r.EffectiveUtc.ToString("yyyy-MM-dd")</td>
                             <td class="nowrap">@(r.ExpiresUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
                             <td>@(r.IsClinicallyActive ? "Yes" : "No")</td>

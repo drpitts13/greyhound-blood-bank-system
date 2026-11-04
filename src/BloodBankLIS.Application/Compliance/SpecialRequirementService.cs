@@ -13,7 +13,9 @@ public sealed record AddSpecialRequirementRequest(
     string? AntigenCode = null,
     DateTime? EffectiveUtc = null,
     DateTime? ExpiresUtc = null,
-    long? RequirementDefinitionId = null);
+    long? RequirementDefinitionId = null,
+    /// <summary>The reaction investigation that led to this requirement, if it was added from one.</summary>
+    long? ReactionInvestigationId = null);
 
 public sealed record SpecialRequirementDto(
     long Id,
@@ -31,7 +33,8 @@ public sealed record SpecialRequirementDto(
     SpecialRequirementLevel? Level = null,
     SpecialRequirementEnforcementKind? EnforcementKind = null,
     string? Instruction = null,
-    bool IsClinicallyActive = false)
+    bool IsClinicallyActive = false,
+    long? ReactionInvestigationId = null)
 {
     public static SpecialRequirementDto From(
         SpecialTransfusionRequirement r,
@@ -58,7 +61,8 @@ public sealed record SpecialRequirementDto(
             definition?.Level,
             definition?.EnforcementKind,
             definition?.Instruction,
-            clinicallyActive);
+            clinicallyActive,
+            r.ReactionInvestigationId);
     }
 }
 
@@ -73,6 +77,7 @@ public sealed class SpecialRequirementService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly IRepository<SpecialRequirementDefinition>? _definitions;
+    private readonly IRepository<ReactionInvestigation>? _reactions;
 
     public SpecialRequirementService(
         IRepository<SpecialTransfusionRequirement> requirements,
@@ -83,8 +88,10 @@ public sealed class SpecialRequirementService
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
         IRepository<AntibodyIdentificationWorkup>? workups = null,
-        IRepository<SpecialRequirementDefinition>? definitions = null)
+        IRepository<SpecialRequirementDefinition>? definitions = null,
+        IRepository<ReactionInvestigation>? reactions = null)
     {
+        _reactions = reactions;
         _requirements = requirements;
         _patients = patients;
         _unitOfWork = unitOfWork;
@@ -146,6 +153,17 @@ public sealed class SpecialRequirementService
             return OperationResult<SpecialTransfusionRequirement>.Fail(clinical.Message);
         }
 
+        // A requirement added from a reaction investigation must name one of this patient's investigations.
+        if (request.ReactionInvestigationId is long reactionId)
+        {
+            var reaction = _reactions is null ? null : await _reactions.GetByIdAsync(reactionId, ct);
+            if (reaction is null || reaction.PatientId != patientId)
+            {
+                return OperationResult<SpecialTransfusionRequirement>.Fail(
+                    $"Reaction investigation {reactionId} is not one of this patient's investigations.");
+            }
+        }
+
         var definition = await ResolveDefinitionAsync(request, ct);
         var requirementType = definition is not null
             ? SpecialRequirementCatalog.TypeFor(definition.Code) ?? request.RequirementType
@@ -169,7 +187,8 @@ public sealed class SpecialRequirementService
             EffectiveUtc = request.EffectiveUtc ?? _clock.UtcNow,
             ExpiresUtc = request.ExpiresUtc,
             IsActive = true,
-            EnteredBy = _currentUser.UserName
+            EnteredBy = _currentUser.UserName,
+            ReactionInvestigationId = request.ReactionInvestigationId
         };
         await _requirements.AddAsync(row, ct);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -177,7 +196,7 @@ public sealed class SpecialRequirementService
             AuditEventType.Antibody,
             nameof(SpecialTransfusionRequirement),
             row.Id,
-            newValue: new { row.PatientId, row.RequirementType, row.RequirementDefinitionId, row.AntigenCode, row.IsActive, row.ExpiresUtc },
+            newValue: new { row.PatientId, row.RequirementType, row.RequirementDefinitionId, row.AntigenCode, row.IsActive, row.ExpiresUtc, row.ReactionInvestigationId },
             reason: request.Reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row, await EvaluateOpenWorkupWarningsAsync(patientId, ct));

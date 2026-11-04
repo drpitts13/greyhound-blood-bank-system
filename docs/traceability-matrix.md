@@ -541,6 +541,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-489 / FRS-BB-537 | Failed instrument messages: replay only when open, resolve with reason, audit | `InstrumentMessageFollowUpRule`; `AstmInboundProcessor`; Instruments page | TEST-BB-400 | D / I | |
 | URS-BB-489 / FRS-BB-538 | Dashboard and downtime snapshot count open interface failures | `DashboardQueueCatalog`; `DashboardHome`; `DowntimeReconciliationService` | TEST-BB-401 | A / I | |
 | URS-BB-490 / FRS-BB-539 | Report a reaction noticed after the transfusion | `LateReactionReportRule`; `ReactionInvestigationService`; chart Product history | TEST-BB-402 | D / I | |
+| URS-BB-490 / FRS-BB-540 | Special requirement linked to the reaction investigation that led to it | `SpecialRequirementService`; Reactions page; chart | TEST-BB-403 | I | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
