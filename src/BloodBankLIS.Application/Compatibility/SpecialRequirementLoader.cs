@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -99,7 +100,7 @@ public static class SpecialRequirementLoader
         return byProduct;
     }
 
-    /// <summary>Upper-case test codes recorded negative on each unit (CMV, HBS).</summary>
+    /// <summary>Upper-case test codes whose latest result on each unit is negative (CMV, HBS).</summary>
     public static async Task<Dictionary<long, HashSet<string>>> NegativeTestCodesByUnitAsync(
         IRepository<BloodComponentSpecialTest>? tests,
         IReadOnlyCollection<long> unitIds,
@@ -111,7 +112,10 @@ public static class SpecialRequirementLoader
         }
 
         var rows = await tests.ListAsync(t => unitIds.Contains(t.BloodProductId), ct);
+        // The latest recording per test is the unit's result: a later Positive replaces an earlier Negative.
         return rows
+            .GroupBy(t => t.BloodProductId)
+            .SelectMany(g => UnitSpecialTestService.Current(g))
             .Where(t => SpecialTransfusionRequirementRule.IsNegativeResult(t.Result))
             .GroupBy(t => t.BloodProductId)
             .ToDictionary(

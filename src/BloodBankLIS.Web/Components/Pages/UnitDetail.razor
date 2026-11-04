@@ -441,6 +441,50 @@ else
                 <button class="btn btn-secondary btn-sm" disabled="@(_busy || _uaCatalogId is null)" @onclick="() => SaveUnitAttributeAsync(_unit.Id)">Save attribute</button>
             }
         </div>
+
+        <div class="bb-card" style="margin-top:1rem;">
+            <div class="bb-card-title"><h3>Unit tests</h3></div>
+            <p class="muted">Results for tests done on this unit after it arrived, such as CMV or HbS. The latest result for each test is the unit's result: a patient requirement for CMV- or HbS-negative units is met by a Negative here or by the product code. A correction keeps the earlier result and needs a reason.</p>
+            @if (_unitTests.Count == 0)
+            {
+                <div class="muted">No unit tests recorded.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Test</th><th>Result</th><th>Recorded</th><th>By</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var test in _unitTests)
+                        {
+                            <tr class="@(test.IsCurrent ? null : "muted")">
+                                <td class="mono">@test.TestCode</td>
+                                <td>@test.Result</td>
+                                <td class="nowrap">@test.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@test.RecordedBy</td>
+                                <td>@(test.IsCurrent ? "Current" : "Corrected")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (Session.Has(PermissionCodes.InventoryReceive))
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Test code</label><input class="mono" @bind="_utCode" @bind:event="oninput" placeholder="CMV / HBS" /></div>
+                    <div class="field"><label>Result</label>
+                        <select @bind="_utResult">
+                            <option value="@UnitSpecialTestRule.Negative">Negative</option>
+                            <option value="@UnitSpecialTestRule.Positive">Positive</option>
+                        </select>
+                    </div>
+                    @if (UnitTestCorrects is { } current)
+                    {
+                        <div class="field" style="grid-column:1/-1;"><label>Reason for correcting @current.TestCode (recorded @current.Result)</label><input @bind="_utReason" @bind:event="oninput" /></div>
+                    }
+                </div>
+                <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_utCode))" @onclick="() => RecordUnitTestAsync(_unit.Id)">Record result</button>
+            }
+        </div>
     }
 
     @if (_tab == "history")
@@ -537,6 +581,16 @@ else
     private List<PatientDto> _patients = new();
     private List<UnitActivityDto> _activity = new();
     private List<UnitBloodAttributeDto> _unitAttributes = new();
+    private List<UnitSpecialTestDto> _unitTests = new();
+    private string _utCode = string.Empty;
+    private string _utResult = UnitSpecialTestRule.Negative;
+    private string _utReason = string.Empty;
+
+    // The current result the entry would change, so the form asks for the reason before saving.
+    private UnitSpecialTestDto? UnitTestCorrects => _unitTests.FirstOrDefault(t =>
+        t.IsCurrent
+        && t.TestCode == UnitSpecialTestRule.NormalizeCode(_utCode)
+        && UnitSpecialTestRule.NormalizeResult(t.Result) != _utResult);
     private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
     private List<AllocatableOrderDto> _allocatableOrders = new();
     private long? _autoThawAllocationId;
@@ -698,6 +752,7 @@ else
 
         _activity = (await Api.GetUnitActivityAsync(id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(id)).Value ?? new();
+        _unitTests = (await Api.GetUnitSpecialTestsAsync(id)).Value ?? new();
         _retypeDetail = (await Api.GetUnitRetypeAsync(id)).Value;
         _allocatableOrders = (await Api.GetUnitAllocatableOrdersAsync(id)).Value ?? new();
         _eligibleMods = (await Api.GetEligibleModificationsAsync(id)).Value ?? new();
@@ -909,6 +964,16 @@ else
     {
         await RefreshDetailsAsync();
         _tab = "retype";
+    }
+
+    private async Task RecordUnitTestAsync(long unitId)
+    {
+        _busy = true;
+        var r = await Api.RecordUnitSpecialTestAsync(unitId,
+            new RecordUnitSpecialTestRequest(_utCode, _utResult, string.IsNullOrWhiteSpace(_utReason) ? null : _utReason));
+        _busy = false;
+        if (r.Succeeded) { _utCode = string.Empty; _utReason = string.Empty; _utResult = UnitSpecialTestRule.Negative; }
+        await AfterActionAsync(r, "Unit test result recorded.");
     }
 
     private async Task SaveUnitAttributeAsync(long unitId)

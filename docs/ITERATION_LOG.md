@@ -12149,3 +12149,57 @@ A negative CMV test recorded on a unit (`BloodComponentSpecialTest`) was never r
 ### Next ranked residual
 
 Unit tests (CMV, HbS) can only arrive with the unit today; there is no screen to record one. Next: a Unit tests entry on the unit page (test code, result, audited), so a unit tested after receipt can meet a typing.
+
+## Iteration 374 — Unit tests (CMV, HbS) recorded on the unit (2026-11-04)
+
+### Capability matrix rescan
+
+Blood products: the unit's tests are now recorded and corrected on its page. Safety rules: special requirements read the latest result. No other change since Cycle 373.
+
+### Finding (residual from Cycle 373)
+
+A CMV- or HbS-negative unit typing could be met by a negative test on the unit (`BloodComponentSpecialTest`), but no screen or API recorded one; only seeded data had them. The loader counted any Negative row, so a later Positive could not take a unit back out (question 6).
+
+### Design
+
+- **`UnitSpecialTestRule` (`UNIT-TEST`):**
+  - the test code is upper-cased, letters, digits, or dashes, up to 20
+  - the result must be Negative or Positive (Neg and Pos accepted)
+  - the same result again is refused
+  - a different result is a correction and needs a reason of at least 8 characters
+- **`UnitSpecialTestService`:**
+  - each recording is a new row and never overwrites; `Current` is the latest per code
+  - audited as Create, or as Correct with the earlier result and the reason
+  - needs `inventory.receive`, like unit attributes
+  - not limited by unit status, so a late Positive on an issued unit is still recorded
+- **API:** `GET`/`POST /api/inventory/units/{id}/special-tests`.
+- **Loader:** `SpecialRequirementLoader.NegativeTestCodesByUnitAsync` reads only the latest result per test.
+- **Unit page:**
+  - the Attributes tab has a **Unit tests** card listing results, with earlier ones marked Corrected
+  - the entry form has a test code and a Negative/Positive choice
+  - the reason field appears when the entry would change a current result
+
+### Requirements
+
+- FRS-BB-551 (under URS-BB-493). RISK-BB-589 residual updated. Help: unit detail and special requirements topics.
+
+### Tests
+
+- TEST-BB-413. Domain: the code and result checks; the same result is refused; a change needs a reason.
+- TEST-BB-413. Integration:
+  - a result is recorded normalized and audited, and the same result again is refused
+  - an unknown unit is refused
+  - a correction without a reason is refused; with one it keeps both rows, marks the latest current, and audits the reason and earlier result
+  - after a later Positive the loader no longer counts the unit CMV-negative
+  - recording without the permission is refused
+- Full suite: 3,682 passed, 0 failed.
+- Run check (development API and web):
+  - the seeded CMV Negative on unit 43 lists as Current
+  - through the API, the same result was refused, a Positive without a reason was refused, and "Maybe" was refused
+  - on the unit page, choosing Positive for CMV showed "Reason for correcting CMV (recorded Negative)"
+  - nothing was saved
+  - no server errors
+
+### Next ranked residual
+
+Rescan the capability matrix for the highest remaining operational gap.

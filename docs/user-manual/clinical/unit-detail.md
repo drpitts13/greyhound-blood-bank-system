@@ -26,6 +26,8 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Attributes** lists antigens and modifications (irradiated, leukoreduced, and the others recorded on the unit). Antigen typing you performed is recorded with [Unit antigen typing](unit-antigen-typing) or on the retype tab.
 
+**Unit tests** on the same tab records tests done on the unit after it arrived, such as CMV or HbS. Enter the test code and Negative or Positive. The latest result for each test is the unit's result. A patient requirement for CMV- or HbS-negative units is met by a Negative here or by the product code, so a later Positive takes the unit out of selection for that patient. Changing a recorded result keeps the earlier one, shown as Corrected, and asks for the reason. Recording the same result again is refused.
+
 **History** is the status log. It is append-only. You cannot delete a prior status to tidy the story.
 
 **Retype** records the front type. A mismatch quarantines the unit. Do not release a mismatch from this tab. Release, if your medical director allows it at all, is a quarantine-release on the supervisor queue with the second verifier.

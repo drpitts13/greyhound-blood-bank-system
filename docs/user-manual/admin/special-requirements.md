@@ -12,7 +12,7 @@ routes:
 
 **Special Requirements** is the catalog of requirements staff can put on a patient chart. It has four tables:
 
-- **Unit typings**: what the unit must type as, for one unit category. An allowed ABO group (for example "Group O red cells only"), RhD negative, antigen negative, or a negative unit test such as CMV or HbS. A unit-test typing is met when the product code carries the product attribute you name, or when that test is recorded negative on the unit.
+- **Unit typings**: what the unit must type as, for one unit category. An allowed ABO group (for example "Group O red cells only"), RhD negative, antigen negative, or a negative unit test such as CMV or HbS. A unit-test typing is met when the product code carries the product attribute you name, or when the unit's latest result for that test, recorded under **Unit tests** on the unit page, is Negative.
 - **Unit modifications**: the product attribute the unit must carry, for one unit category: irradiated, washed, leukoreduced, volume reduced.
 - **Informational**: a note shown as a banner on the patient chart and the issue desk. It is never enforced, and the banner text is required.
 - **Issue procedures**: acknowledgments at issue (blood warmer, other), complex crossmatch, and A1/A2 subgroup typing.

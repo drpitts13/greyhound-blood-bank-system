@@ -478,6 +478,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<UnitBloodAttributeDto>>> GetUnitBloodAttributesAsync(long unitId, CancellationToken ct = default) =>
         SendAsync<List<UnitBloodAttributeDto>>(HttpMethod.Get, $"api/inventory/units/{unitId}/blood-attributes", ct: ct);
 
+    public Task<ApiResult<List<UnitSpecialTestDto>>> GetUnitSpecialTestsAsync(long unitId, CancellationToken ct = default) =>
+        SendAsync<List<UnitSpecialTestDto>>(HttpMethod.Get, $"api/inventory/units/{unitId}/special-tests", ct: ct);
+
+    public Task<ApiResult<UnitSpecialTestDto>> RecordUnitSpecialTestAsync(long unitId, RecordUnitSpecialTestRequest req, CancellationToken ct = default) =>
+        SendAsync<UnitSpecialTestDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/special-tests", req, ct);
+
     public Task<ApiResult<UnitBloodAttributeDto>> SaveUnitBloodAttributeAsync(long unitId, SaveUnitBloodAttributeRequest req, CancellationToken ct = default) =>
         SendAsync<UnitBloodAttributeDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/blood-attributes", req, ct);
 

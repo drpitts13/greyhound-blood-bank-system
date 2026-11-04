@@ -121,6 +121,14 @@ public static class InventoryEndpoints
             return EndpointResults.Created(result, a => ($"/api/inventory/units/{id}/blood-attributes/{a.Id}", (object)UnitBloodAttributeDto.From(a, def.Code, def.Name, def.AntibodyName)));
         }).RequirePermission(PermissionCodes.InventoryReceive);
 
+        // Tests recorded on the unit after it arrived (CMV, HbS); the latest per test is the unit's result.
+        group.MapGet("/units/{id:long}/special-tests", async (long id, UnitSpecialTestService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(id, ct)));
+
+        group.MapPost("/units/{id:long}/special-tests", async (long id, RecordUnitSpecialTestRequest request, UnitSpecialTestService service, CancellationToken ct) =>
+            EndpointResults.From(await service.RecordAsync(id, request, ct), t => t))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         group.MapGet("/deliveries/open", async (DeliveryService deliveries, CancellationToken ct) =>
             Results.Ok(await deliveries.ListOpenAsync(ct)));
 
