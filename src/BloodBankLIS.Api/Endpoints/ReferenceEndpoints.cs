@@ -252,7 +252,7 @@ public static class ReferenceEndpoints
                 phases);
 
             var interpretationOptions = InterpretationLogicDefinitions.Parse(def.InterpretationLogicJson)
-                .Select(r => new InterpretationOptionDto(r.InterpretationKey, r.Label))
+                .Select(r => new InterpretationOptionDto(r.InterpretationKey, r.Label, r.SubtestExpectations, r.MatchMode))
                 .ToList();
 
             var bloodAttrScope = BloodAttributeScope.Parse(def.BloodAttributeScopeJson);

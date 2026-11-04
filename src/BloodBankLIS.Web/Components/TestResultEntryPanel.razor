@@ -190,6 +190,11 @@
                 </table>
             }
 
+            @if (_interpretationNote is not null)
+            {
+                <p class="muted" style="margin-top:.35rem;">@_interpretationNote</p>
+            }
+
             @if (_definition.ResultValueType == ResultValueType.Coded)
             {
                 <div class="field" style="margin-top:.5rem;max-width:320px;">
@@ -427,6 +432,7 @@
     private string _codedValue = string.Empty;
     private string _units = string.Empty;
     private string _interpretation = string.Empty;
+    private string? _interpretationNote;
     private string _unitNumber = string.Empty;
     private List<PatientAllocationRowDto> _reservedUnits = new();
     private List<BloodAttributeListItemDto> _antibodyCatalog = new();
@@ -473,6 +479,7 @@
     {
         _fb = null;
         _showSavePrompt = false;
+        _interpretationNote = null;
         _defLoading = true;
         var r = await Api.GetTestDefinitionForEntryAsync(WorkItem.TestCode);
         _defLoading = false;
@@ -1090,14 +1097,77 @@
     private string GetSubtestValue(string code) =>
         _subtestValues.TryGetValue(code, out var v) ? v : string.Empty;
 
-    private void SetSubtestValue(string code, ChangeEventArgs e) =>
+    private void SetSubtestValue(string code, ChangeEventArgs e)
+    {
         _subtestValues[code] = e.Value?.ToString() ?? string.Empty;
+        ApplyReactionInterpretation();
+    }
 
     private bool IsOptionalPerformed(string code) =>
         _optionalSubtestPerformed.TryGetValue(code, out var p) && p;
 
-    private void OnOptionalPerformedChanged(string code, ChangeEventArgs e) =>
+    private void OnOptionalPerformedChanged(string code, ChangeEventArgs e)
+    {
         _optionalSubtestPerformed[code] = e.Value is bool b && b;
+        ApplyReactionInterpretation();
+    }
+
+    /// <summary>
+    /// Fills the ABO/Rh type, crossmatch result or panel interpretation in from the reactions
+    /// as they are entered. Reactions that fit no single interpretation leave the current
+    /// choice alone and say so, so a discrepancy is never resolved silently.
+    /// </summary>
+    private void ApplyReactionInterpretation()
+    {
+        if (_definition is null)
+        {
+            return;
+        }
+
+        var notPerformed = _optionalSubtestPerformed
+            .Where(kv => !kv.Value)
+            .Select(kv => kv.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        bool filled;
+        if (_definition.ResultValueType == ResultValueType.AboRh)
+        {
+            var type = ReactionInterpretationSuggestion.SuggestAboRh(
+                _definition.InterpretationOptions, _panelSubtests, _subtestValues, notPerformed);
+            filled = type is not null;
+            if (type is AboRh t)
+            {
+                _abo = t.Abo;
+                _rh = t.Rh;
+            }
+        }
+        else if (IsCrossmatchType)
+        {
+            var result = ReactionInterpretationSuggestion.SuggestCrossmatch(_panelSubtests, _subtestValues, notPerformed);
+            filled = result is not null;
+            if (result is CrossmatchResult r)
+            {
+                _xmResult = r;
+            }
+        }
+        else if (_interpretationRequired)
+        {
+            var key = ReactionInterpretationSuggestion.SuggestKey(
+                _definition.InterpretationOptions, _panelSubtests, _subtestValues, notPerformed);
+            filled = key is not null;
+            if (key is not null)
+            {
+                _interpretation = key;
+            }
+        }
+        else
+        {
+            return;
+        }
+
+        _interpretationNote = filled
+            ? ReactionInterpretationSuggestion.FilledNote
+            : ReactionInterpretationSuggestion.NoMatchNote;
+    }
 
     private static string DisplayValue(string testCode, string? value)
     {

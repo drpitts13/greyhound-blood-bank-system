@@ -16,7 +16,15 @@ public sealed record TestDefinitionForEntryDto(
     bool ContributesToUnitBloodAttributes,
     bool ContributesToAntibodyHistory = false);
 
-public sealed record InterpretationOptionDto(string Key, string Label);
+/// <summary>
+/// An interpretation the result can be given, with the reaction pattern that implies it
+/// so entry can fill the interpretation in from the entered reactions.
+/// </summary>
+public sealed record InterpretationOptionDto(
+    string Key,
+    string Label,
+    IReadOnlyDictionary<string, ReactionPolarity>? SubtestExpectations = null,
+    InterpretationMatchMode MatchMode = InterpretationMatchMode.AllMatch);
 
 public sealed record ResolvedPanelPhaseDto(
     string PhaseCode,

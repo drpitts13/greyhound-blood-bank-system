@@ -71,6 +71,7 @@ public static partial class DatabaseSeeder
         await EnsureCrossmatchSettingsAsync(context, cancellationToken);
         await EnsureAbscPanelAsync(context, cancellationToken);
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
+        await RepairAboRhForwardTypeLogicAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
         await SeedReflexRulesAsync(context, cancellationToken);
         await SeedRuleDefinitionsAsync(context, cancellationToken);
@@ -2420,6 +2421,34 @@ public static partial class DatabaseSeeder
         PanelSubtestAssignments.ToJson(
             AntibodyScreenCells.Select((code, i) =>
                 new PanelSubtestAssignment(code, true, i + 1, AntibodyScreenPhases)).ToList())!;
+
+    /// <summary>
+    /// Databases seeded before the forward-type fix hold ABO/Rh logic tables that expect
+    /// group A to be anti-A negative / anti-B positive. That blocks correct A and B typings
+    /// and would let reactions be interpreted as the wrong group, so it is corrected in place.
+    /// </summary>
+    private static async Task RepairAboRhForwardTypeLogicAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var defs = await context.TestDefinitions
+            .Where(t => t.InterpretationLogicJson != null && t.InterpretationLogicJson != "")
+            .ToListAsync(ct);
+        var changed = false;
+        foreach (var def in defs)
+        {
+            var repaired = InterpretationLogicDefinitions.RepairSwappedForwardType(
+                InterpretationLogicDefinitions.Parse(def.InterpretationLogicJson), out var defChanged);
+            if (defChanged)
+            {
+                def.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(repaired);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
 
     private static async Task EnsureAbscPanelAsync(BloodBankDbContext context, CancellationToken ct)
     {

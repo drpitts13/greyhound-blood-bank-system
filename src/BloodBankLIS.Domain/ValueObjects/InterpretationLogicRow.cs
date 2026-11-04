@@ -170,10 +170,48 @@ public static class InterpretationLogicDefinitions
         return rows;
     }
 
+    /// <summary>
+    /// Earlier default ABO/Rh tables expected group A to be anti-A negative / anti-B positive
+    /// and group B the reverse. Swaps the forward-type expectations back on A and B rows that
+    /// still carry exactly that pattern; any other configuration is left as the admin set it.
+    /// </summary>
+    public static IReadOnlyList<InterpretationLogicRow> RepairSwappedForwardType(
+        IReadOnlyList<InterpretationLogicRow> rows,
+        out bool changed)
+    {
+        changed = false;
+        var repaired = new List<InterpretationLogicRow>(rows.Count);
+        foreach (var row in rows)
+        {
+            var expectations = row.SubtestExpectations;
+            if (AboRhResultValue.TryParse(row.InterpretationKey, out var type)
+                && type.Abo is AboGroup.A or AboGroup.B
+                && expectations.TryGetValue(AboRhPanelSubtestCodes.AntiA, out var antiA)
+                && expectations.TryGetValue(AboRhPanelSubtestCodes.AntiB, out var antiB)
+                && antiA == (type.Abo == AboGroup.B ? ReactionPolarity.Positive : ReactionPolarity.Negative)
+                && antiB == (type.Abo == AboGroup.A ? ReactionPolarity.Positive : ReactionPolarity.Negative))
+            {
+                var fixedExpectations = new Dictionary<string, ReactionPolarity>(expectations, StringComparer.OrdinalIgnoreCase)
+                {
+                    [AboRhPanelSubtestCodes.AntiA] = antiB,
+                    [AboRhPanelSubtestCodes.AntiB] = antiA
+                };
+                repaired.Add(row with { SubtestExpectations = fixedExpectations });
+                changed = true;
+                continue;
+            }
+
+            repaired.Add(row);
+        }
+
+        return repaired;
+    }
+
     private static Dictionary<string, ReactionPolarity> BuildAboRhExpectations(AboGroup abo, RhType rh)
     {
-        var antiA = abo is AboGroup.B or AboGroup.AB ? ReactionPolarity.Positive : ReactionPolarity.Negative;
-        var antiB = abo is AboGroup.A or AboGroup.AB ? ReactionPolarity.Positive : ReactionPolarity.Negative;
+        // Forward type: reagent anti-A agglutinates group A and AB red cells, anti-B group B and AB.
+        var antiA = abo is AboGroup.A or AboGroup.AB ? ReactionPolarity.Positive : ReactionPolarity.Negative;
+        var antiB = abo is AboGroup.B or AboGroup.AB ? ReactionPolarity.Positive : ReactionPolarity.Negative;
         var aCells = abo is AboGroup.A or AboGroup.AB ? ReactionPolarity.Negative : ReactionPolarity.Positive;
         var bCells = abo is AboGroup.B or AboGroup.AB ? ReactionPolarity.Negative : ReactionPolarity.Positive;
         var antiD = rh == RhType.Positive ? ReactionPolarity.Positive : ReactionPolarity.Negative;
