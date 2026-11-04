@@ -11230,3 +11230,42 @@ OCD-054 decided this is allowed, controlled by role.
 
 - OCD-056: a facility setting, off by default, that requires specimen receipt by scan.
 - Then the bedside half of downtime back-entry: documenting a transfusion of a back-entered unit without a fresh bedside scan.
+
+## Iteration 354 — A facility setting to require specimen receipt by scan (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 353 apart from this cycle's row (orders and specimens).
+
+### Finding (questions 4 and 6)
+
+Since Cycle 308 a tube can be received by scanning it, but **Receive** on a worklist or chart row still works. Clicking the wrong row receives a tube that is not in hand. OCD-056 decided this is a facility setting, off by default.
+
+### Design
+
+- **Setting:** `Specimen.RequireReceiptByScan` in the facility policy catalog ("Receive specimens by scan only", Specimen, default false, OCD-056). Bench pages can read it.
+- **Server:** with the setting on, `SpecimenService.ReceiveAsync` (receipt from a row) is refused with `SPEC-RECEIPT-SCAN-REQUIRED` before anything is loaded or changed. Receipt by scan is unchanged.
+- **Duplicate labels:** while scanning is required, a label matching more than one specimen says to check the label and have a supervisor correct the duplicate, instead of "receive it from its row", which would be refused.
+- **Accept:** unchanged. Only a received tube can be accepted, and with the setting on that tube was scanned.
+- **UI:**
+  - the specimen worklist rows show "Scan to receive" in place of **Receive**
+  - the chart Specimens tab shows a **Scan to receive** link to the specimen worklist
+  - both read the setting
+
+### Requirements
+
+- URS-BB-487, FRS-BB-530. Help: test worklist page. The setting describes itself on Facility Policies.
+
+### Tests
+
+- TEST-BB-393:
+  - the rule refuses list receipt only when the setting is on, and the catalog default is off
+  - with the setting on, receipt from a row is refused and nothing changes; the scan receives the tube; accept from the row then works
+  - by default, receipt from a row works and is recorded as "Selected from the worklist"
+  - a duplicate label under the setting does not point to the row
+- The existing scan-receipt tests now run with facility policy present. Their setup accessions without it, so the label identifiers are not asked for.
+- Full suite: 3,615 passed, 0 failed.
+
+### Next ranked residual
+
+All four decisions from 2026-11-04 are now implemented. Next: the bedside half of downtime back-entry, documenting the transfusion of a back-entered unit without a fresh bedside scan (the DIN typed from the paper record, the same role).

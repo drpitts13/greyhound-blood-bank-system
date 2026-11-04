@@ -151,6 +151,9 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.PrefillPatientIdentifiers, "Issue", "Pre-fill patient identifiers at issue and bedside",
             "When true, the issue forms and bedside transfusion documentation start with the patient's MRN and date of birth already entered, and staff confirm them visually. When false, staff scan or type both identifiers from the wristband or requisition, so the two-identifier check compares what was read with the record. Default off.",
             FacilityPolicyValueKind.Boolean, "false", "OCD-039"),
+        new(FacilityPolicyKeys.RequireSpecimenReceiptByScan, "Specimen", "Receive specimens by scan only",
+            "When true, a specimen is received only by scanning the tube's accession or label barcode, so the tube received is the one in hand. Receive from a worklist or chart row is refused. When false, either way is allowed and the record shows which was used. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-056"),
         new(FacilityPolicyKeys.InspectionDefaultAcceptable, "Inventory", "Start unit inspections as acceptable",
             "When true, return inspections (temperature, seal, visual) and unit appearance at issue, ward receipt, and delivery receipt start as acceptable, and a return that leaves an inspection unanswered counts it as acceptable. When false, staff must answer each inspection and the server refuses a return with an unanswered inspection. Time out of storage is always computed. Default off.",
             FacilityPolicyValueKind.Boolean, "false", "OCD-040")

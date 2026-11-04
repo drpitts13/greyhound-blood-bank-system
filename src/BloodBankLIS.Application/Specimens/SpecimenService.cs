@@ -606,6 +606,13 @@ public sealed class SpecimenService
             return denied;
         }
 
+        // OCD-056: the facility may require the tube in hand to be scanned.
+        var listReceipt = SpecimenReceiptScanRule.EvaluateListReceipt(await ScanRequiredAsync(ct));
+        if (listReceipt.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail($"{listReceipt.Code}: {listReceipt.Message}");
+        }
+
         var specimen = await _specimens.GetByIdAsync(specimenId, ct);
         if (specimen is null)
         {
@@ -672,9 +679,12 @@ public sealed class SpecimenService
 
         var miss = candidates.Count == 0
             ? SpecimenReceiptScanRule.NotFound(normalized)
-            : SpecimenReceiptScanRule.Ambiguous(normalized);
+            : SpecimenReceiptScanRule.Ambiguous(normalized, await ScanRequiredAsync(ct));
         return (null, $"{miss.Code}: {miss.Message}");
     }
+
+    private async Task<bool> ScanRequiredAsync(CancellationToken ct) =>
+        _policy is not null && await _policy.GetRequireSpecimenReceiptByScanAsync(ct);
 
     // A scan does not show which row it matched, so its refusal names the tube.
     private async Task<OperationResult<Specimen>> ReceiveCoreAsync(Specimen specimen, string method, bool nameTheTube, CancellationToken ct)

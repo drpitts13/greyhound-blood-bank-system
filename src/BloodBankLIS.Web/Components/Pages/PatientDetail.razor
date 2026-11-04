@@ -285,6 +285,7 @@ else
             OnReject="RejectAsync"
             OnCancelReject="() => _rejectId = null"
             OnReceive="ReceiveSpecimenAsync"
+            ReceiveByScanOnly="_receiptByScanOnly"
             OnAccept="AcceptSpecimenAsync"
             OnOpenOrders="OpenAddOrderWithAccessionAsync"
             ExceptionMinLevel="_specimenExpMinLevel"
@@ -516,6 +517,7 @@ else
 
     // OCD-039: identifier fields start empty unless the facility allows pre-fill. A failed read keeps them empty.
     private bool _prefillIdentifiers;
+    private bool _receiptByScanOnly;
     private bool _blockAboSelfVerify = true;
     private List<AntibodyDto> _antibodyHistory = new();
     private List<AntibodyIdWorkupListItemDto> _abidWorkups = new();
@@ -2923,6 +2925,8 @@ else
 
         var prefill = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.PrefillPatientIdentifiers);
         _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;
+        var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
+        _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
 
         // A failed read keeps the block on; the server makes the final call either way.
         var aboSelfVerify = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.BlockAboSelfVerify);

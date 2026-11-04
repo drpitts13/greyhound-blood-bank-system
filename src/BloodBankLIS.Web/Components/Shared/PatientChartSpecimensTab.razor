@@ -113,7 +113,14 @@
                             }
                             @if (s.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
                             {
-                                <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnReceive.InvokeAsync(s.Id)">Receive</button>
+                                @if (ReceiveByScanOnly)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="/test-worklist?tab=specimens" title="Your facility requires receipt by scan">Scan to receive</a>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnReceive.InvokeAsync(s.Id)">Receive</button>
+                                }
                             }
                             @if (s.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
                             {
@@ -317,6 +324,8 @@
     [Parameter] public EventCallback<long> OnReject { get; set; }
     [Parameter] public EventCallback OnCancelReject { get; set; }
     [Parameter] public EventCallback<long> OnReceive { get; set; }
+    /// <summary>OCD-056: the facility requires receipt by scanning the tube, so the row offers no Receive button.</summary>
+    [Parameter] public bool ReceiveByScanOnly { get; set; }
     [Parameter] public EventCallback<long> OnAccept { get; set; }
     [Parameter] public EventCallback OnOpenOrders { get; set; }
     [Parameter] public int ExceptionMinLevel { get; set; } = 2;

@@ -225,7 +225,14 @@
                         <td class="right nowrap">
                             @if (row.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
                             {
-                                <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => ReceivePendingAsync(row.SpecimenId)">Receive</button>
+                                @if (_receiptByScanOnly)
+                                {
+                                    <span class="sub" title="Your facility requires receipt by scan">Scan to receive</span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => ReceivePendingAsync(row.SpecimenId)">Receive</button>
+                                }
                             }
                             @if (row.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
                             {
@@ -345,6 +352,8 @@
     private bool _specimensLoaded;
     private bool _busy;
     private string _specimenScan = string.Empty;
+    // OCD-056: when the facility requires receipt by scan, rows offer no Receive button.
+    private bool _receiptByScanOnly;
     // What a scan does on the pending list: receive (default) or accept. Accepting is a deliberate mode.
     private bool _scanAccepts;
     private long? _rejectingSpecimenId;
@@ -374,6 +383,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
+        _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
         if (string.Equals(TabQuery, "retype", StringComparison.OrdinalIgnoreCase))
         {
             _tab = "retype";

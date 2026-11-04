@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -19,7 +20,21 @@ public class SpecimenReceiptScanTests : IDisposable
     private SpecimenService Specimens(BloodBankDbContext c) =>
         new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
             c, _factory.Clock, currentUser: _factory.CurrentUser,
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            policy: new FacilityPolicyService(new EfRepository<SystemSetting>(c)));
+
+    // Setup only: accession without facility policy, so the label identifiers are not asked for.
+    private SpecimenService Accessioning(BloodBankDbContext c) =>
+        new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
+            c, _factory.Clock, currentUser: _factory.CurrentUser,
             audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+
+    private async Task RequireScanAsync(bool on)
+    {
+        await using var c = _factory.Create();
+        c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.RequireSpecimenReceiptByScan, Value = on ? "true" : "false" });
+        await c.SaveChangesAsync();
+    }
 
     private async Task<long> CollectedAsync(string accession, string? barcode = null)
     {
@@ -27,7 +42,7 @@ public class SpecimenReceiptScanTests : IDisposable
         var patient = new Patient { MedicalRecordNumber = "MRN-" + accession, LastName = "Scan", FirstName = "Tube", DateOfBirth = new DateOnly(1990, 2, 2), Sex = Sex.Unknown };
         c.Patients.Add(patient);
         await c.SaveChangesAsync();
-        var r = await Specimens(c).AccessionAsync(new AccessionSpecimenRequest(
+        var r = await Accessioning(c).AccessionAsync(new AccessionSpecimenRequest(
             accession, patient.Id, "EDTA", _factory.Clock.UtcNow.AddMinutes(-20), Barcode: barcode, AcceptImmediately: false));
         Assert.True(r.Succeeded, r.Error);
         return r.Value!.Id;
@@ -115,4 +130,44 @@ public class SpecimenReceiptScanTests : IDisposable
         Assert.Equal("received 20 min after draw", received.TransitNote);
     }
 
+    // TEST-BB-393 (OCD-056): with the facility setting on, a row cannot be received; the tube must be scanned.
+    [Fact]
+    public async Task ScanRequired_RefusesReceiptFromARow_ButAcceptsTheScan()
+    {
+        await RequireScanAsync(true);
+        var id = await CollectedAsync("ACC-SCAN-ONLY");
+        await using var c = _factory.Create();
+        var fromRow = await Specimens(c).ReceiveAsync(id);
+        Assert.False(fromRow.Succeeded);
+        Assert.Contains(SpecimenReceiptScanRule.RequiredCode, fromRow.Error);
+        Assert.Equal(SpecimenStatus.Collected, (await c.Specimens.AsNoTracking().SingleAsync(s => s.Id == id)).Status);
+
+        var scanned = await Specimens(c).ReceiveByScanAsync("ACC-SCAN-ONLY");
+        Assert.True(scanned.Succeeded, scanned.Error);
+        // Accept is unchanged: the tube was received by scan, so it can be accepted from its row.
+        Assert.True((await Specimens(c).AcceptAsync(id)).Succeeded);
+    }
+
+    [Fact]
+    public async Task ScanNotRequired_ByDefault_ReceiptFromARowIsAllowed()
+    {
+        var id = await CollectedAsync("ACC-ROW-OK");
+        await using var c = _factory.Create();
+        var fromRow = await Specimens(c).ReceiveAsync(id);
+        Assert.True(fromRow.Succeeded, fromRow.Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(Specimen) && a.EntityId == id && a.NewValueJson!.Contains("Selected from the worklist")));
+    }
+
+    [Fact]
+    public async Task ScanRequired_DuplicateLabel_DoesNotSendTheUserToTheRow()
+    {
+        await RequireScanAsync(true);
+        await CollectedAsync("ACC-DUP-A", barcode: "LBL-DUP");
+        await CollectedAsync("ACC-DUP-B", barcode: "LBL-DUP");
+        await using var c = _factory.Create();
+        var r = await Specimens(c).ReceiveByScanAsync("LBL-DUP");
+        Assert.False(r.Succeeded);
+        Assert.Contains("supervisor", r.Error);
+        Assert.DoesNotContain("from its row", r.Error);
+    }
 }

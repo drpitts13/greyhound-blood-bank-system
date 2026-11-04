@@ -22,6 +22,7 @@ public static class ReferenceEndpoints
     {
         FacilityPolicyKeys.RequireSecondAboForCellularIssue,
         FacilityPolicyKeys.PrefillPatientIdentifiers,
+        FacilityPolicyKeys.RequireSpecimenReceiptByScan,
         FacilityPolicyKeys.InspectionDefaultAcceptable,
         FacilityPolicyKeys.BlockAboSelfVerify
     };
