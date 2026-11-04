@@ -416,5 +416,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-405 | A | `PendingSpecimenAttentionRuleTests.ExpiredTubes_AreCounted_AndMakeTheCardNeedAttention`, `NoExpiredTubes_KeepsAPlainCount` | URS-BB-487 / FRS-BB-542 |
 | TEST-BB-406 | D / I | `QuarantineReleaseRuleTests.OrdinaryHolds_CanBeReleased`, `ReactionRemainder_WaitsForTheInvestigation`, `Expired_RetypeMismatch_AndDisposal_AreNeverReleased_AndSayWhatToDo`; `InventoryServiceTests.QuarantineRelease_FollowsWhyTheUnitIsHeld` | URS-BB-491 / FRS-BB-543 / RISK-BB-588 |
 | TEST-BB-407 | D / I | `HoldReleaseRuleTests.Release_NeedsAReason_AndAnInDateUnit`; `InventoryServiceTests.ReleaseFromQuarantineAndHold_WriteProductStatus` | URS-BB-491 / FRS-BB-544 |
+| TEST-BB-408 | I | `InventoryServiceTests.MarkMissing_ThenLocate_EntersQuarantine`, `MarkDamaged_ThenInspect_EntersQuarantine`, `LocateAndInspect_WriteProductStatus` | URS-BB-491 / FRS-BB-545 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

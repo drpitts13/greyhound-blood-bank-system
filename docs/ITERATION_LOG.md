@@ -11857,3 +11857,41 @@ No change since Cycle 367 apart from this cycle's row (blood products: status hi
 ### Next ranked residual
 
 Pending: OCD-057. Remaining inventory question: Locate (missing) and Inspect (damaged) are one-click and record neither where the unit was found nor what the inspection showed. Ask for those facts and keep them on the quarantine record.
+
+## Iteration 369 — Locate and inspect record what was found (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 368 apart from this cycle's row (blood products: status history, chain of custody).
+
+### Finding (questions 2 and 7)
+
+On the discrepancy board and the unit page, **Locate** (missing) and **Inspect** (damaged) were one click:
+
+- Nothing recorded where a missing unit turned up or what the damage inspection showed.
+- Those are the facts the later quarantine review decides on, and the chain-of-custody record for the time the unit was unaccounted for.
+
+### Design
+
+- **Service:** `LocateMissingAsync(unitId, foundNote)` and `InspectDamagedAsync(unitId, findings)` require the note. A blank note is refused with nothing changed.
+- **Record:** the note is kept in the quarantine reason with the earlier reason ("Located after missing (<why missing>): <found>"), in the status history, and in the audit (`Found` or `Findings` alongside `PriorReason`).
+- **API:** the endpoints take `{ reason }`.
+- **Discrepancy board:** Locate or Inspect opens the question with an example, then "Record found, to quarantine" or "Record inspection, to quarantine".
+- **Unit page:** asks the same question beside its button.
+
+### Requirements
+
+- FRS-BB-545 (under URS-BB-491). Help: unit detail page.
+
+### Tests
+
+- TEST-BB-408:
+  - a blank note is refused and the unit stays Missing or Damaged
+  - the quarantine reason keeps both the earlier reason and the note
+  - the audit reason carries the note
+- The ten existing calls to these actions now pass a note. At first I wrongly thought there were none; my search pattern missed them. Two exact-text audit assertions were updated.
+- Full suite: 3,647 passed, 0 failed.
+
+### Next ranked residual
+
+Pending: OCD-057. The inventory board rescan is complete (near expiry, quarantine, discrepancy, hold). Next: rescan the administration area for question 7. Check that every admin catalog change records a reason. Cycles 339–343 covered exceptions, compatibility, and users and roles; check the rest (products, tests, locations, special requirement definitions).

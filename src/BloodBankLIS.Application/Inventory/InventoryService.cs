@@ -1520,8 +1520,12 @@ public sealed class InventoryService
     /// <summary>
     /// Recovered units enter quality quarantine for inspection before they can return to Available.
     /// </summary>
-    public async Task<InventoryActionResult> LocateMissingAsync(long unitId, CancellationToken ct = default)
+    public async Task<InventoryActionResult> LocateMissingAsync(long unitId, string? foundNote = null, CancellationToken ct = default)
     {
+        // Where and how the unit turned up is the custody record for the time it was missing.
+        if (string.IsNullOrWhiteSpace(foundNote))
+            return InventoryActionResult.Fail("Say where and how the unit was found.");
+
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateLocateMissing, ct);
         if (denied is not null)
@@ -1539,9 +1543,10 @@ public sealed class InventoryService
         var prior = unit.MissingReason;
         unit.MissingReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.LocatedAfterMissing;
+        var found = foundNote.Trim();
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
-            ? "Located after missing; pending inspection"
-            : $"Located after missing ({prior}); pending inspection";
+            ? $"Located after missing: {found}; pending inspection"
+            : $"Located after missing ({prior}): {found}; pending inspection";
         var fromStatus = unit.Status;
         var located = await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
         if (!located.Succeeded)
@@ -1560,9 +1565,10 @@ public sealed class InventoryService
                 Status = UnitStatus.Quarantine,
                 Path = "LocateMissing",
                 ReasonCode = UnitQuarantineReason.LocatedAfterMissing,
-                PriorReason = prior
+                PriorReason = prior,
+                Found = found
             },
-            reason: "Unit located after missing.");
+            reason: $"Unit located after missing: {found}");
         await _unitOfWork.SaveChangesAsync(ct);
         return located;
     }
@@ -1615,8 +1621,12 @@ public sealed class InventoryService
     /// <summary>
     /// Inspected damaged units enter quality quarantine; they cannot return directly to Available.
     /// </summary>
-    public async Task<InventoryActionResult> InspectDamagedAsync(long unitId, CancellationToken ct = default)
+    public async Task<InventoryActionResult> InspectDamagedAsync(long unitId, string? findings = null, CancellationToken ct = default)
     {
+        // What the inspection showed is what quality review decides on.
+        if (string.IsNullOrWhiteSpace(findings))
+            return InventoryActionResult.Fail("Say what the inspection showed.");
+
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateInspectDamaged, ct);
         if (denied is not null)
@@ -1634,9 +1644,10 @@ public sealed class InventoryService
         var prior = unit.DamagedReason;
         unit.DamagedReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.InspectedAfterDamage;
+        var seen = findings.Trim();
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
-            ? "Inspected after damage; pending quality review"
-            : $"Inspected after damage ({prior}); pending quality review";
+            ? $"Inspected after damage: {seen}; pending quality review"
+            : $"Inspected after damage ({prior}): {seen}; pending quality review";
         var fromStatus = unit.Status;
         var inspected = await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
         if (!inspected.Succeeded)
@@ -1655,9 +1666,10 @@ public sealed class InventoryService
                 Status = UnitStatus.Quarantine,
                 Path = "InspectDamaged",
                 ReasonCode = UnitQuarantineReason.InspectedAfterDamage,
-                PriorReason = prior
+                PriorReason = prior,
+                Findings = seen
             },
-            reason: "Unit inspected after damage.");
+            reason: $"Unit inspected after damage: {seen}");
         await _unitOfWork.SaveChangesAsync(ct);
         return inspected;
     }

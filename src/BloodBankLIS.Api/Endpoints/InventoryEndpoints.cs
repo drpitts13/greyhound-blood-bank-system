@@ -187,16 +187,16 @@ public static class InventoryEndpoints
             ToHttpResult(await service.MarkMissingAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
-        group.MapPost("/units/{id:long}/locate", async (long id, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.LocateMissingAsync(id, ct)))
+        group.MapPost("/units/{id:long}/locate", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.LocateMissingAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/damaged", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.MarkDamagedAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
-        group.MapPost("/units/{id:long}/inspect-damaged", async (long id, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.InspectDamagedAsync(id, ct)))
+        group.MapPost("/units/{id:long}/inspect-damaged", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.InspectDamagedAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/return-to-supplier", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>

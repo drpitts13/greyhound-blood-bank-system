@@ -517,17 +517,32 @@
                             <td>@(row.Reason ?? "—")</td>
                             <td>@row.LocationLabel</td>
                             <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status == UnitStatus.Missing)
+                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status is UnitStatus.Missing or UnitStatus.Damaged)
                                 {
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => LocateMissingAsync(row.UnitId)">Locate</button>
-                                }
-                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status == UnitStatus.Damaged)
-                                {
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => InspectDamagedAsync(row.UnitId)">Inspect</button>
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => BeginDiscrepancy(row.UnitId)">
+                                        @(_discrepancyUnitId == row.UnitId ? "Hide" : row.Status == UnitStatus.Missing ? "Locate" : "Inspect")
+                                    </button>
                                 }
                                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
                             </td>
                         </tr>
+                        @if (_discrepancyUnitId == row.UnitId)
+                        {
+                            <tr>
+                                <td colspan="7">
+                                    <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
+                                        <div class="field" style="min-width:20rem;margin:0;">
+                                            <label>@(row.Status == UnitStatus.Missing ? "Where and how was it found?" : "What did the inspection show?")</label>
+                                            <input @bind="_discrepancyNote" @bind:event="oninput" placeholder="@(row.Status == UnitStatus.Missing ? "e.g. Back of shelf 2, OR satellite fridge" : "e.g. Port intact, small crease in overwrap, no leak")" />
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discrepancyNote))"
+                                                @onclick="() => row.Status == UnitStatus.Missing ? LocateMissingAsync(row.UnitId) : InspectDamagedAsync(row.UnitId)">
+                                            @(row.Status == UnitStatus.Missing ? "Record found, to quarantine" : "Record inspection, to quarantine")
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -1129,10 +1144,20 @@
         if (r.Succeeded) await ReloadBoardsAsync();
     }
 
+    private long? _discrepancyUnitId;
+    private string _discrepancyNote = string.Empty;
+
+    private void BeginDiscrepancy(long id)
+    {
+        _discrepancyUnitId = _discrepancyUnitId == id ? null : id;
+        _discrepancyNote = string.Empty;
+    }
+
     private async Task LocateMissingAsync(long id)
     {
         _busy = true;
-        var r = await Api.LocateMissingAsync(id);
+        var r = await Api.LocateMissingAsync(id, _discrepancyNote);
+        if (r.Succeeded) { _discrepancyUnitId = null; _discrepancyNote = string.Empty; }
         _busy = false;
         _topFb = r.ToFeedback("Unit located into quarantine for inspection.");
         await Js.ScrollIntoViewAsync("inventory-top-outcome");
@@ -1142,7 +1167,8 @@
     private async Task InspectDamagedAsync(long id)
     {
         _busy = true;
-        var r = await Api.InspectDamagedAsync(id);
+        var r = await Api.InspectDamagedAsync(id, _discrepancyNote);
+        if (r.Succeeded) { _discrepancyUnitId = null; _discrepancyNote = string.Empty; }
         _busy = false;
         _topFb = r.ToFeedback("Damaged unit moved to quarantine for quality review.");
         await Js.ScrollIntoViewAsync("inventory-top-outcome");

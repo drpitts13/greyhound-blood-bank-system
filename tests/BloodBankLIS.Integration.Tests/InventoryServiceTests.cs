@@ -2977,11 +2977,17 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var located = await CreateService(context).LocateMissingAsync(unitId);
+            // TEST-BB-408: where it was found is required, and kept with why it was missing.
+            var blank = await CreateService(context).LocateMissingAsync(unitId, " ");
+            Assert.False(blank.Succeeded);
+            Assert.Contains("where and how", blank.Error);
+            Assert.Equal(UnitStatus.Missing, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == unitId)).Status);
+
+            var located = await CreateService(context).LocateMissingAsync(unitId, "Found on shelf 2");
             Assert.True(located.Succeeded);
             Assert.Equal(UnitStatus.Quarantine, located.Unit!.Status);
             Assert.Null(located.Unit.MissingReason);
-            Assert.Contains("Located after missing", located.Unit.QuarantineReason);
+            Assert.Contains("Located after missing (Not on shelf at physical inventory): Found on shelf 2", located.Unit.QuarantineReason);
             Assert.Equal(UnitQuarantineReason.LocatedAfterMissing, located.Unit.QuarantineReasonCode);
         }
     }
@@ -2998,7 +3004,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).LocateMissingAsync(unitId);
+            var result = await CreateService(context).LocateMissingAsync(unitId, "Found on shelf 2");
             Assert.False(result.Succeeded);
             Assert.Contains("missing unit", result.Error);
         }
@@ -3020,13 +3026,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
-            .LocateMissingAsync(unitId);
+            .LocateMissingAsync(unitId, "Found on shelf 2");
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.LocateMissingCode);
         Assert.Equal(UnitStatus.Missing, (await context.BloodUnits.FindAsync(unitId))!.Status);
 
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
-            .LocateMissingAsync(unitId);
+            .LocateMissingAsync(unitId, "Found on shelf 2");
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(UnitStatus.Quarantine, allowed.Unit!.Status);
     }
@@ -3071,11 +3077,17 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var inspected = await CreateService(context).InspectDamagedAsync(unitId);
+            // TEST-BB-408: what the inspection showed is required, and kept with why it was marked damaged.
+            var blank = await CreateService(context).InspectDamagedAsync(unitId, "");
+            Assert.False(blank.Succeeded);
+            Assert.Contains("what the inspection showed", blank.Error);
+            Assert.Equal(UnitStatus.Damaged, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == unitId)).Status);
+
+            var inspected = await CreateService(context).InspectDamagedAsync(unitId, "Overwrap creased, no leak");
             Assert.True(inspected.Succeeded);
             Assert.Equal(UnitStatus.Quarantine, inspected.Unit!.Status);
             Assert.Null(inspected.Unit.DamagedReason);
-            Assert.Contains("Inspected after damage", inspected.Unit.QuarantineReason);
+            Assert.Contains("Inspected after damage (Bag leaking in refrigerator): Overwrap creased, no leak", inspected.Unit.QuarantineReason);
             Assert.Equal(UnitQuarantineReason.InspectedAfterDamage, inspected.Unit.QuarantineReasonCode);
         }
     }
@@ -3092,7 +3104,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).InspectDamagedAsync(unitId);
+            var result = await CreateService(context).InspectDamagedAsync(unitId, "Overwrap creased, no leak");
             Assert.False(result.Succeeded);
             Assert.Contains("damaged unit", result.Error);
         }
@@ -3114,13 +3126,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
-            .InspectDamagedAsync(unitId);
+            .InspectDamagedAsync(unitId, "Overwrap creased, no leak");
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.InspectDamagedCode);
         Assert.Equal(UnitStatus.Damaged, (await context.BloodUnits.FindAsync(unitId))!.Status);
 
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
-            .InspectDamagedAsync(unitId);
+            .InspectDamagedAsync(unitId, "Overwrap creased, no leak");
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(UnitStatus.Quarantine, allowed.Unit!.Status);
     }
@@ -4460,7 +4472,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(forMissing.Succeeded, forMissing.Error);
         Assert.True((await svc.ReleaseFromQuarantineAsync(forMissing.Unit!.Id, "tech2")).Succeeded);
         Assert.True((await svc.MarkMissingAsync(forMissing.Unit.Id, "Not on shelf at physical inventory")).Succeeded);
-        var located = await svc.LocateMissingAsync(forMissing.Unit.Id);
+        var located = await svc.LocateMissingAsync(forMissing.Unit.Id, "Found on shelf 2");
         Assert.True(located.Succeeded, located.Error);
         Assert.Equal(UnitStatus.Quarantine, located.Unit!.Status);
 
@@ -4468,7 +4480,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(forDamaged.Succeeded, forDamaged.Error);
         Assert.True((await svc.ReleaseFromQuarantineAsync(forDamaged.Unit!.Id, "tech2")).Succeeded);
         Assert.True((await svc.MarkDamagedAsync(forDamaged.Unit.Id, "Bag leaking in refrigerator")).Succeeded);
-        var inspected = await svc.InspectDamagedAsync(forDamaged.Unit.Id);
+        var inspected = await svc.InspectDamagedAsync(forDamaged.Unit.Id, "Overwrap creased, no leak");
         Assert.True(inspected.Succeeded, inspected.Error);
         Assert.Equal(UnitStatus.Quarantine, inspected.Unit!.Status);
 
@@ -4477,7 +4489,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             e.EventType == AuditEventType.ProductStatus
             && e.EntityType == nameof(BloodUnit)
             && e.EntityId == forMissing.Unit.Id
-            && e.Reason == "Unit located after missing."
+            && e.Reason == "Unit located after missing: Found on shelf 2"
             && e.OldValueJson is not null
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(mNumber));
@@ -4485,7 +4497,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             e.EventType == AuditEventType.ProductStatus
             && e.EntityType == nameof(BloodUnit)
             && e.EntityId == forDamaged.Unit.Id
-            && e.Reason == "Unit inspected after damage."
+            && e.Reason == "Unit inspected after damage: Overwrap creased, no leak"
             && e.OldValueJson is not null
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(dNumber));

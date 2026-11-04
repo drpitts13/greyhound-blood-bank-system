@@ -195,11 +195,17 @@ else
                     }
                     @if (_unit.Status == UnitStatus.Missing && Session.Has(PermissionCodes.InventoryRelease))
                     {
-                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => LocateMissingAsync(_unit.Id)">Unit located</button>
+                        <div class="field" style="min-width:16rem;"><label>Where and how was it found?</label>
+                            <input @bind="_discrepancyNote" @bind:event="oninput" placeholder="e.g. Back of shelf 2, OR satellite fridge" />
+                        </div>
+                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discrepancyNote))" @onclick="() => LocateMissingAsync(_unit.Id)">Unit located</button>
                     }
                     @if (_unit.Status == UnitStatus.Damaged && Session.Has(PermissionCodes.InventoryRelease))
                     {
-                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => InspectDamagedAsync(_unit.Id)">Inspect into quarantine</button>
+                        <div class="field" style="min-width:16rem;"><label>What did the inspection show?</label>
+                            <input @bind="_discrepancyNote" @bind:event="oninput" placeholder="e.g. Port intact, crease in overwrap, no leak" />
+                        </div>
+                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discrepancyNote))" @onclick="() => InspectDamagedAsync(_unit.Id)">Inspect into quarantine</button>
                     }
                     @if (Session.Has(PermissionCodes.PrintLabel))
                     {
@@ -974,10 +980,13 @@ else
         await AfterActionAsync(r, "Unit marked missing. It cannot be issued until located.");
     }
 
+    private string _discrepancyNote = string.Empty;
+
     private async Task LocateMissingAsync(long id)
     {
         _busy = true;
-        var r = await Api.LocateMissingAsync(id);
+        var r = await Api.LocateMissingAsync(id, _discrepancyNote);
+        if (r.Succeeded) _discrepancyNote = string.Empty;
         _busy = false;
         await AfterActionAsync(r, "Unit located into quarantine for inspection.");
     }
@@ -1017,7 +1026,8 @@ else
     private async Task InspectDamagedAsync(long id)
     {
         _busy = true;
-        var r = await Api.InspectDamagedAsync(id);
+        var r = await Api.InspectDamagedAsync(id, _discrepancyNote);
+        if (r.Succeeded) _discrepancyNote = string.Empty;
         _busy = false;
         await AfterActionAsync(r, "Damaged unit moved to quarantine for quality review.");
     }
