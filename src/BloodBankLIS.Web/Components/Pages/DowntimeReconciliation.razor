@@ -51,6 +51,12 @@ else
                     <td><a href="/issuing">Open Issue &amp; Transfuse</a></td>
                 </tr>
                 <tr>
+                    <td>Paper issues back-entered, transfusion not yet entered
+                        <span class="sub">Of these, @_snap.BackEntriesAwaitingWardReceipt not yet received at the ward</span></td>
+                    <td class="mono">@Work(_snap.BackEntriesAwaitingTransfusion)</td>
+                    <td><a href="/issuing?desk=issued">Open Issued units</a><span class="sub"><a href="/issuing?desk=transit">Open In transit</a></span></td>
+                </tr>
+                <tr>
                     <td>Pending retrospective crossmatches</td>
                     <td class="mono">@Work(_snap.PendingRetrospectiveCrossmatches)</td>
                     <td><a href="/issuing">Open Issue &amp; Transfuse</a></td>

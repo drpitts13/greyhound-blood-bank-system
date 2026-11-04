@@ -11361,3 +11361,34 @@ The other alerts were checked and left alone:
 The downtime back-entry chain is complete: issue, receipt, and transfusion. Next: rescan the capability matrix for the highest remaining operational gap. Candidates:
 - the facility policy key coverage check named in Cycle 350
 - the downtime snapshot counting back-entered issues still missing a receipt or transfusion record
+
+## Iteration 357 — The downtime snapshot counts back-entries still to complete (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 356 apart from this cycle's row (downtime).
+
+### Finding (question 5)
+
+The downtime snapshot counted every open issue together. After recovery, the supervisor could not see which paper issues had been back-entered but still lacked a transfusion record or ward receipt. That is the follow-up the downtime procedure needs closed.
+
+### Design
+
+- **`DowntimeReconciliationSnapshot`** adds two counts:
+  - `BackEntriesAwaitingTransfusion`: back-entered issues still Issued
+  - `BackEntriesAwaitingWardReceipt`: those of them with no ward receipt
+- **Downtime page:** a row "Paper issues back-entered, transfusion not yet entered", with the receipt count beneath and links to **Issued units** and **In transit**.
+- No schema change. The page still only counts.
+
+### Requirements
+
+- FRS-BB-533 (under URS-BB-486). Help: downtime page.
+
+### Tests
+
+- TEST-BB-396: three back-entered issues (open without receipt, open with receipt, transfused) count as two awaiting transfusion and one awaiting receipt; the open-issue total rises by three.
+- Full suite: 3,618 passed, 0 failed.
+
+### Next ranked residual
+
+Rescan for the highest remaining gap. Candidate: the facility policy key coverage check, a test that every `FacilityPolicyKeys` constant is in `FacilityPolicyCatalog` with a default, so no setting is invisible to administrators.

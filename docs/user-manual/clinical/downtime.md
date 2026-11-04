@@ -10,7 +10,7 @@ routes:
 
 ![Downtime snapshot](figures/downtime.png)
 
-**Downtime Snapshot** is the recovery checklist inside the application. It counts unresolved interface errors, outbound HL7 that is still pending, open issues, retrospective crossmatches that are due, and the status of the audit chain. You need audit read permission. The screen does not import paper forms and it does not scan them.
+**Downtime Snapshot** is the recovery checklist inside the application. It counts unresolved interface errors, outbound HL7 that is still pending, open issues, paper issues you have back-entered whose transfusion (and ward receipt) are still to be entered, retrospective crossmatches that are due, and the status of the audit chain. You need audit read permission. The screen does not import paper forms and it does not scan them.
 
 ## While the system is down
 

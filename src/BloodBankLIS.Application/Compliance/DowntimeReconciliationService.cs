@@ -15,7 +15,10 @@ public sealed record DowntimeReconciliationSnapshot(
     int HashedAuditRows,
     int UnhashedAuditRows,
     string AuditChainCode,
-    string AuditChainMessage);
+    string AuditChainMessage,
+    // OCD-054: paper issues entered after downtime whose transfusion (and ward receipt) are still to be entered.
+    int BackEntriesAwaitingTransfusion = 0,
+    int BackEntriesAwaitingWardReceipt = 0);
 
 /// <summary>
 /// Aggregates existing queues for post-downtime review. Does not import paper
@@ -71,6 +74,7 @@ public sealed class DowntimeReconciliationService
                     || m.Status == Hl7MessageStatus.Nacked),
             ct);
         var openIssues = await _issues.ListAsync(i => i.Status == IssueStatus.Issued, ct);
+        var openBackEntries = openIssues.Where(i => i.DowntimeBackEntry).ToList();
         var retro = await _issues.ListAsync(
             i => i.RetrospectiveCrossmatchDueUtc != null && i.RetrospectiveCrossmatchCompletedUtc == null,
             ct);
@@ -87,7 +91,9 @@ public sealed class DowntimeReconciliationService
             hashed,
             events.Count - hashed,
             chain.Code,
-            chain.Message);
+            chain.Message,
+            openBackEntries.Count,
+            openBackEntries.Count(i => i.WardReceivedUtc is null));
 
         return EvaluationResult<DowntimeReconciliationSnapshot>.Ok(snapshot, new RuleEvaluation([chain]));
     }
