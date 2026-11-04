@@ -11601,3 +11601,57 @@ The dashboard help said the Shift handoff card needed audit-read permission. The
 ### Next ranked residual
 
 Rescan the capability matrix for the next operational gap outside interfaces. Candidate: the reaction investigation workflow, checked against the seven workflow questions, since it has not been re-audited since the fatality follow-up cycle.
+
+## Iteration 363 — Reactions noticed after the transfusion (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 362 apart from this cycle's row (patient-product workflows).
+
+### Finding (seven-question audit of reaction investigation; questions 5 and 6)
+
+An investigation opened only when the transfusion itself was documented with "reaction suspected", at bedside start or completion, or by interface. A reaction noticed later had no path:
+
+- delayed hemolytic reactions, days later
+- fever or breathing problems after the unit finished
+
+Without a path, nothing was investigated, any remainder was not held, and the patient's next issue showed no prior reaction, because that notice reads the transfusion's flag.
+
+### Design
+
+- **`LateReactionReportRule` (`RXN-LATE-REPORT`).** It needs `transfusion.document` or `reaction.investigate`. It refuses:
+  - an issue with no documented transfusion
+  - a transfusion that already has an investigation (naming it)
+  - a missing description
+  - an onset before the transfusion started, or in the future
+- **`ReactionInvestigationService.ReportLateAsync`:**
+  - opens the investigation with `ReportedAfterTransfusion`, `OnsetUtc`, the optional reaction type, and findings beginning "Reported after the transfusion:"
+  - quarantines the remainder as a bedside report does
+  - sets the transfusion's `ReactionSuspected`, with an audit event keeping the earlier value, so the chart, lookback, timeline, and the next issue's reaction notice all see it
+- **API:** `POST /api/reaction-investigations/report`, outside the investigator-only group, guarded by either permission.
+- **Schema:** migration `20261109000000_LateReactionReport`, plus the bootstrap.
+- **Chart:** Product history shows **Report reaction** on transfused rows that have no reaction. It opens a description and onset form and reloads the history on success.
+
+### Found during the run check
+
+The issue's Issued row and its Transfused row share an issue id, so the form first opened under both. It now tracks the row itself.
+
+### Requirements / risk
+
+- URS-BB-490, FRS-BB-539, SRS-BB-451, RISK-BB-587. Help: reactions and product history pages.
+
+### Tests
+
+- TEST-BB-402. Domain: a valid report, and each refusal with its reason. Integration:
+  - before the transfusion is documented, refused
+  - a completed transfusion without a reaction opens nothing
+  - refused without permission, with a blank description, with an onset before the start, and with a future onset, with nothing written
+  - a valid report opens the investigation (late flag, onset, findings)
+  - a second report is refused, naming the investigation
+  - the transfusion is marked, and the audit keeps `ReactionSuspected: false` as the old value
+- Full suite: 3,635 passed, 0 failed.
+- Run check (development API and web): patient 9's transfused row shows **Report reaction**, and the form opens under that row only. It was not submitted.
+
+### Next ranked residual
+
+Continue the reaction audit. Check that closing an investigation records what follows for the patient, for example a new special requirement such as washed products after a severe allergic reaction, and that this reaches selection. The medical decision itself is the facility's, so record it as an OCD if no linkage exists.

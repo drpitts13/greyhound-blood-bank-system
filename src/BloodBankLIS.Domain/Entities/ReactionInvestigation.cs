@@ -84,4 +84,10 @@ public class ReactionInvestigation : BaseEntity
     public string? ReopenedBy { get; set; }
 
     public string? ReopenReason { get; set; }
+
+    /// <summary>True when the reaction was reported after the transfusion was documented without one.</summary>
+    public bool ReportedAfterTransfusion { get; set; }
+
+    /// <summary>When the signs began, if the late report gives it.</summary>
+    public DateTime? OnsetUtc { get; set; }
 }

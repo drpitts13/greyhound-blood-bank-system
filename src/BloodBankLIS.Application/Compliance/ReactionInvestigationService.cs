@@ -83,7 +83,9 @@ public sealed record ReactionInvestigationDto(
     DateTime? ClosedUtc = null,
     string? ReopenedBy = null,
     DateTime? ReopenedUtc = null,
-    string? ReopenReason = null)
+    string? ReopenReason = null,
+    bool ReportedAfterTransfusion = false,
+    DateTime? OnsetUtc = null)
 {
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -133,11 +135,15 @@ public sealed record ReactionInvestigationDto(
             remainderHoldNote,
             followUp.Severity == RuleSeverity.Warning,
             followUp.Severity == RuleSeverity.Warning ? followUp.Message : null,
-            r.ClosedBy, r.ClosedUtc, r.ReopenedBy, r.ReopenedUtc, r.ReopenReason);
+            r.ClosedBy, r.ClosedUtc, r.ReopenedBy, r.ReopenedUtc, r.ReopenReason,
+            r.ReportedAfterTransfusion, r.OnsetUtc);
     }
 }
 
 public sealed record ReopenReactionInvestigationRequest(string? Reason);
+
+/// <summary>A reaction noticed after the transfusion was documented without one: what was seen, and when it began.</summary>
+public sealed record ReportLateReactionRequest(long IssueId, string? Description, DateTime? OnsetUtc = null, string? ReactionType = null);
 
 public sealed class ReactionInvestigationService
 {
@@ -256,6 +262,90 @@ public sealed class ReactionInvestigationService
             reason: "Reaction suspected");
         await _unitOfWork.SaveChangesAsync(ct);
         return row;
+    }
+
+    /// <summary>
+    /// Opens an investigation for a reaction noticed after the transfusion was documented without one. The transfusion
+    /// is marked reaction-suspected (the change is audited with its earlier value), so the chart, lookback, and the
+    /// patient's next issue show it; the remainder of the unit is quarantined as for a bedside report.
+    /// </summary>
+    public async Task<OperationResult<ReactionInvestigation>> ReportLateAsync(ReportLateReactionRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var allowed = _permissions is null
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionDocument, ct)
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.ReactionInvestigate, ct);
+        var transfusion = (await _transfusions.ListAsync(t => t.IssueId == request.IssueId, ct))
+            .OrderByDescending(t => t.Id)
+            .FirstOrDefault();
+        var existing = transfusion is null
+            ? null
+            : await _investigations.FirstOrDefaultAsync(i => i.TransfusionEventId == transfusion.Id, ct);
+        var onset = request.OnsetUtc is { } o
+            ? o.Kind switch
+            {
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(o, DateTimeKind.Utc),
+                DateTimeKind.Local => o.ToUniversalTime(),
+                _ => o
+            }
+            : (DateTime?)null;
+        var check = LateReactionReportRule.Evaluate(
+            allowed, transfusion is not null, existing?.Id, transfusion?.StartUtc, onset, request.Description, _clock.UtcNow);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReactionInvestigation>.Fail($"{check.Code}: {check.Message}");
+        }
+
+        var tracked = await _transfusions.GetByIdAsync(transfusion!.Id, ct) ?? transfusion;
+        var description = request.Description!.Trim();
+        var row = new ReactionInvestigation
+        {
+            TransfusionEventId = tracked.Id,
+            PatientId = tracked.PatientId,
+            BloodProductId = tracked.BloodProductId,
+            ReportedUtc = _clock.UtcNow,
+            ReportedBy = _currentUser.UserName,
+            ReactionType = string.IsNullOrWhiteSpace(request.ReactionType) ? null : request.ReactionType.Trim(),
+            Findings = $"Reported after the transfusion: {description}",
+            Status = ReactionInvestigationStatus.Open,
+            ReportedAfterTransfusion = true,
+            OnsetUtc = onset
+        };
+
+        await TryQuarantineRemainderAsync(row, ct);
+        await _investigations.AddAsync(row, ct);
+
+        var wasSuspected = tracked.ReactionSuspected;
+        tracked.ReactionSuspected = true;
+        _transfusions.Update(tracked);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            newValue: new
+            {
+                TransfusionEventId = tracked.Id,
+                row.PatientId,
+                row.BloodProductId,
+                row.Status,
+                row.RemainderQuarantined,
+                row.ReportedAfterTransfusion,
+                row.OnsetUtc,
+                row.ReactionType
+            },
+            reason: $"Reaction reported after the transfusion: {description}");
+        _audit.Record(
+            AuditEventType.Transfusion,
+            nameof(TransfusionEvent),
+            tracked.Id,
+            oldValue: new { ReactionSuspected = wasSuspected },
+            newValue: new { tracked.ReactionSuspected, ReactionInvestigationId = row.Id },
+            reason: "Reaction reported after the transfusion was documented.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReactionInvestigation>.Ok(row);
     }
 
     public async Task<OperationResult<ReactionInvestigation>> UpdateAsync(

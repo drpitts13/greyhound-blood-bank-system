@@ -48,6 +48,8 @@ public static class DevelopmentSqliteBootstrap
         ("ReactionInvestigations", "ReopenedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedUtc" TEXT NULL"""),
         ("ReactionInvestigations", "ReopenedBy", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedBy" TEXT NULL"""),
         ("ReactionInvestigations", "ReopenReason", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenReason" TEXT NULL"""),
+        ("ReactionInvestigations", "ReportedAfterTransfusion", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReportedAfterTransfusion" INTEGER NOT NULL DEFAULT 0"""),
+        ("ReactionInvestigations", "OnsetUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "OnsetUtc" TEXT NULL"""),
         ("DatElutionWorkups", "VerifiedBy", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedBy" TEXT NULL"""),
         ("DatElutionWorkups", "VerifiedUtc", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedUtc" TEXT NULL"""),
         ("Issues", "VerifiedScanJson", """ALTER TABLE "Issues" ADD COLUMN "VerifiedScanJson" TEXT NULL"""),

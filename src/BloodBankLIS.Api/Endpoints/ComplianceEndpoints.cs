@@ -61,6 +61,14 @@ public static class ComplianceEndpoints
 
     private static void MapReactions(WebApplication app)
     {
+        // A reaction noticed after the transfusion can be reported by whoever documents transfusions as well as by
+        // investigators; the service checks either permission, matching who can report a reaction at the bedside.
+        app.MapPost("/api/reaction-investigations/report", async (ReportLateReactionRequest request, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ReportLateAsync(request, ct), r => ReactionInvestigationDto.From(r)))
+            .WithTags("Reactions")
+            .RequireAuthenticatedUser()
+            .RequireAnyPermission(PermissionCodes.TransfusionDocument, PermissionCodes.ReactionInvestigate);
+
         var group = app.MapGroup("/api/reaction-investigations").WithTags("Reactions")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.ReactionInvestigate);

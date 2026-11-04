@@ -1,4 +1,5 @@
 @inject UserSession Session
+@inject BloodBankApiClient Api
 
     <div class="bb-card">
     <div class="bb-card-title"><h3>Product history</h3></div>
@@ -118,6 +119,10 @@
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(inventoryUnitId)">Open unit</a>
                                 }
+                                @if (CanReportReaction(h) && _reportRow != h)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginReport(h)">Report reaction</button>
+                                }
                                 @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
@@ -133,6 +138,26 @@
                                     }
                                 }
                             </div>
+                            @if (_reportRow is not null && _reportRow == h)
+                            {
+                                @* A reaction noticed after the transfusion was documented without one opens the same investigation. *@
+                                <div class="alert alert-warning" style="margin-top:.5rem;" data-scroll-on-show>
+                                    <strong>Report a reaction to this transfusion</strong>
+                                    <div class="form-row" style="margin-top:.5rem;">
+                                        <div class="field"><label>What was seen, and who reported it</label>
+                                            <input @bind="_reportDescription" @bind:event="oninput" placeholder="e.g. Fever 39.2 °C and chills 6 hours after; reported by RN Lee" />
+                                        </div>
+                                        <div class="field"><label>Onset (optional)</label>
+                                            <input type="datetime-local" @bind="_reportOnsetLocal" />
+                                        </div>
+                                    </div>
+                                    <Outcome Value="_reportFb" />
+                                    <div class="flex gap">
+                                        <button type="button" class="btn btn-danger btn-sm" disabled="@(_reporting || string.IsNullOrWhiteSpace(_reportDescription))" @onclick="ReportAsync">Open investigation</button>
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _reportRow = null">Cancel</button>
+                                    </div>
+                                </div>
+                            }
                         </td>
                     </tr>
                     </tbody>
@@ -150,6 +175,45 @@
 
     // Most reviews need only the key columns; the other 19 are one click away.
     private bool _showAllColumns;
+
+    /// <summary>Called after a late reaction report so the chart reloads the history.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    // The transfused row being reported on (its Issued row shares the issue id, so the row itself is tracked).
+    private PatientProductHistoryRowDto? _reportRow;
+    private string? _reportDescription;
+    private DateTime? _reportOnsetLocal;
+    private Feedback? _reportFb;
+    private bool _reporting;
+
+    private bool CanReportReaction(PatientProductHistoryRowDto h) =>
+        !h.ReactionSuspected
+        && h.IssueId is not null
+        && h.EventType is PatientProductHistoryEventType.Transfused or PatientProductHistoryEventType.PartiallyTransfused
+        && (Session.Has(PermissionCodes.TransfusionDocument) || Session.Has(PermissionCodes.ReactionInvestigate));
+
+    private void BeginReport(PatientProductHistoryRowDto row)
+    {
+        _reportRow = row;
+        _reportDescription = null;
+        _reportOnsetLocal = null;
+        _reportFb = null;
+    }
+
+    private async Task ReportAsync()
+    {
+        if (_reportRow?.IssueId is not long issueId) return;
+        _reporting = true;
+        var onset = _reportOnsetLocal is DateTime local ? DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime() : (DateTime?)null;
+        var r = await Api.ReportLateReactionAsync(new ReportLateReactionRequest(issueId, _reportDescription, onset));
+        _reporting = false;
+        _reportFb = r.ToFeedback("Reaction investigation opened. The remainder of the unit is held and the investigation is on Reactions.");
+        if (r.Succeeded)
+        {
+            _reportRow = null;
+            await OnChanged.InvokeAsync();
+        }
+    }
 
     private static string HistoryRowClass(PatientProductHistoryRowDto h)
     {

@@ -2917,6 +2917,80 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(inv.RemainderQuarantined);
     }
 
+    // TEST-BB-402: a reaction noticed after the transfusion was documented without one opens an investigation, marks
+    // the transfusion (audited with its earlier value), and is refused when it cannot be valid.
+    [Fact]
+    public async Task LateReactionReport_OpensAnInvestigation_AndMarksTheTransfusion()
+    {
+        var s = await SeedAsync("RXNLATE");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+            {
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-10), LateEntryReason = "Entered after the shift"
+            });
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+        }
+
+        ReactionInvestigationService Reactions(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+            new(new EfRepository<ReactionInvestigation>(c), new EfRepository<TransfusionEvent>(c), new InventoryRepository(c),
+                c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+                permissions: permissions ?? new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument));
+
+        await using (var c = _factory.Create())
+        {
+            // Not yet transfused: nothing to report against.
+            var early = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever"));
+            Assert.Contains("Document the transfusion first", early.Error);
+
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+            var tx = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s, TransfusionDisposition.Completed) with
+            {
+                StartUtc = _factory.Clock.UtcNow.AddHours(-8),
+                StopUtc = _factory.Clock.UtcNow.AddHours(-6)
+            });
+            Assert.True(tx.Succeeded, tx.Error ?? string.Join("; ", tx.Evaluation?.HardStops.Select(r => r.Code + " " + r.Message) ?? []));
+            Assert.False(await c.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var noRole = await Reactions(c, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
+                .ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever and chills"));
+            Assert.Contains(LateReactionReportRule.Code, noRole.Error);
+            var blank = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, " "));
+            Assert.Contains("Describe the reaction", blank.Error);
+            var beforeStart = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever", _factory.Clock.UtcNow.AddHours(-9)));
+            Assert.Contains("before the transfusion started", beforeStart.Error);
+            var future = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever", _factory.Clock.UtcNow.AddHours(2)));
+            Assert.Contains("in the future", future.Error);
+            Assert.False(await c.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+
+            var reported = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(
+                issueId, "Fever 39.2 C and chills; reported by RN Lee", _factory.Clock.UtcNow.AddHours(-2), "FNHTR"));
+            Assert.True(reported.Succeeded, reported.Error);
+            Assert.True(reported.Value!.ReportedAfterTransfusion);
+            Assert.Equal(_factory.Clock.UtcNow.AddHours(-2), reported.Value.OnsetUtc);
+            Assert.StartsWith("Reported after the transfusion:", reported.Value.Findings);
+
+            var again = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Still febrile"));
+            Assert.Contains($"investigation {reported.Value.Id} is already open", again.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var transfusion = await verify.TransfusionEvents.SingleAsync(t => t.IssueId == issueId);
+        Assert.True(transfusion.ReactionSuspected);
+        var flagAudit = await verify.AuditEvents.SingleAsync(a => a.EntityType == nameof(TransfusionEvent) && a.EntityId == transfusion.Id
+            && a.Reason == "Reaction reported after the transfusion was documented.");
+        Assert.Contains("\"ReactionSuspected\":false", flagAudit.OldValueJson);
+        Assert.Single(await verify.ReactionInvestigations.Where(r => r.TransfusionEventId == transfusion.Id).ToListAsync());
+    }
+
     [Fact]
     public async Task CloseInvestigation_WithoutWorkup_Fails()
     {

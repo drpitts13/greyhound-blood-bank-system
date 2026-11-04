@@ -410,7 +410,7 @@ else
 
     @if (_tab == "history")
     {
-        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" Busy="_busy" Feedback="_allocFb" />
+        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" Busy="_busy" Feedback="_allocFb" OnChanged="LoadProductHistoryAsync" />
     }
 
     @if (_autoThawRow is not null)
