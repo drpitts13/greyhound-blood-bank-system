@@ -11037,3 +11037,39 @@ The first commit of this cycle (ef9205c) emptied `docs/validation/TEST_CATALOG.m
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same kind of coverage test for the exception catalog (every overridable rule code the issue gate can emit has an exception definition seeded), since an override with no definition is refused at the bedside.
+
+## Iteration 350 — Every checked override has a seeded exception definition (2026-11-03)
+
+### Capability matrix rescan
+
+No change since Cycle 349.
+
+### Finding
+
+An override that checks the exception catalog (`ExceptionOverridePolicy.EvaluateAccess`) is refused with `EXC-DEF-MISSING` when no active definition exists, so the workflow stops at the bench. Eight calls in `src` check five codes:
+
+- antigen-negative (`ISS-ANTIGEN-NEG`): issue, allocation, and the compatibility screen
+- antibody-history crossmatch: orders and allocation
+- ABO/Rh delta
+- specimen expiration override
+- retrospective crossmatch on an expired pre-transfusion specimen (Cycle 322)
+
+All five are seeded active and overridable today, so there is no live gap. Nothing would catch the next override path added without a seeded definition.
+
+### Design
+
+TEST-BB-389:
+
+- Scans every `.cs` file in `src` for `ExceptionOverridePolicy.EvaluateAccess(…, …, Type.Constant)`.
+- Resolves each constant through the Domain assembly by reflection.
+- Seeds a fresh database and asserts each code has an active, overridable definition.
+- A sanity test asserts the scan finds the known paths, so a regex that stopped matching cannot pass silently.
+
+### Tests
+
+- TEST-BB-389 (2 tests). It was confirmed to fail with the antigen-negative definition temporarily seeded as not overridable, and the seeder was restored with no diff.
+- Full suite: 3,571 passed, 0 failed (previously 3,569).
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same seeded-coverage check for facility policy keys (every `FacilityPolicyKeys` constant read by a service is listed in the facility policy admin catalog with its default), so no setting is invisible to administrators.

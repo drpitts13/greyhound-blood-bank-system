@@ -397,5 +397,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-386 | D / I | `EmergencyPreSpecimenRuleTests.OnlyGroupORedCellsAndAbOrAPlasma`, `Applies_OnlyToEmergency_WithNoUsableSpecimen`, `Gate_EmergencyGroupORedCells_WithoutSpecimen_IsAnOverridableWarning_ThatSaysToCollectOne`, `Gate_EmergencyGroupARedCells_WithoutSpecimen_IsAHardStop`, `Gate_RoutineIssue_WithoutSpecimen_StaysAHardStop`, `Gate_Emergency_WithAnotherPatientsSpecimen_StaysAHardStop`, `Gate_Emergency_WithAnExpiredSpecimen_UsesThePreSpecimenRule`; `Phase4IssuingTests.EmergencyRelease_WithAnExpiredSpecimen_GroupORedCells_IssuesUnderOverride` | URS-BB-484 / FRS-BB-525 / RISK-BB-582 / OCD-053 |
 | TEST-BB-387 | I | `Phase4IssuingTests.ReadyToIssue_ExpiredSpecimen_OffersEmergencyOnlyForGroupORedCells` | URS-BB-484 / FRS-BB-526 / RISK-BB-582 |
 | TEST-BB-388 | D | `AlertHelpCoverageTests.EverySource_HasAHelpName_AndIsDescribedOnTheAlertsPage`, `ThePageCount_MatchesTheSources` | Alerts help / `AlertRule.HelpName` |
+| TEST-BB-389 | I | `ExceptionDefinitionCoverageTests.TheScan_FindsTheKnownOverridePaths`, `EveryCheckedCode_HasAnActiveOverridableSeededDefinition` | Exception catalog / `ExceptionOverridePolicy` |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
