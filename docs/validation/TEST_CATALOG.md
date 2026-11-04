@@ -406,5 +406,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-395 | D / I | `DowntimeBackEntryRuleTests.ReceiptTime_IsRequired_NotBeforeTheIssue_AndNotInTheFuture`; `Phase4IssuingTests.DowntimeBackEntry_WardReceiptAndTransfusion_UseThePaperDin_InPlaceOfTheScan` (In transit row, receipt time checks, stamped time, audit) | URS-BB-486 / FRS-BB-532 / RISK-BB-584 / OCD-054 |
 | TEST-BB-396 | I | `DowntimeReconciliationTests.GetSnapshot_CountsOpenWorkAndReportsChain` (back-entered issues: open without receipt, open with receipt, transfused) | URS-BB-486 / FRS-BB-533 / OCD-054 |
 | TEST-BB-397 | A | `FacilityPolicyDefaultsCoverageTests.EveryKey_IsInTheCatalog_UnlessRetired`, `EveryGetter_ReadsACatalogKey_AndUsesTheCatalogDefault` | URS-BB-488 / FRS-BB-534 / RISK-BB-585 / OCD-008 |
+| TEST-BB-398 | I | `FacilityPolicyStorageTests.Seeding_AnUpgradedDatabase_StoresEveryMissingPolicy_AtItsDefault_WithHistory`, `Seeding_Twice_AddsNothingMore` | URS-BB-488 / FRS-BB-535 / RISK-BB-585 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

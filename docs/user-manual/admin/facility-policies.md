@@ -12,7 +12,7 @@ routes:
 
 **Facility Policy** holds the parameters that drive clinical behavior: how long a specimen is valid, when a second person must verify, whether electronic crossmatch is allowed, how inventory receipt works, and how long records are retained. The page groups them by category. Filter by name, key, or citation.
 
-Each row shows the current value and the citation the parameter was written against. A parameter that has never been saved uses the default shown here; the system uses the same default. **Require second verifier at issue** defaults to on: a facility that does not require one turns it off here with a reason. Select the row to edit. Boolean parameters are true or false. Numeric parameters show the allowed range. A value outside the range is rejected. Every save requires a reason.
+Each row shows the current value and the citation the parameter was written against. When the system starts, any parameter the database does not have yet is stored at the default shown here, and Configuration History records it as added by the system. A value your facility has already saved is never changed. **Require second verifier at issue** defaults to on: a facility that does not require one turns it off here with a reason. Select the row to edit. Boolean parameters are true or false. Numeric parameters show the allowed range. A value outside the range is rejected. Every save requires a reason.
 
 > Facility policy. Electronic crossmatch stays off until you set the policy that allows it. Turning it on does not by itself make any patient eligible. Antibody history, open workups, and the minimums in Crossmatch Settings still apply.
 

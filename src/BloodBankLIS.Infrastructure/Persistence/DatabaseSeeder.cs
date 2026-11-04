@@ -39,6 +39,7 @@ public static partial class DatabaseSeeder
         await EnsureRequireSecondAboForCellularIssuePolicyAsync(context, cancellationToken);
         await EnsureUncrossmatchedIssuePoliciesAsync(context, cancellationToken);
         await EnsureAntibodyIdentificationPoliciesAsync(context, cancellationToken);
+        await EnsureCatalogPoliciesStoredAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
@@ -395,6 +396,46 @@ public static partial class DatabaseSeeder
                 Category = "Issue",
                 Description = "Inclusive upper age treated as childbearing potential when applying uncrossmatched RhD policy."
             });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Stores every Facility Policies setting that an existing database does not have yet, at its catalog default, with
+    /// a configuration-history row. The settings seed above only runs on an empty table, so a database upgraded from
+    /// before a setting existed would otherwise run on a default in code that nobody can see or audit (Cycle 359).
+    /// Code defaults equal catalog defaults (TEST-BB-397), so storing them changes no behavior.
+    /// </summary>
+    private static async Task EnsureCatalogPoliciesStoredAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var stored = (await context.SystemSettings.Select(s => s.Key).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
+        var missing = FacilityPolicyCatalog.All.Where(d => !stored.Contains(d.Key)).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        var added = missing.Select(d => new SystemSetting
+        {
+            Key = d.Key,
+            Value = d.DefaultValue,
+            Category = d.Category,
+            Description = d.Description
+        }).ToList();
+        context.SystemSettings.AddRange(added);
+        await context.SaveChangesAsync(ct);
+
+        var now = DateTime.UtcNow;
+        context.ConfigurationChangeHistory.AddRange(added.Select(row => new Domain.Audit.ConfigurationChangeHistory
+        {
+            EntityType = nameof(SystemSetting),
+            EntityId = row.Id,
+            Version = 1,
+            Action = ConfigChangeAction.Create,
+            NewValueJson = System.Text.Json.JsonSerializer.Serialize(new { row.Key, row.Value, row.Category }),
+            ChangeReason = "Facility policy was not stored; added at its Facility Policies default, which the system was already using.",
+            ChangedBy = "system",
+            ChangedUtc = now
+        }));
         await context.SaveChangesAsync(ct);
     }
 

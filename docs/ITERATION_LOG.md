@@ -11428,3 +11428,44 @@ A coverage check of facility policy keys against the Facility Policies catalog f
 ### Next ranked residual
 
 The same drift exists for settings the seeder never adds to an existing database. Consider a startup step that adds any catalog key missing from SystemSettings with its catalog default, recorded in configuration history, so the stored value is always visible and auditable.
+
+## Iteration 359 — Missing facility policies are stored at startup (2026-11-04)
+
+### Capability matrix rescan
+
+No change since Cycle 358 apart from this cycle's row (administration).
+
+### Finding (question 7)
+
+The settings seed runs only when the settings table is empty, so an upgraded database lacks every setting added since it was created. Cycle 358 made each code default equal its catalog default, but the stored value still did not exist:
+
+- nothing showed when it took effect
+- no configuration history recorded it
+- only a few settings had their own one-off "ensure" step
+
+### Design
+
+- **`DatabaseSeeder.EnsureCatalogPoliciesStoredAsync`** runs after the existing per-setting steps. For every `FacilityPolicyCatalog` entry with no row, it adds one at the catalog default, with the catalog's category and description.
+- **History:** each added row gets a Create entry in `ConfigurationChangeHistory`, by `system`, with the reason "Facility policy was not stored; added at its Facility Policies default, which the system was already using".
+- **Safety:** values already stored are never changed, and the step is idempotent. It changes no behavior, because code defaults equal catalog defaults (TEST-BB-397).
+
+### Requirements
+
+- FRS-BB-535 (under URS-BB-488 and RISK-BB-585). Help: Facility Policies page.
+
+### Tests
+
+- TEST-BB-398:
+  - on a database whose settings table already has facility choices, seeding stores every catalog key
+  - existing values stay (second verifier off, in-transit hours 6)
+  - a newly stored key has the catalog default and a system Create history row; a kept key gets none
+  - a second seed adds no settings and no history
+- Full suite: 3,622 passed, 0 failed.
+
+### Next ranked residual
+
+Rescan the capability matrix. The remaining Partial rows are:
+- ISBT identifiers: waits on a licensed ICCBBA extract (OCD-004)
+- HL7 and interfaces
+
+In the interfaces area, check whether instrument and HL7 error queues offer a next action for every error type, with a reason recorded on resolve.
