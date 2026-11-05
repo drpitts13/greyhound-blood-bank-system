@@ -706,6 +706,9 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.True(handoff.Value.PendingTests >= handoff.Value.PendingTestsVerifyBeforeExpiry);
         Assert.Equal(handoff.Value.PendingTestsVerifyBeforeExpiry,
             BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).PendingTestsVerifyBeforeExpiry);
+        // TEST-BB-429: the entered result is also counted as waiting for verification.
+        Assert.True(handoff.Value.ResultsAwaitingVerification >= 1);
+        Assert.Contains("to verify", BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).QueueSummary);
     }
 
     [Fact]

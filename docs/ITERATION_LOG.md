@@ -12948,3 +12948,46 @@ With Cycle 391 the bench says Verify on waiting results, but the verifying techn
 ### Next ranked residual (testing desk)
 
 Bulk verification of plain negative results by a second technologist needs a medical director decision first. Next is to rescan the other desks.
+
+## Iteration 393 — The shift handoff carries the new queues (2026-11-05)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Cycles 385–392 made three operational states visible on the desks. The shift handoff, the packet the next shift acknowledges, counted none of them:
+- results entered and waiting for a second person to verify
+- reservations past their end time
+- units near expiry, and how many are reserved
+
+The incoming shift would learn about them only by opening each desk (question 2).
+
+### Design
+
+- **`ShiftHandoff`:** gains `ResultsAwaitingVerification`, `ReservationsLapsed`, `NearExpiryUnits`, `NearExpiryReserved`. They come from:
+  - the pending test list (`AwaitsVerification`)
+  - Ready to issue (`ReservationLapsed`)
+  - the Near expiry board
+  They are recorded in the audit snapshot.
+- **`ShiftHandoffService`:** takes `InventoryService` (optional) for the near-expiry count.
+- **Schema:** migration `20261113000000_ShiftHandoffVerifyReserveExpiry` and the bootstrap columns.
+- **`ShiftHandoffDto.QueueSummary`:** the one-line summary moved from the page so it can be tested. It adds "N to verify", "N past reservation", and "near expiry N, M reserved", each only when above zero.
+
+### Requirements
+
+- URS-BB-500, FRS-BB-568, SRS-BB-455. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-429:
+  - the summary is silent at zero and names each count
+  - a handoff with an entered result counts it as waiting for verification, and the line says "to verify"
+  - a handoff recorded while a reservation is past its end counts it
+- Full suite: 3,708 passed, 0 failed.
+- Run check (development API and web):
+  - the bootstrap added the four columns (the handoff query reads them)
+  - `api/shift-handoffs` and the Shift handoff page load with the new dependency
+  - no server errors
+  - no handoff was recorded, to keep the demo free of an unacknowledged handoff; the counts are covered by the integration tests
+
+### Next ranked residual
+
+Rescan: downtime snapshot parity with the handoff (results to verify, lapsed reservations), or the specimen desk.

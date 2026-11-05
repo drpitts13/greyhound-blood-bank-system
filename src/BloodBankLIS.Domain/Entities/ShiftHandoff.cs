@@ -50,6 +50,17 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Pending results whose specimen expires within the near-expiry window, so they must be verified first.</summary>
     public int PendingTestsVerifyBeforeExpiry { get; set; }
 
+    /// <summary>Pending results already entered and waiting for a second person to verify them.</summary>
+    public int ResultsAwaitingVerification { get; set; }
+
+    /// <summary>Reservations past their own end time, still holding a unit for a patient.</summary>
+    public int ReservationsLapsed { get; set; }
+
+    /// <summary>Units inside the near-expiry window, and how many of them are reserved for a patient.</summary>
+    public int NearExpiryUnits { get; set; }
+
+    public int NearExpiryReserved { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

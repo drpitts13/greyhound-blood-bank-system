@@ -2930,6 +2930,13 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(_factory.Clock.UtcNow.AddHours(-2), row.ReservationExpiresUtc);
             Assert.True(ReadyToIssueAttentionRule.ReservationLapsed(row, _factory.Clock.UtcNow));
 
+            // TEST-BB-429: the shift handoff counts it until it is released.
+            var handoff = await new ShiftHandoffService(
+                    new EfRepository<ShiftHandoff>(c), c, _factory.Clock, _factory.CurrentUser, issuing: Issuing(c))
+                .CreateAsync(new CreateShiftHandoffRequest("Night shift: one reservation past its end"));
+            Assert.True(handoff.Succeeded, handoff.Error);
+            Assert.True(handoff.Value!.ReservationsLapsed >= 1);
+
             var noReason = await Compatibility(c).ReleaseAllocationAsync(allocationId, " ");
             Assert.False(noReason.Succeeded);
             var released = await Compatibility(c).ReleaseAllocationAsync(allocationId, "Reservation ended, transfusion not needed");

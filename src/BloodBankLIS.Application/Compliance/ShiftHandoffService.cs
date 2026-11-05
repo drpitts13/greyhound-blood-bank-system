@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
@@ -33,9 +34,34 @@ public sealed record ShiftHandoffDto(
     int TransfusionsRunning = 0,
     int TransfusionsCompletionOverdue = 0,
     int RetrospectiveIncompatible = 0,
-    int PendingTestsVerifyBeforeExpiry = 0)
+    int PendingTestsVerifyBeforeExpiry = 0,
+    int ResultsAwaitingVerification = 0,
+    int ReservationsLapsed = 0,
+    int NearExpiryUnits = 0,
+    int NearExpiryReserved = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
+
+    /// <summary>One line for the handoff list: safety items first, then each queue with what needs attention.</summary>
+    public string QueueSummary =>
+        (ActiveMtp > 0 ? $"MASSIVE TRANSFUSION ACTIVE: {ActiveMtp}; " : "") +
+        (RetrospectiveIncompatible > 0 ? $"INCOMPATIBLE AFTER RELEASE: {RetrospectiveIncompatible}; " : "") +
+        (TransfusionsRunning > 0
+            ? $"transfusing {TransfusionsRunning}" + (TransfusionsCompletionOverdue > 0 ? $", {TransfusionsCompletionOverdue} completion overdue" : "") + "; "
+            : "") +
+        $"Retro {RetrospectiveDue}" +
+        (RetrospectiveOverdue > 0 ? $", {RetrospectiveOverdue} overdue" : "") +
+        $"; issued {OutstandingIssued}; transit {InTransit}" +
+        (InTransitOverdue > 0 ? $", {InTransitOverdue} overdue" : "") +
+        (ReservationsLapsed > 0 ? $"; {ReservationsLapsed} past reservation" : "") +
+        $"; tests {PendingTests}" +
+        (ResultsAwaitingVerification > 0 ? $", {ResultsAwaitingVerification} to verify" : "") +
+        (PendingTestsVerifyBeforeExpiry > 0 ? $", {PendingTestsVerifyBeforeExpiry} to verify before specimen expiry" : "") +
+        $"; specimens {PendingSpecimens}; reactions {OpenReactions}" +
+        (FatalityFollowUpDue > 0 ? $", {FatalityFollowUpDue} fatality follow-up" : "") +
+        (NearExpiryUnits > 0
+            ? $"; near expiry {NearExpiryUnits}" + (NearExpiryReserved > 0 ? $", {NearExpiryReserved} reserved" : "")
+            : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
@@ -43,7 +69,8 @@ public sealed record ShiftHandoffDto(
         h.InTransit, h.InTransitOverdue, h.PendingTests, h.PendingSpecimens,
         h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc, h.ActiveMtp,
         h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible,
-        h.PendingTestsVerifyBeforeExpiry);
+        h.PendingTestsVerifyBeforeExpiry, h.ResultsAwaitingVerification, h.ReservationsLapsed,
+        h.NearExpiryUnits, h.NearExpiryReserved);
 }
 
 /// <summary>
@@ -64,6 +91,7 @@ public sealed class ShiftHandoffService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<User>? _users;
     private readonly IRepository<MtpActivation>? _mtpActivations;
+    private readonly InventoryService? _inventory;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -77,8 +105,10 @@ public sealed class ShiftHandoffService
         IAuditWriter? audit = null,
         IPermissionEvaluator? permissions = null,
         IRepository<User>? users = null,
-        IRepository<MtpActivation>? mtpActivations = null)
+        IRepository<MtpActivation>? mtpActivations = null,
+        InventoryService? inventory = null)
     {
+        _inventory = inventory;
         _users = users;
         _mtpActivations = mtpActivations;
         _handoffs = handoffs;
@@ -167,6 +197,13 @@ public sealed class ShiftHandoffService
         var reactions = _reactions is null
             ? Array.Empty<ReactionInvestigationDto>()
             : await _reactions.ListDtosAsync(ct);
+        var ready = _issuing is null
+            ? Array.Empty<ReadyToIssueWorkItemDto>()
+            : await _issuing.ListReadyToIssueAllocationsAsync(ct);
+        var nearExpiry = _inventory is null
+            ? Array.Empty<NearExpiryWorkItemDto>()
+            : await _inventory.ListNearExpiryAsync(ct);
+        var now = _clock.UtcNow;
 
         var row = new ShiftHandoff
         {
@@ -189,7 +226,11 @@ public sealed class ShiftHandoffService
             TransfusionsRunning = outstanding.Count(o => o.TransfusionStartedUtc is not null),
             TransfusionsCompletionOverdue = outstanding.Count(o => o.TransfusionCompletionOverdue),
             RetrospectiveIncompatible = retro.Count(r => r.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible),
-            PendingTestsVerifyBeforeExpiry = PendingTestAttentionRule.CountVerifyBeforeExpiry(pendingTests)
+            PendingTestsVerifyBeforeExpiry = PendingTestAttentionRule.CountVerifyBeforeExpiry(pendingTests),
+            ResultsAwaitingVerification = pendingTests.Count(t => t.AwaitsVerification),
+            ReservationsLapsed = ReadyToIssueAttentionRule.CountReservationLapsed(ready, now),
+            NearExpiryUnits = nearExpiry.Count,
+            NearExpiryReserved = nearExpiry.Count(u => u.IsReserved)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -257,7 +298,11 @@ public sealed class ShiftHandoffService
         row.TransfusionsRunning,
         row.TransfusionsCompletionOverdue,
         row.RetrospectiveIncompatible,
-        row.PendingTestsVerifyBeforeExpiry
+        row.PendingTestsVerifyBeforeExpiry,
+        row.ResultsAwaitingVerification,
+        row.ReservationsLapsed,
+        row.NearExpiryUnits,
+        row.NearExpiryReserved
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
