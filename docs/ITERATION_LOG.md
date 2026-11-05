@@ -12843,3 +12843,35 @@ Every unit goes through `AllocateAsync` and its checks as before. The auto-thaw 
 ### Next ranked residual (workflow lens)
 
 Give the MRN0022 product order a linked type-and-screen specimen in the demo data, so allocation runs can be shown, or add a UI test harness for chart state.
+
+## Iteration 390 — Demo data for reserving several units, and the Cycle 389 run checked live (2026-11-05)
+
+### Finding
+
+Cycle 389's reserve run could not be shown:
+- MRN0022's red-cell order (ORD0023) had no linked type-and-screen specimen, so the server refused allocation.
+- The available leukoreduced red cells in the demo stock were not retyped, which that product requires. They were correctly left off the compatible list, and they are the Retype board's demonstration units.
+
+### Design (demo data only)
+
+- **New databases:** ORD0023 is linked to the ACC0022 tube.
+- **Two of the scenario's own O+ leukoreduced red cells** (W0001230009207, …9208) are added, Available, retyped, in the main refrigerator.
+- **Existing databases:** `EnsureMultiUnitOrderSpecimenAsync` adds the link and the two units once. It is idempotent by order link and unit number.
+- The shared stock is unchanged, so the Retype board keeps its units.
+
+### Tests
+
+- The seeder tests count 65 units and assert that ORD0023 has a specimen link.
+- Full suite: 3,704 passed, 0 failed.
+- Run check (development API and web, MRN0022, Products → Allocate unit):
+  - ORD0023 (ACC0022) chosen, W0001230009207 typed and selected with Enter, Reserve unit
+  - "Unit allocated; XM attached to the product order."
+  - the panel stayed open on ORD0023 with "Reserved now for this order: W0001230009207", Reserve next unit, and Done
+  - W0001230009208 typed, Reserve next unit → "Reserved now for this order: W0001230009207, W0001230009208"
+  - both reservations were then released through the release endpoint with a reason, and both units are Available and offered again. The XM actions added to ORD0023 remain, as recorded work.
+  - no server errors
+- Cycle 389's requirement and traceability rows now note the live check.
+
+### Next ranked residual (workflow lens)
+
+Rescan the capability matrix for the next workflow gap (testing desk: result entry and verification clicks).

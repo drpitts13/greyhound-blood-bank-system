@@ -65,6 +65,9 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(2, await verify.Allocations.CountAsync(a => a.PatientId == multi.Id && a.Status == AllocationStatus.Reserved));
             Assert.Equal(2, await verify.Issues.CountAsync(i => i.PatientId == multi.Id && i.CoolerId == "Cooler M2" && i.WardReceivedUtc == null));
             Assert.Equal(2, await verify.Issues.CountAsync(i => i.PatientId == multi.Id && i.WardReceivedUtc != null && i.Status == IssueStatus.Issued));
+            // Its red-cell order uses the type-and-screen tube, so more units can be reserved in the demo.
+            var redCellOrder = await verify.Orders.SingleAsync(o => o.OrderNumber == "ORD0023");
+            Assert.True(await verify.OrderSpecimens.AnyAsync(os => os.OrderId == redCellOrder.Id));
 
             // Demo MTP: one active protocol, four units issued under it, all in one recorded pack.
             var mtp = await verify.MtpActivations.SingleAsync();
@@ -112,7 +115,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // autologous + directed, lookback sibling, missing + damaged,
             // and two expected inbound packing-list units, plus the Helen BPAM unit,
             // plus two units assigned for unit antigen typing, plus four issued under the demo MTP.
-            Assert.Equal(63, await verify.BloodUnits.CountAsync());
+            Assert.Equal(65, await verify.BloodUnits.CountAsync());
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Expected));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123ASN0001" && u.ShipmentId == "ASN-DEMO-01"));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));

@@ -2781,6 +2781,7 @@ public static partial class DatabaseSeeder
     {
         if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0022", ct))
         {
+            await EnsureMultiUnitOrderSpecimenAsync(context, ct);
             return;
         }
 
@@ -2847,7 +2848,10 @@ public static partial class DatabaseSeeder
             new OrderLine { OrderId = screenOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type", TestCode = "ABORH", OrderType = OrderType.AboRh, ResultStatus = ResultStatus.Verified },
             new OrderLine { OrderId = screenOrder.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", OrderType = OrderType.AntibodyScreen, ResultStatus = ResultStatus.Verified },
             new OrderLine { OrderId = productOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = redCells.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered });
-        context.OrderSpecimens.Add(new OrderSpecimen { OrderId = screenOrder.Id, SpecimenId = visit.Specimen.Id, IsPrimary = true });
+        // The red-cell order uses the same tube, so more units can be reserved and crossmatched in the demo.
+        context.OrderSpecimens.AddRange(
+            new OrderSpecimen { OrderId = screenOrder.Id, SpecimenId = visit.Specimen.Id, IsPrimary = true },
+            new OrderSpecimen { OrderId = productOrder.Id, SpecimenId = visit.Specimen.Id, IsPrimary = true });
         context.TestResults.AddRange(
             VerifiedResult(visit, screenOrder.Id, "ABORH", AboRhResultValue.Format(AboGroup.O, RhType.Positive), now.AddHours(-4)),
             VerifiedResult(visit, screenOrder.Id, "ABSC", "Negative", now.AddHours(-4)));
@@ -2929,6 +2933,49 @@ public static partial class DatabaseSeeder
                 WardReceivedUtc = received ? issuedUtc.AddMinutes(12) : null,
                 WardReceivedBy = received ? "RN Demo" : null
             });
+        }
+
+        await context.SaveChangesAsync(ct);
+        await EnsureMultiUnitOrderSpecimenAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Databases seeded before these were added get, once: the red-cell order linked to the tube, and two retyped
+    /// O+ red cells in stock, so reserving several units for the order can be shown.
+    /// </summary>
+    private static async Task EnsureMultiUnitOrderSpecimenAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var order = await context.Orders.FirstOrDefaultAsync(o => o.OrderNumber == "ORD0023", ct);
+        var specimen = await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0022", ct);
+        if (order is null || specimen is null)
+        {
+            return;
+        }
+
+        if (!await context.OrderSpecimens.AnyAsync(os => os.OrderId == order.Id, ct))
+        {
+            context.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = specimen.Id, IsPrimary = true });
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (redCells is not null && fridge is not null
+            && !await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W0001230009207", ct))
+        {
+            var now = DateTime.UtcNow;
+            var stock = new[]
+            {
+                NewUnit(9207, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(25), 300m),
+                NewUnit(9208, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(26), 300m)
+            };
+            context.BloodUnits.AddRange(stock);
+            await context.SaveChangesAsync(ct);
+            var retypeTest = await context.TestDefinitions.FirstOrDefaultAsync(
+                t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct);
+            if (retypeTest is not null)
+            {
+                context.ProductRetypeResults.AddRange(stock.Select(u => VerifiedLabelRetype(u, retypeTest, now)));
+            }
         }
 
         await context.SaveChangesAsync(ct);
