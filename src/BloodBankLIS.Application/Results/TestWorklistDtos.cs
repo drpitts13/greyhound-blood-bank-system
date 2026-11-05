@@ -54,8 +54,30 @@ public sealed record TestWorkItemDto(
 
     public string BenchActionLabel =>
         CanEnterResults
-            ? HasPostedInterfaceOrInstrumentValue ? "Verify" : "Enter"
+            ? HasPostedInterfaceOrInstrumentValue || AwaitsVerification ? "Verify" : "Enter"
             : "Blocked";
+
+    /// <summary>A result is on the line and waiting for verification, whoever or whatever entered it.</summary>
+    public bool AwaitsVerification =>
+        CurrentResultId is > 0
+        && CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected;
+
+    /// <summary>
+    /// The bench button for this user: Review instead of Verify when this user entered the ABO/Rh and may not verify
+    /// it themselves.
+    /// </summary>
+    public string BenchActionLabelFor(string? userName) =>
+        BenchActionLabel == "Verify" && IsAboSelfVerifyBlocked(userName) ? "Review" : BenchActionLabel;
+
+    /// <summary>Where the waiting value came from, for the verify prompt.</summary>
+    public string AwaitingValueOrigin => CurrentResultSource switch
+    {
+        ResultSource.Interface => "The interface value",
+        ResultSource.Instrument => "The instrument value",
+        _ => string.IsNullOrWhiteSpace(CurrentResultEnteredBy)
+            ? "The entered value"
+            : $"The value entered by {CurrentResultEnteredBy}"
+    };
 
     public bool IsAboSelfVerifyBlocked(string? userName) =>
         BlockAboSelfVerify

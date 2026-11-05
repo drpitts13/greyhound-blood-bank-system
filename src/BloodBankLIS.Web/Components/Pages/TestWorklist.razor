@@ -5,7 +5,7 @@
 <PageTitle>Test Worklist &middot; HemoCore</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests. Expand a row to enter results, or Verify a posted instrument value without re-keying it.</p>
+<p class="muted">Pending patient tests. Expand a row to enter results, or Verify a value already entered (by a colleague, the instrument, or the interface) without re-keying it.</p>
 <details class="bb-help">
     <summary>About this worklist</summary>
     <ul>
@@ -145,7 +145,7 @@
                                 <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                             }
                             <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => ToggleEntry(item.OrderLineId)">
-                                @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
+                                @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabelFor(Session.UserName))
                             </button>
                         </td>
                     </tr>

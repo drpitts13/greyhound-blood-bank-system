@@ -1,3 +1,4 @@
+@inject UserSession Session
 <div class="bb-card">
     <div class="bb-card-title">
         <h3>Test results</h3>
@@ -113,7 +114,7 @@
                                     <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                                 }
                                 <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => OnToggleEntry.InvokeAsync(item.OrderLineId)">
-                                    @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
+                                    @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabelFor(Session.UserName))
                                 </button>
                             </div>
                         </td>

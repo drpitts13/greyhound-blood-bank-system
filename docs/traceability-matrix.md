@@ -560,6 +560,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-496 / FRS-BB-562 | Near-expiry rows offer issue or allocation | `IssueRun.ForNearExpiry` | TEST-BB-424 | D | |
 | URS-BB-497 / FRS-BB-563 | Lapsed reservations shown and released from Ready to issue | `ReadyToIssueAttentionRule.ReservationLapsed`; `CompatibilityService.ReleaseAllocationAsync` | TEST-BB-425 | D / I | |
 | URS-BB-498 / FRS-BB-564 | Open product orders beside minimum stock | `MinimumStockService`; `MinimumStockRule.OpenOrdersExceedOnHand` | TEST-BB-426 | D / I | |
+| URS-BB-499 / FRS-BB-566 | Entered results say Verify on the bench | `TestWorkItemDto.BenchActionLabelFor` | TEST-BB-427 | D | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

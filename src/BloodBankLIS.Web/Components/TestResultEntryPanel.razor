@@ -43,9 +43,9 @@
         @if (CanVerifyPostedResult)
         {
             <div class="flex gap" style="margin-bottom:.75rem;">
-                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyPostedAsync">Verify posted result</button>
+                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyPostedAsync">Verify @(WorkItem.HasPostedInterfaceOrInstrumentValue ? "posted result" : "entered result")</button>
             </div>
-            <p class="muted">The interface or instrument value is already on the order. Verify it without re-keying unless you need to correct it.</p>
+            <p class="muted">@WorkItem.AwaitingValueOrigin is already on the order. Verify it without re-keying unless you need to correct it.</p>
         }
         else if (WorkItem.IsAboSelfVerifyBlocked(Session.UserName))
         {

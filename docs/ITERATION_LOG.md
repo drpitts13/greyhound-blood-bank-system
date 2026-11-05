@@ -12875,3 +12875,42 @@ Cycle 389's reserve run could not be shown:
 ### Next ranked residual (workflow lens)
 
 Rescan the capability matrix for the next workflow gap (testing desk: result entry and verification clicks).
+
+## Iteration 391 — Entered results say Verify on the bench (2026-11-05)
+
+### Capability matrix rescan (testing desk, live)
+
+On the test worklist, a DAT entered manually by tech1 and waiting since the evening (Febrile, Marcus) read "Entered · Negative · Source: Manual", with an **Enter** button. Untested lines read Enter too, while an interface value read Verify. The second technologist doing verification could not tell the rows waiting for them from the untouched ones without opening each (questions 1, 2, 5). Inside, the verify prompt called the manual value "the interface or instrument value".
+
+### Design
+
+- **`TestWorkItemDto.AwaitsVerification`:** a result on the line that is Entered, PendingVerification, or Corrected.
+- **`BenchActionLabel`:**
+  - Verify for those, from any source
+  - Enter for none
+  - Blocked when entry is blocked
+- **`BenchActionLabelFor(user)`:** Review for the enterer of an ABO/Rh they may not verify. The worklist and the chart Tests tab use it.
+- **`AwaitingValueOrigin`:** "The value entered by tech1" / "The instrument value" / "The interface value". The panel button reads Verify entered result or Verify posted result.
+- Verification rules (self-verify, holds, expiry, deltas) are unchanged.
+
+### Requirements
+
+- URS-BB-499, FRS-BB-566. Help: test worklist.
+
+### Tests
+
+- TEST-BB-427:
+  - Enter for an empty line; Verify for a manual Entered or an interface PendingVerification result
+  - Enter for a Verified result; Blocked when blocked
+  - Review for the ABO/Rh enterer, Verify for others; the origin text
+- The existing interface-value and Blocked worklist tests are unchanged and pass.
+- Full suite: 3,706 passed, 0 failed.
+- Run check (development API and web):
+  - the MRN0006 DAT row now reads Verify
+  - opened, it shows "Verify entered result" and "The value entered by tech1 is already on the order."
+  - not pressed, so nothing changed
+  - no server errors
+
+### Next ranked residual (testing desk)
+
+A Verify filter or sort on the worklist ("waiting for me to verify"), and bulk verify of plain negative screens by a second technologist, if the medical director allows it (an OCD question before building).

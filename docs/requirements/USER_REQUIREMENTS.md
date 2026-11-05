@@ -504,3 +504,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-496 | Units nearing expiry are on the home screen of whoever handles inventory or issue, with the ones reserved for a patient called out. | P2 | FRS-BB-561, FRS-BB-562 |
 | URS-BB-497 | Units still held for a patient after their reservation has ended are visible and can be released back to stock from the issue desk, with a reason. | P2 | FRS-BB-563 |
 | URS-BB-498 | Minimum stock shows, beside each product's stock, how many open product orders are waiting for a unit, so staff see when demand outruns what is on the shelf. | P2 | FRS-BB-564 |
+| URS-BB-499 | On the test worklist and the chart Tests tab, a result already entered and waiting for verification is shown as Verify, whoever or whatever entered it, so the second technologist finds it without opening each row. | P2 | FRS-BB-566 |

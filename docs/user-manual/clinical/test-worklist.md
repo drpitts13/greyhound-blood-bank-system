@@ -18,9 +18,9 @@ The specimen side lists collected specimens waiting to be received and received 
 
 ## Enter a result
 
-Open the row, enter the values the test definition asks for, and save. Entry and verification are separate steps. You can enter a result you cannot verify. Another qualified person verifies it.
+Open the row, enter the values the test definition asks for, and save. Entry and verification are separate steps. You can enter a result you cannot verify. Another qualified person verifies it. A row whose result is already entered and waiting says **Verify**, whether a colleague, an instrument, or the interface entered it; open it and verify the value without re-keying it. The prompt says where the value came from.
 
-For patient ABO and Rh, the person who entered the result cannot verify it.
+For patient ABO and Rh, the person who entered the result cannot verify it; for them the row says **Review**.
 
 When you enter cell reactions for an ABO/Rh, a crossmatch, or a test made of subtests (such as the antibody screen), the interpretation fills in from the reactions as you go: the ABO and Rh(D) type, Compatible or Incompatible, or the panel interpretation. Check cells and phases left out of interpretation are not counted. A crossmatch is Incompatible as soon as any counted reaction is positive, and Compatible once every counted reaction is entered and negative. When the reactions are incomplete, mixed field, or match no single interpretation (an ABO discrepancy, for example), your current choice is left as it is and a note says so. Resolve a discrepancy before you save. Always check the interpretation before you save.
 
