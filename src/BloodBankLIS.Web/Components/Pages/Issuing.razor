@@ -942,6 +942,44 @@
         {
             <FactList Facts="@(new string?[] { _wardExpirationNotice, _wardUnitTypeNotice, _wardSpecimenNotice, _wardCrossmatchNotice, _wardIssuedToNotice, _wardCoolerNotice, _wardLocationNotice, _wardIssuedByNotice, _wardSecondVerifierNotice })" Style="margin-top:.75rem;">Receiving @if (!string.IsNullOrWhiteSpace(_wardProductName)) { <strong>@_wardProductName</strong> }</FactList>
         }
+        @if (_wardReceivedRun.Count > 0)
+        {
+            @* A cooler or several units for one patient: received by stays; each unit is still scanned and inspected. *@
+            <div class="bb-card" style="margin-top:1rem;" data-receipt-run>
+                <div class="bb-card-title"><h3>@(string.IsNullOrWhiteSpace(_wardRunCooler) ? "Received for this patient" : $"Cooler {_wardRunCooler}")</h3></div>
+                <table class="bb">
+                    <thead><tr><th>Unit</th><th>Product</th><th>Received by</th><th>Received</th></tr></thead>
+                    <tbody>
+                        @foreach (var done in _wardReceivedRun)
+                        {
+                            <tr>
+                                <td class="mono">@done.UnitNumber</td>
+                                <td>@done.ProductName</td>
+                                <td>@done.ReceivedBy</td>
+                                <td class="nowrap">@done.ReceivedLocal.ToString("HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (NextToReceive.Count > 0)
+                {
+                    <div style="margin-top:.5rem;"><strong>Still to receive (@NextToReceive.Count)</strong> <span class="muted">Received by stays filled in. Scan each unit and record its appearance.</span></div>
+                    <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                        @foreach (var next in NextToReceive)
+                        {
+                            var row = next;
+                            <button type="button" class="btn @(row == NextToReceive[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => ReceiveNext(row)">
+                                Receive next: <span class="mono">@row.UnitNumber</span> @row.ProductName
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="muted" style="margin-top:.5rem;">Every unit that went out with these has been received.</div>
+                }
+            </div>
+        }
         @if (!string.IsNullOrWhiteSpace(_wardReleaseReason))
         {
             <p class="muted">@_wardReleaseReason</p>
@@ -1291,6 +1329,41 @@
     private string? _txBackEntryDin;
     private readonly UnitScanModel _txScan = new();
     private readonly UnitScanModel _wardScan = new();
+
+    // Units received at the ward that went out together (same patient and cooler, or same destination without one).
+    private sealed record ReceivedInRun(long IssueId, string UnitNumber, string? ProductName, string ReceivedBy, DateTime ReceivedLocal);
+    private readonly List<ReceivedInRun> _wardReceivedRun = new();
+    private long _wardRunPatientId;
+    private string? _wardRunCooler;
+    private string? _wardRunDestination;
+
+    private IReadOnlyList<InTransitWorkItemDto> NextToReceive => _wardReceivedRun.Count == 0
+        ? []
+        : IssueRun.NextToReceive(_inTransitItems, _wardRunPatientId, _wardRunCooler, _wardRunDestination,
+            _wardReceivedRun.Select(r => r.IssueId).ToList());
+
+    private void AddToReceiptRun(InTransitWorkItemDto received, string receivedBy)
+    {
+        var sameRun = _wardReceivedRun.Count > 0
+            && received.PatientId == _wardRunPatientId
+            && string.Equals(received.CoolerId ?? string.Empty, _wardRunCooler ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        if (!sameRun)
+        {
+            _wardReceivedRun.Clear();
+            _wardRunPatientId = received.PatientId;
+            _wardRunCooler = string.IsNullOrWhiteSpace(received.CoolerId) ? null : received.CoolerId.Trim();
+            _wardRunDestination = received.IssuedToLocation;
+        }
+
+        _wardReceivedRun.Add(new ReceivedInRun(
+            received.IssueId, received.UnitNumber ?? $"#{received.BloodUnitId}", received.ProductName, receivedBy, DateTime.Now));
+    }
+
+    private void ReceiveNext(InTransitWorkItemDto row)
+    {
+        SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus);
+        _wardFb = null;
+    }
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<PatientDto> _patients = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
@@ -2058,6 +2131,8 @@
     private async Task RecordWardReceiptAsync()
     {
         _busy = true;
+        var receiving = _inTransitItems.FirstOrDefault(r => r.IssueId == _wardIssueId);
+        var receivedBy = string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy;
         var r = await Api.RecordWardReceiptAsync(_wardIssueId, new WardReceiptRequest(
             string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy,
             _wardAppearance == UnitAppearance.Acceptable,
@@ -2069,6 +2144,7 @@
         _wardFb = r.ToFeedback("Ward receipt recorded.");
         if (r.Succeeded)
         {
+            if (receiving is not null) AddToReceiptRun(receiving, receivedBy);
             _wardIssue = r.Value;
             _wardScan.Clear();
             _wardAppearance = null;

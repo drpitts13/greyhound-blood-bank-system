@@ -424,5 +424,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-413 | D / I | `UnitSpecialTestRuleTests.ACodeAndANegativeOrPositiveResult_AreRequired`, `TheSameResultTwice_IsRefused_AndAChange_NeedsAReason`; `UnitSpecialTestTests.Record_KeepsTheResult_AuditsIt_AndRefusesTheSameResultAgain`, `Correction_NeedsAReason_KeepsHistory_AndTheLatestResultCounts`, `Record_WithoutInventoryReceive_IsRefused` | URS-BB-493 / FRS-BB-551 / RISK-BB-589 |
 | TEST-BB-414 | I | `PatientAllocationTests.ListActive_ReservedUnitThatFailsALaterRequirement_SaysWhatItLacks` | URS-BB-493 / FRS-BB-552 / RISK-BB-589 |
 | TEST-BB-415 | D | `IssueRunTests.NextForPatient_OffersThatPatientsOtherReadyUnits_OldestReservationFirst`, `UnitsTheBoardWouldNotIssueRoutinely_AreNotOffered_ButCounted` | URS-BB-494 / FRS-BB-553 |
+| TEST-BB-416 | D | `IssueRunTests.NextToReceive_OffersTheRestOfTheSameCooler_ForThatPatient_EarliestFirst`, `NextToReceive_WithoutACooler_MatchesTheDestination_AndOnlyUncooledUnits` | URS-BB-494 / FRS-BB-554 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

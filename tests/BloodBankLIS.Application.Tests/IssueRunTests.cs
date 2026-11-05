@@ -48,4 +48,41 @@ public class IssueRunTests
         Assert.True(IssueRun.OffersRoutineIssue(ready[0]));
         Assert.All(ready.Skip(1), r => Assert.False(IssueRun.OffersRoutineIssue(r)));
     }
+
+    private static InTransitWorkItemDto Transit(long issueId, long patientId, string? cooler, string? destination, int minutes) =>
+        new(issueId, patientId, "MRN1", "Run, Pat", issueId, $"W{issueId:000}", "O+", false, null, null, false,
+            Start.AddMinutes(minutes), null, false, cooler, destination, IssueStatus.Issued, ProductName: "Red Blood Cells");
+
+    [Fact]
+    public void NextToReceive_OffersTheRestOfTheSameCooler_ForThatPatient_EarliestFirst()
+    {
+        var transit = new[]
+        {
+            Transit(1, 1, "C-7", "ICU", 0),
+            Transit(2, 1, "c-7 ", "ICU", 5),
+            Transit(3, 1, "C-7", "ICU", 2),
+            Transit(4, 1, "C-9", "ICU", 1),
+            Transit(5, 2, "C-7", "ICU", 1),
+            Transit(6, 1, "C-7", "ICU", 3) with { DowntimeBackEntry = true }
+        };
+
+        var next = IssueRun.NextToReceive(transit, patientId: 1, coolerId: "C-7", destination: "ICU", receivedIssueIds: [1]);
+
+        Assert.Equal([3L, 2L], next.Select(r => r.IssueId));
+    }
+
+    [Fact]
+    public void NextToReceive_WithoutACooler_MatchesTheDestination_AndOnlyUncooledUnits()
+    {
+        var transit = new[]
+        {
+            Transit(1, 1, null, "4 West", 0),
+            Transit(2, 1, null, "4 west", 1),
+            Transit(3, 1, null, "ICU", 2),
+            Transit(4, 1, "C-7", "4 West", 3)
+        };
+
+        Assert.Equal([2L], IssueRun.NextToReceive(transit, 1, null, "4 West", [1]).Select(r => r.IssueId));
+        Assert.Empty(IssueRun.NextToReceive(transit, 1, null, "4 West", [1, 2]));
+    }
 }

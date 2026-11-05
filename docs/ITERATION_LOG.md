@@ -12308,3 +12308,52 @@ After an issue the form also kept the old unit and its scan, so the next attempt
 ### Next ranked residual (workflow lens)
 
 Ward receipt and transfusion documentation for a cooler of several units: one scan of the cooler or patient to receive all units that went out together.
+
+## Iteration 377 — Receive a cooler at the ward unit after unit (2026-11-04)
+
+### Capability matrix rescan (workflow lens)
+
+Patient-product workflows: the issue side handles several units in a run (Cycle 376); ward receipt still went one unit at a time from the In transit board. No other change.
+
+### Finding (questions 1, 2, 5)
+
+A four-unit MTP cooler arriving at the trauma bay meant four trips:
+- back to In transit
+- find the next row of the same cooler
+- Receive
+
+The nurse had to remember which units of that cooler were already done. The development data has exactly that case: Cooler 1, four units for one patient.
+
+### Design
+
+- After a ward receipt is recorded, the form keeps **Received by**, as before. It now also shows what has been received from the cooler, or for that patient and destination when no cooler was recorded.
+- It offers **Receive next** for the units of the same shipment still in transit, earliest issued first.
+- `IssueRun.NextToReceive` holds the matching:
+  - same patient
+  - same cooler, ignoring case and spaces; or, without a cooler, same destination and only uncooled units
+  - not yet received
+  - not a downtime back-entry
+- Receive next only selects the unit. Scan and appearance are recorded per unit, and the receipt rules are unchanged. Another patient or cooler starts a new list.
+- No server or schema change.
+
+### Requirements
+
+- FRS-BB-554 (under URS-BB-494, extended). Help: issuing, ward receipt.
+
+### Tests
+
+- TEST-BB-416:
+  - the rest of the same cooler, for that patient only, earliest first, without back-entries or other coolers
+  - without a cooler, the same destination (ignoring case) and only uncooled units
+  - an empty list once all are received
+- Full suite: 3,687 passed, 0 failed.
+- Run check (development API and web):
+  - In transit lists Cooler 1 with four units for one patient
+  - Receive on the first opens the Ward receipt form, which names Cooler 1, with no list yet because nothing has been received
+  - no receipt was recorded, to keep the demo data
+  - no server errors
+  - the receive-then-next path is covered by the helper tests
+
+### Next ranked residual (workflow lens)
+
+Transfusion documentation for several units of one patient (MTP), the same way: keep the transfusionist and identifiers, and offer the next unit received at the bedside.
