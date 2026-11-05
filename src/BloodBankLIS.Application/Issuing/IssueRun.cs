@@ -85,6 +85,31 @@ public static class IssueRun
             .ThenBy(r => r.UnitNumber, StringComparer.Ordinal)
             .ToList();
 
+    /// <summary>
+    /// A unit picked or scanned on the Issue form. When it is reserved for the patient on the form, or the form has no
+    /// patient yet, the reservation fills the patient (<c>Fill</c>). When it is reserved for someone else, the form is
+    /// left alone and <c>Notice</c> says whose it is; the issue gate refuses it anyway.
+    /// </summary>
+    public static (ReadyToIssueWorkItemDto? Fill, string? Notice) ForPickedUnit(
+        IEnumerable<ReadyToIssueWorkItemDto> ready,
+        long? unitId,
+        long patientOnForm)
+    {
+        if (unitId is null || ready.FirstOrDefault(r => r.BloodUnitId == unitId) is not { } row)
+        {
+            return (null, null);
+        }
+
+        if (patientOnForm <= 0 || patientOnForm == row.PatientId)
+        {
+            return (row, null);
+        }
+
+        var who = string.IsNullOrWhiteSpace(row.PatientDisplayName) ? $"patient {row.PatientId}" : row.PatientDisplayName;
+        var mrn = string.IsNullOrWhiteSpace(row.MedicalRecordNumber) ? string.Empty : $" ({row.MedicalRecordNumber})";
+        return (null, $"Unit {row.UnitNumber} is reserved for {who}{mrn}, not the patient on this form.");
+    }
+
     private static bool SameText(string? a, string? b) =>
         string.Equals((a ?? string.Empty).Trim(), (b ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
 }

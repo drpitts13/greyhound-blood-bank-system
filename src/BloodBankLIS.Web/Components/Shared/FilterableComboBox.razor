@@ -8,6 +8,7 @@
            placeholder="@Placeholder"
            autocomplete="off"
            @oninput="OnInput"
+           @onkeydown="OnKeyDownAsync"
            @onfocus="Open" />
     @if (_open && (_showClearOption || Filtered.Any()))
     {
@@ -127,6 +128,21 @@
         await ValueChanged.InvokeAsync(default);
         _suppressSync = false;
         _open = false;
+    }
+
+    /// <summary>
+    /// A barcode scanner types the number and sends Enter: commit the typed selection then, the same way leaving the
+    /// field does, instead of waiting for the focus to move.
+    /// </summary>
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is not ("Enter" or "NumpadEnter"))
+        {
+            return;
+        }
+
+        _open = false;
+        await TryCommitTypedSelectionAsync();
     }
 
     private async Task OnFocusOutAsync()

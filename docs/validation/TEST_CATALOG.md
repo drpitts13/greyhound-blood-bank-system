@@ -427,5 +427,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-416 | D | `IssueRunTests.NextToReceive_OffersTheRestOfTheSameCooler_ForThatPatient_EarliestFirst`, `NextToReceive_WithoutACooler_MatchesTheDestination_AndOnlyUncooledUnits` | URS-BB-494 / FRS-BB-554 |
 | TEST-BB-417 | D / I | `Hl7BpsBuilderTests.Dispensed_SendsBpsO29_WithTheUnitTheOrderAndWhereItWent`, `Returned_SendsReturnedUnused_WithoutADestination_AndWithoutAnOrderUsesTheIssue`, `TheDispenseStatus_CanBeTranslatedForASite`; `Phase4IssuingTests.IssueAndReturn_QueueADispenseMessage_OnlyWithAnEnabledBloodProductInterface` | URS-BB-495 / FRS-BB-555 |
 | TEST-BB-418 | D | `IssueRunTests.NextAtBedside_PutsUnitsStillTransfusingFirst_ThenReceivedOnes_ForThatPatientOnly` | URS-BB-494 / FRS-BB-556 |
+| TEST-BB-419 | D | `IssueRunTests.APickedUnit_FillsItsReservedPatient_OrSaysWhoseItIs` | URS-BB-494 / FRS-BB-557 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -12490,3 +12490,40 @@ The receipt and bedside lists also appeared only after the first action. A nurse
 ### Next ranked residual (workflow lens)
 
 Scan-to-select on these desks: scanning a unit's DIN on Issue, Ward receipt, or Transfusion, without a selected unit, picks it from the board and fills the form (question 4).
+
+## Iteration 381 — Scan and Enter selects; a scanned unit brings its patient (2026-11-04)
+
+### Capability matrix rescan (workflow lens, question 4)
+
+- Ward receipt and Transfusion already took a typed or scanned unit number and selected the issue.
+- Ready to issue rows filled the Issue form.
+- On the Issue form, picking a unit left the patient blank, though the reservation names it.
+- Live, a scanned DIN and its Enter did not select anything: the pick list committed only when focus left the field, and Enter landed on the "—" clear row.
+
+### Design
+
+- **`FilterableComboBox`, shared by every pick list:** Enter or NumpadEnter commits the typed text the same way leaving the field does, an exact match or the only partial match, and closes the list. A scanner's trailing Enter now selects the unit or patient. The enter-to-next-field script is untouched; it applies only to `data-enter-step` inputs.
+- **Issue form unit picked or scanned:** `IssueRun.ForPickedUnit` checks Ready to issue:
+  - reserved for the patient on the form, or the form has no patient: fill the patient, as the board's Issue does. Identifiers already typed for that same patient stay.
+  - reserved for another patient: leave the form and say "Unit … is reserved for Name (MRN), not the patient on this form." The gate still refuses it.
+  - not reserved: nothing changes, for example emergency release.
+- **Patient changed after the unit:** the notice is re-checked.
+- Downtime back-entry is left alone.
+
+### Requirements
+
+- FRS-BB-557 (under URS-BB-494). Help: issuing.
+
+### Tests
+
+- TEST-BB-419: fills for no patient and the same patient; names the other patient; nothing for an unreserved or empty unit.
+- Full suite: 3,693 passed, 0 failed.
+- Run check (development API and web, demo patient MRN0022):
+  - on the empty Issue form, typing W0001230009201 and pressing Enter selected the unit, filled "Demo-Multi, Riley (MRN0022)", and offered the next ready unit
+  - choosing MRN0001 by typing and Enter showed "Unit W0001230009201 is reserved for Demo-Multi, Riley (MRN0022), not the patient on this form."
+  - nothing was issued
+  - no server errors
+
+### Next ranked residual (workflow lens)
+
+Search everywhere: the header search takes a scanned DIN or MRN; check that a DIN lands on the unit page and a reserved unit offers Issue from there.

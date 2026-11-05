@@ -30,6 +30,8 @@ Ready to issue opens first. Reserved units are listed so you do not retype the p
 
 Then complete appearance, location, and who is taking the unit.
 
+**Scanning a unit into the Issue form.** Scan or type the unit number in **Unit number** and the scanner's Enter selects it. A unit reserved for a patient fills that patient, so you can start from the bag instead of the board. If the form already has a different patient, it says whose unit it is and leaves the form alone. Pick lists everywhere accept a scan followed by Enter the same way.
+
 **Scanning without the mouse.** On Issue, Ward receipt, and Transfusion, Enter moves to the next field: patient ID 1, patient ID 2, then the unit label fields (DIN, product code, ABO/RhD, expiration, extended division). A scanner sends Enter after each scan, so you can scan wristband, requisition, and bag in a row. After the last field the form gets a green outline and keeps the focus. **Issue unit**, **Acknowledge receipt**, and **Document** are never pressed by Enter, so a stray scan cannot issue a unit. Click the button, or press Tab to reach it and then Enter. Press **?** (outside a text field) for the list of shortcuts. Print the compatibility tag when the issue requires a P-tag, then scan the P-tag id before you issue. Facility policy decides whether the tag is required.
 
 > Hard stop. Two independent identity tokens are required. Confirming a single checkbox does not satisfy the check. A hard stop cannot be signed away.

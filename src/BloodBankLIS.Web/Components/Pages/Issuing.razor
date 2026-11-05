@@ -684,7 +684,11 @@
         }
         <div class="form-row">
             <div class="field"><label>Unit number</label>
-                <UnitPickerComboBox @key="_issue.DowntimeBackEntry" Scope="@(_issue.DowntimeBackEntry ? UnitPickerScope.DowntimeBackEntry : UnitPickerScope.Issuable)" @bind-Value="_issue.BloodUnitId" />
+                <UnitPickerComboBox @key="_issue.DowntimeBackEntry" Scope="@(_issue.DowntimeBackEntry ? UnitPickerScope.DowntimeBackEntry : UnitPickerScope.Issuable)" @bind-Value="_issue.BloodUnitId" @bind-Value:after="OnIssueUnitPickedAsync" />
+                @if (!string.IsNullOrWhiteSpace(_issueUnitNotice))
+                {
+                    <div class="muted" style="color:var(--bb-danger, #a12);" data-unit-reserved-for>@_issueUnitNotice</div>
+                }
             </div>
             <div class="field"><label>Patient</label>
                 <FilterableComboBox TItem="PatientDto" TValue="long?"
@@ -1778,6 +1782,25 @@
         await _issueForm.FocusAsync();
     }
 
+    private string? _issueUnitNotice;
+
+    /// <summary>A unit picked or scanned without going through Ready to issue still brings its reservation's patient.</summary>
+    private async Task OnIssueUnitPickedAsync()
+    {
+        _issueUnitNotice = null;
+        if (_issue.DowntimeBackEntry) return;
+        var (fill, notice) = IssueRun.ForPickedUnit(_readyItems, _issue.BloodUnitId, _issue.PatientId);
+        _issueUnitNotice = notice;
+        if (fill is not null && (fill.PatientId != _issue.PatientId || _prefilledRow?.BloodUnitId != fill.BloodUnitId))
+        {
+            var samePatient = fill.PatientId == _issue.PatientId;
+            var (id1, id2) = (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value);
+            await PrefillReadyIssueAsync(fill);
+            // Identifiers already entered for this patient stay.
+            if (samePatient) (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value) = (id1, id2);
+        }
+    }
+
     private PatientDto? IssuePatient => _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
 
     private void ResetRunIfOtherPatient(long patientId)
@@ -1792,6 +1815,7 @@
     private async Task OnIssuePatientChangedAsync()
     {
         ResetRunIfOtherPatient(_issue.PatientId);
+        _issueUnitNotice = IssueRun.ForPickedUnit(_readyItems, _issue.BloodUnitId, _issue.PatientId).Notice;
         var patient = _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
         if (patient is null)
         {

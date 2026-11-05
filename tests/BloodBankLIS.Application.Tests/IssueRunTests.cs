@@ -107,4 +107,19 @@ public class IssueRunTests
 
         Assert.Equal([2L, 3L], next.Select(r => r.IssueId));
     }
+    [Fact]
+    public void APickedUnit_FillsItsReservedPatient_OrSaysWhoseItIs()
+    {
+        var ready = new[] { Row(1, 11, 0), Row(2, 21, 0) with { PatientDisplayName = "Other, Pat", MedicalRecordNumber = "MRN2" } };
+
+        Assert.Equal(1, IssueRun.ForPickedUnit(ready, 11, patientOnForm: 0).Fill!.PatientId);
+        Assert.Equal(11, IssueRun.ForPickedUnit(ready, 11, patientOnForm: 1).Fill!.BloodUnitId);
+
+        var other = IssueRun.ForPickedUnit(ready, 21, patientOnForm: 1);
+        Assert.Null(other.Fill);
+        Assert.Equal("Unit W021 is reserved for Other, Pat (MRN2), not the patient on this form.", other.Notice);
+
+        Assert.Equal((null, null), IssueRun.ForPickedUnit(ready, 99, 1));
+        Assert.Equal((null, null), IssueRun.ForPickedUnit(ready, null, 1));
+    }
 }
