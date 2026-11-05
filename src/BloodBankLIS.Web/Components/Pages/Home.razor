@@ -320,7 +320,8 @@
                 }
 
                 var overdue = InTransitAttentionRule.CountOverdue(result.Value.Select(item => item.IsOverdue));
-                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(overdue, "past the arrival window", "past the arrival window"));
+                var coolers = await Api.GetOpenCoolersAsync();
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.InTransitNote(overdue, coolers.Succeeded ? coolers.Value : null));
             }
             case DashboardQueueCatalog.Outstanding:
                 return await CountList(card.Key, Api.GetOutstandingIssuesAsync());

@@ -190,4 +190,19 @@ public class DashboardQueueCatalogTests
 
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
+
+    // TEST-BB-461: the In transit card names overdue units and coolers out unchecked or checked with differences.
+    [Fact]
+    public void InTransitNote_NamesOverdueUnits_AndCoolerChecks()
+    {
+        var at = new DateTime(2026, 11, 5, 9, 0, 0, DateTimeKind.Utc);
+        OpenCoolerDto Cooler(string id, DateTime? checkedUtc, bool? ready) => new(id, 1, ["Doe, J"], ["ICU"], at, checkedUtc, ready);
+        var coolers = new[] { Cooler("C1", null, null), Cooler("C2", null, null), Cooler("C3", at, false), Cooler("C4", at, true) };
+
+        Assert.Null(DashboardQueueCatalog.InTransitNote(0, null));
+        Assert.Null(DashboardQueueCatalog.InTransitNote(0, [Cooler("C4", at, true)]));
+        Assert.Equal("1 past the arrival window", DashboardQueueCatalog.InTransitNote(1, []));
+        Assert.Equal("1 past the arrival window; 2 coolers not checked; 1 cooler checked with differences",
+            DashboardQueueCatalog.InTransitNote(1, coolers));
+    }
 }

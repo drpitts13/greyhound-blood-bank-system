@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Rules;
 
@@ -99,6 +100,22 @@ public static class DashboardQueueCatalog
         }
 
         return count == 1 ? $"1 {singular}" : $"{count} {plural}";
+    }
+
+    /// <summary>
+    /// The In transit card note: units past the arrival window, and coolers out that were not checked before they left
+    /// or were checked with differences. Either brings the card under Needs attention. No cooler list, no cooler note.
+    /// </summary>
+    public static string? InTransitNote(int overdue, IEnumerable<OpenCoolerDto>? coolers)
+    {
+        var open = coolers?.ToList() ?? [];
+        var parts = new[]
+        {
+            AttentionNote(overdue, "past the arrival window", "past the arrival window"),
+            AttentionNote(open.Count(c => c.LastCheckedUtc is null), "cooler not checked", "coolers not checked"),
+            AttentionNote(open.Count(c => c.LastCheckedUtc is not null && c.LastCheckReady != true), "cooler checked with differences", "coolers checked with differences")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
     }
 
     /// <summary>Near-expiry units reserved for a patient: issue them first or reserve a replacement.</summary>

@@ -14088,3 +14088,36 @@ The shift handoff counted units in transit, but not the coolers carrying them or
 ### Next ranked residual
 
 Rescan the operations and testing queues for the next workflow gap.
+
+## Iteration 420 — Cooler checks on the home In transit card (2026-11-05)
+
+### Capability matrix rescan (operations)
+
+The home In transit card named only units past the arrival window. A cooler that left unchecked, or with differences, was visible on the In transit board and in the shift handoff, but not on the home screen where the issuing desk starts (question 5).
+
+### Design
+
+- **`DashboardQueueCatalog.InTransitNote(overdue, coolers)`:** the card note names:
+  - units past the arrival window
+  - coolers not checked
+  - coolers checked with differences
+- Any of these brings the card under Needs attention.
+- The home page reads the open-cooler list alongside the in-transit units. When it cannot be read, only overdue units are named.
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-597 (under URS-BB-512). Help: dashboard.
+
+### Tests
+
+- TEST-BB-461:
+  - quiet with nothing due or every cooler checked
+  - overdue units only
+  - both overdue units and cooler checks, singular and plural
+- Full suite: 3,745 passed, 0 failed.
+- Run check (development API and web): the home In transit card reads "8 · 1 past the arrival window; 3 coolers not checked"; no server errors.
+
+### Next ranked residual
+
+Add a checked cooler to the demo data so all three cooler states can be shown.
