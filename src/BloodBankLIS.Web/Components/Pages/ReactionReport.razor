@@ -1,0 +1,167 @@
+@page "/reactions/{Id:long}/report"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject IJSRuntime Js
+
+<PageTitle>Reaction report &middot; HemoCore</PageTitle>
+
+<div class="flex-between no-print">
+    <a class="btn btn-ghost" href="@($"/reactions?id={Id}")">Back to investigation</a>
+    @if (_report is not null)
+    {
+        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="PrintAsync" data-print-report>Print</button>
+    }
+</div>
+<Outcome Value="_feedback" />
+
+@if (!Session.Has(PermissionCodes.ReactionInvestigate))
+{
+    <div class="muted">No permission to view reaction investigations.</div>
+}
+else if (_report is { } r)
+{
+    var inv = r.Investigation;
+    <div class="mtp-report" data-reaction-report>
+        <h1>Transfusion reaction investigation #@inv.Id</h1>
+        <p class="mtp-report-sub">
+            Printed @r.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") (local time) &middot; Status: <strong>@inv.Status</strong>
+        </p>
+        @if (inv.Status != ReactionInvestigationStatus.Closed)
+        {
+            <div class="alert alert-warning" data-draft>Draft: this investigation is not closed. Results and conclusions may still change.</div>
+        }
+
+        <table class="mtp-report-facts">
+            <tbody>
+                <tr><th>Patient</th><td>@(inv.PatientDisplayName ?? "—")</td><th>MRN</th><td class="mono">@(inv.MedicalRecordNumber ?? "—")</td></tr>
+                <tr><th>Patient ABO/Rh</th><td>@(inv.CurrentBloodType ?? "—")</td><th>Antibodies</th><td>@(inv.AntibodySummary ?? "None on file")</td></tr>
+                <tr><th>Unit</th><td class="mono">@(inv.UnitNumber ?? "—")</td><th>Product</th><td>@(r.ProductName ?? "—") &middot; @(inv.UnitBloodType ?? "—")</td></tr>
+                <tr><th>Issued</th><td>@When(r.IssuedUtc)@(r.IssuedBy is null ? "" : $" by {r.IssuedBy}")@(r.IssuedToLocation is null ? "" : $" to {r.IssuedToLocation}")</td><th>Issue</th><td>@(inv.IssueType?.ToString() ?? "—") &middot; crossmatch @(inv.CrossmatchStatus?.ToString() ?? "—")</td></tr>
+                <tr><th>Transfusion</th><td>@When(r.TransfusionStartUtc) to @When(r.TransfusionStopUtc)@(r.VolumeTransfused is decimal v ? $" · {v:0} mL" : "")</td><th>Disposition</th><td>@(r.FinalDisposition?.ToString() ?? "—")@(r.TransfusionLocation is null ? "" : $" · {r.TransfusionLocation}")</td></tr>
+                <tr><th>Transfusionist</th><td>@(r.Transfusionist ?? "—")</td><th>Documented by</th><td>@(r.DocumentedBy ?? "—")</td></tr>
+                <tr><th>Reported</th><td>@When(inv.ReportedUtc) by @inv.ReportedBy@(inv.ReportedAfterTransfusion ? " (after the transfusion)" : "")</td><th>Onset</th><td>@When(inv.OnsetUtc)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>What was seen and done</h2>
+        <table class="mtp-report-facts">
+            <tbody>
+                <tr><th>At the bedside</th><td>@(r.ReactionActions ?? "—")</td></tr>
+                <tr><th>Observations</th><td>@(r.PostTransfusionObservations ?? "—")</td></tr>
+                <tr><th>Findings</th><td>@(inv.Findings ?? "—")</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Workup</h2>
+        <table class="mtp-report-facts">
+            <tbody>
+                <tr><th>Clerical check</th><td>@YesNo(inv.ClericalCheckCompleted)@(string.IsNullOrWhiteSpace(inv.ClericalCheckNotes) ? "" : $": {inv.ClericalCheckNotes}")</td></tr>
+                <tr><th>Visual inspection</th><td>@YesNo(inv.VisualInspectionCompleted)@(inv.VisualInspectionCompleted ? (inv.VisualInspectionAcceptable ? ", acceptable" : ", not acceptable") : "")</td></tr>
+                <tr><th>Repeat unit ABO/Rh</th><td>@(inv.RepeatUnitAboRh ?? "—")</td></tr>
+                <tr><th>Elution</th><td>@(inv.ElutionResult ?? "—")</td></tr>
+                <tr><th>Remainder held</th><td>@YesNo(inv.RemainderQuarantined)</td></tr>
+                @if (inv.RepeatPatientAboRhDiscrepancy || inv.RepeatUnitAboRhDiscrepancy)
+                {
+                    <tr><th>ABO/Rh discrepancy</th><td><strong>@(inv.RepeatAboRhDetail ?? "Repeat ABO/Rh disagrees.")</strong></td></tr>
+                }
+                @if (inv.PreWorkup is null && inv.PostWorkup is null && (inv.DatResult != DatWorkupResult.NotRecorded || !string.IsNullOrWhiteSpace(inv.RepeatPatientAboRh)))
+                {
+                    <tr><th>Recorded before the specimen workup</th><td>Repeat patient ABO/Rh @(inv.RepeatPatientAboRh ?? "—"), DAT @inv.DatResult</td></tr>
+                }
+            </tbody>
+        </table>
+
+        @foreach (var w in new[] { inv.PreWorkup, inv.PostWorkup })
+        {
+            @if (w is not null)
+            {
+                <h3>@w.Role specimen <span class="mono">@w.AccessionNumber</span></h3>
+                <p class="mtp-report-sub">Collected @w.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") &middot; order <span class="mono">@w.OrderNumber</span>@(w.Expired ? " · expired, used for the workup" : "")</p>
+                <table class="mtp-report-units">
+                    <thead><tr><th>Test</th><th>Result</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var line in w.Lines)
+                        {
+                            <tr>
+                                <td>@line.TestName (@line.TestCode)</td>
+                                <td class="mono">@(line.Value is null ? "—" : AboRhResultValue.FormatDisplay(line.Value))</td>
+                                <td>@(line.Verified ? "Verified" : line.Status?.ToString() ?? "Pending")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+        @if (inv.PreWorkup is null || inv.PostWorkup is null)
+        {
+            <p class="muted">@(inv.PreWorkup is null ? "No pre-transfusion specimen recorded. " : "")@(inv.PostWorkup is null ? "No post-transfusion specimen recorded." : "")</p>
+        }
+
+        <h2>Conclusion</h2>
+        <table class="mtp-report-facts">
+            <tbody>
+                <tr><th>Type / severity</th><td>@(inv.ReactionType ?? "—") &middot; @inv.Severity</td></tr>
+                <tr><th>Reaction concluded</th><td>@(inv.ConcludedReactionText ?? "Not decided")</td></tr>
+                <tr><th>Treatment for future transfusions</th><td>@(inv.TreatmentTexts ?? "Not decided")</td></tr>
+                <tr><th>Conclusions</th><td>@(inv.Conclusions ?? "—")</td></tr>
+                <tr><th>Follow-up</th><td>@(inv.FollowUp ?? "—")</td></tr>
+                <tr><th>Product at fault</th><td>@YesNo(inv.ProductAtFault)@(string.IsNullOrWhiteSpace(inv.Disposition) ? "" : $" · disposition: {inv.Disposition}")</td></tr>
+                @if (inv.IsFatality)
+                {
+                    <tr><th>Fatality reporting</th><td>CBER notified @When(inv.CberNotifiedUtc); written report @When(inv.WrittenReportSubmittedUtc) (due @When(inv.WrittenReportDueUtc))</td></tr>
+                }
+                <tr><th>Closed</th><td>@(inv.ClosedUtc is null ? "Not closed" : $"{When(inv.ClosedUtc)} by {inv.ClosedBy} (electronic signature)")@(inv.ReopenedBy is null ? "" : $" · reopened {When(inv.ReopenedUtc)} by {inv.ReopenedBy}: {inv.ReopenReason}")</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Medical director review</h2>
+        <table class="mtp-report-sign">
+            <tbody>
+                <tr><th>Reviewed by (print name)</th><td class="mtp-blank"></td><th>Date</th><td class="mtp-blank"></td><th>Signature</th><td class="mtp-blank"></td></tr>
+            </tbody>
+        </table>
+    </div>
+}
+else if (_feedback is null)
+{
+    <div class="loading">Loading report...</div>
+}
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private ReactionReportDto? _report;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private static string When(DateTime? utc) => utc is DateTime value ? value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—";
+
+    private static string YesNo(bool value) => value ? "Yes" : "No";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Session.Has(PermissionCodes.ReactionInvestigate))
+        {
+            return;
+        }
+
+        var r = await Api.GetReactionReportAsync(Id);
+        _report = r.Succeeded ? r.Value : null;
+        _feedback = r.Succeeded ? null : r.ToFeedback();
+    }
+
+    // The print is audited before the browser's print dialog opens: the sheet carries patient data off the system.
+    private async Task PrintAsync()
+    {
+        _busy = true;
+        var recorded = await Api.RecordReactionReportPrintedAsync(Id);
+        _busy = false;
+        if (!recorded.Succeeded)
+        {
+            _feedback = recorded.ToFeedback();
+            return;
+        }
+
+        await Js.InvokeVoidAsync("print");
+    }
+}

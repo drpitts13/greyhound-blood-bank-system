@@ -986,6 +986,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ReactionInvestigationDto>> UpdateReactionInvestigationAsync(long id, UpdateReactionInvestigationRequest req, CancellationToken ct = default) =>
         SendAsync<ReactionInvestigationDto>(HttpMethod.Put, $"api/reaction-investigations/{id}", req, ct);
 
+    public Task<ApiResult<ReactionReportDto>> GetReactionReportAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionReportDto>(HttpMethod.Get, $"api/reaction-investigations/{id}/report", ct: ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> RecordReactionReportPrintedAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/report/printed", ct: ct);
+
     public Task<ApiResult<ReactionWorkupOptionsDto>> GetReactionWorkupOptionsAsync(long id, CancellationToken ct = default) =>
         SendAsync<ReactionWorkupOptionsDto>(HttpMethod.Get, $"api/reaction-investigations/{id}/workup-specimens", ct: ct);
 

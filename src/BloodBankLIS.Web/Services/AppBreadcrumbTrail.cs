@@ -192,6 +192,15 @@ public static class AppBreadcrumbTrail
                 return Finalize(crumbs);
             }
 
+            if (parts[0].Equals("reactions", StringComparison.OrdinalIgnoreCase)
+                && parts.Length >= 3 && long.TryParse(parts[1], out var reactionId)
+                && parts[2].Equals("report", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new($"Investigation #{reactionId}", $"/reactions?id={reactionId}"));
+                crumbs.Add(new("Report", null));
+                return Finalize(crumbs);
+            }
+
             if (parts[0].Equals("downtime", StringComparison.OrdinalIgnoreCase)
                 && parts.Length >= 2 && parts[1].Equals("patients", StringComparison.OrdinalIgnoreCase))
             {

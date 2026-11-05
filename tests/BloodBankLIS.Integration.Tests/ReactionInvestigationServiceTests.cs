@@ -360,6 +360,40 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.Equal(ReactionInvestigationStatus.Closed, closed.Value!.Status);
     }
 
+    // TEST-BB-449: the report carries the issue and bedside record with the workup; its print is audited, as a draft
+    // while the case is open, and needs reaction.investigate.
+    [Fact]
+    public async Task Report_CarriesTheTransfusionRecordAndWorkup_AndItsPrintIsAudited()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        transfusion.StartUtc = _factory.Clock.UtcNow.AddHours(-2);
+        transfusion.ReactionActions = "Stopped at 15 minutes; line kept open with saline.";
+        transfusion.Transfusionist = "RN Test";
+        await context.SaveChangesAsync();
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+
+        var report = await CreateService(context).GetReportAsync(opened.Id);
+        Assert.True(report.Succeeded, report.Error);
+        Assert.Equal("Stopped at 15 minutes; line kept open with saline.", report.Value!.ReactionActions);
+        Assert.Equal("RN Test", report.Value.Transfusionist);
+        Assert.Equal(_factory.Clock.UtcNow.AddHours(-2), report.Value.TransfusionStartUtc);
+        Assert.NotNull(report.Value.IssuedUtc);
+        Assert.Equal(new[] { "ABORH", "DAT" }, report.Value.Investigation.PostWorkup!.Lines.Select(l => l.TestCode).ToArray());
+
+        var printed = await CreateService(context).RecordReportPrintedAsync(opened.Id);
+        Assert.True(printed.Succeeded, printed.Error);
+        var audit = await context.AuditEvents.Where(a => a.EventType == AuditEventType.Print && a.EntityType == nameof(ReactionInvestigation) && a.EntityId == opened.Id)
+            .SingleAsync();
+        Assert.Contains("while the case is open (draft)", audit.Reason);
+
+        var denied = CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.LookbackManage));
+        Assert.False((await denied.GetReportAsync(opened.Id)).Succeeded);
+        Assert.False((await denied.RecordReportPrintedAsync(opened.Id)).Succeeded);
+        Assert.False((await CreateService(context).GetReportAsync(long.MaxValue)).Succeeded);
+    }
+
     // TEST-BB-446: the repeat patient type comes from the verified post-transfusion ABO/Rh, compared with the
     // current type and with the pre-transfusion specimen.
     [Fact]

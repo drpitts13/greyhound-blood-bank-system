@@ -175,6 +175,27 @@ public sealed record ReactionInvestigationDto(
 
 public sealed record ReopenReactionInvestigationRequest(string? Reason);
 
+/// <summary>
+/// The investigation on one sheet for the medical director's review and the record: the case with its workup
+/// results, plus the issue and the bedside transfusion record (times, volume, what was seen and done).
+/// </summary>
+public sealed record ReactionReportDto(
+    ReactionInvestigationDto Investigation,
+    DateTime GeneratedUtc,
+    string? ProductName,
+    DateTime? IssuedUtc,
+    string? IssuedBy,
+    string? IssuedToLocation,
+    DateTime? TransfusionStartUtc,
+    DateTime? TransfusionStopUtc,
+    decimal? VolumeTransfused,
+    string? Transfusionist,
+    string? TransfusionLocation,
+    TransfusionDisposition? FinalDisposition,
+    string? ReactionActions,
+    string? PostTransfusionObservations,
+    string? DocumentedBy);
+
 /// <summary>A reaction noticed after the transfusion was documented without one: what was seen, and when it began.</summary>
 public sealed record ReportLateReactionRequest(long IssueId, string? Description, DateTime? OnsetUtc = null, string? ReactionType = null);
 
@@ -667,6 +688,73 @@ public sealed class ReactionInvestigationService
             oldValue: new { FatalityNotificationStatus = oldStatus, CberNotifiedUtc = oldNotified },
             newValue: new { row.FatalityNotificationStatus, row.CberNotifiedUtc },
             reason: "CBER notification recorded.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReactionInvestigation>.Ok(row);
+    }
+
+    /// <summary>The investigation report, with the issue and transfusion record. Needs reaction.investigate.</summary>
+    public async Task<OperationResult<ReactionReportDto>> GetReportAsync(long id, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<ReactionReportDto>.Fail(denied.Error!);
+        }
+
+        var dto = await GetDtoAsync(id, ct);
+        if (dto is null)
+        {
+            return OperationResult<ReactionReportDto>.Fail("Investigation not found.");
+        }
+
+        var transfusion = await _transfusions.GetByIdAsync(dto.TransfusionEventId, ct);
+        var issue = transfusion is null || _issues is null ? null : await _issues.GetByIdAsync(transfusion.IssueId, ct);
+        var unit = await _inventory.GetUnitAsync(dto.BloodProductId, ct);
+        var product = unit is null || _productTypes is null ? null : await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        return OperationResult<ReactionReportDto>.Ok(new ReactionReportDto(
+            dto,
+            _clock.UtcNow,
+            product?.Name,
+            issue?.IssuedUtc,
+            issue?.IssuedBy,
+            issue?.IssuedToLocation,
+            transfusion?.StartUtc,
+            transfusion?.StopUtc,
+            transfusion?.VolumeTransfused,
+            transfusion?.Transfusionist,
+            transfusion?.Location,
+            transfusion?.FinalDisposition,
+            transfusion?.ReactionActions,
+            transfusion?.PostTransfusionObservations,
+            transfusion?.DocumentedBy));
+    }
+
+    /// <summary>
+    /// Records the report print before the browser prints it: the sheet carries patient data off the system. The
+    /// audit names whether the case was open or closed when printed, since an open case's sheet is a draft.
+    /// </summary>
+    public async Task<OperationResult<ReactionInvestigation>> RecordReportPrintedAsync(long id, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var row = await _investigations.GetByIdAsync(id, ct);
+        if (row is null)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
+        }
+
+        _audit.Record(
+            AuditEventType.Print,
+            nameof(ReactionInvestigation),
+            row.Id,
+            newValue: new { Document = "Transfusion reaction investigation report", row.PatientId, row.BloodProductId, row.Status },
+            reason: row.Status == ReactionInvestigationStatus.Closed
+                ? "Reaction investigation report printed."
+                : "Reaction investigation report printed while the case is open (draft).");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReactionInvestigation>.Ok(row);
     }

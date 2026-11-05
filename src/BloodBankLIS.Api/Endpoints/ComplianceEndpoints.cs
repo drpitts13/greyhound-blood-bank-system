@@ -94,6 +94,12 @@ public static class ComplianceEndpoints
         group.MapPost("/{id:long}/written-report", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
             EndpointResults.From(await service.RecordWrittenReportAsync(id, ct), r => ReactionInvestigationDto.From(r)));
 
+        group.MapGet("/{id:long}/report", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.GetReportAsync(id, ct), r => r));
+
+        group.MapPost("/{id:long}/report/printed", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.RecordReportPrintedAsync(id, ct), r => ReactionInvestigationDto.From(r)));
+
         // The specimen workup: each specimen gets its Test Group as a reaction workup order, resulted on the bench.
         group.MapGet("/{id:long}/workup-specimens", async (long id, ReactionWorkupService service, CancellationToken ct) =>
             EndpointResults.From(await service.ListOptionsAsync(id, ct), o => o));

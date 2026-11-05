@@ -13592,3 +13592,47 @@ TEST-BB-448.
 ### Next ranked residual
 
 Hemolysis check and other workup tests as test definitions (OCD-059), and a reaction workup print packet.
+
+## Iteration 408 — Printable reaction investigation report (2026-11-05)
+
+### Capability matrix rescan (reaction investigations)
+
+After Cycle 407 the investigation carries its workup results, but the case was spread over screens. Assembling the medical director's review packet meant copying from several places (questions 1, 2):
+- the board and editor
+- the Issue desk's transfusion record (start, stop, volume, what the nurse saw and did)
+- the bench results
+
+Transfusion services print a reaction report for review and the record.
+
+### Design
+
+- **`ReactionInvestigationService.GetReportAsync`:** returns `ReactionReportDto`, the investigation DTO (with workup specimens and results) plus product name, issue, and the transfusion record.
+- **`RecordReportPrintedAsync`:** writes a Print audit event against the investigation, naming a draft while the case is open.
+- **Permission:** both need *reaction.investigate*.
+- **Page `/reactions/{id}/report`:**
+  - opened from **Report** on the investigation
+  - facts, what was seen and done, the workup checklist, each specimen's tests and results, the conclusion and close, and medical director review signature lines
+  - Draft banner while open
+  - Print is audited first (the MTP report pattern)
+  - breadcrumb Reactions / Investigation #n / Report
+- No schema change.
+
+### Requirements
+
+- URS-BB-508, FRS-BB-585. Help: reactions (route and section).
+
+### Tests
+
+- TEST-BB-449:
+  - the report carries the bedside actions, transfusionist, start time, issue, and post-specimen lines
+  - the print is audited as a draft
+  - refused without *reaction.investigate*, and for an unknown id
+- Full suite: 3,734 passed, 0 failed (Help.Tests included).
+- Run check (development API and web):
+  - `/reactions/1/report` for MRN0006 shows the Draft banner, unit W0001230001007 A+, issue by tech2 to 3N Medical, transfusion stopped at 12 minutes with 60 mL, the bedside actions and observations, the checklist, and both workup specimens with their tests
+  - the breadcrumb reads Dashboard / Reactions / Investigation #1 / Report; the investigation's Report link opens it
+  - Print not pressed; no server errors
+
+### Next ranked residual
+
+Workup tests beyond ABO/Rh, DAT, and screen (hemolysis check, bilirubin) need the medical director's list (OCD-059). Otherwise rescan operations.

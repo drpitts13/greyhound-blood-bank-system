@@ -171,6 +171,7 @@ else
                     <a class="btn btn-ghost btn-sm" href="@($"/patients/{_selected.PatientId}?reaction={_selected.Id}")" title="Record a special requirement for this patient, linked to this investigation">Add special requirement</a>
                 }
                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(_selected.BloodProductId)">Open Inventory</a>
+                <a class="btn btn-ghost btn-sm" href="@($"/reactions/{_selected.Id}/report")" data-report-link>Report</a>
             </div>
             @if (AlreadyClosed)
             {

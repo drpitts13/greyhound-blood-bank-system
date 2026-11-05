@@ -6,6 +6,7 @@ chapter: Quality and operations
 summary: Investigate a suspected reaction, quarantine remaining units, and close the investigation only when the checks are done.
 routes:
   - /reactions
+  - /reactions/{id}/report
 ---
 
 ![Reaction investigations](figures/reactions.png)
@@ -44,6 +45,10 @@ A reaction that your procedure treats as a fatality or as a product-safety signa
 If the investigation implicates a donor unit, start or continue the [Lookback](lookback) from the donation identification number. The reaction and the lookback are separate records that reference the same unit.
 
 > Hard stop. Closing is refused while the clerical or visual check is unrecorded, either workup specimen is missing, or any of their tests is not verified. Do not close an investigation to clear the board.
+
+## The report
+
+**Report** on the investigation opens the whole case on one sheet for the medical director's review and the record: the patient, unit, issue, and the bedside transfusion record (start and stop, volume, what was seen and done), the workup checklist, each workup specimen with its tests and results, the conclusion, and the close. A case that is not closed is marked **Draft**. **Print** records who printed it, and whether it was a draft, in the audit trail before the print dialog opens. The sheet ends with lines for the medical director's review signature.
 
 ## After closing
 
