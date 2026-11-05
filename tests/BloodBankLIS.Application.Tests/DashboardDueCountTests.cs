@@ -145,6 +145,33 @@ public class DashboardDueCountTests
         IssuedUtc: DateTime.UtcNow, DueUtc: DateTime.UtcNow, IsOverdue: isOverdue,
         IssueType: IssueType.EmergencyRelease, Status: IssueStatus.Issued, EmergencyReleaseDetails: null);
 
+    // TEST-BB-463: the Reactions card names fatality follow-ups, open cases waiting for the post-transfusion specimen,
+    // and open cases with workup tests still to verify; a closed case counts only for follow-up.
+    [Fact]
+    public void ReactionsNote_NamesPostSpecimenAndWorkupStillToVerify()
+    {
+        static ReactionWorkupSpecimenDto Side(string role, bool verified) => new(
+            role, 1, "ACC1", DateTime.UtcNow, null, false, 1, "RXN-1",
+            [new ReactionWorkupLineDto(1, "DAT", "DAT", verified ? ResultStatus.Verified : ResultStatus.Pending, verified ? "Negative" : null, verified)]);
+
+        var noPost = Reaction(ReactionInvestigationStatus.Open, followUpDue: false);
+        var toVerify = Reaction(ReactionInvestigationStatus.UnderReview, followUpDue: false) with
+        {
+            PreWorkup = Side(ReactionWorkupSpecimenDto.PreRole, true),
+            PostWorkup = Side(ReactionWorkupSpecimenDto.PostRole, false)
+        };
+        var done = Reaction(ReactionInvestigationStatus.Open, followUpDue: false) with
+        {
+            PreWorkup = Side(ReactionWorkupSpecimenDto.PreRole, true),
+            PostWorkup = Side(ReactionWorkupSpecimenDto.PostRole, true)
+        };
+        var closed = Reaction(ReactionInvestigationStatus.Closed, followUpDue: true);
+
+        Assert.Null(DashboardQueueCatalog.ReactionsNote([done]));
+        Assert.Equal("1 fatality follow-up; 1 waiting for the post-transfusion specimen; 1 with workup tests to verify",
+            DashboardQueueCatalog.ReactionsNote([noPost, toVerify, done, closed]));
+    }
+
     private static ReactionInvestigationDto Reaction(ReactionInvestigationStatus status, bool followUpDue) => new(
         Id: 1, TransfusionEventId: 1, PatientId: 1, BloodProductId: 1, ReportedUtc: DateTime.UtcNow,
         ReportedBy: "tech", ReactionType: null, Severity: ReactionSeverity.Mild, Findings: null,

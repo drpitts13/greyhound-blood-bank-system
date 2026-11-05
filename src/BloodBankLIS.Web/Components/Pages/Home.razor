@@ -368,8 +368,7 @@
                 }
 
                 var open = OpenReactionInvestigationRule.Count(result.Value.Select(item => item.Status));
-                var followUp = OpenReactionInvestigationRule.CountFatalityFollowUpDue(result.Value);
-                return (card.Key, open, DashboardQueueCatalog.AttentionNote(followUp, "fatality follow-up", "fatality follow-ups"));
+                return (card.Key, open, DashboardQueueCatalog.ReactionsNote(result.Value));
             }
             case DashboardQueueCatalog.NearExpiry:
             {

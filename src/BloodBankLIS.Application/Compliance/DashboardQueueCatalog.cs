@@ -118,6 +118,24 @@ public static class DashboardQueueCatalog
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }
 
+    /// <summary>
+    /// The Reactions card note: fatality follow-ups, open investigations still waiting for their post-transfusion
+    /// specimen (it should be drawn promptly after the reaction), and open investigations whose workup tests are not all
+    /// verified yet. Closed cases count only for fatality follow-up.
+    /// </summary>
+    public static string? ReactionsNote(IEnumerable<ReactionInvestigationDto> investigations)
+    {
+        var all = investigations.ToList();
+        var open = all.Where(r => OpenReactionInvestigationRule.NeedsAttention(r.Status)).ToList();
+        var parts = new[]
+        {
+            AttentionNote(OpenReactionInvestigationRule.CountFatalityFollowUpDue(all), "fatality follow-up", "fatality follow-ups"),
+            AttentionNote(open.Count(r => r.PostWorkup is null), "waiting for the post-transfusion specimen", "waiting for the post-transfusion specimen"),
+            AttentionNote(open.Count(r => (r.PreWorkup?.Pending ?? 0) + (r.PostWorkup?.Pending ?? 0) > 0), "with workup tests to verify", "with workup tests to verify")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
     /// <summary>Near-expiry units reserved for a patient: issue them first or reserve a replacement.</summary>
     public static string? NearExpiryNote(int reservedCount) =>
         AttentionNote(reservedCount, "reserved for a patient", "reserved for patients");

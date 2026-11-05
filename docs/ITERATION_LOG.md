@@ -14154,3 +14154,36 @@ The demo had three coolers in transit, all unchecked, so the checked and differe
 ### Next ranked residual
 
 Rescan the remaining queues (test worklist, antibody ID, reactions) for the next workflow gap.
+
+## Iteration 422 — Reaction workup on the home Reactions card (2026-11-05)
+
+### Capability matrix rescan (testing and reaction queues)
+
+The test worklist and the antibody ID worklist already show their next actions. The home Reactions card counted open cases and named only fatality follow-ups. Since Cycle 407, a case cannot close until its pre- and post-transfusion specimens are tested and verified. The post-transfusion specimen should be drawn promptly after the reaction, yet nothing on the home screen said a case was still waiting for it (questions 5, 6).
+
+### Design
+
+- **`DashboardQueueCatalog.ReactionsNote`:** names:
+  - fatality follow-ups (closed cases included, as before)
+  - open cases with no post-transfusion specimen linked
+  - open cases with workup tests not all verified
+- Any of these brings the card (and the Start here banner) under Needs attention.
+- The reactions list already carries each case's workup, so no server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-598 (under URS-BB-507). Help: dashboard.
+
+### Tests
+
+- TEST-BB-463:
+  - no post specimen
+  - a test still to verify
+  - a complete workup is quiet
+  - a closed case counts only for fatality follow-up
+- Full suite: 3,747 passed, 0 failed.
+- Run check (development API and web): the demo investigation (MRN0006, post tube not resulted) shows "1 with workup tests to verify" on the Reactions card and the Start here banner; no server errors.
+
+### Next ranked residual
+
+Rescan the antibody ID worklist and supervisor queue for an operations gap.
