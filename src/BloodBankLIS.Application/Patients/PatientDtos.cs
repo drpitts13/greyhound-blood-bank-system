@@ -70,6 +70,36 @@ public sealed record PatientDto(
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,
         p.Comment, aliases);
 
+    /// <summary>
+    /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, then ABO/Rh and alerts,
+    /// so similar names are told apart and risks are seen before the patient is chosen. A merged-away record says so.
+    /// </summary>
+    public string PickerLabel
+    {
+        get
+        {
+            var parts = new List<string> { $"{LastName}, {FirstName} ({MedicalRecordNumber})" };
+            if (MergedIntoPatientId is not null || Status == PatientStatus.Merged)
+            {
+                parts.Add("merged into another record");
+                return string.Join(" · ", parts);
+            }
+
+            parts.Add(CurrentBloodType ?? "no type on file");
+            if (ActiveAntibodies is { Count: > 0 } antibodies)
+            {
+                parts.Add(string.Join(", ", antibodies));
+            }
+
+            if (ActiveSpecialRequirements > 0)
+            {
+                parts.Add($"{ActiveSpecialRequirements} special {(ActiveSpecialRequirements == 1 ? "requirement" : "requirements")}");
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
+
     public bool MatchesSearch(string filter)
     {
         if (string.IsNullOrWhiteSpace(filter))

@@ -12,7 +12,7 @@ routes:
 
 **Patients** is the directory. Search with the medical record number or the name. Historical names remain searchable after a legal name change, so a former name can still find the chart.
 
-Each row also shows the patient's current **ABO/Rh** and **Alerts**: active antibodies in red and the number of special requirements in effect in amber. Use them to confirm you have the right patient and to see their risks before you open the chart; the chart has the details.
+Each row also shows the patient's current **ABO/Rh** and **Alerts**: active antibodies in red and the number of special requirements in effect in amber. Use them to confirm you have the right patient and to see their risks before you open the chart; the chart has the details. The patient pickers on the Issue desk, Compatibility, and unit receipt show the same type and alerts after the name and MRN; a record merged into another chart says so.
 
 Open a row to go to the chart. The chart is the place for visits, orders, specimens, results, and products. Do not create a second chart because the first search missed a former name.
 

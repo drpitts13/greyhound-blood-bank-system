@@ -719,7 +719,7 @@
                     Items="_patients"
                     @bind-Value="IssuePatientId"
                     @bind-Value:after="OnIssuePatientChangedAsync"
-                    DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                    DisplayText="@(p => p.PickerLabel)"
                     ItemValue="@(p => p.Id)"
                     SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
                     Clearable="true"

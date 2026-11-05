@@ -13315,3 +13315,43 @@ Cycle 400 put ABO/Rh and alerts on the Patients list. The top-bar find box, used
 ### Next ranked residual
 
 Keyboard shortcuts for the bench (next or previous test), or the same flags on the Issue desk patient picker.
+
+## Iteration 402 — Patient pickers show type and alerts (2026-11-05)
+
+### Capability matrix rescan (patient selection at issue)
+
+Five patient pickers listed only "Last, First (MRN)":
+- Issue desk
+- Compatibility crossmatch
+- Compatibility allocation
+- ISBT receipt
+- delivery receipt
+
+On the Issue desk, typing "nora" offered two Noras with nothing to tell them apart but the MRN. A merged-away record looked like any other (questions 2, 6). The patient list and the top-bar lookup already carry type and alerts (Cycles 400–401).
+
+### Design
+
+- **`PatientDto.PickerLabel`:** name and MRN, then ABO/Rh (or "no type on file"), active antibodies, and the special-requirement count. A merged-away record reads "merged into another record" instead of flags. The issue gates still refuse it.
+- **Pickers:** all five use it as their display text. Searching stays on name and MRN.
+- No server change; the flags come from the patient list (Cycle 400).
+
+### Requirements
+
+- FRS-BB-577 (under URS-BB-505). Help: patients.
+
+### Tests
+
+- TEST-BB-438:
+  - no type on file
+  - type, antibodies, and two requirements
+  - one requirement (singular)
+  - a merged record marked without flags
+- Full suite: 3,719 passed, 0 failed.
+- Run check (development API and web, Issue desk):
+  - "kel" offers "Kellerman, Diane (MRN0004) · O+ · anti-K"
+  - "nora" offers "Kline, Nora (MRN0010) · O+" and "Rhesus, Nora (MRN0003) · A-"
+  - nothing selected or issued; no server errors
+
+### Next ranked residual
+
+Keyboard shortcuts on the bench (next or previous test), or the chart Products tab unit picker showing special-requirement fit.

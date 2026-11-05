@@ -123,7 +123,7 @@
                         <FilterableComboBox TItem="PatientDto" TValue="long?"
                             Items="_patients"
                             @bind-Value="_reservedPatientId"
-                            DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                            DisplayText="@(p => p.PickerLabel)"
                             ItemValue="@(p => p.Id)"
                             SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
                             Clearable="true"
