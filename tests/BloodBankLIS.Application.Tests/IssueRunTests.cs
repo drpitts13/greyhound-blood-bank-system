@@ -156,4 +156,16 @@ public class IssueRunTests
         // Started without a recorded receipt: the running transfusion still comes first.
         Assert.Equal(IssuedNextStep.CompleteTransfusion, IssueRun.NextStepForIssued(Bedside(4, 1, 0, received: false, started: true)));
     }
+    [Fact]
+    public void NearExpiry_OffersIssueForAReadyReservedUnit_AndAllocateWhenOrdersAreOpen()
+    {
+        var ready = Row(1, 11, 0);
+        var blocked = ready with { NeedsSecondAbo = true };
+
+        Assert.Equal(NearExpiryNextStep.Issue, IssueRun.ForNearExpiry(reserved: true, ready, openOrdersForProduct: 3));
+        Assert.Equal(NearExpiryNextStep.None, IssueRun.ForNearExpiry(reserved: true, blocked, openOrdersForProduct: 3));
+        Assert.Equal(NearExpiryNextStep.None, IssueRun.ForNearExpiry(reserved: true, readyRow: null, openOrdersForProduct: 3));
+        Assert.Equal(NearExpiryNextStep.Allocate, IssueRun.ForNearExpiry(reserved: false, readyRow: null, openOrdersForProduct: 2));
+        Assert.Equal(NearExpiryNextStep.None, IssueRun.ForNearExpiry(reserved: false, readyRow: null, openOrdersForProduct: 0));
+    }
 }

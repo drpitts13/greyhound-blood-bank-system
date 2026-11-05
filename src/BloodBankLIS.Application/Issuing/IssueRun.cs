@@ -129,6 +129,18 @@ public static class IssueRun
     /// <summary>A unit can still be returned until its transfusion has started.</summary>
     public static bool CanReturn(OutstandingIssueWorkItemDto row) => row.TransfusionStartedUtc is null;
 
+    /// <summary>
+    /// The next step offered for a near-expiry unit: issue it when it is reserved and Ready to issue would offer it,
+    /// or allocate it when it is unreserved and its product has open orders (compatibility is checked at allocation).
+    /// </summary>
+    public static NearExpiryNextStep ForNearExpiry(
+        bool reserved,
+        ReadyToIssueWorkItemDto? readyRow,
+        int openOrdersForProduct) =>
+        reserved
+            ? readyRow is not null && OffersRoutineIssue(readyRow) ? NearExpiryNextStep.Issue : NearExpiryNextStep.None
+            : openOrdersForProduct > 0 ? NearExpiryNextStep.Allocate : NearExpiryNextStep.None;
+
     private static bool SameText(string? a, string? b) =>
         string.Equals((a ?? string.Empty).Trim(), (b ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
 }
@@ -138,4 +150,11 @@ public enum IssuedNextStep
     ReceiveOnWard,
     StartTransfusion,
     CompleteTransfusion
+}
+
+public enum NearExpiryNextStep
+{
+    None,
+    Issue,
+    Allocate
 }

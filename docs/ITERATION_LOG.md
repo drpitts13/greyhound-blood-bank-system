@@ -12695,3 +12695,40 @@ Operations lists near-expiry products. The home screen showed every other operat
 ### Next ranked residual (operations lens)
 
 The Near expiry board could offer the next step for a reserved unit (Issue, from Cycle 382's reservation banner) and, for an unreserved one, a compatible patient with an open order (find a use before it outdates).
+
+## Iteration 386 — Near-expiry rows offer their next step (2026-11-05)
+
+### Capability matrix rescan (operations lens)
+
+The Near expiry board (now on the home screen, Cycle 385) listed units with Discard and Open. A reserved unit said "issue it first", but the tech still had to go to Issue & Transfuse and find it. An unreserved unit gave no hint whether any open order could use it before it outdated (questions 1, 5).
+
+### Design
+
+- `IssueRun.ForNearExpiry(reserved, readyRow, openOrdersForProduct)`:
+  - **Issue** for a reserved unit that Ready to issue would offer for routine issue
+  - **Allocate** for an unreserved unit whose product has open orders
+  - otherwise nothing
+- **Board:**
+  - Issue (users who can issue) opens `/issuing?desk=issue&bloodUnitId=`, which fills the reserved patient (Cycle 382)
+  - "N open orders for this product" (users who can allocate) opens the unit's Actions tab, which lists the open orders and allocates through the compatibility gate. The count is by product, and the link says compatibility is checked when allocating.
+- **Data:** Ready to issue is loaded once when a reserved unit is on the board. Open orders are loaded once per product among unreserved rows. No server change.
+
+### Requirements
+
+- FRS-BB-562 (under URS-BB-496). Help: inventory.
+
+### Tests
+
+- TEST-BB-424:
+  - a reserved, ready unit → Issue
+  - a reserved unit that is blocked (second ABO) or not on Ready to issue → nothing
+  - an unreserved unit with open orders → Allocate; without → nothing
+- Full suite: 3,700 passed, 0 failed.
+- Run check (development API and web):
+  - the demo's one near-expiry unit (washed red cells, unreserved) has no open orders for its product (API: 0), so the row shows Discard and Open only, as designed
+  - Issue and Allocate were not exercised live (no such unit in the demo data); the helper test covers them
+  - no server errors
+
+### Next ranked residual (operations lens)
+
+Rescan for the next gap: assigned products (units allocated to patients with no recent activity), or minimum stock against open orders.
