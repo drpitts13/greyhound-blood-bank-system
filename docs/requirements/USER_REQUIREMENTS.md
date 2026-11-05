@@ -511,4 +511,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-503 | The bench can scan a tube to see only that tube's pending tests, with the first one opened for entry, and after accepting a tube is offered its tests as the next step. | P2 | FRS-BB-571, FRS-BB-572 |
 | URS-BB-504 | A user who verifies results sees on the home screen how many results wait for them to verify, and how many of those are due before their specimen expires, with one click to that list. | P2 | FRS-BB-574 |
 | URS-BB-505 | The patient list shows each patient's current ABO/Rh, active antibodies, and how many special requirements are in effect, so the right patient and their risks are seen before the chart is opened. | P2 | FRS-BB-575, FRS-BB-576, FRS-BB-577, FRS-BB-578 |
-| URS-BB-506 | Wherever a unit is reserved for a patient, the patient's special requirements are shown and checked, so a unit that cannot be issued to them is not reserved for them. | P1 | FRS-BB-579 |
+| URS-BB-506 | Wherever a unit is reserved for a patient, the patient's special requirements are shown and checked, so a unit that cannot be issued to them is not reserved for them. | P1 | FRS-BB-579, FRS-BB-580 |

@@ -124,7 +124,20 @@
             <Outcome Value="_allocFb" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label>
-                    <UnitPickerComboBox Scope="UnitPickerScope.Available" @bind-Value="_alloc.BloodUnitId" />
+                    <UnitPickerComboBox Scope="UnitPickerScope.Available" @bind-Value="_alloc.BloodUnitId"
+                        OnlyIds="@(_allocShowAll ? null : _allocCompatibleIds)" />
+                    @if (_allocCompatibleNote is not null)
+                    {
+                        <div class="sub" data-alloc-compatible>
+                            @_allocCompatibleNote
+                            @if (_allocCompatibleIds is not null)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _allocShowAll = !_allocShowAll">
+                                    @(_allocShowAll ? "Show compatible units only" : "Show all available units")
+                                </button>
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="field"><label>Patient</label>
                     <FilterableComboBox TItem="PatientDto" TValue="long?"
@@ -440,8 +453,40 @@
         }
     }
 
+    // Units offered for the chosen patient: the chart's compatible list (type, special requirements, antigens).
+    // Null shows every available unit; Reserve checks the chosen unit either way.
+    private HashSet<long>? _allocCompatibleIds;
+    private string? _allocCompatibleNote;
+    private bool _allocShowAll;
+
+    private async Task LoadAllocCompatibleAsync()
+    {
+        _allocCompatibleIds = null;
+        _allocCompatibleNote = null;
+        _allocShowAll = false;
+        if (_alloc.PatientId == 0)
+        {
+            return;
+        }
+
+        var r = await Api.GetPatientCompatibleUnitsAsync(_alloc.PatientId);
+        if (r.Succeeded && r.Value is not null)
+        {
+            _allocCompatibleIds = r.Value.Select(u => u.BloodUnitId).ToHashSet();
+            _allocCompatibleNote = r.Value.Count == 1
+                ? "1 available unit is compatible with this patient's type, special requirements, and antibodies."
+                : $"{r.Value.Count} available units are compatible with this patient's type, special requirements, and antibodies.";
+        }
+        else
+        {
+            var why = (r.Error ?? "the compatible list could not be loaded").Trim().TrimEnd('.');
+            _allocCompatibleNote = $"Showing all available units: {why}. Reserve still checks the unit.";
+        }
+    }
+
     private async Task LoadAllocSpecimensAsync()
     {
+        await LoadAllocCompatibleAsync();
         if (_alloc.PatientId == 0)
         {
             _allocSpecimens = new();
@@ -624,6 +669,7 @@
             _showAllocOverride = false;
             _allocOverrideReason = string.Empty;
             _allocAuthorizedBy = string.Empty;
+            await LoadAllocCompatibleAsync();
         }
     }
 
@@ -633,7 +679,11 @@
         var r = await Api.ReleaseAllocationAsync(id, _releaseReason);
         _busy = false;
         _allocFb = r.ToFeedback("Allocation released.");
-        if (r.Succeeded) _lastAllocation = r.Value;
+        if (r.Succeeded)
+        {
+            _lastAllocation = r.Value;
+            await LoadAllocCompatibleAsync();
+        }
     }
 
     private sealed class XmModel

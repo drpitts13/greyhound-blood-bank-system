@@ -13477,3 +13477,36 @@ A group A red cell could therefore be reserved here for a "Group O red cells onl
 ### Next ranked residual
 
 Filter the Compatibility reserve unit picker to units that meet the patient's requirements (as the chart's compatible-unit list does), or keyboard shortcuts on the bench.
+
+## Iteration 406 — Compatibility reserve offers compatible units (2026-11-05)
+
+### Capability matrix rescan (unit selection)
+
+After Cycle 405, Reserve on the Compatibility page refuses a unit that misses the patient's requirements. Its unit picker still listed every available unit: 33 in the demo, of which 18 suit Kline. So the tech found out by trial and refusal, or had to know the patient's type and requirements by heart (questions 2, 3, 5). The chart's Allocate panel already offers only compatible units.
+
+### Design
+
+- **Compatible units first:** choosing the patient loads the chart's compatible-unit list (ABO/Rh, special requirements, antigens) and limits the picker to it, with "N available units are compatible …".
+- **Toggle:** **Show all available units** / **Show compatible units only**.
+- **`UnitPickerComboBox.OnlyIds`:** keeps a unit already chosen, so a scanned unit is not dropped.
+- **Fallback:** when the list cannot be built (no current ABO/Rh), every available unit is shown with the reason. A doubled full stop in that reason was found in the run check and fixed.
+- **Refresh:** the list refreshes after a reserve or release.
+- Reserve still checks the chosen unit. No server change.
+
+### Requirements
+
+- FRS-BB-580 (under URS-BB-506). Help: compatibility.
+
+### Tests
+
+- No new automated test: the change is page state; the compatible list is covered by `PatientAllocationTests`, and Reserve's own check by TEST-BB-441.
+- Full suite: 3,720 passed, 0 failed.
+- Run check (development API and web, Compatibility, Reserve):
+  - Kline: "18 available units are compatible …", the picker lists 18, and Show all lists 33
+  - MRN0023: 16 compatible (red cells limited by irradiated and CMV-negative)
+  - Gravid (no type): "Showing all available units: Patient has no current ABO/Rh on file; compatible units cannot be listed. Reserve still checks the unit."
+  - nothing reserved; no server errors
+
+### Next ranked residual
+
+The same compatible-first picker for the Compatibility crossmatch section, or keyboard shortcuts on the bench.
