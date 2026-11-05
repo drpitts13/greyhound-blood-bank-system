@@ -565,6 +565,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-500 / FRS-BB-568 | Handoff counts results to verify, lapsed reservations, near-expiry units | `ShiftHandoffService`; `ShiftHandoffDto.QueueSummary` | TEST-BB-429 | D / I | |
 | URS-BB-501 / FRS-BB-569 | Printable downtime patient summary, audited print | `DowntimePatientSummaryService` | TEST-BB-430 | I | |
 | URS-BB-502 / FRS-BB-570 | Downtime snapshot counts results to verify and lapsed reservations | `DowntimeReconciliationService` | TEST-BB-431 | I | |
+| URS-BB-503 / FRS-BB-571 | Scan a tube to work its tests; Start testing after accept | `TestWorklistView.ForTube` | TEST-BB-432 | D | Accept prompt: run check not exercised |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

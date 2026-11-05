@@ -13075,3 +13075,52 @@ After an outage, results are entered from paper and wait for a second person to 
 ### Next ranked residual
 
 The specimen desk (pending receipt and collection lists, scan to receive), or patient-summary access from the chart for a single patient.
+
+## Iteration 396 — Scan a tube to work its tests (2026-11-05)
+
+### Capability matrix rescan (specimen desk to bench)
+
+Receipt and acceptance already work by scan. After acceptance the trail stopped:
+- the tech switched to Patient tests and searched a mixed list of every patient's lines for the tube in hand (questions 1, 2, 4)
+- opening each test took a click
+- after saving, the "next" row could belong to another patient's tube
+
+Commercial bench systems start testing from the tube's barcode.
+
+### Design
+
+- **`TestWorklistView`:**
+  - `NormalizeTube`
+  - `ForTube`: exact accession match, ignoring case and spaces
+  - `FirstToWork`: not blocked, specimen linked
+- **Patient tests:**
+  - a tube scan field opens the tube's first workable test
+  - a "Tube X: n tests" badge with Show all tubes
+  - combines with To verify
+  - an empty tube says where to look
+  - `?accession=` link
+- **Next row after saving:** follows the rows as shown, so it stays on the tube.
+- **Specimens tab:** after an accept (scan or button), it says how many tests wait on the tube, with Start testing.
+- No server change. Result entry and its checks are unchanged. Matching is on the accession number only; a tube's label barcode is not in the worklist row.
+
+### Requirements
+
+- URS-BB-503, FRS-BB-571. Help: test worklist.
+
+### Tests
+
+- TEST-BB-432:
+  - the scanned tube keeps its lines in order; another tube with a longer accession is not matched
+  - the first workable line skips a blocked one
+  - blank shows all; an unknown tube is empty with nothing to open
+- Full suite: 3,712 passed, 0 failed.
+- Run check (development API and web):
+  - scanning "acc0010" showed "Tube ACC0010: 2 tests" with ABO/Rh opened for entry
+  - ACC9999 showed the empty-tube message
+  - `?accession=acc0017` opened on the two ACC0017 tests
+  - no server errors; nothing was saved
+  - not exercised live: the Start testing prompt after accepting a tube, which would accept a demo tube
+
+### Next ranked residual
+
+Match a tube's label barcode as well as its accession on the bench (needs the barcode in the worklist row), or the chart's single-patient downtime print.

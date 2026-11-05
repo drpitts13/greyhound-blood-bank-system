@@ -44,9 +44,32 @@
         </div>
     }
 
+    @if (!_loading && _items.Count > 0)
+    {
+        <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-bottom:.5rem;">
+            <div class="field" style="max-width:20rem;margin:0;">
+                <label>Scan a tube to work its tests</label>
+                <input @bind="_tubeScan" @bind:event="oninput" @onkeydown="OnTubeScanKey" placeholder="Scan or type the accession number" autocomplete="off" data-tube-scan />
+            </div>
+            @if (_tube.Length > 0)
+            {
+                var onTube = TestWorklistView.ForTube(_items, _tube).Count;
+                <span class="badge badge-blue" data-tube-filter>Tube <span class="mono">@_tube</span>: @onTube @(onTube == 1 ? "test" : "tests")</span>
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="ClearTube">Show all tubes</button>
+            }
+        </div>
+    }
+
     @if (_loading)
     {
         <div class="loading">Loading worklist...</div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0 && _tube.Length > 0)
+    {
+        <div class="empty" data-tube-empty>
+            No pending @(_toVerifyOnly ? "results to verify" : "tests") on tube <span class="mono">@_tube</span>. A tube that is not yet accepted is on the Specimens tab;
+            an order not linked to it is linked from the chart's Orders tab.
+        </div>
     }
     else if (_items.Count > 0 && ShownItems.Count == 0)
     {
@@ -193,6 +216,18 @@
             <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@_scanAccepts" @onchange="() => _scanAccepts = true" /> Accept</label>
         </div>
     </div>
+
+    @if (_acceptedTube is { Length: > 0 } accepted)
+    {
+        var waiting = TestWorklistView.ForTube(_items, accepted).Count;
+        <div class="alert alert-info flex gap" style="align-items:center;flex-wrap:wrap;" data-accepted-next>
+            <span>Tube <span class="mono">@accepted</span> accepted. @(waiting == 0 ? "No tests are waiting on it yet; link its orders from the chart." : $"{waiting} {(waiting == 1 ? "test is" : "tests are")} waiting on it.")</span>
+            @if (waiting > 0)
+            {
+                <button type="button" class="btn btn-primary btn-sm" @onclick="() => StartTesting(accepted)">Start testing</button>
+            }
+        </div>
+    }
 
     @if (_specimensLoading)
     {
@@ -359,7 +394,16 @@
     private List<TestWorkItemDto> _items = new();
     // Only the lines this user can verify now (a colleague's, the instrument's, or the interface's result).
     private bool _toVerifyOnly;
-    private IReadOnlyList<TestWorkItemDto> ShownItems => _toVerifyOnly ? TestWorklistView.ToVerify(_items, Session.UserName) : _items;
+    // The tube in hand: only its lines are shown (normalized accession; empty for all tubes).
+    private string _tube = string.Empty;
+    private string _tubeScan = string.Empty;
+    // The tube accepted last on the Specimens tab, offered as the next thing to test.
+    private string? _acceptedTube;
+    private IReadOnlyList<TestWorkItemDto> ShownItems => TestWorklistView.ForTube(
+        _toVerifyOnly ? TestWorklistView.ToVerify(_items, Session.UserName) : _items, _tube);
+
+    [SupplyParameterFromQuery(Name = "accession")]
+    public string? AccessionQuery { get; set; }
 
     [SupplyParameterFromQuery(Name = "show")]
     public string? ShowQuery { get; set; }
@@ -407,6 +451,7 @@
     protected override async Task OnInitializedAsync()
     {
         _toVerifyOnly = string.Equals(ShowQuery, "verify", StringComparison.OrdinalIgnoreCase);
+        _tube = TestWorklistView.NormalizeTube(AccessionQuery);
         var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
         _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
         if (string.Equals(TabQuery, "retype", StringComparison.OrdinalIgnoreCase))
@@ -504,6 +549,10 @@
         {
             _specimenScan = string.Empty;
             await LoadPendingSpecimensAsync();
+            if (_scanAccepts)
+            {
+                await OfferTestingAsync(r.Value?.AccessionNumber);
+            }
         }
     }
 
@@ -522,7 +571,11 @@
         var r = await Api.AcceptSpecimenAsync(specimenId);
         _busy = false;
         _fb = r.ToFeedback("Specimen accepted for testing.");
-        if (r.Succeeded) await LoadPendingSpecimensAsync();
+        if (r.Succeeded)
+        {
+            await LoadPendingSpecimensAsync();
+            await OfferTestingAsync(r.Value?.AccessionNumber);
+        }
     }
 
     private async Task RejectPendingAsync(long specimenId)
@@ -540,13 +593,60 @@
         }
     }
 
+    // After a tube is accepted its tests are the next work: reload the list so the count is current.
+    private async Task OfferTestingAsync(string? accession)
+    {
+        _acceptedTube = string.IsNullOrWhiteSpace(accession) ? null : TestWorklistView.NormalizeTube(accession);
+        if (_acceptedTube is not null)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private void StartTesting(string accession)
+    {
+        _tab = "tests";
+        _toVerifyOnly = false;
+        _acceptedTube = null;
+        ShowTube(accession);
+    }
+
+    // A scanner ends with Enter: show that tube's tests and open the first one that can take a result.
+    private void OnTubeScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_tubeScan))
+        {
+            return;
+        }
+
+        ShowTube(_tubeScan);
+        _tubeScan = string.Empty;
+    }
+
+    private void ShowTube(string accession)
+    {
+        _tube = TestWorklistView.NormalizeTube(accession);
+        var first = TestWorklistView.FirstToWork(ShownItems);
+        _expandedLineId = first?.OrderLineId;
+        _fb = first is null
+            ? null
+            : Feedback.Succeed($"Tube {_tube}: {ShownItems.Count} {(ShownItems.Count == 1 ? "test" : "tests")}. Opened {first.TestName}.");
+    }
+
+    private void ClearTube()
+    {
+        _tube = string.Empty;
+        _expandedLineId = null;
+    }
+
     private void ToggleEntry(long orderLineId) =>
         _expandedLineId = _expandedLineId == orderLineId ? null : orderLineId;
 
     private async Task OnResultSaved()
     {
         var savedLineId = _expandedLineId;
-        var previousOrder = _items.Select(i => i.OrderLineId).ToList();
+        // Follow the rows as shown, so with a tube scanned the next test is on the same tube.
+        var previousOrder = ShownItems.Select(i => i.OrderLineId).ToList();
         _expandedLineId = null;
         await LoadAsync();
 

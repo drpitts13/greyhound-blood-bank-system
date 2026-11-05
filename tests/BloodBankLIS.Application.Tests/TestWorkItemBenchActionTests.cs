@@ -48,4 +48,26 @@ public class TestWorkItemBenchActionTests
 
         Assert.Equal([1L, 3L, 4L], forTech2.Select(i => i.CurrentResultId!.Value));
     }
+
+    // TEST-BB-432: a scanned tube shows only its lines, and the first one that can take a result is opened.
+    [Fact]
+    public void ForTube_KeepsTheScannedTubesLines_AndFirstToWorkSkipsBlockedOnes()
+    {
+        var items = new[]
+        {
+            Item("DAT", 1, ResultStatus.Entered, ResultSource.Manual, "tech1") with { AccessionNumber = "ACC2" },
+            Item("ABSC", 2, null, null, null, canEnter: false),
+            Item("ABORH", 3, null, null, null),
+            Item("XM", 4, null, null, null) with { AccessionNumber = "ACC10" }
+        };
+
+        var tube = TestWorklistView.ForTube(items, "  acc1 ");
+
+        Assert.Equal([2L, 3L], tube.Select(i => i.CurrentResultId!.Value));
+        Assert.Equal(3L, TestWorklistView.FirstToWork(tube)!.CurrentResultId);
+        Assert.Equal("ACC1", TestWorklistView.NormalizeTube(" acc1\t"));
+        Assert.Equal(items.Length, TestWorklistView.ForTube(items, " ").Count);
+        Assert.Empty(TestWorklistView.ForTube(items, "ACC9"));
+        Assert.Null(TestWorklistView.FirstToWork(TestWorklistView.ForTube(items, "ACC9")));
+    }
 }

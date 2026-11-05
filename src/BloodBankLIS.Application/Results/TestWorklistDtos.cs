@@ -128,4 +128,20 @@ public static class TestWorklistView
     /// </summary>
     public static IReadOnlyList<TestWorkItemDto> ToVerify(IEnumerable<TestWorkItemDto> items, string? userName) =>
         items.Where(i => i.AwaitsVerification && i.BenchActionLabelFor(userName) == "Verify").ToList();
+
+    /// <summary>The tube's accession as scanned or typed: trimmed, upper case. Empty for blank input.</summary>
+    public static string NormalizeTube(string? scan) => (scan ?? string.Empty).Trim().ToUpperInvariant();
+
+    /// <summary>Lines on the tube with this accession number (exact, ignoring case and spaces). Order is kept.</summary>
+    public static IReadOnlyList<TestWorkItemDto> ForTube(IEnumerable<TestWorkItemDto> items, string? accession)
+    {
+        var tube = NormalizeTube(accession);
+        return tube.Length == 0
+            ? items.ToList()
+            : items.Where(i => string.Equals(i.AccessionNumber?.Trim(), tube, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>The first line that can take a result now (not blocked, specimen linked), or null.</summary>
+    public static TestWorkItemDto? FirstToWork(IEnumerable<TestWorkItemDto> items) =>
+        items.FirstOrDefault(i => i is { CanEnterResults: true, NeedsSpecimenLink: false });
 }
