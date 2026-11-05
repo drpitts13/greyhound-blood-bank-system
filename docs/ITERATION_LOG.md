@@ -13570,7 +13570,14 @@ The investigation had no specimens, orders, or results. Repeat ABO/Rh, DAT, and 
   - repeat ABO/Rh discrepancy from results
   - seeded demo workup
 - Existing closing tests give their cases a verified workup (`ReactionWorkupTestData`).
-- Full suite: see commit.
+- Full suite: all projects pass, Help.Tests included (31).
+- Help.Tests found the post-transfusion accession field updating only on blur, which left its button disabled while typing or scanning. Fixed with `@bind:event="oninput"`.
+- Run check (development API and web; the bootstrap added the table and columns, and the seed linked MRN0006's workup):
+  - Administration › Reaction Workup shows TRX-PRE (ABORH, DAT) and TRX-POST (ABORH, DAT, ABSC)
+  - the board's next step for MRN0006 reads "Result and verify the workup tests: 5 still to verify"
+  - the investigation shows ACC0014 (ORD0016: DAT Negative Entered, ABO/Rh Pending) and ACC0024 (RXN-1-POST: three tests Pending), with Result on bench links
+  - `/test-worklist?accession=ACC0024` opens on its 3 tests
+  - nothing was resulted live; no server errors
 
 ### Follow-up (same iteration): a cancelled workup order
 

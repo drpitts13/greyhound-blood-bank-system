@@ -308,7 +308,7 @@ else
                             @if (!isPre)
                             {
                                 <div class="form-row" style="margin-top:.5rem;" data-post-accession>
-                                    <div class="field"><label>New tube accession</label><input @bind="_postAccession" placeholder="Scan or type" autocomplete="off" /></div>
+                                    <div class="field"><label>New tube accession</label><input @bind="_postAccession" @bind:event="oninput" placeholder="Scan or type" autocomplete="off" /></div>
                                     <div class="field"><label>Type</label><input @bind="_postType" /></div>
                                     <div class="field"><label>Collected</label><input type="datetime-local" @bind="_postCollected" /></div>
                                 </div>
