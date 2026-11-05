@@ -191,6 +191,13 @@ public static class AppBreadcrumbTrail
                 return Finalize(crumbs);
             }
 
+            if (parts[0].Equals("downtime", StringComparison.OrdinalIgnoreCase)
+                && parts.Length >= 2 && parts[1].Equals("patients", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Patient summary", null));
+                return Finalize(crumbs);
+            }
+
             if (parts[0].Equals("compatibility", StringComparison.OrdinalIgnoreCase)
                 && qs.TryGetValue("from", out var from)
                 && from.Equals("retro", StringComparison.OrdinalIgnoreCase))

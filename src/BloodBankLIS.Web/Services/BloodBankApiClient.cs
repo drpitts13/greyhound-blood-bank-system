@@ -921,6 +921,12 @@ public sealed class BloodBankApiClient
         SendAsync<DowntimeReconciliationSnapshot>(
             HttpMethod.Get, "api/compliance/downtime-reconciliation", ct: ct);
 
+    public Task<ApiResult<DowntimePatientSummary>> GetDowntimePatientSummaryAsync(CancellationToken ct = default) =>
+        SendAsync<DowntimePatientSummary>(HttpMethod.Get, "api/compliance/downtime-patients", ct: ct);
+
+    public Task<ApiResult<int>> RecordDowntimePatientSummaryPrintedAsync(CancellationToken ct = default) =>
+        SendAsync<int>(HttpMethod.Post, "api/compliance/downtime-patients/printed", ct: ct);
+
     public Task<ApiResult<List<ShiftHandoffDto>>> GetShiftHandoffsAsync(CancellationToken ct = default) =>
         SendAsync<List<ShiftHandoffDto>>(HttpMethod.Get, "api/shift-handoffs", ct: ct);
 

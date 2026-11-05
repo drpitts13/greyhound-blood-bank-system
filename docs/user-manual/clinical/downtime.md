@@ -6,11 +6,25 @@ chapter: Supervision
 summary: After the system returns, review interface errors, open issues, and retrospective crossmatches that still need to be entered from paper.
 routes:
   - /downtime
+  - /downtime/patients
 ---
 
 ![Downtime snapshot](figures/downtime.png)
 
 **Downtime Snapshot** is the recovery checklist inside the application. It counts unresolved interface errors, failed instrument messages not yet replayed or resolved, outbound HL7 that is still pending, open issues, paper issues you have back-entered whose transfusion (and ward receipt) are still to be entered, retrospective crossmatches that are due, and the status of the audit chain. You need audit read permission. The screen does not import paper forms and it does not scan them.
+
+## Before an outage: print the patient summary
+
+Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /downtime/patients) before a planned outage, or as soon as an unplanned one starts, and keep the printout at the issue bench. You need the *issue.create* permission. It lists every patient the blood bank is working for now: anyone with a specimen that has not expired, a unit reserved, or a unit issued and still out. For each patient it shows:
+
+- name, MRN, and date of birth
+- ABO/Rh on file, and **No second determination on file** when the second ABO/Rh that issue requires is missing
+- active antibodies
+- special requirements in effect, with informational notes below them
+- current specimens with their expiration
+- reserved and issued units: unit number, product, ABO/Rh, unit expiration, and when the reservation ends
+
+**Print** records who printed it and which patients it carried in the audit trail before the print dialog opens. The sheet is accurate only as of the time printed on it. It does not replace your facility's downtime procedure; check identity and unit labels at issue as usual.
 
 ## While the system is down
 

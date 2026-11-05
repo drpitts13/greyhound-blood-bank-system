@@ -8,6 +8,13 @@
 <p class="muted">
     After an outage, see what is left to work in each queue. This page only counts; it changes nothing.
 </p>
+@if (Session.Has(PermissionCodes.IssueCreate))
+{
+    <p>
+        Before a planned outage, or as one starts: <a href="/downtime/patients">print the downtime patient summary</a>
+        (blood type, antibodies, special requirements, specimens, and units for every patient being worked for now).
+    </p>
+}
 
 @if (!Session.Has(PermissionCodes.AuditRead))
 {

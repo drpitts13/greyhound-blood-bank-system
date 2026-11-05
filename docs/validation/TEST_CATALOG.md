@@ -438,5 +438,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-427 | D | `TestWorkItemBenchActionTests.AnEnteredResult_SaysVerify_WhateverItsSource`, `TheEntererOfAnAboRh_SeesReview_OthersSeeVerify_AndThePromptNamesTheOrigin` | URS-BB-499 / FRS-BB-566 |
 | TEST-BB-428 | D | `TestWorkItemBenchActionTests.ToVerify_KeepsWaitingResults_ButNotEmptyBlockedOrOwnAboRhLines` | URS-BB-499 / FRS-BB-567 |
 | TEST-BB-429 | D / I | `ShiftHandoffSummaryTests.Summary_NamesTheNewCounts_OnlyWhenAboveZero`; `TestWorklistTests.ShiftHandoff_CountsResultsToVerifyBeforeSpecimenExpiry`; `Phase4IssuingTests.LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason` | URS-BB-500 / FRS-BB-568 |
+| TEST-BB-430 | I | `DowntimePatientSummaryTests.Summary_ListsPatientsBeingWorkedFor_WithTypeAntibodiesRequirementsSpecimensAndUnits`; `DowntimePatientSummaryTests.Print_IsAudited_WithThePatientsOnTheSheet` | URS-BB-501 / FRS-BB-569 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -12991,3 +12991,52 @@ The incoming shift would learn about them only by opening each desk (question 2)
 ### Next ranked residual
 
 Rescan: downtime snapshot parity with the handoff (results to verify, lapsed reservations), or the specimen desk.
+
+## Iteration 394 — Printable downtime patient summary (2026-11-05)
+
+### Capability matrix rescan (downtime)
+
+The planned next step was snapshot parity with the handoff. The rescan found a larger gap. Downtime support covered only recovery:
+- the snapshot counts queues after the outage
+- back-entry from paper issue records
+
+There was nothing to work *from* during the outage. Mature transfusion systems print a downtime patient report so the bench can issue from paper with the patient's type, antibodies, and requirements in hand. Without one, during an outage the technologist must remember or phone for (question 2):
+- the patient's history
+- whether a second ABO/Rh is on file
+- which units are already reserved for them
+
+This is a transfusion safety risk (question 6).
+
+### Design
+
+- **`DowntimePatientSummaryService`:** lists every patient with a specimen not yet expired (and not rejected or cancelled), a reserved unit, or an issued unit still out. Merged-away patients are left out. For each patient:
+  - current ABO/Rh, and whether a second concordant determination is on file (the rule issue uses)
+  - active antibodies
+  - special requirements in effect, with informational notes separate
+  - current specimens with expiration
+  - reserved and issued units with product, ABO/Rh, unit expiry, reservation end, and issue location
+- **`/downtime/patients`:** permission *issue.create*, the people who would issue from paper. Linked from Downtime Snapshot. The sheet prints landscape and carries the time it was generated.
+- **Print:** audited before the browser dialog opens (Print event with the patient ids), as with the MTP pack report.
+- No schema change and no clinical rule. The sheet says it does not replace the facility's downtime procedure.
+
+### Requirements
+
+- URS-BB-501, FRS-BB-569, SRS-BB-456. Help: downtime (new section, route added).
+
+### Tests
+
+- TEST-BB-430:
+  - inclusion: current specimen, reserved unit, issued unit
+  - exclusion: expired or rejected specimen only, transfused unit only
+  - row content: type and second determination (with and without), active antibody only, ended requirement left out, informational note, units in order with reservation end and location
+  - the print is audited with the patient id
+- Full suite: 3,710 passed, 0 failed.
+- Run check (development API and web):
+  - the Downtime Snapshot link opens /downtime/patients
+  - it lists 12 demo patients, for example MRN0004 with anti-K, MRN0022 with two reserved and four issued units at ICU 4, and patients without a second determination flagged
+  - Print was not pressed, to keep the audit trail free of a test print; the audited print is covered by TEST-BB-430
+  - no server errors
+
+### Next ranked residual
+
+Downtime snapshot parity with the handoff (results to verify, lapsed reservations), or the specimen desk.
