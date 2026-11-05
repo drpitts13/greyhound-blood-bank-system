@@ -13636,3 +13636,33 @@ Transfusion services print a reaction report for review and the record.
 ### Next ranked residual
 
 Workup tests beyond ABO/Rh, DAT, and screen (hemolysis check, bilirubin) need the medical director's list (OCD-059). Otherwise rescan operations.
+
+## Iteration 409 — Reaction workup lines marked on the bench (2026-11-05)
+
+### Capability matrix rescan (bench, after Cycle 407)
+
+Reaction workup tests reached the bench as ordinary Stat lines. The technologist could not see that an investigation was waiting on them, or get to it from the row (questions 2, 5).
+
+### Design
+
+- **`TestWorkItemDto.ReactionWorkup`:** set when the line's order is a transfusion reaction workup.
+- **`ReactionHref`:** the reaction board opened on the patient.
+- **Display:** the test worklist and the chart Tests tab show a red **Reaction workup** badge on those rows, linking there.
+- No schema change.
+
+### Requirements
+
+- FRS-BB-586 (under URS-BB-507). Help: test worklist.
+
+### Tests
+
+- TEST-BB-450: the workup line is marked with the board link; an ordinary line on the same kind of tube is not.
+- Full suite: 3,734 passed, 0 failed.
+- Run check (development API and web):
+  - the test worklist marks MRN0006's five workup lines (ORD0016 ABO/Rh and DAT; RXN-1-POST ABO/Rh, DAT, antibody screen), each linking to `/reactions?patientId=6`
+  - the other six rows are unmarked
+  - no server errors
+
+### Next ranked residual
+
+Rescan operations: the specimen desk or Issue desk for remaining manual steps.

@@ -734,6 +734,10 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.True(workupRow.CanEnterResults, workupRow.BlockReason);
         var ordinaryRow = Assert.Single(await Worklist(c).ListForSpecimenAsync(ordinary.specimen!.Id), r => r.OrderLineId == ordinary.line.Id);
         Assert.False(ordinaryRow.CanEnterResults);
+        // TEST-BB-450: the bench marks the workup line and links to the investigation; the ordinary line is unmarked.
+        Assert.True(workupRow.ReactionWorkup);
+        Assert.Equal($"/reactions?patientId={workup.patient.Id}", workupRow.ReactionHref);
+        Assert.False(ordinaryRow.ReactionWorkup);
 
         var saved = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
             workup.specimen.Id, workup.order.Id, workup.line.Id, "DAT", "Negative", null, null, null, null, null,

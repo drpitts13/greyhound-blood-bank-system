@@ -49,7 +49,7 @@
                     @* One record per tbody: the facts, the row's actions on a line underneath, then any open entry panel. *@
                     <tbody class="record">
                     <tr class="@TestRowClass(item)">
-                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
+                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span>@if (item.ReactionWorkup) { <a class="badge badge-red" style="margin-left:.35rem;" href="@item.ReactionHref" title="This test is part of a transfusion reaction workup; the investigation closes only when it is verified" data-reaction-workup>Reaction workup</a> }</td>
                         <td>
                             <span class="mono">@item.OrderNumber</span>
                             <span class="sub mono">@(item.AccessionNumber ?? "—")</span>

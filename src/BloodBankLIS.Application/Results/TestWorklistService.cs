@@ -318,7 +318,8 @@ public sealed class TestWorklistService
                 line.Comment,
                 blockAboSelfVerify,
                 VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow),
-                specimen?.Barcode));
+                specimen?.Barcode,
+                order.OrderType == OrderType.TransfusionReactionWorkup));
         }
 
         // Results that stop being verifiable when their specimen expires come right after rush work.

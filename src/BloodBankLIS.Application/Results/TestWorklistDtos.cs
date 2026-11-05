@@ -49,8 +49,13 @@ public sealed record TestWorkItemDto(
     bool BlockAboSelfVerify = true,
     string? VerificationDeadlineNotice = null,
     // The tube's label barcode, so a bench scan of the label finds the line as well as its accession.
-    string? SpecimenBarcode = null)
+    string? SpecimenBarcode = null,
+    // The line belongs to a transfusion reaction workup order: an investigation is waiting on it.
+    bool ReactionWorkup = false)
 {
+    /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
+    public string ReactionHref => $"/reactions?patientId={PatientId}";
+
     public bool HasPostedInterfaceOrInstrumentValue =>
         CurrentResultStatus is ResultStatus.PendingVerification
         && CurrentResultSource is ResultSource.Interface or ResultSource.Instrument;
