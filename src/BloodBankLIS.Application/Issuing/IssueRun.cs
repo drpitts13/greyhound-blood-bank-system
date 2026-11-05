@@ -130,6 +130,27 @@ public static class IssueRun
     public static bool CanReturn(OutstandingIssueWorkItemDto row) => row.TransfusionStartedUtc is null;
 
     /// <summary>
+    /// Units that came back with the one just returned and can still be returned: the same patient and the same cooler,
+    /// or, when no cooler was recorded, the same patient and destination. Units whose transfusion started are left out.
+    /// Earliest issued first. Each is still inspected on its own.
+    /// </summary>
+    public static IReadOnlyList<OutstandingIssueWorkItemDto> NextToReturn(
+        IEnumerable<OutstandingIssueWorkItemDto> outstanding,
+        long patientId,
+        string? coolerId,
+        string? destination,
+        IReadOnlyCollection<long> returnedIssueIds) =>
+        outstanding.Where(r => r.PatientId == patientId
+                && CanReturn(r)
+                && !returnedIssueIds.Contains(r.IssueId)
+                && (string.IsNullOrWhiteSpace(coolerId)
+                    ? string.IsNullOrWhiteSpace(r.CoolerId) && SameText(r.IssuedToLocation, destination)
+                    : SameText(r.CoolerId, coolerId)))
+            .OrderBy(r => r.IssuedUtc)
+            .ThenBy(r => r.UnitNumber, StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
     /// The next step offered for a near-expiry unit: issue it when it is reserved and Ready to issue would offer it,
     /// or allocate it when it is unreserved and its product has open orders (compatibility is checked at allocation).
     /// </summary>

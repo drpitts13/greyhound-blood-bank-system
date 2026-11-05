@@ -13959,3 +13959,45 @@ The cooler check (Cycle 415) was recorded only in the audit trail and on its own
 ### Next ranked residual
 
 Rescan inventory and operations queues for the next workflow gap (candidates: a demo cooler check, shift handoff of coolers still out).
+
+## Iteration 417 — Return a cooler in one run (2026-11-05)
+
+### Capability matrix rescan (issue, return)
+
+Issue (Cycle 376), ward receipt, and the bedside each keep a run for several units of one patient. Return did not. When a cooler came back unused, each unit had to be found again on Issued units, and the reason retyped (questions 1, 2, 5).
+
+### Design
+
+- **`IssueRun.NextToReturn`:**
+  - offers the patient's other units from the same cooler (or the same destination when no cooler was recorded) that can still be returned (transfusion not started)
+  - earliest issued first
+- **Return card:**
+  - appears as soon as a unit is chosen
+  - lists what was returned and where it went
+  - **Return next** only selects the next unit
+- **Carried over and cleared:**
+  - the reason stays while more of the shipment is out
+  - temperature, seal, and visual inspection start unanswered for every unit (not carried over: question 6)
+  - a unit from another shipment starts a new run
+- No server, schema, or API change; each return runs the full return checks.
+
+### Requirements
+
+- URS-BB-513, FRS-BB-594. Help: issuing.
+
+### Tests
+
+- TEST-BB-458:
+  - same cooler and patient, earliest first
+  - another cooler, another patient, and a transfusing unit left out
+  - destination matching without a cooler
+  - nothing left once all are returned
+- Full suite: 3,741 passed, 0 failed.
+- Run check (development API and web):
+  - Return on a Cooler M2 unit (W0001230009203) shows "Cooler M2: Still out (1), Return next: W0001230009204"
+  - with a reason typed, Return next selects W0001230009204, keeps the reason, and offers W0001230009203
+  - nothing returned; no server errors
+
+### Next ranked residual
+
+Rescan the remaining Partial areas (interfaces, product modification workflows) for an operational gap.

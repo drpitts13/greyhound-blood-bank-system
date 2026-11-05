@@ -1125,6 +1125,47 @@
                 <p class="muted">Answer all three inspections before the unit can go back to available stock. Choose Quarantine to return it without them.</p>
             }
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_returnReason) || ReturnInspectionMissing)" @onclick="ReturnAsync">Return unit</button>
+            @if (_returnRun.Count > 0 || NextToReturn.Count > 0)
+            {
+                @* A cooler coming back: the reason stays; each unit is still inspected on its own. *@
+                <div class="bb-card" style="margin-top:1rem;" data-return-run>
+                    <div class="bb-card-title"><h3>@ReturnRunTitle</h3></div>
+                    @if (_returnRun.Count > 0)
+                    {
+                        <table class="bb">
+                            <thead><tr><th>Unit</th><th>Product</th><th>Returned to</th><th>Returned</th></tr></thead>
+                            <tbody>
+                                @foreach (var done in _returnRun)
+                                {
+                                    <tr>
+                                        <td class="mono">@done.UnitNumber</td>
+                                        <td>@done.ProductName</td>
+                                        <td>@done.Destination</td>
+                                        <td class="nowrap">@done.ReturnedLocal.ToString("HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    @if (NextToReturn.Count > 0)
+                    {
+                        <div style="margin-top:.5rem;"><strong>Still out (@NextToReturn.Count)</strong> <span class="muted">The reason stays filled in. Answer temperature, seal, and visual inspection for each unit.</span></div>
+                        <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                            @foreach (var next in NextToReturn)
+                            {
+                                var row = next;
+                                <button type="button" class="btn @(row == NextToReturn[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => ReturnNext(row)" data-return-next>
+                                    Return next: <span class="mono">@row.UnitNumber</span> @row.ProductName
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="muted" style="margin-top:.5rem;">Nothing else from this shipment can be returned.</div>
+                    }
+                </div>
+            }
             @if (_lastReturn is not null)
             {
                 <p class="muted" style="margin-top:.75rem;">
@@ -1613,6 +1654,40 @@
     private long? _returnPatientId;
     private ReturnDto? _lastReturn;
 
+    // Units returned together (same patient and cooler, or same destination without one); the reason carries over.
+    private sealed record ReturnedInRun(long IssueId, string UnitNumber, string? ProductName, UnitStatus Destination, DateTime ReturnedLocal);
+    private readonly List<ReturnedInRun> _returnRun = new();
+    private long _returnRunPatientId;
+    private string? _returnRunCooler;
+    private string? _returnRunDestination;
+
+    // Before the first return, the unit on the form decides the shipment, so the rest of the cooler shows at once.
+    private IReadOnlyList<OutstandingIssueWorkItemDto> NextToReturn => _returnRun.Count > 0
+        ? IssueRun.NextToReturn(_outstandingItems, _returnRunPatientId, _returnRunCooler, _returnRunDestination,
+            _returnRun.Select(r => r.IssueId).ToList())
+        : _returnUnitNumber is not null && _outstandingItems.FirstOrDefault(r => r.IssueId == _returnIssueId) is { } selected
+            ? IssueRun.NextToReturn(_outstandingItems, selected.PatientId, selected.CoolerId, selected.IssuedToLocation, [selected.IssueId])
+            : [];
+
+    private string ReturnRunTitle
+    {
+        get
+        {
+            var cooler = _returnRun.Count > 0
+                ? _returnRunCooler
+                : _outstandingItems.FirstOrDefault(r => r.IssueId == _returnIssueId)?.CoolerId;
+            return string.IsNullOrWhiteSpace(cooler) ? "Returned for this patient" : CoolerName(cooler);
+        }
+    }
+
+    private void ReturnNext(OutstandingIssueWorkItemDto row)
+    {
+        var reason = _returnReason;
+        SelectReturnIssue(row);
+        _returnReason = reason;
+        _returnFb = null;
+    }
+
     private long? IssuePatientId
     {
         get => _issue.PatientId == 0 ? null : _issue.PatientId;
@@ -2032,6 +2107,12 @@
         _returnWardAppearance = ReadyToIssueFormCue.WardAppearanceNotice(row.WardAppearance);
         _returnPatientName = row.PatientDisplayName;
         _returnPatientId = row.PatientId;
+        // A unit from another shipment starts a new run.
+        if (_returnRun.Count > 0 && IssueRun.NextToReturn([row], _returnRunPatientId, _returnRunCooler, _returnRunDestination, []).Count == 0)
+        {
+            _returnRun.Clear();
+        }
+
         _returnTempOk = InspectionStart;
         _returnSealOk = InspectionStart;
         _returnVisualOk = InspectionStart;
@@ -2419,6 +2500,18 @@
         if (r.Succeeded)
         {
             _lastReturn = r.Value;
+            if (_outstandingItems.FirstOrDefault(i => i.IssueId == _returnIssueId) is { } returned)
+            {
+                if (_returnRun.Count == 0)
+                {
+                    (_returnRunPatientId, _returnRunCooler, _returnRunDestination) = (returned.PatientId, returned.CoolerId, returned.IssuedToLocation);
+                }
+
+                _returnRun.Add(new ReturnedInRun(returned.IssueId, returned.UnitNumber ?? _returnUnitLookup, returned.ProductName,
+                    r.Value?.RetypePending == true ? UnitStatus.Received : _returnDestination, DateTime.Now));
+            }
+
+            var keepReason = _returnReason;
             _returnUnitNumber = null;
             _returnProductName = null;
             _returnExpirationNotice = null;
@@ -2439,12 +2532,13 @@
             _returnTimeOutAcceptable = true;
             _returnWardAppearance = null;
             _returnPatientName = null;
-            _returnReason = string.Empty;
             _returnTempOk = InspectionStart;
             _returnSealOk = InspectionStart;
             _returnVisualOk = InspectionStart;
             _returnDestination = UnitStatus.Available;
             await LoadWorklistsAsync();
+            // The reason stays while more of the shipment is out; each unit is inspected again.
+            _returnReason = NextToReturn.Count > 0 ? keepReason : string.Empty;
         }
         _busy = false;
     }

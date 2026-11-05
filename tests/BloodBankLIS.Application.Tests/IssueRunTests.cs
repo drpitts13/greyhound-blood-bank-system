@@ -90,6 +90,28 @@ public class IssueRunTests
             Start.AddMinutes(minutes), received ? Start.AddMinutes(minutes + 10) : null, received ? "RN" : null, "C-7", "ICU",
             IssueStatus.Issued, ProductName: "Red Blood Cells", TransfusionStartedUtc: started ? Start.AddMinutes(minutes + 20) : null);
 
+    // TEST-BB-458: after a return, the rest of the same cooler (or destination, without one) for that patient is
+    // offered, earliest first; a unit whose transfusion started is not.
+    [Fact]
+    public void NextToReturn_OffersTheRestOfTheCooler_ForThatPatient_NotOnesTransfusing()
+    {
+        var outstanding = new[]
+        {
+            Bedside(1, 1, 0),
+            Bedside(2, 1, 5, received: false),
+            Bedside(3, 1, 2),
+            Bedside(4, 1, 1, started: true),
+            Bedside(5, 2, 1),
+            Bedside(6, 1, 3) with { CoolerId = "C-9" },
+            Bedside(7, 1, 4) with { CoolerId = null, IssuedToLocation = "ICU" },
+            Bedside(8, 1, 6) with { CoolerId = null, IssuedToLocation = "4 West" }
+        };
+
+        Assert.Equal([3L, 2L], IssueRun.NextToReturn(outstanding, 1, " c-7", "ICU", [1]).Select(r => r.IssueId));
+        Assert.Equal([7L], IssueRun.NextToReturn(outstanding, 1, null, "icu", []).Select(r => r.IssueId));
+        Assert.Empty(IssueRun.NextToReturn(outstanding, 1, "C-7", "ICU", [1, 2, 3]));
+    }
+
     [Fact]
     public void NextAtBedside_PutsUnitsStillTransfusingFirst_ThenReceivedOnes_ForThatPatientOnly()
     {

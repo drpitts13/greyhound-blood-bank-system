@@ -588,6 +588,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-511 / FRS-BB-591 | Stock count history | `InventoryService.ListCountHistoryAsync` | TEST-BB-455 | I | |
 | URS-BB-512 / FRS-BB-592 | Cooler check before dispatch, audited | `CoolerCheckService.CheckAsync` | TEST-BB-456 | I | |
 | URS-BB-512 / FRS-BB-593 | Cooler check shown on In transit and at ward receipt | `ReadyToIssueFormCue.CoolerCheckNotice` | TEST-BB-457 | U | |
+| URS-BB-513 / FRS-BB-594 | Return a cooler in one run | `IssueRun.NextToReturn` | TEST-BB-458 | U | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |
