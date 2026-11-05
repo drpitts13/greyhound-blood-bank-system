@@ -14048,3 +14048,43 @@ The stock count had a gap. It named units missing from a location, and units on 
 ### Next ranked residual
 
 Shift handoff: coolers still out and not checked.
+
+## Iteration 419 — Coolers in the shift handoff (2026-11-05)
+
+### Capability matrix rescan (operations)
+
+The shift handoff counted units in transit, but not the coolers carrying them or whether those coolers were checked before they left (Cycles 415–416). An incoming shift could not tell that a cooler went out unchecked, or with differences, without opening the cooler check (questions 2, 5).
+
+### Design
+
+- **New `ShiftHandoff` columns:**
+  - `CoolersInTransit`
+  - `CoolersNotChecked` (never checked)
+  - `CoolersWithDifferences` (latest check not all packed)
+- **Schema:** migration `20261115000000_ShiftHandoffCoolers` and the SQLite bootstrap columns.
+- **`CoolerCheckService.SummarizeOpenAsync`:** the read-only open-cooler list without its own *issue.create* check. The handoff is authorized by *shift.handoff* and needs only the counts. `ListOpenAsync` keeps its check.
+- **Handoff line:** "coolers out n, x not checked, y checked with differences", only when coolers are out. The audit snapshot includes the three counts.
+
+### Requirements
+
+- FRS-BB-596 (under URS-BB-512). Help: shift handoff.
+
+### Tests
+
+- TEST-BB-460:
+  - the line wording, and quiet at zero
+  - a recorded handoff counts:
+    - an unchecked cooler
+    - a cooler checked with differences
+    - a unit with no cooler not counted
+    - a cooler already received not counted
+  - recorded by a user with only *shift.handoff* rights in the service
+- Full suite: 3,744 passed, 0 failed.
+- Run check (development API and web):
+  - the startup bootstrap added the three columns to the development database
+  - the Shift handoff page loads (no handoffs recorded there)
+  - nothing recorded; no server errors
+
+### Next ranked residual
+
+Rescan the operations and testing queues for the next workflow gap.

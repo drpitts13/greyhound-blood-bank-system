@@ -38,7 +38,10 @@ public sealed record ShiftHandoffDto(
     int ResultsAwaitingVerification = 0,
     int ReservationsLapsed = 0,
     int NearExpiryUnits = 0,
-    int NearExpiryReserved = 0)
+    int NearExpiryReserved = 0,
+    int CoolersInTransit = 0,
+    int CoolersNotChecked = 0,
+    int CoolersWithDifferences = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -53,6 +56,11 @@ public sealed record ShiftHandoffDto(
         (RetrospectiveOverdue > 0 ? $", {RetrospectiveOverdue} overdue" : "") +
         $"; issued {OutstandingIssued}; transit {InTransit}" +
         (InTransitOverdue > 0 ? $", {InTransitOverdue} overdue" : "") +
+        (CoolersInTransit > 0
+            ? $"; coolers out {CoolersInTransit}" +
+              (CoolersNotChecked > 0 ? $", {CoolersNotChecked} not checked" : "") +
+              (CoolersWithDifferences > 0 ? $", {CoolersWithDifferences} checked with differences" : "")
+            : "") +
         (ReservationsLapsed > 0 ? $"; {ReservationsLapsed} past reservation" : "") +
         $"; tests {PendingTests}" +
         (ResultsAwaitingVerification > 0 ? $", {ResultsAwaitingVerification} to verify" : "") +
@@ -70,7 +78,7 @@ public sealed record ShiftHandoffDto(
         h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc, h.ActiveMtp,
         h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible,
         h.PendingTestsVerifyBeforeExpiry, h.ResultsAwaitingVerification, h.ReservationsLapsed,
-        h.NearExpiryUnits, h.NearExpiryReserved);
+        h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences);
 }
 
 /// <summary>
@@ -92,6 +100,7 @@ public sealed class ShiftHandoffService
     private readonly IRepository<User>? _users;
     private readonly IRepository<MtpActivation>? _mtpActivations;
     private readonly InventoryService? _inventory;
+    private readonly CoolerCheckService? _coolers;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -106,8 +115,10 @@ public sealed class ShiftHandoffService
         IPermissionEvaluator? permissions = null,
         IRepository<User>? users = null,
         IRepository<MtpActivation>? mtpActivations = null,
-        InventoryService? inventory = null)
+        InventoryService? inventory = null,
+        CoolerCheckService? coolers = null)
     {
+        _coolers = coolers;
         _inventory = inventory;
         _users = users;
         _mtpActivations = mtpActivations;
@@ -203,6 +214,9 @@ public sealed class ShiftHandoffService
         var nearExpiry = _inventory is null
             ? Array.Empty<NearExpiryWorkItemDto>()
             : await _inventory.ListNearExpiryAsync(ct);
+        var coolers = _coolers is null
+            ? Array.Empty<OpenCoolerDto>()
+            : await _coolers.SummarizeOpenAsync(ct);
         var now = _clock.UtcNow;
 
         var row = new ShiftHandoff
@@ -230,7 +244,10 @@ public sealed class ShiftHandoffService
             ResultsAwaitingVerification = pendingTests.Count(t => t.AwaitsVerification),
             ReservationsLapsed = ReadyToIssueAttentionRule.CountReservationLapsed(ready, now),
             NearExpiryUnits = nearExpiry.Count,
-            NearExpiryReserved = nearExpiry.Count(u => u.IsReserved)
+            NearExpiryReserved = nearExpiry.Count(u => u.IsReserved),
+            CoolersInTransit = coolers.Count,
+            CoolersNotChecked = coolers.Count(c => c.LastCheckedUtc is null),
+            CoolersWithDifferences = coolers.Count(c => c.LastCheckedUtc is not null && c.LastCheckReady != true)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -302,7 +319,10 @@ public sealed class ShiftHandoffService
         row.ResultsAwaitingVerification,
         row.ReservationsLapsed,
         row.NearExpiryUnits,
-        row.NearExpiryReserved
+        row.NearExpiryReserved,
+        row.CoolersInTransit,
+        row.CoolersNotChecked,
+        row.CoolersWithDifferences
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

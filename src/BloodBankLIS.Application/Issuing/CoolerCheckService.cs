@@ -127,6 +127,15 @@ public sealed class CoolerCheckService
             return OperationResult<IReadOnlyList<OpenCoolerDto>>.Fail(denied);
         }
 
+        return OperationResult<IReadOnlyList<OpenCoolerDto>>.Ok(await SummarizeOpenAsync(ct));
+    }
+
+    /// <summary>
+    /// The open-cooler list without its own permission check, for summaries (shift handoff) whose caller has already
+    /// been authorized for its own action. Read-only.
+    /// </summary>
+    public async Task<IReadOnlyList<OpenCoolerDto>> SummarizeOpenAsync(CancellationToken ct = default)
+    {
         var open = (await InTransitAsync(ct)).Where(i => !string.IsNullOrWhiteSpace(i.CoolerId)).ToList();
         var patients = await PatientsAsync(open, ct);
         var result = new List<OpenCoolerDto>();
@@ -143,7 +152,7 @@ public sealed class CoolerCheckService
                 ready));
         }
 
-        return OperationResult<IReadOnlyList<OpenCoolerDto>>.Ok(result.OrderBy(c => c.FirstIssuedUtc).ToList());
+        return result.OrderBy(c => c.FirstIssuedUtc).ToList();
     }
 
     public async Task<OperationResult<CoolerCheckDto>> CheckAsync(CoolerCheckRequest request, CancellationToken ct = default)

@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
@@ -96,6 +97,57 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(created.Succeeded, created.Error);
         Assert.Equal(activeBefore + 1, created.Value!.ActiveMtp);
         Assert.Equal(activeBefore + 1, ShiftHandoffDto.From(created.Value).ActiveMtp);
+    }
+
+    // TEST-BB-460: the packet counts coolers still in transit and how many were not checked or had differences. The
+    // handoff user does not need issue.create for the count.
+    [Fact]
+    public async Task Create_CountsCoolersInTransit_AndTheirChecks()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var product = new ProductType { ProductCode = $"RBC-HO-{key}", Name = "Handoff RBC", ComponentClass = ComponentClass.RedBloodCells };
+        var patient = new Patient { MedicalRecordNumber = $"MRN-HOC-{key}", LastName = "Handoff", FirstName = "Cooler", DateOfBirth = new DateOnly(1980, 1, 1) };
+        context.AddRange(product, patient);
+        await context.SaveChangesAsync();
+        BloodUnit Unit(string suffix) => new()
+        {
+            UnitNumber = $"U-HOC{suffix}-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Issued
+        };
+        var (a, b, c, d) = (Unit("A"), Unit("B"), Unit("C"), Unit("D"));
+        context.BloodUnits.AddRange(a, b, c, d);
+        await context.SaveChangesAsync();
+        Issue Issued(BloodUnit unit, string? cooler, DateTime? received = null) => new()
+        {
+            BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-5), IssuedBy = "tech1",
+            Status = IssueStatus.Issued, CoolerId = cooler, WardReceivedUtc = received
+        };
+        context.Issues.AddRange(Issued(a, $"HO-CHK-{key}"), Issued(b, $"HO-NEW-{key}"), Issued(c, null), Issued(d, $"HO-DONE-{key}", _factory.Clock.UtcNow));
+        await context.SaveChangesAsync();
+
+        var coolers = new CoolerCheckService(
+            new EfRepository<Issue>(context), new InventoryRepository(context), new EfRepository<BloodUnit>(context),
+            new EfRepository<ProductType>(context), new EfRepository<Patient>(context),
+            new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate), _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser), context, new AuditQuery(context));
+        var before = await coolers.SummarizeOpenAsync();
+        Assert.True((await coolers.CheckAsync(new CoolerCheckRequest($"HO-CHK-{key}", [], Finish: true))).Succeeded);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ShiftHandoff),
+            coolers: coolers);
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest($"Two coolers out {key}"));
+        Assert.True(created.Succeeded, created.Error);
+        var row = created.Value!;
+        Assert.Equal(before.Count, row.CoolersInTransit);
+        Assert.Equal(before.Count(o => o.LastCheckedUtc is null) - 1, row.CoolersNotChecked);
+        Assert.Equal(before.Count(o => o.LastCheckedUtc is not null && o.LastCheckReady != true) + 1, row.CoolersWithDifferences);
+        Assert.Contains(before, o => o.CoolerId == $"HO-NEW-{key}");
+        Assert.DoesNotContain(before, o => o.CoolerId == $"HO-DONE-{key}");
+        Assert.Contains("coolers out", ShiftHandoffDto.From(row).QueueSummary);
     }
 
     [Fact]

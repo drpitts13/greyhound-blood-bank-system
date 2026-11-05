@@ -61,6 +61,13 @@ public class ShiftHandoff : BaseEntity
 
     public int NearExpiryReserved { get; set; }
 
+    /// <summary>Coolers with units still in transit, and of those how many were never checked or checked with differences.</summary>
+    public int CoolersInTransit { get; set; }
+
+    public int CoolersNotChecked { get; set; }
+
+    public int CoolersWithDifferences { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

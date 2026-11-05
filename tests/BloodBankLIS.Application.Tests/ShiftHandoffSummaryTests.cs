@@ -22,4 +22,14 @@ public class ShiftHandoffSummaryTests
         Assert.Contains("transit 1; 2 past reservation", busy);
         Assert.Contains("near expiry 4, 1 reserved", busy);
     }
+
+    // TEST-BB-460: the handoff line names coolers still out and how many were not checked or had differences.
+    [Fact]
+    public void Summary_NamesCoolersOut_AndTheirChecks()
+    {
+        Assert.DoesNotContain("coolers out", Handoff().QueueSummary);
+        var line = (Handoff() with { CoolersInTransit = 3, CoolersNotChecked = 2, CoolersWithDifferences = 1 }).QueueSummary;
+        Assert.Contains("transit 1; coolers out 3, 2 not checked, 1 checked with differences", line);
+        Assert.Contains("coolers out 1;", (Handoff() with { CoolersInTransit = 1 }).QueueSummary);
+    }
 }
