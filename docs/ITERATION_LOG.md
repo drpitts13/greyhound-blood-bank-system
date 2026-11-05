@@ -14121,3 +14121,36 @@ The home In transit card named only units past the arrival window. A cooler that
 ### Next ranked residual
 
 Add a checked cooler to the demo data so all three cooler states can be shown.
+
+## Iteration 421 — Demo cooler checks (2026-11-05)
+
+### Capability matrix rescan (sample data)
+
+The demo had three coolers in transit, all unchecked, so the checked and differences states of Cycles 415–420 could not be shown without finishing a check live.
+
+### Design
+
+- **`DatabaseSeeder.EnsureCoolerCheckDemoAsync`** (runs with the extended demo scenarios, once per cooler):
+  - **Cooler M2** (multi-unit patient): checked with all units packed.
+  - **Cooler 1** (massive transfusion pack): checked with its first-issued unit not scanned ("3 of 4 packed, 1 missing").
+  - **CLR-TRAUMA-1:** stays unchecked.
+- **Rows:** written as the cooler check writes them, one audit row per issue in the cooler. Each is attributed to the user who issued, from workstation DEMO-SEED, with `DemoData: true` in the value.
+- **Hash chain:** the rows join it like any other audit row.
+- No schema or API change.
+
+### Tests
+
+- TEST-BB-462:
+  - after seeding twice, the open-cooler list shows Cooler M2 all packed, Cooler 1 with differences, and CLR-TRAUMA-1 not checked
+  - one check row per unit (no duplicates)
+  - the Cooler 1 reason names the missing unit count
+- Full suite: 3,746 passed, 0 failed.
+- Run check (development API and web):
+  - restarting the API seeded the checks, with hash-chained rows by tech2 at DEMO-SEED
+  - Coolers in transit shows Cooler 1 "Differences", CLR-TRAUMA-1 "Not checked", and Cooler M2 "All packed"
+  - the home In transit card reads "1 cooler not checked; 1 cooler checked with differences"
+  - no server errors
+
+### Next ranked residual
+
+Rescan the remaining queues (test worklist, antibody ID, reactions) for the next workflow gap.

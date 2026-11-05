@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -292,6 +293,38 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             e.PatientId == helen.Id
             && e.TriggerType == BillingTriggerType.UnitTransfused
             && e.Status == BillingEventStatus.Pending));
+    }
+
+    // TEST-BB-462: the demo shows each cooler check state: Cooler M2 checked with all units packed, Cooler 1 checked
+    // with one unit missing, CLR-TRAUMA-1 not checked. Seeding again adds no more check rows.
+    [Fact]
+    public async Task Seed_DemoCoolers_ShowEachCheckState_Once()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var coolers = new CoolerCheckService(
+            new EfRepository<Issue>(verify), new InventoryRepository(verify), new EfRepository<BloodUnit>(verify),
+            new EfRepository<ProductType>(verify), new EfRepository<Patient>(verify),
+            new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate), _factory.CurrentUser,
+            new AuditWriter(verify, _factory.Clock, _factory.CurrentUser), verify, new AuditQuery(verify));
+        var open = (await coolers.SummarizeOpenAsync()).ToDictionary(c => c.CoolerId);
+        Assert.True(open["Cooler M2"].LastCheckReady);
+        Assert.False(open["Cooler 1"].LastCheckReady);
+        Assert.NotNull(open["Cooler 1"].LastCheckedUtc);
+        Assert.Null(open["CLR-TRAUMA-1"].LastCheckedUtc);
+
+        var checks = await verify.AuditEvents.CountAsync(e => e.EntityType == nameof(Issue) && e.Reason!.StartsWith("Cooler check: "));
+        Assert.Equal(open["Cooler M2"].Units + open["Cooler 1"].Units, checks);
+        Assert.Contains("1 missing", (await verify.AuditEvents.FirstAsync(e => e.Reason!.StartsWith("Cooler check: Cooler 1"))).Reason);
     }
 
     // TEST-BB-377: the demo patient's specimens are seeded with the expiration policy gives them, so editing one needs no override.

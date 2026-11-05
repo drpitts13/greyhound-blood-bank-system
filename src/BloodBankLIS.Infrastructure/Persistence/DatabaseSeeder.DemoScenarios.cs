@@ -1,3 +1,5 @@
+using System.Text.Json;
+using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -61,6 +63,76 @@ public static partial class DatabaseSeeder
         await SeedMultiUnitScenarioAsync(context, ct);
         await SeedSpecialRequirementsScenarioAsync(context, ct);
         await SeedMinimumStockLevelsAsync(context, ct);
+        await EnsureCoolerCheckDemoAsync(context, ct);
+    }
+
+    private const string CoolerCheckReasonPrefix = "Cooler check: ";
+
+    /// <summary>
+    /// Demo cooler checks so each state can be shown: Cooler M2 (multi-unit patient) checked with all units packed,
+    /// Cooler 1 (massive transfusion pack) checked with one unit not scanned, and CLR-TRAUMA-1 left unchecked. Written
+    /// once per cooler, as the cooler check writes them (one row per issue in the cooler), and marked as demo data.
+    /// </summary>
+    private static async Task EnsureCoolerCheckDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await SeedCoolerCheckAsync(context, "Cooler M2", missing: 0, ct);
+        await SeedCoolerCheckAsync(context, "Cooler 1", missing: 1, ct);
+    }
+
+    private static async Task SeedCoolerCheckAsync(BloodBankDbContext context, string cooler, int missing, CancellationToken ct)
+    {
+        var issues = await context.Issues
+            .Where(i => i.CoolerId == cooler && i.Status == IssueStatus.Issued && i.WardReceivedUtc == null)
+            .OrderBy(i => i.IssuedUtc)
+            .ToListAsync(ct);
+        if (issues.Count == 0)
+        {
+            return;
+        }
+
+        var issueIds = issues.Select(i => (long?)i.Id).ToList();
+        if (await context.AuditEvents.AnyAsync(
+                e => e.EntityType == nameof(Issue) && issueIds.Contains(e.EntityId) && e.Reason!.StartsWith(CoolerCheckReasonPrefix), ct))
+        {
+            return;
+        }
+
+        var unitIds = issues.Select(i => i.BloodProductId).ToList();
+        var numbers = await context.BloodUnits.Where(u => unitIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UnitNumber, ct);
+        var notPacked = issues.Take(missing).Select(i => numbers.GetValueOrDefault(i.BloodProductId) ?? $"unit {i.BloodProductId}").ToList();
+        var packed = issues.Count - notPacked.Count;
+        var reason = notPacked.Count == 0
+            ? $"{CoolerCheckReasonPrefix}{cooler}: all {issues.Count} units packed."
+            : $"{CoolerCheckReasonPrefix}{cooler}: {packed} of {issues.Count} packed, {notPacked.Count} missing, 0 issued to another cooler, 0 not issued, 0 unresolved scans.";
+        var checkedUtc = issues.Max(i => i.IssuedUtc).AddMinutes(2);
+        foreach (var issue in issues)
+        {
+            var unitNumber = numbers.GetValueOrDefault(issue.BloodProductId) ?? $"unit {issue.BloodProductId}";
+            context.AuditEvents.Add(new AuditEvent
+            {
+                EventType = AuditEventType.Issue,
+                EntityType = nameof(Issue),
+                EntityId = issue.Id,
+                UserName = issue.IssuedBy,
+                Workstation = "DEMO-SEED",
+                OccurredUtc = checkedUtc,
+                NewValueJson = JsonSerializer.Serialize(new
+                {
+                    Document = "Cooler check",
+                    Cooler = cooler,
+                    IssueId = issue.Id,
+                    BloodProductId = issue.BloodProductId,
+                    UnitNumber = unitNumber,
+                    Packed = !notPacked.Contains(unitNumber),
+                    Ready = notPacked.Count == 0,
+                    Missing = notPacked,
+                    DemoData = true
+                }),
+                Reason = reason
+            });
+        }
+
+        await context.SaveChangesAsync(ct);
     }
 
     // ---------------------------------------------------------------------
