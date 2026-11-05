@@ -147,6 +147,10 @@ public static class AppBreadcrumbTrail
             {
                 crumbs.Add(new("Modify Products", null));
             }
+            else if (parts.Length >= 2 && parts[1].Equals("move", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Move units", null));
+            }
             else if (parts.Length >= 2 && parts[1].Equals("units", StringComparison.OrdinalIgnoreCase))
             {
                 crumbs.Add(new("Unit", null));

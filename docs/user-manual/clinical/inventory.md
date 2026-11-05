@@ -8,6 +8,7 @@ routes:
   - /inventory
   - /inventory?board=retype
   - /inventory?board=quarantine
+  - /inventory/move
 ---
 
 ![Inventory](figures/inventory.png)
@@ -23,6 +24,10 @@ The row shows the storage location by name. A missing name falls back to the loc
 **Quarantine** (`board=quarantine`) opens units held for a coded quality reason. The row shows product, location, volume, any ABO or Rh retype mismatch, and the **Next step** for the unit. A unit cannot be released, and the row says what to do instead, when it has expired, when its verified retype disagrees with the label (discard it or return it to the supplier), when it is the remainder of a unit whose reaction investigation is still open (release it after the investigation is closed), or when it was returned with disposal requested. Release uses the same second-verifier gate as the unit's manage actions when policy requires two people. A unit created by a modification also asks for the unit number on the new label. That scan has to match the result. Other quarantine releases do not ask for it. A unit whose product needs a retype that has not been confirmed goes back to **Received** and onto the Retype board, not to available stock. Releasing a unit from **Operational hold** asks how the hold was resolved (for example that the paperwork arrived); the record keeps both why it was held and why it was released. It does not need a second verifier. An expired unit on hold says **Expired: discard it.** and cannot be released. A unit whose retype is not confirmed goes back to **Received**, as above.
 
 The other boards cover expected inbound units, units near expiry, units on hold, discrepancy units (missing or damaged), and open deliveries. On Near expiry, a unit reserved for a patient says **Reserved for** and the patient, with a link to their products: issue it first or reserve a replacement. When it can be issued now, **Issue** opens the Issue form with the unit and patient filled. An unreserved unit whose product has open orders shows how many; that opens the unit's Actions to allocate it before it expires, and compatibility is checked when you allocate. Open the row rather than changing status from memory.
+
+## Move units by scan
+
+**Move units** (permission *inventory.transfer*) moves a batch of units to one location, for example to stock a satellite or operating-room refrigerator. Choose **Move to**, then scan each unit number; each scan moves that unit at once and is listed under **This run**, newest first. The checks are the same as a transfer from the unit page: the unit's status must allow a move, and the location must be active, take that kind of component, and have a storage range. A unit already in the location, an unreadable scan, or an unknown number is listed as **Not moved** with the reason. A unit number that was divided matches several units and moves none; move those from each unit's page. Every move is in the unit's history and the audit trail.
 
 ## Expiration
 

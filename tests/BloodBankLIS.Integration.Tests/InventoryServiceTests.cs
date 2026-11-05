@@ -529,6 +529,49 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(blank.Code, blankRow.LocationLabel, StringComparison.Ordinal);
     }
 
+    // TEST-BB-453: the Move units desk moves the scanned unit; a unit already there, an unknown or unreadable scan,
+    // a unit that cannot move, and a divided number move nothing.
+    [Fact]
+    public async Task TransferByScan_MovesTheScannedUnit_AndRefusesWhatItCannotMove()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var from = new InventoryLocation { Code = $"SCAN-FR-{key}", Name = "Main fridge", LocationType = LocationType.Refrigerator };
+        var to = new InventoryLocation { Code = $"SCAN-OR-{key}", Name = "OR fridge", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.AddRange(from, to);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var unit = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCAN-{key}", productTypeId) with { LocationId = from.Id });
+        var issued = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCANISS-{key}", productTypeId) with { LocationId = from.Id });
+        var partA = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCANA-{key}", productTypeId) with { LocationId = from.Id });
+        var partB = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCANB-{key}", productTypeId) with { LocationId = from.Id });
+        Assert.True(unit.Succeeded && issued.Succeeded && partA.Succeeded && partB.Succeeded);
+        (await context.BloodUnits.FindAsync(issued.Unit!.Id))!.Status = UnitStatus.Issued;
+        foreach (var part in new[] { partA.Unit!.Id, partB.Unit!.Id })
+        {
+            (await context.BloodUnits.FindAsync(part))!.Din = $"D-SCAN-{key}";
+        }
+
+        await context.SaveChangesAsync();
+
+        var moved = await service.TransferByScanAsync(new TransferByScanRequest($"  u-scan-{key.ToLowerInvariant()} ", to.Id, "Stock OR"));
+        Assert.True(moved.Succeeded, moved.Error);
+        Assert.Equal(to.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == unit.Unit!.Id)).CurrentLocationId);
+        var history = (await new InventoryRepository(context).GetHistoryAsync(unit.Unit!.Id)).OrderByDescending(h => h.Id).First();
+        Assert.Equal((from.Id, to.Id, "Stock OR"), (history.FromLocationId!.Value, history.ToLocationId!.Value, history.Reason));
+
+        Assert.Contains("already in that location", (await service.TransferByScanAsync(new TransferByScanRequest($"U-SCAN-{key}", to.Id))).Error);
+        Assert.Contains("No unit has the number", (await service.TransferByScanAsync(new TransferByScanRequest($"U-NONE-{key}", to.Id))).Error);
+        Assert.Contains("not a readable unit number", (await service.TransferByScanAsync(new TransferByScanRequest("=???", to.Id))).Error);
+        Assert.Contains("is Issued; it cannot be moved", (await service.TransferByScanAsync(new TransferByScanRequest($"U-SCANISS-{key}", to.Id))).Error);
+        var divided = await service.TransferByScanAsync(new TransferByScanRequest($"D-SCAN-{key}", to.Id));
+        Assert.Contains("matches 2 units", divided.Error);
+        Assert.Equal(2, await context.BloodUnits.CountAsync(u => u.Din == $"D-SCAN-{key}" && u.CurrentLocationId == from.Id));
+        Assert.Contains("Scan the unit number", (await service.TransferByScanAsync(new TransferByScanRequest(" ", to.Id))).Error);
+    }
+
     [Fact]
     public async Task UnitActivity_NamesTheStorageLocationsOnAMove()
     {

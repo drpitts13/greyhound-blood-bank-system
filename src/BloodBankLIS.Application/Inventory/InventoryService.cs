@@ -1805,6 +1805,60 @@ public sealed class InventoryService
         return InventoryActionResult.Ok(unit);
     }
 
+    /// <summary>
+    /// Moves the unit in hand to a location by its scanned unit number (DIN, with or without the scanner's '=') or
+    /// component label, with the same checks and audit as <see cref="TransferAsync"/>. A scan matching several units
+    /// (a divided DIN) moves none; each is moved from its unit page. A unit already in the location is not "moved".
+    /// </summary>
+    public async Task<InventoryActionResult> TransferByScanAsync(TransferByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var sanitized = ScannerInputSanitizer.Sanitize(request.Scan).Sanitized.Trim();
+        if (sanitized.Length == 0)
+        {
+            return InventoryActionResult.Fail("Scan the unit number.");
+        }
+
+        var din = Domain.Isbt128.Parsing.DinParser.Parse(sanitized);
+        if (!din.Success && sanitized.StartsWith('='))
+        {
+            return InventoryActionResult.Fail("That scan is not a readable unit number (DIN). Scan the unit number barcode again.");
+        }
+
+        var key = (din.Success ? din.Value!.Din : sanitized.Replace(" ", string.Empty)).ToUpperInvariant();
+        var candidates = (await _repository.ListByUnitNumberOrDinAsync(key, ct)).ToList();
+        if (candidates.Count == 0 && await _repository.GetByComponentIdentityAsync(sanitized, ct) is { } byLabel)
+        {
+            candidates.Add(byLabel);
+        }
+
+        if (candidates.Count == 0)
+        {
+            return InventoryActionResult.Fail($"No unit has the number {sanitized}.");
+        }
+
+        var movable = candidates.Where(u => TransferableStatuses.Contains(u.Status)).ToList();
+        if (movable.Count == 0)
+        {
+            return InventoryActionResult.Fail($"{candidates[0].UnitNumber} is {candidates[0].Status}; it cannot be moved.");
+        }
+
+        if (movable.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {movable.Count} units ({string.Join(", ", movable.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Move each from its unit page.");
+        }
+
+        var unit = movable[0];
+        if (unit.CurrentLocationId == request.ToLocationId)
+        {
+            return InventoryActionResult.Fail($"{unit.UnitNumber} is already in that location.");
+        }
+
+        return await TransferAsync(unit.Id, request.ToLocationId,
+            string.IsNullOrWhiteSpace(request.Reason) ? "Moved by scan" : request.Reason.Trim(), ct);
+    }
+
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedTransferAsync(ct);

@@ -13738,3 +13738,43 @@ Rejection notice to the EHR (HL7 order status) needs the interface choice; other
 ### Next ranked residual
 
 Rejection notice to the EHR needs the interface choice. Otherwise rescan inventory operations (transfers, location moves).
+
+## Iteration 412 — Move units by scan (2026-11-05)
+
+### Capability matrix rescan (inventory locations)
+
+A unit could be moved only from its own page, by choosing a location from a list. Stocking a satellite or operating-room refrigerator with ten units meant opening ten unit pages and choosing the same location ten times, with no scanning (questions 1, 4).
+
+### Design
+
+- **`InventoryService.TransferByScanAsync`:**
+  - **Scan handling:** cleans the scan, parses a "=" DIN (an unreadable one is refused), and matches exactly on unit number or DIN (new `IInventoryRepository.ListByUnitNumberOrDinAsync`) or the component label.
+  - **Nothing moves when:** there is no match, the status cannot move, the unit is already in the location, or several units match (a divided DIN). Each says why.
+  - **One movable unit:** goes through `TransferAsync` (active location, component allowed, storage range; status history and audit), reason "Moved by scan" unless one is given.
+- **API:** `POST /api/inventory/units/transfer-by-scan`, permission *inventory.transfer*.
+- **Page `/inventory/move` (Move units on Inventory):**
+  - choose Move to and an optional reason, then scan
+  - each scan moves at once and is listed under **This run**, newest first: Moved, or Not moved with the reason
+  - breadcrumb Inventory / Move units
+- No schema change.
+
+### Requirements
+
+- URS-BB-510, FRS-BB-589. Help: inventory (route and section).
+
+### Tests
+
+- TEST-BB-453:
+  - a lower-case, padded unit number moves the unit, with history from/to and the reason
+  - refused: already there, unknown number, unreadable "=" scan, Issued unit, divided DIN (2 units, none moved), blank scan
+- Full suite: 3,737 passed, 0 failed.
+- Run check (development API and web), using refusals only so demo stock did not move:
+  - with FRIDGE-1 chosen: W0001230009203 "is Issued; it cannot be moved", W9999999999999 not found, W0001230009201 "is already in that location"
+  - "This run: 0 moved, 3 not moved"
+  - no server errors
+  - the not-found message showed the 13-character DIN rather than the 14 characters scanned; it now echoes the scan
+  - a successful move is covered by the test only
+
+### Next ranked residual
+
+Rescan: cooler and transport checkouts, or inventory count (cycle count by scan per location).

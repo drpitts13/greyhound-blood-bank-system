@@ -19,6 +19,10 @@
         {
             <a class="btn btn-primary" href="/inventory/deliveries/new">New delivery</a>
         }
+        @if (Session.Has(PermissionCodes.InventoryTransfer))
+        {
+            <a class="btn btn-secondary" href="/inventory/move" data-move-units>Move units</a>
+        }
         @if (Session.Has(PermissionCodes.InventoryDiscard))
         {
             <button class="btn btn-secondary" disabled="@_busy" @onclick="ExpireDueAsync">Run expiration sweep</button>

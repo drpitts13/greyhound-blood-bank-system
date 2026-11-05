@@ -561,6 +561,9 @@ public sealed class BloodBankApiClient
         long id, string reason, string? secondVerifier = null, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/convert-directed", new DiscardUnitRequestVm(reason, secondVerifier), ct);
 
+    public Task<ApiResult<BloodUnitDto>> TransferUnitByScanAsync(TransferByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/transfer-by-scan", req, ct);
+
     public Task<ApiResult<BloodUnitDto>> TransferUnitAsync(long id, long toLocationId, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/transfer", new TransferRequestVm(toLocationId, reason), ct);
 
