@@ -78,6 +78,8 @@ The transfusion desk records the bedside checks and the transfusion itself. The 
 
 **Issued units** lists outstanding issues so you can document or return them without looking up an internal issue number. **Start / document** (or **Complete**, once started) opens the transfusion desk and records the identifiers checked at the bedside, the start, and the disposition your procedure captures. Dual identification is required here the same way it is required at issue. Read both identifiers from the patient's wristband at the bedside. The fields start empty unless your facility has turned on pre-fill, and the same match line shows under each.
 
+**Several units for one patient.** After you start, complete, or document a unit, **This patient at the bedside** lists what you have done and offers the patient's other units received on the ward: units still transfusing first (**Complete**), then the next to start. Moving to the next unit keeps the transfusionist and the patient identifiers you entered. Scan each unit, and answer the second verifier, volume, and reaction again for each one.
+
 ## Final disposition
 
 **Final disposition** lists issued units that are past the facility window and still have no transfusion document, return, or discard. The window ships at 24 hours. Change it in Facility Policy if your procedure uses another operational interval. The board is a warning. It does not stop you from issuing another unit, documenting the transfusion, returning the unit, or discarding it.

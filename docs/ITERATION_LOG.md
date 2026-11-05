@@ -12406,3 +12406,45 @@ Interoperability:
 
 - Interface lens: an outbound BPAM endpoint preset (message types BPS) in the interface admin, so it can be set up without typing the message type.
 - Workflow lens: transfusion documentation in a run.
+
+## Iteration 379 — Several units for one patient at the bedside (2026-11-04)
+
+### Capability matrix rescan (workflow lens)
+
+- Issue (Cycle 376) and ward receipt (Cycle 377) handle several units for one patient in a row.
+- Transfusion documentation still went back to Issued units for each unit, and re-filled or blanked the identifiers by the pre-fill policy each time.
+- Outbound BPAM (Cycle 378) needs no preset: BPS is already among the BPAM message types and the sender routes by endpoint.
+
+### Finding (questions 1, 2, 5)
+
+An MTP patient receiving four units had four bedside passes:
+- re-select the row
+- re-key both identifiers (pre-fill off) and the transfusionist
+- remember which unit was still running and needed completing
+
+The scan also stayed from the previous unit.
+
+### Design
+
+- After Start, Complete, or Document succeeds, **This patient at the bedside** lists the actions (unit, product, Started / Completed or Documented with disposition, time).
+- It offers the patient's other units received on the ward and not finished (`IssueRun.NextAtBedside`): units already transfusing first (**Complete**), then received ones by issue time (**Start next**).
+- **What stays, for the same patient:** the transfusionist and the two identifiers already entered.
+- **What is cleared after each action:** the bedside scan, second verifier, volume, and the reaction flag. A reaction on one unit is never carried to the next; the reaction investigation lookup uses the flag as it was submitted.
+- Finished units are not offered again. Another patient starts a new list. No server change; every check runs per unit.
+
+### Requirements
+
+- FRS-BB-556 (under URS-BB-494). Help: issuing, document the transfusion.
+
+### Tests
+
+- TEST-BB-418: transfusing first, then received by issue time; not received, other patients, the unit on the form, and finished units are left out.
+- Full suite: 3,692 passed.
+  - One integration test failed once in the first full run, then passed in two further full integration runs. It was not identified, and the change is UI and helper only.
+- Run check (development API and web):
+  - the transfusion desk renders, with no server errors
+  - the demo data has no unit received on the ward, so the bedside list was not exercised live; the helper test covers it
+
+### Next ranked residual (workflow lens)
+
+Demo data: add a received, ready-to-transfuse pair of units for one patient, so these run panels can be shown and checked live without writing new records each time.

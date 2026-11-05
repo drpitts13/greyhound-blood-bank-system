@@ -67,6 +67,24 @@ public static class IssueRun
             .ThenBy(r => r.UnitNumber, StringComparer.Ordinal)
             .ToList();
 
+    /// <summary>
+    /// The patient's other units at the bedside: received on the ward and not yet finished. Units already transfusing
+    /// come first (they need completing), then the rest by issue time.
+    /// </summary>
+    public static IReadOnlyList<OutstandingIssueWorkItemDto> NextAtBedside(
+        IEnumerable<OutstandingIssueWorkItemDto> outstanding,
+        long patientId,
+        long? issueOnForm,
+        IReadOnlyCollection<long> handledIssueIds) =>
+        outstanding.Where(r => r.PatientId == patientId
+                && r.WardReceivedUtc is not null
+                && r.IssueId != issueOnForm
+                && !handledIssueIds.Contains(r.IssueId))
+            .OrderBy(r => r.TransfusionStartedUtc is null ? 1 : 0)
+            .ThenBy(r => r.IssuedUtc)
+            .ThenBy(r => r.UnitNumber, StringComparer.Ordinal)
+            .ToList();
+
     private static bool SameText(string? a, string? b) =>
         string.Equals((a ?? string.Empty).Trim(), (b ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
 }

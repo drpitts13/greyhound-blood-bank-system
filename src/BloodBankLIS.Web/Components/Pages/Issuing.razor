@@ -1213,6 +1213,44 @@
                     <a href="@($"/reactions?id={reactionId}")">Open investigation #@reactionId</a>
                 </div>
             }
+            @if (_txRun.Count > 0)
+            {
+                @* Several units for one patient at the bedside: the transfusionist and identifiers stay; each unit is scanned. *@
+                <div class="bb-card" style="margin-top:1rem;" data-bedside-run>
+                    <div class="bb-card-title"><h3>This patient at the bedside</h3></div>
+                    <table class="bb">
+                        <thead><tr><th>Unit</th><th>Product</th><th>Done</th><th>At</th></tr></thead>
+                        <tbody>
+                            @foreach (var done in _txRun)
+                            {
+                                <tr>
+                                    <td class="mono">@done.UnitNumber</td>
+                                    <td>@done.ProductName</td>
+                                    <td>@done.Action</td>
+                                    <td class="nowrap">@done.AtLocal.ToString("HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (NextAtBedside.Count > 0)
+                    {
+                        <div style="margin-top:.5rem;"><strong>Next at the bedside</strong> <span class="muted">Transfusionist and patient identifiers stay filled in. Scan each unit; the second verifier, volume, and reaction are asked again.</span></div>
+                        <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                            @foreach (var next in NextAtBedside)
+                            {
+                                var row = next;
+                                <button type="button" class="btn @(row == NextAtBedside[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => NextBedsideUnit(row)">
+                                    @(row.TransfusionStartedUtc is null ? "Start next" : "Complete"): <span class="mono">@row.UnitNumber</span> @row.ProductName
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="muted" style="margin-top:.5rem;">No other unit received on the ward for this patient is waiting.</div>
+                    }
+                </div>
+            }
         }
     </div>
 }
@@ -1306,6 +1344,48 @@
     private string? _txTransfusionist;
     private string? _txSecondVerifier;
     private bool _txReaction;
+
+    // Bedside actions for one patient since that patient's first unit here; finished units are not offered again.
+    private sealed record BedsideInRun(long IssueId, string UnitNumber, string? ProductName, string Action, bool Finished, DateTime AtLocal);
+    private readonly List<BedsideInRun> _txRun = new();
+    private long _txRunPatientId;
+
+    private IReadOnlyList<OutstandingIssueWorkItemDto> NextAtBedside => _txRun.Count == 0
+        ? []
+        : IssueRun.NextAtBedside(_outstandingItems, _txRunPatientId, _txIssueId,
+            _txRun.Where(r => r.Finished).Select(r => r.IssueId).ToList());
+
+    /// <summary>Records a bedside action for the run and clears what belongs to one unit.</summary>
+    private void AddToBedsideRun(string action, bool finished)
+    {
+        var row = _outstandingItems.FirstOrDefault(r => r.IssueId == _txIssueId);
+        var patientId = row?.PatientId ?? _txPatient?.Id ?? 0;
+        if (patientId != _txRunPatientId)
+        {
+            _txRun.Clear();
+            _txRunPatientId = patientId;
+        }
+
+        _txRun.Add(new BedsideInRun(_txIssueId, row?.UnitNumber ?? _txUnitLookup, row?.ProductName ?? _txProductName, action, finished, DateTime.Now));
+        _txScan.Clear();
+        _txSecondVerifier = null;
+        _txVolume = null;
+        _txReaction = false;
+    }
+
+    private void NextBedsideUnit(OutstandingIssueWorkItemDto row)
+    {
+        // Same patient: the identifiers already entered at this bedside stay.
+        var (id1, id2, transfusionist) = (_txPatientIdentifier1, _txPatientIdentifier2, _txTransfusionist);
+        SelectTransfusionIssue(row);
+        if (row.PatientId == _txRunPatientId)
+        {
+            (_txPatientIdentifier1, _txPatientIdentifier2, _txTransfusionist) = (id1, id2, transfusionist);
+        }
+
+        _txFb = null;
+        _openedReactionId = null;
+    }
     private string? _txPatientIdentifier1;
     private string? _txPatientIdentifier2;
     private PatientDto? _txPatient;
@@ -2218,6 +2298,7 @@
         _txFb = r.ToFeedback("Transfusion started. Complete it here when it ends.");
         if (r.Succeeded && r.Value is not null)
         {
+            AddToBedsideRun("Started", finished: false);
             _txStartedUtc = r.Value.StartUtc;
             await LoadWorklistsAsync();
         }
@@ -2231,12 +2312,14 @@
         _busy = false;
         _txFb = r.ToFeedback("Transfusion completed.");
         _openedReactionId = null;
+        var reactionReported = _txReaction;
         if (r.Succeeded && r.Value is not null)
         {
+            AddToBedsideRun($"Completed ({_txDisposition})", finished: true);
             _lastTransfusion = r.Value;
             _txStartedUtc = null;
             await LoadWorklistsAsync();
-            if (_txReaction)
+            if (reactionReported)
             {
                 var cases = await Api.GetReactionInvestigationsAsync();
                 _openedReactionId = cases.Value?.FirstOrDefault(x => x.TransfusionEventId == r.Value.Id)?.Id;
@@ -2259,12 +2342,14 @@
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;
+        var reactionReported = _txReaction;
         if (r.Succeeded)
         {
+            AddToBedsideRun($"Documented ({_txDisposition})", finished: true);
             _lastTransfusion = r.Value;
             await LoadWorklistsAsync();
         }
-        if (_txReaction && r.Succeeded && r.Value is not null)
+        if (reactionReported && r.Succeeded && r.Value is not null)
         {
             var cases = await Api.GetReactionInvestigationsAsync();
             var opened = cases.Value?.FirstOrDefault(x => x.TransfusionEventId == r.Value.Id);

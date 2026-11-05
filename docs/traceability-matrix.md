@@ -556,6 +556,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-494 / FRS-BB-553 | Several units issued to one patient without re-entering the patient and destination | `IssueRun`; `Issuing.razor` | TEST-BB-415 | D | |
 | URS-BB-494 / FRS-BB-554 | A cooler received at the ward unit after unit, with the next unit offered | `IssueRun.NextToReceive`; `Issuing.razor` | TEST-BB-416 | D | |
 | URS-BB-495 / FRS-BB-555 | Dispense and return sent to the EHR (BPS^O29) | `Hl7BpsBuilder`; `Hl7OutboundService` | TEST-BB-417 | D / I | |
+| URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

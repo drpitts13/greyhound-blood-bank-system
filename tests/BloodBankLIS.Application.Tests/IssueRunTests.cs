@@ -85,4 +85,26 @@ public class IssueRunTests
         Assert.Equal([2L], IssueRun.NextToReceive(transit, 1, null, "4 West", [1]).Select(r => r.IssueId));
         Assert.Empty(IssueRun.NextToReceive(transit, 1, null, "4 West", [1, 2]));
     }
+    private static OutstandingIssueWorkItemDto Bedside(long issueId, long patientId, int minutes, bool received = true, bool started = false) =>
+        new(issueId, patientId, "MRN1", "Run, Pat", "1980-01-01", issueId, $"W{issueId:000}", "O+", false, null, null, false,
+            Start.AddMinutes(minutes), received ? Start.AddMinutes(minutes + 10) : null, received ? "RN" : null, "C-7", "ICU",
+            IssueStatus.Issued, ProductName: "Red Blood Cells", TransfusionStartedUtc: started ? Start.AddMinutes(minutes + 20) : null);
+
+    [Fact]
+    public void NextAtBedside_PutsUnitsStillTransfusingFirst_ThenReceivedOnes_ForThatPatientOnly()
+    {
+        var outstanding = new[]
+        {
+            Bedside(1, 1, 0),
+            Bedside(2, 1, 1, started: true),
+            Bedside(3, 1, 2),
+            Bedside(4, 1, 3, received: false),
+            Bedside(5, 2, 0),
+            Bedside(6, 1, 4)
+        };
+
+        var next = IssueRun.NextAtBedside(outstanding, patientId: 1, issueOnForm: 1, handledIssueIds: [6]);
+
+        Assert.Equal([2L, 3L], next.Select(r => r.IssueId));
+    }
 }
