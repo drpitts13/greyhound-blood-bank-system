@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -28,6 +29,7 @@ public sealed class PatientService
     private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
     private readonly IRepository<AntibodyHistory>? _antibodies;
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
 
     public PatientService(
         IRepository<Patient> patients,
@@ -41,8 +43,10 @@ public sealed class PatientService
         PatientHistoricalAliasWriter? aliasWriter = null,
         IRepository<PatientBloodTypeHistory>? bloodTypes = null,
         IRepository<AntibodyHistory>? antibodies = null,
-        IRepository<SpecialTransfusionRequirement>? requirements = null)
+        IRepository<SpecialTransfusionRequirement>? requirements = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null)
     {
+        _requirementDefinitions = requirementDefinitions;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
         _requirements = requirements;
@@ -82,6 +86,9 @@ public sealed class PatientService
         var requirements = _requirements is null
             ? Array.Empty<SpecialTransfusionRequirement>().ToLookup(r => r.PatientId)
             : (await _requirements.ListAsync(r => r.IsActive, ct)).ToLookup(r => r.PatientId);
+        var informational = _requirementDefinitions is null
+            ? null
+            : PatientBloodBankFlags.InformationalIds(await _requirementDefinitions.ListAsync(ct));
 
         return patients
             .OrderBy(p => p.LastName, StringComparer.OrdinalIgnoreCase)
@@ -91,7 +98,8 @@ public sealed class PatientService
             {
                 CurrentBloodType = PatientBloodBankFlags.CurrentBloodType(currentTypes[p.Id]),
                 ActiveAntibodies = PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
-                ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now)
+                ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now, informational),
+                InformationalNotes = PatientBloodBankFlags.NotesInEffect(requirements[p.Id], now, informational)
             })
             .ToList();
     }

@@ -61,7 +61,11 @@
                                 }
                                 @if (hit.RequirementsInEffect > 0)
                                 {
-                                    <span class="badge badge-amber" data-lookup-alert title="Special requirements in effect">@hit.RequirementsInEffect special @(hit.RequirementsInEffect == 1 ? "requirement" : "requirements")</span>
+                                    <span class="badge badge-amber" data-lookup-alert title="Special requirements in effect">@PatientBloodBankFlags.RequirementsLabel(hit.RequirementsInEffect)</span>
+                                }
+                                @if (hit.InformationalNotes > 0)
+                                {
+                                    <span class="badge badge-blue" data-lookup-note title="Informational notes: shown, never enforced">@PatientBloodBankFlags.NotesLabel(hit.InformationalNotes)</span>
                                 }
                             }
                             @if (!string.IsNullOrWhiteSpace(hit.Detail))

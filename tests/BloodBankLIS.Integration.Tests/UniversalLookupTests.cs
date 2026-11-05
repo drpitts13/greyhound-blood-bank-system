@@ -182,7 +182,8 @@ public class UniversalLookupTests : IDisposable
         var flagged = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
             new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
-            new EfRepository<SpecialTransfusionRequirement>(c), _factory.Clock);
+            new EfRepository<SpecialTransfusionRequirement>(c), _factory.Clock,
+            new EfRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>(c));
 
         foreach (var query in new[] { "MRN-LOOK1", "MRN-DUP2" })
         {
@@ -191,6 +192,7 @@ public class UniversalLookupTests : IDisposable
             Assert.Equal("AB-", hit.BloodType);
             Assert.Equal(new[] { "anti-Jka" }, hit.Antibodies);
             Assert.Equal(1, hit.RequirementsInEffect);
+            Assert.Equal(0, hit.InformationalNotes);
         }
 
         // Without the history repositories (older wiring) the hit simply carries no flags.

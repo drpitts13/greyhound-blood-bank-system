@@ -13403,3 +13403,40 @@ The list and picker count includes the informational note (3), while the chart a
 ### Next ranked residual
 
 Count enforced requirements apart from informational notes in the list, lookup, and picker badges, or keyboard shortcuts on the bench.
+
+## Iteration 404 — Requirements and notes counted apart (2026-11-05)
+
+### Capability matrix rescan (alerts versus warnings)
+
+With the Cycle 403 demo patient visible, the patient list, lookup, and pickers read "3 special requirements" for two enforced requirements and one informational note. The chart and downtime sheet keep them apart. The UX objective asks for clear separation of informational alerts from warnings. A note counted as a requirement overstates what will block a unit, and blurs what will.
+
+### Design
+
+- **`PatientBloodBankFlags.RequirementsInEffect`:** leaves out rows whose catalog entry is Informational.
+- **`NotesInEffect`:** counts those rows.
+- **`InformationalIds`:** reads the catalog once per list.
+- **Unknown catalog entry:** a row whose catalog entry is unknown counts as enforced, so nothing that may constrain a unit is hidden.
+- **`PatientDto.InformationalNotes` and `LookupHitDto.InformationalNotes`:** shown as a blue "N note(s)" badge after the amber requirement badge, and as a picker part ("· 1 note").
+- **Patients:** the alert badges wrap with a gap. They had sat flush ("requirements1 note"), found in the run check.
+- No schema change.
+
+### Requirements
+
+- FRS-BB-578 (under URS-BB-505). Help: patients, finding records.
+
+### Tests
+
+- TEST-BB-440:
+  - patient list: one enforced requirement and one note in effect counted apart, and the picker label ends "· 1 special requirement · 1 note"
+  - lookup: no notes for a patient without one
+  - picker: "· O+ · 2 notes"
+  - without the catalog repository, rows count as enforced (the earlier lookup and list paths)
+- Full suite: 3,719 passed, 0 failed.
+- Run check (development API and web):
+  - Patients: MRN0023 shows "2 special requirements" and "1 note" as separate badges with a 4px gap
+  - the find box lists "MRN0023 Demo-Special, Avery O+ 2 special requirements 1 note"
+  - no server errors
+
+### Next ranked residual
+
+Keyboard shortcuts on the bench (next or previous test), or an informational-note banner on the Compatibility page for the chosen patient.

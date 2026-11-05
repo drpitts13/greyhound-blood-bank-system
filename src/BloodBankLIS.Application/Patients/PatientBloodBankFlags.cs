@@ -24,7 +24,31 @@ public static class PatientBloodBankFlags
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    /// <summary>Special requirements in effect now: active, started, not ended.</summary>
-    public static int RequirementsInEffect(IEnumerable<SpecialTransfusionRequirement> rows, DateTime nowUtc) =>
-        rows.Count(r => SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, nowUtc));
+    /// <summary>
+    /// Enforced special requirements in effect now (active, started, not ended), leaving out informational notes.
+    /// A row whose catalog entry is unknown counts as enforced, so nothing that may constrain a unit is hidden.
+    /// </summary>
+    public static int RequirementsInEffect(
+        IEnumerable<SpecialTransfusionRequirement> rows, DateTime nowUtc, IReadOnlySet<long>? informationalDefinitionIds = null) =>
+        rows.Count(r => InEffect(r, nowUtc) && !IsInformational(r, informationalDefinitionIds));
+
+    /// <summary>Informational notes in effect now: shown to the user, never enforced.</summary>
+    public static int NotesInEffect(
+        IEnumerable<SpecialTransfusionRequirement> rows, DateTime nowUtc, IReadOnlySet<long>? informationalDefinitionIds) =>
+        rows.Count(r => InEffect(r, nowUtc) && IsInformational(r, informationalDefinitionIds));
+
+    private static bool InEffect(SpecialTransfusionRequirement r, DateTime nowUtc) =>
+        SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, nowUtc);
+
+    private static bool IsInformational(SpecialTransfusionRequirement r, IReadOnlySet<long>? informationalDefinitionIds) =>
+        r.RequirementDefinitionId is long id && informationalDefinitionIds?.Contains(id) == true;
+
+    /// <summary>The catalog entries that are informational notes.</summary>
+    public static IReadOnlySet<long> InformationalIds(IEnumerable<Domain.Entities.Configuration.SpecialRequirementDefinition> definitions) =>
+        definitions.Where(d => d.Category == Domain.Enums.SpecialRequirementCategory.Informational).Select(d => d.Id).ToHashSet();
+
+    /// <summary>"2 special requirements" / "1 note", for badges and picker labels.</summary>
+    public static string RequirementsLabel(int count) => $"{count} special {(count == 1 ? "requirement" : "requirements")}";
+
+    public static string NotesLabel(int count) => $"{count} {(count == 1 ? "note" : "notes")}";
 }

@@ -26,7 +26,7 @@ Use the arrow keys and **Enter**, or click, to open a row. **Esc** closes the li
 
 **Merged patients.** An MRN that was merged into another chart opens the surviving chart. The row says which MRN it was merged into.
 
-**Patient rows** show the current ABO/Rh (or **No type on file**), active antibodies in red, and the number of special requirements in effect in amber, for the chart the row opens, so you can tell similar names apart and see the risks before you open the chart.
+**Patient rows** show the current ABO/Rh (or **No type on file**), active antibodies in red, the number of special requirements in effect in amber, and informational notes in blue, for the chart the row opens, so you can tell similar names apart and see the risks before you open the chart.
 
 **A bad scan.** A scan that starts with `=` but is not a readable DIN says so. It does not fall back to a name search. Scan again.
 

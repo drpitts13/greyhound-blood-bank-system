@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Isbt128.Parsing;
@@ -29,6 +30,7 @@ public sealed class UniversalLookupService
     private readonly IRepository<AntibodyHistory>? _antibodies;
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
     private readonly IClock? _clock;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
 
     public UniversalLookupService(
         IRepository<Patient> patients,
@@ -40,8 +42,10 @@ public sealed class UniversalLookupService
         IRepository<PatientBloodTypeHistory>? bloodTypes = null,
         IRepository<AntibodyHistory>? antibodies = null,
         IRepository<SpecialTransfusionRequirement>? requirements = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null)
     {
+        _requirementDefinitions = requirementDefinitions;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
         _requirements = requirements;
@@ -293,10 +297,15 @@ public sealed class UniversalLookupService
         var antibodies = _antibodies is null
             ? []
             : PatientBloodBankFlags.ActiveAntibodies(await _antibodies.ListAsync(a => a.PatientId == targetId, ct));
-        var requirements = _requirements is null
-            ? 0
-            : PatientBloodBankFlags.RequirementsInEffect(
-                await _requirements.ListAsync(r => r.PatientId == targetId, ct), _clock?.UtcNow ?? DateTime.UtcNow);
+        var rows = _requirements is null
+            ? []
+            : await _requirements.ListAsync(r => r.PatientId == targetId, ct);
+        var informational = _requirementDefinitions is null || rows.Count == 0
+            ? null
+            : PatientBloodBankFlags.InformationalIds(await _requirementDefinitions.ListAsync(ct));
+        var now = _clock?.UtcNow ?? DateTime.UtcNow;
+        var requirements = PatientBloodBankFlags.RequirementsInEffect(rows, now, informational);
+        var notes = PatientBloodBankFlags.NotesInEffect(rows, now, informational);
 
         return new LookupHitDto(
             LookupHitKind.Patient,
@@ -308,7 +317,8 @@ public sealed class UniversalLookupService
             $"/patients/{target.Id}",
             bloodType,
             antibodies,
-            requirements);
+            requirements,
+            notes);
     }
 
     private static IReadOnlyList<LookupHitDto> Distinct(IEnumerable<LookupHitDto> hits) =>

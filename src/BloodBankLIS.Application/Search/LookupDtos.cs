@@ -23,7 +23,8 @@ public sealed record LookupHitDto(
     // and their risks are visible before the chart opens.
     string? BloodType = null,
     IReadOnlyList<string>? Antibodies = null,
-    int RequirementsInEffect = 0);
+    int RequirementsInEffect = 0,
+    int InformationalNotes = 0);
 
 public sealed record LookupResultDto(
     string Query,

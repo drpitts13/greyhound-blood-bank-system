@@ -24,6 +24,8 @@ public class PatientPickerLabelTests
         Assert.Equal("Kellerman, Diane (MRN0004) · O+ · anti-E, anti-K · 2 special requirements", flagged.PickerLabel);
         Assert.EndsWith("· O+ · 1 special requirement", (Patient() with { CurrentBloodType = "O+", ActiveSpecialRequirements = 1 }).PickerLabel);
 
+        Assert.EndsWith("· O+ · 2 notes", (Patient() with { CurrentBloodType = "O+", InformationalNotes = 2 }).PickerLabel);
+
         var merged = flagged with { Status = PatientStatus.Merged, MergedIntoPatientId = 9 };
         Assert.Equal("Kellerman, Diane (MRN0004) · merged into another record", merged.PickerLabel);
     }

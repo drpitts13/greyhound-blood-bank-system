@@ -63,7 +63,9 @@ public sealed record PatientDto(
     // and special requirements in effect, so the right patient and their risks are visible before opening the chart.
     string? CurrentBloodType = null,
     IReadOnlyList<string>? ActiveAntibodies = null,
-    int ActiveSpecialRequirements = 0)
+    int ActiveSpecialRequirements = 0,
+    // Informational notes in effect: counted apart from the enforced requirements above.
+    int InformationalNotes = 0)
 {
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
@@ -93,7 +95,12 @@ public sealed record PatientDto(
 
             if (ActiveSpecialRequirements > 0)
             {
-                parts.Add($"{ActiveSpecialRequirements} special {(ActiveSpecialRequirements == 1 ? "requirement" : "requirements")}");
+                parts.Add(PatientBloodBankFlags.RequirementsLabel(ActiveSpecialRequirements));
+            }
+
+            if (InformationalNotes > 0)
+            {
+                parts.Add(PatientBloodBankFlags.NotesLabel(InformationalNotes));
             }
 
             return string.Join(" · ", parts);

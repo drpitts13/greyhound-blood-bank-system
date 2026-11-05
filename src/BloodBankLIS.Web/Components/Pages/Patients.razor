@@ -93,14 +93,20 @@
                         <td>@p.Sex</td>
                         <td class="mono" data-blood-type>@(p.CurrentBloodType ?? "—")</td>
                         <td data-alerts>
+                            <div class="flex" style="flex-wrap:wrap;gap:.25rem;">
                             @if (p.ActiveAntibodies is { Count: > 0 } abs)
                             {
                                 <span class="badge badge-red" title="Active antibodies on file">@string.Join(", ", abs)</span>
                             }
                             @if (p.ActiveSpecialRequirements > 0)
                             {
-                                <span class="badge badge-amber" title="Special requirements in effect; open the chart for details">@p.ActiveSpecialRequirements special @(p.ActiveSpecialRequirements == 1 ? "requirement" : "requirements")</span>
+                                <span class="badge badge-amber" title="Special requirements in effect; open the chart for details">@PatientBloodBankFlags.RequirementsLabel(p.ActiveSpecialRequirements)</span>
                             }
+                            @if (p.InformationalNotes > 0)
+                            {
+                                <span class="badge badge-blue" title="Informational notes: shown, never enforced" data-note>@PatientBloodBankFlags.NotesLabel(p.InformationalNotes)</span>
+                            }
+                            </div>
                         </td>
                         <td><span class="badge badge-gray">@p.Status</span></td>
                         @* The MRN and name already open the chart; only the extra destination gets a button. *@

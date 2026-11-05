@@ -22,7 +22,8 @@ public class PatientListFlagsTests : IClassFixture<SqliteContextFactory>
                 c, _factory.Clock, currentUser: _factory.CurrentUser),
             bloodTypes: new EfRepository<PatientBloodTypeHistory>(c),
             antibodies: new EfRepository<AntibodyHistory>(c),
-            requirements: new EfRepository<SpecialTransfusionRequirement>(c));
+            requirements: new EfRepository<SpecialTransfusionRequirement>(c),
+            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c));
 
     // TEST-BB-436: the patient list shows the current ABO/Rh, active antibodies, and requirements in effect only.
     [Fact]
@@ -51,6 +52,19 @@ public class PatientListFlagsTests : IClassFixture<SqliteContextFactory>
             new SpecialTransfusionRequirement { PatientId = flagged.Id, RequirementType = SpecialTransfusionRequirementType.Irradiated, Reason = "Ended", EffectiveUtc = now.AddDays(-9), ExpiresUtc = now.AddDays(-2) },
             new SpecialTransfusionRequirement { PatientId = flagged.Id, RequirementType = SpecialTransfusionRequirementType.Irradiated, Reason = "Not started", EffectiveUtc = now.AddDays(3) },
             new SpecialTransfusionRequirement { PatientId = flagged.Id, RequirementType = SpecialTransfusionRequirementType.Irradiated, Reason = "Deactivated", EffectiveUtc = now.AddDays(-1), IsActive = false });
+        // TEST-BB-440: an informational note in effect is counted apart from the enforced requirements.
+        var note = new SpecialRequirementDefinition
+        {
+            Code = $"NOTE-{key}", Name = "Call first", Category = SpecialRequirementCategory.Informational,
+            EnforcementKind = SpecialRequirementEnforcementKind.Informational, Instruction = "Call first", IsActive = true
+        };
+        c.SpecialRequirementDefinitions.Add(note);
+        await c.SaveChangesAsync();
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = flagged.Id, RequirementDefinitionId = note.Id, RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Note", EffectiveUtc = now.AddDays(-1)
+        });
         await c.SaveChangesAsync();
 
         var list = await Service(c).ListDtosAsync();
@@ -59,10 +73,13 @@ public class PatientListFlagsTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("B-", f.CurrentBloodType);
         Assert.Equal(new[] { "anti-E", "anti-K" }, f.ActiveAntibodies);
         Assert.Equal(1, f.ActiveSpecialRequirements);
+        Assert.Equal(1, f.InformationalNotes);
+        Assert.EndsWith("· 1 special requirement · 1 note", f.PickerLabel);
 
         var p = list.Single(x => x.Id == plain.Id);
         Assert.Null(p.CurrentBloodType);
         Assert.Empty(p.ActiveAntibodies!);
         Assert.Equal(0, p.ActiveSpecialRequirements);
+        Assert.Equal(0, p.InformationalNotes);
     }
 }
