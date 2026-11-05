@@ -462,7 +462,7 @@
 @if (Session.Has(PermissionCodes.IssueCreate) && _desk == "transit")
 {
     <div class="bb-card">
-        <div class="bb-card-title"><h3>In transit to ward</h3></div>
+        <div class="bb-card-title"><h3>In transit to ward</h3><a class="btn btn-secondary btn-sm" href="/issuing/cooler-check" data-cooler-check-link>Check a cooler</a></div>
         <p class="muted">Issued units stay here until the receiving location acknowledges custody.</p>
         @if (_inTransitItems.Count == 0)
         {
@@ -897,6 +897,10 @@
                             }
                         </tbody>
                     </table>
+                    @foreach (var cooler in _issuedThisRun.Select(d => d.CoolerId?.Trim()).Where(c => !string.IsNullOrEmpty(c)).Distinct(StringComparer.OrdinalIgnoreCase))
+                    {
+                        <a class="btn btn-ghost btn-sm" style="margin-top:.5rem;" href="@($"/issuing/cooler-check?cooler={Uri.EscapeDataString(cooler!)}")" data-cooler-check-run>Check cooler @cooler before it leaves</a>
+                    }
                 }
                 @if (NextInRun.Count > 0)
                 {

@@ -1,0 +1,275 @@
+@page "/issuing/cooler-check"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Cooler check &middot; HemoCore</PageTitle>
+
+<div class="flex-between">
+    <h1>Cooler check</h1>
+    <a class="btn btn-ghost" href="/issuing">Issuing</a>
+</div>
+<p class="muted">
+    Before a cooler leaves the blood bank, scan every unit packed in it. The check compares the scans with the units
+    issued to that cooler and catches a unit issued under another cooler, or not issued at all, before it travels.
+    Scanning changes nothing; <strong>Finish check</strong> records the outcome against each issue in the cooler.
+</p>
+
+@if (!Session.Has(PermissionCodes.IssueCreate))
+{
+    <div class="muted">No permission to check coolers.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="field">
+                <label>Cooler</label>
+                <input @bind="_coolerInput" @bind:event="oninput" @onkeydown="OnCoolerKeyAsync" disabled="@(_cooler is not null)"
+                       placeholder="Scan the cooler id or choose below" autocomplete="off" data-cooler-input />
+            </div>
+            <div class="field">
+                <label>Scan unit number</label>
+                <input @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" disabled="@(_cooler is null || _check?.Recorded == true)"
+                       placeholder="@(_cooler is null ? "Choose the cooler first" : "Scan each unit in the cooler")" autocomplete="off" data-cooler-scan />
+            </div>
+            @if (_check is not null && !_check.Recorded && _check.Expected > 0)
+            {
+                <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="FinishAsync" data-cooler-finish>Finish check</button>
+            }
+            @if (_cooler is not null)
+            {
+                <button type="button" class="btn btn-secondary" @onclick="ChooseAnotherAsync">Another cooler</button>
+            }
+        </div>
+        <Outcome Value="_fb" />
+
+        @if (_check is { } c)
+        {
+            <div class="flex gap" style="flex-wrap:wrap;margin:.75rem 0;" data-cooler-summary>
+                <span class="badge badge-gray mono">@c.CoolerId</span>
+                <span class="badge @(c.Ready ? "badge-green" : "badge-gray")">Packed @c.Packed.Count of @c.Expected</span>
+                <span class="badge @(c.Missing.Count > 0 ? "badge-red" : "badge-gray")">Missing @c.Missing.Count</span>
+                <span class="badge @(c.OtherCooler.Count > 0 ? "badge-red" : "badge-gray")">Issued to another cooler @c.OtherCooler.Count</span>
+                <span class="badge @(c.NotIssued.Count > 0 ? "badge-red" : "badge-gray")">Not issued @c.NotIssued.Count</span>
+                @if (c.Problems.Count > 0)
+                {
+                    <span class="badge badge-amber">Unresolved scans @c.Problems.Count</span>
+                }
+                @if (c.PatientCount > 1)
+                {
+                    <span class="badge badge-amber" title="Check that each unit's label matches its patient">Units for @c.PatientCount patients</span>
+                }
+                @if (c.Recorded)
+                {
+                    <span class="badge badge-blue">Recorded</span>
+                }
+            </div>
+
+            @if (c.Expected == 0)
+            {
+                <p class="muted" data-cooler-empty>No issued units in transit are recorded in this cooler. Check the cooler id, or issue the units with this cooler first.</p>
+            }
+            else if (c.Ready)
+            {
+                <p data-cooler-ready><strong>Everything issued to this cooler is in it, and nothing else is.</strong></p>
+            }
+
+            @if (c.NotIssued.Count > 0)
+            {
+                <h3>Not issued: take these out</h3>
+                <p class="muted">These units are not issued to anyone. They must not leave the blood bank; return them to storage.</p>
+                <CoolerCheckTable Rows="c.NotIssued" ShowIssue="false" />
+            }
+            @if (c.OtherCooler.Count > 0)
+            {
+                <h3>Issued to another cooler: take these out</h3>
+                <p class="muted">These units are issued, but under another cooler. Check the patient on each label and pack it in its own cooler.</p>
+                <CoolerCheckTable Rows="c.OtherCooler" ShowIssue="true" ShowCooler="true" />
+            }
+            @if (c.Missing.Count > 0)
+            {
+                <h3>Missing: issued to this cooler, not scanned</h3>
+                <CoolerCheckTable Rows="c.Missing" ShowIssue="true" />
+            }
+            @if (c.Problems.Count > 0)
+            {
+                <h3>Unresolved scans</h3>
+                <ul data-cooler-problems>
+                    @foreach (var p in c.Problems)
+                    {
+                        <li><span class="mono">@p.Scan</span>: @p.Message</li>
+                    }
+                </ul>
+            }
+            @if (c.Packed.Count > 0)
+            {
+                <details @key="c.Packed.Count" style="margin-top:.75rem;">
+                    <summary>Packed (@c.Packed.Count)</summary>
+                    <CoolerCheckTable Rows="c.Packed" ShowIssue="true" />
+                </details>
+            }
+        }
+    </div>
+
+    @if (_cooler is null)
+    {
+        <div class="bb-card" style="margin-top:1rem;">
+            <div class="bb-card-title"><h3>Coolers in transit</h3></div>
+            @if (_open is null)
+            {
+                <div class="muted">Loading…</div>
+            }
+            else if (_open.Count == 0)
+            {
+                <div class="muted" data-open-coolers-empty>No issued units in transit are recorded in a cooler.</div>
+            }
+            else
+            {
+                <table class="bb" data-open-coolers>
+                    <thead><tr><th>Cooler</th><th>Units</th><th>Patients</th><th>To</th><th>First issued</th><th>Last check</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var o in _open)
+                        {
+                            <tr>
+                                <td class="mono">@o.CoolerId</td>
+                                <td>@o.Units</td>
+                                <td>@string.Join("; ", o.Patients)</td>
+                                <td>@(o.Destinations.Count == 0 ? "—" : string.Join(", ", o.Destinations))</td>
+                                <td class="nowrap">@o.FirstIssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    @if (o.LastCheckedUtc is DateTime checkedUtc)
+                                    {
+                                        <span class="badge @(o.LastCheckReady == true ? "badge-green" : "badge-amber")">@(o.LastCheckReady == true ? "All packed" : "Differences")</span>
+                                        <span class="sub">@checkedUtc.ToLocalTime().ToString("HH:mm")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">Not checked</span>
+                                    }
+                                </td>
+                                <td class="right"><button type="button" class="btn btn-secondary btn-sm" @onclick="() => ChooseAsync(o.CoolerId)">Check</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "cooler")] public string? CoolerQuery { get; set; }
+
+    private List<OpenCoolerDto>? _open;
+    private string _coolerInput = string.Empty;
+    private string? _cooler;
+    private string _scan = string.Empty;
+    private readonly List<string> _scans = new();
+    private CoolerCheckDto? _check;
+    private Feedback? _fb;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.Has(PermissionCodes.IssueCreate))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(CoolerQuery))
+        {
+            await ChooseAsync(CoolerQuery);
+        }
+        else
+        {
+            await LoadOpenAsync();
+        }
+    }
+
+    private async Task LoadOpenAsync()
+    {
+        var r = await Api.GetOpenCoolersAsync();
+        _open = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+
+    private async Task OnCoolerKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_coolerInput))
+        {
+            await ChooseAsync(_coolerInput);
+        }
+    }
+
+    private async Task ChooseAsync(string cooler)
+    {
+        _cooler = cooler.Trim();
+        _coolerInput = _cooler;
+        _scans.Clear();
+        _check = null;
+        _fb = null;
+        await CheckAsync(finish: false);
+    }
+
+    private async Task ChooseAnotherAsync()
+    {
+        _cooler = null;
+        _coolerInput = string.Empty;
+        _scans.Clear();
+        _check = null;
+        _fb = null;
+        await LoadOpenAsync();
+    }
+
+    // A scanner ends with Enter: add the scan, check, clear for the next one. The same unit scanned twice counts once.
+    private async Task OnScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || _busy || _cooler is null)
+        {
+            return;
+        }
+
+        _scans.Add(_scan.Trim());
+        _scan = string.Empty;
+        await CheckAsync(finish: false);
+    }
+
+    private async Task FinishAsync()
+    {
+        await CheckAsync(finish: true);
+        if (_check?.Recorded == true)
+        {
+            _fb = _check.Ready
+                ? Feedback.Succeed($"Cooler {_check.CoolerId} checked: all {_check.Expected} units packed.")
+                : Feedback.Succeed($"Cooler {_check.CoolerId} check recorded: {_check.Packed.Count} of {_check.Expected} packed.") with
+                {
+                    Warnings = [new RuleMessage("COOLER-CHECK", "The cooler does not match its issues. Resolve the differences before it leaves.")]
+                };
+        }
+    }
+
+    private async Task CheckAsync(bool finish)
+    {
+        if (_cooler is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.CheckCoolerAsync(new CoolerCheckRequest(_cooler, _scans.ToList(), finish));
+        _busy = false;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _check = r.Value;
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+
+        StateHasChanged();
+    }
+}

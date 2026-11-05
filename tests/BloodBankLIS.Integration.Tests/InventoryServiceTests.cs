@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -595,6 +596,90 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(other.Id, Assert.Single((await service.ListCountHistoryAsync(other.Id)).Value!).LocationId);
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.AuditRead)).ListCountHistoryAsync();
         Assert.False(denied.Succeeded);
+    }
+
+    // TEST-BB-456: a cooler check compares the units scanned into a cooler with the units issued to it and in transit:
+    // packed, missing, issued under another cooler (another patient), and not issued are each caught; finishing
+    // records the check against each issue in the cooler, and the open-cooler list shows it.
+    [Fact]
+    public async Task CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var inventory = CreateService(context);
+        async Task<long> Receive(string suffix) =>
+            (await inventory.ReceiveUnitAsync(NewUnitRequest($"U-CLR{suffix}-{key}", productTypeId))).Unit!.Id;
+        var a = await Receive("A");
+        var b = await Receive("B");
+        var other = await Receive("C");
+        var stock = await Receive("D");
+        var received = await Receive("E");
+        var smith = new Patient { MedicalRecordNumber = $"MRN-CLR1-{key}", LastName = "Smith", FirstName = "Ann", DateOfBirth = new DateOnly(1960, 1, 1) };
+        var jones = new Patient { MedicalRecordNumber = $"MRN-CLR2-{key}", LastName = "Jones", FirstName = "Bob", DateOfBirth = new DateOnly(1961, 1, 1) };
+        context.Patients.AddRange(smith, jones);
+        await context.SaveChangesAsync();
+        var cooler = $"CLR-{key}";
+        Issue Issued(long unitId, Patient patient, string? coolerId, DateTime? wardReceivedUtc = null) => new()
+        {
+            BloodProductId = unitId, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-10), IssuedBy = "tech-test",
+            Status = IssueStatus.Issued, CoolerId = coolerId, IssuedToLocation = "OR 3", WardReceivedUtc = wardReceivedUtc
+        };
+        var issueA = Issued(a, smith, cooler);
+        var issueB = Issued(b, smith, $" {cooler.ToLowerInvariant()} ");
+        context.Issues.AddRange(issueA, issueB, Issued(other, jones, $"CLR-OTHER-{key}"), Issued(received, smith, cooler, _factory.Clock.UtcNow));
+        await context.SaveChangesAsync();
+
+        var service = new CoolerCheckService(
+            new EfRepository<Issue>(context), new InventoryRepository(context), new EfRepository<BloodUnit>(context),
+            new EfRepository<ProductType>(context), new EfRepository<Patient>(context),
+            new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate), _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser), context, new AuditQuery(context));
+
+        // The cooler id matches regardless of case and spacing; a unit already received on the ward is not expected.
+        var scans = new[] { $"U-CLRA-{key}", $"U-CLRA-{key}", $"U-CLRC-{key}", $"U-CLRD-{key}", $"U-NOPE-{key}" };
+        var check = await service.CheckAsync(new CoolerCheckRequest(cooler.ToLowerInvariant(), scans));
+        Assert.True(check.Succeeded, check.Error);
+        var c = check.Value!;
+        Assert.Equal((2, 1), (c.Expected, c.PatientCount));
+        Assert.Equal(new[] { a }, c.Packed.Select(l => l.UnitId).ToArray());
+        Assert.Equal(new[] { b }, c.Missing.Select(l => l.UnitId).ToArray());
+        var wrong = Assert.Single(c.OtherCooler);
+        Assert.Equal((other, $"CLR-OTHER-{key}"), (wrong.UnitId, wrong.RecordedCooler));
+        Assert.Contains("Jones", wrong.PatientName);
+        Assert.Equal(stock, Assert.Single(c.NotIssued).UnitId);
+        Assert.Contains("No unit has the number", Assert.Single(c.Problems).Message);
+        Assert.False(c.Ready);
+        Assert.False(await context.AuditEvents.AnyAsync(e => e.Reason!.StartsWith("Cooler check: ") && (e.EntityId == issueA.Id || e.EntityId == issueB.Id)));
+
+        // Finishing records the check against each issue in the cooler, naming what was wrong.
+        var finished = await service.CheckAsync(new CoolerCheckRequest(cooler, scans, Finish: true));
+        Assert.True(finished.Value!.Recorded);
+        var audits = await context.AuditEvents.Where(e => e.EntityType == nameof(Issue) && e.Reason!.StartsWith("Cooler check: ")
+            && (e.EntityId == issueA.Id || e.EntityId == issueB.Id)).ToListAsync();
+        Assert.Equal(2, audits.Count);
+        Assert.Contains("1 of 2 packed, 1 missing, 1 issued to another cooler, 1 not issued, 1 unresolved", audits[0].Reason);
+        Assert.Contains($"U-CLRC-{key}", audits[0].NewValueJson);
+
+        // A full, correct cooler is ready; the open-cooler list shows the latest check.
+        var clean = await service.CheckAsync(new CoolerCheckRequest(cooler, [$"U-CLRA-{key}", $"U-CLRB-{key}"], Finish: true));
+        Assert.True(clean.Value!.Ready);
+        var open = await service.ListOpenAsync();
+        Assert.True(open.Succeeded, open.Error);
+        var mine = Assert.Single(open.Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal((2, true), (mine.Units, mine.LastCheckReady));
+        Assert.Equal(new[] { "Smith, Ann" }, mine.Patients);
+
+        // Nothing to finish for a cooler with no issues in transit, and the check needs issue.create.
+        Assert.False((await service.CheckAsync(new CoolerCheckRequest($"CLR-EMPTY-{key}", [], Finish: true))).Succeeded);
+        Assert.Equal(0, (await service.CheckAsync(new CoolerCheckRequest($"CLR-EMPTY-{key}", []))).Value!.Expected);
+        var denied = new CoolerCheckService(
+            new EfRepository<Issue>(context), new InventoryRepository(context), new EfRepository<BloodUnit>(context),
+            new EfRepository<ProductType>(context), new EfRepository<Patient>(context),
+            new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer), _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser), context);
+        Assert.False((await denied.CheckAsync(new CoolerCheckRequest(cooler, []))).Succeeded);
+        Assert.False((await denied.ListOpenAsync()).Succeeded);
     }
 
     // TEST-BB-453: the Move units desk moves the scanned unit; a unit already there, an unknown or unreadable scan,

@@ -147,6 +147,14 @@ public static class IssuingEndpoints
             Results.Ok(await service.ListPendingRetrospectiveCrossmatchesAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);
 
+        issues.MapGet("/coolers", async (CoolerCheckService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListOpenAsync(ct), d => d))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
+        issues.MapPost("/coolers/check", async (CoolerCheckRequest request, CoolerCheckService service, CancellationToken ct) =>
+            EndpointResults.From(await service.CheckAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
         issues.MapGet("/in-transit", async (IssuingService service, CancellationToken ct) =>
             Results.Ok(await service.ListInTransitAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);

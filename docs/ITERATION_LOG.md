@@ -13866,3 +13866,59 @@ Finished counts (Cycle 413) went only into the audit trail. A supervisor checkin
 ### Next ranked residual
 
 Cooler and transport container checkout rescan.
+
+## Iteration 415 — Cooler check before dispatch (2026-11-05)
+
+### Capability matrix rescan (issue, transport)
+
+Issue records a cooler id on each unit, and ward receipt lists the rest of a cooler, but nothing checked the cooler before it left the blood bank. Two errors travelled unnoticed until the ward found them (question 6):
+- a unit for one patient packed in another patient's cooler
+- a unit that was never issued
+
+Packing was checked by eye against memory or the issue screen (questions 2, 4).
+
+### Design
+
+- **`CoolerCheckService.CheckAsync(cooler, scans, finish)`:**
+  - **Expected:** issues under the cooler id (case and spacing ignored) still in transit (Issued, not received on the ward).
+  - **Results:** Packed, Missing, Issued to another cooler (with its patient and cooler), Not issued, and unresolved scans. It also counts the patients in the cooler.
+  - **Ready** means everything packed and nothing else in the cooler.
+  - Nothing changes during the check. **Finish** writes an audit event against each issue in the cooler.
+- **`ListOpenAsync`:** coolers in transit with units, patients, destinations, and the latest check (read from the audit), so the cooler is chosen rather than remembered.
+- **`InventoryScanResolver`:** scan resolution moved out of `InventoryService`, shared with Move units and Stock count.
+- **API:** `GET /api/issues/coolers` and `POST /api/issues/coolers/check`, permission *issue.create*.
+- **Pages:**
+  - `/issuing/cooler-check`: **Check a cooler** on In transit
+  - after a run of issues with a cooler id, **Check cooler … before it leaves** opens the check on that cooler
+- No schema change. A massive transfusion pack keeps its own pack record (MTP pack report); this check covers the cooler id on the issue.
+
+### Requirements
+
+- URS-BB-512, FRS-BB-592. Help: issuing (route and section).
+
+### Tests
+
+- TEST-BB-456:
+  - packed
+  - missing
+  - issued under another cooler, with the patient
+  - not issued
+  - an unknown scan
+  - a duplicate scan counted once
+  - the cooler id matched regardless of case and spacing
+  - a unit received on the ward not expected
+  - nothing audited before finishing; finishing audits each issue with the outcome
+  - a full cooler is ready
+  - the open-cooler list shows the latest check
+  - finishing an empty cooler refused
+  - refused without *issue.create*
+- Full suite: 3,739 passed, 0 failed.
+- Run check (development API and web):
+  - Coolers in transit lists Cooler 1 (4 units), CLR-TRAUMA-1 and Cooler M2, all "Not checked"
+  - on Cooler M2, scanning W0001230009203, the crossmatched (not issued) W0001230009201, and an unknown number gives "Packed 1 of 2, Missing 1, Not issued 1, Unresolved scans 1"
+  - Finish not pressed (no audit row); no server errors
+  - the summary badge read "Cooler Cooler M2", so it now shows the bare id
+
+### Next ranked residual
+
+Show the latest cooler check on the In transit board and at ward receipt.

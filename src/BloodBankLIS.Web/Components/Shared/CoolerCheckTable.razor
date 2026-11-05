@@ -1,0 +1,36 @@
+@* Units in one group of a cooler check. *@
+<table class="bb">
+    <thead>
+        <tr>
+            <th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th>
+            @if (ShowIssue) { <th>Patient</th><th>To</th> }
+            @if (ShowCooler) { <th>Issued to cooler</th> }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Rows)
+        {
+            <tr>
+                <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
+                <td>@(row.ProductName ?? "—")</td>
+                <td>@row.BloodType</td>
+                <td>@row.Status</td>
+                @if (ShowIssue)
+                {
+                    <td>@(row.PatientName ?? "—") <span class="sub mono">@row.MedicalRecordNumber</span></td>
+                    <td>@(row.IssuedToLocation ?? "—")</td>
+                }
+                @if (ShowCooler)
+                {
+                    <td class="mono">@(row.RecordedCooler ?? "No cooler")</td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CoolerCheckLineDto> Rows { get; set; } = [];
+    [Parameter] public bool ShowIssue { get; set; }
+    [Parameter] public bool ShowCooler { get; set; }
+}

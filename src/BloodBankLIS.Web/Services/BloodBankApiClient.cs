@@ -643,6 +643,12 @@ public sealed class BloodBankApiClient
         SendAsync<List<RetrospectiveCrossmatchWorkItemDto>>(
             HttpMethod.Get, "api/issues/pending-retrospective-crossmatch", ct: ct);
 
+    public Task<ApiResult<List<OpenCoolerDto>>> GetOpenCoolersAsync(CancellationToken ct = default) =>
+        SendAsync<List<OpenCoolerDto>>(HttpMethod.Get, "api/issues/coolers", ct: ct);
+
+    public Task<ApiResult<CoolerCheckDto>> CheckCoolerAsync(CoolerCheckRequest req, CancellationToken ct = default) =>
+        SendAsync<CoolerCheckDto>(HttpMethod.Post, "api/issues/coolers/check", req, ct);
+
     public Task<ApiResult<List<InTransitWorkItemDto>>> GetInTransitIssuesAsync(CancellationToken ct = default) =>
         SendAsync<List<InTransitWorkItemDto>>(HttpMethod.Get, "api/issues/in-transit", ct: ct);
 

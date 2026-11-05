@@ -464,5 +464,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-453 | I | `InventoryServiceTests.TransferByScan_MovesTheScannedUnit_AndRefusesWhatItCannotMove` | URS-BB-510 / FRS-BB-589 |
 | TEST-BB-454 | I | `InventoryServiceTests.StockCount_ReconcilesScansAgainstTheLocation_AndFinishingIsAudited` | URS-BB-511 / FRS-BB-590 |
 | TEST-BB-455 | I | `InventoryServiceTests.StockCount_ReconcilesScansAgainstTheLocation_AndFinishingIsAudited` | URS-BB-511 / FRS-BB-591 |
+| TEST-BB-456 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-512 / FRS-BB-592 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

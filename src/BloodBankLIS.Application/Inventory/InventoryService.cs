@@ -1848,29 +1848,8 @@ public sealed class InventoryService
     /// The units a scanned unit number (DIN, with or without the scanner's '='), or a component label, names: one, or
     /// several for a divided DIN. An empty, unreadable, or unknown scan gives the reason instead.
     /// </summary>
-    private async Task<(string Key, List<BloodUnit> Units, string? Error)> ResolveScanAsync(string? scan, CancellationToken ct)
-    {
-        var sanitized = ScannerInputSanitizer.Sanitize(scan).Sanitized.Trim();
-        if (sanitized.Length == 0)
-        {
-            return (string.Empty, [], "Scan the unit number.");
-        }
-
-        var din = Domain.Isbt128.Parsing.DinParser.Parse(sanitized);
-        if (!din.Success && sanitized.StartsWith('='))
-        {
-            return (sanitized, [], "That scan is not a readable unit number (DIN). Scan the unit number barcode again.");
-        }
-
-        var key = (din.Success ? din.Value!.Din : sanitized.Replace(" ", string.Empty)).ToUpperInvariant();
-        var units = (await _repository.ListByUnitNumberOrDinAsync(key, ct)).ToList();
-        if (units.Count == 0 && await _repository.GetByComponentIdentityAsync(sanitized, ct) is { } byLabel)
-        {
-            units.Add(byLabel);
-        }
-
-        return units.Count == 0 ? (key, units, $"No unit has the number {sanitized}.") : (key, units, null);
-    }
+    private Task<(string Key, List<BloodUnit> Units, string? Error)> ResolveScanAsync(string? scan, CancellationToken ct) =>
+        InventoryScanResolver.ResolveAsync(_repository, scan, ct);
 
     /// <summary>
     /// A stock count at one location: what is recorded there (on hand or expired, not yet discarded) against what was
