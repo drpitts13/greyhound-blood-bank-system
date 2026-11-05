@@ -36,9 +36,21 @@
         <button class="btn btn-secondary btn-sm" @onclick="LoadAsync">Refresh</button>
     </div>
 
+    @if (!_loading && _items.Count > 0 && Session.Has(PermissionCodes.ResultVerify))
+    {
+        <div class="flex gap" role="group" aria-label="Show" style="margin-bottom:.5rem;">
+            <button type="button" class="btn btn-sm @(_toVerifyOnly ? "btn-secondary" : "btn-primary")" aria-pressed="@(_toVerifyOnly ? "false" : "true")" @onclick="() => _toVerifyOnly = false">All (@_items.Count)</button>
+            <button type="button" class="btn btn-sm @(_toVerifyOnly ? "btn-primary" : "btn-secondary")" aria-pressed="@(_toVerifyOnly ? "true" : "false")" @onclick="() => _toVerifyOnly = true" data-to-verify>To verify (@TestWorklistView.ToVerify(_items, Session.UserName).Count)</button>
+        </div>
+    }
+
     @if (_loading)
     {
         <div class="loading">Loading worklist...</div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0)
+    {
+        <div class="empty">Nothing is waiting for you to verify. Results you entered yourself are verified by someone else.</div>
     }
     else if (_items.Count == 0)
     {
@@ -65,7 +77,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var item in _items)
+                @foreach (var item in ShownItems)
                 {
                     <tr class="@RowClass(item)">
                         <td><a href="@($"/patients/{item.PatientId}?tab=tests")">@item.PatientName</a><span class="sub mono">@item.Mrn</span></td>
@@ -345,6 +357,12 @@
 @code {
     private string _tab = "tests";
     private List<TestWorkItemDto> _items = new();
+    // Only the lines this user can verify now (a colleague's, the instrument's, or the interface's result).
+    private bool _toVerifyOnly;
+    private IReadOnlyList<TestWorkItemDto> ShownItems => _toVerifyOnly ? TestWorklistView.ToVerify(_items, Session.UserName) : _items;
+
+    [SupplyParameterFromQuery(Name = "show")]
+    public string? ShowQuery { get; set; }
     private bool _loading = true;
     private long? _expandedLineId;
     private Feedback? _fb;
@@ -388,6 +406,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _toVerifyOnly = string.Equals(ShowQuery, "verify", StringComparison.OrdinalIgnoreCase);
         var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
         _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
         if (string.Equals(TabQuery, "retype", StringComparison.OrdinalIgnoreCase))

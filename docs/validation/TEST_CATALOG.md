@@ -436,5 +436,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-425 | D / I | `DashboardDueCountTests.LapsedReservations_AreCountedOnTheReadyCard`; `Phase4IssuingTests.LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason` | URS-BB-497 / FRS-BB-563 |
 | TEST-BB-426 | D / I | `MinimumStockRuleOpenOrdersTests.OpenOrdersExceedOnHand_OnlyWhenThereAreMoreOrdersThanUnits`; `MinimumStockOpenOrdersTests.OpenOrders_CountOnlyActiveProductLines_OnOpenOrders` | URS-BB-498 / FRS-BB-564 |
 | TEST-BB-427 | D | `TestWorkItemBenchActionTests.AnEnteredResult_SaysVerify_WhateverItsSource`, `TheEntererOfAnAboRh_SeesReview_OthersSeeVerify_AndThePromptNamesTheOrigin` | URS-BB-499 / FRS-BB-566 |
+| TEST-BB-428 | D | `TestWorkItemBenchActionTests.ToVerify_KeepsWaitingResults_ButNotEmptyBlockedOrOwnAboRhLines` | URS-BB-499 / FRS-BB-567 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

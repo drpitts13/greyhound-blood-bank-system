@@ -30,4 +30,22 @@ public class TestWorkItemBenchActionTests
         Assert.Equal("The value entered by tech1", abo.AwaitingValueOrigin);
         Assert.Equal("The instrument value", Item("DAT", 7, ResultStatus.PendingVerification, ResultSource.Instrument, null).AwaitingValueOrigin);
     }
+    // TEST-BB-428: the To verify view keeps the lines this user can verify now, in order.
+    [Fact]
+    public void ToVerify_KeepsWaitingResults_ButNotEmptyBlockedOrOwnAboRhLines()
+    {
+        var items = new[]
+        {
+            Item("DAT", 1, ResultStatus.Entered, ResultSource.Manual, "tech1"),
+            Item("ABSC", null, null, null, null),
+            Item("ABORH", 2, ResultStatus.Entered, ResultSource.Manual, "tech2"),
+            Item("ABORH", 3, ResultStatus.Entered, ResultSource.Manual, "tech1"),
+            Item("XM", 4, ResultStatus.PendingVerification, ResultSource.Instrument, null),
+            Item("DAT", 5, ResultStatus.Entered, ResultSource.Manual, "tech1", canEnter: false)
+        };
+
+        var forTech2 = TestWorklistView.ToVerify(items, "tech2");
+
+        Assert.Equal([1L, 3L, 4L], forTech2.Select(i => i.CurrentResultId!.Value));
+    }
 }

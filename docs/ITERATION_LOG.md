@@ -12914,3 +12914,37 @@ On the test worklist, a DAT entered manually by tech1 and waiting since the even
 ### Next ranked residual (testing desk)
 
 A Verify filter or sort on the worklist ("waiting for me to verify"), and bulk verify of plain negative screens by a second technologist, if the medical director allows it (an OCD question before building).
+
+## Iteration 392 — To verify filter on the test worklist (2026-11-05)
+
+### Capability matrix rescan (testing desk)
+
+With Cycle 391 the bench says Verify on waiting results, but the verifying technologist still scanned every line of a mixed list (pending entry, blocked, waiting, their own ABO/Rh) to find their work (questions 1, 5).
+
+### Design
+
+- **`TestWorklistView.ToVerify(items, user)`:** lines with a result waiting for verification, entry not blocked, and not an ABO/Rh this user entered, in the list's order.
+- **Patient tests, for users who can verify:** **All (n)** and **To verify (n)** buttons.
+  - an empty To verify list says so, and that the user's own results are verified by someone else
+  - `/test-worklist?show=verify` opens on To verify
+- **aria-pressed:** rendered as "true"/"false" strings. The first build used booleans, which Blazor rendered as an empty or missing attribute; found live and fixed.
+- No server change. The worklist content is unchanged.
+
+### Requirements
+
+- FRS-BB-567 (under URS-BB-499). Help: test worklist.
+
+### Tests
+
+- TEST-BB-428: for tech2, a colleague's DAT, tech1's ABO/Rh, and an instrument crossmatch are kept in order. An empty line, a blocked line, and tech2's own ABO/Rh are left out.
+- Full suite: 3,707 passed, 0 failed.
+- Run check (development API and web):
+  - `?show=verify` opens with "To verify (2)" pressed, out of "All (8)"
+  - the rows are MRN0009 (interface antibody screen) and MRN0006 (manual DAT), both Verify
+  - All restores 8 rows, and aria-pressed flips true/false
+  - nothing was verified
+  - no server errors
+
+### Next ranked residual (testing desk)
+
+Bulk verification of plain negative results by a second technologist needs a medical director decision first. Next is to rescan the other desks.

@@ -118,3 +118,14 @@ public sealed record TestWorkItemDto(
 
     public string ChartAccessionHref => $"/patients/{PatientId}?tab=orders&panel=accession";
 }
+
+/// <summary>Views over the bench list that do not change what is on it.</summary>
+public static class TestWorklistView
+{
+    /// <summary>
+    /// Lines this user can verify now: a result waiting for verification, entry not blocked, and not an ABO/Rh this
+    /// user entered. Order is kept.
+    /// </summary>
+    public static IReadOnlyList<TestWorkItemDto> ToVerify(IEnumerable<TestWorkItemDto> items, string? userName) =>
+        items.Where(i => i.AwaitsVerification && i.BenchActionLabelFor(userName) == "Verify").ToList();
+}
