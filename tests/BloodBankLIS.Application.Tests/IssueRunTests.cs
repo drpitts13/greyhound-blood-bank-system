@@ -139,4 +139,21 @@ public class IssueRunTests
             IssueRun.RoutineIssueBlocks(blocked));
         Assert.Equal(IssueRun.OffersRoutineIssue(blocked), IssueRun.RoutineIssueBlocks(blocked).Count == 0);
     }
+    [Fact]
+    public void AnIssuedUnitsNextStep_FollowsReceiptThenStartThenComplete_AndReturnStopsOnceStarted()
+    {
+        var inTransit = Bedside(1, 1, 0, received: false);
+        var received = Bedside(2, 1, 0);
+        var running = Bedside(3, 1, 0, started: true);
+
+        Assert.Equal(IssuedNextStep.ReceiveOnWard, IssueRun.NextStepForIssued(inTransit));
+        Assert.Equal(IssuedNextStep.StartTransfusion, IssueRun.NextStepForIssued(received));
+        Assert.Equal(IssuedNextStep.CompleteTransfusion, IssueRun.NextStepForIssued(running));
+        Assert.True(IssueRun.CanReturn(inTransit));
+        Assert.True(IssueRun.CanReturn(received));
+        Assert.False(IssueRun.CanReturn(running));
+
+        // Started without a recorded receipt: the running transfusion still comes first.
+        Assert.Equal(IssuedNextStep.CompleteTransfusion, IssueRun.NextStepForIssued(Bedside(4, 1, 0, received: false, started: true)));
+    }
 }

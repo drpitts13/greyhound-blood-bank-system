@@ -12564,3 +12564,55 @@ Search everywhere: the header search takes a scanned DIN or MRN; check that a DI
 ### Next ranked residual (workflow lens)
 
 Return the issued unit from its page the same way: an issued unit's page shows the issue (patient, destination, time) and offers Return, Ward receipt, or Transfusion as its next step.
+
+## Iteration 383 — An issued unit's page shows where it went and its next step (2026-11-04)
+
+### Capability matrix rescan (workflow lens: search everywhere, next step)
+
+- A unit out of the bank, scanned in the header search, showed its status ("Issued") but not:
+  - who it went to
+  - whether the ward had it
+  - what to do next
+- The page had a Document transfusion link buried under Actions.
+- The issue desk opened only the transfusion form from a link; there was no link to receipt or return.
+
+### Finding (also question 6)
+
+The live check found a demo transfusion started without a recorded ward receipt (Patricia, W0001230000099). Issued units offered only Receive for it, never Complete: the board offered Start/Complete only after a receipt. A running transfusion could not be completed from the board.
+
+### Design
+
+- `IssueRun.NextStepForIssued` gives the order:
+  - a running transfusion → Complete, even without a recorded receipt
+  - else not received → Receive on ward
+  - else → Start / document
+- `CanReturn` is true until the transfusion starts.
+- **Unit page:** a banner when the unit is issued or transfusing: issued to Name (MRN), destination, time and issuer, cooler. Then where it stands (in transit / received at a time by someone / transfusing since a time, with completion overdue flagged), Open chart, the next step, and Return when allowed.
+- **Issue & Transfuse:** `?desk=receipt&issueId=` and `?desk=return&issueId=` open that issue's form, as `desk=transfuse` already did. A message is shown if the issue is no longer in that state.
+- **Issued units board:** uses the same rule. Receive shows only before anything has started; Start/Complete shows otherwise.
+- No server change. Completing a transfusion has no receipt check.
+
+### Requirements
+
+- FRS-BB-559 (under URS-BB-494). Help: unit detail.
+
+### Tests
+
+- TEST-BB-421:
+  - in transit → Receive; received → Start; running → Complete
+  - started without a receipt → Complete
+  - Return is offered until the transfusion starts
+- Full suite: 3,695 passed, 0 failed.
+- Run check (development API and web):
+  - W…9203 (Cooler M2): "In transit…", Receive on ward and Return
+  - W…9205: "Received on the ward 20:28 by RN Demo; transfusion not started", Start / document and Return
+  - W…0099 (Patricia): "Transfusing since 18:15", Complete transfusion. The first version offered Receive; this was found live and fixed.
+  - the receipt link opened W…9203 with "Also in Cooler M2"
+  - the return link opened W…9205
+  - the transfuse link opened the running transfusion with Complete
+  - nothing was saved
+  - no server errors
+
+### Next ranked residual (workflow lens)
+
+Patient timeline: check that the chart timeline shows each unit's issue, receipt, start, and completion in order, and links to the unit page.

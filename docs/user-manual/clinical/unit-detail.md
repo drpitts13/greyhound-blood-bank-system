@@ -24,6 +24,8 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Discard** asks for a coded reason from the list an administrator keeps in Admin › Discard Reasons, plus an optional comment. A code marked comment required, such as Other, needs the comment before Discard is enabled. The unit stores the code, and the **Wastage by product and reason** report counts discards by month, product, and code.
 
+**Issued to.** When the unit is out of the bank, a banner names the patient, the destination, when and by whom it was issued, the cooler, and where it stands: in transit, received on the ward, or transfusing. It offers the next step: **Receive on ward**, **Start / document transfusion**, or **Complete transfusion**, and **Return** until the transfusion starts. Each opens Issue & Transfuse on that unit.
+
 **Reserved for.** When the unit is reserved for a patient, a banner under the header names the patient and the crossmatch. **Issue** opens the Issue form with the unit and patient filled, so a scan in the search bar can go straight to issuing. When routine issue is not yet possible, the banner says why (for example a second ABO/Rh or a crossmatch) and links to Ready to issue.
 
 **Attributes** lists antigens and modifications (irradiated, leukoreduced, and the others recorded on the unit). Antigen typing you performed is recorded with [Unit antigen typing](unit-antigen-typing) or on the retype tab.

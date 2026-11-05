@@ -595,7 +595,7 @@
                                 }
                             </td>
                             <td class="right nowrap">
-                                @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
+                                @if (IssueRun.NextStepForIssued(row) == IssuedNextStep.ReceiveOnWard && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
                                 }
@@ -603,7 +603,7 @@
                                 {
                                     <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
                                 }
-                                @if (row.WardReceivedUtc is not null && CanRecordTransfusion)
+                                @if (IssueRun.NextStepForIssued(row) != IssuedNextStep.ReceiveOnWard && CanRecordTransfusion)
                                 {
                                     <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">@(row.TransfusionStartedUtc is null ? "Start / document" : "Complete")</button>
                                 }
@@ -1755,6 +1755,31 @@
             else
             {
                 _txFb = Feedback.Fail($"Issue #{issueId} is not waiting for transfusion documentation. It may already be documented or returned.");
+            }
+        }
+
+        // From the unit page: open ward receipt or return for that issue.
+        if (QueryIssueId is long receiptIssueId && _desk == "receipt")
+        {
+            if (_inTransitItems.FirstOrDefault(i => i.IssueId == receiptIssueId) is { } t)
+            {
+                SelectWardIssue(t.IssueId, t.ProductName, t.UnitExpiresUtc, t.UnitBloodType, t.SpecimenAccession, t.CrossmatchExpiresUtc, t.LatestCrossmatchResult, t.IssuedTo, t.CoolerId, t.IssuedToLocation, t.IssuedBy, t.EmergencyReleaseDetails, t.SecondVerifier, t.EmergencyReleaseAuthorizer, t.IssueAppearance, t.PtagCode, t.CrossmatchStatus);
+            }
+            else
+            {
+                _wardFb = Feedback.Fail($"Issue #{receiptIssueId} is not waiting for ward receipt. It may already be received or returned.");
+            }
+        }
+
+        if (QueryIssueId is long returnIssueId && _desk == "return")
+        {
+            if (_outstandingItems.FirstOrDefault(i => i.IssueId == returnIssueId) is { } r && IssueRun.CanReturn(r))
+            {
+                SelectReturnIssue(r);
+            }
+            else
+            {
+                _returnFb = Feedback.Fail($"Issue #{returnIssueId} cannot be returned here. Its transfusion may have started, or it was already returned.");
             }
         }
     }

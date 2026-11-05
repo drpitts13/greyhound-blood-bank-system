@@ -429,5 +429,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-418 | D | `IssueRunTests.NextAtBedside_PutsUnitsStillTransfusingFirst_ThenReceivedOnes_ForThatPatientOnly` | URS-BB-494 / FRS-BB-556 |
 | TEST-BB-419 | D | `IssueRunTests.APickedUnit_FillsItsReservedPatient_OrSaysWhoseItIs` | URS-BB-494 / FRS-BB-557 |
 | TEST-BB-420 | D | `IssueRunTests.RoutineIssueBlocks_NameWhatStopsRoutineIssue_AndAreEmptyWhenReady` | URS-BB-494 / FRS-BB-558 |
+| TEST-BB-421 | D | `IssueRunTests.AnIssuedUnitsNextStep_FollowsReceiptThenStartThenComplete_AndReturnStopsOnceStarted` | URS-BB-494 / FRS-BB-559 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

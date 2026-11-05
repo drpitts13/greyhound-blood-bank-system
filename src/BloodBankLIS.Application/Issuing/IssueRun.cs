@@ -117,6 +117,25 @@ public static class IssueRun
         return (null, $"Unit {row.UnitNumber} is reserved for {who}{mrn}, not the patient on this form.");
     }
 
+    /// <summary>
+    /// The next step for an issued unit: complete a transfusion already running (even one started without a recorded
+    /// ward receipt), otherwise receive it on the ward, then start or document the transfusion.
+    /// </summary>
+    public static IssuedNextStep NextStepForIssued(OutstandingIssueWorkItemDto row) =>
+        row.TransfusionStartedUtc is not null ? IssuedNextStep.CompleteTransfusion
+        : row.WardReceivedUtc is null ? IssuedNextStep.ReceiveOnWard
+        : IssuedNextStep.StartTransfusion;
+
+    /// <summary>A unit can still be returned until its transfusion has started.</summary>
+    public static bool CanReturn(OutstandingIssueWorkItemDto row) => row.TransfusionStartedUtc is null;
+
     private static bool SameText(string? a, string? b) =>
         string.Equals((a ?? string.Empty).Trim(), (b ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
+}
+
+public enum IssuedNextStep
+{
+    ReceiveOnWard,
+    StartTransfusion,
+    CompleteTransfusion
 }
