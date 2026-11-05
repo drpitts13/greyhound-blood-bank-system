@@ -8,7 +8,7 @@
 <PageTitle>Minimum stock &middot; HemoCore</PageTitle>
 
 <h1>Minimum stock</h1>
-<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
+<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. <strong>Open orders</strong> counts product orders for that product still waiting for a unit (any ABO; each wants at least one). Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
 <Outcome Value="_feedback" />
 
 <div class="bb-card">
@@ -30,7 +30,7 @@
             </p>
         }
         <table class="bb">
-            <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th></th></tr></thead>
+            <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th title="Open product orders for this product, any ABO, still waiting for a unit">Open orders</th><th></th></tr></thead>
             <tbody>
                 @* Shortages first, largest first, so what needs ordering is at the top. *@
                 @foreach (var row in _rows.OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo))
@@ -42,6 +42,13 @@
                         <td><a href="@OnHandUrl(row)" title="Show these units in Inventory">@row.OnHand</a></td>
                         <td>@row.MinimumAvailable</td>
                         <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
+                        <td>
+                            @(row.OpenOrders > 0 ? row.OpenOrders.ToString() : "—")
+                            @if (row.OpenOrdersExceedOnHand)
+                            {
+                                <span class="badge badge-amber" title="More open orders for this product than units on hand; each order wants at least one unit" data-orders-exceed>More orders than on hand</span>
+                            }
+                        </td>
                         <td class="right">
                             @if (Session.Has(PermissionCodes.AdminConfigEdit))
                             {

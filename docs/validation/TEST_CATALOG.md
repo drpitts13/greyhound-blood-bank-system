@@ -434,5 +434,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-423 | D | `DashboardQueueCatalogTests.Select_NearExpiry_ForInventoryOrIssue_OpensTheNearExpiryBoard`; `DashboardHomeTests.NearExpiry_IsAnIssueDeskAndSupervisorQueue_AndReservedOnesNeedAttention` | URS-BB-496 / FRS-BB-561 |
 | TEST-BB-424 | D | `IssueRunTests.NearExpiry_OffersIssueForAReadyReservedUnit_AndAllocateWhenOrdersAreOpen` | URS-BB-496 / FRS-BB-562 |
 | TEST-BB-425 | D / I | `DashboardDueCountTests.LapsedReservations_AreCountedOnTheReadyCard`; `Phase4IssuingTests.LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason` | URS-BB-497 / FRS-BB-563 |
+| TEST-BB-426 | D / I | `MinimumStockRuleOpenOrdersTests.OpenOrdersExceedOnHand_OnlyWhenThereAreMoreOrdersThanUnits`; `MinimumStockOpenOrdersTests.OpenOrders_CountOnlyActiveProductLines_OnOpenOrders` | URS-BB-498 / FRS-BB-564 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

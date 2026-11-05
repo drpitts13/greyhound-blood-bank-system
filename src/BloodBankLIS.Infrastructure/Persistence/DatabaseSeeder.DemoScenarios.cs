@@ -59,6 +59,7 @@ public static partial class DatabaseSeeder
         await SeedPendingSpecimenReceiptScenarioAsync(context, ct);
         await SeedMassiveTransfusionScenarioAsync(context, ct);
         await SeedMultiUnitScenarioAsync(context, ct);
+        await SeedMinimumStockLevelsAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -2739,6 +2740,35 @@ public static partial class DatabaseSeeder
                 ExpiresUtc = now.AddHours(24)
             });
 
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Demo only: starter minimum stock levels so the Minimum stock page has rows, including red cells with open orders.
+    /// Example numbers to change; a facility sets its own from usage.
+    /// </summary>
+    private static async Task SeedMinimumStockLevelsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.MinimumStockLevels.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var products = await context.ProductTypes
+            .Where(p => p.ProductCode == "RBC-LR" || p.ProductCode == "FFP" || p.ProductCode == "PLT-A")
+            .ToDictionaryAsync(p => p.ProductCode, ct);
+        void Level(string code, AboGroup? abo, int minimum)
+        {
+            if (products.TryGetValue(code, out var product))
+            {
+                context.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = product.Id, Abo = abo, MinimumAvailable = minimum });
+            }
+        }
+
+        Level("RBC-LR", AboGroup.O, 6);
+        Level("RBC-LR", AboGroup.A, 4);
+        Level("FFP", null, 4);
+        Level("PLT-A", null, 2);
         await context.SaveChangesAsync(ct);
     }
 

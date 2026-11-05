@@ -12769,3 +12769,43 @@ Release existed only on the patient chart, one patient at a time. Mature systems
 ### Next ranked residual (operations lens)
 
 Minimum stock against open orders: compare on-hand units by product and type with minimum stock and today's open product orders.
+
+## Iteration 388 — Open product orders beside minimum stock (2026-11-05)
+
+### Capability matrix rescan (operations lens)
+
+Minimum stock compared available units with a minimum, but did not show demand. A product could be at its minimum while more patients' orders waited for it than there were units on the shelf. The tech had to remember, or count, open orders on Compatibility (question 2).
+
+### Design
+
+- **`MinimumStockService`** counts open product order lines per product:
+  - the line is active, a product line, Ordered or partly filled
+  - its order is not completed, cancelled, or discontinued
+- **Rows** carry `OpenOrders`. Orders have no quantity, so each line counts as one unit, at least.
+- **`MinimumStockRule.OpenOrdersExceedOnHand`:** more open orders than units on hand. The page shows an Open orders column and a "More orders than on hand" badge.
+- **The count is by product:** an ABO-specific row compares that group's units with orders of any ABO, and the help says so. It is a count, not a projection. Nothing is ordered automatically.
+- **Demo data:** four starter minimums (group O and A leukoreduced red cells, plasma, apheresis platelets) are seeded when none exist. The page had no rows before. As a result, the existing below-minimum alert fires for group A red cells in the demo.
+
+### Requirements
+
+- URS-BB-498, FRS-BB-564. Help: minimum stock.
+
+### Tests
+
+- TEST-BB-426:
+  - rule: more orders than units only
+  - integration: two open lines count, while a filled line, a cancelled line, a line on a completed order, another product, and a test line do not; with 1 on hand the row is flagged, with no shortfall against a minimum of 1
+- Full suite: 3,704 passed.
+  - The first run of the new integration test failed on a foreign key (orders need an encounter and an ordering location). That was the test's setup, fixed.
+- Run check (development API and web):
+  - seeding added four rows
+  - red cells show 4 open orders (ORD0019 and ORD0023 lines and others)
+  - group A (2 on hand, minimum 4) shows short 2 and "More orders than on hand"
+  - group O (6 on hand) is not flagged
+  - plasma and platelets have none
+  - the Alerts count rose by one: the below-minimum alert for group A red cells
+  - no server errors
+
+### Next ranked residual (operations lens)
+
+Supplier orders could start from the shortfall, including the open-order count, so the order quantity is suggested rather than remembered.
