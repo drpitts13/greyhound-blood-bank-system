@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
@@ -150,8 +151,8 @@ public sealed class SpecimenTimelineService
         foreach (var x in crossmatches)
         {
             events.Add(new(x.PerformedUtc, TimelineCategory.Product,
-                x.ClinicalStatus == CrossmatchClinicalStatus.Incompatible ? TimelineSeverity.Critical : TimelineSeverity.Info,
-                $"Crossmatch {Unit(x.BloodProductId)}: {x.ClinicalStatus}",
+                CrossmatchValidityRule.Shown(x.Result, x.ClinicalStatus) == CrossmatchClinicalStatus.Incompatible ? TimelineSeverity.Critical : TimelineSeverity.Info,
+                $"Crossmatch {Unit(x.BloodProductId)}: {CrossmatchValidityRule.Shown(x.Result, x.ClinicalStatus)}",
                 x.ExpiresUtc is DateTime until ? $"Valid until {until:yyyy-MM-dd HH:mm} UTC" : null,
                 x.PerformedBy, $"/inventory/units/{x.BloodProductId}", $"xm-{x.Id}"));
         }

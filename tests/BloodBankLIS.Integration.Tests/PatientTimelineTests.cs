@@ -150,6 +150,43 @@ public class PatientTimelineTests : IDisposable
         Assert.Contains(events, e => e.SourceKey == $"alc-{f.Allocation.Id}" && e.Category == TimelineCategory.Product);
     }
 
+    // TEST-BB-422: a crossmatch recorded with only its result shows that result (incompatible is critical), and the
+    // ward receipt has its own event.
+    [Fact]
+    public async Task RecordedCrossmatchResults_AndWardReceipt_AreShown()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedCourseAsync(c);
+        var compatible = new Crossmatch
+        {
+            BloodProductId = f.Unit.Id, PatientId = f.Patient.Id, SpecimenId = f.Specimen.Id, PerformedUtc = T(9).AddMinutes(5),
+            PerformedBy = "tech2", Result = CrossmatchResult.Compatible
+        };
+        var incompatible = new Crossmatch
+        {
+            BloodProductId = f.Unit.Id, PatientId = f.Patient.Id, SpecimenId = f.Specimen.Id, PerformedUtc = T(9).AddMinutes(6),
+            PerformedBy = "tech2", Result = CrossmatchResult.Incompatible
+        };
+        c.AddRange(compatible, incompatible);
+        f.Issue.IssuedToLocation = "4 West";
+        f.Issue.WardReceivedUtc = T(10).AddMinutes(10);
+        f.Issue.WardReceivedBy = "RN Park";
+        await c.SaveChangesAsync();
+
+        var events = await Timeline(c).GetAsync(f.Patient.Id);
+
+        Assert.EndsWith(": Compatible", Event(events, $"xm-{compatible.Id}").Title);
+        var bad = Event(events, $"xm-{incompatible.Id}");
+        Assert.EndsWith(": Incompatible", bad.Title);
+        Assert.Equal(TimelineSeverity.Critical, bad.Severity);
+
+        var ward = Event(events, $"iss-{f.Issue.Id}-ward");
+        Assert.Equal("Unit W9999TL000001 received on the ward", ward.Title);
+        Assert.Equal(T(10).AddMinutes(10), ward.AtUtc);
+        Assert.Equal("RN Park", ward.By);
+        Assert.Contains("At 4 West", ward.Detail);
+    }
+
     private static TimelineEventDto Event(IReadOnlyList<TimelineEventDto> events, string key) =>
         Assert.Single(events, e => e.SourceKey == key);
 

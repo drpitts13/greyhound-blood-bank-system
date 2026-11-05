@@ -12616,3 +12616,45 @@ The live check found a demo transfusion started without a recorded ward receipt 
 ### Next ranked residual (workflow lens)
 
 Patient timeline: check that the chart timeline shows each unit's issue, receipt, start, and completion in order, and links to the unit page.
+
+## Iteration 384 — Timelines show the crossmatch result and the ward receipt (2026-11-04)
+
+### Capability matrix rescan (workflow lens: timelines)
+
+The MRN0022 timeline, checked live, lists reservation, crossmatch, issue, and order events with links to each unit.
+
+### Finding (question 6)
+
+- Every crossmatch read "NotPerformed", though stored and shown elsewhere as Compatible:
+  - the timelines read `Crossmatch.ClinicalStatus`
+  - `RecordCrossmatchAsync` never set it (only a modification copy did), so every crossmatch recorded through the application, compatible or incompatible, showed NotPerformed on the patient and specimen timelines
+  - an incompatible crossmatch was not marked critical there
+  - issue, ready to issue, and selection read `Result`, so no unit was issued on the wrong basis; the gap was in the record a reviewer reads (RISK-BB-590)
+- Ward receipt had no timeline event: issue appeared, then transfusion, with nothing between.
+
+### Design
+
+- `CrossmatchValidityRule.ClinicalStatusFor(result)` and `Shown(result, clinicalStatus)`: a recorded Compatible or Incompatible result is shown; otherwise the clinical status (NotPerformed, emergency uncrossmatched).
+- **Timelines:** both use `Shown`, so existing rows display correctly without a data change. Incompatible is critical.
+- **`RecordCrossmatchAsync`:** sets `ClinicalStatus` from the result from now on.
+- **Patient timeline:** a "Unit … received on the ward" event at the receipt time, with destination, who received it, and the appearance when not acceptable, linked to the unit.
+
+### Requirements
+
+- FRS-BB-560 (under URS-BB-494), RISK-BB-590. Help: patient timeline.
+
+### Tests
+
+- TEST-BB-422:
+  - domain: result wins; otherwise the clinical status
+  - timeline: a result-only Compatible and Incompatible show as such, with Incompatible critical, and the ward receipt event has its time, actor, and destination
+  - recording a compatible crossmatch sets the clinical status Compatible
+- Full suite: 3,697 passed, 0 failed.
+- Run check (development API and web, MRN0022 timeline):
+  - before: "Crossmatch W…9201: NotPerformed", and no receipt rows
+  - after: "Crossmatch W…9201: Compatible", and "Unit W…9205 received on the ward · At ICU 4 · by RN Demo" at 20:28 (and W…9206 at 20:29)
+  - no server errors
+
+### Next ranked residual
+
+Other readers of `Crossmatch.ClinicalStatus`: none besides the timelines and the modification copy, which now copies a set value. A one-time backfill of the stored column is optional, since display no longer depends on it.

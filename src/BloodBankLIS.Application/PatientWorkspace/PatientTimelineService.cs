@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
@@ -214,9 +215,10 @@ public sealed class PatientTimelineService
 
         foreach (var x in crossmatches)
         {
-            var incompatible = x.ClinicalStatus == CrossmatchClinicalStatus.Incompatible;
+            var shown = CrossmatchValidityRule.Shown(x.Result, x.ClinicalStatus);
+            var incompatible = shown == CrossmatchClinicalStatus.Incompatible;
             events.Add(new(x.PerformedUtc, TimelineCategory.Product, incompatible ? TimelineSeverity.Critical : TimelineSeverity.Info,
-                $"Crossmatch {Unit(x.BloodProductId)}: {x.ClinicalStatus}",
+                $"Crossmatch {Unit(x.BloodProductId)}: {shown}",
                 $"Specimen {accessionById.GetValueOrDefault(x.SpecimenId) ?? x.SpecimenId.ToString()}",
                 x.PerformedBy, UnitHref(x.BloodProductId), $"xm-{x.Id}"));
         }
@@ -234,6 +236,15 @@ public sealed class PatientTimelineService
                     $"Crossmatch at issue: {i.CrossmatchStatus}",
                     OverrideText(i.OverrideId, overrides)),
                 i.IssuedBy, UnitHref(i.BloodProductId), $"iss-{i.Id}"));
+        }
+
+        foreach (var i in issues.Where(i => i.WardReceivedUtc is not null))
+        {
+            events.Add(new(i.WardReceivedUtc!.Value, TimelineCategory.Product, TimelineSeverity.Info,
+                $"Unit {Unit(i.BloodProductId)} received on the ward",
+                Join(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? null : $"At {i.IssuedToLocation}",
+                    i.WardAppearance == UnitAppearance.Acceptable ? null : $"Appearance: {i.WardAppearance}"),
+                i.WardReceivedBy, UnitHref(i.BloodProductId), $"iss-{i.Id}-ward"));
         }
 
         foreach (var r in returns)

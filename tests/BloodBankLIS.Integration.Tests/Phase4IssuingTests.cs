@@ -268,6 +268,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var result = await Compatibility(c).RecordCrossmatchAsync(
             new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
         Assert.True(result.Succeeded);
+        // TEST-BB-422: the clinical status matches the recorded result.
+        Assert.Equal(CrossmatchClinicalStatus.Compatible, result.Value!.ClinicalStatus);
     }
 
     private async Task AllocateAsync(Scenario s)

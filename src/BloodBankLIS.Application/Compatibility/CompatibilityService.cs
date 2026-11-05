@@ -200,6 +200,7 @@ public sealed class CompatibilityService
             SpecimenId = specimen.Id,
             Method = request.Method,
             Result = result,
+            ClinicalStatus = CrossmatchValidityRule.ClinicalStatusFor(result),
             PerformedUtc = _clock.UtcNow,
             PerformedBy = _currentUser.UserName,
             ExpiresUtc = specimen.ExpiresUtc ?? _clock.UtcNow.AddHours(DefaultCrossmatchValidityHours),
