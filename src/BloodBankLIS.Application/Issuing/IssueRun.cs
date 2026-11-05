@@ -10,13 +10,20 @@ public static class IssueRun
     /// <summary>
     /// The Ready to issue board offers a routine Issue for this row (the same test the board uses for its button).
     /// </summary>
-    public static bool OffersRoutineIssue(ReadyToIssueWorkItemDto row) =>
-        !row.SpecimenBlocksIssue
-        && !row.UnitOutdated
-        && string.IsNullOrWhiteSpace(row.SpecialRequirementNotice)
-        && !row.AboRhDiscrepancyBlocksIssue
-        && !row.NeedsSecondAbo
-        && !row.CrossmatchBlocksRoutineIssue;
+    public static bool OffersRoutineIssue(ReadyToIssueWorkItemDto row) => RoutineIssueBlocks(row).Count == 0;
+
+    /// <summary>What keeps the row from routine issue, in the board's words; empty when it can be issued.</summary>
+    public static IReadOnlyList<string> RoutineIssueBlocks(ReadyToIssueWorkItemDto row)
+    {
+        var blocks = new List<string>();
+        if (row.SpecimenBlocksIssue) blocks.Add(row.SpecimenBlockReason ?? "The specimen does not allow issue.");
+        if (row.UnitOutdated) blocks.Add(row.UnitBlockReason ?? "The unit is outdated.");
+        if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice)) blocks.Add(row.SpecialRequirementNotice!);
+        if (row.AboRhDiscrepancyBlocksIssue) blocks.Add(row.AboRhDiscrepancyNotice ?? "An ABO/Rh discrepancy is unresolved.");
+        if (row.NeedsSecondAbo) blocks.Add(ReadyToIssueFormCue.SecondAbo);
+        if (row.CrossmatchBlocksRoutineIssue) blocks.Add(row.CrossmatchNotice ?? "A compatible, unexpired crossmatch is required.");
+        return blocks;
+    }
 
     /// <summary>
     /// The patient's other reserved units that can be issued routinely, oldest reservation first, leaving out the unit

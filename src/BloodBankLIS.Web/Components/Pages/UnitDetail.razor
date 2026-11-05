@@ -23,6 +23,28 @@ else
 {
     <UnitChartHeader Unit="_unit" ProductCode="@ProductCode(_unit)" ProductName="@ProductName(_unit.ProductTypeId)" LocationName="@LocationName(_unit.CurrentLocationId)" />
     <UnitChartTabBar Current="@_tab" OnSelect="SelectTab" />
+    @if (_reservation is { } reserved)
+    {
+        @* Found by a scan: say whose unit it is and go straight to issuing it. *@
+        <div class="alert @(IssueRun.OffersRoutineIssue(reserved) ? "alert-info" : "alert-warning")" style="margin-top:.5rem;" data-unit-reservation>
+            <strong>Reserved for @(reserved.PatientDisplayName ?? $"patient {reserved.PatientId}")@(string.IsNullOrWhiteSpace(reserved.MedicalRecordNumber) ? "" : $" ({reserved.MedicalRecordNumber})")</strong>
+            @if (ReadyToIssueFormCue.CrossmatchWorklistNotice(reserved.LatestCrossmatchResult, reserved.CrossmatchExpiresUtc) is { } xm)
+            {
+                <span> · @xm</span>
+            }
+            <div class="flex gap" style="margin-top:.4rem;flex-wrap:wrap;">
+                <a class="btn btn-ghost btn-sm" href="@($"/patients/{reserved.PatientId}?tab=products")">Open chart · Products</a>
+                @if (IssueRun.OffersRoutineIssue(reserved) && Session.Has(PermissionCodes.IssueCreate))
+                {
+                    <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=issue&bloodUnitId={reserved.BloodUnitId}")">Issue</a>
+                }
+                else if (!IssueRun.OffersRoutineIssue(reserved))
+                {
+                    <span class="muted">Before routine issue: @string.Join(" ", IssueRun.RoutineIssueBlocks(reserved)) <a href="/issuing?desk=ready">Ready to issue</a></span>
+                }
+            </div>
+        </div>
+    }
     <Outcome Value="_actionFb" />
     @if (_reserveAgainHref is not null && Session.Has(PermissionCodes.CompatibilityAllocate))
     {
@@ -570,6 +592,8 @@ else
     private bool _loading = true;
     private string? _error;
     private BloodUnitDto? _unit;
+    // The reservation on Ready to issue for this unit, if it has one.
+    private ReadyToIssueWorkItemDto? _reservation;
     private long _loadedId;
     private string _tab = "overview";
     private bool _busy;
@@ -753,6 +777,9 @@ else
         _activity = (await Api.GetUnitActivityAsync(id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(id)).Value ?? new();
         _unitTests = (await Api.GetUnitSpecialTestsAsync(id)).Value ?? new();
+        _reservation = Session.HasAny(PermissionCodes.IssueCreate, PermissionCodes.CompatibilityAllocate)
+            ? (await Api.GetReadyToIssueAllocationsAsync()).Value?.FirstOrDefault(r => r.BloodUnitId == id)
+            : null;
         _retypeDetail = (await Api.GetUnitRetypeAsync(id)).Value;
         _allocatableOrders = (await Api.GetUnitAllocatableOrdersAsync(id)).Value ?? new();
         _eligibleMods = (await Api.GetEligibleModificationsAsync(id)).Value ?? new();

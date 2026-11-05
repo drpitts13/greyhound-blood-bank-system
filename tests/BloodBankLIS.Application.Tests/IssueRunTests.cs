@@ -122,4 +122,21 @@ public class IssueRunTests
         Assert.Equal((null, null), IssueRun.ForPickedUnit(ready, 99, 1));
         Assert.Equal((null, null), IssueRun.ForPickedUnit(ready, null, 1));
     }
+    [Fact]
+    public void RoutineIssueBlocks_NameWhatStopsRoutineIssue_AndAreEmptyWhenReady()
+    {
+        Assert.Empty(IssueRun.RoutineIssueBlocks(Row(1, 11, 0)));
+
+        var blocked = Row(1, 12, 0) with
+        {
+            NeedsSecondAbo = true,
+            CrossmatchBlocksRoutineIssue = true,
+            CrossmatchNotice = "A compatible, unexpired crossmatch is required for this product.",
+            UnitExpiresUtc = Start.AddDays(3)
+        };
+        Assert.Equal(
+            [ReadyToIssueFormCue.SecondAbo, "A compatible, unexpired crossmatch is required for this product."],
+            IssueRun.RoutineIssueBlocks(blocked));
+        Assert.Equal(IssueRun.OffersRoutineIssue(blocked), IssueRun.RoutineIssueBlocks(blocked).Count == 0);
+    }
 }

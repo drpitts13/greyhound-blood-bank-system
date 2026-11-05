@@ -1739,6 +1739,11 @@
             _issue.PatientId = patientId;
             await OnIssuePatientChangedAsync();
         }
+        else if (QueryBloodUnitId is not null)
+        {
+            // From the unit page: the reservation brings the patient, as if the unit had been scanned here.
+            await OnIssueUnitPickedAsync();
+        }
 
         // From the chart: open bedside documentation for that issue, with every check the form applies.
         if (QueryIssueId is long issueId && _desk == "transfuse")

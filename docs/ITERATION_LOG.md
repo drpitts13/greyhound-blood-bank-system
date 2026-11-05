@@ -12527,3 +12527,40 @@ Scan-to-select on these desks: scanning a unit's DIN on Issue, Ward receipt, or 
 ### Next ranked residual (workflow lens)
 
 Search everywhere: the header search takes a scanned DIN or MRN; check that a DIN lands on the unit page and a reserved unit offers Issue from there.
+
+## Iteration 382 — The unit page shows its reservation and issues from there (2026-11-04)
+
+### Capability matrix rescan (workflow lens: search everywhere, next step)
+
+- A DIN scanned in the header search lands on the unit page (confirmed live).
+- That page showed "Crossmatched" but not for whom, and offered no way to issue it. The tech had to go to Issue & Transfuse, find the row, and re-select it (questions 1, 2, 5).
+- The issue desk already accepted `?bloodUnitId=` but left the patient empty.
+
+### Design
+
+- **Unit page:** a banner under the header when the unit is on Ready to issue: "Reserved for Name (MRN) · crossmatch", with Open chart · Products.
+  - When routine issue is possible and the user may issue: **Issue** (`/issuing?desk=issue&bloodUnitId=`).
+  - Otherwise: a warning naming what stops routine issue, with a link to Ready to issue.
+- **`IssueRun.RoutineIssueBlocks`** gives the blocks in the board's words: specimen, outdated unit, special requirement, ABO/Rh discrepancy, second ABO, crossmatch. `OffersRoutineIssue` is now defined as no blocks, so the board, the runs, and the unit page cannot disagree.
+- **Issue desk opened with a unit and no patient** uses the reservation to fill the patient, the same path as a scan on the form (Cycle 381).
+- No server change. The reservation comes from the Ready to issue list the user can already see (issue or allocate permission).
+
+### Requirements
+
+- FRS-BB-558 (under URS-BB-494). Help: unit detail.
+
+### Tests
+
+- TEST-BB-420: no blocks for a ready row; second ABO and crossmatch named in order; consistent with `OffersRoutineIssue`.
+- Full suite: 3,694 passed, 0 failed.
+- Run check (development API and web):
+  - header search W0001230009201 opened the unit page with "Reserved for Demo-Multi, Riley (MRN0022) · Crossmatch compatible · Crossmatch expires …", Open chart, and Issue
+  - Issue opened the desk with the unit and patient filled and the next unit offered
+  - W000123UAG0001 showed a warning: "Before routine issue: … second concordant ABO/Rh … A compatible, unexpired crossmatch is required …", with Ready to issue
+  - the first version named the unit expiration line instead of the block; this was found live and corrected with `RoutineIssueBlocks`
+  - nothing was issued
+  - no server errors
+
+### Next ranked residual (workflow lens)
+
+Return the issued unit from its page the same way: an issued unit's page shows the issue (patient, destination, time) and offers Return, Ward receipt, or Transfusion as its next step.

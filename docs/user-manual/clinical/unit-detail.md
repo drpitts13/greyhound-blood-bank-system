@@ -24,6 +24,8 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Discard** asks for a coded reason from the list an administrator keeps in Admin › Discard Reasons, plus an optional comment. A code marked comment required, such as Other, needs the comment before Discard is enabled. The unit stores the code, and the **Wastage by product and reason** report counts discards by month, product, and code.
 
+**Reserved for.** When the unit is reserved for a patient, a banner under the header names the patient and the crossmatch. **Issue** opens the Issue form with the unit and patient filled, so a scan in the search bar can go straight to issuing. When routine issue is not yet possible, the banner says why (for example a second ABO/Rh or a crossmatch) and links to Ready to issue.
+
 **Attributes** lists antigens and modifications (irradiated, leukoreduced, and the others recorded on the unit). Antigen typing you performed is recorded with [Unit antigen typing](unit-antigen-typing) or on the retype tab.
 
 **Unit tests** on the same tab records tests done on the unit after it arrived, such as CMV or HbS. Enter the test code and Negative or Positive. The latest result for each test is the unit's result. A patient requirement for CMV- or HbS-negative units is met by a Negative here or by the product code, so a later Positive takes the unit out of selection for that patient. Changing a recorded result keeps the earlier one, shown as Corrected, and asks for the reason. Recording the same result again is refused.
