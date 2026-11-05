@@ -59,6 +59,7 @@ public static partial class DatabaseSeeder
         await SeedPendingSpecimenReceiptScenarioAsync(context, ct);
         await SeedMassiveTransfusionScenarioAsync(context, ct);
         await SeedMultiUnitScenarioAsync(context, ct);
+        await SeedSpecialRequirementsScenarioAsync(context, ct);
         await SeedMinimumStockLevelsAsync(context, ct);
     }
 
@@ -2996,6 +2997,64 @@ public static partial class DatabaseSeeder
             u.Status == UnitStatus.Available
             && !context.Allocations.Any(a => a.BloodProductId == u.Id)
             && !context.Issues.Any(i => i.BloodProductId == u.Id));
+
+    /// <summary>
+    /// Demo only: one patient with special requirements in effect, so the requirement badges, chart banners, patient
+    /// pickers, and downtime summary can be shown. Irradiated and CMV-negative red cells (enforced) and a note to call
+    /// the transfusion service physician (informational), from the starter catalog entries. Typed O+ twice, with a
+    /// current specimen. Example data, not clinical policy; added once by MRN on new and existing databases.
+    /// </summary>
+    private static async Task SeedSpecialRequirementsScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0023", ct))
+        {
+            return;
+        }
+
+        var definitions = await context.SpecialRequirementDefinitions
+            .Where(d => d.Code == "IRRAD-RBC" || d.Code == "CMVNEG-RBC" || d.Code == "CALL-TSMD")
+            .ToDictionaryAsync(d => d.Code, ct);
+        if (definitions.Count < 3)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0023",
+            last: "Demo-Special",
+            first: "Avery",
+            dateOfBirth: new DateOnly(1969, 7, 9),
+            sex: Sex.Female,
+            visitNumber: "VIS-2026-023",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "ONC 6",
+            accession: "ACC0023",
+            specimenType: "EDTA",
+            collectedUtc: now.AddHours(-3),
+            ct);
+
+        context.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.HistoricalImport, IsCurrent = false },
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true, SpecimenId = visit.Specimen.Id });
+
+        SpecialTransfusionRequirement Requirement(string code, SpecialTransfusionRequirementType type, string reason) => new()
+        {
+            PatientId = visit.Patient.Id,
+            RequirementDefinitionId = definitions[code].Id,
+            RequirementType = type,
+            Reason = reason,
+            EffectiveUtc = now.AddDays(-14),
+            IsActive = true,
+            EnteredBy = "system"
+        };
+        context.SpecialTransfusionRequirements.AddRange(
+            Requirement("IRRAD-RBC", SpecialTransfusionRequirementType.Irradiated, "Demo: stem cell transplant candidate"),
+            Requirement("CMVNEG-RBC", SpecialTransfusionRequirementType.CmvNegative, "Demo: CMV-seronegative transplant candidate"),
+            Requirement("CALL-TSMD", SpecialTransfusionRequirementType.Other, "Demo: hematology request"));
+        await context.SaveChangesAsync(ct);
+    }
 
     private static async Task<DemoVisit> AddPatientVisitAsync(
         BloodBankDbContext context,

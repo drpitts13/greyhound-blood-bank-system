@@ -13355,3 +13355,51 @@ On the Issue desk, typing "nora" offered two Noras with nothing to tell them apa
 ### Next ranked residual
 
 Keyboard shortcuts on the bench (next or previous test), or the chart Products tab unit picker showing special-requirement fit.
+
+## Iteration 403 — A demo patient with special requirements (2026-11-05)
+
+### Capability matrix rescan (sample data)
+
+Cycles 394–402 surface special requirements in many places:
+- the downtime sheet
+- the patient list
+- the top-bar lookup
+- the patient pickers
+- the chart banners
+
+No demo patient had a requirement in effect, so none of these could be shown or checked live (Cycles 400 and 402 noted the gap). Iteration step 7 calls for realistic sample data.
+
+### Design
+
+- **`SeedSpecialRequirementsScenarioAsync`:** adds MRN0023 (Demo-Special, Avery):
+  - an inpatient in ONC 6, with specimen ACC0023
+  - typed O+ twice, so routine red-cell issue has its second determination
+  - **in effect from two weeks ago, using the starter catalog entries:**
+    - Irradiated red cells (enforced)
+    - CMV-negative red cells (enforced)
+    - Call the transfusion service physician (informational)
+  - reasons marked "Demo:"
+- **Seeding:** added once by MRN, on new and existing development databases. It does nothing if the starter entries are missing.
+- Example data, not clinical policy. No rule or code path changed.
+
+### Requirements
+
+- SRS-BB-457.
+
+### Tests
+
+- TEST-BB-439: the seeder test now expects 13 patients and 14 encounters, MRN0023 with the three catalog entries clinically in effect, and two O type rows. The partial-migration seeder test count was updated too.
+- Full suite: 3,719 passed, 0 failed.
+- Run check (development API and web; the API seeded MRN0023 into the dev database on start):
+  - Patients: "MRN0023 Demo-Special, Avery … O+ 3 special requirements"
+  - chart: the informational banner "Call the transfusion service physician …" and "Special transfusion requirements: Irradiated red cells (RBC), CMV-negative red cells (RBC)"
+  - one-patient downtime sheet: the two enforced requirements, the note listed separately, and ACC0023
+  - no server errors
+
+### Observations
+
+The list and picker count includes the informational note (3), while the chart and downtime sheet separate it. Whether the count should show enforced requirements only is a display choice for a later cycle.
+
+### Next ranked residual
+
+Count enforced requirements apart from informational notes in the list, lookup, and picker badges, or keyboard shortcuts on the bench.

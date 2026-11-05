@@ -56,9 +56,22 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
 
             // The original demo patient, five clinical scenarios, plus alloimmunization,
             // autologous/directed FDA/AABB validation, HL7 data-load patients, and the
-            // unit antigen typing patient, the massive transfusion demo patient, and the multi-unit run patient.
-            Assert.Equal(12, await verify.Patients.CountAsync());
-            Assert.Equal(13, await verify.Encounters.CountAsync());
+            // unit antigen typing patient, the massive transfusion demo patient, the multi-unit run patient,
+            // and the special-requirements patient.
+            Assert.Equal(13, await verify.Patients.CountAsync());
+            Assert.Equal(14, await verify.Encounters.CountAsync());
+
+            // TEST-BB-439: special requirements demo: two enforced and one informational, in effect, typed twice O+.
+            var special = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0023");
+            var specialRows = await verify.SpecialTransfusionRequirements.Where(r => r.PatientId == special.Id).ToListAsync();
+            var definitionCodes = await verify.SpecialRequirementDefinitions
+                .Where(d => specialRows.Select(r => r.RequirementDefinitionId).Contains(d.Id))
+                .Select(d => d.Code)
+                .ToListAsync();
+            Assert.Equal(new[] { "CALL-TSMD", "CMVNEG-RBC", "IRRAD-RBC" }, definitionCodes.Order().ToArray());
+            Assert.All(specialRows, r => Assert.True(
+                SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, DateTime.UtcNow)));
+            Assert.Equal(2, await verify.PatientBloodTypeHistory.CountAsync(h => h.PatientId == special.Id && h.Abo == AboGroup.O));
 
             // Multi-unit demo: two reserved, two in one cooler in transit, two received at the bedside.
             var multi = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0022");
@@ -539,7 +552,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "CUSTOM"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "OR"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "ED"));
-            Assert.Equal(12, await verify.Patients.CountAsync());
+            Assert.Equal(13, await verify.Patients.CountAsync());
         }
     }
 }
