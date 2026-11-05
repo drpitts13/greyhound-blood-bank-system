@@ -152,4 +152,25 @@ public class DashboardDueCountTests
         IsFatality: followUpDue, FatalityNotificationStatus: FatalityNotificationStatus.NotApplicable,
         WrittenReportDueUtc: null, CberNotifiedUtc: null, WrittenReportSubmittedUtc: null,
         FatalityFollowUpDue: followUpDue);
+    // TEST-BB-425: a reservation past its own end time is counted on the card, and is not released automatically.
+    [Fact]
+    public void LapsedReservations_AreCountedOnTheReadyCard()
+    {
+        var now = new DateTime(2026, 11, 5, 12, 0, 0, DateTimeKind.Utc);
+        var rows = new[]
+        {
+            Ready(1) with { ReservationExpiresUtc = now.AddHours(-1) },
+            Ready(2) with { ReservationExpiresUtc = now },
+            Ready(3) with { ReservationExpiresUtc = now.AddHours(2) },
+            Ready(4)
+        };
+
+        Assert.True(ReadyToIssueAttentionRule.ReservationLapsed(rows[0], now));
+        Assert.True(ReadyToIssueAttentionRule.ReservationLapsed(rows[1], now));
+        Assert.False(ReadyToIssueAttentionRule.ReservationLapsed(rows[2], now));
+        Assert.False(ReadyToIssueAttentionRule.ReservationLapsed(rows[3], now));
+        Assert.Equal("2 past their reservation, to issue or release", ReadyToIssueAttentionRule.CardNote(rows, now));
+        Assert.Null(ReadyToIssueAttentionRule.CardNote(rows));
+        Assert.True(ReadyToIssueAttentionRule.CanIssueRoutinely(rows[0]));
+    }
 }

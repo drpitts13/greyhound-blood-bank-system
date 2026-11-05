@@ -17,13 +17,26 @@ public static class ReadyToIssueAttentionRule
     public static int CountExpiringSoon(IEnumerable<ReadyToIssueWorkItemDto> rows) =>
         rows.Count(static row => row.ExpiresSoon && !row.UnitOutdated);
 
-    /// <summary>The Ready to issue card note: what needs a new crossmatch and what expires soon, or null.</summary>
-    public static string? CardNote(IReadOnlyCollection<ReadyToIssueWorkItemDto> rows)
+    /// <summary>
+    /// The reservation's own end time has passed. The unit stays held for the patient until someone releases it or
+    /// issues it; nothing releases it automatically.
+    /// </summary>
+    public static bool ReservationLapsed(ReadyToIssueWorkItemDto row, DateTime nowUtc) =>
+        row.ReservationExpiresUtc is DateTime until && until <= nowUtc;
+
+    public static int CountReservationLapsed(IEnumerable<ReadyToIssueWorkItemDto> rows, DateTime nowUtc) =>
+        rows.Count(row => ReservationLapsed(row, nowUtc));
+
+    /// <summary>The Ready to issue card note: what needs a new crossmatch, what expires soon, and what is past its reservation.</summary>
+    public static string? CardNote(IReadOnlyCollection<ReadyToIssueWorkItemDto> rows, DateTime? nowUtc = null)
     {
         var parts = new[]
         {
             DashboardQueueCatalog.AttentionNote(CountCrossmatchExpired(rows.Select(r => r.DisplayStatus)), "needs a new crossmatch", "need a new crossmatch"),
-            DashboardQueueCatalog.AttentionNote(CountExpiringSoon(rows), "expires soon", "expire soon")
+            DashboardQueueCatalog.AttentionNote(CountExpiringSoon(rows), "expires soon", "expire soon"),
+            nowUtc is DateTime now
+                ? DashboardQueueCatalog.AttentionNote(CountReservationLapsed(rows, now), "past its reservation, to issue or release", "past their reservation, to issue or release")
+                : null
         }.OfType<string>().ToList();
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
@@ -32,13 +45,7 @@ public static class ReadyToIssueAttentionRule
     /// True when the board shows the Issue button: no mark on the row blocks routine issue.
     /// The issue gate still decides at issue.
     /// </summary>
-    public static bool CanIssueRoutinely(ReadyToIssueWorkItemDto row) =>
-        !row.SpecimenBlocksIssue
-        && !row.UnitOutdated
-        && string.IsNullOrWhiteSpace(row.SpecialRequirementNotice)
-        && !row.AboRhDiscrepancyBlocksIssue
-        && !row.NeedsSecondAbo
-        && !row.CrossmatchBlocksRoutineIssue;
+    public static bool CanIssueRoutinely(ReadyToIssueWorkItemDto row) => IssueRun.OffersRoutineIssue(row);
 
     /// <summary>Rows that can be issued now come first; each group keeps its order.</summary>
     public static IReadOnlyList<ReadyToIssueWorkItemDto> IssuableFirst(IEnumerable<ReadyToIssueWorkItemDto> rows) =>

@@ -214,6 +214,7 @@
         else
         {
             <p role="status"><strong>@ReadyToIssueAttentionRule.Summary(_readyItems)</strong></p>
+            <Outcome Value="_releaseReadyFb" />
             <table class="bb">
                 <thead>
                     <tr>
@@ -279,6 +280,10 @@
                                 {
                                     <span class="badge badge-amber">Expires soon</span>
                                 }
+                                @if (ReadyToIssueAttentionRule.ReservationLapsed(row, DateTime.UtcNow))
+                                {
+                                    <span class="badge badge-amber" title="The reservation was set to end at @row.ReservationExpiresUtc!.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm"). The unit stays held for this patient until it is issued or released." data-reservation-ended>Reservation ended @row.ReservationExpiresUtc!.Value.ToLocalTime().ToString("MM-dd HH:mm")</span>
+                                }
                                 @if (row.CrossmatchBlocksRoutineIssue)
                                 {
                                     <span class="badge badge-red" title="@row.CrossmatchNotice">Crossmatch</span>
@@ -338,8 +343,27 @@
                                 {
                                     <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectReadyToIssue(row)">Issue</button>
                                 }
+                                @if (ReadyToIssueAttentionRule.ReservationLapsed(row, DateTime.UtcNow) && Session.Has(PermissionCodes.CompatibilityAllocate))
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginReleaseReady(row)">Release</button>
+                                }
                             </td>
                         </tr>
+                        @if (_releasingReadyId == row.AllocationId)
+                        {
+                            <tr>
+                                <td colspan="10">
+                                    <div class="alert alert-info" style="margin:.25rem 0;">
+                                        <div class="muted">Release <span class="mono">@row.UnitNumber</span> from @(row.PatientDisplayName ?? "this patient") back to stock. The reservation ended; if the patient still needs it, reserve it again from the chart.</div>
+                                        <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-top:.35rem;">
+                                            <div class="field" style="flex:1;min-width:14rem;"><label>Reason</label><input @bind="_releaseReadyReason" @bind:event="oninput" placeholder="e.g. Reservation ended, transfusion not needed" /></div>
+                                            <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReadyReason))" @onclick="() => ReleaseReadyAsync(row)">Release to stock</button>
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _releasingReadyId = null">Cancel</button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -1480,6 +1504,31 @@
     private List<SecondAboWorkItemDto> _secondAboItems = new();
     private List<ReadyToIssueWorkItemDto> _readyItems = new();
     private ReadyToIssueWorkItemDto? _prefilledRow;
+    private long? _releasingReadyId;
+    private string _releaseReadyReason = string.Empty;
+    private Feedback? _releaseReadyFb;
+
+    private void BeginReleaseReady(ReadyToIssueWorkItemDto row)
+    {
+        _releasingReadyId = row.AllocationId;
+        _releaseReadyReason = string.Empty;
+        _releaseReadyFb = null;
+    }
+
+    /// <summary>A reservation past its end goes back to stock through the same release as the chart, with a reason.</summary>
+    private async Task ReleaseReadyAsync(ReadyToIssueWorkItemDto row)
+    {
+        _busy = true;
+        var r = await Api.ReleaseAllocationAsync(row.AllocationId, _releaseReadyReason.Trim());
+        _busy = false;
+        _releaseReadyFb = r.ToFeedback($"Unit {row.UnitNumber} released to stock.");
+        if (r.Succeeded)
+        {
+            _releasingReadyId = null;
+            _releaseReadyReason = string.Empty;
+            await LoadWorklistsAsync();
+        }
+    }
 
     // Units issued to the patient on the form since that patient was chosen.
     private sealed record IssuedInRun(long BloodUnitId, string UnitNumber, string? ProductName, string? Destination, string? CoolerId, DateTime IssuedLocal);

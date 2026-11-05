@@ -296,7 +296,7 @@
                     return (card.Key, null, null);
                 }
 
-                return (card.Key, result.Value.Count, ReadyToIssueAttentionRule.CardNote(result.Value));
+                return (card.Key, result.Value.Count, ReadyToIssueAttentionRule.CardNote(result.Value, DateTime.UtcNow));
             }
             case DashboardQueueCatalog.SecondAbo:
                 return await CountList(card.Key, Api.GetPendingSecondAboAsync());

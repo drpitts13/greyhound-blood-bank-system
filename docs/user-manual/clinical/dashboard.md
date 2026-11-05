@@ -17,7 +17,7 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 **Your work** is the first row after you sign in. Each card is a queue you can already open, and the card opens that queue:
 
 - Near expiry, when you handle inventory or issue: units close to their expiration. The card notes how many are reserved for a patient; issue those first or reserve a replacement. It opens the Near expiry board in Inventory.
-- Ready to issue, second ABO/Rh, retrospective crossmatch, and in transit, when you can issue. The Ready to issue card names how many reserved units need a new crossmatch because theirs has expired, and how many expire soon (issue them first or reserve replacements).
+- Ready to issue, second ABO/Rh, retrospective crossmatch, and in transit, when you can issue. The Ready to issue card names how many reserved units need a new crossmatch because theirs has expired, how many expire soon (issue them first or reserve replacements), and how many are past their reservation (issue or release them).
 - Outstanding issued units and final disposition, when you can issue, return, or document transfusion.
 - Pending tests, when you can enter results. The card names how many results must be verified before their specimen expires. Pending specimens, when you can accession. The card names how many waiting tubes have expired and need rejecting, which puts it under Needs attention.
 - Reaction investigations, when you can investigate reactions. A closed case is not in that count. A case that still needs fatality follow-up is named on the card, including after the investigation is closed.

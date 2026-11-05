@@ -2908,6 +2908,39 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-425: a reservation past its end time is still listed, with that time, until it is released with a reason.
+    [Fact]
+    public async Task LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason()
+    {
+        var s = await SeedAsync("RES-LAPSED");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long allocationId;
+        await using (var c = _factory.Create())
+        {
+            var allocation = await c.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId && a.Status == AllocationStatus.Reserved);
+            allocation.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-2);
+            await c.SaveChangesAsync();
+            allocationId = allocation.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var row = (await Issuing(c).ListReadyToIssueAllocationsAsync()).Single(r => r.AllocationId == allocationId);
+            Assert.Equal(_factory.Clock.UtcNow.AddHours(-2), row.ReservationExpiresUtc);
+            Assert.True(ReadyToIssueAttentionRule.ReservationLapsed(row, _factory.Clock.UtcNow));
+
+            var noReason = await Compatibility(c).ReleaseAllocationAsync(allocationId, " ");
+            Assert.False(noReason.Succeeded);
+            var released = await Compatibility(c).ReleaseAllocationAsync(allocationId, "Reservation ended, transfusion not needed");
+            Assert.True(released.Succeeded, released.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.DoesNotContain(await Issuing(verify).ListReadyToIssueAllocationsAsync(), r => r.AllocationId == allocationId);
+    }
+
     [Fact]
     public async Task Issue_ExpiredSpecialRequirement_IsNotEnforced()
     {

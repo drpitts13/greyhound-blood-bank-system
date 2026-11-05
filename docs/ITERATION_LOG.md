@@ -12732,3 +12732,40 @@ The Near expiry board (now on the home screen, Cycle 385) listed units with Disc
 ### Next ranked residual (operations lens)
 
 Rescan for the next gap: assigned products (units allocated to patients with no recent activity), or minimum stock against open orders.
+
+## Iteration 387 — Reservations past their end time, released from Ready to issue (2026-11-05)
+
+### Capability matrix rescan (operations lens: assigned products)
+
+Every reservation has an end time (`Allocation.ExpiresUtc`, set at allocation, for example 24 hours). Nothing used it:
+- Reservations ended only when the unit itself expired.
+- Ready to issue did not show when a reservation was meant to end.
+- No list showed units held past it.
+
+Release existed only on the patient chart, one patient at a time. Mature systems give the bench a list of units held past their reservation to put back in stock (questions 2, 5).
+
+### Design
+
+- **Ready to issue rows:** they carry `ReservationExpiresUtc`. A row at or past it shows **Reservation ended** with the time. For users who can allocate it offers **Release**: an inline reason, then the existing `ReleaseAllocationAsync`, which is audited and returns the unit to Available. The board says what was released.
+- **Nothing automatic:** release stays a person's decision with a reason. Automatic release would be facility policy, not decided here.
+- **Dashboard:** the Ready to issue card adds "N past their reservation, to issue or release", which puts it under Needs attention.
+- **Cleanup:** `ReadyToIssueAttentionRule.CanIssueRoutinely` now calls `IssueRun.OffersRoutineIssue`, so there is one definition of routine issue.
+
+### Requirements
+
+- URS-BB-497, FRS-BB-563. Help: issuing, dashboard.
+
+### Tests
+
+- TEST-BB-425:
+  - rule: past and exactly-at count; future and none do not; the card note names the count; the existing routine-issue checks are unchanged
+  - integration: a lapsed reservation is still on Ready to issue with its end time; release without a reason is refused; with one the unit is Available and leaves the list
+- Full suite: 3,702 passed, 0 failed.
+- Run check (development API and web):
+  - the five demo reservations end tonight (23:30 and 02:22 UTC), so none showed Reservation ended or Release, and the Ready card read 5 with no note, as expected
+  - the badge and release path were not exercised live; the integration test covers them
+  - no server errors
+
+### Next ranked residual (operations lens)
+
+Minimum stock against open orders: compare on-hand units by product and type with minimum stock and today's open product orders.
