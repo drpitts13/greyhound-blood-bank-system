@@ -12809,3 +12809,37 @@ Minimum stock compared available units with a minimum, but did not show demand. 
 ### Next ranked residual (operations lens)
 
 Supplier orders could start from the shortfall, including the open-order count, so the order quantity is suggested rather than remembered.
+
+## Iteration 389 — Reserve several units for one order (2026-11-05)
+
+### Capability matrix rescan (workflow lens)
+
+- Supplier orders already start from the minimum stock shortfall with suggested quantities. Folding open orders into those quantities would be an ordering policy, so it was not done.
+- Reserving units for one product order (for example two red cells) took a full pass per unit: after each reservation the Allocate panel closed. The tech reopened it and chose the visit, order, and specimen again (questions 1, 2). Issue, receipt, and bedside already have runs (Cycles 376–379); allocation did not.
+
+### Design
+
+After a successful reservation the panel stays open:
+- **Kept:** the order, visit, and specimen.
+- **Cleared:** the unit and any antigen override reason and authorizer.
+- **Refreshed:** the compatible units, so the reserved one is gone.
+- **Shown:** "Reserved now for this order" with the unit numbers, a **Reserve next unit** button, and **Done**.
+- **Reset:** changing the order or closing the panel starts a new list.
+
+Every unit goes through `AllocateAsync` and its checks as before. The auto-thaw question still appears after a reservation when it applies. No server change.
+
+### Requirements
+
+- FRS-BB-565 (under URS-BB-494). Help: patient products.
+
+### Tests
+
+- No automated test: the change is page state in the chart, with no new rule. Full suite: 3,704 passed, 0 failed.
+- Run check (development API and web, MRN0022):
+  - Allocate unit opens the panel with ORD0023 and "Reserve unit", with no list yet
+  - no server errors
+  - not exercised live: a successful reservation and the "Reserved now" list. MRN0022's red-cell order has no linked type-and-screen specimen, so allocation would be refused, and other paths would change demo stock.
+
+### Next ranked residual (workflow lens)
+
+Give the MRN0022 product order a linked type-and-screen specimen in the demo data, so allocation runs can be shown, or add a UI test harness for chart state.

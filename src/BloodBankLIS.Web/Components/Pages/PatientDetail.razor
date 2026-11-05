@@ -337,6 +337,7 @@ else
             PatientId="Id"
             Busy="_busy"
             ShowAllocate="_showAllocate"
+            ReservedThisRun="_reservedThisRun"
             AllocFeedback="_allocFb"
             AllocLoading="_allocLoading"
             Allocations="_allocations"
@@ -1064,10 +1065,14 @@ else
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
     }
 
+    // Units reserved for the order on the panel since it was opened or the order was changed.
+    private readonly List<string> _reservedThisRun = new();
+
     private async Task ToggleAllocatePanel()
     {
         _showAllocate = !_showAllocate;
         _allocFb = null;
+        _reservedThisRun.Clear();
         if (_showAllocate)
         {
             await EnsureWorkspaceRefsAsync();
@@ -1109,6 +1114,7 @@ else
 
     private Task OnAllocOrderPicked(long? orderId)
     {
+        if ((orderId is > 0 ? orderId : null) != _allocatingOrderId) _reservedThisRun.Clear();
         _allocatingOrderId = orderId is > 0 ? orderId : null;
         var order = _orders.FirstOrDefault(o => o.Id == _allocatingOrderId);
         if (order is not null)
@@ -1440,13 +1446,14 @@ else
 
         if (r.Succeeded)
         {
-            _showAllocate = false;
+            // The panel stays on the same order, visit, and specimen for the next unit; the unit and any override clear.
+            if (_selectedUnit is not null) _reservedThisRun.Add(_selectedUnit.UnitNumber);
             _showAllocOverride = false;
             _allocOverrideReason = string.Empty;
             _allocAuthorizedBy = string.Empty;
-            _allocatingOrderId = null;
             _selectedUnitId = null;
             _selectedUnit = null;
+            await LoadCompatibleUnitsAsync();
             await LoadAllocationsAsync();
             _testsLoaded = false;
             if (r.Value?.AutoThawEligible == true)

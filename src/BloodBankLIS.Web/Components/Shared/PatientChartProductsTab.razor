@@ -405,8 +405,20 @@
             </p>
         }
 
+        @if (ReservedThisRun.Count > 0)
+        {
+            @* Several units for one order: the order, visit, and specimen stay; each unit is checked on its own. *@
+            <div class="alert alert-info" style="margin-top:.75rem;" data-reserve-run>
+                <strong>Reserved now for this order:</strong> @string.Join(", ", ReservedThisRun)
+                <div class="muted">Choose the next unit for the same order, or close the panel when you have enough.</div>
+            </div>
+        }
         <div class="flex gap" style="margin-top:1rem;">
-            <button class="btn btn-primary" disabled="@(Busy || SelectedUnitId is null || AllocOrderId <= 0)" @onclick="OnReserve">Reserve unit</button>
+            <button class="btn btn-primary" disabled="@(Busy || SelectedUnitId is null || AllocOrderId <= 0)" @onclick="OnReserve">@(ReservedThisRun.Count > 0 ? "Reserve next unit" : "Reserve unit")</button>
+            @if (ReservedThisRun.Count > 0)
+            {
+                <button class="btn btn-ghost" disabled="@Busy" @onclick="OnToggleAllocate">Done</button>
+            }
             @if (AllocOrderId <= 0)
             {
                 <span class="muted">Choose an open product order. If none is listed, add a product order on the Orders tab.</span>
@@ -422,6 +434,7 @@
 @code {
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool ShowAllocate { get; set; }
+    [Parameter] public IReadOnlyList<string> ReservedThisRun { get; set; } = [];
     [Parameter] public Feedback? AllocFeedback { get; set; }
     [Parameter] public bool AllocLoading { get; set; }
     [Parameter] public IReadOnlyList<PatientAllocationRowDto> Allocations { get; set; } = [];

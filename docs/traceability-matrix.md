@@ -565,6 +565,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |
 | URS-BB-494 / FRS-BB-559 | Issued unit page shows where it went and its next step | `UnitDetail.razor`; `IssueRun.NextStepForIssued` | TEST-BB-421 | D | |
 | URS-BB-494 / FRS-BB-560 | Timelines show the crossmatch result and ward receipt | `PatientTimelineService`; `CrossmatchValidityRule.Shown` | TEST-BB-422 | D / I | |
+| URS-BB-494 / FRS-BB-565 | Several units reserved for one order without reopening the panel | `PatientDetail.razor` | Run check | R | UI state only; post-reservation flow not exercised live |
 | OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 

@@ -12,6 +12,10 @@ routes:
 
 The **Products** tab lists units reserved or issued to this patient. It is the chart-side view of allocation. The laboratory-wide queues live on [Compatibility](compatibility) and [Issue and transfuse](issuing).
 
+## Several units for one order
+
+After you reserve a unit, the Allocate panel stays open on the same order, visit, and specimen and lists the units reserved now. Choose the next unit and **Reserve next unit**, or **Done** when you have enough. Each unit is checked on its own, exactly as the first.
+
 ## What each row shows
 
 Each row shows the unit number, product, expiration, unit ABO and Rh, storage location, crossmatch result, and status. A row without a crossmatch result says so. A reserved unit that still needs a crossmatch offers **Crossmatch** when you have permission to record one.
