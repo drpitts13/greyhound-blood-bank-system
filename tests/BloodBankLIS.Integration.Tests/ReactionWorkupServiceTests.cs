@@ -193,6 +193,47 @@ public class ReactionWorkupServiceTests : IDisposable
         Assert.False(await c.Orders.AnyAsync(o => o.OrderNumber.StartsWith($"RXN-{s.InvestigationId}-")));
     }
 
+    // TEST-BB-448: a cancelled workup order frees its role: the case asks for the specimen again, and a new tube
+    // replaces it, with the replaced specimen and order kept in the audit.
+    [Fact]
+    public async Task CancelledWorkupOrder_FreesTheRole_ForAReplacementTube()
+    {
+        var s = await SeedAsync("CXL");
+        await using var c = _factory.Create();
+        var first = await Workup(c).AttachPreTransfusionSpecimenAsync(s.InvestigationId, new AttachWorkupSpecimenRequest(s.OlderTubeId));
+        Assert.True(first.Succeeded, first.Error);
+        var firstOrderId = first.Value!.PreTransfusionOrderId!.Value;
+
+        var order = await c.Orders.SingleAsync(o => o.Id == firstOrderId);
+        order.Status = OrderStatus.Cancelled;
+        await c.SaveChangesAsync();
+
+        var inv = await c.ReactionInvestigations.AsNoTracking().SingleAsync(r => r.Id == s.InvestigationId);
+        var workups = await ReactionWorkupReader.LoadAsync([inv], new EfRepository<Specimen>(c), new EfRepository<Order>(c),
+            new EfRepository<OrderLine>(c), new EfRepository<TestResult>(c), Now, CancellationToken.None);
+        var state = ReactionWorkupReader.StateFor(inv, workups.GetValueOrDefault(inv.Id));
+        Assert.False(state.PreLinked);
+        Assert.Null(workups[inv.Id].Pre);
+        Assert.Equal("Choose the pre-transfusion specimen to order its workup tests.",
+            ReactionWorkupCompletenessRule.Evaluate(true, true, state, null).Message);
+
+        var replaced = await Workup(c).AttachPreTransfusionSpecimenAsync(s.InvestigationId, new AttachWorkupSpecimenRequest(s.CrossmatchTubeId));
+        Assert.True(replaced.Succeeded, replaced.Error);
+        Assert.Equal(s.CrossmatchTubeId, replaced.Value!.PreTransfusionSpecimenId);
+        Assert.NotEqual(firstOrderId, replaced.Value.PreTransfusionOrderId);
+        Assert.Equal($"RXN-{s.InvestigationId}-PRE-2", (await c.Orders.SingleAsync(o => o.Id == replaced.Value.PreTransfusionOrderId)).OrderNumber);
+        var events = await c.AuditEvents.Where(a => a.EntityType == nameof(ReactionInvestigation) && a.EntityId == s.InvestigationId)
+            .OrderByDescending(a => a.Id).ToListAsync();
+        var audit = events.FirstOrDefault(a => a.Reason?.StartsWith("Pre-transfusion specimen replaced") == true)
+            ?? throw new Xunit.Sdk.XunitException(string.Join(" | ", events.Select(e => $"{e.EventType}:{e.Reason}")));
+        Assert.StartsWith("Pre-transfusion specimen replaced", audit.Reason);
+        Assert.Contains(firstOrderId.ToString(), audit.OldValueJson);
+
+        // An order that is still active keeps the role.
+        var again = await Workup(c).AttachPreTransfusionSpecimenAsync(s.InvestigationId, new AttachWorkupSpecimenRequest(s.OlderTubeId));
+        Assert.Contains("already on this investigation", again.Error);
+    }
+
     // TEST-BB-444: an expired pre-transfusion tube can carry the workup (OCD-058); the post tube is accessioned here.
     [Fact]
     public async Task ExpiredPreTube_IsUsed_AndThePostTubeIsAccessionedWithItsGroup()

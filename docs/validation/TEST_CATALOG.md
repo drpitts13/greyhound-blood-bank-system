@@ -456,5 +456,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-445 | D | `ReactionWorkupRulesTests.PreSpecimen_MustBeThePatients_Usable_AndCollectedBeforeTheIssue`; `ReactionWorkupRulesTests.PostSpecimen_MustBeANewAcceptedTube_CollectedAfterTheStart`; `ReactionWorkupRulesTests.ExpiredSpecimens_AreAllowedOnlyForReactionWorkupOrders` | URS-BB-507 / FRS-BB-582, FRS-BB-583 |
 | TEST-BB-446 | D / I | `ReactionWorkupRulesTests.CloseGate_NamesTheNextMissingStep_InOrder`; `ReactionInvestigationServiceTests.Close_WaitsForEveryWorkupTestToBeVerified_AndTheBoardShowsTheResults`; `ReactionInvestigationServiceTests.RepeatAboRh_ComesFromTheWorkupResults` | URS-BB-507 / FRS-BB-584 |
 | TEST-BB-447 | I | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` (MRN0006 workup: ACC0014 pre with ORD0016, ACC0024 post with RXN-n-POST unresulted, settings TRX-PRE and TRX-POST) | URS-BB-507 / FRS-BB-584 |
+| TEST-BB-448 | I | `ReactionWorkupServiceTests.CancelledWorkupOrder_FreesTheRole_ForAReplacementTube` | URS-BB-507 / FRS-BB-582 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

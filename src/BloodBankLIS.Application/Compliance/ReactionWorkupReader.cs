@@ -10,7 +10,18 @@ namespace BloodBankLIS.Application.Compliance;
 /// </summary>
 public static class ReactionWorkupReader
 {
-    public sealed record Workup(ReactionWorkupSpecimenDto? Pre, ReactionWorkupSpecimenDto? Post);
+    /// <summary>
+    /// The workup of one investigation. A role whose order was cancelled or discontinued counts as not chosen
+    /// (<see cref="PreCancelled"/>, <see cref="PostCancelled"/>), so the case asks for that specimen again instead of
+    /// waiting for tests that will never be resulted.
+    /// </summary>
+    public sealed record Workup(
+        ReactionWorkupSpecimenDto? Pre,
+        ReactionWorkupSpecimenDto? Post,
+        bool PreCancelled = false,
+        bool PostCancelled = false);
+
+    public static bool IsWithdrawn(OrderStatus status) => status is OrderStatus.Cancelled or OrderStatus.Discontinued;
 
     public static async Task<IReadOnlyDictionary<long, Workup>> LoadAsync(
         IReadOnlyList<ReactionInvestigation> rows,
@@ -51,7 +62,8 @@ public static class ReactionWorkupReader
         ReactionWorkupSpecimenDto? Build(string role, long? specimenId, long? orderId)
         {
             if (specimenId is not long sid || orderId is not long oid
-                || !specimenById.TryGetValue(sid, out var specimen) || !orderById.TryGetValue(oid, out var order))
+                || !specimenById.TryGetValue(sid, out var specimen) || !orderById.TryGetValue(oid, out var order)
+                || IsWithdrawn(order.Status))
             {
                 return null;
             }
@@ -83,11 +95,16 @@ public static class ReactionWorkupReader
                 workupLines);
         }
 
+        bool Withdrawn(long? orderId) =>
+            orderId is long oid && orderById.TryGetValue(oid, out var order) && IsWithdrawn(order.Status);
+
         return withWorkup.ToDictionary(
             r => r.Id,
             r => new Workup(
                 Build(ReactionWorkupSpecimenDto.PreRole, r.PreTransfusionSpecimenId, r.PreTransfusionOrderId),
-                Build(ReactionWorkupSpecimenDto.PostRole, r.PostTransfusionSpecimenId, r.PostTransfusionOrderId)));
+                Build(ReactionWorkupSpecimenDto.PostRole, r.PostTransfusionSpecimenId, r.PostTransfusionOrderId),
+                Withdrawn(r.PreTransfusionOrderId),
+                Withdrawn(r.PostTransfusionOrderId)));
     }
 
     /// <summary>
@@ -96,8 +113,8 @@ public static class ReactionWorkupReader
     /// </summary>
     public static Domain.Rules.ReactionWorkupCompletenessRule.WorkupState StateFor(ReactionInvestigation row, Workup? workup)
     {
-        var preLinked = row.PreTransfusionOrderId is not null;
-        var postLinked = row.PostTransfusionOrderId is not null;
+        var preLinked = row.PreTransfusionOrderId is not null && workup?.PreCancelled != true;
+        var postLinked = row.PostTransfusionOrderId is not null && workup?.PostCancelled != true;
         var postDat = workup?.Post?.VerifiedValue("DAT");
         return new Domain.Rules.ReactionWorkupCompletenessRule.WorkupState(
             preLinked,

@@ -13572,6 +13572,16 @@ The investigation had no specimens, orders, or results. Repeat ABO/Rh, DAT, and 
 - Existing closing tests give their cases a verified workup (`ReactionWorkupTestData`).
 - Full suite: see commit.
 
+### Follow-up (same iteration): a cancelled workup order
+
+Review found that a cancelled or discontinued workup order left its tests pending forever, so the case could never close. Such an order now frees its role:
+- the gate asks for the specimen again
+- the investigation offers the pickers again
+- a new tube can be attached; its order takes the next free number (`RXN-n-PRE-2`)
+- the replacement is audited with the replaced specimen and order
+
+TEST-BB-448.
+
 ### Next ranked residual
 
 Hemolysis check and other workup tests as test definitions (OCD-059), and a reaction workup print packet.

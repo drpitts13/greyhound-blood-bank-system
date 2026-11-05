@@ -146,7 +146,8 @@ public sealed class ReactionWorkupService
             return OperationResult<ReactionInvestigation>.Fail(context.Error);
         }
 
-        var precheck = Precheck(context.Row!, preTransfusion: false, await _settings.GetActiveAsync(ct));
+        var precheck = Precheck(context.Row!, preTransfusion: false, await _settings.GetActiveAsync(ct),
+            await ExistingOrderWithdrawnAsync(context.Row!, preTransfusion: false, ct));
         if (precheck.Error is not null)
         {
             return OperationResult<ReactionInvestigation>.Fail(precheck.Error);
@@ -189,7 +190,8 @@ public sealed class ReactionWorkupService
         }
 
         var row = context.Row!;
-        var (groupCode, error) = Precheck(row, preTransfusion, await _settings.GetActiveAsync(ct));
+        var replacing = await ExistingOrderWithdrawnAsync(row, preTransfusion, ct);
+        var (groupCode, error) = Precheck(row, preTransfusion, await _settings.GetActiveAsync(ct), replacing);
         if (error is not null)
         {
             return OperationResult<ReactionInvestigation>.Fail(error);
@@ -232,12 +234,20 @@ public sealed class ReactionWorkupService
         }
 
         var role = preTransfusion ? ReactionWorkupSpecimenDto.PreRole : ReactionWorkupSpecimenDto.PostRole;
+        // RXN-{id}-PRE / -POST; a replacement after a cancelled order takes the next free number (-2, -3, ...).
+        var baseNumber = $"RXN-{row.Id}-{(preTransfusion ? "PRE" : "POST")}";
+        var orderNumber = baseNumber;
+        for (var n = 2; await _orders.AnyAsync(o => o.OrderNumber == orderNumber, ct); n++)
+        {
+            orderNumber = $"{baseNumber}-{n}";
+        }
+
         var created = await _orderService.CreateForReactionWorkupAsync(
             row.PatientId,
             new CreateOrderRequest(
                 encounterId.Value,
                 locationId.Value,
-                $"RXN-{row.Id}-{(preTransfusion ? "PRE" : "POST")}",
+                orderNumber,
                 [new OrderLineInputDto(OrderCategory.Test, groupCode!, null)],
                 OrderPriority.Stat,
                 _clock.UtcNow,
@@ -255,6 +265,13 @@ public sealed class ReactionWorkupService
         }
 
         var tracked = await _investigations.GetByIdAsync(row.Id, ct) ?? row;
+        var replaced = replacing
+            ? new
+            {
+                SpecimenId = preTransfusion ? tracked.PreTransfusionSpecimenId : tracked.PostTransfusionSpecimenId,
+                OrderId = preTransfusion ? tracked.PreTransfusionOrderId : tracked.PostTransfusionOrderId
+            }
+            : null;
         if (preTransfusion)
         {
             tracked.PreTransfusionSpecimenId = specimen.Id;
@@ -271,6 +288,7 @@ public sealed class ReactionWorkupService
             AuditEventType.ReactionInvestigation,
             nameof(ReactionInvestigation),
             tracked.Id,
+            oldValue: replaced,
             newValue: new
             {
                 Role = role,
@@ -281,14 +299,29 @@ public sealed class ReactionWorkupService
                 TestGroup = groupCode,
                 SpecimenExpired = specimen.ExpiresUtc is DateTime expires && expires <= _clock.UtcNow
             },
-            reason: $"{role} specimen added to the workup; Test Group {groupCode} ordered.");
+            reason: replacing
+                ? $"{role} specimen replaced after its workup order was cancelled; Test Group {groupCode} ordered."
+                : $"{role} specimen added to the workup; Test Group {groupCode} ordered.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReactionInvestigation>.Ok(tracked);
     }
 
     /// <summary>Open case, role not yet set, Test Group configured: the group code, or why not.</summary>
+    /// <summary>True when the role already has an order and that order was cancelled or discontinued.</summary>
+    private async Task<bool> ExistingOrderWithdrawnAsync(ReactionInvestigation row, bool preTransfusion, CancellationToken ct)
+    {
+        var orderId = preTransfusion ? row.PreTransfusionOrderId : row.PostTransfusionOrderId;
+        if (orderId is not long id)
+        {
+            return false;
+        }
+
+        var order = await _orders.GetByIdAsync(id, ct);
+        return order is not null && ReactionWorkupReader.IsWithdrawn(order.Status);
+    }
+
     private static (string? GroupCode, string? Error) Precheck(
-        ReactionInvestigation row, bool preTransfusion, Domain.Entities.Configuration.ReactionWorkupSettings? settings)
+        ReactionInvestigation row, bool preTransfusion, Domain.Entities.Configuration.ReactionWorkupSettings? settings, bool replacing)
     {
         var role = preTransfusion ? "pre-transfusion" : "post-transfusion";
         if (row.Status == ReactionInvestigationStatus.Closed)
@@ -296,8 +329,9 @@ public sealed class ReactionWorkupService
             return (null, $"{ReactionInvestigationLockRule.LockedCode}: The investigation is closed. Reopen it to change the workup.");
         }
 
+        // A specimen is set once; only a cancelled or discontinued workup order frees the role for another tube.
         var existing = preTransfusion ? row.PreTransfusionOrderId : row.PostTransfusionOrderId;
-        if (existing is not null)
+        if (existing is not null && !replacing)
         {
             return (null, $"The {role} specimen is already on this investigation; its tests are on the workup order.");
         }
