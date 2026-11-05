@@ -165,6 +165,24 @@ public class DashboardQueueCatalogTests
         Assert.Equal((0, (string?)null), DashboardQueueCatalog.ToVerifyCard([Line("XM", null, null, null)], "tech2"));
     }
 
+    // TEST-BB-452: the Pending tests note names lines waiting for a new specimen with those due before expiry; the
+    // worklist's Recollect view keeps only lines on a rejected or cancelled tube.
+    [Fact]
+    public void PendingTestsNote_NamesRecollections_AndTheRecollectViewKeepsThem()
+    {
+        var rejected = Line("DAT", null, null, null) with { SpecimenStatus = SpecimenStatus.Rejected, CanEnterResults = false };
+        var cancelled = Line("ABSC", null, null, null) with { SpecimenStatus = SpecimenStatus.Cancelled, CanEnterResults = false };
+        var dueSoon = Line("ABORH", 3, ResultStatus.Entered, "tech1", deadline: "Verify before 15:00");
+        var plain = Line("XM", null, null, null);
+
+        Assert.Equal("1 to verify before its specimen expires; 2 need a new specimen",
+            DashboardQueueCatalog.PendingTestsNote([rejected, cancelled, dueSoon, plain]));
+        Assert.Equal("1 needs a new specimen", DashboardQueueCatalog.PendingTestsNote([rejected, plain]));
+        Assert.Null(DashboardQueueCatalog.PendingTestsNote([plain]));
+        Assert.Equal(new[] { "DAT", "ABSC" }, TestWorklistView.Recollect([rejected, plain, cancelled]).Select(i => i.TestCode).ToArray());
+        Assert.Equal("Recollect", rejected.BenchActionLabel);
+    }
+
     private static TestWorkItemDto Line(string testCode, long? resultId, ResultStatus? status, string? enteredBy, string? deadline = null) =>
         new(1, 1, 1, "Bench, Pat", "MRN1", testCode, testCode, "ORD1", OrderPriority.Routine, DateTime.UtcNow, "ACC1", 1,
             SpecimenStatus.Accepted, DateTime.UtcNow.AddDays(2), false, "O+", false, null, resultId, status, "Negative", null,

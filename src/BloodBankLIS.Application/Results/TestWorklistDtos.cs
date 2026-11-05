@@ -141,6 +141,10 @@ public static class TestWorklistView
     public static IReadOnlyList<TestWorkItemDto> ToVerify(IEnumerable<TestWorkItemDto> items, string? userName) =>
         items.Where(i => i.AwaitsVerification && i.BenchActionLabelFor(userName) == "Verify").ToList();
 
+    /// <summary>Lines whose tube was rejected or cancelled: a new specimen must be collected. Order is kept.</summary>
+    public static IReadOnlyList<TestWorkItemDto> Recollect(IEnumerable<TestWorkItemDto> items) =>
+        items.Where(i => i.NeedsRecollection).ToList();
+
     /// <summary>The tube as scanned or typed, cleaned the same way as a receipt scan (scanner noise removed, trimmed, upper case).</summary>
     public static string NormalizeTube(string? scan) => SpecimenReceiptScanRule.Normalize(scan);
 

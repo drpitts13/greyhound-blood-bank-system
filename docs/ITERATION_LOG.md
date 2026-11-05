@@ -13699,3 +13699,42 @@ Rejecting a tube recorded the reason and warned about open antibody workups and 
 ### Next ranked residual
 
 Rejection notice to the EHR (HL7 order status) needs the interface choice; otherwise the Issue desk rescan.
+
+## Iteration 411 — Recollect filter and home count (2026-11-05)
+
+### Capability matrix rescan (Issue desk, then the bench)
+
+- **Issue desk return path:** already covered. A returned unit has storage-time and inspection checks and a retype hold, and **Reserve again for this patient** follows the return. Nothing is re-reserved automatically, by design.
+- **Recollect lines (Cycle 410):** visible only by scrolling the whole worklist, and the home screen did not count them, so a recollection could wait unnoticed (question 5).
+
+### Design
+
+- **`TestWorklistView.Recollect`:** lines on a rejected or cancelled tube.
+- **Worklist:**
+  - a **Recollect (n)** chip appears when there are any (or when chosen)
+  - `?show=recollect` opens on it
+  - the empty message: "No test is waiting for a new specimen."
+  - the All / To verify / Recollect state is one setting instead of a flag
+- **Home:** the Pending tests note (`DashboardQueueCatalog.PendingTestsNote`) names lines to verify before their specimen expires and lines that "need a new specimen". Either brings the card under Needs attention.
+- No server change.
+
+### Requirements
+
+- FRS-BB-588 (under URS-BB-509). Help: test worklist, dashboard.
+
+### Tests
+
+- TEST-BB-452:
+  - the note reads "1 to verify before its specimen expires; 2 need a new specimen", or "1 needs a new specimen", or nothing
+  - Recollect keeps the rejected and cancelled lines in order
+  - the label is Recollect
+- Full suite: 3,736 passed, 0 failed.
+- Run check (development API and web):
+  - `/test-worklist?show=recollect` shows All (11), To verify (2), and Recollect (0) selected, with the empty message
+  - choosing To verify shows its 2 rows and hides the empty Recollect chip
+  - no server errors
+  - no demo tube is rejected, so a non-zero count is covered by the test only
+
+### Next ranked residual
+
+Rejection notice to the EHR needs the interface choice. Otherwise rescan inventory operations (transfers, location moves).

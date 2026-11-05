@@ -36,11 +36,18 @@
         <button class="btn btn-secondary btn-sm" @onclick="LoadAsync">Refresh</button>
     </div>
 
-    @if (!_loading && _items.Count > 0 && Session.Has(PermissionCodes.ResultVerify))
+    @if (!_loading && _items.Count > 0 && (Session.Has(PermissionCodes.ResultVerify) || RecollectCount > 0 || _show == ShowRecollect))
     {
         <div class="flex gap" role="group" aria-label="Show" style="margin-bottom:.5rem;">
-            <button type="button" class="btn btn-sm @(_toVerifyOnly ? "btn-secondary" : "btn-primary")" aria-pressed="@(_toVerifyOnly ? "false" : "true")" @onclick="() => _toVerifyOnly = false">All (@_items.Count)</button>
-            <button type="button" class="btn btn-sm @(_toVerifyOnly ? "btn-primary" : "btn-secondary")" aria-pressed="@(_toVerifyOnly ? "true" : "false")" @onclick="() => _toVerifyOnly = true" data-to-verify>To verify (@TestWorklistView.ToVerify(_items, Session.UserName).Count)</button>
+            <button type="button" class="btn btn-sm @(_show == ShowAll ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowAll ? "true" : "false")" @onclick="() => _show = ShowAll">All (@_items.Count)</button>
+            @if (Session.Has(PermissionCodes.ResultVerify))
+            {
+                <button type="button" class="btn btn-sm @(_show == ShowVerify ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowVerify ? "true" : "false")" @onclick="() => _show = ShowVerify" data-to-verify>To verify (@TestWorklistView.ToVerify(_items, Session.UserName).Count)</button>
+            }
+            @if (RecollectCount > 0 || _show == ShowRecollect)
+            {
+                <button type="button" class="btn btn-sm @(_show == ShowRecollect ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowRecollect ? "true" : "false")" @onclick="() => _show = ShowRecollect" data-recollect>Recollect (@RecollectCount)</button>
+            }
         </div>
     }
 
@@ -67,9 +74,13 @@
     else if (_items.Count > 0 && ShownItems.Count == 0 && _tube.Length > 0)
     {
         <div class="empty" data-tube-empty>
-            No pending @(_toVerifyOnly ? "results to verify" : "tests") on tube <span class="mono">@_tube</span>. A tube that is not yet accepted is on the Specimens tab;
+            No pending @(_show == ShowVerify ? "results to verify" : "tests") on tube <span class="mono">@_tube</span>. A tube that is not yet accepted is on the Specimens tab;
             an order not linked to it is linked from the chart's Orders tab.
         </div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0 && _show == ShowRecollect)
+    {
+        <div class="empty">No test is waiting for a new specimen.</div>
     }
     else if (_items.Count > 0 && ShownItems.Count == 0)
     {
@@ -393,14 +404,25 @@
     private string _tab = "tests";
     private List<TestWorkItemDto> _items = new();
     // Only the lines this user can verify now (a colleague's, the instrument's, or the interface's result).
-    private bool _toVerifyOnly;
+    // Which lines Patient tests shows: all, those this user can verify now, or those waiting for a new specimen.
+    private const string ShowAll = "all";
+    private const string ShowVerify = "verify";
+    private const string ShowRecollect = "recollect";
+    private string _show = ShowAll;
+
+    private int RecollectCount => TestWorklistView.Recollect(_items).Count;
     // The tube in hand: only its lines are shown (normalized accession; empty for all tubes).
     private string _tube = string.Empty;
     private string _tubeScan = string.Empty;
     // The tube accepted last on the Specimens tab, offered as the next thing to test.
     private string? _acceptedTube;
     private IReadOnlyList<TestWorkItemDto> ShownItems => TestWorklistView.ForTube(
-        _toVerifyOnly ? TestWorklistView.ToVerify(_items, Session.UserName) : _items, _tube);
+        _show switch
+        {
+            ShowVerify => TestWorklistView.ToVerify(_items, Session.UserName),
+            ShowRecollect => TestWorklistView.Recollect(_items),
+            _ => _items
+        }, _tube);
 
     [SupplyParameterFromQuery(Name = "accession")]
     public string? AccessionQuery { get; set; }
@@ -450,7 +472,12 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _toVerifyOnly = string.Equals(ShowQuery, "verify", StringComparison.OrdinalIgnoreCase);
+        _show = ShowQuery?.Trim().ToLowerInvariant() switch
+        {
+            ShowVerify => ShowVerify,
+            ShowRecollect => ShowRecollect,
+            _ => ShowAll
+        };
         _tube = TestWorklistView.NormalizeTube(AccessionQuery);
         var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
         _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
@@ -606,7 +633,7 @@
     private void StartTesting(string accession)
     {
         _tab = "tests";
-        _toVerifyOnly = false;
+        _show = ShowAll;
         _acceptedTube = null;
         ShowTube(accession);
     }

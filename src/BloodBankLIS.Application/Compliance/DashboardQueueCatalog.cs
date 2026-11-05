@@ -76,6 +76,21 @@ public static class DashboardQueueCatalog
         return (mine.Count, AttentionNote(dueSoon, "before its specimen expires", "before their specimens expire"));
     }
 
+    /// <summary>
+    /// The Pending tests card note: results to verify before their specimen expires, and lines whose tube was
+    /// rejected and need a new specimen. Either brings the card under Needs attention.
+    /// </summary>
+    public static string? PendingTestsNote(IEnumerable<TestWorkItemDto> pending)
+    {
+        var items = pending.ToList();
+        var parts = new[]
+        {
+            AttentionNote(PendingTestAttentionRule.CountVerifyBeforeExpiry(items), "to verify before its specimen expires", "to verify before their specimens expire"),
+            AttentionNote(TestWorklistView.Recollect(items).Count, "needs a new specimen", "need a new specimen")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
     public static string? AttentionNote(int count, string singular, string plural)
     {
         if (count <= 0)

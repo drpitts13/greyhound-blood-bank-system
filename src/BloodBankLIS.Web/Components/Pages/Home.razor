@@ -345,8 +345,7 @@
                     return (card.Key, null, null);
                 }
 
-                var dueSoon = PendingTestAttentionRule.CountVerifyBeforeExpiry(result.Value);
-                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(dueSoon, "to verify before its specimen expires", "to verify before their specimens expire"));
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.PendingTestsNote(result.Value));
             }
             case DashboardQueueCatalog.PendingSpecimens:
             {

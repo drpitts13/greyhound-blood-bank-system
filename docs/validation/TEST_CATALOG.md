@@ -460,5 +460,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-449 | I | `ReactionInvestigationServiceTests.Report_CarriesTheTransfusionRecordAndWorkup_AndItsPrintIsAudited` | URS-BB-508 / FRS-BB-585 |
 | TEST-BB-450 | I | `TestWorklistTests.ExpiredTube_TakesReactionWorkupResults_ButNotOrdinaryOnes` | URS-BB-507 / FRS-BB-586 |
 | TEST-BB-451 | I | `TestWorklistTests.RejectedTube_NamesItsWaitingOrders_AndTheBenchAsksForRecollection` | URS-BB-509 / FRS-BB-587 |
+| TEST-BB-452 | D | `DashboardQueueCatalogTests.PendingTestsNote_NamesRecollections_AndTheRecollectViewKeepsThem` | URS-BB-509 / FRS-BB-588 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
