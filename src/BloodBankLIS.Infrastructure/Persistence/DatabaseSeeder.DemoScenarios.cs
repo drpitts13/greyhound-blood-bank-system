@@ -58,6 +58,7 @@ public static partial class DatabaseSeeder
         await SeedUnitAntigenTypingScenarioAsync(context, ct);
         await SeedPendingSpecimenReceiptScenarioAsync(context, ct);
         await SeedMassiveTransfusionScenarioAsync(context, ct);
+        await SeedMultiUnitScenarioAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -2737,6 +2738,168 @@ public static partial class DatabaseSeeder
                 AllocatedBy = "tech1",
                 ExpiresUtc = now.AddHours(24)
             });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Demo only: one patient with six red cells at three steps, so the Issue &amp; Transfuse runs can be seen:
+    /// two crossmatched and ready to issue, two issued in one cooler and still in transit, and two received on the
+    /// ward and waiting at the bedside. Its own units; nothing another scenario uses.
+    /// </summary>
+    private static async Task SeedMultiUnitScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0022", ct))
+        {
+            return;
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        var location = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct);
+        if (redCells is null || fridge is null || location is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0022",
+            last: "Demo-Multi",
+            first: "Riley",
+            dateOfBirth: new DateOnly(1958, 11, 21),
+            sex: Sex.Unknown,
+            visitNumber: "VIS-2026-022",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "ICU 4",
+            accession: "ACC0022",
+            specimenType: "EDTA",
+            collectedUtc: now.AddHours(-5),
+            ct);
+
+        var screenOrder = new Order
+        {
+            OrderNumber = "ORD0022",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.Completed,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddHours(-5),
+            ResultStatus = ResultStatus.Verified
+        };
+        var productOrder = new Order
+        {
+            OrderNumber = "ORD0023",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Red Blood Cells x6",
+            OrderType = OrderType.Other,
+            ProductTypeId = redCells.Id,
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddHours(-4),
+            FulfillmentStatus = FulfillmentStatus.Ordered
+        };
+        context.Orders.AddRange(screenOrder, productOrder);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.AddRange(
+            new OrderLine { OrderId = screenOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type", TestCode = "ABORH", OrderType = OrderType.AboRh, ResultStatus = ResultStatus.Verified },
+            new OrderLine { OrderId = screenOrder.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", OrderType = OrderType.AntibodyScreen, ResultStatus = ResultStatus.Verified },
+            new OrderLine { OrderId = productOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = redCells.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered });
+        context.OrderSpecimens.Add(new OrderSpecimen { OrderId = screenOrder.Id, SpecimenId = visit.Specimen.Id, IsPrimary = true });
+        context.TestResults.AddRange(
+            VerifiedResult(visit, screenOrder.Id, "ABORH", AboRhResultValue.Format(AboGroup.O, RhType.Positive), now.AddHours(-4)),
+            VerifiedResult(visit, screenOrder.Id, "ABSC", "Negative", now.AddHours(-4)));
+        // A historical type as well, so routine red-cell issue has its second determination.
+        context.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.HistoricalImport, IsCurrent = false },
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true });
+
+        var units = Enumerable.Range(0, 6)
+            .Select(i => NewUnit(9201 + i, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(20 + i), 300m))
+            .ToList();
+        context.BloodUnits.AddRange(units);
+        await context.SaveChangesAsync(ct);
+
+        var retypeTest = await context.TestDefinitions.FirstOrDefaultAsync(
+            t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct);
+        if (retypeTest is not null)
+        {
+            context.ProductRetypeResults.AddRange(units.Select(u => VerifiedLabelRetype(u, retypeTest, now)));
+        }
+
+        // Every unit was reserved and crossmatched compatible on today's specimen.
+        var allocations = units.Select((u, i) => new Allocation
+        {
+            BloodProductId = u.Id,
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderId = productOrder.Id,
+            SpecimenId = visit.Specimen.Id,
+            Status = i < 2 ? AllocationStatus.Reserved : AllocationStatus.Consumed,
+            AssignmentType = AssignmentType.Reservation,
+            AllocatedUtc = now.AddHours(-3).AddMinutes(i),
+            AllocatedBy = "tech1",
+            ExpiresUtc = now.AddHours(24)
+        }).ToList();
+        context.Allocations.AddRange(allocations);
+        context.Crossmatches.AddRange(units.Select(u => new Crossmatch
+        {
+            BloodProductId = u.Id,
+            PatientId = visit.Patient.Id,
+            SpecimenId = visit.Specimen.Id,
+            Method = CrossmatchMethod.Serologic,
+            Result = CrossmatchResult.Compatible,
+            PerformedUtc = now.AddHours(-2).AddMinutes(-30),
+            PerformedBy = "tech1",
+            ExpiresUtc = visit.Specimen.ExpiresUtc
+        }));
+        await context.SaveChangesAsync(ct);
+
+        // Units 1-2 stay reserved (Ready to issue). Units 3-4 went out in one cooler and are in transit. Units 5-6
+        // were received on the ward and wait at the bedside.
+        for (var i = 0; i < 2; i++)
+        {
+            units[i].Status = UnitStatus.Crossmatched;
+        }
+
+        for (var i = 2; i < 6; i++)
+        {
+            var received = i >= 4;
+            units[i].Status = UnitStatus.Issued;
+            var issuedUtc = received ? now.AddMinutes(-70 + i) : now.AddMinutes(-15 + i);
+            context.Issues.Add(new Issue
+            {
+                AllocationId = allocations[i].Id,
+                BloodProductId = units[i].Id,
+                PatientId = visit.Patient.Id,
+                EncounterId = visit.Encounter.Id,
+                OrderId = productOrder.Id,
+                IssuedUtc = issuedUtc,
+                IssuedBy = "tech2",
+                IssuedTo = "RN Demo",
+                IssuedToLocation = "ICU 4",
+                CoolerId = received ? "Cooler M1" : "Cooler M2",
+                InTransitDueUtc = issuedUtc.AddHours(1),
+                IssueType = IssueType.Standard,
+                CrossmatchStatus = CrossmatchClinicalStatus.Compatible,
+                Status = IssueStatus.Issued,
+                UnitExpirationAtIssueUtc = units[i].ExpiresUtc,
+                WardReceivedUtc = received ? issuedUtc.AddMinutes(12) : null,
+                WardReceivedBy = received ? "RN Demo" : null
+            });
+        }
 
         await context.SaveChangesAsync(ct);
     }

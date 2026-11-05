@@ -72,7 +72,7 @@ The transfusion desk records the bedside checks and the transfusion itself. The 
 
 **In transit** lists units that left in a cooler or with a courier until the receiving location acknowledges custody. **Receive** on the row opens Ward receipt. Receipt repeats the product, expiration, type, specimen, crossmatch, who it was issued to, the cooler, and the destination so the person receiving can compare them with the unit in hand. Transfusion documentation waits until receipt is recorded when that is the path the unit took.
 
-**A cooler of several units.** After you acknowledge one unit, the form keeps **Received by** and lists what has been received from that cooler, or for that patient and destination when no cooler was recorded. **Receive next** selects each unit still in transit from the same shipment, earliest issued first. Scan its label and record its appearance as usual. A downtime back-entry is not offered here; receive it from the paper record.
+**A cooler of several units.** As soon as you open one unit of a cooler, **Also in** lists the rest of that cooler still in transit. After you acknowledge one unit, the form keeps **Received by** and lists what has been received from that cooler, or for that patient and destination when no cooler was recorded. **Receive next** selects each unit still in transit from the same shipment, earliest issued first. Scan its label and record its appearance as usual. A downtime back-entry is not offered here; receive it from the paper record.
 
 ## Document the transfusion
 

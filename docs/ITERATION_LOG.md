@@ -12448,3 +12448,45 @@ The scan also stayed from the previous unit.
 ### Next ranked residual (workflow lens)
 
 Demo data: add a received, ready-to-transfuse pair of units for one patient, so these run panels can be shown and checked live without writing new records each time.
+
+## Iteration 380 — Demo data for multi-unit runs, and the rest of a cooler shown on opening (2026-11-04)
+
+### Capability matrix rescan (workflow lens)
+
+The runs from Cycles 376, 377, and 379 could not be shown or checked live:
+- the demo patient with two reserved units needed a crossmatch and a second ABO first
+- no unit was received on the ward
+
+The receipt and bedside lists also appeared only after the first action. A nurse opening the first unit of a cooler could not see what else was in it (question 5).
+
+### Design
+
+- **Demo patient MRN0022 (Demo-Multi, Riley), O+, ICU 4:**
+  - type and screen verified; historical and current type, so second ABO is on file
+  - a red-cell order
+  - six leukoreduced red cells with verified label retypes, each reserved and crossmatched compatible on today's specimen
+  - units 1–2: reserved (Ready to issue)
+  - units 3–4: issued in "Cooler M2", in transit
+  - units 5–6: issued in "Cooler M1", received on the ward
+  - its own units 9201–9206; seeded once by MRN, like the other scenarios
+- **Showing what comes next earlier:**
+  - opening a unit on Ward receipt shows "Also in Cooler M2" with Receive next before anything is received
+  - opening a unit on the transfusion desk shows the patient's other units at the bedside before the first start
+- **Wording:** cooler labels that already say "Cooler" are not doubled ("Also in Cooler M2", not "cooler Cooler M2").
+- Moving to the next bedside unit keeps the identifiers when the next unit belongs to the patient on the form, also before the first action.
+
+### Tests
+
+- The seeder tests count 12 demo patients, 13 encounters, 18 orders, and 63 units. They assert the scenario: 2 reserved, 2 in transit in Cooler M2, 2 received and still issued.
+- Full suite: 3,692 passed, 0 failed.
+- Run check (development API and web; scenario seeded on start):
+  - Ready to issue → Issue on MRN0022 shows "Issue next: W0001230009202"
+  - In transit → Receive on W…9203 shows "Also in Cooler M2", "Receive next: W…9204"
+  - Issued units → Start / document on W…9205 shows "Start next: W…9206"
+  - clicking it moved the form to W…9206, kept the typed MRN, and offered W…9205
+  - nothing was issued, received, or transfused
+  - no server errors
+
+### Next ranked residual (workflow lens)
+
+Scan-to-select on these desks: scanning a unit's DIN on Issue, Ward receipt, or Transfusion, without a selected unit, picks it from the board and fills the form (question 4).

@@ -942,11 +942,13 @@
         {
             <FactList Facts="@(new string?[] { _wardExpirationNotice, _wardUnitTypeNotice, _wardSpecimenNotice, _wardCrossmatchNotice, _wardIssuedToNotice, _wardCoolerNotice, _wardLocationNotice, _wardIssuedByNotice, _wardSecondVerifierNotice })" Style="margin-top:.75rem;">Receiving @if (!string.IsNullOrWhiteSpace(_wardProductName)) { <strong>@_wardProductName</strong> }</FactList>
         }
-        @if (_wardReceivedRun.Count > 0)
+        @if (_wardReceivedRun.Count > 0 || NextToReceive.Count > 0)
         {
             @* A cooler or several units for one patient: received by stays; each unit is still scanned and inspected. *@
             <div class="bb-card" style="margin-top:1rem;" data-receipt-run>
-                <div class="bb-card-title"><h3>@(string.IsNullOrWhiteSpace(_wardRunCooler) ? "Received for this patient" : $"Cooler {_wardRunCooler}")</h3></div>
+                <div class="bb-card-title"><h3>@ReceiptRunTitle</h3></div>
+                @if (_wardReceivedRun.Count > 0)
+                {
                 <table class="bb">
                     <thead><tr><th>Unit</th><th>Product</th><th>Received by</th><th>Received</th></tr></thead>
                     <tbody>
@@ -961,6 +963,7 @@
                         }
                     </tbody>
                 </table>
+                }
                 @if (NextToReceive.Count > 0)
                 {
                     <div style="margin-top:.5rem;"><strong>Still to receive (@NextToReceive.Count)</strong> <span class="muted">Received by stays filled in. Scan each unit and record its appearance.</span></div>
@@ -1213,11 +1216,13 @@
                     <a href="@($"/reactions?id={reactionId}")">Open investigation #@reactionId</a>
                 </div>
             }
-            @if (_txRun.Count > 0)
+            @if (_txRun.Count > 0 || NextAtBedside.Count > 0)
             {
                 @* Several units for one patient at the bedside: the transfusionist and identifiers stay; each unit is scanned. *@
                 <div class="bb-card" style="margin-top:1rem;" data-bedside-run>
                     <div class="bb-card-title"><h3>This patient at the bedside</h3></div>
+                    @if (_txRun.Count > 0)
+                    {
                     <table class="bb">
                         <thead><tr><th>Unit</th><th>Product</th><th>Done</th><th>At</th></tr></thead>
                         <tbody>
@@ -1232,6 +1237,7 @@
                             }
                         </tbody>
                     </table>
+                    }
                     @if (NextAtBedside.Count > 0)
                     {
                         <div style="margin-top:.5rem;"><strong>Next at the bedside</strong> <span class="muted">Transfusionist and patient identifiers stay filled in. Scan each unit; the second verifier, volume, and reaction are asked again.</span></div>
@@ -1350,10 +1356,13 @@
     private readonly List<BedsideInRun> _txRun = new();
     private long _txRunPatientId;
 
-    private IReadOnlyList<OutstandingIssueWorkItemDto> NextAtBedside => _txRun.Count == 0
-        ? []
-        : IssueRun.NextAtBedside(_outstandingItems, _txRunPatientId, _txIssueId,
-            _txRun.Where(r => r.Finished).Select(r => r.IssueId).ToList());
+    // Before the first action, the unit on the form decides the patient, so the other units at the bedside show at once.
+    private IReadOnlyList<OutstandingIssueWorkItemDto> NextAtBedside => _txRun.Count > 0
+        ? IssueRun.NextAtBedside(_outstandingItems, _txRunPatientId, _txIssueId,
+            _txRun.Where(r => r.Finished).Select(r => r.IssueId).ToList())
+        : _outstandingItems.FirstOrDefault(r => r.IssueId == _txIssueId) is { } selected
+            ? IssueRun.NextAtBedside(_outstandingItems, selected.PatientId, _txIssueId, [])
+            : [];
 
     /// <summary>Records a bedside action for the run and clears what belongs to one unit.</summary>
     private void AddToBedsideRun(string action, bool finished)
@@ -1377,8 +1386,9 @@
     {
         // Same patient: the identifiers already entered at this bedside stay.
         var (id1, id2, transfusionist) = (_txPatientIdentifier1, _txPatientIdentifier2, _txTransfusionist);
+        var samePatient = row.PatientId == (_txPatient?.Id ?? _txRunPatientId);
         SelectTransfusionIssue(row);
-        if (row.PatientId == _txRunPatientId)
+        if (samePatient)
         {
             (_txPatientIdentifier1, _txPatientIdentifier2, _txTransfusionist) = (id1, id2, transfusionist);
         }
@@ -1417,10 +1427,23 @@
     private string? _wardRunCooler;
     private string? _wardRunDestination;
 
-    private IReadOnlyList<InTransitWorkItemDto> NextToReceive => _wardReceivedRun.Count == 0
-        ? []
-        : IssueRun.NextToReceive(_inTransitItems, _wardRunPatientId, _wardRunCooler, _wardRunDestination,
-            _wardReceivedRun.Select(r => r.IssueId).ToList());
+    // Before the first receipt, the unit on the form decides the shipment, so the rest of the cooler shows at once.
+    private IReadOnlyList<InTransitWorkItemDto> NextToReceive => _wardReceivedRun.Count > 0
+        ? IssueRun.NextToReceive(_inTransitItems, _wardRunPatientId, _wardRunCooler, _wardRunDestination,
+            _wardReceivedRun.Select(r => r.IssueId).ToList())
+        : _inTransitItems.FirstOrDefault(r => r.IssueId == _wardIssueId) is { } selected
+            ? IssueRun.NextToReceive(_inTransitItems, selected.PatientId, selected.CoolerId, selected.IssuedToLocation, [selected.IssueId])
+            : [];
+
+    private string ReceiptRunTitle => _wardReceivedRun.Count > 0
+        ? string.IsNullOrWhiteSpace(_wardRunCooler) ? "Received for this patient" : CoolerName(_wardRunCooler)
+        : _inTransitItems.FirstOrDefault(r => r.IssueId == _wardIssueId)?.CoolerId is { Length: > 0 } cooler
+            ? $"Also in {CoolerName(cooler)}"
+            : "Also for this patient and destination";
+
+    // Labels such as "Cooler 1" already say so.
+    private static string CoolerName(string cooler) =>
+        cooler.Trim().StartsWith("cooler", StringComparison.OrdinalIgnoreCase) ? cooler.Trim() : $"cooler {cooler.Trim()}";
 
     private void AddToReceiptRun(InTransitWorkItemDto received, string receivedBy)
     {
