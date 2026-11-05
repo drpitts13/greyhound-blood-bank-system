@@ -18,7 +18,12 @@ public sealed record LookupHitDto(
     string Identifier,
     string Title,
     string? Detail,
-    string Href);
+    string Href,
+    // Patient hits: current ABO/Rh and alerts (active antibodies, special requirements in effect), so the right patient
+    // and their risks are visible before the chart opens.
+    string? BloodType = null,
+    IReadOnlyList<string>? Antibodies = null,
+    int RequirementsInEffect = 0);
 
 public sealed record LookupResultDto(
     string Query,

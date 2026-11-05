@@ -158,6 +158,47 @@ public class UniversalLookupTests : IDisposable
         Assert.Contains("was merged into MRN MRN-LOOK1", hit.Detail);
     }
 
+    // TEST-BB-437: a patient hit carries the current type and alerts; a merged duplicate shows the survivor's.
+    [Fact]
+    public async Task PatientHit_CarriesTypeAndAlerts_FromTheSurvivingChart()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var now = _factory.Clock.UtcNow;
+        c.Patients.Add(new Patient
+        {
+            MedicalRecordNumber = "MRN-DUP2", LastName = "Lookup", FirstName = "Ann", DateOfBirth = new DateOnly(1970, 5, 1),
+            Sex = Sex.Female, Status = PatientStatus.Merged, MergedIntoPatientId = f.Patient.Id
+        });
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = f.Patient.Id, Abo = AboGroup.AB, RhD = RhType.Negative, IsCurrent = true });
+        c.AntibodyHistory.AddRange(
+            new AntibodyHistory { PatientId = f.Patient.Id, AntibodySpecificity = "anti-Jka", IsActive = true },
+            new AntibodyHistory { PatientId = f.Patient.Id, AntibodySpecificity = "anti-S", IsActive = false });
+        c.SpecialTransfusionRequirements.AddRange(
+            new SpecialTransfusionRequirement { PatientId = f.Patient.Id, RequirementType = SpecialTransfusionRequirementType.Irradiated, Reason = "In effect", EffectiveUtc = now.AddDays(-1) },
+            new SpecialTransfusionRequirement { PatientId = f.Patient.Id, RequirementType = SpecialTransfusionRequirementType.Irradiated, Reason = "Ended", EffectiveUtc = now.AddDays(-5), ExpiresUtc = now.AddDays(-1) });
+        await c.SaveChangesAsync();
+
+        var flagged = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
+            new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c), _factory.Clock);
+
+        foreach (var query in new[] { "MRN-LOOK1", "MRN-DUP2" })
+        {
+            var hit = Assert.Single((await flagged.LookupAsync(query)).Hits, h => h.Kind == LookupHitKind.Patient);
+            Assert.Equal(f.Patient.Id, hit.Id);
+            Assert.Equal("AB-", hit.BloodType);
+            Assert.Equal(new[] { "anti-Jka" }, hit.Antibodies);
+            Assert.Equal(1, hit.RequirementsInEffect);
+        }
+
+        // Without the history repositories (older wiring) the hit simply carries no flags.
+        var plain = Assert.Single((await Lookup(c).LookupAsync("MRN-LOOK1")).Hits, h => h.Kind == LookupHitKind.Patient);
+        Assert.Null(plain.BloodType);
+        Assert.Equal(0, plain.RequirementsInEffect);
+    }
+
     [Fact]
     public async Task PartialName_ListsBothPatients_AndDoesNotOpen()
     {

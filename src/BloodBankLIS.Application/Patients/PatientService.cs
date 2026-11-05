@@ -74,19 +74,14 @@ public sealed class PatientService
 
         var now = _clock.UtcNow;
         var currentTypes = _bloodTypes is null
-            ? new Dictionary<long, string>()
-            : (await _bloodTypes.ListAsync(t => t.IsCurrent && t.InvalidatedUtc == null, ct))
-                .GroupBy(t => t.PatientId)
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.Id).First().BloodType.ToString());
+            ? Array.Empty<PatientBloodTypeHistory>().ToLookup(t => t.PatientId)
+            : (await _bloodTypes.ListAsync(t => t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
         var antibodies = _antibodies is null
             ? Array.Empty<AntibodyHistory>().ToLookup(a => a.PatientId)
             : (await _antibodies.ListAsync(a => a.IsActive, ct)).ToLookup(a => a.PatientId);
         var requirements = _requirements is null
-            ? new Dictionary<long, int>()
-            : (await _requirements.ListAsync(r => r.IsActive, ct))
-                .Where(r => SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, now))
-                .GroupBy(r => r.PatientId)
-                .ToDictionary(g => g.Key, g => g.Count());
+            ? Array.Empty<SpecialTransfusionRequirement>().ToLookup(r => r.PatientId)
+            : (await _requirements.ListAsync(r => r.IsActive, ct)).ToLookup(r => r.PatientId);
 
         return patients
             .OrderBy(p => p.LastName, StringComparer.OrdinalIgnoreCase)
@@ -94,14 +89,9 @@ public sealed class PatientService
             .ThenBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
             .Select(p => PatientDto.From(p, byPatient.GetValueOrDefault(p.Id)) with
             {
-                CurrentBloodType = currentTypes.GetValueOrDefault(p.Id),
-                ActiveAntibodies = antibodies[p.Id]
-                    .Select(a => a.AntibodySpecificity)
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Order(StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-                ActiveSpecialRequirements = requirements.GetValueOrDefault(p.Id)
+                CurrentBloodType = PatientBloodBankFlags.CurrentBloodType(currentTypes[p.Id]),
+                ActiveAntibodies = PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
+                ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now)
             })
             .ToList();
     }

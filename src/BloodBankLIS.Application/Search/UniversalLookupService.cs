@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
@@ -24,6 +25,10 @@ public sealed class UniversalLookupService
     private readonly IRepository<ProductType> _products;
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<Order> _orders;
+    private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
+    private readonly IRepository<AntibodyHistory>? _antibodies;
+    private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
+    private readonly IClock? _clock;
 
     public UniversalLookupService(
         IRepository<Patient> patients,
@@ -31,8 +36,16 @@ public sealed class UniversalLookupService
         IRepository<BloodUnit> units,
         IRepository<ProductType> products,
         IRepository<Specimen> specimens,
-        IRepository<Order> orders)
+        IRepository<Order> orders,
+        IRepository<PatientBloodTypeHistory>? bloodTypes = null,
+        IRepository<AntibodyHistory>? antibodies = null,
+        IRepository<SpecialTransfusionRequirement>? requirements = null,
+        IClock? clock = null)
     {
+        _bloodTypes = bloodTypes;
+        _antibodies = antibodies;
+        _requirements = requirements;
+        _clock = clock;
         _patients = patients;
         _identifiers = identifiers;
         _units = units;
@@ -273,6 +286,18 @@ public sealed class UniversalLookupService
             matchedNote
         }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
+        var targetId = target.Id;
+        var bloodType = _bloodTypes is null
+            ? null
+            : PatientBloodBankFlags.CurrentBloodType(await _bloodTypes.ListAsync(t => t.PatientId == targetId, ct));
+        var antibodies = _antibodies is null
+            ? []
+            : PatientBloodBankFlags.ActiveAntibodies(await _antibodies.ListAsync(a => a.PatientId == targetId, ct));
+        var requirements = _requirements is null
+            ? 0
+            : PatientBloodBankFlags.RequirementsInEffect(
+                await _requirements.ListAsync(r => r.PatientId == targetId, ct), _clock?.UtcNow ?? DateTime.UtcNow);
+
         return new LookupHitDto(
             LookupHitKind.Patient,
             target.Id,
@@ -280,7 +305,10 @@ public sealed class UniversalLookupService
             target.MedicalRecordNumber,
             PatientName(target),
             detail,
-            $"/patients/{target.Id}");
+            $"/patients/{target.Id}",
+            bloodType,
+            antibodies,
+            requirements);
     }
 
     private static IReadOnlyList<LookupHitDto> Distinct(IEnumerable<LookupHitDto> hits) =>

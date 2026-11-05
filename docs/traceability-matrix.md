@@ -570,6 +570,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-501 / FRS-BB-573 | One patient's downtime summary from the chart, audited print | `DowntimePatientSummaryService.GetAsync(patientId)` | TEST-BB-434 | I | |
 | URS-BB-504 / FRS-BB-574 | Results to verify card on the home screen | `DashboardQueueCatalog.ToVerifyCard` | TEST-BB-435 | D | |
 | URS-BB-505 / FRS-BB-575 | Patient list shows ABO/Rh, antibodies, special requirements | `PatientService.ListDtosAsync` | TEST-BB-436 | I | |
+| URS-BB-505 / FRS-BB-576 | Top-bar lookup patient rows show type and alerts | `UniversalLookupService.PatientHitAsync` | TEST-BB-437 | I | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

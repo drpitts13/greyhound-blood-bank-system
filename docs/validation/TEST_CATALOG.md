@@ -445,5 +445,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-434 | I | `DowntimePatientSummaryTests.OnePatient_IsOnTheSheetEvenWithNothingCurrent_AndThePrintIsAuditedAgainstThem` | URS-BB-501 / FRS-BB-573 |
 | TEST-BB-435 | D | `DashboardQueueCatalogTests.ToVerify_ForVerifiersOnly_CountsTheirOwnVerifiableResults_WithTheExpiryNote` | URS-BB-504 / FRS-BB-574 |
 | TEST-BB-436 | I | `PatientListFlagsTests.PatientList_ShowsCurrentType_ActiveAntibodies_AndRequirementsInEffect` | URS-BB-505 / FRS-BB-575 |
+| TEST-BB-437 | I | `UniversalLookupTests.PatientHit_CarriesTypeAndAlerts_FromTheSurvivingChart` | URS-BB-505 / FRS-BB-576 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

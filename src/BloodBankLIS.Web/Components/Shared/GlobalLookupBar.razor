@@ -52,6 +52,18 @@
                             <span class="badge @KindBadge(hit.Kind)">@hit.Kind</span>
                             <span class="bb-lookup-id">@hit.Identifier</span>
                             <span class="bb-lookup-title">@hit.Title</span>
+                            @if (hit.Kind == LookupHitKind.Patient)
+                            {
+                                <span class="mono" data-lookup-type title="Current ABO/Rh">@(hit.BloodType ?? "No type on file")</span>
+                                @if (hit.Antibodies is { Count: > 0 } abs)
+                                {
+                                    <span class="badge badge-red" data-lookup-alert title="Active antibodies on file">@string.Join(", ", abs)</span>
+                                }
+                                @if (hit.RequirementsInEffect > 0)
+                                {
+                                    <span class="badge badge-amber" data-lookup-alert title="Special requirements in effect">@hit.RequirementsInEffect special @(hit.RequirementsInEffect == 1 ? "requirement" : "requirements")</span>
+                                }
+                            }
                             @if (!string.IsNullOrWhiteSpace(hit.Detail))
                             {
                                 <span class="bb-lookup-detail">@hit.Detail</span>

@@ -13281,3 +13281,37 @@ Patient-level summary print from the Issue desk, or keyboard shortcuts for the b
 ### Next ranked residual
 
 The same flags in the top-bar lookup results, or keyboard shortcuts for the bench.
+
+## Iteration 401 — Type and alerts on top-bar patient hits (2026-11-05)
+
+### Capability matrix rescan (search everywhere)
+
+Cycle 400 put ABO/Rh and alerts on the Patients list. The top-bar find box, used from every page, still listed patients by name, DOB, and sex only. Choosing between similar names there meant opening charts to tell them apart and to see their risks (questions 1, 2).
+
+### Design
+
+- **`PatientBloodBankFlags`:** one definition of current type, active antibodies, and requirements in effect, used by both the patient list and the lookup, so the two agree.
+- **`LookupHitDto`:** gains `BloodType`, `Antibodies`, `RequirementsInEffect`, read for the chart the row opens; a merged MRN shows the survivor's.
+- **`GlobalLookupBar`:** shows the type (or "No type on file"), a red antibody badge, and an amber requirement badge.
+- No schema change. A partial match still lists rather than opens.
+
+### Requirements
+
+- FRS-BB-576 (under URS-BB-505). Help: finding records.
+
+### Tests
+
+- TEST-BB-437:
+  - by MRN and by a merged duplicate MRN, the row is the survivor with AB-, anti-Jka (not the inactive anti-S), and one requirement in effect (not the ended one)
+  - without the history repositories the row has no flags
+- The patient list test (TEST-BB-436) passes on the shared helper.
+- Full suite: 3,718 passed, 0 failed.
+- Run check (development API and web):
+  - "kel" lists Kellerman MRN0004 with "O+ anti-K"
+  - "gravid" lists Gravid MRN0007 with "No type on file"
+  - no server errors
+  - the browser pane was not drawing, so the find box was driven with DOM input and Enter events
+
+### Next ranked residual
+
+Keyboard shortcuts for the bench (next or previous test), or the same flags on the Issue desk patient picker.
