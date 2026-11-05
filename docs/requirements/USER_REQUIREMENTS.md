@@ -516,3 +516,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-508 | A transfusion reaction investigation can be printed on one sheet for review by the medical director and for the record, with the bedside transfusion record, the workup and its results, and the conclusion; the print is audited. | P2 | FRS-BB-585 |
 | URS-BB-509 | When a tube is rejected, the bench is told which open orders now need a new specimen, and their lines say Recollect with the reason and offer accessioning a new tube. | P2 | FRS-BB-587, FRS-BB-588 |
 | URS-BB-510 | Inventory staff can move a batch of units to one location by scanning each unit, without opening each unit, with the same checks and audit as a single transfer. | P2 | FRS-BB-589 |
+| URS-BB-511 | Inventory staff can count a storage location by scanning its units and see what is missing, misplaced, or on a shelf against its record; the finished count is audited. | P2 | FRS-BB-590 |

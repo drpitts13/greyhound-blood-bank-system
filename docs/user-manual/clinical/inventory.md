@@ -9,6 +9,7 @@ routes:
   - /inventory?board=retype
   - /inventory?board=quarantine
   - /inventory/move
+  - /inventory/count
 ---
 
 ![Inventory](figures/inventory.png)
@@ -28,6 +29,18 @@ The other boards cover expected inbound units, units near expiry, units on hold,
 ## Move units by scan
 
 **Move units** (permission *inventory.transfer*) moves a batch of units to one location, for example to stock a satellite or operating-room refrigerator. Choose **Move to**, then scan each unit number; each scan moves that unit at once and is listed under **This run**, newest first. The checks are the same as a transfer from the unit page: the unit's status must allow a move, and the location must be active, take that kind of component, and have a storage range. A unit already in the location, an unreadable scan, or an unknown number is listed as **Not moved** with the reason. A unit number that was divided matches several units and moves none; move those from each unit's page. Every move is in the unit's history and the audit trail.
+
+## Count a location
+
+**Stock count** (permission *inventory.transfer*) checks one refrigerator, freezer, or incubator against the record. Choose the location, then scan every unit on its shelves; the lists update with each scan:
+
+- **Found**: recorded here and scanned.
+- **Missing**: recorded here but not scanned. Look for it, then check the unit's history.
+- **Recorded elsewhere**: on the shelf, but recorded in another location. **Move here** corrects the record with the transfer checks and audit.
+- **Not on hand**: on the shelf, but its record says issued, transfused, discarded, or similar. Take it out and hold it, and find out why before anything is issued.
+- **Unresolved scans**: an unreadable or unknown number, or a divided number matching several units (check those by their labels).
+
+Expired units still on a shelf are expected and marked **Expired**: discard them. Scanning changes nothing. **Finish count** records the outcome (counts, and the missing, misplaced, and not-on-hand units) in the audit trail; **Count again** starts over.
 
 ## Expiration
 

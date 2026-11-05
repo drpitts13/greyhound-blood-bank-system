@@ -1,0 +1,33 @@
+@* Units in one group of a stock count. *@
+<table class="bb">
+    <thead>
+        <tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th>Expires</th>@if (ShowRecorded) { <th>Recorded in</th> }</tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Rows)
+        {
+            <tr>
+                <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
+                <td>@(row.ProductName ?? "—")</td>
+                <td>@row.BloodType</td>
+                <td>@row.Status</td>
+                <td class="nowrap">
+                    @row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                    @if (row.Expired)
+                    {
+                        <span class="badge badge-red" title="Past its expiry: discard it">Expired</span>
+                    }
+                </td>
+                @if (ShowRecorded)
+                {
+                    <td>@(row.RecordedLocation ?? "No location")</td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<InventoryCountLineDto> Rows { get; set; } = [];
+    [Parameter] public bool ShowRecorded { get; set; }
+}

@@ -1,0 +1,222 @@
+@page "/inventory/count"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Stock count &middot; HemoCore</PageTitle>
+
+<div class="flex-between">
+    <h1>Stock count</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/inventory/move">Move units</a>
+        <a class="btn btn-ghost" href="/inventory">Inventory</a>
+    </div>
+</div>
+<p class="muted">
+    Count one refrigerator, freezer, or incubator: choose it, then scan every unit on its shelves. The count compares the
+    scans with what is recorded there and shows what was found, what is missing, what is recorded somewhere else, and
+    anything whose record says it should not be on a shelf. Scanning changes nothing; <strong>Finish count</strong>
+    records the outcome in the audit trail.
+</p>
+
+@if (!Session.Has(PermissionCodes.InventoryTransfer))
+{
+    <div class="muted">No permission to count inventory.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="field">
+                <label>Location</label>
+                <select value="@_locationId" @onchange="OnLocationChangedAsync" data-count-location>
+                    <option value="0">Choose a location</option>
+                    @foreach (var l in _locations.Where(l => l.IsActive))
+                    {
+                        <option value="@l.Id">@l.ChoiceLabel</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Scan unit number</label>
+                <input @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" disabled="@(_locationId == 0 || _count?.Recorded == true)"
+                       placeholder="@(_locationId == 0 ? "Choose a location first" : "Scan each unit")" autocomplete="off" data-count-scan />
+            </div>
+            @if (_count is not null && !_count.Recorded)
+            {
+                <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="FinishAsync" data-count-finish>Finish count</button>
+            }
+            @if (_count?.Recorded == true)
+            {
+                <button type="button" class="btn btn-secondary" @onclick="CountAgainAsync">Count again</button>
+            }
+        </div>
+        <Outcome Value="_fb" />
+
+        @if (_count is { } c)
+        {
+            <div class="flex gap" style="flex-wrap:wrap;margin:.75rem 0;" data-count-summary>
+                <span class="badge badge-gray">@c.LocationName</span>
+                <span class="badge badge-green">Found @c.Found.Count of @c.Expected</span>
+                <span class="badge @(c.Missing.Count > 0 ? "badge-red" : "badge-gray")">Missing @c.Missing.Count</span>
+                <span class="badge @(c.Elsewhere.Count > 0 ? "badge-amber" : "badge-gray")">Recorded elsewhere @c.Elsewhere.Count</span>
+                <span class="badge @(c.NotOnHand.Count > 0 ? "badge-red" : "badge-gray")">Not on hand @c.NotOnHand.Count</span>
+                @if (c.Problems.Count > 0)
+                {
+                    <span class="badge badge-amber">Unresolved scans @c.Problems.Count</span>
+                }
+                @if (c.Recorded)
+                {
+                    <span class="badge badge-blue">Recorded</span>
+                }
+            </div>
+
+            @if (c.NotOnHand.Count > 0)
+            {
+                <h3>On the shelf, but the record says otherwise</h3>
+                <p class="muted">Take these out and hold them; find out why the record shows them as no longer in stock before anything is issued.</p>
+                <CountTable Rows="c.NotOnHand" ShowRecorded="true" />
+            }
+            @if (c.Elsewhere.Count > 0)
+            {
+                <h3>Recorded in another location</h3>
+                <table class="bb" data-count-elsewhere>
+                    <thead><tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th>Recorded in</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var row in c.Elsewhere)
+                        {
+                            <tr>
+                                <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
+                                <td>@(row.ProductName ?? "—")</td>
+                                <td>@row.BloodType</td>
+                                <td>@row.Status</td>
+                                <td>@(row.RecordedLocation ?? "No location")</td>
+                                <td class="right">
+                                    @if (!c.Recorded)
+                                    {
+                                        <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => MoveHereAsync(row.UnitNumber)">Move here</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (c.Missing.Count > 0)
+            {
+                <h3>Missing: recorded here, not scanned</h3>
+                <CountTable Rows="c.Missing" ShowRecorded="false" />
+            }
+            @if (c.Problems.Count > 0)
+            {
+                <h3>Unresolved scans</h3>
+                <ul data-count-problems>
+                    @foreach (var p in c.Problems)
+                    {
+                        <li><span class="mono">@p.Scan</span>: @p.Message</li>
+                    }
+                </ul>
+            }
+            @if (c.Found.Count > 0)
+            {
+                <details @key="c.Found.Count" style="margin-top:.75rem;">
+                    <summary>Found (@c.Found.Count)</summary>
+                    <CountTable Rows="c.Found" ShowRecorded="false" />
+                </details>
+            }
+        }
+    </div>
+}
+
+@code {
+    private List<InventoryLocationDto> _locations = new();
+    private long _locationId;
+    private string _scan = string.Empty;
+    private readonly List<string> _scans = new();
+    private InventoryCountDto? _count;
+    private Feedback? _fb;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _locations = (await Api.GetLocationsAsync()).Value ?? new();
+    }
+
+    private async Task OnLocationChangedAsync(ChangeEventArgs e)
+    {
+        _locationId = long.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        StartOver();
+        if (_locationId > 0)
+        {
+            await ReconcileAsync(finish: false);
+        }
+    }
+
+    private void StartOver()
+    {
+        _scans.Clear();
+        _count = null;
+        _fb = null;
+    }
+
+    private async Task CountAgainAsync()
+    {
+        StartOver();
+        if (_locationId > 0)
+        {
+            await ReconcileAsync(finish: false);
+        }
+    }
+
+    // A scanner ends with Enter: add the scan, reconcile, clear for the next one. The same unit scanned twice counts once.
+    private async Task OnScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || _busy || _locationId == 0)
+        {
+            return;
+        }
+
+        _scans.Add(_scan.Trim());
+        _scan = string.Empty;
+        await ReconcileAsync(finish: false);
+    }
+
+    private async Task FinishAsync()
+    {
+        await ReconcileAsync(finish: true);
+        if (_count?.Recorded == true)
+        {
+            _fb = Feedback.Succeed(_count.Reconciled
+                ? $"Count recorded: all {_count.Expected} units found."
+                : $"Count recorded: {_count.Found.Count} of {_count.Expected} found, {_count.Missing.Count} missing.");
+        }
+    }
+
+    private async Task MoveHereAsync(string unitNumber)
+    {
+        _busy = true;
+        var r = await Api.TransferUnitByScanAsync(new TransferByScanRequest(unitNumber, _locationId, "Found here during a stock count"));
+        _busy = false;
+        _fb = r.ToFeedback($"Moved {unitNumber} here.");
+        if (r.Succeeded)
+        {
+            await ReconcileAsync(finish: false);
+        }
+    }
+
+    private async Task ReconcileAsync(bool finish)
+    {
+        _busy = true;
+        var r = await Api.ReconcileInventoryCountAsync(new InventoryCountRequest(_locationId, _scans.ToList(), finish));
+        _busy = false;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _count = r.Value;
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+
+        StateHasChanged();
+    }
+}

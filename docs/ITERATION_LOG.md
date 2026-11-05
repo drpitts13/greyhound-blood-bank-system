@@ -13778,3 +13778,59 @@ A unit could be moved only from its own page, by choosing a location from a list
 ### Next ranked residual
 
 Rescan: cooler and transport checkouts, or inventory count (cycle count by scan per location).
+
+## Iteration 413 — Stock count by scan (2026-11-05)
+
+### Capability matrix rescan (inventory)
+
+Nothing compared what is physically in a storage location with what the record says is there. Two kinds of mismatch went unnoticed until someone stumbled on them (question 6):
+- a unit recorded in the fridge but gone
+- a unit on the shelf whose record says issued, transfused, or discarded
+
+Physical inventory reconciliation is expected of mature transfusion systems.
+
+### Design
+
+- **`InventoryService.ReconcileCountAsync(location, scans, finish)`:**
+  - **Expected:** units recorded at the location in on-hand statuses, plus Expired units not yet discarded (`InventoryUnitScopes.OnShelf`).
+  - **Results:** Found, Missing, Recorded elsewhere, Not on hand, and unresolved scans (unknown, unreadable, divided number). Expired units are flagged for discard.
+  - A unit scanned twice counts once.
+  - Scan resolution is shared with Move units (`ResolveScanAsync`).
+  - Nothing changes during the count. **Finish** writes an audit event against the location with the counts and the item lists.
+- **API:** `POST /api/inventory/counts`, permission *inventory.transfer*.
+- **Page `/inventory/count` (Stock count on Inventory):**
+  - choose the location and scan; the summary badges and lists update after each scan
+  - **Move here** for misplaced units uses the audited scan transfer
+  - **Finish count** records the outcome; **Count again** starts over
+- No schema change.
+
+### Requirements
+
+- URS-BB-511, FRS-BB-590. Help: inventory (route and section).
+
+### Tests
+
+- TEST-BB-454:
+  - found (including an expired unit, flagged)
+  - missing
+  - recorded elsewhere with its location
+  - an issued unit not on hand
+  - an unknown scan
+  - a duplicate scan counted once
+  - nothing moved or audited before finishing
+  - finishing writes one audit event naming the missing unit
+  - a full count is reconciled
+- Full suite: 3,738 passed, 0 failed.
+- Run check (development API and web):
+  - FRIDGE-1 expects 37 units
+  - scanning W0001230009201, W0001230009203, and an unknown number gives "Found 1 of 37, Missing 36, Not on hand 1, Unresolved scans 1"
+  - the issued W0001230009203 is listed as "On the shelf, but the record says otherwise"
+  - Finish not pressed (no audit row); no server errors
+
+### Observation
+
+An issued unit keeps its last storage location, so a count lists it as not on hand rather than missing, which is the useful signal.
+
+### Next ranked residual
+
+Cooler and transport checkout rescan, or a count history view (the audit holds each finished count).

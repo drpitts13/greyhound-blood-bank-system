@@ -529,6 +529,60 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(blank.Code, blankRow.LocationLabel, StringComparison.Ordinal);
     }
 
+    // TEST-BB-454: a stock count sorts the scans into found, missing, recorded elsewhere, not on hand, and unresolved;
+    // it moves nothing, and finishing records the outcome in the audit trail.
+    [Fact]
+    public async Task StockCount_ReconcilesScansAgainstTheLocation_AndFinishingIsAudited()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation { Code = $"CNT-FR-{key}", Name = "Count fridge", LocationType = LocationType.Refrigerator };
+        var other = new InventoryLocation { Code = $"CNT-OT-{key}", Name = "Other fridge", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.AddRange(fridge, other);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix, long locationId) =>
+            (await service.ReceiveUnitAsync(NewUnitRequest($"U-CNT{suffix}-{key}", productTypeId) with { LocationId = locationId })).Unit!.Id;
+        var onShelf = await Receive("A", fridge.Id);
+        var missing = await Receive("B", fridge.Id);
+        var expired = await Receive("C", fridge.Id);
+        var misplaced = await Receive("D", other.Id);
+        var issued = await Receive("E", fridge.Id);
+        (await context.BloodUnits.FindAsync(expired))!.Status = UnitStatus.Expired;
+        (await context.BloodUnits.FindAsync(issued))!.Status = UnitStatus.Issued;
+        await context.SaveChangesAsync();
+
+        var scans = new[] { $"U-CNTA-{key}", $"u-cnta-{key}", $"U-CNTC-{key}", $"U-CNTD-{key}", $"U-CNTE-{key}", $"U-NOPE-{key}" };
+        var count = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, scans));
+        Assert.True(count.Succeeded, count.Error);
+        var c = count.Value!;
+        Assert.Equal(3, c.Expected);
+        Assert.Equal(new[] { onShelf, expired }, c.Found.Select(l => l.UnitId).ToArray());
+        Assert.True(c.Found.Single(l => l.UnitId == expired).Expired);
+        Assert.Equal(new[] { missing }, c.Missing.Select(l => l.UnitId).ToArray());
+        var elsewhere = Assert.Single(c.Elsewhere);
+        Assert.Equal((misplaced, InventoryCountOutcome.Elsewhere), (elsewhere.UnitId, elsewhere.Outcome));
+        Assert.Contains("Other fridge", elsewhere.RecordedLocation);
+        Assert.Equal((issued, UnitStatus.Issued), (Assert.Single(c.NotOnHand).UnitId, c.NotOnHand[0].Status));
+        Assert.Contains("No unit has the number", Assert.Single(c.Problems).Message);
+        Assert.False(c.Reconciled);
+        Assert.False(c.Recorded);
+        Assert.Equal(other.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == misplaced)).CurrentLocationId);
+        Assert.False(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(InventoryLocation) && a.EntityId == fridge.Id && a.Reason!.StartsWith("Stock count")));
+
+        var finished = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, scans, Finish: true));
+        Assert.True(finished.Value!.Recorded);
+        var audit = await context.AuditEvents.SingleAsync(a => a.EntityType == nameof(InventoryLocation) && a.EntityId == fridge.Id && a.Reason!.StartsWith("Stock count"));
+        Assert.Contains("2 of 3 found, 1 missing, 1 recorded elsewhere, 1 not on hand, 1 unresolved", audit.Reason);
+        Assert.Contains($"U-CNTB-{key}", audit.NewValueJson);
+
+        // A full, clean count is reconciled.
+        var clean = await service.ReconcileCountAsync(new InventoryCountRequest(other.Id, [$"U-CNTD-{key}"]));
+        Assert.True(clean.Value!.Reconciled);
+    }
+
     // TEST-BB-453: the Move units desk moves the scanned unit; a unit already there, an unknown or unreadable scan,
     // a unit that cannot move, and a divided number move nothing.
     [Fact]

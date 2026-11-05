@@ -1813,28 +1813,10 @@ public sealed class InventoryService
     public async Task<InventoryActionResult> TransferByScanAsync(TransferByScanRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var sanitized = ScannerInputSanitizer.Sanitize(request.Scan).Sanitized.Trim();
-        if (sanitized.Length == 0)
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
         {
-            return InventoryActionResult.Fail("Scan the unit number.");
-        }
-
-        var din = Domain.Isbt128.Parsing.DinParser.Parse(sanitized);
-        if (!din.Success && sanitized.StartsWith('='))
-        {
-            return InventoryActionResult.Fail("That scan is not a readable unit number (DIN). Scan the unit number barcode again.");
-        }
-
-        var key = (din.Success ? din.Value!.Din : sanitized.Replace(" ", string.Empty)).ToUpperInvariant();
-        var candidates = (await _repository.ListByUnitNumberOrDinAsync(key, ct)).ToList();
-        if (candidates.Count == 0 && await _repository.GetByComponentIdentityAsync(sanitized, ct) is { } byLabel)
-        {
-            candidates.Add(byLabel);
-        }
-
-        if (candidates.Count == 0)
-        {
-            return InventoryActionResult.Fail($"No unit has the number {sanitized}.");
+            return InventoryActionResult.Fail(error);
         }
 
         var movable = candidates.Where(u => TransferableStatuses.Contains(u.Status)).ToList();
@@ -1857,6 +1839,149 @@ public sealed class InventoryService
 
         return await TransferAsync(unit.Id, request.ToLocationId,
             string.IsNullOrWhiteSpace(request.Reason) ? "Moved by scan" : request.Reason.Trim(), ct);
+    }
+
+    /// <summary>
+    /// The units a scanned unit number (DIN, with or without the scanner's '='), or a component label, names: one, or
+    /// several for a divided DIN. An empty, unreadable, or unknown scan gives the reason instead.
+    /// </summary>
+    private async Task<(string Key, List<BloodUnit> Units, string? Error)> ResolveScanAsync(string? scan, CancellationToken ct)
+    {
+        var sanitized = ScannerInputSanitizer.Sanitize(scan).Sanitized.Trim();
+        if (sanitized.Length == 0)
+        {
+            return (string.Empty, [], "Scan the unit number.");
+        }
+
+        var din = Domain.Isbt128.Parsing.DinParser.Parse(sanitized);
+        if (!din.Success && sanitized.StartsWith('='))
+        {
+            return (sanitized, [], "That scan is not a readable unit number (DIN). Scan the unit number barcode again.");
+        }
+
+        var key = (din.Success ? din.Value!.Din : sanitized.Replace(" ", string.Empty)).ToUpperInvariant();
+        var units = (await _repository.ListByUnitNumberOrDinAsync(key, ct)).ToList();
+        if (units.Count == 0 && await _repository.GetByComponentIdentityAsync(sanitized, ct) is { } byLabel)
+        {
+            units.Add(byLabel);
+        }
+
+        return units.Count == 0 ? (key, units, $"No unit has the number {sanitized}.") : (key, units, null);
+    }
+
+    /// <summary>
+    /// A stock count at one location: what is recorded there (on hand or expired, not yet discarded) against what was
+    /// scanned. Found, Missing (recorded here, not scanned), Elsewhere (scanned here, recorded in another place), Not on
+    /// hand (scanned here but issued, transfused, discarded...), and scans that name no unit or a divided number. Moves
+    /// nothing. With <see cref="InventoryCountRequest.Finish"/> the outcome is recorded in the audit trail.
+    /// </summary>
+    public async Task<OperationResult<InventoryCountDto>> ReconcileCountAsync(InventoryCountRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedTransferAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<InventoryCountDto>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        var location = _locations is null ? null : await _locations.GetByIdAsync(request.LocationId, ct);
+        if (_locations is not null && location is null)
+        {
+            return OperationResult<InventoryCountDto>.Fail("Location not found.");
+        }
+
+        var locationName = location is null ? $"location {request.LocationId}" : $"{location.Code} {location.Name}".Trim();
+        var expected = await _repository.SearchAsync(
+            new InventorySearchCriteria(LocationId: request.LocationId, Statuses: InventoryUnitScopes.OnShelf), ct);
+        var expectedIds = expected.Select(u => u.Id).ToHashSet();
+        var productNames = _productTypes is null
+            ? new Dictionary<long, string>()
+            : (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id, p => p.Name);
+        var locationNames = _locations is null
+            ? new Dictionary<long, string>()
+            : (await _locations.ListAsync(ct)).ToDictionary(l => l.Id, l => $"{l.Code} {l.Name}".Trim());
+        var now = _clock.UtcNow;
+
+        InventoryCountLineDto Line(BloodUnit u, InventoryCountOutcome outcome) => new(
+            u.Id, u.UnitNumber, productNames.GetValueOrDefault(u.ProductTypeId), u.BloodType.ToString(), u.Status, u.ExpiresUtc, outcome,
+            u.CurrentLocationId is long l ? locationNames.GetValueOrDefault(l) ?? $"location {l}" : null)
+        {
+            Expired = u.Status == UnitStatus.Expired || u.ExpiresUtc <= now
+        };
+
+        var foundIds = new HashSet<long>();
+        var elsewhere = new Dictionary<long, InventoryCountLineDto>();
+        var notOnHand = new Dictionary<long, InventoryCountLineDto>();
+        var problems = new List<InventoryCountProblemDto>();
+        foreach (var scan in request.Scans.Where(s => !string.IsNullOrWhiteSpace(s)))
+        {
+            var (key, units, error) = await ResolveScanAsync(scan, ct);
+            if (error is not null)
+            {
+                problems.Add(new InventoryCountProblemDto(scan.Trim(), error));
+                continue;
+            }
+
+            var here = units.Where(u => expectedIds.Contains(u.Id)).ToList();
+            if (units.Count > 1 && here.Count != 1)
+            {
+                problems.Add(new InventoryCountProblemDto(scan.Trim(),
+                    $"{key} matches {units.Count} units ({string.Join(", ", units.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}); check each by its label."));
+                continue;
+            }
+
+            var unit = here.Count == 1 ? here[0] : units[0];
+            if (expectedIds.Contains(unit.Id))
+            {
+                foundIds.Add(unit.Id);
+            }
+            else if (InventoryUnitScopes.OnShelf.Contains(unit.Status))
+            {
+                elsewhere[unit.Id] = Line(unit, InventoryCountOutcome.Elsewhere);
+            }
+            else
+            {
+                notOnHand[unit.Id] = Line(unit, InventoryCountOutcome.NotOnHand);
+            }
+        }
+
+        var dto = new InventoryCountDto(
+            request.LocationId,
+            locationName,
+            expected.Count,
+            request.Scans.Count(s => !string.IsNullOrWhiteSpace(s)),
+            expected.Where(u => foundIds.Contains(u.Id)).OrderBy(u => u.UnitNumber).Select(u => Line(u, InventoryCountOutcome.Found)).ToList(),
+            expected.Where(u => !foundIds.Contains(u.Id)).OrderBy(u => u.UnitNumber).Select(u => Line(u, InventoryCountOutcome.Missing)).ToList(),
+            elsewhere.Values.OrderBy(l => l.UnitNumber).ToList(),
+            notOnHand.Values.OrderBy(l => l.UnitNumber).ToList(),
+            problems,
+            request.Finish);
+
+        if (request.Finish)
+        {
+            _audit.Record(
+                AuditEventType.ProductStatus,
+                nameof(InventoryLocation),
+                request.LocationId,
+                newValue: new
+                {
+                    Document = "Stock count",
+                    Location = locationName,
+                    dto.Expected,
+                    dto.Scanned,
+                    Found = dto.Found.Count,
+                    Missing = dto.Missing.Select(l => l.UnitNumber).ToList(),
+                    Elsewhere = dto.Elsewhere.Select(l => l.UnitNumber).ToList(),
+                    NotOnHand = dto.NotOnHand.Select(l => $"{l.UnitNumber} ({l.Status})").ToList(),
+                    Unresolved = dto.Problems.Select(p => p.Scan).ToList()
+                },
+                reason: dto.Reconciled
+                    ? $"Stock count at {locationName}: all {dto.Expected} units found."
+                    : $"Stock count at {locationName}: {dto.Found.Count} of {dto.Expected} found, {dto.Missing.Count} missing, {dto.Elsewhere.Count} recorded elsewhere, {dto.NotOnHand.Count} not on hand, {dto.Problems.Count} unresolved scans.");
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return OperationResult<InventoryCountDto>.Ok(dto);
     }
 
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)

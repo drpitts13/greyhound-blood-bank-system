@@ -462,5 +462,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-451 | I | `TestWorklistTests.RejectedTube_NamesItsWaitingOrders_AndTheBenchAsksForRecollection` | URS-BB-509 / FRS-BB-587 |
 | TEST-BB-452 | D | `DashboardQueueCatalogTests.PendingTestsNote_NamesRecollections_AndTheRecollectViewKeepsThem` | URS-BB-509 / FRS-BB-588 |
 | TEST-BB-453 | I | `InventoryServiceTests.TransferByScan_MovesTheScannedUnit_AndRefusesWhatItCannotMove` | URS-BB-510 / FRS-BB-589 |
+| TEST-BB-454 | I | `InventoryServiceTests.StockCount_ReconcilesScansAgainstTheLocation_AndFinishingIsAudited` | URS-BB-511 / FRS-BB-590 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

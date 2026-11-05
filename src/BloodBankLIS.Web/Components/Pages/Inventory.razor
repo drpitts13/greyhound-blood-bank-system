@@ -22,6 +22,7 @@
         @if (Session.Has(PermissionCodes.InventoryTransfer))
         {
             <a class="btn btn-secondary" href="/inventory/move" data-move-units>Move units</a>
+            <a class="btn btn-secondary" href="/inventory/count" data-stock-count>Stock count</a>
         }
         @if (Session.Has(PermissionCodes.InventoryDiscard))
         {
