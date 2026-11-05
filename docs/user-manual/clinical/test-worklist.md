@@ -20,7 +20,7 @@ The specimen side lists collected specimens waiting to be received and received 
 
 Open the row, enter the values the test definition asks for, and save. Entry and verification are separate steps. You can enter a result you cannot verify. Another qualified person verifies it. A row whose result is already entered and waiting says **Verify**, whether a colleague, an instrument, or the interface entered it; open it and verify the value without re-keying it. The prompt says where the value came from. **To verify** above the list shows only the rows you can verify now; your own ABO/Rh entries are left out because someone else verifies them. **All** shows the whole list again.
 
-**Scan a tube to work its tests** shows only the tests on the tube in your hand and opens the first one that can take a result; save it and the next test on the same tube opens. **Show all tubes** clears it. On the Specimens tab, accepting a tube says how many tests are waiting on it; **Start testing** takes you straight to them.
+**Scan a tube to work its tests** (its label barcode or its accession number) shows only the tests on the tube in your hand and opens the first one that can take a result; save it and the next test on the same tube opens. **Show all tubes** clears it. On the Specimens tab, accepting a tube says how many tests are waiting on it; **Start testing** takes you straight to them.
 
 For patient ABO and Rh, the person who entered the result cannot verify it; for them the row says **Review**.
 

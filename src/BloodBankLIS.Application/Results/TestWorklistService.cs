@@ -316,7 +316,8 @@ public sealed class TestWorklistService
                 aboRhDeltaDetail,
                 line.Comment,
                 blockAboSelfVerify,
-                VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow)));
+                VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow),
+                specimen?.Barcode));
         }
 
         // Results that stop being verifiable when their specimen expires come right after rush work.

@@ -70,4 +70,23 @@ public class TestWorkItemBenchActionTests
         Assert.Empty(TestWorklistView.ForTube(items, "ACC9"));
         Assert.Null(TestWorklistView.FirstToWork(TestWorklistView.ForTube(items, "ACC9")));
     }
+
+    // TEST-BB-433: scanning the tube's label barcode finds its lines too, and the bench names the tube by accession.
+    [Fact]
+    public void ForTube_MatchesTheLabelBarcode_AndNamesTheTubeByItsAccession()
+    {
+        var items = new[]
+        {
+            Item("ABORH", 1, null, null, null) with { SpecimenBarcode = "LBL-7781" },
+            Item("ABSC", 2, null, null, null) with { SpecimenBarcode = "LBL-7781" },
+            Item("DAT", 3, null, null, null) with { AccessionNumber = "ACC2", SpecimenBarcode = null }
+        };
+
+        Assert.Equal([1L, 2L], TestWorklistView.ForTube(items, " lbl-7781\r").Select(i => i.CurrentResultId!.Value));
+        Assert.Equal("ACC1", TestWorklistView.TubeLabel(items, "lbl-7781"));
+        // A line without a barcode is still found by its accession; an unknown label names itself.
+        Assert.Equal([3L], TestWorklistView.ForTube(items, "acc2").Select(i => i.CurrentResultId!.Value));
+        Assert.Empty(TestWorklistView.ForTube(items, "LBL-0000"));
+        Assert.Equal("LBL-0000", TestWorklistView.TubeLabel(items, "lbl-0000"));
+    }
 }

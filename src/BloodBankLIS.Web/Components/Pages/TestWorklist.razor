@@ -49,12 +49,12 @@
         <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-bottom:.5rem;">
             <div class="field" style="max-width:20rem;margin:0;">
                 <label>Scan a tube to work its tests</label>
-                <input @bind="_tubeScan" @bind:event="oninput" @onkeydown="OnTubeScanKey" placeholder="Scan or type the accession number" autocomplete="off" data-tube-scan />
+                <input @bind="_tubeScan" @bind:event="oninput" @onkeydown="OnTubeScanKey" placeholder="Scan the label or type the accession" autocomplete="off" data-tube-scan />
             </div>
             @if (_tube.Length > 0)
             {
                 var onTube = TestWorklistView.ForTube(_items, _tube).Count;
-                <span class="badge badge-blue" data-tube-filter>Tube <span class="mono">@_tube</span>: @onTube @(onTube == 1 ? "test" : "tests")</span>
+                <span class="badge badge-blue" data-tube-filter>Tube <span class="mono">@TestWorklistView.TubeLabel(_items, _tube)</span>: @onTube @(onTube == 1 ? "test" : "tests")</span>
                 <button type="button" class="btn btn-ghost btn-sm" @onclick="ClearTube">Show all tubes</button>
             }
         </div>
@@ -630,7 +630,7 @@
         _expandedLineId = first?.OrderLineId;
         _fb = first is null
             ? null
-            : Feedback.Succeed($"Tube {_tube}: {ShownItems.Count} {(ShownItems.Count == 1 ? "test" : "tests")}. Opened {first.TestName}.");
+            : Feedback.Succeed($"Tube {TestWorklistView.TubeLabel(_items, _tube)}: {ShownItems.Count} {(ShownItems.Count == 1 ? "test" : "tests")}. Opened {first.TestName}.");
     }
 
     private void ClearTube()

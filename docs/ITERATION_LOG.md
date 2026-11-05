@@ -13124,3 +13124,42 @@ Commercial bench systems start testing from the tube's barcode.
 ### Next ranked residual
 
 Match a tube's label barcode as well as its accession on the bench (needs the barcode in the worklist row), or the chart's single-patient downtime print.
+
+## Iteration 397 — The bench tube scan reads the label too (2026-11-05)
+
+### Capability matrix rescan (bench, live)
+
+The Cycle 396 tube scan matched only the accession number. Demo tubes carry a printed label barcode (for example SPC-ACC0017), and receipt by scan already accepts either. Scanning the label at the bench therefore found nothing, so the tech had to type the accession (question 4).
+
+The run check also found an app-wide display bug. Bootstrap's `.btn:hover` text color outranks the app's button variants, so a hovered secondary button (**To verify**, **Refresh**, tabs) showed white text on a light background.
+
+### Design
+
+- **`TestWorkItemDto.SpecimenBarcode`:** filled from the specimen.
+- **`TestWorklistView.ForTube`:** uses the receipt scan rule's cleaning (scanner noise removed) and match (accession or label).
+- **`TubeLabel`:** names the tube by its accession after a label scan.
+- **Scan field placeholder:** "Scan the label or type the accession".
+- **`app.css`:** each button variant keeps its own text color when hovered, pressed, or focused.
+- No schema change.
+
+### Requirements
+
+- FRS-BB-572 (under URS-BB-503). Help: test worklist.
+
+### Tests
+
+- TEST-BB-433:
+  - the label scan finds both lines of the tube (case and stray carriage return ignored) and the tube is named ACC1
+  - a line without a barcode is still found by accession
+  - an unknown label finds nothing and names itself
+  - integration: a worklist row carries the specimen's barcode and a lower-case label scan finds it
+- Full suite: 3,714 passed, 0 failed.
+- Run check (development API and web):
+  - the API rows carry SPC-… labels
+  - scanning "spc-acc0017" showed "Tube ACC0017: 2 tests" with ABO/Rh opened
+  - after the CSS fix, a hovered To verify button reads dark text (rgb 28,36,51) instead of white
+  - no server errors; nothing saved
+
+### Next ranked residual
+
+The chart's single-patient downtime print, or a role-based home for the specimen processor.

@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Results;
 
@@ -46,7 +47,9 @@ public sealed record TestWorkItemDto(
     string? AboRhDeltaDetail = null,
     string? Comment = null,
     bool BlockAboSelfVerify = true,
-    string? VerificationDeadlineNotice = null)
+    string? VerificationDeadlineNotice = null,
+    // The tube's label barcode, so a bench scan of the label finds the line as well as its accession.
+    string? SpecimenBarcode = null)
 {
     public bool HasPostedInterfaceOrInstrumentValue =>
         CurrentResultStatus is ResultStatus.PendingVerification
@@ -129,16 +132,26 @@ public static class TestWorklistView
     public static IReadOnlyList<TestWorkItemDto> ToVerify(IEnumerable<TestWorkItemDto> items, string? userName) =>
         items.Where(i => i.AwaitsVerification && i.BenchActionLabelFor(userName) == "Verify").ToList();
 
-    /// <summary>The tube's accession as scanned or typed: trimmed, upper case. Empty for blank input.</summary>
-    public static string NormalizeTube(string? scan) => (scan ?? string.Empty).Trim().ToUpperInvariant();
+    /// <summary>The tube as scanned or typed, cleaned the same way as a receipt scan (scanner noise removed, trimmed, upper case).</summary>
+    public static string NormalizeTube(string? scan) => SpecimenReceiptScanRule.Normalize(scan);
 
-    /// <summary>Lines on the tube with this accession number (exact, ignoring case and spaces). Order is kept.</summary>
-    public static IReadOnlyList<TestWorkItemDto> ForTube(IEnumerable<TestWorkItemDto> items, string? accession)
+    /// <summary>
+    /// Lines on the tube whose accession number or label barcode is the scan (exact, ignoring case and spaces), the same
+    /// match as receiving a tube by scan. Order is kept.
+    /// </summary>
+    public static IReadOnlyList<TestWorkItemDto> ForTube(IEnumerable<TestWorkItemDto> items, string? scan)
     {
-        var tube = NormalizeTube(accession);
+        var tube = NormalizeTube(scan);
         return tube.Length == 0
             ? items.ToList()
-            : items.Where(i => string.Equals(i.AccessionNumber?.Trim(), tube, StringComparison.OrdinalIgnoreCase)).ToList();
+            : items.Where(i => SpecimenReceiptScanRule.Matches(tube, i.AccessionNumber ?? string.Empty, i.SpecimenBarcode)).ToList();
+    }
+
+    /// <summary>How the scanned tube is named on the bench: its accession when a line matched (a label scan), else the scan.</summary>
+    public static string TubeLabel(IEnumerable<TestWorkItemDto> items, string? scan)
+    {
+        var tube = NormalizeTube(scan);
+        return ForTube(items, tube).Select(i => i.AccessionNumber).FirstOrDefault(a => !string.IsNullOrWhiteSpace(a)) ?? tube;
     }
 
     /// <summary>The first line that can take a result now (not blocked, specimen linked), or null.</summary>

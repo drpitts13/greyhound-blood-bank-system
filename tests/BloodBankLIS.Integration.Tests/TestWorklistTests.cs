@@ -711,6 +711,25 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("to verify", BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).QueueSummary);
     }
 
+    // TEST-BB-433: worklist rows carry the tube's label barcode, so a label scan on the bench finds them.
+    [Fact]
+    public async Task WorklistRow_CarriesTheLabelBarcode_AndALabelScanFindsIt()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var label = $"LBL-{seed.line.Id}";
+        seed.specimen!.Barcode = label;
+        await c.SaveChangesAsync();
+
+        var rows = await Worklist(c).ListPendingGlobalAsync();
+        var row = Assert.Single(rows, r => r.OrderLineId == seed.line.Id);
+        Assert.Equal(label, row.SpecimenBarcode);
+        var onTube = TestWorklistView.ForTube(rows, label.ToLowerInvariant());
+        Assert.Contains(onTube, r => r.OrderLineId == seed.line.Id);
+        Assert.All(onTube, r => Assert.Equal(seed.specimen.Id, r.SpecimenId));
+        Assert.Equal(seed.specimen.AccessionNumber, TestWorklistView.TubeLabel(rows, label));
+    }
+
     // TEST-BB-431: after downtime, results entered from paper and waiting for verification are counted on the snapshot.
     [Fact]
     public async Task DowntimeSnapshot_CountsResultsToVerify_AndThoseDueBeforeSpecimenExpiry()

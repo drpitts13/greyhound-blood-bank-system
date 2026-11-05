@@ -319,6 +319,12 @@ table.bb tr.row-actions:not(:has(.btn, .badge, .muted)) { display: none; }
 .btn-ghost { background: transparent; color: var(--bb-accent); padding: .3rem .5rem; }
 .btn-danger { background: #fff; border-color: #e7b9c1; color: var(--bb-primary); }
 .btn-danger:hover:not(:disabled) { background: #fdf2f4; }
+/* Bootstrap's .btn:hover and :active set their own text color (white for secondary), which outranks the variants above:
+   keep each variant's text color while hovered, pressed, or focused. */
+.btn-primary:hover, .btn-primary:active, .btn-primary:focus-visible { color: #fff; }
+.btn-secondary:hover, .btn-secondary:active, .btn-secondary:focus-visible { color: var(--bb-ink); border-color: var(--bb-border); }
+.btn-ghost:hover, .btn-ghost:active, .btn-ghost:focus-visible { color: var(--bb-accent); }
+.btn-danger:hover, .btn-danger:active, .btn-danger:focus-visible { color: var(--bb-primary); border-color: #e7b9c1; }
 .btn-sm { padding: .3rem .6rem; font-size: .8rem; }
 
 /* Badges */
