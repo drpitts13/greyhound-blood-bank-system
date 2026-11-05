@@ -91,6 +91,8 @@ The transfusion desk records the bedside checks and the transfusion itself. The 
 
 A badge warns when the cooler holds units for more than one patient. Scanning changes nothing. **Finish check** records the outcome against each issue in the cooler, and Coolers in transit shows the latest check (All packed or Differences). Units already received on the ward are not expected in the cooler.
 
+On **In transit**, each unit in a cooler shows **Cooler checked**, **Cooler differences**, or **Cooler not checked**; the badge opens the check. **Ward receipt** names the cooler with its check, for example "Cooler 3: checked 2026-11-05 09:30, all units packed" or "not checked before it left".
+
 ## Document the transfusion
 
 **Issued units** lists outstanding issues so you can document or return them without looking up an internal issue number. **Start / document** (or **Complete**, once started) opens the transfusion desk and records the identifiers checked at the bedside, the start, and the disposition your procedure captures. Dual identification is required here the same way it is required at issue. Read both identifiers from the patient's wristband at the bedside. The fields start empty unless your facility has turned on pre-fill, and the same match line shows under each.

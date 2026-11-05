@@ -13922,3 +13922,40 @@ Packing was checked by eye against memory or the issue screen (questions 2, 4).
 ### Next ranked residual
 
 Show the latest cooler check on the In transit board and at ward receipt.
+
+## Iteration 416 — Cooler check on In transit and ward receipt (2026-11-05)
+
+### Capability matrix rescan (issue, transport)
+
+The cooler check (Cycle 415) was recorded only in the audit trail and on its own page. The In transit board and the person receiving a cooler could not see whether it had been checked before it left (questions 2, 5).
+
+### Design
+
+- **In transit:** loads the coolers in transit with the rows, then marks each unit with a cooler id **Cooler checked**, **Cooler differences**, or **Cooler not checked**. The badge links to the check.
+- **Ward receipt:** names the cooler with its check (`ReadyToIssueFormCue.CoolerCheckNotice`).
+- **Without *issue.create*:** the check state is not read, so only the cooler id is shown; nothing is claimed.
+- An id like "Cooler M2" is no longer shown as "Cooler Cooler M2".
+- No schema or API change.
+
+### Requirements
+
+- FRS-BB-593 (under URS-BB-512). Help: issuing.
+
+### Tests
+
+- TEST-BB-457:
+  - checked with all units packed
+  - checked with differences
+  - not checked
+  - unknown state
+  - the "Cooler" prefix not doubled
+  - no cooler
+- Full suite: 3,740 passed, 0 failed.
+- Run check (development API and web):
+  - In transit marks the seven cooler rows (CLR-TRAUMA-1, Cooler M2, Cooler 1) "Cooler not checked", each linking to its check
+  - Receive on CLR-TRAUMA-1 shows "Cooler CLR-TRAUMA-1: not checked before it left" (nothing received)
+  - no server errors
+
+### Next ranked residual
+
+Rescan inventory and operations queues for the next workflow gap (candidates: a demo cooler check, shift handoff of coolers still out).

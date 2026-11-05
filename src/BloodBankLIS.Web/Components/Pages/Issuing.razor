@@ -512,7 +512,10 @@
                                 }
                                 <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>
+                                @IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)
+                                @CoolerCheckBadge(row.CoolerId)
+                            </td>
                             <td>@(row.IssuedToLocation ?? "—")<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td class="nowrap">
                                 @row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")
@@ -1989,7 +1992,9 @@
         _wardSpecimenNotice = ReadyToIssueFormCue.SpecimenAccessionNotice(specimenAccession);
         _wardCrossmatchNotice = ReadyToIssueFormCue.CrossmatchWorklistNotice(latestCrossmatchResult, crossmatchExpiresUtc);
         _wardIssuedToNotice = ReadyToIssueFormCue.IssuedToNotice(issuedTo);
-        _wardCoolerNotice = ReadyToIssueFormCue.CoolerNotice(coolerId);
+        var coolerCheck = CoolerCheckFor(coolerId);
+        _wardCoolerNotice = ReadyToIssueFormCue.CoolerCheckNotice(
+            coolerId, _openCoolers is not null, coolerCheck?.LastCheckedUtc?.ToLocalTime(), coolerCheck?.LastCheckReady);
         _wardLocationNotice = ReadyToIssueFormCue.IssuedToLocationNotice(issuedToLocation);
         _wardIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(issuedBy);
         _wardSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(secondVerifier);
@@ -2069,6 +2074,34 @@
         (_txPatientIdentifier1, _txPatientIdentifier2) = PatientIdentifierEntryRule.Prefill(
             _prefillIdentifiers, row.MedicalRecordNumber, DateOnly.TryParse(row.DateOfBirth, out var dob) ? dob : null);
     }
+
+    // Coolers in transit with their latest check before dispatch; null when not loaded (no issue.create), so nothing is claimed.
+    private List<OpenCoolerDto>? _openCoolers;
+
+    private OpenCoolerDto? CoolerCheckFor(string? coolerId) =>
+        string.IsNullOrWhiteSpace(coolerId)
+            ? null
+            : _openCoolers?.FirstOrDefault(c => string.Equals(c.CoolerId.Trim(), coolerId.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private RenderFragment CoolerCheckBadge(string? coolerId) => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(coolerId) || _openCoolers is null)
+        {
+            return;
+        }
+
+        var check = CoolerCheckFor(coolerId);
+        var (css, text) = check?.LastCheckedUtc is null
+            ? ("badge-gray", "Cooler not checked")
+            : check.LastCheckReady == true ? ("badge-green", "Cooler checked") : ("badge-amber", "Cooler differences");
+        builder.OpenElement(0, "a");
+        builder.AddAttribute(1, "class", $"badge {css}");
+        builder.AddAttribute(2, "href", $"/issuing/cooler-check?cooler={Uri.EscapeDataString(coolerId.Trim())}");
+        builder.AddAttribute(3, "title", check?.LastCheckedUtc is DateTime at ? $"Checked {at.ToLocalTime():yyyy-MM-dd HH:mm}" : "Open the cooler check");
+        builder.AddAttribute(4, "data-cooler-check-badge", true);
+        builder.AddContent(5, text);
+        builder.CloseElement();
+    };
 
     private static RenderFragment AntibodyCell(bool hasHistory, string? summary) => builder =>
     {
@@ -2178,6 +2211,8 @@
             if (retro.Succeeded) _retroItems = retro.Value ?? new();
             var transit = await Api.GetInTransitIssuesAsync();
             if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
+            var coolers = await Api.GetOpenCoolersAsync();
+            _openCoolers = coolers.Succeeded ? coolers.Value ?? new() : null;
             var secondAbo = await Api.GetPendingSecondAboAsync();
             if (secondAbo.Succeeded) _secondAboItems = secondAbo.Value ?? new();
             var ready = await Api.GetReadyToIssueAllocationsAsync();

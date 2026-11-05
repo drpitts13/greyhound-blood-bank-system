@@ -99,7 +99,35 @@ public static class ReadyToIssueFormCue
     }
 
     public static string? CoolerNotice(string? coolerId) =>
-        string.IsNullOrWhiteSpace(coolerId) ? null : $"Cooler {coolerId.Trim()}";
+        string.IsNullOrWhiteSpace(coolerId) ? null : CoolerName(coolerId);
+
+    // "Cooler 3" stays as it is; "CLR-1" reads "Cooler CLR-1".
+    private static string CoolerName(string coolerId) =>
+        coolerId.Trim().StartsWith("cooler", StringComparison.OrdinalIgnoreCase) ? coolerId.Trim() : $"Cooler {coolerId.Trim()}";
+
+    /// <summary>
+    /// The cooler with its latest check before dispatch, for the person receiving it: checked with all units packed,
+    /// checked with differences, or not checked. No cooler, no notice; unknown check state falls back to the cooler id.
+    /// </summary>
+    public static string? CoolerCheckNotice(string? coolerId, bool checkKnown, DateTime? checkedLocal, bool? allPacked)
+    {
+        if (string.IsNullOrWhiteSpace(coolerId))
+        {
+            return null;
+        }
+
+        var cooler = CoolerName(coolerId);
+        if (!checkKnown)
+        {
+            return cooler;
+        }
+
+        return checkedLocal is not DateTime at
+            ? $"{cooler}: not checked before it left"
+            : allPacked == true
+                ? $"{cooler}: checked {at:yyyy-MM-dd HH:mm}, all units packed"
+                : $"{cooler}: checked {at:yyyy-MM-dd HH:mm} with differences; compare each unit with its issue";
+    }
 
     public static string? IssuedByNotice(string? issuedBy) =>
         string.IsNullOrWhiteSpace(issuedBy) ? null : $"Issued by {issuedBy.Trim()}";
