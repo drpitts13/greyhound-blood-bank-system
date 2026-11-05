@@ -13440,3 +13440,40 @@ With the Cycle 403 demo patient visible, the patient list, lookup, and pickers r
 ### Next ranked residual
 
 Keyboard shortcuts on the bench (next or previous test), or an informational-note banner on the Compatibility page for the chosen patient.
+
+## Iteration 405 — Compatibility reserve checks special requirements (2026-11-05)
+
+### Capability matrix rescan (Compatibility page)
+
+On the Compatibility page, the reserve section showed nothing about the patient's special requirements. Its Reserve (`CompatibilityService.AllocateUnitAsync`) and the preview did not check them either. The chart's Allocate panel and issue do (Cycle 373).
+
+A group A red cell could therefore be reserved here for a "Group O red cells only" patient, or a non-irradiated unit for an irradiated-only patient. The problem surfaced only as a hard stop at issue, after the unit had been held and crossmatched (questions 5, 6). No unit could reach the patient, since issue still refused it.
+
+### Design
+
+- **`CompatibilityService`:** takes the special requirement, catalog, product attribute, and unit test repositories (optional). The new `UnmetSpecialRequirementsAsync` uses `SpecialRequirementLoader` and `SpecialTransfusionRequirementRule.UnmetUnitRequirements`, the same as the chart allocation and issue.
+- **Reserve and preview:** each unmet requirement is a hard stop `SPECIAL-REQ`; nothing is reserved.
+- **`PatientRequirementsBanner`:** a shared component on the crossmatch and reserve sections:
+  - requirements in effect as a warning naming them ("refused at reserve and at issue")
+  - informational notes as information
+  - cleared on a change of patient
+- No schema change. Emergency issue keeps its own override path.
+
+### Requirements
+
+- URS-BB-506, FRS-BB-579. Help: compatibility.
+
+### Tests
+
+- TEST-BB-441:
+  - for "group O red cells only", the preview shows the stop and Reserve refuses a group A red cell with "must be group O", leaving no reservation
+  - group A plasma is reserved for the same red-cell requirement
+- Full suite: 3,720 passed, 0 failed.
+- Run check (development API and web, Compatibility):
+  - choosing MRN0023 shows "Special requirements: Irradiated red cells, CMV-negative red cells. A unit that does not meet them is refused at reserve and at issue." and the physician note
+  - choosing Kline (MRN0010) clears both
+  - nothing reserved; no server errors
+
+### Next ranked residual
+
+Filter the Compatibility reserve unit picker to units that meet the patient's requirements (as the chart's compatible-unit list does), or keyboard shortcuts on the bench.

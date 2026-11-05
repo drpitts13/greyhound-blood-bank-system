@@ -2737,6 +2737,50 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await c.SaveChangesAsync();
     }
 
+    // TEST-BB-441: reserving from Compatibility applies the same special requirement check as the chart and issue.
+    [Fact]
+    public async Task CompatibilityReserve_RefusesAUnitThatMissesARequirement_ButReservesOneThatMeetsIt()
+    {
+        var rbc = await SeedAsync("CPR-RBC", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await RequireAsync(rbc.PatientId, "CPR-T1", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+
+        await using (var c = _factory.Create())
+        {
+            var preview = await CompatibilityWithRequirements(c).EvaluateCompatibilityAsync(new EvaluateCompatibilityRequest(rbc.UnitId, rbc.PatientId));
+            Assert.Contains(preview.Value!.HardStops, r => r.Code == SpecialTransfusionRequirementRule.Code);
+
+            var refused = await CompatibilityWithRequirements(c).AllocateUnitAsync(new AllocateUnitRequest(rbc.UnitId, rbc.PatientId, rbc.SpecimenId));
+            Assert.False(refused.Succeeded);
+            var stop = Assert.Single(refused.Evaluation!.HardStops, r => r.Code == SpecialTransfusionRequirementRule.Code);
+            Assert.Contains("must be group O", stop.Message);
+            Assert.False(await c.Allocations.AnyAsync(a => a.BloodProductId == rbc.UnitId && a.Status == AllocationStatus.Reserved));
+        }
+
+        // The red-cell typing does not apply to plasma: group A plasma is reserved for the same requirement.
+        var plasma = await SeedAsync("CPR-FFP", patientAbo: AboGroup.A, unitAbo: AboGroup.A,
+            requiresCrossmatch: false, componentClass: ComponentClass.Plasma);
+        await RequireAsync(plasma.PatientId, "CPR-T2", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+        await using var ctx = _factory.Create();
+        var reserved = await CompatibilityWithRequirements(ctx).AllocateUnitAsync(new AllocateUnitRequest(plasma.UnitId, plasma.PatientId, plasma.SpecimenId));
+        Assert.True(reserved.Succeeded, reserved.Error);
+    }
+
+    private CompatibilityService CompatibilityWithRequirements(BloodBankDbContext c) =>
+        new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c),
+            specialRequirements: new EfRepository<SpecialTransfusionRequirement>(c),
+            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c),
+            productAttributeAssignments: new EfRepository<ProductAttributeAssignment>(c),
+            productAttributes: new EfRepository<ProductAttribute>(c),
+            unitSpecialTests: new EfRepository<BloodComponentSpecialTest>(c));
+
     // TEST-BB-412: a red-cell typing stops a group A red cell but not group A plasma for the same patient.
     [Fact]
     public async Task Issue_GroupORedCellsOnly_RefusesAGroupARedCell_ButNotGroupAPlasma()

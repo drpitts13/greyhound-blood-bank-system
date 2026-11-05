@@ -449,5 +449,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-438 | D | `PatientPickerLabelTests.PickerLabel_ShowsTypeAndAlerts_AndMarksMergedRecords` | URS-BB-505 / FRS-BB-577 |
 | TEST-BB-439 | I | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` (special-requirements demo patient: MRN0023 with IRRAD-RBC, CMVNEG-RBC, and CALL-TSMD in effect, typed O+ twice) | SRS-BB-457 |
 | TEST-BB-440 | D / I | `PatientListFlagsTests.PatientList_ShowsCurrentType_ActiveAntibodies_AndRequirementsInEffect`; `UniversalLookupTests.PatientHit_CarriesTypeAndAlerts_FromTheSurvivingChart`; `PatientPickerLabelTests.PickerLabel_ShowsTypeAndAlerts_AndMarksMergedRecords` | URS-BB-505 / FRS-BB-578 |
+| TEST-BB-441 | I | `Phase4IssuingTests.CompatibilityReserve_RefusesAUnitThatMissesARequirement_ButReservesOneThatMeetsIt` | URS-BB-506 / FRS-BB-579 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

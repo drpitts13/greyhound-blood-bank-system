@@ -573,6 +573,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-505 / FRS-BB-576 | Top-bar lookup patient rows show type and alerts | `UniversalLookupService.PatientHitAsync` | TEST-BB-437 | I | |
 | URS-BB-505 / FRS-BB-577 | Patient pickers show type and alerts; merged records marked | `PatientDto.PickerLabel` | TEST-BB-438 | D | |
 | URS-BB-505 / FRS-BB-578 | Enforced requirements counted apart from informational notes | `PatientBloodBankFlags.NotesInEffect` | TEST-BB-440 | D / I | |
+| URS-BB-506 / FRS-BB-579 | Compatibility reserve checks special requirements; banner for the chosen patient | `CompatibilityService.AllocateUnitAsync` | TEST-BB-441 | I | Banner: run check |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

@@ -36,6 +36,7 @@
         else
         {
             <Outcome Value="_xmFb" RequiresSignature="false" />
+            <PatientRequirementsBanner PatientId="_xm.PatientId" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label>
                     <UnitPickerComboBox Scope="UnitPickerScope.Crossmatch" @bind-Value="_xm.BloodUnitId" />
@@ -147,6 +148,7 @@
                         Placeholder="Search accession" />
                 </div>
             </div>
+            <PatientRequirementsBanner PatientId="_alloc.PatientId" />
             @if (_showAllocOverride)
             {
                 <div class="alert alert-warning" style="margin-top:.75rem;">This unit is not antigen-negative for the patient's antibody. Reserve requires an authorized override.</div>

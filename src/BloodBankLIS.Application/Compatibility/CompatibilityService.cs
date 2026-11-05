@@ -46,6 +46,11 @@ public sealed class CompatibilityService
     private readonly IRepository<Deviation>? _deviations;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
+    private readonly IRepository<SpecialTransfusionRequirement>? _specialRequirements;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<ProductAttributeAssignment>? _productAttributeAssignments;
+    private readonly IRepository<ProductAttribute>? _productAttributes;
+    private readonly IRepository<BloodComponentSpecialTest>? _unitSpecialTests;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -72,8 +77,18 @@ public sealed class CompatibilityService
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
         IRepository<ProductRhCompatibility>? rhCompatibilities = null,
         AlertService? alerts = null,
-        IRepository<Deviation>? deviations = null)
+        IRepository<Deviation>? deviations = null,
+        IRepository<SpecialTransfusionRequirement>? specialRequirements = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        IRepository<ProductAttributeAssignment>? productAttributeAssignments = null,
+        IRepository<ProductAttribute>? productAttributes = null,
+        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null)
     {
+        _specialRequirements = specialRequirements;
+        _requirementDefinitions = requirementDefinitions;
+        _productAttributeAssignments = productAttributeAssignments;
+        _productAttributes = productAttributes;
+        _unitSpecialTests = unitSpecialTests;
         _inventory = inventory;
         _crossmatches = crossmatches;
         _allocations = allocations;
@@ -468,6 +483,11 @@ public sealed class CompatibilityService
                 bloodAttrs.PatientAntigens,
                 bloodAttrs.UnitSignificantAntibodies,
                 bloodAttrs.UnitAntigens));
+
+            // The same check as the chart's Allocate panel and issue: a unit that cannot be issued to this patient
+            // is not reserved for them either.
+            results.AddRange((await UnmetSpecialRequirementsAsync(request.PatientId, unit, productType, bloodAttrs.UnitAntigens, ct))
+                .Select(message => RuleResult.HardStop(SpecialTransfusionRequirementRule.Code, message)));
         }
 
         await AppendAllocateOpenWorkupAsync(results, request.PatientId, ct);
@@ -540,6 +560,11 @@ public sealed class CompatibilityService
                 bloodAttrs.PatientAntigens,
                 bloodAttrs.UnitSignificantAntibodies,
                 bloodAttrs.UnitAntigens));
+
+            // The same check as the chart's Allocate panel and issue: a unit that cannot be issued to this patient
+            // is not reserved for them either.
+            results.AddRange((await UnmetSpecialRequirementsAsync(request.PatientId, unit, productType, bloodAttrs.UnitAntigens, ct))
+                .Select(message => RuleResult.HardStop(SpecialTransfusionRequirementRule.Code, message)));
         }
 
         await AppendAllocateOpenWorkupAsync(results, request.PatientId, ct);
@@ -632,6 +657,30 @@ public sealed class CompatibilityService
         await _unitOfWork.SaveChangesAsync(ct);
 
         return EvaluationResult<Allocation>.Ok(allocation, evaluation);
+    }
+
+    private async Task<IReadOnlyList<string>> UnmetSpecialRequirementsAsync(
+        long patientId,
+        BloodUnit unit,
+        ProductType productType,
+        IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
+        CancellationToken ct)
+    {
+        var requirements = await SpecialRequirementLoader.ForPatientAsync(_specialRequirements, _requirementDefinitions, patientId, ct);
+        if (requirements.Count == 0)
+        {
+            return [];
+        }
+
+        var attributesByProduct = await SpecialRequirementLoader.ProductAttributeCodesByProductTypeAsync(
+            _productAttributeAssignments, _productAttributes, ct);
+        var negativeTests = await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(_unitSpecialTests, [unit.Id], ct);
+        return SpecialTransfusionRequirementRule.UnmetUnitRequirements(
+            requirements,
+            attributesByProduct.GetValueOrDefault(unit.ProductTypeId) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            unitAntigens,
+            _clock.UtcNow,
+            SpecialRequirementLoader.Typing(unit, productType.ComponentClass, negativeTests));
     }
 
     public async Task<EvaluationResult<Allocation>> ReleaseAllocationAsync(long allocationId, string reason, CancellationToken ct = default)

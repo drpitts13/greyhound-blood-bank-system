@@ -1,0 +1,57 @@
+@inject BloodBankApiClient Api
+
+@* The chosen patient's special requirements where units are picked for them: enforced ones as a warning, notes as
+   information. The server still decides; this only puts the requirements in front of the user before they choose. *@
+@if (_enforced.Count > 0)
+{
+    <div class="alert alert-warning" style="margin-top:.75rem;" data-requirements-enforced>
+        <strong>Special requirements:</strong> @string.Join(", ", _enforced.Select(Label)).
+        A unit that does not meet them is refused at reserve and at issue.
+    </div>
+}
+@foreach (var note in _notes)
+{
+    <div class="alert alert-info" style="margin-top:.75rem;" data-requirements-note>
+        <strong>@(note.Name ?? note.Code):</strong> @(note.Instruction ?? note.Reason)
+    </div>
+}
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+
+    private long _loadedFor;
+    private List<SpecialRequirementDto> _enforced = [];
+    private List<SpecialRequirementDto> _notes = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PatientId == _loadedFor)
+        {
+            return;
+        }
+
+        _loadedFor = PatientId;
+        _enforced = [];
+        _notes = [];
+        if (PatientId <= 0)
+        {
+            return;
+        }
+
+        var result = await Api.GetSpecialRequirementsAsync(PatientId);
+        if (PatientId != _loadedFor || !result.Succeeded || result.Value is null)
+        {
+            return;
+        }
+
+        var active = result.Value.Where(r => r.IsClinicallyActive).ToList();
+        _enforced = active.Where(r => !r.IsInformational).ToList();
+        _notes = active.Where(r => r.IsInformational).ToList();
+    }
+
+    private static string Label(SpecialRequirementDto r)
+    {
+        var name = r.Name ?? r.Code ?? r.RequirementType.ToString();
+        return string.IsNullOrWhiteSpace(r.AntigenCode) ? name : $"{name} ({r.AntigenCode})";
+    }
+}

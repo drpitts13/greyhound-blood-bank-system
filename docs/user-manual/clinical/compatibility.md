@@ -33,6 +33,8 @@ If you opened the screen and someone else posted an antibody before you saved, t
 
 After a compatible crossmatch, allocate the unit to the patient's product order. Allocation warns when the unit is not antigen-negative for a requirement the patient has, and when a red cell has not been retyped. Those warnings are there so you pick a different unit before issue, not so you can click past them without reading them.
 
+When you choose the patient, their special requirements appear above the form: requirements in effect as a warning, informational notes below it. A unit that does not meet a requirement (for example a group A red cell for "Group O red cells only", or a unit that is not irradiated) is refused when you reserve it, the same as on the chart and at issue. Choose a unit that meets them.
+
 An emergency or massive-transfusion issue that still needs a retrospective crossmatch can open this screen with the patient and unit already filled in. Record the crossmatch against the specimen you actually tested. The retrospective queue on the issue desk clears only when that crossmatch is filed. An incompatible result shows a warning on this screen, raises a critical alert, and opens a critical deviation, because the unit may already be at the bedside or transfused.
 
 Crossmatch from the chart uses the same rules in a dialog. See [Products on the chart](patient-products).
