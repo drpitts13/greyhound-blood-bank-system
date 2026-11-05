@@ -556,6 +556,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-494 / FRS-BB-553 | Several units issued to one patient without re-entering the patient and destination | `IssueRun`; `Issuing.razor` | TEST-BB-415 | D | |
 | URS-BB-494 / FRS-BB-554 | A cooler received at the ward unit after unit, with the next unit offered | `IssueRun.NextToReceive`; `Issuing.razor` | TEST-BB-416 | D | |
 | URS-BB-495 / FRS-BB-555 | Dispense and return sent to the EHR (BPS^O29) | `Hl7BpsBuilder`; `Hl7OutboundService` | TEST-BB-417 | D / I | |
+| URS-BB-496 / FRS-BB-561 | Near-expiry units on the home screen | `DashboardQueueCatalog.NearExpiry`; `DashboardHome` | TEST-BB-423 | D | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

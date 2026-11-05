@@ -70,6 +70,21 @@ public class DashboardQueueCatalogTests
     public void Select_AuditReadOnly_OmitsHandoff() =>
         Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.AuditRead)), card => card.Key == DashboardQueueCatalog.Handoff);
 
+    // TEST-BB-423: near-expiry units are on the home screen for whoever handles inventory or issue.
+    [Fact]
+    public void Select_NearExpiry_ForInventoryOrIssue_OpensTheNearExpiryBoard()
+    {
+        foreach (var code in new[] { PermissionCodes.InventoryReceive, PermissionCodes.InventoryDiscard, PermissionCodes.IssueCreate, PermissionCodes.CompatibilityAllocate })
+        {
+            Assert.Contains(DashboardQueueCatalog.Select(Has(code)),
+                card => card.Key == DashboardQueueCatalog.NearExpiry && card.Href == "/inventory?board=near");
+        }
+
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter)), card => card.Key == DashboardQueueCatalog.NearExpiry);
+        Assert.Null(DashboardQueueCatalog.NearExpiryNote(0));
+        Assert.Equal("2 reserved for patients", DashboardQueueCatalog.NearExpiryNote(2));
+    }
+
     [Fact]
     public void Select_NoPermissions_OmitsEveryWorkCard()
     {

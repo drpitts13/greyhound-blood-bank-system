@@ -360,6 +360,17 @@
                 var followUp = OpenReactionInvestigationRule.CountFatalityFollowUpDue(result.Value);
                 return (card.Key, open, DashboardQueueCatalog.AttentionNote(followUp, "fatality follow-up", "fatality follow-ups"));
             }
+            case DashboardQueueCatalog.NearExpiry:
+            {
+                var result = await Api.GetNearExpiryUnitsAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                return (card.Key, result.Value.Count,
+                    DashboardQueueCatalog.NearExpiryNote(result.Value.Count(u => u.ReservedPatientId is not null)));
+            }
             case DashboardQueueCatalog.Supervisor:
                 return await CountList(card.Key, Api.GetSupervisorQueueAsync());
             case DashboardQueueCatalog.TemperatureExcursions:

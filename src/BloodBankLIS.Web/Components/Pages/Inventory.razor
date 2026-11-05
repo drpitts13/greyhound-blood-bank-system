@@ -787,17 +787,16 @@
 
     private string BoardClass(string board) => _board == board ? "btn-primary" : "btn-secondary";
 
+    private static readonly string[] Boards = ["search", "expected", "retype", "near", "quarantine", "discrepancy", "hold", "deliveries"];
+
     private void SelectBoard(string board) => _board = board;
 
     protected override async Task OnInitializedAsync()
     {
-        if (string.Equals(Board, "retype", StringComparison.OrdinalIgnoreCase))
+        // A link may open any board on this page (the dashboard opens Near expiry, Retype, Quarantine).
+        if (Boards.FirstOrDefault(b => string.Equals(b, Board, StringComparison.OrdinalIgnoreCase)) is { } linked)
         {
-            _board = "retype";
-        }
-        else if (string.Equals(Board, "quarantine", StringComparison.OrdinalIgnoreCase))
-        {
-            _board = "quarantine";
+            _board = linked;
         }
 
         var policy = await Api.GetReceivePolicyAsync();

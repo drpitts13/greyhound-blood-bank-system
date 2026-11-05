@@ -12658,3 +12658,40 @@ The MRN0022 timeline, checked live, lists reservation, crossmatch, issue, and or
 ### Next ranked residual
 
 Other readers of `Crossmatch.ClinicalStatus`: none besides the timelines and the modification copy, which now copies a set value. A one-time backfill of the stored column is optional, since display no longer depends on it.
+
+## Iteration 385 — Near-expiry units on the home screen (2026-11-04)
+
+### Capability matrix rescan (operations lens)
+
+Operations lists near-expiry products. The home screen showed every other operational queue (ready, second ABO, retrospective, in transit, issued, disposition, tests, specimens, reactions, supervisor, temperature, interfaces, handoff) but not near expiry. Units close to outdating were seen only by someone who opened Inventory and chose the Near expiry board (questions 2, 5). A reserved unit about to expire, which needs issuing or a replacement, was flagged only on Ready to issue.
+
+### Design
+
+- **`DashboardQueueCatalog.NearExpiry`:** the card is shown to users who can receive or discard inventory, issue, or allocate. It counts the Near expiry board.
+- **`NearExpiryNote`:** "N reserved for a patient/patients" when some near-expiry units are reserved. That makes the card Needs attention, ranked after shift handoff and before final disposition. With no reserved units it is an ordinary queue.
+- **Focus:** Issue desk and Supervisor.
+- **Inventory:** the page opens any of its boards from `?board=` (before: only retype and quarantine), so the card lands on Near expiry.
+- No server change: the count comes from the existing near-expiry endpoint.
+
+### Requirements
+
+- URS-BB-496, FRS-BB-561. Help: dashboard.
+
+### Tests
+
+- TEST-BB-423:
+  - the card is shown for each of the four permissions and not for result entry alone
+  - its link opens the board
+  - the note is silent at zero and names a count
+  - it is a queue on the Issue desk focus and in the other desks on Bench
+  - a reserved note puts it first under Needs attention ahead of final disposition
+- Full suite: 3,699 passed, 0 failed.
+- Run check (development API and web):
+  - the dashboard shows "Near expiry 1", matching the API (1 unit, none reserved)
+  - `/inventory?board=near` opens with Near expiry selected
+  - no server errors
+  - the reserved note was not exercised live (no reserved unit is near expiry in the demo data); the unit test covers it
+
+### Next ranked residual (operations lens)
+
+The Near expiry board could offer the next step for a reserved unit (Issue, from Cycle 382's reservation banner) and, for an unreserved one, a compatible patient with an open order (find a use before it outdates).

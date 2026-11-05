@@ -16,6 +16,7 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 
 **Your work** is the first row after you sign in. Each card is a queue you can already open, and the card opens that queue:
 
+- Near expiry, when you handle inventory or issue: units close to their expiration. The card notes how many are reserved for a patient; issue those first or reserve a replacement. It opens the Near expiry board in Inventory.
 - Ready to issue, second ABO/Rh, retrospective crossmatch, and in transit, when you can issue. The Ready to issue card names how many reserved units need a new crossmatch because theirs has expired, and how many expire soon (issue them first or reserve replacements).
 - Outstanding issued units and final disposition, when you can issue, return, or document transfusion.
 - Pending tests, when you can enter results. The card names how many results must be verified before their specimen expires. Pending specimens, when you can accession. The card names how many waiting tubes have expired and need rejecting, which puts it under Needs attention.
@@ -35,13 +36,13 @@ A queue you cannot open is left off the row. A queue that does not load shows an
 | Focus | Its queues |
 |---|---|
 | Bench | Pending specimens, pending tests, second ABO/Rh, supervisor queue |
-| Issue desk | Ready to issue, second ABO/Rh, in transit, outstanding issued, retrospective crossmatch, final disposition |
-| Supervisor | Supervisor queue, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff |
+| Issue desk | Ready to issue, second ABO/Rh, in transit, outstanding issued, retrospective crossmatch, final disposition, near expiry |
+| Supervisor | Supervisor queue, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff, near expiry |
 
 The page is arranged in this order:
 
 1. **Start here**: one link to the most urgent queue. When nothing is urgent, it links to the first focus queue that has work.
-2. **Needs attention**: any queue with an overdue or follow-up note, plus temperature excursions, reaction investigations, instrument failures, HL7 errors, and an open shift handoff whenever they are above zero. These show **whatever the focus is**, so changing focus never hides them. The most urgent comes first: temperature excursions, reactions, retrospective crossmatch, in transit, instrument failures, HL7 errors, then shift handoff.
+2. **Needs attention**: any queue with an overdue or follow-up note, plus temperature excursions, reaction investigations, instrument failures, HL7 errors, and an open shift handoff whenever they are above zero. These show **whatever the focus is**, so changing focus never hides them. The most urgent comes first: temperature excursions, reactions, retrospective crossmatch, in transit, instrument failures, HL7 errors, shift handoff, then near expiry with reserved units.
 3. **Queues with work**: focus queues above zero, in workflow order.
 4. **Could not load**: any queue whose count failed. It is never counted as clear. Open it to check.
 5. **Clear**: focus queues at zero, as small links.

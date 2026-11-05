@@ -132,4 +132,17 @@ public class DashboardHomeTests
     }
 
     private static Func<string, bool> Has(params string[] codes) => code => codes.Contains(code);
+    // TEST-BB-423: near-expiry units are a queue on the issue desk and supervisor focus; reserved ones need attention.
+    [Fact]
+    public void NearExpiry_IsAnIssueDeskAndSupervisorQueue_AndReservedOnesNeedAttention()
+    {
+        var plain = DashboardHome.Arrange([State(NearExpiry, 3)], WorkFocus.IssueDesk);
+        Assert.Contains(plain.Queues, c => c.Card.Key == NearExpiry);
+        Assert.Contains(DashboardHome.Arrange([State(NearExpiry, 3)], WorkFocus.Bench).OtherDesks, c => c.Card.Key == NearExpiry);
+
+        var reserved = DashboardHome.Arrange(
+            [State(NearExpiry, 3, NearExpiryNote(1)), State(Disposition, 2)],
+            WorkFocus.Supervisor);
+        Assert.Equal(NearExpiry, reserved.Attention[0].Card.Key);
+    }
 }
