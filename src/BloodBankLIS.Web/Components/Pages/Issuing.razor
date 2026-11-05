@@ -846,6 +846,54 @@
             <button class="btn btn-primary" disabled="@(_busy || _issue.BloodUnitId is null || _issue.PatientId <= 0 || PtagScanMissing)" @onclick="IssueAsync">Issue unit</button>
         }
 
+        @if (_issue.PatientId > 0 && (_issuedThisRun.Count > 0 || NextInRun.Count > 0))
+        {
+            @* Several units for one patient: the form keeps the patient, identifiers, destination, and cooler. *@
+            <div class="bb-card" style="margin-top:1rem;" data-issue-run>
+                <div class="bb-card-title"><h3>This patient's units</h3></div>
+                @if (_issuedThisRun.Count > 0)
+                {
+                    <div><strong>Issued now (@_issuedThisRun.Count)</strong></div>
+                    <table class="bb">
+                        <thead><tr><th>Unit</th><th>Product</th><th>To</th><th>Cooler</th><th>Issued</th></tr></thead>
+                        <tbody>
+                            @foreach (var done in _issuedThisRun)
+                            {
+                                <tr>
+                                    <td class="mono">@done.UnitNumber</td>
+                                    <td>@done.ProductName</td>
+                                    <td>@done.Destination</td>
+                                    <td class="mono">@done.CoolerId</td>
+                                    <td class="nowrap">@done.IssuedLocal.ToString("HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                @if (NextInRun.Count > 0)
+                {
+                    <div style="margin-top:.5rem;"><strong>Ready next</strong> <span class="muted">Patient, identifiers, destination, and cooler stay filled in. Scan the next unit and record its appearance.</span></div>
+                    <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                        @foreach (var next in NextInRun)
+                        {
+                            var row = next;
+                            <button type="button" class="btn @(row == NextInRun[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => IssueNextInRunAsync(row)">
+                                Issue next: <span class="mono">@row.UnitNumber</span> @row.ProductName
+                            </button>
+                        }
+                    </div>
+                }
+                else if (_issuedThisRun.Count > 0)
+                {
+                    <div class="muted" style="margin-top:.5rem;">No other reserved unit for this patient is ready for routine issue.</div>
+                }
+                @if (HeldBackInRun > 0)
+                {
+                    <div class="muted" style="margin-top:.35rem;">@HeldBackInRun other reserved unit(s) for this patient need attention first; see Ready to issue.</div>
+                }
+            </div>
+        }
+
         @if (_lastIssue is not null)
         {
             <div class="alert alert-success" style="margin-top:1rem;">
@@ -1253,6 +1301,46 @@
     private List<ReadyToIssueWorkItemDto> _readyItems = new();
     private ReadyToIssueWorkItemDto? _prefilledRow;
 
+    // Units issued to the patient on the form since that patient was chosen.
+    private sealed record IssuedInRun(long BloodUnitId, string UnitNumber, string? ProductName, string? Destination, string? CoolerId, DateTime IssuedLocal);
+    private readonly List<IssuedInRun> _issuedThisRun = new();
+    private long _runPatientId;
+
+    private IReadOnlyList<ReadyToIssueWorkItemDto> NextInRun => _issue.PatientId <= 0
+        ? []
+        : IssueRun.NextForPatient(_readyItems, _issue.PatientId, _issue.BloodUnitId, _issuedThisRun.Select(i => i.BloodUnitId).ToList());
+
+    private int HeldBackInRun => _issue.PatientId <= 0
+        ? 0
+        : IssueRun.HeldBackForPatient(_readyItems, _issue.PatientId, _issue.BloodUnitId, _issuedThisRun.Select(i => i.BloodUnitId).ToList());
+
+    /// <summary>Records the issue in this patient's run and clears what belongs to one unit only.</summary>
+    private void AddToRun(IssueDto issued)
+    {
+        ResetRunIfOtherPatient(issued.PatientId);
+        var ready = _readyItems.FirstOrDefault(r => r.BloodUnitId == issued.BloodUnitId);
+        _issuedThisRun.Add(new IssuedInRun(
+            issued.BloodUnitId,
+            ready?.UnitNumber ?? $"#{issued.BloodUnitId}",
+            ready?.ProductName,
+            issued.IssuedToLocation ?? issued.IssuedTo,
+            _issue.CoolerId,
+            issued.IssuedUtc.ToLocalTime()));
+        // The next unit is scanned and selected afresh; identity, destination, and cooler stay.
+        _issue.BloodUnitId = null;
+        _issueScan.Clear();
+    }
+
+    private async Task IssueNextInRunAsync(ReadyToIssueWorkItemDto row)
+    {
+        if (row.PatientId != _issue.PatientId) return;
+        _issue.BloodUnitId = row.BloodUnitId;
+        _issue.Appearance = null;
+        _prefilledRow = row;
+        _issueFb = null;
+        await _issueForm.FocusAsync();
+    }
+
     private ReadyToIssueWorkItemDto? ActivePrefill =>
         _prefilledRow is { } row
         && row.PatientId == _issue.PatientId
@@ -1504,6 +1592,7 @@
 
     private async Task PrefillReadyIssueAsync(ReadyToIssueWorkItemDto row)
     {
+        ResetRunIfOtherPatient(row.PatientId);
         _issue.BloodUnitId = row.BloodUnitId;
         _issue.PatientId = row.PatientId;
         (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value) = PatientIdentifierEntryRule.Prefill(
@@ -1515,8 +1604,18 @@
 
     private PatientDto? IssuePatient => _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
 
+    private void ResetRunIfOtherPatient(long patientId)
+    {
+        if (_runPatientId != patientId)
+        {
+            _issuedThisRun.Clear();
+            _runPatientId = patientId;
+        }
+    }
+
     private async Task OnIssuePatientChangedAsync()
     {
+        ResetRunIfOtherPatient(_issue.PatientId);
         var patient = _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
         if (patient is null)
         {
@@ -1853,6 +1952,7 @@
         _issueFb = r.ToFeedback("Unit issued.");
         if (r.Succeeded)
         {
+            AddToRun(r.Value!);
             _lastIssue = r.Value;
             _wardIssueId = r.Value!.Id;
             _txIssueId = r.Value.Id;
@@ -1931,6 +2031,7 @@
         _issueFb = r.ToFeedback("Unit issued under override.");
         if (r.Succeeded)
         {
+            AddToRun(r.Value!);
             _lastIssue = r.Value;
             _wardIssueId = r.Value!.Id;
             _txIssueId = r.Value.Id;

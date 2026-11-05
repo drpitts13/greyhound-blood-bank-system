@@ -12250,3 +12250,61 @@ That is minutes before the product is needed, with a crossmatched unit that cann
 ### Next ranked residual
 
 The row's allocation status still reads Ready for issue next to the unmet-requirement badge. Consider a distinct display status for a reserved unit that cannot be issued routinely, if the bench finds the pair confusing.
+
+## Iteration 376 — Issue several units to one patient in a run (2026-11-04)
+
+### Direction (product owner, 2026-11-04)
+
+Take a break from safety audits. Concentrate on operations, UI, interface, and workflow gaps compared with commercial transfusion systems.
+
+### Capability matrix rescan (workflow lens)
+
+- Role-based home: present.
+- Search and scan bar: present.
+- Ready to issue board: present.
+- MTP banner and coolers: present.
+- Multi-unit issue to one patient: missing. Commercial issue screens let the tech scan a patient once and send several units into one cooler; here each unit was a separate pass from the board.
+- Batch ward receipt: noted as a later candidate.
+
+### Finding (questions 1, 2, 5)
+
+Issuing two units for one order took about 12 actions per unit:
+- choose the row
+- re-check the prefilled patient and enter identifiers if pre-fill is off
+- re-type destination, issued-to, and cooler
+- pick the unit
+- scan, appearance, P-tag, Issue
+
+After an issue the form also kept the old unit and its scan, so the next attempt started with stale unit data.
+
+### Design
+
+- After a successful issue, routine or override, the form keeps the patient, identifiers, destination, issued-to, and cooler. It clears the unit and its label scan; appearance and P-tag were already cleared.
+- **This patient's units** panel:
+  - issued in this run: unit, product, destination, cooler, time
+  - **Issue next** buttons for the patient's other reserved units that Ready to issue would offer for routine issue, oldest reservation first
+  - a count of units that need attention first
+- `IssueRun` holds the selection logic: `OffersRoutineIssue` is the board's test, and `NextForPatient` / `HeldBackForPatient` apply it per patient. It is tested without the UI.
+- Issue next only selects the unit. Scanning, appearance, P-tag, acknowledgments, and the gate are unchanged, so no safety step is skipped. Choosing another patient resets the run.
+- No server or schema change.
+
+### Requirements
+
+- URS-BB-494, FRS-BB-553. Help: issuing (new section "Several units for one patient").
+
+### Tests
+
+- TEST-BB-415:
+  - next units are that patient's, oldest first, without the unit on the form or ones already issued
+  - rows blocked by any of the six board conditions are not offered, are counted, and fail `OffersRoutineIssue`
+- Full suite: 3,685 passed, 0 failed.
+- Run check (development API and web):
+  - Issue on the demo patient's only ready unit opened the prefilled form with no run panel (no other units)
+  - the unit stayed reserved: nothing was issued, to avoid changing demo data
+  - the patient with two reserved units needs a crossmatch and second ABO first, so the panel would only count them
+  - no server errors
+  - the full issue-then-next path is covered by the helper tests, not exercised live
+
+### Next ranked residual (workflow lens)
+
+Ward receipt and transfusion documentation for a cooler of several units: one scan of the cooler or patient to receive all units that went out together.

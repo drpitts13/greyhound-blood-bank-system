@@ -36,6 +36,10 @@ Then complete appearance, location, and who is taking the unit.
 
 > Warning. A warning (near expiry, an antigen-negative gap, a historical ABO discrepancy that is overridable, or a complex crossmatch that was not done) asks for a reason, the authorizer, and an electronic signature. The signature is re-authentication. The override is stored with the issue. It does not change the result that caused it.
 
+## Several units for one patient
+
+After a unit is issued, the form keeps the patient, the two identifiers, the destination, who it was issued to, and the cooler. It clears the unit, its label scan, the appearance, and the P-tag, because those belong to one unit. **This patient's units** lists what has gone out in this run and offers **Issue next** for each other reserved unit of the patient that is ready for routine issue, oldest reservation first. Issue next only selects the unit: scan its label, record its appearance, and issue it as usual. Every unit still goes through the issue gate. Units that need attention first, such as a crossmatch or a second ABO/Rh, are counted but not offered; open them from Ready to issue. Choosing another patient starts a new list.
+
 ## Emergency release and massive transfusion
 
 Emergency and MTP are a different issue type. They are not an instruction to ignore every rule. The missing crossmatch becomes a warning only inside this issue type, and only for someone who has the emergency-release permission. Technologists who can issue routine units cannot release uncrossmatched blood unless that permission was granted.
