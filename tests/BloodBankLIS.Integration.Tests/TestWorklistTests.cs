@@ -711,6 +711,36 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("to verify", BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).QueueSummary);
     }
 
+    // TEST-BB-431: after downtime, results entered from paper and waiting for verification are counted on the snapshot.
+    [Fact]
+    public async Task DowntimeSnapshot_CountsResultsToVerify_AndThoseDueBeforeSpecimenExpiry()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(2);
+        await c.SaveChangesAsync();
+
+        var snapshot = await new BloodBankLIS.Application.Compliance.DowntimeReconciliationService(
+                new EfRepository<InterfaceErrorQueueItem>(c), new EfRepository<Hl7MessageLog>(c), new EfRepository<Issue>(c),
+                new AuditQuery(c), _factory.Clock, _factory.CurrentUser,
+                new FixedPermissionEvaluator(1, PermissionCodes.AuditRead), tests: Worklist(c))
+            .GetSnapshotAsync();
+
+        Assert.True(snapshot.Succeeded, snapshot.Error);
+        Assert.True(snapshot.Value!.ResultsAwaitingVerification >= 1);
+        Assert.True(snapshot.Value.ResultsVerifyBeforeExpiry >= 1);
+        Assert.True(snapshot.Value.ResultsAwaitingVerification >= snapshot.Value.ResultsVerifyBeforeExpiry);
+        // Without the worklist (older wiring) the new counts stay zero rather than failing.
+        Assert.Equal(0, (await new BloodBankLIS.Application.Compliance.DowntimeReconciliationService(
+                new EfRepository<InterfaceErrorQueueItem>(c), new EfRepository<Hl7MessageLog>(c), new EfRepository<Issue>(c),
+                new AuditQuery(c), _factory.Clock, _factory.CurrentUser)
+            .GetSnapshotAsync()).Value!.ResultsAwaitingVerification);
+    }
+
     [Fact]
     public async Task PendingCorrection_OnAnExpiredSpecimen_CanStillBeWorkedFromTheWorklist()
     {

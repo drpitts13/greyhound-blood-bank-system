@@ -1,5 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -20,7 +22,12 @@ public sealed record DowntimeReconciliationSnapshot(
     int BackEntriesAwaitingTransfusion = 0,
     int BackEntriesAwaitingWardReceipt = 0,
     // Failed instrument messages not yet replayed successfully or resolved: results that did not file.
-    int OpenInstrumentFailures = 0);
+    int OpenInstrumentFailures = 0,
+    // Results entered (often from paper) and waiting for a second person to verify; of these, due before the specimen expires.
+    int ResultsAwaitingVerification = 0,
+    int ResultsVerifyBeforeExpiry = 0,
+    // Reservations past their end time, still holding a unit for a patient.
+    int ReservationsLapsed = 0);
 
 /// <summary>
 /// Aggregates existing queues for post-downtime review. Does not import paper
@@ -36,6 +43,8 @@ public sealed class DowntimeReconciliationService
     private readonly ICurrentUser _currentUser;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
+    private readonly TestWorklistService? _tests;
+    private readonly IssuingService? _issuing;
 
     public DowntimeReconciliationService(
         IRepository<InterfaceErrorQueueItem> errors,
@@ -45,8 +54,12 @@ public sealed class DowntimeReconciliationService
         IClock clock,
         ICurrentUser currentUser,
         IPermissionEvaluator? permissions = null,
-        IRepository<InstrumentMessageLog>? instrumentMessages = null)
+        IRepository<InstrumentMessageLog>? instrumentMessages = null,
+        TestWorklistService? tests = null,
+        IssuingService? issuing = null)
     {
+        _tests = tests;
+        _issuing = issuing;
         _instrumentMessages = instrumentMessages;
         _errors = errors;
         _hl7 = hl7;
@@ -86,6 +99,12 @@ public sealed class DowntimeReconciliationService
         var instrumentFailures = _instrumentMessages is null
             ? 0
             : (await _instrumentMessages.ListAsync(m => m.Status == InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct)).Count;
+        var pendingTests = _tests is null
+            ? Array.Empty<TestWorkItemDto>()
+            : await _tests.ListPendingGlobalAsync(ct);
+        var ready = _issuing is null
+            ? Array.Empty<ReadyToIssueWorkItemDto>()
+            : await _issuing.ListReadyToIssueAllocationsAsync(ct);
         var events = await _audit.ListAsync(ct);
         var hashed = events.Count(e => !string.IsNullOrWhiteSpace(e.RecordHash));
         var chain = AuditHashChainRule.Verify(events);
@@ -102,7 +121,10 @@ public sealed class DowntimeReconciliationService
             chain.Message,
             openBackEntries.Count,
             openBackEntries.Count(i => i.WardReceivedUtc is null),
-            instrumentFailures);
+            instrumentFailures,
+            pendingTests.Count(t => t.AwaitsVerification),
+            PendingTestAttentionRule.CountVerifyBeforeExpiry(pendingTests),
+            ReadyToIssueAttentionRule.CountReservationLapsed(ready, _clock.UtcNow));
 
         return EvaluationResult<DowntimeReconciliationSnapshot>.Ok(snapshot, new RuleEvaluation([chain]));
     }

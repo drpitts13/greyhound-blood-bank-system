@@ -2937,6 +2937,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True(handoff.Succeeded, handoff.Error);
             Assert.True(handoff.Value!.ReservationsLapsed >= 1);
 
+            // TEST-BB-431: so does the downtime snapshot.
+            var snapshot = await new DowntimeReconciliationService(
+                    new EfRepository<InterfaceErrorQueueItem>(c), new EfRepository<Hl7MessageLog>(c), new EfRepository<Issue>(c),
+                    new BloodBankLIS.Infrastructure.Audit.AuditQuery(c), _factory.Clock, _factory.CurrentUser, issuing: Issuing(c))
+                .GetSnapshotAsync();
+            Assert.True(snapshot.Succeeded, snapshot.Error);
+            Assert.True(snapshot.Value!.ReservationsLapsed >= 1);
+
             var noReason = await Compatibility(c).ReleaseAllocationAsync(allocationId, " ");
             Assert.False(noReason.Succeeded);
             var released = await Compatibility(c).ReleaseAllocationAsync(allocationId, "Reservation ended, transfusion not needed");

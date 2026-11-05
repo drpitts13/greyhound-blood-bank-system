@@ -13040,3 +13040,38 @@ This is a transfusion safety risk (question 6).
 ### Next ranked residual
 
 Downtime snapshot parity with the handoff (results to verify, lapsed reservations), or the specimen desk.
+
+## Iteration 395 — Downtime snapshot: results to verify and lapsed reservations (2026-11-05)
+
+### Capability matrix rescan (downtime recovery)
+
+After an outage, results are entered from paper and wait for a second person to verify them. Reservations also run past their end while nobody can work them. The shift handoff counts both (Cycle 393); the downtime recovery checklist counted neither. The supervisor had to open each desk to know whether recovery was finished (questions 2, 5).
+
+### Design
+
+- **`DowntimeReconciliationSnapshot`:** gains `ResultsAwaitingVerification`, `ResultsVerifyBeforeExpiry`, and `ReservationsLapsed`. They use the same rules as the handoff.
+- **`DowntimeReconciliationService`:** takes the test worklist and issuing services (optional; without them the counts are zero).
+- **Downtime Snapshot page:** two rows, linking to To verify and Ready to issue.
+- **Help:** the recovery steps name both.
+- No schema change and no new rule.
+
+### Requirements
+
+- URS-BB-502, FRS-BB-570.
+
+### Tests
+
+- TEST-BB-431:
+  - an entered result due before its specimen expires is counted in both numbers
+  - without the worklist service the count stays zero
+  - a reservation past its end is counted until it is released
+- The existing downtime snapshot tests are unchanged and pass.
+- Full suite: 3,711 passed, 0 failed.
+- Run check (development API and web):
+  - Downtime Snapshot shows "Results entered and waiting for verification 2", linking to /test-worklist?show=verify (the same two the To verify filter lists)
+  - it shows "Reservations past their end time 0", linking to /issuing?desk=ready
+  - no server errors
+
+### Next ranked residual
+
+The specimen desk (pending receipt and collection lists, scan to receive), or patient-summary access from the chart for a single patient.

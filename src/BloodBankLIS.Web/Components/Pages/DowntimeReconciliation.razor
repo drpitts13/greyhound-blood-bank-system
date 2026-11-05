@@ -68,6 +68,21 @@ else
                     <td class="mono">@Work(_snap.BackEntriesAwaitingTransfusion)</td>
                     <td><a href="/issuing?desk=issued">Open Issued units</a><span class="sub"><a href="/issuing?desk=transit">Open In transit</a></span></td>
                 </tr>
+                <tr data-queue="verify">
+                    <td>Results entered and waiting for verification
+                        @if (_snap.ResultsVerifyBeforeExpiry > 0)
+                        {
+                            <span class="sub">Of these, @_snap.ResultsVerifyBeforeExpiry must be verified before their specimen expires</span>
+                        }
+                    </td>
+                    <td class="mono">@Work(_snap.ResultsAwaitingVerification)</td>
+                    <td><a href="/test-worklist?show=verify">Open To verify</a></td>
+                </tr>
+                <tr data-queue="reservations-lapsed">
+                    <td>Reservations past their end time, unit still held</td>
+                    <td class="mono">@Work(_snap.ReservationsLapsed)</td>
+                    <td><a href="/issuing?desk=ready">Open Ready to issue</a></td>
+                </tr>
                 <tr>
                     <td>Pending retrospective crossmatches</td>
                     <td class="mono">@Work(_snap.PendingRetrospectiveCrossmatches)</td>
