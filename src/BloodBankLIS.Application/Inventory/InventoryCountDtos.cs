@@ -31,6 +31,15 @@ public sealed record InventoryCountLineDto(
     public bool Expired { get; init; }
 }
 
+/// <summary>A finished stock count, from the audit trail.</summary>
+public sealed record InventoryCountHistoryDto(
+    long LocationId,
+    string LocationName,
+    DateTime CountedUtc,
+    string CountedBy,
+    string Summary,
+    bool Reconciled);
+
 /// <summary>A scan that names no unit, or a divided number matching several units.</summary>
 public sealed record InventoryCountProblemDto(string Scan, string Message);
 

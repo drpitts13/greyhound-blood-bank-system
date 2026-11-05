@@ -561,6 +561,9 @@ public sealed class BloodBankApiClient
         long id, string reason, string? secondVerifier = null, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/convert-directed", new DiscardUnitRequestVm(reason, secondVerifier), ct);
 
+    public Task<ApiResult<List<InventoryCountHistoryDto>>> GetInventoryCountHistoryAsync(long? locationId = null, CancellationToken ct = default) =>
+        SendAsync<List<InventoryCountHistoryDto>>(HttpMethod.Get, locationId is long id ? $"api/inventory/counts?locationId={id}" : "api/inventory/counts", ct: ct);
+
     public Task<ApiResult<InventoryCountDto>> ReconcileInventoryCountAsync(InventoryCountRequest req, CancellationToken ct = default) =>
         SendAsync<InventoryCountDto>(HttpMethod.Post, "api/inventory/counts", req, ct);
 

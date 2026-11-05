@@ -219,6 +219,10 @@ public static class InventoryEndpoints
             ToHttpResult(await service.TransferAsync(id, request.ToLocationId, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryTransfer);
 
+        group.MapGet("/counts", async (long? locationId, InventoryService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListCountHistoryAsync(locationId, ct: ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryTransfer);
+
         group.MapPost("/counts", async (InventoryCountRequest request, InventoryService service, CancellationToken ct) =>
             EndpointResults.From(await service.ReconcileCountAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.InventoryTransfer);

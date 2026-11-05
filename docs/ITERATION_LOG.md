@@ -13834,3 +13834,35 @@ An issued unit keeps its last storage location, so a count lists it as not on ha
 ### Next ranked residual
 
 Cooler and transport checkout rescan, or a count history view (the audit holds each finished count).
+
+## Iteration 414 — Stock count history (2026-11-05)
+
+### Capability matrix rescan (inventory)
+
+Finished counts (Cycle 413) went only into the audit trail. A supervisor checking that each refrigerator is counted regularly, and what the last count found, had to search the audit trail by location (questions 1, 2).
+
+### Design
+
+- **`InventoryService.ListCountHistoryAsync(location?)`:** reads the "Stock count at …" audit events per location, newest first, with who, when, the summary, and whether all units were found.
+- **API:** `GET /api/inventory/counts`, permission *inventory.transfer*.
+- **Stock count page:**
+  - the chosen location shows "Last counted … by …" with All found or Differences, or "No finished count recorded"
+  - a **Recent counts** table lists the latest 20
+- No schema change; the audit stays the record.
+
+### Requirements
+
+- FRS-BB-591 (under URS-BB-511). Help: inventory.
+
+### Tests
+
+- TEST-BB-455 (in the stock count test):
+  - the two finished counts are listed, one with differences ("1 missing") and one all found, with the counting user
+  - the location filter
+  - refused without *inventory.transfer*
+- Full suite: 3,738 passed, 0 failed.
+- Run check (development API and web): choosing OR-FRIDGE shows "No finished count recorded for this location", with no Recent counts card (none finished in the dev database, and none was recorded live); no server errors.
+
+### Next ranked residual
+
+Cooler and transport container checkout rescan.

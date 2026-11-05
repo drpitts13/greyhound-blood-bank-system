@@ -55,6 +55,7 @@ public sealed class InventoryService
     private readonly IRepository<UnitModificationUnit>? _modificationUnits;
     private readonly IRepository<UnitDiscardReason>? _discardReasons;
     private readonly IRepository<Allocation>? _allocations;
+    private readonly IAuditQuery? _auditQuery;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -77,8 +78,10 @@ public sealed class InventoryService
         IRepository<UnitModificationUnit>? modificationUnits = null,
         IRepository<UnitDiscardReason>? discardReasons = null,
         IRepository<Allocation>? allocations = null,
-        IRepository<ReactionInvestigation>? reactions = null)
+        IRepository<ReactionInvestigation>? reactions = null,
+        IAuditQuery? auditQuery = null)
     {
+        _auditQuery = auditQuery;
         _reactions = reactions;
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -1982,6 +1985,46 @@ public sealed class InventoryService
         }
 
         return OperationResult<InventoryCountDto>.Ok(dto);
+    }
+
+    private const string StockCountReasonPrefix = "Stock count at ";
+
+    /// <summary>
+    /// Finished stock counts, newest first, read from the audit events each count writes against its location.
+    /// A location id narrows to one location.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<InventoryCountHistoryDto>>> ListCountHistoryAsync(
+        long? locationId = null, int take = 20, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedTransferAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<IReadOnlyList<InventoryCountHistoryDto>>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        if (_auditQuery is null || _locations is null)
+        {
+            return OperationResult<IReadOnlyList<InventoryCountHistoryDto>>.Ok([]);
+        }
+
+        var locations = (await _locations.ListAsync(ct)).Where(l => locationId is null || l.Id == locationId).ToList();
+        var history = new List<InventoryCountHistoryDto>();
+        foreach (var location in locations)
+        {
+            var events = await _auditQuery.ListForEntityAsync(nameof(InventoryLocation), location.Id, ct);
+            history.AddRange(events
+                .Where(e => e.Reason is not null && e.Reason.StartsWith(StockCountReasonPrefix, StringComparison.Ordinal))
+                .Select(e => new InventoryCountHistoryDto(
+                    location.Id,
+                    $"{location.Code} {location.Name}".Trim(),
+                    e.OccurredUtc,
+                    e.UserName,
+                    e.Reason!,
+                    e.Reason!.Contains(": all ", StringComparison.Ordinal))));
+        }
+
+        return OperationResult<IReadOnlyList<InventoryCountHistoryDto>>.Ok(
+            history.OrderByDescending(h => h.CountedUtc).Take(Math.Clamp(take, 1, 200)).ToList());
     }
 
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)

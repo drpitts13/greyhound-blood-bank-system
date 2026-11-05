@@ -40,7 +40,7 @@ The other boards cover expected inbound units, units near expiry, units on hold,
 - **Not on hand**: on the shelf, but its record says issued, transfused, discarded, or similar. Take it out and hold it, and find out why before anything is issued.
 - **Unresolved scans**: an unreadable or unknown number, or a divided number matching several units (check those by their labels).
 
-Expired units still on a shelf are expected and marked **Expired**: discard them. Scanning changes nothing. **Finish count** records the outcome (counts, and the missing, misplaced, and not-on-hand units) in the audit trail; **Count again** starts over.
+Expired units still on a shelf are expected and marked **Expired**: discard them. Scanning changes nothing. **Finish count** records the outcome (counts, and the missing, misplaced, and not-on-hand units) in the audit trail; **Count again** starts over. Choosing a location shows when it was last counted and whether everything was found; **Recent counts** lists the latest finished counts across locations.
 
 ## Expiration
 

@@ -52,6 +52,18 @@ else
         </div>
         <Outcome Value="_fb" />
 
+        @if (_locationId > 0 && LastHere is { } last)
+        {
+            <p class="muted" style="margin:.5rem 0;" data-last-count>
+                Last counted @last.CountedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @last.CountedBy
+                <span class="badge @(last.Reconciled ? "badge-green" : "badge-amber")">@(last.Reconciled ? "All found" : "Differences")</span>
+            </p>
+        }
+        else if (_locationId > 0 && _history is not null)
+        {
+            <p class="muted" style="margin:.5rem 0;" data-last-count>No finished count recorded for this location.</p>
+        }
+
         @if (_count is { } c)
         {
             <div class="flex gap" style="flex-wrap:wrap;margin:.75rem 0;" data-count-summary>
@@ -125,9 +137,39 @@ else
             }
         }
     </div>
+
+    @if (_history is { Count: > 0 })
+    {
+        <div class="bb-card" style="margin-top:1rem;">
+            <div class="bb-card-title"><h3>Recent counts</h3></div>
+            <table class="bb" data-count-history>
+                <thead><tr><th>When</th><th>Location</th><th>By</th><th>Outcome</th></tr></thead>
+                <tbody>
+                    @foreach (var h in _history)
+                    {
+                        <tr>
+                            <td class="nowrap">@h.CountedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@h.LocationName</td>
+                            <td>@h.CountedBy</td>
+                            <td><span class="badge @(h.Reconciled ? "badge-green" : "badge-amber")">@(h.Reconciled ? "All found" : "Differences")</span> <span class="sub">@h.Summary</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 }
 
 @code {
+    private List<InventoryCountHistoryDto>? _history;
+    private InventoryCountHistoryDto? LastHere => _history?.FirstOrDefault(h => h.LocationId == _locationId);
+
+    private async Task LoadHistoryAsync()
+    {
+        var r = await Api.GetInventoryCountHistoryAsync();
+        _history = r.Succeeded ? r.Value : null;
+    }
+
     private List<InventoryLocationDto> _locations = new();
     private long _locationId;
     private string _scan = string.Empty;
@@ -139,6 +181,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
+        await LoadHistoryAsync();
     }
 
     private async Task OnLocationChangedAsync(ChangeEventArgs e)
@@ -185,6 +228,7 @@ else
         await ReconcileAsync(finish: true);
         if (_count?.Recorded == true)
         {
+            await LoadHistoryAsync();
             _fb = Feedback.Succeed(_count.Reconciled
                 ? $"Count recorded: all {_count.Expected} units found."
                 : $"Count recorded: {_count.Found.Count} of {_count.Expected} found, {_count.Missing.Count} missing.");

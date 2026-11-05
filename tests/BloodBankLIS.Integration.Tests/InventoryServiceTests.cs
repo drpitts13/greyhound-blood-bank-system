@@ -136,7 +136,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             retypeResults: new EfRepository<ProductRetypeResult>(context),
             discardReasons: new EfRepository<UnitDiscardReason>(context),
             allocations: new EfRepository<Allocation>(context),
-            reactions: new EfRepository<ReactionInvestigation>(context));
+            reactions: new EfRepository<ReactionInvestigation>(context),
+            auditQuery: new AuditQuery(context));
     }
 
     /// <summary>A quarantined unit held for the given reason; optionally the remainder of a transfusion with an investigation.</summary>
@@ -579,8 +580,21 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains($"U-CNTB-{key}", audit.NewValueJson);
 
         // A full, clean count is reconciled.
-        var clean = await service.ReconcileCountAsync(new InventoryCountRequest(other.Id, [$"U-CNTD-{key}"]));
+        var clean = await service.ReconcileCountAsync(new InventoryCountRequest(other.Id, [$"U-CNTD-{key}"], Finish: true));
         Assert.True(clean.Value!.Reconciled);
+
+        // TEST-BB-455: finished counts are listed newest first, each with its outcome; a location narrows the list.
+        var history = await service.ListCountHistoryAsync();
+        Assert.True(history.Succeeded, history.Error);
+        var mine = history.Value!.Where(h => h.LocationId == fridge.Id || h.LocationId == other.Id).ToList();
+        Assert.Equal(2, mine.Count);
+        Assert.False(mine.Single(h => h.LocationId == fridge.Id).Reconciled);
+        Assert.Contains("1 missing", mine.Single(h => h.LocationId == fridge.Id).Summary);
+        Assert.True(mine.Single(h => h.LocationId == other.Id).Reconciled);
+        Assert.Equal(_factory.CurrentUser.UserName, mine[0].CountedBy);
+        Assert.Equal(other.Id, Assert.Single((await service.ListCountHistoryAsync(other.Id)).Value!).LocationId);
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.AuditRead)).ListCountHistoryAsync();
+        Assert.False(denied.Succeeded);
     }
 
     // TEST-BB-453: the Move units desk moves the scanned unit; a unit already there, an unknown or unreadable scan,
