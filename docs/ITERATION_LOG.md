@@ -14001,3 +14001,50 @@ Issue (Cycle 376), ward receipt, and the bedside each keep a run for several uni
 ### Next ranked residual
 
 Rescan the remaining Partial areas (interfaces, product modification workflows) for an operational gap.
+
+## Iteration 418 — Stock count follow-up (2026-11-05)
+
+### Capability matrix rescan
+
+I looked at these areas and found them already covered:
+- interfaces
+- product modifications (a batch exists)
+- tube receipt by scan
+- antigen-ranked unit selection
+
+The stock count had a gap. It named units missing from a location, and units on a shelf whose record says Missing, but acting on either meant opening each unit and retyping the context (questions 1, 2, 5).
+
+### Design
+
+- **Missing list, after Finish count (*inventory.release*):**
+  - each unit offers **Mark missing**, with the reason "Not found in stock count at {location}"
+  - marked rows show "Marked missing", and the unit is no longer expected there
+  - not offered before finishing: an unscanned unit may still turn up
+- **Found here, before finishing:**
+  - offered on a scanned unit recorded as Missing
+  - locates it into quarantine for inspection with "Found in stock count at {location}"
+  - then redoes the count; Move here still covers a unit recorded elsewhere
+- **`CountTable`:** an optional row action.
+- No server, schema, or API change: the existing audited mark-missing and locate paths are used.
+
+### Requirements
+
+- FRS-BB-595 (under URS-BB-511). Help: inventory.
+
+### Tests
+
+- TEST-BB-459:
+  - a finished count's missing unit marked missing with the count in the reason
+  - no longer expected at the location
+  - scanned later, it is Not on hand (Missing)
+  - located into quarantine, the next count is reconciled and finds it
+  - locating a unit that is not missing is refused
+  - marking missing needs *inventory.release*
+- Full suite: 3,742 passed, 0 failed.
+- Run check (development API and web):
+  - FRIDGE-1 before finishing: "Found 0 of 37, Missing 37", no Mark missing or Found here offered
+  - Finish not pressed (no audit row); no server errors
+
+### Next ranked residual
+
+Shift handoff: coolers still out and not checked.

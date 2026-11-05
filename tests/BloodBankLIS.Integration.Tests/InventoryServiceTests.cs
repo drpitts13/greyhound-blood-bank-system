@@ -598,6 +598,49 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False(denied.Succeeded);
     }
 
+    // TEST-BB-459: count follow-up. A unit not found is marked missing with the count named in the reason and is no
+    // longer expected at the location; scanned there later it shows as not on hand (Missing); found, it goes to
+    // quarantine for inspection and the next count finds it.
+    [Fact]
+    public async Task StockCount_MissingUnit_CanBeMarkedMissing_ThenFoundOnALaterCount()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation { Code = $"CNTF-{key}", Name = "Follow-up fridge", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.Add(fridge);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+        var here = (await service.ReceiveUnitAsync(NewUnitRequest($"U-CNTFA-{key}", productTypeId) with { LocationId = fridge.Id })).Unit!.Id;
+        var lost = (await service.ReceiveUnitAsync(NewUnitRequest($"U-CNTFB-{key}", productTypeId) with { LocationId = fridge.Id })).Unit!.Id;
+
+        var first = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [$"U-CNTFA-{key}"], Finish: true));
+        Assert.Equal(lost, Assert.Single(first.Value!.Missing).UnitId);
+        var marked = await service.MarkMissingAsync(lost, $"Not found in stock count at {first.Value.LocationName}");
+        Assert.True(marked.Succeeded, marked.Error);
+        var missingUnit = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == lost);
+        Assert.Equal(UnitStatus.Missing, missingUnit.Status);
+        Assert.Contains("stock count at", missingUnit.MissingReason);
+
+        // No longer expected; scanned there it is on the shelf but recorded as missing.
+        var second = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [$"U-CNTFA-{key}", $"U-CNTFB-{key}"]));
+        Assert.Equal(1, second.Value!.Expected);
+        Assert.Equal((lost, UnitStatus.Missing), (Assert.Single(second.Value.NotOnHand).UnitId, second.Value.NotOnHand[0].Status));
+
+        // Found here: quarantined for inspection, and the next count finds it at its recorded location.
+        Assert.False((await service.LocateMissingAsync(here, "Found in stock count")).Succeeded);
+        var located = await service.LocateMissingAsync(lost, $"Found in stock count at {second.Value.LocationName}");
+        Assert.True(located.Succeeded, located.Error);
+        Assert.Equal(UnitStatus.Quarantine, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == lost)).Status);
+        var third = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [$"U-CNTFA-{key}", $"U-CNTFB-{key}"]));
+        Assert.True(third.Value!.Reconciled);
+        Assert.Contains(third.Value.Found, l => l.UnitId == lost && l.Status == UnitStatus.Quarantine);
+
+        // Marking missing needs inventory.release.
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer)).MarkMissingAsync(here, "Not found in stock count");
+        Assert.False(denied.Succeeded);
+    }
+
     // TEST-BB-456: a cooler check compares the units scanned into a cooler with the units issued to it and in transit:
     // packed, missing, issued under another cooler (another patient), and not issued are each caught; finishing
     // records the check against each issue in the cooler, and the open-cooler list shows it.

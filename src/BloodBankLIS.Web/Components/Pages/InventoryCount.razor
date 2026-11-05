@@ -85,8 +85,8 @@ else
             @if (c.NotOnHand.Count > 0)
             {
                 <h3>On the shelf, but the record says otherwise</h3>
-                <p class="muted">Take these out and hold them; find out why the record shows them as no longer in stock before anything is issued.</p>
-                <CountTable Rows="c.NotOnHand" ShowRecorded="true" />
+                <p class="muted">Take these out and hold them; find out why the record shows them as no longer in stock before anything is issued. A unit recorded as missing can be marked <strong>Found here</strong>: it goes to quarantine for inspection.</p>
+                <CountTable Rows="c.NotOnHand" ShowRecorded="true" Action="FoundHereAction" />
             }
             @if (c.Elsewhere.Count > 0)
             {
@@ -116,7 +116,11 @@ else
             @if (c.Missing.Count > 0)
             {
                 <h3>Missing: recorded here, not scanned</h3>
-                <CountTable Rows="c.Missing" ShowRecorded="false" />
+                @if (c.Recorded && CanMarkMissing)
+                {
+                    <p class="muted">Search for these first. A unit that cannot be found can be marked missing; the reason names this count.</p>
+                }
+                <CountTable Rows="c.Missing" ShowRecorded="false" Action="@(c.Recorded && CanMarkMissing ? MarkMissingAction : null)" />
             }
             @if (c.Problems.Count > 0)
             {
@@ -161,6 +165,62 @@ else
 }
 
 @code {
+    // Follow-up on a count: marking a unit missing or found changes its status (inventory.release), each audited by the unit.
+    private bool CanMarkMissing => Session.Has(PermissionCodes.InventoryRelease);
+    private readonly Dictionary<long, string> _followedUp = new();
+
+    private RenderFragment<InventoryCountLineDto> MarkMissingAction => row => __builder =>
+    {
+        if (_followedUp.TryGetValue(row.UnitId, out var done))
+        {
+            <span class="badge badge-gray" data-count-followed-up>@done</span>
+        }
+        else
+        {
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => MarkMissingAsync(row)" data-count-mark-missing>Mark missing</button>
+        }
+    };
+
+    private RenderFragment<InventoryCountLineDto> FoundHereAction => row => __builder =>
+    {
+        if (_followedUp.TryGetValue(row.UnitId, out var done))
+        {
+            <span class="badge badge-gray" data-count-followed-up>@done</span>
+        }
+        else if (row.Status == UnitStatus.Missing && CanMarkMissing && _count?.Recorded != true)
+        {
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => FoundHereAsync(row)" data-count-found-here>Found here</button>
+        }
+    };
+
+    private string CountedAt => _count?.LocationName ?? "this location";
+
+    private async Task MarkMissingAsync(InventoryCountLineDto row)
+    {
+        _busy = true;
+        var r = await Api.MarkMissingAsync(row.UnitId, $"Not found in stock count at {CountedAt}");
+        _busy = false;
+        _fb = r.ToFeedback($"{row.UnitNumber} marked missing.");
+        if (r.Succeeded)
+        {
+            _followedUp[row.UnitId] = "Marked missing";
+        }
+    }
+
+    // Found during the count: located back into quarantine for inspection, then the count is redone so the unit shows
+    // where it is recorded (Move here moves it if that is somewhere else).
+    private async Task FoundHereAsync(InventoryCountLineDto row)
+    {
+        _busy = true;
+        var r = await Api.LocateMissingAsync(row.UnitId, $"Found in stock count at {CountedAt}");
+        _busy = false;
+        _fb = r.ToFeedback($"{row.UnitNumber} found and placed in quarantine for inspection.");
+        if (r.Succeeded)
+        {
+            await ReconcileAsync(finish: false);
+        }
+    }
+
     private List<InventoryCountHistoryDto>? _history;
     private InventoryCountHistoryDto? LastHere => _history?.FirstOrDefault(h => h.LocationId == _locationId);
 
@@ -196,6 +256,7 @@ else
 
     private void StartOver()
     {
+        _followedUp.Clear();
         _scans.Clear();
         _count = null;
         _fb = null;

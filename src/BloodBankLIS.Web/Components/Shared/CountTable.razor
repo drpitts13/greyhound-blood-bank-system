@@ -1,7 +1,7 @@
 @* Units in one group of a stock count. *@
 <table class="bb">
     <thead>
-        <tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th>Expires</th>@if (ShowRecorded) { <th>Recorded in</th> }</tr>
+        <tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th>Expires</th>@if (ShowRecorded) { <th>Recorded in</th> }@if (Action is not null) { <th></th> }</tr>
     </thead>
     <tbody>
         @foreach (var row in Rows)
@@ -22,6 +22,10 @@
                 {
                     <td>@(row.RecordedLocation ?? "No location")</td>
                 }
+                @if (Action is not null)
+                {
+                    <td class="right">@Action(row)</td>
+                }
             </tr>
         }
     </tbody>
@@ -30,4 +34,7 @@
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<InventoryCountLineDto> Rows { get; set; } = [];
     [Parameter] public bool ShowRecorded { get; set; }
+
+    /// <summary>An optional follow-up for each row, such as Mark missing or Found here.</summary>
+    [Parameter] public RenderFragment<InventoryCountLineDto>? Action { get; set; }
 }
