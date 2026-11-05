@@ -430,6 +430,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-419 | D | `IssueRunTests.APickedUnit_FillsItsReservedPatient_OrSaysWhoseItIs` | URS-BB-494 / FRS-BB-557 |
 | TEST-BB-420 | D | `IssueRunTests.RoutineIssueBlocks_NameWhatStopsRoutineIssue_AndAreEmptyWhenReady` | URS-BB-494 / FRS-BB-558 |
 | TEST-BB-421 | D | `IssueRunTests.AnIssuedUnitsNextStep_FollowsReceiptThenStartThenComplete_AndReturnStopsOnceStarted` | URS-BB-494 / FRS-BB-559 |
-| TEST-BB-422 | D / I | `CrossmatchShownStatusTests.ARecordedResult_IsShown_OtherwiseTheClinicalStatus`; `PatientTimelineTests.RecordedCrossmatchResults_AndWardReceipt_AreShown`; `Phase4IssuingTests` crossmatch recording asserts the clinical status | URS-BB-494 / FRS-BB-560 / RISK-BB-590 |
+| TEST-BB-422 | D / I | `CrossmatchShownStatusTests.ARecordedResult_IsShown_OtherwiseTheClinicalStatus`; `PatientTimelineTests.RecordedCrossmatchResults_AndWardReceipt_AreShown`; `Phase4IssuingTests.Issue_CmvNegativeTyping_IsMetByANegativeTestRecordedOnTheUnit` (records the crossmatch and asserts its clinical status) | URS-BB-494 / FRS-BB-560 / RISK-BB-590 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
