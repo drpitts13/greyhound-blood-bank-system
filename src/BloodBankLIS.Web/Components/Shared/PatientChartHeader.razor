@@ -59,6 +59,10 @@
         {
             <a class="btn btn-secondary" href="@RecipientTraceHref">Recipient traceback</a>
         }
+        @if (Session.Has(PermissionCodes.IssueCreate) && Patient.MergedIntoPatientId is null)
+        {
+            <a class="btn btn-secondary" href="@($"/downtime/patients?patientId={Patient.Id}")" title="Blood type, antibodies, special requirements, specimens, and units on one sheet" data-print-summary>Print summary</a>
+        }
         <a class="btn btn-secondary" href="/patients">Back to patients</a>
     </div>
 </div>

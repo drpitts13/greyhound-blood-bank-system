@@ -167,6 +167,39 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
             });
     }
 
+    // TEST-BB-434: from the chart, one patient's sheet: that patient only, even with nothing current; the print names them.
+    [Fact]
+    public async Task OnePatient_IsOnTheSheetEvenWithNothingCurrent_AndThePrintIsAuditedAgainstThem()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var quiet = NewPatient(key, "Quiet");
+        var busy = NewPatient(key, "Busy");
+        c.Patients.AddRange(quiet, busy);
+        await c.SaveChangesAsync();
+        c.Specimens.Add(NewSpecimen(busy.Id, $"ACC-DTP-B-{key}", _factory.Clock.UtcNow.AddDays(1)));
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = quiet.Id, AntibodySpecificity = "anti-Fya", IsActive = true });
+        await c.SaveChangesAsync();
+
+        var one = await Service(c).GetAsync(quiet.Id);
+        var row = Assert.Single(one.Patients);
+        Assert.Equal(quiet.Id, row.PatientId);
+        Assert.Equal(new[] { "anti-Fya" }, row.Antibodies);
+        Assert.Empty(row.Specimens);
+        Assert.Equal("Not on file", row.AboRh);
+
+        // The busy patient's own sheet carries only their specimen.
+        Assert.Equal($"ACC-DTP-B-{key}", Assert.Single(Assert.Single((await Service(c).GetAsync(busy.Id)).Patients).Specimens).AccessionNumber);
+        // An id that is no patient gives an empty sheet rather than everyone.
+        Assert.Empty((await Service(c).GetAsync(long.MaxValue)).Patients);
+
+        Assert.Equal(1, await Service(c).RecordPrintedAsync(quiet.Id));
+        var printed = await c.AuditEvents
+            .Where(e => e.EventType == AuditEventType.Print && e.EntityType == "DowntimePatientSummary" && e.EntityId == quiet.Id)
+            .SingleAsync();
+        Assert.Contains("one patient", printed.NewValueJson);
+    }
+
     [Fact]
     public async Task Print_IsAudited_WithThePatientsOnTheSheet()
     {

@@ -86,23 +86,32 @@ public sealed class DowntimePatientSummaryService
         _clock = clock;
     }
 
-    public async Task<DowntimePatientSummary> GetAsync(CancellationToken ct = default)
+    /// <param name="patientId">
+    /// One patient, from their chart (for example before a planned outage or a transfer): that patient is on the sheet
+    /// whether or not the blood bank is working for them now. Null lists everyone being worked for.
+    /// </param>
+    public async Task<DowntimePatientSummary> GetAsync(long? patientId = null, CancellationToken ct = default)
     {
         var now = _clock.UtcNow;
         var specimens = (await _specimens.ListAsync(
                 s => s.Status != SpecimenStatus.Rejected
                     && s.Status != SpecimenStatus.Expired
-                    && s.Status != SpecimenStatus.Cancelled,
+                    && s.Status != SpecimenStatus.Cancelled
+                    && (patientId == null || s.PatientId == patientId),
                 ct))
             .Where(s => s.ExpiresUtc is null || s.ExpiresUtc > now)
             .ToList();
-        var reserved = await _allocations.ListAsync(a => a.Status == AllocationStatus.Reserved, ct);
-        var issued = await _issues.ListAsync(i => i.Status == IssueStatus.Issued, ct);
+        var reserved = await _allocations.ListAsync(
+            a => a.Status == AllocationStatus.Reserved && (patientId == null || a.PatientId == patientId), ct);
+        var issued = await _issues.ListAsync(
+            i => i.Status == IssueStatus.Issued && (patientId == null || i.PatientId == patientId), ct);
 
-        var patientIds = specimens.Select(s => s.PatientId)
-            .Concat(reserved.Select(a => a.PatientId))
-            .Concat(issued.Select(i => i.PatientId))
-            .ToHashSet();
+        var patientIds = patientId is long one
+            ? new HashSet<long> { one }
+            : specimens.Select(s => s.PatientId)
+                .Concat(reserved.Select(a => a.PatientId))
+                .Concat(issued.Select(i => i.PatientId))
+                .ToHashSet();
         if (patientIds.Count == 0)
         {
             return new DowntimePatientSummary(now, []);
@@ -179,16 +188,16 @@ public sealed class DowntimePatientSummaryService
     }
 
     /// <summary>Records who printed the sheet and which patients it carried, before the browser prints it.</summary>
-    public async Task<int> RecordPrintedAsync(CancellationToken ct = default)
+    public async Task<int> RecordPrintedAsync(long? patientId = null, CancellationToken ct = default)
     {
-        var summary = await GetAsync(ct);
+        var summary = await GetAsync(patientId, ct);
         _audit.Record(
             AuditEventType.Print,
             "DowntimePatientSummary",
-            null,
+            patientId,
             newValue: new
             {
-                Document = "Downtime patient summary",
+                Document = patientId is null ? "Downtime patient summary" : "Downtime patient summary (one patient)",
                 Patients = summary.Patients.Count,
                 PatientIds = summary.Patients.Select(p => p.PatientId).ToList()
             },

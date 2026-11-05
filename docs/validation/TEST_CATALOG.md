@@ -442,5 +442,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-431 | I | `TestWorklistTests.DowntimeSnapshot_CountsResultsToVerify_AndThoseDueBeforeSpecimenExpiry`; `Phase4IssuingTests.LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason` | URS-BB-502 / FRS-BB-570 |
 | TEST-BB-432 | D | `TestWorkItemBenchActionTests.ForTube_KeepsTheScannedTubesLines_AndFirstToWorkSkipsBlockedOnes` | URS-BB-503 / FRS-BB-571 |
 | TEST-BB-433 | D / I | `TestWorkItemBenchActionTests.ForTube_MatchesTheLabelBarcode_AndNamesTheTubeByItsAccession`; `TestWorklistTests.WorklistRow_CarriesTheLabelBarcode_AndALabelScanFindsIt` | URS-BB-503 / FRS-BB-572 |
+| TEST-BB-434 | I | `DowntimePatientSummaryTests.OnePatient_IsOnTheSheetEvenWithNothingCurrent_AndThePrintIsAuditedAgainstThem` | URS-BB-501 / FRS-BB-573 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

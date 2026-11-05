@@ -921,11 +921,14 @@ public sealed class BloodBankApiClient
         SendAsync<DowntimeReconciliationSnapshot>(
             HttpMethod.Get, "api/compliance/downtime-reconciliation", ct: ct);
 
-    public Task<ApiResult<DowntimePatientSummary>> GetDowntimePatientSummaryAsync(CancellationToken ct = default) =>
-        SendAsync<DowntimePatientSummary>(HttpMethod.Get, "api/compliance/downtime-patients", ct: ct);
+    public Task<ApiResult<DowntimePatientSummary>> GetDowntimePatientSummaryAsync(long? patientId = null, CancellationToken ct = default) =>
+        SendAsync<DowntimePatientSummary>(HttpMethod.Get, DowntimePatientsPath("api/compliance/downtime-patients", patientId), ct: ct);
 
-    public Task<ApiResult<int>> RecordDowntimePatientSummaryPrintedAsync(CancellationToken ct = default) =>
-        SendAsync<int>(HttpMethod.Post, "api/compliance/downtime-patients/printed", ct: ct);
+    public Task<ApiResult<int>> RecordDowntimePatientSummaryPrintedAsync(long? patientId = null, CancellationToken ct = default) =>
+        SendAsync<int>(HttpMethod.Post, DowntimePatientsPath("api/compliance/downtime-patients/printed", patientId), ct: ct);
+
+    private static string DowntimePatientsPath(string path, long? patientId) =>
+        patientId is long id ? $"{path}?patientId={id}" : path;
 
     public Task<ApiResult<List<ShiftHandoffDto>>> GetShiftHandoffsAsync(CancellationToken ct = default) =>
         SendAsync<List<ShiftHandoffDto>>(HttpMethod.Get, "api/shift-handoffs", ct: ct);

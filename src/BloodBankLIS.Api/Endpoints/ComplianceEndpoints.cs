@@ -165,14 +165,14 @@ public static class ComplianceEndpoints
 
         // The paper copy for an outage: the people who issue blood print it before or as the system goes down.
         app.MapGet("/api/compliance/downtime-patients", async (
-                DowntimePatientSummaryService service, CancellationToken ct) =>
-                Results.Ok(await service.GetAsync(ct)))
+                long? patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                Results.Ok(await service.GetAsync(patientId, ct)))
             .WithTags("Compliance")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.IssueCreate);
         app.MapPost("/api/compliance/downtime-patients/printed", async (
-                DowntimePatientSummaryService service, CancellationToken ct) =>
-                Results.Ok(await service.RecordPrintedAsync(ct)))
+                long? patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                Results.Ok(await service.RecordPrintedAsync(patientId, ct)))
             .WithTags("Compliance")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.IssueCreate);

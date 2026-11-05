@@ -11,7 +11,14 @@
 </style>
 
 <div class="flex-between no-print">
-    <a class="btn btn-ghost" href="/downtime">Downtime Snapshot</a>
+    @if (PatientId is long chartId)
+    {
+        <a class="btn btn-ghost" href="@($"/patients/{chartId}")">Back to chart</a>
+    }
+    else
+    {
+        <a class="btn btn-ghost" href="/downtime">Downtime Snapshot</a>
+    }
     @if (_summary is not null)
     {
         <div class="flex gap">
@@ -21,12 +28,22 @@
     }
 </div>
 
-<h1>Downtime patient summary</h1>
-<p class="muted no-print">
-    Print this before a planned outage, or as soon as one starts, and keep it at the issue bench. It lists every patient
-    the blood bank is working for now: a specimen not yet expired, a unit reserved, or a unit issued and still out.
-    Printing is recorded in the audit trail.
-</p>
+<h1>Downtime patient summary@(PatientId is null ? "" : ": one patient")</h1>
+@if (PatientId is null)
+{
+    <p class="muted no-print">
+        Print this before a planned outage, or as soon as one starts, and keep it at the issue bench. It lists every patient
+        the blood bank is working for now: a specimen not yet expired, a unit reserved, or a unit issued and still out.
+        Printing is recorded in the audit trail.
+    </p>
+}
+else
+{
+    <p class="muted no-print">
+        This patient's blood bank summary on one sheet, for example before a planned outage or a procedure. It lists the same
+        items as the full downtime summary. Printing is recorded in the audit trail.
+    </p>
+}
 
 @if (!Session.Has(PermissionCodes.IssueCreate))
 {
@@ -54,7 +71,7 @@ else
     </p>
     @if (_summary.Patients.Count == 0)
     {
-        <div class="empty">No patient has a current specimen, a reserved unit, or an issued unit.</div>
+        <div class="empty">@(PatientId is null ? "No patient has a current specimen, a reserved unit, or an issued unit." : "This patient was not found, or was merged into another record.")</div>
     }
     else
     {
@@ -159,6 +176,10 @@ else
     private bool _busy;
     private Feedback? _fb;
 
+    // From the chart: one patient's sheet. Absent: everyone the blood bank is working for.
+    [SupplyParameterFromQuery(Name = "patientId")]
+    public long? PatientId { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         if (Session.Has(PermissionCodes.IssueCreate))
@@ -174,7 +195,7 @@ else
     private async Task LoadAsync()
     {
         _busy = true;
-        var r = await Api.GetDowntimePatientSummaryAsync();
+        var r = await Api.GetDowntimePatientSummaryAsync(PatientId);
         _loading = false;
         _busy = false;
         _fb = null;
@@ -193,7 +214,7 @@ else
     private async Task PrintAsync()
     {
         _busy = true;
-        var recorded = await Api.RecordDowntimePatientSummaryPrintedAsync();
+        var recorded = await Api.RecordDowntimePatientSummaryPrintedAsync(PatientId);
         _busy = false;
         if (!recorded.Succeeded)
         {

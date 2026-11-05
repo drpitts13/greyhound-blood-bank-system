@@ -13163,3 +13163,48 @@ The run check also found an app-wide display bug. Bootstrap's `.btn:hover` text 
 ### Next ranked residual
 
 The chart's single-patient downtime print, or a role-based home for the specimen processor.
+
+## Iteration 398 — One patient's summary from the chart (2026-11-05)
+
+### Capability matrix rescan (chart, downtime)
+
+The Cycle 394 downtime summary prints everyone the blood bank is working for. A single patient's blood bank summary, for example before a planned outage, a procedure, or a transfer, still meant:
+- printing the whole list, carrying other patients' data off the system needlessly
+- or copying from the chart by hand (questions 1, 2)
+
+A patient with history but nothing current (an antibody, a special requirement, no specimen) was not on the sheet at all.
+
+### Design
+
+- **`DowntimePatientSummaryService.GetAsync(patientId)`:** that patient only, listed even with nothing current. An id that is no patient, or a merged-away record, gives an empty sheet, never everyone.
+- **`RecordPrintedAsync(patientId)`:** audits the print against the patient.
+- **API:** `?patientId=` on both endpoints.
+- **Chart header:** **Print summary** (*issue.create*; hidden on merged-away records).
+- **Page:**
+  - a one-patient title and text, and **Back to chart**
+  - the empty case explains itself and Print is disabled
+  - the breadcrumb shows Patients / Chart
+- No schema change.
+
+### Requirements
+
+- FRS-BB-573 (under URS-BB-501). Help: downtime.
+
+### Tests
+
+- TEST-BB-434:
+  - a patient with an antibody and nothing current is on their own sheet, with "Not on file" type
+  - another patient's sheet carries only their specimen
+  - an unknown id gives an empty sheet
+  - the print is audited with the patient as EntityId
+- Full suite: 3,715 passed, 0 failed.
+- Run check (development API and web):
+  - Kellerman (MRN0004) chart → Print summary opened `/downtime/patients?patientId=4` with one row: O+, anti-K, ACC0012
+  - Back to chart → /patients/4
+  - patientId=99999 shows the not-found message with Print disabled
+  - Print not pressed (no test audit row)
+  - no server errors
+
+### Next ranked residual
+
+A role-based home for the specimen processor (receipt queue first), or patient-level print from the Issue desk.

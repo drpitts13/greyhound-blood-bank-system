@@ -24,7 +24,9 @@ Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /
 - current specimens with their expiration
 - reserved and issued units: unit number, product, ABO/Rh, unit expiration, and when the reservation ends
 
-**Print** records who printed it and which patients it carried in the audit trail before the print dialog opens. The sheet is accurate only as of the time printed on it. It does not replace your facility's downtime procedure; check identity and unit labels at issue as usual.
+**Print** records who printed it and which patients it carried in the audit trail before the print dialog opens.
+
+For one patient, use **Print summary** in the chart header (for example before a planned outage, a procedure, or a transfer). It opens the same sheet for that patient only, even if nothing is current for them, and **Back to chart** returns you. The sheet is accurate only as of the time printed on it. It does not replace your facility's downtime procedure; check identity and unit labels at issue as usual.
 
 ## While the system is down
 
