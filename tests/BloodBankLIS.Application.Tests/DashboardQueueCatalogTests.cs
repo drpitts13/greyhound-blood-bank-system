@@ -1,5 +1,7 @@
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.Results;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Tests;
@@ -136,6 +138,37 @@ public class DashboardQueueCatalogTests
         var bench = DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter));
         Assert.DoesNotContain(bench, c => c.Key is DashboardQueueCatalog.Hl7Errors or DashboardQueueCatalog.InstrumentFailures);
     }
+
+    // TEST-BB-435: verifiers get a Results to verify card that counts only what they can verify now.
+    [Fact]
+    public void ToVerify_ForVerifiersOnly_CountsTheirOwnVerifiableResults_WithTheExpiryNote()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultVerify)),
+            card => card.Key == DashboardQueueCatalog.ToVerify && card.Href == "/test-worklist?show=verify");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter)),
+            card => card.Key == DashboardQueueCatalog.ToVerify);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.ToVerify, WorkFocus.Bench));
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.ToVerify, WorkFocus.Supervisor));
+        Assert.False(DashboardHome.InFocus(DashboardQueueCatalog.ToVerify, WorkFocus.IssueDesk));
+
+        var pending = new[]
+        {
+            Line("DAT", 1, ResultStatus.Entered, "tech1", deadline: "Verify before 14:00"),
+            Line("ABSC", 2, ResultStatus.Entered, "tech1"),
+            Line("ABORH", 3, ResultStatus.Entered, "tech2", deadline: "Verify before 15:00"),
+            Line("XM", null, null, null)
+        };
+
+        Assert.Equal((2, "1 before its specimen expires"), DashboardQueueCatalog.ToVerifyCard(pending, "tech2"));
+        // Only ABO/Rh is barred from self-verification: tech1 counts their own DAT and screen and tech2's ABO/Rh.
+        Assert.Equal((3, "2 before their specimens expire"), DashboardQueueCatalog.ToVerifyCard(pending, "tech1"));
+        Assert.Equal((0, (string?)null), DashboardQueueCatalog.ToVerifyCard([Line("XM", null, null, null)], "tech2"));
+    }
+
+    private static TestWorkItemDto Line(string testCode, long? resultId, ResultStatus? status, string? enteredBy, string? deadline = null) =>
+        new(1, 1, 1, "Bench, Pat", "MRN1", testCode, testCode, "ORD1", OrderPriority.Routine, DateTime.UtcNow, "ACC1", 1,
+            SpecimenStatus.Accepted, DateTime.UtcNow.AddDays(2), false, "O+", false, null, resultId, status, "Negative", null,
+            ResultSource.Manual, true, null, CurrentResultEnteredBy: enteredBy, VerificationDeadlineNotice: deadline);
 
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);

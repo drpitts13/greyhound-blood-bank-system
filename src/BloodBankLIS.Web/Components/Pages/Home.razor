@@ -326,9 +326,20 @@
                 return await CountList(card.Key, Api.GetOutstandingIssuesAsync());
             case DashboardQueueCatalog.Disposition:
                 return await CountList(card.Key, Api.GetOverdueDispositionAsync());
+            case DashboardQueueCatalog.ToVerify:
+            {
+                var result = await PendingTestsOnce();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var (mine, note) = DashboardQueueCatalog.ToVerifyCard(result.Value, Session.UserName);
+                return (card.Key, mine, note);
+            }
             case DashboardQueueCatalog.PendingTests:
             {
-                var result = await Api.GetPendingTestWorklistAsync();
+                var result = await PendingTestsOnce();
                 if (!result.Succeeded || result.Value is null)
                 {
                     return (card.Key, null, null);
@@ -394,6 +405,11 @@
                 return (card.Key, null, null);
         }
     }
+
+    // Pending tests and Results to verify read the same worklist: fetch it once per load.
+    private Task<ApiResult<List<TestWorkItemDto>>>? _pendingTests;
+
+    private Task<ApiResult<List<TestWorkItemDto>>> PendingTestsOnce() => _pendingTests ??= Api.GetPendingTestWorklistAsync();
 
     private static async Task<(string Key, int? Count, string? Note)> CountList<T>(string key, Task<ApiResult<List<T>>> call)
     {

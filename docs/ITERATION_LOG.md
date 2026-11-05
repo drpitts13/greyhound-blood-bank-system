@@ -13208,3 +13208,37 @@ A patient with history but nothing current (an antibody, a special requirement, 
 ### Next ranked residual
 
 A role-based home for the specimen processor (receipt queue first), or patient-level print from the Issue desk.
+
+## Iteration 399 — Results to verify on the home screen (2026-11-05)
+
+### Capability matrix rescan (role-based home)
+
+Desks already exist (Bench, Issue desk, Supervisor). The home screen counted pending tests, but not the work a verifier is waiting to do. Results entered and waiting for a second person were visible only after opening the worklist and pressing To verify (Cycle 392), so the verifying technologist had to remember to look (questions 2, 5).
+
+### Design
+
+- **`DashboardQueueCatalog.ToVerify`:** a **Results to verify** card for *result.verify*, opening `/test-worklist?show=verify`.
+- **`ToVerifyCard(pending, user)`:** counts the To verify view for this user. Only ABO/Rh is barred from self-verification, as on the worklist. It names how many are due before their specimen expires, which brings the card under Needs attention.
+- **Desks:** in Bench and Supervisor focus.
+- **`Home.razor`:** the pending-test worklist is fetched once for both cards.
+- No server change.
+
+### Requirements
+
+- URS-BB-504, FRS-BB-574. Help: dashboard.
+
+### Tests
+
+- TEST-BB-435:
+  - the card is offered for result.verify only, and is in Bench and Supervisor focus but not Issue desk
+  - tech2 counts tech1's two entries (one due before expiry) but not their own ABO/Rh
+  - tech1 counts their own DAT and screen and tech2's ABO/Rh
+  - an empty line gives zero and no note
+- Full suite: 3,716 passed, 0 failed.
+- Run check (development API and web):
+  - the home screen shows "Results to verify 2" linking to /test-worklist?show=verify (the same two as the worklist's To verify), beside Pending tests 7 and Pending specimens 2
+  - no server errors
+
+### Next ranked residual
+
+Patient-level summary print from the Issue desk, or keyboard shortcuts for the bench (next/previous test).

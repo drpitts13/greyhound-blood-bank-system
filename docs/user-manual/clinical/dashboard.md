@@ -19,7 +19,7 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 - Near expiry, when you handle inventory or issue: units close to their expiration. The card notes how many are reserved for a patient; issue those first or reserve a replacement. It opens the Near expiry board in Inventory.
 - Ready to issue, second ABO/Rh, retrospective crossmatch, and in transit, when you can issue. The Ready to issue card names how many reserved units need a new crossmatch because theirs has expired, how many expire soon (issue them first or reserve replacements), and how many are past their reservation (issue or release them).
 - Outstanding issued units and final disposition, when you can issue, return, or document transfusion.
-- Pending tests, when you can enter results. The card names how many results must be verified before their specimen expires. Pending specimens, when you can accession. The card names how many waiting tubes have expired and need rejecting, which puts it under Needs attention.
+- Pending tests, when you can enter results. The card names how many results must be verified before their specimen expires. Results to verify, when you can verify: only the results you can verify now (not your own ABO/Rh entries), naming how many are due before their specimen expires; it opens the worklist on **To verify**. Pending specimens, when you can accession. The card names how many waiting tubes have expired and need rejecting, which puts it under Needs attention.
 - Reaction investigations, when you can investigate reactions. A closed case is not in that count. A case that still needs fatality follow-up is named on the card, including after the investigation is closed.
 - Supervisor queue, when you can review antibody identification, verify results, or release quarantine.
 - Instrument failures, when you manage instrument interfaces: failed instrument messages nobody has replayed successfully or resolved. HL7 errors, when you manage HL7: interface errors still open.
@@ -35,9 +35,9 @@ A queue you cannot open is left off the row. A queue that does not load shows an
 
 | Focus | Its queues |
 |---|---|
-| Bench | Pending specimens, pending tests, second ABO/Rh, supervisor queue |
+| Bench | Pending specimens, pending tests, results to verify, second ABO/Rh, supervisor queue |
 | Issue desk | Ready to issue, second ABO/Rh, in transit, outstanding issued, retrospective crossmatch, final disposition, near expiry |
-| Supervisor | Supervisor queue, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff, near expiry |
+| Supervisor | Supervisor queue, results to verify, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff, near expiry |
 
 The page is arranged in this order:
 

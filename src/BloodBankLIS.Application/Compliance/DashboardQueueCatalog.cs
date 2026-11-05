@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Compliance;
@@ -18,6 +19,7 @@ public static class DashboardQueueCatalog
     public const string Outstanding = "outstanding";
     public const string Disposition = "disposition";
     public const string PendingTests = "pending-tests";
+    public const string ToVerify = "to-verify";
     public const string PendingSpecimens = "pending-specimens";
     public const string Reactions = "reactions";
     public const string Supervisor = "supervisor";
@@ -43,6 +45,7 @@ public static class DashboardQueueCatalog
         Add(cards, canIssuedBoard, Outstanding, "Outstanding issued", "/issuing?desk=issued");
         Add(cards, canIssuedBoard, Disposition, "Final disposition", "/issuing?desk=disposition");
         Add(cards, has(PermissionCodes.ResultEnter), PendingTests, "Pending tests", "/test-worklist");
+        Add(cards, has(PermissionCodes.ResultVerify), ToVerify, "Results to verify", "/test-worklist?show=verify");
         Add(cards, has(PermissionCodes.SpecimenAccession), PendingSpecimens, "Pending specimens", "/test-worklist?tab=specimens");
         Add(cards, has(PermissionCodes.ReactionInvestigate), Reactions, "Reaction investigations", "/reactions");
         Add(cards, has(PermissionCodes.ImmunoOverride)
@@ -62,6 +65,17 @@ public static class DashboardQueueCatalog
     /// Extra line when a stored overdue or follow-up count is already above zero.
     /// Zero stays silent so a routine queue looks like a count alone.
     /// </summary>
+    /// <summary>
+    /// The Results to verify card: lines this user can verify now (the worklist's To verify view), and of those how
+    /// many must be verified before their specimen expires.
+    /// </summary>
+    public static (int Count, string? Note) ToVerifyCard(IEnumerable<TestWorkItemDto> pending, string? userName)
+    {
+        var mine = TestWorklistView.ToVerify(pending, userName);
+        var dueSoon = PendingTestAttentionRule.CountVerifyBeforeExpiry(mine);
+        return (mine.Count, AttentionNote(dueSoon, "before its specimen expires", "before their specimens expire"));
+    }
+
     public static string? AttentionNote(int count, string singular, string plural)
     {
         if (count <= 0)
