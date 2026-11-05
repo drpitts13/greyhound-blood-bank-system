@@ -14,6 +14,7 @@ using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -63,7 +64,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 new AuditWriter(c, _factory.Clock, _factory.CurrentUser)),
             deviations: new EfRepository<Deviation>(c));
 
-    private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
+    private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null, IProductDispensePublisher? dispense = null)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
         return new IssuingService(
@@ -98,6 +99,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             compatibilityVersions: new EfRepository<CompatibilityRuleVersion>(c),
             compatibilityRules: new EfRepository<CompatibilityRule>(c),
             unitSpecialTests: new EfRepository<BloodComponentSpecialTest>(c),
+            dispensePublisher: dispense,
             electronicCrossmatch: new ElectronicCrossmatchEligibilityService(
                 new EfRepository<Patient>(c),
                 new EfRepository<PatientBloodTypeHistory>(c),
@@ -2819,6 +2821,89 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var ctx = _factory.Create();
         var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
         Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+    }
+
+    private Hl7OutboundService Outbound(BloodBankDbContext c) =>
+        new(
+            new EfRepository<TestResult>(c),
+            new EfRepository<Patient>(c),
+            new EfRepository<Hl7MessageLog>(c),
+            c,
+            _factory.Clock,
+            endpoints: new EfRepository<InterfaceEndpoint>(c),
+            issues: new EfRepository<Issue>(c),
+            units: new EfRepository<BloodUnit>(c),
+            productTypes: new EfRepository<ProductType>(c),
+            orders: new EfRepository<Order>(c));
+
+    // TEST-BB-417: issue and return tell the EHR (BPS^O29) only while an outbound blood product interface is enabled.
+    [Fact]
+    public async Task IssueAndReturn_QueueADispenseMessage_OnlyWithAnEnabledBloodProductInterface()
+    {
+        var quiet = await SeedAsync("BPS-OFF");
+        await AllocateAsync(quiet);
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c, dispense: Outbound(c)).IssueUnitAsync(IssueReq(quiet, IssueType.EmergencyRelease,
+                overrideReason: "Bleeding, interface test", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error);
+            Assert.False(await c.Hl7Messages.AnyAsync(m => m.MessageType == "BPS" && m.MessageControlId.EndsWith(issued.Value!.Id.ToString())));
+        }
+
+        long endpointId;
+        await using (var c = _factory.Create())
+        {
+            var endpoint = new InterfaceEndpoint
+            {
+                Name = "EHR blood product status",
+                Direction = Hl7Direction.Outbound,
+                InterfaceType = InterfaceType.Bpam,
+                MessageTypes = "BPS",
+                IsEnabled = true
+            };
+            c.InterfaceEndpoints.Add(endpoint);
+            await c.SaveChangesAsync();
+            endpointId = endpoint.Id;
+        }
+
+        try
+        {
+            var s = await SeedAsync("BPS-ON");
+            await AllocateAsync(s);
+            long issueId;
+            await using (var c = _factory.Create())
+            {
+                var issued = await Issuing(c, dispense: Outbound(c)).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease,
+                    overrideReason: "Bleeding, interface test", authorizedBy: "dr-authorizer"));
+                Assert.True(issued.Succeeded, issued.Error);
+                issueId = issued.Value!.Id;
+            }
+
+            await using (var c = _factory.Create())
+            {
+                var returned = await Issuing(c, dispense: Outbound(c)).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                    "Not needed; cooler intact", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+                Assert.True(returned.Succeeded, returned.Error);
+            }
+
+            await using var verify = _factory.Create();
+            var messages = await verify.Hl7Messages
+                .Where(m => m.MessageType == "BPS" && m.EndpointId == endpointId)
+                .OrderBy(m => m.Id)
+                .ToListAsync();
+            Assert.Equal(2, messages.Count);
+            Assert.All(messages, m => Assert.Equal(Hl7Direction.Outbound, m.Direction));
+            Assert.Contains("BPX|1|DS^", messages[0].RawMessage);
+            Assert.Contains("U-BPS-ON", messages[0].RawMessage);
+            Assert.Contains("BPX|1|RA^", messages[1].RawMessage);
+        }
+        finally
+        {
+            await using var c = _factory.Create();
+            var endpoint = await c.InterfaceEndpoints.FindAsync(endpointId);
+            endpoint!.IsEnabled = false;
+            await c.SaveChangesAsync();
+        }
     }
 
     [Fact]

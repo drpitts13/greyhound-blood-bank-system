@@ -8,11 +8,11 @@ using BloodBankLIS.Domain.Rules;
 namespace BloodBankLIS.HL7.Messaging;
 
 /// <summary>
-/// Builds outbound ORU result messages and DFT billing messages and persists them
+/// Builds outbound ORU result, DFT billing, and BPS blood product dispense messages and persists them
 /// to <c>HL7Messages</c> (direction Outbound). The transport (MLLP sender hosted
 /// service) picks them up; this service performs no network I/O.
 /// </summary>
-public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultReleasePublisher
+public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultReleasePublisher, IProductDispensePublisher
 {
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<Patient> _patients;
@@ -22,6 +22,10 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
     private readonly IRepository<InterfaceEndpoint>? _endpoints;
     private readonly IInterfaceFieldMappingRepository? _mappings;
     private readonly IInterfaceValueTranslationRepository? _translations;
+    private readonly IRepository<Issue>? _issues;
+    private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<ProductType>? _productTypes;
+    private readonly IRepository<Order>? _orders;
 
     public Hl7OutboundService(
         IRepository<TestResult> results,
@@ -31,8 +35,16 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         IClock clock,
         IRepository<InterfaceEndpoint>? endpoints = null,
         IInterfaceFieldMappingRepository? mappings = null,
-        IInterfaceValueTranslationRepository? translations = null)
+        IInterfaceValueTranslationRepository? translations = null,
+        IRepository<Issue>? issues = null,
+        IRepository<BloodUnit>? units = null,
+        IRepository<ProductType>? productTypes = null,
+        IRepository<Order>? orders = null)
     {
+        _issues = issues;
+        _units = units;
+        _productTypes = productTypes;
+        _orders = orders;
         _results = results;
         _patients = patients;
         _logs = logs;
@@ -132,6 +144,57 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
             Direction = Hl7Direction.Outbound,
             MessageType = "DFT",
             TriggerEvent = "P03",
+            MessageControlId = controlId,
+            RawMessage = raw,
+            Status = Hl7MessageStatus.Received,
+            ReceivedUtc = now
+        };
+        await _logs.AddAsync(log, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return log.Id;
+    }
+
+    /// <summary>
+    /// BPS^O29 for a unit dispensed to, or returned from, a patient, so bedside administration in the EHR can match the
+    /// unit it scans. Queued only when an outbound blood product (BPAM) interface is enabled.
+    /// </summary>
+    public async Task<long?> PublishDispenseAsync(long issueId, ProductDispenseEvent dispenseEvent, CancellationToken ct = default)
+    {
+        if (_endpoints is null || _issues is null || _units is null
+            || !await _endpoints.AnyAsync(e => e.IsEnabled && e.Direction == Hl7Direction.Outbound && e.InterfaceType == InterfaceType.Bpam, ct))
+        {
+            return null;
+        }
+
+        var issue = await _issues.GetByIdAsync(issueId, ct);
+        if (issue is null)
+        {
+            return null;
+        }
+
+        var unit = await _units.GetByIdAsync(issue.BloodProductId, ct);
+        var patient = await _patients.GetByIdAsync(issue.PatientId, ct);
+        if (unit is null || patient is null)
+        {
+            return null;
+        }
+
+        var product = _productTypes is null ? null : await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        var order = _orders is null || issue.OrderId is not long orderId ? null : await _orders.GetByIdAsync(orderId, ct);
+        var now = _clock.UtcNow;
+        var statusUtc = dispenseEvent == ProductDispenseEvent.Dispensed ? issue.IssuedUtc : now;
+        var controlId = $"BPS{now:yyyyMMddHHmmssfff}{issue.Id}";
+        var resolved = await ResolveOutboundAsync(InterfaceType.Bpam, ct);
+        var translator = await LoadTranslatorAsync(ct);
+        var raw = Hl7BpsBuilder.Build(patient, issue, unit, product, order, dispenseEvent, statusUtc, controlId, now,
+            resolved.Identity, map: resolved.Map, translator: translator);
+
+        var log = new Hl7MessageLog
+        {
+            EndpointId = resolved.EndpointId,
+            Direction = Hl7Direction.Outbound,
+            MessageType = "BPS",
+            TriggerEvent = "O29",
             MessageControlId = controlId,
             RawMessage = raw,
             Status = Hl7MessageStatus.Received,

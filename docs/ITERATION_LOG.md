@@ -12357,3 +12357,52 @@ The nurse had to remember which units of that cooler were already done. The deve
 ### Next ranked residual (workflow lens)
 
 Transfusion documentation for several units of one patient (MTP), the same way: keep the transfusionist and identifiers, and offer the next unit received at the bedside.
+
+## Iteration 378 — Tell the EHR when a unit is dispensed or returned (BPS^O29) (2026-11-04)
+
+### Capability matrix rescan (interface lens)
+
+Interoperability:
+- **ADT, ORM/OML, ORU in:** present.
+- **ORU out (with corrections and withdrawals):** present.
+- **DFT out:** present.
+- **BPAM in (RAS/BPS) to document transfusion:** present.
+- **FHIR read:** present.
+
+**Missing:** the transfusion service never told the EHR that a unit was dispensed or returned. Mature transfusion systems send this so the EHR's bedside blood administration can match the scanned unit to the patient's issue. The workflow residual from Cycle 377 (transfusion documentation in a run) is a smaller, similar pattern; this interface gap ranks higher.
+
+### Design
+
+- `IProductDispensePublisher` (Application) is implemented by `Hl7OutboundService.PublishDispenseAsync`. It queues only while an outbound BPAM endpoint is enabled, like result corrections (OCD-049 pattern).
+- `Hl7BpsBuilder` builds HL7 v2.5 BPS^O29: MSH, PID, PV1 (destination), ORC (SC; placer and filler order numbers, or the issue id), BPO (product), BPX.
+- BPX carries:
+  - dispense status: table 0510, DS on issue, RA on return
+  - F, and the status time
+  - DIN, product code, ABO/Rh, unit number
+  - on dispense: destination, receiver, and issuer
+- The status code goes through the site's value translations (`BloodProduct.DispenseStatus`), since EHRs vary.
+- `IssuingService` calls it after the issue or return is saved. A message that cannot be queued adds the warning `HL7-BPS-NOT-SENT` and does not undo anything.
+- The existing MLLP sender delivers it and records the ACK. No schema change.
+
+### Requirements
+
+- URS-BB-495, FRS-BB-555. Help: HL7 page (new section).
+- The table 0510 codes are from the HL7 v2.5 standard. The interface team confirms them with the EHR at go-live, and the translation covers differences.
+
+### Tests
+
+- TEST-BB-417. Builder:
+  - dispense message fields: MSH-9, PID, PV1, ORC, BPO, BPX-2/3/4/5/6/11/18/20
+  - return gives RA with no destination, and ORC-3 falls back to the issue id without an order
+  - a site translation replaces DS
+- TEST-BB-417. Integration:
+  - with no BPAM endpoint, an issue queues nothing
+  - with an enabled outbound BPAM endpoint, the issue queues DS and the return queues RA, both outbound on that endpoint
+- Full suite: 3,691 passed, 0 failed.
+- Live check limited to startup: the development API started, and the issuing endpoints resolved `IssuingService` with the publisher from dependency injection (in transit and outstanding returned 200, no server errors).
+- No message was sent live: the development data has no outbound BPAM endpoint, and enabling one would change interface configuration. The integration test covers the path through the real outbound service.
+
+### Next ranked residual
+
+- Interface lens: an outbound BPAM endpoint preset (message types BPS) in the interface admin, so it can be set up without typing the message type.
+- Workflow lens: transfusion documentation in a run.

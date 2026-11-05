@@ -63,6 +63,7 @@ public sealed class IssuingService
     private readonly IRepository<CompatibilityRuleVersion>? _compatibilityVersions;
     private readonly IRepository<CompatibilityRule>? _compatibilityRules;
     private readonly IRepository<BloodComponentSpecialTest>? _unitSpecialTests;
+    private readonly IProductDispensePublisher? _dispensePublisher;
     private readonly IRepository<AutoThawRequest>? _autoThawRequests;
     private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
@@ -111,8 +112,10 @@ public sealed class IssuingService
         IRepository<MtpActivation>? mtpActivations = null,
         IRepository<CompatibilityRuleVersion>? compatibilityVersions = null,
         IRepository<CompatibilityRule>? compatibilityRules = null,
-        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null)
+        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null,
+        IProductDispensePublisher? dispensePublisher = null)
     {
+        _dispensePublisher = dispensePublisher;
         _inventory = inventory;
         _issues = issues;
         _allocations = allocations;
@@ -646,6 +649,11 @@ public sealed class IssuingService
         if (issueOpen.Severity != RuleSeverity.Pass)
         {
             evaluation = new RuleEvaluation(evaluation.Results.Append(issueOpen).ToList());
+        }
+
+        if (await TellEhrOfDispenseAsync(issue.Id, ProductDispenseEvent.Dispensed, unit.UnitNumber, ct) is { } notSent)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(notSent).ToList());
         }
 
         return EvaluationResult<Issue>.Ok(issue, evaluation);
@@ -1405,11 +1413,18 @@ public sealed class IssuingService
             reason: request.Reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return EvaluationResult<Return>.Ok(
-            returnRecord,
-            disposalRequested || inspectionFailed
-                ? new RuleEvaluation([ReturnDisposalRule.Notice(unit.UnitNumber, disposalRequested, inspectionFailed)])
-                : null);
+        var notices = new List<RuleResult>();
+        if (disposalRequested || inspectionFailed)
+        {
+            notices.Add(ReturnDisposalRule.Notice(unit.UnitNumber, disposalRequested, inspectionFailed));
+        }
+
+        if (await TellEhrOfDispenseAsync(issue.Id, ProductDispenseEvent.Returned, unit.UnitNumber, ct) is { } notSent)
+        {
+            notices.Add(notSent);
+        }
+
+        return EvaluationResult<Return>.Ok(returnRecord, notices.Count == 0 ? null : new RuleEvaluation(notices));
     }
 
     public async Task<EvaluationResult<Return>> ReturnUnitForBloodUnitAsync(
@@ -1914,6 +1929,30 @@ public sealed class IssuingService
             bloodType?.AboSubgroup ?? AboSubgroup.Unknown);
         var unmet = SpecialTransfusionRequirementRule.UnmetUnitRequirements(refs, codes, unitAntigens, nowUtc, typing);
         return (proceduresMet, unmet);
+    }
+
+    /// <summary>
+    /// Queues the dispense or return message to the EHR when a blood product interface is enabled. The issue or
+    /// return already stands; a message that cannot be queued is a warning to resend from the HL7 page.
+    /// </summary>
+    private async Task<RuleResult?> TellEhrOfDispenseAsync(long issueId, ProductDispenseEvent dispenseEvent, string unitNumber, CancellationToken ct)
+    {
+        if (_dispensePublisher is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            await _dispensePublisher.PublishDispenseAsync(issueId, dispenseEvent, ct);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return RuleResult.Warning(
+                "HL7-BPS-NOT-SENT",
+                $"Unit {unitNumber} was {(dispenseEvent == ProductDispenseEvent.Dispensed ? "issued" : "returned")}, but the message telling the EHR could not be queued. Check the HL7 page.");
+        }
     }
 
     private static string? JoinAcknowledgedCodes(IReadOnlyList<string>? codes)
