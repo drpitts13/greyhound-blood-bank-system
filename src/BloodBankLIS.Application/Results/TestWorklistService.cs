@@ -371,6 +371,12 @@ public sealed class TestWorklistService
             return (false, "No specimen is linked to this order. Accession a specimen and link it before entering results.");
         }
 
+        // A rejected or cancelled tube: say why, and that a new specimen is needed (the row offers Accession).
+        if (SpecimenRecollectionRule.NeedsRecollection(specimen.Status))
+        {
+            return (false, SpecimenRecollectionRule.BlockReason(specimen.AccessionNumber, specimen.Status, specimen.RejectionReason));
+        }
+
         // Same rule as ResultService: a pending correction is not stopped by expiration (OCD-051).
         if (specimen.Status != SpecimenStatus.Accepted
             && !(allowExpired && specimen.Status == SpecimenStatus.Expired))

@@ -39,6 +39,8 @@ public sealed class SpecimenService
     private readonly IRepository<Override>? _overrides;
     private readonly IRepository<TestResult>? _results;
     private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<OrderSpecimen>? _orderSpecimens;
+    private readonly IRepository<Order>? _orders;
     private readonly IRepository<BloodUnit>? _units;
     private readonly IRepository<SpecimenRejectionReason>? _rejectionReasons;
     private readonly AntibodyScreenCompatLoader? _antibodyScreen;
@@ -62,8 +64,12 @@ public sealed class SpecimenService
         IRepository<TestResult>? results = null,
         IRepository<Allocation>? allocations = null,
         IRepository<BloodUnit>? units = null,
-        IRepository<SpecimenRejectionReason>? rejectionReasons = null)
+        IRepository<SpecimenRejectionReason>? rejectionReasons = null,
+        IRepository<OrderSpecimen>? orderSpecimens = null,
+        IRepository<Order>? orders = null)
     {
+        _orderSpecimens = orderSpecimens;
+        _orders = orders;
         _specimens = specimens;
         _patients = patients;
         _specimenTypes = specimenTypes;
@@ -558,6 +564,27 @@ public sealed class SpecimenService
             AntibodyIdentificationHistoryPostRule.EvaluateSpecimenRejectedOpenWorkup,
             "Linked specimen was rejected while an antibody-identification workup was open. Interpretation and supervisor review must be repeated, or the workup voided, before completing. This does not identify antibodies.",
             ct)).ToList();
+
+        // Open orders on this tube now wait for a new specimen: name them, so recollection is asked for.
+        if (_orderSpecimens is not null && _orders is not null)
+        {
+            var orderIds = (await _orderSpecimens.ListAsync(
+                    os => os.SpecimenId == specimen.Id && os.UnlinkedUtc == null, ct))
+                .Select(os => os.OrderId)
+                .Distinct()
+                .ToList();
+            var waiting = orderIds.Count == 0
+                ? []
+                : (await _orders.ListAsync(o => orderIds.Contains(o.Id), ct))
+                    .Where(o => o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+                    .Select(o => o.OrderNumber)
+                    .Order(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            if (waiting.Count > 0)
+            {
+                warnings.Add(SpecimenRecollectionRule.OrdersWaiting(waiting));
+            }
+        }
 
         // Reservations made on this specimen are not released automatically; the bench decides, but is told.
         if (_allocations is not null)

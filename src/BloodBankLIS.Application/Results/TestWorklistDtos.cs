@@ -63,7 +63,10 @@ public sealed record TestWorkItemDto(
     public string BenchActionLabel =>
         CanEnterResults
             ? HasPostedInterfaceOrInstrumentValue || AwaitsVerification ? "Verify" : "Enter"
-            : "Blocked";
+            : NeedsRecollection ? SpecimenRecollectionRule.BenchLabel : "Blocked";
+
+    /// <summary>The line's tube was rejected or cancelled: a new specimen must be collected and linked.</summary>
+    public bool NeedsRecollection => SpecimenRecollectionRule.NeedsRecollection(SpecimenStatus);
 
     /// <summary>A result is on the line and waiting for verification, whoever or whatever entered it.</summary>
     public bool AwaitsVerification =>
@@ -122,6 +125,7 @@ public sealed record TestWorkItemDto(
 
     public bool NeedsSpecimenLink =>
         SpecimenId is null or 0
+        || NeedsRecollection
         || BlockReason?.Contains("No specimen is linked", StringComparison.OrdinalIgnoreCase) == true;
 
     public string ChartAccessionHref => $"/patients/{PatientId}?tab=orders&panel=accession";

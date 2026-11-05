@@ -13666,3 +13666,36 @@ Reaction workup tests reached the bench as ordinary Stat lines. The technologist
 ### Next ranked residual
 
 Rescan operations: the specimen desk or Issue desk for remaining manual steps.
+
+## Iteration 410 — Recollection after a rejected tube (2026-11-05)
+
+### Capability matrix rescan (specimen desk)
+
+Rejecting a tube recorded the reason and warned about open antibody workups and reservations. It said nothing about the orders still on the tube. On the bench their lines read "Blocked: Specimen X is Rejected; only Accepted specimens allow result entry", with no next step. The technologist had to remember to request a recollection and work out how to relink (questions 2, 5).
+
+### Design
+
+- **`SpecimenRecollectionRule`:** rejected or cancelled tubes need a recollection.
+- **Bench lines on such a tube:**
+  - block reason: "Specimen X was rejected (reason). Collect a new specimen and link it to this order."
+  - labeled **Recollect**
+  - `NeedsSpecimenLink`, so the worklist row, chart Tests tab, and entry panel offer Accession
+- **`SpecimenService.RejectAsync`:** adds the warning `SPEC-RECOLLECT` naming the open orders linked to the tube (optional order repositories).
+- No schema change. Notifying the ward or EHR of a rejection (HL7) is not done here; it needs the interface's message choice.
+
+### Requirements
+
+- URS-BB-509, FRS-BB-587. Help: patient specimens.
+
+### Tests
+
+- TEST-BB-451:
+  - rejecting a tube with an open DAT order names the order
+  - its line is Recollect, needs a specimen link, and gives the reason
+  - a tube with no open orders is rejected without the warning
+- Full suite: 3,735 passed, 0 failed.
+- Run check: the worklist loads (11 rows) and there are no server errors. No demo tube is rejected with open orders, and none was rejected live, so the Recollect line is covered by the test only.
+
+### Next ranked residual
+
+Rejection notice to the EHR (HL7 order status) needs the interface choice; otherwise the Issue desk rescan.

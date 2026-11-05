@@ -711,6 +711,44 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("to verify", BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).QueueSummary);
     }
 
+    // TEST-BB-451: rejecting a tube names the open orders that now need a new specimen, and the bench shows their lines
+    // as Recollect with the reason, offering Accession.
+    [Fact]
+    public async Task RejectedTube_NamesItsWaitingOrders_AndTheBenchAsksForRecollection()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "DAT");
+        var specimens = new BloodBankLIS.Application.Specimens.SpecimenService(
+            new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
+            c, _factory.Clock, currentUser: _factory.CurrentUser,
+            orderSpecimens: new EfRepository<OrderSpecimen>(c), orders: new EfRepository<Order>(c));
+
+        var rejected = await specimens.RejectAsync(seed.specimen!.Id, "Hemolyzed", null);
+        Assert.True(rejected.Succeeded, rejected.Error);
+        var warning = Assert.Single(rejected.Warnings!, w => w.Code == SpecimenRecollectionRule.Code);
+        Assert.Contains(seed.order.OrderNumber, warning.Message);
+
+        var row = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id), r => r.OrderLineId == seed.line.Id);
+        Assert.False(row.CanEnterResults);
+        Assert.True(row.NeedsRecollection);
+        Assert.True(row.NeedsSpecimenLink);
+        Assert.Equal("Recollect", row.BenchActionLabel);
+        Assert.Contains("was rejected (Hemolyzed)", row.BlockReason);
+        Assert.Contains("Collect a new specimen", row.BlockReason);
+
+        // A tube with no open orders is rejected without the recollection warning.
+        var spare = new Specimen
+        {
+            AccessionNumber = $"ACC-{Guid.NewGuid():N}", PatientId = seed.patient.Id, EncounterId = seed.encounter.Id, SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1), ExpiresUtc = _factory.Clock.UtcNow.AddDays(2), Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(spare);
+        await c.SaveChangesAsync();
+        var spareRejected = await specimens.RejectAsync(spare.Id, "Clotted", null);
+        Assert.True(spareRejected.Succeeded, spareRejected.Error);
+        Assert.DoesNotContain(spareRejected.Warnings ?? [], w => w.Code == SpecimenRecollectionRule.Code);
+    }
+
     // TEST-BB-444 (OCD-058): a reaction workup line on an expired tube can be resulted and verified; an ordinary order
     // on the same expired tube stays blocked.
     [Fact]

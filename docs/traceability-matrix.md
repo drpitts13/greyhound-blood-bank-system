@@ -581,6 +581,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-507 / FRS-BB-584 | Close gate on verified workup results; repeat ABO/Rh from results | `ReactionWorkupCompletenessRule` | TEST-BB-446, TEST-BB-447 | D / I | |
 | URS-BB-508 / FRS-BB-585 | Printable reaction investigation report, audited print | `ReactionInvestigationService.GetReportAsync` | TEST-BB-449 | I | |
 | URS-BB-507 / FRS-BB-586 | Reaction workup lines marked on the bench | `TestWorkItemDto.ReactionWorkup` | TEST-BB-450 | I | |
+| URS-BB-509 / FRS-BB-587 | Recollection asked for after a rejected tube | `SpecimenRecollectionRule` | TEST-BB-451 | I | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |
