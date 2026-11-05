@@ -75,7 +75,7 @@
     {
         <table class="bb">
             <thead>
-                <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>Status</th><th></th></tr>
+                <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>ABO/Rh</th><th>Alerts</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
                 @foreach (var p in Filtered)
@@ -91,6 +91,17 @@
                         </td>
                         <td>@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
                         <td>@p.Sex</td>
+                        <td class="mono" data-blood-type>@(p.CurrentBloodType ?? "—")</td>
+                        <td data-alerts>
+                            @if (p.ActiveAntibodies is { Count: > 0 } abs)
+                            {
+                                <span class="badge badge-red" title="Active antibodies on file">@string.Join(", ", abs)</span>
+                            }
+                            @if (p.ActiveSpecialRequirements > 0)
+                            {
+                                <span class="badge badge-amber" title="Special requirements in effect; open the chart for details">@p.ActiveSpecialRequirements special @(p.ActiveSpecialRequirements == 1 ? "requirement" : "requirements")</span>
+                            }
+                        </td>
                         <td><span class="badge badge-gray">@p.Status</span></td>
                         @* The MRN and name already open the chart; only the extra destination gets a button. *@
                         <td class="right nowrap">

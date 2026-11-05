@@ -51,7 +51,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 
 | Area | Status | Notes |
 |---|---|---|
-| Patient demographics, MRN, visits, location, provider | Present | Chart + ADT. Cycle 227 does not store an ordering-location code as the name when the name is blank. The list shows the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. |
+| Patient demographics, MRN, visits, location, provider | Present | Cycle 400: the patient list shows ABO/Rh, active antibodies, and special requirements in effect. Chart + ADT. Cycle 227 does not store an ordering-location code as the name when the name is blank. The list shows the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. |
 | Alternate identifiers, aliases | Present | Cycle 185–186: prior name on chart edit and ADT; prior MRN from merge; search matches aliases |
 | Duplicate handling / merge | Present | Merge + reason; Cycle 187 unmerge restores the ledger when nothing new has happened since. Pre-ledger merges cannot be undone |
 | Orders, priority, ordering location | Present | Test and product orders. Cycle 235 keeps the product code on a new or edited order. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. Cycle 244 keeps the test code on a new or edited order. A blank name stays the test id and is not replaced by the code. The stored name is unchanged. |

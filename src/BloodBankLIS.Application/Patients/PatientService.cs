@@ -25,6 +25,9 @@ public sealed class PatientService
     private readonly IAuditWriter? _audit;
     private readonly ICurrentUser? _currentUser;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
+    private readonly IRepository<AntibodyHistory>? _antibodies;
+    private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
 
     public PatientService(
         IRepository<Patient> patients,
@@ -35,8 +38,14 @@ public sealed class PatientService
         ICurrentUser? currentUser = null,
         IPermissionEvaluator? permissions = null,
         IRepository<PatientIdentifier>? identifiers = null,
-        PatientHistoricalAliasWriter? aliasWriter = null)
+        PatientHistoricalAliasWriter? aliasWriter = null,
+        IRepository<PatientBloodTypeHistory>? bloodTypes = null,
+        IRepository<AntibodyHistory>? antibodies = null,
+        IRepository<SpecialTransfusionRequirement>? requirements = null)
     {
+        _bloodTypes = bloodTypes;
+        _antibodies = antibodies;
+        _requirements = requirements;
         _patients = patients;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -63,11 +72,37 @@ public sealed class PatientService
                 .Select(PatientAliasDto.From)
                 .ToList());
 
+        var now = _clock.UtcNow;
+        var currentTypes = _bloodTypes is null
+            ? new Dictionary<long, string>()
+            : (await _bloodTypes.ListAsync(t => t.IsCurrent && t.InvalidatedUtc == null, ct))
+                .GroupBy(t => t.PatientId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.Id).First().BloodType.ToString());
+        var antibodies = _antibodies is null
+            ? Array.Empty<AntibodyHistory>().ToLookup(a => a.PatientId)
+            : (await _antibodies.ListAsync(a => a.IsActive, ct)).ToLookup(a => a.PatientId);
+        var requirements = _requirements is null
+            ? new Dictionary<long, int>()
+            : (await _requirements.ListAsync(r => r.IsActive, ct))
+                .Where(r => SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, now))
+                .GroupBy(r => r.PatientId)
+                .ToDictionary(g => g.Key, g => g.Count());
+
         return patients
             .OrderBy(p => p.LastName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(p => p.FirstName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
-            .Select(p => PatientDto.From(p, byPatient.GetValueOrDefault(p.Id)))
+            .Select(p => PatientDto.From(p, byPatient.GetValueOrDefault(p.Id)) with
+            {
+                CurrentBloodType = currentTypes.GetValueOrDefault(p.Id),
+                ActiveAntibodies = antibodies[p.Id]
+                    .Select(a => a.AntibodySpecificity)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Order(StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                ActiveSpecialRequirements = requirements.GetValueOrDefault(p.Id)
+            })
             .ToList();
     }
 

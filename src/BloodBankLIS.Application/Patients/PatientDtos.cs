@@ -58,7 +58,12 @@ public sealed record PatientDto(
     DateTime? RecentPregnancyUtc = null,
     long? MergedIntoPatientId = null,
     string? Comment = null,
-    IReadOnlyList<PatientAliasDto>? Aliases = null)
+    IReadOnlyList<PatientAliasDto>? Aliases = null,
+    // Blood bank flags for the patient list (filled by ListDtosAsync only): current ABO/Rh, active antibodies,
+    // and special requirements in effect, so the right patient and their risks are visible before opening the chart.
+    string? CurrentBloodType = null,
+    IReadOnlyList<string>? ActiveAntibodies = null,
+    int ActiveSpecialRequirements = 0)
 {
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,

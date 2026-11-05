@@ -13242,3 +13242,42 @@ Desks already exist (Bench, Issue desk, Supervisor). The home screen counted pen
 ### Next ranked residual
 
 Patient-level summary print from the Issue desk, or keyboard shortcuts for the bench (next/previous test).
+
+## Iteration 400 — Blood bank flags on the patient list (2026-11-05)
+
+### Capability matrix rescan (patient lookup)
+
+- **Already covered:**
+  - unlinked orders already show on the bench with an Accession step
+  - the Issue desk already shows informational requirements
+- **Gap:** the patient directory showed only MRN, name, DOB, sex, and status. A technologist choosing between similar names, or checking a patient before accepting a call, had to open each chart to see blood type and alerts (questions 1, 2). Commercial transfusion systems show type and alert flags on lookup.
+
+### Design
+
+- **`PatientDto`:** gains `CurrentBloodType`, `ActiveAntibodies`, `ActiveSpecialRequirements`, filled by `PatientService.ListDtosAsync` from:
+  - current, not invalidated, types
+  - active antibodies (distinct, sorted)
+  - special requirements clinically in effect now (`SpecialRequirementCatalog.IsClinicallyActive`)
+- **Patients page:** ABO/Rh and Alerts columns: a red antibody badge, and an amber "N special requirements" badge.
+- No schema change. Read only.
+
+### Requirements
+
+- URS-BB-505, FRS-BB-575. Help: patients.
+
+### Tests
+
+- TEST-BB-436:
+  - the current B- type (not the earlier B+); a retired current type is not shown
+  - anti-E and anti-K, without a duplicate or the inactive anti-c
+  - one requirement in effect, not the ended, future, or deactivated ones
+  - an unflagged patient shows none
+- Full suite: 3,717 passed, 0 failed.
+- Run check (development API and web):
+  - the list shows Kellerman (MRN0004) O+ with anti-K, Rhesus (MRN0003) A-, Demo (MRN0001) O+, and "—" for untyped patients, matching the downtime summary
+  - no demo patient has a special requirement in effect, so that badge is covered by the test only
+  - no server errors
+
+### Next ranked residual
+
+The same flags in the top-bar lookup results, or keyboard shortcuts for the bench.
