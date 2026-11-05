@@ -56,6 +56,7 @@ public sealed class SqliteToSqlServerMigrator
         "SpecimenTypeDefinitions",
         "TestDefinitions",
         "CrossmatchSettings",
+        "ReactionWorkupSettings",
         "SpecialRequirementDefinitions",
         "SubtestDefinitions",
         "PhaseDefinitions",

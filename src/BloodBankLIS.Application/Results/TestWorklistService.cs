@@ -267,7 +267,8 @@ public sealed class TestWorklistService
                 line.TestCode!,
                 testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType,
                 specimenTypeDefs,
-                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status));
+                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status)
+                    || ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType));
             if (OrderControlRule.BlocksResultEntry(order.Status))
             {
                 canEnter = false;

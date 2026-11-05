@@ -93,6 +93,19 @@ public static class ComplianceEndpoints
 
         group.MapPost("/{id:long}/written-report", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
             EndpointResults.From(await service.RecordWrittenReportAsync(id, ct), r => ReactionInvestigationDto.From(r)));
+
+        // The specimen workup: each specimen gets its Test Group as a reaction workup order, resulted on the bench.
+        group.MapGet("/{id:long}/workup-specimens", async (long id, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListOptionsAsync(id, ct), o => o));
+
+        group.MapPost("/{id:long}/pre-specimen", async (long id, AttachWorkupSpecimenRequest request, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.AttachPreTransfusionSpecimenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
+
+        group.MapPost("/{id:long}/post-specimen", async (long id, AttachWorkupSpecimenRequest request, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.AttachPostTransfusionSpecimenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
+
+        group.MapPost("/{id:long}/post-specimen/accession", async (long id, AccessionPostTransfusionSpecimenRequest request, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.AccessionPostTransfusionSpecimenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
     }
 
     private static void MapDeviations(WebApplication app)

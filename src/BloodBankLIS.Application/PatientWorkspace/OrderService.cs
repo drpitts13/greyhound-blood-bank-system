@@ -262,7 +262,21 @@ public sealed class OrderService
         long patientId, CreateOrderRequest request, CancellationToken ct = default) =>
         CreateCoreAsync(patientId, request, ct);
 
-    private async Task<OperationResult<Order>> CreateCoreAsync(long patientId, CreateOrderRequest request, CancellationToken ct)
+    /// <summary>
+    /// A transfusion reaction workup order: the Test Group for one workup specimen, created by an investigator who
+    /// already holds reaction.investigate. The order is typed as a reaction workup before its specimen is linked, so an
+    /// expired pre-transfusion tube can be used (OCD-058).
+    /// </summary>
+    public Task<OperationResult<Order>> CreateForReactionWorkupAsync(
+        long patientId, CreateOrderRequest request, string orderName, CancellationToken ct = default) =>
+        CreateCoreAsync(patientId, request, ct, OrderType.TransfusionReactionWorkup, orderName);
+
+    private async Task<OperationResult<Order>> CreateCoreAsync(
+        long patientId,
+        CreateOrderRequest request,
+        CancellationToken ct,
+        OrderType? headerType = null,
+        string? headerName = null)
     {
         if (request.Lines.Count == 0)
         {
@@ -323,6 +337,15 @@ public sealed class OrderService
 
         builtLines = ruleOutcome.Lines;
         OrderLineBuilder.ApplyHeaderFromLines(order, builtLines);
+        if (headerType is { } type)
+        {
+            order.OrderType = type;
+        }
+
+        if (!string.IsNullOrWhiteSpace(headerName))
+        {
+            order.OrderName = headerName;
+        }
 
         var validation = OrderValidator.Validate(
             order,
@@ -766,13 +789,16 @@ public sealed class OrderService
             return OperationResult<PatientOrderDto>.Fail("Specimen does not belong to this patient.");
         }
 
-        if (specimen.Status != SpecimenStatus.Accepted)
+        // OCD-058: a reaction workup order may use an expired (pre-transfusion) specimen.
+        var expiredAllowed = ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType);
+        if (specimen.Status != SpecimenStatus.Accepted
+            && !(expiredAllowed && specimen.Status == SpecimenStatus.Expired))
         {
             return OperationResult<PatientOrderDto>.Fail(
                 $"Only Accepted specimens can be linked. Specimen {specimen.AccessionNumber} is {specimen.Status}.");
         }
 
-        if (specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
+        if (!expiredAllowed && specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
         {
             return OperationResult<PatientOrderDto>.Fail(
                 $"Specimen {specimen.AccessionNumber} has expired and cannot be linked.");

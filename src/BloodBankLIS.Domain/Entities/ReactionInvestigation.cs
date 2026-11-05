@@ -102,4 +102,17 @@ public class ReactionInvestigation : BaseEntity
 
     /// <summary>The treatment texts as they read when chosen, "; "-separated.</summary>
     public string? TreatmentTexts { get; set; }
+
+    /// <summary>
+    /// Workup specimens and the orders that carry their Test Group (<see cref="Configuration.ReactionWorkupSettings"/>):
+    /// the pre-transfusion specimen, collected before the unit was issued, and the post-transfusion specimen, drawn
+    /// after the reaction. Set once each; the tests are resulted on the bench.
+    /// </summary>
+    public long? PreTransfusionSpecimenId { get; set; }
+
+    public long? PreTransfusionOrderId { get; set; }
+
+    public long? PostTransfusionSpecimenId { get; set; }
+
+    public long? PostTransfusionOrderId { get; set; }
 }

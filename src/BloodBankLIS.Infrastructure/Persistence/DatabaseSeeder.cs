@@ -76,6 +76,8 @@ public static partial class DatabaseSeeder
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
         await RepairAboRhForwardTypeLogicAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
+        await EnsureReactionWorkupGroupersAsync(context, cancellationToken);
+        await EnsureReactionWorkupSettingsAsync(context, cancellationToken);
         await SeedReflexRulesAsync(context, cancellationToken);
         await SeedRuleDefinitionsAsync(context, cancellationToken);
         await SeedLocationsAsync(context, cancellationToken);
@@ -3035,6 +3037,56 @@ public static partial class DatabaseSeeder
             Version = 1
         });
 
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Starter Test Groups for the transfusion reaction workup (OCD-059): repeat ABO/Rh and DAT on the
+    /// pre-transfusion specimen; repeat ABO/Rh, DAT, and antibody screen on the post-transfusion specimen. Examples
+    /// the facility edits in Test Groups, added once by code.
+    /// </summary>
+    private static async Task EnsureReactionWorkupGroupersAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var groups = new[]
+        {
+            (Code: ReactionWorkupSettings.DefaultPreTransfusionGroupCode, Name: "Reaction workup - pre-transfusion",
+                Members: new[] { "ABORH", "DAT" }),
+            (Code: ReactionWorkupSettings.DefaultPostTransfusionGroupCode, Name: "Reaction workup - post-transfusion",
+                Members: new[] { "ABORH", "DAT", "ABSC" })
+        };
+        foreach (var g in groups)
+        {
+            if (await context.TestGroupers.AnyAsync(x => x.Code == g.Code, ct))
+            {
+                continue;
+            }
+
+            context.TestGroupers.Add(new TestGrouper
+            {
+                Code = g.Code,
+                Name = g.Name,
+                MemberTestsJson = TestGrouperMembers.ToJson(g.Members.Select((code, i) => new TestGrouperMember(code, i + 1)).ToList()),
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            });
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureReactionWorkupSettingsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ReactionWorkupSettings.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var row = ReactionWorkupSettings.CreateDefault();
+        row.EffectiveUtc = DateTime.UtcNow;
+        context.ReactionWorkupSettings.Add(row);
         await context.SaveChangesAsync(ct);
     }
 

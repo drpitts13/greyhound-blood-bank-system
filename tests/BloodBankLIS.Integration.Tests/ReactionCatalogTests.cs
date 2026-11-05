@@ -31,7 +31,9 @@ public class ReactionCatalogTests : IDisposable
     private ReactionInvestigationService Reactions(BloodBankDbContext c) =>
         new(new EfRepository<ReactionInvestigation>(c), new EfRepository<TransfusionEvent>(c), new InventoryRepository(c),
             c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            catalog: new EfRepository<ReactionCatalogEntry>(c));
+            catalog: new EfRepository<ReactionCatalogEntry>(c),
+            specimens: new EfRepository<Specimen>(c), orders: new EfRepository<Order>(c),
+            orderLines: new EfRepository<OrderLine>(c), testResults: new EfRepository<TestResult>(c));
 
     private async Task<long> SeedInvestigationAsync()
     {
@@ -58,6 +60,7 @@ public class ReactionCatalogTests : IDisposable
         };
         c.ReactionInvestigations.Add(inv);
         await c.SaveChangesAsync();
+        await ReactionWorkupTestData.CompleteAsync(c, inv.Id, _factory.Clock.UtcNow);
         return inv.Id;
     }
 

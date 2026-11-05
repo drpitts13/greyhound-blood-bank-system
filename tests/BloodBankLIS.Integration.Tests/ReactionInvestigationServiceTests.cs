@@ -32,7 +32,11 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             bloodTypes: new EfRepository<PatientBloodTypeHistory>(context),
             antibodies: new EfRepository<AntibodyHistory>(context),
             issues: new EfRepository<Issue>(context),
-            productTypes: new EfRepository<ProductType>(context));
+            productTypes: new EfRepository<ProductType>(context),
+            specimens: new EfRepository<Specimen>(context),
+            orders: new EfRepository<Order>(context),
+            orderLines: new EfRepository<OrderLine>(context),
+            testResults: new EfRepository<TestResult>(context));
 
     [Fact]
     public async Task Update_WithoutReactionInvestigate_IsHardStopped()
@@ -178,6 +182,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         var key = Guid.NewGuid().ToString("N")[..12];
         var transfusion = await SeedTransfusionAsync(context, key);
         var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
         var closed = await CreateService(context).UpdateAsync(
             opened.Id,
             new UpdateReactionInvestigationRequest(
@@ -269,6 +274,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         var key = Guid.NewGuid().ToString("N")[..12];
         var transfusion = await SeedTransfusionAsync(context, key);
         var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
         Assert.True((await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
             "Hemolytic", ReactionSeverity.Fatal, null, "Fatal acute hemolytic reaction", null, null, null, true,
             ReactionInvestigationStatus.Closed, ClosedSignatureId: 9,
@@ -302,6 +308,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.True(stillDue.WorkupIncomplete);
         Assert.Contains("Clerical check", stillDue.WorkupHoldReason);
 
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
         var completed = await CreateService(context).UpdateAsync(
             opened.Id,
             new UpdateReactionInvestigationRequest(
@@ -315,6 +322,65 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.Equal(ReactionInvestigationStatus.Closed, completed.Value!.Status);
         var ready = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
         Assert.False(ready.WorkupIncomplete);
+    }
+
+    // TEST-BB-446: closing needs every workup test verified; the board shows each specimen with its results.
+    [Fact]
+    public async Task Close_WaitsForEveryWorkupTestToBeVerified_AndTheBoardShowsTheResults()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+        var postDat = await context.TestResults.SingleAsync(r => r.OrderId == opened.PostTransfusionOrderId && r.TestCode == "DAT");
+        postDat.Status = ResultStatus.Entered;
+        await context.SaveChangesAsync();
+        Assert.True((await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true))).Succeeded);
+
+        UpdateReactionInvestigationRequest Close() => new(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ClosedSignatureId: 4,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]);
+        var waiting = await CreateService(context).UpdateAsync(opened.Id, Close());
+        Assert.False(waiting.Succeeded);
+        Assert.Contains("1 still to verify", waiting.Error);
+
+        var row = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.Equal(ReactionWorkupSpecimenDto.PreRole, row.PreWorkup!.Role);
+        Assert.Equal(0, row.PreWorkup.Pending);
+        Assert.Equal(1, row.PostWorkup!.Pending);
+        Assert.Equal(new[] { "ABORH", "DAT" }, row.PostWorkup.Lines.Select(l => l.TestCode).ToArray());
+        Assert.Contains("1 still to verify", row.WorkupHoldReason);
+
+        postDat.Status = ResultStatus.Verified;
+        await context.SaveChangesAsync();
+        var closed = await CreateService(context).UpdateAsync(opened.Id, Close());
+        Assert.True(closed.Succeeded, closed.Error);
+        Assert.Equal(ReactionInvestigationStatus.Closed, closed.Value!.Status);
+    }
+
+    // TEST-BB-446: the repeat patient type comes from the verified post-transfusion ABO/Rh, compared with the
+    // current type and with the pre-transfusion specimen.
+    [Fact]
+    public async Task RepeatAboRh_ComesFromTheWorkupResults()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+
+        var agrees = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.False(agrees.RepeatPatientAboRhDiscrepancy);
+
+        var postAbo = await context.TestResults.SingleAsync(r => r.OrderId == opened.PostTransfusionOrderId && r.TestCode == "ABORH");
+        postAbo.Value = BloodBankLIS.Domain.ValueObjects.AboRhResultValue.Format(AboGroup.B, RhType.Positive);
+        await context.SaveChangesAsync();
+
+        var differs = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(differs.RepeatPatientAboRhDiscrepancy);
+        Assert.Contains("pre-transfusion specimen", differs.RepeatAboRhDetail);
+        Assert.Equal("Review the ABO/Rh discrepancy.", differs.NextStep.Text);
     }
 
     [Fact]

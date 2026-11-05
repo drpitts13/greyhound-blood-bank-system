@@ -94,7 +94,10 @@ public sealed record ReactionInvestigationDto(
     string? ConcludedReactionCode = null,
     string? ConcludedReactionText = null,
     string? TreatmentCodes = null,
-    string? TreatmentTexts = null)
+    string? TreatmentTexts = null,
+    // The specimen workup: each specimen with its Test Group results (null until that specimen is chosen).
+    ReactionWorkupSpecimenDto? PreWorkup = null,
+    ReactionWorkupSpecimenDto? PostWorkup = null)
 {
     /// <summary>The one thing to do next, from <see cref="ReactionNextStepRule"/>.</summary>
     public ReactionNextStepRule.Step NextStep => ReactionNextStepRule.For(new ReactionNextStepRule.Facts(
@@ -121,10 +124,14 @@ public sealed record ReactionInvestigationDto(
         bool repeatUnitAboRhDiscrepancy = false,
         string? repeatAboRhDetail = null,
         UnitStatus? remainderUnitStatus = null,
-        string? remainderHoldNote = null)
+        string? remainderHoldNote = null,
+        ReactionWorkupReader.Workup? specimenWorkup = null)
     {
-        var workup = ReactionWorkupCompletenessRule.Evaluate(
-            r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
+        // A closed case passed the gate when it was signed; the gate is shown for open cases.
+        var gate = ReactionWorkupCompletenessRule.Evaluate(
+            r.ClericalCheckCompleted, r.VisualInspectionCompleted,
+            ReactionWorkupReader.StateFor(r, specimenWorkup), r.ElutionResult);
+        var workup = r.Status == ReactionInvestigationStatus.Closed ? RuleResult.Pass(gate.Code) : gate;
         var followUp = ReactionFatalityFollowUpRule.Evaluate(
             r.IsFatality, r.CberNotifiedUtc, r.WrittenReportSubmittedUtc);
         return new ReactionInvestigationDto(
@@ -153,7 +160,8 @@ public sealed record ReactionInvestigationDto(
             followUp.Severity == RuleSeverity.Warning ? followUp.Message : null,
             r.ClosedBy, r.ClosedUtc, r.ReopenedBy, r.ReopenedUtc, r.ReopenReason,
             r.ReportedAfterTransfusion, r.OnsetUtc,
-            r.ConcludedReactionCode, r.ConcludedReactionText, r.TreatmentCodes, r.TreatmentTexts);
+            r.ConcludedReactionCode, r.ConcludedReactionText, r.TreatmentCodes, r.TreatmentTexts,
+            specimenWorkup?.Pre, specimenWorkup?.Post);
     }
 }
 
@@ -180,6 +188,10 @@ public sealed class ReactionInvestigationService
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
     private readonly IRepository<ReactionCatalogEntry>? _catalog;
+    private readonly IRepository<Specimen>? _specimens;
+    private readonly IRepository<Order>? _orders;
+    private readonly IRepository<OrderLine>? _orderLines;
+    private readonly IRepository<TestResult>? _testResults;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -197,9 +209,17 @@ public sealed class ReactionInvestigationService
         IRepository<ProductType>? productTypes = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
         IRepository<ProductRhCompatibility>? rhCompatibilities = null,
-        IRepository<ReactionCatalogEntry>? catalog = null)
+        IRepository<ReactionCatalogEntry>? catalog = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<Order>? orders = null,
+        IRepository<OrderLine>? orderLines = null,
+        IRepository<TestResult>? testResults = null)
     {
         _catalog = catalog;
+        _specimens = specimens;
+        _orders = orders;
+        _orderLines = orderLines;
+        _testResults = testResults;
         _investigations = investigations;
         _transfusions = transfusions;
         _inventory = inventory;
@@ -465,10 +485,12 @@ public sealed class ReactionInvestigationService
                 return OperationResult<ReactionInvestigation>.Fail("Closing an investigation requires an electronic signature.");
             }
 
+            // Both workup specimens with every Test Group test verified (a missing read counts as unverified).
+            var specimenWorkup = (await LoadWorkupsAsync([row], ct)).GetValueOrDefault(row.Id);
             var workup = ReactionWorkupCompletenessRule.Evaluate(
                 row.ClericalCheckCompleted,
                 row.VisualInspectionCompleted,
-                row.DatResult,
+                ReactionWorkupReader.StateFor(row, specimenWorkup),
                 row.ElutionResult);
             if (workup.Severity == RuleSeverity.HardStop)
             {
@@ -703,7 +725,11 @@ public sealed class ReactionInvestigationService
         row.ConcludedReactionCode,
         row.ConcludedReactionText,
         row.TreatmentCodes,
-        row.TreatmentTexts
+        row.TreatmentTexts,
+        row.PreTransfusionSpecimenId,
+        row.PreTransfusionOrderId,
+        row.PostTransfusionSpecimenId,
+        row.PostTransfusionOrderId
     };
 
     private static bool CanHoldReactionRemainder(UnitStatus status) =>
@@ -817,8 +843,13 @@ public sealed class ReactionInvestigationService
             ? []
             : await _issues.ListAsync(i => issueIds.Contains(i.Id), ct);
 
-        return new ReactionDisplayContext(patients, types, antibodies, units, products, transfusions, issues, aboRhPolicies);
+        var workups = await LoadWorkupsAsync(rows, ct);
+        return new ReactionDisplayContext(patients, types, antibodies, units, products, transfusions, issues, aboRhPolicies, workups);
     }
+
+    private Task<IReadOnlyDictionary<long, ReactionWorkupReader.Workup>> LoadWorkupsAsync(
+        IReadOnlyList<ReactionInvestigation> rows, CancellationToken ct) =>
+        ReactionWorkupReader.LoadAsync(rows, _specimens, _orders, _orderLines, _testResults, _clock.UtcNow, ct);
 
     private sealed class ReactionDisplayContext(
         IReadOnlyList<Patient> patients,
@@ -828,8 +859,10 @@ public sealed class ReactionInvestigationService
         IReadOnlyList<ProductType> products,
         IReadOnlyList<TransfusionEvent> transfusions,
         IReadOnlyList<Issue> issues,
-        IReadOnlyDictionary<long, ProductAboRhPolicy> aboRhPolicies)
+        IReadOnlyDictionary<long, ProductAboRhPolicy> aboRhPolicies,
+        IReadOnlyDictionary<long, ReactionWorkupReader.Workup> workups)
     {
+        private readonly IReadOnlyDictionary<long, ReactionWorkupReader.Workup> _workups = workups;
         private readonly Dictionary<long, Patient> _patients = patients.ToDictionary(p => p.Id);
         private readonly Dictionary<long, PatientBloodTypeHistory> _types = types
             .GroupBy(h => h.PatientId)
@@ -871,15 +904,24 @@ public sealed class ReactionInvestigationService
             var (incompatible, alert) = EvaluateLabeledCompatibility(
                 type, unit, product, patient?.Sex ?? Sex.Unknown, aboRhPolicy);
             var labeledUnit = unit is null ? (AboRh?)null : new AboRh(unit.Abo, unit.RhD);
-            var patientRepeat = ReactionRepeatAboRhRule.Evaluate(
-                type?.BloodType, row.RepeatPatientAboRh, "Patient");
+            // The repeat patient type is the verified ABO/Rh on the post-transfusion specimen; a case recorded before the
+            // specimen workup keeps its typed value. The pre- and post-transfusion types are also compared.
+            _workups.TryGetValue(row.Id, out var specimenWorkup);
+            var postAbo = specimenWorkup?.Post?.VerifiedValue("ABORH");
+            var preAbo = specimenWorkup?.Pre?.VerifiedValue("ABORH");
+            var patientRepeatText = postAbo ?? (row.PostTransfusionOrderId is null ? row.RepeatPatientAboRh : null);
+            var patientRepeat = ReactionRepeatAboRhRule.Evaluate(type?.BloodType, patientRepeatText, "Patient");
+            var prePost = preAbo is not null && postAbo is not null && ReactionRepeatAboRhRule.TryParseDisplay(preAbo, out var preType)
+                ? ReactionRepeatAboRhRule.Evaluate(preType, postAbo, "Post-transfusion specimen")
+                : RuleResult.Pass(ReactionRepeatAboRhRule.Code);
             var unitRepeat = ReactionRepeatAboRhRule.Evaluate(
                 labeledUnit, row.RepeatUnitAboRh, "Unit");
-            var patientDelta = patientRepeat.Severity == RuleSeverity.Warning;
+            var patientDelta = patientRepeat.Severity == RuleSeverity.Warning || prePost.Severity == RuleSeverity.Warning;
             var unitDelta = unitRepeat.Severity == RuleSeverity.Warning;
             var repeatDetail = string.Join(" ", new[]
             {
-                patientDelta ? patientRepeat.Message : null,
+                patientRepeat.Severity == RuleSeverity.Warning ? patientRepeat.Message : null,
+                prePost.Severity == RuleSeverity.Warning ? prePost.Message.Replace("disagrees with", "disagrees with the pre-transfusion specimen's", StringComparison.Ordinal) : null,
                 unitDelta ? unitRepeat.Message : null
             }.Where(m => !string.IsNullOrWhiteSpace(m)));
             return ReactionInvestigationDto.From(
@@ -900,7 +942,8 @@ public sealed class ReactionInvestigationService
                 unitDelta,
                 string.IsNullOrWhiteSpace(repeatDetail) ? null : repeatDetail,
                 unit?.Status,
-                RemainderNote(row.RemainderQuarantined, unit?.Status));
+                RemainderNote(row.RemainderQuarantined, unit?.Status),
+                specimenWorkup);
         }
 
         private static string? RemainderNote(bool quarantined, UnitStatus? status)

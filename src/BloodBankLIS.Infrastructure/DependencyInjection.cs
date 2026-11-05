@@ -95,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<SpecialRequirementService>();
         services.AddScoped<LookbackService>();
         services.AddScoped<ReactionInvestigationService>();
+        services.AddScoped<ReactionWorkupService>();
         services.AddScoped<DeviationService>();
         services.AddScoped<ShiftHandoffService>();
         services.AddScoped<SupervisorQueueService>();
@@ -172,6 +173,8 @@ public static class DependencyInjection
         services.AddScoped<FacilityPolicyAdminService>();
         services.AddScoped<CrossmatchSettingsAdminService>();
         services.AddScoped<CrossmatchSettingsReader>();
+        services.AddScoped<ReactionWorkupSettingsAdminService>();
+        services.AddScoped<ReactionWorkupSettingsReader>();
         services.AddScoped<CrossmatchAttachmentService>();
         services.AddScoped<CompatibilityRuleAdminService>();
         services.AddScoped<ChargeCodeAdminService>();

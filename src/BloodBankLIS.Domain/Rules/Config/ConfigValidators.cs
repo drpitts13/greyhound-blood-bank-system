@@ -1129,3 +1129,45 @@ public static class SpecialRequirementDefinitionValidator
         return new RuleEvaluation(results);
     }
 }
+
+/// <summary>
+/// Reaction workup settings: each chosen Test Group must be an active, released group. A role left empty means the
+/// workup for that specimen cannot be ordered until an administrator chooses one.
+/// </summary>
+public static class ReactionWorkupSettingsValidator
+{
+    public const string ReasonRequiredCode = "RXNSET.REASON.REQUIRED";
+    public const string PreGroupCode = "RXNSET.PRE.GROUP";
+    public const string PostGroupCode = "RXNSET.POST.GROUP";
+
+    public static RuleEvaluation Validate(
+        ReactionWorkupSettings settings,
+        string? reason,
+        TestGrouper? preGroup,
+        TestGrouper? postGroup)
+    {
+        var results = new List<RuleResult>();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            results.Add(RuleResult.HardStop(ReasonRequiredCode, "A change reason is required."));
+        }
+
+        AddGroupCheck(results, PreGroupCode, "pre-transfusion", settings.PreTransfusionTestGroupCode, preGroup);
+        AddGroupCheck(results, PostGroupCode, "post-transfusion", settings.PostTransfusionTestGroupCode, postGroup);
+        return new RuleEvaluation(results);
+    }
+
+    private static void AddGroupCheck(List<RuleResult> results, string code, string role, string? chosen, TestGrouper? group)
+    {
+        if (string.IsNullOrWhiteSpace(chosen))
+        {
+            return;
+        }
+
+        if (group is null || !group.IsActive || group.IsDraft)
+        {
+            results.Add(RuleResult.HardStop(code,
+                $"Test Group '{chosen}' for the {role} specimen is not an active, released Test Group."));
+        }
+    }
+}

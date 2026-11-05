@@ -139,6 +139,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<ReactionCatalogEntry> ReactionCatalogEntries => Set<ReactionCatalogEntry>();
     public DbSet<TransfusionIndicationCriterion> TransfusionIndicationCriteria => Set<TransfusionIndicationCriterion>();
     public DbSet<CrossmatchSettings> CrossmatchSettings => Set<CrossmatchSettings>();
+    public DbSet<ReactionWorkupSettings> ReactionWorkupSettings => Set<ReactionWorkupSettings>();
     public DbSet<ExpirationModificationCode> ExpirationModificationCodes => Set<ExpirationModificationCode>();
     public DbSet<AutoThawProduct> AutoThawProducts => Set<AutoThawProduct>();
     public DbSet<AutoThawRequest> AutoThawRequests => Set<AutoThawRequest>();

@@ -165,7 +165,9 @@ public sealed class ResultService
             return EvaluationResult<TestResult>.Blocked(reagentGate);
         }
 
-        var gate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct);
+        // OCD-058: a reaction workup order may be resulted on an expired (pre-transfusion) specimen.
+        var gate = await ValidateSpecimenForEntryAsync(
+            request.SpecimenId, request.TestCode, ct, allowExpired: await IsReactionWorkupOrderAsync(request.OrderId, ct));
         string? expiredError = null;
         if (!gate.Succeeded && !string.IsNullOrWhiteSpace(request.CorrectionReason))
         {
@@ -748,7 +750,10 @@ public sealed class ResultService
         }
 
         var specimenGate = await ValidateSpecimenForEntryAsync(
-            result.SpecimenId, result.TestCode, ct, allowExpired: result.Status == ResultStatus.Corrected);
+            result.SpecimenId,
+            result.TestCode,
+            ct,
+            allowExpired: result.Status == ResultStatus.Corrected || await IsReactionWorkupOrderAsync(result.OrderId, ct));
         if (!specimenGate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
@@ -1735,6 +1740,17 @@ public sealed class ResultService
     /// by the sweep) does not stop it. Rejected or cancelled specimens and merged-away
     /// patients are still refused.
     /// </param>
+    private async Task<bool> IsReactionWorkupOrderAsync(long? orderId, CancellationToken ct)
+    {
+        if (_orders is null || orderId is not > 0)
+        {
+            return false;
+        }
+
+        var order = await _orders.GetByIdAsync(orderId.Value, ct);
+        return order is not null && ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType);
+    }
+
     private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(
         long specimenId, string testCode, CancellationToken ct, bool allowExpired = false)
     {

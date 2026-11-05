@@ -38,6 +38,7 @@ public static class AdminEndpoints
         MapInventoryLocations(app);
         MapFacilityPolicies(app);
         MapCrossmatchSettings(app);
+        MapReactionWorkupSettings(app);
         MapChargeCodes(app);
         MapChargeRules(app);
         MapTestServiceBillings(app);
@@ -1014,6 +1015,19 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigView);
 
         group.MapPut("", async (SaveCrossmatchSettingsRequest req, CrossmatchSettingsAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+    }
+
+    private static void MapReactionWorkupSettings(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/reaction-workup-settings").WithTags("Admin: Reaction Workup").RequireAuthenticatedUser();
+
+        group.MapGet("", async (ReactionWorkupSettingsAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPut("", async (SaveReactionWorkupSettingsRequest req, ReactionWorkupSettingsAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.UpdateAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
     }

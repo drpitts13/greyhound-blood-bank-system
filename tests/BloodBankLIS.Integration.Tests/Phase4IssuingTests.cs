@@ -3354,7 +3354,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<ReactionInvestigation>(ctx),
             new EfRepository<TransfusionEvent>(ctx),
             new InventoryRepository(ctx),
-            ctx, _factory.Clock, _factory.CurrentUser, audit);
+            ctx, _factory.Clock, _factory.CurrentUser, audit,
+            specimens: new EfRepository<Specimen>(ctx), orders: new EfRepository<Order>(ctx),
+            orderLines: new EfRepository<OrderLine>(ctx), testResults: new EfRepository<TestResult>(ctx));
 
         var closed = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
             null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
@@ -3367,6 +3369,13 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             true, "IDs and ABO concordant", true, true, "A Positive", "O Positive",
             DatWorkupResult.Negative, null, true));
         Assert.True(saved.Succeeded);
+
+        // The checklist alone no longer closes the case: the specimen workup must be resulted and verified too.
+        var withoutSpecimens = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
+        Assert.False(withoutSpecimens.Succeeded);
+        Assert.Contains("pre-transfusion specimen", withoutSpecimens.Error);
+        await ReactionWorkupTestData.CompleteAsync(ctx, inv.Id, _factory.Clock.UtcNow);
 
         var closeOk = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
             null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));

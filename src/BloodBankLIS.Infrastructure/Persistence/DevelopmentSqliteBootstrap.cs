@@ -58,6 +58,10 @@ public static class DevelopmentSqliteBootstrap
         ("ReactionInvestigations", "ConcludedReactionText", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ConcludedReactionText" TEXT NULL"""),
         ("ReactionInvestigations", "TreatmentCodes", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "TreatmentCodes" TEXT NULL"""),
         ("ReactionInvestigations", "TreatmentTexts", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "TreatmentTexts" TEXT NULL"""),
+        ("ReactionInvestigations", "PreTransfusionSpecimenId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PreTransfusionSpecimenId" INTEGER NULL"""),
+        ("ReactionInvestigations", "PreTransfusionOrderId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PreTransfusionOrderId" INTEGER NULL"""),
+        ("ReactionInvestigations", "PostTransfusionSpecimenId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PostTransfusionSpecimenId" INTEGER NULL"""),
+        ("ReactionInvestigations", "PostTransfusionOrderId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PostTransfusionOrderId" INTEGER NULL"""),
         ("DatElutionWorkups", "VerifiedBy", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedBy" TEXT NULL"""),
         ("DatElutionWorkups", "VerifiedUtc", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedUtc" TEXT NULL"""),
         ("Issues", "VerifiedScanJson", """ALTER TABLE "Issues" ADD COLUMN "VerifiedScanJson" TEXT NULL"""),
@@ -228,6 +232,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureUnitDiscardReasonsTableAsync(context, cancellationToken);
         await EnsureSpecimenRejectionReasonsTableAsync(context, cancellationToken);
         await EnsureReactionCatalogEntriesTableAsync(context, cancellationToken);
+        await EnsureReactionWorkupSettingsTableAsync(context, cancellationToken);
         await EnsureAlertsTableAsync(context, cancellationToken);
         await EnsureSupplierOrderTablesAsync(context, cancellationToken);
         await EnsureDatabaseBackupsTableAsync(context, cancellationToken);
@@ -1169,6 +1174,39 @@ public static class DevelopmentSqliteBootstrap
             """, ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE UNIQUE INDEX "IX_ReactionCatalogEntries_Kind_Code" ON "ReactionCatalogEntries" ("Kind", "Code")""", ct);
+    }
+
+    private static async Task EnsureReactionWorkupSettingsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "ReactionWorkupSettings", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "ReactionWorkupSettings" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ReactionWorkupSettings" PRIMARY KEY AUTOINCREMENT,
+                "PreTransfusionTestGroupCode" TEXT NULL,
+                "PostTransfusionTestGroupCode" TEXT NULL,
+                "Version" INTEGER NOT NULL,
+                "EffectiveUtc" TEXT NULL,
+                "RetiredUtc" TEXT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "IsDraft" INTEGER NOT NULL,
+                "IsPendingApproval" INTEGER NOT NULL,
+                "ApprovedBy" TEXT NULL,
+                "ApprovedUtc" TEXT NULL,
+                "ChangeReason" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
     }
 
     private static async Task EnsureUnitDiscardReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)

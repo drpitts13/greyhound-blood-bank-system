@@ -711,6 +711,43 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("to verify", BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).QueueSummary);
     }
 
+    // TEST-BB-444 (OCD-058): a reaction workup line on an expired tube can be resulted and verified; an ordinary order
+    // on the same expired tube stays blocked.
+    [Fact]
+    public async Task ExpiredTube_TakesReactionWorkupResults_ButNotOrdinaryOnes()
+    {
+        await using var c = _factory.Create();
+        var workup = await SeedOrderWithTestAsync(c, testCode: "DAT");
+        var ordinary = await SeedOrderWithTestAsync(c, testCode: "DAT");
+        var workupOrder = await c.Orders.SingleAsync(o => o.Id == workup.order.Id);
+        workupOrder.OrderType = OrderType.TransfusionReactionWorkup;
+        foreach (var tube in new[] { workup.specimen!, ordinary.specimen! })
+        {
+            var tracked = await c.Specimens.SingleAsync(sp => sp.Id == tube.Id);
+            tracked.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            tracked.Status = SpecimenStatus.Expired;
+        }
+
+        await c.SaveChangesAsync();
+
+        var workupRow = Assert.Single(await Worklist(c).ListForSpecimenAsync(workup.specimen!.Id), r => r.OrderLineId == workup.line.Id);
+        Assert.True(workupRow.CanEnterResults, workupRow.BlockReason);
+        var ordinaryRow = Assert.Single(await Worklist(c).ListForSpecimenAsync(ordinary.specimen!.Id), r => r.OrderLineId == ordinary.line.Id);
+        Assert.False(ordinaryRow.CanEnterResults);
+
+        var saved = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            workup.specimen.Id, workup.order.Id, workup.line.Id, "DAT", "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(saved.Succeeded, saved.Error);
+        var refused = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            ordinary.specimen.Id, ordinary.order.Id, ordinary.line.Id, "DAT", "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.False(refused.Succeeded);
+        Assert.Contains("Expired", refused.Error);
+    }
+
     // TEST-BB-433: worklist rows carry the tube's label barcode, so a label scan on the bench finds them.
     [Fact]
     public async Task WorklistRow_CarriesTheLabelBarcode_AndALabelScanFindsIt()

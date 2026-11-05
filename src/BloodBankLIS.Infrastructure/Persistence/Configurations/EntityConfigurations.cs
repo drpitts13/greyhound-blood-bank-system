@@ -1781,6 +1781,8 @@ public sealed class ReactionInvestigationConfiguration : IEntityTypeConfiguratio
         b.HasOne(x => x.TransfusionEvent).WithMany().HasForeignKey(x => x.TransfusionEventId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => x.TransfusionEventId);
         b.HasIndex(x => x.PatientId);
+        b.HasIndex(x => x.PreTransfusionOrderId);
+        b.HasIndex(x => x.PostTransfusionOrderId);
     }
 }
 
@@ -1983,6 +1985,21 @@ public sealed class CrossmatchSettingsConfiguration : IEntityTypeConfiguration<C
         b.Property(s => s.NegativeAntibodyHistoryTestCode).HasMaxLength(50).IsRequired();
         b.Property(s => s.PositiveAntibodyHistoryTestCode).HasMaxLength(50).IsRequired();
         b.Property(s => s.ElectronicCrossmatchTestCode).HasMaxLength(50).IsRequired();
+        b.Property(s => s.ChangeReason).HasMaxLength(1000);
+        b.Property(s => s.ApprovedBy).HasMaxLength(100);
+        b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(s => s.ModifiedBy).HasMaxLength(100);
+    }
+}
+
+public sealed class ReactionWorkupSettingsConfiguration : IEntityTypeConfiguration<ReactionWorkupSettings>
+{
+    public void Configure(EntityTypeBuilder<ReactionWorkupSettings> b)
+    {
+        b.ToTable("ReactionWorkupSettings");
+        b.HasKey(s => s.Id);
+        b.Property(s => s.PreTransfusionTestGroupCode).HasMaxLength(50);
+        b.Property(s => s.PostTransfusionTestGroupCode).HasMaxLength(50);
         b.Property(s => s.ChangeReason).HasMaxLength(1000);
         b.Property(s => s.ApprovedBy).HasMaxLength(100);
         b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
