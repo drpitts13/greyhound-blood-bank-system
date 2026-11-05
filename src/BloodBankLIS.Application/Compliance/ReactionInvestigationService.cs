@@ -99,6 +99,14 @@ public sealed record ReactionInvestigationDto(
     ReactionWorkupSpecimenDto? PreWorkup = null,
     ReactionWorkupSpecimenDto? PostWorkup = null)
 {
+    /// <summary>The specimen workup as the close gate sees it, from the results on this DTO.</summary>
+    public ReactionWorkupCompletenessRule.WorkupState SpecimenWorkupState => new(
+        PreWorkup is not null,
+        PostWorkup is not null,
+        PreWorkup?.Pending ?? 0,
+        PostWorkup?.Pending ?? 0,
+        string.Equals(PostWorkup?.VerifiedValue("DAT")?.Trim(), "Positive", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The one thing to do next, from <see cref="ReactionNextStepRule"/>.</summary>
     public ReactionNextStepRule.Step NextStep => ReactionNextStepRule.For(new ReactionNextStepRule.Facts(
         Status, FatalityFollowUpDue, FatalityFollowUpDetail, RemainderQuarantined, RemainderHoldNote,

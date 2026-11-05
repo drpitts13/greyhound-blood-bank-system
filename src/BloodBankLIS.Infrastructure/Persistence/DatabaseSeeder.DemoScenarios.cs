@@ -1287,6 +1287,7 @@ public static partial class DatabaseSeeder
     {
         if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0006", ct))
         {
+            await EnsureReactionWorkupDemoAsync(context, ct);
             return;
         }
 
@@ -1438,6 +1439,95 @@ public static partial class DatabaseSeeder
             Status = ReactionInvestigationStatus.UnderReview,
             Findings = "Temperature rose 1.8C with rigors; DAT negative. Clerical check clear."
         });
+        await context.SaveChangesAsync(ct);
+        await EnsureReactionWorkupDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases: the MRN0006 reaction's specimen workup. ACC0014, collected
+    /// before the issue, becomes the pre-transfusion specimen with its workup order ORD0016 (an ABO/Rh line added to
+    /// the DAT already there). A post-transfusion tube ACC0024, drawn an hour after the transfusion began, gets the
+    /// post-transfusion Test Group as order RXN-n-POST, unresulted, so resulting the workup on the bench can be shown.
+    /// </summary>
+    private static async Task EnsureReactionWorkupDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0006", ct);
+        var preTube = patient is null ? null : await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0014", ct);
+        var preOrder = await context.Orders.FirstOrDefaultAsync(o => o.OrderNumber == "ORD0016", ct);
+        var inv = patient is null ? null : await context.ReactionInvestigations.FirstOrDefaultAsync(r => r.PatientId == patient.Id, ct);
+        if (patient is null || preTube is null || preOrder is null || inv is null
+            || inv.PreTransfusionOrderId is not null || await context.Specimens.AnyAsync(s => s.AccessionNumber == "ACC0024", ct))
+        {
+            return;
+        }
+
+        var transfusion = await context.TransfusionEvents.FirstOrDefaultAsync(t => t.Id == inv.TransfusionEventId, ct);
+        var collected = (transfusion?.StartUtc ?? inv.ReportedUtc).AddHours(1);
+
+        if (!await context.OrderLines.AnyAsync(l => l.OrderId == preOrder.Id && l.TestCode == "ABORH", ct))
+        {
+            context.OrderLines.Add(new OrderLine
+            {
+                OrderId = preOrder.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type",
+                TestCode = "ABORH", OrderType = OrderType.AboRh, ResultStatus = ResultStatus.Pending
+            });
+        }
+
+        var postTube = new Specimen
+        {
+            AccessionNumber = "ACC0024",
+            PatientId = patient.Id,
+            EncounterId = preTube.EncounterId,
+            SpecimenType = "EDTA",
+            Barcode = "SPC-ACC0024",
+            CollectedUtc = collected,
+            ReceivedUtc = collected.AddMinutes(20),
+            ExpiresUtc = collected.AddDays(3),
+            Status = SpecimenStatus.Accepted,
+            Comment = $"Post-transfusion specimen for transfusion reaction investigation {inv.Id}."
+        };
+        context.Specimens.Add(postTube);
+        await context.SaveChangesAsync(ct);
+
+        var postOrder = new Order
+        {
+            OrderNumber = $"RXN-{inv.Id}-POST",
+            PatientId = patient.Id,
+            EncounterId = preOrder.EncounterId,
+            OrderingLocationId = preOrder.OrderingLocationId,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Transfusion reaction workup - post-transfusion",
+            OrderType = OrderType.TransfusionReactionWorkup,
+            TestCode = "ABORH",
+            Priority = OrderPriority.Stat,
+            Status = OrderStatus.New,
+            Source = OrderSource.Manual,
+            OrderedUtc = collected.AddMinutes(25),
+            Comment = $"Transfusion reaction investigation {inv.Id}: post-transfusion specimen."
+        };
+        context.Orders.Add(postOrder);
+        await context.SaveChangesAsync(ct);
+
+        var lines = new[]
+        {
+            ("ABORH", "ABO/Rh Type", OrderType.AboRh),
+            ("DAT", "Direct Antiglobulin Test", OrderType.DirectAntiglobulinTest),
+            ("ABSC", "Antibody Screen", OrderType.AntibodyScreen)
+        };
+        for (var i = 0; i < lines.Length; i++)
+        {
+            context.OrderLines.Add(new OrderLine
+            {
+                OrderId = postOrder.Id, LineNumber = i + 1, LineCategory = OrderCategory.Test, LineName = lines[i].Item2,
+                TestCode = lines[i].Item1, OrderType = lines[i].Item3, ResultStatus = ResultStatus.Pending
+            });
+        }
+
+        context.OrderSpecimens.Add(new OrderSpecimen { OrderId = postOrder.Id, SpecimenId = postTube.Id, IsPrimary = true });
+        inv.PreTransfusionSpecimenId = preTube.Id;
+        inv.PreTransfusionOrderId = preOrder.Id;
+        inv.PostTransfusionSpecimenId = postTube.Id;
+        inv.PostTransfusionOrderId = postOrder.Id;
         await context.SaveChangesAsync(ct);
     }
 

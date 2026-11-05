@@ -986,6 +986,24 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ReactionInvestigationDto>> UpdateReactionInvestigationAsync(long id, UpdateReactionInvestigationRequest req, CancellationToken ct = default) =>
         SendAsync<ReactionInvestigationDto>(HttpMethod.Put, $"api/reaction-investigations/{id}", req, ct);
 
+    public Task<ApiResult<ReactionWorkupOptionsDto>> GetReactionWorkupOptionsAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionWorkupOptionsDto>(HttpMethod.Get, $"api/reaction-investigations/{id}/workup-specimens", ct: ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> AttachReactionPreSpecimenAsync(long id, long specimenId, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/pre-specimen", new AttachWorkupSpecimenRequest(specimenId), ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> AttachReactionPostSpecimenAsync(long id, long specimenId, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/post-specimen", new AttachWorkupSpecimenRequest(specimenId), ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> AccessionReactionPostSpecimenAsync(long id, AccessionPostTransfusionSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/post-specimen/accession", req, ct);
+
+    public Task<ApiResult<ReactionWorkupSettingsDto>> GetReactionWorkupSettingsAsync(CancellationToken ct = default) =>
+        SendAsync<ReactionWorkupSettingsDto>(HttpMethod.Get, "api/admin/reaction-workup-settings", ct: ct);
+
+    public Task<ApiResult<ReactionWorkupSettingsDto>> SaveReactionWorkupSettingsAsync(SaveReactionWorkupSettingsRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionWorkupSettingsDto>(HttpMethod.Put, "api/admin/reaction-workup-settings", req, ct);
+
     public Task<ApiResult<ReactionInvestigationDto>> ReopenReactionInvestigationAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/reopen", new ReopenReactionInvestigationRequest(reason), ct);
 

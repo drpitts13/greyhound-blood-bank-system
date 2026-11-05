@@ -18,9 +18,22 @@ Before closing, the provider records the **Reaction concluded** and the **Treatm
 
 If the investigation leads to a requirement for future products, choose **Add special requirement** on it. The patient's chart opens with the requirement form naming the investigation, and the requirement is linked to it. Choosing a treatment does not by itself add a special requirement to the chart; add the requirement there so it is enforced at selection and issue.
 
+## Workup specimens
+
+The workup tests two specimens, each with the tests of its Test Group (chosen in Administration › Reaction Workup):
+
+1. **Pre-transfusion specimen.** Choose it from the patient's specimens collected before the unit was issued; the tube the unit was crossmatched on is suggested. A pre-transfusion tube that has since expired can still be used for the workup (shown as "Expired: workup allowed"); it cannot be used for anything else.
+2. **Post-transfusion specimen.** Accession the tube drawn after the reaction (scan or type its accession, type, and collection time), or choose one already accessioned since the transfusion began.
+
+Each specimen's tests are ordered as a Stat reaction workup order and appear on the test worklist. **Result on bench** opens the worklist on that tube; result and verify the tests there as usual. The investigation shows each test with its result and whether it is verified. A specimen is set once; it cannot be swapped after its tests are ordered.
+
+The repeat patient ABO/Rh is the verified ABO/Rh on the post-transfusion specimen. If it disagrees with the patient's current type or with the pre-transfusion specimen, the board shows an ABO/Rh discrepancy to review. Elution is required when the verified post-transfusion DAT is positive.
+
 ## What you record
 
-Record the clerical check, the visual check of the unit and the specimen, and the DAT, along with the symptoms and the timeline the ward reported. The investigation stays open while those items are incomplete. Closing is a separate step with its own gate and a signature when the close action requires one.
+Record the clerical check and the visual check of the unit, the repeat unit ABO/Rh, and the elution when it applies, along with the symptoms and the timeline the ward reported. The investigation stays open while those items, or any workup test, are incomplete. Closing is a separate step with its own gate and a signature when the close action requires one.
+
+Investigations recorded before the specimen workup show their typed repeat ABO/Rh and DAT read-only. If one is reopened, it needs the specimen workup before it can close again.
 
 Remaining product from the implicated unit is quarantined so it cannot be issued to someone else while you are investigating. Do not release that quarantine to "put the unit back" until the investigation says the unit can be released. Discard, if that is the outcome, uses the inventory discard permission and a reason.
 
@@ -30,7 +43,7 @@ A reaction that your procedure treats as a fatality or as a product-safety signa
 
 If the investigation implicates a donor unit, start or continue the [Lookback](lookback) from the donation identification number. The reaction and the lookback are separate records that reference the same unit.
 
-> Hard stop. Closing is refused while required clerical, visual, or DAT items are unfinished. Do not close an investigation to clear the board.
+> Hard stop. Closing is refused while the clerical or visual check is unrecorded, either workup specimen is missing, or any of their tests is not verified. Do not close an investigation to clear the board.
 
 ## After closing
 

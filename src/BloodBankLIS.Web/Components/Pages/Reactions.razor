@@ -13,7 +13,7 @@
         <li>Each of those steps is recorded once.</li>
         <li>Choosing severity Fatal starts that same follow-up.</li>
         <li>Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA.</li>
-        <li>Close still requires the existing clerical, visual, and DAT gate.</li>
+        <li>Close requires the clerical and visual checks, both workup specimens, and every Test Group test on them verified.</li>
     </ul>
 </details>
 
@@ -227,15 +227,106 @@ else
             {
                 <p class="muted">Recorded at close: @_selected.ConcludedReactionText; treatment: @(_selected.TreatmentTexts ?? "—").</p>
             }
+            <h4>Workup specimens</h4>
+            <p class="muted">The pre-transfusion specimen (collected before the unit was issued) and a post-transfusion specimen each get the tests of their Test Group (Administration › Reaction Workup), as a Stat order resulted on the bench. Repeat ABO/Rh and DAT come from these results.</p>
+            <div class="form-row" style="align-items:flex-start;" data-workup-specimens>
+                @foreach (var role in new[] { ReactionWorkupSpecimenDto.PreRole, ReactionWorkupSpecimenDto.PostRole })
+                {
+                    var isPre = role == ReactionWorkupSpecimenDto.PreRole;
+                    var workup = isPre ? _selected.PreWorkup : _selected.PostWorkup;
+                    <div class="field" style="flex:1;min-width:18rem;" data-workup-role="@(isPre ? "pre" : "post")">
+                        <label>@role specimen</label>
+                        @if (workup is not null)
+                        {
+                            <div>
+                                <span class="mono">@workup.AccessionNumber</span>
+                                <span class="sub">collected @workup.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") · order <span class="mono">@workup.OrderNumber</span></span>
+                                @if (workup.Expired)
+                                {
+                                    <span class="badge badge-gray" title="Reaction workup orders may use an expired pre-transfusion tube (OCD-058)">Expired: workup allowed</span>
+                                }
+                            </div>
+                            <table class="bb" style="margin-top:.35rem;">
+                                <thead><tr><th>Test</th><th>Result</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    @foreach (var line in workup.Lines)
+                                    {
+                                        <tr>
+                                            <td>@line.TestName <span class="sub mono">@line.TestCode</span></td>
+                                            <td class="mono">@(line.Value is null ? "—" : AboRhResultValue.FormatDisplay(line.Value))</td>
+                                            <td>
+                                                @if (line.Verified)
+                                                {
+                                                    <span class="badge badge-green">Verified</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-amber">@(line.Status?.ToString() ?? "Pending")</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (workup.Pending > 0)
+                            {
+                                <a class="btn btn-secondary btn-sm" style="margin-top:.35rem;" href="@($"/test-worklist?accession={Uri.EscapeDataString(workup.AccessionNumber)}")" data-result-on-bench>Result on bench (@workup.Pending)</a>
+                            }
+                        }
+                        else if (AlreadyClosed)
+                        {
+                            <span class="muted">None recorded (closed before the specimen workup).</span>
+                        }
+                        else if (_workupOptions is null)
+                        {
+                            <span class="muted">@(_workupOptionsError ?? "Loading specimens…")</span>
+                        }
+                        else if (string.IsNullOrWhiteSpace(isPre ? _workupOptions.PreTransfusionTestGroupCode : _workupOptions.PostTransfusionTestGroupCode))
+                        {
+                            <span class="alert alert-warning">No Test Group is chosen for this specimen. An administrator chooses it in Administration › Reaction Workup.</span>
+                        }
+                        else
+                        {
+                            var candidates = isPre ? _workupOptions.PreCandidates : _workupOptions.PostCandidates;
+                            var group = isPre ? _workupOptions.PreTransfusionTestGroupCode : _workupOptions.PostTransfusionTestGroupCode;
+                            @if (candidates.Count > 0)
+                            {
+                                <select value="@(isPre ? _preChoice : _postChoice)" @onchange="e => SetChoice(isPre, e.Value)" data-workup-pick>
+                                    <option value="0">Choose a specimen</option>
+                                    @foreach (var c in candidates)
+                                    {
+                                        <option value="@c.SpecimenId">@c.AccessionNumber · @c.SpecimenType · collected @c.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(c.Expired ? " · expired" : "")@(c.Suggested ? " · crossmatch tube" : "")</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" style="margin-top:.35rem;" disabled="@(_busy || (isPre ? _preChoice : _postChoice) <= 0)"
+                                        @onclick="() => AttachAsync(isPre)">Use and order @group</button>
+                            }
+                            else
+                            {
+                                <span class="muted">@(isPre ? $"No specimen of this patient was collected before the unit was issued ({_workupOptions.IssuedUtc.ToLocalTime():yyyy-MM-dd HH:mm})." : "No specimen has been collected since the transfusion began.")</span>
+                            }
+                            @if (!isPre)
+                            {
+                                <div class="form-row" style="margin-top:.5rem;" data-post-accession>
+                                    <div class="field"><label>New tube accession</label><input @bind="_postAccession" placeholder="Scan or type" autocomplete="off" /></div>
+                                    <div class="field"><label>Type</label><input @bind="_postType" /></div>
+                                    <div class="field"><label>Collected</label><input type="datetime-local" @bind="_postCollected" /></div>
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_postAccession))" @onclick="AccessionPostAsync">Accession and order @group</button>
+                            }
+                        }
+                    </div>
+                }
+            </div>
             <h4>AABB workup checklist</h4>
-            <p class="muted">Clerical check, visual inspection, and post-transfusion DAT are required before close (same gate as SoftBank / SafeTrace). Compare patient <strong>@(_selected.CurrentBloodType ?? "—")</strong> with labeled unit <strong>@(_selected.UnitBloodType ?? "—")</strong> <span class="mono">@(_selected.UnitNumber ?? "")</span>. Checking remainder holds the bag in quality quarantine when the unit is still Issued, stopped, or Transfused.</p>
+            <p class="muted">The clerical check and visual inspection are recorded here; the workup specimens above must have every test verified before close. Compare patient <strong>@(_selected.CurrentBloodType ?? "—")</strong> with labeled unit <strong>@(_selected.UnitBloodType ?? "—")</strong> <span class="mono">@(_selected.UnitNumber ?? "")</span>. Checking remainder holds the bag in quality quarantine when the unit is still Issued, stopped, or Transfused.</p>
             @if (_selected.AboRhIncompatible)
             {
                 <p class="badge badge-red" title="@_selected.AboRhCompatibilityAlert">Labeled ABO/Rh is incompatible with the current patient type — existing issue-path rule; this does not block close.</p>
             }
             @if (_selected.RepeatPatientAboRhDiscrepancy || _selected.RepeatUnitAboRhDiscrepancy)
             {
-                <p class="badge badge-red" title="@_selected.RepeatAboRhDetail">@(_selected.RepeatAboRhDetail ?? "Repeat ABO/Rh disagrees with the current or labeled type.") Close still requires clerical, visual, and DAT only.</p>
+                <p class="badge badge-red" title="@_selected.RepeatAboRhDetail">@(_selected.RepeatAboRhDetail ?? "Repeat ABO/Rh disagrees with the current or labeled type.") Review it before closing.</p>
             }
             @if (WorkupHoldMessage is not null && _selected.Status != ReactionInvestigationStatus.Closed)
             {
@@ -245,13 +336,14 @@ else
             <div class="field"><label>Clerical notes</label><input @bind="_clericalNotes" /></div>
             <label class="flex"><input type="checkbox" @bind="_visual" @bind:after="SyncCloseAvailability" /> &nbsp;Visual inspection of bag / tubing / segments completed</label>
             <label class="flex"><input type="checkbox" @bind="_visualOk" /> &nbsp;Visual inspection acceptable</label>
+            @if (_selected.PreWorkup is null && _selected.PostWorkup is null && (_selected.DatResult != DatWorkupResult.NotRecorded || !string.IsNullOrWhiteSpace(_selected.RepeatPatientAboRh)))
+            {
+                @* Recorded before the specimen workup: kept as typed, read only. *@
+                <p class="muted" data-legacy-workup>Recorded before the specimen workup: repeat patient ABO/Rh @(_selected.RepeatPatientAboRh ?? "—"), DAT @_selected.DatResult.</p>
+            }
             <div class="form-row">
-                <div class="field"><label>Repeat patient ABO/Rh</label><input @bind="_repeatPatient" placeholder="@(_selected.CurrentBloodType is { } pt ? $"recorded type {pt}" : "e.g. A+")" /></div>
                 <div class="field"><label>Repeat unit ABO/Rh</label><input @bind="_repeatUnit" placeholder="@(_selected.UnitBloodType is { } ut ? $"labeled {ut}" : "e.g. A+")" /></div>
-                <div class="field"><label>DAT</label>
-                    <select @bind="_dat" @bind:after="SyncCloseAvailability">@foreach (var d in Enum.GetValues<DatWorkupResult>()) { <option value="@d">@d</option> }</select>
-                </div>
-                <div class="field"><label>Elution (required if DAT positive)</label><input @bind="_elution" @bind:after="SyncCloseAvailability" /></div>
+                <div class="field"><label>Elution (required if the post-transfusion DAT is positive)</label><input @bind="_elution" @bind:after="SyncCloseAvailability" /></div>
             </div>
             <label class="flex"><input type="checkbox" @bind="_remainderHeld" disabled="@(_selected.RemainderQuarantined)" title="@(_selected.RemainderQuarantined ? "Already recorded; this cannot be undone." : null)" /> &nbsp;Remainder / segments quarantined or retained</label>
             @if (!string.IsNullOrWhiteSpace(_selected.RemainderHoldNote))
@@ -324,7 +416,9 @@ else
     {
         get
         {
-            var workup = ReactionWorkupCompletenessRule.Evaluate(_clerical, _visual, _dat, _elution);
+            var workup = _selected is null
+                ? RuleResult.Pass(ReactionWorkupCompletenessRule.Code)
+                : ReactionWorkupCompletenessRule.Evaluate(_clerical, _visual, _selected.SpecimenWorkupState, _elution);
             return workup.Severity == RuleSeverity.HardStop ? $"{workup.Code}: {workup.Message}" : null;
         }
     }
@@ -426,12 +520,103 @@ else
         }
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         if (_rows.Count > 0)
         {
             ApplyQuerySelection();
+            await LoadWorkupOptionsAsync();
         }
+    }
+
+    // Specimens offered for each workup role, and what each new post-transfusion tube is accessioned as.
+    private ReactionWorkupOptionsDto? _workupOptions;
+    private string? _workupOptionsError;
+    private long? _workupOptionsFor;
+    private long _preChoice;
+    private long _postChoice;
+    private string? _postAccession;
+    private string _postType = "EDTA";
+    private DateTime _postCollected = DateTime.Now;
+
+    private async Task LoadWorkupOptionsAsync(bool force = false)
+    {
+        if (_selected is null || AlreadyClosed || (_selected.PreWorkup is not null && _selected.PostWorkup is not null))
+        {
+            return;
+        }
+
+        if (!force && _workupOptionsFor == _selected.Id && _workupOptions is not null)
+        {
+            return;
+        }
+
+        _workupOptionsFor = _selected.Id;
+        var r = await Api.GetReactionWorkupOptionsAsync(_selected.Id);
+        _workupOptions = r.Succeeded ? r.Value : null;
+        _workupOptionsError = r.Succeeded ? null : r.Error;
+        _preChoice = _workupOptions?.PreCandidates.FirstOrDefault(c => c.Suggested)?.SpecimenId ?? 0;
+        _postChoice = 0;
+        _postAccession = null;
+        _postCollected = DateTime.Now;
+    }
+
+    private void SetChoice(bool preTransfusion, object? value)
+    {
+        var id = long.TryParse(value?.ToString(), out var parsed) ? parsed : 0;
+        if (preTransfusion)
+        {
+            _preChoice = id;
+        }
+        else
+        {
+            _postChoice = id;
+        }
+    }
+
+    private async Task AttachAsync(bool preTransfusion)
+    {
+        if (_selected is null) return;
+        _busy = true;
+        var id = _selected.Id;
+        var r = preTransfusion
+            ? await Api.AttachReactionPreSpecimenAsync(id, _preChoice)
+            : await Api.AttachReactionPostSpecimenAsync(id, _postChoice);
+        _busy = false;
+        _fb = r.ToFeedback(preTransfusion
+            ? "Pre-transfusion specimen added; its workup tests are ordered. Result them on the bench."
+            : "Post-transfusion specimen added; its workup tests are ordered. Result them on the bench.");
+        if (r.Succeeded)
+        {
+            await ReloadSelectedAsync(id);
+        }
+    }
+
+    private async Task AccessionPostAsync()
+    {
+        if (_selected is null || string.IsNullOrWhiteSpace(_postAccession)) return;
+        _busy = true;
+        var id = _selected.Id;
+        var r = await Api.AccessionReactionPostSpecimenAsync(id, new AccessionPostTransfusionSpecimenRequest(
+            _postAccession.Trim(), string.IsNullOrWhiteSpace(_postType) ? "EDTA" : _postType.Trim(), _postCollected.ToUniversalTime()));
+        _busy = false;
+        _fb = r.ToFeedback("Post-transfusion specimen accessioned; its workup tests are ordered. Result them on the bench.");
+        if (r.Succeeded)
+        {
+            await ReloadSelectedAsync(id);
+        }
+    }
+
+    private async Task ReloadSelectedAsync(long id)
+    {
+        await LoadAsync();
+        var row = _rows.FirstOrDefault(x => x.Id == id);
+        if (row is not null)
+        {
+            Select(row);
+        }
+
+        await LoadWorkupOptionsAsync(force: true);
     }
 
     private async Task LoadAsync()
@@ -443,6 +628,7 @@ else
         {
             _rows = r.Value ?? new();
             ApplyQuerySelection();
+            await LoadWorkupOptionsAsync();
         }
         else _fb = r.ToFeedback();
     }

@@ -46,6 +46,7 @@ public static class AppBreadcrumbTrail
         ["charge-rules"] = "Charge Rules",
         ["compatibility-rules"] = "Compatibility Tables",
         ["crossmatch-settings"] = "Crossmatch Settings",
+        ["reaction-workup"] = "Reaction Workup",
         ["exceptions"] = "Exceptions",
         ["facility-policies"] = "Facility Policy",
         ["modification-rules"] = "Modification Rules",

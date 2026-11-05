@@ -13510,3 +13510,68 @@ After Cycle 405, Reserve on the Compatibility page refuses a unit that misses th
 ### Next ranked residual
 
 The same compatible-first picker for the Compatibility crossmatch section, or keyboard shortcuts on the bench.
+
+## Iteration 407 — Transfusion reaction workup on pre- and post-transfusion specimens (2026-11-05)
+
+### Request
+
+"Most transfusion reactions involve a workup with both a pre-transfusion and a post-transfusion sample. … Use a setting that maps each specimen to a Test Group. The user will then need to result the tests in that Test Group."
+
+The plan was approved after four decisions:
+- the pre specimen is picked (crossmatch tube suggested) and the post specimen is accessioned or picked
+- an expired pre tube is allowed for workup orders only (OCD-058)
+- every workup test must be verified to close
+- starter groups TRX-PRE (ABO/Rh, DAT) and TRX-POST (ABO/Rh, DAT, antibody screen), recorded as OCD-059
+
+### Before
+
+The investigation had no specimens, orders, or results. Repeat ABO/Rh, DAT, and elution were typed onto the investigation; nothing was resulted, verified, or tied to a tube.
+
+### Design
+
+- **Setting:** `ReactionWorkupSettings` (singleton, versioned; the CrossmatchSettings pattern, since facility policy only stores numbers and booleans) maps each specimen to a Test Group.
+  - Admin page `/admin/reaction-workup`
+  - validator: active, released groups only
+  - reason, version, history, audit
+- **`ReactionInvestigation`:** gains the pre- and post-transfusion specimen and order ids.
+- **`ReactionWorkupService`:** lists candidate specimens (pre: collected ≤ issue, crossmatch tube suggested; post: collected ≥ start), attaches or accessions each specimen, and orders its group as Stat `RXN-{id}-PRE` / `-POST`.
+  - The order goes through `OrderService.CreateForReactionWorkupAsync`, so the group expands to its tests and the order is typed as a reaction workup before the tube is linked.
+  - Each specimen is set once, and the service is kept separate from `ReactionInvestigationService` to avoid a DI cycle with issuing.
+- **Expiry exception (OCD-058):** reaction workup orders may link to, result, and verify on an expired tube, in `OrderService` link, `TestWorklistService` entry gate, and `ResultService` save and verify. Every other order keeps the block.
+- **Close gate (`ReactionWorkupCompletenessRule` with `WorkupState`):** clerical, visual, pre specimen, post specimen, all workup tests verified, then elution on a verified positive post DAT.
+  - The repeat patient ABO/Rh comes from the verified post ABO/Rh, compared with the current type and with the pre specimen.
+  - A missing read counts as unverified (fail closed).
+- **Reactions page:** a **Workup specimens** section:
+  - pick, accession, and "Use and order {group}"
+  - per-test results and status
+  - **Result on bench** opens `/test-worklist?accession=`
+  - the typed repeat patient ABO/Rh and DAT inputs are removed; legacy values are shown read only
+- **Demo:**
+  - MRN0006: ACC0014 becomes the pre specimen (ORD0016, ABO/Rh line added)
+  - post tube ACC0024 with `RXN-n-POST` (ABO/Rh, DAT, antibody screen) unresulted, added once on new and existing databases
+
+### Requirements
+
+- URS-BB-507, FRS-BB-581 to 584, SRS-BB-458.
+- OCD-058, OCD-059.
+- Help: reactions, admin reaction workup (new), test worklist.
+- Safety rules §5a.
+
+### Tests
+
+- TEST-BB-442 to 447:
+  - specimen, expiry, close-gate, and settings rules
+  - settings round trip and refusals
+  - pre order on the crossmatch tube with its group lines and audit
+  - wrong tube, unchosen group, closed case, and second attach refused, with nothing ordered
+  - expired pre tube used; post tube accessioned (too early refused, nothing accessioned)
+  - expired workup line resulted while an ordinary order on an expired tube is refused
+  - close waits for the last verification; the board shows the results
+  - repeat ABO/Rh discrepancy from results
+  - seeded demo workup
+- Existing closing tests give their cases a verified workup (`ReactionWorkupTestData`).
+- Full suite: see commit.
+
+### Next ranked residual
+
+Hemolysis check and other workup tests as test definitions (OCD-059), and a reaction workup print packet.

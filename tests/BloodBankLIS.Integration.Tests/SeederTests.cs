@@ -89,7 +89,20 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             var pack = await verify.MtpPackRecords.SingleAsync();
             Assert.Equal(4, await verify.Issues.CountAsync(i => i.MtpPackRecordId == pack.Id));
             Assert.Null((await verify.TransportContainers.SingleAsync()).MinTemperatureC);
-            Assert.Equal(18, await verify.Orders.CountAsync());
+            Assert.Equal(19, await verify.Orders.CountAsync());
+
+            // TEST-BB-447: the reaction demo's specimen workup: ACC0014 before the issue with ORD0016 (DAT and ABO/Rh),
+            // and the post-transfusion tube ACC0024 with the TRX-POST group ordered, unresulted.
+            var reaction = await verify.ReactionInvestigations.SingleAsync(r => r.PreTransfusionOrderId != null);
+            Assert.Equal("ACC0014", (await verify.Specimens.SingleAsync(sp => sp.Id == reaction.PreTransfusionSpecimenId)).AccessionNumber);
+            Assert.Equal("ORD0016", (await verify.Orders.SingleAsync(o => o.Id == reaction.PreTransfusionOrderId)).OrderNumber);
+            Assert.Equal(new[] { "ABORH", "DAT" }, (await verify.OrderLines.Where(l => l.OrderId == reaction.PreTransfusionOrderId).Select(l => l.TestCode).ToListAsync()).Order().ToArray());
+            Assert.Equal("ACC0024", (await verify.Specimens.SingleAsync(sp => sp.Id == reaction.PostTransfusionSpecimenId)).AccessionNumber);
+            var postOrder = await verify.Orders.SingleAsync(o => o.Id == reaction.PostTransfusionOrderId);
+            Assert.Equal((OrderType.TransfusionReactionWorkup, $"RXN-{reaction.Id}-POST"), (postOrder.OrderType, postOrder.OrderNumber));
+            Assert.Equal(3, await verify.OrderLines.CountAsync(l => l.OrderId == postOrder.Id));
+            Assert.False(await verify.TestResults.AnyAsync(r => r.OrderId == postOrder.Id));
+            Assert.Equal(("TRX-PRE", "TRX-POST"), await verify.ReactionWorkupSettings.Select(x => ValueTuple.Create(x.PreTransfusionTestGroupCode, x.PostTransfusionTestGroupCode)).SingleAsync());
             Assert.Equal("false", (await verify.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch)).Value);
             Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0009"));
             Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0010"));

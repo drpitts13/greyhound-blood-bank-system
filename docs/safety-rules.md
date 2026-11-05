@@ -389,8 +389,12 @@ Recorded on `ReactionInvestigation` and evaluated by `ReactionWorkupCompleteness
 
 | Code | Rule | Severity if violated |
 |---|---|---|
-| `RXN-WORKUP-INCOMPLETE` | Clerical check, visual inspection, and DAT are recorded; DAT-positive requires elution notes | HardStop |
-| `RXN-REPEAT-ABORH` | Recorded repeat patient or unit ABO/Rh disagrees with current or labeled type | Warning (does not block close) |
+| `RXN-WORKUP-INCOMPLETE` | Clerical check and visual inspection recorded; pre- and post-transfusion specimens on the case; every Test Group test on them verified; a verified positive post-transfusion DAT requires elution notes | HardStop |
+| `RXN-PRE-SPECIMEN` | Pre-transfusion specimen: same patient, Accepted or Expired, collected at or before the issue | HardStop |
+| `RXN-POST-SPECIMEN` | Post-transfusion specimen: same patient, Accepted, collected at or after the transfusion start, not the pre-transfusion tube | HardStop |
+| `RXN-REPEAT-ABORH` | Verified post-transfusion ABO/Rh (or a typed legacy value) disagrees with the current type or the pre-transfusion specimen; typed repeat unit ABO/Rh disagrees with the labeled type | Warning (does not block close) |
+
+Reaction workup orders (OCD-058) may use an expired specimen; every other order keeps the expiry block.
 
 Opening a reaction investigation quarantines the implicated unit when `InventoryStatusTransition` allows (typically `TransfusionStopped` remainder). Fully transfused units stay terminal; the checklist still records segment/bag retention.
 
