@@ -10,7 +10,7 @@ routes:
 
 **Reagent QC** is the bench record for reagents you use in testing. Add the reagent, receive a lot, open it when you start using it, and close it when it is finished. A lot stores the received, opened, and closed times and the expiration.
 
-Each day, record the expected result, the observed result, and whether the row passed or failed. The person signed in is the performer. Review is a separate sign-in. The same person cannot review their own row.
+Each day, record the expected result, the observed result, and whether the row passed or failed. Scan the lot number into **Scan lot** to select the lot (it must be received or opened, and only one open lot may carry that number). While **Expected** is empty, the form offers the expected result last recorded for the same reagent; check it against the package insert before you press **Use it**. **Recent QC** lists the last 14 days: who performed and who reviewed each row, and whether it passed. The person signed in is the performer. Review is a separate sign-in. The same person cannot review their own row.
 
 > Hard stop. Review is blocked when the reviewer is the person who performed the QC.
 

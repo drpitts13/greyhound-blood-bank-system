@@ -130,6 +130,14 @@
 
     <div class="bb-card" id="reagent-qc-form">
         <div class="bb-card-title"><h3>Daily QC</h3></div>
+        <div class="field">
+            <label>Scan lot</label>
+            <input @bind="_lotScan" @bind:event="oninput" @onkeydown="OnLotScanKey" placeholder="Scan or type the lot number; Enter to select" autocomplete="off" data-lot-scan />
+            @if (_lotScanMessage is not null)
+            {
+                <span class="sub">@_lotScanMessage</span>
+            }
+        </div>
         <div class="form-row">
             <div class="field">
                 <label>Lot</label>
@@ -141,7 +149,15 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Expected</label><input id="reagent-qc-expected" @bind="_expected" @bind:event="oninput" @bind:after="SyncPassedFromResults" /></div>
+            <div class="field"><label>Expected</label><input id="reagent-qc-expected" @bind="_expected" @bind:event="oninput" @bind:after="SyncPassedFromResults" />
+                @if (string.IsNullOrWhiteSpace(_expected) && LastExpected is { } lastExpected)
+                {
+                    <div class="sub" data-last-expected>
+                        Last recorded for this reagent: @lastExpected
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => UseLastExpected(lastExpected)" title="Check it against the package insert">Use it</button>
+                    </div>
+                }
+            </div>
             <div class="field"><label>Observed</label><input @bind="_observed" @bind:event="oninput" @bind:after="SyncPassedFromResults" /></div>
             <div class="field"><label>Passed</label><input type="checkbox" @bind="_passed" /></div>
         </div>
@@ -157,6 +173,34 @@
             }
         }
         <button class="btn btn-primary btn-sm" disabled="@(_qcLotId == 0 || !ResultsCompared)" @onclick="RecordQcAsync">Record QC</button>
+    </div>
+
+    <div class="bb-card" data-recent-qc>
+        <div class="bb-card-title"><h3>Recent QC (14 days)</h3></div>
+        @if (_recentQc.Count == 0)
+        {
+            <div class="muted">No QC recorded in the last 14 days.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Performed</th><th>Reagent / lot</th><th>Expected</th><th>Observed</th><th>Result</th><th>Performed by</th><th>Reviewed by</th></tr></thead>
+                <tbody>
+                    @foreach (var q in _recentQc)
+                    {
+                        <tr>
+                            <td class="nowrap">@q.PerformedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(q.ReagentCode ?? "—") <span class="mono">@q.LotNumber</span></td>
+                            <td>@q.ExpectedResult</td>
+                            <td>@q.ObservedResult</td>
+                            <td><span class="badge @(q.Passed ? "badge-green" : "badge-red")">@(q.Passed ? "Passed" : "Failed")</span></td>
+                            <td>@q.PerformedBy</td>
+                            <td>@(q.ReviewedBy is null ? "Not reviewed" : $"{q.ReviewedBy} {q.ReviewedUtc:yyyy-MM-dd HH:mm}")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
     </div>
 }
 
@@ -196,6 +240,39 @@
         if (QcLots.All(l => l.Id != _qcLotId)) _qcLotId = QcLots.Count == 1 ? QcLots[0].Id : 0;
         var work = await Api.GetReagentQcWorklistAsync();
         if (work.Succeeded) _work = work.Value ?? new();
+        var recent = await Api.GetRecentReagentQcAsync();
+        if (recent.Succeeded) _recentQc = recent.Value ?? new();
+    }
+
+    // Recent QC for the history table and the expected-result offer.
+    private List<ReagentDailyQcDto> _recentQc = new();
+
+    private string? LastExpected =>
+        QcLots.FirstOrDefault(l => l.Id == _qcLotId) is { } lot ? ReagentQcHistory.LastExpected(lot.ReagentId, _recentQc) : null;
+
+    private void UseLastExpected(string expected)
+    {
+        _expected = expected;
+        SyncPassedFromResults();
+    }
+
+    // Barcode-first: the scanned lot number selects the one open lot that carries it.
+    private string _lotScan = string.Empty;
+    private string? _lotScanMessage;
+
+    private void OnLotScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_lotScan)) return;
+        if (ReagentQcHistory.LotForScan(_lotScan, QcLots) is { } lot)
+        {
+            _qcLotId = lot.Id;
+            _lotScanMessage = $"Selected {lot.ReagentCode} {lot.LotNumber}.";
+            _lotScan = string.Empty;
+        }
+        else
+        {
+            _lotScanMessage = $"No single open lot is numbered \"{_lotScan.Trim()}\". Receive or open it first, or choose from the list.";
+        }
     }
 
     private async Task SaveReagentAsync()

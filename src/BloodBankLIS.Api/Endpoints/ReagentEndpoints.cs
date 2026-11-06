@@ -42,6 +42,9 @@ public static class ReagentEndpoints
 
         group.MapGet("/worklist", async (ReagentQcService service, CancellationToken ct) =>
             Results.Ok(await service.ListWorkAsync(ct)));
+
+        group.MapGet("/qc", async (int? days, ReagentQcService service, CancellationToken ct) =>
+            Results.Ok(await service.ListRecentQcAsync(days ?? 14, ct)));
     }
 
     private static IResult ToResult<T>(Application.Common.OperationResult<T> result) =>

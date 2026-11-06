@@ -1909,6 +1909,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<ReagentQcWorkItemDto>>> GetReagentQcWorklistAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentQcWorkItemDto>>(HttpMethod.Get, "api/reagents/worklist", ct: ct);
 
+    public Task<ApiResult<List<ReagentDailyQcDto>>> GetRecentReagentQcAsync(int days = 14, CancellationToken ct = default) =>
+        SendAsync<List<ReagentDailyQcDto>>(HttpMethod.Get, $"api/reagents/qc?days={days}", ct: ct);
+
     public Task<ApiResult<List<MinimumStockRowDto>>> GetMinimumStockAsync(CancellationToken ct = default) =>
         SendAsync<List<MinimumStockRowDto>>(HttpMethod.Get, "api/inventory/minimum-stock", ct: ct);
 

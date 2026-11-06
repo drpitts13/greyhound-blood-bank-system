@@ -15372,3 +15372,38 @@ With facility policy *Block results when reagent QC is open* on, Save refuses pa
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 455 — Daily reagent QC: scan the lot, see the history (2026-11-06)
+
+### Capability matrix rescan (reagent QC)
+
+The Daily QC form picked the lot from a list and the tech typed the expected reaction every day, though it rarely changes for a reagent. Once reviewed, a QC row disappeared from the page: nobody could see last week's QC, who did it, or who reviewed it without the audit trail (questions 2, 3, 4; traceability).
+
+### Design
+
+- **`ReagentQcService.ListRecentQcAsync`** (`GET /api/reagents/qc?days=`, default 14, 1 to 90): newest first, with reagent and lot.
+- **Recent QC table** on Reagent QC: expected, observed, passed or failed, performer, reviewer or "Not reviewed".
+- **Scan lot:** selects the lot only when exactly one open lot carries the number (`ReagentQcHistory.LotForScan`); otherwise says so.
+- **Expected:** while empty, the form offers the expected result last recorded for that reagent (`ReagentQcHistory.LastExpected`), "Use it" to fill. It is never filled without the click, because the package insert is the authority.
+- Recording and review are unchanged; no schema change.
+
+### Requirements
+
+- FRS-BB-630 (under URS-BB-391). Help: reagents.
+
+### Tests
+
+- TEST-BB-496:
+  - QC older than 14 days is left out; newest first with reagent code; a failed row reads failed
+  - a new lot is offered the reagent's last expected; an unknown reagent gets nothing
+  - a scan selects the one lot (trimmed, any case); an unknown or duplicated number selects nothing
+- Full suite: 3,812 passed, 0 failed.
+- Run check (development API and web), nothing recorded:
+  - the dev database has no reagents, lots, or QC, so Recent QC says none in 14 days and the lot list is empty
+  - scanning "A-100" says no single open lot carries it
+  - no server errors
+- The table rows, the selection, and the expected offer were not seen live; TEST-BB-496 covers them.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

@@ -30,7 +30,37 @@ public sealed record ReagentDailyQcDto(
     string PerformedBy,
     DateTime PerformedUtc,
     string? ReviewedBy,
-    DateTime? ReviewedUtc);
+    DateTime? ReviewedUtc,
+    long? ReagentId = null,
+    string? ReagentCode = null);
+
+/// <summary>Helpers for the daily QC form.</summary>
+public static class ReagentQcHistory
+{
+    /// <summary>
+    /// The expected result most recently recorded for this reagent (any lot), to offer on the QC form. Only an offer:
+    /// the package insert is the authority, so the form never fills it in by itself.
+    /// </summary>
+    public static string? LastExpected(long reagentId, IEnumerable<ReagentDailyQcDto> history) =>
+        history.Where(q => q.ReagentId == reagentId && !string.IsNullOrWhiteSpace(q.ExpectedResult))
+            .OrderByDescending(q => q.PerformedUtc)
+            .ThenByDescending(q => q.Id)
+            .Select(q => q.ExpectedResult.Trim())
+            .FirstOrDefault();
+
+    /// <summary>The one QC-able lot whose number is the scan, or null when none or several match.</summary>
+    public static ReagentLotDto? LotForScan(string? scan, IEnumerable<ReagentLotDto> openLots)
+    {
+        var value = scan?.Trim();
+        if (string.IsNullOrEmpty(value))
+        {
+            return null;
+        }
+
+        var matches = openLots.Where(l => string.Equals(l.LotNumber.Trim(), value, StringComparison.OrdinalIgnoreCase)).ToList();
+        return matches.Count == 1 ? matches[0] : null;
+    }
+}
 
 public sealed record ReagentQcWorkItemDto(string Kind, long LotId, string LotNumber, long? QcId, string Message);
 
@@ -274,6 +304,32 @@ public sealed class ReagentQcService
         return OperationResult<ReagentLotDto>.Ok(new ReagentLotDto(
             lot.Id, lot.ReagentId, reagent?.Code ?? string.Empty, lot.LotNumber,
             lot.ReceivedUtc, lot.OpenedUtc, lot.ClosedUtc, lot.ExpiresUtc, lot.State));
+    }
+
+    /// <summary>QC recorded in the last <paramref name="days"/> days, newest first, with its lot and reagent.</summary>
+    public async Task<IReadOnlyList<ReagentDailyQcDto>> ListRecentQcAsync(int days = 14, CancellationToken ct = default)
+    {
+        var since = _clock.UtcNow.AddDays(-Math.Clamp(days, 1, 90));
+        var rows = await _qc.ListAsync(q => q.PerformedUtc >= since, ct);
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var lotIds = rows.Select(q => q.ReagentLotId).Distinct().ToList();
+        var lots = (await _lots.ListAsync(l => lotIds.Contains(l.Id), ct)).ToDictionary(l => l.Id);
+        var reagentIds = lots.Values.Select(l => l.ReagentId).Distinct().ToList();
+        var reagents = (await _reagents.ListAsync(r => reagentIds.Contains(r.Id), ct)).ToDictionary(r => r.Id);
+        return rows
+            .OrderByDescending(q => q.PerformedUtc)
+            .ThenByDescending(q => q.Id)
+            .Select(q =>
+            {
+                lots.TryGetValue(q.ReagentLotId, out var lot);
+                var reagent = lot is not null && reagents.TryGetValue(lot.ReagentId, out var r) ? r : null;
+                return ToDto(q, lot?.LotNumber ?? string.Empty) with { ReagentId = lot?.ReagentId, ReagentCode = reagent?.Code };
+            })
+            .ToList();
     }
 
     private static ReagentDailyQcDto ToDto(ReagentDailyQc row, string lotNumber) =>
