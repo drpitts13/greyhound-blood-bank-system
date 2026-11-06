@@ -134,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<UnitAntigenTypingService>();
         services.AddScoped<ResultService>();
         services.AddScoped<TestWorklistService>();
+        services.AddScoped<BatchVerifyService>();
         services.AddScoped<ImmunohematologyService>();
         services.AddScoped<AntibodyIdentificationService>();
         services.AddScoped<BloodAttributeCompatLoader>();

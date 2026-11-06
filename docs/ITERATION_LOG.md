@@ -15407,3 +15407,51 @@ The Daily QC form picked the lot from a list and the tech typed the expected rea
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 456 — Batch verification of routine results (OCD-061) (2026-11-06)
+
+### Decision
+
+Decided 2026-11-06 by the product owner:
+
+- tests: ABORH, ABSC, and DAT; manual and instrument results; no cap on the batch size
+- ABO/Rh only when it matches the patient's historical type
+- patients with antibody history or special requirements are left out
+- the verifier must not be the person who entered the result
+
+### Design
+
+- **`BatchVerifyRule`** (BATCH-VERIFY), per result:
+  - ABSC or DAT plainly Negative, or ABORH matching the current historical type
+  - waiting for its first verification (not a correction)
+  - entered by someone else
+  - no antibody history (active or not) and no enforced special requirement in effect on the patient
+- **Facility policy** `Result.AllowBatchVerify`, default off.
+- **`BatchVerifyService`:**
+  - lists candidates from the pending worklist
+  - verifies a chosen set: re-applies the rule to each id (the list may be stale, and any id may be sent), then runs the normal `VerifyResultAsync` with all its checks (specimen, order hold, self-verify, ABO/Rh history)
+  - leaves any result that fails unverified with the reason
+  - adds an audit row "Verified in batch {id}" per verified result
+- **API** (result.verify): `GET /api/results/batch-verify/candidates`; `POST /api/results/batch-verify`, which also captures billing per verified result, as single verification does.
+- **Test Worklist, To verify:** **Verify in a batch**, with all candidates ticked, **Verify n selected**, and the outcome listing anything not verified and why.
+- No schema change.
+
+### Requirements
+
+- URS-BB-525, FRS-BB-631; safety rule BATCH-VERIFY; OCD-061 recorded. Help: test worklist.
+
+### Tests
+
+- TEST-BB-497:
+  - rule: plain negatives and matching types qualify; other tests, positives, qualified negatives, corrections, own or unknown entries, antibody history, special requirements, first types, differing types, and unreadable values do not
+  - service: off by default (nothing verified, candidates disabled); once on, only the matching ABO/Rh and the negative screen are verified, each skip names its reason, and both verified results carry the batch audit row
+- Full suite: 3,815 passed, 0 failed.
+- Run check (development API and web), nothing verified:
+  - with the setting off (default), candidates answer `{"enabled":false}` and a batch is refused ("Batch verification is turned off in Facility Policies.")
+  - To verify (2) shows no batch panel
+  - no server errors
+- The setting was not turned on in the dev database (a facility decision), so the panel was not seen live; TEST-BB-497 covers the on path.
+
+### Next
+
+OCD-062 (no-result notice to the EHR on rejection), then OCD-063 (inbound dispense requests).

@@ -29,6 +29,9 @@ public static class FacilityPolicyKeys
     /// <summary>The user who entered a patient ABO/Rh result may not verify it (establishes current type).</summary>
     public const string BlockAboSelfVerify = "Result.BlockAboSelfVerify";
 
+    /// <summary>A second person may verify eligible routine results in a batch (OCD-061). Default off.</summary>
+    public const string AllowBatchVerify = "Result.AllowBatchVerify";
+
     /// <summary>Retired. Unit retype is the supplier confirmation and no longer requires a second reviewer.</summary>
     public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";

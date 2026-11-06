@@ -111,6 +111,25 @@ public static class ResultEndpoints
             return EndpointResults.FromEvaluation(result, r => TestResultDto.From(r));
         }).RequirePermission(PermissionCodes.ResultVerify);
 
+        // OCD-061: eligible routine results verified together; each still goes through the single verify and its billing.
+        group.MapGet("/batch-verify/candidates", async (BatchVerifyService service, CancellationToken ct) =>
+            Results.Ok(await service.ListCandidatesAsync(ct)))
+            .RequirePermission(PermissionCodes.ResultVerify);
+
+        group.MapPost("/batch-verify", async (BatchVerifyRequest request, BatchVerifyService service, BillingService billing, CancellationToken ct) =>
+        {
+            var outcome = await service.VerifyAsync(request, ct);
+            if (outcome.Succeeded)
+            {
+                foreach (var verifiedId in outcome.Value!.Verified)
+                {
+                    await billing.CaptureForResultAsync(verifiedId, ct);
+                }
+            }
+
+            return EndpointResults.From(outcome, o => o);
+        }).RequirePermission(PermissionCodes.ResultVerify);
+
         group.MapPost("/{id:long}/correct", async (long id, CorrectResultRequest request, ResultService service, CancellationToken ct) =>
             EndpointResults.From(await service.CorrectResultAsync(id, request.NewValue, request.Reason, ct), r => TestResultDto.From(r)))
             .RequirePermission(PermissionCodes.ResultCorrect);

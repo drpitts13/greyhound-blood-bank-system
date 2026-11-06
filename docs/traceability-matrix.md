@@ -624,6 +624,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-524 / FRS-BB-625 | Deviations shown on, and recorded from, the unit and patient pages | `DeviationService.ListForRecordAsync`; `LinkedDeviations.razor` | TEST-BB-491 | I | |
 | URS-BB-524 / FRS-BB-626 | Deviation record linked by scan or identifier | `DeviationRecordTypes.FromLookup`; `Deviations.razor` | TEST-BB-492 | U | |
 | URS-BB-524 / FRS-BB-627 | Shift handoff counts open and critical deviations | `ShiftHandoffService`; `ShiftHandoffDto.QueueSummary` | TEST-BB-493 | U, I | |
+| URS-BB-525 / FRS-BB-631 | Batch verification of eligible routine results (OCD-061) | `BatchVerifyRule`; `BatchVerifyService` | TEST-BB-497 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

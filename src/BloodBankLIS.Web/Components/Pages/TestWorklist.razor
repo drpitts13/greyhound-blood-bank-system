@@ -69,6 +69,51 @@
         </div>
     }
 
+    @if (_show == ShowVerify && _batch is { Enabled: true } && (_batch.Candidates.Count > 0 || _batchOutcome is not null))
+    {
+        @* OCD-061: eligible routine results verified together; the server decides eligibility again and runs every check. *@
+        <div class="bb-card" data-batch-verify style="margin-bottom:.75rem;">
+            <div class="bb-card-title"><h3>Verify in a batch</h3></div>
+            <p class="muted" style="margin-top:0;">Plainly Negative antibody screens and DATs, and ABO/Rh results matching the patient's history, entered by someone else, on patients with no antibody history or special requirement. Anything else is verified one at a time below.</p>
+            @if (_batchOutcome is not null)
+            {
+                <div class="@(_batchOutcome.Skipped.Count == 0 ? "alert alert-success" : "alert alert-warning")" data-batch-outcome>
+                    Verified @_batchOutcome.Verified.Count.
+                    @if (_batchOutcome.Skipped.Count > 0)
+                    {
+                        <span>Not verified @_batchOutcome.Skipped.Count:</span>
+                        <ul style="margin:.25rem 0 0 1.1rem;padding:0;">
+                            @foreach (var s in _batchOutcome.Skipped)
+                            {
+                                <li>Result @s.ResultId: @s.Reason</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+            @if (_batch.Candidates.Count > 0)
+            {
+                <table class="bb">
+                    <thead><tr><th><input type="checkbox" checked="@(_batchSelected.Count == _batch.Candidates.Count)" @onchange="ToggleAllBatch" aria-label="Select all" /></th><th>Patient / MRN</th><th>Test</th><th>Result</th><th>Accession</th><th>Entered by</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in _batch.Candidates)
+                        {
+                            <tr>
+                                <td><input type="checkbox" checked="@_batchSelected.Contains(c.ResultId)" @onchange="e => ToggleBatch(c.ResultId, e)" aria-label="Select @c.TestCode for @c.Mrn" /></td>
+                                <td>@c.PatientName <span class="sub mono">@c.Mrn</span></td>
+                                <td class="mono">@c.TestCode</td>
+                                <td><strong>@c.Value</strong></td>
+                                <td class="mono">@(c.AccessionNumber ?? "—")</td>
+                                <td>@(c.EnteredBy ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-primary btn-sm" style="margin-top:.5rem;" disabled="@(_busy || _batchSelected.Count == 0)" @onclick="BatchVerifyAsync" data-batch-verify-button>Verify @_batchSelected.Count selected</button>
+            }
+        </div>
+    }
+
     @if (!_loading && _items.Count > 0)
     {
         <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-bottom:.5rem;">
@@ -567,6 +612,56 @@
         }
 
         _items = r.Value ?? new();
+        await LoadBatchAsync();
+    }
+
+    // Batch verification candidates, for verifiers only; every candidate starts selected.
+    private BatchVerifyCandidatesDto? _batch;
+    private HashSet<long> _batchSelected = new();
+    private BatchVerifyOutcomeDto? _batchOutcome;
+
+    private async Task LoadBatchAsync()
+    {
+        if (!Session.Has(PermissionCodes.ResultVerify))
+        {
+            _batch = null;
+            return;
+        }
+
+        var r = await Api.GetBatchVerifyCandidatesAsync();
+        _batch = r.Succeeded ? r.Value : null;
+        _batchSelected = _batch?.Candidates.Select(c => c.ResultId).ToHashSet() ?? new();
+    }
+
+    private void ToggleBatch(long resultId, ChangeEventArgs e)
+    {
+        if (e.Value is true) _batchSelected.Add(resultId);
+        else _batchSelected.Remove(resultId);
+    }
+
+    private void ToggleAllBatch(ChangeEventArgs e) =>
+        _batchSelected = e.Value is true ? _batch?.Candidates.Select(c => c.ResultId).ToHashSet() ?? new() : new();
+
+    private async Task BatchVerifyAsync()
+    {
+        if (_busy || _batchSelected.Count == 0) return;
+        _busy = true;
+        try
+        {
+            var r = await Api.BatchVerifyAsync(_batchSelected.ToList());
+            if (!r.Succeeded)
+            {
+                _fb = r.ToFeedback();
+                return;
+            }
+
+            _batchOutcome = r.Value;
+            await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task LoadRetypesAsync()

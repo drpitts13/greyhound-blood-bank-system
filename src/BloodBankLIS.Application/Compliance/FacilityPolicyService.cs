@@ -91,6 +91,9 @@ public sealed class FacilityPolicyService
     public Task<int> GetRetentionYearsAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.RetentionYears, 10, ct);
 
+    public Task<bool> GetAllowBatchVerifyAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.AllowBatchVerify, false, ct);
+
     public Task<bool> GetBlockResultsWhenReagentQcOpenAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen, false, ct);
 

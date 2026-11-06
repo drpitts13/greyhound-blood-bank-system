@@ -300,6 +300,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<TestResultDto>> EnterAboRhAsync(EnterAboRhRequest req, CancellationToken ct = default) =>
         SendAsync<TestResultDto>(HttpMethod.Post, "api/results/abo-rh", req, ct);
 
+    public Task<ApiResult<BatchVerifyCandidatesDto>> GetBatchVerifyCandidatesAsync(CancellationToken ct = default) =>
+        SendAsync<BatchVerifyCandidatesDto>(HttpMethod.Get, "api/results/batch-verify/candidates", ct: ct);
+
+    public Task<ApiResult<BatchVerifyOutcomeDto>> BatchVerifyAsync(IReadOnlyList<long> resultIds, CancellationToken ct = default) =>
+        SendAsync<BatchVerifyOutcomeDto>(HttpMethod.Post, "api/results/batch-verify", new BatchVerifyRequest(resultIds), ct);
+
     public Task<ApiResult<TestResultDto>> VerifyResultAsync(long id, VerifyResultRequest? req = null, long? signatureId = null, CancellationToken ct = default)
     {
         var headers = signatureId is not null
