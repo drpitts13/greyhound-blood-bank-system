@@ -147,6 +147,23 @@ public static class DashboardQueueCatalog
     public static string? OutstandingNote(IEnumerable<OutstandingIssueWorkItemDto> outstanding) =>
         AttentionNote(outstanding.Count(o => o.TransfusionCompletionOverdue), "transfusion completion overdue", "transfusion completions overdue");
 
+    /// <summary>
+    /// The Supervisor queue card note: results that must be verified before their specimen expires, missing or damaged
+    /// units, and overrides waiting for a second-person review. Antibody ID reviews and quarantine releases stay in the
+    /// count only; they have no deadline of their own here.
+    /// </summary>
+    public static string? SupervisorNote(IEnumerable<SupervisorQueueItemDto> items)
+    {
+        var all = items.ToList();
+        var parts = new[]
+        {
+            AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindResultVerify && i.DueSoon), "to verify before its specimen expires", "to verify before their specimens expire"),
+            AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindDiscrepancy), "missing or damaged unit", "missing or damaged units"),
+            AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindOverrideReview), "override to review", "overrides to review")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
     /// <summary>Near-expiry units reserved for a patient: issue them first or reserve a replacement.</summary>
     public static string? NearExpiryNote(int reservedCount) =>
         AttentionNote(reservedCount, "reserved for a patient", "reserved for patients");

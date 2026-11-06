@@ -225,4 +225,20 @@ public class DashboardQueueCatalogTests
         Assert.Equal("1 past the arrival window; 2 coolers not checked; 1 cooler checked with differences",
             DashboardQueueCatalog.InTransitNote(1, coolers));
     }
+
+    // TEST-BB-484: the Supervisor card names results due before specimen expiry, missing or damaged units, and overrides to review.
+    [Fact]
+    public void SupervisorNote_NamesTheItemsWithADeadlineOrAReview()
+    {
+        SupervisorQueueItemDto Item(string kind, bool dueSoon = false) => new(kind, "t", "d", "/supervisor", "Go", DueSoon: dueSoon);
+
+        Assert.Null(DashboardQueueCatalog.SupervisorNote([]));
+        Assert.Null(DashboardQueueCatalog.SupervisorNote([
+            Item(SupervisorQueueRule.KindAntibodyReview), Item(SupervisorQueueRule.KindQuarantineRelease), Item(SupervisorQueueRule.KindResultVerify)]));
+        Assert.Equal("1 to verify before its specimen expires; 2 missing or damaged units; 1 override to review",
+            DashboardQueueCatalog.SupervisorNote([
+                Item(SupervisorQueueRule.KindResultVerify, dueSoon: true), Item(SupervisorQueueRule.KindResultVerify),
+                Item(SupervisorQueueRule.KindDiscrepancy), Item(SupervisorQueueRule.KindDiscrepancy),
+                Item(SupervisorQueueRule.KindOverrideReview)]));
+    }
 }

@@ -390,7 +390,15 @@
                     DashboardQueueCatalog.NearExpiryNote(result.Value.Count(u => u.ReservedPatientId is not null)));
             }
             case DashboardQueueCatalog.Supervisor:
-                return await CountList(card.Key, Api.GetSupervisorQueueAsync());
+            {
+                var result = await Api.GetSupervisorQueueAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.SupervisorNote(result.Value));
+            }
             case DashboardQueueCatalog.ExpiredOnShelf:
                 return await CountList(card.Key, Api.GetExpiredOnShelfAsync());
             case DashboardQueueCatalog.TemperatureExcursions:

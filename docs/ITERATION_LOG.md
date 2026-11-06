@@ -14945,3 +14945,32 @@ A transfusion started at the bedside and not completed within the reminder hours
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 443 — Supervisor card names what is urgent (2026-11-06)
+
+### Capability matrix rescan (supervisor queue)
+
+The supervisor queue mixes antibody ID reviews, results to verify, quarantine releases, missing or damaged units, and override reviews. The home card gave only a total, so a supervisor could not tell a result about to lose its specimen from routine quarantine work without opening the queue (question 5).
+
+### Design
+
+- **`DashboardQueueCatalog.SupervisorNote`** names, from the same queue rows (already permission-scoped):
+  - results due before their specimen expires
+  - missing or damaged units
+  - overrides waiting for review
+- Any of these puts the card under Needs attention. Antibody ID reviews and quarantine releases stay in the count only.
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-618 (under URS-BB-337). Help: dashboard.
+
+### Tests
+
+- TEST-BB-484: silent for empty or routine-only queues; names each kind with singular and plural wording.
+- Full suite: 3,787 passed, 0 failed.
+- Run check (development API and web): the card reads "8 · 2 missing or damaged units; 1 override to review", matching the queue (1 result verify not due soon, 4 quarantine, 2 missing or damaged, 1 override review); no server errors; nothing changed.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
