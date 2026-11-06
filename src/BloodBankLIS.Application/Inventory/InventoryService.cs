@@ -1130,6 +1130,9 @@ public sealed class InventoryService
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
+        if (RefuseRepeat(unit, UnitStatus.Recalled, "recalled") is { } repeat)
+            return repeat;
+
         unit.RecallReason = reason;
         return await ChangeStatusAsync(unit, UnitStatus.Recalled, reason, ct);
     }
@@ -1155,6 +1158,13 @@ public sealed class InventoryService
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
+
+        // A unit held only by the routine receipt hold may be quarantined for a specific reason; one already quarantined
+        // for a specific reason keeps it.
+        if (unit.Status == UnitStatus.Quarantine
+            && unit.QuarantineReasonCode is not (UnitQuarantineReason.Unspecified or UnitQuarantineReason.PendingRelease))
+            return InventoryActionResult.Fail(
+                $"{unit.UnitNumber} is already in quarantine ({unit.QuarantineReason ?? unit.QuarantineReasonCode.ToString()}); the reason recorded then stays.");
 
         var note = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         unit.QuarantineReasonCode = reasonCode;
@@ -1404,6 +1414,9 @@ public sealed class InventoryService
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
+        if (RefuseRepeat(unit, UnitStatus.OnHold, "on hold") is { } repeat)
+            return repeat;
+
         unit.HoldReason = reason.Trim();
         var fromStatus = unit.Status;
         var held = await ChangeStatusAsync(unit, UnitStatus.OnHold, reason.Trim(), ct);
@@ -1495,9 +1508,8 @@ public sealed class InventoryService
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
-        // A repeat would replace the recorded missing reason without a trace.
-        if (unit.Status == UnitStatus.Missing)
-            return InventoryActionResult.Fail($"{unit.UnitNumber} is already marked missing.");
+        if (RefuseRepeat(unit, UnitStatus.Missing, "marked missing") is { } repeat)
+            return repeat;
 
         unit.MissingReason = reason.Trim();
         var fromStatus = unit.Status;
@@ -1599,6 +1611,9 @@ public sealed class InventoryService
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
+
+        if (RefuseRepeat(unit, UnitStatus.Damaged, "marked damaged") is { } repeat)
+            return repeat;
 
         unit.DamagedReason = reason.Trim();
         var fromStatus = unit.Status;
@@ -1741,9 +1756,8 @@ public sealed class InventoryService
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
-        // A repeat would replace the recorded return reason without a trace.
-        if (unit.Status == UnitStatus.ReturnedToSupplier)
-            return InventoryActionResult.Fail($"{unit.UnitNumber} is already returned to the supplier.");
+        if (RefuseRepeat(unit, UnitStatus.ReturnedToSupplier, "returned to the supplier") is { } repeat)
+            return repeat;
 
         unit.SupplierReturnReason = reason.Trim();
         var fromStatus = unit.Status;
@@ -2245,6 +2259,11 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
         }
 
+        if (RefuseRepeat(unit, UnitStatus.Discarded, "discarded") is { } repeat)
+        {
+            return repeat;
+        }
+
         var transition = InventoryStatusTransition.Evaluate(unit.Status, UnitStatus.Discarded);
         if (transition.Severity == RuleSeverity.HardStop)
         {
@@ -2410,6 +2429,15 @@ public sealed class InventoryService
         var confirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypeResults, product, unit.Id, ct);
         return RetypeStockStatus.ForStock(requiresRetype: true, confirmed);
     }
+
+    /// <summary>
+    /// The status table lets a unit "move" to the status it already has, so an action repeated on a unit already in its
+    /// target status would replace the reason recorded the first time. Those actions refuse instead.
+    /// </summary>
+    private static InventoryActionResult? RefuseRepeat(BloodUnit unit, UnitStatus target, string already) =>
+        unit.Status == target
+            ? InventoryActionResult.Fail($"{unit.UnitNumber} is already {already}; the reason recorded then stays.")
+            : null;
 
     private async Task<InventoryActionResult> ChangeStatusAsync(BloodUnit unit, UnitStatus toStatus, string reason, CancellationToken ct)
     {

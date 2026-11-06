@@ -598,6 +598,57 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False(denied.Succeeded);
     }
 
+    // TEST-BB-476: an action repeated on a unit already in its status (recall, hold, damaged, discard, quarantine for a
+    // specific reason) is refused, so the reason recorded the first time stays; a unit held only by the routine receipt
+    // hold can still be quarantined for a specific reason.
+    [Fact]
+    public async Task RepeatedStatusActions_AreRefused_AndKeepTheFirstReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Available(string suffix)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-RPT{suffix}-{key}", productTypeId))).Unit!.Id;
+            var unit = (await context.BloodUnits.FindAsync(id))!;
+            unit.Status = UnitStatus.Available;
+            unit.QuarantineReasonCode = UnitQuarantineReason.Unspecified;
+            await context.SaveChangesAsync();
+            return id;
+        }
+
+        async Task<BloodUnit> Row(long id) => await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == id);
+
+        var recall = await Available("R");
+        Assert.True((await service.RecallAsync(recall, "Supplier recall 1")).Succeeded);
+        Assert.Contains("already recalled", (await service.RecallAsync(recall, "Second")).Error);
+        Assert.Equal("Supplier recall 1", (await Row(recall)).RecallReason);
+
+        var hold = await Available("H");
+        Assert.True((await service.HoldAsync(hold, "Awaiting supplier call")).Succeeded);
+        Assert.Contains("already on hold", (await service.HoldAsync(hold, "Second")).Error);
+        Assert.Equal("Awaiting supplier call", (await Row(hold)).HoldReason);
+
+        var damaged = await Available("D");
+        Assert.True((await service.MarkDamagedAsync(damaged, "Port torn")).Succeeded);
+        Assert.Contains("already marked damaged", (await service.MarkDamagedAsync(damaged, "Second")).Error);
+        Assert.Equal("Port torn", (await Row(damaged)).DamagedReason);
+
+        var discard = await Available("X");
+        Assert.True((await service.DiscardAsync(discard, new DiscardUnitCommand("EXPIRED", "First", "tech2"))).Succeeded);
+        Assert.Contains("already discarded", (await service.DiscardAsync(discard, new DiscardUnitCommand("EXPIRED", "Second", "tech2"))).Error);
+        Assert.Contains("First", (await Row(discard)).DiscardReason);
+
+        // Received units sit in the routine receipt hold; a specific quarantine is allowed once, then kept.
+        var received = (await service.ReceiveUnitAsync(NewUnitRequest($"U-RPTQ-{key}", productTypeId))).Unit!.Id;
+        Assert.Equal(UnitQuarantineReason.PendingRelease, (await Row(received)).QuarantineReasonCode);
+        Assert.True((await service.QuarantineAsync(received, UnitQuarantineReason.VisualDefect, "Clots seen")).Succeeded);
+        var again = await service.QuarantineAsync(received, UnitQuarantineReason.Other, "Second");
+        Assert.Contains("already in quarantine (Clots seen)", again.Error);
+        Assert.Equal((UnitQuarantineReason.VisualDefect, "Clots seen"), ((await Row(received)).QuarantineReasonCode, (await Row(received)).QuarantineReason));
+    }
+
     // TEST-BB-475: a return shipment by scan returns each unit with the shipment's reason and the usual audit; a
     // reserved unit, one already returned, a blank reason, and an unknown scan return nothing.
     [Fact]

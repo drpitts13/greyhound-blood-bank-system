@@ -426,6 +426,7 @@ Opening a reaction investigation quarantines the implicated unit when `Inventory
 - No clinical row is hard-deleted; status/void columns and history tables preserve prior state.
 - The system never auto-resolves an ABO/Rh discrepancy, antibody conflict, or compatibility failure. Resolution is always an explicit, audited user action.
 - Audit writes occur in the same transaction as the change; a failed audit rolls back the operation.
+- A unit status action (recall, hold, damaged, missing, return to supplier, discard, specific quarantine) repeated on a unit already in that status is refused, so the reason recorded the first time is never replaced (Cycles 434–435).
 - New `AuditEvent` rows store `PreviousHash` and `RecordHash`. A payload edit or a missing hashed row fails `AuditHashChainRule.Verify` (`AUDIT-CHAIN-PAYLOAD` / `AUDIT-CHAIN-LINK`). Rows written before the chain are not rewritten. This is not a retention or purge policy (OCD-007).
 
 ---

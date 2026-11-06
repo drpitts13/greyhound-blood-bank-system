@@ -14650,3 +14650,41 @@ Returning units to the supplier (a recall, short-dated stock, a consignee reject
 ### Next ranked residual
 
 Look for other same-status repeat actions that replace a recorded reason (hold, damaged), then rescan the desks.
+
+## Iteration 435 — Repeated status actions keep the first reason (2026-11-06)
+
+### Capability matrix rescan (audit, no silent change)
+
+Cycle 434 found that the status transition table allows a move to the same status. Every unit action that writes its reason before the status change had the same flaw, through the API (the unit page hides the buttons):
+- recall, direct and lookback (lookback already skips recalled units)
+- hold
+- mark damaged
+- discard
+- quarantine
+
+Repeating any of them replaced the reason recorded the first time (audit principle: never silently overwrite).
+
+### Design
+
+- **`InventoryService.RefuseRepeat`:** returns "… is already X; the reason recorded then stays".
+  - used by recall, hold, mark damaged, discard, mark missing, and return to supplier (the last two replace Cycle 434's own checks)
+- **Quarantine:**
+  - refuses a unit already quarantined for a specific reason, naming that reason
+  - a unit held only by the routine receipt hold (PendingRelease or Unspecified) can still be quarantined for a specific reason, a legitimate escalation
+- No schema, API, or page change. `docs/safety-rules.md` §7 records the guarantee.
+
+### Requirements
+
+- FRS-BB-610 (under URS-BB-517).
+
+### Tests
+
+- TEST-BB-476:
+  - each of recall, hold, damaged, and discard twice: the second is refused and the first reason stays
+  - a received unit (PendingRelease) is quarantined for a visual defect; a second quarantine is refused, naming "Clots seen", and the code and note stay
+- Full suite: 3,771 passed, 0 failed.
+- Run check: not applicable. The unit page already hides these actions for a unit in that status, so the repeat path is the API, covered by the test.
+
+### Next ranked residual
+
+Rescan the desks for the next operations gap.
