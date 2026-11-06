@@ -481,5 +481,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-470 | U | `BenchShortcutTests.Shortcut_clicks_only_row_toggles_and_ignores_typing`; `BenchShortcutTests.Worklist_rows_carry_the_toggle_and_entry_markers` | URS-BB-515 / FRS-BB-604 |
 | TEST-BB-471 | U | `CrossmatchUnitOfferTests.Offer_IsReservedPlusCompatible_CountedOnce`; `CrossmatchUnitOfferTests.UnreadableCompatibleList_OffersEveryUnit_AndSaysWhy` | URS-BB-506 / FRS-BB-605 |
 | TEST-BB-472 | I | `InventoryServiceTests.DiscardExpiredByScan_DiscardsOnlyExpiredUnits_WithTheExpiredReason` | URS-BB-516 / FRS-BB-606 |
+| TEST-BB-473 | U | `DashboardHomeTests.ExpiredOnShelf_IsForDiscarders_AndNeedsAttentionAboveZero` | URS-BB-516 / FRS-BB-607 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

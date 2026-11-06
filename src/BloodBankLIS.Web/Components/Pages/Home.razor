@@ -383,6 +383,8 @@
             }
             case DashboardQueueCatalog.Supervisor:
                 return await CountList(card.Key, Api.GetSupervisorQueueAsync());
+            case DashboardQueueCatalog.ExpiredOnShelf:
+                return await CountList(card.Key, Api.GetExpiredOnShelfAsync());
             case DashboardQueueCatalog.TemperatureExcursions:
                 return await CountList(card.Key, Api.GetOpenTemperatureExcursionsAsync());
             case DashboardQueueCatalog.InstrumentFailures:

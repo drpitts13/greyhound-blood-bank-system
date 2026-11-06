@@ -145,4 +145,22 @@ public class DashboardHomeTests
             WorkFocus.Supervisor);
         Assert.Equal(NearExpiry, reserved.Attention[0].Card.Key);
     }
+
+    // TEST-BB-473: Expired on shelf is a card for discarders, needs attention whenever above zero (before near expiry),
+    // and belongs to the issue desk and supervisor views.
+    [Fact]
+    public void ExpiredOnShelf_IsForDiscarders_AndNeedsAttentionAboveZero()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == PermissionCodes.InventoryDiscard),
+            card => card.Key == DashboardQueueCatalog.ExpiredOnShelf && card.Href == "/inventory/discard-expired");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == PermissionCodes.InventoryReceive),
+            card => card.Key == DashboardQueueCatalog.ExpiredOnShelf);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.ExpiredOnShelf, WorkFocus.IssueDesk));
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.ExpiredOnShelf, WorkFocus.Supervisor));
+        Assert.False(DashboardHome.InFocus(DashboardQueueCatalog.ExpiredOnShelf, WorkFocus.Bench));
+
+        var layout = DashboardHome.Arrange([State(NearExpiry, 3, NearExpiryNote(1)), State(ExpiredOnShelf, 2)], WorkFocus.IssueDesk);
+        Assert.Equal([ExpiredOnShelf, NearExpiry], layout.Attention.Select(c => c.Card.Key));
+        Assert.DoesNotContain(DashboardHome.Arrange([State(ExpiredOnShelf, 0)], WorkFocus.IssueDesk).Attention, c => c.Card.Key == ExpiredOnShelf);
+    }
 }

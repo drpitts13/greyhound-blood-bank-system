@@ -14548,3 +14548,36 @@ Rescan the chart's Products tab and the Issue desk for the next workflow gap.
 ### Next ranked residual
 
 A home or handoff count of expired units still on a shelf.
+
+## Iteration 432 — Expired on shelf home card (2026-11-05)
+
+### Capability matrix rescan (operations)
+
+Cycle 431 added Discard expired. Nothing on the home screen said expired units were still on a shelf, so the page had to be remembered and checked (questions 2, 5, 6).
+
+### Design
+
+- **`DashboardQueueCatalog.ExpiredOnShelf`** ("Expired on shelf"):
+  - for *inventory.discard*
+  - counts the Discard expired list and opens it
+- **`DashboardHome`:**
+  - above zero, Needs attention, ahead of near expiry
+  - in the Issue desk and Supervisor focus
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-607 (under URS-BB-516). Help: dashboard.
+
+### Tests
+
+- TEST-BB-473:
+  - the card for discarders only
+  - focus membership
+  - needs attention above zero (ordered before near expiry), not at zero
+- Full suite: 3,768 passed, 0 failed.
+- Run check (development API and web): the home page shows "Expired on shelf 1" under Needs attention; no server errors.
+
+### Next ranked residual
+
+Rescan the remaining desks for an operations gap.

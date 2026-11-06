@@ -29,6 +29,7 @@ public static class DashboardQueueCatalog
     public const string Hl7Errors = "hl7-errors";
     public const string InstrumentFailures = "instrument-failures";
     public const string NearExpiry = "near-expiry";
+    public const string ExpiredOnShelf = "expired-on-shelf";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -56,6 +57,8 @@ public static class DashboardQueueCatalog
             || has(PermissionCodes.DeviationManage), TemperatureExcursions, "Temperature excursions", "/storage-temps");
         Add(cards, has(PermissionCodes.InventoryReceive) || has(PermissionCodes.InventoryDiscard)
             || canIssue || has(PermissionCodes.CompatibilityAllocate), NearExpiry, "Near expiry", "/inventory?board=near");
+        // Expired units still recorded on a shelf: pull and discard them (inventory.discard).
+        Add(cards, has(PermissionCodes.InventoryDiscard), ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired");
         Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments");
         Add(cards, has(PermissionCodes.Hl7Manage), Hl7Errors, "HL7 errors", "/hl7");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
