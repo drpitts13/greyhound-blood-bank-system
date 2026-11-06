@@ -1640,6 +1640,11 @@ else
             if (!_visitsLoaded) await LoadVisitsAsync();
             if (_encounters.Count == 0) SuggestVisit();
             if (_encounters.Count > 0 && _newOrderEncounterId == 0) _newOrderEncounterId = _encounters[0].Id;
+            // The chosen visit's own location, when it names exactly one ordering location; else the default stays.
+            if (OrderVisitDefaults.LocationFor(_encounters.FirstOrDefault(v => v.Id == _newOrderEncounterId), _orderingLocations) is long visitLocation)
+            {
+                _newOrderLocationId = visitLocation;
+            }
             _newOrderAccessionNow = false;
             _orderAcc = new();
         }

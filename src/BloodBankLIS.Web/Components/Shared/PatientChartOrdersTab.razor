@@ -32,7 +32,7 @@
                 <p class="form-step">1. Visit</p>
                 <div class="form-row">
                     <div class="field"><label>Visit</label>
-                        <select @bind="NewOrderEncounterId" @bind:after="() => NewOrderEncounterIdChanged.InvokeAsync(NewOrderEncounterId)">
+                        <select @bind="NewOrderEncounterId" @bind:after="OnNewOrderVisitChangedAsync">
                             @foreach (var v in Encounters)
                             {
                                 <option value="@v.Id">@v.VisitNumber</option>
@@ -49,6 +49,17 @@
                                 <option value="@l.Id">@l.DisplayName (@l.Code)</option>
                             }
                         </select>
+                        @if (OrderVisitDefaults.VisitLocation(NewOrderVisit) is { } visitPlace)
+                        {
+                            @if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is long fromVisit && fromVisit == NewOrderLocationId)
+                            {
+                                <span class="sub" data-order-location-from-visit>From the visit (@visitPlace)</span>
+                            }
+                            else if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is null)
+                            {
+                                <span class="sub" data-order-location-unmatched>The visit says @visitPlace, which is not one ordering location; choose it here.</span>
+                            }
+                        }
                     </div>
                     <div class="field"><label>Ordering provider</label>
                         <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
@@ -60,6 +71,13 @@
                                            ItemValue="@ProviderItemValue"
                                            Clearable="true"
                                            Placeholder="Type to search providers..." />
+                        @if (NewOrderProviderId is null && OrderVisitDefaults.AttendingFor(NewOrderVisit, Providers) is { } attending)
+                        {
+                            <div class="sub" data-attending-suggestion>
+                                Visit attending: @FormatProvider(attending)
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnNewProviderChanged(attending.Id)" title="Use only if this provider ordered it">Use</button>
+                            </div>
+                        }
                     </div>
                 </div>
                 <p class="form-step">2. Order</p>
@@ -623,6 +641,19 @@
     [Parameter] public EventCallback<PatientOrderDto> OnVerify { get; set; }
     [Parameter] public EventCallback OnSaveEdit { get; set; }
     [Parameter] public EventCallback OnAccessionNowAfter { get; set; }
+
+    private EncounterDto? NewOrderVisit => Encounters.FirstOrDefault(v => v.Id == NewOrderEncounterId);
+
+    // A different visit brings its own ordering location when it names exactly one.
+    private async Task OnNewOrderVisitChangedAsync()
+    {
+        await NewOrderEncounterIdChanged.InvokeAsync(NewOrderEncounterId);
+        if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is long location && location != NewOrderLocationId)
+        {
+            NewOrderLocationId = location;
+            await NewOrderLocationIdChanged.InvokeAsync(location);
+        }
+    }
 
     private async Task OnNewProviderChanged(long? value)
     {

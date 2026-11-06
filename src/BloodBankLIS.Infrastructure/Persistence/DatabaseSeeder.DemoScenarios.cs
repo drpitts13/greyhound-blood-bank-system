@@ -68,6 +68,24 @@ public static partial class DatabaseSeeder
         await EnsurePossibleDuplicatePatientAsync(context, ct);
         await EnsureSupplyDemoAsync(context, ct);
         await EnsureIssueRequestDemoAsync(context, ct);
+        await EnsureOrderingLocationMappingDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// The demo ICU visits report their unit as "ICU 4" (as ADT would), so the Intensive Care Unit ordering location
+    /// carries that as its HL7 mapping code: an order placed for such a visit starts on ICU. Set only when empty.
+    /// </summary>
+    private static async Task EnsureOrderingLocationMappingDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var icu = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct);
+        if (icu is null || !string.IsNullOrWhiteSpace(icu.Hl7MappingCode)
+            || await context.OrderingLocations.AnyAsync(l => l.Hl7MappingCode == "ICU 4", ct))
+        {
+            return;
+        }
+
+        icu.Hl7MappingCode = "ICU 4";
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>

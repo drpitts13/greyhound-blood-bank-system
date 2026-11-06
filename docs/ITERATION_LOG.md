@@ -15010,3 +15010,40 @@ Test History kept every verified version, but each row showed only who verified 
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 445 — New orders start from the visit (2026-11-06)
+
+### Capability matrix rescan (orders: location and provider)
+
+The chart's new order form chose the visit, but its ordering location started on the first catalog entry, whatever the visit said. The provider started empty even when the visit recorded an attending. An order placed quickly could be attributed to an unrelated location, which feeds utilization reports and billing (questions 2, 3).
+
+### Design
+
+- **`OrderVisitDefaults.LocationFor`:** the visit's current location (else admission location) is matched against active ordering locations by code, HL7 mapping code (as the interface already resolves locations), or name. It counts only when exactly one matches; otherwise nothing.
+- **Order form:**
+  - on opening and on changing the visit, the location is set from the visit when it matches, with "From the visit (place)" beneath
+  - an unmatched place is named so the user chooses
+  - while no provider is chosen, "Visit attending: name — **Use**" is offered. It is not filled in, because the ordering provider is whom the order is attributed to.
+- `OrderingLocationRefDto` carries the HL7 mapping code. Server validation is unchanged; no schema change.
+- **Demo:** the Intensive Care Unit ordering location gets HL7 mapping code "ICU 4" (set once, only when empty), the unit MRN0022's visit reports.
+
+### Requirements
+
+- URS-BB-522, FRS-BB-620. Help: patient orders.
+
+### Tests
+
+- TEST-BB-486:
+  - match by code, mapping code, or name (trimmed, any case); admission location as fallback
+  - no default for a name shared by two locations, an inactive location, an unknown place, or no visit
+  - the attending is found by id; an unknown or missing attending gives nothing
+- Full suite: 3,790 passed, 0 failed.
+- Run check (development API and web), new order form opened, nothing saved:
+  - MRN0022 (visit ICU 4) starts on Intensive Care Unit, "From the visit (ICU 4)"
+  - MRN0001 (visit 4W Med/Surg) keeps the default and says 4W Med/Surg is not one ordering location
+  - MRN0001 offers "Visit attending: Dr. Jane Smith"; Use fills the provider and the offer goes away
+  - no server errors
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
