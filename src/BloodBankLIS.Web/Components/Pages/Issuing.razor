@@ -264,6 +264,10 @@
                                 @SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)
                             </td>
                             <td class="right nowrap">
+                                @if (row.IssueRequestedUtc is DateTime requestedAt)
+                                {
+                                    <span class="badge badge-blue" title="Requested @requestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @row.IssueRequestedBy" data-ready-requested>Requested → @row.IssueRequestedTo @requestedAt.ToLocalTime().ToString("HH:mm")</span>
+                                }
                                 @if (row.OpenAntibodyWorkup)
                                 {
                                     <span class="badge badge-amber" title="@row.OpenAntibodyWorkupNotice">Open ABID</span>
@@ -1939,6 +1943,12 @@
         (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value) = PatientIdentifierEntryRule.Prefill(
             _prefillIdentifiers, row.MedicalRecordNumber, DateOnly.TryParse(row.DateOfBirth, out var dob) ? dob : null);
         _prefilledRow = row;
+        // The ward said where the unit goes; keep anything already typed.
+        if (!string.IsNullOrWhiteSpace(row.IssueRequestedTo) && string.IsNullOrWhiteSpace(_issue.IssuedToLocation))
+        {
+            _issue.IssuedToLocation = row.IssueRequestedTo;
+        }
+
         await LoadIssueRequirementsAsync();
         await _issueForm.FocusAsync();
     }

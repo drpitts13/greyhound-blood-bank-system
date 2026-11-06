@@ -334,6 +334,7 @@ else
     @if (_tab == "products")
     {
         <PatientChartProductsTab
+            OnAllocationsChanged="LoadAllocationsAsync"
             PatientId="Id"
             Busy="_busy"
             ShowAllocate="_showAllocate"

@@ -1,4 +1,5 @@
 using BloodBankLIS.Api.Auth;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Rules;
 
@@ -42,6 +43,13 @@ public static class CompatibilityEndpoints
             EndpointResults.CreatedEvaluation(await service.AllocateUnitAsync(request, ct),
                 a => ($"/api/allocations/{a.Id}", (object)AllocationDto.From(a))))
             .RequirePermission(PermissionCodes.CompatibilityAllocate);
+
+        // The ward asks for a reserved unit to be issued; the service allows transfusion.document or issue.create.
+        allocations.MapPost("/{id:long}/issue-request", async (long id, IssueRequestRequest request, IssueRequestService service, CancellationToken ct) =>
+            EndpointResults.From(await service.RequestAsync(id, request, ct), d => d));
+
+        allocations.MapPost("/{id:long}/issue-request/cancel", async (long id, CancelIssueRequestRequest request, IssueRequestService service, CancellationToken ct) =>
+            EndpointResults.From(await service.CancelAsync(id, request, ct), d => d));
 
         allocations.MapPost("/{id:long}/release", async (long id, ReleaseAllocationRequest request, CompatibilityService service, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await service.ReleaseAllocationAsync(id, request.Reason, ct), a => AllocationDto.From(a)))

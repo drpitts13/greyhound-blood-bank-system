@@ -32,6 +32,7 @@ public static class ReadyToIssueAttentionRule
     {
         var parts = new[]
         {
+            DashboardQueueCatalog.AttentionNote(CountRequested(rows), "requested by the ward", "requested by the ward"),
             DashboardQueueCatalog.AttentionNote(CountCrossmatchExpired(rows.Select(r => r.DisplayStatus)), "needs a new crossmatch", "need a new crossmatch"),
             DashboardQueueCatalog.AttentionNote(CountExpiringSoon(rows), "expires soon", "expire soon"),
             nowUtc is DateTime now
@@ -47,9 +48,17 @@ public static class ReadyToIssueAttentionRule
     /// </summary>
     public static bool CanIssueRoutinely(ReadyToIssueWorkItemDto row) => IssueRun.OffersRoutineIssue(row);
 
-    /// <summary>Rows that can be issued now come first; each group keeps its order.</summary>
+    /// <summary>
+    /// Rows that can be issued now come first; within each group, units the ward has asked for come first (earliest
+    /// request first), and the rest keep their order.
+    /// </summary>
     public static IReadOnlyList<ReadyToIssueWorkItemDto> IssuableFirst(IEnumerable<ReadyToIssueWorkItemDto> rows) =>
-        rows.OrderBy(static row => CanIssueRoutinely(row) ? 0 : 1).ToList();
+        rows.OrderBy(static row => CanIssueRoutinely(row) ? 0 : 1)
+            .ThenBy(static row => row.IssueRequestedUtc ?? DateTime.MaxValue)
+            .ToList();
+
+    public static int CountRequested(IEnumerable<ReadyToIssueWorkItemDto> rows) =>
+        rows.Count(static row => row.IssueRequestedUtc is not null);
 
     public static string? Summary(IReadOnlyCollection<ReadyToIssueWorkItemDto> rows)
     {

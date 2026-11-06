@@ -1037,7 +1037,10 @@ public sealed class IssuingService
                 await StorageLocationNameAsync(unit?.CurrentLocationId, storageLocationNames, ct),
                 specimen?.AccessionNumber,
                 preSpecimenEmergency,
-                allocation.ExpiresUtc));
+                allocation.ExpiresUtc,
+                allocation.IssueRequestedUtc,
+                allocation.IssueRequestedBy,
+                allocation.IssueRequestedTo));
         }
 
         return ReadyToIssueAttentionRule.IssuableFirst(items);

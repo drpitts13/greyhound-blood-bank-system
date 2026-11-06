@@ -338,7 +338,11 @@ public sealed record ReadyToIssueWorkItemDto(
     // OCD-053: no usable specimen, but this unit may be released as an emergency under override.
     bool PreSpecimenEmergencyAllowed = false,
     // When the reservation itself was set to end; past it, the unit is still held until someone releases it.
-    DateTime? ReservationExpiresUtc = null);
+    DateTime? ReservationExpiresUtc = null,
+    // The ward's open request to issue this unit now, and where to.
+    DateTime? IssueRequestedUtc = null,
+    string? IssueRequestedBy = null,
+    string? IssueRequestedTo = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

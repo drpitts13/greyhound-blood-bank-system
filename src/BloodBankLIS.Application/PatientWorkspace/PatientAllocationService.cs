@@ -270,7 +270,9 @@ public sealed class PatientAllocationService
                 CrossmatchValidityRule.CurrentCompatibleExpiresUtc(
                     unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)),
                     _clock.UtcNow),
-                requirementNotice));
+                requirementNotice,
+                allocation.IssueRequestedUtc,
+                allocation.IssueRequestedTo));
         }
 
         return rows;

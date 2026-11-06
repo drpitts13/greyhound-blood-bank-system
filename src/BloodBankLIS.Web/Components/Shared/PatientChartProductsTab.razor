@@ -110,6 +110,7 @@
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginRelease.InvokeAsync(a)">Release</button>
                                 }
+                                <IssueRequestControl Row="a" OnChanged="OnAllocationsChanged" />
                             </div>
                         </td>
                     </tr>
@@ -502,6 +503,8 @@
     [Parameter] public EventCallback OnToggleAllocate { get; set; }
     [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginIssue { get; set; }
     [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginRelease { get; set; }
+    // A row changed on its own (an issue request sent or cancelled): reload the reservations.
+    [Parameter] public EventCallback OnAllocationsChanged { get; set; }
     [Parameter] public EventCallback OnPrintPtag { get; set; }
     [Parameter] public bool PtagRequired { get; set; }
     [Parameter] public string PtagId { get; set; } = string.Empty;

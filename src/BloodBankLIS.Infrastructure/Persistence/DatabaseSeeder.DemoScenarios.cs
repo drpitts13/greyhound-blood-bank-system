@@ -67,6 +67,35 @@ public static partial class DatabaseSeeder
         await EnsureStatOrderWithoutSpecimenAsync(context, ct);
         await EnsurePossibleDuplicatePatientAsync(context, ct);
         await EnsureSupplyDemoAsync(context, ct);
+        await EnsureIssueRequestDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// The ward has asked for one of MRN0022's reserved units (W0001230009201) to be sent to ICU 4, so Ready to issue shows
+    /// a request first. Added once; a request that was issued or cancelled is not put back.
+    /// </summary>
+    private static async Task EnsureIssueRequestDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string marker = "Seed.IssueRequestDemo";
+        if (await context.SystemSettings.AnyAsync(s => s.Key == marker, ct))
+        {
+            return;
+        }
+
+        var allocation = await (
+            from a in context.Allocations
+            join u in context.BloodUnits on a.BloodProductId equals u.Id
+            where u.UnitNumber == "W0001230009201" && a.Status == AllocationStatus.Reserved
+            select a).FirstOrDefaultAsync(ct);
+        if (allocation is not null && allocation.IssueRequestedUtc is null)
+        {
+            allocation.IssueRequestedUtc = DateTime.UtcNow.AddMinutes(-10);
+            allocation.IssueRequestedBy = "RN Demo";
+            allocation.IssueRequestedTo = "ICU 4";
+        }
+
+        context.SystemSettings.Add(new SystemSetting { Key = marker, Value = "1", Description = "Demo issue request seeded once." });
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>

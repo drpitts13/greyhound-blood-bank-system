@@ -1,0 +1,79 @@
+@* The ward's request to issue a reserved unit now: destination in, then the request shows until issue or cancel. *@
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+@if (CanRequest)
+{
+    if (Row.IssueRequestedUtc is DateTime requested)
+    {
+        <span class="badge badge-blue" title="Requested @requested.ToLocalTime().ToString("yyyy-MM-dd HH:mm")" data-issue-requested>Requested → @Row.IssueRequestedTo</span>
+        @if (_cancelling)
+        {
+            <input style="width:12rem;" @bind="_reason" @bind:event="oninput" placeholder="Why cancel?" />
+            <button type="button" class="btn btn-ghost btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" @onclick="CancelAsync">Cancel request</button>
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _cancelling = false">Keep</button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _cancelling = true">Cancel request…</button>
+        }
+    }
+    else if (_open)
+    {
+        <input style="width:10rem;" @bind="_destination" @bind:event="oninput" placeholder="Send to (e.g. OR 3)" data-issue-request-destination />
+        <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_destination))" @onclick="RequestAsync" data-issue-request-send>Send request</button>
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _open = false">Close</button>
+    }
+    else
+    {
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _open = true" title="Ask the blood bank to issue this unit now" data-issue-request>Request issue</button>
+    }
+    @if (_error is not null)
+    {
+        <span class="sub" style="color:var(--danger, #b00);">@_error</span>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public PatientAllocationRowDto Row { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _open;
+    private bool _cancelling;
+    private bool _busy;
+    private string? _destination;
+    private string? _reason;
+    private string? _error;
+
+    private bool CanRequest =>
+        Row.IssueId is null && Row.AllocationStatus == AllocationStatus.Reserved
+        && (Session.Has(PermissionCodes.TransfusionDocument) || Session.Has(PermissionCodes.IssueCreate));
+
+    private async Task RequestAsync()
+    {
+        _busy = true;
+        var r = await Api.RequestIssueAsync(Row.AllocationId, new IssueRequestRequest(_destination));
+        _busy = false;
+        _error = r.Succeeded ? null : r.ToFeedback().Error;
+        if (r.Succeeded)
+        {
+            _open = false;
+            _destination = null;
+            await OnChanged.InvokeAsync();
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        _busy = true;
+        var r = await Api.CancelIssueRequestAsync(Row.AllocationId, new CancelIssueRequestRequest(_reason));
+        _busy = false;
+        _error = r.Succeeded ? null : r.ToFeedback().Error;
+        if (r.Succeeded)
+        {
+            _cancelling = false;
+            _reason = null;
+            await OnChanged.InvokeAsync();
+        }
+    }
+}

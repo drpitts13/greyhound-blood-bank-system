@@ -26,6 +26,10 @@ A reserved unit that does not meet one of the patient's special requirements, fo
 
 The crossmatch dialog asks for the specimen and the method. Electronic crossmatch is offered only when the patient is eligible and facility policy allows it. Otherwise record a serologic crossmatch and the reactions your test definition requires. Saving the crossmatch updates the row.
 
+## Ask for a unit to be issued
+
+On the ward, **Request issue** on a reserved unit tells the blood bank to send it now. Say where it should go (for example OR 3) and choose **Send request**. The row then shows **Requested → OR 3**, and the issue desk sees it first. To withdraw it, choose **Cancel request…** and give the reason. A request does not issue anything: the blood bank still issues the unit with every check. You need the transfusion documentation or issue permission.
+
 ## Issue from the row
 
 **Issue** opens the issue panel for that reserved unit. The patient and the unit are already selected. You still complete identity, appearance, and the other issue checks. The issue gate runs here the same way it runs on the Issue and Transfuse desk.

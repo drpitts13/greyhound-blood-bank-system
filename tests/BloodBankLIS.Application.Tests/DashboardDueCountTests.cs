@@ -132,6 +132,24 @@ public class DashboardDueCountTests
         Assert.False(ReadyToIssueAttentionRule.CanIssueRoutinely(Ready(1) with { CrossmatchBlocksRoutineIssue = true }));
     }
 
+    // TEST-BB-480: rows the ward requested lead their group (earliest request first), and the Ready card names them.
+    [Fact]
+    public void Requested_LeadReadyToIssue_AndAreNamedOnTheCard()
+    {
+        var at = new DateTime(2026, 11, 6, 9, 0, 0, DateTimeKind.Utc);
+        var rows = new[]
+        {
+            Ready(1),
+            Ready(2) with { IssueRequestedUtc = at.AddMinutes(10), IssueRequestedTo = "ICU" },
+            Ready(3),
+            Ready(4) with { IssueRequestedUtc = at, IssueRequestedTo = "OR 3" }
+        };
+
+        Assert.Equal(new long[] { 4, 2, 1, 3 }, ReadyToIssueAttentionRule.IssuableFirst(rows).Select(r => r.AllocationId).ToArray());
+        Assert.StartsWith("2 requested by the ward", ReadyToIssueAttentionRule.CardNote(rows, at));
+        Assert.Null(ReadyToIssueAttentionRule.CardNote([Ready(1)], at));
+    }
+
     private static ReadyToIssueWorkItemDto Ready(long id) => new(
         AllocationId: id, PatientId: 1, MedicalRecordNumber: "MRN", PatientDisplayName: "Patient", DateOfBirth: "1980-01-01",
         BloodUnitId: id, UnitNumber: "W0000", CurrentBloodType: "O+", HasAntibodyHistory: false, AntibodySummary: null,

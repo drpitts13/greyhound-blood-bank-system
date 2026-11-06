@@ -648,6 +648,8 @@ public sealed class AllocationConfiguration : IEntityTypeConfiguration<Allocatio
     public void Configure(EntityTypeBuilder<Allocation> b)
     {
         b.ToTable("Allocations");
+        b.Property(x => x.IssueRequestedBy).HasMaxLength(128);
+        b.Property(x => x.IssueRequestedTo).HasMaxLength(128);
         b.HasKey(a => a.Id);
         b.Property(a => a.AllocatedBy).HasMaxLength(100).IsRequired();
         b.Property(a => a.ReleaseReason).HasMaxLength(500);

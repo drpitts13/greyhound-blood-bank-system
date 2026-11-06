@@ -14809,3 +14809,48 @@ Admin › Users listed accounts, roles, and status, but not when each person las
 ### Next ranked residual
 
 Rescan the desks. Still pending user decisions: bulk verify of negatives, and the EHR rejection notice.
+
+## Iteration 439 — Ward issue requests (2026-11-06)
+
+### Capability matrix rescan (patient-product workflows)
+
+Ready to issue lists every reserved unit, oldest reservation first, but the issue desk could not tell which units the ward wanted now, or where to send them. That came by phone and had to be remembered (questions 2, 3, 5). Mature systems carry a dispense or pick-up request from the floor.
+
+### Design
+
+- **On the reservation:**
+  - `IssueRequestedUtc`, `IssueRequestedBy`, and `IssueRequestedTo` on `Allocation` (migration `20261117000000_AllocationIssueRequest`, SQLite bootstrap columns)
+  - the audit keeps each request and cancellation with the old values
+- **`IssueRequestService`** (*transfusion.document* or *issue.create*):
+  - **Request:** destination required; refused for an unreserved unit or an open request
+  - **Cancel:** reason required; audited with the request it ends
+  - endpoints `POST /api/allocations/{id}/issue-request` and `/cancel`
+- **Ready to issue:**
+  - requested units first within each group, earliest request first
+  - badge "Requested → destination time"
+  - choosing one fills Issued to location when empty
+  - the home Ready card names how many are requested
+- **Chart Products tab:** `IssueRequestControl` on each reserved, unissued unit (Request issue, Cancel request).
+- **Demo:** W0001230009201 for MRN0022 requested to ICU 4, once (marker setting).
+- Issue still runs every check; a request ends when the reservation is no longer reserved. Inbound HL7 dispense requests are not included.
+
+### Requirements
+
+- URS-BB-521, FRS-BB-614. Help: issuing, patient products.
+
+### Tests
+
+- TEST-BB-480:
+  - **refused:** blank destination; no permission; unreserved unit; a second request
+  - **recorded:** the request (trimmed destination, requester) audited; the cancel needs a reason, clears the request, and is audited with the old values; a second cancel is refused
+  - **ordering:** requested-first, earliest first; the card note, quiet without requests
+- Full suite: 3,783 passed, 0 failed.
+- Run check (development API and web):
+  - Ready to issue lists W0001230009201 first with "Requested → ICU 4"
+  - the home Ready card reads "5 · 1 requested by the ward"
+  - MRN0022's Products tab shows the request and a Request issue button on the other reserved unit
+  - no request sent live; no server errors
+
+### Next ranked residual
+
+Inbound HL7 dispense requests (interface choice), or the next desk rescan.

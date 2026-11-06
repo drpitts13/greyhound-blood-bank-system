@@ -15,7 +15,7 @@ routes:
 
 ## Ready to issue
 
-Ready to issue opens first. Reserved units are listed so you do not retype the patient and the unit. Units you can issue now come first, oldest reservation first; a line above the list says how many can be issued now and how many need attention, and those are listed after them. The row tells you when something is wrong before you start:
+Ready to issue opens first. Reserved units are listed so you do not retype the patient and the unit. A unit the ward has asked for shows **Requested → destination** with the time and is listed first; choosing it fills **Issued to location** with that destination when the field is empty. Units you can issue now come first, oldest reservation first; a line above the list says how many can be issued now and how many need attention, and those are listed after them. The row tells you when something is wrong before you start:
 
 - A red cell that still needs a second concordant ABO or Rh is not offered for routine issue.
 - A missing or expired specimen is not offered for routine issue. If the unit is group O red cells or group AB or A plasma, the row offers **Emergency** to those with emergency-release permission (see Before a specimen is drawn, below).
