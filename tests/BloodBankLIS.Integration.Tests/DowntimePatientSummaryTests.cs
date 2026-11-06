@@ -49,6 +49,42 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
         Status = status
     };
 
+    // TEST-BB-478: the antibody card carries the patient's type and active antibodies (not inactive ones), its print is
+    // audited against the patient; a patient with nothing to carry gets no card, and an unknown patient none either.
+    [Fact]
+    public async Task AntibodyCard_CarriesTypeAndActiveAntibodies_AndPrintIsAudited()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var withAntibody = NewPatient(key, "Card");
+        var nothing = NewPatient(key, "Plain");
+        c.Patients.AddRange(withAntibody, nothing);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = withAntibody.Id, Abo = AboGroup.O, RhD = RhType.Negative, IsCurrent = true });
+        c.AntibodyHistory.AddRange(
+            new AntibodyHistory { PatientId = withAntibody.Id, AntibodySpecificity = "anti-Fya", IsActive = true },
+            new AntibodyHistory { PatientId = withAntibody.Id, AntibodySpecificity = "anti-E", IsActive = false });
+        await c.SaveChangesAsync();
+        var service = Service(c);
+
+        var card = await service.GetAntibodyCardAsync(withAntibody.Id);
+        Assert.NotNull(card);
+        Assert.Equal(new Domain.ValueObjects.AboRh(AboGroup.O, RhType.Negative).ToString(), card!.AboRh);
+        Assert.Equal(new[] { "anti-Fya" }, card.Antibodies);
+
+        var printed = await service.RecordAntibodyCardPrintedAsync(withAntibody.Id);
+        Assert.True(printed.Succeeded, printed.Error);
+        var audit = await c.AuditEvents.SingleAsync(a => a.EntityType == nameof(Patient) && a.EntityId == withAntibody.Id && a.Reason == "Patient antibody card printed.");
+        Assert.Equal(AuditEventType.Print, audit.EventType);
+        Assert.Contains("anti-Fya", audit.NewValueJson);
+
+        var empty = await service.RecordAntibodyCardPrintedAsync(nothing.Id);
+        Assert.False(empty.Succeeded);
+        Assert.Contains("nothing to put on a card", empty.Error);
+        Assert.False(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(Patient) && a.EntityId == nothing.Id && a.Reason == "Patient antibody card printed."));
+        Assert.False((await service.RecordAntibodyCardPrintedAsync(long.MaxValue)).Succeeded);
+    }
+
     [Fact]
     public async Task Summary_ListsPatientsBeingWorkedFor_WithTypeAntibodiesRequirementsSpecimensAndUnits()
     {

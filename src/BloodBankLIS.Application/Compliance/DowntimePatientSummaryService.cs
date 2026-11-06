@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -204,6 +205,47 @@ public sealed class DowntimePatientSummaryService
             reason: "Downtime patient summary printed.");
         await _unitOfWork.SaveChangesAsync(ct);
         return summary.Patients.Count;
+    }
+
+    /// <summary>
+    /// The patient's antibody card: current ABO/Rh, active antibodies, and special requirements in effect, for the patient
+    /// to carry to any hospital. Null when the patient is not found or merged away.
+    /// </summary>
+    public async Task<DowntimePatientRow?> GetAntibodyCardAsync(long patientId, CancellationToken ct = default) =>
+        (await GetAsync(patientId, ct)).Patients.SingleOrDefault();
+
+    /// <summary>
+    /// Records the card print (who, which antibodies and requirements) before the browser prints it. A patient with no
+    /// antibody and no requirement in effect has nothing to carry, so no card is printed.
+    /// </summary>
+    public async Task<OperationResult<DowntimePatientRow>> RecordAntibodyCardPrintedAsync(long patientId, CancellationToken ct = default)
+    {
+        var card = await GetAntibodyCardAsync(patientId, ct);
+        if (card is null)
+        {
+            return OperationResult<DowntimePatientRow>.Fail("Patient not found.");
+        }
+
+        if (card.Antibodies.Count == 0 && card.SpecialRequirements.Count == 0)
+        {
+            return OperationResult<DowntimePatientRow>.Fail("This patient has no antibody and no special requirement on file, so there is nothing to put on a card.");
+        }
+
+        _audit.Record(
+            AuditEventType.Print,
+            nameof(Patient),
+            patientId,
+            newValue: new
+            {
+                Document = "Antibody card",
+                card.MedicalRecordNumber,
+                card.AboRh,
+                card.Antibodies,
+                card.SpecialRequirements
+            },
+            reason: "Patient antibody card printed.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<DowntimePatientRow>.Ok(card);
     }
 
     private static string RequirementText(SpecialRequirementDto r) =>

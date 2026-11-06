@@ -189,6 +189,19 @@ public static class ComplianceEndpoints
             .WithTags("Compliance")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.IssueCreate);
+        // The patient's antibody card, printed by the bench that identified the antibody (audited).
+        app.MapGet("/api/patients/{patientId:long}/antibody-card", async (
+                long patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                await service.GetAntibodyCardAsync(patientId, ct) is { } card ? Results.Ok(card) : Results.NotFound())
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.ResultEnter);
+        app.MapPost("/api/patients/{patientId:long}/antibody-card/printed", async (
+                long patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                EndpointResults.From(await service.RecordAntibodyCardPrintedAsync(patientId, ct), d => d))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.ResultEnter);
         app.MapPost("/api/compliance/downtime-patients/printed", async (
                 long? patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
                 Results.Ok(await service.RecordPrintedAsync(patientId, ct)))

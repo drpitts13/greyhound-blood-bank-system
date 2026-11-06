@@ -6,6 +6,7 @@ chapter: Patients and orders
 summary: The chart is the hub for identity, blood type, antibodies, special requirements, and every later step of the workup.
 routes:
   - /patients/{id}
+  - /patients/{id}/antibody-card
 ---
 
 ![Patient chart overview](figures/patient-overview.png)
@@ -22,6 +23,10 @@ The header shows the current name, MRN, date of birth, and sex. Below that, the 
 - Whether electronic crossmatch can be considered. Eligibility is calculated. It is not a checkbox you tick.
 
 Use the tabs for the detail: Visits, Orders, Specimens, Tests, Test History, DAT / Elution, Products, and Product History. Each tab has its own topic in this guide. On Tests, a result waiting for verification whose specimen expires soon shows **Verify before** and the time, as on the test worklist.
+
+## Antibody card
+
+**Antibody card** in the chart header shows a wallet-size card for the patient to carry: name, date of birth, MRN, blood type, the active antibodies, and the special requirements in effect, with the instruction to show it to the blood bank before any transfusion. **Print card** prints it; the print is recorded in the audit trail with what the card carried. A patient with no antibody and no special requirement on file has nothing to carry, so no card is printed. The card does not replace a pretransfusion sample.
 
 ## Changing identity
 

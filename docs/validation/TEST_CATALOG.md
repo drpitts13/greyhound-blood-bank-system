@@ -486,5 +486,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-475 | I | `InventoryServiceTests.ReturnToSupplierByScan_ReturnsEachUnit_WithTheShipmentReason`; `InventoryServiceTests.StockCount_MissingUnit_CanBeMarkedMissing_ThenFoundOnALaterCount` | URS-BB-517 / FRS-BB-609 |
 | TEST-BB-476 | I | `InventoryServiceTests.RepeatedStatusActions_AreRefused_AndKeepTheFirstReason` | URS-BB-517 / FRS-BB-610 |
 | TEST-BB-477 | I | `ReportServiceTests.TestTurnaround_MinutesFromOrderAndReceipt_ByPriority`; `ReportServiceTests.SeededReports_Exist_Run_AndCannotBeDeleted` | URS-BB-518 / FRS-BB-611 |
+| TEST-BB-478 | I | `DowntimePatientSummaryTests.AntibodyCard_CarriesTypeAndActiveAntibodies_AndPrintIsAudited` | URS-BB-519 / FRS-BB-612 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

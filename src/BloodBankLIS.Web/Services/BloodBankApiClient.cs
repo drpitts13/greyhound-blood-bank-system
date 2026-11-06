@@ -955,6 +955,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<DowntimePatientSummary>> GetDowntimePatientSummaryAsync(long? patientId = null, CancellationToken ct = default) =>
         SendAsync<DowntimePatientSummary>(HttpMethod.Get, DowntimePatientsPath("api/compliance/downtime-patients", patientId), ct: ct);
 
+    public Task<ApiResult<DowntimePatientRow>> GetAntibodyCardAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<DowntimePatientRow>(HttpMethod.Get, $"api/patients/{patientId}/antibody-card", ct: ct);
+
+    public Task<ApiResult<DowntimePatientRow>> RecordAntibodyCardPrintedAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<DowntimePatientRow>(HttpMethod.Post, $"api/patients/{patientId}/antibody-card/printed", ct: ct);
+
     public Task<ApiResult<int>> RecordDowntimePatientSummaryPrintedAsync(long? patientId = null, CancellationToken ct = default) =>
         SendAsync<int>(HttpMethod.Post, DowntimePatientsPath("api/compliance/downtime-patients/printed", patientId), ct: ct);
 

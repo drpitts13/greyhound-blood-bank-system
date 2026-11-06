@@ -63,6 +63,10 @@
         {
             <a class="btn btn-secondary" href="@($"/downtime/patients?patientId={Patient.Id}")" title="Blood type, antibodies, special requirements, specimens, and units on one sheet" data-print-summary>Print summary</a>
         }
+        @if (Session.Has(PermissionCodes.ResultEnter) && Patient.MergedIntoPatientId is null)
+        {
+            <a class="btn btn-secondary" href="@($"/patients/{Patient.Id}/antibody-card")" title="A card for the patient to carry: blood type, antibodies, and special requirements" data-antibody-card>Antibody card</a>
+        }
         <a class="btn btn-secondary" href="/patients">Back to patients</a>
     </div>
 </div>

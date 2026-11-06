@@ -14729,3 +14729,44 @@ Specimen rejection already refuses a repeat (no overwrite there). The report cat
 ### Next ranked residual
 
 Rescan the desks for the next gap. Pending user decisions: bulk verify of negatives, and the EHR rejection notice.
+
+## Iteration 437 — Patient antibody card (2026-11-06)
+
+### Capability matrix rescan (antibody history, alerts)
+
+Utilization (C:T ratio) already exists. Antibody history drives selection inside this hospital, but nothing gave the patient a card to carry. A patient with anti-K transfused elsewhere may have an antibody too weak to detect there, which risks a delayed hemolytic reaction (question 6). Mature transfusion services print antibody cards.
+
+### Design
+
+- **`DowntimePatientSummaryService.GetAntibodyCardAsync`:** reuses the one-patient summary row (current type, active antibodies, requirements in effect).
+- **`RecordAntibodyCardPrintedAsync`:**
+  - records a Print audit event against the patient, with what the card carried
+  - refuses when there is nothing to carry
+- **API** (*result.enter*): `GET /api/patients/{id}/antibody-card` and `POST …/antibody-card/printed`.
+- **`/patients/{id}/antibody-card`:**
+  - from **Antibody card** on the chart header
+  - a wallet-size card (85.6 × 54 mm print)
+  - **Print card** records, then prints
+- No schema change.
+
+### Requirements
+
+- URS-BB-519, FRS-BB-612. Help: patient chart (route and section).
+
+### Tests
+
+- TEST-BB-478:
+  - the card carries the type and only active antibodies (anti-Fya, not inactive anti-E)
+  - the print is audited against the patient
+  - a patient with nothing to carry is refused and not audited
+  - an unknown patient is refused
+- Full suite: 3,773 passed, 0 failed.
+- Run check (development API and web):
+  - MRN0004's card shows "Kellerman, Diane", DOB 1957-02-18, O+, anti-K, the instruction, and the issuer
+  - MRN0024 shows "nothing to put on a card" with Print disabled
+  - the chart header links to the card
+  - not printed; no server errors
+
+### Next ranked residual
+
+Rescan the desks; still pending user decisions: bulk verify of negatives, and the EHR rejection notice.

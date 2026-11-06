@@ -608,6 +608,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-517 / FRS-BB-609 | Return to supplier by scan; no repeat return or repeat missing | `InventoryService.ReturnToSupplierByScanAsync`; `ReturnToSupplierAsync`; `MarkMissingAsync` | TEST-BB-475 | I | |
 | URS-BB-517 / FRS-BB-610 | Repeated status actions keep the first reason | `InventoryService.RefuseRepeat` | TEST-BB-476 | I | |
 | URS-BB-518 / FRS-BB-611 | Test turnaround reports | `ReportSourceCatalog.TestTurnaround`; `ReportViewSql` | TEST-BB-477 | I | |
+| URS-BB-519 / FRS-BB-612 | Patient antibody card, print audited | `DowntimePatientSummaryService.RecordAntibodyCardPrintedAsync` | TEST-BB-478 | I | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

@@ -1,0 +1,104 @@
+@page "/patients/{PatientId:long}/antibody-card"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject IJSRuntime Js
+
+<PageTitle>Antibody card &middot; HemoCore</PageTitle>
+
+@* Wallet-card size; only the card prints. Only present while this page is open. *@
+<style>
+    @@media print { @@page { size: 85.6mm 54mm; margin: 0; } }
+    .bb-antibody-card { width: 85.6mm; min-height: 54mm; box-sizing: border-box; border: 1px solid var(--border, #999); border-radius: 3mm; padding: 3mm 4mm; font-size: 8.5pt; line-height: 1.25; background: #fff; color: #000; }
+    .bb-antibody-card h2 { font-size: 10pt; margin: 0 0 1.5mm; }
+    .bb-antibody-card .row { display: flex; justify-content: space-between; gap: 2mm; }
+    .bb-antibody-card .warn { font-weight: 700; margin-top: 1.5mm; }
+    @@media print { .bb-antibody-card { border: none; border-radius: 0; } }
+</style>
+
+<div class="flex-between no-print">
+    <a class="btn btn-ghost" href="@($"/patients/{PatientId}")">Back to chart</a>
+    @if (_card is not null)
+    {
+        <button type="button" class="btn btn-primary" disabled="@(_busy || NothingToCarry)" @onclick="PrintAsync" data-print-antibody-card>Print card</button>
+    }
+</div>
+
+<h1 class="no-print">Antibody card</h1>
+<p class="muted no-print">
+    A card for the patient to carry and show at any hospital before a transfusion: blood type, the antibodies on file, and the
+    special requirements in effect. It does not replace a pretransfusion sample. Printing is recorded in the audit trail.
+</p>
+<Outcome Value="_fb" />
+
+@if (!Session.Has(PermissionCodes.ResultEnter))
+{
+    <div class="muted no-print">Printing an antibody card requires the result entry permission.</div>
+}
+else if (_card is null)
+{
+    <div class="loading no-print">Loading…</div>
+}
+else if (NothingToCarry)
+{
+    <div class="alert alert-warning no-print" data-antibody-card-empty>This patient has no antibody and no special requirement on file, so there is nothing to put on a card.</div>
+}
+else
+{
+    <div class="bb-antibody-card" data-antibody-card-preview>
+        <h2>Blood bank antibody card</h2>
+        <div class="row"><strong>@_card.Name</strong><span>DOB @_card.DateOfBirth.ToString("yyyy-MM-dd")</span></div>
+        <div class="row"><span>MRN @_card.MedicalRecordNumber</span><span>ABO/Rh <strong>@_card.AboRh</strong></span></div>
+        @if (_card.Antibodies.Count > 0)
+        {
+            <div style="margin-top:1.5mm;"><strong>Antibodies:</strong> @string.Join(", ", _card.Antibodies)</div>
+        }
+        @if (_card.SpecialRequirements.Count > 0)
+        {
+            <div><strong>Requires:</strong> @string.Join("; ", _card.SpecialRequirements)</div>
+        }
+        <div class="warn">Show this card to the blood bank before any transfusion. A new sample is still required.</div>
+        <div class="muted" style="margin-top:1mm;">Issued @DateTime.Now.ToString("yyyy-MM-dd") by @Session.UserName</div>
+    </div>
+}
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+
+    private DowntimePatientRow? _card;
+    private Feedback? _fb;
+    private bool _busy;
+
+    private bool NothingToCarry => _card is { Antibodies.Count: 0, SpecialRequirements.Count: 0 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.Has(PermissionCodes.ResultEnter))
+        {
+            return;
+        }
+
+        var r = await Api.GetAntibodyCardAsync(PatientId);
+        if (r.Succeeded)
+        {
+            _card = r.Value;
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+
+    private async Task PrintAsync()
+    {
+        _busy = true;
+        var recorded = await Api.RecordAntibodyCardPrintedAsync(PatientId);
+        _busy = false;
+        if (!recorded.Succeeded)
+        {
+            _fb = recorded.ToFeedback();
+            return;
+        }
+
+        await Js.InvokeVoidAsync("print");
+    }
+}
