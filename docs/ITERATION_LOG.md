@@ -15269,3 +15269,37 @@ Cycle 450 prefilled the record when a deviation is started from a unit or patien
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 452 — The shift handoff carries open deviations (2026-11-06)
+
+### Capability matrix rescan (shift handoff)
+
+The handoff counts the open bench, issue, inventory, cooler, and reaction work, but not quality deviations. A critical deviation raised on the night shift (for example the one opened automatically for an incompatible crossmatch after emergency release) was not passed on to the next shift (question 5).
+
+### Design
+
+- **`ShiftHandoff`:** gains `OpenDeviations` (not closed) and `CriticalDeviations`.
+  - migration `20261118000000_ShiftHandoffDeviations`, dev bootstrap columns
+  - read straight from the deviation rows, so `shift.handoff` is enough, as for the other counts
+- **Audit:** the handoff snapshot includes both.
+- **Packet line:**
+  - leads with "CRITICAL DEVIATION OPEN: n" after the MTP and incompatible-after-release items
+  - ends with "deviations open n"
+  - silent at zero
+
+### Requirements
+
+- FRS-BB-627 (under URS-BB-524). Help: shift handoff.
+
+### Tests
+
+- TEST-BB-493:
+  - packet line quiet at zero; critical leads in capitals; open count last
+  - a handoff by a user with only `shift.handoff` counts open and critical deviations (a closed critical one is not counted) and keeps them in the audit snapshot
+- Full suite: 3,808 passed, 0 failed.
+- Run check (development API and web): the dev bootstrap added both columns; the handoff page loads and its queries read `OpenDeviations` and `CriticalDeviations` without error; no server errors.
+- The dev database has no handoffs, and none was recorded (it would accept responsibility for live work), so the packet line was not seen live. TEST-BB-493 covers it.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

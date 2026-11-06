@@ -71,6 +71,11 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Expired units still recorded on a shelf, to pull and discard.</summary>
     public int ExpiredOnShelf { get; set; }
 
+    /// <summary>Quality deviations not yet closed, and how many of them are critical.</summary>
+    public int OpenDeviations { get; set; }
+
+    public int CriticalDeviations { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

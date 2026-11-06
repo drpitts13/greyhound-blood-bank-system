@@ -40,4 +40,15 @@ public class ShiftHandoffSummaryTests
         Assert.DoesNotContain("EXPIRED", Handoff().QueueSummary);
         Assert.EndsWith("; EXPIRED ON SHELF 2, to discard", (Handoff() with { ExpiredOnShelf = 2 }).QueueSummary);
     }
+
+    // TEST-BB-493: the handoff line leads with critical deviations in capitals and ends with open deviations; quiet at zero.
+    [Fact]
+    public void Summary_NamesOpenAndCriticalDeviations()
+    {
+        Assert.DoesNotContain("deviation", Handoff().QueueSummary, StringComparison.OrdinalIgnoreCase);
+        var line = (Handoff() with { OpenDeviations = 3, CriticalDeviations = 1 }).QueueSummary;
+        Assert.StartsWith("CRITICAL DEVIATION OPEN: 1; ", line);
+        Assert.EndsWith("; deviations open 3", line);
+        Assert.DoesNotContain("CRITICAL", (Handoff() with { OpenDeviations = 2 }).QueueSummary);
+    }
 }

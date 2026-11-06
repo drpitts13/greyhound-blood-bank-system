@@ -243,4 +243,33 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
                 created.Value.FromUser, "tech-night", acked.Value.AcknowledgedUtc).Message,
             again.Error);
     }
+
+    // TEST-BB-493: a handoff counts deviations not yet closed and the critical ones, without deviation.manage, and keeps
+    // both in its audit snapshot.
+    [Fact]
+    public async Task Create_CountsOpenAndCriticalDeviations()
+    {
+        await using var context = _factory.Create();
+        context.Deviations.AddRange(
+            new Deviation { Title = "Critical open", Description = "d", Severity = DeviationSeverity.Critical, Status = DeviationStatus.UnderReview },
+            new Deviation { Title = "Major open", Description = "d", Severity = DeviationSeverity.Major },
+            new Deviation { Title = "Critical closed", Description = "d", Severity = DeviationSeverity.Critical, Status = DeviationStatus.Closed, CorrectiveAction = "done" });
+        await context.SaveChangesAsync();
+        var expectedOpen = await context.Deviations.CountAsync(d => d.Status != DeviationStatus.Closed);
+        var expectedCritical = await context.Deviations.CountAsync(d => d.Status != DeviationStatus.Closed && d.Severity == DeviationSeverity.Critical);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            deviations: new EfRepository<Deviation>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Deviation count check"));
+        Assert.True(created.Succeeded, created.Error);
+
+        Assert.Equal(expectedOpen, created.Value!.OpenDeviations);
+        Assert.Equal(expectedCritical, created.Value.CriticalDeviations);
+        Assert.True(expectedCritical >= 1 && expectedOpen >= 2);
+        var audit = await context.AuditEvents.Where(e => e.EntityType == nameof(ShiftHandoff) && e.EntityId == created.Value.Id).ToListAsync();
+        Assert.Contains(audit, e => e.NewValueJson != null && e.NewValueJson.Contains("CriticalDeviations", StringComparison.OrdinalIgnoreCase));
+    }
 }

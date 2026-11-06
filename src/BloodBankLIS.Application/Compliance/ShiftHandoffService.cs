@@ -42,7 +42,9 @@ public sealed record ShiftHandoffDto(
     int CoolersInTransit = 0,
     int CoolersNotChecked = 0,
     int CoolersWithDifferences = 0,
-    int ExpiredOnShelf = 0)
+    int ExpiredOnShelf = 0,
+    int OpenDeviations = 0,
+    int CriticalDeviations = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -50,6 +52,7 @@ public sealed record ShiftHandoffDto(
     public string QueueSummary =>
         (ActiveMtp > 0 ? $"MASSIVE TRANSFUSION ACTIVE: {ActiveMtp}; " : "") +
         (RetrospectiveIncompatible > 0 ? $"INCOMPATIBLE AFTER RELEASE: {RetrospectiveIncompatible}; " : "") +
+        (CriticalDeviations > 0 ? $"CRITICAL DEVIATION OPEN: {CriticalDeviations}; " : "") +
         (TransfusionsRunning > 0
             ? $"transfusing {TransfusionsRunning}" + (TransfusionsCompletionOverdue > 0 ? $", {TransfusionsCompletionOverdue} completion overdue" : "") + "; "
             : "") +
@@ -71,7 +74,8 @@ public sealed record ShiftHandoffDto(
         (NearExpiryUnits > 0
             ? $"; near expiry {NearExpiryUnits}" + (NearExpiryReserved > 0 ? $", {NearExpiryReserved} reserved" : "")
             : "") +
-        (ExpiredOnShelf > 0 ? $"; EXPIRED ON SHELF {ExpiredOnShelf}, to discard" : "");
+        (ExpiredOnShelf > 0 ? $"; EXPIRED ON SHELF {ExpiredOnShelf}, to discard" : "") +
+        (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
@@ -81,7 +85,7 @@ public sealed record ShiftHandoffDto(
         h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible,
         h.PendingTestsVerifyBeforeExpiry, h.ResultsAwaitingVerification, h.ReservationsLapsed,
         h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences,
-        h.ExpiredOnShelf);
+        h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations);
 }
 
 /// <summary>
@@ -104,6 +108,8 @@ public sealed class ShiftHandoffService
     private readonly IRepository<MtpActivation>? _mtpActivations;
     private readonly InventoryService? _inventory;
     private readonly CoolerCheckService? _coolers;
+    // Read directly, like the other counts: whoever hands off sees open deviations without deviation.manage.
+    private readonly IRepository<Deviation>? _deviations;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -119,8 +125,10 @@ public sealed class ShiftHandoffService
         IRepository<User>? users = null,
         IRepository<MtpActivation>? mtpActivations = null,
         InventoryService? inventory = null,
-        CoolerCheckService? coolers = null)
+        CoolerCheckService? coolers = null,
+        IRepository<Deviation>? deviations = null)
     {
+        _deviations = deviations;
         _coolers = coolers;
         _inventory = inventory;
         _users = users;
@@ -221,6 +229,9 @@ public sealed class ShiftHandoffService
             ? Array.Empty<OpenCoolerDto>()
             : await _coolers.SummarizeOpenAsync(ct);
         var now = _clock.UtcNow;
+        var openDeviations = _deviations is null
+            ? []
+            : await _deviations.ListAsync(d => d.Status != DeviationStatus.Closed, ct);
 
         var row = new ShiftHandoff
         {
@@ -251,7 +262,9 @@ public sealed class ShiftHandoffService
             CoolersInTransit = coolers.Count,
             CoolersNotChecked = coolers.Count(c => c.LastCheckedUtc is null),
             CoolersWithDifferences = coolers.Count(c => c.LastCheckedUtc is not null && c.LastCheckReady != true),
-            ExpiredOnShelf = _inventory is null ? 0 : await _inventory.CountExpiredOnShelfAsync(ct)
+            ExpiredOnShelf = _inventory is null ? 0 : await _inventory.CountExpiredOnShelfAsync(ct),
+            OpenDeviations = openDeviations.Count,
+            CriticalDeviations = openDeviations.Count(d => d.Severity == DeviationSeverity.Critical)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -327,7 +340,9 @@ public sealed class ShiftHandoffService
         row.CoolersInTransit,
         row.CoolersNotChecked,
         row.CoolersWithDifferences,
-        row.ExpiredOnShelf
+        row.ExpiredOnShelf,
+        row.OpenDeviations,
+        row.CriticalDeviations
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

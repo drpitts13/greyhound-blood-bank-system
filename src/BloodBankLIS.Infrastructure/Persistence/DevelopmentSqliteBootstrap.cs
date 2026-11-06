@@ -52,6 +52,8 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "CoolersNotChecked", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "CoolersNotChecked" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "CoolersWithDifferences", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "CoolersWithDifferences" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "ExpiredOnShelf", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ExpiredOnShelf" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "OpenDeviations", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "OpenDeviations" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "CriticalDeviations", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "CriticalDeviations" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RetrospectiveIncompatible", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RetrospectiveIncompatible" INTEGER NOT NULL DEFAULT 0"""),
         ("ReactionInvestigations", "ReopenedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedUtc" TEXT NULL"""),
         ("ReactionInvestigations", "ReopenedBy", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedBy" TEXT NULL"""),
