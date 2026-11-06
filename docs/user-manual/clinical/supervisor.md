@@ -18,6 +18,8 @@ The **Supervisor queue** collects work that a technologist cannot finish alone:
 - Missing units to locate and damaged units to inspect, with the reason recorded and where each was last recorded (release permission). A unit leaves the queue once it is located, inspected, or discarded.
 - Overrides waiting for review, when you hold the override approval permission (`override.approve`). The Supervisor role has it by default; your administrator can change that.
 
+A result that must be verified before its specimen expires is marked **Due before specimen expiry** in red. A row about a patient links to the patient's chart from its title. A link to `/supervisor?kind=OverrideReview` (or any other kind) opens the queue on that kind of work.
+
 Open the row, read the underlying record, and complete the review on that record. The queue is a list. The decision is recorded on the workup, the result, or the unit, not as a checkmark that skips the screen.
 
 You see the sections your permissions allow. A supervisor who cannot release inventory will not see release rows. If a technologist says an item is "in the queue" and you do not see it, confirm you are signed in as yourself and that the item was actually submitted.

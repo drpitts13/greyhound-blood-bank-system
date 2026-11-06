@@ -15560,3 +15560,33 @@ The batch outcome listed each result it left unverified as "Result 1234: reason"
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.
+
+## Iteration 460 — Supervisor queue: deadlines, patients, and links (2026-11-06)
+
+### Capability matrix rescan (supervisor queue)
+
+The home card names results due before specimen expiry (Cycle 443), but in the queue such a row looked like any other; the deadline was only in the detail text. Rows about a patient did not link to the chart, and nothing could link to one kind of work, since the kind filter was click-only (questions 1, 5).
+
+### Design
+
+- **Due before specimen expiry:** a red badge on results whose verification deadline is near (the existing `DueSoon`).
+- **Patient link:** a row with a patient links its title to the chart.
+- **`/supervisor?kind=`:** opens the queue on that kind (`SupervisorQueueRule.KindFromQuery`, any case); an unknown kind, or one with no items, opens all.
+- Display only; no server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-634 (under URS-BB-337). Help: supervisor queue.
+
+### Tests
+
+- TEST-BB-500: known kinds match in any case and trimmed; unknown, blank, or missing opens all; five distinct kinds.
+- Full suite: 3,823 passed, 0 failed.
+- Run check (development API and web), nothing changed:
+  - `?kind=inventorydiscrepancy` opens on "Missing or damaged (2)"
+  - `?kind=ResultPendingVerification` shows "Verify ABSC — Interface, Helen (MRN0009)" linking to `/patients/9`; it is not near its deadline, so no badge
+  - no server errors
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.

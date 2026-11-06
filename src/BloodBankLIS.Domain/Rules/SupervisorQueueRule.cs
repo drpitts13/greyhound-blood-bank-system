@@ -36,6 +36,13 @@ public static class SupervisorQueueRule
     /// <summary>Missing and damaged units wait on whoever can locate, inspect, or discard them (inventory.release).</summary>
     public static bool IncludeDiscrepancy(bool hasInventoryRelease) => hasInventoryRelease;
 
+    public static readonly IReadOnlyList<string> Kinds =
+        [KindAntibodyReview, KindResultVerify, KindQuarantineRelease, KindDiscrepancy, KindOverrideReview];
+
+    /// <summary>The queue kind a link names (<c>?kind=</c>), matched without regard to case; null when it names none.</summary>
+    public static string? KindFromQuery(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : Kinds.FirstOrDefault(k => string.Equals(k, value.Trim(), StringComparison.OrdinalIgnoreCase));
+
     public static int KindSortOrder(string kind) => kind switch
     {
         KindAntibodyReview => 0,

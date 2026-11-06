@@ -65,8 +65,23 @@ else
                 @foreach (var row in Visible)
                 {
                     <tr>
-                        <td><span class="badge badge-gray">@KindLabel(row.Kind)</span></td>
-                        <td>@row.Title</td>
+                        <td>
+                            <span class="badge badge-gray">@KindLabel(row.Kind)</span>
+                            @if (row.DueSoon)
+                            {
+                                <span class="badge badge-red" data-due-soon title="Verify before the specimen expires">Due before specimen expiry</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.PatientId is long patientId)
+                            {
+                                <a href="@($"/patients/{patientId}")" title="Open the patient's chart">@row.Title</a>
+                            }
+                            else
+                            {
+                                @row.Title
+                            }
+                        </td>
                         <td class="muted">@row.Detail</td>
                         <td class="right nowrap">
                             @if (row.Kind == SupervisorQueueRule.KindOverrideReview && row.ContextId is long overrideId)
@@ -108,6 +123,9 @@ else
     private Feedback? _fb;
     private List<SupervisorQueueItemDto> _items = new();
     private string? _kind;
+
+    // A link may open one kind of work: /supervisor?kind=OverrideReview.
+    [SupplyParameterFromQuery(Name = "kind")] public string? KindQuery { get; set; }
 
     private List<(string Kind, int Count)> Kinds =>
         _items.GroupBy(i => i.Kind).Select(g => (g.Key, g.Count())).ToList();
@@ -156,6 +174,10 @@ else
         }
 
         _items = r.Value ?? new();
+        if (SupervisorQueueRule.KindFromQuery(KindQuery) is { } kind && _items.Any(i => i.Kind == kind))
+        {
+            _kind = kind;
+        }
     }
 
     private static string KindLabel(string kind) => kind switch
