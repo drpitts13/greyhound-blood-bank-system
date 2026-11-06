@@ -14234,3 +14234,40 @@ Missing and damaged units, which a supervisor must locate, inspect, or discard, 
 ### Next ranked residual
 
 Rescan specimen and order workflows for the next operations gap.
+
+## Iteration 424 — Tests with no specimen (2026-11-05)
+
+### Capability matrix rescan (orders and specimens)
+
+The bench separated lines whose tube was rejected (Recollect, Cycle 411), but lines ordered with no tube at all were mixed into the full list. A STAT type and screen waiting for its draw had nothing on the home screen to say so. The bench had to notice it among results in progress (questions 2, 5, 6: a delayed STAT specimen delays blood).
+
+### Design
+
+- **`TestWorklistView.NoSpecimen`:**
+  - lines with no tube (a rejected tube stays Recollect)
+  - STAT, urgent, emergency release, and MTP first, then oldest order first
+- **`RushOrdersWithoutSpecimen`:** counts rush orders, not lines, still without a tube.
+- **Test worklist:** a **No specimen (n)** view (`?show=nospecimen`), each line with its Accession step.
+- **Home Pending tests note:** "n STAT/urgent orders waiting for a specimen" brings the card under Needs attention. Routine orders without a tube do not, as they are normal before collection.
+- **Demo:** STAT type and screen ORD0024 for MRN0023, with no tube.
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-600 (under URS-BB-509). Help: test worklist, dashboard.
+
+### Tests
+
+- TEST-BB-465:
+  - the No specimen view's order and exclusions (linked tube, rejected tube)
+  - the note counts STAT orders once each and stays quiet for routine ones
+  - seeded ORD0024 is STAT, with two lines and no tube (order count 20)
+- Full suite: 3,749 passed, 0 failed.
+- Run check (development API and web):
+  - the worklist shows "No specimen (2)" with ORD0024's ABO/Rh and antibody screen for MRN0023 (Stat, Accession step)
+  - the home Pending tests card reads "13 · 1 STAT/urgent order waiting for a specimen"
+  - no server errors
+
+### Next ranked residual
+
+Rescan patient and encounter workflows for the next operations gap.

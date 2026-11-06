@@ -595,6 +595,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-512 / FRS-BB-592 | Demo cooler checks: one per state | `DatabaseSeeder.EnsureCoolerCheckDemoAsync` | TEST-BB-462 | I | Demo data |
 | URS-BB-507 / FRS-BB-598 | Reaction workup on the home Reactions card | `DashboardQueueCatalog.ReactionsNote` | TEST-BB-463 | U | |
 | URS-BB-337 / FRS-BB-599 | Missing and damaged units on the supervisor queue | `SupervisorQueueService.ListAsync` | TEST-BB-464 | I, U | |
+| URS-BB-509 / FRS-BB-600 | Tests with no specimen: bench view and STAT note | `TestWorklistView.NoSpecimen`; `DashboardQueueCatalog.PendingTestsNote` | TEST-BB-465 | U, I | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

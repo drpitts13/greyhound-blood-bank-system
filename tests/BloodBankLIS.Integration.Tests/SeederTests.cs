@@ -90,7 +90,12 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             var pack = await verify.MtpPackRecords.SingleAsync();
             Assert.Equal(4, await verify.Issues.CountAsync(i => i.MtpPackRecordId == pack.Id));
             Assert.Null((await verify.TransportContainers.SingleAsync()).MinTemperatureC);
-            Assert.Equal(19, await verify.Orders.CountAsync());
+            Assert.Equal(20, await verify.Orders.CountAsync());
+            // TEST-BB-465: a STAT type and screen with no tube, for the bench's No specimen view.
+            var stat = await verify.Orders.SingleAsync(o => o.OrderNumber == "ORD0024");
+            Assert.Equal(OrderPriority.Stat, stat.Priority);
+            Assert.False(await verify.OrderSpecimens.AnyAsync(os => os.OrderId == stat.Id));
+            Assert.Equal(2, await verify.OrderLines.CountAsync(l => l.OrderId == stat.Id));
 
             // TEST-BB-447: the reaction demo's specimen workup: ACC0014 before the issue with ORD0016 (DAT and ABO/Rh),
             // and the post-transfusion tube ACC0024 with the TRX-POST group ordered, unresulted.

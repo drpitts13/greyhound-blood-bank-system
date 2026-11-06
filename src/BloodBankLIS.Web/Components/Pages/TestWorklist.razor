@@ -36,7 +36,7 @@
         <button class="btn btn-secondary btn-sm" @onclick="LoadAsync">Refresh</button>
     </div>
 
-    @if (!_loading && _items.Count > 0 && (Session.Has(PermissionCodes.ResultVerify) || RecollectCount > 0 || _show == ShowRecollect))
+    @if (!_loading && _items.Count > 0 && (Session.Has(PermissionCodes.ResultVerify) || RecollectCount > 0 || _show == ShowRecollect || NoSpecimenCount > 0 || _show == ShowNoSpecimen))
     {
         <div class="flex gap" role="group" aria-label="Show" style="margin-bottom:.5rem;">
             <button type="button" class="btn btn-sm @(_show == ShowAll ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowAll ? "true" : "false")" @onclick="() => _show = ShowAll">All (@_items.Count)</button>
@@ -47,6 +47,10 @@
             @if (RecollectCount > 0 || _show == ShowRecollect)
             {
                 <button type="button" class="btn btn-sm @(_show == ShowRecollect ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowRecollect ? "true" : "false")" @onclick="() => _show = ShowRecollect" data-recollect>Recollect (@RecollectCount)</button>
+            }
+            @if (NoSpecimenCount > 0 || _show == ShowNoSpecimen)
+            {
+                <button type="button" class="btn btn-sm @(_show == ShowNoSpecimen ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowNoSpecimen ? "true" : "false")" @onclick="() => _show = ShowNoSpecimen" title="Ordered, no tube yet: collect or accession the specimen. STAT and urgent orders first." data-no-specimen>No specimen (@NoSpecimenCount)</button>
             }
         </div>
     }
@@ -81,6 +85,10 @@
     else if (_items.Count > 0 && ShownItems.Count == 0 && _show == ShowRecollect)
     {
         <div class="empty">No test is waiting for a new specimen.</div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0 && _show == ShowNoSpecimen)
+    {
+        <div class="empty">Every pending test has a tube.</div>
     }
     else if (_items.Count > 0 && ShownItems.Count == 0)
     {
@@ -408,9 +416,11 @@
     private const string ShowAll = "all";
     private const string ShowVerify = "verify";
     private const string ShowRecollect = "recollect";
+    private const string ShowNoSpecimen = "nospecimen";
     private string _show = ShowAll;
 
     private int RecollectCount => TestWorklistView.Recollect(_items).Count;
+    private int NoSpecimenCount => TestWorklistView.NoSpecimen(_items).Count;
     // The tube in hand: only its lines are shown (normalized accession; empty for all tubes).
     private string _tube = string.Empty;
     private string _tubeScan = string.Empty;
@@ -421,6 +431,7 @@
         {
             ShowVerify => TestWorklistView.ToVerify(_items, Session.UserName),
             ShowRecollect => TestWorklistView.Recollect(_items),
+            ShowNoSpecimen => TestWorklistView.NoSpecimen(_items),
             _ => _items
         }, _tube);
 
@@ -476,6 +487,7 @@
         {
             ShowVerify => ShowVerify,
             ShowRecollect => ShowRecollect,
+            ShowNoSpecimen => ShowNoSpecimen,
             _ => ShowAll
         };
         _tube = TestWorklistView.NormalizeTube(AccessionQuery);

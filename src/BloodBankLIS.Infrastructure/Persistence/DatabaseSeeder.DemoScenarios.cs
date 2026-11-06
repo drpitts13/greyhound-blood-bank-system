@@ -64,6 +64,55 @@ public static partial class DatabaseSeeder
         await SeedSpecialRequirementsScenarioAsync(context, ct);
         await SeedMinimumStockLevelsAsync(context, ct);
         await EnsureCoolerCheckDemoAsync(context, ct);
+        await EnsureStatOrderWithoutSpecimenAsync(context, ct);
+    }
+
+    /// <summary>
+    /// A STAT type and screen for the special-requirements demo patient (MRN0023), ordered 20 minutes before seeding
+    /// with no tube yet, so the bench's No specimen view and the home Pending tests note can be shown. Added once.
+    /// </summary>
+    private static async Task EnsureStatOrderWithoutSpecimenAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Orders.AnyAsync(o => o.OrderNumber == "ORD0024", ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0023", ct);
+        if (patient is null)
+        {
+            return;
+        }
+
+        var encounter = await context.Encounters.Where(e => e.PatientId == patient.Id).OrderByDescending(e => e.Id).FirstOrDefaultAsync(ct);
+        var location = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct)
+            ?? await context.OrderingLocations.FirstOrDefaultAsync(ct);
+        if (encounter is null || location is null)
+        {
+            return;
+        }
+
+        var order = new Order
+        {
+            OrderNumber = "ORD0024",
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Stat,
+            Status = OrderStatus.New,
+            Source = OrderSource.Manual,
+            OrderedUtc = DateTime.UtcNow.AddMinutes(-20)
+        };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+        context.OrderLines.AddRange(
+            new OrderLine { OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type", TestCode = "ABORH", OrderType = OrderType.AboRh },
+            new OrderLine { OrderId = order.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", OrderType = OrderType.AntibodyScreen });
+        await context.SaveChangesAsync(ct);
     }
 
     private const string CoolerCheckReasonPrefix = "Cooler check: ";

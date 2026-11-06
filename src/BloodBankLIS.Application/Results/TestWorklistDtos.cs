@@ -145,6 +145,24 @@ public static class TestWorklistView
     public static IReadOnlyList<TestWorkItemDto> Recollect(IEnumerable<TestWorkItemDto> items) =>
         items.Where(i => i.NeedsRecollection).ToList();
 
+    /// <summary>
+    /// Lines with no tube linked yet (not a rejected one: that is Recollect): the specimen still has to be collected or
+    /// accessioned. Rush priorities first, then oldest order first.
+    /// </summary>
+    public static IReadOnlyList<TestWorkItemDto> NoSpecimen(IEnumerable<TestWorkItemDto> items) =>
+        items.Where(i => i.SpecimenId is null or 0 && !i.NeedsRecollection)
+            .OrderBy(i => IsRush(i.Priority) ? 0 : 1)
+            .ThenBy(i => i.OrderedUtc)
+            .ToList();
+
+    /// <summary>Orders (not lines) at a rush priority that have no tube yet.</summary>
+    public static int RushOrdersWithoutSpecimen(IEnumerable<TestWorkItemDto> items) =>
+        NoSpecimen(items).Where(i => IsRush(i.Priority)).Select(i => i.OrderId).Distinct().Count();
+
+    /// <summary>The priorities the bench marks urgent.</summary>
+    public static bool IsRush(OrderPriority priority) =>
+        priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol;
+
     /// <summary>The tube as scanned or typed, cleaned the same way as a receipt scan (scanner noise removed, trimmed, upper case).</summary>
     public static string NormalizeTube(string? scan) => SpecimenReceiptScanRule.Normalize(scan);
 

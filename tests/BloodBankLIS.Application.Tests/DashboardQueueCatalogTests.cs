@@ -183,6 +183,26 @@ public class DashboardQueueCatalogTests
         Assert.Equal("Recollect", rejected.BenchActionLabel);
     }
 
+    // TEST-BB-465: lines with no tube are listed STAT first; the Pending tests note counts STAT orders (not lines)
+    // without a tube, and stays quiet for routine ones. A rejected tube is Recollect, not No specimen.
+    [Fact]
+    public void NoSpecimen_ListsRushFirst_AndTheNoteCountsStatOrders()
+    {
+        var at = new DateTime(2026, 11, 5, 8, 0, 0, DateTimeKind.Utc);
+        TestWorkItemDto Bare(long orderId, string code, OrderPriority priority, int minutes) =>
+            Line(code, null, null, null) with { OrderId = orderId, Priority = priority, OrderedUtc = at.AddMinutes(minutes), SpecimenId = null, AccessionNumber = null, SpecimenStatus = null };
+        var routineOld = Bare(1, "ABSC", OrderPriority.Routine, 0);
+        var statAbo = Bare(2, "ABORH", OrderPriority.Stat, 30);
+        var statScreen = Bare(2, "ABSC", OrderPriority.Stat, 30);
+        var rejected = Line("DAT", null, null, null) with { SpecimenStatus = SpecimenStatus.Rejected };
+        var linked = Line("XM", null, null, null);
+
+        Assert.Equal(new[] { "ABORH", "ABSC", "ABSC" }, TestWorklistView.NoSpecimen([routineOld, linked, statAbo, rejected, statScreen]).Select(i => i.TestCode).ToArray());
+        Assert.Equal(2L, TestWorklistView.NoSpecimen([routineOld, statAbo])[0].OrderId);
+        Assert.Equal("1 STAT/urgent order waiting for a specimen", DashboardQueueCatalog.PendingTestsNote([routineOld, statAbo, statScreen, linked]));
+        Assert.Null(DashboardQueueCatalog.PendingTestsNote([routineOld, linked]));
+    }
+
     private static TestWorkItemDto Line(string testCode, long? resultId, ResultStatus? status, string? enteredBy, string? deadline = null) =>
         new(1, 1, 1, "Bench, Pat", "MRN1", testCode, testCode, "ORD1", OrderPriority.Routine, DateTime.UtcNow, "ACC1", 1,
             SpecimenStatus.Accepted, DateTime.UtcNow.AddDays(2), false, "O+", false, null, resultId, status, "Negative", null,
