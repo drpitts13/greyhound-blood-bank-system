@@ -5,6 +5,7 @@ order: 50
 chapter: Patients and orders
 summary: Search by MRN or name, open the chart, and register a patient when you have permission to write demographics.
 routes:
+  - /patients/duplicates
   - /patients
 ---
 
@@ -21,6 +22,10 @@ Open a row to go to the chart. The chart is the place for visits, orders, specim
 **Register patient** is available when your session includes patient write permission. Enter the MRN, date of birth, last name, first name, and sex. Middle name and a comment are optional. Coded comments for the patient page can fill the comment from the catalog.
 
 Once the names and date of birth are entered, the form shows any active patient who may be the same person under another MRN: the same date of birth with the same last name and first initial, or with first and last names swapped. If it is them, **Open chart** and use that record. A second chart splits the patient's ABO/Rh and antibody history. If it is a different person, tick **I checked: this is a different person**; **Register** stays unavailable until you do, and the registration records which charts you checked.
+
+## Possible duplicates
+
+With the patient merge permission, **Possible duplicates** on Patients lists pairs of active charts that may be one person by the same match, including patients registered by the EHR feed. Each chart shows its ABO/Rh, active antibodies, and special requirements, so you can see which one holds the blood bank history. **Keep this, merge … in** opens that chart with its merge form naming the other MRN; give the reason and confirm as for any merge. Charts that are different people stay on the list.
 
 The MRN is the primary identifier you will type at issue and at transfusion documentation. Display names are not identifiers. Two patients must not share an MRN.
 

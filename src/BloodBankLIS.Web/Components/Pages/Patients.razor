@@ -69,6 +69,11 @@
     </div>
 }
 
+@if (Session.Has(PermissionCodes.PatientMerge))
+{
+    <p class="muted" style="margin:.25rem 0 .75rem;"><a href="/patients/duplicates" data-duplicates-link>Possible duplicates</a>: charts that may be one person, to review and merge.</p>
+}
+
 <div class="bb-card">
     <div class="field" style="max-width:360px;">
         <label>Search by name or MRN</label>

@@ -65,6 +65,31 @@ public static partial class DatabaseSeeder
         await SeedMinimumStockLevelsAsync(context, ct);
         await EnsureCoolerCheckDemoAsync(context, ct);
         await EnsureStatOrderWithoutSpecimenAsync(context, ct);
+        await EnsurePossibleDuplicatePatientAsync(context, ct);
+    }
+
+    /// <summary>
+    /// A second chart for the multi-unit demo patient (MRN0022), as an ADT feed might register it (upper case, another
+    /// MRN, no blood bank history), so Possible duplicates and merging can be shown. Added once.
+    /// </summary>
+    private static async Task EnsurePossibleDuplicatePatientAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0024", ct)
+            || !await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0022", ct))
+        {
+            return;
+        }
+
+        context.Patients.Add(new Patient
+        {
+            MedicalRecordNumber = "MRN0024",
+            LastName = "DEMO-MULTI",
+            FirstName = "RILEY",
+            DateOfBirth = new DateOnly(1958, 11, 21),
+            Sex = Sex.Unknown,
+            Comment = "Demo: possible duplicate of MRN0022 (registered by ADT)."
+        });
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>

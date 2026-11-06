@@ -496,6 +496,9 @@ else
     [Parameter] public long Id { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
     [SupplyParameterFromQuery(Name = "panel")] public string? PanelQuery { get; set; }
+    // From Possible duplicates: the merge form opens naming the other chart; the reason and confirmation are still the user's.
+    [SupplyParameterFromQuery(Name = "mergeMrn")] public string? MergeMrnQuery { get; set; }
+    private bool _mergeQueryApplied;
     [SupplyParameterFromQuery(Name = "specimen")] public long? SpecimenQuery { get; set; }
     // From a reaction investigation: the special requirement form starts naming it, and the requirement is linked to it.
     [SupplyParameterFromQuery(Name = "reaction")] public long? ReactionQuery { get; set; }
@@ -833,6 +836,14 @@ else
             _srReactionId = reactionId;
             _srReason = $"After reaction investigation {reactionId}: ";
             await SelectTab("overview");
+        }
+
+        if (!_mergeQueryApplied && !string.IsNullOrWhiteSpace(MergeMrnQuery) && CanMergePatients)
+        {
+            _mergeQueryApplied = true;
+            _mergeMrn = MergeMrnQuery.Trim();
+            _showMerge = true;
+            _editingDemographics = false;
         }
 
         if (!_panelFromQueryApplied

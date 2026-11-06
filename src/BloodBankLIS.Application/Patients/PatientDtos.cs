@@ -14,6 +14,9 @@ public sealed record CreatePatientRequest(
     // The possible duplicates the registrar reviewed and confirmed are different people (their MRNs).
     IReadOnlyList<string>? ConfirmedDifferentFromMrns = null);
 
+/// <summary>Two active charts that may be one person (<c>PossibleDuplicatePatientRule</c>), older registration first.</summary>
+public sealed record PossibleDuplicatePairDto(PatientDto First, PatientDto Second);
+
 public sealed record UpdatePatientRequest(
     string LastName,
     string FirstName,

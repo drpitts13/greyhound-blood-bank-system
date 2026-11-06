@@ -170,6 +170,46 @@ public sealed class PatientService
         return OperationResult<IReadOnlyList<PatientDto>>.Ok(matches.Select(p => PatientDto.From(p)).ToList());
     }
 
+    /// <summary>
+    /// Pairs of active charts that may be one person, by the same rule as registration, including patients registered
+    /// by ADT. Each comes with its blood bank flags (type, antibodies, requirements) so staff can judge which chart
+    /// holds the history before merging. Read-only; merging stays on the chart (patient.merge).
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>> ListPossibleDuplicatePairsAsync(CancellationToken ct = default)
+    {
+        if (_permissions is not null)
+        {
+            var auth = PatientAuthorizationRule.EvaluateMerge(
+                await _permissions.HasPermissionAsync(_currentUser?.UserName ?? string.Empty, PermissionCodes.PatientMerge, ct));
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Fail(auth.Message);
+            }
+        }
+
+        var active = (await ListDtosAsync(ct)).Where(p => p.Status != PatientStatus.Merged).ToList();
+        var pairs = new List<PossibleDuplicatePairDto>();
+        foreach (var sameBirthday in active.GroupBy(p => p.DateOfBirth))
+        {
+            var group = sameBirthday.OrderBy(p => p.CreatedUtc).ThenBy(p => p.Id).ToList();
+            for (var i = 0; i < group.Count; i++)
+            {
+                for (var j = i + 1; j < group.Count; j++)
+                {
+                    if (PossibleDuplicatePatientRule.IsPossibleDuplicate(
+                            group[i].LastName, group[i].FirstName, group[i].DateOfBirth,
+                            group[j].LastName, group[j].FirstName, group[j].DateOfBirth))
+                    {
+                        pairs.Add(new PossibleDuplicatePairDto(group[i], group[j]));
+                    }
+                }
+            }
+        }
+
+        return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Ok(
+            pairs.OrderBy(p => p.First.LastName, StringComparer.OrdinalIgnoreCase).ThenBy(p => p.First.MedicalRecordNumber).ToList());
+    }
+
     private async Task<List<Patient>> FindPossibleDuplicatePatientsAsync(
         string? lastName, string? firstName, DateOnly dateOfBirth, CancellationToken ct)
     {

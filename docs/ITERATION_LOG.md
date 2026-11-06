@@ -14319,3 +14319,43 @@ Merge and unmerge exist, but registration refused only an existing MRN. Register
 ### Next ranked residual
 
 A possible-duplicates report over existing patients (and ADT-created ones), pending OCD-060.
+
+## Iteration 426 — Possible duplicates report (2026-11-05)
+
+### Capability matrix rescan (patients)
+
+Cycle 425 stops new manual duplicates. It does not cover charts that already exist, or charts the EHR feed creates (ADT registration is not checked, OCD-060). Those duplicates could only be found by chance (questions 2, 6).
+
+### Design
+
+- **`PatientService.ListPossibleDuplicatePairsAsync`** (*patient.merge*; `GET /api/patients/possible-duplicates/pairs`):
+  - pairs of active charts by `PossibleDuplicatePatientRule`, ADT-registered ones included
+  - older registration first
+  - each with its ABO/Rh, active antibodies, and special requirements
+- **`/patients/duplicates`** (linked from Patients for *patient.merge*):
+  - each pair, with **Keep this, merge … in** for either chart
+  - the link opens that chart with the merge form naming the other MRN (`?mergeMrn=`)
+  - the reason, confirmation, and audit are the merge's own; the list changes nothing
+- **Demo:** MRN0024 DEMO-MULTI, RILEY, an ADT-style second chart for MRN0022.
+- No schema change.
+
+### Requirements
+
+- FRS-BB-602 (under URS-BB-514); OCD-060 updated. Help: patients (route and section).
+
+### Tests
+
+- TEST-BB-467:
+  - an ADT-style upper-case chart pairs with the older chart, older first
+  - merged charts and a different first initial are left out
+  - needs *patient.merge*
+  - the demo seeds MRN0024 (patient count 14)
+- Full suite: 3,759 passed, 0 failed.
+- Run check (development API and web):
+  - Possible duplicates shows "1 pair to review": MRN0022 (O+) and MRN0024 (None on file)
+  - Keep this, merge MRN0024 in opens MRN0022 with the merge form's Duplicate MRN filled
+  - nothing merged; no server errors
+
+### Next ranked residual
+
+Rescan inventory receipt and supplier workflows for the next operations gap.

@@ -279,6 +279,34 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False(denied.Succeeded);
     }
 
+    // TEST-BB-467: Possible duplicates pairs active charts by the registration rule (an ADT-style upper-case chart
+    // included), older registration first, and leaves out merged charts and different first initials; it needs
+    // patient.merge.
+    [Fact]
+    public async Task PossibleDuplicatePairs_ListActiveMatches_OlderFirst()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var dob = new DateOnly(1921, 4, 5).AddDays(Random.Shared.Next(0, 3000));
+        var last = $"Pair{key}";
+        await using var context = _factory.Create();
+        var older = new Patient { MedicalRecordNumber = $"MRN-PRA-{key}", LastName = last, FirstName = "Jean", DateOfBirth = dob };
+        context.Patients.Add(older);
+        await context.SaveChangesAsync();
+        var adt = new Patient { MedicalRecordNumber = $"MRN-PRB-{key}", LastName = last.ToUpperInvariant(), FirstName = "JEANNE", DateOfBirth = dob };
+        var merged = new Patient { MedicalRecordNumber = $"MRN-PRM-{key}", LastName = last, FirstName = "Jean", DateOfBirth = dob, Status = PatientStatus.Merged };
+        var other = new Patient { MedicalRecordNumber = $"MRN-PRO-{key}", LastName = last, FirstName = "Mark", DateOfBirth = dob };
+        context.Patients.AddRange(adt, merged, other);
+        await context.SaveChangesAsync();
+
+        var result = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge)).ListPossibleDuplicatePairsAsync();
+        Assert.True(result.Succeeded, result.Error);
+        var pair = Assert.Single(result.Value!, p => p.First.LastName.Equals(last, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal((older.Id, adt.Id), (pair.First.Id, pair.Second.Id));
+
+        var denied = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite)).ListPossibleDuplicatePairsAsync();
+        Assert.False(denied.Succeeded);
+    }
+
     [Fact]
     public async Task Create_WritesPatientAccess()
     {
