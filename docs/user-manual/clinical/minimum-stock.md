@@ -13,7 +13,7 @@ routes:
 
 On hand is the available count. Short is how many units you are under the minimum. A shortfall of zero means the available count meets the minimum. The home screen card **Below minimum stock** counts the products that are short and names the largest shortfalls, so you see them without opening this page.
 
-**On order** is how many units of that product (and ABO, when the row names one) are on supplier orders that were submitted and have not arrived. Drafts and cancelled orders do not count. The row stays short until the units arrive, because they are not on the shelf yet, but it says **Covered by orders** when the orders cover the shortage, or **n still to order** when they cover part of it.
+**On order** is how many units of that product (and ABO, when the row names one) are on supplier orders that were submitted and have not arrived. Drafts and cancelled orders do not count. The row stays short until the units arrive, because they are not on the shelf yet, but it says **Covered by orders** when the orders cover the shortage, or **n still to order** when they cover part of it. **n overdue** in red means a submitted order is past its arrival time; it opens Supplier orders.
 
 **Open orders** is how many product orders for that product are still waiting for a unit, whatever the patient's ABO group. Orders do not carry a quantity, so each one counts as at least one unit. When there are more open orders than units on hand, the row says **More orders than on hand**: order more, or check whether some of those orders can be filled another way. It is a count, not a forecast.
 

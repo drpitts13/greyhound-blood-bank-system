@@ -61,6 +61,10 @@
                             {
                                 <span class="badge badge-amber" style="margin-left:.25rem;" data-order-short>Short @order.UnitsShort</span>
                             }
+                            @if (order.ArrivalOverdue)
+                            {
+                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToString("yyyy-MM-dd HH:mm") UTC; chase the supplier" data-arrival-overdue>Arrival overdue</span>
+                            }
                         </td>
                         <td class="right">@order.UnitsOrdered</td>
                         <td>@order.CreatedUtc.ToString("yyyy-MM-dd HH:mm") &middot; @order.CreatedBy</td>
@@ -128,7 +132,10 @@
         </div>
         @if (current.SubmittedUtc is DateTime submitted)
         {
-            <p class="muted">Submitted by @current.SubmittedBy @submitted.ToString("yyyy-MM-dd HH:mm") UTC.</p>
+            <p class="muted">Submitted by @current.SubmittedBy @submitted.ToString("yyyy-MM-dd HH:mm") UTC.@if (current.ArrivalDueUtc is DateTime due)
+                {
+                    <span class="@(current.ArrivalOverdue ? "text-danger" : null)" data-arrival-due> Arrival due @due.ToString("yyyy-MM-dd HH:mm") UTC@(current.ArrivalOverdue ? ": overdue, chase the supplier" : "").</span>
+                }</p>
         }
         @if (current.ReceivedUtc is DateTime received)
         {

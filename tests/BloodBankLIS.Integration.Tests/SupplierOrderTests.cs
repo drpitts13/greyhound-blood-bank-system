@@ -29,7 +29,7 @@ public class SupplierOrderTests : IDisposable
             new EfRepository<BloodDelivery>(c),
             new EfRepository<ProductType>(c),
             new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
-                supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c)),
+                supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c), clock: _factory.Clock),
             c, _factory.Clock, _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             _signatures,
@@ -111,7 +111,7 @@ public class SupplierOrderTests : IDisposable
         var f = await SeedAsync(c);
         var service = Service(c);
         var minimum = new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
-            supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c));
+            supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c), clock: _factory.Clock);
 
         // Group O red cells: minimum 3, one on hand, short 2. Order one and submit it.
         var first = (await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
@@ -136,6 +136,31 @@ public class SupplierOrderTests : IDisposable
         Assert.False(none.Succeeded);
         Assert.Contains("already on a submitted order", none.Error);
         Assert.Equal("RBC-SO O: 1 of 3, 2 on order", DashboardQueueCatalog.LowStockCard([covered]).Note);
+    }
+
+    // TEST-BB-510: a submitted order is due 24 hours (the default arrival window) after submit; past that it is overdue on
+    // the order, on Minimum stock, and in the home card note.
+    [Fact]
+    public async Task SubmittedOrder_PastItsArrivalWindow_IsOverdue()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var service = Service(c);
+        var minimum = new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
+            supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c), clock: _factory.Clock);
+
+        var order = (await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
+        Assert.Null(order.ArrivalDueUtc);
+        var submitted = (await service.SubmitAsync(order.Id, new SubmitSupplierOrderRequest(FakeSignatures.ValidId))).Value!;
+        Assert.Equal(_factory.Clock.UtcNow.AddHours(24), submitted.ArrivalDueUtc);
+        Assert.False(submitted.ArrivalOverdue);
+        Assert.Equal(0, (await minimum.ListAsync()).Single(r => r.ProductTypeId == f.RedCells.Id).OnOrderOverdue);
+
+        _factory.Clock.UtcNow = _factory.Clock.UtcNow.AddHours(25);
+        Assert.True((await service.GetAsync(order.Id))!.ArrivalOverdue);
+        var row = (await minimum.ListAsync()).Single(r => r.ProductTypeId == f.RedCells.Id);
+        Assert.Equal((2, 2), (row.OnOrder, row.OnOrderOverdue));
+        Assert.Equal("RBC-SO O: 1 of 3, 2 on order (overdue)", DashboardQueueCatalog.LowStockCard([row]).Note);
     }
 
     // TEST-BB-468: named-ABO lines take matching units first, any-ABO lines take what is left, and no unit counts twice.

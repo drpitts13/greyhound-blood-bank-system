@@ -18,6 +18,17 @@ public static class SupplierOrderRule
     public const string SignatureAction = "SupplierOrderSubmit";
     public const int MaxLineQuantity = 999;
 
+    /// <summary>
+    /// When a submitted order's blood is due: the submit time plus <c>Inventory.ExpectedArrivalDueHours</c>, the same
+    /// window as an expected packing list. Null when the order has not been submitted.
+    /// </summary>
+    public static DateTime? ArrivalDueUtc(DateTime? submittedUtc, int dueHours) =>
+        submittedUtc is DateTime submitted ? submitted.AddHours(Math.Max(1, dueHours)) : null;
+
+    /// <summary>A submitted order not received by its arrival time: chase the supplier or plan around it.</summary>
+    public static bool IsArrivalOverdue(SupplierOrderStatus status, DateTime? submittedUtc, int dueHours, DateTime nowUtc) =>
+        status == SupplierOrderStatus.Submitted && ArrivalDueUtc(submittedUtc, dueHours) is DateTime due && nowUtc > due;
+
     public const string NotDraftCode = "SUPORD-NOT-DRAFT";
     public const string EmptyCode = "SUPORD-EMPTY";
     public const string QuantityCode = "SUPORD-QTY";

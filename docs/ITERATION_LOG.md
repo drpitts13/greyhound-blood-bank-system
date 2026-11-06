@@ -15941,3 +15941,34 @@ A supplier order is drafted from the minimum stock shortfall, submitted (signed)
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 472 — A late supplier order is flagged (2026-11-06)
+
+### Capability matrix rescan (operations: supplier orders)
+
+Since Cycle 471 a shortage covered by a submitted order reads "Covered by orders". Nothing said when that order was late, so a covered shortage could sit unchased while the shelf stayed short (questions 2, 5).
+
+### Design
+
+- **Arrival window:** the existing `Inventory.ExpectedArrivalDueHours` (default 24), already the window for an expected packing list; its description now names supplier orders too. No new policy.
+- **`SupplierOrderRule`:** `ArrivalDueUtc` = submit time plus the window; `IsArrivalOverdue` only while Submitted and after that time.
+- **Supplier orders:** **Arrival overdue** on the row; the order says when arrival is due, and that it is overdue.
+- **Minimum stock:** "n overdue" (units on late orders) linking to Supplier orders.
+- **Home card note:** ", n on order (overdue)".
+- Read-only; no schema change.
+
+### Requirements
+
+- URS-BB-535, FRS-BB-644. Help: supplier orders, minimum stock.
+
+### Tests
+
+- TEST-BB-510:
+  - due is submit plus the window (at least an hour); overdue only after it and only while submitted; never for draft, received, cancelled, or unsubmitted orders
+  - a submitted order is due in 24 hours and not overdue; 25 hours later it is overdue on the order, on Minimum stock (2 of 2 on order overdue), and in the card note
+- Full suite: 3,849 passed (a first run caught the Cycle 471 test building Minimum stock without the test clock: its order, submitted at test time, read as overdue against the real clock; the test now passes the clock, as production does through dependency injection)
+- Live (read-only): Supplier orders opened SO-DEMO-002 with "Arrival due 2026-11-07 22:23 UTC" (submitted an hour before the seed ran) and no overdue badge, which is correct inside the window; the overdue path is covered by the tests. No server errors.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

@@ -1,6 +1,7 @@
 using System.Globalization;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Reporting;
@@ -31,7 +32,10 @@ public sealed record SupplierOrderDto(
     DateTime? ReceivedUtc,
     string? CancelReason,
     int UnitsOrdered,
-    IReadOnlyList<SupplierOrderLineDto> Lines)
+    IReadOnlyList<SupplierOrderLineDto> Lines,
+    // Submitted orders: when the blood is due (Inventory.ExpectedArrivalDueHours after submit), and whether that has passed.
+    DateTime? ArrivalDueUtc = null,
+    bool ArrivalOverdue = false)
 {
     /// <summary>Units ordered that the linked delivery did not bring (0 before receipt).</summary>
     public int UnitsShort => Lines.Sum(l => l.Short);
@@ -70,6 +74,7 @@ public sealed class SupplierOrderService
     private readonly ISignatureService? _signatures;
     private readonly IReportDocumentRenderer? _renderer;
     private readonly IRepository<BloodUnit>? _units;
+    private readonly FacilityPolicyService? _policy;
 
     public SupplierOrderService(
         IRepository<SupplierOrder> orders,
@@ -84,8 +89,10 @@ public sealed class SupplierOrderService
         IAuditWriter audit,
         ISignatureService? signatures = null,
         IReportDocumentRenderer? renderer = null,
-        IRepository<BloodUnit>? units = null)
+        IRepository<BloodUnit>? units = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _units = units;
         _orders = orders;
         _lines = lines;
@@ -431,9 +438,12 @@ public sealed class SupplierOrderService
             lineDtos = Reconcile(lineDtos, delivered);
         }
 
+        var dueHours = _policy is null ? 24 : await _policy.GetExpectedArrivalDueHoursAsync(ct);
         return new SupplierOrderDto(
             order.Id, order.OrderNumber, order.BloodSupplierId, supplier?.Name ?? string.Empty, order.Status, order.Notes,
             order.CreatedUtc, order.CreatedBy, order.SubmittedBy, order.SubmittedUtc, order.BloodDeliveryId, order.ReceivedUtc,
-            order.CancelReason, lineDtos.Sum(l => l.Quantity), lineDtos);
+            order.CancelReason, lineDtos.Sum(l => l.Quantity), lineDtos,
+            order.Status == SupplierOrderStatus.Submitted ? SupplierOrderRule.ArrivalDueUtc(order.SubmittedUtc, dueHours) : null,
+            SupplierOrderRule.IsArrivalOverdue(order.Status, order.SubmittedUtc, dueHours, _clock.UtcNow));
     }
 }

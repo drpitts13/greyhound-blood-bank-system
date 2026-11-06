@@ -540,3 +540,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-532 | Staff who keep or issue stock see on the home screen which products are below their minimum stock level, and by how much, without opening the Minimum stock page. | P2 | FRS-BB-641 |
 | URS-BB-533 | The shift handoff tells the incoming shift how many products are below their minimum stock level, recorded with the handoff. | P2 | FRS-BB-642 |
 | URS-BB-534 | Staff managing stock see how much of a shortage is already on submitted supplier orders that have not arrived, and a new supplier order drafts only what is still to order, so blood is not ordered twice. | P2 | FRS-BB-643 |
+| URS-BB-535 | Staff managing stock see when a submitted supplier order has not arrived in the expected window, on the order, on Minimum stock, and on the home card, so a late delivery is chased before the shortage bites. | P2 | FRS-BB-644 |

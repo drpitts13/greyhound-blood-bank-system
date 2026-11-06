@@ -44,6 +44,10 @@
                         <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
                         <td data-on-order>
                             @(row.OnOrder > 0 ? row.OnOrder.ToString() : "—")
+                            @if (row.OnOrderOverdue > 0)
+                            {
+                                <a class="badge badge-red" href="/inventory/orders" title="A submitted order is past its arrival time; chase the supplier" data-order-overdue>@row.OnOrderOverdue overdue</a>
+                            }
                             @if (row.Shortfall > 0 && row.StillToOrder == 0)
                             {
                                 <span class="badge badge-blue" title="The shortage is covered by submitted orders; receive them when they arrive">Covered by orders</span>

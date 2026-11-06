@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -17,7 +18,9 @@ public sealed record MinimumStockRowDto(
     // Open product order lines for this product (any ABO) still waiting to be filled.
     int OpenOrders = 0,
     // Units on submitted supplier orders not yet received, for this product and ABO (all ABO for an any-ABO level).
-    int OnOrder = 0)
+    int OnOrder = 0,
+    // Of those, units on orders past their arrival time (Inventory.ExpectedArrivalDueHours after submit).
+    int OnOrderOverdue = 0)
 {
     public bool OpenOrdersExceedOnHand => MinimumStockRule.OpenOrdersExceedOnHand(OnHand, OpenOrders);
 
@@ -36,6 +39,8 @@ public sealed class MinimumStockService
     private readonly IRepository<Order>? _orders;
     private readonly IRepository<SupplierOrder>? _supplierOrders;
     private readonly IRepository<SupplierOrderLine>? _supplierOrderLines;
+    private readonly FacilityPolicyService? _policy;
+    private readonly IClock? _clock;
 
     public MinimumStockService(
         IRepository<MinimumStockLevel> levels,
@@ -45,8 +50,12 @@ public sealed class MinimumStockService
         IRepository<OrderLine>? orderLines = null,
         IRepository<Order>? orders = null,
         IRepository<SupplierOrder>? supplierOrders = null,
-        IRepository<SupplierOrderLine>? supplierOrderLines = null)
+        IRepository<SupplierOrderLine>? supplierOrderLines = null,
+        FacilityPolicyService? policy = null,
+        IClock? clock = null)
     {
+        _policy = policy;
+        _clock = clock;
         _supplierOrders = supplierOrders;
         _supplierOrderLines = supplierOrderLines;
         _orderLines = orderLines;
@@ -62,7 +71,7 @@ public sealed class MinimumStockService
         var levels = await _levels.ListAsync(ct);
         var products = (await _products.ListAsync(ct)).ToDictionary(product => product.Id);
         var openOrders = await OpenOrderLinesByProductAsync(ct);
-        var onOrder = await SubmittedSupplierLinesAsync(ct);
+        var (onOrder, overdueOrderIds) = await SubmittedSupplierLinesAsync(ct);
         var rows = new List<MinimumStockRowDto>();
         foreach (var level in levels.OrderBy(row => row.ProductTypeId).ThenBy(row => row.Abo))
         {
@@ -77,24 +86,41 @@ public sealed class MinimumStockService
                 level.MinimumAvailable,
                 MinimumStockRule.Shortfall(onHand, level.MinimumAvailable),
                 openOrders.GetValueOrDefault(level.ProductTypeId),
-                onOrder.Where(l => l.ProductTypeId == level.ProductTypeId && (level.Abo is null || l.Abo == level.Abo)).Sum(l => l.Quantity)));
+                onOrder.Where(l => Covers(level, l)).Sum(l => l.Quantity),
+                onOrder.Where(l => Covers(level, l) && overdueOrderIds.Contains(l.SupplierOrderId)).Sum(l => l.Quantity)));
         }
 
         return rows;
     }
 
-    /// <summary>Lines of supplier orders that were submitted (sent) and not yet received or cancelled.</summary>
-    private async Task<IReadOnlyList<SupplierOrderLine>> SubmittedSupplierLinesAsync(CancellationToken ct)
+    private static bool Covers(MinimumStockLevel level, SupplierOrderLine line) =>
+        line.ProductTypeId == level.ProductTypeId && (level.Abo is null || line.Abo == level.Abo);
+
+    /// <summary>
+    /// Lines of supplier orders that were submitted (sent) and not yet received or cancelled, and which of those orders
+    /// are past their arrival time.
+    /// </summary>
+    private async Task<(IReadOnlyList<SupplierOrderLine> Lines, HashSet<long> OverdueOrderIds)> SubmittedSupplierLinesAsync(CancellationToken ct)
     {
         if (_supplierOrders is null || _supplierOrderLines is null)
         {
-            return [];
+            return ([], []);
         }
 
-        var submitted = (await _supplierOrders.ListAsync(o => o.Status == SupplierOrderStatus.Submitted, ct)).Select(o => o.Id).ToList();
-        return submitted.Count == 0
-            ? []
-            : await _supplierOrderLines.ListAsync(l => submitted.Contains(l.SupplierOrderId) && l.Quantity > 0, ct);
+        var submitted = await _supplierOrders.ListAsync(o => o.Status == SupplierOrderStatus.Submitted, ct);
+        if (submitted.Count == 0)
+        {
+            return ([], []);
+        }
+
+        var ids = submitted.Select(o => o.Id).ToList();
+        var dueHours = _policy is null ? 24 : await _policy.GetExpectedArrivalDueHoursAsync(ct);
+        var now = _clock?.UtcNow ?? DateTime.UtcNow;
+        var overdue = submitted
+            .Where(o => SupplierOrderRule.IsArrivalOverdue(o.Status, o.SubmittedUtc, dueHours, now))
+            .Select(o => o.Id)
+            .ToHashSet();
+        return (await _supplierOrderLines.ListAsync(l => ids.Contains(l.SupplierOrderId) && l.Quantity > 0, ct), overdue);
     }
 
     public async Task<OperationResult<MinimumStockRowDto>> SaveAsync(SaveMinimumStockRequest request, CancellationToken ct = default)

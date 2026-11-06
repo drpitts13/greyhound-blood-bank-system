@@ -86,7 +86,7 @@ public static class FacilityPolicyCatalog
             "Optional. When true, directed-to-allogeneic conversion requires a distinct directory user.",
             FacilityPolicyValueKind.Boolean, "true", "AABB 5.4 / 21 CFR 606.160 / OCD-008"),
         new(FacilityPolicyKeys.ExpectedArrivalDueHours, "Inventory", "Expected arrival due hours",
-            "Hours after packing-list expect when inbound arrival is due.",
+            "Hours after packing-list expect, or after a supplier order is submitted, when inbound arrival is due.",
             FacilityPolicyValueKind.Integer, "24", "AABB 5.6", 1, 168),
         new(FacilityPolicyKeys.NearExpiryWarningHours, "Inventory", "Near-expiry warning hours",
             "Hours before expiration when the near-expiry worklist includes the unit.",
