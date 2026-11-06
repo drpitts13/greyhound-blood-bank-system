@@ -15590,3 +15590,39 @@ The home card names results due before specimen expiry (Cycle 443), but in the q
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.
+
+## Iteration 461 — Audit trail by scan (2026-11-06)
+
+### Capability matrix rescan (audit review)
+
+The Audit Trail filtered one record by entity type and a numeric entity id, the internal id staff never see. Reviewing everything done to a unit or a patient meant finding that id first, and no record page linked to its trail (questions 2, 4; traceability).
+
+### Design
+
+- **Record: scan or type** on the Audit Trail, through the top-bar lookup:
+  - an exact single match sets the entity type and id and searches
+  - several matches are offered; none says so
+  - a stale lookup result is dropped, as on the Deviations form
+- **`LookupRecordType.For`:** the lookup kind to the stored entity type. `DeviationRecordTypes.FromLookup` now uses it.
+- **Link:** `/audit?entityType=&entityId=` opens with those filters. The unit page's Status history links to it as **Full audit trail** (audit.read only).
+- Read-only; no server, schema, or API change.
+
+### Requirements
+
+- URS-BB-526, FRS-BB-635. Help: audit trail.
+
+### Tests
+
+- TEST-BB-501:
+  - every lookup kind maps to the audit entity type
+  - the unit page's link uses the query names the Audit page reads
+- Full suite: 3,825 passed, 0 failed, before the page-only fix below; after it the web build, Help.Tests (37), and the catalog check passed.
+- Run check (development API and web), read-only:
+  - unit W0001230000001's Status history shows **Full audit trail**, which opens `/audit?entityType=BloodUnit&entityId=1` with only that unit's rows
+  - scanning "MRN0001" sets Patient / 1 and says "Showing the trail of MRN0001 (Demo, Patricia)."
+  - no server errors
+- Found and fixed during the run check: from the link, the Entity type select showed a stale option (ActionBilling) while the rows were correctly filtered to BloodUnit, because the type was set before the type list loaded. The link's filters are now applied after the lists load, and the select shows BloodUnit.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.

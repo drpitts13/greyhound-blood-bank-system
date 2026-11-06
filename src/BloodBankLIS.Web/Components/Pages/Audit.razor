@@ -3,6 +3,7 @@
 @inject BloodBankApiClient Api
 @inject ReportDownloadCache Downloads
 @inject IJSRuntime Js
+@using BloodBankLIS.Application.Search
 
 <PageTitle>Audit Trail &middot; HemoCore</PageTitle>
 
@@ -42,6 +43,23 @@
             </select>
         </div>
         <div class="field"><label>Entity id (optional)</label><input type="number" @bind="_entityId" @bind:event="oninput" @onkeydown="OnFilterKey" /></div>
+    </div>
+    <div class="field">
+        <label>Record: scan or type</label>
+        <input @bind="_recordScan" @bind:event="oninput" @onkeydown="OnRecordScanKey" placeholder="DIN, MRN, accession, or order number; Enter to find its trail" autocomplete="off" data-audit-record-scan style="max-width:28rem;" />
+        @if (_recordHits.Count > 0)
+        {
+            <div class="flex" style="gap:.35rem;flex-wrap:wrap;margin-top:.35rem;">
+                @foreach (var hit in _recordHits)
+                {
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => UseRecordAsync(hit)">@hit.Identifier · @hit.Title</button>
+                }
+            </div>
+        }
+        @if (_recordMessage is not null)
+        {
+            <span class="sub" data-audit-record-message>@_recordMessage</span>
+        }
     </div>
     <div class="form-row">
         <div class="field"><label>From date (UTC)</label><input type="date" @bind="_fromDate" /></div>
@@ -171,12 +189,62 @@
             ? _users
             : _users.Append(_userName!);
 
+    // A record's page links here with its type and id: /audit?entityType=BloodUnit&entityId=12.
+    [SupplyParameterFromQuery(Name = "entityType")] public string? EntityTypeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "entityId")] public long? EntityIdQuery { get; set; }
+
+    // Scan-first: the record in hand (DIN, MRN, accession, order number) fills the type and id and searches.
+    private string _recordScan = string.Empty;
+    private List<LookupHitDto> _recordHits = new();
+    private string? _recordMessage;
+
+    private async Task OnRecordScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_recordScan)) return;
+        var query = _recordScan;
+        _recordHits = new();
+        _recordMessage = null;
+        var result = await Api.LookupAsync(new LookupRequest(query));
+        if (_recordScan != query) return;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _recordMessage = result.Error ?? "The lookup failed.";
+            return;
+        }
+
+        if (result.Value.OpenDirectly)
+        {
+            await UseRecordAsync(result.Value.Hits[0]);
+            return;
+        }
+
+        _recordHits = result.Value.Hits.ToList();
+        _recordMessage = _recordHits.Count == 0 ? result.Value.Message ?? "No record matches." : "Several records match; choose one.";
+    }
+
+    private async Task UseRecordAsync(LookupHitDto hit)
+    {
+        _entityType = LookupRecordType.For(hit.Kind);
+        _entityId = hit.Id;
+        _recordHits = new();
+        _recordScan = string.Empty;
+        _recordMessage = $"Showing the trail of {hit.Identifier} ({hit.Title}).";
+        await LoadAsync(0);
+    }
+
     protected override async Task OnInitializedAsync()
     {
         var types = await Api.GetAuditEntityTypesAsync();
         if (types.Succeeded) _entityTypes = types.Value ?? new();
         var users = await Api.GetAuditUsersAsync();
         if (users.Succeeded) _users = users.Value ?? new();
+        // Applied once the type list has loaded, so the Entity type select shows the linked type rather than a stale option.
+        if (!string.IsNullOrWhiteSpace(EntityTypeQuery) && EntityIdQuery is > 0)
+        {
+            _entityType = EntityTypeQuery.Trim();
+            _entityId = EntityIdQuery;
+        }
+
         await LoadAsync(0);
     }
 

@@ -544,7 +544,13 @@ else
     @if (_tab == "history")
     {
         <div class="bb-card">
-            <div class="bb-card-title"><h3>Status history</h3></div>
+            <div class="bb-card-title">
+                <h3>Status history</h3>
+                @if (Session.Has(PermissionCodes.AuditRead))
+                {
+                    <a class="btn btn-ghost btn-sm" href="@($"/audit?entityType=BloodUnit&entityId={_unit.Id}")" title="Every audited change to this unit">Full audit trail</a>
+                }
+            </div>
             <p class="muted">Everything done to this unit — receive, allocate, crossmatch, issue, return, transfuse, modify and status changes. Use it to trace product dispositions.</p>
             <details class="bb-help">
                 <summary>How rows are worded</summary>

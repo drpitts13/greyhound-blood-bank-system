@@ -11,14 +11,7 @@ public static class DeviationRecordTypes
     public const string Order = "Order";
 
     /// <summary>The record type a deviation stores for a record the lookup found by scan or identifier.</summary>
-    public static string FromLookup(LookupHitKind kind) => kind switch
-    {
-        LookupHitKind.Patient => Patient,
-        LookupHitKind.Unit => BloodUnit,
-        LookupHitKind.Specimen => Specimen,
-        LookupHitKind.Order => Order,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No deviation record type for this lookup kind.")
-    };
+    public static string FromLookup(LookupHitKind kind) => LookupRecordType.For(kind);
 
     public static IReadOnlyList<string> Aliases(string contextType) => contextType switch
     {
