@@ -472,5 +472,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-461 | U | `DashboardQueueCatalogTests.InTransitNote_NamesOverdueUnits_AndCoolerChecks` | URS-BB-512 / FRS-BB-597 |
 | TEST-BB-462 | I | `SeederTests.Seed_DemoCoolers_ShowEachCheckState_Once` | URS-BB-512 / FRS-BB-592 |
 | TEST-BB-463 | U | `DashboardDueCountTests.ReactionsNote_NamesPostSpecimenAndWorkupStillToVerify` | URS-BB-507 / FRS-BB-598 |
+| TEST-BB-464 | I, U | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesMissingUnit_UntilLocated`; `SupervisorQueueRuleTests.KindSortOrder_PutsAntibodyReviewFirst` | URS-BB-337 / FRS-BB-599 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -16,6 +16,7 @@
         <li>Antibody-identification reviews (<span class="mono">immuno.override</span>)</li>
         <li>Posted interface and instrument results to verify (<span class="mono">result.verify</span>)</li>
         <li>Units in quarantine to release (<span class="mono">inventory.release</span>)</li>
+        <li>Missing units to locate and damaged units to inspect (<span class="mono">inventory.release</span>)</li>
     </ul>
     You see only the kinds your permissions allow. Clinical gates are unchanged.
 </details>
@@ -162,6 +163,7 @@ else
         SupervisorQueueRule.KindAntibodyReview => "ABID review",
         SupervisorQueueRule.KindResultVerify => "Result verify",
         SupervisorQueueRule.KindQuarantineRelease => "Quarantine",
+        SupervisorQueueRule.KindDiscrepancy => "Missing or damaged",
         SupervisorQueueRule.KindOverrideReview => "Override review",
         _ => kind
     };

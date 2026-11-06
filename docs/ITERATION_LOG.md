@@ -14187,3 +14187,50 @@ The test worklist and the antibody ID worklist already show their next actions. 
 ### Next ranked residual
 
 Rescan the antibody ID worklist and supervisor queue for an operations gap.
+
+## Iteration 423 — Missing and damaged units on the supervisor queue (2026-11-05)
+
+### Capability matrix rescan (supervisor queues)
+
+The supervisor queue listed:
+- antibody-identification reviews
+- results to verify
+- quarantine releases
+- override reviews
+
+Missing and damaged units, which a supervisor must locate, inspect, or discard, were only on the Inventory Discrepancy board. Units marked missing from a stock count (Cycle 418) could sit there unnoticed by the person who resolves them (questions 2, 5).
+
+### Design
+
+- **`SupervisorQueueRule.KindDiscrepancy`** ("Missing or damaged"):
+  - included with *inventory.release*
+  - sorted after quarantine releases and before override reviews
+- **Each row:**
+  - "Missing — unit" or "Damaged — unit"
+  - the product, type, recorded reason, and last recorded location
+  - **Locate** or **Inspect**, opening the unit
+- Rows come from the existing discrepancy list, so a unit leaves the queue once located, inspected, or discarded.
+- No schema or API change.
+
+### Requirements
+
+- FRS-BB-599 (under URS-BB-337). Help: supervisor queue.
+
+### Tests
+
+- TEST-BB-464:
+  - a missing unit appears with its reason and last location
+  - it is not shown with only *result.verify*
+  - it leaves the queue once located
+  - the kind's sort position
+- Full suite: 3,748 passed, 0 failed.
+- Run check (development API and web):
+  - the queue shows "Missing or damaged (2)"
+  - Damaged W000123DMG0001 shows "Bag seam leak discovered on storage inspection", with Inspect
+  - Missing W000123MISS001 shows "Not found during physical inventory count", with Locate
+  - both last recorded at the Main Blood Bank Refrigerator
+  - no server errors
+
+### Next ranked residual
+
+Rescan specimen and order workflows for the next operations gap.

@@ -124,6 +124,23 @@ public sealed class SupervisorQueueService
             }
         }
 
+        if (SupervisorQueueRule.IncludeDiscrepancy(release) && _inventory is not null)
+        {
+            foreach (var u in await _inventory.ListDiscrepancyAsync(ct))
+            {
+                var missing = u.Status == UnitStatus.Missing;
+                var product = string.IsNullOrWhiteSpace(u.ProductCode) ? "unit" : u.ProductCode!;
+                var reason = string.IsNullOrWhiteSpace(u.Reason) ? "No reason recorded" : u.Reason!.Trim().TrimEnd('.');
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindDiscrepancy,
+                    $"{(missing ? "Missing" : "Damaged")} — {u.UnitNumber}",
+                    $"{product} {u.Abo} {u.RhD}. {reason}. Last recorded at {u.LocationLabel}.",
+                    $"/inventory/units/{u.UnitId}",
+                    missing ? "Locate" : "Inspect",
+                    ContextId: u.UnitId));
+            }
+        }
+
         if (SupervisorQueueRule.IncludeOverrideReview(approve) && _overrides is not null)
         {
             foreach (var o in await _overrides.ListPendingAsync(ct))

@@ -12,6 +12,7 @@ public static class SupervisorQueueRule
     public const string KindResultVerify = "ResultPendingVerification";
     public const string KindQuarantineRelease = "QuarantineRelease";
     public const string KindOverrideReview = "OverrideReview";
+    public const string KindDiscrepancy = "InventoryDiscrepancy";
 
     public static RuleResult EvaluateAccess(
         bool hasImmunoOverride,
@@ -32,12 +33,16 @@ public static class SupervisorQueueRule
 
     public static bool IncludeQuarantineRelease(bool hasInventoryRelease) => hasInventoryRelease;
 
+    /// <summary>Missing and damaged units wait on whoever can locate, inspect, or discard them (inventory.release).</summary>
+    public static bool IncludeDiscrepancy(bool hasInventoryRelease) => hasInventoryRelease;
+
     public static int KindSortOrder(string kind) => kind switch
     {
         KindAntibodyReview => 0,
         KindResultVerify => 1,
         KindQuarantineRelease => 2,
-        KindOverrideReview => 3,
+        KindDiscrepancy => 3,
+        KindOverrideReview => 4,
         _ => 99
     };
 }
