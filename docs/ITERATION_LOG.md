@@ -15126,3 +15126,46 @@ The user then searched again for what they had just clicked (questions 1, 2).
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 448 — Deviations close with their corrective action (2026-11-06)
+
+### Capability matrix rescan (quality records)
+
+The help said a deviation's "closure requires the outcome, not a blank completion", but the service closed one with no corrective action. An empty corrective action also overwrote a recorded one; only the audit kept it. Reopening left the old close stamp on an open record. The list showed only id, title, severity, status, and context: no description, no reporter or date, no age, and no ordering by severity (questions 2, 5, 7; never silently overwrite).
+
+### Design
+
+- **`DeviationStatusRule`** (DEV-STATUS, HardStop):
+  - closing needs a corrective action, recorded or entered; it may say why none is needed
+  - a recorded action cannot be replaced with blank text
+- **`DeviationService.UpdateStatusAsync`:**
+  - applies the rule and trims the action
+  - stamps the close only on the move to Closed, and clears the stamp on reopening
+  - audits old and new status, action, closed by, and closed time
+- **`DeviationDto`** adds closed by and time.
+- **Deviations page:**
+  - order: open first, most severe, oldest (`DeviationListView.Order`)
+  - each row: description, corrective action, reporter, reported time, time open; closed rows say by whom and when
+  - the update panel shows the description and the rule's message, with Save disabled until it passes
+- No schema change.
+- **Demo:** two deviations, audited as the service would, added once: an open Major one (W0001230000001 found in the wrong refrigerator, under review) and a closed Minor one with its corrective action (ACC0001 label smudged).
+
+### Requirements
+
+- URS-BB-524, FRS-BB-623; safety rule DEV-STATUS. Help: deviations.
+
+### Tests
+
+- TEST-BB-489:
+  - rule: close without an action (none or blank) stopped; with a recorded or entered action allowed; blanking a recorded action stopped; editing it allowed
+  - service: close without an action refused; close trims and stamps; blanking refused; reopening clears the stamp and the audit keeps it; closing again keeps the recorded action
+  - list order
+- Full suite: 3,802 passed, 0 failed.
+- Run check (development API and web; the dev seed added the two demo deviations):
+  - Deviations lists the open Major one first ("tech2 · open 30 h"), then, with Show closed, the Minor one "Closed by supervisor1"
+  - on the open one, choosing Closed with no corrective action disables Save with the rule's message; typing one enables it; cancelled without saving
+  - no server errors
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

@@ -69,6 +69,94 @@ public static partial class DatabaseSeeder
         await EnsureSupplyDemoAsync(context, ct);
         await EnsureIssueRequestDemoAsync(context, ct);
         await EnsureOrderingLocationMappingDemoAsync(context, ct);
+        await EnsureDeviationDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Two quality records so Deviations has something to show: an open Major one (a unit found in the wrong
+    /// refrigerator) and a closed Minor one with its corrective action (a smudged tube label). Each is audited as the
+    /// service would audit it. Added once.
+    /// </summary>
+    private static async Task EnsureDeviationDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string marker = "Seed.DeviationDemo";
+        if (await context.SystemSettings.AnyAsync(s => s.Key == marker, ct))
+        {
+            return;
+        }
+
+        var unit = await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "W0001230000001", ct);
+        var specimen = await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0001", ct);
+        var now = DateTime.UtcNow;
+        var open = new Deviation
+        {
+            Title = "Unit found in the wrong refrigerator",
+            Description = "During the stock count, W0001230000001 was on the quarantine shelf of the main refrigerator, not the available shelf. Moved and checked; no issue affected.",
+            Severity = DeviationSeverity.Major,
+            Status = DeviationStatus.UnderReview,
+            ContextType = unit is null ? null : "BloodUnit",
+            ContextId = unit?.Id,
+            ReportedBy = "tech2",
+            ReportedUtc = now.AddHours(-30)
+        };
+        var closed = new Deviation
+        {
+            Title = "Tube label smudged at receipt",
+            Description = "ACC0001 label partly unreadable when received; relabeled under relabeling control before testing.",
+            Severity = DeviationSeverity.Minor,
+            Status = DeviationStatus.Closed,
+            ContextType = specimen is null ? null : "Specimen",
+            ContextId = specimen?.Id,
+            CorrectiveAction = "Label printer ribbon replaced; collection staff reminded to let labels dry before bagging.",
+            ReportedBy = "tech1",
+            ReportedUtc = now.AddDays(-3),
+            ClosedBy = "supervisor1",
+            ClosedUtc = now.AddDays(-2)
+        };
+        context.Deviations.AddRange(open, closed);
+        await context.SaveChangesAsync(ct);
+
+        foreach (var d in new[] { open, closed })
+        {
+            context.AuditEvents.Add(new AuditEvent
+            {
+                EventType = AuditEventType.Deviation,
+                EntityType = nameof(Deviation),
+                EntityId = d.Id,
+                UserName = d.ReportedBy,
+                Workstation = "DEMO-SEED",
+                OccurredUtc = d.ReportedUtc,
+                NewValueJson = JsonSerializer.Serialize(new { d.Title, d.Severity, Status = DeviationStatus.Open, d.ContextType, d.ContextId, DemoData = true }),
+                Reason = "Deviation created."
+            });
+        }
+
+        context.AuditEvents.Add(new AuditEvent
+        {
+            EventType = AuditEventType.Deviation,
+            EntityType = nameof(Deviation),
+            EntityId = open.Id,
+            UserName = "supervisor1",
+            Workstation = "DEMO-SEED",
+            OccurredUtc = open.ReportedUtc.AddHours(2),
+            OldValueJson = JsonSerializer.Serialize(new { Status = DeviationStatus.Open }),
+            NewValueJson = JsonSerializer.Serialize(new { open.Status, DemoData = true }),
+            Reason = "Deviation status updated."
+        });
+        context.AuditEvents.Add(new AuditEvent
+        {
+            EventType = AuditEventType.Deviation,
+            EntityType = nameof(Deviation),
+            EntityId = closed.Id,
+            UserName = closed.ClosedBy!,
+            Workstation = "DEMO-SEED",
+            OccurredUtc = closed.ClosedUtc!.Value,
+            OldValueJson = JsonSerializer.Serialize(new { Status = DeviationStatus.Open, CorrectiveAction = (string?)null }),
+            NewValueJson = JsonSerializer.Serialize(new { closed.Status, closed.CorrectiveAction, closed.ClosedBy, closed.ClosedUtc, DemoData = true }),
+            Reason = "Deviation status updated."
+        });
+        context.SystemSettings.Add(new SystemSetting { Key = marker, Value = "1", Description = "Demo deviations seeded once." });
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>

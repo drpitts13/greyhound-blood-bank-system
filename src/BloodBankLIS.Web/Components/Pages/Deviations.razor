@@ -60,15 +60,32 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Id</th><th>Title</th><th>Severity</th><th>Status</th><th>Context</th><th></th></tr></thead>
+                    <thead><tr><th>Id</th><th>Deviation</th><th>Severity</th><th>Status</th><th>Reported</th><th>Context</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var d in VisibleRows)
                         {
                             <tr>
                                 <td>@d.Id</td>
-                                <td>@d.Title</td>
-                                <td>@d.Severity</td>
-                                <td>@d.Status</td>
+                                <td>
+                                    <strong>@d.Title</strong>
+                                    <span class="sub">@d.Description</span>
+                                    @if (!string.IsNullOrWhiteSpace(d.CorrectiveAction))
+                                    {
+                                        <span class="sub" data-corrective-action>Corrective action: @d.CorrectiveAction</span>
+                                    }
+                                </td>
+                                <td><span class="badge @SeverityClass(d.Severity)">@d.Severity</span></td>
+                                <td>
+                                    @d.Status
+                                    @if (d.Status == DeviationStatus.Closed && d.ClosedUtc is DateTime closedAt)
+                                    {
+                                        <span class="sub">by @d.ClosedBy @closedAt.ToString("yyyy-MM-dd")</span>
+                                    }
+                                </td>
+                                <td class="nowrap">
+                                    @d.ReportedUtc.ToString("yyyy-MM-dd HH:mm")
+                                    <span class="sub">@d.ReportedBy@(d.Status == DeviationStatus.Closed ? "" : $" · open {AlertInboxView.OpenFor(d.ReportedUtc, DateTime.UtcNow)}")</span>
+                                </td>
                                 <td class="mono">
                                     @if (string.IsNullOrWhiteSpace(d.ContextType) && d.ContextId is null)
                                     {
@@ -104,11 +121,16 @@ else
                 @* Keyed so switching rows re-adds the panel and it scrolls into view again. *@
                 <div @key="_statusId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
                     <strong>Update deviation #@_statusId: @_rows.FirstOrDefault(r => r.Id == _statusId)?.Title</strong>
+                    <div class="muted">@_rows.FirstOrDefault(r => r.Id == _statusId)?.Description</div>
                     <div class="field" style="margin-top:.5rem;"><label>Status</label>
                         <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@s</option> }</select>
                     </div>
-                    <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa"></textarea></div>
-                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveStatusAsync">Save</button>
+                    <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa" @bind:event="oninput" placeholder="What was done, or why no action is needed"></textarea></div>
+                    @if (StatusCheck is { Severity: RuleSeverity.HardStop } blocked)
+                    {
+                        <div class="sub" data-deviation-status-block>@blocked.Message</div>
+                    }
+                    <button class="btn btn-primary btn-sm" disabled="@(_busy || StatusCheck.Severity == RuleSeverity.HardStop)" @onclick="SaveStatusAsync">Save</button>
                     <button class="btn btn-ghost btn-sm" @onclick="() => _statusId = null">Cancel</button>
                 </div>
             }
@@ -133,7 +155,19 @@ else
     // Closed deviations stay on record but are hidden by default so the working list stays short.
     private bool _showClosed;
     private int ClosedCount => _rows.Count(r => r.Status == DeviationStatus.Closed);
-    private IEnumerable<DeviationDto> VisibleRows => _showClosed ? _rows : _rows.Where(r => r.Status != DeviationStatus.Closed);
+    // Open first, most severe first, oldest first.
+    private IEnumerable<DeviationDto> VisibleRows => DeviationListView.Order(_showClosed ? _rows : _rows.Where(r => r.Status != DeviationStatus.Closed));
+
+    // The server rule, shown before Save: closing needs a corrective action, and a recorded one is not blanked.
+    private RuleResult StatusCheck =>
+        DeviationStatusRule.Evaluate(_newStatus, _rows.FirstOrDefault(r => r.Id == _statusId)?.CorrectiveAction, _capa);
+
+    private static string SeverityClass(DeviationSeverity severity) => severity switch
+    {
+        DeviationSeverity.Critical => "badge-red",
+        DeviationSeverity.Major => "badge-amber",
+        _ => "badge-gray"
+    };
 
     // A DEV-n link elsewhere (storage temperatures, the temperature report) opens that deviation's update panel.
     [SupplyParameterFromQuery(Name = "id")] public long? DeviationId { get; set; }
