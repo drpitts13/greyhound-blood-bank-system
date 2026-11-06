@@ -198,16 +198,17 @@
                             {
                                 <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                             }
-                            <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => ToggleEntry(item.OrderLineId)">
+                            <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => ToggleEntry(item.OrderLineId)"
+                                    data-bench-toggle data-bench-open="@(_expandedLineId == item.OrderLineId ? "true" : "false")">
                                 @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabelFor(Session.UserName))
                             </button>
                         </td>
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="10">
+                        <tr data-bench-entry><td colspan="10">
                             <TestLineCommentEditor WorkItem="item" />
-                            <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
+                            <div data-bench-result><TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" /></div>
                         </td></tr>
                     }
                 }

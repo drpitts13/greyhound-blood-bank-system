@@ -109,6 +109,7 @@ window.bbUi = {
         ['↑ ↓, Enter', 'Choose a match in the find box list'],
         ['Esc', 'Close the find box list or this panel'],
         ['Enter (issue, ward receipt, bedside)', 'Move to the next identifier or unit-label field. After the last field, focus returns to the form; Issue, Receive, and Document are never pressed by Enter alone'],
+        ['J / K (test worklist)', 'Open the next or previous test and put the cursor in its first field. Nothing is saved or verified by a shortcut'],
         ['?', 'Show or hide this panel']
     ];
     var panel = null;
@@ -165,5 +166,40 @@ window.bbUi = {
         if (e.key !== '?' || e.ctrlKey || e.altKey || e.metaKey || typing(e.target)) return;
         e.preventDefault();
         if (panel) close(); else open();
+    });
+})();
+
+// Test worklist: J opens the next test and K the previous one (outside a text field), as clicking the row's own
+// Enter/Hide button would, then puts the cursor in the first result field of the opened entry. Only [data-bench-toggle]
+// buttons are ever clicked: saving and verifying stay deliberate clicks.
+(function () {
+    function typing(t) {
+        return t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].indexOf(t.tagName) >= 0);
+    }
+
+    document.addEventListener('keydown', function (e) {
+        var key = (e.key || '').toLowerCase();
+        if ((key !== 'j' && key !== 'k') || e.ctrlKey || e.altKey || e.metaKey || typing(e.target)) return;
+        var toggles = Array.prototype.slice.call(document.querySelectorAll('button[data-bench-toggle]'))
+            .filter(function (b) { return !b.disabled && b.offsetParent !== null; });
+        if (toggles.length === 0) return;
+        e.preventDefault();
+        var open = toggles.findIndex(function (b) { return b.getAttribute('data-bench-open') === 'true'; });
+        var target = open < 0
+            ? (key === 'j' ? 0 : toggles.length - 1)
+            : open + (key === 'j' ? 1 : -1);
+        if (target < 0 || target >= toggles.length) return;
+        toggles[target].click();
+        toggles[target].closest('tr').scrollIntoView({ block: 'nearest' });
+        // Blazor renders the entry row after the click; then the first usable field takes the cursor.
+        setTimeout(function () {
+            var entry = document.querySelector('tr[data-bench-entry]');
+            if (!entry) return;
+            // The result panel's first field, not the line comment editor above it.
+            function usable(f) { return !f.disabled && !f.readOnly && f.offsetParent !== null && f.type !== 'hidden'; }
+            var result = entry.querySelector('[data-bench-result]') || entry;
+            var field = Array.prototype.find.call(result.querySelectorAll('input, select, textarea'), usable);
+            if (field) field.focus();
+        }, 150);
     });
 })();

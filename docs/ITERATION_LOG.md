@@ -14426,3 +14426,41 @@ The demo had no deliveries or supplier orders, so the supply workflows could not
 ### Next ranked residual
 
 Rescan the remaining Partial areas for the next operations gap.
+
+## Iteration 429 — J/K between tests on the worklist (2026-11-05)
+
+### Capability matrix rescan (UX, keyboard)
+
+Keyboard shortcuts on the bench had been the deferred residual of several cycles. The worklist already opens the next test after a save. Moving between tests otherwise needed the mouse for each row (questions 1, 4).
+
+### Design
+
+- **`ui.js`:**
+  - J opens the next test and K the previous one, outside a text field with no modifier keys
+  - it clicks only that row's own open/hide button (`data-bench-toggle`), so the page behaves as for a click
+  - it then puts the cursor in the first field of the row's result panel (`data-bench-result`)
+- **Saving and verifying:** never done by a key; they stay deliberate clicks.
+- **Blocked rows:** open with their reason and no field to focus.
+- **Shortcut panel:** lists J / K under **?**.
+- No server change.
+
+### Requirements
+
+- URS-BB-515, FRS-BB-604. Help: test worklist.
+
+### Tests
+
+- TEST-BB-470 (file checks in the style of TEST-BB-313):
+  - the shortcut clicks only `data-bench-toggle` buttons, once, and ignores typing
+  - the worklist rows carry the toggle, the open state, and the result panel marker
+  - J / K is in the shortcut panel
+- Full suite: 3,763 passed, 0 failed.
+- Run check (development API and web):
+  - J opened row 1, J row 2, K back to row 1; J pressed inside a field did nothing
+  - on rows that take results, the cursor landed in the result panel (Interpreted ABO, Result); blocked rows opened with "No specimen is linked…"
+  - nothing saved; no server errors
+- **Found in the run check and fixed:** the cursor first went to the line comment box, then to its code picker. It now goes to the result panel.
+
+### Next ranked residual
+
+The compatible-first unit picker in the Compatibility crossmatch section.
