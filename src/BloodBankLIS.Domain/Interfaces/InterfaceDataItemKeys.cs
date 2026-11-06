@@ -54,4 +54,12 @@ public static class InterfaceDataItemKeys
     public const string TransfusionLocation = "TransfusionEvent.Location";
     public const string Transfusionist = "TransfusionEvent.Transfusionist";
     public const string TransfusionReaction = "TransfusionEvent.ReactionSuspected";
+
+    // OCD-063: the EHR's request to send a reserved unit now (HL7 v2.5 OMB^O27).
+    public const string DispenseOrderControl = "DispenseRequest.OrderControl";
+    public const string DispenseOrderNumber = "DispenseRequest.OrderNumber";
+    public const string DispenseDestination = "DispenseRequest.Destination";
+    public const string DispensePatientLocation = "DispenseRequest.PatientLocation";
+    public const string DispenseDin = "DispenseRequest.Din";
+    public const string DispenseRequester = "DispenseRequest.Requester";
 }

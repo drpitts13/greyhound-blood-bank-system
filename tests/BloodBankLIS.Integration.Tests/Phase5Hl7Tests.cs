@@ -72,7 +72,10 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             specimens: new EfRepository<Specimen>(c),
             currentUser: _factory.CurrentUser,
             audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            aliasWriter: new PatientHistoricalAliasWriter(new EfRepository<PatientIdentifier>(c)));
+            aliasWriter: new PatientHistoricalAliasWriter(new EfRepository<PatientIdentifier>(c)),
+            dispenseRequests: new InterfaceDispenseRequestService(
+                new EfRepository<Allocation>(c), new EfRepository<Order>(c), new EfRepository<BloodUnit>(c),
+                _factory.Clock, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c));
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -1660,5 +1663,130 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         var again = await Processor(context).ProcessAsync(Ras("CTRL-RAS-BILL-2", "HL7-BPAM-BILL", "W-BPAM-BILL"));
         Assert.True(again.Accepted, again.Log.ErrorDetail);
         Assert.Equal(1, await context.BillingEvents.CountAsync(e => e.PatientId == patient.Id));
+    }
+
+    // TEST-BB-499 (OCD-063): an OMB^O27 from the EHR asks for a reserved unit to be sent now. It becomes the same issue
+    // request a ward makes in the LIS, never an issue; it is refused to the error queue when the unit cannot be
+    // identified without guessing; a cancel withdraws it.
+    private static string Omb(string controlId, string mrn, string control, string orderNumber, string? deliverTo, string patientLocation = "ICU 4") =>
+        $"MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20261106120000||OMB^O27|{controlId}|P|2.5\r" +
+        $"PID|1||{mrn}^^^HOSP^MR||Request^Rita\r" +
+        $"PV1||I|{patientLocation}\r" +
+        $"ORC|{control}|{orderNumber}||||||||||1234^Wells^Dana\r" +
+        $"BPO|1|RBC^Red cells||||||||||||{deliverTo}";
+
+    private async Task<(Patient Patient, List<Allocation> Reserved)> SeedReservedOnOrderAsync(BloodBankDbContext c, string key, int units)
+    {
+        var patient = new Patient { MedicalRecordNumber = $"HL7-OMB-{key}", LastName = "Request", FirstName = "Rita", DateOfBirth = new DateOnly(1970, 3, 3), Sex = Sex.Female };
+        var location = new OrderingLocation { Code = $"OMB-{key}", Name = "ICU", IsActive = true };
+        var product = new ProductType { ProductCode = $"RBC-OMB-{key}", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        c.Patients.Add(patient);
+        c.OrderingLocations.Add(location);
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var visit = new Encounter { PatientId = patient.Id, VisitNumber = $"V-OMB-{key}", Status = EncounterStatus.Active, AdmitUtc = _factory.Clock.UtcNow.AddDays(-1) };
+        c.Encounters.Add(visit);
+        await c.SaveChangesAsync();
+        var order = new Order
+        {
+            OrderNumber = $"ORD-OMB-{key}", PatientId = patient.Id, EncounterId = visit.Id, OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product, Priority = OrderPriority.Routine, OrderedUtc = _factory.Clock.UtcNow, Status = OrderStatus.InProcess
+        };
+        c.Orders.Add(order);
+        await c.SaveChangesAsync();
+        var reserved = new List<Allocation>();
+        for (var i = 1; i <= units; i++)
+        {
+            var unit = new BloodUnit
+            {
+                UnitNumber = $"W-OMB-{key}-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Allocated
+            };
+            c.BloodUnits.Add(unit);
+            await c.SaveChangesAsync();
+            var allocation = new Allocation
+            {
+                BloodProductId = unit.Id, PatientId = patient.Id, EncounterId = visit.Id, OrderId = order.Id,
+                Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-1), AllocatedBy = "tech1"
+            };
+            c.Allocations.Add(allocation);
+            reserved.Add(allocation);
+        }
+
+        await c.SaveChangesAsync();
+        return (patient, reserved);
+    }
+
+    [Fact]
+    public async Task DispenseRequest_RequestsTheOneReservedUnit_ThenACancelWithdrawsIt()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "ONE", units: 1);
+
+        var request = await Processor(c).ProcessAsync(Omb("CTRL-OMB-1", patient.MedicalRecordNumber, "NW", "ORD-OMB-ONE", "OR 3"));
+        Assert.True(request.Accepted, request.AckMessage);
+        await c.Entry(reserved[0]).ReloadAsync();
+        Assert.Equal("OR 3", reserved[0].IssueRequestedTo);
+        Assert.StartsWith("EHR (HL7)", reserved[0].IssueRequestedBy);
+        Assert.Equal(AllocationStatus.Reserved, reserved[0].Status);
+        Assert.Contains(c.AuditEvents.ToList(), e => e.EntityType == nameof(Allocation) && e.EntityId == reserved[0].Id && (e.Reason ?? string.Empty).Contains("CTRL-OMB-1"));
+
+        var cancel = await Processor(c).ProcessAsync(Omb("CTRL-OMB-2", patient.MedicalRecordNumber, "CA", "ORD-OMB-ONE", null));
+        Assert.True(cancel.Accepted, cancel.AckMessage);
+        await c.Entry(reserved[0]).ReloadAsync();
+        Assert.Null(reserved[0].IssueRequestedUtc);
+    }
+
+    [Fact]
+    public async Task DispenseRequest_UsesThePatientLocation_WhenNoDeliverToIsSent()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "PV1", units: 1);
+
+        var request = await Processor(c).ProcessAsync(Omb("CTRL-OMB-3", patient.MedicalRecordNumber, "NW", "ORD-OMB-PV1", null, patientLocation: "4W Med/Surg"));
+        Assert.True(request.Accepted, request.AckMessage);
+        await c.Entry(reserved[0]).ReloadAsync();
+        Assert.Equal("4W Med/Surg", reserved[0].IssueRequestedTo);
+    }
+
+    [Fact]
+    public async Task DispenseRequest_ForAnOrderWithSeveralUnits_GoesToTheErrorQueue_AndChangesNothing()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "TWO", units: 2);
+
+        var request = await Processor(c).ProcessAsync(Omb("CTRL-OMB-4", patient.MedicalRecordNumber, "NW", "ORD-OMB-TWO", "OR 3"));
+        Assert.False(request.Accepted);
+        Assert.Contains("2 reserved units", request.AckMessage);
+        Assert.True(await c.InterfaceErrorQueue.AnyAsync(e => e.Hl7MessageId == request.Log.Id && !e.Resolved));
+        foreach (var a in reserved)
+        {
+            await c.Entry(a).ReloadAsync();
+            Assert.Null(a.IssueRequestedUtc);
+        }
+    }
+
+    [Fact]
+    public async Task DispenseRequest_ByDin_PicksThatUnit_EvenWhenTheOrderHasSeveral()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "DIN", units: 2);
+        var service = new InterfaceDispenseRequestService(
+            new EfRepository<Allocation>(c), new EfRepository<Order>(c), new EfRepository<BloodUnit>(c),
+            _factory.Clock, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c);
+
+        var text = await service.HandleAsync(new InterfaceDispenseRequest(patient.Id, false, "ORD-OMB-DIN", "W-OMB-DIN-2", "PACU", null, "CTRL-OMB-DIN"));
+        Assert.Contains("W-OMB-DIN-2", text);
+        foreach (var a in reserved)
+        {
+            await c.Entry(a).ReloadAsync();
+        }
+
+        Assert.Null(reserved[0].IssueRequestedUtc);
+        Assert.Equal("PACU", reserved[1].IssueRequestedTo);
+
+        var unknown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.HandleAsync(new InterfaceDispenseRequest(patient.Id, false, null, "W-NOT-RESERVED", "PACU", null, "CTRL-OMB-DIN2")));
+        Assert.Contains("No unit W-NOT-RESERVED is reserved", unknown.Message);
     }
 }

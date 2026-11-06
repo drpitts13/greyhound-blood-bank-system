@@ -122,6 +122,13 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.TransfusionVolume, "Volume transfused", "Administered amount.", "RXA-6", false),
         new(InterfaceDataItemKeys.TransfusionLocation, "Location", "Administration location.", "PV1-3-1", false),
         new(InterfaceDataItemKeys.Transfusionist, "Transfusionist", "Administering provider (XCN).", "RXA-10", false),
-        new(InterfaceDataItemKeys.TransfusionReaction, "Reaction suspected", "Reaction / completion flag.", "RXA-18", false)
+        new(InterfaceDataItemKeys.TransfusionReaction, "Reaction suspected", "Reaction / completion flag.", "RXA-18", false),
+        // OMB^O27 "send this reserved unit now" (OCD-063). A standard OMB carries no DIN: map one only if your EHR sends it.
+        new(InterfaceDataItemKeys.DispenseOrderControl, "Dispense request: order control", "ORC-1: NW or XO requests; CA, OC, or DC cancels.", "ORC-1", false),
+        new(InterfaceDataItemKeys.DispenseOrderNumber, "Dispense request: placer order", "ORC-2: the blood product order with exactly one reserved unit.", "ORC-2-1", false),
+        new(InterfaceDataItemKeys.DispenseDestination, "Dispense request: deliver to", "BPO-14: requested dispense-to location.", "BPO-14-1", false),
+        new(InterfaceDataItemKeys.DispensePatientLocation, "Dispense request: patient location", "PV1-3: used when BPO-14 is empty.", "PV1-3-1", false),
+        new(InterfaceDataItemKeys.DispenseDin, "Dispense request: unit (DIN)", "Not in a standard OMB; map it to the field your EHR uses to name the unit.", "", false),
+        new(InterfaceDataItemKeys.DispenseRequester, "Dispense request: requested by", "ORC-12 ordering provider (XCN).", "ORC-12", false)
     ];
 }

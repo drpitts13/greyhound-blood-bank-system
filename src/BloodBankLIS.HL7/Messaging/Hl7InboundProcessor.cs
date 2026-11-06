@@ -46,6 +46,7 @@ public sealed class Hl7InboundProcessor
     private readonly IInterfaceFieldMappingRepository? _mappings;
     private readonly IInterfaceValueTranslationRepository? _translations;
     private readonly InterfaceTransfusionService? _bpam;
+    private readonly InterfaceDispenseRequestService? _dispenseRequests;
     private readonly PatientMergeService? _merges;
     private readonly ResultService? _results;
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
@@ -75,8 +76,10 @@ public sealed class Hl7InboundProcessor
         IRepository<Specimen>? specimens = null,
         ICurrentUser? currentUser = null,
         IAuditWriter? audit = null,
-        PatientHistoricalAliasWriter? aliasWriter = null)
+        PatientHistoricalAliasWriter? aliasWriter = null,
+        InterfaceDispenseRequestService? dispenseRequests = null)
     {
+        _dispenseRequests = dispenseRequests;
         _logs = logs;
         _errors = errors;
         _patients = patients;
@@ -332,6 +335,7 @@ public sealed class Hl7InboundProcessor
             "ADT" => await HandleAdtAsync(message, map, ct),
             "ORM" or "OML" => await HandleOrmAsync(message, map, ct),
             "RAS" or "BPS" => await HandleBpamAsync(message, map, ct),
+            "OMB" => await HandleDispenseRequestAsync(message, map, ct),
             "ORU" => await HandleOruAsync(message, map, ct),
             _ => throw new Hl7MappingException($"Unsupported message type '{message.MessageType}'.")
         };
@@ -825,6 +829,51 @@ public sealed class Hl7InboundProcessor
         }
     }
 
+    /// <summary>
+    /// OCD-063: an OMB^O27 asks for a reserved unit to be sent now (or cancels that). The patient is found by MRN,
+    /// following merges; the unit and the request are handled like a ward request in the LIS. Anything that cannot be
+    /// resolved without guessing goes to the error queue with the reason.
+    /// </summary>
+    private async Task<string> HandleDispenseRequestAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
+    {
+        if (_dispenseRequests is null)
+        {
+            throw new Hl7MappingException("Dispense requests from the EHR are not configured.");
+        }
+
+        var data = Hl7DispenseRequestMapper.Map(message, map);
+        if (string.IsNullOrWhiteSpace(data.Mrn))
+        {
+            throw new Hl7MappingException("Dispense request has no patient identifier (PID-3).");
+        }
+
+        var patient = _merges is not null
+            ? await _merges.FindByMrnAsync(data.Mrn, followMerge: true, ct)
+            : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        patient = await PatientMergeFollow.ResolveClinicalRecordAsync(_patients, patient, ct);
+        if (patient is null)
+        {
+            throw new Hl7MappingException($"No patient with MRN {data.Mrn}.");
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        if (clinical.Severity == RuleSeverity.HardStop)
+        {
+            throw new Hl7MappingException(clinical.Message);
+        }
+
+        try
+        {
+            return await _dispenseRequests.HandleAsync(new InterfaceDispenseRequest(
+                patient.Id, data.Cancel, data.OrderNumber, data.Din, data.Destination, data.Requester,
+                message.Get("MSH-10")), ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new Hl7MappingException(ex.Message);
+        }
+    }
+
     private async Task<(Hl7FieldMap Map, long? EndpointId, bool Enabled)> ResolveInboundAsync(
         string messageType,
         long? requestedId,
@@ -834,7 +883,7 @@ public sealed class Hl7InboundProcessor
         {
             "ADT" => InterfaceType.Adt,
             "ORM" or "OML" => InterfaceType.Orders,
-            "RAS" or "BPS" => InterfaceType.Bpam,
+            "RAS" or "BPS" or "OMB" => InterfaceType.Bpam,
             "ORU" => InterfaceType.Results,
             _ => InterfaceType.Adt
         };

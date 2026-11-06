@@ -242,6 +242,36 @@ public static class Hl7OruMapper
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 }
 
+/// <summary>An OMB^O27 request to send a reserved unit now (OCD-063).</summary>
+public sealed record Hl7DispenseRequestData(
+    string Mrn,
+    bool Cancel,
+    string? OrderNumber,
+    string? Din,
+    string? Destination,
+    string? Requester);
+
+/// <summary>Pure mapping of an OMB^O27 dispense request. The DIN is read only when the facility has mapped a field to it.</summary>
+public static class Hl7DispenseRequestMapper
+{
+    public static Hl7DispenseRequestData Map(Hl7Message message, Hl7FieldMap? map = null)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        map ??= Hl7FieldMap.Default(InterfaceType.Bpam, Hl7Direction.Inbound);
+        var control = map.Get(message, InterfaceDataItemKeys.DispenseOrderControl).Trim().ToUpperInvariant();
+        var dinPath = map.Path(InterfaceDataItemKeys.DispenseDin);
+        return new Hl7DispenseRequestData(
+            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Cancel: control is "CA" or "OC" or "DC",
+            OrderNumber: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseOrderNumber)),
+            Din: string.IsNullOrWhiteSpace(dinPath) ? null : Hl7AdtMapper.NullIfEmpty(message.Get(dinPath)),
+            Destination: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseDestination))
+                ?? Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispensePatientLocation)),
+            Requester: Hl7AdtMapper.MapPersonName(message, map, InterfaceDataItemKeys.DispenseRequester)
+                ?? Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseRequester)));
+    }
+}
+
 /// <summary>Pure mapping of RAS/BPS blood-product administration fields.</summary>
 public static class Hl7BpamMapper
 {

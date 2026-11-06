@@ -15490,3 +15490,47 @@ Decided 2026-11-06 by the product owner: send a "no result" message (ORU, OBR-25
 ### Next
 
 OCD-063: inbound dispense requests from the EHR.
+
+## Iteration 458 — Dispense requests from the EHR (OCD-063) (2026-11-06)
+
+### Decision
+
+Decided 2026-11-06 by the product owner: accept the EHR's request to send a reserved unit now as an issue request, built to the HL7 v2.5 standard (OMB^O27) with the field mapping documented.
+
+### Design
+
+- **Interface:** the blood-product interface accepts OMB (`RAS,BPS,OMB`); the processor routes it to `HandleDispenseRequestAsync`.
+- **Patient:** found by PID-3, following merges; a merged-away chart is refused.
+- **`Hl7DispenseRequestMapper`:**
+  - ORC-1 (CA/OC/DC withdraws), ORC-2 placer order, ORC-12 requester
+  - destination: BPO-14, else PV1-3
+  - DIN only when the facility maps a path (none by default; a standard OMB carries none)
+- **`InterfaceDispenseRequestService`:**
+  - the unit by DIN when given, else the one unit reserved on the placer order
+  - sets the same request fields as a ward request (Cycle 439): requested by "EHR (HL7): name", audited with MSH-10; the tracked reservation is changed, as the ward path does
+  - a cancel clears an open request (nothing to cancel is acknowledged)
+  - the same destination again is acknowledged without change
+  - no match, several matches, an unknown order, no destination, or a different destination already requested is refused to the error queue with the reason
+  - never issues; no user permission is checked here (interface trust, OCD-034)
+- **Data items** added to the Bpam catalog with defaults; mapping documented in hl7-design.md §2.6.
+- No schema change.
+
+### Requirements
+
+- FRS-BB-633 (under URS-BB-521); OCD-063 recorded. Help: issuing; HL7 design.
+
+### Tests
+
+- TEST-BB-499:
+  - by placer order: the one reserved unit is requested to BPO-14, requested by "EHR (HL7)", audited with the control id; a CA withdraws it
+  - with no BPO-14, PV1-3 is used
+  - an order with two reserved units goes to the error queue and nothing changes
+  - by DIN, that unit is chosen even when the order has two; an unreserved DIN is refused
+- Found while testing: the reservation search reads without tracking, so changing that copy collided with the tracked entity at save. The service now changes the tracked reservation by id.
+- Full suite: 3,822 passed, 0 failed.
+- Run check (development API and web): the API starts with the dispense service wired into the HL7 processor; the HL7 page loads; no server errors.
+- No OMB was sent to the dev database (it would change a demo reservation); TEST-BB-499 covers the message path.
+
+### Next ranked residual
+
+Confirm OCD-062 and OCD-063 message details with the EHR team. Otherwise rescan the desks.

@@ -618,6 +618,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-521 / FRS-BB-614 | Ward issue request, requested first at issue | `IssueRequestService`; `ReadyToIssueAttentionRule.IssuableFirst` | TEST-BB-480 | U, I | |
 | URS-BB-521 / FRS-BB-615 | Visit location suggested as the issue destination | `PatientVisitLocation.For` | TEST-BB-481 | U | |
 | URS-BB-521 / FRS-BB-616 | Chart issue panel destination from request or visit | `PatientVisitLocation.For` (visit list) | TEST-BB-482 | U | |
+| URS-BB-521 / FRS-BB-633 | EHR dispense requests (OMB^O27) become issue requests (OCD-063) | `InterfaceDispenseRequestService`; `Hl7DispenseRequestMapper` | TEST-BB-499 | I | |
 | URS-BB-522 / FRS-BB-620 | New order location from the visit; attending offered | `OrderVisitDefaults` | TEST-BB-486 | U | |
 | URS-BB-523 / FRS-BB-622 | Chart links open the named tube, order, or visit's orders | `PatientChartUrls`; `PatientDetail.razor` | TEST-BB-488 | U | |
 | URS-BB-524 / FRS-BB-623 | Deviation closes with a corrective action; list by severity and age | `DeviationStatusRule`; `DeviationService`; `DeviationListView` | TEST-BB-489 | U, I | |

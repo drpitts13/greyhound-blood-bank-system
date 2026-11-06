@@ -507,5 +507,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-496 | I | `ReagentQcHistoryTests.RecentQc_NewestFirst_WithinTheWindow_AndTheFormHelpers` | URS-BB-391 / FRS-BB-630 |
 | TEST-BB-497 | U, I | `BatchVerifyRuleTests.PlainNegatives_AndMatchingTypes_Qualify`; `BatchVerifyRuleTests.EverythingElse_IsVerifiedOnItsOwn`; `BatchVerifyServiceTests.OnlyEligibleResults_AreVerified_AndEachIsAuditedWithTheBatch` | URS-BB-525 / FRS-BB-631 |
 | TEST-BB-498 | U, I | `Hl7OruBuilderTests.NoResultNotice_CarriesTheOrderAndTheReason`; `SpecimenRejectionEhrNoticeTests.Rejecting_QueuesANoResultNoticePerOpenTest_OnlyWithAResultsInterface`; `SpecimenRejectionEhrNoticeTests.AFailureToQueue_KeepsTheRejection_AndWarns` | URS-BB-509 / FRS-BB-632 |
+| TEST-BB-499 | I | `Phase5Hl7Tests.DispenseRequest_RequestsTheOneReservedUnit_ThenACancelWithdrawsIt`; `Phase5Hl7Tests.DispenseRequest_UsesThePatientLocation_WhenNoDeliverToIsSent`; `Phase5Hl7Tests.DispenseRequest_ForAnOrderWithSeveralUnits_GoesToTheErrorQueue_AndChangesNothing`; `Phase5Hl7Tests.DispenseRequest_ByDin_PicksThatUnit_EvenWhenTheOrderHasSeveral` | URS-BB-521 / FRS-BB-633 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

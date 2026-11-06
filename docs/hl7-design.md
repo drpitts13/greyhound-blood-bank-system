@@ -78,6 +78,21 @@ Thin blood-product administration intake (not IHE/Epic certification). Mapped fi
 
 ---
 
+### 2.6 Inbound dispense request (OMB^O27, OCD-063)
+The EHR may ask for a reserved unit to be sent now with an HL7 v2.5 OMB^O27 on the blood-product (Bpam) interface. It becomes the same issue request a ward makes in the LIS; it never issues a unit. Default field mapping (editable per interface under data items):
+
+| Data item | Default | Meaning |
+|---|---|---|
+| Patient MRN | `PID-3-1` | Patient, following merges |
+| Dispense request: order control | `ORC-1` | `NW` or `XO` requests; `CA`, `OC`, or `DC` withdraws an open request |
+| Dispense request: placer order | `ORC-2-1` | Used when no DIN is sent: the order must have exactly one unit reserved for the patient |
+| Dispense request: deliver to | `BPO-14-1` | Requested dispense-to location |
+| Dispense request: patient location | `PV1-3-1` | Used when BPO-14 is empty |
+| Dispense request: unit (DIN) | none | Not part of a standard OMB; map it if your EHR names the unit |
+| Dispense request: requested by | `ORC-12` | Shown as "EHR (HL7): name" |
+
+Refused to the error queue with the reason: no reserved unit matches, several match, the order is not on the patient, no destination, or a different destination is already requested. The same destination again is acknowledged without change. **Confirm with the EHR team** that their message matches this mapping, or adjust the mapping, and send a sample.
+
 ## 3. ACK/NAK handling
 
 ```mermaid
