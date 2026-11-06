@@ -14918,3 +14918,30 @@ The chart's Products tab has its own issue panel. Its **Location to issue** star
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 442 — Overdue transfusion completions surfaced (2026-11-06)
+
+### Capability matrix rescan (outstanding transfusions)
+
+A transfusion started at the bedside and not completed within the reminder hours raises an alert, is counted on the shift handoff, and shows a red badge on Issued units. But the home **Outstanding issued** card gave only a count, and Issued units listed it by issue time, so the row could sit below routine issues (question 5, next action not surfaced).
+
+### Design
+
+- **`IssuingService.ListOutstandingIssuedAsync`:** overdue completions first; the rest keep issue order.
+- **Issued units:** a warning names how many and says to complete them or check they are still running.
+- **Home card:** `DashboardQueueCatalog.OutstandingNote` names "n transfusion completion(s) overdue", which puts the card under Needs attention.
+- Same flag as the badge and the handoff (`TransfusionCompletionRule`, facility reminder hours). No schema or API change; no new rule.
+
+### Requirements
+
+- FRS-BB-617 (under URS-BB-451). Help: issuing, dashboard.
+
+### Tests
+
+- TEST-BB-483: an overdue transfusion issued later leads one issued earlier; the card note counts it.
+- Full suite: 3,786 passed, 0 failed.
+- Run check (development API and web): the running demo transfusion W0001230000099 is inside the 6-hour reminder, so the card has no note, Issued units no warning, and rows stay in issue order; no server errors. The overdue path is covered by TEST-BB-483.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

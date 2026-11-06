@@ -491,5 +491,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-480 | U, I | `IssueRequestServiceTests.Request_ThenCancel_KeepsTheTrail_AndRefusesWhatItShould`; `DashboardDueCountTests.Requested_LeadReadyToIssue_AndAreNamedOnTheCard` | URS-BB-521 / FRS-BB-614 |
 | TEST-BB-481 | U | `PatientVisitLocationTests.ReservationVisit_WinsWhenOpen_ElseLatestOpenVisit`; `PatientVisitLocationTests.NoOpenVisitWithALocation_SuggestsNothing` | URS-BB-521 / FRS-BB-615 |
 | TEST-BB-482 | U | `PatientVisitLocationTests.ChartVisitList_GivesTheSameChoice` | URS-BB-521 / FRS-BB-616 |
+| TEST-BB-483 | I | `Phase4IssuingTests.CompletionOverdue_LeadsTheIssuedList` | URS-BB-451 / FRS-BB-617 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

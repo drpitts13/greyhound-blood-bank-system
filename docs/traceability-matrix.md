@@ -488,6 +488,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-449 / FRS-BB-485 | Transfusion judged against the unit at its start | `TransfusionDocumentationRule`; `IssuingService` | TEST-BB-342 | D / I | |
 | URS-BB-450 / FRS-BB-486 | Start a transfusion at the bedside, complete it later | `IssuingService`; issuing endpoints; issue desk | TEST-BB-343 | I | |
 | URS-BB-451 / FRS-BB-487 | Reminder for transfusions not completed | `TransfusionCompletionRule`; `AlertScanner`; issue desk | TEST-BB-346 | D / I | |
+| URS-BB-451 / FRS-BB-617 | Overdue completions lead Issued units and are named on the home card | `IssuingService.ListOutstandingIssuedAsync`; `DashboardQueueCatalog.OutstandingNote` | TEST-BB-483 | I | |
 | URS-BB-452 / FRS-BB-488 | Chart and timeline show running transfusions as running | `PatientProductHistoryService`; `PatientTimelineService`; product history tab | TEST-BB-347 | I | |
 | URS-BB-453 / FRS-BB-489 | Running transfusions never reported with an outcome | `TransfusionRecordState`; report readers and views; lookback; unit activity; utilization | TEST-BB-348 | D / I | |
 | URS-BB-454 / FRS-BB-490 | Tube-label identifiers and collector at accession | `SpecimenLabelIdentityRule`; `SpecimenService`; chart accession forms | TEST-BB-349 | D / I | |

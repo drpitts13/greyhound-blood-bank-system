@@ -552,6 +552,10 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Issued units</h3></div>
         <p class="muted">Units still issued, including after ward receipt. Return, Receive, and Document on the row open the matching form.</p>
+        @if (_outstandingItems.Count(r => r.TransfusionCompletionOverdue) is var completionOverdue and > 0)
+        {
+            <div class="alert alert-warning" data-completion-overdue>@(completionOverdue == 1 ? "1 transfusion was" : $"{completionOverdue} transfusions were") started and not completed within the facility's reminder hours. @(completionOverdue == 1 ? "It is" : "They are") listed first: record the stop time, volume, and outcome with <strong>Complete</strong>, or check whether @(completionOverdue == 1 ? "it is" : "they are") still running.</div>
+        }
         @if (_outstandingItems.Count == 0)
         {
             <div class="muted">No outstanding issued units.</div>

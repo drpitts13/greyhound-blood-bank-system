@@ -324,7 +324,15 @@
                 return (card.Key, result.Value.Count, DashboardQueueCatalog.InTransitNote(overdue, coolers.Succeeded ? coolers.Value : null));
             }
             case DashboardQueueCatalog.Outstanding:
-                return await CountList(card.Key, Api.GetOutstandingIssuesAsync());
+            {
+                var result = await Api.GetOutstandingIssuesAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.OutstandingNote(result.Value));
+            }
             case DashboardQueueCatalog.Disposition:
                 return await CountList(card.Key, Api.GetOverdueDispositionAsync());
             case DashboardQueueCatalog.ToVerify:

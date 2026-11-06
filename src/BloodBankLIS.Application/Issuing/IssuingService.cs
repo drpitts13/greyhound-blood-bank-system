@@ -861,6 +861,8 @@ public sealed class IssuingService
                     TransfusionCompletionOverdue = TransfusionCompletionRule.IsOverdue(startedByIssue.GetValueOrDefault(i.Id), now, reminderHours)
                 };
             })
+            // Transfusions whose completion is overdue lead; the rest stay in issue order.
+            .OrderByDescending(r => r.TransfusionCompletionOverdue)
             .ToList();
     }
 

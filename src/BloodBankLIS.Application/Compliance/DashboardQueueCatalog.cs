@@ -140,6 +140,13 @@ public static class DashboardQueueCatalog
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }
 
+    /// <summary>
+    /// The Outstanding issued card note: transfusions started at the bedside and still not completed after the
+    /// facility's reminder hours (the same flag as the shift handoff and the Issued units badge).
+    /// </summary>
+    public static string? OutstandingNote(IEnumerable<OutstandingIssueWorkItemDto> outstanding) =>
+        AttentionNote(outstanding.Count(o => o.TransfusionCompletionOverdue), "transfusion completion overdue", "transfusion completions overdue");
+
     /// <summary>Near-expiry units reserved for a patient: issue them first or reserve a replacement.</summary>
     public static string? NearExpiryNote(int reservedCount) =>
         AttentionNote(reservedCount, "reserved for a patient", "reserved for patients");

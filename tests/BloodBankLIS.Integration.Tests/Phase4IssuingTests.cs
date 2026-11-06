@@ -1135,6 +1135,28 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId && a.Reason == "Transfusion started."));
     }
 
+    // TEST-BB-483: a transfusion whose completion is overdue leads the Issued units list; the rest keep issue order.
+    [Fact]
+    public async Task CompletionOverdue_LeadsTheIssuedList()
+    {
+        var earlier = await SeedAsync("TX-ORDER-A");
+        var earlierIssue = await IssuedAndReceivedAsync(earlier, issuedHoursAgo: 10);
+        var later = await SeedAsync("TX-ORDER-B");
+        var laterIssue = await IssuedAndReceivedAsync(later, issuedHoursAgo: 9);
+        var now = _factory.Clock.UtcNow;
+        await using var c = _factory.Create();
+        var started = await Issuing(c).StartTransfusionAsync(laterIssue, StartReq(later, now.AddHours(-8)));
+        Assert.True(started.Succeeded, started.Error ?? string.Join("; ", started.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+
+        var rows = (await Issuing(c).ListOutstandingIssuedAsync()).ToList();
+        var overdue = rows.FindIndex(r => r.IssueId == laterIssue);
+        var waiting = rows.FindIndex(r => r.IssueId == earlierIssue);
+        Assert.True(rows[overdue].TransfusionCompletionOverdue);
+        Assert.False(rows[waiting].TransfusionCompletionOverdue);
+        Assert.True(overdue < waiting);
+        Assert.Equal("1 transfusion completion overdue", DashboardQueueCatalog.OutstandingNote(rows));
+    }
+
     [Fact]
     public async Task Start_WithoutIdentifiers_IsRefused_AndRecordsNothing()
     {
