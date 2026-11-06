@@ -15756,3 +15756,37 @@ The chart header showed identity, blood type, the current specimen, and alerts, 
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).
+
+## Iteration 466 — Find a patient by visit number (2026-11-06)
+
+### Capability matrix rescan (patient and encounter; search everywhere)
+
+The top-bar find box took a DIN, accession, order number, MRN or prior MRN, or a name. Not a visit (encounter) or account number, the number on requisitions and many wristbands, nor an account or other identifier recorded for the patient (those matched only partially, so never opened). Since Cycle 465 the header shows the visit number, yet it could not be searched. An order hit opened the Orders tab unfiltered, though the chart can open one order since Cycle 447 (questions 1, 2, 4).
+
+### Design
+
+- **Visit or account number**, exact and any case: a patient hit opening that visit's orders (`?tab=orders&visit=`).
+  - The row says "Visit {number} · type · location · open", or "discharged {date}" or "cancelled", so an old requisition is not taken for the current visit (question 6).
+  - A visit whose patient was merged away opens the survivor plainly, saying it was merged.
+- **Other identifiers:** an active account number or other identifier matches exactly like a prior MRN, saying which it matched. Prior names stay partial-only (never open directly).
+- **Order hits** open that order (`OrderHref`, now shared with the chart links).
+- A patient matched by more than one identifier is one row. Read-only; no server write, schema, or API change.
+- **Found in the live check:** the browser tab title kept the first page's title after in-app navigation ("Chart MRN0022" while MRN0001 was open), because the page head was not interactive. Fixed by making `HeadOutlet` interactive, as the routes are; every page's title now follows navigation (question 6: two open tabs must not name the wrong patient).
+
+### Requirements
+
+- URS-BB-529, FRS-BB-638. Help: finding records.
+
+### Tests
+
+- TEST-BB-504:
+  - a visit number (any case) and its account number open that visit, saying it is open, with the location
+  - a discharged visit of a merged patient opens the survivor, saying discharged and merged
+  - an account number and an other identifier open the patient; an inactive one does not; a prior name stays a partial match
+  - an order hit opens that order
+- Full suite: 3,833 passed
+- Live (read-only): `vis-2025-882` opened MRN0001's chart on Orders filtered to that discharged visit, the tab titled "Chart MRN0001"; `ORD0022` opened MRN0022 on that order; the placeholder names visits; no server errors. Account and other identifiers are not in the demo data (tests cover them).
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).

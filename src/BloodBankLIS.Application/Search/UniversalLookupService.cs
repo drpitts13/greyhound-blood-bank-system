@@ -10,7 +10,8 @@ namespace BloodBankLIS.Application.Search;
 
 /// <summary>
 /// The top-bar "scan anything" lookup. One field takes a unit DIN or number, a specimen accession or tube barcode,
-/// an order number, an MRN (current or prior), or part of a patient name, and returns the matching records.
+/// an order number, an MRN (current or prior) or other patient identifier, a visit or account number, or part of a
+/// patient name, and returns the matching records.
 /// Exact identifier matches win; partial matches are offered only when nothing matched exactly.
 /// Read-only: it opens nothing itself, and the patient chart audits the access when the user opens it.
 /// </summary>
@@ -31,6 +32,7 @@ public sealed class UniversalLookupService
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
     private readonly IClock? _clock;
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<Encounter>? _encounters;
 
     public UniversalLookupService(
         IRepository<Patient> patients,
@@ -43,8 +45,10 @@ public sealed class UniversalLookupService
         IRepository<AntibodyHistory>? antibodies = null,
         IRepository<SpecialTransfusionRequirement>? requirements = null,
         IClock? clock = null,
-        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null)
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        IRepository<Encounter>? encounters = null)
     {
+        _encounters = encounters;
         _requirementDefinitions = requirementDefinitions;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
@@ -89,11 +93,13 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactSpecimensAsync(upper, ct));
             hits.AddRange(await ExactOrdersAsync(upper, ct));
             hits.AddRange(await ExactPatientsAsync(upper, ct));
+            hits.AddRange(await ExactVisitsAsync(upper, ct));
         }
 
         if (hits.Count > 0)
         {
-            return new LookupResultDto(sanitized, hits, false, null);
+            // A patient found by both MRN and visit number is one record.
+            return new LookupResultDto(sanitized, Distinct(hits), false, null);
         }
 
         if (sanitized.StartsWith('=') || sanitized.Length < MinimumPartialLength)
@@ -118,7 +124,7 @@ public sealed class UniversalLookupService
     }
 
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, or order matches \"{query}\".";
+        $"No patient, unit, specimen, order, or visit matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {
@@ -210,16 +216,20 @@ public sealed class UniversalLookupService
                 o.OrderNumber,
                 $"{(string.IsNullOrWhiteSpace(o.OrderName) ? "Order" : o.OrderName)} for {PatientLabel(patients.GetValueOrDefault(o.PatientId), o.PatientId)}",
                 $"{o.Priority} · {o.Status}",
-                $"/patients/{o.PatientId}?tab=orders"))
+                OrderHref(o.PatientId, o.OrderNumber)))
             .ToList();
     }
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactPatientsAsync(string upper, CancellationToken ct)
     {
         var byMrn = await _patients.ListAsync(p => p.MedicalRecordNumber.ToUpper() == upper, ct);
-        var priorMrn = await _identifiers.ListAsync(i =>
+        // Scannable identifiers only: a prior MRN, an account number, or another recorded id. Names and dates of birth
+        // are not identifiers to scan, and stay with the partial search.
+        var identifiers = await _identifiers.ListAsync(i =>
             i.IsActive
-            && i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber
+            && (i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber
+                || i.IdentifierType == IdentityTokenType.AccountNumber
+                || i.IdentifierType == IdentityTokenType.Other)
             && i.Value.ToUpper() == upper, ct);
 
         var hits = new List<LookupHitDto>();
@@ -228,14 +238,76 @@ public sealed class UniversalLookupService
             hits.Add(await PatientHitAsync(patient, exact: true, matchedNote: null, ct));
         }
 
-        var priorOwners = await PatientsByIdAsync(priorMrn.Select(i => i.PatientId), ct);
-        foreach (var owner in priorOwners.Values)
+        var owners = await PatientsByIdAsync(identifiers.Select(i => i.PatientId), ct);
+        foreach (var identifier in identifiers.Where(i => owners.ContainsKey(i.PatientId)))
         {
-            hits.Add(await PatientHitAsync(owner, exact: true, matchedNote: $"Prior MRN {upper}", ct));
+            hits.Add(await PatientHitAsync(owners[identifier.PatientId], exact: true, IdentifierNote(identifier.IdentifierType, upper), ct));
         }
 
         return Distinct(hits);
     }
+
+    private static string IdentifierNote(IdentityTokenType type, string value) => type switch
+    {
+        IdentityTokenType.PriorMedicalRecordNumber => $"Prior MRN {value}",
+        IdentityTokenType.AccountNumber => $"Account number {value}",
+        _ => $"Identifier {value}"
+    };
+
+    /// <summary>
+    /// A visit (or its account) number from a requisition or wristband opens that patient on the visit's orders, and says
+    /// whether the visit is still open, so an old visit is not mistaken for the current one.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactVisitsAsync(string upper, CancellationToken ct)
+    {
+        if (_encounters is null)
+        {
+            return [];
+        }
+
+        var visits = await _encounters.ListAsync(e =>
+            e.VisitNumber.ToUpper() == upper || (e.AccountNumber != null && e.AccountNumber.ToUpper() == upper), ct);
+        if (visits.Count == 0)
+        {
+            return [];
+        }
+
+        var owners = await PatientsByIdAsync(visits.Select(v => v.PatientId), ct);
+        var hits = new List<LookupHitDto>();
+        foreach (var visit in visits.Where(v => owners.ContainsKey(v.PatientId)).OrderByDescending(v => v.AdmitUtc ?? DateTime.MinValue))
+        {
+            hits.Add(await PatientHitAsync(owners[visit.PatientId], exact: true, VisitNote(visit), ct, visit.Id));
+        }
+
+        return Distinct(hits);
+    }
+
+    /// <summary>"Visit V-1 · Inpatient · ICU 4 · open": the recorded parts, then whether the visit is still open.</summary>
+    public static string VisitNote(Encounter visit)
+    {
+        var state = visit.Status switch
+        {
+            EncounterStatus.Cancelled => "cancelled",
+            _ when visit.DischargeUtc is DateTime discharged => $"discharged {discharged:yyyy-MM-dd}",
+            EncounterStatus.Discharged => "discharged",
+            EncounterStatus.Historical => "historical",
+            EncounterStatus.PreAdmit => "pre-admit",
+            _ => "open"
+        };
+        return string.Join(" · ", new[]
+        {
+            $"Visit {visit.VisitNumber}",
+            visit.EncounterType == EncounterType.Unknown ? null : visit.EncounterType.ToString(),
+            (visit.CurrentLocation ?? visit.AdmissionLocation)?.Trim() is { Length: > 0 } place ? place : null,
+            state
+        }.Where(p => p is not null));
+    }
+
+    /// <summary>The Orders tab searching for this order, the same link the chart builds.</summary>
+    public static string OrderHref(long patientId, string? orderNumber) =>
+        string.IsNullOrWhiteSpace(orderNumber)
+            ? $"/patients/{patientId}?tab=orders"
+            : $"/patients/{patientId}?tab=orders&order={Uri.EscapeDataString(orderNumber.Trim())}";
 
     private async Task<(IReadOnlyList<LookupHitDto> Hits, bool Capped)> PartialPatientsAsync(string term, CancellationToken ct)
     {
@@ -266,7 +338,7 @@ public sealed class UniversalLookupService
     }
 
     /// <summary>A merged duplicate opens the surviving chart, and says so, so nobody works on the retired record.</summary>
-    private async Task<LookupHitDto> PatientHitAsync(Patient patient, bool exact, string? matchedNote, CancellationToken ct)
+    private async Task<LookupHitDto> PatientHitAsync(Patient patient, bool exact, string? matchedNote, CancellationToken ct, long? visitId = null)
     {
         var target = patient;
         string? mergedNote = null;
@@ -314,7 +386,8 @@ public sealed class UniversalLookupService
             target.MedicalRecordNumber,
             PatientName(target),
             detail,
-            $"/patients/{target.Id}",
+            // A visit opens its own orders, unless the visit's patient was merged away (the survivor opens plainly).
+            visitId is long id && target.Id == patient.Id ? $"/patients/{target.Id}?tab=orders&visit={id}" : $"/patients/{target.Id}",
             bloodType,
             antibodies,
             requirements,

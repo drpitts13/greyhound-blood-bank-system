@@ -512,5 +512,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-501 | U | `LookupRecordTypeTests.EveryLookupKind_MapsToTheAuditEntityType`; `AuditTrailLinkTests.UnitAuditLink_MatchesTheAuditPageQueryNames` (unit, patient timeline, specimen history) | URS-BB-526 / FRS-BB-635 |
 | TEST-BB-502 | U, I | `DuplicateTestOrderRuleTests.NamesEachRepeatedTest_AndItsOpenOrders`; `Phase10PatientWorkspaceTests.CreateOrder_WarnsWhenTheSameTestIsAlreadyOpen`; `Phase10PatientWorkspaceTests.UpdateOrder_WarnsWhenAnAddedTestIsAlreadyOpenElsewhere` | URS-BB-527 / FRS-BB-636 |
 | TEST-BB-503 | U | `CurrentVisitTests.Picks_TheLatestOpenVisit_AndCountsTheOthers`; `CurrentVisitTests.Describe_UsesOnlyWhatIsRecorded` | URS-BB-528 / FRS-BB-637 |
+| TEST-BB-504 | I | `UniversalLookupTests.VisitNumber_OpensThatVisitsOrders_AndSaysItIsOpen`; `UniversalLookupTests.DischargedVisit_SaysSo_AndAMergedVisitOpensTheSurvivor`; `UniversalLookupTests.AccountAndOtherIdentifiers_FindThePatient_ButNamesStayPartial`; `UniversalLookupTests.OrderNumber_OpensThePatientsOrders` | URS-BB-529 / FRS-BB-638 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

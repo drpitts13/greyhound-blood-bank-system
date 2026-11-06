@@ -3,7 +3,7 @@ slug: finding-records
 title: Finding a record from the top bar
 order: 32
 chapter: Getting started
-summary: Scan or type a unit number, accession, order number, MRN, or name in the top bar to open the record.
+summary: Scan or type a unit number, accession, order number, MRN, visit number, or name in the top bar to open the record.
 routes: []
 ---
 
@@ -13,8 +13,9 @@ It takes:
 
 - **A unit number (DIN)**: scanned from the bag (`=` barcode) or typed, with or without spaces. Opens the unit.
 - **A specimen accession or tube barcode**: opens the patient chart on **Specimens** with that specimen's history open.
-- **An order number**: opens the patient chart on **Orders**.
-- **An MRN**: opens the chart. A prior MRN opens the current chart and says it matched a prior MRN.
+- **An order number**: opens the patient chart on **Orders** with that order found.
+- **An MRN**: opens the chart. A prior MRN opens the current chart and says it matched a prior MRN. An account number or other identifier recorded for the patient works the same way and says which it matched.
+- **A visit or account number** (from a requisition or wristband): opens the chart on that visit's orders. The row says the visit's type and location and whether it is still **open**, or when it was **discharged**, so an old requisition is not mistaken for the current visit.
 - **Part of a name or number**: lists the matches.
 
 **When it opens by itself.** The record opens directly only when what you entered matches **exactly one** record **exactly**. Anything else shows a list, and you choose:

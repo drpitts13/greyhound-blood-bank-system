@@ -15,7 +15,8 @@ public class UniversalLookupTests : IDisposable
 
     private static UniversalLookupService Lookup(BloodBankDbContext c) =>
         new(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
-            new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c));
+            new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
+            encounters: new EfRepository<Encounter>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -103,7 +104,7 @@ public class UniversalLookupTests : IDisposable
         Assert.True(result.OpenDirectly);
         var hit = Assert.Single(result.Hits);
         Assert.Equal(LookupHitKind.Order, hit.Kind);
-        Assert.Equal($"/patients/{f.Patient.Id}?tab=orders", hit.Href);
+        Assert.Equal($"/patients/{f.Patient.Id}?tab=orders&order=ORD-LOOK1", hit.Href);
     }
 
     [Fact]
@@ -135,6 +136,84 @@ public class UniversalLookupTests : IDisposable
         var hit = Assert.Single(result.Hits);
         Assert.Equal(f.Patient.Id, hit.Id);
         Assert.Contains("Prior MRN OLD-0042", hit.Detail);
+    }
+
+    // TEST-BB-504: a visit or account number, or another recorded identifier, finds the patient.
+    [Fact]
+    public async Task VisitNumber_OpensThatVisitsOrders_AndSaysItIsOpen()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var visit = c.Encounters.Single(e => e.VisitNumber == "V-LOOK");
+        visit.AccountNumber = "FIN-7781";
+        visit.CurrentLocation = "Ward 7";
+        await c.SaveChangesAsync();
+
+        foreach (var scan in new[] { "v-look", "FIN-7781" })
+        {
+            var result = await Lookup(c).LookupAsync(scan);
+
+            Assert.True(result.OpenDirectly);
+            var hit = Assert.Single(result.Hits);
+            Assert.Equal(LookupHitKind.Patient, hit.Kind);
+            Assert.Equal(f.Patient.Id, hit.Id);
+            Assert.Equal($"/patients/{f.Patient.Id}?tab=orders&visit={visit.Id}", hit.Href);
+            Assert.Contains("Visit V-LOOK · Inpatient · Ward 7 · open", hit.Detail);
+        }
+    }
+
+    [Fact]
+    public async Task DischargedVisit_SaysSo_AndAMergedVisitOpensTheSurvivor()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var retired = new Patient
+        {
+            MedicalRecordNumber = "MRN-OLDV", LastName = "Lookup", FirstName = "Ann", DateOfBirth = new DateOnly(1970, 5, 1),
+            Sex = Sex.Female, Status = PatientStatus.Merged
+        };
+        c.Patients.Add(retired);
+        await c.SaveChangesAsync();
+        retired.MergedIntoPatientId = f.Patient.Id;
+        c.Encounters.Add(new Encounter
+        {
+            PatientId = retired.Id, VisitNumber = "V-OLD", EncounterType = EncounterType.Outpatient,
+            Status = EncounterStatus.Discharged, DischargeUtc = new DateTime(2026, 10, 2, 9, 0, 0, DateTimeKind.Utc)
+        });
+        await c.SaveChangesAsync();
+
+        var hit = Assert.Single((await Lookup(c).LookupAsync("V-OLD")).Hits);
+
+        Assert.Equal(f.Patient.Id, hit.Id);
+        Assert.Equal($"/patients/{f.Patient.Id}", hit.Href);
+        Assert.Contains("was merged into MRN MRN-LOOK1", hit.Detail);
+        Assert.Contains("Visit V-OLD · Outpatient · discharged 2026-10-02", hit.Detail);
+    }
+
+    [Fact]
+    public async Task AccountAndOtherIdentifiers_FindThePatient_ButNamesStayPartial()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        c.PatientIdentifiers.AddRange(
+            new PatientIdentifier { PatientId = f.Patient.Id, IdentifierType = IdentityTokenType.AccountNumber, Value = "ACCT-55", IsActive = true },
+            new PatientIdentifier { PatientId = f.Patient.Id, IdentifierType = IdentityTokenType.Other, Value = "EMPI-9", IsActive = true },
+            new PatientIdentifier { PatientId = f.Patient.Id, IdentifierType = IdentityTokenType.Other, Value = "GONE-1", IsActive = false },
+            new PatientIdentifier { PatientId = f.Patient.Id, IdentifierType = IdentityTokenType.PriorFullName, Value = "SMITHERS", IsActive = true });
+        await c.SaveChangesAsync();
+
+        var account = await Lookup(c).LookupAsync("acct-55");
+        Assert.True(account.OpenDirectly);
+        Assert.Contains("Account number ACCT-55", Assert.Single(account.Hits).Detail);
+
+        var other = await Lookup(c).LookupAsync("EMPI-9");
+        Assert.True(other.OpenDirectly);
+        Assert.Contains("Identifier EMPI-9", Assert.Single(other.Hits).Detail);
+
+        Assert.DoesNotContain((await Lookup(c).LookupAsync("GONE-1")).Hits, h => h.Exact);
+        var name = await Lookup(c).LookupAsync("SMITHERS");
+        Assert.False(name.OpenDirectly);
+        Assert.Contains("Matched a prior name or MRN", Assert.Single(name.Hits).Detail);
     }
 
     [Fact]
@@ -295,7 +374,7 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, or order matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, or visit matches \"ZZZ-NOPE\".", result.Message);
     }
 
     private sealed record Fixture(Patient Patient, BloodUnit Unit, ProductType Product);
