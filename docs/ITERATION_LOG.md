@@ -15333,3 +15333,12 @@ Reagent QC has a worklist (overdue daily QC, failed QC, QC waiting for review) a
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+### Iteration 453 follow-up — the dev bootstrap kept recreating the database for additive columns
+
+While checking Cycle 453 live, the demo times had moved: the development database had been deleted and re-seeded when the Cycle 452 API first started. The bootstrap looks for missing required (NOT NULL) columns before it applies its additive `ALTER TABLE ... DEFAULT` list. The two new handoff columns counted as missing, so it recreated the file from the model, dropping any data entered in it.
+
+- **Fix:** a missing required column that is on the additive list no longer triggers the rebuild. It is added in place with its default. A required column missing from the list still rebuilds, as before.
+- **Test:** `DevelopmentSqliteBootstrapTests.InitializeAsync_AddsAMissingAdditiveColumn_WithoutRecreating`. Drop `ShiftHandoffs.CriticalDeviations` from a database holding a marker setting; the bootstrap adds the column back and the marker survives. The existing recreate test still passes.
+- Production (SQL Server) uses migrations and was never affected.
+

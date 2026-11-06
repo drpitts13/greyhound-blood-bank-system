@@ -1352,7 +1352,9 @@ public static class DevelopmentSqliteBootstrap
                     continue;
                 }
 
-                if (!existing.Contains(column))
+                // A required column on the additive list is added with its default by ALTER TABLE below, so it does
+                // not justify deleting the database and its demo data.
+                if (!existing.Contains(column) && !IsAdditive(table, column))
                 {
                     return $"{table}.{column}";
                 }
@@ -1361,6 +1363,11 @@ public static class DevelopmentSqliteBootstrap
 
         return null;
     }
+
+    private static bool IsAdditive(string table, string column) =>
+        AdditiveColumns.Any(c =>
+            string.Equals(c.Table, table, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(c.Column, column, StringComparison.OrdinalIgnoreCase));
 
     private static async Task<HashSet<string>> GetColumnNamesAsync(
         BloodBankDbContext context,
