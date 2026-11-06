@@ -72,7 +72,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-064 | Merging a duplicate patient into a survivor from the workspace is limited to staff with patient.merge. | P1 | FRS-BB-098 |
 | URS-BB-065 | Staff can see retained prior result versions (original value, status, source, reason, who, when) on the patient result panel, and an invalidated correction is not shown as the current result. | P0 | FRS-BB-099 |
 | URS-BB-066 | Creating an order from the workspace is limited to staff with patient.write. | P1 | FRS-BB-100 |
-| URS-BB-067 | Staff can see retained prior released result versions on the patient Test History tab, not only the current verified row. | P0 | FRS-BB-101 |
+| URS-BB-067 | Staff can see retained prior released result versions on the patient Test History tab, not only the current verified row. | P0 | FRS-BB-101, FRS-BB-619 |
 | URS-BB-068 | Creating or updating a directory user, assigning roles, or creating or updating a role catalog entry is limited to staff with admin.users.manage or admin.roles.manage. | P6 | FRS-BB-102, FRS-BB-139 |
 | URS-BB-069 | Documenting a transfusion through the interface service (not inbound BPAM) is limited to staff with transfusion.document. | P0 | FRS-BB-103 |
 | URS-BB-070 | Staff can find create/update of subtest, blood-attribute, and reflex-rule catalogs as TestChange, because those definitions change calculated results, antibody/antigen history, and reflex-added tests. | P3 | FRS-BB-104 |

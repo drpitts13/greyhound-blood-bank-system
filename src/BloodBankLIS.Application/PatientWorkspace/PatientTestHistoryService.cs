@@ -81,7 +81,11 @@ public sealed class PatientTestHistoryService
                     r.Status,
                     r.Source,
                     ResultLifecycleRule.IsCurrentRow(r.SupersededByResultId),
-                    reason);
+                    reason,
+                    r.EnteredBy,
+                    r.EnteredUtc,
+                    r.InvalidatedBy,
+                    r.Version > 1 || r.SupersededByResultId is not null || r.Status is ResultStatus.Corrected or ResultStatus.Invalidated);
             })
             .ToList();
     }

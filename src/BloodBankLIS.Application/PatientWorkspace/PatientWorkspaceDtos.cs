@@ -263,4 +263,33 @@ public sealed record PatientTestHistoryRowDto(
     ResultStatus Status,
     ResultSource Source,
     bool IsCurrent,
-    string? Reason);
+    string? Reason,
+    string? EnteredBy = null,
+    DateTime? EnteredUtc = null,
+    string? InvalidatedBy = null,
+    // Part of a correction or invalidation: a later version, a superseded one, or a corrected or invalidated status.
+    bool HasRevision = false);
+
+/// <summary>Views over the chart's test history.</summary>
+public static class PatientTestHistoryView
+{
+    /// <summary>
+    /// Only results that were corrected or invalidated, every version of each, grouped by tube and test with the newest
+    /// version first, so what changed reads as one chain.
+    /// </summary>
+    public static IReadOnlyList<PatientTestHistoryRowDto> RevisedOnly(IEnumerable<PatientTestHistoryRowDto> rows) =>
+        rows.Where(r => r.HasRevision)
+            .OrderBy(r => r.AccessionNumber, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.TestCode, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(r => r.Version)
+            .ToList();
+
+    public static string SourceLabel(ResultSource source) => source switch
+    {
+        ResultSource.Manual => "Manual",
+        ResultSource.Instrument => "Instrument",
+        ResultSource.Interface => "Interface",
+        ResultSource.Calculated => "Calculated",
+        _ => source.ToString()
+    };
+}

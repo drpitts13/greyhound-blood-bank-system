@@ -9,21 +9,27 @@
             <label>Search</label>
             <input value="@Search" @oninput="OnSearchInput" placeholder="Test, accession, order #..." />
         </div>
+        @if (RevisedCount > 0 || _revisedOnly)
+        {
+            <label class="flex" style="gap:.35rem;align-self:flex-end;" title="Every version of each corrected or invalidated result, grouped by tube and test">
+                <input type="checkbox" @bind="_revisedOnly" data-revised-only /> Corrected or invalidated only (@RevisedCount)
+            </label>
+        }
     </div>
     @if (Loading)
     {
         <div class="loading">Loading test history...</div>
     }
-    else if (Rows.Count == 0)
+    else if (Shown.Count == 0)
     {
-        <div class="empty">@(string.IsNullOrWhiteSpace(Search) ? "No released results." : "No released results match this search.")</div>
+        <div class="empty">@(_revisedOnly ? "No corrected or invalidated results." : string.IsNullOrWhiteSpace(Search) ? "No released results." : "No released results match this search.")</div>
     }
     else
     {
         <table class="bb">
-            <thead><tr><th>Verified</th><th>Test</th><th>Ver.</th><th>Result</th><th>Status</th><th>Reason</th><th>Accession</th><th>Order</th><th>Verified by</th></tr></thead>
+            <thead><tr><th>Verified</th><th>Test</th><th>Ver.</th><th>Result</th><th>Status</th><th>Reason</th><th>Accession</th><th>Order</th><th>Entered / verified</th></tr></thead>
             <tbody>
-                @foreach (var h in Rows)
+                @foreach (var h in Shown)
                 {
                     <tr class="@(h.IsCurrent ? null : "row-muted")">
                         <td class="nowrap">@h.VerifiedUtc.ToString("yyyy-MM-dd HH:mm")</td>
@@ -52,7 +58,14 @@
                                 @(h.OrderNumber ?? "—")
                             }
                         </td>
-                        <td>@(h.VerifiedBy ?? "—")</td>
+                        <td data-entered-verified>
+                            <span title="@(h.EnteredUtc is DateTime enteredAt ? $"Entered {enteredAt:yyyy-MM-dd HH:mm}" : null)">@(h.EnteredBy ?? "—")</span> <span class="badge badge-gray">@PatientTestHistoryView.SourceLabel(h.Source)</span>
+                            <span class="sub">Verified by @(h.VerifiedBy ?? "—")</span>
+                            @if (h.Status == ResultStatus.Invalidated && !string.IsNullOrWhiteSpace(h.InvalidatedBy))
+                            {
+                                <span class="sub">Invalidated by @h.InvalidatedBy</span>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -68,6 +81,12 @@
     [Parameter] public EventCallback<string> SearchChanged { get; set; }
     [Parameter] public IReadOnlyList<PatientTestHistoryRowDto> Rows { get; set; } = [];
     [Parameter] public EventCallback OnRefresh { get; set; }
+
+    private bool _revisedOnly;
+
+    private int RevisedCount => Rows.Count(r => r.HasRevision);
+
+    private IReadOnlyList<PatientTestHistoryRowDto> Shown => _revisedOnly ? PatientTestHistoryView.RevisedOnly(Rows) : Rows;
 
     private Task OnSearchInput(ChangeEventArgs e)
     {

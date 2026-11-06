@@ -14974,3 +14974,39 @@ The supervisor queue mixes antibody ID reviews, results to verify, quarantine re
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 444 — Test history: who entered it, and the correction chains (2026-11-06)
+
+### Capability matrix rescan (result review, timelines)
+
+Test History kept every verified version, but each row showed only who verified it. Who entered the result and how it arrived (manual, instrument, interface) were stored but not shown, though the help said each version keeps them. A corrected result's versions were also scattered: current rows first, then prior ones by date. Explaining a change meant reading the whole list (questions 2, 5; traceability).
+
+### Design
+
+- **`PatientTestHistoryRowDto`** gains, from the stored result:
+  - `EnteredBy`, `EnteredUtc`, `InvalidatedBy`
+  - `HasRevision`: a later version, a superseded one, or a Corrected or Invalidated status
+- **Test History, Entered / verified column:**
+  - who entered it (entry time on hover)
+  - a source badge
+  - verified by, and invalidated by when it applies
+- **Corrected or invalidated only (n):** appears when there are any. It shows each changed result's versions together, by tube and test, newest first (`PatientTestHistoryView.RevisedOnly`), with the reason on each row.
+- Read-only; no schema or API shape change beyond the added DTO fields.
+- **No demo data:** a seeded correction would put a superseded, different screen result on a demo patient. The integration test covers the chain instead.
+
+### Requirements
+
+- FRS-BB-619 (under URS-BB-067). Help: patient test history.
+
+### Tests
+
+- TEST-BB-485: an HGB result verified, corrected, and re-verified, beside an unchanged HCT.
+  - every row names the enterer and Manual
+  - HCT is not revised
+  - the revised view is HGB only, 10.0 (current) then 9.0 (prior)
+- Full suite: 3,788 passed, 0 failed.
+- Run check (development API and web): MRN0001 Test History rows read "tech1 Manual · Verified by tech2" under Entered / verified; no corrected results there, so the revised-only toggle stays hidden; no server errors; nothing changed.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
