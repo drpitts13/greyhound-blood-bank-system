@@ -153,6 +153,41 @@ public sealed class PatientService
         await _unitOfWork.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Active patients who may be the person being registered (<see cref="PossibleDuplicatePatientRule"/>), so the
+    /// registrar can open the existing chart instead of making a second one. Needs the same permission as registering.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<PatientDto>>> ListPossibleDuplicatesAsync(
+        string? lastName, string? firstName, DateOnly dateOfBirth, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return OperationResult<IReadOnlyList<PatientDto>>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        var matches = await FindPossibleDuplicatePatientsAsync(lastName, firstName, dateOfBirth, ct);
+        return OperationResult<IReadOnlyList<PatientDto>>.Ok(matches.Select(p => PatientDto.From(p)).ToList());
+    }
+
+    private async Task<List<Patient>> FindPossibleDuplicatePatientsAsync(
+        string? lastName, string? firstName, DateOnly dateOfBirth, CancellationToken ct)
+    {
+        if (dateOfBirth == default)
+        {
+            return [];
+        }
+
+        var sameBirthday = await _patients.ListAsync(p => p.DateOfBirth == dateOfBirth && p.Status != PatientStatus.Merged, ct);
+        return sameBirthday
+            .Where(p => PossibleDuplicatePatientRule.IsPossibleDuplicate(lastName, firstName, dateOfBirth, p.LastName, p.FirstName, p.DateOfBirth))
+            .OrderBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string DescribeForMatch(Patient p) =>
+        $"MRN {p.MedicalRecordNumber} ({p.LastName}, {p.FirstName}, born {p.DateOfBirth:yyyy-MM-dd})";
+
     public async Task<OperationResult<Patient>> CreateAsync(CreatePatientRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -206,6 +241,17 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail("A patient with this medical record number already exists.");
         }
 
+        // Another chart for the same person splits the ABO/Rh and antibody history; every possible match must be
+        // confirmed as a different person before a new chart is made.
+        var possible = await FindPossibleDuplicatePatientsAsync(lastName, firstName, request.DateOfBirth, ct);
+        var confirmed = new HashSet<string>(
+            (request.ConfirmedDifferentFromMrns ?? []).Select(m => m.Trim()), StringComparer.OrdinalIgnoreCase);
+        var unconfirmed = possible.Where(p => !confirmed.Contains(p.MedicalRecordNumber)).ToList();
+        if (unconfirmed.Count > 0)
+        {
+            return OperationResult<Patient>.Fail(PossibleDuplicatePatientRule.Message(unconfirmed.Select(DescribeForMatch)));
+        }
+
         var patient = new Patient
         {
             MedicalRecordNumber = mrn,
@@ -230,9 +276,12 @@ public sealed class PatientService
                 patient.FirstName,
                 patient.MiddleName,
                 patient.DateOfBirth,
-                patient.Sex
+                patient.Sex,
+                ConfirmedDifferentFrom = possible.Count == 0 ? null : possible.Select(p => p.MedicalRecordNumber).ToList()
             },
-            reason: "Patient created.");
+            reason: possible.Count == 0
+                ? "Patient created."
+                : $"Patient created; confirmed a different person from possible duplicate(s) {string.Join(", ", possible.Select(p => p.MedicalRecordNumber))}.");
         if (_audit is not null)
         {
             await _unitOfWork.SaveChangesAsync(ct);

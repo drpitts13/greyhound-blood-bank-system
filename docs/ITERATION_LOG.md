@@ -14271,3 +14271,51 @@ The bench separated lines whose tube was rejected (Recollect, Cycle 411), but li
 ### Next ranked residual
 
 Rescan patient and encounter workflows for the next operations gap.
+
+## Iteration 425 — Possible duplicate patients at registration (2026-11-05)
+
+### Capability matrix rescan (patients)
+
+Merge and unmerge exist, but registration refused only an existing MRN. Registering the same person under a second MRN makes a new chart with no ABO/Rh history, no antibodies, and no special requirements. The issue gate then reads the empty chart (question 6). Nothing told the registrar the person might already exist (questions 2, 3).
+
+### Design
+
+- **`PossibleDuplicatePatientRule`:** a possible duplicate is an active (not merged) patient with the same date of birth and either:
+  - the same last name and first initial (letters only, case ignored)
+  - first and last names swapped
+- **`PatientService.ListPossibleDuplicatesAsync`:** `GET /api/patients/possible-duplicates`, permission *patient.write*.
+- **`CreateAsync`:**
+  - refuses while any match is not in `ConfirmedDifferentFromMrns`, naming each MRN, so a match registered meanwhile is caught
+  - the creation audit records the MRNs confirmed as different
+- **Register patient form:**
+  - once the names and date of birth are entered, lists the matches with **Open chart**
+  - **Register** stays disabled until "I checked: this is a different person" is ticked
+  - the tick clears when the matches change
+- **OCD-060:** the matching criteria, who confirms, and whether ADT-created patients are checked, pending SME and HIM confirmation.
+- No schema change.
+
+### Requirements
+
+- URS-BB-514, FRS-BB-601, OCD-060. Help: patients.
+
+### Tests
+
+- TEST-BB-466:
+  - **rule:** initial, punctuation and case, swapped names, a different last name, a blank name, a different birthday
+  - **service:**
+    - the match listed (the merged chart not)
+    - refused with the MRN named
+    - confirming another MRN does not count
+    - confirmation (any case) registers and is audited
+    - a different first initial is not a match
+    - listing needs *patient.write*
+- Full suite: 3,758 passed, 0 failed.
+- Run check (development API and web):
+  - entering Demo-Multi, Riley, 1958-11-21 lists MRN0022 with Open chart, and Register is disabled
+  - ticking the confirmation enables it; nothing was registered
+  - no server errors
+  - both servers exited on their own once during the check (no errors logged) and were restarted
+
+### Next ranked residual
+
+A possible-duplicates report over existing patients (and ADT-created ones), pending OCD-060.

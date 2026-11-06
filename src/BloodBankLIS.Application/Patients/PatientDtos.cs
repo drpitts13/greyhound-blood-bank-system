@@ -10,7 +10,9 @@ public sealed record CreatePatientRequest(
     string? MiddleName,
     DateOnly DateOfBirth,
     Sex Sex,
-    string? Comment = null);
+    string? Comment = null,
+    // The possible duplicates the registrar reviewed and confirmed are different people (their MRNs).
+    IReadOnlyList<string>? ConfirmedDifferentFromMrns = null);
 
 public sealed record UpdatePatientRequest(
     string LastName,

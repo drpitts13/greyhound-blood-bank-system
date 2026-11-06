@@ -60,6 +60,10 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PatientDto>> GetPatientAsync(long id, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Get, $"api/patients/{id}", ct: ct);
 
+    public Task<ApiResult<List<PatientDto>>> GetPossibleDuplicatePatientsAsync(string lastName, string firstName, DateOnly dateOfBirth, CancellationToken ct = default) =>
+        SendAsync<List<PatientDto>>(HttpMethod.Get,
+            $"api/patients/possible-duplicates?lastName={Uri.EscapeDataString(lastName)}&firstName={Uri.EscapeDataString(firstName)}&dateOfBirth={dateOfBirth:yyyy-MM-dd}", ct: ct);
+
     public Task<ApiResult<PatientDto>> CreatePatientAsync(CreatePatientRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Post, "api/patients", req, ct);
 
