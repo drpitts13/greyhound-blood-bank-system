@@ -733,7 +733,15 @@
                     Placeholder="Search MRN or name" />
             </div>
             <div class="field"><label>Issued to (person)</label><input @bind="_issue.IssuedTo" /></div>
-            <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" /></div>
+            <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" @bind:event="oninput" />
+                @if (string.IsNullOrWhiteSpace(_issue.IssuedToLocation) && _prefilledRow?.PatientVisitLocation is { Length: > 0 } visitLocation && _prefilledRow.BloodUnitId == _issue.BloodUnitId)
+                {
+                    <div class="sub" data-visit-location>
+                        Patient's visit: @visitLocation
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _issue.IssuedToLocation = visitLocation" title="Confirm the patient is still there; a visit location can lag behind a move to theatre or imaging">Use it</button>
+                    </div>
+                }
+            </div>
             <div class="field"><label>Cooler / transport id</label><input @bind="_issue.CoolerId" placeholder="Optional cooler checkout" /></div>
             <div class="field"><label>Issue type</label>
                 <select @bind="_issue.IssueType">@foreach (var t in AllowedIssueTypes) { <option value="@t">@t</option> }</select>

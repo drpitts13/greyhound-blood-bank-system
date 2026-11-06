@@ -14854,3 +14854,36 @@ Ready to issue lists every reserved unit, oldest reservation first, but the issu
 ### Next ranked residual
 
 Inbound HL7 dispense requests (interface choice), or the next desk rescan.
+
+## Iteration 440 — Visit location suggested at issue (2026-11-06)
+
+### Capability matrix rescan (issue form)
+
+The issue form's **Issued to (location)** started empty unless the ward had requested the unit (Cycle 439). The patient's visit already records where they are, so the issuer typed what the system knew (questions 2, 3). Filling it in silently would be unsafe: ADT location lags behind moves to theatre or imaging (question 6).
+
+### Design
+
+- **`PatientVisitLocation.For`:** the reservation's open visit location, else the latest open visit with a location. Discharged, cancelled, or location-less visits suggest nothing.
+- **`IssuingService`:** the Ready to issue rows carry it (`ReadyToIssueWorkItemDto.PatientVisitLocation`, optional encounter repository).
+- **Issue form:** while the field is empty, shows "Patient's visit: location — **Use it**" (one click; the tooltip asks to confirm the patient is still there). A ward request's destination still fills first.
+- No schema or API change.
+
+### Requirements
+
+- FRS-BB-615 (under URS-BB-521). Help: issuing.
+
+### Tests
+
+- TEST-BB-481:
+  - the reservation's open visit wins; otherwise the latest open visit (trimmed)
+  - a discharged reservation visit falls back to another open one
+  - nothing when no open visit has a location
+- Full suite: 3,785 passed, 0 failed.
+- Run check (development API and web):
+  - Issue from W0001230009202 (MRN0022) shows "Patient's visit: ICU 4 Use it"
+  - Use it fills ICU 4 and the suggestion goes away
+  - nothing issued; no server errors
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

@@ -68,6 +68,7 @@ public sealed class IssuingService
     private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
+    private readonly IRepository<Encounter>? _encounters;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -113,8 +114,10 @@ public sealed class IssuingService
         IRepository<CompatibilityRuleVersion>? compatibilityVersions = null,
         IRepository<CompatibilityRule>? compatibilityRules = null,
         IRepository<BloodComponentSpecialTest>? unitSpecialTests = null,
-        IProductDispensePublisher? dispensePublisher = null)
+        IProductDispensePublisher? dispensePublisher = null,
+        IRepository<Encounter>? encounters = null)
     {
+        _encounters = encounters;
         _dispensePublisher = dispensePublisher;
         _inventory = inventory;
         _issues = issues;
@@ -904,6 +907,10 @@ public sealed class IssuingService
             _productAttributeAssignments, _productAttributes, ct);
         var negativeTestsByUnit = await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(
             _unitSpecialTests, reserved.Select(a => a.BloodProductId).Distinct().ToList(), ct);
+        var encountersByPatient = _encounters is null
+            ? new Dictionary<long, List<Encounter>>()
+            : (await _encounters.ListAsync(e => patientIds.Contains(e.PatientId), ct))
+                .GroupBy(e => e.PatientId).ToDictionary(g => g.Key, g => g.ToList());
 
         var items = new List<ReadyToIssueWorkItemDto>();
         var storageLocationNames = new Dictionary<long, string?>();
@@ -1040,7 +1047,8 @@ public sealed class IssuingService
                 allocation.ExpiresUtc,
                 allocation.IssueRequestedUtc,
                 allocation.IssueRequestedBy,
-                allocation.IssueRequestedTo));
+                allocation.IssueRequestedTo,
+                PatientVisitLocation.For(allocation.EncounterId, encountersByPatient.GetValueOrDefault(allocation.PatientId) ?? [])));
         }
 
         return ReadyToIssueAttentionRule.IssuableFirst(items);

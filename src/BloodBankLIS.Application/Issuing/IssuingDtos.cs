@@ -342,7 +342,9 @@ public sealed record ReadyToIssueWorkItemDto(
     // The ward's open request to issue this unit now, and where to.
     DateTime? IssueRequestedUtc = null,
     string? IssueRequestedBy = null,
-    string? IssueRequestedTo = null);
+    string? IssueRequestedTo = null,
+    // Where the patient's open visit says they are; a suggestion for the issue destination, never filled in alone.
+    string? PatientVisitLocation = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,
