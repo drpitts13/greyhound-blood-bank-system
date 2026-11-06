@@ -1,5 +1,6 @@
 @using BloodBankLIS.Application.PatientWorkspace
 @inject BloodBankApiClient Api
+@inject UserSession Session
 
 @* History of one tube, opened from the Specimens tab or from a scanned accession in the find box. *@
 <div class="bb-specimen-history" data-scroll-on-show>
@@ -7,6 +8,10 @@
         <strong>History of specimen <span class="mono">@(_timeline?.AccessionNumber ?? Accession)</span></strong>
         <span class="flex gap">
             <label class="bb-timeline-toggle"><input type="checkbox" @bind="_attentionOnly" /> Warnings and critical only</label>
+            @if (Session.Has(PermissionCodes.AuditRead))
+            {
+                <a class="btn btn-ghost btn-sm" href="@AuditUrls.For("Specimen", SpecimenId)" title="Every audited change to this specimen">Full audit trail</a>
+            }
             <button type="button" class="btn btn-secondary btn-sm" disabled="@_loading" @onclick="LoadAsync">Refresh</button>
             <button type="button" class="btn btn-ghost btn-sm" @onclick="OnClose">Close</button>
         </span>

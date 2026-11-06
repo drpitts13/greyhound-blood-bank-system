@@ -12,7 +12,13 @@ public class AuditTrailLinkTests
 
         Assert.Contains("[SupplyParameterFromQuery(Name = \"entityType\")]", audit);
         Assert.Contains("[SupplyParameterFromQuery(Name = \"entityId\")]", audit);
-        Assert.Contains("/audit?entityType=BloodUnit&entityId=", unit);
+        Assert.Contains("AuditUrls.For(\"BloodUnit\"", unit);
+        Assert.Equal("/audit?entityType=Specimen&entityId=7", BloodBankLIS.Web.Services.AuditUrls.For("Specimen", 7));
+
+        // The patient timeline and the specimen history link to their trails too.
+        var shared = Path.Combine(RepoRoot(), "src", "BloodBankLIS.Web", "Components", "Shared");
+        Assert.Contains("AuditUrls.For(\"Patient\"", File.ReadAllText(Path.Combine(shared, "PatientChartTimelineTab.razor")));
+        Assert.Contains("AuditUrls.For(\"Specimen\"", File.ReadAllText(Path.Combine(shared, "SpecimenTimelinePanel.razor")));
     }
 
     private static string RepoRoot()

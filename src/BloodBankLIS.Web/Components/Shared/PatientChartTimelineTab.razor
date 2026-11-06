@@ -1,11 +1,18 @@
 @using BloodBankLIS.Application.PatientWorkspace
 @inject BloodBankApiClient Api
+@inject UserSession Session
 
 @* Read-only chronological view of the patient's record, newest first, filterable by kind of event. *@
 <div class="bb-card">
     <div class="bb-card-title flex-between">
         <h3>Timeline</h3>
-        <button type="button" class="btn btn-secondary btn-sm" disabled="@_loading" @onclick="LoadAsync">Refresh</button>
+        <span class="flex gap">
+            @if (Session.Has(PermissionCodes.AuditRead))
+            {
+                <a class="btn btn-ghost btn-sm" href="@AuditUrls.For("Patient", PatientId)" title="Every audited change to this patient's record">Full audit trail</a>
+            }
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_loading" @onclick="LoadAsync">Refresh</button>
+        </span>
     </div>
 
     <div class="flex gap" style="flex-wrap:wrap;margin-bottom:.75rem;">

@@ -15626,3 +15626,32 @@ The Audit Trail filtered one record by entity type and a numeric entity id, the 
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.
+
+## Iteration 462 — Audit trail from the patient chart and the specimen history (2026-11-06)
+
+### Capability matrix rescan (audit review)
+
+Cycle 461 linked a unit's Status history to its audit trail. The patient chart's Timeline and a specimen's History panel, the two other record histories, did not, so their full audit trail still had to be searched for (question 1).
+
+### Design
+
+- **`AuditUrls.For(entityType, id)`:** builds the Audit Trail link; the unit link uses it too.
+- **Full audit trail** (audit.read only) on the patient chart's Timeline header (Patient) and the specimen History panel (Specimen).
+- Read-only; no server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-635 extended. Help: audit trail.
+
+### Tests
+
+- TEST-BB-501 extended: the patient timeline and the specimen history use `AuditUrls.For` with their types; the helper builds the expected link.
+- Full suite: 3,825 passed, 0 failed.
+- Run check (development API and web), read-only:
+  - MRN0001's Timeline links to `/audit?entityType=Patient&entityId=1`
+  - ACC0001's History panel links to `/audit?entityType=Specimen&entityId=1`, which opens on that specimen's rows
+  - no server errors
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.
