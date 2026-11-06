@@ -14611,3 +14611,42 @@ The home card (Cycle 432) shows expired units still on a shelf to whoever can di
 ### Next ranked residual
 
 Rescan the remaining desks; candidates needing a decision first: bulk verify of plain negatives (medical director), and the rejection notice to the EHR (interface choice).
+
+## Iteration 434 — Return to supplier by scan (2026-11-06)
+
+### Capability matrix rescan (inventory)
+
+Returning units to the supplier (a recall, short-dated stock, a consignee reject) was one unit page at a time, with the reason typed for each. No list went with the shipment (questions 1, 2, 4).
+
+**Found while building:** the status transition table treats a move to the same status as allowed. So returning a unit already returned replaced its recorded return reason, and marking a missing unit missing again replaced its missing reason, silently on both the API and the unit page (audit principle: never silently overwrite).
+
+### Design
+
+- **`InventoryService.ReturnToSupplierByScanAsync`** (*inventory.receive*; `POST /api/inventory/units/return-to-supplier-by-scan`):
+  - returns the scanned unit through `ReturnToSupplierAsync`: audit, status history, reason
+  - refused with the reason: a status that does not allow a return, a unit already returned, a divided number, an unknown scan, a blank reason
+- **`/inventory/return-to-supplier`:**
+  - linked from Inventory
+  - the reason is given once per run
+  - each scan's result is listed (supplier, product code, ABO/Rh); **Print list** prints them
+- **`ReturnToSupplierAsync` and `MarkMissingAsync`:** refuse a unit already in that status, so the recorded reason stays.
+- No schema change.
+
+### Requirements
+
+- URS-BB-517, FRS-BB-609. Help: inventory (route and section).
+
+### Tests
+
+- TEST-BB-475:
+  - **by scan:** returned with the shipment reason and audited (scan case ignored); blank reason refused
+  - **refusals:** a second scan says already returned; a reserved (Assigned) unit refused and unchanged; an unknown scan refused
+  - **no overwrite:** the unit-page return of an already-returned unit is refused and the reason stays; marking an already-missing unit missing is refused
+- Full suite: 3,770 passed, 0 failed.
+- Run check (development API and web):
+  - with a reason, scanning the reserved W0001230009201 shows "Not returned … is Crossmatched; it cannot be returned to the supplier"
+  - nothing returned; no server errors
+
+### Next ranked residual
+
+Look for other same-status repeat actions that replace a recorded reason (hold, damaged), then rescan the desks.

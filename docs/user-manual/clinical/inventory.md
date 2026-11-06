@@ -11,6 +11,7 @@ routes:
   - /inventory/move
   - /inventory/count
   - /inventory/discard-expired
+  - /inventory/return-to-supplier
 ---
 
 ![Inventory](figures/inventory.png)
@@ -48,6 +49,8 @@ Expired units still on a shelf are expected and marked **Expired**: discard them
 The system moves units that have reached their expiration date to Expired by itself, every five minutes by default. A reservation on such a unit ends at the same time, with the reason recorded, so the patient no longer shows blood held that cannot be issued. The history and audit trail record the change under the system account. **Run expiration sweep** still does the same thing on demand for staff with discard permission. A unit is blocked at issue once it expires, even before the sweep runs.
 
 **Discard expired** lists the expired units still recorded on a shelf, oldest first, with where each one is. Pull each unit and scan it: the scan discards it with the reason EXPIRED. If your facility requires a second verifier for discards, choose them first; they stay chosen for the run. A unit that is not expired is refused; discard it from its unit page with its own reason. A stock count's Expired badge opens this page.
+
+**Return to supplier** packs a return shipment, such as a recall or short-dated stock. Give the reason once, then scan each unit; each scan returns that unit, recorded and audited as from the unit page. A reserved or issued unit is refused with its status: release the reservation first. **Print list** prints the units returned in this run to go with the shipment. A unit already returned, or already marked missing, cannot be returned or marked missing again, so the reason recorded the first time stays.
 
 ## Start the next task
 

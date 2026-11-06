@@ -1495,6 +1495,10 @@ public sealed class InventoryService
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
+        // A repeat would replace the recorded missing reason without a trace.
+        if (unit.Status == UnitStatus.Missing)
+            return InventoryActionResult.Fail($"{unit.UnitNumber} is already marked missing.");
+
         unit.MissingReason = reason.Trim();
         var fromStatus = unit.Status;
         var missing = await ChangeStatusAsync(unit, UnitStatus.Missing, reason.Trim(), ct);
@@ -1678,6 +1682,46 @@ public sealed class InventoryService
     }
 
     /// <summary>
+    /// Returns the unit in hand to its supplier by its scan (a return shipment: one reason for all), with the same checks
+    /// and audit as <see cref="ReturnToSupplierAsync"/>. A divided number matching several units returns none; a unit whose
+    /// status does not allow a return (reserved, issued, already returned...) is refused with its status.
+    /// </summary>
+    public async Task<InventoryActionResult> ReturnToSupplierByScanAsync(ReturnToSupplierByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return InventoryActionResult.Fail("A reason is required to return a unit to the supplier.");
+        }
+
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
+        {
+            return InventoryActionResult.Fail(error);
+        }
+
+        // A unit already returned counts as "allowed" by the transition table (same status), so it is excluded first.
+        var returnable = candidates
+            .Where(u => u.Status != UnitStatus.ReturnedToSupplier && InventoryStatusTransition.IsAllowed(u.Status, UnitStatus.ReturnedToSupplier))
+            .ToList();
+        if (returnable.Count == 0)
+        {
+            var unit = candidates[0];
+            return InventoryActionResult.Fail(unit.Status == UnitStatus.ReturnedToSupplier
+                ? $"{unit.UnitNumber} is already returned to the supplier."
+                : $"{unit.UnitNumber} is {unit.Status}; it cannot be returned to the supplier. Release its reservation or resolve it first.");
+        }
+
+        if (returnable.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {returnable.Count} units ({string.Join(", ", returnable.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Return each from its unit page.");
+        }
+
+        return await ReturnToSupplierAsync(returnable[0].Id, request.Reason, ct);
+    }
+
+    /// <summary>
     /// SoftBank/SafeTrace consignee reject / unused-stock return to the supplier.
     /// Distinct from ward <see cref="UnitStatus.Returned"/> and from packing-list
     /// <see cref="UnitStatus.CancelledAssignment"/>. Terminal; not issuable.
@@ -1696,6 +1740,10 @@ public sealed class InventoryService
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
+
+        // A repeat would replace the recorded return reason without a trace.
+        if (unit.Status == UnitStatus.ReturnedToSupplier)
+            return InventoryActionResult.Fail($"{unit.UnitNumber} is already returned to the supplier.");
 
         unit.SupplierReturnReason = reason.Trim();
         var fromStatus = unit.Status;

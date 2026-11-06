@@ -605,6 +605,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-516 / FRS-BB-606 | Discard expired units by scan | `InventoryService.DiscardExpiredByScanAsync` | TEST-BB-472 | I | |
 | URS-BB-516 / FRS-BB-607 | Expired on shelf home card | `DashboardQueueCatalog.ExpiredOnShelf` | TEST-BB-473 | U | |
 | URS-BB-516 / FRS-BB-608 | Expired units on a shelf in the shift handoff | `ShiftHandoffService.CreateAsync`; `InventoryService.CountExpiredOnShelfAsync` | TEST-BB-474 | U, I | |
+| URS-BB-517 / FRS-BB-609 | Return to supplier by scan; no repeat return or repeat missing | `InventoryService.ReturnToSupplierByScanAsync`; `ReturnToSupplierAsync`; `MarkMissingAsync` | TEST-BB-475 | I | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

@@ -18,6 +18,7 @@
         @if (Session.Has(PermissionCodes.InventoryReceive))
         {
             <a class="btn btn-primary" href="/inventory/deliveries/new">New delivery</a>
+            <a class="btn btn-secondary" href="/inventory/return-to-supplier" data-return-to-supplier>Return to supplier</a>
         }
         @if (Session.Has(PermissionCodes.InventoryTransfer))
         {

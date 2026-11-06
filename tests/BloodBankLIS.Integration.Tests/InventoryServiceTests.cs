@@ -598,6 +598,41 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False(denied.Succeeded);
     }
 
+    // TEST-BB-475: a return shipment by scan returns each unit with the shipment's reason and the usual audit; a
+    // reserved unit, one already returned, a blank reason, and an unknown scan return nothing.
+    [Fact]
+    public async Task ReturnToSupplierByScan_ReturnsEachUnit_WithTheShipmentReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix) =>
+            (await service.ReceiveUnitAsync(NewUnitRequest($"U-RTS{suffix}-{key}", productTypeId))).Unit!.Id;
+        var first = await Receive("A");
+        var reserved = await Receive("B");
+        (await context.BloodUnits.FindAsync(reserved))!.Status = UnitStatus.Assigned;
+        await context.SaveChangesAsync();
+        const string reason = "Supplier recall R-2026-114";
+
+        Assert.False((await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-RTSA-{key}", " "))).Succeeded);
+        var returned = await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"u-rtsa-{key}", reason));
+        Assert.True(returned.Succeeded, returned.Error);
+        var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == first);
+        Assert.Equal((UnitStatus.ReturnedToSupplier, reason), (row.Status, row.SupplierReturnReason));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == first && a.Reason == "Unit returned to supplier."));
+
+        var again = await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-RTSA-{key}", reason));
+        Assert.Contains("already returned", again.Error);
+        // The unit page refuses a repeat too, so the recorded reason is never replaced.
+        Assert.Contains("already returned", (await service.ReturnToSupplierAsync(first, "Second reason")).Error);
+        Assert.Equal(reason, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == first)).SupplierReturnReason);
+        var assigned = await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-RTSB-{key}", reason));
+        Assert.Contains("is Assigned; it cannot be returned", assigned.Error);
+        Assert.Equal(UnitStatus.Assigned, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == reserved)).Status);
+        Assert.Contains("No unit has the number", (await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-NOPE-{key}", reason))).Error);
+    }
+
     // TEST-BB-472: expired units on a shelf (marked Expired, or past expiry before the sweep) are listed oldest first
     // and discarded by scan with the EXPIRED reason and the discard checks; a unit not expired, one already discarded,
     // and a scan without the discard permission are refused.
@@ -671,6 +706,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var missingUnit = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == lost);
         Assert.Equal(UnitStatus.Missing, missingUnit.Status);
         Assert.Contains("stock count at", missingUnit.MissingReason);
+        // Marking it missing again would replace the reason; it is refused (TEST-BB-475).
+        Assert.Contains("already marked missing", (await service.MarkMissingAsync(lost, "Another reason")).Error);
 
         // No longer expected; scanned there it is on the shelf but recorded as missing.
         var second = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [$"U-CNTFA-{key}", $"U-CNTFB-{key}"]));
