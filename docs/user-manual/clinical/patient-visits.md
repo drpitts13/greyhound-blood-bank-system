@@ -10,7 +10,7 @@ routes:
 
 ![Visits](figures/patient-visits.png)
 
-The **Visits** tab lists encounters for this patient. An order is placed on a visit. Create the visit before you place the order when the patient has just arrived and no interface message has created one.
+The **Visits** tab lists encounters for this patient. An order is placed on a visit. Create the visit before you place the order when the patient has just arrived and no interface message has created one. The visit number and **Open Orders** open the Orders tab showing only that visit's orders.
 
 ## What to enter
 

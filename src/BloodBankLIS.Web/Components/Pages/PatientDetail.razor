@@ -501,6 +501,9 @@ else
     [SupplyParameterFromQuery(Name = "mergeMrn")] public string? MergeMrnQuery { get; set; }
     private bool _mergeQueryApplied;
     [SupplyParameterFromQuery(Name = "specimen")] public long? SpecimenQuery { get; set; }
+    // Links into Orders carry their context: an order number to search for, or the visit to filter by.
+    [SupplyParameterFromQuery(Name = "order")] public string? OrderQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "visit")] public long? VisitQuery { get; set; }
     // From a reaction investigation: the special requirement form starts naming it, and the requirement is linked to it.
     [SupplyParameterFromQuery(Name = "reaction")] public long? ReactionQuery { get; set; }
     private long? _srReactionId;
@@ -822,13 +825,23 @@ else
         }
 
         await LoadAsync();
-        // Re-apply whenever ?tab= changes so in-chart links (Visits → Orders, etc.) switch tabs every time.
+        // Re-apply whenever the link changes (tab, order, or visit) so in-chart links (Visits → Orders, etc.) land on
+        // what they name every time.
+        var tabLink = $"{TabQuery}|{OrderQuery}|{VisitQuery}";
         if (!string.IsNullOrWhiteSpace(TabQuery)
             && KnownTabs.Contains(TabQuery)
-            && !string.Equals(_appliedTabQuery, TabQuery, StringComparison.OrdinalIgnoreCase))
+            && !string.Equals(_appliedTabQuery, tabLink, StringComparison.OrdinalIgnoreCase))
         {
-            _appliedTabQuery = TabQuery;
-            await SelectTab(TabQuery.Trim().ToLowerInvariant());
+            _appliedTabQuery = tabLink;
+            var tab = TabQuery.Trim().ToLowerInvariant();
+            if (tab == "orders" && (OrderQuery is not null || VisitQuery is not null))
+            {
+                _orderSearch = OrderQuery?.Trim() ?? string.Empty;
+                _orderVisitFilter = VisitQuery ?? 0;
+                _ordersLoaded = false;
+            }
+
+            await SelectTab(tab);
         }
 
         if (!_reactionQueryApplied && ReactionQuery is long reactionId)

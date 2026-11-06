@@ -618,6 +618,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-521 / FRS-BB-615 | Visit location suggested as the issue destination | `PatientVisitLocation.For` | TEST-BB-481 | U | |
 | URS-BB-521 / FRS-BB-616 | Chart issue panel destination from request or visit | `PatientVisitLocation.For` (visit list) | TEST-BB-482 | U | |
 | URS-BB-522 / FRS-BB-620 | New order location from the visit; attending offered | `OrderVisitDefaults` | TEST-BB-486 | U | |
+| URS-BB-523 / FRS-BB-622 | Chart links open the named tube, order, or visit's orders | `PatientChartUrls`; `PatientDetail.razor` | TEST-BB-488 | U | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

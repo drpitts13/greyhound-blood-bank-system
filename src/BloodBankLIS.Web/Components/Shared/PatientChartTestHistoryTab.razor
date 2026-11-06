@@ -41,7 +41,7 @@
                         <td class="mono">
                             @if (!string.IsNullOrWhiteSpace(h.AccessionNumber))
                             {
-                                <a href="@($"/patients/{PatientId}?tab=specimens")">@h.AccessionNumber</a>
+                                <a href="@PatientChartUrls.Specimen(PatientId, h.SpecimenId)" title="Open this tube's history">@h.AccessionNumber</a>
                             }
                             else
                             {
@@ -51,7 +51,7 @@
                         <td class="mono">
                             @if (h.OrderId is long historyOrderId && !string.IsNullOrWhiteSpace(h.OrderNumber))
                             {
-                                <a href="@($"/patients/{PatientId}?tab=orders")">@h.OrderNumber</a>
+                                <a href="@PatientChartUrls.Order(PatientId, h.OrderNumber)" title="Show this order">@h.OrderNumber</a>
                             }
                             else
                             {

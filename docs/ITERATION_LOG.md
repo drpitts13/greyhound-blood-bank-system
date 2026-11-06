@@ -15084,3 +15084,45 @@ The Alerts inbox sorts open alerts most severe first, but:
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 447 — Chart links land on what they name (2026-11-06)
+
+### Capability matrix rescan (navigation inside the chart)
+
+Several links dropped their context:
+
+- Test History's accession opened the Specimens tab, not the tube (though Specimens can already open a tube's history from `?specimen=`), and its order number opened Orders unfiltered.
+- On Visits, the visit number and **Open Orders** opened all orders, not that visit's.
+- The pending-specimens worklist's patient and **Chart** links opened Specimens generally.
+
+The user then searched again for what they had just clicked (questions 1, 2).
+
+### Design
+
+- **`PatientChartUrls`:** `Specimen` (tube history), `Order` (Orders searched for the number; blank opens unfiltered), `VisitOrders` (Orders filtered to the visit).
+- **Chart:** reads `order` and `visit`, and re-applies a link whenever its tab, order, or visit changes, so a second link to Orders still lands.
+- **Links:**
+  - Test History: accession, order
+  - Visits: visit number, Open Orders
+  - pending-specimens worklist: patient, Chart
+- Navigation only; no server, schema, or API change.
+
+### Requirements
+
+- URS-BB-523, FRS-BB-622. Help: visits, test history.
+
+### Tests
+
+- TEST-BB-488:
+  - the links name the tube, the order (trimmed, escaped; blank gives plain Orders), and the visit
+  - the chart reads every query name the links use
+- Full suite: 3,794 passed, 0 failed.
+- Run check (development API and web), MRN0001, navigation only:
+  - Test History links are `?tab=specimens&specimen=1` and `?tab=orders&order=ORD0001`; clicking the order opens Orders searched for ORD0001, showing only it
+  - Visits → Open Orders on VIS-2025-882 opens Orders filtered to that visit
+  - the specimen link opens ACC0001's history
+  - no server errors
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

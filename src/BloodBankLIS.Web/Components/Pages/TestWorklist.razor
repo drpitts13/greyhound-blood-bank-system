@@ -276,7 +276,7 @@
                 @foreach (var row in VisiblePendingSpecimens)
                 {
                     <tr>
-                        <td class="nowrap"><a href="@($"/patients/{row.PatientId}?tab=specimens")">@row.PatientName</a></td>
+                        <td class="nowrap"><a href="@PatientChartUrls.Specimen(row.PatientId, row.SpecimenId)">@row.PatientName</a></td>
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.AccessionNumber</td>
                         <td>@row.SpecimenType</td>
@@ -314,7 +314,7 @@
                             {
                                 <button class="btn @(row.IsExpired ? "btn-danger" : "btn-ghost") btn-sm" disabled="@_busy" @onclick="() => _rejectingSpecimenId = row.SpecimenId">Reject</button>
                             }
-                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">Chart</a>
+                            <a class="btn btn-ghost btn-sm" href="@PatientChartUrls.Specimen(row.PatientId, row.SpecimenId)" title="This tube on the patient's chart">Chart</a>
                         </td>
                     </tr>
                     @if (_rejectingSpecimenId == row.SpecimenId && Session.Has(PermissionCodes.SpecimenReject))
