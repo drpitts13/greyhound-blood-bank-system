@@ -14396,3 +14396,33 @@ Linking a supplier order to its delivery marked it Received, whatever arrived. A
 ### Next ranked residual
 
 Demo delivery and supplier order data, so supply workflows can be shown, or the next operations gap from the rescan.
+
+## Iteration 428 — Supply demo data (2026-11-05)
+
+### Capability matrix rescan (sample data)
+
+The demo had no deliveries or supplier orders, so the supply workflows could not be shown (Cycle 427 could not be seen live):
+- minimum stock, then order
+- order, then delivery
+- received versus ordered
+
+### Design
+
+- **`DatabaseSeeder.EnsureSupplyDemoAsync`** (once):
+  - **Delivery:** from American Red Cross, packing list PL-DEMO-0001, completed. One red-cell line expecting 3, and three group O red cells (W0001230009301–9303) on FRIDGE-1.
+  - **Supplier order:** SO-DEMO-001 for five group O red cells, submitted and received against that delivery, so it shows 2 short.
+- **Supplier orders list:** the Short badge is spaced from the status badge (found in the run check: "ReceivedShort 2").
+- No schema, API, or service change.
+
+### Tests
+
+- TEST-BB-469: the seed has SO-DEMO-001 received, three units on its delivery, and a line for five (unit count 68).
+- Full suite: 3,760 passed, 0 failed.
+- Run check (development API and web):
+  - Supplier orders lists SO-DEMO-001 Received with Short 2; opening it shows RBC-LR O, quantity 5, received 3, short 2, against delivery 1
+  - Delivery 1 shows RBC expected 3, received 3 (Even), and the three units
+  - no server errors
+
+### Next ranked residual
+
+Rescan the remaining Partial areas for the next operations gap.

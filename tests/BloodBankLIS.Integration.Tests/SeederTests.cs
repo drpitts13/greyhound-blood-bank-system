@@ -147,7 +147,12 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // autologous + directed, lookback sibling, missing + damaged,
             // and two expected inbound packing-list units, plus the Helen BPAM unit,
             // plus two units assigned for unit antigen typing, plus four issued under the demo MTP.
-            Assert.Equal(65, await verify.BloodUnits.CountAsync());
+            Assert.Equal(68, await verify.BloodUnits.CountAsync());
+            // TEST-BB-469: a demo supplier order for five group O red cells, received against a delivery of three.
+            var demoOrder = await verify.SupplierOrders.SingleAsync(o => o.OrderNumber == "SO-DEMO-001");
+            Assert.Equal(SupplierOrderStatus.Received, demoOrder.Status);
+            Assert.Equal(3, await verify.BloodUnits.CountAsync(u => u.DeliveryId == demoOrder.BloodDeliveryId));
+            Assert.Equal(5, (await verify.SupplierOrderLines.SingleAsync(l => l.SupplierOrderId == demoOrder.Id)).Quantity);
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Expected));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123ASN0001" && u.ShipmentId == "ASN-DEMO-01"));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));

@@ -66,6 +66,67 @@ public static partial class DatabaseSeeder
         await EnsureCoolerCheckDemoAsync(context, ct);
         await EnsureStatOrderWithoutSpecimenAsync(context, ct);
         await EnsurePossibleDuplicatePatientAsync(context, ct);
+        await EnsureSupplyDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// A supplier order for five group O red cells, submitted and received against a delivery that brought three, so
+    /// the order shows 2 short; the delivery (packing list PL-DEMO-0001) is completed and its units are on the shelf.
+    /// Added once.
+    /// </summary>
+    private static async Task EnsureSupplyDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SupplierOrders.AnyAsync(o => o.OrderNumber == "SO-DEMO-001", ct))
+        {
+            return;
+        }
+
+        var supplier = await context.BloodSuppliers.FirstOrDefaultAsync(s => s.Code == "ARC", ct);
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (supplier is null || redCells is null || fridge is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var delivery = new BloodDelivery
+        {
+            BloodSupplierId = supplier.Id,
+            PackingListNumber = "PL-DEMO-0001",
+            OrderedUtc = now.AddDays(-1),
+            ReceivedUtc = now.AddHours(-3),
+            Status = DeliveryStatus.Completed,
+            CompletedUtc = now.AddHours(-2)
+        };
+        context.BloodDeliveries.Add(delivery);
+        await context.SaveChangesAsync(ct);
+        context.BloodDeliveryLines.Add(new BloodDeliveryLine { BloodDeliveryId = delivery.Id, ComponentClass = ComponentClass.RedBloodCells, ExpectedQuantity = 3 });
+        var units = Enumerable.Range(0, 3)
+            .Select(i => NewUnit(9301 + i, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(35 + i), 300m))
+            .ToList();
+        foreach (var unit in units)
+        {
+            unit.DeliveryId = delivery.Id;
+            unit.Supplier = supplier.Name;
+        }
+
+        context.BloodUnits.AddRange(units);
+        var order = new SupplierOrder
+        {
+            OrderNumber = "SO-DEMO-001",
+            BloodSupplierId = supplier.Id,
+            Status = SupplierOrderStatus.Received,
+            Notes = "Demo: five group O red cells ordered, three delivered.",
+            SubmittedBy = "supervisor1",
+            SubmittedUtc = now.AddDays(-1),
+            BloodDeliveryId = delivery.Id,
+            ReceivedUtc = now.AddHours(-2)
+        };
+        context.SupplierOrders.Add(order);
+        await context.SaveChangesAsync(ct);
+        context.SupplierOrderLines.Add(new SupplierOrderLine { SupplierOrderId = order.Id, ProductTypeId = redCells.Id, Abo = AboGroup.O, Quantity = 5 });
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>
