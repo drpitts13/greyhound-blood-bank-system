@@ -21,6 +21,16 @@ public static class SpecimenRecollectionRule
             ? $"Specimen {accessionNumber} was rejected{(string.IsNullOrWhiteSpace(rejectionReason) ? "" : $" ({rejectionReason.Trim()})")}. Collect a new specimen and link it to this order."
             : $"Specimen {accessionNumber} was cancelled. Collect a new specimen and link it to this order.";
 
+    public const string EhrNotSentCode = "SPEC-REJECT-EHR";
+
+    /// <summary>
+    /// OCD-062: the rejection is recorded, but the "no result" notice to the EHR could not be queued, so the ward must
+    /// be told another way.
+    /// </summary>
+    public static RuleResult EhrNotSent(string accessionNumber) =>
+        RuleResult.Warning(EhrNotSentCode,
+            $"Specimen {accessionNumber} is rejected, but the notice to the EHR could not be queued. Tell the ward by phone and check the HL7 page.");
+
     /// <summary>The warning on rejecting a tube that open orders still use.</summary>
     public static RuleResult OrdersWaiting(IReadOnlyList<string> orderNumbers) =>
         RuleResult.Warning(Code,

@@ -15455,3 +15455,38 @@ Decided 2026-11-06 by the product owner:
 ### Next
 
 OCD-062 (no-result notice to the EHR on rejection), then OCD-063 (inbound dispense requests).
+
+## Iteration 457 — The EHR is told when a tube is rejected (OCD-062) (2026-11-06)
+
+### Decision
+
+Decided 2026-11-06 by the product owner: send a "no result" message (ORU, OBR-25 X, OBX-11 X) with the reason and "recollect"; the order stays open.
+
+### Design
+
+- **`ISpecimenRejectionPublisher`** (application abstraction), implemented by `Hl7OutboundService.PublishSpecimenRejectedAsync`.
+- **`SpecimenService.RejectAsync`** calls it after the rejection is saved. A failure never undoes the rejection; it returns warning SPEC-REJECT-EHR (phone the ward, check the HL7 page).
+- **What is queued:**
+  - only when an enabled outbound Results interface exists
+  - one ORU^R01 per open test line on an open order linked to the tube (not completed, cancelled, or discontinued; active; not already verified)
+- **`Hl7OruBuilder.BuildNoResult`:**
+  - OBR-2 placer order number; OBR-3 filler number or accession; OBR-4 test; OBR-25 X
+  - OBX-3 test; OBX-5 "Specimen {accession} rejected: {reason}. Recollect."; OBX-11 X
+- Sent and retried by the existing outbound transport and error queue. No schema change.
+
+### Requirements
+
+- FRS-BB-632 (under URS-BB-509); OCD-062 recorded. Help: patient specimens.
+
+### Tests
+
+- TEST-BB-498:
+  - message: OBR-2 order, OBR-3 accession, OBR-25 X, OBX-11 X, the reason text
+  - service: nothing queued without an enabled results interface; with one, one ORU per open line (ABORH and ABSC), none for the verified DAT line, each naming the order and "rejected: Clotted. Recollect."; a publisher failure keeps the rejection and warns
+- Full suite: 3,818 passed, 0 failed.
+- Run check (development API and web): the API starts with the new publisher wired; the pending specimens list loads (2 rows); no server errors.
+- No tube was rejected live (a real clinical action), so no notice was queued; TEST-BB-498 covers it.
+
+### Next
+
+OCD-063: inbound dispense requests from the EHR.

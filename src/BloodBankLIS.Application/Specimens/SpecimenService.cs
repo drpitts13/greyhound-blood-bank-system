@@ -43,6 +43,7 @@ public sealed class SpecimenService
     private readonly IRepository<Order>? _orders;
     private readonly IRepository<BloodUnit>? _units;
     private readonly IRepository<SpecimenRejectionReason>? _rejectionReasons;
+    private readonly ISpecimenRejectionPublisher? _rejectionNotices;
     private readonly AntibodyScreenCompatLoader? _antibodyScreen;
 
     public SpecimenService(
@@ -66,8 +67,10 @@ public sealed class SpecimenService
         IRepository<BloodUnit>? units = null,
         IRepository<SpecimenRejectionReason>? rejectionReasons = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
-        IRepository<Order>? orders = null)
+        IRepository<Order>? orders = null,
+        ISpecimenRejectionPublisher? rejectionNotices = null)
     {
+        _rejectionNotices = rejectionNotices;
         _orderSpecimens = orderSpecimens;
         _orders = orders;
         _specimens = specimens;
@@ -583,6 +586,19 @@ public sealed class SpecimenService
             if (waiting.Count > 0)
             {
                 warnings.Add(SpecimenRecollectionRule.OrdersWaiting(waiting));
+            }
+        }
+
+        // OCD-062: the EHR is told the tests on this tube will have no result. A failure never undoes the rejection.
+        if (_rejectionNotices is not null)
+        {
+            try
+            {
+                await _rejectionNotices.PublishSpecimenRejectedAsync(specimen.Id, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                warnings.Add(SpecimenRecollectionRule.EhrNotSent(specimen.AccessionNumber));
             }
         }
 

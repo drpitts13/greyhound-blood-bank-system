@@ -12,7 +12,7 @@ namespace BloodBankLIS.HL7.Messaging;
 /// to <c>HL7Messages</c> (direction Outbound). The transport (MLLP sender hosted
 /// service) picks them up; this service performs no network I/O.
 /// </summary>
-public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultReleasePublisher, IProductDispensePublisher
+public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultReleasePublisher, IProductDispensePublisher, ISpecimenRejectionPublisher
 {
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<Patient> _patients;
@@ -26,6 +26,9 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
     private readonly IRepository<BloodUnit>? _units;
     private readonly IRepository<ProductType>? _productTypes;
     private readonly IRepository<Order>? _orders;
+    private readonly IRepository<Specimen>? _specimens;
+    private readonly IRepository<OrderSpecimen>? _orderSpecimens;
+    private readonly IRepository<OrderLine>? _orderLines;
 
     public Hl7OutboundService(
         IRepository<TestResult> results,
@@ -39,8 +42,14 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         IRepository<Issue>? issues = null,
         IRepository<BloodUnit>? units = null,
         IRepository<ProductType>? productTypes = null,
-        IRepository<Order>? orders = null)
+        IRepository<Order>? orders = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<OrderSpecimen>? orderSpecimens = null,
+        IRepository<OrderLine>? orderLines = null)
     {
+        _specimens = specimens;
+        _orderSpecimens = orderSpecimens;
+        _orderLines = orderLines;
         _issues = issues;
         _units = units;
         _productTypes = productTypes;
@@ -120,6 +129,81 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
 
         var queued = await QueueResultMessageAsync(resultId, ct);
         return queued.Succeeded ? queued.Value!.Id : null;
+    }
+
+    /// <summary>
+    /// OCD-062: a rejected specimen's open test lines each get a "no result" ORU (OBR-25 X, OBX-11 X) naming the tube,
+    /// the reason, and "recollect", only when an outbound results interface is enabled. Lines on completed, cancelled,
+    /// or discontinued orders, inactive lines, product lines, and lines already verified are left out.
+    /// </summary>
+    public async Task<int> PublishSpecimenRejectedAsync(long specimenId, CancellationToken ct = default)
+    {
+        if (_endpoints is null || _specimens is null || _orderSpecimens is null || _orderLines is null || _orders is null
+            || !await _endpoints.AnyAsync(e => e.IsEnabled && e.Direction == Hl7Direction.Outbound && e.InterfaceType == InterfaceType.Results, ct))
+        {
+            return 0;
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null || specimen.Status != SpecimenStatus.Rejected)
+        {
+            return 0;
+        }
+
+        var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
+        if (patient is null)
+        {
+            return 0;
+        }
+
+        var orderIds = (await _orderSpecimens.ListAsync(os => os.SpecimenId == specimenId && os.UnlinkedUtc == null, ct))
+            .Select(os => os.OrderId)
+            .Distinct()
+            .ToList();
+        if (orderIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var orders = (await _orders.ListAsync(o => orderIds.Contains(o.Id), ct))
+            .Where(o => o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+            .ToDictionary(o => o.Id);
+        var openOrderIds = orders.Keys.ToList();
+        var lines = (await _orderLines.ListAsync(l => openOrderIds.Contains(l.OrderId) && l.IsActive && l.LineCategory == OrderCategory.Test, ct))
+            .Where(l => !string.IsNullOrWhiteSpace(l.TestCode) && l.ResultStatus != ResultStatus.Verified)
+            .OrderBy(l => l.OrderId)
+            .ThenBy(l => l.LineNumber)
+            .ToList();
+        if (lines.Count == 0)
+        {
+            return 0;
+        }
+
+        var now = _clock.UtcNow;
+        var resolved = await ResolveOutboundAsync(InterfaceType.Results, ct);
+        var translator = await LoadTranslatorAsync(ct);
+        var reason = string.IsNullOrWhiteSpace(specimen.RejectionReason) ? "rejected" : specimen.RejectionReason!;
+        var sequence = 0;
+        foreach (var line in lines)
+        {
+            var controlId = $"REJ{now:yyyyMMddHHmmssfff}{specimenId}-{++sequence}";
+            await _logs.AddAsync(new Hl7MessageLog
+            {
+                EndpointId = resolved.EndpointId,
+                Direction = Hl7Direction.Outbound,
+                MessageType = "ORU",
+                TriggerEvent = "R01",
+                MessageControlId = controlId,
+                RawMessage = Hl7OruBuilder.BuildNoResult(
+                    patient, orders[line.OrderId], line.TestCode!, specimen.AccessionNumber, reason, controlId, now,
+                    resolved.Identity, map: resolved.Map, translator: translator),
+                Status = Hl7MessageStatus.Received,
+                ReceivedUtc = now
+            }, ct);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return lines.Count;
     }
 
     public async Task<long?> PublishChargeAsync(BillingEvent billingEvent, CancellationToken ct = default)

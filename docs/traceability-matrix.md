@@ -586,6 +586,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-508 / FRS-BB-585 | Printable reaction investigation report, audited print | `ReactionInvestigationService.GetReportAsync` | TEST-BB-449 | I | |
 | URS-BB-507 / FRS-BB-586 | Reaction workup lines marked on the bench | `TestWorkItemDto.ReactionWorkup` | TEST-BB-450 | I | |
 | URS-BB-509 / FRS-BB-587 | Recollection asked for after a rejected tube | `SpecimenRecollectionRule` | TEST-BB-451 | I | |
+| URS-BB-509 / FRS-BB-632 | No-result notice to the EHR when a tube is rejected (OCD-062) | `Hl7OutboundService.PublishSpecimenRejectedAsync`; `Hl7OruBuilder.BuildNoResult` | TEST-BB-498 | U, I | |
 | URS-BB-509 / FRS-BB-588 | Recollect filter and home note | `TestWorklistView.Recollect`; `DashboardQueueCatalog.PendingTestsNote` | TEST-BB-452 | D | |
 | URS-BB-510 / FRS-BB-589 | Move units by scan | `InventoryService.TransferByScanAsync` | TEST-BB-453 | I | |
 | URS-BB-511 / FRS-BB-590 | Stock count by scan, audited | `InventoryService.ReconcileCountAsync` | TEST-BB-454 | I | |

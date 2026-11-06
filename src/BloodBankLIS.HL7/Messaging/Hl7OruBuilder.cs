@@ -76,6 +76,57 @@ public static class Hl7OruBuilder
         return builder.Build();
     }
 
+    /// <summary>OBR-25 and OBX-11 value meaning no result can be obtained for the order (HL7 tables 0123 and 0085).</summary>
+    public const string NoResult = "X";
+
+    /// <summary>
+    /// OCD-062: tells the EHR a test will have no result because its specimen was rejected. ORU^R01 with OBR-25 = X and
+    /// one OBX (OBX-11 = X) whose text gives the tube, the reason, and "recollect". The order is not cancelled: it
+    /// stays open for the new specimen. OBR-2 is the placer order number, OBR-3 the filler number or the accession.
+    /// </summary>
+    public static string BuildNoResult(
+        Patient patient,
+        Order order,
+        string testCode,
+        string accessionNumber,
+        string reason,
+        string controlId,
+        DateTime nowUtc,
+        Hl7OutboundIdentity? identity = null,
+        Hl7Encoding? encoding = null,
+        Hl7FieldMap? map = null,
+        InterfaceValueTranslator? translator = null)
+    {
+        ArgumentNullException.ThrowIfNull(patient);
+        ArgumentNullException.ThrowIfNull(order);
+        var id = identity ?? new Hl7OutboundIdentity();
+        map ??= Hl7FieldMap.Default(InterfaceType.Results, Hl7Direction.Outbound);
+        translator ??= InterfaceValueTranslator.Empty;
+        var text = $"Specimen {accessionNumber} rejected: {reason.Trim().TrimEnd('.')}. Recollect.";
+
+        var builder = new Hl7PathMessageBuilder(encoding)
+            .AppendMsh(id.SendingApp, id.SendingFacility, id.ReceivingApp, id.ReceivingFacility, nowUtc, "ORU^R01", controlId)
+            .EnsureSegment("PID").EnsureSegment("OBR").EnsureSegment("OBX")
+            .Set("PID-1", "1")
+            .Set(map.Path(InterfaceDataItemKeys.PatientMrn), translator.ToExternal(InterfaceDataItemKeys.PatientMrn, patient.MedicalRecordNumber))
+            .Set(map.Path(InterfaceDataItemKeys.PatientLastName), translator.ToExternal(InterfaceDataItemKeys.PatientLastName, patient.LastName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientFirstName), translator.ToExternal(InterfaceDataItemKeys.PatientFirstName, patient.FirstName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), translator.ToExternal(InterfaceDataItemKeys.PatientDateOfBirth, patient.DateOfBirth.ToString("yyyyMMdd")))
+            .Set(map.Path(InterfaceDataItemKeys.PatientSex), translator.ToExternal(InterfaceDataItemKeys.PatientSex, SexCode(patient.Sex)))
+            .Set("OBR-1", "1")
+            .Set("OBR-2", order.OrderNumber)
+            .Set("OBR-3", string.IsNullOrWhiteSpace(order.FillerOrderNumber) ? accessionNumber : order.FillerOrderNumber)
+            .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, testCode))
+            .Set("OBR-25", NoResult)
+            .Set("OBX-1", "1")
+            .Set("OBX-2", "TX")
+            .Set(map.Path(InterfaceDataItemKeys.ResultObxIdentifier), translator.ToExternal(InterfaceDataItemKeys.ResultObxIdentifier, testCode))
+            .Set(map.Path(InterfaceDataItemKeys.ResultValue), text)
+            .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), translator.ToExternal(InterfaceDataItemKeys.ResultObxStatus, NoResult));
+
+        return builder.Build();
+    }
+
     private static string SexCode(Domain.Enums.Sex sex) => sex switch
     {
         Domain.Enums.Sex.Male => "M",

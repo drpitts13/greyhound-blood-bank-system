@@ -22,6 +22,8 @@ Print the specimen label from **Printing** or the print action on the specimen. 
 
 A collected specimen is received into the laboratory, then accepted for testing. Until it is accepted, the worklist shows it as not ready. Reject the specimen when it is hemolyzed, mislabeled, or otherwise unsuitable. Choose the reason from the list, and add a comment; some reasons, such as Other, require one. The list is kept by your administrator under Specimen Rejection Reasons. Rejection stops testing on that specimen. If results were already recorded on it, rejection is refused and names them: invalidate each result first (on the Tests tab), then reject. That way nothing from the bad specimen, such as its ABO/Rh, stays in use. If units are still reserved against the specimen, the rejection lists them so you can release them on Compatibility.
 
+When your laboratory sends results to the EHR, rejecting a tube also tells the EHR that each open test on it will have no result: the message gives the tube, your reason, and "Recollect", and the order stays open for the new specimen. If that message cannot be queued, the rejection still stands and a warning tells you to phone the ward; check the HL7 page.
+
 > Hard stop. Results cannot be verified on a rejected specimen or on a specimen past its testing window. The one exception is a correction of a result that was already verified: it can be verified after the specimen expires, because it fixes the record of a test already done (OCD-051). Collect a new specimen rather than overriding the window for routine work.
 
 ## Relabel
