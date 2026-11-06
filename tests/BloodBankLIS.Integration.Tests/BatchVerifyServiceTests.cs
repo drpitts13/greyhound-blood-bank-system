@@ -43,7 +43,7 @@ public class BatchVerifyServiceTests : IDisposable
             results, worklist, new EfRepository<TestResult>(c), new EfRepository<PatientBloodTypeHistory>(c),
             new EfRepository<AntibodyHistory>(c), new EfRepository<SpecialTransfusionRequirement>(c),
             new EfRepository<SpecialRequirementDefinition>(c), new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
-            _verifier, _factory.Clock, audit, c);
+            _verifier, _factory.Clock, audit, c, new EfRepository<Patient>(c));
     }
 
     private async Task<(long PatientId, long SpecimenId)> PatientAsync(BloodBankDbContext c, string key)
@@ -101,6 +101,8 @@ public class BatchVerifyServiceTests : IDisposable
         Assert.Contains("Negative", reasons[positiveScreen.Id]);
         Assert.Contains("antibody history", reasons[antibodyPatientDat.Id]);
         Assert.Contains("another person", reasons[ownEntry.Id]);
+        // Each one left unverified is named by test and patient, not only by its internal id.
+        Assert.Equal("ABSC for Batch, NEW (MRN-BV-NEW)", outcome.Value.Skipped.Single(s => s.ResultId == positiveScreen.Id).Label);
 
         await using var check = _factory.Create();
         Assert.Equal(ResultStatus.Verified, (await check.TestResults.FindAsync(matching.Id))!.Status);

@@ -15534,3 +15534,29 @@ Decided 2026-11-06 by the product owner: accept the EHR's request to send a rese
 ### Next ranked residual
 
 Confirm OCD-062 and OCD-063 message details with the EHR team. Otherwise rescan the desks.
+
+## Iteration 459 — Batch verification names what it left unverified (2026-11-06)
+
+### Capability matrix rescan (batch verification)
+
+The batch outcome listed each result it left unverified as "Result 1234: reason". The internal id cannot be matched to a patient or test on the worklist, so the tech had to work out which row it meant (question 2).
+
+### Design
+
+- **`BatchVerifySkippedDto.Label`:** "ABSC for Doe, Jane (MRN0001)", built on the server from the result and its patient (optional patient repository).
+- **Worklist:** the outcome lists the label with the reason, falling back to the id only when the result no longer exists.
+- No schema change.
+
+### Requirements
+
+- FRS-BB-631 updated. Help: test worklist.
+
+### Tests
+
+- TEST-BB-497 extended: the positive screen left unverified is labeled "ABSC for Batch, NEW (MRN-BV-NEW)".
+- Full suite: 3,822 passed, 0 failed.
+- Run check (development API): starts with the patient repository wired; candidates answer `{"enabled":false}` and a batch is still refused while the setting is off; no server errors.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.

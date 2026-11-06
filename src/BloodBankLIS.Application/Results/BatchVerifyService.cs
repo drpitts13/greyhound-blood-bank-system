@@ -25,7 +25,8 @@ public sealed record BatchVerifyCandidatesDto(bool Enabled, IReadOnlyList<BatchV
 
 public sealed record BatchVerifyRequest(IReadOnlyList<long> ResultIds);
 
-public sealed record BatchVerifySkippedDto(long ResultId, string Reason);
+/// <summary>A result left unverified: <see cref="Label"/> names the test and patient so the tech can find it.</summary>
+public sealed record BatchVerifySkippedDto(long ResultId, string Reason, string? Label = null);
 
 public sealed record BatchVerifyOutcomeDto(Guid BatchId, IReadOnlyList<long> Verified, IReadOnlyList<BatchVerifySkippedDto> Skipped);
 
@@ -44,6 +45,7 @@ public sealed class BatchVerifyService
     private readonly IRepository<AntibodyHistory> _antibodies;
     private readonly IRepository<SpecialTransfusionRequirement> _requirements;
     private readonly IRepository<SpecialRequirementDefinition> _requirementDefinitions;
+    private readonly IRepository<Patient>? _patients;
     private readonly FacilityPolicyService _policy;
     private readonly ICurrentUser _currentUser;
     private readonly IClock _clock;
@@ -62,8 +64,10 @@ public sealed class BatchVerifyService
         ICurrentUser currentUser,
         IClock clock,
         IAuditWriter audit,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IRepository<Patient>? patients = null)
     {
+        _patients = patients;
         _results = results;
         _worklist = worklist;
         _testResults = testResults;
@@ -174,7 +178,32 @@ public sealed class BatchVerifyService
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
-        return OperationResult<BatchVerifyOutcomeDto>.Ok(new BatchVerifyOutcomeDto(batchId, verified, skipped));
+        return OperationResult<BatchVerifyOutcomeDto>.Ok(new BatchVerifyOutcomeDto(batchId, verified, await LabelAsync(skipped, results, ct)));
+    }
+
+    /// <summary>"ABSC for Demo, Patricia (MRN0001)", so a result left unverified can be found on the worklist.</summary>
+    private async Task<IReadOnlyList<BatchVerifySkippedDto>> LabelAsync(
+        List<BatchVerifySkippedDto> skipped, Dictionary<long, TestResult> results, CancellationToken ct)
+    {
+        if (skipped.Count == 0 || _patients is null)
+        {
+            return skipped;
+        }
+
+        var patientIds = skipped.Select(s => results.GetValueOrDefault(s.ResultId)?.PatientId).OfType<long>().Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return skipped.Select(s =>
+        {
+            if (!results.TryGetValue(s.ResultId, out var result))
+            {
+                return s;
+            }
+
+            var who = patients.TryGetValue(result.PatientId, out var p)
+                ? $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})"
+                : $"patient {result.PatientId}";
+            return s with { Label = $"{result.TestCode} for {who}" };
+        }).ToList();
     }
 
     private sealed record PatientFacts(

@@ -85,7 +85,7 @@
                         <ul style="margin:.25rem 0 0 1.1rem;padding:0;">
                             @foreach (var s in _batchOutcome.Skipped)
                             {
-                                <li>Result @s.ResultId: @s.Reason</li>
+                                <li>@(s.Label ?? $"Result {s.ResultId}"): @s.Reason</li>
                             }
                         </ul>
                     }
