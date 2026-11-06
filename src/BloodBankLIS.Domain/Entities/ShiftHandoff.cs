@@ -68,6 +68,9 @@ public class ShiftHandoff : BaseEntity
 
     public int CoolersWithDifferences { get; set; }
 
+    /// <summary>Expired units still recorded on a shelf, to pull and discard.</summary>
+    public int ExpiredOnShelf { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

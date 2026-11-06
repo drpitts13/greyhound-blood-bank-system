@@ -41,7 +41,8 @@ public sealed record ShiftHandoffDto(
     int NearExpiryReserved = 0,
     int CoolersInTransit = 0,
     int CoolersNotChecked = 0,
-    int CoolersWithDifferences = 0)
+    int CoolersWithDifferences = 0,
+    int ExpiredOnShelf = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -69,7 +70,8 @@ public sealed record ShiftHandoffDto(
         (FatalityFollowUpDue > 0 ? $", {FatalityFollowUpDue} fatality follow-up" : "") +
         (NearExpiryUnits > 0
             ? $"; near expiry {NearExpiryUnits}" + (NearExpiryReserved > 0 ? $", {NearExpiryReserved} reserved" : "")
-            : "");
+            : "") +
+        (ExpiredOnShelf > 0 ? $"; EXPIRED ON SHELF {ExpiredOnShelf}, to discard" : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
@@ -78,7 +80,8 @@ public sealed record ShiftHandoffDto(
         h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc, h.ActiveMtp,
         h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible,
         h.PendingTestsVerifyBeforeExpiry, h.ResultsAwaitingVerification, h.ReservationsLapsed,
-        h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences);
+        h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences,
+        h.ExpiredOnShelf);
 }
 
 /// <summary>
@@ -247,7 +250,8 @@ public sealed class ShiftHandoffService
             NearExpiryReserved = nearExpiry.Count(u => u.IsReserved),
             CoolersInTransit = coolers.Count,
             CoolersNotChecked = coolers.Count(c => c.LastCheckedUtc is null),
-            CoolersWithDifferences = coolers.Count(c => c.LastCheckedUtc is not null && c.LastCheckReady != true)
+            CoolersWithDifferences = coolers.Count(c => c.LastCheckedUtc is not null && c.LastCheckReady != true),
+            ExpiredOnShelf = _inventory is null ? 0 : await _inventory.CountExpiredOnShelfAsync(ct)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -322,7 +326,8 @@ public sealed class ShiftHandoffService
         row.NearExpiryReserved,
         row.CoolersInTransit,
         row.CoolersNotChecked,
-        row.CoolersWithDifferences
+        row.CoolersWithDifferences,
+        row.ExpiredOnShelf
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

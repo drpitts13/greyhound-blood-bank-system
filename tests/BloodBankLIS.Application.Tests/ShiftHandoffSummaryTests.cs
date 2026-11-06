@@ -32,4 +32,12 @@ public class ShiftHandoffSummaryTests
         Assert.Contains("transit 1; coolers out 3, 2 not checked, 1 checked with differences", line);
         Assert.Contains("coolers out 1;", (Handoff() with { CoolersInTransit = 1 }).QueueSummary);
     }
+
+    // TEST-BB-474: the handoff line ends with expired units still on a shelf, in capitals, and is quiet at zero.
+    [Fact]
+    public void Summary_NamesExpiredUnitsOnTheShelf()
+    {
+        Assert.DoesNotContain("EXPIRED", Handoff().QueueSummary);
+        Assert.EndsWith("; EXPIRED ON SHELF 2, to discard", (Handoff() with { ExpiredOnShelf = 2 }).QueueSummary);
+    }
 }

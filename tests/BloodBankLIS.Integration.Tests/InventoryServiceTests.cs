@@ -623,6 +623,9 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(listed.Succeeded, listed.Error);
         var mine = listed.Value!.Where(u => u.UnitNumber.EndsWith(key, StringComparison.Ordinal)).Select(u => u.UnitId).ToList();
         Assert.Equal(new[] { marked, pastDue }, mine);
+        // TEST-BB-474: the handoff count matches the list, without needing the discard permission.
+        var countBefore = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer)).CountExpiredOnShelfAsync();
+        Assert.Equal(listed.Value!.Count, countBefore);
 
         var notExpired = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDC-{key}", "tech2"));
         Assert.False(notExpired.Succeeded);
@@ -639,6 +642,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var again = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDA-{key}", "tech2"));
         Assert.Contains("already discarded", again.Error);
         Assert.DoesNotContain((await service.ListExpiredOnShelfAsync()).Value!, u => u.UnitId == marked || u.UnitId == pastDue);
+        Assert.Equal(countBefore - 2, await service.CountExpiredOnShelfAsync());
 
         var noPermission = CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer));
         Assert.False((await noPermission.ListExpiredOnShelfAsync()).Succeeded);

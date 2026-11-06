@@ -482,5 +482,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-471 | U | `CrossmatchUnitOfferTests.Offer_IsReservedPlusCompatible_CountedOnce`; `CrossmatchUnitOfferTests.UnreadableCompatibleList_OffersEveryUnit_AndSaysWhy` | URS-BB-506 / FRS-BB-605 |
 | TEST-BB-472 | I | `InventoryServiceTests.DiscardExpiredByScan_DiscardsOnlyExpiredUnits_WithTheExpiredReason` | URS-BB-516 / FRS-BB-606 |
 | TEST-BB-473 | U | `DashboardHomeTests.ExpiredOnShelf_IsForDiscarders_AndNeedsAttentionAboveZero` | URS-BB-516 / FRS-BB-607 |
+| TEST-BB-474 | U, I | `ShiftHandoffSummaryTests.Summary_NamesExpiredUnitsOnTheShelf`; `InventoryServiceTests.DiscardExpiredByScan_DiscardsOnlyExpiredUnits_WithTheExpiredReason` | URS-BB-516 / FRS-BB-608 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

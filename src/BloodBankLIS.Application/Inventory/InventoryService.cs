@@ -1886,6 +1886,17 @@ public sealed class InventoryService
     }
 
     /// <summary>
+    /// How many expired units are still on a shelf, without the discard permission check, for summaries (shift handoff)
+    /// whose caller is authorized for its own action. Read-only.
+    /// </summary>
+    public async Task<int> CountExpiredOnShelfAsync(CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        return (await _repository.SearchAsync(new InventorySearchCriteria(Statuses: InventoryUnitScopes.OnShelf), ct))
+            .Count(u => IsExpiredOnShelf(u, now));
+    }
+
+    /// <summary>
     /// Discards the expired unit in hand by its scan, with the EXPIRED discard reason and the same checks and audit as a
     /// discard from the unit page (permission, second verifier when required). A unit that is not expired, or a divided
     /// number matching several units, is refused; those are discarded from the unit page with their own reason.

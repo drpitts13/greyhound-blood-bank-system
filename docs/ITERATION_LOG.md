@@ -14581,3 +14581,33 @@ Cycle 431 added Discard expired. Nothing on the home screen said expired units w
 ### Next ranked residual
 
 Rescan the remaining desks for an operations gap.
+
+## Iteration 433 — Expired units on a shelf in the shift handoff (2026-11-06)
+
+### Capability matrix rescan (operations)
+
+The home card (Cycle 432) shows expired units still on a shelf to whoever can discard. The shift handoff, the record of what the next shift inherits, did not count them (questions 2, 5).
+
+### Design
+
+- **`ShiftHandoff.ExpiredOnShelf`:**
+  - migration `20261116000000_ShiftHandoffExpiredOnShelf` and the SQLite bootstrap column
+  - filled from `InventoryService.CountExpiredOnShelfAsync`, read-only, so the handoff needs only *shift.handoff*
+- **Handoff line:** ends "EXPIRED ON SHELF n, to discard" above zero; the audit snapshot includes it.
+- No API change.
+
+### Requirements
+
+- FRS-BB-608 (under URS-BB-516). Help: shift handoff.
+
+### Tests
+
+- TEST-BB-474:
+  - the line wording at the end, quiet at zero
+  - the count matches the expired list, read without the discard permission, and drops as units are discarded
+- Full suite: 3,769 passed, 0 failed.
+- Run check (development API and web): the startup bootstrap added `ExpiredOnShelf` to the development database; the Shift handoff page loads (no handoffs recorded); no server errors.
+
+### Next ranked residual
+
+Rescan the remaining desks; candidates needing a decision first: bulk verify of plain negatives (medical director), and the rejection notice to the EHR (interface choice).
