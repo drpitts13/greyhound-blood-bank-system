@@ -396,7 +396,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-388 | Staff placing or editing an order can select a product by its code and still read a blank name as the product id. | P1 | FRS-BB-423 |
 | URS-BB-389 | Staff returning a unit cannot declare time out of a governed storage device acceptable after the return-to-available window. An exempt device does not fail that window. | P1 | FRS-BB-424 |
 | URS-BB-390 | Staff cannot release a modification result from quarantine until the scanned unit number matches that result. Other quarantine releases do not require that scan. | P1 | FRS-BB-425 |
-| URS-BB-391 | Staff can record reagent lots and daily QC, and a different person reviews the row. Overdue, failed, and unreviewed rows stay visible. Patient resulting stays open unless facility policy is turned on. | P1 | FRS-BB-426, FRS-BB-628 |
+| URS-BB-391 | Staff can record reagent lots and daily QC, and a different person reviews the row. Overdue, failed, and unreviewed rows stay visible. Patient resulting stays open unless facility policy is turned on. | P1 | FRS-BB-426, FRS-BB-628, FRS-BB-629 |
 | URS-BB-392 | Staff can see issued units past the final-disposition window that have no transfusion document, return, or discard. The board warns and does not block issue or documentation. | P1 | FRS-BB-427 |
 | URS-BB-393 | Staff can record an optional supply description and lot on a modification and read them on modification history. A facility policy can require the lot and ships off. | P1 | FRS-BB-428 |
 | URS-BB-394 | Staff can apply one modification rule and one reason to several units. If any unit is ineligible, none are modified. | P1 | FRS-BB-429 |

@@ -24,7 +24,9 @@ public static class ReferenceEndpoints
         FacilityPolicyKeys.PrefillPatientIdentifiers,
         FacilityPolicyKeys.RequireSpecimenReceiptByScan,
         FacilityPolicyKeys.InspectionDefaultAcceptable,
-        FacilityPolicyKeys.BlockAboSelfVerify
+        FacilityPolicyKeys.BlockAboSelfVerify,
+        // The test worklist shows the reagent QC result block before anything is keyed.
+        FacilityPolicyKeys.BlockResultsWhenReagentQcOpen
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)

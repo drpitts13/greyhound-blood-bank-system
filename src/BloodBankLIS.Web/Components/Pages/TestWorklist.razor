@@ -6,6 +6,20 @@
 
 <h1>Test Worklist</h1>
 <p class="muted">Pending patient tests. Expand a row to enter results, or Verify a value already entered (by a colleague, the instrument, or the interface) without re-keying it.</p>
+@if (_qcBlock is not null)
+{
+    @* The same stop Save gives, shown before anything is keyed. *@
+    <div class="alert alert-danger" data-reagent-qc-block>
+        <strong>@_qcBlock.Message</strong>
+        <ul style="margin:.35rem 0 .35rem 1.1rem;padding:0;">
+            @foreach (var item in _qcBlock.Work)
+            {
+                <li>@item.Kind: lot @item.LotNumber. @item.Message</li>
+            }
+        </ul>
+        <a class="btn btn-secondary btn-sm" href="/reagents">Open Reagent QC</a>
+    </div>
+}
 <details class="bb-help">
     <summary>About this worklist</summary>
     <ul>
@@ -494,6 +508,7 @@
         _tube = TestWorklistView.NormalizeTube(AccessionQuery);
         var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
         _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
+        await LoadQcBlockAsync();
         if (string.Equals(TabQuery, "retype", StringComparison.OrdinalIgnoreCase))
         {
             _tab = "retype";
@@ -506,6 +521,22 @@
         }
 
         await LoadAsync();
+    }
+
+    // Facility policy can block patient resulting while reagent QC is overdue, failed, or unreviewed.
+    private ReagentQcResultBlock? _qcBlock;
+
+    private async Task LoadQcBlockAsync()
+    {
+        var policy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen);
+        if (!policy.Succeeded || policy.Value?.Enabled != true)
+        {
+            _qcBlock = null;
+            return;
+        }
+
+        var work = await Api.GetReagentQcWorklistAsync();
+        _qcBlock = work.Succeeded && work.Value is not null ? ReagentQcResultBlock.For(true, work.Value) : null;
     }
 
     private async Task SelectTab(string tab)

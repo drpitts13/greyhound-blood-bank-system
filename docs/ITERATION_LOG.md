@@ -15342,3 +15342,33 @@ While checking Cycle 453 live, the demo times had moved: the development databas
 - **Test:** `DevelopmentSqliteBootstrapTests.InitializeAsync_AddsAMissingAdditiveColumn_WithoutRecreating`. Drop `ShiftHandoffs.CriticalDeviations` from a database holding a marker setting; the bootstrap adds the column back and the marker survives. The existing recreate test still passes.
 - Production (SQL Server) uses migrations and was never affected.
 
+## Iteration 454 — The reagent QC block is shown before results are keyed (2026-11-06)
+
+### Capability matrix rescan (result entry)
+
+With facility policy *Block results when reagent QC is open* on, Save refuses patient results while QC is overdue, failed, or unreviewed (QC-RESULT-BLOCK). The bench only learned this at Save, after keying the results, and the message did not say which lot (questions 1, 5).
+
+### Design
+
+- **`ReagentQcResultBlock.For`:** applies the same `ReagentQcResultGate` Save uses, and returns the message and the open QC work when it blocks.
+- **Test Worklist:** reads the policy and the QC worklist on opening. When blocked, it shows a red notice with each open item (kind, lot, message) and **Open Reagent QC**.
+- **Policy access:** the flag is added to the readable policy keys (`GET /api/reference/policies/{key}`).
+- Save still enforces the gate; no schema change.
+
+### Requirements
+
+- FRS-BB-629 (under URS-BB-391). Help: test worklist.
+
+### Tests
+
+- TEST-BB-495: nothing when the policy is off or no QC is open; with both, the gate's own message and the open lot.
+- Full suite: 3,811 passed, 0 failed.
+- Run check (development API and web), nothing changed:
+  - `GET /api/reference/policies/Result.BlockWhenReagentQcOpen` answers 200 (an unknown key still 404)
+  - the worklist loads its 13 rows with no notice, since the policy is off by default and no QC is open
+  - no server errors
+- The facility policy was not turned on live to show the notice; TEST-BB-495 covers that path.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

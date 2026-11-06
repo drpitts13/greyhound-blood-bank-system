@@ -503,5 +503,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-492 | U | `DeviationRecordTypesTests.EveryLookupKind_MapsToARecordType`; `DeviationRecordTypesTests.RecordPages_FindOlderSpellings` | URS-BB-524 / FRS-BB-626 |
 | TEST-BB-493 | U, I | `ShiftHandoffSummaryTests.Summary_NamesOpenAndCriticalDeviations`; `ShiftHandoffServiceTests.Create_CountsOpenAndCriticalDeviations` | URS-BB-524 / FRS-BB-627 |
 | TEST-BB-494 | U | `DashboardQueueCatalogTests.ReagentQc_ForResultEntry_NamesFailedAndOverdue` | URS-BB-391 / FRS-BB-628 |
+| TEST-BB-495 | U | `ReagentQcResultBlockTests.Blocked_OnlyWhenPolicyOnAndWorkOpen` | URS-BB-391 / FRS-BB-629 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
