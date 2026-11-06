@@ -1,4 +1,6 @@
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using static BloodBankLIS.Application.Compliance.DashboardQueueCatalog;
 
@@ -162,5 +164,34 @@ public class DashboardHomeTests
         var layout = DashboardHome.Arrange([State(NearExpiry, 3, NearExpiryNote(1)), State(ExpiredOnShelf, 2)], WorkFocus.IssueDesk);
         Assert.Equal([ExpiredOnShelf, NearExpiry], layout.Attention.Select(c => c.Card.Key));
         Assert.DoesNotContain(DashboardHome.Arrange([State(ExpiredOnShelf, 0)], WorkFocus.IssueDesk).Attention, c => c.Card.Key == ExpiredOnShelf);
+    }
+
+    // TEST-BB-507: Below minimum stock is for whoever keeps or issues stock, belongs to the issue desk and supervisor
+    // views, names the largest shortfalls with what is on hand, and needs attention whenever a product is short.
+    [Fact]
+    public void LowStock_NamesTheShortfalls_AndNeedsAttention()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == PermissionCodes.IssueCreate),
+            card => card.Key == DashboardQueueCatalog.LowStock && card.Href == "/inventory/minimum-stock");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == PermissionCodes.ResultEnter), card => card.Key == DashboardQueueCatalog.LowStock);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.LowStock, WorkFocus.IssueDesk));
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.LowStock, WorkFocus.Supervisor));
+        Assert.False(DashboardHome.InFocus(DashboardQueueCatalog.LowStock, WorkFocus.Bench));
+
+        MinimumStockRowDto Row(string code, AboGroup? abo, int onHand, int min) =>
+            new(1, 7, code, abo, onHand, min, Math.Max(0, min - onHand));
+        var rows = new[]
+        {
+            Row("RBC", AboGroup.O, 2, 6), Row("RBC", AboGroup.A, 4, 4), Row("PLT", null, 0, 2),
+            Row("FFP", AboGroup.AB, 1, 2), Row("CRYO", null, 3, 4), Row("", AboGroup.B, 0, 1)
+        };
+        var (count, note) = DashboardQueueCatalog.LowStockCard(rows);
+        Assert.Equal(5, count);
+        Assert.Equal("RBC O: 2 of 6; PLT any ABO: 0 of 2; Product 7 B: 0 of 1 and 2 more", note);
+        Assert.Equal((0, null), DashboardQueueCatalog.LowStockCard([Row("RBC", AboGroup.A, 4, 4)]));
+        Assert.Equal("Product 7 B: 0 of 1", DashboardQueueCatalog.LowStockCard([Row("", AboGroup.B, 0, 1)]).Note);
+
+        var layout = DashboardHome.Arrange([State(NearExpiry, 3, NearExpiryNote(1)), State(DashboardQueueCatalog.LowStock, count, note)], WorkFocus.IssueDesk);
+        Assert.Equal([DashboardQueueCatalog.LowStock, NearExpiry], layout.Attention.Select(c => c.Card.Key));
     }
 }

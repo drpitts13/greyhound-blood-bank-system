@@ -15849,3 +15849,34 @@ The patient pickers on Issue, Compatibility, and unit receipt name the patient w
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 469 — Below minimum stock on the home screen (2026-11-06)
+
+### Capability matrix rescan (operations: inventory levels)
+
+Minimum stock levels were set and compared on the Minimum stock page, and the alert scanner raised alerts, but the home screen had no card for them. The issue desk saw a shortage of group O red cells only by opening that page or the alert inbox. Near expiry and expired on shelf already had cards (questions 1, 5; supply risk for emergency release and massive transfusion).
+
+### Design
+
+- **Card `LowStock`** "Below minimum stock", opening `/inventory/minimum-stock`, for the same staff as Near expiry (inventory receive or discard, issue, allocate).
+- **`LowStockCard`:** the count of minimum stock rows with a shortfall; the note names the three largest ("RBC O: 2 of 6", "any ABO" when the level names none, "and n more"). Ties go by product code.
+- Any shortage carries a note, so it is under Needs attention, ranked after expired on shelf and before near expiry.
+- In the Issue desk and Supervisor focus. Read-only from the existing endpoint; no schema or API change.
+- Not in the shift handoff yet (its counts are stored columns; that needs a migration).
+
+### Requirements
+
+- URS-BB-532, FRS-BB-641. Help: dashboard, minimum stock.
+
+### Tests
+
+- TEST-BB-507:
+  - the card is offered to issuers, not result entry, and is in the Issue desk and Supervisor focus, not Bench
+  - the count and note name the largest shortfalls with what is on hand, "any ABO", a missing product code as "Product n", and "and n more"; no shortage gives no count or note
+  - a shortage ranks ahead of near expiry under Needs attention
+- Full suite: 3,838 passed
+- Live (read-only): the home screen showed **Below minimum stock 1, RBC-LR A: 2 of 4**, matching the Minimum stock page (the only short row; FFP, PLT-A, and RBC-LR O at or above minimum). No server errors.
+
+### Next ranked residual
+
+Count products below minimum stock in the shift handoff (stored counts: needs a migration). Confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

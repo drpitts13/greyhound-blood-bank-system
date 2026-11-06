@@ -34,6 +34,7 @@ public static class DashboardQueueCatalog
     public const string ExpiredOnShelf = "expired-on-shelf";
     public const string Deviations = "deviations";
     public const string ReagentQc = "reagent-qc";
+    public const string LowStock = "low-stock";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -63,6 +64,9 @@ public static class DashboardQueueCatalog
             || has(PermissionCodes.DeviationManage), TemperatureExcursions, "Temperature excursions", "/storage-temps");
         Add(cards, has(PermissionCodes.InventoryReceive) || has(PermissionCodes.InventoryDiscard)
             || canIssue || has(PermissionCodes.CompatibilityAllocate), NearExpiry, "Near expiry", "/inventory?board=near");
+        // Products below their minimum stock level: whoever keeps or uses the stock should see a shortage before it bites.
+        Add(cards, has(PermissionCodes.InventoryReceive) || has(PermissionCodes.InventoryDiscard)
+            || canIssue || has(PermissionCodes.CompatibilityAllocate), LowStock, "Below minimum stock", "/inventory/minimum-stock");
         // Expired units still recorded on a shelf: pull and discard them (inventory.discard).
         Add(cards, has(PermissionCodes.InventoryDiscard), ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired");
         Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments");
@@ -194,6 +198,27 @@ public static class DashboardQueueCatalog
             AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Overdue), "overdue", "overdue")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
+    /// <summary>
+    /// The Below minimum stock card: products (by ABO when the level names one) with fewer available units than their
+    /// minimum, the largest shortfall first, named with what is on hand ("RBC O: 2 of 6"), so the shortage is seen without
+    /// opening the page. Any shortage needs attention.
+    /// </summary>
+    public static (int Count, string? Note) LowStockCard(IEnumerable<MinimumStockRowDto> rows, int named = 3)
+    {
+        var shortages = rows.Where(r => r.Shortfall > 0)
+            .OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo)
+            .ToList();
+        if (shortages.Count == 0)
+        {
+            return (0, null);
+        }
+
+        var names = shortages.Take(named)
+            .Select(r => $"{(string.IsNullOrWhiteSpace(r.ProductCode) ? $"Product {r.ProductTypeId}" : r.ProductCode)} {r.Abo?.ToString() ?? "any ABO"}: {r.OnHand} of {r.MinimumAvailable}");
+        var more = shortages.Count > named ? $" and {shortages.Count - named} more" : string.Empty;
+        return (shortages.Count, string.Join("; ", names) + more);
     }
 
     /// <summary>Near-expiry units reserved for a patient: issue them first or reserve a replacement.</summary>

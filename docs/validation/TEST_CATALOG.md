@@ -515,5 +515,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-504 | I | `UniversalLookupTests.VisitNumber_OpensThatVisitsOrders_AndSaysItIsOpen`; `UniversalLookupTests.DischargedVisit_SaysSo_AndAMergedVisitOpensTheSurvivor`; `UniversalLookupTests.AccountAndOtherIdentifiers_FindThePatient_ButNamesStayPartial`; `UniversalLookupTests.OrderNumber_OpensThePatientsOrders` | URS-BB-529 / FRS-BB-638 |
 | TEST-BB-505 | U, I | `CurrentVisitTests.StoredVisits_PickTheSameVisit_AndSayWhereThePatientIs`; `PatientListFlagsTests.PatientList_ShowsWhereThePatientIs_FromTheCurrentOpenVisit`; `UniversalLookupTests.PatientHit_SaysWhereThePatientIsNow` | URS-BB-530 / FRS-BB-639 |
 | TEST-BB-506 | U, I | `PatientPickerLabelTests.PickerLabel_SaysWhereThePatientIs`; `PatientListFlagsTests.PatientList_ShowsWhereThePatientIs_FromTheCurrentOpenVisit` | URS-BB-531 / FRS-BB-640 |
+| TEST-BB-507 | U | `DashboardHomeTests.LowStock_NamesTheShortfalls_AndNeedsAttention` | URS-BB-532 / FRS-BB-641 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -422,6 +422,17 @@
             }
             case DashboardQueueCatalog.ExpiredOnShelf:
                 return await CountList(card.Key, Api.GetExpiredOnShelfAsync());
+            case DashboardQueueCatalog.LowStock:
+            {
+                var result = await Api.GetMinimumStockAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var (shortCount, note) = DashboardQueueCatalog.LowStockCard(result.Value);
+                return (card.Key, shortCount, note);
+            }
             case DashboardQueueCatalog.TemperatureExcursions:
                 return await CountList(card.Key, Api.GetOpenTemperatureExcursionsAsync());
             case DashboardQueueCatalog.InstrumentFailures:
