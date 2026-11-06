@@ -624,6 +624,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-524 / FRS-BB-625 | Deviations shown on, and recorded from, the unit and patient pages | `DeviationService.ListForRecordAsync`; `LinkedDeviations.razor` | TEST-BB-491 | I | |
 | URS-BB-524 / FRS-BB-626 | Deviation record linked by scan or identifier | `DeviationRecordTypes.FromLookup`; `Deviations.razor` | TEST-BB-492 | U | |
 | URS-BB-524 / FRS-BB-627 | Shift handoff counts open and critical deviations | `ShiftHandoffService`; `ShiftHandoffDto.QueueSummary` | TEST-BB-493 | U, I | |
+| URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

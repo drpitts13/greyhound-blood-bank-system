@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
@@ -32,6 +33,7 @@ public static class DashboardQueueCatalog
     public const string NearExpiry = "near-expiry";
     public const string ExpiredOnShelf = "expired-on-shelf";
     public const string Deviations = "deviations";
+    public const string ReagentQc = "reagent-qc";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -51,6 +53,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.ResultEnter), PendingTests, "Pending tests", "/test-worklist");
         Add(cards, has(PermissionCodes.ResultVerify), ToVerify, "Results to verify", "/test-worklist?show=verify");
         Add(cards, has(PermissionCodes.SpecimenAccession), PendingSpecimens, "Pending specimens", "/test-worklist?tab=specimens");
+        // Daily reagent QC is bench work: whoever enters results records and reviews it.
+        Add(cards, has(PermissionCodes.ResultEnter), ReagentQc, "Reagent QC", "/reagents");
         Add(cards, has(PermissionCodes.ReactionInvestigate), Reactions, "Reaction investigations", "/reactions");
         Add(cards, has(PermissionCodes.ImmunoOverride)
             || has(PermissionCodes.ResultVerify)
@@ -175,6 +179,21 @@ public static class DashboardQueueCatalog
     {
         var open = deviations.Where(d => d.Status != DeviationStatus.Closed).ToList();
         return (open.Count, AttentionNote(open.Count(d => d.Severity == DeviationSeverity.Critical), "critical", "critical"));
+    }
+
+    /// <summary>
+    /// The Reagent QC card note: failed QC (results on that lot are at risk) and overdue daily QC. QC waiting for review
+    /// stays in the count only.
+    /// </summary>
+    public static string? ReagentQcNote(IEnumerable<ReagentQcWorkItemDto> work)
+    {
+        var items = work.ToList();
+        var parts = new[]
+        {
+            AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Failed), "failed", "failed"),
+            AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Overdue), "overdue", "overdue")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
     }
 
     /// <summary>Near-expiry units reserved for a patient: issue them first or reserve a replacement.</summary>

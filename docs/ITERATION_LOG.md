@@ -15303,3 +15303,33 @@ The handoff counts the open bench, issue, inventory, cooler, and reaction work, 
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 453 — Reagent QC on the bench home screen (2026-11-06)
+
+### Capability matrix rescan (bench queues)
+
+Reagent QC has a worklist (overdue daily QC, failed QC, QC waiting for review) and raises alerts, but the bench home screen had no card for it. A tech starting the shift saw pending tests and specimens, not that the day's QC was overdue or had failed (question 5).
+
+### Design
+
+- **Reagent QC card** for `result.enter` (who records and reviews QC), opening `/reagents`:
+  - counts the existing worklist
+  - names failed and overdue QC (`DashboardQueueCatalog.ReagentQcNote`), which puts the card under Needs attention; review stays in the count
+- In the Bench focus; ranked after in-transit units among attention cards.
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-628 (under URS-BB-391). Help: dashboard.
+
+### Tests
+
+- TEST-BB-494:
+  - shown for result entry, not for issue-only users; in the Bench focus
+  - no note when the worklist is empty or only waiting for review; "1 failed; 2 overdue" otherwise
+- Full suite: 3,809 passed, 0 failed.
+- Run check (development API and web): the home screen lists Reagent QC under Clear (the dev QC worklist is empty, matching Alerts); the failed and overdue note was not seen live, TEST-BB-494 covers it; no server errors; nothing changed.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

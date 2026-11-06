@@ -261,4 +261,19 @@ public class DashboardQueueCatalogTests
             Row(DeviationSeverity.Critical, DeviationStatus.CorrectiveAction), Row(DeviationSeverity.Critical, DeviationStatus.Closed),
             Row(DeviationSeverity.Major, DeviationStatus.Open), Row(DeviationSeverity.Minor, DeviationStatus.Open)]));
     }
+
+    // TEST-BB-494: result-entry staff see Reagent QC on the bench, with failed and overdue QC named; review stays in the count.
+    [Fact]
+    public void ReagentQc_ForResultEntry_NamesFailedAndOverdue()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter)), c => c.Key == DashboardQueueCatalog.ReagentQc && c.Href == "/reagents");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)), c => c.Key == DashboardQueueCatalog.ReagentQc);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.ReagentQc, WorkFocus.Bench));
+
+        Inventory.ReagentQcWorkItemDto Work(string kind) => new(kind, 1, "LOT-1", null, "m");
+        Assert.Null(DashboardQueueCatalog.ReagentQcNote([]));
+        Assert.Null(DashboardQueueCatalog.ReagentQcNote([Work(ReagentQcWorklistRule.Unreviewed)]));
+        Assert.Equal("1 failed; 2 overdue", DashboardQueueCatalog.ReagentQcNote([
+            Work(ReagentQcWorklistRule.Failed), Work(ReagentQcWorklistRule.Overdue), Work(ReagentQcWorklistRule.Overdue), Work(ReagentQcWorklistRule.Unreviewed)]));
+    }
 }
