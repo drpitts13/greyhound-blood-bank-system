@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Identity;
@@ -271,5 +272,42 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(expectedCritical >= 1 && expectedOpen >= 2);
         var audit = await context.AuditEvents.Where(e => e.EntityType == nameof(ShiftHandoff) && e.EntityId == created.Value.Id).ToListAsync();
         Assert.Contains(audit, e => e.NewValueJson != null && e.NewValueJson.Contains("CriticalDeviations", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // TEST-BB-508: a handoff counts products below their minimum stock level, without admin.config.edit, and keeps the
+    // count in its audit snapshot.
+    [Fact]
+    public async Task Create_CountsProductsBelowMinimumStock()
+    {
+        await using var context = _factory.Create();
+        var product = new ProductType { ProductCode = $"RBC-{Guid.NewGuid():N}"[..12], Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+        context.BloodUnits.Add(new BloodUnit
+        {
+            UnitNumber = $"U-LOW-{Guid.NewGuid():N}"[..14], ProductTypeId = product.Id, Status = UnitStatus.Available,
+            Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(5)
+        });
+        context.MinimumStockLevels.AddRange(
+            new MinimumStockLevel { ProductTypeId = product.Id, Abo = AboGroup.O, MinimumAvailable = 4 },
+            new MinimumStockLevel { ProductTypeId = product.Id, Abo = AboGroup.A, MinimumAvailable = 0 });
+        await context.SaveChangesAsync();
+        var minimumStock = new MinimumStockService(
+            new EfRepository<MinimumStockLevel>(context), new EfRepository<ProductType>(context), new InventoryRepository(context), context);
+        var expected = (await minimumStock.ListAsync()).Count(r => r.Shortfall > 0);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            minimumStock: minimumStock);
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Stock count check"));
+        Assert.True(created.Succeeded, created.Error);
+
+        Assert.Equal(expected, created.Value!.ProductsBelowMinimum);
+        Assert.True(expected >= 1);
+        Assert.Contains("BELOW MINIMUM STOCK", ShiftHandoffDto.From(created.Value).QueueSummary);
+        var audit = await context.AuditEvents.Where(e => e.EntityType == nameof(ShiftHandoff) && e.EntityId == created.Value.Id).ToListAsync();
+        Assert.Contains(audit, e => e.NewValueJson != null && e.NewValueJson.Contains("ProductsBelowMinimum", StringComparison.OrdinalIgnoreCase));
     }
 }

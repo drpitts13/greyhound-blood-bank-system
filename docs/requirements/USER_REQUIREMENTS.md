@@ -538,3 +538,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-530 | Staff finding a patient on the patient list or in the find box see where the patient is now (patient type and location of the current open visit), whether another visit is open, or that none is, so similar names can be told apart and blood goes to the right place. | P2 | FRS-BB-639 |
 | URS-BB-531 | Staff choosing a patient at issue, crossmatch, or unit receipt see where the patient is (current open visit) in the patient picker, after the name and MRN, so the right patient is chosen and the destination is confirmed. | P2 | FRS-BB-640 |
 | URS-BB-532 | Staff who keep or issue stock see on the home screen which products are below their minimum stock level, and by how much, without opening the Minimum stock page. | P2 | FRS-BB-641 |
+| URS-BB-533 | The shift handoff tells the incoming shift how many products are below their minimum stock level, recorded with the handoff. | P2 | FRS-BB-642 |

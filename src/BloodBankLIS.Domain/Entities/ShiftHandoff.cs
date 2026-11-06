@@ -76,6 +76,9 @@ public class ShiftHandoff : BaseEntity
 
     public int CriticalDeviations { get; set; }
 
+    /// <summary>Products (by ABO where the level names one) with fewer available units than their minimum stock level.</summary>
+    public int ProductsBelowMinimum { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

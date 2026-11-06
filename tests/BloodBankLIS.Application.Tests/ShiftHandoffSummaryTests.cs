@@ -51,4 +51,14 @@ public class ShiftHandoffSummaryTests
         Assert.EndsWith("; deviations open 3", line);
         Assert.DoesNotContain("CRITICAL", (Handoff() with { OpenDeviations = 2 }).QueueSummary);
     }
+
+    // TEST-BB-508: the handoff line names products below minimum stock in capitals, before open deviations; quiet at zero.
+    [Fact]
+    public void Summary_NamesProductsBelowMinimumStock()
+    {
+        Assert.DoesNotContain("MINIMUM", Handoff().QueueSummary);
+        Assert.EndsWith("; BELOW MINIMUM STOCK 1 product", (Handoff() with { ProductsBelowMinimum = 1 }).QueueSummary);
+        Assert.EndsWith("; BELOW MINIMUM STOCK 2 products; deviations open 1",
+            (Handoff() with { ProductsBelowMinimum = 2, OpenDeviations = 1 }).QueueSummary);
+    }
 }

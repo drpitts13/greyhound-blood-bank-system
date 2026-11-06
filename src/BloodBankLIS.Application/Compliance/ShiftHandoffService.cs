@@ -44,7 +44,8 @@ public sealed record ShiftHandoffDto(
     int CoolersWithDifferences = 0,
     int ExpiredOnShelf = 0,
     int OpenDeviations = 0,
-    int CriticalDeviations = 0)
+    int CriticalDeviations = 0,
+    int ProductsBelowMinimum = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -75,6 +76,7 @@ public sealed record ShiftHandoffDto(
             ? $"; near expiry {NearExpiryUnits}" + (NearExpiryReserved > 0 ? $", {NearExpiryReserved} reserved" : "")
             : "") +
         (ExpiredOnShelf > 0 ? $"; EXPIRED ON SHELF {ExpiredOnShelf}, to discard" : "") +
+        (ProductsBelowMinimum > 0 ? $"; BELOW MINIMUM STOCK {ProductsBelowMinimum} {(ProductsBelowMinimum == 1 ? "product" : "products")}" : "") +
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
@@ -85,7 +87,7 @@ public sealed record ShiftHandoffDto(
         h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible,
         h.PendingTestsVerifyBeforeExpiry, h.ResultsAwaitingVerification, h.ReservationsLapsed,
         h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences,
-        h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations);
+        h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum);
 }
 
 /// <summary>
@@ -110,6 +112,8 @@ public sealed class ShiftHandoffService
     private readonly CoolerCheckService? _coolers;
     // Read directly, like the other counts: whoever hands off sees open deviations without deviation.manage.
     private readonly IRepository<Deviation>? _deviations;
+    // Read without admin.config.edit: minimum stock levels are configuration, the shortage is shift work.
+    private readonly MinimumStockService? _minimumStock;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -126,8 +130,10 @@ public sealed class ShiftHandoffService
         IRepository<MtpActivation>? mtpActivations = null,
         InventoryService? inventory = null,
         CoolerCheckService? coolers = null,
-        IRepository<Deviation>? deviations = null)
+        IRepository<Deviation>? deviations = null,
+        MinimumStockService? minimumStock = null)
     {
+        _minimumStock = minimumStock;
         _deviations = deviations;
         _coolers = coolers;
         _inventory = inventory;
@@ -264,7 +270,8 @@ public sealed class ShiftHandoffService
             CoolersWithDifferences = coolers.Count(c => c.LastCheckedUtc is not null && c.LastCheckReady != true),
             ExpiredOnShelf = _inventory is null ? 0 : await _inventory.CountExpiredOnShelfAsync(ct),
             OpenDeviations = openDeviations.Count,
-            CriticalDeviations = openDeviations.Count(d => d.Severity == DeviationSeverity.Critical)
+            CriticalDeviations = openDeviations.Count(d => d.Severity == DeviationSeverity.Critical),
+            ProductsBelowMinimum = _minimumStock is null ? 0 : (await _minimumStock.ListAsync(ct)).Count(r => r.Shortfall > 0)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -342,7 +349,8 @@ public sealed class ShiftHandoffService
         row.CoolersWithDifferences,
         row.ExpiredOnShelf,
         row.OpenDeviations,
-        row.CriticalDeviations
+        row.CriticalDeviations,
+        row.ProductsBelowMinimum
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

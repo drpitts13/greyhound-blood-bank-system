@@ -15880,3 +15880,31 @@ Minimum stock levels were set and compared on the Minimum stock page, and the al
 ### Next ranked residual
 
 Count products below minimum stock in the shift handoff (stored counts: needs a migration). Confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 470 — The shift handoff counts products below minimum stock (2026-11-06)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Cycle 469 put shortages on the home screen, but the shift handoff, the record of what the outgoing shift passed on, did not count them, while it did count near-expiry and expired units (question 5).
+
+### Design
+
+- **`ShiftHandoff.ProductsBelowMinimum`**, stored when the handoff is recorded and kept in its audit snapshot: minimum stock rows with a shortfall, read through `MinimumStockService` (no admin permission needed; the handoff is shift work).
+- **Packet line:** "; BELOW MINIMUM STOCK n product(s)" in capitals like expired on shelf, before open deviations; nothing at zero.
+- **Schema:** migration `20261119000000_ShiftHandoffLowStock`; dev SQLite gets the additive column (the Cycle 452 fix keeps existing data).
+
+### Requirements
+
+- URS-BB-533, FRS-BB-642. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-508:
+  - the line names the count in capitals with the right noun, ahead of open deviations, and is quiet at zero
+  - a handoff stores the count of short products (a level met at zero is not short) and audits it
+- Full suite: 3,840 passed
+- Live: starting the API on the existing dev database added the `ProductsBelowMinimum` column and kept the data (14 patients before and after); the Shift handoff page loaded with no server errors. No handoff was recorded, to leave dev data unchanged, so the stored count is covered by the tests only.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
