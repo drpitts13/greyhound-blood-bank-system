@@ -67,9 +67,10 @@ public static class PatientWorkspaceEndpoints
 
         group.MapPost("/orders", async (long patientId, CreateOrderRequest request, OrderService service, CancellationToken ct) =>
         {
+            // Warnings (order rules, duplicate open tests) travel with the created order; they were dropped before.
             var result = await service.CreateAsync(patientId, request, ct);
             return result.Succeeded
-                ? Results.Created($"/api/patients/{patientId}/orders/{result.Value!.Id}", new { result.Value.Id })
+                ? EndpointResults.Created(result, o => ($"/api/patients/{patientId}/orders/{o.Id}", (object)new { o.Id }))
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 

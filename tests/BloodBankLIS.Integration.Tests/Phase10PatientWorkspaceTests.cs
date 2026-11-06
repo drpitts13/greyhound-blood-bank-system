@@ -3,6 +3,7 @@ using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
@@ -595,5 +596,47 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         var link = await orders.LinkSpecimenAsync(patient.Id, created.Value!.Id, new LinkOrderSpecimenRequest(incomplete.Id));
         Assert.False(link.Succeeded);
         Assert.Contains("type and screen", link.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // TEST-BB-502: ordering a test the patient already has open on another order warns (never blocks), naming that
+    // order; a completed order or a verified line does not count.
+    [Fact]
+    public async Task CreateOrder_WarnsWhenTheSameTestIsAlreadyOpen()
+    {
+        await using var c = _factory.Create();
+        var (patient, loc) = await SeedPatientAsync(c);
+        var enc = await Encounters(c).CreateAsync(patient.Id, new CreateEncounterRequest(
+            "VIS-DUP", EncounterType.Inpatient, EncounterStatus.Active, DateTime.UtcNow, null,
+            null, null, "4W", "4W", null, null, null, null));
+        Assert.True(enc.Succeeded);
+        CreateOrderRequest Request(string number, params string[] tests) => new(
+            enc.Value!.Id, loc.Id, number, tests.Select(t => new OrderLineInputDto(OrderCategory.Test, t, null)).ToList(),
+            OrderPriority.Routine, DateTime.UtcNow, null, OrderSource.Manual, null, null);
+
+        var first = await Orders(c).CreateAsync(patient.Id, Request("ORD-DUP-1", "ABSC", "DAT"));
+        Assert.True(first.Succeeded, first.Error);
+        Assert.DoesNotContain(first.Warnings, w => w.Code == DuplicateTestOrderRule.Code);
+
+        // The DAT line on the first order is already verified; only the open ABSC repeats.
+        var datLine = await c.OrderLines.SingleAsync(l => l.OrderId == first.Value!.Id && l.TestCode == "DAT");
+        datLine.ResultStatus = ResultStatus.Verified;
+        await c.SaveChangesAsync();
+
+        var second = await Orders(c).CreateAsync(patient.Id, Request("ORD-DUP-2", "ABSC", "DAT", "ABORH"));
+        Assert.True(second.Succeeded, second.Error);
+        var warning = Assert.Single(second.Warnings, w => w.Code == DuplicateTestOrderRule.Code);
+        Assert.Contains("ABSC on ORD-DUP-1", warning.Message);
+        Assert.DoesNotContain("DAT", warning.Message);
+        Assert.DoesNotContain("ABORH", warning.Message);
+
+        // Once the first order is completed, ordering ABSC again is not a duplicate.
+        var firstOrder = await c.Orders.SingleAsync(o => o.Id == first.Value!.Id);
+        firstOrder.Status = OrderStatus.Completed;
+        var secondOrder = await c.Orders.SingleAsync(o => o.Id == second.Value!.Id);
+        secondOrder.Status = OrderStatus.Completed;
+        await c.SaveChangesAsync();
+        var third = await Orders(c).CreateAsync(patient.Id, Request("ORD-DUP-3", "ABSC"));
+        Assert.True(third.Succeeded, third.Error);
+        Assert.DoesNotContain(third.Warnings, w => w.Code == DuplicateTestOrderRule.Code);
     }
 }

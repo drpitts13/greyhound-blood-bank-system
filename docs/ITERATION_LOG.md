@@ -15655,3 +15655,38 @@ Cycle 461 linked a unit's Status history to its audit trail. The patient chart's
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team.
+
+## Iteration 463 — Duplicate testing warned at order entry (2026-11-06)
+
+### Capability matrix rescan (safety rules: duplicate testing)
+
+Nothing warned when a test was ordered for a patient who already had the same test open on another order, so a duplicate antibody screen meant a second draw and a second result to reconcile. Separately, the create-order endpoint returned only the new id, dropping every warning from order creation, including the order rule engine's (question 6).
+
+### Design
+
+- **`DuplicateTestOrderRule`** (ORD-DUP-TEST, warning): names each test being ordered that the patient already has open (order not completed, cancelled, or discontinued; line active; result not verified), with those order numbers.
+- It never blocks: a repeat can be intended (a second ABO/Rh determination, a new specimen after rejection), and the new order can be cancelled in one step.
+- **`OrderService.CreateAsync`:** checks before saving, so the order never finds itself, and returns the warning with the rule engine's.
+- **`POST /api/patients/{id}/orders`:** now returns `{data, warnings}` through `EndpointResults.Created`, so the chart shows these warnings (and the rule engine's, which were dropped before).
+- HL7 inbound orders use the same path; the warning is returned but not shown anywhere there.
+- No schema change; no new time window or policy.
+
+### Requirements
+
+- URS-BB-527, FRS-BB-636; safety rule ORD-DUP-TEST. Help: patient orders.
+
+### Tests
+
+- TEST-BB-502:
+  - rule: each repeated test named with its open orders (any case, trimmed); nothing when none repeats
+  - service: a second order with ABSC names "ABSC on ORD-DUP-1"; its verified DAT line and an unordered ABORH are not named; once the first order is completed, ordering ABSC again does not warn
+- Full suite: 3,827 passed, 0 failed.
+- Run check (development API), read-only:
+  - the order list answers 200
+  - an invalid create is still refused with its message (400 "At least one test or product is required.")
+  - no server errors
+- No order was created live (it would add a demo order), so the warning was not seen in the chart; TEST-BB-502 covers it.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).

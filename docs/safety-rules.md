@@ -214,6 +214,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ORDPROV-CREATE-PERM` | Caller has `admin.config.edit` when creating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing. Create/update writes `Configure`. |
 | `ORDPROV-UPD-PERM` | Caller has `admin.config.edit` when updating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDPROV-ACT-PERM` | Caller has `admin.config.activate` when activating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
+| `ORD-DUP-TEST` | A test being ordered is already ordered and open for the patient (order not completed, cancelled, or discontinued; line active; result not verified) | Warning only; the order is created and names the open orders. Cancel the new order if the repeat was a mistake. |
 | `ORDPROV-DEACT-PERM` | Caller has `admin.config.activate` when deactivating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDLOC-CREATE-PERM` | Caller has `admin.config.edit` when creating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDLOC-UPD-PERM` | Caller has `admin.config.edit` when updating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |

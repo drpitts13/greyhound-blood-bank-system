@@ -336,6 +336,8 @@ public sealed class OrderService
         }
 
         builtLines = ruleOutcome.Lines;
+        // Checked before this order is saved, so it never finds itself.
+        var duplicateTests = await DuplicateOpenTestsAsync(patientId, builtLines, ct);
         OrderLineBuilder.ApplyHeaderFromLines(order, builtLines);
         if (headerType is { } type)
         {
@@ -447,7 +449,33 @@ public sealed class OrderService
             }
         }
 
-        return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
+        return OperationResult<Order>.Ok(order, duplicateTests is null ? ruleOutcome.Warnings : [.. ruleOutcome.Warnings, duplicateTests]);
+    }
+
+    private async Task<RuleResult?> DuplicateOpenTestsAsync(long patientId, IEnumerable<OrderLine> newLines, CancellationToken ct)
+    {
+        var codes = newLines.Where(l => l.LineCategory == OrderCategory.Test && !string.IsNullOrWhiteSpace(l.TestCode))
+            .Select(l => l.TestCode!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (codes.Count == 0)
+        {
+            return null;
+        }
+
+        var openOrders = (await _orders.ListAsync(o => o.PatientId == patientId, ct))
+            .Where(o => o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+            .ToDictionary(o => o.Id);
+        if (openOrders.Count == 0)
+        {
+            return null;
+        }
+
+        var orderIds = openOrders.Keys.ToList();
+        var openLines = (await _orderLines.ListAsync(l => orderIds.Contains(l.OrderId) && l.IsActive && l.LineCategory == OrderCategory.Test, ct))
+            .Where(l => !string.IsNullOrWhiteSpace(l.TestCode) && l.ResultStatus != ResultStatus.Verified)
+            .Select(l => new DuplicateTestOrderRule.OpenLine(l.TestCode!, openOrders[l.OrderId].OrderNumber));
+        return DuplicateTestOrderRule.Evaluate(codes, openLines);
     }
 
     public async Task<EvaluationResult<Order>> UpdateAsync(long patientId, long orderId, UpdateOrderRequest request, CancellationToken ct = default)
