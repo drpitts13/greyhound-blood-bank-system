@@ -23,6 +23,8 @@ Alerts come from nine places:
 
 Below minimum stock, near expiry, reagent QC, transfusion not completed, and backup overdue alerts close on their own once the condition clears. The system checks every five minutes by default. Temperature excursion, incompatible after release, expired-unit, and backup failed alerts stay open until someone acknowledges them.
 
+When more than one kind is open, the buttons above the list show one kind at a time, with a count each, most severe first. Under each raised time, **open** says how long the alert has waited.
+
 **Acknowledge** records your name, the time, and an optional note, and moves the alert to the closed list. It does not change the unit, deviation, or QC row. Open the alert's link to do the work. An acknowledged condition alert is not raised again while the condition lasts.
 
 Alerts appear in the app only. Nothing is emailed or texted.

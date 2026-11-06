@@ -15047,3 +15047,40 @@ The chart's new order form chose the visit, but its ordering location started on
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 446 — Alert inbox by kind, with time open (2026-11-06)
+
+### Capability matrix rescan (alerts)
+
+The Alerts inbox sorts open alerts most severe first, but:
+
+- its own text named five of the nine alert kinds, and its "How it works" said only minimum stock, near expiry, and reagent QC close on their own, which no longer matched the help page
+- with several kinds open there was no way to see one kind (say, every near-expiry unit) at a time
+- each row gave only the raw UTC time it was raised, so how long an alert had waited had to be worked out (questions 2, 5)
+
+### Design
+
+- **`AlertInboxView.Kinds`:** one filter per open kind, named by `AlertRule.HelpName` (the help page's names) with a count, most severe kind first. A filter whose kind has cleared falls back to All.
+- **`AlertInboxView.OpenFor`:** "open 45 min", "open 5 h", "open 3 d" under the raised time.
+- **Page text:** lists which kinds close on their own and which wait for acknowledgement, as the help page does.
+- Display only; acknowledging and the alert sources are unchanged. No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-621 (under URS-BB-409). Help: alerts.
+
+### Tests
+
+- TEST-BB-487:
+  - kinds use the help-page names, most severe first, with counts; an unknown source keeps its code
+  - time open in minutes, then hours under two days, then days
+- Full suite: 3,792 passed, 0 failed.
+- Run check (development API and web), nothing acknowledged:
+  - three open alerts, filters "All (3) · Below minimum stock (1) · Transfusion not completed (1) · Near expiry (1)"
+  - rows show "open 29 min" and "open 6 h"; Near expiry shows only that alert
+  - no server errors
+- The demo transfusion W0001230000099 has now passed its 6-hour reminder, so the Cycle 442 overdue path was seen live: Issued units lists it first under the warning, and the home card reads "1 transfusion completion overdue".
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
