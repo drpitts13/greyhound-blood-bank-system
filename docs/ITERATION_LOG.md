@@ -15169,3 +15169,33 @@ The help said a deviation's "closure requires the outcome, not a blank completio
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 449 — Open deviations on the home screen (2026-11-06)
+
+### Capability matrix rescan (quality queue)
+
+Cycle 448 made Deviations a proper record, but nothing on the home screen said one was open. A critical deviation, including those raised automatically for an incompatible retrospective crossmatch, was found only by visiting the page (question 5).
+
+### Design
+
+- **Open deviations card** for `deviation.manage`, opening `/deviations`:
+  - counts every deviation not closed
+  - names critical ones (`DashboardQueueCatalog.DeviationsCard`), which puts the card under Needs attention
+- In the Supervisor focus; ranked after the shift handoff among attention cards.
+- Reads the existing deviation list; no server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-624 (under URS-BB-524). Help: dashboard.
+
+### Tests
+
+- TEST-BB-490:
+  - shown for deviation managers, not for others; in the Supervisor focus, not Bench
+  - closed rows are not counted; no note without a critical deviation; "1 critical" with one open
+- Full suite: 3,803 passed, 0 failed.
+- Run check (development API and web): the home screen shows "Open deviations 1" (the open Major demo deviation) under Queues with work, with no note since none is critical; no server errors; nothing changed.
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

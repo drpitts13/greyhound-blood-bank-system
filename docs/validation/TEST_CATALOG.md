@@ -498,5 +498,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-487 | U | `AlertInboxViewTests.Kinds_AreNamedAsTheHelpPage_MostSevereFirst`; `AlertInboxViewTests.OpenFor_UsesMinutesThenHoursThenDays` | URS-BB-409 / FRS-BB-621 |
 | TEST-BB-488 | U | `PatientChartUrlsTests.Links_NameTheTube_TheOrder_OrTheVisit`; `PatientChartUrlsTests.TheChart_ReadsEveryQueryNameTheLinksUse` | URS-BB-523 / FRS-BB-622 |
 | TEST-BB-489 | U, I | `DeviationStatusRuleTests.ClosingNeedsAnAction_AndARecordedActionIsNotCleared`; `DeviationServiceTests.Close_NeedsACorrectiveAction_AndReopenKeepsTheEarlierCloseInTheAudit` | URS-BB-524 / FRS-BB-623 |
+| TEST-BB-490 | U | `DashboardQueueCatalogTests.Deviations_ForManagers_CountOpenAndNameCritical` | URS-BB-524 / FRS-BB-624 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

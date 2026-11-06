@@ -39,13 +39,13 @@ public static class DashboardHome
 
     /// <summary>Most urgent first: storage safety, patient harm, then emergency follow-up and lost units.</summary>
     private static readonly string[] UrgencyOrder =
-        [TemperatureExcursions, Reactions, Retrospective, InTransit, InstrumentFailures, Hl7Errors, Handoff, ExpiredOnShelf, NearExpiry, Disposition, Supervisor];
+        [TemperatureExcursions, Reactions, Retrospective, InTransit, InstrumentFailures, Hl7Errors, Handoff, Deviations, ExpiredOnShelf, NearExpiry, Disposition, Supervisor];
 
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
         [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, InstrumentFailures, SecondAbo, Supervisor],
         [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, ExpiredOnShelf],
-        [WorkFocus.Supervisor] = [Supervisor, ToVerify, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Hl7Errors, InstrumentFailures, NearExpiry, ExpiredOnShelf]
+        [WorkFocus.Supervisor] = [Supervisor, ToVerify, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, InstrumentFailures, NearExpiry, ExpiredOnShelf]
     };
 
     public static IReadOnlyList<WorkFocus> Choices { get; } =

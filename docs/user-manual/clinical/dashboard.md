@@ -24,6 +24,7 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 - Reaction investigations, when you can investigate reactions. A closed case is not in that count. A case that still needs fatality follow-up is named on the card, including after the investigation is closed. The card also names open cases still waiting for their post-transfusion specimen and open cases whose workup tests are not all verified.
 - Supervisor queue, when you can review antibody identification, verify results, or release quarantine. The card names results to verify before their specimen expires, missing or damaged units, and overrides to review.
 - Instrument failures, when you manage instrument interfaces: failed instrument messages nobody has replayed successfully or resolved. HL7 errors, when you manage HL7: interface errors still open.
+- Open deviations, when you manage deviations: every deviation not yet closed. The card names critical ones, which puts it under Needs attention.
 - Shift handoff, when you can hand off a shift. An open packet says it needs acknowledgment.
 
 A retrospective count names how many items are past their stored due time. An in-transit count names how many units are past the arrival window. Those notes appear only when the number is above zero.
@@ -38,7 +39,7 @@ A queue you cannot open is left off the row. A queue that does not load shows an
 |---|---|
 | Bench | Pending specimens, pending tests, results to verify, second ABO/Rh, supervisor queue |
 | Issue desk | Ready to issue, second ABO/Rh, in transit, outstanding issued, retrospective crossmatch, final disposition, near expiry, expired on shelf |
-| Supervisor | Supervisor queue, results to verify, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff, near expiry, expired on shelf |
+| Supervisor | Supervisor queue, results to verify, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff, open deviations, near expiry, expired on shelf |
 
 The page is arranged in this order:
 

@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Results;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Compliance;
@@ -30,6 +31,7 @@ public static class DashboardQueueCatalog
     public const string InstrumentFailures = "instrument-failures";
     public const string NearExpiry = "near-expiry";
     public const string ExpiredOnShelf = "expired-on-shelf";
+    public const string Deviations = "deviations";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -61,6 +63,7 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.InventoryDiscard), ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired");
         Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments");
         Add(cards, has(PermissionCodes.Hl7Manage), Hl7Errors, "HL7 errors", "/hl7");
+        Add(cards, has(PermissionCodes.DeviationManage), Deviations, "Open deviations", "/deviations");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
         return cards;
     }
@@ -162,6 +165,16 @@ public static class DashboardQueueCatalog
             AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindOverrideReview), "override to review", "overrides to review")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
+    /// <summary>
+    /// The Open deviations card: every deviation not yet closed, naming the critical ones (which puts the card under
+    /// Needs attention). Major and minor stay in the count.
+    /// </summary>
+    public static (int Count, string? Note) DeviationsCard(IEnumerable<DeviationDto> deviations)
+    {
+        var open = deviations.Where(d => d.Status != DeviationStatus.Closed).ToList();
+        return (open.Count, AttentionNote(open.Count(d => d.Severity == DeviationSeverity.Critical), "critical", "critical"));
     }
 
     /// <summary>Near-expiry units reserved for a patient: issue them first or reserve a replacement.</summary>

@@ -241,4 +241,24 @@ public class DashboardQueueCatalogTests
                 Item(SupervisorQueueRule.KindDiscrepancy), Item(SupervisorQueueRule.KindDiscrepancy),
                 Item(SupervisorQueueRule.KindOverrideReview)]));
     }
+
+    // TEST-BB-490: deviation managers see Open deviations (everything not closed), with critical ones named; the card
+    // sits in the Supervisor focus.
+    [Fact]
+    public void Deviations_ForManagers_CountOpenAndNameCritical()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.DeviationManage)), c => c.Key == DashboardQueueCatalog.Deviations && c.Href == "/deviations");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter)), c => c.Key == DashboardQueueCatalog.Deviations);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.Deviations, WorkFocus.Supervisor));
+        Assert.False(DashboardHome.InFocus(DashboardQueueCatalog.Deviations, WorkFocus.Bench));
+
+        var at = new DateTime(2026, 11, 6, 8, 0, 0, DateTimeKind.Utc);
+        DeviationDto Row(DeviationSeverity severity, DeviationStatus status) => new(1, "t", "d", severity, status, null, null, null, "x", at);
+
+        Assert.Equal((0, (string?)null), DashboardQueueCatalog.DeviationsCard([Row(DeviationSeverity.Critical, DeviationStatus.Closed)]));
+        Assert.Equal((2, (string?)null), DashboardQueueCatalog.DeviationsCard([Row(DeviationSeverity.Major, DeviationStatus.Open), Row(DeviationSeverity.Minor, DeviationStatus.UnderReview)]));
+        Assert.Equal((3, "1 critical"), DashboardQueueCatalog.DeviationsCard([
+            Row(DeviationSeverity.Critical, DeviationStatus.CorrectiveAction), Row(DeviationSeverity.Critical, DeviationStatus.Closed),
+            Row(DeviationSeverity.Major, DeviationStatus.Open), Row(DeviationSeverity.Minor, DeviationStatus.Open)]));
+    }
 }
