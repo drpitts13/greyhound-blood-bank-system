@@ -55,7 +55,13 @@
                     <tr class="@(order.Id == _selected?.Id ? "selected" : null)">
                         <td class="mono">@order.OrderNumber</td>
                         <td>@order.SupplierName</td>
-                        <td><span class="badge @StatusClass(order.Status)">@order.Status</span></td>
+                        <td>
+                            <span class="badge @StatusClass(order.Status)">@order.Status</span>
+                            @if (order.UnitsShort > 0)
+                            {
+                                <span class="badge badge-amber" data-order-short>Short @order.UnitsShort</span>
+                            }
+                        </td>
                         <td class="right">@order.UnitsOrdered</td>
                         <td>@order.CreatedUtc.ToString("yyyy-MM-dd HH:mm") &middot; @order.CreatedBy</td>
                         <td><button class="btn btn-ghost btn-sm" @onclick="() => Select(order)">Open</button></td>
@@ -72,7 +78,7 @@
     <div @key="current.Id" class="bb-card" data-scroll-on-show>
         <div class="bb-card-title"><h3>@current.OrderNumber &middot; @current.SupplierName &middot; @current.Status</h3></div>
         <table class="bb">
-            <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th></tr></thead>
+            <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th>@if (current.DeliveryId is not null) { <th class="right">Received</th><th class="right">Short</th> }</tr></thead>
             <tbody>
                 @foreach (var line in _editLines)
                 {
@@ -89,6 +95,20 @@
                                 @line.Quantity
                             }
                         </td>
+                        @if (current.DeliveryId is not null && current.Lines.FirstOrDefault(l => l.ProductTypeId == line.ProductTypeId && l.Abo == line.Abo) is { } got)
+                        {
+                            <td class="right">@got.Received</td>
+                            <td class="right">
+                                @if (got.Short > 0)
+                                {
+                                    <span class="badge badge-amber" data-line-short>@got.Short</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">0</span>
+                                }
+                            </td>
+                        }
                     </tr>
                 }
             </tbody>

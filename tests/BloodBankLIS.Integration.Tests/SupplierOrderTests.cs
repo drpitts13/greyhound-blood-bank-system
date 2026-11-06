@@ -31,7 +31,8 @@ public class SupplierOrderTests : IDisposable
             c, _factory.Clock, _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             _signatures,
-            new TabularReportRenderer());
+            new TabularReportRenderer(),
+            new EfRepository<BloodUnit>(c));
 
     [Fact]
     public async Task Order_FromMinimumStockShortfall_EditSubmitReceive()
@@ -78,11 +79,43 @@ public class SupplierOrderTests : IDisposable
         Assert.False(wrongSupplier.Succeeded);
         Assert.Contains(SupplierOrderRule.SupplierMismatchCode, wrongSupplier.Error);
 
+        // TEST-BB-468: the delivery brought 3 of the 5 group O red cells (and an A unit not ordered): 2 short, audited.
+        c.BloodUnits.AddRange(Enumerable.Range(1, 4).Select(i => new BloodUnit
+        {
+            UnitNumber = $"U-SO-D{i}", ProductTypeId = f.RedCells.Id, Abo = i == 4 ? AboGroup.A : AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(30), Status = UnitStatus.Quarantine, DeliveryId = f.Delivery.Id
+        }));
+        await c.SaveChangesAsync();
+        Assert.Null(Assert.Single((await service.GetAsync(order.Id))!.Lines).Received);
+
         var received = await service.ReceiveAsync(order.Id, new ReceiveSupplierOrderRequest(f.Delivery.Id));
         Assert.True(received.Succeeded, received.Error);
         Assert.Equal(SupplierOrderStatus.Received, received.Value!.Status);
         Assert.Equal(f.Delivery.Id, received.Value.DeliveryId);
+        var receivedLine = Assert.Single(received.Value.Lines);
+        Assert.Equal((3, 2), (receivedLine.Received, receivedLine.Short));
+        Assert.Equal(2, received.Value.UnitsShort);
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(SupplierOrder) && e.EntityId == order.Id
+            && e.Reason!.Contains("2 unit(s) short: RBC-SO O: 2 of 5 short")));
         Assert.False((await service.CancelAsync(order.Id, new CancelSupplierOrderRequest("too late"))).Succeeded);
+    }
+
+    // TEST-BB-468: named-ABO lines take matching units first, any-ABO lines take what is left, and no unit counts twice.
+    [Fact]
+    public void Reconcile_CountsEachDeliveredUnitOnce()
+    {
+        var lines = new[]
+        {
+            new SupplierOrderLineDto(1, 10, "RBC", "Red cells", AboGroup.O, 2),
+            new SupplierOrderLineDto(2, 10, "RBC", "Red cells", null, 3),
+            new SupplierOrderLineDto(3, 20, "FFP", "Plasma", AboGroup.AB, 2)
+        };
+        BloodUnit Unit(long product, AboGroup abo) => new() { ProductTypeId = product, Abo = abo };
+        var delivered = new[] { Unit(10, AboGroup.O), Unit(10, AboGroup.O), Unit(10, AboGroup.O), Unit(10, AboGroup.A), Unit(20, AboGroup.A) };
+
+        var result = SupplierOrderService.Reconcile(lines, delivered);
+        Assert.Equal(new int?[] { 2, 2, 0 }, result.Select(l => l.Received).ToArray());
+        Assert.Equal(new[] { 0, 1, 2 }, result.Select(l => l.Short).ToArray());
     }
 
     [Fact]

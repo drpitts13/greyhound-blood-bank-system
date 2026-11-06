@@ -416,7 +416,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-408 | Transfusion service leadership can review crossmatch-to-transfusion utilization by ordering location and provider. | P7 | FRS-BB-443 |
 | URS-BB-409 | Staff are told in the app about temperature excursions, expired units, minimum stock shortfalls, near-expiry units, and reagent QC work without opening each worklist. | P7 | FRS-BB-444 |
 | URS-BB-410 | Staff can export report results and the audit trail as CSV for other systems, without opening the file executing a formula. | P8 | FRS-BB-445 |
-| URS-BB-411 | Inventory staff can turn the minimum stock shortfall into a signed supplier order, send it as a file, and link the delivery that fills it. | P7 | FRS-BB-446 |
+| URS-BB-411 | Inventory staff can turn the minimum stock shortfall into a signed supplier order, send it as a file, and link the delivery that fills it. | P7 | FRS-BB-446, FRS-BB-603 |
 | URS-BB-412 | The facility has verified database backups on a schedule and on demand, is told when a backup fails or is overdue, and can reconcile a restore against a manifest. | P3 | FRS-BB-447 |
 | URS-BB-413 | Users with administrative or override-approval rights can be required to sign in with a second factor from an authenticator app. | P6 | FRS-BB-448 |
 | URS-BB-414 | Units stored through a sustained temperature excursion are taken out of use automatically. | P0 | FRS-BB-449 |

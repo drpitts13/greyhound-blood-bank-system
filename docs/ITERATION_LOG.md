@@ -14359,3 +14359,40 @@ Cycle 425 stops new manual duplicates. It does not cover charts that already exi
 ### Next ranked residual
 
 Rescan inventory receipt and supplier workflows for the next operations gap.
+
+## Iteration 427 — Supplier order received vs ordered (2026-11-05)
+
+### Capability matrix rescan (inventory receipt and supply)
+
+Linking a supplier order to its delivery marked it Received, whatever arrived. A short shipment of group O red cells went unnoticed until the minimum-stock screen showed the shortfall again. The receipt record did not say what was missing (questions 2, 5).
+
+### Design
+
+- **`SupplierOrderService.Reconcile`:** counts the delivery's units against the lines:
+  - named-ABO lines take matching units first
+  - any-ABO lines take what remains of the product
+  - no unit is counted twice; extra or unordered units are ignored
+- **Order DTO:**
+  - `SupplierOrderLineDto` gains `Received` and `Short`, null and 0 until received
+  - `SupplierOrderDto.UnitsShort`
+- **Receiving:** the audit reason and value name each short line ("RBC-SO O: 2 of 5 short").
+- **Supplier orders page:**
+  - Received and Short columns on a received order
+  - **Short n** in the orders list
+- No schema or API change (the service reads units by `DeliveryId`).
+
+### Requirements
+
+- FRS-BB-603 (under URS-BB-411). Help: supplier orders.
+
+### Tests
+
+- TEST-BB-468:
+  - **reconciliation:** named group first, then any group, each unit counted once, a product with no units
+  - **service:** 3 of 5 group O received (an unordered A unit ignored), 2 short, audited; no received count before receipt
+- Full suite: 3,760 passed, 0 failed.
+- Run check (development API and web): Supplier orders renders (no orders in the development database, so no shortfall shown live); no server errors.
+
+### Next ranked residual
+
+Demo delivery and supplier order data, so supply workflows can be shown, or the next operations gap from the rescan.

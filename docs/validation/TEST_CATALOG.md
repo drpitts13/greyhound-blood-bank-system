@@ -476,5 +476,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-465 | U, I | `DashboardQueueCatalogTests.NoSpecimen_ListsRushFirst_AndTheNoteCountsStatOrders`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-509 / FRS-BB-600 |
 | TEST-BB-466 | U, I | `PossibleDuplicatePatientRuleTests.SameBirthday_MatchesOnLastNameAndInitial_OrSwappedNames`; `PatientServiceTests.Create_PossibleDuplicate_IsRefusedUntilConfirmed_AndTheConfirmationIsAudited` | URS-BB-514 / FRS-BB-601 |
 | TEST-BB-467 | I | `PatientServiceTests.PossibleDuplicatePairs_ListActiveMatches_OlderFirst`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-514 / FRS-BB-602 |
+| TEST-BB-468 | I | `SupplierOrderTests.Reconcile_CountsEachDeliveredUnitOnce`; `SupplierOrderTests.Order_FromMinimumStockShortfall_EditSubmitReceive` | URS-BB-411 / FRS-BB-603 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

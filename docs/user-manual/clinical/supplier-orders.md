@@ -24,7 +24,7 @@ Enter your password or PIN and select **Sign and submit**. Your edits are saved 
 
 ## Receive
 
-When the supplier's delivery arrives and is entered under Deliveries, open the order and pick that delivery under **Delivery received**. Only open deliveries from the same supplier are offered. Linking the delivery marks the order received. It does not receive or release any unit; deliveries and units follow their own steps.
+When the supplier's delivery arrives and is entered under Deliveries, open the order and pick that delivery under **Delivery received**. Only open deliveries from the same supplier are offered. Linking the delivery marks the order received. It does not receive or release any unit; deliveries and units follow their own steps. Once received, each line shows how many of the delivery's units count against it and how many are **Short**; the order list marks a short order, and the shortfall is recorded with the receipt. Units of a group you did not order are not counted. To replace what was short, create a new order from minimum stock.
 
 ## Cancel
 
