@@ -51,6 +51,7 @@ public class PatientListFlagsTests : IClassFixture<SqliteContextFactory>
         Assert.Equal($"V-NEW-{key}", a.CurrentVisitNumber);
         Assert.Equal("Inpatient · ICU 4", a.CurrentVisitWhere);
         Assert.Equal(1, a.OtherOpenVisits);
+        Assert.Equal($"Located{key}, Pat (MRN-LOC-{key}) · Inpatient · ICU 4 (+1 more open) · no type on file", a.PickerLabel);
 
         // An active visit that has a discharge time is not open.
         var h = list.Single(p => p.Id == home.Id);

@@ -29,4 +29,17 @@ public class PatientPickerLabelTests
         var merged = flagged with { Status = PatientStatus.Merged, MergedIntoPatientId = 9 };
         Assert.Equal("Kellerman, Diane (MRN0004) · merged into another record", merged.PickerLabel);
     }
+
+    // TEST-BB-506: pickers say where the patient is after the name; a second open visit is flagged; a visit with no
+    // recorded place gives its number; no open visit adds nothing; a merged-away record still says only that.
+    [Fact]
+    public void PickerLabel_SaysWhereThePatientIs()
+    {
+        var located = Patient() with { CurrentBloodType = "O+", CurrentVisitNumber = "V1", CurrentVisitWhere = "Inpatient · ICU 4" };
+        Assert.Equal("Kellerman, Diane (MRN0004) · Inpatient · ICU 4 · O+", located.PickerLabel);
+        Assert.Equal("Kellerman, Diane (MRN0004) · Inpatient · ICU 4 (+1 more open) · O+", (located with { OtherOpenVisits = 1 }).PickerLabel);
+        Assert.Equal("Kellerman, Diane (MRN0004) · visit V1 · O+", (located with { CurrentVisitWhere = "" }).PickerLabel);
+        Assert.Equal("Kellerman, Diane (MRN0004) · merged into another record",
+            (located with { Status = PatientStatus.Merged, MergedIntoPatientId = 9 }).PickerLabel);
+    }
 }

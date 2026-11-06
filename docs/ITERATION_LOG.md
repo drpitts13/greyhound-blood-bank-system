@@ -15821,3 +15821,31 @@ Since Cycle 465 the chart header shows the current visit, but the patient list a
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy (naming, MRN assignment, later merge): ask the SME before building.
+
+## Iteration 468 — Patient pickers say where the patient is (2026-11-06)
+
+### Capability matrix rescan (patient-product workflows: patient selection)
+
+The patient pickers on Issue, Compatibility, and unit receipt name the patient with MRN, ABO/Rh, and alerts (Cycle 268), but not where the patient is. At issue, the person asking for blood names the ward; choosing between similar names meant opening each chart (questions 2, 6). Cycle 467 put the current open visit on the patient list, which is what these pickers load.
+
+### Design
+
+- **`PatientDto.PickerLabel`:** after "Name (MRN)", the current open visit's place ("Inpatient · ICU 4", else "visit {number}"), with "(+n more open)" when another visit is open; nothing when none is open.
+- A merged-away record still reads only "merged into another record".
+- The Issue desk still searches by name and MRN only; the label is display. No server, schema, or API change.
+
+### Requirements
+
+- URS-BB-531, FRS-BB-640. Help: patients.
+
+### Tests
+
+- TEST-BB-506:
+  - the label puts the place after the MRN, flags another open visit, falls back to the visit number, adds nothing without an open visit, and keeps a merged record's label
+  - the patient list's label carries the place and the other open visit
+- Full suite: 3,837 passed
+- Live (read-only): the Compatibility patient picker for "Demo" listed "Demo-Multi, Riley (MRN0022) · Inpatient · ICU 4 · O+" and "DEMO-MULTI, RILEY (MRN0024) · no type on file" (no open visit), so the two same-name charts read apart; nothing was chosen. No server errors.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

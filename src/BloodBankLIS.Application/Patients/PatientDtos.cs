@@ -83,8 +83,9 @@ public sealed record PatientDto(
         p.Comment, aliases);
 
     /// <summary>
-    /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, then ABO/Rh and alerts,
-    /// so similar names are told apart and risks are seen before the patient is chosen. A merged-away record says so.
+    /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, where the patient is (the
+    /// current open visit, from the patient list), then ABO/Rh and alerts, so similar names are told apart and risks are
+    /// seen before the patient is chosen. A merged-away record says so.
     /// </summary>
     public string PickerLabel
     {
@@ -95,6 +96,12 @@ public sealed record PatientDto(
             {
                 parts.Add("merged into another record");
                 return string.Join(" · ", parts);
+            }
+
+            if (CurrentVisitNumber is not null)
+            {
+                var where = string.IsNullOrEmpty(CurrentVisitWhere) ? $"visit {CurrentVisitNumber}" : CurrentVisitWhere;
+                parts.Add(OtherOpenVisits > 0 ? $"{where} (+{OtherOpenVisits} more open)" : where);
             }
 
             parts.Add(CurrentBloodType ?? "no type on file");

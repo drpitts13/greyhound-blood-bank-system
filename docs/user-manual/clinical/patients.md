@@ -15,7 +15,7 @@ routes:
 
 Each row shows the patient's **Location**: the type and place of the current open visit (for example "Inpatient · ICU 4"), the same visit the chart header shows. **+1 more open** in amber means another visit is open too; check which one the work belongs to. **No open visit** means none is open. Use it to tell similar names apart and to confirm where blood is going.
 
-Each row also shows the patient's current **ABO/Rh** and **Alerts**: active antibodies in red, the number of special requirements in effect in amber, and informational notes in blue (notes are shown, never enforced). Use them to confirm you have the right patient and to see their risks before you open the chart; the chart has the details. The patient pickers on the Issue desk, Compatibility, and unit receipt show the same type and alerts after the name and MRN; a record merged into another chart says so.
+Each row also shows the patient's current **ABO/Rh** and **Alerts**: active antibodies in red, the number of special requirements in effect in amber, and informational notes in blue (notes are shown, never enforced). Use them to confirm you have the right patient and to see their risks before you open the chart; the chart has the details. The patient pickers on the Issue desk, Compatibility, and unit receipt show where the patient is, then the same type and alerts, after the name and MRN; a record merged into another chart says so.
 
 Open a row to go to the chart. The chart is the place for visits, orders, specimens, results, and products. Do not create a second chart because the first search missed a former name.
 
