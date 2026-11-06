@@ -500,5 +500,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-489 | U, I | `DeviationStatusRuleTests.ClosingNeedsAnAction_AndARecordedActionIsNotCleared`; `DeviationServiceTests.Close_NeedsACorrectiveAction_AndReopenKeepsTheEarlierCloseInTheAudit` | URS-BB-524 / FRS-BB-623 |
 | TEST-BB-490 | U | `DashboardQueueCatalogTests.Deviations_ForManagers_CountOpenAndNameCritical` | URS-BB-524 / FRS-BB-624 |
 | TEST-BB-491 | I | `DeviationServiceTests.ListForRecord_MatchesTheRecordAndOlderSpellings_OpenFirst` | URS-BB-524 / FRS-BB-625 |
+| TEST-BB-492 | U | `DeviationRecordTypesTests.EveryLookupKind_MapsToARecordType`; `DeviationRecordTypesTests.RecordPages_FindOlderSpellings` | URS-BB-524 / FRS-BB-626 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

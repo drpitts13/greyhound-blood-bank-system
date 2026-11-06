@@ -15232,3 +15232,40 @@ A deviation could be linked to a unit or patient, but neither page showed it: so
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 451 — Link a deviation's record by scan (2026-11-06)
+
+### Capability matrix rescan (deviation entry)
+
+Cycle 450 prefilled the record when a deviation is started from a unit or patient page. Started from Deviations itself, linking still meant choosing a type and typing an internal id. The DIN, MRN, accession, or order number in hand could not be used, though the top-bar lookup already resolves them safely (questions 2, 4).
+
+### Design
+
+- **Related record: scan or type** on the Deviations form, through the existing lookup:
+  - an exact single match links at once and is named ("Linked: Blood unit W0001230000001 (...)")
+  - several matches are offered to pick from; none says so
+- **`DeviationRecordTypes.FromLookup`:** patient, unit, specimen, order map to the stored types.
+- **Type plus id** stays for issues, results, and HL7 messages; changing either clears the linked label.
+- A lookup result applies only if the field still holds what was looked up, so a scan typed while a lookup runs is not cleared.
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-626 (under URS-BB-524). Help: deviations.
+
+### Tests
+
+- TEST-BB-492: every lookup kind maps to a record type; record pages find older spellings.
+- Full suite: 3,806 passed, 0 failed, before the two page-only fixes below; after them the web build, Help.Tests (36), the catalog check, and TEST-BB-492 passed.
+- Run check (development API and web), nothing created:
+  - ACC0001 + Enter links "Specimen ACC0001 (Specimen for Demo, Patricia ...)"
+  - MRN002 offers four patients with "Several records match; choose one"; picking MRN0021 links it as a Patient
+  - an unknown identifier says nothing matches
+  - no server errors
+- Found and fixed during the run check:
+  - the prompt was hidden while an earlier link was shown; both now show
+  - a second identifier typed during a lookup was cleared when the first result arrived; stale results are now dropped, so nothing typed is lost and no wrong record is linked
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
