@@ -25,6 +25,9 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     private readonly IIdentityAdminStore _identity;
     private readonly IPermissionEvaluator? _permissionEvaluator;
     private readonly IAuthSessionService? _sessions;
+    private readonly IAuditQuery? _auditQuery;
+    private const string AccessReviewEntity = "AccessReview";
+    private const string AccessReviewReasonPrefix = "Access review: ";
 
     public UserAdminService(
         IRepository<User> users,
@@ -39,9 +42,11 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
         IPermissionEvaluator? permissionEvaluator = null,
-        IAuthSessionService? sessions = null)
+        IAuthSessionService? sessions = null,
+        IAuditQuery? auditQuery = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _auditQuery = auditQuery;
         _users = users;
         _roles = roles;
         _permissions = permissions;
@@ -234,6 +239,70 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         await RevokeUserSessionsAsync(user.Id, req.ChangeReason ?? "Roles changed", ct);
 
         return OperationResult<AdminUserDto>.Ok(after!);
+    }
+
+    /// <summary>
+    /// Records a periodic access review: one audit event holding every active account with its roles and last sign-in,
+    /// the reviewer, and the reviewer's note. It changes no account; deactivating or changing roles stays per user.
+    /// </summary>
+    public async Task<OperationResult<AccessReviewDto>> RecordAccessReviewAsync(RecordAccessReviewRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync<AccessReviewDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluateUpdateUser, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Note))
+        {
+            return OperationResult<AccessReviewDto>.Fail("Say what was reviewed and what was decided.");
+        }
+
+        var active = (await ListUsersAsync(includeInactive: false, ct)).ToList();
+        var note = request.Note.Trim();
+        Audit.Record(
+            AuditEventType.UserRole,
+            AccessReviewEntity,
+            0,
+            newValue: new
+            {
+                Document = "Access review",
+                Note = note,
+                ActiveAccounts = active.Select(u => new { u.UserName, u.Roles, u.LastLoginUtc, u.IsLocked, u.IsServiceAccount }).ToList()
+            },
+            reason: AccessReviewReasonPrefix + note);
+        await UnitOfWork.SaveChangesAsync(ct);
+        return OperationResult<AccessReviewDto>.Ok(new AccessReviewDto(Clock.UtcNow, CurrentUser.UserName, note, active.Count));
+    }
+
+    /// <summary>The latest recorded access review, or null when none has been recorded.</summary>
+    public async Task<AccessReviewDto?> GetLastAccessReviewAsync(CancellationToken ct = default)
+    {
+        if (_auditQuery is null)
+        {
+            return null;
+        }
+
+        var last = (await _auditQuery.ListForEntityAsync(AccessReviewEntity, 0, ct))
+            .LastOrDefault(e => e.Reason is not null && e.Reason.StartsWith(AccessReviewReasonPrefix, StringComparison.Ordinal));
+        if (last is null)
+        {
+            return null;
+        }
+
+        var count = 0;
+        if (last.NewValueJson is { } json)
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("ActiveAccounts", out var accounts) && accounts.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                count = accounts.GetArrayLength();
+            }
+        }
+
+        return new AccessReviewDto(last.OccurredUtc, last.UserName, last.Reason![AccessReviewReasonPrefix.Length..], count);
     }
 
     public async Task<OperationResult<AdminUserDto>> SetActiveAsync(long id, bool active, string? reason, CancellationToken ct = default)

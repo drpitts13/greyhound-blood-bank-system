@@ -14770,3 +14770,42 @@ Utilization (C:T ratio) already exists. Antibody history drives selection inside
 ### Next ranked residual
 
 Rescan the desks; still pending user decisions: bulk verify of negatives, and the EHR rejection notice.
+
+## Iteration 438 — User access review (2026-11-06)
+
+### Capability matrix rescan (administration)
+
+Admin › Users listed accounts, roles, and status, but not when each person last signed in. Nothing recorded a periodic access review, which quality and inspection programmes expect: who has access, still needed, reviewed by whom. A dormant account with blood bank privileges is an access-control risk (question 7).
+
+### Design
+
+- **Admin › Users:**
+  - **Last sign-in** column ("Never")
+  - a filter for active, non-service accounts not signed in for a chosen number of days, default 90 (`DormantAccountRule`; the days are the reviewer's choice, not software policy), marked **Dormant**
+- **Record access review** (*admin.users.manage*; `POST /api/admin/users/access-review`):
+  - needs a note
+  - writes one UserRole audit event (entity `AccessReview`) with every active account's roles, last sign-in, and lock and service flags
+  - changes no account
+- **Last review:** the page shows when, who, the note, and how many accounts (`GET …/access-review`).
+- No schema change.
+
+### Requirements
+
+- URS-BB-520, FRS-BB-613. Help: users (Administrator Guide).
+
+### Tests
+
+- TEST-BB-479:
+  - **dormant rule:** days since sign-in, never signed in, inactive and service accounts, zero days
+  - **refused:** a blank note; recording without *admin.users.manage*
+  - **recorded:** active accounts in, inactive ones out, no account changed; the last review is read back
+- Full suite: 3,780 passed, 0 failed.
+- Run check (development API and web):
+  - Users shows "No access review recorded yet" and the Last sign-in column
+  - the dormant filter lists 9 of 10 demo accounts (never signed in; development runs as DEV_ADMIN)
+  - not recorded; no server errors
+- **Fixed in the run check:** spacing between "Never" and the Dormant badge.
+
+### Next ranked residual
+
+Rescan the desks. Still pending user decisions: bulk verify of negatives, and the EHR rejection notice.

@@ -2108,6 +2108,12 @@ public sealed class BloodBankApiClient
         SendAsync<EchoSimulatorSendResultDto>(HttpMethod.Post, "api/instruments/simulator/send", req, ct);
 
     // ---- Admin: Users & roles ----
+    public Task<ApiResult<AccessReviewDto>> GetLastAccessReviewAsync(CancellationToken ct = default) =>
+        SendAsync<AccessReviewDto>(HttpMethod.Get, "api/admin/users/access-review", ct: ct);
+
+    public Task<ApiResult<AccessReviewDto>> RecordAccessReviewAsync(RecordAccessReviewRequest req, CancellationToken ct = default) =>
+        SendAsync<AccessReviewDto>(HttpMethod.Post, "api/admin/users/access-review", req, ct);
+
     public Task<ApiResult<List<AdminUserDto>>> GetAdminUsersAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<AdminUserDto>>(HttpMethod.Get, $"api/admin/users?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 

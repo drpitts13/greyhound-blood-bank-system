@@ -32,7 +32,40 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
             _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
             new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env),
-            permissionEvaluator: permissions);
+            permissionEvaluator: permissions,
+            auditQuery: new AuditQuery(c));
+    }
+
+    // TEST-BB-479: an access review needs a note and the users permission; it records every active account with its
+    // roles and last sign-in in one audit event, changes no account, and is shown as the last review.
+    [Fact]
+    public async Task AccessReview_RecordsActiveAccounts_AndIsReadBack()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8];
+        c.Users.AddRange(
+            new User { UserName = $"rev-active-{key}", DisplayName = "Active", IsActive = true, LastLoginUtc = _factory.Clock.UtcNow.AddDays(-200) },
+            new User { UserName = $"rev-gone-{key}", DisplayName = "Gone", IsActive = false });
+        await c.SaveChangesAsync();
+        var users = Users(c, new FixedPermissionEvaluator(3, PermissionCodes.AdminUsersManage));
+
+        Assert.False((await users.RecordAccessReviewAsync(new RecordAccessReviewRequest(" "))).Succeeded);
+        Assert.False((await Users(c, new FixedPermissionEvaluator(3, PermissionCodes.AuditRead))
+            .RecordAccessReviewAsync(new RecordAccessReviewRequest("Quarterly"))).Succeeded);
+
+        var activeCount = await c.Users.CountAsync(u => u.IsActive);
+        var recorded = await users.RecordAccessReviewAsync(new RecordAccessReviewRequest($"Quarterly review {key}"));
+        Assert.True(recorded.Succeeded, recorded.Error);
+        Assert.Equal(activeCount, recorded.Value!.ActiveAccounts);
+
+        var audit = await c.AuditEvents.SingleAsync(a => a.EntityType == "AccessReview" && a.Reason == $"Access review: Quarterly review {key}");
+        Assert.Equal(AuditEventType.UserRole, audit.EventType);
+        Assert.Contains($"rev-active-{key}", audit.NewValueJson);
+        Assert.DoesNotContain($"rev-gone-{key}", audit.NewValueJson);
+        Assert.True(await c.Users.AnyAsync(u => u.UserName == $"rev-active-{key}" && u.IsActive));
+
+        var last = await users.GetLastAccessReviewAsync();
+        Assert.Equal(($"Quarterly review {key}", _factory.CurrentUser.UserName, activeCount), (last!.Note, last.ReviewedBy, last.ActiveAccounts));
     }
 
     // TEST-BB-385: access changes (roles, permissions, security level, activation, unlock) record why.

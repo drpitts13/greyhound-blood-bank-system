@@ -15,9 +15,31 @@
 
 <Outcome Value="_feedback" />
 
+@* Periodic access review: who can sign in, with which roles, and who has not signed in for a while. *@
+<div class="bb-card" style="margin-top:1rem;" data-access-review>
+    <div class="bb-card-title"><h3>Access review</h3></div>
+    @if (_lastReview is { } review)
+    {
+        <p class="muted" style="margin:0 0 .5rem;">Last recorded @review.ReviewedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @review.ReviewedBy (@review.ActiveAccounts active accounts): @review.Note</p>
+    }
+    else
+    {
+        <p class="muted" style="margin:0 0 .5rem;">No access review recorded yet.</p>
+    }
+    <div class="form-row" style="align-items:flex-end;">
+        <div class="field" style="flex:2;"><label>What was reviewed and decided</label><input @bind="_reviewNote" @bind:event="oninput" placeholder="e.g. Quarterly review: roles checked against staffing list; 2 dormant accounts deactivated" /></div>
+        <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_reviewNote))" @onclick="RecordReviewAsync" data-record-review>Record access review</button>
+    </div>
+    <p class="muted" style="margin:.25rem 0 0;">Recording keeps every active account with its roles and last sign-in in the audit trail. It changes no account.</p>
+</div>
+
 <div class="bb-card" style="margin-top:1rem;">
-    <div class="flex gap" style="margin-bottom:.6rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;align-items:center;flex-wrap:wrap;">
         <input style="flex:1;" placeholder="Filter by username, name or role" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;align-items:center;" data-dormant-filter>
+            <input type="checkbox" @bind="_dormantOnly" /> Active, not signed in for
+            <input type="number" min="1" max="3650" style="width:5rem;" @bind="_dormantDays" @bind:event="oninput" /> days
+        </label>
     </div>
 
     @if (_loading)
@@ -35,7 +57,7 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Username</th><th>Display name</th><th>Roles</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Username</th><th>Display name</th><th>Roles</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
             <tbody>
                 @foreach (var u in Filtered)
                 {
@@ -47,6 +69,20 @@
                             @if (!u.IsActive) { <span class="badge badge-amber">Inactive</span> }
                             else if (u.IsLocked) { <span class="badge badge-amber">Locked</span> }
                             else { <span class="badge badge-green">Active</span> }
+                        </td>
+                        <td class="nowrap">
+                            @if (u.LastLoginUtc is DateTime last)
+                            {
+                                @last.ToLocalTime().ToString("yyyy-MM-dd")
+                            }
+                            else
+                            {
+                                <span class="muted">Never</span>
+                            }
+                            @if (IsDormant(u))
+                            {
+                                <span class="badge badge-amber" style="margin-left:.35rem;" title="Active, and not signed in for @_dormantDays days or more">Dormant</span>
+                            }
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(u.Id)">Manage</button>
@@ -118,10 +154,36 @@
     private List<AdminRoleDto> _roles = new();
     private string _filter = string.Empty;
 
-    private IEnumerable<AdminUserDto> Filtered =>
-        string.IsNullOrWhiteSpace(_filter)
-            ? _users
-            : _users.Where(u =>
+    private AccessReviewDto? _lastReview;
+    private string? _reviewNote;
+    private bool _dormantOnly;
+    private int _dormantDays = 90;
+
+    // Active accounts (not service accounts) with no sign-in within the chosen number of days.
+    private bool IsDormant(AdminUserDto u) =>
+        DormantAccountRule.IsDormant(u.IsActive, u.IsServiceAccount, u.LastLoginUtc, DateTime.UtcNow, _dormantDays);
+
+    private async Task LoadReviewAsync()
+    {
+        var r = await Api.GetLastAccessReviewAsync();
+        _lastReview = r.Succeeded ? r.Value : null;
+    }
+
+    private async Task RecordReviewAsync()
+    {
+        _busy = true;
+        var r = await Api.RecordAccessReviewAsync(new RecordAccessReviewRequest(_reviewNote));
+        _busy = false;
+        _feedback = r.ToFeedback("Access review recorded.");
+        if (r.Succeeded)
+        {
+            _reviewNote = null;
+            await LoadReviewAsync();
+        }
+    }
+
+    private IEnumerable<AdminUserDto> Filtered => (_dormantOnly ? _users.Where(IsDormant) : _users)
+        .Where(u => string.IsNullOrWhiteSpace(_filter) ||
                 u.UserName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || u.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || u.Roles.Any(r => r.Contains(_filter, StringComparison.OrdinalIgnoreCase)));
@@ -139,6 +201,7 @@
         var roles = await Api.GetAdminRolesAsync();
         _roles = roles.Value ?? new();
         await LoadAsync();
+        await LoadReviewAsync();
         // Without roles the role picker is empty, so say why instead of showing nothing.
         if (!roles.Succeeded) _feedback = roles.ToFeedback();
     }

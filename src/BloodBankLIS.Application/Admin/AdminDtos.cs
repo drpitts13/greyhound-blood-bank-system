@@ -627,6 +627,12 @@ public sealed record SaveUserRequest(
 
 public sealed record AssignRolesRequest(IReadOnlyList<string> Roles, string? ChangeReason);
 
+/// <summary>A periodic review of who can sign in and with which roles; the note says what was checked and decided.</summary>
+public sealed record RecordAccessReviewRequest(string? Note);
+
+/// <summary>The latest recorded access review: when, by whom, the note, and how many active accounts it covered.</summary>
+public sealed record AccessReviewDto(DateTime ReviewedUtc, string ReviewedBy, string Note, int ActiveAccounts);
+
 public sealed record AdminRoleDto(long Id, string Name, string? Description, int SecurityLevel, IReadOnlyList<string> Permissions);
 
 public sealed record SaveRoleRequest(string Name, string? Description, int SecurityLevel, IReadOnlyList<string> Permissions, string? ChangeReason);

@@ -1354,6 +1354,14 @@ public static class AdminEndpoints
             Results.Ok(await svc.ListUsersAsync(includeInactive ?? true, ct)))
             .RequirePermission(PermissionCodes.AdminUsersManage);
 
+        users.MapGet("/access-review", async (UserAdminService svc, CancellationToken ct) =>
+            await svc.GetLastAccessReviewAsync(ct) is { } review ? Results.Ok(review) : Results.NoContent())
+            .RequirePermission(PermissionCodes.AdminUsersManage);
+
+        users.MapPost("/access-review", async (RecordAccessReviewRequest req, UserAdminService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.RecordAccessReviewAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminUsersManage);
+
         users.MapGet("/{id:long}", async (long id, UserAdminService svc, CancellationToken ct) =>
         {
             var dto = await svc.GetUserAsync(id, ct);
