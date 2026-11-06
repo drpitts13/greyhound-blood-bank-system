@@ -70,7 +70,12 @@ public sealed record PatientDto(
     IReadOnlyList<string>? ActiveAntibodies = null,
     int ActiveSpecialRequirements = 0,
     // Informational notes in effect: counted apart from the enforced requirements above.
-    int InformationalNotes = 0)
+    int InformationalNotes = 0,
+    // The current open visit (CurrentVisit.For) for the patient list: its number, where the patient is ("Inpatient ·
+    // ICU 4"), and how many other visits are open. Null visit number: no open visit.
+    string? CurrentVisitNumber = null,
+    string? CurrentVisitWhere = null,
+    int OtherOpenVisits = 0)
 {
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,

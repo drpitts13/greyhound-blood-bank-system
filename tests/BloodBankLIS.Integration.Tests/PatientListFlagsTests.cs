@@ -23,7 +23,41 @@ public class PatientListFlagsTests : IClassFixture<SqliteContextFactory>
             bloodTypes: new EfRepository<PatientBloodTypeHistory>(c),
             antibodies: new EfRepository<AntibodyHistory>(c),
             requirements: new EfRepository<SpecialTransfusionRequirement>(c),
-            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c));
+            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c),
+            encounters: new EfRepository<Encounter>(c));
+
+    // TEST-BB-505: the list says where the patient is (the current open visit), flags another open visit, and says
+    // nothing for a patient with no open visit.
+    [Fact]
+    public async Task PatientList_ShowsWhereThePatientIs_FromTheCurrentOpenVisit()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var now = _factory.Clock.UtcNow;
+        var admitted = new Patient { MedicalRecordNumber = $"MRN-LOC-{key}", LastName = $"Located{key}", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1) };
+        var home = new Patient { MedicalRecordNumber = $"MRN-HOME-{key}", LastName = $"Home{key}", FirstName = "Pat", DateOfBirth = new DateOnly(1971, 1, 1) };
+        c.Patients.AddRange(admitted, home);
+        await c.SaveChangesAsync();
+        c.Encounters.AddRange(
+            new Encounter { PatientId = admitted.Id, VisitNumber = $"V-OLD-{key}", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddDays(-5), AdmissionLocation = "4W" },
+            new Encounter { PatientId = admitted.Id, VisitNumber = $"V-NEW-{key}", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddHours(-3), AdmissionLocation = "ED", CurrentLocation = "ICU 4" },
+            new Encounter { PatientId = admitted.Id, VisitNumber = $"V-GONE-{key}", EncounterType = EncounterType.Outpatient, Status = EncounterStatus.Discharged, AdmitUtc = now.AddHours(-1), DischargeUtc = now },
+            new Encounter { PatientId = home.Id, VisitNumber = $"V-HOME-{key}", EncounterType = EncounterType.Outpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddDays(-9), DischargeUtc = now.AddDays(-8) });
+        await c.SaveChangesAsync();
+
+        var list = await Service(c).ListDtosAsync();
+
+        var a = list.Single(p => p.Id == admitted.Id);
+        Assert.Equal($"V-NEW-{key}", a.CurrentVisitNumber);
+        Assert.Equal("Inpatient · ICU 4", a.CurrentVisitWhere);
+        Assert.Equal(1, a.OtherOpenVisits);
+
+        // An active visit that has a discharge time is not open.
+        var h = list.Single(p => p.Id == home.Id);
+        Assert.Null(h.CurrentVisitNumber);
+        Assert.Null(h.CurrentVisitWhere);
+        Assert.Equal(0, h.OtherOpenVisits);
+    }
 
     // TEST-BB-436: the patient list shows the current ABO/Rh, active antibodies, and requirements in effect only.
     [Fact]

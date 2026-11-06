@@ -632,6 +632,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-527 / FRS-BB-636 | Duplicate testing warned at order entry | `DuplicateTestOrderRule`; `OrderService.CreateAsync` | TEST-BB-502 | U, I | |
 | URS-BB-528 / FRS-BB-637 | Current visit in the chart header | `CurrentVisit` | TEST-BB-503 | U | |
 | URS-BB-529 / FRS-BB-638 | Visit, account, and other identifiers in the find box | `UniversalLookupService` | TEST-BB-504 | I | |
+| URS-BB-530 / FRS-BB-639 | Where the patient is, on the list and in the find box | `CurrentVisit`; `PatientService`; `UniversalLookupService` | TEST-BB-505 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Tests;
@@ -31,5 +32,19 @@ public class CurrentVisitTests
     {
         Assert.Equal("Inpatient · ICU 4 · Attending Dr. Smith", CurrentVisit.Describe(Visit(1, 1)));
         Assert.Equal("ED", CurrentVisit.Describe(Visit(1, 1, type: EncounterType.Unknown, location: null, attending: " ")));
+    }
+
+    // TEST-BB-505: stored visits are chosen the same way; "where" leaves out the attending and what is not recorded.
+    [Fact]
+    public void StoredVisits_PickTheSameVisit_AndSayWhereThePatientIs()
+    {
+        var older = new Encounter { Id = 1, VisitNumber = "V1", Status = EncounterStatus.Active, AdmitUtc = T.AddDays(-2), EncounterType = EncounterType.Inpatient, AdmissionLocation = "ED", AttendingProvider = "Dr. Smith" };
+        var newer = new Encounter { Id = 2, VisitNumber = "V2", Status = EncounterStatus.Active, AdmitUtc = T.AddHours(-1), EncounterType = EncounterType.Unknown, CurrentLocation = " " };
+        var (visit, others) = CurrentVisit.For([older, newer]);
+        Assert.Same(newer, visit);
+        Assert.Equal(1, others);
+
+        Assert.Equal("Inpatient · ED", CurrentVisit.Where(older));
+        Assert.Equal(string.Empty, CurrentVisit.Where(newer));
     }
 }

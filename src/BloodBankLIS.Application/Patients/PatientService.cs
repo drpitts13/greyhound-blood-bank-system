@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -30,6 +31,7 @@ public sealed class PatientService
     private readonly IRepository<AntibodyHistory>? _antibodies;
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<Encounter>? _encounters;
 
     public PatientService(
         IRepository<Patient> patients,
@@ -44,8 +46,10 @@ public sealed class PatientService
         IRepository<PatientBloodTypeHistory>? bloodTypes = null,
         IRepository<AntibodyHistory>? antibodies = null,
         IRepository<SpecialTransfusionRequirement>? requirements = null,
-        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null)
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        IRepository<Encounter>? encounters = null)
     {
+        _encounters = encounters;
         _requirementDefinitions = requirementDefinitions;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
@@ -89,6 +93,9 @@ public sealed class PatientService
         var informational = _requirementDefinitions is null
             ? null
             : PatientBloodBankFlags.InformationalIds(await _requirementDefinitions.ListAsync(ct));
+        var openVisits = _encounters is null
+            ? Array.Empty<Encounter>().ToLookup(e => e.PatientId)
+            : (await _encounters.ListAsync(e => e.Status == EncounterStatus.Active && e.DischargeUtc == null, ct)).ToLookup(e => e.PatientId);
 
         return patients
             .OrderBy(p => p.LastName, StringComparer.OrdinalIgnoreCase)
@@ -100,6 +107,13 @@ public sealed class PatientService
                 ActiveAntibodies = PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
                 ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now, informational),
                 InformationalNotes = PatientBloodBankFlags.NotesInEffect(requirements[p.Id], now, informational)
+            })
+            .Select(d =>
+            {
+                var (visit, otherOpen) = CurrentVisit.For(openVisits[d.Id]);
+                return visit is null
+                    ? d
+                    : d with { CurrentVisitNumber = visit.VisitNumber, CurrentVisitWhere = CurrentVisit.Where(visit), OtherOpenVisits = otherOpen };
             })
             .ToList();
     }

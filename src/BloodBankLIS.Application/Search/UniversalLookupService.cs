@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Patients;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -354,15 +355,28 @@ public sealed class UniversalLookupService
             target = survivor;
         }
 
+        var targetId = target.Id;
+        // Where the patient is now (the chart header's current visit), unless the row is for that same visit.
+        string? whereNow = null;
+        if (_encounters is not null)
+        {
+            var (current, otherOpen) = CurrentVisit.For(await _encounters.ListAsync(e => e.PatientId == targetId, ct));
+            if (current is not null && current.Id != visitId)
+            {
+                var where = CurrentVisit.Where(current);
+                whereNow = $"Now {(where.Length > 0 ? where : $"visit {current.VisitNumber}")}{(otherOpen > 0 ? $" (+{otherOpen} more open)" : string.Empty)}";
+            }
+        }
+
         var detail = string.Join(" · ", new[]
         {
             $"DOB {target.DateOfBirth:yyyy-MM-dd}",
             target.Sex.ToString(),
+            whereNow,
             mergedNote,
             matchedNote
         }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
-        var targetId = target.Id;
         var bloodType = _bloodTypes is null
             ? null
             : PatientBloodBankFlags.CurrentBloodType(await _bloodTypes.ListAsync(t => t.PatientId == targetId, ct));

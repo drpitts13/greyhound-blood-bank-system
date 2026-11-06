@@ -162,6 +162,31 @@ public class UniversalLookupTests : IDisposable
         }
     }
 
+    // TEST-BB-505: a patient row says where the patient is now, unless the row is for that same visit.
+    [Fact]
+    public async Task PatientHit_SaysWhereThePatientIsNow()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var visit = c.Encounters.Single(e => e.VisitNumber == "V-LOOK");
+        visit.CurrentLocation = "ICU 4";
+        c.Encounters.Add(new Encounter
+        {
+            PatientId = f.Patient.Id, VisitNumber = "V-LOOK-OLD", EncounterType = EncounterType.Outpatient,
+            Status = EncounterStatus.Discharged, AdmitUtc = _factory.Clock.UtcNow.AddDays(-30), DischargeUtc = _factory.Clock.UtcNow.AddDays(-29)
+        });
+        await c.SaveChangesAsync();
+
+        Assert.Contains("Now Inpatient · ICU 4", Assert.Single((await Lookup(c).LookupAsync("MRN-LOOK1")).Hits).Detail);
+
+        var old = Assert.Single((await Lookup(c).LookupAsync("V-LOOK-OLD")).Hits);
+        Assert.Contains("Visit V-LOOK-OLD", old.Detail);
+        Assert.Contains("Now Inpatient · ICU 4", old.Detail);
+
+        var same = Assert.Single((await Lookup(c).LookupAsync("V-LOOK")).Hits);
+        Assert.DoesNotContain("Now ", same.Detail);
+    }
+
     [Fact]
     public async Task DischargedVisit_SaysSo_AndAMergedVisitOpensTheSurvivor()
     {

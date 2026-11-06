@@ -15790,3 +15790,34 @@ The top-bar find box took a DIN, accession, order number, MRN or prior MRN, or a
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).
+
+## Iteration 467 — Where the patient is, on the list and in the find box (2026-11-06)
+
+### Capability matrix rescan (patient and encounter: location)
+
+Since Cycle 465 the chart header shows the current visit, but the patient list and the find box did not say where a patient is. Two similar names were told apart only by MRN and date of birth, and a call for blood names the ward, not the MRN (questions 2, 3, 6). Considered and set aside: registering an unidentified (trauma) patient in the LIS, which needs naming and MRN-assignment policy from registration (left for the SME, not invented here).
+
+### Design
+
+- **One rule:** `CurrentVisit.For` now also takes stored visits (one private selection for both), so the list, the find box, and the chart header choose the same visit: active, not discharged, latest admitted.
+- **`CurrentVisit.Where`:** "Inpatient · ICU 4" (type and current, else admission, location; no attending).
+- **Patients:** a **Location** column with the place (else the visit number), "+n more open" in amber, or "No open visit". Filled in `ListDtosAsync` from open visits in one query.
+- **Find box:** patient rows add "Now {where}" ("+n more open"), left out when the row is for that same visit.
+- Read-only; no schema or API shape change beyond three optional list fields.
+
+### Requirements
+
+- URS-BB-530, FRS-BB-639. Help: patients, finding records.
+
+### Tests
+
+- TEST-BB-505:
+  - stored visits pick the same visit as the chart header; "where" leaves out the attending and blank parts
+  - the list takes the latest open visit's place and counts the other open one; a discharged visit, and an active one with a discharge time, are not open
+  - a find-box row says where the patient is now; a row for an old visit adds it; a row for the current visit does not repeat it
+- Full suite: 3,836 passed
+- Live (read-only): Patients showed a Location for all 14 demo patients (MRN0001 "Inpatient · 4W Med/Surg", MRN0022 "Inpatient · ICU 4", MRN0024 "No open visit", matching their chart headers); the find box for "Demo" added "Now ..." to each row, so MRN0022 and MRN0024 (same name and birthday) are told apart. No demo patient has two open visits (the badge is covered by tests). No server errors.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy (naming, MRN assignment, later merge): ask the SME before building.

@@ -106,7 +106,7 @@
     {
         <table class="bb">
             <thead>
-                <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>ABO/Rh</th><th>Alerts</th><th>Status</th><th></th></tr>
+                <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>Location</th><th>ABO/Rh</th><th>Alerts</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
                 @foreach (var p in Filtered)
@@ -122,6 +122,20 @@
                         </td>
                         <td>@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
                         <td>@p.Sex</td>
+                        <td data-location>
+                            @if (p.CurrentVisitNumber is null)
+                            {
+                                <span class="muted">No open visit</span>
+                            }
+                            else
+                            {
+                                <span title="Current visit @p.CurrentVisitNumber">@(string.IsNullOrEmpty(p.CurrentVisitWhere) ? p.CurrentVisitNumber : p.CurrentVisitWhere)</span>
+                                @if (p.OtherOpenVisits > 0)
+                                {
+                                    <span class="badge badge-amber" data-other-open title="More than one visit is open; check which one the work belongs to">+@p.OtherOpenVisits more open</span>
+                                }
+                            }
+                        </td>
                         <td class="mono" data-blood-type>@(p.CurrentBloodType ?? "—")</td>
                         <td data-alerts>
                             <div class="flex" style="flex-wrap:wrap;gap:.25rem;">
