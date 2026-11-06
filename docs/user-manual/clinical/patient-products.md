@@ -32,7 +32,7 @@ On the ward, **Request issue** on a reserved unit tells the blood bank to send i
 
 ## Issue from the row
 
-**Issue** opens the issue panel for that reserved unit. The patient and the unit are already selected. You still complete identity, appearance, and the other issue checks. The issue gate runs here the same way it runs on the Issue and Transfuse desk.
+**Issue** opens the issue panel for that reserved unit. The patient and the unit are already selected. **Location to issue** starts with the ward's requested destination; otherwise the panel offers the patient's visit location (**Use it**), which you confirm. You still complete identity, appearance, and the other issue checks. The issue gate runs here the same way it runs on the Issue and Transfuse desk.
 
 ![Issue unit](figures/patient-issue-dialog.png)
 

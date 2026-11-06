@@ -26,7 +26,20 @@ public class PatientVisitLocationTests
     [Fact]
     public void NoOpenVisitWithALocation_SuggestsNothing()
     {
-        Assert.Null(PatientVisitLocation.For(null, []));
+        Assert.Null(PatientVisitLocation.For(null, new List<Encounter>()));
         Assert.Null(PatientVisitLocation.For(1, [Visit(1, null, 2), Visit(2, "OR", 1, EncounterStatus.Cancelled)]));
+    }
+
+    // TEST-BB-482: the chart's issue form makes the same choice from its visit list.
+    [Fact]
+    public void ChartVisitList_GivesTheSameChoice()
+    {
+        var visits = new[] { Visit(1, "Ward 5", 48), Visit(2, "ICU 4", 2), Visit(3, "ED", 1, EncounterStatus.Discharged, discharged: true) }
+            .Select(PatientWorkspace.EncounterDto.From)
+            .ToList();
+
+        Assert.Equal("Ward 5", PatientVisitLocation.For(1, visits));
+        Assert.Equal("ICU 4", PatientVisitLocation.For(3, visits));
+        Assert.Null(PatientVisitLocation.For(null, new List<PatientWorkspace.EncounterDto>()));
     }
 }

@@ -1170,7 +1170,8 @@ else
         _issueLocalDateTime = DateTime.Now;
         _issueLateEntryReason = null;
         _issueTimeEdited = false;
-        _issueLocation = string.Empty;
+        // The ward said where the unit goes when it asked for it.
+        _issueLocation = a.IssueRequestedTo ?? string.Empty;
         _issueIssuedTo = string.Empty;
         _issueComment = string.Empty;
         _issueOverrideReason = string.Empty;

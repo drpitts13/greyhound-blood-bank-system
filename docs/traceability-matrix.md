@@ -612,6 +612,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-520 / FRS-BB-613 | User access review, dormant accounts | `UserAdminService.RecordAccessReviewAsync`; `DormantAccountRule` | TEST-BB-479 | U, I | |
 | URS-BB-521 / FRS-BB-614 | Ward issue request, requested first at issue | `IssueRequestService`; `ReadyToIssueAttentionRule.IssuableFirst` | TEST-BB-480 | U, I | |
 | URS-BB-521 / FRS-BB-615 | Visit location suggested as the issue destination | `PatientVisitLocation.For` | TEST-BB-481 | U | |
+| URS-BB-521 / FRS-BB-616 | Chart issue panel destination from request or visit | `PatientVisitLocation.For` (visit list) | TEST-BB-482 | U | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |

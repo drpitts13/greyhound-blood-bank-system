@@ -161,6 +161,13 @@
                 }
                 <div class="field"><label>Location to issue</label>
                     <input @bind="IssueLocation" @bind:after="() => IssueLocationChanged.InvokeAsync(IssueLocation)" placeholder="Ward / OR / location" />
+                    @if (string.IsNullOrWhiteSpace(IssueLocation) && PatientVisitLocation.For(IssuingAllocation.EncounterId, Encounters) is { } visitLocation)
+                    {
+                        <div class="sub" data-visit-location>
+                            Patient's visit: @visitLocation
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => UseVisitLocationAsync(visitLocation)" title="Confirm the patient is still there; a visit location can lag behind a move to theatre or imaging">Use it</button>
+                        </div>
+                    }
                 </div>
                 <div class="field"><label>Person issued to</label>
                     <input @bind="IssueIssuedTo" @bind:after="() => IssueIssuedToChanged.InvokeAsync(IssueIssuedTo)" placeholder="Nurse / courier / recipient" />
@@ -450,6 +457,12 @@
     [Parameter] public bool IssueTimeEdited { get; set; }
     [Parameter] public EventCallback<string?> LateEntryReasonChanged { get; set; }
     [Parameter] public string IssueLocation { get; set; } = string.Empty;
+
+    private async Task UseVisitLocationAsync(string location)
+    {
+        IssueLocation = location;
+        await IssueLocationChanged.InvokeAsync(location);
+    }
     [Parameter] public EventCallback<string> IssueLocationChanged { get; set; }
     [Parameter] public string IssueIssuedTo { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> IssueIssuedToChanged { get; set; }

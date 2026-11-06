@@ -14887,3 +14887,34 @@ The issue form's **Issued to (location)** started empty unless the ward had requ
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 441 — Chart issue panel destination (2026-11-06)
+
+### Capability matrix rescan (issue from the chart)
+
+The chart's Products tab has its own issue panel. Its **Location to issue** started empty, ignoring both the ward's request (Cycle 439) and the visit location the issue desk now suggests (Cycle 440). The two issue paths differed (question 2, consistent terminology).
+
+### Design
+
+- **Chart issue panel:**
+  - starts with the request's destination (`PatientDetail.BeginIssueAllocation`)
+  - while empty, offers "Patient's visit: location — **Use it**" (`PatientChartProductsTab`)
+- **`PatientVisitLocation.For`:** gains an overload for the chart's visit list, sharing one choice with the issue desk.
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-616 (under URS-BB-521). Help: patient products.
+
+### Tests
+
+- TEST-BB-482: the chart's visit list gives the same choice: the reservation's open visit; otherwise the latest open one; nothing when empty.
+- Full suite: 3,786 passed, 0 failed.
+- Run check (development API and web), MRN0022 Products tab:
+  - Issue on W0001230009202 shows "Patient's visit: ICU 4 Use it" with the field empty
+  - Issue on the requested W0001230009201 starts with ICU 4
+  - nothing issued; no server errors
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
