@@ -8,7 +8,7 @@ routes:
   - /inventory/orders
 ---
 
-**Supplier orders** turns the minimum stock shortfall into an order for your blood supplier.
+**Supplier orders** turns the minimum stock shortfall into an order for your blood supplier. A new order asks only for what is still to order: units already on a submitted order that has not arrived are taken off. When every shortage is already on order, it says so and creates nothing; receive those orders, or cancel one to order again.
 
 ## Draft
 

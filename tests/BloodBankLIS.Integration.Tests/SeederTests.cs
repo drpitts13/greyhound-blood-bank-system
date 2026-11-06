@@ -153,6 +153,10 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(SupplierOrderStatus.Received, demoOrder.Status);
             Assert.Equal(3, await verify.BloodUnits.CountAsync(u => u.DeliveryId == demoOrder.BloodDeliveryId));
             Assert.Equal(5, (await verify.SupplierOrderLines.SingleAsync(l => l.SupplierOrderId == demoOrder.Id)).Quantity);
+            // TEST-BB-509: a submitted demo order for one group A red cell, not yet received, shows as on order.
+            var onOrder = await verify.SupplierOrders.SingleAsync(o => o.OrderNumber == "SO-DEMO-002");
+            Assert.Equal(SupplierOrderStatus.Submitted, onOrder.Status);
+            Assert.Equal((AboGroup?)AboGroup.A, (await verify.SupplierOrderLines.SingleAsync(l => l.SupplierOrderId == onOrder.Id)).Abo);
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Expected));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123ASN0001" && u.ShipmentId == "ASN-DEMO-01"));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));

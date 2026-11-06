@@ -67,6 +67,7 @@ public static partial class DatabaseSeeder
         await EnsureStatOrderWithoutSpecimenAsync(context, ct);
         await EnsurePossibleDuplicatePatientAsync(context, ct);
         await EnsureSupplyDemoAsync(context, ct);
+        await EnsureOnOrderDemoAsync(context, ct);
         await EnsureIssueRequestDemoAsync(context, ct);
         await EnsureOrderingLocationMappingDemoAsync(context, ct);
         await EnsureDeviationDemoAsync(context, ct);
@@ -261,6 +262,39 @@ public static partial class DatabaseSeeder
         context.SupplierOrders.Add(order);
         await context.SaveChangesAsync(ct);
         context.SupplierOrderLines.Add(new SupplierOrderLine { SupplierOrderId = order.Id, ProductTypeId = redCells.Id, Abo = AboGroup.O, Quantity = 5 });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A supplier order for one group A red cell, submitted and not yet received, so Minimum stock shows it on order
+    /// against the group A shortage and a new order drafts only what is still to order. Added once.
+    /// </summary>
+    private static async Task EnsureOnOrderDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SupplierOrders.AnyAsync(o => o.OrderNumber == "SO-DEMO-002", ct))
+        {
+            return;
+        }
+
+        var supplier = await context.BloodSuppliers.FirstOrDefaultAsync(s => s.Code == "ARC", ct);
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        if (supplier is null || redCells is null)
+        {
+            return;
+        }
+
+        var order = new SupplierOrder
+        {
+            OrderNumber = "SO-DEMO-002",
+            BloodSupplierId = supplier.Id,
+            Status = SupplierOrderStatus.Submitted,
+            Notes = "Demo: one group A red cell ordered, not yet delivered.",
+            SubmittedBy = "supervisor1",
+            SubmittedUtc = DateTime.UtcNow.AddHours(-1)
+        };
+        context.SupplierOrders.Add(order);
+        await context.SaveChangesAsync(ct);
+        context.SupplierOrderLines.Add(new SupplierOrderLine { SupplierOrderId = order.Id, ProductTypeId = redCells.Id, Abo = AboGroup.A, Quantity = 1 });
         await context.SaveChangesAsync(ct);
     }
 

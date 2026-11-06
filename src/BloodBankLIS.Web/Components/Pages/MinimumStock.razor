@@ -30,7 +30,7 @@
             </p>
         }
         <table class="bb">
-            <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th title="Open product orders for this product, any ABO, still waiting for a unit">Open orders</th><th></th></tr></thead>
+            <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th title="Units on submitted supplier orders that have not arrived">On order</th><th title="Open product orders for this product, any ABO, still waiting for a unit">Open orders</th><th></th></tr></thead>
             <tbody>
                 @* Shortages first, largest first, so what needs ordering is at the top. *@
                 @foreach (var row in _rows.OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo))
@@ -42,6 +42,17 @@
                         <td><a href="@OnHandUrl(row)" title="Show these units in Inventory">@row.OnHand</a></td>
                         <td>@row.MinimumAvailable</td>
                         <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
+                        <td data-on-order>
+                            @(row.OnOrder > 0 ? row.OnOrder.ToString() : "—")
+                            @if (row.Shortfall > 0 && row.StillToOrder == 0)
+                            {
+                                <span class="badge badge-blue" title="The shortage is covered by submitted orders; receive them when they arrive">Covered by orders</span>
+                            }
+                            else if (row.Shortfall > 0 && row.OnOrder > 0)
+                            {
+                                <span class="badge badge-amber" title="Submitted orders cover part of the shortage">@row.StillToOrder still to order</span>
+                            }
+                        </td>
                         <td>
                             @(row.OpenOrders > 0 ? row.OpenOrders.ToString() : "—")
                             @if (row.OpenOrdersExceedOnHand)

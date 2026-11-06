@@ -119,7 +119,10 @@ public sealed class SupplierOrderService
         return order is null ? null : await ToDtoAsync(order, ct);
     }
 
-    /// <summary>Draft order with one line per minimum stock row that is short, for the shortfall quantity.</summary>
+    /// <summary>
+    /// Draft order with one line per minimum stock row that is short, for what is still to order: the shortfall less units
+    /// already on submitted orders that have not arrived, so a shortage is not ordered twice.
+    /// </summary>
     public async Task<OperationResult<SupplierOrderDto>> CreateFromShortfallAsync(CreateSupplierOrderRequest request, CancellationToken ct = default)
     {
         var supplier = await _suppliers.GetByIdAsync(request.SupplierId, ct);
@@ -128,10 +131,13 @@ public sealed class SupplierOrderService
             return OperationResult<SupplierOrderDto>.Fail("Supplier not found.");
         }
 
-        var shortRows = (await _minimumStock.ListAsync(ct)).Where(row => row.Shortfall > 0).ToList();
+        var rows = await _minimumStock.ListAsync(ct);
+        var shortRows = rows.Where(row => row.StillToOrder > 0).ToList();
         if (shortRows.Count == 0)
         {
-            return OperationResult<SupplierOrderDto>.Fail("No product is below its minimum stock, so there is nothing to order.");
+            return OperationResult<SupplierOrderDto>.Fail(rows.Any(row => row.Shortfall > 0)
+                ? "Every shortage is already on a submitted order that has not arrived, so there is nothing more to order. Receive those orders, or cancel one to order again."
+                : "No product is below its minimum stock, so there is nothing to order.");
         }
 
         var order = new SupplierOrder
@@ -149,12 +155,12 @@ public sealed class SupplierOrderService
                 SupplierOrderId = order.Id,
                 ProductTypeId = row.ProductTypeId,
                 Abo = row.Abo,
-                Quantity = Math.Min(row.Shortfall, SupplierOrderRule.MaxLineQuantity)
+                Quantity = Math.Min(row.StillToOrder, SupplierOrderRule.MaxLineQuantity)
             }, ct);
         }
 
         _audit.Record(AuditEventType.Create, nameof(SupplierOrder), order.Id, null,
-            new { order.OrderNumber, Supplier = supplier.Code, Lines = shortRows.Count, Units = shortRows.Sum(r => r.Shortfall) },
+            new { order.OrderNumber, Supplier = supplier.Code, Lines = shortRows.Count, Units = shortRows.Sum(r => r.StillToOrder), AlreadyOnOrder = shortRows.Sum(r => Math.Min(r.Shortfall, r.OnOrder)) },
             "Supplier order drafted from minimum stock shortfall.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(order, ct));

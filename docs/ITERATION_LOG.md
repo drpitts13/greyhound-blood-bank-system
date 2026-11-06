@@ -15908,3 +15908,36 @@ Cycle 469 put shortages on the home screen, but the shift handoff, the record of
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 471 — A shortage already on order is not ordered twice (2026-11-06)
+
+### Capability matrix rescan (operations: stock and supplier orders)
+
+A supplier order is drafted from the minimum stock shortfall, submitted (signed), sent outside the system, and received when the delivery is linked. Between submit and receipt the shortage still showed in full: on Minimum stock, on the new home card and handoff, and in the next drafted order, which asked for the same units again. Staff had to remember what was already ordered (questions 2, 3; double ordering wastes blood).
+
+### Design
+
+- **On order:** units on submitted supplier orders, by product and ABO (every ABO for an any-ABO level). Drafts, received, and cancelled orders do not count.
+- **`MinimumStockRule.StillToOrder`:** the shortfall less on order, never below zero. The shortfall itself is unchanged: units on order are not on the shelf, so the card, handoff, and alerts still count the product as short.
+- **New supplier order:** drafts what is still to order. When every shortage is covered it refuses, naming why and what to do (receive or cancel). The audit records units already on order.
+- **Minimum stock:** an **On order** column, with "Covered by orders" or "n still to order".
+- **Home card note:** ", n on order" after the shortfall.
+- No schema change. Demo order SO-DEMO-002 (submitted, one group A red cell) shows it.
+
+### Requirements
+
+- URS-BB-534, FRS-BB-643. Help: minimum stock, supplier orders.
+
+### Tests
+
+- TEST-BB-509:
+  - still to order is the shortfall less on order, never negative
+  - after one submitted unit, the next draft asks for the one still short; a draft and a cancelled order do not count as on order
+  - once submitted orders cover the shortage, no order is drafted and the message says why; the product is still short, and the card note says "2 on order"
+- Full suite: 3,847 passed
+- Demo data: SO-DEMO-002, a submitted order for one group A red cell, not yet received (seeded once).
+- Live: Minimum stock showed RBC-LR A short 2 with **On order 1** and "1 still to order"; the other rows showed no units on order. The home card read "RBC-LR A: 2 of 4, 1 on order". No order was drafted or submitted live. No server errors.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

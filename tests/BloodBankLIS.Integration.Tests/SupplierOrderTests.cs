@@ -1,6 +1,7 @@
 using System.Text;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -27,7 +28,8 @@ public class SupplierOrderTests : IDisposable
             new EfRepository<BloodSupplier>(c),
             new EfRepository<BloodDelivery>(c),
             new EfRepository<ProductType>(c),
-            new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c),
+            new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
+                supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c)),
             c, _factory.Clock, _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             _signatures,
@@ -98,6 +100,42 @@ public class SupplierOrderTests : IDisposable
         Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(SupplierOrder) && e.EntityId == order.Id
             && e.Reason!.Contains("2 unit(s) short: RBC-SO O: 2 of 5 short")));
         Assert.False((await service.CancelAsync(order.Id, new CancelSupplierOrderRequest("too late"))).Succeeded);
+    }
+
+    // TEST-BB-509: units on a submitted, not yet received order count as on order: the next order drafts only what is
+    // still short, a draft or cancelled order does not count, and a fully covered shortage is not ordered again.
+    [Fact]
+    public async Task SubmittedOrders_CountAsOnOrder_SoAShortageIsNotOrderedTwice()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var service = Service(c);
+        var minimum = new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
+            supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c));
+
+        // Group O red cells: minimum 3, one on hand, short 2. Order one and submit it.
+        var first = (await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
+        await service.UpdateAsync(first.Id, new UpdateSupplierOrderRequest([new SupplierOrderLineInput(f.RedCells.Id, AboGroup.O, 1)], null));
+        Assert.True((await service.SubmitAsync(first.Id, new SubmitSupplierOrderRequest(FakeSignatures.ValidId))).Succeeded);
+
+        // A draft does not count as on order; nor does a cancelled order.
+        var draft = (await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
+        Assert.Equal(1, Assert.Single(draft.Lines).Quantity);
+        var row = (await minimum.ListAsync()).Single(r => r.ProductTypeId == f.RedCells.Id);
+        Assert.Equal((2, 1, 1), (row.Shortfall, row.OnOrder, row.StillToOrder));
+        Assert.True((await service.CancelAsync(draft.Id, new CancelSupplierOrderRequest("duplicate"))).Succeeded);
+        Assert.Equal(1, (await minimum.ListAsync()).Single(r => r.ProductTypeId == f.RedCells.Id).OnOrder);
+
+        // Order the last one: the shortage is covered and nothing more is drafted, but the product is still short.
+        var second = (await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
+        _signatures.Consumed.Clear();
+        Assert.True((await service.SubmitAsync(second.Id, new SubmitSupplierOrderRequest(FakeSignatures.ValidId))).Succeeded);
+        var covered = (await minimum.ListAsync()).Single(r => r.ProductTypeId == f.RedCells.Id);
+        Assert.Equal((2, 2, 0), (covered.Shortfall, covered.OnOrder, covered.StillToOrder));
+        var none = await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id));
+        Assert.False(none.Succeeded);
+        Assert.Contains("already on a submitted order", none.Error);
+        Assert.Equal("RBC-SO O: 1 of 3, 2 on order", DashboardQueueCatalog.LowStockCard([covered]).Note);
     }
 
     // TEST-BB-468: named-ABO lines take matching units first, any-ABO lines take what is left, and no unit counts twice.

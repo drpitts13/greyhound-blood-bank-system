@@ -517,5 +517,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-506 | U, I | `PatientPickerLabelTests.PickerLabel_SaysWhereThePatientIs`; `PatientListFlagsTests.PatientList_ShowsWhereThePatientIs_FromTheCurrentOpenVisit` | URS-BB-531 / FRS-BB-640 |
 | TEST-BB-507 | U | `DashboardHomeTests.LowStock_NamesTheShortfalls_AndNeedsAttention` | URS-BB-532 / FRS-BB-641 |
 | TEST-BB-508 | U, I | `ShiftHandoffSummaryTests.Summary_NamesProductsBelowMinimumStock`; `ShiftHandoffServiceTests.Create_CountsProductsBelowMinimumStock` | URS-BB-533 / FRS-BB-642 |
+| TEST-BB-509 | U, I | `SupplierOrderTests.SubmittedOrders_CountAsOnOrder_SoAShortageIsNotOrderedTwice`; `MinimumStockRuleTests.StillToOrder_IsTheShortfallLessWhatIsOnOrder`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-534 / FRS-BB-643 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

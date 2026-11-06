@@ -15,9 +15,13 @@ public sealed record MinimumStockRowDto(
     int MinimumAvailable,
     int Shortfall,
     // Open product order lines for this product (any ABO) still waiting to be filled.
-    int OpenOrders = 0)
+    int OpenOrders = 0,
+    // Units on submitted supplier orders not yet received, for this product and ABO (all ABO for an any-ABO level).
+    int OnOrder = 0)
 {
     public bool OpenOrdersExceedOnHand => MinimumStockRule.OpenOrdersExceedOnHand(OnHand, OpenOrders);
+
+    public int StillToOrder => MinimumStockRule.StillToOrder(Shortfall, OnOrder);
 }
 
 public sealed record SaveMinimumStockRequest(long ProductTypeId, AboGroup? Abo, int MinimumAvailable);
@@ -30,6 +34,8 @@ public sealed class MinimumStockService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IRepository<OrderLine>? _orderLines;
     private readonly IRepository<Order>? _orders;
+    private readonly IRepository<SupplierOrder>? _supplierOrders;
+    private readonly IRepository<SupplierOrderLine>? _supplierOrderLines;
 
     public MinimumStockService(
         IRepository<MinimumStockLevel> levels,
@@ -37,8 +43,12 @@ public sealed class MinimumStockService
         IInventoryRepository inventory,
         IUnitOfWork unitOfWork,
         IRepository<OrderLine>? orderLines = null,
-        IRepository<Order>? orders = null)
+        IRepository<Order>? orders = null,
+        IRepository<SupplierOrder>? supplierOrders = null,
+        IRepository<SupplierOrderLine>? supplierOrderLines = null)
     {
+        _supplierOrders = supplierOrders;
+        _supplierOrderLines = supplierOrderLines;
         _orderLines = orderLines;
         _orders = orders;
         _levels = levels;
@@ -52,6 +62,7 @@ public sealed class MinimumStockService
         var levels = await _levels.ListAsync(ct);
         var products = (await _products.ListAsync(ct)).ToDictionary(product => product.Id);
         var openOrders = await OpenOrderLinesByProductAsync(ct);
+        var onOrder = await SubmittedSupplierLinesAsync(ct);
         var rows = new List<MinimumStockRowDto>();
         foreach (var level in levels.OrderBy(row => row.ProductTypeId).ThenBy(row => row.Abo))
         {
@@ -65,10 +76,25 @@ public sealed class MinimumStockService
                 onHand,
                 level.MinimumAvailable,
                 MinimumStockRule.Shortfall(onHand, level.MinimumAvailable),
-                openOrders.GetValueOrDefault(level.ProductTypeId)));
+                openOrders.GetValueOrDefault(level.ProductTypeId),
+                onOrder.Where(l => l.ProductTypeId == level.ProductTypeId && (level.Abo is null || l.Abo == level.Abo)).Sum(l => l.Quantity)));
         }
 
         return rows;
+    }
+
+    /// <summary>Lines of supplier orders that were submitted (sent) and not yet received or cancelled.</summary>
+    private async Task<IReadOnlyList<SupplierOrderLine>> SubmittedSupplierLinesAsync(CancellationToken ct)
+    {
+        if (_supplierOrders is null || _supplierOrderLines is null)
+        {
+            return [];
+        }
+
+        var submitted = (await _supplierOrders.ListAsync(o => o.Status == SupplierOrderStatus.Submitted, ct)).Select(o => o.Id).ToList();
+        return submitted.Count == 0
+            ? []
+            : await _supplierOrderLines.ListAsync(l => submitted.Contains(l.SupplierOrderId) && l.Quantity > 0, ct);
     }
 
     public async Task<OperationResult<MinimumStockRowDto>> SaveAsync(SaveMinimumStockRequest request, CancellationToken ct = default)

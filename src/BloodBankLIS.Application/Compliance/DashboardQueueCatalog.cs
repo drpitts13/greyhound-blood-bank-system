@@ -216,7 +216,8 @@ public static class DashboardQueueCatalog
         }
 
         var names = shortages.Take(named)
-            .Select(r => $"{(string.IsNullOrWhiteSpace(r.ProductCode) ? $"Product {r.ProductTypeId}" : r.ProductCode)} {r.Abo?.ToString() ?? "any ABO"}: {r.OnHand} of {r.MinimumAvailable}");
+            .Select(r => $"{(string.IsNullOrWhiteSpace(r.ProductCode) ? $"Product {r.ProductTypeId}" : r.ProductCode)} {r.Abo?.ToString() ?? "any ABO"}: {r.OnHand} of {r.MinimumAvailable}"
+                + (r.OnOrder > 0 ? $", {r.OnOrder} on order" : string.Empty));
         var more = shortages.Count > named ? $" and {shortages.Count - named} more" : string.Empty;
         return (shortages.Count, string.Join("; ", names) + more);
     }
