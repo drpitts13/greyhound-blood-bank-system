@@ -26,6 +26,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.CrossmatchTransfusion => ActivityAsync(cancellationToken),
             ReportSourceCatalog.LabResults => LabResultsAsync(cancellationToken),
             ReportSourceCatalog.SpecimenRejections => SpecimenRejectionsAsync(cancellationToken),
+            ReportSourceCatalog.TestTurnaround => TestTurnaroundAsync(cancellationToken),
             _ => throw new InvalidOperationException($"Unknown report source '{sourceCode}'.")
         };
 
@@ -381,6 +382,48 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 ("entered_utc", ReportValueFormat.Date(row.EnteredUtc)),
                 ("verified_utc", ReportValueFormat.Date(row.VerifiedUtc)));
         }).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> TestTurnaroundAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from result in _db.TestResults.AsNoTracking()
+            join order in _db.Orders.AsNoTracking() on result.OrderId equals order.Id
+            join specimen in _db.Specimens.AsNoTracking() on result.SpecimenId equals specimen.Id
+            join patient in _db.Patients.AsNoTracking() on result.PatientId equals patient.Id
+            where result.Status == ResultStatus.Verified && result.SupersededByResultId == null && result.VerifiedUtc != null
+            select new
+            {
+                result.VerifiedUtc,
+                order.OrderedUtc,
+                specimen.ReceivedUtc,
+                order.Priority,
+                result.TestCode,
+                order.OrderNumber,
+                specimen.AccessionNumber,
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName
+            }).ToListAsync(cancellationToken);
+
+        static string? Minutes(DateTime? from, DateTime? to) =>
+            from is DateTime a && to is DateTime b
+                ? Math.Round((b - a).TotalMinutes).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : null;
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("verified_utc", ReportValueFormat.Date(row.VerifiedUtc)),
+            ("verified_month", row.VerifiedUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("ordered_utc", ReportValueFormat.Date(row.OrderedUtc)),
+            ("received_utc", ReportValueFormat.Date(row.ReceivedUtc)),
+            ("priority", row.Priority.ToString()),
+            ("test_code", ReportValueFormat.Text(row.TestCode)),
+            ("order_number", ReportValueFormat.Text(row.OrderNumber)),
+            ("accession_number", ReportValueFormat.Text(row.AccessionNumber)),
+            ("minutes_order_to_verify", Minutes(row.OrderedUtc, row.VerifiedUtc)),
+            ("minutes_receipt_to_verify", Minutes(row.ReceivedUtc, row.VerifiedUtc)),
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> SpecimenRejectionsAsync(CancellationToken cancellationToken)

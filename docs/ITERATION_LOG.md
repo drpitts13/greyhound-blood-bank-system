@@ -14688,3 +14688,44 @@ Repeating any of them replaced the reason recorded the first time (audit princip
 ### Next ranked residual
 
 Rescan the desks for the next operations gap.
+
+## Iteration 436 — Test turnaround reports (2026-11-06)
+
+### Capability matrix rescan (specimens, reports)
+
+Specimen rejection already refuses a repeat (no overwrite there). The report catalog covered inventory, wastage, reactions, overrides, and rejections, but not turnaround time, the usual measure of whether STAT type and screens are verified in time. A supervisor had to work it out from result and order times (questions 2, 3).
+
+### Design
+
+- **Source `test_turnaround`** (view `rpt_test_turnaround`, SQLite `julianday` and SQL Server `DATEDIFF`):
+  - one row per verified, current (not superseded) result on an order
+  - minutes from order, and from tube receipt, to verification
+  - with priority, test, order, accession, and patient
+- **Seeded reports:**
+  - **RPT-TAT:** detail, with a date range on verification
+  - **RPT-TAT-BY-PRIORITY:** count, average, and longest minutes from order, by month, priority, and test
+  - added to existing databases by the report seeding
+- **Visual designer:** gains **Average** (numeric fields only; blanks ignored).
+- No targets are judged; the facility compares with its own.
+
+### Requirements
+
+- URS-BB-518, FRS-BB-611. Help: reports.
+
+### Tests
+
+- TEST-BB-477:
+  - **counted:** verified current results only (superseded and unverified left out); a correction counts at its own verification
+  - **minutes:** from order (90) and from receipt (75)
+  - **by priority:** Stat ABORH 2 results, average 50, longest 60; Routine 1, 240
+  - **SQL view:** the same minutes
+  - the seeded report count is 13, and every seeded report runs
+- Full suite: 3,772 passed, 0 failed.
+- Run check (development API and web):
+  - Reports lists both turnaround reports
+  - Test turnaround by priority runs on the development data (for example "2026-11 Routine ABORH 5 results, average 76, longest 100")
+  - no server errors
+
+### Next ranked residual
+
+Rescan the desks for the next gap. Pending user decisions: bulk verify of negatives, and the EHR rejection notice.

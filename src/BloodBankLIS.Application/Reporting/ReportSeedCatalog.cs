@@ -77,7 +77,26 @@ public static class ReportSeedCatalog
             filters: [DateRange("rejected-range", "rejected_utc")],
             sorts: [Sort("rejected_month", ReportSortDirection.Descending), Sort("rejection_reason_code"), Sort("draw_location"), Sort("collector")],
             groupBy: ["rejected_month", "rejection_reason_code", "draw_location", "collector"],
-            aggregates: [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "specimens" }])
+            aggregates: [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "specimens" }]),
+        Visual("RPT-TAT", "Test turnaround",
+            "Verified results with the minutes from order, and from tube receipt, to verification.",
+            ReportSourceCatalog.TestTurnaround,
+            ["verified_utc", "priority", "test_code", "order_number", "accession_number", "mrn", "patient_name", "minutes_order_to_verify", "minutes_receipt_to_verify"],
+            filters: [DateRange("verified-range", "verified_utc")],
+            sorts: [Sort("verified_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-TAT-BY-PRIORITY", "Test turnaround by priority",
+            "Results verified, average and longest minutes from order to verification, by month, priority, and test.",
+            ReportSourceCatalog.TestTurnaround,
+            ["verified_month", "priority", "test_code"],
+            filters: [DateRange("verified-range", "verified_utc")],
+            sorts: [Sort("verified_month", ReportSortDirection.Descending), Sort("priority"), Sort("test_code")],
+            groupBy: ["verified_month", "priority", "test_code"],
+            aggregates:
+            [
+                new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "results" },
+                new ReportAggregate { Function = ReportAggregateFunction.Average, Field = "minutes_order_to_verify", Alias = "average minutes" },
+                new ReportAggregate { Function = ReportAggregateFunction.Max, Field = "minutes_order_to_verify", Alias = "longest minutes" }
+            ])
     ];
 
     private static ReportDefinition Visual(

@@ -29,7 +29,9 @@ public enum ReportAggregateFunction
     CountDistinct = 1,
     Sum = 2,
     Min = 3,
-    Max = 4
+    Max = 4,
+    /// <summary>Mean of a numeric field, ignoring blanks.</summary>
+    Average = 5
 }
 
 public enum ReportSortDirection

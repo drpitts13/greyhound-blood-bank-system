@@ -16,6 +16,7 @@ public static class ReportViewCatalog
     public const string CrossmatchTransfusion = "rpt_crossmatch_transfusion";
     public const string LabResults = "rpt_lab_results";
     public const string SpecimenRejections = "rpt_specimen_rejections";
+    public const string TestTurnaround = "rpt_test_turnaround";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -28,6 +29,7 @@ public static class ReportViewCatalog
         Overrides,
         CrossmatchTransfusion,
         LabResults,
-        SpecimenRejections
+        SpecimenRejections,
+        TestTurnaround
     };
 }

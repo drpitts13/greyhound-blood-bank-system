@@ -18,6 +18,7 @@ public static class ReportSourceCatalog
     public const string CrossmatchTransfusion = "crossmatch_transfusion";
     public const string LabResults = "lab_results";
     public const string SpecimenRejections = "specimen_rejections";
+    public const string TestTurnaround = "test_turnaround";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -125,6 +126,20 @@ public static class ReportSourceCatalog
             Field("collector", "Collector"),
             Field("collected_utc", "Collected", ReportValueKind.Date),
             Field("received_utc", "Received", ReportValueKind.Date),
+            Field("mrn", "MRN"),
+            Field("patient_name", "Patient")),
+        // One row per verified current result on an order: minutes from order, and from tube receipt, to verification.
+        Source(TestTurnaround, "Test turnaround", ReportViewCatalog.TestTurnaround,
+            Field("verified_utc", "Verified", ReportValueKind.Date),
+            Field("verified_month", "Verification month"),
+            Field("ordered_utc", "Ordered", ReportValueKind.Date),
+            Field("received_utc", "Received", ReportValueKind.Date),
+            Field("priority", "Priority"),
+            Field("test_code", "Test code"),
+            Field("order_number", "Order"),
+            Field("accession_number", "Accession"),
+            Field("minutes_order_to_verify", "Minutes, order to verified", ReportValueKind.Number),
+            Field("minutes_receipt_to_verify", "Minutes, receipt to verified", ReportValueKind.Number),
             Field("mrn", "MRN"),
             Field("patient_name", "Patient"))
     };

@@ -99,12 +99,12 @@ public static class VisualReportCompiler
             if (!string.IsNullOrWhiteSpace(aggregate.Field) && !fields.ContainsKey(aggregate.Field))
                 return $"Unknown field '{aggregate.Field}'.";
 
-            if (aggregate.Function == ReportAggregateFunction.Sum
+            if (aggregate.Function is ReportAggregateFunction.Sum or ReportAggregateFunction.Average
                 && aggregate.Field is not null
                 && fields.TryGetValue(aggregate.Field, out var field)
                 && field.Kind != ReportValueKind.Number)
             {
-                return $"Sum requires a numeric field. '{field.Label}' is not numeric.";
+                return $"{(aggregate.Function == ReportAggregateFunction.Sum ? "Sum" : "Average")} requires a numeric field. '{field.Label}' is not numeric.";
             }
 
             var name = OutputName(aggregate);
@@ -133,6 +133,7 @@ public static class VisualReportCompiler
             ReportAggregateFunction.Sum => $"Sum of {aggregate.Field}",
             ReportAggregateFunction.Min => $"Min of {aggregate.Field}",
             ReportAggregateFunction.Max => $"Max of {aggregate.Field}",
+            ReportAggregateFunction.Average => $"Average of {aggregate.Field}",
             _ => aggregate.Function.ToString()
         };
     }
@@ -227,6 +228,12 @@ public static class VisualReportCompiler
                     .Select(value => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number) ? number : 0m)
                     .Sum();
                 return sum.ToString("0.##", CultureInfo.InvariantCulture);
+            case ReportAggregateFunction.Average:
+                var numbers = list.Select(row => Value(row, aggregate.Field))
+                    .Select(value => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number) ? number : (decimal?)null)
+                    .OfType<decimal>()
+                    .ToList();
+                return numbers.Count == 0 ? null : numbers.Average().ToString("0.#", CultureInfo.InvariantCulture);
             case ReportAggregateFunction.Min:
             case ReportAggregateFunction.Max:
                 var kind = aggregate.Field is not null && fields.TryGetValue(aggregate.Field, out var field)

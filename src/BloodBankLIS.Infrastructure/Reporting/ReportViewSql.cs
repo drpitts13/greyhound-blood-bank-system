@@ -252,6 +252,31 @@ public static class ReportViewSql
             INNER JOIN Patients p ON p.Id = s.PatientId
             WHERE s.Status = {(int)SpecimenStatus.Rejected}
             """);
+
+        string Minutes(string from, string to) => sqlServer
+            ? $"DATEDIFF(minute, {from}, {to})"
+            : $"CAST(ROUND((julianday({to}) - julianday({from})) * 1440) AS INTEGER)";
+        var verifiedMonth = sqlServer ? "CONVERT(varchar(7), r.VerifiedUtc, 126)" : "substr(r.VerifiedUtc, 1, 7)";
+        yield return (ReportViewCatalog.TestTurnaround, $"""
+            SELECT
+                r.VerifiedUtc AS verified_utc,
+                {verifiedMonth} AS verified_month,
+                o.OrderedUtc AS ordered_utc,
+                s.ReceivedUtc AS received_utc,
+                {CaseEnum("o.Priority", typeof(OrderPriority))} AS priority,
+                r.TestCode AS test_code,
+                o.OrderNumber AS order_number,
+                s.AccessionNumber AS accession_number,
+                {Minutes("o.OrderedUtc", "r.VerifiedUtc")} AS minutes_order_to_verify,
+                CASE WHEN s.ReceivedUtc IS NULL THEN NULL ELSE {Minutes("s.ReceivedUtc", "r.VerifiedUtc")} END AS minutes_receipt_to_verify,
+                p.MedicalRecordNumber AS mrn,
+                {person} AS patient_name
+            FROM TestResults r
+            INNER JOIN Orders o ON o.Id = r.OrderId
+            INNER JOIN Specimens s ON s.Id = r.SpecimenId
+            INNER JOIN Patients p ON p.Id = r.PatientId
+            WHERE r.Status = {(int)ResultStatus.Verified} AND r.SupersededByResultId IS NULL AND r.VerifiedUtc IS NOT NULL
+            """);
     }
 
     private static string TextType(bool sqlServer) => sqlServer ? "nvarchar(80)" : "text";
