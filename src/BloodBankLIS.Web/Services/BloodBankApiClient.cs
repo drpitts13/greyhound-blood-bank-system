@@ -1059,6 +1059,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<DeviationDto>>> GetDeviationsAsync(CancellationToken ct = default) =>
         SendAsync<List<DeviationDto>>(HttpMethod.Get, "api/deviations", ct: ct);
 
+    public Task<ApiResult<List<DeviationDto>>> GetDeviationsForRecordAsync(string contextType, long contextId, CancellationToken ct = default) =>
+        SendAsync<List<DeviationDto>>(HttpMethod.Get, $"api/deviations?contextType={Uri.EscapeDataString(contextType)}&contextId={contextId}", ct: ct);
+
     public Task<ApiResult<DeviationDto>> CreateDeviationAsync(CreateDeviationRequest req, CancellationToken ct = default) =>
         SendAsync<DeviationDto>(HttpMethod.Post, "api/deviations", req, ct);
 

@@ -135,4 +135,25 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
             Row(4, DeviationSeverity.Minor, DeviationStatus.Open, 30)
         ]).Select(r => r.Id));
     }
+
+    // TEST-BB-491: a record's page lists only deviations linked to it (older "Unit" spelling included), open first.
+    [Fact]
+    public async Task ListForRecord_MatchesTheRecordAndOlderSpellings_OpenFirst()
+    {
+        var unitId = 900_000 + Random.Shared.Next(1, 99_999);
+        await using var context = _factory.Create();
+        context.Deviations.AddRange(
+            new Deviation { Title = "Older closed", Description = "d", Status = DeviationStatus.Closed, CorrectiveAction = "done", ContextType = "Unit", ContextId = unitId, ReportedUtc = _factory.Clock.UtcNow.AddDays(-5) },
+            new Deviation { Title = "Open on the unit", Description = "d", ContextType = "BloodUnit", ContextId = unitId, ReportedUtc = _factory.Clock.UtcNow.AddDays(-1) },
+            new Deviation { Title = "Same id, a patient", Description = "d", ContextType = "Patient", ContextId = unitId, ReportedUtc = _factory.Clock.UtcNow },
+            new Deviation { Title = "Another unit", Description = "d", ContextType = "BloodUnit", ContextId = unitId + 1, ReportedUtc = _factory.Clock.UtcNow });
+        await context.SaveChangesAsync();
+
+        var rows = await CreateService(context).ListForRecordAsync(DeviationRecordTypes.BloodUnit, unitId);
+        Assert.Equal(["Open on the unit", "Older closed"], rows.Select(r => r.Title));
+
+        var patient = await CreateService(context).ListForRecordAsync(DeviationRecordTypes.Patient, unitId);
+        Assert.Equal("Same id, a patient", Assert.Single(patient).Title);
+        Assert.Empty(await CreateService(context).ListForRecordAsync("Specimen", unitId));
+    }
 }

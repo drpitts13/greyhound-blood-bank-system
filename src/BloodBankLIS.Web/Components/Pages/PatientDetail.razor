@@ -112,6 +112,7 @@ else
             OnCancelDeactivateAb="CancelDeactivate"
             OnAddAntibody="AddAntibodyAsync"
             OnSaveAntigen="SaveAntigenProfileAsync" />
+        <LinkedDeviations ContextType="@DeviationRecordTypes.Patient" ContextId="Id" Noun="patient" />
     }
 
     @if (_tab == "visits")

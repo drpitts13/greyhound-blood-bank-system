@@ -60,6 +60,19 @@ public sealed class DeviationService
     public Task<IReadOnlyList<Deviation>> ListAsync(CancellationToken ct = default) =>
         _deviations.ListAsync(ct);
 
+    /// <summary>
+    /// Deviations linked to one record (a unit, a patient), for that record's page. "Unit" and "Hl7Message" are older
+    /// spellings of "BloodUnit" and "Hl7" and are matched too.
+    /// </summary>
+    public async Task<IReadOnlyList<Deviation>> ListForRecordAsync(string contextType, long contextId, CancellationToken ct = default)
+    {
+        var types = DeviationRecordTypes.Aliases(contextType);
+        return (await _deviations.ListAsync(d => d.ContextId == contextId && d.ContextType != null && types.Contains(d.ContextType), ct))
+            .OrderBy(d => d.Status == DeviationStatus.Closed ? 1 : 0)
+            .ThenByDescending(d => d.ReportedUtc)
+            .ToList();
+    }
+
     public async Task<OperationResult<Deviation>> CreateAsync(CreateDeviationRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);

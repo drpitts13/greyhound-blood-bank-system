@@ -15199,3 +15199,36 @@ Cycle 448 made Deviations a proper record, but nothing on the home screen said o
 ### Next ranked residual
 
 Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.
+
+## Iteration 450 — Deviations on the unit and patient pages (2026-11-06)
+
+### Capability matrix rescan (traceability of quality records)
+
+A deviation could be linked to a unit or patient, but neither page showed it: someone opening W0001230000001 could not see that it had been found in the wrong refrigerator. Recording one meant choosing the record type and typing the record's internal id, which users do not know (questions 2, 3, 5).
+
+### Design
+
+- **`DeviationService.ListForRecordAsync`:** the deviations linked to one record, matching older stored spellings (`DeviationRecordTypes`), open first then newest.
+- **API:** `GET /api/deviations?contextType=&contextId=`, same `deviation.manage` gate.
+- **`LinkedDeviations` panel** on the unit overview and the patient chart overview (deviation managers only):
+  - each linked deviation, its severity, status, and reporter, linking to its update panel
+  - **Record deviation** opens Deviations with the record type and id filled in, only for a known type
+- No schema change.
+
+### Requirements
+
+- FRS-BB-625 (under URS-BB-524). Help: deviations.
+
+### Tests
+
+- TEST-BB-491: a unit's deviations include the older "Unit" spelling, open first; a patient with the same id and another unit are excluded; an unlinked type gives none.
+- Full suite: 3,804 passed, 0 failed.
+- Run check (development API and web), nothing created:
+  - unit W0001230000001 shows "#1 Unit found in the wrong refrigerator · Major · UnderReview · reported by tech2"
+  - Record deviation opens Deviations with "Blood unit" and id 1 filled in
+  - MRN0001's chart overview says none are linked
+  - no server errors
+
+### Next ranked residual
+
+Rescan the desks; open decisions: bulk verify of negatives, the EHR rejection notice, inbound HL7 dispense requests.

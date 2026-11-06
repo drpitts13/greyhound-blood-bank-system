@@ -172,8 +172,18 @@ else
     // A DEV-n link elsewhere (storage temperatures, the temperature report) opens that deviation's update panel.
     [SupplyParameterFromQuery(Name = "id")] public long? DeviationId { get; set; }
 
+    // Record deviation on a unit or patient page starts the form linked to that record.
+    [SupplyParameterFromQuery(Name = "contextType")] public string? ContextTypeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "contextId")] public long? ContextIdQuery { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        if (ContextTypes.Any(t => t.Value == ContextTypeQuery) && ContextIdQuery is > 0)
+        {
+            _contextType = ContextTypeQuery;
+            _contextId = ContextIdQuery;
+        }
+
         await LoadAsync();
         if (DeviationId is long id && Session.Has(PermissionCodes.DeviationManage))
         {

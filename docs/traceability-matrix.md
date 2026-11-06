@@ -621,6 +621,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-523 / FRS-BB-622 | Chart links open the named tube, order, or visit's orders | `PatientChartUrls`; `PatientDetail.razor` | TEST-BB-488 | U | |
 | URS-BB-524 / FRS-BB-623 | Deviation closes with a corrective action; list by severity and age | `DeviationStatusRule`; `DeviationService`; `DeviationListView` | TEST-BB-489 | U, I | |
 | URS-BB-524 / FRS-BB-624 | Open deviations on the home screen, critical named | `DashboardQueueCatalog.DeviationsCard` | TEST-BB-490 | U | |
+| URS-BB-524 / FRS-BB-625 | Deviations shown on, and recorded from, the unit and patient pages | `DeviationService.ListForRecordAsync`; `LinkedDeviations.razor` | TEST-BB-491 | I | |
 | URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
 | URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
 | URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |
