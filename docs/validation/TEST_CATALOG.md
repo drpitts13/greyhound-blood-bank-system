@@ -479,5 +479,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-468 | I | `SupplierOrderTests.Reconcile_CountsEachDeliveredUnitOnce`; `SupplierOrderTests.Order_FromMinimumStockShortfall_EditSubmitReceive` | URS-BB-411 / FRS-BB-603 |
 | TEST-BB-469 | I | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-411 / FRS-BB-603 |
 | TEST-BB-470 | U | `BenchShortcutTests.Shortcut_clicks_only_row_toggles_and_ignores_typing`; `BenchShortcutTests.Worklist_rows_carry_the_toggle_and_entry_markers` | URS-BB-515 / FRS-BB-604 |
+| TEST-BB-471 | U | `CrossmatchUnitOfferTests.Offer_IsReservedPlusCompatible_CountedOnce`; `CrossmatchUnitOfferTests.UnreadableCompatibleList_OffersEveryUnit_AndSaysWhy` | URS-BB-506 / FRS-BB-605 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

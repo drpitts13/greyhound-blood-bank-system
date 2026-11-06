@@ -39,7 +39,20 @@
             <PatientRequirementsBanner PatientId="_xm.PatientId" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label>
-                    <UnitPickerComboBox Scope="UnitPickerScope.Crossmatch" @bind-Value="_xm.BloodUnitId" />
+                    <UnitPickerComboBox Scope="UnitPickerScope.Crossmatch" @bind-Value="_xm.BloodUnitId"
+                        OnlyIds="@(_xmShowAll ? null : _xmOffer?.Ids)" />
+                    @if (_xmOffer is { } offer)
+                    {
+                        <div class="sub" data-xm-offer>
+                            @offer.Note
+                            @if (offer.Ids is not null)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _xmShowAll = !_xmShowAll">
+                                    @(_xmShowAll ? "Show this patient's units only" : "Show all units")
+                                </button>
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="field"><label>Patient</label>
                     <FilterableComboBox TItem="PatientDto" TValue="long?"
@@ -350,8 +363,31 @@
         if (_alloc.SpecimenId == 0) _alloc.SpecimenId = preferred.Id;
     }
 
+    // The units offered for the chosen patient: reserved for them, then compatible in stock. The retrospective
+    // emergency path keeps every unit (its unit was already issued).
+    private CrossmatchUnitOffer.Offer? _xmOffer;
+    private bool _xmShowAll;
+
+    private async Task LoadXmUnitOfferAsync()
+    {
+        _xmOffer = null;
+        _xmShowAll = false;
+        if (_xm.PatientId == 0 || _fromRetro)
+        {
+            return;
+        }
+
+        var reserved = await Api.GetPatientAllocationsAsync(_xm.PatientId);
+        var compatible = await Api.GetPatientCompatibleUnitsAsync(_xm.PatientId);
+        _xmOffer = CrossmatchUnitOffer.Build(
+            reserved.Succeeded ? (reserved.Value ?? new()).Select(a => a.BloodUnitId) : [],
+            compatible.Succeeded && reserved.Succeeded ? (compatible.Value ?? new()).Select(u => u.BloodUnitId) : null,
+            !reserved.Succeeded ? reserved.Error : compatible.Error);
+    }
+
     private async Task LoadXmSpecimensAsync()
     {
+        await LoadXmUnitOfferAsync();
         if (_xm.PatientId == 0)
         {
             _xmSpecimens = new();

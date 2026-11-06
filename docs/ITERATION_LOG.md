@@ -14464,3 +14464,43 @@ Keyboard shortcuts on the bench had been the deferred residual of several cycles
 ### Next ranked residual
 
 The compatible-first unit picker in the Compatibility crossmatch section.
+
+## Iteration 430 — Crossmatch unit picker offers the patient's units (2026-11-05)
+
+### Capability matrix rescan (compatibility)
+
+Reserve on the Compatibility page offers the compatible units first (Cycle 406). Record crossmatch did not: its picker listed every unit in the crossmatch scope, so the technologist had to remember which units were reserved for the patient, or find them among all of stock (questions 2, 3).
+
+### Design
+
+- **`CrossmatchUnitOffer.Build`:**
+  - offers the units reserved for the patient plus the compatible units in stock, each once
+  - the note gives the count of each
+  - when the compatible list cannot be read (for example no current ABO/Rh), every unit is offered and the reason is given
+- **Record crossmatch:**
+  - loads the offer when the patient is chosen (also from `?patientId=`)
+  - **Show all units** and **Show this patient's units only** switch the picker
+- The retrospective emergency follow-up (`?from=retro`) keeps every unit, since its unit was already issued.
+- Recording still checks whichever unit is chosen.
+- No server, schema, or API change.
+
+### Requirements
+
+- FRS-BB-605 (under URS-BB-506). Help: compatibility.
+
+### Tests
+
+- TEST-BB-471:
+  - reserved plus compatible, counted once
+  - singular and none wording
+  - unreadable compatible list: every unit, with the reason
+- Full suite: 3,766 passed, 0 failed.
+- Run check (development API and web):
+  - for MRN0022 the note reads "2 units reserved for this patient, and 18 more compatible units in stock"
+  - the picker lists those 20 units
+  - Show all units widens the list (40 matching "W0") and offers "Show this patient's units only"
+  - nothing recorded; no server errors
+
+### Next ranked residual
+
+Rescan the chart's Products tab and the Issue desk for the next workflow gap.
