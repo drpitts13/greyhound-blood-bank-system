@@ -598,6 +598,52 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False(denied.Succeeded);
     }
 
+    // TEST-BB-472: expired units on a shelf (marked Expired, or past expiry before the sweep) are listed oldest first
+    // and discarded by scan with the EXPIRED reason and the discard checks; a unit not expired, one already discarded,
+    // and a scan without the discard permission are refused.
+    [Fact]
+    public async Task DiscardExpiredByScan_DiscardsOnlyExpiredUnits_WithTheExpiredReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix) =>
+            (await service.ReceiveUnitAsync(NewUnitRequest($"U-EXD{suffix}-{key}", productTypeId))).Unit!.Id;
+        var marked = await Receive("A");
+        var pastDue = await Receive("B");
+        var fresh = await Receive("C");
+        var markedUnit = (await context.BloodUnits.FindAsync(marked))!;
+        markedUnit.Status = UnitStatus.Expired;
+        markedUnit.ExpiresUtc = _factory.Clock.UtcNow.AddDays(-2);
+        (await context.BloodUnits.FindAsync(pastDue))!.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        await context.SaveChangesAsync();
+
+        var listed = await service.ListExpiredOnShelfAsync();
+        Assert.True(listed.Succeeded, listed.Error);
+        var mine = listed.Value!.Where(u => u.UnitNumber.EndsWith(key, StringComparison.Ordinal)).Select(u => u.UnitId).ToList();
+        Assert.Equal(new[] { marked, pastDue }, mine);
+
+        var notExpired = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDC-{key}", "tech2"));
+        Assert.False(notExpired.Succeeded);
+        Assert.Contains("is not expired", notExpired.Error);
+        Assert.NotEqual(UnitStatus.Discarded, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == fresh)).Status);
+
+        var discarded = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"u-exda-{key}", "tech2"));
+        Assert.True(discarded.Succeeded, discarded.Error);
+        var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == marked);
+        Assert.Equal((UnitStatus.Discarded, "EXPIRED"), (row.Status, row.DiscardReasonCode));
+        Assert.Contains("Discarded by scan from the expired list", row.DiscardReason);
+        Assert.True((await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDB-{key}", "tech2"))).Succeeded);
+
+        var again = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDA-{key}", "tech2"));
+        Assert.Contains("already discarded", again.Error);
+        Assert.DoesNotContain((await service.ListExpiredOnShelfAsync()).Value!, u => u.UnitId == marked || u.UnitId == pastDue);
+
+        var noPermission = CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer));
+        Assert.False((await noPermission.ListExpiredOnShelfAsync()).Succeeded);
+    }
+
     // TEST-BB-459: count follow-up. A unit not found is marked missing with the count named in the reason and is no
     // longer expected at the location; scanned there later it shows as not on hand (Missing); found, it goes to
     // quarantine for inspection and the next count finds it.

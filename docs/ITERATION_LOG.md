@@ -14504,3 +14504,47 @@ Reserve on the Compatibility page offers the compatible units first (Cycle 406).
 ### Next ranked residual
 
 Rescan the chart's Products tab and the Issue desk for the next workflow gap.
+
+## Iteration 431 — Discard expired units by scan (2026-11-05)
+
+### Capability matrix rescan (Products tab, Issue desk, inventory)
+
+- **Products tab:** already offers the compatible units.
+- **Issue desk:** already offers the patient's ready units.
+- **Inventory (the gap):** the expiration sweep marks units Expired, but nothing listed the expired units still on a shelf. Each had to be found by search and discarded from its own page, choosing the reason each time. Expired units can wait on the shelf, a selection risk if a label is misread (questions 1, 2, 5, 6).
+
+### Design
+
+- **`InventoryService.ListExpiredOnShelfAsync`** (*inventory.discard*; `GET /api/inventory/expired`):
+  - units on a shelf that are Expired, or past expiry before the sweep runs
+  - oldest first, with their location
+- **`DiscardExpiredByScanAsync`** (`POST /api/inventory/units/discard-expired-by-scan`):
+  - discards the scanned expired unit through `DiscardAsync` (permission, second verifier when required, audit, status history)
+  - reason code EXPIRED, comment "Discarded by scan from the expired list"
+  - refused: a unit not expired, one already discarded, an unknown scan, or a divided number matching several expired units
+- **`/inventory/discard-expired`:**
+  - linked from Inventory (**Discard expired**) and from a stock count's Expired badge
+  - the second verifier stays chosen for the run; each scan's result is listed and the shelf list refreshes
+- No schema change.
+
+### Requirements
+
+- URS-BB-516, FRS-BB-606. Help: inventory (route and section).
+
+### Tests
+
+- TEST-BB-472:
+  - a marked-expired unit and a past-expiry unit are listed oldest first
+  - a fresh unit is refused and stays
+  - the expired ones are discarded with EXPIRED and the comment (scan case ignored)
+  - a second scan says already discarded, and they leave the list
+  - listing needs *inventory.discard*
+- Full suite: 3,767 passed, 0 failed.
+- Run check (development API and web):
+  - the page lists W0001230001028 (AB−, expired 2026-11-02, Main Blood Bank Refrigerator)
+  - scanning W0001230009301 (Available) shows "Not discarded … is not expired"
+  - nothing discarded; no server errors
+
+### Next ranked residual
+
+A home or handoff count of expired units still on a shelf.

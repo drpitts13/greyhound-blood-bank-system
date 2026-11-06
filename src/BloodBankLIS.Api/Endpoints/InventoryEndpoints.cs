@@ -231,6 +231,14 @@ public static class InventoryEndpoints
             ToHttpResult(await service.TransferByScanAsync(request, ct)))
             .RequirePermission(PermissionCodes.InventoryTransfer);
 
+        group.MapGet("/expired", async (InventoryService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListExpiredOnShelfAsync(ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryDiscard);
+
+        group.MapPost("/units/discard-expired-by-scan", async (DiscardExpiredByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.DiscardExpiredByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryDiscard);
+
         group.MapPost("/units/{id:long}/discard", async (long id, DiscardCodedUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.DiscardAsync(id, new DiscardUnitCommand(request.ReasonCode, request.Comment, request.SecondVerifier), ct)))
             .RequirePermission(PermissionCodes.InventoryDiscard);

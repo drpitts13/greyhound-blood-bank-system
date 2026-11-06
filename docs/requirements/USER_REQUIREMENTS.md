@@ -521,3 +521,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-513 | Issuing staff can return the units of a cooler that comes back without re-finding each unit or retyping the reason, while every unit is still inspected on its own. | P2 | FRS-BB-594 |
 | URS-BB-514 | When a patient is registered, staff are shown any active patient who may be the same person under another MRN, can open that chart instead, and must confirm a different person before a second chart is made; the confirmation is recorded. | P1 | FRS-BB-601, FRS-BB-602 |
 | URS-BB-515 | A technologist can move from test to test on the worklist from the keyboard, with the cursor in the result entry, without any key saving or verifying a result. | P2 | FRS-BB-604 |
+| URS-BB-516 | Inventory staff can see the expired units still recorded on a shelf and discard each by scanning it, with the expired reason and the usual discard checks, without opening each unit. | P2 | FRS-BB-606 |

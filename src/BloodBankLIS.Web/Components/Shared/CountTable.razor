@@ -15,7 +15,7 @@
                     @row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                     @if (row.Expired)
                     {
-                        <span class="badge badge-red" title="Past its expiry: discard it">Expired</span>
+                        <a class="badge badge-red" href="/inventory/discard-expired" title="Past its expiry: discard it">Expired</a>
                     }
                 </td>
                 @if (ShowRecorded)

@@ -574,6 +574,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<InventoryCountDto>> ReconcileInventoryCountAsync(InventoryCountRequest req, CancellationToken ct = default) =>
         SendAsync<InventoryCountDto>(HttpMethod.Post, "api/inventory/counts", req, ct);
 
+    public Task<ApiResult<List<ExpiredUnitDto>>> GetExpiredOnShelfAsync(CancellationToken ct = default) =>
+        SendAsync<List<ExpiredUnitDto>>(HttpMethod.Get, "api/inventory/expired", ct: ct);
+
+    public Task<ApiResult<BloodUnitDto>> DiscardExpiredByScanAsync(DiscardExpiredByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/discard-expired-by-scan", req, ct);
+
     public Task<ApiResult<BloodUnitDto>> TransferUnitByScanAsync(TransferByScanRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/transfer-by-scan", req, ct);
 

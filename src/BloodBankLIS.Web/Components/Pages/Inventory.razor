@@ -26,6 +26,7 @@
         }
         @if (Session.Has(PermissionCodes.InventoryDiscard))
         {
+            <a class="btn btn-secondary" href="/inventory/discard-expired" data-discard-expired>Discard expired</a>
             <button class="btn btn-secondary" disabled="@_busy" @onclick="ExpireDueAsync">Run expiration sweep</button>
         }
     </div>

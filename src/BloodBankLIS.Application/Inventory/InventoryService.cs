@@ -1844,6 +1844,81 @@ public sealed class InventoryService
             string.IsNullOrWhiteSpace(request.Reason) ? "Moved by scan" : request.Reason.Trim(), ct);
     }
 
+    public const string ExpiredDiscardReasonCode = "EXPIRED";
+
+    // Expired by the sweep, or past its expiry on a shelf before the next sweep runs.
+    private static bool IsExpiredOnShelf(BloodUnit u, DateTime now) =>
+        u.Status == UnitStatus.Expired || (InventoryUnitScopes.OnHand.Contains(u.Status) && u.ExpiresUtc <= now);
+
+    /// <summary>
+    /// Expired units still on a shelf (marked Expired, or past their expiry before the sweep runs), oldest expiry first,
+    /// with where each is recorded, so they can be pulled and discarded. Needs the discard permission.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<ExpiredUnitDto>>> ListExpiredOnShelfAsync(CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedDiscardAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<IReadOnlyList<ExpiredUnitDto>>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        var now = _clock.UtcNow;
+        var rows = (await _repository.SearchAsync(new InventorySearchCriteria(Statuses: InventoryUnitScopes.OnShelf), ct))
+            .Where(u => IsExpiredOnShelf(u, now))
+            .ToList();
+        var products = await LoadProductsAsync(rows, ct);
+        var locations = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
+        return OperationResult<IReadOnlyList<ExpiredUnitDto>>.Ok(rows
+            .OrderBy(u => u.ExpiresUtc)
+            .ThenBy(u => u.UnitNumber, StringComparer.Ordinal)
+            .Select(u =>
+            {
+                products.TryGetValue(u.ProductTypeId, out var product);
+                string? location = null;
+                if (u.CurrentLocationId is long id)
+                {
+                    locations.TryGetValue(id, out location);
+                }
+
+                return new ExpiredUnitDto(u.Id, u.UnitNumber, product?.ProductCode, product?.Name, u.BloodType.ToString(), u.Status, u.ExpiresUtc, location);
+            })
+            .ToList());
+    }
+
+    /// <summary>
+    /// Discards the expired unit in hand by its scan, with the EXPIRED discard reason and the same checks and audit as a
+    /// discard from the unit page (permission, second verifier when required). A unit that is not expired, or a divided
+    /// number matching several units, is refused; those are discarded from the unit page with their own reason.
+    /// </summary>
+    public async Task<InventoryActionResult> DiscardExpiredByScanAsync(DiscardExpiredByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
+        {
+            return InventoryActionResult.Fail(error);
+        }
+
+        var now = _clock.UtcNow;
+        var expired = candidates.Where(u => IsExpiredOnShelf(u, now)).ToList();
+        if (expired.Count == 0)
+        {
+            var unit = candidates[0];
+            return InventoryActionResult.Fail(unit.Status == UnitStatus.Discarded
+                ? $"{unit.UnitNumber} is already discarded."
+                : $"{unit.UnitNumber} is not expired ({unit.Status}, expires {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC). Discard it from its unit page with its own reason.");
+        }
+
+        if (expired.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {expired.Count} expired units ({string.Join(", ", expired.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Discard each from its unit page.");
+        }
+
+        return await DiscardAsync(expired[0].Id,
+            new DiscardUnitCommand(ExpiredDiscardReasonCode, "Discarded by scan from the expired list", request.SecondVerifier), ct);
+    }
+
     /// <summary>
     /// The units a scanned unit number (DIN, with or without the scanner's '='), or a component label, names: one, or
     /// several for a divided DIN. An empty, unreadable, or unknown scan gives the reason instead.
