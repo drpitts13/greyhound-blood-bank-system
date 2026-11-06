@@ -14,6 +14,28 @@
                 <span> &middot; @Patient.Comment</span>
             }
         </div>
+        @if (VisitsLoaded)
+        {
+            var (visit, otherOpen) = CurrentVisit.For(Encounters);
+            <div class="muted" style="margin-top:.25rem;" data-current-visit>
+                @if (visit is null)
+                {
+                    <span>No open visit</span>
+                }
+                else
+                {
+                    <span>Current visit <a href="@PatientChartUrls.VisitOrders(Patient.Id, visit.Id)" class="mono" title="This visit's orders">@visit.VisitNumber</a></span>
+                    @if (CurrentVisit.Describe(visit) is { Length: > 0 } described)
+                    {
+                        <span> &middot; @described</span>
+                    }
+                    @if (otherOpen > 0)
+                    {
+                        <span class="badge badge-amber" style="margin-left:.35rem;" title="More than one visit is open; check which one this work belongs to">+@otherOpen more open</span>
+                    }
+                }
+            </div>
+        }
         @if (Patient.Aliases is { Count: > 0 })
         {
             <div class="muted" style="margin-top:.35rem;">
@@ -216,6 +238,8 @@
 @code {
     [Parameter, EditorRequired] public PatientDto Patient { get; set; } = default!;
     [Parameter] public BloodTypeDto? CurrentType { get; set; }
+    [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
+    [Parameter] public bool VisitsLoaded { get; set; }
     [Parameter] public IReadOnlyList<BloodTypeDto> TypeHistory { get; set; } = [];
     [Parameter] public bool RequireSecondAbo { get; set; } = true;
     [Parameter] public ElectronicCrossmatchEligibilityDto? Exm { get; set; }

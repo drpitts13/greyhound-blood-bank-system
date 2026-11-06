@@ -15722,3 +15722,37 @@ Cycle 463 found the create-order endpoint dropping warnings. This cycle checked 
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).
+
+## Iteration 465 — The current visit in the chart header (2026-11-06)
+
+### Capability matrix rescan (patient and encounter)
+
+The chart header showed identity, blood type, the current specimen, and alerts, but not the patient's current visit. Patient type, location, and attending (where blood goes, who is responsible) meant opening the Visits tab. A patient with two open visits looked the same as one with one (questions 1, 2, 6).
+
+### Design
+
+- **Current visit line** in the header: visit number (linking to that visit's orders), then type, location (current, else admission), and attending, each only when recorded.
+- **`CurrentVisit.For`:** the most recently admitted open visit (active, not discharged), plus how many others are open.
+- **Edge cases:** "+n more open" when another visit is open; "No open visit" when none is.
+- Display only; uses the visits the chart already loads. No server, schema, or API change.
+
+### Requirements
+
+- URS-BB-528, FRS-BB-637. Help: patient chart.
+
+### Tests
+
+- TEST-BB-503:
+  - the latest open visit is chosen; discharged and cancelled visits are left out and the other open one counted; none when nothing is open
+  - the description holds only the recorded parts (unknown type and blank attending left out; admission location when there is no current one)
+- Full suite: 3,830 passed, 0 failed.
+- Run check (development API and web), read-only:
+  - MRN0001: "Current visit VIS-2026-001 · Inpatient · 4W Med/Surg · Attending Dr. Jane Smith", linking to `?tab=orders&visit=1`
+  - MRN0022: "Current visit VIS-2026-022 · Inpatient · ICU 4" (no attending recorded)
+  - MRN0024 (no visits): "No open visit"
+  - no server errors
+- No demo patient has two open visits, so "+n more open" was not seen live; TEST-BB-503 covers it.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).

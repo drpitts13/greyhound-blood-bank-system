@@ -15,7 +15,7 @@ Open a patient from **Patients**. The overview is the default tab. The ribbon ac
 
 ## What the overview shows
 
-The header shows the current name, MRN, date of birth, and sex. Below that, the overview summarizes the facts the rest of the system will enforce:
+The header shows the current name, MRN, date of birth, and sex, and the current visit: its number (open it for that visit's orders), patient type, location, and attending. When more than one visit is open it says so ("+1 more open"), so check which visit the work belongs to; "No open visit" means the patient has none. Below that, the overview summarizes the facts the rest of the system will enforce:
 
 - Current ABO and Rh, and whether history disagrees with it. A supervisor can record a type by hand with a reason. Say where it came from: **Previous blood bank system** or **Documented outside source** (name the record or report), or **Not documented**. Only a documented type counts as one of the two ABO/Rh determinations needed for red-cell issue; an undocumented one is recorded but does not count. The blood type history says where each type came from and who recorded it, crosses out a retired type (its result was invalidated or corrected) with the reason, and marks a type that does not count as a determination.
 - Antibody history, including antibodies that are no longer detectable. A deactivated antibody still counts as history.
