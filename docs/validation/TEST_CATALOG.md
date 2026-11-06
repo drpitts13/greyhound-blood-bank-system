@@ -510,6 +510,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-499 | I | `Phase5Hl7Tests.DispenseRequest_RequestsTheOneReservedUnit_ThenACancelWithdrawsIt`; `Phase5Hl7Tests.DispenseRequest_UsesThePatientLocation_WhenNoDeliverToIsSent`; `Phase5Hl7Tests.DispenseRequest_ForAnOrderWithSeveralUnits_GoesToTheErrorQueue_AndChangesNothing`; `Phase5Hl7Tests.DispenseRequest_ByDin_PicksThatUnit_EvenWhenTheOrderHasSeveral` | URS-BB-521 / FRS-BB-633 |
 | TEST-BB-500 | U | `SupervisorQueueKindQueryTests.KindFromQuery_MatchesAKnownKind_AnyCase` | URS-BB-337 / FRS-BB-634 |
 | TEST-BB-501 | U | `LookupRecordTypeTests.EveryLookupKind_MapsToTheAuditEntityType`; `AuditTrailLinkTests.UnitAuditLink_MatchesTheAuditPageQueryNames` (unit, patient timeline, specimen history) | URS-BB-526 / FRS-BB-635 |
-| TEST-BB-502 | U, I | `DuplicateTestOrderRuleTests.NamesEachRepeatedTest_AndItsOpenOrders`; `Phase10PatientWorkspaceTests.CreateOrder_WarnsWhenTheSameTestIsAlreadyOpen` | URS-BB-527 / FRS-BB-636 |
+| TEST-BB-502 | U, I | `DuplicateTestOrderRuleTests.NamesEachRepeatedTest_AndItsOpenOrders`; `Phase10PatientWorkspaceTests.CreateOrder_WarnsWhenTheSameTestIsAlreadyOpen`; `Phase10PatientWorkspaceTests.UpdateOrder_WarnsWhenAnAddedTestIsAlreadyOpenElsewhere` | URS-BB-527 / FRS-BB-636 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

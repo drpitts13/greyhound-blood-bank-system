@@ -452,7 +452,7 @@ public sealed class OrderService
         return OperationResult<Order>.Ok(order, duplicateTests is null ? ruleOutcome.Warnings : [.. ruleOutcome.Warnings, duplicateTests]);
     }
 
-    private async Task<RuleResult?> DuplicateOpenTestsAsync(long patientId, IEnumerable<OrderLine> newLines, CancellationToken ct)
+    private async Task<RuleResult?> DuplicateOpenTestsAsync(long patientId, IEnumerable<OrderLine> newLines, CancellationToken ct, long? excludeOrderId = null)
     {
         var codes = newLines.Where(l => l.LineCategory == OrderCategory.Test && !string.IsNullOrWhiteSpace(l.TestCode))
             .Select(l => l.TestCode!.Trim())
@@ -464,7 +464,7 @@ public sealed class OrderService
         }
 
         var openOrders = (await _orders.ListAsync(o => o.PatientId == patientId, ct))
-            .Where(o => o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+            .Where(o => o.Id != excludeOrderId && o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
             .ToDictionary(o => o.Id);
         if (openOrders.Count == 0)
         {
@@ -538,6 +538,7 @@ public sealed class OrderService
         }
 
         builtLines = ruleOutcome.Lines;
+        var duplicateTests = await DuplicateOpenTestsAsync(patientId, builtLines, ct, excludeOrderId: order.Id);
         OrderLineBuilder.ApplyHeaderFromLines(order, builtLines);
 
         var validation = OrderValidator.Validate(
@@ -619,7 +620,9 @@ public sealed class OrderService
             }
         }
 
-        return EvaluationResult<Order>.Ok(order);
+        var updateWarnings = duplicateTests is null ? ruleOutcome.Warnings : [.. ruleOutcome.Warnings, duplicateTests];
+        // Rule warnings were dropped here before; they now reach the chart like those of a new order.
+        return EvaluationResult<Order>.Ok(order, updateWarnings.Count == 0 ? null : new RuleEvaluation(updateWarnings));
     }
 
     public async Task<OperationResult<Order>> CancelAsync(long patientId, long orderId, CancelOrderRequest request, CancellationToken ct = default)

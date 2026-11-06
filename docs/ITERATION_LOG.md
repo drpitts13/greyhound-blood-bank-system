@@ -15690,3 +15690,35 @@ Nothing warned when a test was ordered for a patient who already had the same te
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).
+
+## Iteration 464 — Warnings no longer lost on the way to the screen (2026-11-06)
+
+### Capability matrix rescan (warning delivery)
+
+Cycle 463 found the create-order endpoint dropping warnings. This cycle checked every service method that returns warnings against the endpoint that serves it:
+
+- all others pass them through: specimen reject and edit, result entry, verification, correction and invalidation, blood type, antigen profile, antibody, special requirement, merge, billing cancel
+- order **edit** evaluated the order rules but returned `Ok(order)` with no warnings, so a rule warning raised by an edit was lost
+- an edit could also add a test already open on another order without the Cycle 463 duplicate warning
+
+### Design
+
+- **`OrderService.UpdateAsync`** returns the rule engine's warnings and the duplicate-test warning (`RuleEvaluation`); the PUT endpoint already passes evaluations through.
+- **Duplicate check on edit:** it leaves out the order being edited, so keeping its own lines is not a duplicate.
+- No schema or API shape change.
+
+### Requirements
+
+- FRS-BB-636 extended. Help: patient orders.
+
+### Tests
+
+- TEST-BB-502 extended:
+  - editing an order and keeping only its own DAT does not warn
+  - adding ABSC, open on another order, warns naming that order and not the order being edited
+- Full suite: 3,828 passed, 0 failed.
+- Run check (development API), read-only: the order list answers 200; an invalid edit is refused with its message (400); no server errors. No order was edited live.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted).

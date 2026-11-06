@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
@@ -638,5 +639,40 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         var third = await Orders(c).CreateAsync(patient.Id, Request("ORD-DUP-3", "ABSC"));
         Assert.True(third.Succeeded, third.Error);
         Assert.DoesNotContain(third.Warnings, w => w.Code == DuplicateTestOrderRule.Code);
+    }
+
+    // TEST-BB-502: editing an order to add a test already open on another order warns too; the order's own lines
+    // are not counted, and the edit's rule warnings now come back with it.
+    [Fact]
+    public async Task UpdateOrder_WarnsWhenAnAddedTestIsAlreadyOpenElsewhere()
+    {
+        await using var c = _factory.Create();
+        var (patient, loc) = await SeedPatientAsync(c);
+        var enc = await Encounters(c).CreateAsync(patient.Id, new CreateEncounterRequest(
+            "VIS-DUPU", EncounterType.Inpatient, EncounterStatus.Active, DateTime.UtcNow, null,
+            null, null, "4W", "4W", null, null, null, null));
+        Assert.True(enc.Succeeded);
+        var visitId = enc.Value!.Id;
+        Task<OperationResult<Order>> Create(string number, string test) => Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
+            visitId, loc.Id, number, [new OrderLineInputDto(OrderCategory.Test, test, null)],
+            OrderPriority.Routine, DateTime.UtcNow, null, OrderSource.Manual, null, null));
+
+        Assert.True((await Create("ORD-DUPU-1", "ABSC")).Succeeded);
+        var second = await Create("ORD-DUPU-2", "DAT");
+        Assert.True(second.Succeeded, second.Error);
+
+        // Keeping only its own DAT is not a duplicate.
+        var same = await Orders(c).UpdateAsync(patient.Id, second.Value!.Id, new UpdateOrderRequest(
+            visitId, loc.Id, [new OrderLineInputDto(OrderCategory.Test, "DAT", null)], OrderPriority.Routine, null));
+        Assert.True(same.Succeeded, same.Error);
+        Assert.DoesNotContain(same.Evaluation?.Warnings ?? [], w => w.Code == DuplicateTestOrderRule.Code);
+
+        var added = await Orders(c).UpdateAsync(patient.Id, second.Value.Id, new UpdateOrderRequest(
+            visitId, loc.Id, [new OrderLineInputDto(OrderCategory.Test, "DAT", null), new OrderLineInputDto(OrderCategory.Test, "ABSC", null)],
+            OrderPriority.Routine, null));
+        Assert.True(added.Succeeded, added.Error);
+        var warning = Assert.Single(added.Evaluation!.Warnings, w => w.Code == DuplicateTestOrderRule.Code);
+        Assert.Contains("ABSC on ORD-DUPU-1", warning.Message);
+        Assert.DoesNotContain("ORD-DUPU-2", warning.Message);
     }
 }
