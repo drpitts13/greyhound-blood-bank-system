@@ -231,6 +231,7 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
         ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
         ("UnitModifications", "SupplyLot", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyLot" TEXT NULL"""),
+        ("AutoThawProducts", "ThawedShelfLifeHours", """ALTER TABLE "AutoThawProducts" ADD COLUMN "ThawedShelfLifeHours" INTEGER NOT NULL DEFAULT 24"""),
         ("UnitModifications", "DeviceId", """ALTER TABLE "UnitModifications" ADD COLUMN "DeviceId" TEXT NULL"""),
         ("UnitModifications", "IndicatorConfirmed", """ALTER TABLE "UnitModifications" ADD COLUMN "IndicatorConfirmed" INTEGER NULL"""),
         ("ChargeCodes", "RevenueCode", """ALTER TABLE "ChargeCodes" ADD COLUMN "RevenueCode" TEXT NULL"""),

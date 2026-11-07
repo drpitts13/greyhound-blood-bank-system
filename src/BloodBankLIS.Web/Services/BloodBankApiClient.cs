@@ -1526,6 +1526,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<AutoThawProductDto>> CreateAdminAutoThawProductAsync(SaveAutoThawProductRequest req, CancellationToken ct = default) =>
         SendAsync<AutoThawProductDto>(HttpMethod.Post, "api/admin/auto-thaw-products", req, ct);
 
+    public Task<ApiResult<AutoThawProductDto>> SetAdminAutoThawShelfLifeAsync(long id, SetAutoThawShelfLifeRequest req, CancellationToken ct = default) =>
+        SendAsync<AutoThawProductDto>(HttpMethod.Put, $"api/admin/auto-thaw-products/{id}/shelf-life", req, ct);
+
     public Task<ApiResult<AutoThawProductDto>> SetAdminAutoThawProductActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<AutoThawProductDto>(HttpMethod.Post, $"api/admin/auto-thaw-products/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 

@@ -35,7 +35,9 @@ public sealed record PatientAllocationRowDto(
     string? SpecialRequirementNotice = null,
     // The ward's open request to issue this unit, and where to.
     DateTime? IssueRequestedUtc = null,
-    string? IssueRequestedTo = null);
+    string? IssueRequestedTo = null,
+    // The thawed shelf life of the auto-thaw code, when the unit can be thawed in place.
+    int? AutoThawShelfLifeHours = null);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,

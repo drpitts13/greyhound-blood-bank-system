@@ -225,7 +225,8 @@ public sealed class PatientAllocationService
                     || unitCrossmatches.Any(x => CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, _clock.UtcNow)));
 
             issues.TryGetValue(unit.Id, out var issue);
-            var thawCode = await AutoThawCodeAsync(allocation, unit, product, issue, ct);
+            var thaw = await AutoThawMatchAsync(allocation, unit, product, issue, ct);
+            var thawCode = thaw?.ProductCode;
             string? requirementNotice = null;
             if (requirements.Count > 0 && allocation.Status == AllocationStatus.Reserved && issue is null && product is not null)
             {
@@ -272,7 +273,8 @@ public sealed class PatientAllocationService
                     _clock.UtcNow),
                 requirementNotice,
                 allocation.IssueRequestedUtc,
-                allocation.IssueRequestedTo));
+                allocation.IssueRequestedTo,
+                thaw?.ThawedShelfLifeHours));
         }
 
         return rows;
@@ -950,13 +952,15 @@ public sealed class PatientAllocationService
             allocation.AllocatedBy,
             allocation.ExpiresUtc);
 
-        var thawCode = await AutoThawCodeAsync(allocation, unit, product, issue: null, ct);
+        var thawMatch = await AutoThawMatchAsync(allocation, unit, product, issue: null, ct);
+        var thawCode = thawMatch?.ProductCode;
         var orderLinked = allocation.OrderId is long linkedOrderId
             && _orderSpecimens is not null
             && await _orderSpecimens.AnyAsync(os => os.OrderId == linkedOrderId, ct);
         row = row with
         {
             AutoThawProductCode = thawCode,
+            AutoThawShelfLifeHours = thawMatch?.ThawedShelfLifeHours,
             OrderSpecimenLinked = orderLinked,
             UnitOutdated = BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow),
             UnitExpiresUtc = unit.ExpiresUtc,
@@ -972,7 +976,7 @@ public sealed class PatientAllocationService
             allocResult.Evaluation);
     }
 
-    private async Task<string?> AutoThawCodeAsync(
+    private async Task<AutoThawProduct?> AutoThawMatchAsync(
         Allocation allocation,
         BloodUnit unit,
         ProductType? product,
@@ -993,7 +997,7 @@ public sealed class PatientAllocationService
             return null;
         }
 
-        return await _autoThaw.MatchCodeAsync(unit, product, ct);
+        return await _autoThaw.MatchAsync(unit, product, ct);
     }
 
     public async Task<IReadOnlyList<AllocatableOrderDto>> ListAllocatableOrdersAsync(

@@ -9,13 +9,12 @@ namespace BloodBankLIS.Application.PatientWorkspace;
 
 /// <summary>
 /// Thaws an allocated frozen product in place: same unit and product code,
-/// expiration becomes 24 hours after the chosen thaw time, and the seeded THAW charge is sent.
+/// expiration becomes the code's thawed shelf life after the chosen thaw time (never past the frozen expiration),
+/// and the seeded THAW charge is sent.
 /// </summary>
 public sealed class AutoThawService
 {
     public const string ThawActionCode = "THAW";
-
-    public static readonly TimeSpan ThawedShelfLife = TimeSpan.FromHours(24);
 
     private readonly IRepository<AutoThawProduct> _products;
     private readonly IRepository<AutoThawRequest> _requests;
@@ -71,7 +70,11 @@ public sealed class AutoThawService
         await _requests.AnyAsync(
             r => r.BloodUnitId == bloodUnitId && r.Status == AutoThawRequestStatus.Completed, ct);
 
-    public async Task<string?> MatchCodeAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default)
+    public async Task<string?> MatchCodeAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default) =>
+        (await MatchAsync(unit, productType, ct))?.ProductCode;
+
+    /// <summary>The active auto-thaw row for the unit's first listed product code, or null.</summary>
+    public async Task<AutoThawProduct?> MatchAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default)
     {
         var codes = ProductCodes(unit, productType);
         if (codes.Count == 0)
@@ -80,8 +83,9 @@ public sealed class AutoThawService
         }
 
         var listed = await _products.ListAsync(p => p.IsActive && codes.Contains(p.ProductCode), ct);
-        var active = listed.Select(p => p.ProductCode).ToHashSet(StringComparer.Ordinal);
-        return codes.FirstOrDefault(active.Contains);
+        return codes
+            .Select(code => listed.FirstOrDefault(p => string.Equals(p.ProductCode, code, StringComparison.Ordinal)))
+            .FirstOrDefault(p => p is not null);
     }
 
     public static List<string> ProductCodes(BloodUnit unit, ProductType? productType)
@@ -235,8 +239,9 @@ public sealed class AutoThawService
         }
 
         var product = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
-        var matchedCode = product is null ? null : await MatchCodeAsync(unit, product, ct);
-        if (matchedCode is null)
+        var matched = product is null ? null : await MatchAsync(unit, product, ct);
+        var matchedCode = matched?.ProductCode;
+        if (matched is null)
         {
             return OperationResult<AutoThawResultDto>.Fail("This product code is not in the auto-thaw list.");
         }
@@ -264,7 +269,7 @@ public sealed class AutoThawService
         }
 
         var previousExpires = unit.ExpiresUtc;
-        var newExpires = DateTime.SpecifyKind(thaw.Add(ThawedShelfLife), DateTimeKind.Utc);
+        var newExpires = ThawedExpirationRule.Compute(thaw, matched.ThawedShelfLifeHours, previousExpires);
         var productTypeId = unit.ProductTypeId;
         var unitNumber = unit.UnitNumber;
 
@@ -311,7 +316,7 @@ public sealed class AutoThawService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { ExpiresUtc = previousExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber },
-            newValue: new { ExpiresUtc = newExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber, ThawUtc = thaw },
+            newValue: new { ExpiresUtc = newExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber, ThawUtc = thaw, matched.ThawedShelfLifeHours },
             reason: "Auto-thaw");
 
         await _unitOfWork.SaveChangesAsync(ct);

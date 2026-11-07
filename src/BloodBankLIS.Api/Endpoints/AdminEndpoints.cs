@@ -1143,6 +1143,10 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
+        group.MapPut("/{id:long}/shelf-life", async (long id, SetAutoThawShelfLifeRequest req, AutoThawProductAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetShelfLifeAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
         group.MapPost("/{id:long}/activate", async (long id, AutoThawProductAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);

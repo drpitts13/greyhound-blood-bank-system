@@ -685,6 +685,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-572 / FRS-BB-689 | Link a new tube to the waiting orders at accession | `SpecimenTypeOrderHint.LinkableOnAccession`; `PatientChartSpecimensTab.razor`; `PatientDetail.AccessionAsync`; `OrderService.LinkSpecimenAsync` | TEST-BB-562 | U | |
 | URS-BB-573 / FRS-BB-690 | Offer to link an accepted tube to its waiting orders | `WaitingOrderLinkPrompt.razor`; `SpecimenTypeOrderHint.OrderList` / `LinkOutcome`; `TestWorklist.razor`; `PatientDetail.razor` | TEST-BB-563 | U | |
 | URS-BB-574 / FRS-BB-691 | Modification device and irradiation dose indicator | `ModificationDeviceRule`; `BloodProductModificationService.ExecuteAsync`; `Modifications.razor` | TEST-BB-564 | U, I | OCD-067 |
+| URS-BB-575 / FRS-BB-692 | Thawed shelf life per auto-thaw product code | `ThawedExpirationRule`; `AutoThawService`; `AutoThawProductAdminService.SetShelfLifeAsync`; `AdminAutoThawProducts.razor` | TEST-BB-565 | U, I | OCD-068 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

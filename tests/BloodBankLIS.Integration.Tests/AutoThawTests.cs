@@ -97,6 +97,19 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
 
     public AutoThawServiceTests(SqliteContextFactory factory) => _factory = factory;
 
+    private AutoThawProductAdminService Admin(BloodBankDbContext c)
+    {
+        var env = new StaticEnvironmentInfo("Development", isDevMode: false);
+        return new AutoThawProductAdminService(
+            new EfRepository<AutoThawProduct>(c),
+            new EfRepository<IsbtProductCode>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
+    }
+
     private BillingService Billing(BloodBankDbContext c, CapturingPublisher publisher) =>
         new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
             new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
@@ -227,6 +240,49 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(1, await c.BillingEvents.CountAsync(e => e.BillingCode == "BB-THAW" && e.PatientId == seeded.PatientId));
         Assert.Single(publisher.Published);
         Assert.Equal(0, await c.UnitModifications.CountAsync());
+    }
+
+    [Fact]
+    public async Task Thaw_UsesTheCodesShelfLife_AndShelfLifeChangesNeedAReason()
+    {
+        // TEST-BB-565
+        await using var c = _factory.Create();
+        var seeded = await SeedReservedScenarioAsync(c, listed: true, alreadyAllocated: true);
+        var row = await c.AutoThawProducts.SingleAsync(p => p.ProductCode == seeded.ProductCode);
+
+        var noReason = await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(6, " "));
+        Assert.False(noReason.Succeeded);
+        var tooLong = await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(1000, "SOP"));
+        Assert.False(tooLong.Succeeded);
+        var changed = await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(6, "Cryo SOP rev 4"));
+        Assert.True(changed.Succeeded, changed.Error);
+        Assert.Equal(6, changed.Value!.ThawedShelfLifeHours);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(AutoThawProduct) && a.EntityId == row.Id && a.Reason == "Cryo SOP rev 4"));
+
+        var rows = await Allocations(c).ListActiveAsync(seeded.PatientId);
+        Assert.Equal(6, rows.Single(r => r.AllocationId == seeded.AllocationId).AutoThawShelfLifeHours);
+
+        var thawUtc = _factory.Clock.UtcNow.AddHours(-1);
+        var result = await Thaw(c).ApplyAsync(seeded.PatientId, seeded.AllocationId, thawUtc);
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(thawUtc.AddHours(6), (await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId)).ExpiresUtc);
+    }
+
+    [Fact]
+    public async Task Thaw_NeverExtendsPastTheFrozenExpiration()
+    {
+        // TEST-BB-565
+        await using var c = _factory.Create();
+        var seeded = await SeedReservedScenarioAsync(c, listed: true, alreadyAllocated: true);
+        var unit = await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId);
+        var frozenExpires = _factory.Clock.UtcNow.AddHours(5);
+        unit.ExpiresUtc = frozenExpires;
+        await c.SaveChangesAsync();
+
+        var result = await Thaw(c).ApplyAsync(seeded.PatientId, seeded.AllocationId, _factory.Clock.UtcNow.AddMinutes(-10));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(frozenExpires, (await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId)).ExpiresUtc);
     }
 
     [Fact]

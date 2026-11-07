@@ -74,7 +74,8 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         var entity = new AutoThawProduct
         {
             ProductCode = code,
-            IsActive = true
+            IsActive = true,
+            ThawedShelfLifeHours = request.ThawedShelfLifeHours ?? ThawedExpirationRule.DefaultHours
         };
         var duplicate = await _rows.AnyAsync(r => r.ProductCode == code, ct);
         var validation = AutoThawProductValidator.Validate(
@@ -134,6 +135,46 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         var dto = AutoThawProductDto.From(entity, catalog?.Description);
         var action = active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate;
         RecordChange(EntityType, entity.Id, 1, action, ToAuditType(action), old, dto, null);
+        await UnitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<AutoThawProductDto>.Ok(dto, new RuleEvaluation([]));
+    }
+
+    /// <summary>Changes a code's thawed shelf life; a reason is required and the change is audited and versioned.</summary>
+    public async Task<EvaluationResult<AutoThawProductDto>> SetShelfLifeAsync(
+        long id, SetAutoThawShelfLifeRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, AutoThawProductAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var entity = await _rows.GetByIdAsync(id, ct);
+        if (entity is null)
+        {
+            return EvaluationResult<AutoThawProductDto>.Fail("Auto-thaw product not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return EvaluationResult<AutoThawProductDto>.Fail("Enter the reason for changing the thawed shelf life.");
+        }
+
+        var shelfLife = ThawedExpirationRule.EvaluateShelfLife(request.ThawedShelfLifeHours);
+        if (shelfLife.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<AutoThawProductDto>.Blocked(new RuleEvaluation([shelfLife]));
+        }
+
+        var catalog = await FindCatalogAsync(entity.ProductCode, ct);
+        var old = AutoThawProductDto.From(entity, catalog?.Description);
+        entity.ThawedShelfLifeHours = request.ThawedShelfLifeHours;
+        _rows.Update(entity);
+        var dto = AutoThawProductDto.From(entity, catalog?.Description);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, request.Reason.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<AutoThawProductDto>.Ok(dto, new RuleEvaluation([]));
     }

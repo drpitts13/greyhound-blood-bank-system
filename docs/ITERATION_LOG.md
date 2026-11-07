@@ -16911,3 +16911,23 @@ Rows by most recent cycle: modifications (Partial, last Cycle 219), alternate id
 ### Tests
 
 - TEST-BB-564: failed indicator refused with the policy off; policy requires irradiator and confirmed indicator (batch refused, nothing modified, then succeeds); other types record a device unchecked; stored, audited, and described on history.
+
+## Iteration 517 — Thawed shelf life per product code (2026-11-07)
+
+### Capability matrix rescan (blood products: thawing)
+
+Thaw in place at allocation rewrote every unit's expiration to a fixed 24 hours after the thaw, whatever the product. A product with a shorter post-thaw life (for example a cryoprecipitate code added to the list) would show as usable for hours after it should have been, which is a transfusion safety risk; a longer-lived code could not be set at all. The new expiration was also not capped at the frozen expiration. Workflow questions: memory (the prompt states how long the thawed unit lasts); inference (the shelf life comes from the code's row); safety (per-product expiry, capped); configuration control (change needs a reason, audited and versioned; values are facility decisions, OCD-068).
+
+### Design
+
+- `AutoThawProduct.ThawedShelfLifeHours` (default 24, migration and dev bootstrap); `ThawedExpirationRule` (compute with cap, bounds, describe).
+- `AutoThawService.MatchAsync` returns the row; expiry from its shelf life; audit includes it.
+- Admin: shelf life on add, Change with reason; allocation row carries the hours for the chart and unit thaw prompts.
+
+### Requirements
+
+- URS-BB-575, FRS-BB-692, OCD-068. Help: auto thaw products, modifications.
+
+### Tests
+
+- TEST-BB-565: shelf life applied (6 hours), capped at the frozen expiration; change refused without a reason or beyond 720 hours, audited with the reason; the allocation row carries the hours.

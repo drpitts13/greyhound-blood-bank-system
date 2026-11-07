@@ -432,11 +432,11 @@ else
                 <p class="muted">
                     @if (_autoThawAsk)
                     {
-                        <text>Thaw this product now? The product code stays @AutoThawCode(_autoThawRow). Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</text>
+                        <text>Thaw this product now? The product code stays @AutoThawCode(_autoThawRow). Expiration becomes @ThawedLife(_autoThawRow) after the thaw date and time, or the frozen expiration if that is sooner. A thaw billing message is sent and the product ID tag prints.</text>
                     }
                     else
                     {
-                        <text>Thaw @_autoThawRow.UnitNumber in place. The product code stays @AutoThawCode(_autoThawRow) and expiration becomes 24 hours after the thaw date and time.</text>
+                        <text>Thaw @_autoThawRow.UnitNumber in place. The product code stays @AutoThawCode(_autoThawRow) and expiration becomes @ThawedLife(_autoThawRow) after the thaw date and time, or the frozen expiration if that is sooner.</text>
                     }
                 </p>
                 <div class="field">
@@ -1579,6 +1579,9 @@ else
         var now = DateTime.Now;
         return new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Local);
     }
+
+    private static string ThawedLife(PatientAllocationRowDto row) =>
+        ThawedExpirationRule.Describe(row.AutoThawShelfLifeHours ?? ThawedExpirationRule.DefaultHours);
 
     private static string AutoThawCode(PatientAllocationRowDto row) =>
         string.IsNullOrWhiteSpace(row.AutoThawProductCode) ? row.ProductCode : row.AutoThawProductCode;

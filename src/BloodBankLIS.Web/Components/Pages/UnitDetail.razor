@@ -87,7 +87,7 @@ else
         <div class="bb-dialog-backdrop">
             <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="unit-auto-thaw-title" @onclick:stopPropagation="true">
                 <h2 id="unit-auto-thaw-title" style="margin:0;">Auto thaw @_autoThawProductCode?</h2>
-                <p class="muted">Thaw this product now? The product code stays @_autoThawProductCode. Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</p>
+                <p class="muted">Thaw this product now? The product code stays @_autoThawProductCode. Expiration becomes @ThawedExpirationRule.Describe(_autoThawShelfLifeHours) after the thaw date and time, or the frozen expiration if that is sooner. A thaw billing message is sent and the product ID tag prints.</p>
                 <div class="field">
                     <label>Thaw date/time</label>
                     <input type="datetime-local" @bind="_autoThawLocal" />
@@ -667,6 +667,7 @@ else
     private long? _autoThawAllocationId;
     private long _autoThawPatientId;
     private string _autoThawProductCode = string.Empty;
+    private int _autoThawShelfLifeHours = ThawedExpirationRule.DefaultHours;
     private DateTime _autoThawLocal;
     private List<EligibleModificationDto> _eligibleMods = new();
     private ProductRetypeDetailDto? _retypeDetail;
@@ -972,6 +973,7 @@ else
             _autoThawPatientId = order.PatientId;
             _autoThawAllocationId = r.Value.Allocation.AllocationId;
             _autoThawProductCode = r.Value.Allocation.AutoThawProductCode ?? r.Value.Allocation.ProductCode;
+            _autoThawShelfLifeHours = r.Value.Allocation.AutoThawShelfLifeHours ?? ThawedExpirationRule.DefaultHours;
             _autoThawLocal = LocalMinuteNow();
         }
     }
