@@ -93,6 +93,10 @@
                     @foreach (var v in Enum.GetValues<ResultValueType>()) { <option value="@v">@DisplayValueType(v)</option> }
                 </select>
             </div>
+            <div class="field"><label>LOINC code (optional)</label>
+                <input @bind="_editing.LoincCode" placeholder="e.g. 882-1" data-loinc-code />
+                <span class="sub">Sent to the EHR with each result, beside the test code. Your interface team chooses it.</span>
+            </div>
             @if (_editing.ResultValueType == ResultValueType.Numeric)
             {
                 <div class="field" style="grid-column:1/-1;" data-numeric-settings>
@@ -845,6 +849,7 @@
         public BloodAttributeKind BloodAttributeScopeKind { get; set; } = BloodAttributeKind.Antigen;
         public bool ContributesToUnitBloodAttributes { get; set; }
         public ShapeModel Shape { get; set; } = new();
+        public string? LoincCode { get; set; }
 
         public static EditModel From(TestDefinitionDto t) => new()
         {
@@ -872,7 +877,8 @@
             BloodAttributeScopeCodes = t.BloodAttributeScopeCodes.ToList(),
             BloodAttributeScopeKind = t.BloodAttributeScopeKind ?? BloodAttributeKind.Antigen,
             ContributesToUnitBloodAttributes = t.ContributesToUnitBloodAttributes,
-            Shape = ShapeModel.From(t.ResultShape)
+            Shape = ShapeModel.From(t.ResultShape),
+            LoincCode = t.LoincCode
         };
 
         public void PruneUnassignedLogicExpectations()
@@ -903,7 +909,7 @@
             VerificationRequired, ContributesToAboRhHistory, ContributesToAntibodyHistory, ContributesToCompatibility,
             BloodAttributeScopeCodes,
             ResultValueType == ResultValueType.BloodAttribute ? BloodAttributeScopeKind : null,
-            ContributesToUnitBloodAttributes, reason, Shape.ToDto());
+            ContributesToUnitBloodAttributes, reason, Shape.ToDto(), LoincCode);
         }
     }
 

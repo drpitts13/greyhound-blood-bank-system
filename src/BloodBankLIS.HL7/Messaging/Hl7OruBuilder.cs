@@ -45,7 +45,9 @@ public static class Hl7OruBuilder
         Hl7Encoding? encoding = null,
         Hl7FieldMap? map = null,
         InterfaceValueTranslator? translator = null,
-        string? referenceRange = null)
+        string? referenceRange = null,
+        string? loincCode = null,
+        string? testName = null)
     {
         ArgumentNullException.ThrowIfNull(patient);
         ArgumentNullException.ThrowIfNull(result);
@@ -74,6 +76,15 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.ResultInterpretation), translator.ToExternal(InterfaceDataItemKeys.ResultInterpretation, result.Interpretation))
             .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), translator.ToExternal(InterfaceDataItemKeys.ResultObxStatus,
                 ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null) ?? ResultReleaseRule.Final));
+        if (!string.IsNullOrWhiteSpace(loincCode))
+        {
+            // OBX-3 as a coded element: the local code and name (L), then the LOINC code as the alternate identifier (LN).
+            var name = string.IsNullOrWhiteSpace(testName) ? result.TestCode : testName.Trim();
+            builder.Set("OBX-3-1", translator.ToExternal(InterfaceDataItemKeys.ResultObxIdentifier, result.TestCode))
+                .Set("OBX-3-2", name).Set("OBX-3-3", "L")
+                .Set("OBX-3-4", loincCode.Trim()).Set("OBX-3-5", name).Set("OBX-3-6", "LN");
+        }
+
         if (!string.IsNullOrWhiteSpace(referenceRange) && ObxValueType(result) == "NM")
         {
             // OBX-7 reference range of a numeric result, from the test definition.

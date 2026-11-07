@@ -16180,3 +16180,34 @@ Cycles 478–480 send a numeric result as NM with units (OBX-6) and its flag (OB
 ### Next ranked residual
 
 The remaining test-catalog gaps: test codes hard-coded in services (replace with a role on the test); method and reagent lot on each result; LOINC codes and several allowed specimen types; the unused flags (verification required, contributes to compatibility). Confirm OCD-065 with the medical director before activating any example.
+
+## Iteration 482 — A LOINC code per test for the EHR (2026-11-07)
+
+### Capability matrix rescan (interoperability: result coding)
+
+Results reached the EHR identified only by the local test code (OBX-3 = "ABORH"), so every EHR had to translate our codes. The FHIR export notes LOINC mapping as an interface decision (OCD-043). The test catalog had no place to record the code (residual from Cycles 478–481).
+
+### Design
+
+- **`TestDefinition.LoincCode`**: optional, edited on Admin › Tests.
+- **`LoincCodeRule`**: 1–7 digits, a hyphen, and the Mod-10 (Luhn) check digit; a malformed code stops the save.
+- **Outbound ORU:** when a code is set, OBX-3 = local code ^ test name ^ L ^ LOINC ^ test name ^ LN. Without one, OBX-3 is exactly as before, so existing EHR interfaces are unaffected.
+- No code is seeded: which LOINC code a test maps to is the interface team's choice. FHIR still uses local codes (follow-up).
+- Migration `20261121000000_TestDefinitionLoinc`; dev additive column.
+
+### Requirements
+
+- URS-BB-547, FRS-BB-656. Help: tests (admin).
+
+### Tests
+
+- TEST-BB-523:
+  - the check digit accepts 882-1 and 883-9 and refuses 882-2, a missing hyphen or check digit, too many digits, and letters
+  - a definition with a malformed code is refused
+  - a queued result reads OBX-3 "FMHQ" without a code and "FMHQ^Fetal bleed quantitation^L^882-1^Fetal bleed quantitation^LN" with one
+- Full suite: 3,900 passed
+- Live: starting the API added the LoincCode column to the dev database in place (14 patients before and after); Admin › Tests opened ABORH with an empty **LOINC code (optional)** field and its note. Nothing was saved. No server errors.
+
+### Next ranked residual
+
+LOINC in the FHIR export; test codes hard-coded in services (replace with a role on the test); method and reagent lot on each result; several allowed specimen types; the unused flags (verification required, contributes to compatibility). Confirm OCD-065 before activating any example.

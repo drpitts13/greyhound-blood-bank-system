@@ -531,5 +531,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-520 | I | `SeederTests.Seed_AddsExampleTestsAsValidDrafts_AndTheTiterDemo` | URS-BB-545 / FRS-BB-654 |
 | TEST-BB-521 | I | `AdminConfigTests.NumericAndTiterSettings_RoundTrip_AndOnlyTheMatchingPartIsKept` | URS-BB-541 / FRS-BB-650 |
 | TEST-BB-522 | I | `NumericTiterResultTests.QueuedNumericResult_CarriesTheReferenceRange` | URS-BB-546 / FRS-BB-655 |
+| TEST-BB-523 | U, I | `LoincCodeRuleTests.Code_NeedsDigitsHyphenAndCheckDigit`; `LoincCodeRuleTests.Definition_WithAMalformedCode_IsRefused`; `NumericTiterResultTests.QueuedNumericResult_CarriesTheReferenceRange` | URS-BB-547 / FRS-BB-656 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

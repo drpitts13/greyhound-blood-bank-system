@@ -110,4 +110,10 @@ public class TestDefinition : VersionedConfigEntity
 
     /// <summary>When true, the titer score is calculated from the grades.</summary>
     public bool TiterScored { get; set; }
+
+    /// <summary>
+    /// LOINC code the EHR receives with this test's results (OBX-3 alternate identifier), for example 882-1. Chosen by
+    /// the interface team; none is assumed.
+    /// </summary>
+    public string? LoincCode { get; set; }
 }

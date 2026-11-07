@@ -180,6 +180,12 @@ public static class TestDefinitionValidator
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(d.LoincCode) && !LoincCodeRule.IsValid(d.LoincCode))
+        {
+            results.Add(RuleResult.HardStop(LoincCodeRule.Code,
+                $"'{d.LoincCode.Trim()}' is not a LOINC code: digits, a hyphen, and the check digit (for example 882-1)."));
+        }
+
         if (d.ResultValueType == ResultValueType.Numeric)
         {
             ValidateNumeric(d, results);

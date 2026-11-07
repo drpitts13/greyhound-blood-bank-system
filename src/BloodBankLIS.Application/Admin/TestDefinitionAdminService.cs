@@ -638,6 +638,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         ApplyResultShape(e, req.ResultValueType, req.ResultShape);
 
+        e.LoincCode = string.IsNullOrWhiteSpace(req.LoincCode) ? null : req.LoincCode.Trim();
+
         e.ChangeReason = req.ChangeReason;
 
     }
@@ -687,7 +689,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         t.ContributesToUnitBloodAttributes,
 
-        t.Version, t.IsActive, t.IsDraft, t.EffectiveUtc, t.RetiredUtc, t.ChangeReason, ShapeOf(t));
+        t.Version, t.IsActive, t.IsDraft, t.EffectiveUtc, t.RetiredUtc, t.ChangeReason, ShapeOf(t), t.LoincCode);
 
 
 

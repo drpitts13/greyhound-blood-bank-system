@@ -1298,6 +1298,7 @@ public sealed class TestDefinitionConfiguration : IEntityTypeConfiguration<TestD
         b.Property(t => t.CriticalHigh).HasPrecision(18, 4);
         b.Property(t => t.TiterPhaseCode).HasMaxLength(50);
         b.Property(t => t.TiterEndpointMinGrade).HasMaxLength(10);
+        b.Property(t => t.LoincCode).HasMaxLength(20);
         b.Property(t => t.ChangeReason).HasMaxLength(1000);
         b.Property(t => t.ApprovedBy).HasMaxLength(100);
         b.Property(t => t.CreatedBy).HasMaxLength(100).IsRequired();

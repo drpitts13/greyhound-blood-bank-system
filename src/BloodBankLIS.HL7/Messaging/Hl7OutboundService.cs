@@ -100,7 +100,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
             ? NumericLimits.From(definition).Hl7ReferenceRange()
             : null;
         var raw = Hl7OruBuilder.Build(patient, result, controlId, now, resolved.Identity, map: resolved.Map, translator: translator,
-            referenceRange: referenceRange);
+            referenceRange: referenceRange, loincCode: definition?.LoincCode, testName: definition?.Name);
 
         var log = new Hl7MessageLog
         {

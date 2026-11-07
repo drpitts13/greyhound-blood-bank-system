@@ -552,3 +552,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-544 | Staff see a titer as 1:n and, on Test History, how it changed from the previous titer of the same test, in dilution steps; the EHR receives the titer as 1:n. | P2 | FRS-BB-653 |
 | URS-BB-545 | The catalog ships example tests that show these result types and other common workups (antibody and ABO titers, fetal bleed quantitation, DAT with IgG and C3, elution, weak D panel, Rh/Kell phenotype) as inactive drafts for the medical director to review and activate. | P2 | FRS-BB-654 |
 | URS-BB-546 | The EHR receives a numeric result's reference range with the value, units, and flag, so the result reads the same there as in the laboratory. | P2 | FRS-BB-655 |
+| URS-BB-547 | An administrator can record the LOINC code of each test, chosen by the interface team, so the EHR receives a standard code with each result beside the local test code. | P2 | FRS-BB-656 |

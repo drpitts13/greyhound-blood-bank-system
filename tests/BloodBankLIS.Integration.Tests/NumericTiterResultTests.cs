@@ -9,6 +9,7 @@ using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
@@ -214,6 +215,16 @@ public class NumericTiterResultTests : IDisposable
         Assert.True(queued.Succeeded, queued.Error);
         var obx = queued.Value!.RawMessage.Split('\r').Single(s => s.StartsWith("OBX")).Split('|');
         Assert.Equal(("NM", "0.45", "%", "0.00-0.30", "H"), (obx[2], obx[5], obx[6], obx[7], obx[8]));
+
+        // TEST-BB-523: no LOINC code configured: OBX-3 is the local code alone, as before.
+        Assert.Equal("FMHQ", obx[3]);
+
+        var definition = await context.TestDefinitions.SingleAsync(t => t.Code == "FMHQ");
+        definition.LoincCode = "882-1";
+        await context.SaveChangesAsync();
+        var coded = await outbound.QueueResultMessageAsync(resultId);
+        var codedObx = coded.Value!.RawMessage.Split((char)13).Single(s => s.StartsWith("OBX")).Split('|');
+        Assert.Equal("FMHQ^Fetal bleed quantitation^L^882-1^Fetal bleed quantitation^LN", codedObx[3]);
 
         Assert.Equal(">=0.1", new NumericLimits(ReferenceLow: 0.1m).Hl7ReferenceRange());
         Assert.Equal("<=5", new NumericLimits(ReferenceHigh: 5m).Hl7ReferenceRange());

@@ -26,6 +26,10 @@ The reference range must lie inside the reportable range, and the critical limit
 
 For a **Titer** test, set the **First** and **Last dilution** (the last must be the first doubled, for example 1 to 2048), the **phase** the tubes are read at, the **weakest grade that counts** toward the endpoint, and whether a **score** is calculated. The form lists the dilutions. Which grade is the endpoint, how the score is counted, and what change matters are decisions for your medical director (OCD-065).
 
+## LOINC code
+
+**LOINC code** (optional) is the standard code the EHR receives with each result of the test, beside your local test code (for example 882-1). The check digit is checked when you save. Your interface team chooses the code; none is filled in for you.
+
 ## Example tests
 
 The catalog includes example tests as **inactive drafts**: antibody and ABO titers, fetal bleed quantitation, a DAT with IgG and C3, an elution, a weak D panel, and an Rh/Kell phenotype. Review each with your medical director, adjust it, and activate only the ones your laboratory performs.

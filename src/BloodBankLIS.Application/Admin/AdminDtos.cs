@@ -121,7 +121,8 @@ public sealed record TestDefinitionDto(
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
     string? ChangeReason,
-    TestResultShapeDto? ResultShape = null)
+    TestResultShapeDto? ResultShape = null,
+    string? LoincCode = null)
 {
     /// <summary>
     /// Catalog list. A blank name stays the test id.
@@ -152,7 +153,8 @@ public sealed record SaveTestDefinitionRequest(
     BloodAttributeKind? BloodAttributeScopeKind,
     bool ContributesToUnitBloodAttributes,
     string? ChangeReason,
-    TestResultShapeDto? ResultShape = null);
+    TestResultShapeDto? ResultShape = null,
+    string? LoincCode = null);
 
 /// <summary>
 /// Numeric settings (units, decimal places, reportable, reference, and critical limits) and titer settings (dilution
