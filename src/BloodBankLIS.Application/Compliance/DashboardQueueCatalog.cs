@@ -209,7 +209,8 @@ public static class DashboardQueueCatalog
         var parts = new[]
         {
             AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Failed), "failed", "failed"),
-            AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Overdue), "overdue", "overdue")
+            AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Overdue), "overdue", "overdue"),
+            AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Expired), "lot expired", "lots expired")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }

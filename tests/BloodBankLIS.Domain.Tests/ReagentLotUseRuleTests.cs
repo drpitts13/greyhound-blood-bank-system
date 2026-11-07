@@ -89,4 +89,17 @@ public class ReagentLotUseRuleTests
         Assert.Contains("since it last passed", ReagentLotUseRule.EvaluateReview(false, false, "x").Message);
         Assert.Contains("Say what", ReagentLotUseRule.EvaluateReview(true, false, "  ").Message);
     }
+
+    // TEST-BB-558: when a reagent's only open lot has expired, the entry warning names that lot.
+    [Fact]
+    public void EntryWarning_NamesAnExpiredOpenLot()
+    {
+        Reagent[] reagents = [new() { Id = 1, Code = "AHG", TestCodes = "ABSC" }];
+        ReagentLot[] expired = [new() { Id = 5, ReagentId = 1, LotNumber = "AHG-OLD", ExpiresUtc = Now.AddDays(-2), State = ReagentLotState.Opened }];
+
+        var warning = Assert.Single(ReagentLotUseRule.EntryWarnings("ABSC", reagents, [], new HashSet<long>(), expired));
+
+        Assert.Equal(ReagentLotUseRule.NoOpenLotCode, warning.Code);
+        Assert.StartsWith("AHG lot AHG-OLD expired", warning.Message);
+    }
 }

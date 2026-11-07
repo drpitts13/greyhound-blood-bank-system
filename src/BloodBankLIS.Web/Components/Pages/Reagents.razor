@@ -40,7 +40,8 @@
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => ReviewAsync(qcId)">Review</button>
                             }
-                            else if (row.Kind != ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter) && QcLots.Any(l => l.Id == row.LotId))
+                            else if (row.Kind != ReagentQcWorklistRule.Unreviewed && row.Kind != ReagentQcWorklistRule.Expired
+                                     && Session.Has(PermissionCodes.ResultEnter) && QcLots.Any(l => l.Id == row.LotId))
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => StartQcForLotAsync(row.LotId)">Enter QC</button>
                             }

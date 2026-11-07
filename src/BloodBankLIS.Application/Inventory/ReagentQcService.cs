@@ -243,7 +243,8 @@ public sealed class ReagentQcService
             await _resultLots.AddAsync(row, ct);
         }
 
-        return new LotUse(recorded, ReagentLotUseRule.EntryWarnings(result.TestCode, reagents, inUse, passedToday));
+        var expiredOpen = lots.Where(l => l.ExpiresUtc <= now).ToList();
+        return new LotUse(recorded, ReagentLotUseRule.EntryWarnings(result.TestCode, reagents, inUse, passedToday, expiredOpen));
     }
 
     /// <summary>The recorded lots of several results, as "AHG AHG-24033", for result lists.</summary>

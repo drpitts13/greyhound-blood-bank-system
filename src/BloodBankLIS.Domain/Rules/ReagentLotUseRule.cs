@@ -80,7 +80,8 @@ public static class ReagentLotUseRule
         string? testCode,
         IEnumerable<Reagent> reagents,
         IReadOnlyList<ReagentLot> lotsInUse,
-        IReadOnlySet<long> lotsWithPassedQcToday)
+        IReadOnlySet<long> lotsWithPassedQcToday,
+        IReadOnlyList<ReagentLot>? expiredOpenLots = null)
     {
         var results = new List<RuleResult>();
         foreach (var reagent in reagents.Where(r => UsedFor(r, testCode)).OrderBy(r => r.Code, StringComparer.OrdinalIgnoreCase))
@@ -88,8 +89,10 @@ public static class ReagentLotUseRule
             var lots = lotsInUse.Where(l => l.ReagentId == reagent.Id).ToList();
             if (lots.Count == 0)
             {
-                results.Add(RuleResult.Warning(NoOpenLotCode,
-                    $"No open lot of {reagent.Code} is recorded for {testCode!.Trim().ToUpperInvariant()}, so this result records no {reagent.Code} lot. Open the lot in use on Reagent QC."));
+                var expired = expiredOpenLots?.Where(l => l.ReagentId == reagent.Id).OrderByDescending(l => l.ExpiresUtc).FirstOrDefault();
+                results.Add(RuleResult.Warning(NoOpenLotCode, expired is not null
+                    ? $"{reagent.Code} lot {expired.LotNumber} expired {expired.ExpiresUtc:yyyy-MM-dd}, so this result records no {reagent.Code} lot. Close it and open a new lot on Reagent QC."
+                    : $"No open lot of {reagent.Code} is recorded for {testCode!.Trim().ToUpperInvariant()}, so this result records no {reagent.Code} lot. Open the lot in use on Reagent QC."));
                 continue;
             }
 

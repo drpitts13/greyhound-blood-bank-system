@@ -16770,3 +16770,28 @@ The home Shift handoff card said only "Needs acknowledgment"; the incoming techn
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; acknowledging a handoff from the home card.
+
+## Iteration 510 — Reagent QC worklist follows each lot's current state (2026-11-07)
+
+### Capability matrix rescan (testing: reagent QC)
+
+Two defects in the reagent QC worklist: every failed QC row ever recorded stayed a Failed item (and a critical alert) even after the lot passed again or was closed, so the list grew stale and real failures were harder to see; and an opened lot past its expiry was not flagged at all: the worklist kept asking for its daily QC, and result entry only said no open lot was recorded. Workflow questions: memory (the list shows only what is current); next action (close and replace an expired lot); safety (a failure clears only by a later pass or closing the lot; expired lots are named at entry).
+
+### Design
+
+- `ReagentQcWorklistRule`: Failed only for the latest QC of an open lot; new Expired item replacing Overdue for that lot.
+- Card note, alert (warning), Reagents page (no Enter QC on an expired lot), entry warning naming the expired lot.
+
+### Requirements
+
+- URS-BB-568, FRS-BB-685. Help: Reagent QC.
+
+### Tests
+
+- TEST-BB-558: a failure followed by a pass, a failure on a closed lot, and a failure that is the latest: only the latest on the open lot is Failed; an expired open lot is Expired and not Overdue; the entry warning names the expired lot; the card counts expired lots.
+- Full suite: 3,971 passed.
+- Live: the Reagent QC worklist showed the seven demo lots as Overdue for today's QC (none failed or expired on the dev database), with Enter QC on each. Nothing was recorded. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; acknowledging a handoff from the home card; a reagent lot's expiry shown on the lot table with days left.
