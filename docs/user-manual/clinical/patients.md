@@ -37,4 +37,4 @@ The MRN is the primary identifier you will type at issue and at transfusion docu
 
 Merging two charts is a supervisor action on the chart, not on this list. Correcting a name after registration is done on the chart and asks for a reason. See [The patient chart](patient-chart).
 
-Each pair says why it is listed: the same name and date of birth, or the same identifier from another system (for example an enterprise id) on both charts. Charts that share an identifier are listed even when their names differ.
+Each pair says why it is listed: the same name and date of birth, or the same identifier from another system (for example an enterprise id) on both charts. Charts that share an identifier are listed even when their names differ. On the chart, such an identifier is shown in amber; select it to open the other chart in the patient list. After a merge the surviving chart keeps one copy of the identifier.

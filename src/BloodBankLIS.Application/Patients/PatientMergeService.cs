@@ -492,10 +492,12 @@ public sealed class PatientMergeService
         var existing = await _identifiers.ListAsync(i => i.PatientId == survivorId, ct);
         foreach (var identifier in incoming)
         {
+            // An external identifier kept "also on" the other chart is the same identifier: it stays with the duplicate
+            // rather than becoming a second copy on the survivor.
             var already = existing.Any(e =>
                 e.IdentifierType == identifier.IdentifierType
                 && string.Equals(e.Value, identifier.Value, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(e.AssigningAuthority, identifier.AssigningAuthority, StringComparison.OrdinalIgnoreCase));
+                && ExternalIdentifierAuthority.SameIssuer(e.AssigningAuthority, identifier.AssigningAuthority));
             if (already)
             {
                 moves.Add(Move(nameof(PatientIdentifier), identifier.Id, PatientMergeMoveAction.SkippedDuplicate));

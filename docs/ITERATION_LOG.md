@@ -17007,3 +17007,22 @@ Following Cycle 520. Two problems found: (1) `PatientIdentifiers` is unique on t
 ### Tests
 
 - TEST-BB-569: shared identifier pairs two differently named charts with the reason, older first; an inactive copy does not pair; name pairs carry their reason; the chart lists the external id; a second ADT chart with the same enterprise id is accepted, marked "also on", and the ACK says possible duplicate.
+
+## Iteration 522 — Shared identifier: open the other chart, one copy after merge (2026-11-07)
+
+### Capability matrix rescan (duplicate resolution)
+
+Cycle 521 marks an identifier another chart holds as "also on" that chart. Resolving the pair had two gaps: the chart named the other MRN but the reviewer had to type it into search, and a merge compared identifiers including the mark, so the marked copy moved onto the survivor beside the original (one id twice, one saying it was "also on" a chart now merged into it). Workflow questions: clicks (one, from the identifier to the other chart); memory (no MRN to copy); data integrity (one copy after merge, either direction; unmerge restores both, since the copy is left in place on the duplicate).
+
+### Design
+
+- `ExternalIdentifierAuthority` helpers (Domain); merge compares issuers ignoring the mark.
+- Chart header amber link; patient list `?q=` starting filter.
+
+### Requirements
+
+- URS-BB-580, FRS-BB-697. Help: patients.
+
+### Tests
+
+- TEST-BB-570: mark read back; same issuer with and without it; merge with the marked copy on the duplicate or on the survivor leaves one copy on each chart, and unmerge keeps both.

@@ -45,6 +45,9 @@ public sealed record PatientAliasDto(
     public static PatientAliasDto From(PatientIdentifier i) =>
         new(i.Id, i.IdentifierType, i.Value, i.IsActive, i.AssigningAuthority);
 
+    /// <summary>For an external identifier also held by another chart: that chart's MRN, to open it.</summary>
+    public string? AlsoOnMrn => BloodBankLIS.Domain.Rules.ExternalIdentifierAuthority.OtherMrn(AssigningAuthority);
+
     public string KindLabel => IdentifierType switch
     {
         IdentityTokenType.PriorFullName => "Prior name",

@@ -50,7 +50,15 @@
                 Other identifiers and aliases:
                 @foreach (var alias in Patient.Aliases)
                 {
-                    <span class="badge badge-gray" style="margin-right:.35rem;">@alias.KindLabel: @alias.Value</span>
+                    @if (alias.AlsoOnMrn is { } otherMrn)
+                    {
+                        <a class="badge badge-amber" style="margin-right:.35rem;" href="@($"/patients?q={Uri.EscapeDataString(otherMrn)}")"
+                           title="Another chart holds this identifier: possibly the same person. Opens that chart in the patient list." data-also-on="@otherMrn">@alias.KindLabel: @alias.Value</a>
+                    }
+                    else
+                    {
+                        <span class="badge badge-gray" style="margin-right:.35rem;">@alias.KindLabel: @alias.Value</span>
+                    }
                 }
             </div>
         }

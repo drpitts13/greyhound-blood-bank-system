@@ -185,7 +185,18 @@
 
     private ElementReference _searchInput;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    // A link may open the list already filtered (for example to the chart that also holds an identifier).
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Query))
+        {
+            _filter = Query.Trim();
+        }
+
+        await LoadAsync();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

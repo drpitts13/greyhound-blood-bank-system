@@ -107,7 +107,7 @@ public sealed class PatientHistoricalAliasWriter
             {
                 var otherMrn = await mrnOfPatient(holder.PatientId, ct) ?? $"patient {holder.PatientId}";
                 conflicts.Add((value, otherMrn));
-                stored = Truncate(label.Length == 0 ? $"also on {otherMrn}" : $"{label}, also on {otherMrn}");
+                stored = Truncate(ExternalIdentifierAuthority.AlsoOn(label, otherMrn));
             }
 
             var row = new PatientIdentifier
