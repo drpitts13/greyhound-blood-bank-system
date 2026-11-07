@@ -353,6 +353,48 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("instrument flag W", (await PostedResultAsync(context, "ACC-INST-WARN", "ABORH")).SourceReference);
     }
 
+    // TEST-BB-538: a held result is posted only by a release with a reason: it files as pending verification with the
+    // held code beside its source, the failure closes with the reason (audited), and nothing else can be released.
+    [Fact]
+    public async Task HeldResult_IsReleasedWithAReason_AndOtherFailuresAreNot()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        await SeedOrderAsync(context, "MRN-INST-REL", "ACC-INST-REL", "ABORH");
+        var raw = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-REL", "MRN-INST-REL", "Patient", "Test", "19590422", "M", 3)).RawMessage
+            .Replace("L|1|N", "L|1|Q", StringComparison.Ordinal);
+        var held = await Processor(context).ProcessAsync(raw, iface.Id);
+        Assert.False(held.Accepted);
+
+        var replayed = await Processor(context).ReplayAsync(held.Log.Id);
+        Assert.False(replayed!.Accepted);
+        var noReason = await Processor(context).ReleaseHeldAsync(held.Log.Id, " ");
+        Assert.True(noReason!.Refused);
+        Assert.False(await context.TestResults.AnyAsync(r => r.Specimen!.AccessionNumber == "ACC-INST-REL"));
+
+        var released = await Processor(context).ReleaseHeldAsync(held.Log.Id, "Reactions reviewed on the instrument; QC in range");
+
+        Assert.True(released!.Accepted, string.Join("; ", released.Notes));
+        var posted = await PostedResultAsync(context, "ACC-INST-REL", "ABORH");
+        Assert.Equal(ResultStatus.PendingVerification, posted.Status);
+        Assert.Contains("Q held, released by tech-test", posted.SourceReference);
+        var closed = await context.InstrumentMessages.AsNoTracking().SingleAsync(m => m.Id == held.Log.Id);
+        Assert.StartsWith("Held result released and posted: Reactions reviewed", closed.ResolutionNote);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(InstrumentMessageLog) && a.EntityId == held.Log.Id
+            && a.Reason!.StartsWith("Held result released")));
+        Assert.True((await Processor(context).ReleaseHeldAsync(held.Log.Id, "again"))!.Refused);
+
+        // A failure that is not a hold (an unknown assay) cannot be released.
+        await SeedOrderAsync(context, "MRN-INST-REL2", "ACC-INST-REL2", "ABORH");
+        var unknown = await Processor(context).ProcessAsync(EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-REL2", "MRN-INST-REL2", "Patient", "Test", "19590422", "M", 3)).RawMessage
+            .Replace("^^^Group", "^^^Antigen2", StringComparison.Ordinal), iface.Id);
+        var refused = await Processor(context).ReleaseHeldAsync(unknown.Log.Id, "try");
+        Assert.True(refused!.Refused);
+        Assert.Contains(InstrumentMessageFollowUpRule.ReleaseCode, refused.Notes.Single());
+    }
+
     // TEST-BB-533: a test the instrument has no code for is left out of its order download and listed (outbound).
     [Fact]
     public async Task Query_ForATestWithNoInstrumentCode_LeavesItOut_AndListsIt()

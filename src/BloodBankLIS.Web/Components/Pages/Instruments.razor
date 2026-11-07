@@ -127,6 +127,28 @@
         }
         else if (_detail.Message.OpenFailure)
         {
+            @if (IsHeld(_detail.Message))
+            {
+                <div class="bb-card" style="margin-bottom:.8rem;" data-inst-release>
+                    <strong>Held for an instrument error code</strong>
+                    <p class="muted" style="margin:.3rem 0;">
+                        Replaying holds it again. Check the reactions on the instrument and its QC; to post the result as the
+                        instrument sent it, release it with the reason. It posts as pending verification, with the held code
+                        shown beside its source. To re-run the sample instead, resolve this message once the new result has filed.
+                    </p>
+                    @if (Session.Has(PermissionCodes.ResultVerify))
+                    {
+                        <div class="form-row">
+                            <div class="field" style="flex:1;"><label>Why can it be posted?</label><input @bind="_releaseReason" @bind:event="oninput" placeholder="e.g. Reactions reviewed on the instrument; QC in range" data-inst-release-reason /></div>
+                            <div class="field"><label>&nbsp;</label><button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReason))" @onclick="ReleaseAsync" data-inst-release-button>Release held result</button></div>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="muted" style="margin:0;">Releasing a held result needs result verification permission.</p>
+                    }
+                </div>
+            }
             @* Handled outside replay (for example the result was entered by hand): close it with the reason. *@
             <div class="form-row">
                 <div class="field"><label>Resolve without replay: how was it handled?</label><input @bind="_resolveReason" @bind:event="oninput" placeholder="e.g. Result entered by hand from the instrument printout" /></div>
@@ -220,6 +242,27 @@
     }
 
     private string? _resolveReason;
+    private string? _releaseReason;
+
+    private static bool IsHeld(InstrumentMessageSummaryDto m) =>
+        m.OpenFailure && m.ErrorDetail?.Contains("INST-HOLD", StringComparison.Ordinal) == true;
+
+    private async Task ReleaseAsync()
+    {
+        if (_detail is null) return;
+        _busy = true;
+        var id = _detail.Message.Id;
+        var result = await Api.ReleaseHeldInstrumentResultAsync(id, _releaseReason ?? string.Empty);
+        _feedback = result.ToFeedback("Held result released: it is pending verification.");
+        if (result.Succeeded)
+        {
+            _releaseReason = null;
+            await LoadAsync();
+            await OpenAsync(id);
+        }
+
+        _busy = false;
+    }
 
     private async Task ResolveAsync()
     {

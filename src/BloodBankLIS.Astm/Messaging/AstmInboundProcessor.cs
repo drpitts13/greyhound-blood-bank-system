@@ -63,11 +63,19 @@ public sealed class AstmInboundProcessor
         _logger = logger;
     }
 
-    public async Task<AstmProcessOutcome> ProcessAsync(
+    public Task<AstmProcessOutcome> ProcessAsync(
         string raw,
         long interfaceId,
         bool isReplay = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        ProcessCoreAsync(raw, interfaceId, isReplay, releasedBy: null, ct);
+
+    private async Task<AstmProcessOutcome> ProcessCoreAsync(
+        string raw,
+        long interfaceId,
+        bool isReplay,
+        string? releasedBy,
+        CancellationToken ct)
     {
         var iface = await _interfaces.GetWithChildrenAsync(interfaceId, ct);
         var log = new InstrumentMessageLog
@@ -117,7 +125,7 @@ public sealed class AstmInboundProcessor
             }
             else
             {
-                await HandleResultsAsync(iface, message, log, notes, ct);
+                await HandleResultsAsync(iface, message, log, notes, ct, releasedBy);
             }
 
             log.Status = string.IsNullOrWhiteSpace(log.ErrorDetail)
@@ -171,6 +179,36 @@ public sealed class AstmInboundProcessor
         return outcome;
     }
 
+    /// <summary>
+    /// Posts a result an instrument error code held, after review: the stored message is processed again with its
+    /// holds released, the result carries the held codes in its source, and the failure closes with the reason
+    /// (audited). Only a held, open failure qualifies; anything else that fails it still fails.
+    /// </summary>
+    public async Task<AstmProcessOutcome?> ReleaseHeldAsync(long messageId, string? reason, CancellationToken ct = default)
+    {
+        var existing = await _messages.GetByIdAsync(messageId, ct);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        var check = InstrumentMessageFollowUpRule.EvaluateRelease(existing.Status, existing.ResolvedUtc, existing.ErrorDetail, reason);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return new AstmProcessOutcome(false, existing, null, [$"{check.Code}: {check.Message}"]) { Refused = true };
+        }
+
+        var by = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? "system" : _currentUser.UserName;
+        var outcome = await ProcessCoreAsync(existing.RawMessage, existing.InterfaceId, isReplay: true, releasedBy: by, ct);
+        if (outcome.Accepted)
+        {
+            Close(existing, InstrumentMessageFollowUpRule.ReleaseResolutionNote(reason!), outcome.Log.Id);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return outcome;
+    }
+
     /// <summary>Closes an open failed message that was handled outside replay, with the reason recorded and audited.</summary>
     public async Task<(InstrumentMessageLog? Message, string? Error)> ResolveAsync(long messageId, string? reason, CancellationToken ct = default)
     {
@@ -211,7 +249,8 @@ public sealed class AstmInboundProcessor
         AstmMessage message,
         InstrumentMessageLog log,
         List<string> notes,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? releasedBy = null)
     {
         var paths = AstmFieldAccessor.Index(iface.FieldMappings);
         var ruleTrace = new List<InstrumentRuleFire>();
@@ -353,6 +392,13 @@ public sealed class AstmInboundProcessor
                 Fail(log, notes, $"Analyte {unknownAnalyte} on {assayCode} has no subtest translation ({InstrumentTranslationKeys.UnknownCode}): "
                     + $"{appTest} not posted. Add it to the instrument's subtest codes, then replay.");
                 continue;
+            }
+
+            if (holds.Count > 0 && releasedBy is not null)
+            {
+                // Reviewed and released: post it, with the held codes kept beside the result for the verifier.
+                warnings.AddRange(holds.Select(h => $"{h} held, released by {releasedBy}"));
+                holds.Clear();
             }
 
             if (holds.Count > 0)

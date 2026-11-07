@@ -98,6 +98,17 @@ public static class InstrumentEndpoints
                     : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
         });
 
+        // Posting a flagged result is a review decision: it takes result verification as well as instrument access.
+        group.MapPost("/messages/{id:long}/release", async (long id, ReasonBody body, AstmInboundProcessor processor, CancellationToken ct) =>
+        {
+            var outcome = await processor.ReleaseHeldAsync(id, body.Reason, ct);
+            return outcome is null
+                ? Results.NotFound(new { error = $"Message {id} not found." })
+                : outcome.Refused || !outcome.Accepted
+                    ? Results.UnprocessableEntity(new { error = string.Join(" ", outcome.Notes) })
+                    : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
+        }).RequirePermission(PermissionCodes.ResultVerify);
+
         group.MapPost("/messages/{id:long}/resolve", async (long id, ReasonBody body, AstmInboundProcessor processor, CancellationToken ct) =>
         {
             var (message, error) = await processor.ResolveAsync(id, body.Reason, ct);

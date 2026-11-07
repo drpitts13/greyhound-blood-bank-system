@@ -25,4 +25,18 @@ public class InstrumentMessageFollowUpRuleTests
         Assert.Contains("already", InstrumentMessageFollowUpRule.EvaluateResolve(InstrumentMessageStatus.Failed, Now, "x").Message);
         Assert.Equal(RuleSeverity.HardStop, InstrumentMessageFollowUpRule.EvaluateResolve(InstrumentMessageStatus.Processed, null, "x").Severity);
     }
+
+    // TEST-BB-537: only an open failure held for an instrument error code can be released, and only with a reason.
+    [Fact]
+    public void Release_NeedsAHeldOpenFailure_AndAReason()
+    {
+        const string held = "Instrument error Q (Hold): ABORH for ACC1 held for review, not posted (INST-HOLD).";
+        Assert.Equal(RuleSeverity.Pass, InstrumentMessageFollowUpRule.EvaluateRelease(InstrumentMessageStatus.Failed, null, held, "QC reviewed").Severity);
+        Assert.Contains("Say why", InstrumentMessageFollowUpRule.EvaluateRelease(InstrumentMessageStatus.Failed, null, held, "  ").Message);
+        Assert.Contains("another reason", InstrumentMessageFollowUpRule.EvaluateRelease(
+            InstrumentMessageStatus.Failed, null, "Instrument code X has no translation to a test (INST-CODE)", "x").Message);
+        Assert.Contains("already resolved", InstrumentMessageFollowUpRule.EvaluateRelease(InstrumentMessageStatus.Failed, Now, held, "x").Message);
+        Assert.Equal(RuleSeverity.HardStop, InstrumentMessageFollowUpRule.EvaluateRelease(InstrumentMessageStatus.Processed, null, held, "x").Severity);
+        Assert.True(InstrumentMessageFollowUpRule.IsHeld(InstrumentMessageStatus.Failed, null, held));
+    }
 }

@@ -16316,3 +16316,30 @@ One assay/analyte map per instrument; values converted partly by text rules and 
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; per-instrument QC flag handling; LOINC and translated codes in the FHIR export; method and reagent lot on each result.
+
+## Iteration 492 — Release a held instrument result after review (2026-11-07)
+
+### Capability matrix rescan (operations: instrument failures)
+
+Cycles 488–491 let an instrument error code hold a result. A held result then had no path onto the record: replay held it again, resolve closed it without posting, so the technologist retyped the result from the instrument, which is slow and the transcription error the interface exists to avoid. Workflow questions: clicks (open message, reason, release); memory (none: the message names the code); inference (the release posts exactly what the instrument sent); scanning (n/a); next action (the held message explains replay vs release vs re-run); safety (posts only as pending verification, the held code stays beside the result, only held failures qualify, other failures in the message still fail); override (reason required, result verification permission, audited closure).
+
+### Design
+
+- `InstrumentMessageFollowUpRule.EvaluateRelease` / `IsHeld` (INST-HOLD-RELEASE).
+- `AstmInboundProcessor.ReleaseHeldAsync`: reprocess with holds released; held codes become "X held, released by user" in the source reference; original closes with "Held result released and posted: reason" (audited).
+- `POST /api/instruments/messages/{id}/release` (instrument management + result verification). Instruments page: held panel with explanation, reason, **Release held result**.
+
+### Requirements
+
+- URS-BB-555, FRS-BB-667. Help: instruments (operations).
+
+### Tests
+
+- TEST-BB-537: release only for a held open failure with a reason; other failures, resolved, and processed messages refused.
+- TEST-BB-538: replay holds again; blank reason refused and nothing posts; release posts pending verification with "Q held, released by tech-test", closes the failure with the reason and an audit event; a second release and a non-held failure are refused.
+- Full suite: 3,936 passed.
+- Live: the Instruments page loaded with its "1 unmapped" badge; the dev database has no held message and none was created, so the release panel is covered by the tests. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; held and released counts on the Instrument failures home card; LOINC and translated codes in the FHIR export; method and reagent lot on each result.

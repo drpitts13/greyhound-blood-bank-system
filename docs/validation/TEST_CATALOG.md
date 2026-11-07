@@ -545,5 +545,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-534 | I | `InstrumentInterfaceTests.Admin_RefusesUnknownLocalValues_AndBadErrorActions` | URS-BB-552 / FRS-BB-663 |
 | TEST-BB-535 | U | `InstrumentValueTranslatorTests.ARowForTheTest_WinsOverARowForEveryTest`; `InstrumentValueTranslatorTests.OrderTestCodes_GoOut_AndInboundRowsDoNot`; `InstrumentValueTranslatorTests.ErrorCodes_MapToActions_AndAnUnknownCodeHolds_AndIsListedOnce`; `InstrumentValueTranslatorTests.Validation_NamesBadRows`; `InstrumentValueTranslatorTests.InstrumentRows_ImportWithAnOptionalTestLimit`; `InstrumentInterfaceTests.Translator_UsesOrderWhenMultipleTestsShareInstrumentCode` | URS-BB-552 / FRS-BB-663 / FRS-BB-666 |
 | TEST-BB-536 | I | `SeederTests.Upgrade_CopiesTheOldMap_AndTurnsOffOnlyUnchangedTextRules`; `SeederTests.Seed_GivesTheEchoTranslations_InsteadOfTextRules` | URS-BB-552 / FRS-BB-663 / FRS-BB-664 |
+| TEST-BB-537 | U | `InstrumentMessageFollowUpRuleTests.Release_NeedsAHeldOpenFailure_AndAReason` | URS-BB-555 / FRS-BB-667 |
+| TEST-BB-538 | I | `InstrumentInterfaceTests.HeldResult_IsReleasedWithAReason_AndOtherFailuresAreNot` | URS-BB-555 / FRS-BB-667 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
