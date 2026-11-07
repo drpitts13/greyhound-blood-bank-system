@@ -986,6 +986,9 @@ public sealed class BloodBankApiClient
         CreateShiftHandoffRequest req, CancellationToken ct = default) =>
         SendAsync<ShiftHandoffDto>(HttpMethod.Post, "api/shift-handoffs", req, ct);
 
+    public Task<ApiResult<ShiftHandoffDto>> PreviewShiftHandoffAsync(CancellationToken ct = default) =>
+        SendAsync<ShiftHandoffDto>(HttpMethod.Get, "api/shift-handoffs/preview", ct: ct);
+
     public Task<ApiResult<ShiftHandoffDto>> AcknowledgeShiftHandoffAsync(long id, CancellationToken ct = default) =>
         SendAsync<ShiftHandoffDto>(HttpMethod.Post, $"api/shift-handoffs/{id}/acknowledge", ct: ct);
 

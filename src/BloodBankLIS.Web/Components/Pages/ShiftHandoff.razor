@@ -46,6 +46,17 @@ else
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>Record handoff</h3></div>
+        @if (_preview is not null)
+        {
+            <div style="margin-bottom:.75rem;" data-handoff-preview>
+                <div class="flex-between">
+                    <strong>What you are handing over</strong>
+                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadPreviewAsync">Refresh counts</button>
+                </div>
+                <p class="muted" style="margin:.3rem 0 0;">@_preview.QueueSummary</p>
+                <p class="muted" style="margin:.2rem 0 0;font-size:.85rem;">Counted now; the handoff records the counts again when you save. Mention in the note anything the counts do not show.</p>
+            </div>
+        }
         <div class="form-row">
             <div class="field" style="grid-column:1/-1;">
                 <label>Handoff note</label>
@@ -142,9 +153,12 @@ else
     private bool _loading = true;
     private Feedback? _fb;
 
+    private ShiftHandoffDto? _preview;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
+        await LoadPreviewAsync();
         if (Session.Has(PermissionCodes.ShiftHandoff))
         {
             var users = await Api.GetDirectoryUsersAsync();
@@ -175,6 +189,13 @@ else
         _open = open.Succeeded ? open.Value : null;
     }
 
+    private async Task LoadPreviewAsync()
+    {
+        if (!Session.Has(PermissionCodes.ShiftHandoff)) return;
+        var preview = await Api.PreviewShiftHandoffAsync();
+        _preview = preview.Succeeded ? preview.Value : null;
+    }
+
     private async Task CreateAsync()
     {
         _busy = true;
@@ -186,6 +207,7 @@ else
             _notes = string.Empty;
             _toUser = null;
             await LoadAsync();
+            await LoadPreviewAsync();
         }
     }
 

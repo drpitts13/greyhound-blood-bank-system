@@ -236,6 +236,40 @@ public sealed class ShiftHandoffService
             }
         }
 
+        var row = await SnapshotAsync(ct);
+        row.ToUser = string.IsNullOrWhiteSpace(request.ToUser) ? null : request.ToUser.Trim();
+        row.Notes = request.Notes.Trim();
+
+        await _handoffs.AddAsync(row, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit?.Record(
+            AuditEventType.ShiftHandoff,
+            nameof(ShiftHandoff),
+            row.Id,
+            newValue: Snapshot(row),
+            reason: "Shift handoff recorded.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ShiftHandoff>.Ok(row);
+    }
+
+    /// <summary>
+    /// What a handoff recorded now would carry, without recording it: the person handing over sees the counts while
+    /// writing the note. Uses the same counting as <see cref="CreateAsync"/>.
+    /// </summary>
+    public async Task<OperationResult<ShiftHandoffDto>> PreviewAsync(CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<ShiftHandoffDto>.Fail(denied.Error ?? "Shift handoff requires the shift.handoff permission.");
+        }
+
+        return OperationResult<ShiftHandoffDto>.Ok(ShiftHandoffDto.From(await SnapshotAsync(ct)));
+    }
+
+    /// <summary>The queue counts at this moment, the same ones the dashboard shows.</summary>
+    private async Task<ShiftHandoff> SnapshotAsync(CancellationToken ct)
+    {
         var retro = _issuing is null
             ? Array.Empty<RetrospectiveCrossmatchWorkItemDto>()
             : await _issuing.ListPendingRetrospectiveCrossmatchesAsync(ct);
@@ -275,12 +309,10 @@ public sealed class ShiftHandoffService
             ? []
             : (await _reagentQc.ListWorkAsync(ct)).Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
 
-        var row = new ShiftHandoff
+        return new ShiftHandoff
         {
             RecordedUtc = _clock.UtcNow,
             FromUser = _currentUser.UserName,
-            ToUser = string.IsNullOrWhiteSpace(request.ToUser) ? null : request.ToUser.Trim(),
-            Notes = request.Notes.Trim(),
             RetrospectiveDue = retro.Count,
             RetrospectiveOverdue = RetrospectiveCrossmatchAttentionRule.CountOverdue(retro),
             OutstandingIssued = outstanding.Count,
@@ -315,17 +347,6 @@ public sealed class ShiftHandoffService
             Hl7ErrorsOpen = _hl7Errors is null ? 0 : (await _hl7Errors.ListAsync(e => !e.Resolved, ct)).Count,
             UnmappedInterfaceValues = _unmapped is null ? 0 : (await _unmapped.ListAsync(v => v.ResolvedUtc == null, ct)).Count
         };
-
-        await _handoffs.AddAsync(row, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
-        _audit?.Record(
-            AuditEventType.ShiftHandoff,
-            nameof(ShiftHandoff),
-            row.Id,
-            newValue: Snapshot(row),
-            reason: "Shift handoff recorded.");
-        await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<ShiftHandoff>.Ok(row);
     }
 
     public async Task<OperationResult<ShiftHandoff>> AcknowledgeAsync(long id, CancellationToken ct = default)

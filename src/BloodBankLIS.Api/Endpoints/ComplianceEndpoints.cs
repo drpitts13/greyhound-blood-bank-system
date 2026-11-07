@@ -149,6 +149,10 @@ public static class ComplianceEndpoints
             return open is null ? Results.NoContent() : Results.Ok(open);
         });
 
+        // What a handoff recorded now would carry; nothing is saved.
+        group.MapGet("/preview", async (ShiftHandoffService service, CancellationToken ct) =>
+            EndpointResults.From(await service.PreviewAsync(ct), d => d));
+
         group.MapPost("/", async (CreateShiftHandoffRequest request, ShiftHandoffService service, CancellationToken ct) =>
             EndpointResults.Created(await service.CreateAsync(request, ct),
                 h => ($"/api/shift-handoffs/{h.Id}", (object)ShiftHandoffDto.From(h))));

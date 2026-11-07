@@ -16698,3 +16698,27 @@ Cycle 505 added instrument and reagent counts, but the handoff still missed open
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; show the live handoff counts before recording (a preview).
+
+## Iteration 507 — Preview the shift handoff before recording (2026-11-07)
+
+### Capability matrix rescan (operations: shift handoff)
+
+The handoff counts were only visible after recording, so the person handing over wrote the note blind to what the packet would say and had to remember every open queue. Workflow questions: memory (the counts are on screen while writing); clicks (none: the preview loads with the page); next action (mention what the counts do not show); safety (no change to what is recorded: the same snapshot method counts at preview and at save).
+
+### Design
+
+- `ShiftHandoffService.SnapshotAsync` shared by `CreateAsync` and `PreviewAsync`; `GET /api/shift-handoffs/preview`; page summary with Refresh counts.
+
+### Requirements
+
+- URS-BB-566, FRS-BB-682. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-555: the preview saves no row, carries the open critical deviation, matches the summary of the handoff then recorded, and is refused without shift.handoff.
+- Full suite: 3,965 passed.
+- Live: the Shift handoff page opened with "What you are handing over": MASSIVE TRANSFUSION ACTIVE: 1; transfusing 1, 1 completion overdue; Retro 3, 1 overdue; … EXPIRED ON SHELF 2; BELOW MINIMUM STOCK 1 product; deviations open 1; unmapped interface values 2 (the demo's LAB99999 and Antigen). Nothing was recorded. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; link each count in the preview to its queue.

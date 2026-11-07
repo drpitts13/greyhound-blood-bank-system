@@ -365,6 +365,35 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains($"unmapped interface values {expectedUnmapped}", summary);
     }
 
+    // TEST-BB-555: the preview shows what a handoff recorded now would carry, saves nothing, matches what recording then
+    // stores, and needs the shift.handoff permission like recording does.
+    [Fact]
+    public async Task Preview_MatchesTheRecordedCounts_AndSavesNothing()
+    {
+        await using var context = _factory.Create();
+        context.Deviations.Add(new Deviation { Title = "Preview open", Description = "d", Severity = DeviationSeverity.Critical, Status = DeviationStatus.UnderReview });
+        await context.SaveChangesAsync();
+        ShiftHandoffService Service(IPermissionEvaluator permissions) => new(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: permissions,
+            deviations: new EfRepository<Deviation>(context));
+        var before = await context.ShiftHandoffs.CountAsync();
+
+        var preview = await Service(new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff)).PreviewAsync();
+
+        Assert.True(preview.Succeeded, preview.Error);
+        Assert.Equal(before, await context.ShiftHandoffs.CountAsync());
+        Assert.Equal(0, preview.Value!.Id);
+        Assert.Contains("CRITICAL DEVIATION OPEN", preview.Value.QueueSummary);
+        var recorded = await Service(new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff)).CreateAsync(new CreateShiftHandoffRequest("After preview"));
+        Assert.True(recorded.Succeeded, recorded.Error);
+        Assert.Equal(preview.Value.QueueSummary, ShiftHandoffDto.From(recorded.Value!).QueueSummary);
+
+        var denied = await Service(new FixedPermissionEvaluator(0, PermissionCodes.ResultEnter)).PreviewAsync();
+        Assert.False(denied.Succeeded);
+    }
+
     // TEST-BB-508: a handoff counts products below their minimum stock level, without admin.config.edit, and keeps the
     // count in its audit snapshot.
     [Fact]

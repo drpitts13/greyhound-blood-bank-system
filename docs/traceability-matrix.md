@@ -675,6 +675,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-564 / FRS-BB-679 | FHIR Specimen; results and reports point at their tube | `FhirMapper.Specimen`; `FhirReadService`; `FhirEndpoints` | TEST-BB-552, TEST-BB-551 | I | OCD-043 |
 | URS-BB-565 / FRS-BB-680 | Handoff counts instrument failures and failed reagent lots | `ShiftHandoffService` | TEST-BB-553 | I | |
 | URS-BB-565 / FRS-BB-681 | Handoff counts HL7 errors and unmapped interface values | `ShiftHandoffService` | TEST-BB-554 | I | |
+| URS-BB-566 / FRS-BB-682 | Handoff preview before recording | `ShiftHandoffService.PreviewAsync`; `ShiftHandoff.razor` | TEST-BB-555 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

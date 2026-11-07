@@ -571,3 +571,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-563 | The EHR can read each blood bank order's verified results as one report, marked partial until every test on the order is verified, then final, or corrected after a verified correction. | P2 | FRS-BB-678 |
 | URS-BB-564 | The EHR can see which tube each blood bank result and report came from, and the tube's state (usable, rejected with its reason, expired, cancelled) and the time it stops being valid for testing. | P2 | FRS-BB-679 |
 | URS-BB-565 | The shift handoff tells the next shift about open instrument failures (and results held for review), reagent lots whose QC failed (and results still to review), open HL7 errors, and unmapped interface values. | P2 | FRS-BB-680, FRS-BB-681 |
+| URS-BB-566 | The person handing over sees what the handoff will carry while writing the note, before recording it. | P2 | FRS-BB-682 |
