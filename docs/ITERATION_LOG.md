@@ -16746,3 +16746,27 @@ The handoff (Cycles 505–507) was one long text line: the incoming technologist
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; the same linked items on the home screen's shift handoff card.
+
+## Iteration 509 — Home handoff card names the urgent items (2026-11-07)
+
+### Capability matrix rescan (operations: home screen)
+
+The home Shift handoff card said only "Needs acknowledgment"; the incoming technologist could not tell from home whether the open handoff carried a massive transfusion or a failed reagent lot. Workflow questions: memory (the urgent items are on the card); next action (open the handoff, acknowledge, then each linked queue); safety (urgent handed-over items visible at shift start).
+
+### Design
+
+- `DashboardQueueCatalog.HandoffNote(ShiftHandoffDto?)` from `ShiftHandoffItems` urgent items; Home passes the open handoff.
+
+### Requirements
+
+- URS-BB-567 (extended), FRS-BB-684. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-557: no open handoff, no note; no urgent items, "Needs acknowledgment"; two urgent items named; four named as three and "and 1 more".
+- Full suite: 3,969 passed.
+- Live: not run; the dev database has no open handoff (none was recorded), so the card shows clear; the note is covered by TEST-BB-557.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; acknowledging a handoff from the home card.

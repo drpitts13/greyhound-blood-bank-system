@@ -572,4 +572,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-564 | The EHR can see which tube each blood bank result and report came from, and the tube's state (usable, rejected with its reason, expired, cancelled) and the time it stops being valid for testing. | P2 | FRS-BB-679 |
 | URS-BB-565 | The shift handoff tells the next shift about open instrument failures (and results held for review), reagent lots whose QC failed (and results still to review), open HL7 errors, and unmapped interface values. | P2 | FRS-BB-680, FRS-BB-681 |
 | URS-BB-566 | The person handing over sees what the handoff will carry while writing the note, before recording it. | P2 | FRS-BB-682 |
-| URS-BB-567 | Each queue in a shift handoff opens the board where it is worked, safety items first, so the incoming technologist goes straight from the handoff to the work. | P2 | FRS-BB-683 |
+| URS-BB-567 | Each queue in a shift handoff opens the board where it is worked, safety items first, so the incoming technologist goes straight from the handoff to the work; the home screen names the open handoff's urgent items. | P2 | FRS-BB-683, FRS-BB-684 |

@@ -243,6 +243,27 @@ public static class DashboardQueueCatalog
     public static string? HandoffNote(bool open) =>
         open ? "Needs acknowledgment" : null;
 
+    /// <summary>
+    /// The open handoff's card note: it needs acknowledgment, and which urgent items it hands over (up to three, then
+    /// how many more), so the incoming technologist sees them from the home screen.
+    /// </summary>
+    public static string? HandoffNote(ShiftHandoffDto? open)
+    {
+        if (open is null)
+        {
+            return null;
+        }
+
+        var urgent = ShiftHandoffItems.For(open).Where(i => i.Urgent).Select(i => i.Label).ToList();
+        if (urgent.Count == 0)
+        {
+            return HandoffNote(true);
+        }
+
+        var named = string.Join(", ", urgent.Take(3)) + (urgent.Count > 3 ? $", and {urgent.Count - 3} more" : "");
+        return $"Needs acknowledgment; urgent: {named}";
+    }
+
     private static void Add(List<Card> cards, bool show, string key, string label, string href)
     {
         if (show)

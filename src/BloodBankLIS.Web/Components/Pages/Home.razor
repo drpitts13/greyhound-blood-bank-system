@@ -459,7 +459,7 @@
                 }
 
                 var open = result.Value is not null;
-                return (card.Key, open ? 1 : 0, DashboardQueueCatalog.HandoffNote(open));
+                return (card.Key, open ? 1 : 0, DashboardQueueCatalog.HandoffNote(result.Value));
             }
             default:
                 return (card.Key, null, null);

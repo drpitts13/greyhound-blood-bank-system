@@ -104,6 +104,21 @@ public class DashboardQueueCatalogTests
         Assert.Equal("Needs acknowledgment", DashboardQueueCatalog.HandoffNote(true));
     }
 
+    // TEST-BB-557: the open handoff's home card names its urgent items, up to three and then how many more.
+    [Fact]
+    public void HandoffNote_NamesTheUrgentItemsOfTheOpenHandoff()
+    {
+        ShiftHandoffDto Open(int mtp = 0, int expired = 0, int reagentLots = 0, int critical = 0, int pending = 0) =>
+            new(1, DateTime.UtcNow, "tech", null, "note", 0, 0, 0, 0, 0, pending, 0, 0, 0, null, null,
+                ActiveMtp: mtp, ExpiredOnShelf: expired, ReagentLotsFailedQc: reagentLots, CriticalDeviations: critical);
+
+        Assert.Null(DashboardQueueCatalog.HandoffNote((ShiftHandoffDto?)null));
+        Assert.Equal("Needs acknowledgment", DashboardQueueCatalog.HandoffNote(Open(pending: 4)));
+        Assert.Equal("Needs acknowledgment; urgent: Massive transfusion active, Expired on shelf", DashboardQueueCatalog.HandoffNote(Open(mtp: 1, expired: 2)));
+        Assert.Equal("Needs acknowledgment; urgent: Massive transfusion active, Critical deviation open, Reagent QC failed, and 1 more",
+            DashboardQueueCatalog.HandoffNote(Open(mtp: 1, critical: 1, reagentLots: 1, expired: 1)));
+    }
+
     [Fact]
     public void IssuingDesk_OpensTheNamedBoard_AndKeepsIssueWhenAPatientIsPrefilled()
     {
