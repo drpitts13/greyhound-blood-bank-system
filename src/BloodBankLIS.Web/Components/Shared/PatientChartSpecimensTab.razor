@@ -40,6 +40,10 @@
                             }
                         }
                     </select>
+                    @if (SpecimenTypeOrderHint.WaitingNote(Orders, TestDefs) is { } waitingNote)
+                    {
+                        <span class="sub" data-accession-waiting-note>@waitingNote</span>
+                    }
                 </div>
                 <div class="field"><label>Visit drawn on</label>
                     <select @bind="Accession.EncounterId" data-accession-visit>
@@ -86,6 +90,10 @@
                     Accept now — specimen is already in the blood bank
                 </label>
                 <p class="muted" style="margin:.25rem 0 .75rem;">Leave unchecked to record collection only. Receive and accept from the pending-specimens worklist. Result entry still requires Accepted.</p>
+                @if (SpecimenTypeOrderHint.MismatchWarning(TestDefs, SpecimenTypeOrderHint.Waiting(Orders).TestCodes, Accession.SpecimenType) is { } typeWarning)
+                {
+                    <div class="alert alert-warning" data-accession-type-warning>@typeWarning</div>
+                }
                 <button class="btn btn-primary" disabled="@Busy" @onclick="OnAccession">Accession</button>
         </div>
     }
@@ -310,6 +318,8 @@
     [Parameter] public PatientAccessionForm Accession { get; set; } = new();
     [Parameter] public PatientSpecimenEditForm Edit { get; set; } = new();
     [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
+    [Parameter] public IReadOnlyList<PatientOrderDto> Orders { get; set; } = [];
+    [Parameter] public IReadOnlyList<TestDefinitionListItemDto> TestDefs { get; set; } = [];
     [Parameter] public IReadOnlyList<SpecimenDto> Specimens { get; set; } = [];
     [Parameter] public long? SelectedId { get; set; }
     [Parameter] public long? EditId { get; set; }

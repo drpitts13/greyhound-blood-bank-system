@@ -263,6 +263,8 @@ else
             Accession="_acc"
             Edit="_edit"
             SpecimenTypes="_specimenTypes"
+            Orders="_orders"
+            TestDefs="_testDefs"
             Specimens="_specimens"
             SelectedId="_selectedSpecimen?.Id"
             EditId="_editId"
@@ -2552,6 +2554,11 @@ else
         {
             // Start on the patient's only open visit; with several open, the user chooses.
             _acc.EncounterId = CurrentVisit.DefaultForNewTube(_encounters) ?? 0;
+            // Start on the tube type the waiting orders accept, when the current one would not serve them.
+            if (SpecimenTypeOrderHint.AccessionTypeFor(_orders, _testDefs, _acc.SpecimenType, _specimenTypes) is { } type)
+            {
+                _acc.SpecimenType = type;
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -112,6 +113,65 @@ public static class SpecimenTypeOrderHint
         }
 
         return $"Specimen type '{specimenType}' does not match {string.Join("; ", mismatched)}. Result entry will be blocked unless the specimen type matches.";
+    }
+
+    /// <summary>
+    /// The chart's open orders with test lines and no specimen yet: their order numbers and the test codes they carry.
+    /// </summary>
+    public static (IReadOnlyList<string> OrderNumbers, IReadOnlyList<string> TestCodes) Waiting(IEnumerable<PatientOrderDto> orders)
+    {
+        var waiting = orders
+            .Where(o => o.SpecimenId is null or 0
+                && o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+            .Select(o => (o.OrderNumber, Codes: o.Lines
+                .Select(l => l.TestCode)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c!.Trim().ToUpperInvariant())
+                .Distinct()
+                .ToList()))
+            .Where(o => o.Codes.Count > 0)
+            .ToList();
+        return (
+            waiting.Select(o => o.OrderNumber).ToList(),
+            waiting.SelectMany(o => o.Codes).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+    }
+
+    /// <summary>
+    /// For accession from the Specimens tab: "Waiting for a specimen: ORD-1 (ABORH, ABSC). ABORH accepts EDTA; …", or
+    /// null when no open test order is waiting.
+    /// </summary>
+    public static string? WaitingNote(IEnumerable<PatientOrderDto> orders, IEnumerable<TestDefinitionListItemDto> tests)
+    {
+        var (numbers, codes) = Waiting(orders);
+        if (codes.Count == 0)
+        {
+            return null;
+        }
+
+        var head = $"Waiting for a specimen: {string.Join(", ", numbers)} ({string.Join(", ", codes)}).";
+        return AcceptedSpecimenTypes.OrderNote(Selected(tests, codes)) is { } note ? $"{head} {note}" : head;
+    }
+
+    /// <summary>
+    /// The tube type to start a Specimens-tab accession on: the type that suits the waiting orders when the current one
+    /// does not and the site offers it; otherwise null (keep the current type).
+    /// </summary>
+    public static string? AccessionTypeFor(
+        IEnumerable<PatientOrderDto> orders,
+        IReadOnlyList<TestDefinitionListItemDto> tests,
+        string? currentType,
+        IReadOnlyList<SpecimenTypeListItemDto> siteTypes)
+    {
+        var (_, codes) = Waiting(orders);
+        if (codes.Count == 0 || MismatchWarning(tests, codes, currentType) is null)
+        {
+            return null;
+        }
+
+        var type = FirstRequiredType(tests, codes);
+        return type is not null && (siteTypes.Count == 0 || siteTypes.Any(t => string.Equals(t.Code, type, StringComparison.OrdinalIgnoreCase)))
+            ? type
+            : null;
     }
 
     public static DateTime? PreviewExpiresUtc(

@@ -569,5 +569,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-558 | U | `CompetitorGapRuleTests.Worklist_FailedOnlyWhileLatest_AndExpiredLotsFlagged`; `ReagentLotUseRuleTests.EntryWarning_NamesAnExpiredOpenLot`; `DashboardQueueCatalogTests.ReagentQc_*` (expired note) | URS-BB-568 / FRS-BB-685 |
 | TEST-BB-559 | U, I | `ReagentLotRuleTests.Receive_RefusesAnExpiredLot_AndANumberInUse`; `ReagentLotRuleTests.OpenAndQc_RefuseExpiredOrClosedLots`; `ReagentLotRuleTests.ExpiryText_CountsDaysLeft_AndFlagsExpiringSoon`; `CompetitorGapWorkflowTests.ReagentLot_Lifecycle_RefusesExpiredAndDuplicateLots_AndAuditsOpenAndClose` | URS-BB-569 / FRS-BB-686 |
 | TEST-BB-560 | U, I | `ReagentLotRuleTests.Worklist_AsksToReplaceAnOpenLotNearExpiry_OnlyWhenNoLaterLotIsOnHand`; `DashboardQueueCatalogTests.ReagentQc_*` (lots to replace); `CompetitorGapWorkflowTests.ReagentLot_NearExpiryWithNoNextLot_AsksToReceiveOne_UntilANextLotIsReceived` | URS-BB-570 / FRS-BB-687 |
+| TEST-BB-561 | U | `SpecimenAccessionWaitingTests.Waiting_IsOpenTestOrdersWithoutASpecimen`; `SpecimenAccessionWaitingTests.AccessionType_StartsOnATypeTheWaitingOrdersAccept` | URS-BB-571 / FRS-BB-688 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

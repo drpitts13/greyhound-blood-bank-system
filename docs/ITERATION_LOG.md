@@ -16838,3 +16838,21 @@ Chosen gap: Cycles 510–511 handle a lot once it has expired, but nothing warne
 
 - TEST-BB-560: Replace only for the opened lot near expiry with nothing later (a received later lot, a closed later lot, a lot not near expiry, and a received lot are handled); card note; integration: the item appears, then clears once the next lot is received.
 - Full suite: 3,977 passed.
+
+## Iteration 513 — Specimens-tab accession names the waiting orders' tube types (2026-11-07)
+
+### Capability matrix rescan (orders and specimens: collection)
+
+Cycles 501–502 told order entry which tube types the selected tests accept, but accessioning a tube from the chart's Specimens tab (a draw for orders already placed) started on EDTA and said nothing about the orders it was for. A collector could label a clot tube for an order that accepts only EDTA and learn it at result entry. Workflow questions: memory (which orders are waiting and what tube each needs is on the form); inference (the form starts on a type that suits them all); safety (a mismatch is warned before the tube is accessioned).
+
+### Design
+
+- `SpecimenTypeOrderHint.Waiting`, `WaitingNote`, `AccessionTypeFor` (Web helper, testable); the Specimens tab receives the chart's orders and test catalog.
+
+### Requirements
+
+- URS-BB-571, FRS-BB-688.
+
+### Tests
+
+- TEST-BB-561: only open test orders without a specimen count; the note names them and the common type; the form starts on a suitable type only when the current one does not suit and the site offers it; mismatch warned.
