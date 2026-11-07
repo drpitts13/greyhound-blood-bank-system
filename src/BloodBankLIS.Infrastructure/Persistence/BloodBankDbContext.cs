@@ -94,6 +94,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<InterfaceEndpoint> InterfaceEndpoints => Set<InterfaceEndpoint>();
     public DbSet<InterfaceFieldMapping> InterfaceFieldMappings => Set<InterfaceFieldMapping>();
     public DbSet<InterfaceValueTranslation> InterfaceValueTranslations => Set<InterfaceValueTranslation>();
+    public DbSet<InterfaceUnmappedValue> InterfaceUnmappedValues => Set<InterfaceUnmappedValue>();
     public DbSet<Hl7MessageLog> Hl7Messages => Set<Hl7MessageLog>();
     public DbSet<InterfaceErrorQueueItem> InterfaceErrorQueue => Set<InterfaceErrorQueueItem>();
     public DbSet<PrintJob> PrintJobs => Set<PrintJob>();

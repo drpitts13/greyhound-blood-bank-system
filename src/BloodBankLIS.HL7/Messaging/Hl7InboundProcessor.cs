@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
@@ -30,6 +31,8 @@ public sealed class Hl7InboundProcessor
     public const string ReplayDisabledMessage = "Replay is turned off for this interface.";
     public const string AlreadyAppliedMessage = "This message already applied and was not replayed.";
     public const string ResolveReasonRequired = "A reason is required to resolve an interface error without replaying it.";
+    private readonly InterfaceValueSets? _valueSets;
+    private readonly InterfaceUnmappedValueService? _unmapped;
     private readonly IRepository<Hl7MessageLog> _logs;
     private readonly IRepository<InterfaceErrorQueueItem> _errors;
     private readonly IRepository<Patient> _patients;
@@ -77,8 +80,12 @@ public sealed class Hl7InboundProcessor
         ICurrentUser? currentUser = null,
         IAuditWriter? audit = null,
         PatientHistoricalAliasWriter? aliasWriter = null,
-        InterfaceDispenseRequestService? dispenseRequests = null)
+        InterfaceDispenseRequestService? dispenseRequests = null,
+        InterfaceValueSets? valueSets = null,
+        InterfaceUnmappedValueService? unmapped = null)
     {
+        _valueSets = valueSets;
+        _unmapped = unmapped;
         _dispenseRequests = dispenseRequests;
         _logs = logs;
         _errors = errors;
@@ -287,20 +294,23 @@ public sealed class Hl7InboundProcessor
                 log);
         }
 
+        Hl7FieldMap? usedMap = null;
         try
         {
             var (map, resolvedId, enabled) = await ResolveInboundAsync(message.MessageType, endpointId, ct);
             log.EndpointId ??= resolvedId;
             if (enabled)
             {
-                map.Translator = await LoadTranslatorAsync(ct);
+                map.Translator = await LoadTranslatorAsync(log.EndpointId, ct);
             }
 
+            usedMap = map;
             var text = await DispatchAsync(message, map, ct);
             log.Status = isReplay ? Hl7MessageStatus.Replayed : Hl7MessageStatus.Processed;
             log.AckCode = AckCode.Accept;
             log.ProcessedUtc = now;
             await _unitOfWork.SaveChangesAsync(ct);
+            await RecordMissesAsync(usedMap.Translator, log.EndpointId, message.MessageControlId, ct);
             return new Hl7ProcessResult(
                 Hl7AckBuilder.BuildAck(message, AckCode.Accept, text, ackControlId, now),
                 AckCode.Accept,
@@ -322,6 +332,11 @@ public sealed class Hl7InboundProcessor
                 Resolved = false
             }, ct);
             await _unitOfWork.SaveChangesAsync(ct);
+            if (usedMap is not null)
+            {
+                await RecordMissesAsync(usedMap.Translator, log.EndpointId, message.MessageControlId, ct);
+            }
+
             return new Hl7ProcessResult(
                 Hl7AckBuilder.BuildAck(message, AckCode.ApplicationError, ex.Message, ackControlId, now),
                 AckCode.ApplicationError,
@@ -924,7 +939,8 @@ public sealed class Hl7InboundProcessor
         return (Hl7FieldMap.From(endpoint), endpoint.Id, endpoint.IsEnabled);
     }
 
-    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(CancellationToken ct)
+    /// <summary>The interface's translations (its overrides over the global rows), a grouper before a test.</summary>
+    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(long? endpointId, CancellationToken ct)
     {
         if (_translations is null)
         {
@@ -932,7 +948,17 @@ public sealed class Hl7InboundProcessor
         }
 
         var rows = await _translations.ListAsync(ct);
-        return InterfaceValueTranslator.From(rows);
+        var groupers = _valueSets is null ? null : await _valueSets.GrouperCodesAsync(ct);
+        return InterfaceValueTranslator.From(rows, endpointId, groupers is null ? null : groupers.Contains);
+    }
+
+    /// <summary>Lists the values this message needed that had no translation, for the interface team.</summary>
+    private async Task RecordMissesAsync(InterfaceValueTranslator translator, long? endpointId, string? controlId, CancellationToken ct)
+    {
+        if (_unmapped is not null && translator.Misses.Count > 0)
+        {
+            await _unmapped.RecordAsync(translator.Misses, endpointId, controlId, ct);
+        }
     }
 }
 

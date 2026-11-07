@@ -621,11 +621,43 @@ public sealed record InterfaceValueTranslationDto(
 public sealed record InterfaceTranslationTableDto(
     string DataItemKey,
     string DisplayName,
-    IReadOnlyList<InterfaceValueTranslationDto> Rows);
+    IReadOnlyList<InterfaceValueTranslationDto> Rows,
+    // The scope shown: null for all interfaces, else one interface's override rows.
+    long? EndpointId = null,
+    // The local values this field may translate to; empty when any value is allowed.
+    IReadOnlyList<InterfaceLocalValueDto>? LocalValues = null,
+    // The all-interfaces rows, shown beside an interface's overrides.
+    IReadOnlyList<InterfaceValueTranslationDto>? GlobalRows = null);
 
 public sealed record SaveInterfaceTranslationsRequest(
     IReadOnlyList<InterfaceValueTranslationDto> Rows,
-    string? ChangeReason);
+    string? ChangeReason,
+    long? EndpointId = null);
+
+/// <summary>A local value a field may translate to, with what it is ("Test", "Grouper", "Visit type"…).</summary>
+public sealed record InterfaceLocalValueDto(string Value, string Label, string? Kind = null);
+
+/// <summary>A translatable field for the admin list: its group and how many rows it has (all scopes).</summary>
+public sealed record InterfaceTranslationFieldDto(string Key, string DisplayName, string Description, string Category, int RowCount, bool HasValueList);
+
+/// <summary>The result of trying a value through the translations, as the interface would.</summary>
+public sealed record InterfaceTranslationCheckDto(string Input, string Output, bool Translated, string? FromKey, bool FromInterfaceOverride, string? Note);
+
+public sealed record InterfaceUnmappedValueDto(
+    long Id,
+    long? EndpointId,
+    string? EndpointName,
+    string DataItemKey,
+    string DisplayName,
+    string Value,
+    InterfaceTranslationDirection Direction,
+    DateTime FirstSeenUtc,
+    DateTime LastSeenUtc,
+    int Count,
+    string? LastMessageControlId,
+    DateTime? ResolvedUtc,
+    string? ResolvedBy,
+    string? ResolvedNote);
 
 // ---- Users & roles ----
 

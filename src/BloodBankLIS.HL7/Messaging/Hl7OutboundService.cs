@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -31,6 +32,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
     private readonly IRepository<OrderLine>? _orderLines;
     private readonly IRepository<TestDefinition>? _testDefinitions;
+    private readonly InterfaceValueSets? _valueSets;
+    private readonly InterfaceUnmappedValueService? _unmapped;
 
     public Hl7OutboundService(
         IRepository<TestResult> results,
@@ -48,8 +51,12 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         IRepository<Specimen>? specimens = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
         IRepository<OrderLine>? orderLines = null,
-        IRepository<TestDefinition>? testDefinitions = null)
+        IRepository<TestDefinition>? testDefinitions = null,
+        InterfaceValueSets? valueSets = null,
+        InterfaceUnmappedValueService? unmapped = null)
     {
+        _valueSets = valueSets;
+        _unmapped = unmapped;
         _testDefinitions = testDefinitions;
         _specimens = specimens;
         _orderSpecimens = orderSpecimens;
@@ -92,7 +99,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         var now = _clock.UtcNow;
         var controlId = $"OUT{now:yyyyMMddHHmmssfff}";
         var resolved = await ResolveOutboundAsync(InterfaceType.Results, ct);
-        var translator = await LoadTranslatorAsync(ct);
+        var translator = await LoadTranslatorAsync(resolved.EndpointId, ct);
         var definition = _testDefinitions is null
             ? null
             : await _testDefinitions.FirstOrDefaultAsync(d => d.IsActive && d.Code == result.TestCode, ct);
@@ -115,6 +122,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         };
         await _logs.AddAsync(log, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+        await RecordMissesAsync(translator, resolved.EndpointId, controlId, ct);
 
         return OperationResult<Hl7MessageLog>.Ok(log);
     }
@@ -192,7 +200,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
 
         var now = _clock.UtcNow;
         var resolved = await ResolveOutboundAsync(InterfaceType.Results, ct);
-        var translator = await LoadTranslatorAsync(ct);
+        var translator = await LoadTranslatorAsync(resolved.EndpointId, ct);
         var reason = string.IsNullOrWhiteSpace(specimen.RejectionReason) ? "rejected" : specimen.RejectionReason!;
         var sequence = 0;
         foreach (var line in lines)
@@ -214,6 +222,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+        await RecordMissesAsync(translator, resolved.EndpointId, null, ct);
         return lines.Count;
     }
 
@@ -230,7 +239,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         var now = _clock.UtcNow;
         var controlId = $"DFT{now:yyyyMMddHHmmssfff}{billingEvent.Id}";
         var resolved = await ResolveOutboundAsync(InterfaceType.Billing, ct);
-        var translator = await LoadTranslatorAsync(ct);
+        var translator = await LoadTranslatorAsync(resolved.EndpointId, ct);
         var raw = Hl7DftBuilder.Build(patient, billingEvent, controlId, now, resolved.Identity, map: resolved.Map, translator: translator);
 
         var log = new Hl7MessageLog
@@ -280,7 +289,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         var statusUtc = dispenseEvent == ProductDispenseEvent.Dispensed ? issue.IssuedUtc : now;
         var controlId = $"BPS{now:yyyyMMddHHmmssfff}{issue.Id}";
         var resolved = await ResolveOutboundAsync(InterfaceType.Bpam, ct);
-        var translator = await LoadTranslatorAsync(ct);
+        var translator = await LoadTranslatorAsync(resolved.EndpointId, ct);
         var raw = Hl7BpsBuilder.Build(patient, issue, unit, product, order, dispenseEvent, statusUtc, controlId, now,
             resolved.Identity, map: resolved.Map, translator: translator);
 
@@ -327,7 +336,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         return (Hl7FieldMap.From(endpoint), Hl7OutboundIdentity.From(endpoint), endpoint.Id);
     }
 
-    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(CancellationToken ct)
+    /// <summary>The interface's translations (its overrides over the global rows), a grouper before a test.</summary>
+    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(long? endpointId, CancellationToken ct)
     {
         if (_translations is null)
         {
@@ -335,6 +345,16 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         }
 
         var rows = await _translations.ListAsync(ct);
-        return InterfaceValueTranslator.From(rows);
+        var groupers = _valueSets is null ? null : await _valueSets.GrouperCodesAsync(ct);
+        return InterfaceValueTranslator.From(rows, endpointId, groupers is null ? null : groupers.Contains);
+    }
+
+    /// <summary>Lists the values this message needed that had no translation, for the interface team.</summary>
+    private async Task RecordMissesAsync(InterfaceValueTranslator translator, long? endpointId, string? controlId, CancellationToken ct)
+    {
+        if (_unmapped is not null && translator.Misses.Count > 0)
+        {
+            await _unmapped.RecordAsync(translator.Misses, endpointId, controlId, ct);
+        }
     }
 }

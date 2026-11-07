@@ -1299,13 +1299,28 @@ public static class AdminEndpoints
 
         var translations = app.MapGroup("/api/admin/hl7/translations").WithTags("Admin: HL7").RequireAuthenticatedUser();
 
-        translations.MapGet("", async (string dataItemKey, InterfaceTranslationAdminService svc, CancellationToken ct) =>
+        translations.MapGet("", async (string dataItemKey, long? endpointId, InterfaceTranslationAdminService svc, CancellationToken ct) =>
         {
-            var result = await svc.GetAsync(dataItemKey, ct);
+            var result = await svc.GetAsync(dataItemKey, ct, endpointId);
             return result.Succeeded
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapGet("/fields", async (InterfaceTranslationAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListFieldsAsync(ct))).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapGet("/check", async (string dataItemKey, string? value, bool inbound, long? endpointId, InterfaceTranslationAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.CheckAsync(dataItemKey, value, inbound, endpointId, ct))).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapGet("/unmapped", async (bool? openOnly, InterfaceUnmappedValueService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(openOnly ?? true, ct))).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapPost("/unmapped/{id:long}/dismiss", async (long id, ReasonOnlyRequest? req, InterfaceUnmappedValueService svc, CancellationToken ct) =>
+        {
+            var result = await svc.DismissAsync(id, req?.Reason, ct);
+            return result.Succeeded ? Results.Ok(result.Value) : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.AdminHl7Manage);
 
         translations.MapPut("/{dataItemKey}", async (string dataItemKey, SaveInterfaceTranslationsRequest req, InterfaceTranslationAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.ReplaceAsync(dataItemKey, req, ct), d => d))

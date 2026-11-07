@@ -188,7 +188,7 @@ public class AdminInterfaceSetupTests : IClassFixture<SqliteContextFactory>
             var billing = await svc.ReplaceAsync(InterfaceDataItemKeys.BillingCode, new SaveInterfaceTranslationsRequest(
             [
                 new InterfaceValueTranslationDto("BB-XM", "71020", InterfaceTranslationDirection.Outbound)
-            ], null));
+            ], "test reason"));
             Assert.True(billing.Succeeded, billing.Error);
         }
 
@@ -229,7 +229,7 @@ public class AdminInterfaceSetupTests : IClassFixture<SqliteContextFactory>
         [
             new InterfaceValueTranslationDto("XM", "A", InterfaceTranslationDirection.Outbound),
             new InterfaceValueTranslationDto("XM", "B", InterfaceTranslationDirection.Both)
-        ], null));
+        ], "test reason"));
         Assert.False(dupInternal.Succeeded);
         Assert.Contains("internal value", dupInternal.Error, StringComparison.OrdinalIgnoreCase);
 
@@ -237,9 +237,9 @@ public class AdminInterfaceSetupTests : IClassFixture<SqliteContextFactory>
         [
             new InterfaceValueTranslationDto("XM", "HIS_XM", InterfaceTranslationDirection.Inbound),
             new InterfaceValueTranslationDto("TS", "HIS_XM", InterfaceTranslationDirection.Both)
-        ], null));
+        ], "test reason"));
         Assert.False(dupExternal.Succeeded);
-        Assert.Contains("external value", dupExternal.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("more than one test", dupExternal.Error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

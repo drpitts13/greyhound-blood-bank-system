@@ -67,6 +67,7 @@ public static class DevelopmentSqliteBootstrap
         ("TestDefinitions", "TiterPhaseCode", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterPhaseCode" TEXT NULL"""),
         ("TestDefinitions", "TiterEndpointMinGrade", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterEndpointMinGrade" TEXT NULL"""),
         ("TestDefinitions", "TiterScored", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterScored" INTEGER NOT NULL DEFAULT 0"""),
+        ("InterfaceValueTranslations", "EndpointId", """ALTER TABLE "InterfaceValueTranslations" ADD COLUMN "EndpointId" INTEGER NULL"""),
         ("TestDefinitions", "LoincCode", """ALTER TABLE "TestDefinitions" ADD COLUMN "LoincCode" TEXT NULL"""),
         ("TestResults", "AbnormalFlag", """ALTER TABLE "TestResults" ADD COLUMN "AbnormalFlag" TEXT NULL"""),
         ("ShiftHandoffs", "ProductsBelowMinimum", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ProductsBelowMinimum" INTEGER NOT NULL DEFAULT 0"""),
@@ -270,6 +271,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureTransportContainersTableAsync(context, cancellationToken);
         await EnsureMtpPackRecordsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
+        await EnsureInterfaceUnmappedValuesTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -286,6 +288,17 @@ public static class DevelopmentSqliteBootstrap
         if (!created && !recreate)
         {
             await ApplyAdditiveColumnsAsync(context, logger, cancellationToken);
+        }
+
+        // A translation limited to one interface may repeat a global row: the unique index includes the interface.
+        if (!created && !recreate)
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                DROP INDEX IF EXISTS "IX_InterfaceValueTranslations_DataItemKey_InternalValue_ExternalValue_Direction";
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_InterfaceValueTranslations_EndpointId_DataItemKey_InternalValue_ExternalValue_Direction"
+                    ON "InterfaceValueTranslations" ("EndpointId", "DataItemKey", "InternalValue", "ExternalValue", "Direction");
+                """, cancellationToken);
         }
 
         // After the additive columns, so SpecimenId exists on upgraded databases (idempotent).
@@ -1199,6 +1212,41 @@ public static class DevelopmentSqliteBootstrap
             """, ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE UNIQUE INDEX "IX_ReactionCatalogEntries_Kind_Code" ON "ReactionCatalogEntries" ("Kind", "Code")""", ct);
+    }
+
+    private static async Task EnsureInterfaceUnmappedValuesTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "InterfaceUnmappedValues", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "InterfaceUnmappedValues" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_InterfaceUnmappedValues" PRIMARY KEY AUTOINCREMENT,
+                "EndpointId" INTEGER NULL,
+                "DataItemKey" TEXT NOT NULL,
+                "Value" TEXT NOT NULL,
+                "Direction" INTEGER NOT NULL,
+                "FirstSeenUtc" TEXT NOT NULL,
+                "LastSeenUtc" TEXT NOT NULL,
+                "Count" INTEGER NOT NULL,
+                "LastMessageControlId" TEXT NULL,
+                "ResolvedUtc" TEXT NULL,
+                "ResolvedBy" TEXT NULL,
+                "ResolvedNote" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_InterfaceUnmappedValues_EndpointId_DataItemKey_Direction_Value" ON "InterfaceUnmappedValues" ("EndpointId", "DataItemKey", "Direction", "Value");
+            CREATE INDEX "IX_InterfaceUnmappedValues_ResolvedUtc" ON "InterfaceUnmappedValues" ("ResolvedUtc");
+            """, ct);
     }
 
     private static async Task EnsureReactionWorkupSettingsTableAsync(BloodBankDbContext context, CancellationToken ct)

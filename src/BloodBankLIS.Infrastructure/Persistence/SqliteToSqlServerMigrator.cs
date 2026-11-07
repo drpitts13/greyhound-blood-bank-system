@@ -67,6 +67,7 @@ public sealed class SqliteToSqlServerMigrator
         "InterfaceEndpoints",
         "InterfaceFieldMappings",
         "InterfaceValueTranslations",
+        "InterfaceUnmappedValues",
         "InstrumentInterfaces",
         "InstrumentConnections",
         "InstrumentFieldMappings",

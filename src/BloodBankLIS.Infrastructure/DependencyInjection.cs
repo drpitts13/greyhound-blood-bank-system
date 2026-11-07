@@ -195,6 +195,8 @@ public static class DependencyInjection
         services.AddScoped<ReactionCatalogAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();
         services.AddScoped<InterfaceTranslationAdminService>();
+        services.AddScoped<InterfaceValueSets>();
+        services.AddScoped<InterfaceUnmappedValueService>();
         services.AddScoped<IInstrumentInterfaceRepository, InstrumentInterfaceRepository>();
         services.AddScoped<InstrumentInterfaceAdminService>();
         services.AddSingleton<IInstrumentRuntimeStatus, BloodBankLIS.Infrastructure.Instruments.InstrumentRuntimeStatus>();

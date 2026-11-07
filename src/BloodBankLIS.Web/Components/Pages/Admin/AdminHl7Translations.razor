@@ -88,8 +88,9 @@
 
         @if (CanManage)
         {
-            <div class="flex gap" style="margin-top:1rem;">
-                <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_busy">Save</button>
+            <div class="flex gap" style="margin-top:1rem;align-items:flex-end;">
+                <div class="field" style="flex:1;"><label>Reason for the change</label><input @bind="_reason" @bind:event="oninput" placeholder="e.g. Epic procedure codes from the interface team" /></div>
+                <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))">Save</button>
             </div>
         }
     }
@@ -100,6 +101,7 @@
     private string _selectedKey = string.Empty;
     private int _selectRenderKey;
     private string _displayName = string.Empty;
+    private string _reason = string.Empty;
     private List<RowModel> _rows = new();
     private bool _loading = true;
     private bool _busy;
@@ -200,7 +202,7 @@
         _busy = true;
         var req = new SaveInterfaceTranslationsRequest(
             _rows.Select(r => r.ToDto()).ToList(),
-            null);
+            _reason.Trim());
         var r = await Api.SaveAdminHl7TranslationsAsync(_selectedKey, req);
         _busy = false;
         _feedback = r.ToFeedback("Saved.");
@@ -209,6 +211,7 @@
             _displayName = r.Value.DisplayName;
             _rows = r.Value.Rows.Select(RowModel.From).ToList();
             _dirty = false;
+            _reason = string.Empty;
         }
     }
 
