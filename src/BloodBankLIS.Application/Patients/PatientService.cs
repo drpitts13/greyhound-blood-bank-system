@@ -395,6 +395,16 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail("Date of birth is required.");
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Race) && !PatientDemographicCodes.IsRace(request.Race))
+        {
+            return OperationResult<Patient>.Fail($"'{request.Race.Trim()}' is not a race on the list.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Ethnicity) && !PatientDemographicCodes.IsEthnicity(request.Ethnicity))
+        {
+            return OperationResult<Patient>.Fail($"'{request.Ethnicity.Trim()}' is not an ethnicity on the list.");
+        }
+
         var today = DateOnly.FromDateTime(_clock.UtcNow);
         if (request.DateOfBirth > today)
         {
@@ -420,7 +430,9 @@ public sealed class PatientService
             patient.Sex,
             patient.Status,
             patient.RecentPregnancyUtc,
-            patient.Comment
+            patient.Comment,
+            patient.Race,
+            patient.Ethnicity
         };
 
         var pregnancyChanged = patient.RecentPregnancyUtc != request.RecentPregnancyUtc;
@@ -442,6 +454,15 @@ public sealed class PatientService
         patient.Status = request.Status;
         patient.RecentPregnancyUtc = request.RecentPregnancyUtc;
         patient.Comment = NormalizeComment(request.Comment);
+        if (request.Race is not null)
+        {
+            patient.Race = string.IsNullOrWhiteSpace(request.Race) ? null : PatientDemographicCodes.NormalizeRace(request.Race);
+        }
+
+        if (request.Ethnicity is not null)
+        {
+            patient.Ethnicity = string.IsNullOrWhiteSpace(request.Ethnicity) ? null : PatientDemographicCodes.NormalizeEthnicity(request.Ethnicity);
+        }
 
         _patients.Update(patient);
         _audit?.Record(
@@ -459,6 +480,8 @@ public sealed class PatientService
                 patient.Status,
                 patient.RecentPregnancyUtc,
                 patient.Comment,
+                patient.Race,
+                patient.Ethnicity,
                 ArchivedPriorName = archivedName,
                 NameChangeReason = nameChanged ? request.NameChangeReason?.Trim() : null
             },

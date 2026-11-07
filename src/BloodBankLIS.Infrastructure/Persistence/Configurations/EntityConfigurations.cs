@@ -13,6 +13,8 @@ public sealed class PatientConfiguration : IEntityTypeConfiguration<Patient>
     {
         b.ToTable("Patients");
         b.HasKey(p => p.Id);
+        b.Property(p => p.Race).HasMaxLength(20);
+        b.Property(p => p.Ethnicity).HasMaxLength(20);
         b.Property(p => p.MedicalRecordNumber).HasMaxLength(50).IsRequired();
         b.Property(p => p.LastName).HasMaxLength(100).IsRequired();
         b.Property(p => p.FirstName).HasMaxLength(100).IsRequired();

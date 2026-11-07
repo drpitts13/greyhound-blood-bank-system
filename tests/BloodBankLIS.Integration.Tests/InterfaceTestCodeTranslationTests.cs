@@ -154,4 +154,43 @@ public class InterfaceTestCodeTranslationTests : IDisposable
         var unmapped = Assert.Single(await verify.InterfaceUnmappedValues.Where(u => u.Value == "LAB99999").ToListAsync());
         Assert.Equal((InterfaceDataItemKeys.OrderTestCode, 2, "XL-10"), (unmapped.DataItemKey, unmapped.Count, unmapped.LastMessageControlId));
     }
+
+    // TEST-BB-527: an ADT message stores the translated race and ethnicity and opens the visit as its patient class; a
+    // later message without them keeps them; the chart accepts only listed codes, and blank clears.
+    [Fact]
+    public async Task Adt_StoresRaceEthnicityAndVisitType_AndASparseUpdateKeepsThem()
+    {
+        await using (var c = _factory.Create())
+        {
+            c.InterfaceEndpoints.Add(new InterfaceEndpoint
+            {
+                Name = "Epic ADT", InterfaceType = InterfaceType.Adt, Direction = Hl7Direction.Inbound,
+                Transport = InterfaceTransport.File, MessageTypes = "ADT", IsEnabled = true
+            });
+            c.InterfaceValueTranslations.AddRange(
+                new InterfaceValueTranslation { DataItemKey = InterfaceDataItemKeys.PatientRace, InternalValue = "WHITE", ExternalValue = "2106-3" },
+                new InterfaceValueTranslation { DataItemKey = InterfaceDataItemKeys.PatientEthnicity, InternalValue = "NOT-HISPANIC", ExternalValue = "2186-5" },
+                new InterfaceValueTranslation { DataItemKey = InterfaceDataItemKeys.EncounterPatientClass, InternalValue = "Emergency", ExternalValue = "E" });
+            await c.SaveChangesAsync();
+            var admit = await Processor(c).ProcessAsync(
+                "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20261107120000||ADT^A04|ADT-1|P|2.5\r" +
+                "PID|1||MRN-ADT^^^HOSP^MR||Adt^Pat||19800101|F||2106-3^White||||||||||||2186-5\r" +
+                "PV1|1|E|ED^1||||||||||||||||VIS-ADT-1");
+            Assert.True(admit.Accepted, admit.Log?.ErrorDetail);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var update = await Processor(c).ProcessAsync(
+                "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20261107130000||ADT^A08|ADT-2|P|2.5\r" +
+                "PID|1||MRN-ADT^^^HOSP^MR||Adt^Pat||19800101|F");
+            Assert.True(update.Accepted, update.Log?.ErrorDetail);
+        }
+
+        await using var verify = _factory.Create();
+        var patient = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN-ADT");
+        Assert.Equal(("WHITE", "NOT-HISPANIC"), (patient.Race, patient.Ethnicity));
+        var visit = await verify.Encounters.SingleAsync(e => e.VisitNumber == "VIS-ADT-1");
+        Assert.Equal(EncounterType.Emergency, visit.EncounterType);
+    }
 }

@@ -66,6 +66,8 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.PatientMiddleName), translator.ToExternal(InterfaceDataItemKeys.PatientMiddleName, patient.MiddleName))
             .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), translator.ToExternal(InterfaceDataItemKeys.PatientDateOfBirth, patient.DateOfBirth.ToString("yyyyMMdd")))
             .Set(map.Path(InterfaceDataItemKeys.PatientSex), translator.ToExternal(InterfaceDataItemKeys.PatientSex, SexCode(patient.Sex)))
+            .Set(map.Path(InterfaceDataItemKeys.PatientRace), translator.ToExternal(InterfaceDataItemKeys.PatientRace, patient.Race))
+            .Set(map.Path(InterfaceDataItemKeys.PatientEthnicity), translator.ToExternal(InterfaceDataItemKeys.PatientEthnicity, patient.Ethnicity))
             .Set("OBR-1", "1")
             .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), serviceCode ?? translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, result.TestCode))
             .Set(map.Path(InterfaceDataItemKeys.ResultVerifiedUtc), translator.ToExternal(InterfaceDataItemKeys.ResultVerifiedUtc, (result.VerifiedUtc ?? nowUtc).ToString(Hl7MessageBuilder.Hl7TimestampFormat)))
@@ -94,8 +96,9 @@ public static class Hl7OruBuilder
 
         if (!string.IsNullOrWhiteSpace(result.AbnormalFlag))
         {
+            // A numeric result's flag takes OBX-8 over the interpretation, translated as its own field.
             // OBX-8 abnormal flags (HL7 table 0078): L, H, LL, HH from the test's reference and critical limits.
-            builder.Set("OBX-8", result.AbnormalFlag);
+            builder.Set("OBX-8", translator.ToExternal(InterfaceDataItemKeys.ResultAbnormalFlag, result.AbnormalFlag));
         }
 
         return builder.Build();
@@ -150,6 +153,8 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.PatientFirstName), translator.ToExternal(InterfaceDataItemKeys.PatientFirstName, patient.FirstName))
             .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), translator.ToExternal(InterfaceDataItemKeys.PatientDateOfBirth, patient.DateOfBirth.ToString("yyyyMMdd")))
             .Set(map.Path(InterfaceDataItemKeys.PatientSex), translator.ToExternal(InterfaceDataItemKeys.PatientSex, SexCode(patient.Sex)))
+            .Set(map.Path(InterfaceDataItemKeys.PatientRace), translator.ToExternal(InterfaceDataItemKeys.PatientRace, patient.Race))
+            .Set(map.Path(InterfaceDataItemKeys.PatientEthnicity), translator.ToExternal(InterfaceDataItemKeys.PatientEthnicity, patient.Ethnicity))
             .Set("OBR-1", "1")
             .Set("OBR-2", order.OrderNumber)
             .Set("OBR-3", string.IsNullOrWhiteSpace(order.FillerOrderNumber) ? accessionNumber : order.FillerOrderNumber)

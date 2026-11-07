@@ -26,7 +26,10 @@ public sealed record UpdatePatientRequest(
     PatientStatus Status,
     DateTime? RecentPregnancyUtc = null,
     string? Comment = null,
-    string? NameChangeReason = null);
+    string? NameChangeReason = null,
+    // Local race and ethnicity codes: null leaves them as they are, blank clears them.
+    string? Race = null,
+    string? Ethnicity = null);
 
 public sealed record MergePatientsRequest(string DuplicateMrn, string Reason);
 
@@ -75,12 +78,14 @@ public sealed record PatientDto(
     // ICU 4"), and how many other visits are open. Null visit number: no open visit.
     string? CurrentVisitNumber = null,
     string? CurrentVisitWhere = null,
-    int OtherOpenVisits = 0)
+    int OtherOpenVisits = 0,
+    string? Race = null,
+    string? Ethnicity = null)
 {
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,
-        p.Comment, aliases);
+        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity);
 
     /// <summary>
     /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, where the patient is (the

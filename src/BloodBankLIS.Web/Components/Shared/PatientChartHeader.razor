@@ -8,6 +8,14 @@
             MRN <span class="mono">@Patient.MedicalRecordNumber</span>
             &middot; DOB @Patient.DateOfBirth.ToString("yyyy-MM-dd")
             &middot; @Patient.Sex
+            @if (PatientDemographicCodes.RaceLabel(Patient.Race) is { } race)
+            {
+                <span data-patient-race> &middot; @race</span>
+            }
+            @if (PatientDemographicCodes.EthnicityLabel(Patient.Ethnicity) is { } ethnicity)
+            {
+                <span data-patient-ethnicity> &middot; @ethnicity</span>
+            }
             &middot; <span class="badge @(Patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@Patient.Status</span>
             @if (!string.IsNullOrWhiteSpace(Patient.Comment))
             {
@@ -109,6 +117,24 @@
                     @foreach (var s in Enum.GetValues<Sex>())
                     {
                         <option value="@s">@s</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Race</label>
+                <select @bind="Demo.Race">
+                    <option value="">Not recorded</option>
+                    @foreach (var r in PatientDemographicCodes.Races)
+                    {
+                        <option value="@r.Code">@r.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Ethnicity</label>
+                <select @bind="Demo.Ethnicity">
+                    <option value="">Not recorded</option>
+                    @foreach (var e in PatientDemographicCodes.Ethnicities)
+                    {
+                        <option value="@e.Code">@e.Label</option>
                     }
                 </select>
             </div>

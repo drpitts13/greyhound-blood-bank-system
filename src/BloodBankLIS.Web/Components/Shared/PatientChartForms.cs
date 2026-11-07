@@ -45,6 +45,8 @@ public sealed class PatientDemoEditModel
     public string? MiddleName { get; set; }
     public DateOnly DateOfBirth { get; set; }
     public Sex Sex { get; set; } = Sex.Unknown;
+    public string Race { get; set; } = string.Empty;
+    public string Ethnicity { get; set; } = string.Empty;
     public PatientStatus Status { get; set; } = PatientStatus.Active;
     public string? Comment { get; set; }
     public string NameChangeReason { get; set; } = string.Empty;

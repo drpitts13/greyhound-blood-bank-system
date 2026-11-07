@@ -2481,6 +2481,8 @@ else
             MiddleName = _patient.MiddleName,
             DateOfBirth = _patient.DateOfBirth,
             Sex = _patient.Sex,
+            Race = _patient.Race ?? string.Empty,
+            Ethnicity = _patient.Ethnicity ?? string.Empty,
             Status = _patient.Status == PatientStatus.Inactive ? PatientStatus.Inactive : PatientStatus.Active,
             Comment = _patient.Comment
         };
@@ -2500,7 +2502,9 @@ else
             _demo.Status,
             RecentPregnancyUtc: _patient.RecentPregnancyUtc,
             Comment: _demo.Comment,
-            NameChangeReason: string.IsNullOrWhiteSpace(_demo.NameChangeReason) ? null : _demo.NameChangeReason));
+            NameChangeReason: string.IsNullOrWhiteSpace(_demo.NameChangeReason) ? null : _demo.NameChangeReason,
+            Race: _demo.Race,
+            Ethnicity: _demo.Ethnicity));
         _busy = false;
         _demoFb = r.ToFeedback("Demographics updated.");
         if (r.Succeeded)

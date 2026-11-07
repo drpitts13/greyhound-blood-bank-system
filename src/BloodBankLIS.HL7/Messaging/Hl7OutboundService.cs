@@ -33,6 +33,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
     private readonly IRepository<OrderLine>? _orderLines;
     private readonly IRepository<TestDefinition>? _testDefinitions;
     private readonly InterfaceValueSets? _valueSets;
+    private readonly IRepository<Encounter>? _encounters;
     private readonly InterfaceUnmappedValueService? _unmapped;
 
     public Hl7OutboundService(
@@ -53,8 +54,10 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         IRepository<OrderLine>? orderLines = null,
         IRepository<TestDefinition>? testDefinitions = null,
         InterfaceValueSets? valueSets = null,
-        InterfaceUnmappedValueService? unmapped = null)
+        InterfaceUnmappedValueService? unmapped = null,
+        IRepository<Encounter>? encounters = null)
     {
+        _encounters = encounters;
         _valueSets = valueSets;
         _unmapped = unmapped;
         _testDefinitions = testDefinitions;
@@ -296,8 +299,9 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         var controlId = $"BPS{now:yyyyMMddHHmmssfff}{issue.Id}";
         var resolved = await ResolveOutboundAsync(InterfaceType.Bpam, ct);
         var translator = await LoadTranslatorAsync(resolved.EndpointId, ct);
+        var visit = _encounters is null || issue.EncounterId is not long visitId ? null : await _encounters.GetByIdAsync(visitId, ct);
         var raw = Hl7BpsBuilder.Build(patient, issue, unit, product, order, dispenseEvent, statusUtc, controlId, now,
-            resolved.Identity, map: resolved.Map, translator: translator);
+            resolved.Identity, map: resolved.Map, translator: translator, visitType: visit?.EncounterType);
 
         var log = new Hl7MessageLog
         {

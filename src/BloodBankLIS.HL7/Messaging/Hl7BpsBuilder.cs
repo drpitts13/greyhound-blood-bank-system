@@ -33,7 +33,8 @@ public static class Hl7BpsBuilder
         Hl7OutboundIdentity? identity = null,
         Hl7Encoding? encoding = null,
         Hl7FieldMap? map = null,
-        InterfaceValueTranslator? translator = null)
+        InterfaceValueTranslator? translator = null,
+        EncounterType? visitType = null)
     {
         ArgumentNullException.ThrowIfNull(patient);
         ArgumentNullException.ThrowIfNull(issue);
@@ -53,8 +54,13 @@ public static class Hl7BpsBuilder
             .Set("PID-5-1", patient.LastName)
             .Set("PID-5-2", patient.FirstName)
             .Set("PID-7", patient.DateOfBirth.ToString("yyyyMMdd"))
+            .Set("PID-10-1", translator.ToExternal(InterfaceDataItemKeys.PatientRace, patient.Race))
+            .Set("PID-22-1", translator.ToExternal(InterfaceDataItemKeys.PatientEthnicity, patient.Ethnicity))
             .Set("PV1-1", "1")
-            .Set("PV1-2", "U")
+            // PV1-2 patient class from the issue's visit, translated; U when no visit type is known.
+            .Set("PV1-2", visitType is EncounterType known && known != EncounterType.Unknown
+                ? translator.ToExternal(InterfaceDataItemKeys.EncounterPatientClass, known.ToString())
+                : "U")
             .Set("PV1-3-1", issue.IssuedToLocation)
             // SC: status changed. The placer number is the EHR's order when the unit was issued against one.
             .Set("ORC-1", "SC")

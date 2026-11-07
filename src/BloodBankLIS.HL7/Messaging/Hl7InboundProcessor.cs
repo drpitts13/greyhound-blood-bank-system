@@ -391,7 +391,9 @@ public sealed class Hl7InboundProcessor
                 FirstName = data.FirstName,
                 MiddleName = data.MiddleName,
                 DateOfBirth = data.DateOfBirth ?? default,
-                Sex = data.Sex
+                Sex = data.Sex,
+                Race = data.Race,
+                Ethnicity = data.Ethnicity
             };
             await _patients.AddAsync(patient, ct);
             await _unitOfWork.SaveChangesAsync(ct);
@@ -413,7 +415,8 @@ public sealed class Hl7InboundProcessor
             data.AttendingProviderId,
             data.AttendingProviderName,
             data.TriggerEvent,
-            ct);
+            ct,
+            data.PatientClass);
 
         if (visitNote is not null)
         {
@@ -489,7 +492,8 @@ public sealed class Hl7InboundProcessor
             data.AttendingProviderId,
             data.AttendingProviderName,
             data.TriggerEvent,
-            ct);
+            ct,
+            data.PatientClass);
 
         return visitNote is null
             ? $"Patient {data.PriorMrn} merged into {data.Mrn}."
@@ -559,6 +563,17 @@ public sealed class Hl7InboundProcessor
         if (data.Sex != Sex.Unknown)
         {
             patient.Sex = data.Sex;
+        }
+
+        // Like sex, a message without (or with an unmapped) race or ethnicity keeps what is on file.
+        if (data.Race is not null)
+        {
+            patient.Race = data.Race;
+        }
+
+        if (data.Ethnicity is not null)
+        {
+            patient.Ethnicity = data.Ethnicity;
         }
     }
 
