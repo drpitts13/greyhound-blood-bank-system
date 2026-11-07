@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -183,6 +184,25 @@ public class DashboardQueueCatalogTests
         Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.AdminHl7Manage)),
             c => c.Key == DashboardQueueCatalog.UnmappedInterfaceValues && c.Href == "/admin/hl7/translations?tab=unmapped");
         Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.Hl7Manage)), c => c.Key == DashboardQueueCatalog.UnmappedInterfaceValues);
+    }
+
+    // TEST-BB-571: whoever merges charts gets a Possible duplicates card; pairs sharing an external identifier are
+    // named in the note, name-and-birthday pairs stay in the count only.
+    [Fact]
+    public void PossibleDuplicatesCard_ForMergers_NamesSharedIdentifierPairs()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.PatientMerge)),
+            c => c.Key == DashboardQueueCatalog.PossibleDuplicates && c.Href == "/patients/duplicates");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.PatientWrite)), c => c.Key == DashboardQueueCatalog.PossibleDuplicates);
+
+        PossibleDuplicatePairDto Pair(string reason) => new(null!, null!, reason);
+        Assert.Null(DashboardQueueCatalog.PossibleDuplicatesNote([Pair(PossibleDuplicatePatientRule.SameNameAndBirthday)]));
+        Assert.Equal("1 shares an external ID", DashboardQueueCatalog.PossibleDuplicatesNote([
+            Pair(PossibleDuplicatePatientRule.SameNameAndBirthday),
+            Pair($"{PossibleDuplicatePatientRule.SameNameAndBirthday}; {PossibleDuplicatePatientRule.SharedIdentifier("EPI-1", "EPI PI")}")]));
+        Assert.Equal("2 share an external ID", DashboardQueueCatalog.PossibleDuplicatesNote([
+            Pair(PossibleDuplicatePatientRule.SharedIdentifier("EPI-1", null)),
+            Pair(PossibleDuplicatePatientRule.SharedIdentifier("EPI-2", "EPI PI"))]));
     }
 
     // TEST-BB-435: verifiers get a Results to verify card that counts only what they can verify now.

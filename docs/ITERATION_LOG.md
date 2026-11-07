@@ -17026,3 +17026,21 @@ Cycle 521 marks an identifier another chart holds as "also on" that chart. Resol
 ### Tests
 
 - TEST-BB-570: mark read back; same issuer with and without it; merge with the marked copy on the duplicate or on the survivor leaves one copy on each chart, and unmerge keeps both.
+
+## Iteration 523 — Possible duplicates on the home screen (2026-11-07)
+
+### Capability matrix rescan (operations: queues)
+
+Cycles 521–522 flag a chart the EHR registers with an identifier already on another chart, but the flag went only to the sender (ACK), the audit, and the Possible duplicates page, which someone had to think to open. Two charts for one person split ABO/Rh and antibody history, which the issue gate relies on. Workflow questions: next action (the card opens the report); memory (nobody has to remember to check); safety (shared-identifier pairs, the strongest evidence, are called out as needing attention).
+
+### Design
+
+- `DashboardQueueCatalog.PossibleDuplicates` card for `patient.merge`; `PossibleDuplicatesNote`; `PossibleDuplicatePatientRule.IsSharedIdentifierReason`; Home count case.
+
+### Requirements
+
+- URS-BB-581, FRS-BB-698. Help: dashboard.
+
+### Tests
+
+- TEST-BB-571: card for mergers only, linked to the report; name pairs give no note; a pair with a shared identifier (alone or with a name match) is named; two pairs counted.

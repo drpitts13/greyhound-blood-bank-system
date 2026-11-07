@@ -13,6 +13,12 @@ public static class PossibleDuplicatePatientRule
     /// <summary>Why a pair is listed: matching name and date of birth.</summary>
     public const string SameNameAndBirthday = "Same name and date of birth";
 
+    /// <summary>True when a pair's reason includes a shared identifier from another system.</summary>
+    public static bool IsSharedIdentifierReason(string? reason) =>
+        reason is not null && reason.Contains(SharedIdentifierPrefix, StringComparison.Ordinal);
+
+    private const string SharedIdentifierPrefix = "Both charts carry external ID ";
+
     /// <summary>Why a pair is listed: both charts carry the same identifier from another system.</summary>
     public static string SharedIdentifier(string value, string? authority) =>
         string.IsNullOrWhiteSpace(authority)

@@ -579,5 +579,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-568 | U, I | `Hl7PatientIdentifierTests.Mrn_IsTheMrTypedRepetition_EvenWhenItIsNotFirst`; `Hl7PatientIdentifierTests.Mrn_WithoutATypedRepetition_IsTheFirst_AsBefore`; `Hl7PatientIdentifierTests.CustomMrnPath_IsReadAsConfigured`; `Phase5Hl7Tests.InboundAdt_TakesTheMrRepetition_AndKeepsTheOthersAsExternalIdentifiers` | URS-BB-578 / FRS-BB-695 |
 | TEST-BB-569 | I | `PatientServiceTests.PossibleDuplicatePairs_IncludeChartsSharingAnExternalIdentifier`; `PatientServiceTests.PossibleDuplicatePairs_ListActiveMatches_OlderFirst` (reason); `Phase5Hl7Tests.InboundAdt_TakesTheMrRepetition_AndKeepsTheOthersAsExternalIdentifiers` (second chart with the same enterprise id) | URS-BB-579 / FRS-BB-696 |
 | TEST-BB-570 | U, I | `ExternalIdentifierAuthorityTests.AlsoOnMark_ReadsBackTheIssuerAndTheOtherChart`; `ExternalIdentifierAuthorityTests.SameIssuer_IgnoresTheMark`; `PatientMergeServiceTests.Merge_OfChartsSharingAnExternalId_KeepsOneCopyOnTheSurvivor` | URS-BB-580 / FRS-BB-697 |
+| TEST-BB-571 | U | `DashboardQueueCatalogTests.PossibleDuplicatesCard_ForMergers_NamesSharedIdentifierPairs` | URS-BB-581 / FRS-BB-698 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

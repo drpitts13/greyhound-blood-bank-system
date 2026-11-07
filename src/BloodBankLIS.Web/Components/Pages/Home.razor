@@ -448,6 +448,13 @@
             }
             case DashboardQueueCatalog.Hl7Errors:
                 return await CountList(card.Key, Api.GetHl7ErrorsAsync());
+            case DashboardQueueCatalog.PossibleDuplicates:
+            {
+                var result = await Api.GetPossibleDuplicatePairsAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.PossibleDuplicatesNote(result.Value))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.UnmappedInterfaceValues:
                 return await CountList(card.Key, Api.GetAdminHl7UnmappedValuesAsync());
             case DashboardQueueCatalog.Handoff:

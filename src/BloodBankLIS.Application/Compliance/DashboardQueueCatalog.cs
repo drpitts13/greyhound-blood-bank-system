@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -37,6 +38,7 @@ public static class DashboardQueueCatalog
     public const string ReagentQc = "reagent-qc";
     public const string LowStock = "low-stock";
     public const string UnmappedInterfaceValues = "interface-unmapped";
+    public const string PossibleDuplicates = "possible-duplicates";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -76,6 +78,8 @@ public static class DashboardQueueCatalog
         // Values an interface sent or received that no translation covered: whoever keeps the translation table fixes them.
         Add(cards, has(PermissionCodes.AdminHl7Manage) || has(PermissionCodes.AdminInstrumentsManage), UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
         Add(cards, has(PermissionCodes.DeviationManage), Deviations, "Open deviations", "/deviations");
+        // Charts that may be one person split the ABO/Rh and antibody history: whoever merges charts reviews them.
+        Add(cards, has(PermissionCodes.PatientMerge), PossibleDuplicates, "Possible duplicates", "/patients/duplicates");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
         return cards;
     }
@@ -120,6 +124,16 @@ public static class DashboardQueueCatalog
         var open = failures.Where(f => f.OpenFailure).ToList();
         return (open.Count, AttentionNote(open.Count(f => f.Held), "held for an instrument error code", "held for instrument error codes"));
     }
+
+    /// <summary>
+    /// The Possible duplicates card note: pairs whose charts carry the same identifier from another system, the
+    /// strongest sign that two charts are one person. Name and birthday pairs stay in the count only.
+    /// </summary>
+    public static string? PossibleDuplicatesNote(IEnumerable<PossibleDuplicatePairDto> pairs) =>
+        AttentionNote(
+            pairs.Count(p => PossibleDuplicatePatientRule.IsSharedIdentifierReason(p.Reason)),
+            "shares an external ID",
+            "share an external ID");
 
     public static string? AttentionNote(int count, string singular, string plural)
     {
