@@ -556,5 +556,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-545 | I | `ReagentLotTraceabilityTests.WorklistLine_ShowsTheLotsOfItsResult` | URS-BB-558 / FRS-BB-672 |
 | TEST-BB-546 | U, I | `ReagentLotUseRuleTests.ReviewSince_IsTheLastPassBeforeTheLatestFailure`; `AlertWorkflowTests.FailedQc_NamesTheResultsToReview_AndTheAlertOpensThem` | URS-BB-559 / FRS-BB-673 |
 | TEST-BB-547 | U, I | `ReagentLotUseRuleTests.Review_NeedsAResultToReview_AndANote`; `AlertWorkflowTests.FailedQc_NamesTheResultsToReview_AndTheAlertOpensThem` | URS-BB-560 / FRS-BB-674 |
+| TEST-BB-548 | I | `FhirReadServiceTests.VerifiedResults_AreObservations_WithLoincAndQuantity` | URS-BB-561 / FRS-BB-675 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Interop.Fhir;
@@ -17,6 +18,92 @@ public static class FhirMapper
     public const string DinSystem = "urn:hemocore:isbt128-din";
     public const string ObservationCodeSystem = "urn:hemocore:observation";
     public const string FlagCodeSystem = "urn:hemocore:transfusion-requirement";
+    public const string LoincSystem = "http://loinc.org";
+    public const string InterpretationSystem = "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
+
+    /// <summary>
+    /// A verified test result as a laboratory Observation: the local test code, plus its LOINC code when the test has
+    /// one; a numeric value as a quantity with units, reference range, and abnormal flag; otherwise the value as text.
+    /// Status follows the result: final, corrected (a verified correction), or entered-in-error (invalidated).
+    /// </summary>
+    public static JsonObject TestResult(TestResult r, TestDefinition? definition)
+    {
+        var name = string.IsNullOrWhiteSpace(definition?.Name) ? r.TestCode : definition.Name;
+        var code = Concept(ObservationCodeSystem, r.TestCode, name);
+        if (!string.IsNullOrWhiteSpace(definition?.LoincCode))
+        {
+            code["coding"]!.AsArray().Add(new JsonObject { ["system"] = LoincSystem, ["code"] = definition.LoincCode.Trim(), ["display"] = name });
+        }
+
+        var resource = new JsonObject
+        {
+            ["resourceType"] = "Observation",
+            ["id"] = "result-" + r.Id,
+            ["status"] = r.Status switch
+            {
+                ResultStatus.Invalidated => "entered-in-error",
+                ResultStatus.Corrected => "corrected",
+                _ => "final"
+            },
+            ["category"] = new JsonArray(Concept("http://terminology.hl7.org/CodeSystem/observation-category", "laboratory", "Laboratory")),
+            ["code"] = code,
+            ["subject"] = Reference("Patient", r.PatientId)
+        };
+        if (r.OrderId is long orderId)
+        {
+            resource["basedOn"] = new JsonArray(Reference("ServiceRequest", orderId));
+        }
+
+        if (r.EnteredUtc is DateTime entered)
+        {
+            resource["effectiveDateTime"] = Instant(entered);
+        }
+
+        if (r.VerifiedUtc is DateTime verified)
+        {
+            resource["issued"] = Instant(verified);
+        }
+
+        var numeric = definition?.ResultValueType == ResultValueType.Numeric
+            && decimal.TryParse(r.Value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out _);
+        if (numeric)
+        {
+            var quantity = new JsonObject { ["value"] = decimal.Parse(r.Value!, System.Globalization.CultureInfo.InvariantCulture) };
+            var units = r.Units ?? definition!.ResultUnits;
+            if (!string.IsNullOrWhiteSpace(units))
+            {
+                quantity["unit"] = units;
+            }
+
+            resource["valueQuantity"] = quantity;
+            if (definition!.ReferenceLow is not null || definition.ReferenceHigh is not null)
+            {
+                var range = new JsonObject();
+                if (definition.ReferenceLow is decimal low) range["low"] = new JsonObject { ["value"] = low };
+                if (definition.ReferenceHigh is decimal high) range["high"] = new JsonObject { ["value"] = high };
+                resource["referenceRange"] = new JsonArray(range);
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(r.Value))
+        {
+            // An ABO/Rh result reads as the chart shows it ("O+"), not its stored form.
+            resource["valueString"] = definition?.ResultValueType == ResultValueType.AboRh
+                || r.TestCode.StartsWith("ABORH", StringComparison.OrdinalIgnoreCase)
+                    ? Domain.ValueObjects.AboRhResultValue.FormatDisplay(r.Value)
+                    : Results.ResultValueText.For(r.Value, r.Units);
+        }
+
+        if (!string.IsNullOrWhiteSpace(r.AbnormalFlag))
+        {
+            resource["interpretation"] = new JsonArray(Concept(InterpretationSystem, r.AbnormalFlag.Trim(), null));
+        }
+        else if (!string.IsNullOrWhiteSpace(r.Interpretation) && !numeric)
+        {
+            resource["interpretation"] = new JsonArray(new JsonObject { ["text"] = r.Interpretation });
+        }
+
+        return resource;
+    }
 
     public static JsonObject Patient(Patient p, Patient? survivor = null)
     {

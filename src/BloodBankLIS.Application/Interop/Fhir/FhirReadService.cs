@@ -23,6 +23,8 @@ public sealed class FhirReadService
     private readonly IRepository<ProductType> _products;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditWriter? _audit;
+    private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<TestDefinition>? _tests;
 
     public FhirReadService(
         IRepository<Patient> patients,
@@ -34,8 +36,12 @@ public sealed class FhirReadService
         IRepository<BloodUnit> units,
         IRepository<ProductType> products,
         IUnitOfWork unitOfWork,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        IRepository<TestResult>? results = null,
+        IRepository<TestDefinition>? tests = null)
     {
+        _results = results;
+        _tests = tests;
         _patients = patients;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
@@ -80,7 +86,10 @@ public sealed class FhirReadService
         return FhirMapper.Bundle(resources, selfUrl);
     }
 
-    /// <summary>Current ABO/Rh and active antibodies. Superseded types and deactivated antibodies are not sent.</summary>
+    /// <summary>
+    /// Current ABO/Rh, active antibodies, and verified test results (the current version of each; a corrected result
+    /// is sent as corrected). Superseded types, deactivated antibodies, unverified and invalidated results are not sent.
+    /// </summary>
     public async Task<JsonObject> SearchObservationsAsync(long patientId, string selfUrl, CancellationToken ct = default)
     {
         var types = await _bloodTypes.ListAsync(b => b.PatientId == patientId && b.IsCurrent, ct);
@@ -88,6 +97,14 @@ public sealed class FhirReadService
         var resources = types.Select(FhirMapper.BloodType)
             .Concat(antibodies.OrderBy(a => a.CreatedUtc).Select(FhirMapper.Antibody))
             .ToList();
+        if (_results is not null)
+        {
+            var results = await _results.ListAsync(r => r.PatientId == patientId && r.SupersededByResultId == null && r.VerifiedUtc != null
+                && (r.Status == ResultStatus.Verified || r.Status == ResultStatus.Corrected), ct);
+            var definitions = await DefinitionsAsync(results.Select(r => r.TestCode), ct);
+            resources.AddRange(results.OrderBy(r => r.VerifiedUtc ?? r.EnteredUtc).ThenBy(r => r.Id)
+                .Select(r => FhirMapper.TestResult(r, definitions.GetValueOrDefault(r.TestCode.ToUpperInvariant()))));
+        }
         await AuditIfAnyAsync(patientId, resources.Count, ct);
         return FhirMapper.Bundle(resources, selfUrl);
     }
@@ -101,6 +118,20 @@ public sealed class FhirReadService
             return b is null ? null : await AuditedAsync(b.PatientId, FhirMapper.BloodType(b), ct);
         }
 
+        // By id, an invalidated result is returned as entered-in-error so the EHR can withdraw it; unverified ones never.
+        if (TryParseId(id, "result-", out var resultId) && _results is not null)
+        {
+            var r = (await _results.ListAsync(x => x.Id == resultId && x.VerifiedUtc != null
+                && (x.Status == ResultStatus.Verified || x.Status == ResultStatus.Corrected || x.Status == ResultStatus.Invalidated), ct)).FirstOrDefault();
+            if (r is null)
+            {
+                return null;
+            }
+
+            var definition = (await DefinitionsAsync([r.TestCode], ct)).GetValueOrDefault(r.TestCode.ToUpperInvariant());
+            return await AuditedAsync(r.PatientId, FhirMapper.TestResult(r, definition), ct);
+        }
+
         if (TryParseId(id, "antibody-", out var antibodyId))
         {
             var a = (await _antibodies.ListAsync(x => x.Id == antibodyId && x.IsActive, ct)).FirstOrDefault();
@@ -108,6 +139,20 @@ public sealed class FhirReadService
         }
 
         return null;
+    }
+
+    private async Task<Dictionary<string, TestDefinition>> DefinitionsAsync(IEnumerable<string> codes, CancellationToken ct)
+    {
+        var wanted = codes.Select(c => c.ToUpperInvariant()).Distinct().ToList();
+        if (_tests is null || wanted.Count == 0)
+        {
+            return new Dictionary<string, TestDefinition>();
+        }
+
+        return (await _tests.ListAsync(t => t.IsActive && !t.IsDraft, ct))
+            .Where(t => wanted.Contains(t.Code.ToUpperInvariant()))
+            .GroupBy(t => t.Code.ToUpperInvariant())
+            .ToDictionary(g => g.Key, g => g.First());
     }
 
     /// <summary>All special transfusion requirements, active and inactive, so the EHR can see when one ended.</summary>

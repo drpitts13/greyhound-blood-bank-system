@@ -16527,3 +16527,29 @@ Cycle 498 counted the results to review after a failed QC, but the count could n
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test.
+
+## Iteration 500 — Verified results in the FHIR API, with LOINC (2026-11-07)
+
+### Capability matrix rescan (interoperability: FHIR)
+
+The read-only FHIR API (Cycle 276, OCD-043) served blood type and antibodies but no test results, and the LOINC code recorded on a test (Cycle 482) reached the EHR only by HL7 OBX-3. An EHR app reading FHIR could not see a DAT, screen, titer, or fetal bleed result. Workflow questions: inference (the code comes from the test definition; nothing invented: no LOINC unless the laboratory recorded one); safety (only verified results; a correction is "corrected"; an invalidated result read by id is "entered-in-error" so the EHR can withdraw it); audit (patient access recorded as for every FHIR read).
+
+### Design
+
+- `FhirMapper.TestResult` (local code + LOINC, quantity/units/range/flag, value text, basedOn order, statuses).
+- `FhirReadService`: Observation search adds current verified/corrected results; read by `result-{id}` (invalidated → entered-in-error; unverified → not found).
+
+### Requirements
+
+- URS-BB-561, FRS-BB-675. Help: HL7 setup (FHIR section).
+
+### Tests
+
+- TEST-BB-548: a verified numeric result with LOINC (both codings, quantity, units, range, flag L, basedOn order); a corrected coded result (corrected, value text, local coding only); an unverified result absent from search and not readable; an invalidated result read as entered-in-error; no null values. TEST-BB-320 still holds: without results configured, no external terminology is claimed.
+- ABO/Rh results are sent as the chart shows them ("O+"), not the stored "O|Positive" (found on the live check; asserted in TEST-BB-548).
+- Full suite: 3,950 passed.
+- Live: /fhir/Observation?patient=1 returned MRN0001's current ABO/Rh plus its verified ABORH and ABSC results (local codes; no LOINC since none is recorded on those tests), each based on its order with entered and verified times; /fhir/Observation/result-1 read "O+". No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; several allowed specimen types per test; FHIR DiagnosticReport grouping a specimen's results.

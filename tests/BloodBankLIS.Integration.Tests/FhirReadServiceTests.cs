@@ -23,6 +23,68 @@ public class FhirReadServiceTests : IDisposable
             new EfRepository<Order>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), c,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
 
+    private FhirReadService FhirWithResults(BloodBankDbContext c) =>
+        new(new EfRepository<Patient>(c), new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
+            new EfRepository<Order>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), c,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c));
+
+    // TEST-BB-548: verified results reach the EHR as laboratory Observations: local code plus the test's LOINC code
+    // when it has one, numeric value with units, reference range, and flag, linked to the order; corrected ones as
+    // corrected; unverified ones never; an invalidated one, read by id, as entered-in-error.
+    [Fact]
+    public async Task VerifiedResults_AreObservations_WithLoincAndQuantity()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var now = _factory.Clock.UtcNow;
+        c.TestDefinitions.AddRange(
+            new TestDefinition { Code = "FHGB", Name = "Hemoglobin", ResultValueType = ResultValueType.Numeric, ResultUnits = "g/dL", ReferenceLow = 12m, ReferenceHigh = 16m, LoincCode = "718-7", IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 },
+            new TestDefinition { Code = "FDAT", Name = "DAT", ResultValueType = ResultValueType.Coded, AllowedResultValues = "Negative\nPositive", IsActive = true, EffectiveUtc = now, Version = 1 });
+        var specimen = new Specimen { AccessionNumber = "ACC-FHIR-R", PatientId = f.Patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddHours(-3), Status = SpecimenStatus.Accepted };
+        c.Add(specimen);
+        await c.SaveChangesAsync();
+        var order = await c.Orders.SingleAsync(o => o.OrderNumber == "ORD-FHIR1");
+        TestResult R(string code, string value, ResultStatus status, bool verified, string? flag = null) => new()
+        {
+            SpecimenId = specimen.Id, PatientId = f.Patient.Id, OrderId = order.Id, TestCode = code, Value = value, Status = status, AbnormalFlag = flag,
+            Source = ResultSource.Manual, EnteredUtc = now.AddHours(-2), EnteredBy = "tech", VerifiedUtc = verified ? now.AddHours(-1) : null, VerifiedBy = verified ? "sup" : null
+        };
+        var hgb = R("FHGB", "11.2", ResultStatus.Verified, true, "L");
+        var dat = R("FDAT", "Positive", ResultStatus.Corrected, true);
+        var pending = R("FHGB", "13.0", ResultStatus.Entered, false);
+        var withdrawn = R("FDAT", "Negative", ResultStatus.Invalidated, true);
+        var abo = R("ABORH", "O|Positive", ResultStatus.Verified, true);
+        c.AddRange(hgb, dat, pending, withdrawn, abo);
+        await c.SaveChangesAsync();
+
+        var resources = Resources(await FhirWithResults(c).SearchObservationsAsync(f.Patient.Id, "/fhir/Observation"));
+
+        var results = resources.Where(r => ((string?)r["id"])!.StartsWith("result-")).ToList();
+        Assert.Equal(new[] { $"result-{abo.Id}", $"result-{dat.Id}", $"result-{hgb.Id}" }.Order(), results.Select(r => (string?)r["id"]!).Order());
+        // An ABO/Rh result reads as the chart shows it, not its stored form.
+        Assert.Equal(BloodBankLIS.Domain.ValueObjects.AboRhResultValue.FormatDisplay("O|Positive"),
+            (string?)results.Single(r => (string?)r["id"] == $"result-{abo.Id}")["valueString"]);
+        Assert.NotEqual("O|Positive", (string?)results.Single(r => (string?)r["id"] == $"result-{abo.Id}")["valueString"]);
+        var h = results.Single(r => (string?)r["id"] == $"result-{hgb.Id}");
+        Assert.Equal("final", (string?)h["status"]);
+        Assert.Equal((FhirMapper.ObservationCodeSystem, "FHGB"), ((string?)h["code"]!["coding"]![0]!["system"], (string?)h["code"]!["coding"]![0]!["code"]));
+        Assert.Equal((FhirMapper.LoincSystem, "718-7"), ((string?)h["code"]!["coding"]![1]!["system"], (string?)h["code"]!["coding"]![1]!["code"]));
+        Assert.Equal((11.2m, "g/dL"), ((decimal)h["valueQuantity"]!["value"]!, (string?)h["valueQuantity"]!["unit"]));
+        Assert.Equal((12m, 16m), ((decimal)h["referenceRange"]![0]!["low"]!["value"]!, (decimal)h["referenceRange"]![0]!["high"]!["value"]!));
+        Assert.Equal("L", (string?)h["interpretation"]![0]!["coding"]![0]!["code"]);
+        Assert.Equal($"ServiceRequest/{order.Id}", (string?)h["basedOn"]![0]!["reference"]);
+        var d = results.Single(r => (string?)r["id"] == $"result-{dat.Id}");
+        Assert.Equal(("corrected", "Positive"), ((string?)d["status"], (string?)d["valueString"]));
+        Assert.Single(d["code"]!["coding"]!.AsArray());
+        Assert.DoesNotContain(":null", resources.Select(r => r.ToJsonString()).Aggregate((a, b) => a + b));
+
+        var read = await FhirWithResults(c).ReadObservationAsync($"result-{withdrawn.Id}");
+        Assert.Equal("entered-in-error", (string?)read!["status"]);
+        Assert.Null(await FhirWithResults(c).ReadObservationAsync($"result-{pending.Id}"));
+    }
+
     private static Task<int> AccessCountAsync(BloodBankDbContext c, long patientId) =>
         c.AuditEvents.CountAsync(a => a.EventType == AuditEventType.PatientAccess && a.EntityId == patientId);
 
