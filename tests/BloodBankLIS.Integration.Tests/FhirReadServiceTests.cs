@@ -28,7 +28,43 @@ public class FhirReadServiceTests : IDisposable
             new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
             new EfRepository<Order>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), c,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c), new EfRepository<OrderLine>(c));
+            new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c), new EfRepository<OrderLine>(c),
+            new EfRepository<Specimen>(c), new EfRepository<SpecimenTypeDefinition>(c));
+
+    // TEST-BB-552: the patient's tubes are Specimens (accession, type with its description, collection, receipt,
+    // expiry note); a rejected tube is unsatisfactory with its reason, an expired one unavailable, a cancelled one
+    // entered-in-error; results and reports point at their tube.
+    [Fact]
+    public async Task Specimens_CarryTheirStateAndExpiry_AndResultsPointAtThem()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var now = _factory.Clock.UtcNow;
+        var good = new Specimen { AccessionNumber = "ACC-FHIR-S1", PatientId = f.Patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddHours(-5), ReceivedUtc = now.AddHours(-4), ExpiresUtc = now.AddDays(3), Collector = "RN Patel", Status = SpecimenStatus.Accepted };
+        var rejected = new Specimen { AccessionNumber = "ACC-FHIR-S2", PatientId = f.Patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddHours(-6), Status = SpecimenStatus.Rejected, RejectionReason = "Unlabeled tube" };
+        var expired = new Specimen { AccessionNumber = "ACC-FHIR-S3", PatientId = f.Patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddDays(-5), Status = SpecimenStatus.Expired };
+        var cancelled = new Specimen { AccessionNumber = "ACC-FHIR-S4", PatientId = f.Patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddDays(-6), Status = SpecimenStatus.Cancelled };
+        c.AddRange(good, rejected, expired, cancelled);
+        await c.SaveChangesAsync();
+        var result = new TestResult { SpecimenId = good.Id, PatientId = f.Patient.Id, TestCode = "ABSC", Value = "Negative", Status = ResultStatus.Verified, Source = ResultSource.Manual, EnteredUtc = now, VerifiedUtc = now };
+        c.Add(result);
+        await c.SaveChangesAsync();
+
+        var resources = Resources(await FhirWithResults(c).SearchSpecimensAsync(f.Patient.Id, "/fhir/Specimen"));
+
+        Assert.Equal(["ACC-FHIR-S1", "ACC-FHIR-S2", "ACC-FHIR-S3", "ACC-FHIR-S4"], resources.Select(r => (string?)r["accessionIdentifier"]!["value"]));
+        Assert.Equal(["available", "unsatisfactory", "unavailable", "entered-in-error"], resources.Select(r => (string?)r["status"]));
+        var s1 = resources[0];
+        Assert.Equal(("EDTA", "RN Patel"), ((string?)s1["type"]!["coding"]![0]!["code"], (string?)s1["collection"]!["collector"]!["display"]));
+        Assert.Contains("Valid for testing until", (string?)s1["note"]![0]!["text"]);
+        Assert.Equal("Rejected: Unlabeled tube", (string?)resources[1]["note"]![0]!["text"]);
+        Assert.Null(resources[2]["receivedTime"]);
+
+        var observation = await FhirWithResults(c).ReadObservationAsync($"result-{result.Id}");
+        Assert.Equal($"Specimen/{good.Id}", (string?)observation!["specimen"]!["reference"]);
+        Assert.Equal("ACC-FHIR-S2", (string?)(await FhirWithResults(c).ReadSpecimenAsync(rejected.Id))!["accessionIdentifier"]!["value"]);
+        Assert.Null(await FhirWithResults(c).ReadSpecimenAsync(999_999));
+    }
 
     // TEST-BB-551: an order's verified results are a blood bank DiagnosticReport: partial while a test on the order
     // has no verified result, final when all have, corrected after a verified correction; an order with none is absent.
@@ -55,6 +91,7 @@ public class FhirReadServiceTests : IDisposable
         Assert.Equal(("partial", "BLB", "TNS"), ((string?)partial["status"], (string?)partial["category"]![0]!["coding"]![0]!["code"], (string?)partial["code"]!["coding"]![0]!["code"]));
         Assert.Equal([$"Observation/result-{abo.Id}"], partial["result"]!.AsArray().Select(r => (string?)r!["reference"]));
         Assert.Equal($"ServiceRequest/{order.Id}", (string?)partial["basedOn"]![0]!["reference"]);
+        Assert.Equal([$"Specimen/{specimen.Id}"], partial["specimen"]!.AsArray().Select(s => (string?)s!["reference"]));
 
         screen.Status = ResultStatus.Verified;
         screen.VerifiedUtc = now;

@@ -21,6 +21,61 @@ public static class FhirMapper
     public const string LoincSystem = "http://loinc.org";
     public const string InterpretationSystem = "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
     public const string OrderCodeSystem = "urn:hemocore:order";
+    public const string AccessionSystem = "urn:hemocore:accession";
+    public const string SpecimenTypeSystem = "urn:hemocore:specimen-type";
+
+    /// <summary>
+    /// A blood bank tube: accession, type, collection and receipt, and its state: available (collected, received,
+    /// accepted), unsatisfactory (rejected, with the reason), unavailable (expired), entered-in-error (cancelled).
+    /// The time the specimen stops being valid for testing is given as a note.
+    /// </summary>
+    public static JsonObject Specimen(Specimen s, SpecimenTypeDefinition? type)
+    {
+        var resource = new JsonObject
+        {
+            ["resourceType"] = "Specimen",
+            ["id"] = s.Id.ToString(),
+            ["accessionIdentifier"] = new JsonObject { ["system"] = AccessionSystem, ["value"] = s.AccessionNumber },
+            ["status"] = s.Status switch
+            {
+                SpecimenStatus.Rejected => "unsatisfactory",
+                SpecimenStatus.Expired => "unavailable",
+                SpecimenStatus.Cancelled => "entered-in-error",
+                _ => "available"
+            },
+            ["type"] = Concept(SpecimenTypeSystem, s.SpecimenType, string.IsNullOrWhiteSpace(type?.Description) ? s.SpecimenType : type.Description),
+            ["subject"] = Reference("Patient", s.PatientId)
+        };
+        if (s.ReceivedUtc is DateTime received)
+        {
+            resource["receivedTime"] = Instant(received);
+        }
+
+        var collection = new JsonObject { ["collectedDateTime"] = Instant(s.CollectedUtc) };
+        if (!string.IsNullOrWhiteSpace(s.Collector))
+        {
+            collection["collector"] = new JsonObject { ["display"] = s.Collector };
+        }
+
+        resource["collection"] = collection;
+        var notes = new JsonArray();
+        if (s.ExpiresUtc is DateTime expires)
+        {
+            notes.Add(new JsonObject { ["text"] = $"Valid for testing until {Instant(expires)}." });
+        }
+
+        if (s.Status == SpecimenStatus.Rejected && !string.IsNullOrWhiteSpace(s.RejectionReason))
+        {
+            notes.Add(new JsonObject { ["text"] = $"Rejected: {s.RejectionReason}" });
+        }
+
+        if (notes.Count > 0)
+        {
+            resource["note"] = notes;
+        }
+
+        return resource;
+    }
     public const string DiagnosticSectionSystem = "http://terminology.hl7.org/CodeSystem/v2-0074";
 
     /// <summary>
@@ -42,7 +97,9 @@ public static class FhirMapper
             ["code"] = code,
             ["subject"] = Reference("Patient", o.PatientId),
             ["result"] = new JsonArray(verified.OrderBy(r => r.TestCode).ThenBy(r => r.Id)
-                .Select(r => (JsonNode)Reference("Observation", "result-" + r.Id)).ToArray())
+                .Select(r => (JsonNode)Reference("Observation", "result-" + r.Id)).ToArray()),
+            ["specimen"] = new JsonArray(verified.Select(r => r.SpecimenId).Distinct().Order()
+                .Select(id => (JsonNode)Reference("Specimen", id)).ToArray())
         };
         if (verified.Where(r => r.EnteredUtc is not null).Select(r => r.EnteredUtc!.Value).DefaultIfEmpty().Min() is var first && first != default)
         {
@@ -83,7 +140,8 @@ public static class FhirMapper
             },
             ["category"] = new JsonArray(Concept("http://terminology.hl7.org/CodeSystem/observation-category", "laboratory", "Laboratory")),
             ["code"] = code,
-            ["subject"] = Reference("Patient", r.PatientId)
+            ["subject"] = Reference("Patient", r.PatientId),
+            ["specimen"] = Reference("Specimen", r.SpecimenId)
         };
         if (r.OrderId is long orderId)
         {
@@ -367,6 +425,7 @@ public static class FhirMapper
                     Read("Flag", "patient"),
                     Read("ServiceRequest", "patient"),
                     Read("DiagnosticReport", "patient"),
+                    Read("Specimen", "patient"),
                     Read("BiologicallyDerivedProduct", "identifier"))
             })
         };

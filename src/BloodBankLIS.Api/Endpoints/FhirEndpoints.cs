@@ -54,6 +54,13 @@ public static class FhirEndpoints
                 ? Fhir(await svc.SearchDiagnosticReportsAsync(pid, Self(req), ct))
                 : Invalid("Search DiagnosticReport by patient, for example ?patient=Patient/12."));
 
+        fhir.MapGet("/Specimen/{id:long}", async (long id, FhirReadService svc, CancellationToken ct) =>
+            Found(await svc.ReadSpecimenAsync(id, ct), "Specimen", id.ToString()));
+        fhir.MapGet("/Specimen", async (string? patient, HttpRequest req, FhirReadService svc, CancellationToken ct) =>
+            FhirReadService.TryParsePatientReference(patient, out var pid)
+                ? Fhir(await svc.SearchSpecimensAsync(pid, Self(req), ct))
+                : Invalid("Search Specimen by patient, for example ?patient=Patient/12."));
+
         fhir.MapGet("/BiologicallyDerivedProduct/{id:long}", async (long id, FhirReadService svc, CancellationToken ct) =>
             Found(await svc.ReadProductAsync(id, ct), "BiologicallyDerivedProduct", id.ToString()));
         fhir.MapGet("/BiologicallyDerivedProduct", async (string? identifier, HttpRequest req, FhirReadService svc, CancellationToken ct) =>

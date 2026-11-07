@@ -26,6 +26,8 @@ public sealed class FhirReadService
     private readonly IRepository<TestResult>? _results;
     private readonly IRepository<TestDefinition>? _tests;
     private readonly IRepository<OrderLine>? _orderLines;
+    private readonly IRepository<Specimen>? _specimens;
+    private readonly IRepository<SpecimenTypeDefinition>? _specimenTypes;
 
     public FhirReadService(
         IRepository<Patient> patients,
@@ -40,8 +42,12 @@ public sealed class FhirReadService
         IAuditWriter? audit = null,
         IRepository<TestResult>? results = null,
         IRepository<TestDefinition>? tests = null,
-        IRepository<OrderLine>? orderLines = null)
+        IRepository<OrderLine>? orderLines = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<SpecimenTypeDefinition>? specimenTypes = null)
     {
+        _specimens = specimens;
+        _specimenTypes = specimenTypes;
         _orderLines = orderLines;
         _results = results;
         _tests = tests;
@@ -244,6 +250,41 @@ public sealed class FhirReadService
 
         return FhirMapper.DiagnosticReport(order, verified, complete);
     }
+
+    /// <summary>The patient's tubes, newest first, whatever their state (a rejected tube says why).</summary>
+    public async Task<JsonObject> SearchSpecimensAsync(long patientId, string selfUrl, CancellationToken ct = default)
+    {
+        var resources = new List<JsonObject>();
+        if (_specimens is not null)
+        {
+            var types = await SpecimenTypesAsync(ct);
+            resources.AddRange((await _specimens.ListAsync(s => s.PatientId == patientId, ct))
+                .OrderByDescending(s => s.CollectedUtc).ThenByDescending(s => s.Id)
+                .Select(s => FhirMapper.Specimen(s, types.GetValueOrDefault(s.SpecimenType.ToUpperInvariant()))));
+        }
+
+        await AuditIfAnyAsync(patientId, resources.Count, ct);
+        return FhirMapper.Bundle(resources, selfUrl);
+    }
+
+    public async Task<JsonObject?> ReadSpecimenAsync(long id, CancellationToken ct = default)
+    {
+        var s = _specimens is null ? null : (await _specimens.ListAsync(x => x.Id == id, ct)).FirstOrDefault();
+        if (s is null)
+        {
+            return null;
+        }
+
+        var types = await SpecimenTypesAsync(ct);
+        return await AuditedAsync(s.PatientId, FhirMapper.Specimen(s, types.GetValueOrDefault(s.SpecimenType.ToUpperInvariant())), ct);
+    }
+
+    private async Task<Dictionary<string, SpecimenTypeDefinition>> SpecimenTypesAsync(CancellationToken ct) =>
+        _specimenTypes is null
+            ? new Dictionary<string, SpecimenTypeDefinition>()
+            : (await _specimenTypes.ListAsync(t => t.IsActive && !t.IsDraft, ct))
+                .GroupBy(t => t.Code.ToUpperInvariant())
+                .ToDictionary(g => g.Key, g => g.First());
 
     public async Task<JsonObject?> ReadServiceRequestAsync(long id, CancellationToken ct = default)
     {

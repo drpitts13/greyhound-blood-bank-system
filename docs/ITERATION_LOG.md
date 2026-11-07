@@ -16626,3 +16626,27 @@ Cycle 500 made verified results readable as Observations, but an EHR expects a r
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; FHIR Specimen resource for the tube a report used.
+
+## Iteration 504 — FHIR Specimen, and results point at their tube (2026-11-07)
+
+### Capability matrix rescan (interoperability: FHIR)
+
+FHIR results and reports (Cycles 500, 503) did not say which tube they came from, and the EHR could not see a tube's state: whether the type and screen specimen is still valid for crossmatch, or why a tube was rejected. Workflow questions: inference (state from the specimen record; nothing invented); safety (a rejected or expired tube reads as such; validity time stated); audit (patient access).
+
+### Design
+
+- `FhirMapper.Specimen`; `specimen` on result Observations and DiagnosticReports; `FhirReadService.SearchSpecimensAsync`/`ReadSpecimenAsync` (optional specimen and specimen-type repositories); endpoints; capability statement.
+
+### Requirements
+
+- URS-BB-564, FRS-BB-679. Help: HL7 setup (FHIR).
+
+### Tests
+
+- TEST-BB-552: four tubes in their four states with accession, type, collector, validity note, rejection reason, no receipt time when not received; a result Observation points at its tube; read by id; unknown id not found. TEST-BB-551: the report lists its specimen.
+- Full suite: 3,962 passed.
+- Live: /fhir/Specimen?patient=1 returned MRN0001's three tubes (ACC-PEND-COL collected only, ACC-PEND-RCV received, ACC0001 accepted), each "EDTA Whole Blood" with collection time, collector where recorded, and "Valid for testing until …". No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; FHIR search parameters beyond patient (date, status).
