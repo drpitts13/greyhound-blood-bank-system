@@ -57,4 +57,27 @@ public class SpecimenAccessionWaitingTests
         Assert.Null(SpecimenTypeOrderHint.AccessionTypeFor(orders, Tests, "CLOT", [site[1]]));        // site lacks EDTA
         Assert.NotNull(SpecimenTypeOrderHint.MismatchWarning(Tests, SpecimenTypeOrderHint.Waiting(orders).TestCodes, "CLOT"));
     }
+
+    // TEST-BB-562: the orders a tube accepted at accession is linked to.
+    [Fact]
+    public void LinkableOnAccession_IsTestOrdersOnTheVisitThatAcceptTheType()
+    {
+        var product = Order("ORD-P", OrderStatus.New, null, "ABORH") with
+        {
+            Lines = [new OrderLineDto(9, 1, OrderCategory.Product, "RBC", null, default, 1, null, null), new OrderLineDto(10, 2, default, "ABORH", "ABORH", default, null, null, null)]
+        };
+        var orders = new[]
+        {
+            Order("ORD-1", OrderStatus.New, null, "ABORH"),
+            Order("ORD-2", OrderStatus.New, null, "ABSC", "DAT"),
+            Order("ORD-3", OrderStatus.New, 40, "ABORH"),           // already has a tube
+            product,                                               // product order: needs a completed type and screen
+            Order("ORD-4", OrderStatus.New, null, "ABORH") with { EncounterId = 2 }
+        };
+
+        Assert.Equal(["ORD-1", "ORD-2"], SpecimenTypeOrderHint.LinkableOnAccession(orders, Tests, "EDTA", 1).Select(o => o.OrderNumber));
+        Assert.Equal(["ORD-1", "ORD-2", "ORD-4"], SpecimenTypeOrderHint.LinkableOnAccession(orders, Tests, "EDTA", 0).Select(o => o.OrderNumber));
+        Assert.Equal(["ORD-2"], SpecimenTypeOrderHint.LinkableOnAccession(orders, Tests, "CLOT", 1).Select(o => o.OrderNumber));
+        Assert.Empty(SpecimenTypeOrderHint.LinkableOnAccession(orders, Tests, "HEP", 1));
+    }
 }

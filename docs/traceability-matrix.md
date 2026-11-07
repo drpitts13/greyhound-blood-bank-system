@@ -682,6 +682,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-569 / FRS-BB-686 | Reagent lot lifecycle controls and audit | `ReagentLotRule`; `ReagentQcService`; `Reagents.razor` | TEST-BB-559 | U, I | |
 | URS-BB-570 / FRS-BB-687 | Reagent lot near expiry with no next lot: receive one | `ReagentQcWorklistRule`; `DashboardQueueCatalog.ReagentQcNote`; `AlertScanner`; `Reagents.razor` | TEST-BB-560 | U, I | |
 | URS-BB-571 / FRS-BB-688 | Specimens-tab accession names waiting orders and their accepted types | `SpecimenTypeOrderHint`; `PatientChartSpecimensTab.razor` | TEST-BB-561 | U | |
+| URS-BB-572 / FRS-BB-689 | Link a new tube to the waiting orders at accession | `SpecimenTypeOrderHint.LinkableOnAccession`; `PatientChartSpecimensTab.razor`; `PatientDetail.AccessionAsync`; `OrderService.LinkSpecimenAsync` | TEST-BB-562 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

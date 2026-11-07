@@ -16856,3 +16856,21 @@ Cycles 501–502 told order entry which tube types the selected tests accept, bu
 ### Tests
 
 - TEST-BB-561: only open test orders without a specimen count; the note names them and the common type; the form starts on a suitable type only when the current one does not suit and the site offers it; mismatch warned.
+
+## Iteration 514 — Link a new tube to the waiting orders at accession (2026-11-07)
+
+### Capability matrix rescan (orders and specimens: collection)
+
+An order placed before its tube was drawn stays without a specimen: nothing links a later tube to it. After accessioning that tube on the Specimens tab, the technologist went to the Orders tab and used Link specimen on each order, one at a time; an order missed there never reached the worklist. Workflow questions: clicks (one accession instead of accession plus a link per order); inference (the orders the tube suits, on its visit, are known); safety (only test orders whose tests accept the tube's type; product orders still need a completed type and screen; each link goes through the existing validated, audited link).
+
+### Design
+
+- `SpecimenTypeOrderHint.LinkableOnAccession`; ticked list on the accession form when Accept now is on; links made after accession through `LinkPatientOrderSpecimenAsync`; outcome names linked and failed orders.
+
+### Requirements
+
+- URS-BB-572, FRS-BB-689. Help: patient specimens.
+
+### Tests
+
+- TEST-BB-562: test orders on the tube's visit whose tests accept its type are offered; orders with a tube, product orders, other visits, and unsuited types are not; no visit chosen offers every visit.

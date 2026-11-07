@@ -21,6 +21,8 @@ public sealed class PatientAccessionForm
     public bool AcceptImmediately { get; set; } = true;
     // The visit the tube was drawn on; 0 when none is chosen.
     public long EncounterId { get; set; }
+    // Waiting orders the user unticked under "Link to waiting orders"; the rest that suit the tube are linked.
+    public HashSet<long> SkipLinkOrderIds { get; } = new();
 }
 
 public sealed class PatientSpecimenEditForm
@@ -120,20 +122,44 @@ public static class SpecimenTypeOrderHint
     /// </summary>
     public static (IReadOnlyList<string> OrderNumbers, IReadOnlyList<string> TestCodes) Waiting(IEnumerable<PatientOrderDto> orders)
     {
-        var waiting = orders
-            .Where(o => o.SpecimenId is null or 0
-                && o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
-            .Select(o => (o.OrderNumber, Codes: o.Lines
-                .Select(l => l.TestCode)
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Select(c => c!.Trim().ToUpperInvariant())
-                .Distinct()
-                .ToList()))
-            .Where(o => o.Codes.Count > 0)
-            .ToList();
+        var waiting = WaitingOrders(orders).Select(o => (o.OrderNumber, Codes: TestCodes(o))).ToList();
         return (
             waiting.Select(o => o.OrderNumber).ToList(),
             waiting.SelectMany(o => o.Codes).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+    }
+
+    /// <summary>Open orders with test lines and no specimen yet.</summary>
+    public static IReadOnlyList<PatientOrderDto> WaitingOrders(IEnumerable<PatientOrderDto> orders) =>
+        orders
+            .Where(o => o.SpecimenId is null or 0
+                && o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued)
+                && TestCodes(o).Count > 0)
+            .ToList();
+
+    private static List<string> TestCodes(PatientOrderDto order) =>
+        order.Lines
+            .Select(l => l.TestCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c!.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+
+    /// <summary>
+    /// Waiting orders a new tube can be linked to as it is accepted: test-only orders (a product order needs a completed
+    /// type and screen first) whose tests all accept the tube's type, on the visit the tube was drawn on when one is chosen.
+    /// </summary>
+    public static IReadOnlyList<PatientOrderDto> LinkableOnAccession(
+        IEnumerable<PatientOrderDto> orders,
+        IEnumerable<TestDefinitionListItemDto> tests,
+        string? specimenType,
+        long encounterId)
+    {
+        var testList = tests.ToList();
+        return WaitingOrders(orders)
+            .Where(o => o.Lines.All(l => l.LineCategory != OrderCategory.Product))
+            .Where(o => encounterId <= 0 || o.EncounterId == encounterId)
+            .Where(o => MismatchWarning(testList, TestCodes(o), specimenType) is null)
+            .ToList();
     }
 
     /// <summary>

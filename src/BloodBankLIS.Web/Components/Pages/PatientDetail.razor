@@ -2574,12 +2574,53 @@ else
             Comment: string.IsNullOrWhiteSpace(_acc.Comment) ? null : _acc.Comment,
             AcceptImmediately: _acc.AcceptImmediately,
             EncounterId: _acc.EncounterId > 0 ? _acc.EncounterId : null);
+        // Chosen before the call: the waiting orders the new tube serves, linked once it exists (each link is validated and audited).
+        var toLink = _acc.AcceptImmediately
+            ? SpecimenTypeOrderHint.LinkableOnAccession(_orders, _testDefs, _acc.SpecimenType, _acc.EncounterId)
+                .Where(o => !_acc.SkipLinkOrderIds.Contains(o.Id))
+                .ToList()
+            : [];
         var r = await Api.AccessionSpecimenAsync(req);
+        var linked = new List<string>();
+        var failed = new List<string>();
+        if (r.Succeeded && r.Value is { } specimen)
+        {
+            foreach (var order in toLink)
+            {
+                var link = await Api.LinkPatientOrderSpecimenAsync(Id, order.Id, new LinkOrderSpecimenRequest(specimen.Id));
+                if (link.Succeeded)
+                {
+                    linked.Add(order.OrderNumber);
+                }
+                else
+                {
+                    failed.Add($"{order.OrderNumber}: {link.Error}");
+                }
+            }
+        }
+
         _busy = false;
         _accessionFb = r.ToFeedback(_acc.AcceptImmediately
-            ? "Specimen accessioned."
+            ? "Specimen accessioned." + (linked.Count > 0 ? $" Linked to {string.Join(", ", linked)}." : string.Empty)
             : "Specimen collected. Receive it on the pending-specimens worklist.");
-        if (r.Succeeded) { _acc = new(); _showAccession = false; await LoadAsync(); }
+        if (failed.Count > 0)
+        {
+            _accessionFb = Feedback.Fail($"Specimen accessioned, but not linked to {string.Join("; ", failed)}. Link it from the Orders tab.");
+        }
+
+        if (r.Succeeded)
+        {
+            _acc = new();
+            _showAccession = false;
+            if (linked.Count > 0)
+            {
+                _ordersLoaded = false;
+                _testsLoaded = false;
+                await LoadOrdersAsync();
+            }
+
+            await LoadAsync();
+        }
     }
 
     private void BeginReject(SpecimenDto s)

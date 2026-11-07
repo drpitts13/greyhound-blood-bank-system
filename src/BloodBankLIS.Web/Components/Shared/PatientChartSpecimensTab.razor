@@ -90,6 +90,31 @@
                     Accept now — specimen is already in the blood bank
                 </label>
                 <p class="muted" style="margin:.25rem 0 .75rem;">Leave unchecked to record collection only. Receive and accept from the pending-specimens worklist. Result entry still requires Accepted.</p>
+                @{ var linkable = SpecimenTypeOrderHint.LinkableOnAccession(Orders, TestDefs, Accession.SpecimenType, Accession.EncounterId); }
+                @if (linkable.Count > 0)
+                {
+                    @if (Accession.AcceptImmediately)
+                    {
+                        <div class="field" data-accession-link-orders>
+                            <label>Link to waiting orders</label>
+                            @foreach (var o in linkable)
+                            {
+                                <label class="flex gap" style="align-items:center;">
+                                    <input type="checkbox" checked="@(!Accession.SkipLinkOrderIds.Contains(o.Id))"
+                                           @onchange="e => ToggleLink(o.Id, e.Value is true)" data-link-order="@o.OrderNumber" />
+                                    <span class="mono">@o.OrderNumber</span> @o.OrderName
+                                </label>
+                            }
+                            <span class="sub">Their tests appear on the worklist on this tube as soon as it is accessioned.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="muted" style="margin:0 0 .75rem;" data-accession-link-later>
+                            @linkable.Count waiting order@(linkable.Count == 1 ? "" : "s") can use this tube once it is accepted: link them from the Orders tab, or accept now to link them here.
+                        </p>
+                    }
+                }
                 @if (SpecimenTypeOrderHint.MismatchWarning(TestDefs, SpecimenTypeOrderHint.Waiting(Orders).TestCodes, Accession.SpecimenType) is { } typeWarning)
                 {
                     <div class="alert alert-warning" data-accession-type-warning>@typeWarning</div>
@@ -370,6 +395,18 @@
         if (ShowAccession)
         {
             await RefreshAccessionPreviewAsync();
+        }
+    }
+
+    private void ToggleLink(long orderId, bool link)
+    {
+        if (link)
+        {
+            Accession.SkipLinkOrderIds.Remove(orderId);
+        }
+        else
+        {
+            Accession.SkipLinkOrderIds.Add(orderId);
         }
     }
 
