@@ -149,10 +149,14 @@
                                 {
                                     @foreach (var t in SpecimenTypes)
                                     {
-                                        <option value="@t.Code">@t.Code — @t.Description</option>
+                                        <option value="@t.Code">@t.Code — @t.Description@(SuitsAllSelected(t.Code) ? " ✓ suits the selected tests" : "")</option>
                                     }
                                 }
                             </select>
+                            @if (AcceptedSpecimenTypes.OrderNote(SpecimenTypeOrderHint.Selected(TestDefs, NewOrderTestCodes)) is { } typeNote)
+                            {
+                                <span class="sub" data-order-specimen-note>@typeNote</span>
+                            }
                         </div>
                         <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
                         @if (AccessionPreviewExpires is { } preview)
@@ -730,6 +734,12 @@
 
     private string? LinkExistingMismatch =>
         SpecimenTypeOrderHint.MismatchWarning(TestDefs, NewOrderTestCodes, SelectedOrLatestSpecimenType);
+
+    private bool SuitsAllSelected(string code)
+    {
+        var (types, restricted) = AcceptedSpecimenTypes.Common(SpecimenTypeOrderHint.Selected(TestDefs, NewOrderTestCodes));
+        return restricted && types.Contains(code.ToUpperInvariant());
+    }
 
     private string? SelectedOrLatestSpecimenType
     {

@@ -58,8 +58,16 @@ public static class SpecimenTypeOrderHint
         IEnumerable<TestDefinitionListItemDto> tests,
         IEnumerable<string> selectedCodes)
     {
+        // A type that suits every selected test, when there is one; otherwise the first test's preferred type.
+        var codes = selectedCodes.ToList();
+        var (common, _) = AcceptedSpecimenTypes.Common(Selected(tests, codes));
+        if (common.Count > 0)
+        {
+            return common[0];
+        }
+
         var byCode = tests.ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
-        foreach (var code in selectedCodes)
+        foreach (var code in codes)
         {
             if (byCode.TryGetValue(code, out var test) && AcceptedSpecimenTypes.Preferred(test.RequiredSpecimenType) is { } preferred)
             {
@@ -68,6 +76,18 @@ public static class SpecimenTypeOrderHint
         }
 
         return null;
+    }
+
+    /// <summary>The selected tests as (code, accepted types) pairs for <see cref="AcceptedSpecimenTypes"/>.</summary>
+    public static IReadOnlyList<(string TestCode, string? Stored)> Selected(
+        IEnumerable<TestDefinitionListItemDto> tests,
+        IEnumerable<string> selectedCodes)
+    {
+        var byCode = tests.GroupBy(t => t.Code, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        return selectedCodes
+            .Where(byCode.ContainsKey)
+            .Select(c => (byCode[c].Code, byCode[c].RequiredSpecimenType))
+            .ToList();
     }
 
     public static string? MismatchWarning(

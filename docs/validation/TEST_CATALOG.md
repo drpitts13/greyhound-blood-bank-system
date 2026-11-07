@@ -558,5 +558,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-547 | U, I | `ReagentLotUseRuleTests.Review_NeedsAResultToReview_AndANote`; `AlertWorkflowTests.FailedQc_NamesTheResultsToReview_AndTheAlertOpensThem` | URS-BB-560 / FRS-BB-674 |
 | TEST-BB-548 | I | `FhirReadServiceTests.VerifiedResults_AreObservations_WithLoincAndQuantity` | URS-BB-561 / FRS-BB-675 |
 | TEST-BB-549 | U | `AcceptedSpecimenTypesTests.List_IsParsedNormalizedAndDescribed`; `AcceptedSpecimenTypesTests.Accepts_AnyListedType`; `AcceptedSpecimenTypesTests.ResultEntry_AcceptsAnyListedType_AndNamesThemWhenRefused`; `AcceptedSpecimenTypesTests.Validator_RefusesAListedTypeMissingFromTheCatalog` | URS-BB-562 / FRS-BB-676 |
+| TEST-BB-550 | U | `AcceptedSpecimenTypesTests.OrderNote_NamesAcceptedTypes_AndWhetherOneTubeSuitsAll` | URS-BB-562 / FRS-BB-677 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

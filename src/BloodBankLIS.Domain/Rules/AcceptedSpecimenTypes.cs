@@ -30,6 +30,50 @@ public static class AcceptedSpecimenTypes
             || (!string.IsNullOrWhiteSpace(specimenType) && codes.Contains(specimenType.Trim().ToUpperInvariant()));
     }
 
+    /// <summary>
+    /// The specimen types every one of the tests accepts, in the order of the first restricted test (its preferred type
+    /// first). Restricted is false when no test limits the type (any tube suits them all).
+    /// </summary>
+    public static (IReadOnlyList<string> Types, bool Restricted) Common(IEnumerable<(string TestCode, string? Stored)> tests)
+    {
+        IReadOnlyList<string>? common = null;
+        foreach (var (_, stored) in tests)
+        {
+            var accepted = Parse(stored);
+            if (accepted.Count == 0)
+            {
+                continue;
+            }
+
+            common = common is null ? accepted : common.Where(accepted.Contains).ToList();
+        }
+
+        return common is null ? ([], false) : (common, true);
+    }
+
+    /// <summary>
+    /// For order entry: which types the selected tests accept, and whether one tube can serve them all. Null when no
+    /// selected test limits the type.
+    /// </summary>
+    public static string? OrderNote(IEnumerable<(string TestCode, string? Stored)> tests)
+    {
+        var list = tests.ToList();
+        var restricted = list.Where(t => Parse(t.Stored).Count > 0).ToList();
+        if (restricted.Count == 0)
+        {
+            return null;
+        }
+
+        var accepts = string.Join("; ", restricted.Select(t => $"{t.TestCode.Trim().ToUpperInvariant()} accepts {Describe(t.Stored)}"));
+        var (common, _) = Common(list);
+        return common.Count switch
+        {
+            0 => $"{accepts}. No one specimen type suits all of these tests: collect a tube for each.",
+            _ when restricted.Count == 1 => $"{accepts}.",
+            _ => $"{accepts}. {Describe(string.Join(",", common))} suits them all."
+        };
+    }
+
     /// <summary>"EDTA" or "EDTA or CLOT" or "EDTA, CLOT, or HEP", for messages.</summary>
     public static string Describe(string? stored)
     {

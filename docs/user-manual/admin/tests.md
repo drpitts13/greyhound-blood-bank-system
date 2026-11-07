@@ -14,7 +14,7 @@ routes:
 
 ## Specimen types
 
-**Preferred specimen type** prefills the specimen type when the test is accessioned. **Also accepted** lists the other types the test may be performed on (for example EDTA preferred, clotted also accepted). Result entry is blocked only when the specimen is none of these; order entry warns before that. Leave the preferred type empty to accept any type. A specimen type's own **excluded tests** still apply. Which types each test accepts is your laboratory's decision.
+**Preferred specimen type** prefills the specimen type when the test is accessioned. **Also accepted** lists the other types the test may be performed on (for example EDTA preferred, clotted also accepted). Result entry is blocked only when the specimen is none of these; order entry warns before that. When you order with **Accession now**, the chart names the types the selected tests accept, marks the types that suit them all, prefills one of those, and says when no single tube does (collect a tube for each). Leave the preferred type empty to accept any type. A specimen type's own **excluded tests** still apply. Which types each test accepts is your laboratory's decision.
 
 ## Numeric results
 

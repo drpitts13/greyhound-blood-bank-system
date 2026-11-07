@@ -52,4 +52,24 @@ public class AcceptedSpecimenTypesTests
         var stop = Assert.Single(eval.HardStops, h => h.Code == "TESTDEF.SPECTYPE.MISSING");
         Assert.Contains("URINE", stop.Message);
     }
+
+    // TEST-BB-550: order entry names the types the selected tests accept, the one that suits them all, or that no single
+    // tube does; tests without a limit do not restrict.
+    [Fact]
+    public void OrderNote_NamesAcceptedTypes_AndWhetherOneTubeSuitsAll()
+    {
+        (string, string?)[] screenAndType = [("ABSC", "EDTA, SERUM"), ("ABORH", "EDTA"), ("HGB", null)];
+        var (common, restricted) = AcceptedSpecimenTypes.Common(screenAndType);
+        Assert.Equal(["EDTA"], common);
+        Assert.True(restricted);
+        Assert.Equal("ABSC accepts EDTA or SERUM; ABORH accepts EDTA. EDTA suits them all.", AcceptedSpecimenTypes.OrderNote(screenAndType));
+
+        (string, string?)[] conflict = [("ABSC", "SERUM"), ("ABORH", "EDTA")];
+        Assert.Empty(AcceptedSpecimenTypes.Common(conflict).Types);
+        Assert.Equal("ABSC accepts SERUM; ABORH accepts EDTA. No one specimen type suits all of these tests: collect a tube for each.", AcceptedSpecimenTypes.OrderNote(conflict));
+
+        Assert.Equal("ABSC accepts EDTA or SERUM.", AcceptedSpecimenTypes.OrderNote([("ABSC", "EDTA, SERUM")]));
+        Assert.Null(AcceptedSpecimenTypes.OrderNote([("HGB", null)]));
+        Assert.False(AcceptedSpecimenTypes.Common([("HGB", null)]).Restricted);
+    }
 }

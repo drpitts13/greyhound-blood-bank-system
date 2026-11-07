@@ -16578,3 +16578,27 @@ A test could name one required specimen type, so a laboratory that runs a screen
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; FHIR DiagnosticReport grouping a specimen's results; show the accepted types on the accession form beside the preferred one.
+
+## Iteration 502 — Order entry shows accepted specimen types (2026-11-07)
+
+### Capability matrix rescan (orders and specimens)
+
+Cycle 501 let a test accept several types, but ordering with Accession now still showed a plain type list: the person collecting had to know which types the selected tests accept, and a test pair with no common type surfaced only as a warning after saving. Workflow questions: memory (the note names each test's types); inference (the prefill picks a type that suits all selected tests); next action (the note says to collect a tube for each when none suits all); safety (unchanged: result entry still stops a type outside the list).
+
+### Design
+
+- `AcceptedSpecimenTypes.Common` and `OrderNote` (Domain); `SpecimenTypeOrderHint.Selected` and a common-type prefill (Web); note and ✓ marks on the order accession specimen type.
+
+### Requirements
+
+- URS-BB-562 (extended), FRS-BB-677. Help: test definitions.
+
+### Tests
+
+- TEST-BB-550: common type across restricted tests (unrestricted ignored); the note names each test's types and the common one, says to collect a tube for each when none, describes a single restricted test, and is absent when nothing restricts.
+- Full suite: 3,960 passed.
+- Live: selecting ABORH and ABSC on MRN0001's new order showed no note, as expected: no seeded test limits its specimen type (OCD-free: which types to accept is the laboratory's setting, left unset). The note itself is covered by TEST-BB-550; nothing was saved. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; FHIR DiagnosticReport grouping a specimen's results; the same accepted-type note on the Specimens tab accession form.
