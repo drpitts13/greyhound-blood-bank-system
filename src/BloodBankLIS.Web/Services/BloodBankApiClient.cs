@@ -60,6 +60,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PatientDto>> GetPatientAsync(long id, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Get, $"api/patients/{id}", ct: ct);
 
+    public Task<ApiResult<List<RhigQueueItemDto>>> GetOpenRhigEvaluationsAsync(CancellationToken ct = default) =>
+        SendAsync<List<RhigQueueItemDto>>(HttpMethod.Get, "api/rhig/open", ct: ct);
+
     public Task<ApiResult<List<RhigEvaluationDto>>> GetRhigEvaluationsAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<RhigEvaluationDto>>(HttpMethod.Get, $"api/patients/{patientId}/rhig", ct: ct);
 

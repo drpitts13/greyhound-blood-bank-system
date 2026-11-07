@@ -47,6 +47,11 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False(incomplete.Succeeded);
         Assert.Contains("quantitation", incomplete.Error);
 
+        // TEST-BB-574: the open queue lists it, not yet ready.
+        var queued = Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id);
+        Assert.False(queued.ReadyToComplete);
+        Assert.Equal("Mother, Ann", queued.PatientName);
+
         var future = await recorder.SaveAsync(patient.Id, new SaveRhigEvaluationRequest(
             saved.Value.Id, RhigContext.Postpartum, _factory.Clock.UtcNow.AddDays(1), RhType.Positive, FetalBleedScreen.Positive, 0.6m, RhigDecision.Candidate, 2, null));
         Assert.False(future.Succeeded);
@@ -54,7 +59,9 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
             saved.Value.Id, RhigContext.Postpartum, delivery, RhType.Positive, FetalBleedScreen.Positive, 0.6m, RhigDecision.Candidate, 2, "Per procedure"));
         Assert.True(edited.Succeeded, edited.Error);
 
+        Assert.True(Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id).ReadyToComplete);
         var completed = await verifier.CompleteAsync(patient.Id, saved.Value.Id);
+        Assert.DoesNotContain(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id);
         Assert.True(completed.Succeeded, completed.Error);
         Assert.True(completed.Value!.IsCompleted);
         Assert.False((await recorder.SaveAsync(patient.Id, new SaveRhigEvaluationRequest(

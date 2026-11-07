@@ -17084,3 +17084,21 @@ Duplicate handling closed out in Cycles 520–524. The partial rows remaining ar
 ### Next
 
 RhIG follow-ups once OCD-069 is answered: an open-evaluations queue, and recording the RhIG issued (lot and vials).
+
+## Iteration 526 — Open RhIG evaluations queue (2026-11-07)
+
+### Capability matrix rescan (operations: queues)
+
+Cycle 525 put RhIG evaluations on the chart, but an evaluation started at delivery could sit open on one chart with nothing listing it: the verifier had to know which patient to open. RhIG has a short window after delivery, so an unfinished record is an operational risk. This step does not depend on OCD-069: it lists what is open and uses the completion check (not a clinical rule) to say which are ready. Workflow questions: next action (the card and list lead to the chart tab); memory (no list of patients to remember); clicks (one from home).
+
+### Design
+
+- `ListOpenAsync` and `GET /api/rhig/open`; `/rhig` page; nav entry; home card with `RhigQueueNote`.
+
+### Requirements
+
+- URS-BB-584, FRS-BB-701. Help: RhIG evaluations, dashboard.
+
+### Tests
+
+- TEST-BB-574: card for recorders and verifiers only; note counts ready ones; queue lists an incomplete evaluation as not ready, ready once filled in, gone once completed.

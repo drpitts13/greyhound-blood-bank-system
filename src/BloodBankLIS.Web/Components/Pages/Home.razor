@@ -448,6 +448,13 @@
             }
             case DashboardQueueCatalog.Hl7Errors:
                 return await CountList(card.Key, Api.GetHl7ErrorsAsync());
+            case DashboardQueueCatalog.OpenRhig:
+            {
+                var result = await Api.GetOpenRhigEvaluationsAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.RhigQueueNote(result.Value))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.PossibleDuplicates:
             {
                 var result = await Api.GetPossibleDuplicatePairsAsync();

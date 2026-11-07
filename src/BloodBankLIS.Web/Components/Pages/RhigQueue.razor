@@ -1,0 +1,81 @@
+@page "/rhig"
+@using BloodBankLIS.Application.Immunohematology
+@inject BloodBankApiClient Api
+
+<PageTitle>Open RhIG evaluations &middot; HemoCore</PageTitle>
+
+<h1>Open RhIG evaluations</h1>
+<p class="muted">
+    RhIG evaluations recorded on patient charts and not yet completed, oldest event first. <strong>Ready</strong> means the
+    record says what was decided and can be completed by a verifier; the others still need the decision, the vials, the
+    quantitation, or a reason. Open a chart to finish or complete it. Candidacy and dosing follow your facility's procedure (OCD-069).
+</p>
+<Outcome Value="_fb" />
+
+@if (_items is null)
+{
+    <div class="loading">Loading...</div>
+}
+else if (_items.Count == 0)
+{
+    <div class="empty">No open RhIG evaluations.</div>
+}
+else
+{
+    <div class="bb-card">
+        <table class="bb" data-rhig-queue>
+            <thead><tr><th>Patient</th><th>Event</th><th>Decision</th><th>Recorded</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    var e = item.Evaluation;
+                    <tr>
+                        <td><a href="@($"/patients/{e.PatientId}?tab=rhig")">@item.PatientName</a> <span class="sub mono">@item.Mrn</span></td>
+                        <td class="nowrap">@Context(e.Context) @e.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@Decision(e)</td>
+                        <td class="nowrap">@e.RecordedUtc.ToString("yyyy-MM-dd HH:mm") <span class="sub">@e.RecordedBy</span></td>
+                        <td>
+                            @if (item.ReadyToComplete)
+                            {
+                                <span class="badge badge-green" data-rhig-ready>Ready to complete</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-amber">Needs entries</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<RhigQueueItemDto>? _items;
+    private Feedback? _fb;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var r = await Api.GetOpenRhigEvaluationsAsync();
+        _items = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+
+    private static string Context(RhigContext c) => c switch
+    {
+        RhigContext.Antepartum => "Antepartum",
+        RhigContext.Postpartum => "Delivery",
+        _ => "Other exposure"
+    };
+
+    private static string Decision(RhigEvaluationDto e) => e.Decision switch
+    {
+        RhigDecision.Candidate => e.VialsRecommended is int v ? $"Candidate, {v} vial{(v == 1 ? "" : "s")}" : "Candidate",
+        RhigDecision.NotCandidate => "Not a candidate",
+        _ => "Not yet decided"
+    };
+}

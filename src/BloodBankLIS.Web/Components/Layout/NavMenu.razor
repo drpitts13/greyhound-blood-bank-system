@@ -19,6 +19,10 @@
         {
             <NavLink href="antibody-id" ActiveClass="active">Antibody ID</NavLink>
         }
+        @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ResultVerify))
+        {
+            <NavLink href="rhig" ActiveClass="active">RhIG</NavLink>
+        }
     </details>
 
     <details class="nav-section" open="@SectionOpen(InventorySectionPaths)">
@@ -227,7 +231,7 @@
 </nav>
 
 @code {
-    private static readonly string[] PatientPaths = ["patients", "test-worklist", "reagents", "antibody-id"];
+    private static readonly string[] PatientPaths = ["patients", "test-worklist", "reagents", "antibody-id", "rhig"];
 
     private static readonly string[] InventorySectionPaths = ["inventory", "storage-temps"];
 

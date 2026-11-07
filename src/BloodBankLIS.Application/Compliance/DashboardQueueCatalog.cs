@@ -39,6 +39,7 @@ public static class DashboardQueueCatalog
     public const string LowStock = "low-stock";
     public const string UnmappedInterfaceValues = "interface-unmapped";
     public const string PossibleDuplicates = "possible-duplicates";
+    public const string OpenRhig = "open-rhig";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -61,6 +62,8 @@ public static class DashboardQueueCatalog
         // Daily reagent QC is bench work: whoever enters results records and reviews it.
         Add(cards, has(PermissionCodes.ResultEnter), ReagentQc, "Reagent QC", "/reagents");
         Add(cards, has(PermissionCodes.ReactionInvestigate), Reactions, "Reaction investigations", "/reactions");
+        // RhIG evaluations not yet completed: recorded by the bench, completed by a verifier (OCD-069).
+        Add(cards, has(PermissionCodes.ResultVerify) || has(PermissionCodes.ImmunoRecord), OpenRhig, "Open RhIG evaluations", "/rhig");
         Add(cards, has(PermissionCodes.ImmunoOverride)
             || has(PermissionCodes.ResultVerify)
             || has(PermissionCodes.InventoryRelease) || has(PermissionCodes.OverrideApprove), Supervisor, "Supervisor queue", "/supervisor");
@@ -134,6 +137,10 @@ public static class DashboardQueueCatalog
             pairs.Count(p => PossibleDuplicatePatientRule.IsSharedIdentifierReason(p.Reason)),
             "shares an external ID",
             "share an external ID");
+
+    /// <summary>The Open RhIG evaluations card note: those filled in and waiting only to be completed.</summary>
+    public static string? RhigQueueNote(IEnumerable<BloodBankLIS.Application.Immunohematology.RhigQueueItemDto> items) =>
+        AttentionNote(items.Count(i => i.ReadyToComplete), "ready to complete", "ready to complete");
 
     public static string? AttentionNote(int count, string singular, string plural)
     {

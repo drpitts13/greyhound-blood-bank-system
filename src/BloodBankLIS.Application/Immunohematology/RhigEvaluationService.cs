@@ -26,6 +26,9 @@ public sealed record RhigEvaluationDto(
     public bool IsCompleted => CompletedUtc is not null;
 }
 
+/// <summary>An open RhIG evaluation on the cross-patient queue; ready when it can be completed as recorded.</summary>
+public sealed record RhigQueueItemDto(RhigEvaluationDto Evaluation, string PatientName, string Mrn, bool ReadyToComplete);
+
 /// <summary>Creates or updates an open RhIG evaluation (null id creates one).</summary>
 public sealed record SaveRhigEvaluationRequest(
     long? Id,
@@ -85,6 +88,42 @@ public sealed class RhigEvaluationService
             .ThenByDescending(e => e.Id)
             .Select(e => ToDto(e, motherRh, antiD))
             .ToList();
+    }
+
+    /// <summary>
+    /// Every open evaluation, oldest event first, with the patient and whether it is filled in enough to complete (the
+    /// same check as Complete; no clinical rule).
+    /// </summary>
+    public async Task<IReadOnlyList<RhigQueueItemDto>> ListOpenAsync(CancellationToken ct = default)
+    {
+        var open = await _evaluations.ListAsync(e => e.CompletedUtc == null, ct);
+        if (open.Count == 0)
+        {
+            return [];
+        }
+
+        var patientIds = open.Select(e => e.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var items = new List<RhigQueueItemDto>();
+        foreach (var e in open.OrderBy(e => e.EventUtc).ThenBy(e => e.Id))
+        {
+            patients.TryGetValue(e.PatientId, out var patient);
+            if (patient is { Status: PatientStatus.Merged })
+            {
+                continue;
+            }
+
+            var (motherRh, antiD) = await PatientFactsAsync(e.PatientId, ct);
+            var ready = RhigEvaluationRule.EvaluateComplete(e.Decision, e.VialsRecommended, e.DecisionNote, e.FetalBleedScreen, e.FetalBleedPercent)
+                .Severity != RuleSeverity.HardStop;
+            items.Add(new RhigQueueItemDto(
+                ToDto(e, motherRh, antiD),
+                patient is null ? $"Patient {e.PatientId}" : $"{patient.LastName}, {patient.FirstName}",
+                patient?.MedicalRecordNumber ?? "—",
+                ready));
+        }
+
+        return items;
     }
 
     public async Task<OperationResult<RhigEvaluationDto>> SaveAsync(long patientId, SaveRhigEvaluationRequest request, CancellationToken ct = default)

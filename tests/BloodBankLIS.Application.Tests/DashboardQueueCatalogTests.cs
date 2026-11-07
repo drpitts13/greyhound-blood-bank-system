@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Results;
@@ -203,6 +204,19 @@ public class DashboardQueueCatalogTests
         Assert.Equal("2 share an external ID", DashboardQueueCatalog.PossibleDuplicatesNote([
             Pair(PossibleDuplicatePatientRule.SharedIdentifier("EPI-1", null)),
             Pair(PossibleDuplicatePatientRule.SharedIdentifier("EPI-2", "EPI PI"))]));
+    }
+
+    // TEST-BB-574: the bench and verifiers get an Open RhIG evaluations card; the note counts those ready to complete.
+    [Fact]
+    public void OpenRhigCard_ForRecordersAndVerifiers_CountsThoseReadyToComplete()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultVerify)), c => c.Key == DashboardQueueCatalog.OpenRhig && c.Href == "/rhig");
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ImmunoRecord)), c => c.Key == DashboardQueueCatalog.OpenRhig);
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)), c => c.Key == DashboardQueueCatalog.OpenRhig);
+
+        RhigQueueItemDto Item(bool ready) => new(null!, "Mother, Ann", "MRN1", ready);
+        Assert.Null(DashboardQueueCatalog.RhigQueueNote([Item(false)]));
+        Assert.Equal("2 ready to complete", DashboardQueueCatalog.RhigQueueNote([Item(true), Item(false), Item(true)]));
     }
 
     // TEST-BB-435: verifiers get a Results to verify card that counts only what they can verify now.

@@ -33,6 +33,11 @@ public static class ImmunohematologyEndpoints
             .RequirePermission(PermissionCodes.ImmunoOverride);
 
         // RhIG evaluations (OCD-069): facts on file, the decision and dose recorded by the reviewer.
+        app.MapGet("/api/rhig/open", async (RhigEvaluationService service, CancellationToken ct) =>
+            Results.Ok(await service.ListOpenAsync(ct)))
+            .WithTags("Immunohematology")
+            .RequireAuthenticatedUser();
+
         patients.MapGet("/{patientId:long}/rhig", async (long patientId, RhigEvaluationService service, CancellationToken ct) =>
             Results.Ok(await service.ListAsync(patientId, ct)));
 
