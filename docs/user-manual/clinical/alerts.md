@@ -21,7 +21,7 @@ Alerts come from nine places:
 - **Transfusion not completed**: a transfusion was started at the bedside and not finished within the facility reminder hours. Warning. Ask the ward to document the stop.
 - **Backup failed** and **Backup overdue**: the database backup did not succeed, or has not run within its schedule. Critical. Tell your system administrator.
 
-Below minimum stock, near expiry, reagent QC, transfusion not completed, and backup overdue alerts close on their own once the condition clears. The system checks every five minutes by default. Temperature excursion, incompatible after release, expired-unit, and backup failed alerts stay open until someone acknowledges them.
+Below minimum stock, near expiry, reagent QC, transfusion not completed, and backup overdue alerts close on their own once the condition clears. While the condition holds, the alert keeps saying what is true now: a below minimum stock alert names what is on order, and drops from a warning to information when orders that are still on time cover the shortage; it becomes a warning again if such an order is late. It stays one alert with its first raised time, and an acknowledgement stands. The system checks every five minutes by default. Temperature excursion, incompatible after release, expired-unit, and backup failed alerts stay open until someone acknowledges them.
 
 When more than one kind is open, the buttons above the list show one kind at a time, with a count each, most severe first. Under each raised time, **open** says how long the alert has waited.
 

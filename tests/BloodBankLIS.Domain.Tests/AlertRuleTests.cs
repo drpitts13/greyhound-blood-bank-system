@@ -61,4 +61,26 @@ public class AlertRuleTests
         Assert.False(AlertRule.IsActive(new Alert { ResolvedUtc = Now }));
         Assert.False(AlertRule.IsOpen(new Alert { ResolvedUtc = Now }));
     }
+
+    // TEST-BB-511: an alert whose condition still holds but reads differently is refreshed with what is true now; an
+    // unchanged one, and one whose condition cleared, are not.
+    [Fact]
+    public void Changed_ListsAlertsThatNowReadDifferently()
+    {
+        var same = Active("PAR:1");
+        same.Severity = AlertSeverity.Warning;
+        same.Title = "PAR:1";
+        same.Message = "msg";
+        var differs = Active("PAR:2", acknowledged: true);
+        differs.Severity = AlertSeverity.Warning;
+        differs.Title = "PAR:2";
+        differs.Message = "old";
+        var now = Found("PAR:2") with { Severity = AlertSeverity.Info };
+
+        var changed = AlertRule.Changed([same, differs, Active("PAR:3")], [Found("PAR:1"), now]);
+
+        var (alert, current) = Assert.Single(changed);
+        Assert.Same(differs, alert);
+        Assert.Equal((AlertSeverity.Info, "msg"), (current.Severity, current.Message));
+    }
 }

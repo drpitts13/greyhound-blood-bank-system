@@ -47,6 +47,21 @@ public sealed class AlertScanner
         _clock = clock;
     }
 
+    /// <summary>"2 available against a minimum of 4 (short 2). 1 on order, 1 still to order."</summary>
+    public static string ShortageMessage(MinimumStockRowDto row)
+    {
+        var text = $"{row.OnHand} available against a minimum of {row.MinimumAvailable} (short {row.Shortfall}).";
+        if (row.OnOrder <= 0)
+        {
+            return text;
+        }
+
+        var state = row.OnOrderOverdue > 0
+            ? $"{row.OnOrderOverdue} overdue: chase the supplier"
+            : row.StillToOrder == 0 ? "covering the shortage" : $"{row.StillToOrder} still to order";
+        return $"{text} {row.OnOrder} on order, {state}.";
+    }
+
     public async Task<(int Raised, int Resolved)> ScanAsync(CancellationToken ct = default)
     {
         var raised = 0;
@@ -57,9 +72,10 @@ public sealed class AlertScanner
             .Select(row => new AlertCandidate(
                 AlertRule.MinimumStockShortage,
                 $"PAR:{row.MinimumStockId}", // Stored key prefix, kept so open alerts still match.
-                AlertSeverity.Warning,
+                // Covered by orders still on time: information. Anything left to order, or a late order: a warning.
+                row.StillToOrder == 0 && row.OnOrderOverdue == 0 ? AlertSeverity.Info : AlertSeverity.Warning,
                 $"Below minimum stock: {row.ProductCode}{(row.Abo is null ? "" : $" group {row.Abo}")}",
-                $"{row.OnHand} available against a minimum of {row.MinimumAvailable} (short {row.Shortfall}).",
+                ShortageMessage(row),
                 "/inventory/minimum-stock"))
             .ToList();
         Add(await _alerts.SyncAsync(AlertRule.MinimumStockShortage, shortages, ct));

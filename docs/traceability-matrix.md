@@ -638,6 +638,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-533 / FRS-BB-642 | Shift handoff counts products below minimum stock | `ShiftHandoffService` | TEST-BB-508 | U, I | |
 | URS-BB-534 / FRS-BB-643 | Units on submitted supplier orders count as on order | `MinimumStockService`; `SupplierOrderService` | TEST-BB-509 | U, I | |
 | URS-BB-535 / FRS-BB-644 | Overdue supplier orders | `SupplierOrderRule.IsArrivalOverdue` | TEST-BB-510 | U, I | |
+| URS-BB-536 / FRS-BB-645 | Open alerts stay current; shortage alert follows orders | `AlertRule.Changed`; `AlertScanner` | TEST-BB-511 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

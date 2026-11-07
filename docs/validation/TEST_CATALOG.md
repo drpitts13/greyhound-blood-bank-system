@@ -519,5 +519,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-508 | U, I | `ShiftHandoffSummaryTests.Summary_NamesProductsBelowMinimumStock`; `ShiftHandoffServiceTests.Create_CountsProductsBelowMinimumStock` | URS-BB-533 / FRS-BB-642 |
 | TEST-BB-509 | U, I | `SupplierOrderTests.SubmittedOrders_CountAsOnOrder_SoAShortageIsNotOrderedTwice`; `MinimumStockRuleTests.StillToOrder_IsTheShortfallLessWhatIsOnOrder`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-534 / FRS-BB-643 |
 | TEST-BB-510 | U, I | `SupplierOrderRuleTests.Arrival_IsDueAfterTheWindow_AndOverdueOnlyWhileSubmitted`; `SupplierOrderTests.SubmittedOrder_PastItsArrivalWindow_IsOverdue` | URS-BB-535 / FRS-BB-644 |
+| TEST-BB-511 | U, I | `AlertRuleTests.Changed_ListsAlertsThatNowReadDifferently`; `AlertWorkflowTests.ShortageAlert_FollowsWhatIsOnOrder_WithoutRaisingAgain` | URS-BB-536 / FRS-BB-645 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

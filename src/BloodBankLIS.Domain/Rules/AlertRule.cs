@@ -77,4 +77,22 @@ public static class AlertRule
         var toResolve = activeForSource.Where(a => !foundKeys.Contains(a.Key)).ToList();
         return (toRaise, toResolve);
     }
+
+    /// <summary>
+    /// Active alerts whose condition still holds but now reads differently (severity, title, message, or link), with what
+    /// they should now say. Refreshed in place: not raised again, and an acknowledgement stands.
+    /// </summary>
+    public static IReadOnlyList<(Alert Alert, AlertCandidate Now)> Changed(
+        IReadOnlyCollection<Alert> activeForSource,
+        IReadOnlyCollection<AlertCandidate> found)
+    {
+        var byKey = found
+            .GroupBy(c => c.Key, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        return activeForSource
+            .Where(a => byKey.TryGetValue(a.Key, out var now)
+                && (a.Severity != now.Severity || a.Title != now.Title || a.Message != now.Message || a.Link != now.Link))
+            .Select(a => (a, byKey[a.Key]))
+            .ToList();
+    }
 }

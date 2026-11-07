@@ -15972,3 +15972,32 @@ Since Cycle 471 a shortage covered by a submitted order reads "Covered by orders
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 473 — Open alerts say what is true now (2026-11-06)
+
+### Capability matrix rescan (operations: alert inbox)
+
+The below minimum stock alert was raised once with the shortfall and never changed while the shortage held. After Cycles 471 and 472 the shortage could be fully on order, or that order late, while the alert still read as when it was first raised, always a warning. More generally, no alert's wording or severity was ever refreshed (questions 2, 5; alert vs warning separation).
+
+### Design
+
+- **`AlertRule.Changed`:** active alerts whose condition persists but whose severity, title, message, or link differ from the current finding.
+- **`AlertService.SyncAsync`** refreshes those in place: same alert and raised time, acknowledgement kept, nothing raised again.
+- **Shortage alert:** Info when orders that are still on time cover the shortage; Warning when anything is still to order or an order is late. The message adds "n on order, covering the shortage", "n still to order", or "n overdue: chase the supplier".
+- No schema change. An acknowledged alert that becomes a warning again stays acknowledged (it is updated, not reopened); the Minimum stock page and home card show the late order.
+
+### Requirements
+
+- URS-BB-536, FRS-BB-645. Help: alerts.
+
+### Tests
+
+- TEST-BB-511:
+  - only alerts whose condition holds and now reads differently are listed, with what they should say
+  - a shortage alert keeps its id: a warning with the shortfall, then information once a timely order covers it, then a warning naming the overdue units 25 hours later; nothing is raised again
+- Full suite: 3,851 passed
+- Live: the API's own startup scan updated the open alert raised at 14:50 for RBC-LR group A (alert 1) in place to "2 available against a minimum of 4 (short 2). 1 on order, 1 still to order.", still a warning (half the shortage is uncovered), same raised time; Alerts showed it with "open 9 h". No server errors.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

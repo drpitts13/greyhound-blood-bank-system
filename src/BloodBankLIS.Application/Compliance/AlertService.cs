@@ -79,6 +79,23 @@ public sealed class AlertService
             await _alerts.AddAsync(ToEntity(candidate), ct);
         }
 
+        // A condition that still holds but changed (a shortage now on order, say) keeps its alert and says what is true now.
+        var changed = AlertRule.Changed(active, found.Where(c => c.Source == source).ToList());
+        foreach (var (alert, current) in changed)
+        {
+            var tracked = await _alerts.GetByIdAsync(alert.Id, ct);
+            if (tracked is null)
+            {
+                continue;
+            }
+
+            tracked.Severity = current.Severity;
+            tracked.Title = current.Title;
+            tracked.Message = current.Message;
+            tracked.Link = current.Link;
+            _alerts.Update(tracked);
+        }
+
         var now = _clock.UtcNow;
         foreach (var cleared in toResolve)
         {
@@ -92,7 +109,7 @@ public sealed class AlertService
             _alerts.Update(tracked);
         }
 
-        if (toRaise.Count > 0 || toResolve.Count > 0)
+        if (toRaise.Count > 0 || toResolve.Count > 0 || changed.Count > 0)
         {
             await _unitOfWork.SaveChangesAsync(ct);
         }

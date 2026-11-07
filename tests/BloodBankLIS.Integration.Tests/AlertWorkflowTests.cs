@@ -26,7 +26,8 @@ public class AlertWorkflowTests : IDisposable
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
         var minimumStock = new MinimumStockService(
-            new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c);
+            new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
+            supplierOrders: new EfRepository<SupplierOrder>(c), supplierOrderLines: new EfRepository<SupplierOrderLine>(c), clock: _factory.Clock);
         var inventory = new InventoryService(
             new InventoryRepository(c),
             new EfRepository<UnitBloodAttribute>(c),
@@ -288,5 +289,45 @@ public class AlertWorkflowTests : IDisposable
         Assert.Equal(AlertSeverity.Critical, alert.Severity);
         Assert.Equal($"TEMP:DEV-{excursion.Value!.DeviationId}", alert.Key);
         Assert.Contains($"DEV-{excursion.Value.DeviationId}", alert.Message);
+    }
+
+    // TEST-BB-511: a shortage alert stays one alert as the shortage is ordered: covered by an order on time it drops to
+    // information and says so; once that order is late it is a warning again, naming the overdue units.
+    [Fact]
+    public async Task ShortageAlert_FollowsWhatIsOnOrder_WithoutRaisingAgain()
+    {
+        await using var c = _factory.Create();
+        var product = new ProductType { ProductCode = "RBC-ONORD", Name = "Red cells" };
+        var supplier = new BloodSupplier { Code = "SUP-AL", Name = "Supplier", Registration = "R-AL" };
+        c.AddRange(product, supplier);
+        await c.SaveChangesAsync();
+        c.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = product.Id, Abo = AboGroup.A, MinimumAvailable = 2 });
+        await c.SaveChangesAsync();
+
+        await Scanner(c).ScanAsync();
+        var alert = await c.Alerts.SingleAsync(a => a.Source == AlertRule.MinimumStockShortage);
+        Assert.Equal(AlertSeverity.Warning, alert.Severity);
+        Assert.Equal("0 available against a minimum of 2 (short 2).", alert.Message);
+
+        var order = new SupplierOrder
+        {
+            OrderNumber = "SO-AL-1", BloodSupplierId = supplier.Id, Status = SupplierOrderStatus.Submitted, SubmittedUtc = _factory.Clock.UtcNow
+        };
+        c.SupplierOrders.Add(order);
+        await c.SaveChangesAsync();
+        c.SupplierOrderLines.Add(new SupplierOrderLine { SupplierOrderId = order.Id, ProductTypeId = product.Id, Abo = AboGroup.A, Quantity = 2 });
+        await c.SaveChangesAsync();
+
+        Assert.Equal(0, (await Scanner(c).ScanAsync()).Raised);
+        var covered = await c.Alerts.AsNoTracking().SingleAsync(a => a.Source == AlertRule.MinimumStockShortage);
+        Assert.Equal(alert.Id, covered.Id);
+        Assert.Equal(AlertSeverity.Info, covered.Severity);
+        Assert.EndsWith("2 on order, covering the shortage.", covered.Message);
+
+        _factory.Clock.UtcNow = _factory.Clock.UtcNow.AddHours(25);
+        Assert.Equal(0, (await Scanner(c).ScanAsync()).Raised);
+        var late = await c.Alerts.AsNoTracking().SingleAsync(a => a.Source == AlertRule.MinimumStockShortage);
+        Assert.Equal(AlertSeverity.Warning, late.Severity);
+        Assert.EndsWith("2 on order, 2 overdue: chase the supplier.", late.Message);
     }
 }
