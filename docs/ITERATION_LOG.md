@@ -16093,3 +16093,29 @@ Specimens carry a visit (`EncounterId`), and the electronic crossmatch eligibili
 ### Next ranked residual
 
 Rescan the desks; OCD-064 (collector default), OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 477 — Choose the tube's visit at accession (2026-11-07)
+
+### Capability matrix rescan (orders and specimens: visits)
+
+Cycle 476 links a new tube to its visit, inferring the only open visit. With several open visits (an ED visit and an admission, say) the chart could not say which, and the Specimens list did not show any tube's visit (questions 2, 3, 6).
+
+### Design
+
+- **Accession form:** **Visit drawn on**, listing visits that are not cancelled, open first, each with type, place, and state. It starts on the only open visit; with several open and none chosen, it asks the user to choose. "No visit chosen" leaves the server rule (only open visit, else none).
+- **Specimens table:** a **Visit** column.
+- Shared rules on `CurrentVisit` (`DefaultForNewTube`, `ChoicesForNewTube`, `ChoiceLabel`). No server or schema change beyond Cycle 476.
+
+### Requirements
+
+- URS-BB-540, FRS-BB-649. Help: patient specimens.
+
+### Tests
+
+- TEST-BB-515: the only open visit is the default; several open or none gives no default; cancelled visits are not offered; open visits come first; labels read "V2 · Inpatient · ICU 4 · open" and "... · discharged {date}".
+- Full suite: 3,863 passed
+- Live (read-only): MRN0001 Specimens showed Visit VIS-2026-001 for ACC0001 and none for the two pending demo tubes (seeded without a visit); opening the accession form started on "VIS-2026-001 · Inpatient · 4W Med/Surg · open" and also offered "VIS-2025-882 · Outpatient · Outpatient Clinic · discharged 2026-08-06", with no several-open note. Nothing was saved. No server errors.
+
+### Next ranked residual
+
+Rescan the desks; OCD-064 (collector default), OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

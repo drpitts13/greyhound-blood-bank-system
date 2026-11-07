@@ -41,6 +41,19 @@
                         }
                     </select>
                 </div>
+                <div class="field"><label>Visit drawn on</label>
+                    <select @bind="Accession.EncounterId" data-accession-visit>
+                        <option value="0">No visit chosen</option>
+                        @foreach (var visit in CurrentVisit.ChoicesForNewTube(Encounters))
+                        {
+                            <option value="@visit.Id">@CurrentVisit.ChoiceLabel(visit)</option>
+                        }
+                    </select>
+                    @if (Accession.EncounterId == 0 && CurrentVisit.For(Encounters).OtherOpen > 0)
+                    {
+                        <span class="sub" data-several-open>More than one visit is open: choose the one this tube was drawn on.</span>
+                    }
+                </div>
                 <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Accession.CollectedLocal" @bind:after="RefreshAccessionPreviewAsync" /></div>
                 @if (AccessionPreviewExpires is { } preview)
                 {
@@ -84,13 +97,14 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Accession</th><th>Type</th><th>Collected</th><th>Expires</th><th>Status</th><th>Comment</th><th></th></tr></thead>
+            <thead><tr><th>Accession</th><th>Type</th><th>Visit</th><th>Collected</th><th>Expires</th><th>Status</th><th>Comment</th><th></th></tr></thead>
             <tbody>
                 @foreach (var s in Specimens)
                 {
                     <tr>
                         <td class="mono">@s.AccessionNumber</td>
                         <td>@(s.SpecimenTypeDescription ?? s.SpecimenType)</td>
+                        <td class="mono nowrap" data-specimen-visit>@(Encounters.FirstOrDefault(v => v.Id == s.EncounterId)?.VisitNumber ?? "—")</td>
                         <td class="nowrap">@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="nowrap">@(s.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                         <td><span class="@Ui.Badge(s.Status)">@s.Status</span></td>
@@ -288,6 +302,7 @@
     private void ToggleHistory(long specimenId) => _historyId = _historyId == specimenId ? null : specimenId;
 
     [Parameter] public bool ShowAccession { get; set; }
+    [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
     // Facility policy Specimen.RequireCollector: a tube is accepted only with its collector recorded.
     [Parameter] public bool CollectorRequired { get; set; }
     [Parameter] public Feedback? Feedback { get; set; }

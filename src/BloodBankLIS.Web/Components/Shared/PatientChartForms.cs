@@ -18,6 +18,8 @@ public sealed class PatientAccessionForm
     public string? DrawLocation { get; set; }
     public string? Comment { get; set; }
     public bool AcceptImmediately { get; set; } = true;
+    // The visit the tube was drawn on; 0 when none is chosen.
+    public long EncounterId { get; set; }
 }
 
 public sealed class PatientSpecimenEditForm

@@ -28,6 +28,39 @@ public static class CurrentVisit
         return (open.FirstOrDefault(), Math.Max(0, open.Count - 1));
     }
 
+    /// <summary>
+    /// The visit a new tube starts on in the accession form: the patient's open visit when there is exactly one; with
+    /// none or several open, nothing is chosen for the user.
+    /// </summary>
+    public static long? DefaultForNewTube(IEnumerable<EncounterDto> visits)
+    {
+        var (visit, otherOpen) = For(visits);
+        return visit is not null && otherOpen == 0 ? visit.Id : null;
+    }
+
+    /// <summary>Visits a tube can be put on (not cancelled), open ones first, newest admitted first.</summary>
+    public static IReadOnlyList<EncounterDto> ChoicesForNewTube(IEnumerable<EncounterDto> visits) =>
+        visits.Where(v => v.Status != EncounterStatus.Cancelled)
+            .OrderBy(v => v.Status == EncounterStatus.Active && v.DischargeUtc is null ? 0 : 1)
+            .ThenByDescending(v => v.AdmitUtc ?? DateTime.MinValue)
+            .ThenByDescending(v => v.Id)
+            .ToList();
+
+    /// <summary>"VIS-1 · Inpatient · ICU 4 · open" or "... · discharged 2026-10-02": a visit as a choice.</summary>
+    public static string ChoiceLabel(EncounterDto visit)
+    {
+        var state = visit.Status == EncounterStatus.Active && visit.DischargeUtc is null
+            ? "open"
+            : visit.DischargeUtc is DateTime discharged ? $"discharged {discharged:yyyy-MM-dd}" : visit.Status.ToString().ToLowerInvariant();
+        return string.Join(" · ", new[]
+        {
+            visit.VisitNumber,
+            visit.EncounterType == EncounterType.Unknown ? null : visit.EncounterType.ToString(),
+            (visit.CurrentLocation ?? visit.AdmissionLocation)?.Trim() is { Length: > 0 } place ? place : null,
+            state
+        }.Where(p => p is not null));
+    }
+
     /// <summary>"Inpatient · ICU 4": where the patient is, without the attending (lists and lookup rows).</summary>
     public static string Where(Encounter visit) =>
         string.Join(" · ", new[]

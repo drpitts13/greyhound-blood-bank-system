@@ -277,7 +277,8 @@ else
             AbidHref="@AbidHref()"
             Busy="_busy"
             ResultDetail="RenderResults"
-            OnToggleAccession="() => _showAccession = !_showAccession"
+            Encounters="_encounters"
+            OnToggleAccession="ToggleAccession"
             OnAccession="AccessionAsync"
             OnSelect="SelectSpecimen"
             OnBeginEdit="BeginEdit"
@@ -2540,6 +2541,16 @@ else
         if (r.Succeeded) await LoadAsync();
     }
 
+    private void ToggleAccession()
+    {
+        _showAccession = !_showAccession;
+        if (_showAccession)
+        {
+            // Start on the patient's only open visit; with several open, the user chooses.
+            _acc.EncounterId = CurrentVisit.DefaultForNewTube(_encounters) ?? 0;
+        }
+    }
+
     private async Task AccessionAsync()
     {
         _busy = true;
@@ -2550,7 +2561,8 @@ else
             Collector: string.IsNullOrWhiteSpace(_acc.Collector) ? null : _acc.Collector.Trim(),
             DrawLocation: string.IsNullOrWhiteSpace(_acc.DrawLocation) ? null : _acc.DrawLocation.Trim(),
             Comment: string.IsNullOrWhiteSpace(_acc.Comment) ? null : _acc.Comment,
-            AcceptImmediately: _acc.AcceptImmediately);
+            AcceptImmediately: _acc.AcceptImmediately,
+            EncounterId: _acc.EncounterId > 0 ? _acc.EncounterId : null);
         var r = await Api.AccessionSpecimenAsync(req);
         _busy = false;
         _accessionFb = r.ToFeedback(_acc.AcceptImmediately

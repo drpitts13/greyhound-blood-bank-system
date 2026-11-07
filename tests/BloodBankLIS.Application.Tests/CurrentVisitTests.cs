@@ -47,4 +47,19 @@ public class CurrentVisitTests
         Assert.Equal("Inpatient · ED", CurrentVisit.Where(older));
         Assert.Equal(string.Empty, CurrentVisit.Where(newer));
     }
+
+    // TEST-BB-515: a new tube starts on the only open visit; with several open, or none, nothing is chosen. Choices leave
+    // out cancelled visits and list open ones first; each reads with its state.
+    [Fact]
+    public void NewTube_StartsOnTheOnlyOpenVisit_AndListsChoicesOpenFirst()
+    {
+        Assert.Equal(2, CurrentVisit.DefaultForNewTube([Visit(1, 48, discharged: true), Visit(2, 5)]));
+        Assert.Null(CurrentVisit.DefaultForNewTube([Visit(1, 48), Visit(2, 5)]));
+        Assert.Null(CurrentVisit.DefaultForNewTube([Visit(1, 48, EncounterStatus.Discharged, discharged: true)]));
+
+        var choices = CurrentVisit.ChoicesForNewTube([Visit(1, 48, discharged: true), Visit(2, 5), Visit(3, 1, EncounterStatus.Cancelled)]);
+        Assert.Equal([2L, 1L], choices.Select(v => v.Id));
+        Assert.Equal("V2 · Inpatient · ICU 4 · open", CurrentVisit.ChoiceLabel(choices[0]));
+        Assert.Equal($"V1 · Inpatient · ICU 4 · discharged {T:yyyy-MM-dd}", CurrentVisit.ChoiceLabel(choices[1]));
+    }
 }
