@@ -37,6 +37,7 @@
         TimelineCategory.Alert => "Alert",
         TimelineCategory.Product => "Product",
         TimelineCategory.Transfusion => "Transfusion",
+        TimelineCategory.Rhig => "RhIG",
         TimelineCategory.Testing => "Test",
         TimelineCategory.Specimen => "Specimen",
         TimelineCategory.Order => "Order",
@@ -46,7 +47,7 @@
     private static string CategoryBadge(TimelineCategory c) => c switch
     {
         TimelineCategory.Alert => "badge-red",
-        TimelineCategory.Product or TimelineCategory.Transfusion => "badge-blue",
+        TimelineCategory.Product or TimelineCategory.Transfusion or TimelineCategory.Rhig => "badge-blue",
         TimelineCategory.Testing => "badge-green",
         _ => "badge-gray"
     };

@@ -22,3 +22,5 @@ Once a candidate evaluation is completed, **Record RhIG given** takes the RhIG l
 > Recording needs the immunohematology record permission; completing needs result verification; recording RhIG given needs issue permission.
 
 **Patients & testing › RhIG** lists every open evaluation across patients, oldest event first, each linked to its chart. **Ready to complete** means the record says what was decided; the others still need an entry. The home screen's **Open RhIG evaluations** card counts them and says how many are ready to complete.
+
+For a recall, **Who received an RhIG lot** on the RhIG list finds every patient the lot was recorded as given to, with the time, vials, and who gave it. The patient **Timeline** shows each evaluation when it was recorded and completed, and the RhIG given with its lot; a dose that differed from the recommendation is marked.

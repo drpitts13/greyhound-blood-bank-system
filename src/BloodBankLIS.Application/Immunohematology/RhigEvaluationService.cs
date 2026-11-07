@@ -44,6 +44,9 @@ public sealed record RhigEvaluationDto(
 /// </summary>
 public sealed record RhigQueueItemDto(RhigEvaluationDto Evaluation, string PatientName, string Mrn, bool ReadyToComplete);
 
+/// <summary>A patient who was given an RhIG lot (recall trace).</summary>
+public sealed record RhigLotRecipientDto(long PatientId, string PatientName, string Mrn, string Lot, int? Vials, DateTime GivenUtc, string? GivenBy, long EvaluationId);
+
 /// <summary>The RhIG lot and vials issued for a completed candidate evaluation.</summary>
 public sealed record RecordRhigGivenRequest(string Lot, int Vials, DateTime GivenUtc, string? Note);
 
@@ -263,6 +266,54 @@ public sealed class RhigEvaluationService
             reason: "RhIG evaluation completed.");
         await _unitOfWork.SaveChangesAsync(ct);
         return await ResultAsync(row, ct);
+    }
+
+    /// <summary>
+    /// Every patient given an RhIG lot, newest first, for a recall (exact lot, trimmed, case-insensitive). Merged charts
+    /// are shown under the chart they were merged into.
+    /// </summary>
+    public async Task<IReadOnlyList<RhigLotRecipientDto>> FindByLotAsync(string? lot, CancellationToken ct = default)
+    {
+        var wanted = lot?.Trim();
+        if (string.IsNullOrEmpty(wanted))
+        {
+            return [];
+        }
+
+        var upper = wanted.ToUpperInvariant();
+        var given = await _evaluations.ListAsync(e => e.GivenLot != null && e.GivenLot.ToUpper() == upper, ct);
+        if (given.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = given.Select(e => e.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => ids.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var survivorIds = patients.Values.Where(p => p.MergedIntoPatientId is not null).Select(p => p.MergedIntoPatientId!.Value).Distinct().ToList();
+        var survivors = survivorIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => survivorIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return given
+            .OrderByDescending(e => e.GivenUtc)
+            .Select(e =>
+            {
+                patients.TryGetValue(e.PatientId, out var patient);
+                if (patient?.MergedIntoPatientId is long survivorId && survivors.TryGetValue(survivorId, out var survivor))
+                {
+                    patient = survivor;
+                }
+
+                return new RhigLotRecipientDto(
+                    patient?.Id ?? e.PatientId,
+                    patient is null ? $"Patient {e.PatientId}" : $"{patient.LastName}, {patient.FirstName}",
+                    patient?.MedicalRecordNumber ?? "—",
+                    e.GivenLot!,
+                    e.GivenVials,
+                    e.GivenUtc!.Value,
+                    e.GivenBy,
+                    e.Id);
+            })
+            .ToList();
     }
 
     /// <summary>Records the RhIG lot and vials issued for a completed candidate evaluation (issue.create; audited; once).</summary>

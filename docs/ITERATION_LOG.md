@@ -17120,3 +17120,21 @@ Cycles 525–526 record and track RhIG evaluations, but a completed evaluation d
 ### Tests
 
 - TEST-BB-575: refused on an open or non-candidate evaluation, twice, without a lot, outside 1–50 vials, in the future; difference noted only when vials differ; integration: completed candidate listed To give, refused without issue permission or lot, recorded with the difference audited, then off the list and not recorded twice; card note counts to give.
+
+## Iteration 528 — RhIG lot recall trace and timeline (2026-11-07)
+
+### Capability matrix rescan (traceability, timeline views)
+
+Cycle 527 stored the RhIG lot given, but nothing answered the recall question "who received lot X?", and the patient timeline (the one chronological view of a patient's blood bank care) did not show RhIG at all. Workflow questions: scanning (the lot scans into the trace); memory (no need to open each chart); traceability (lot to patient, merged charts resolved to the surviving chart); timeline (recorded, completed, given, with a dose difference marked).
+
+### Design
+
+- `FindByLotAsync` and `GET /api/rhig/given`; trace card on `/rhig`; `TimelineCategory.Rhig` and `RhigEvents`; timeline label and Products filter.
+
+### Requirements
+
+- URS-BB-586, FRS-BB-703. Help: RhIG evaluations.
+
+### Tests
+
+- TEST-BB-576: lot found in any case with spaces trimmed, unknown and blank lots find nothing; the timeline has three RhIG events, the given one marked with the difference.

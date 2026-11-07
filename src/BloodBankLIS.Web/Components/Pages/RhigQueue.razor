@@ -13,6 +13,39 @@
 </p>
 <Outcome Value="_fb" />
 
+<div class="bb-card" data-rhig-lot-trace>
+    <div class="bb-card-title"><h3>Who received an RhIG lot</h3></div>
+    <p class="muted" style="margin-top:0;">For a recall: scan or type a lot number and press Enter.</p>
+    <div class="flex gap" style="align-items:center;">
+        <input @bind="_lot" @bind:event="oninput" @onkeydown="OnLotKey" placeholder="RhIG lot" autocomplete="off" data-rhig-lot />
+        <button class="btn btn-secondary btn-sm" disabled="@string.IsNullOrWhiteSpace(_lot)" @onclick="FindLotAsync">Find</button>
+    </div>
+    @if (_recipients is not null)
+    {
+        @if (_recipients.Count == 0)
+        {
+            <div class="empty" style="margin-top:.5rem;">No patient has RhIG lot @_searchedLot recorded as given.</div>
+        }
+        else
+        {
+            <table class="bb" style="margin-top:.5rem;" data-rhig-lot-results>
+                <thead><tr><th>Patient</th><th>Given</th><th>Vials</th><th>By</th></tr></thead>
+                <tbody>
+                    @foreach (var r in _recipients)
+                    {
+                        <tr>
+                            <td><a href="@($"/patients/{r.PatientId}?tab=rhig")">@r.PatientName</a> <span class="sub mono">@r.Mrn</span></td>
+                            <td class="nowrap">@r.GivenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@r.Vials</td>
+                            <td>@r.GivenBy</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+</div>
+
 @if (_items is null)
 {
     <div class="loading">Loading...</div>
@@ -58,6 +91,28 @@ else
 
 @code {
     private List<RhigQueueItemDto>? _items;
+    private string _lot = string.Empty;
+    private string _searchedLot = string.Empty;
+    private List<RhigLotRecipientDto>? _recipients;
+
+    private async Task OnLotKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_lot))
+        {
+            await FindLotAsync();
+        }
+    }
+
+    private async Task FindLotAsync()
+    {
+        _searchedLot = _lot.Trim();
+        var r = await Api.FindRhigLotRecipientsAsync(_searchedLot);
+        _recipients = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+        }
+    }
     private Feedback? _fb;
 
     protected override async Task OnInitializedAsync()

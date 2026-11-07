@@ -14,7 +14,8 @@ public enum TimelineCategory
     Testing = 3,
     Alert = 4,
     Product = 5,
-    Transfusion = 6
+    Transfusion = 6,
+    Rhig = 7
 }
 
 /// <summary>Informational, Warning (needs attention or was changed), Critical (safety-relevant: antibody, incompatibility, reaction).</summary>
@@ -58,6 +59,7 @@ public sealed class PatientTimelineService
     private readonly IRepository<ReactionInvestigation> _reactions;
     private readonly IRepository<BloodUnit> _units;
     private readonly IRepository<Override> _overrides;
+    private readonly IRepository<RhigEvaluation>? _rhig;
 
     public PatientTimelineService(
         IRepository<Encounter> encounters,
@@ -75,8 +77,10 @@ public sealed class PatientTimelineService
         IRepository<TransfusionEvent> transfusions,
         IRepository<ReactionInvestigation> reactions,
         IRepository<BloodUnit> units,
-        IRepository<Override> overrides)
+        IRepository<Override> overrides,
+        IRepository<RhigEvaluation>? rhig = null)
     {
+        _rhig = rhig;
         _encounters = encounters;
         _orders = orders;
         _specimens = specimens;
@@ -288,7 +292,41 @@ public sealed class PatientTimelineService
             }
         }
 
+        if (_rhig is not null)
+        {
+            foreach (var e in await _rhig.ListAsync(x => x.PatientId == patientId, ct))
+            {
+                events.AddRange(RhigEvents(e));
+            }
+        }
+
         return Order(events);
+    }
+
+    /// <summary>An RhIG evaluation on the timeline: recorded, completed, and the RhIG given (lot and vials).</summary>
+    internal static IEnumerable<TimelineEventDto> RhigEvents(RhigEvaluation e)
+    {
+        var href = $"/patients/{e.PatientId}?tab=rhig";
+        yield return new(e.RecordedUtc, TimelineCategory.Rhig, TimelineSeverity.Info,
+            "RhIG evaluation recorded", $"Event {e.EventUtc:yyyy-MM-dd HH:mm}", e.RecordedBy, href, $"rhig-{e.Id}");
+        if (e.CompletedUtc is DateTime completed)
+        {
+            var decision = e.Decision switch
+            {
+                RhigDecision.Candidate => e.VialsRecommended is int v ? $"Candidate, {v} vial{(v == 1 ? "" : "s")} recommended" : "Candidate",
+                RhigDecision.NotCandidate => "Not a candidate",
+                _ => "Not decided"
+            };
+            yield return new(completed, TimelineCategory.Rhig, TimelineSeverity.Info,
+                "RhIG evaluation completed", decision, e.CompletedBy, href, $"rhig-{e.Id}-complete");
+        }
+
+        if (e.GivenUtc is DateTime given)
+        {
+            var difference = RhigEvaluationRule.GivenDifference(e.VialsRecommended, e.GivenVials);
+            yield return new(given, TimelineCategory.Rhig, difference is null ? TimelineSeverity.Info : TimelineSeverity.Warning,
+                $"RhIG given: {e.GivenVials} vial{(e.GivenVials == 1 ? "" : "s")}, lot {e.GivenLot}", difference, e.GivenBy, href, $"rhig-{e.Id}-given");
+        }
     }
 
     /// <summary>Entered, verified, corrected, and invalidated events for one result. Shared with the specimen timeline.</summary>

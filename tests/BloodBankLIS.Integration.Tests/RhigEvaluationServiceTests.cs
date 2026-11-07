@@ -1,5 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Immunohematology;
+using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -79,6 +81,27 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False((await issuer.RecordGivenAsync(patient.Id, saved.Value.Id, new RecordRhigGivenRequest("LOT-8", 1, _factory.Clock.UtcNow, null))).Succeeded);
         Assert.True(await c.AuditEvents.AnyAsync(a =>
             a.EntityType == nameof(RhigEvaluation) && a.EntityId == saved.Value.Id && a.Reason == "RhIG given recorded. 1 vial given; 2 recommended."));
+
+        // TEST-BB-576: a recall finds who received the lot (any case, trimmed); the timeline shows the RhIG events.
+        var recipients = await Service(c).FindByLotAsync(" lot-7 ");
+        var recipient = Assert.Single(recipients, r => r.EvaluationId == saved.Value.Id);
+        Assert.Equal((patient.Id, patient.MedicalRecordNumber, 1), (recipient.PatientId, recipient.Mrn, recipient.Vials));
+        Assert.Empty(await Service(c).FindByLotAsync("NO-SUCH-LOT"));
+        Assert.Empty(await Service(c).FindByLotAsync(" "));
+
+        var timeline = await new PatientTimelineService(
+            new EfRepository<Encounter>(c), new EfRepository<Order>(c), new EfRepository<Specimen>(c),
+            new EfRepository<TestResult>(c), new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
+            new EfRepository<Allocation>(c), new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c),
+            new EfRepository<Return>(c), new EfRepository<TransfusionEvent>(c), new EfRepository<ReactionInvestigation>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<Override>(c), new EfRepository<RhigEvaluation>(c)).GetAsync(patient.Id);
+        var rhigEvents = timeline.Where(e => e.Category == TimelineCategory.Rhig).ToList();
+        Assert.Equal(3, rhigEvents.Count);
+        var givenEvent = Assert.Single(rhigEvents, e => e.Title == "RhIG given: 1 vial, lot LOT-7");
+        Assert.Equal(TimelineSeverity.Warning, givenEvent.Severity);
+        Assert.Equal("1 vial given; 2 recommended.", givenEvent.Detail);
+        Assert.Contains(rhigEvents, e => e.Title == "RhIG evaluation completed" && e.Detail == "Candidate, 2 vials recommended");
 
         var audits = await c.AuditEvents.Where(a => a.EntityType == nameof(RhigEvaluation) && a.EntityId == saved.Value.Id).Select(a => a.Reason).ToListAsync();
         Assert.Contains("RhIG evaluation recorded.", audits);
