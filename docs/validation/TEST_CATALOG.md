@@ -571,5 +571,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-560 | U, I | `ReagentLotRuleTests.Worklist_AsksToReplaceAnOpenLotNearExpiry_OnlyWhenNoLaterLotIsOnHand`; `DashboardQueueCatalogTests.ReagentQc_*` (lots to replace); `CompetitorGapWorkflowTests.ReagentLot_NearExpiryWithNoNextLot_AsksToReceiveOne_UntilANextLotIsReceived` | URS-BB-570 / FRS-BB-687 |
 | TEST-BB-561 | U | `SpecimenAccessionWaitingTests.Waiting_IsOpenTestOrdersWithoutASpecimen`; `SpecimenAccessionWaitingTests.AccessionType_StartsOnATypeTheWaitingOrdersAccept` | URS-BB-571 / FRS-BB-688 |
 | TEST-BB-562 | U | `SpecimenAccessionWaitingTests.LinkableOnAccession_IsTestOrdersOnTheVisitThatAcceptTheType` (link validation and audit: existing `OrderService.LinkSpecimenAsync` tests) | URS-BB-572 / FRS-BB-689 |
+| TEST-BB-563 | U | `SpecimenAccessionWaitingTests.AcceptPrompt_NamesTheOrders_AndReportsTheLinks` (order selection as in TEST-BB-562, link validation and audit by the existing `OrderService.LinkSpecimenAsync` tests) | URS-BB-573 / FRS-BB-690 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

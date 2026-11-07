@@ -80,4 +80,16 @@ public class SpecimenAccessionWaitingTests
         Assert.Equal(["ORD-2"], SpecimenTypeOrderHint.LinkableOnAccession(orders, Tests, "CLOT", 1).Select(o => o.OrderNumber));
         Assert.Empty(SpecimenTypeOrderHint.LinkableOnAccession(orders, Tests, "HEP", 1));
     }
+
+    // TEST-BB-563: the prompt after a tube is accepted names the orders it suits and reports what was linked.
+    [Fact]
+    public void AcceptPrompt_NamesTheOrders_AndReportsTheLinks()
+    {
+        Assert.Equal("ORD-1 (ABORH, ABSC); ORD-5 (DAT)",
+            SpecimenTypeOrderHint.OrderList([Order("ORD-1", OrderStatus.New, null, "abORH", "ABSC"), Order("ORD-5", OrderStatus.New, null, "DAT")]));
+        Assert.Equal("Tube S-9 linked to ORD-1, ORD-5.", SpecimenTypeOrderHint.LinkOutcome("S-9", ["ORD-1", "ORD-5"], []));
+        Assert.Equal("Tube S-9 linked to ORD-1, but not linked to ORD-5: Order is completed. Link it from the Orders tab.",
+            SpecimenTypeOrderHint.LinkOutcome("S-9", ["ORD-1"], ["ORD-5: Order is completed"]));
+        Assert.Equal("Tube S-9 not linked to ORD-5: x. Link it from the Orders tab.", SpecimenTypeOrderHint.LinkOutcome("S-9", [], ["ORD-5: x"]));
+    }
 }

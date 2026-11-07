@@ -200,6 +200,16 @@ public static class SpecimenTypeOrderHint
             : null;
     }
 
+    /// <summary>"ORD-1 (ABORH, ABSC); ORD-5 (DAT)".</summary>
+    public static string OrderList(IEnumerable<PatientOrderDto> orders) =>
+        string.Join("; ", orders.Select(o => $"{o.OrderNumber} ({string.Join(", ", TestCodes(o))})"));
+
+    /// <summary>The outcome of linking a tube to waiting orders: the orders linked, and any not linked with the reason.</summary>
+    public static string LinkOutcome(string accession, IReadOnlyList<string> linked, IReadOnlyList<string> failed) =>
+        failed.Count == 0
+            ? $"Tube {accession} linked to {string.Join(", ", linked)}."
+            : $"Tube {accession} {(linked.Count > 0 ? $"linked to {string.Join(", ", linked)}, but " : string.Empty)}not linked to {string.Join("; ", failed)}. Link it from the Orders tab.";
+
     public static DateTime? PreviewExpiresUtc(
         DateTime collectedUtc,
         string? specimenType,

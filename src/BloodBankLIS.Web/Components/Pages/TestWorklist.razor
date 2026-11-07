@@ -304,13 +304,15 @@
     {
         var waiting = TestWorklistView.ForTube(_items, accepted).Count;
         <div class="alert alert-info flex gap" style="align-items:center;flex-wrap:wrap;" data-accepted-next>
-            <span>Tube <span class="mono">@accepted</span> accepted. @(waiting == 0 ? "No tests are waiting on it yet; link its orders from the chart." : $"{waiting} {(waiting == 1 ? "test is" : "tests are")} waiting on it.")</span>
+            <span>Tube <span class="mono">@accepted</span> accepted. @(waiting == 0 ? "No tests are waiting on it yet." : $"{waiting} {(waiting == 1 ? "test is" : "tests are")} waiting on it.")</span>
             @if (waiting > 0)
             {
                 <button type="button" class="btn btn-primary btn-sm" @onclick="() => StartTesting(accepted)">Start testing</button>
             }
         </div>
     }
+
+    <WaitingOrderLinkPrompt Specimen="_acceptedSpecimen" OnLinked="OnWaitingOrdersLinkedAsync" />
 
     @if (_specimensLoading)
     {
@@ -776,9 +778,19 @@
         _fb = r.ToFeedback("Specimen accepted for testing.");
         if (r.Succeeded)
         {
+            _acceptedSpecimen = r.Value;
             await LoadPendingSpecimensAsync();
             await OfferTestingAsync(r.Value?.AccessionNumber);
         }
+    }
+
+    // The accepted tube, offered to the patient's waiting orders it suits.
+    private SpecimenDto? _acceptedSpecimen;
+
+    private async Task OnWaitingOrdersLinkedAsync((string Message, bool Succeeded) outcome)
+    {
+        _fb = outcome.Succeeded ? Feedback.Succeed(outcome.Message) : Feedback.Fail(outcome.Message);
+        await LoadAsync();
     }
 
     private async Task RejectPendingAsync(long specimenId)
@@ -811,6 +823,7 @@
         _tab = "tests";
         _show = ShowAll;
         _acceptedTube = null;
+        _acceptedSpecimen = null;
         ShowTube(accession);
     }
 

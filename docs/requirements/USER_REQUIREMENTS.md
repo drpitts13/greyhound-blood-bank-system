@@ -578,3 +578,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-570 | When a reagent lot in use is within a week of expiry and no later lot of that reagent has been received, the bench is told to receive the next lot before testing must stop. | P2 | FRS-BB-687 |
 | URS-BB-571 | Accessioning a specimen from the patient's Specimens tab names the open test orders still waiting for a specimen and the tube types they accept, starts on a type that suits them, and warns when the chosen type does not. | P2 | FRS-BB-688 |
 | URS-BB-572 | A tube accessioned and accepted from the Specimens tab can be linked in the same step to the waiting test orders it suits, so their tests reach the worklist without a separate link for each order. | P2 | FRS-BB-689 |
+| URS-BB-573 | When a collected tube is accepted later (pending-specimens worklist or the chart), the application offers to link it to the waiting test orders it suits in one click. | P2 | FRS-BB-690 |

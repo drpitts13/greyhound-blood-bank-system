@@ -16874,3 +16874,21 @@ An order placed before its tube was drawn stays without a specimen: nothing link
 ### Tests
 
 - TEST-BB-562: test orders on the tube's visit whose tests accept its type are offered; orders with a tube, product orders, other visits, and unsuited types are not; no visit chosen offers every visit.
+
+## Iteration 515 — Offer to link a tube to its waiting orders when it is accepted (2026-11-07)
+
+### Capability matrix rescan (orders and specimens: receipt and accept)
+
+Cycle 514 linked waiting orders when a tube is accepted at accession. A tube collected on the ward and accepted later on the pending-specimens worklist still told the technologist "No tests are waiting on it yet; link its orders from the chart", a trip to another screen and a link per order. Workflow questions: clicks (one, from where the tube is accepted); next action (the offer appears with the accept); memory (the orders and their tests are named); safety (same order selection as Cycle 514; each link validated and audited; the user confirms rather than links being made silently).
+
+### Design
+
+- `WaitingOrderLinkPrompt` component on the test worklist and the chart Specimens tab; `SpecimenTypeOrderHint.OrderList` and `LinkOutcome`.
+
+### Requirements
+
+- URS-BB-573, FRS-BB-690. Help: test worklist, patient specimens.
+
+### Tests
+
+- TEST-BB-563: the prompt text names each order with its tests; the outcome names linked orders and any failures with the reason.

@@ -254,6 +254,7 @@ else
 
     @if (_tab == "specimens")
     {
+        <WaitingOrderLinkPrompt Specimen="_acceptedSpecimen" OnLinked="OnWaitingOrdersLinkedAsync" />
         <PatientChartSpecimensTab
             Patient="_patient"
             ShowAccession="_showAccession"
@@ -2544,7 +2545,24 @@ else
         var r = await Api.AcceptSpecimenAsync(specimenId);
         _busy = false;
         _accessionFb = r.ToFeedback("Specimen accepted for testing.");
-        if (r.Succeeded) await LoadAsync();
+        if (r.Succeeded)
+        {
+            _acceptedSpecimen = r.Value;
+            await LoadAsync();
+        }
+    }
+
+    // The tube just accepted on this chart, offered to the waiting orders it suits.
+    private SpecimenDto? _acceptedSpecimen;
+
+    private async Task OnWaitingOrdersLinkedAsync((string Message, bool Succeeded) outcome)
+    {
+        _accessionFb = outcome.Succeeded ? Feedback.Succeed(outcome.Message) : Feedback.Fail(outcome.Message);
+        _acceptedSpecimen = null;
+        _ordersLoaded = false;
+        _testsLoaded = false;
+        await LoadOrdersAsync();
+        await LoadAsync();
     }
 
     private void ToggleAccession()
