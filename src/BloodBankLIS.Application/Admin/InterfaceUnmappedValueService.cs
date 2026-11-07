@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Instruments;
 using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.Domain.Rules;
 
@@ -19,6 +20,7 @@ public sealed class InterfaceUnmappedValueService
     private readonly ICurrentUser? _currentUser;
     private readonly IAuditWriter? _audit;
     private readonly IRepository<InterfaceEndpoint>? _endpoints;
+    private readonly IRepository<InstrumentInterface>? _instruments;
 
     public InterfaceUnmappedValueService(
         IRepository<InterfaceUnmappedValue> values,
@@ -26,7 +28,8 @@ public sealed class InterfaceUnmappedValueService
         IClock clock,
         ICurrentUser? currentUser = null,
         IAuditWriter? audit = null,
-        IRepository<InterfaceEndpoint>? endpoints = null)
+        IRepository<InterfaceEndpoint>? endpoints = null,
+        IRepository<InstrumentInterface>? instruments = null)
     {
         _values = values;
         _unitOfWork = unitOfWork;
@@ -34,6 +37,71 @@ public sealed class InterfaceUnmappedValueService
         _currentUser = currentUser;
         _audit = audit;
         _endpoints = endpoints;
+        _instruments = instruments;
+    }
+
+    /// <summary>Adds or counts each miss of one instrument message. Saves the changes.</summary>
+    public async Task RecordInstrumentAsync(
+        IReadOnlyList<InstrumentValueTranslator.Miss> misses, long instrumentId, string? messageReference, CancellationToken ct = default)
+    {
+        if (misses.Count == 0)
+        {
+            return;
+        }
+
+        var now = _clock.UtcNow;
+        foreach (var miss in misses)
+        {
+            var key = miss.DataItemKey;
+            var value = Truncate(miss.Value, 200)!;
+            var direction = miss.Direction;
+            var open = (await _values.ListAsync(v => v.ResolvedUtc == null && v.InstrumentInterfaceId == instrumentId
+                    && v.DataItemKey == key && v.Direction == direction, ct))
+                .FirstOrDefault(v => string.Equals(v.Value, value, StringComparison.OrdinalIgnoreCase));
+            if (open is null)
+            {
+                await _values.AddAsync(new InterfaceUnmappedValue
+                {
+                    InstrumentInterfaceId = instrumentId,
+                    DataItemKey = key,
+                    Value = value,
+                    Direction = direction,
+                    FirstSeenUtc = now,
+                    LastSeenUtc = now,
+                    Count = 1,
+                    LastMessageControlId = Truncate(messageReference, 100)
+                }, ct);
+                continue;
+            }
+
+            var tracked = await _values.GetByIdAsync(open.Id, ct) ?? open;
+            tracked.Count++;
+            tracked.LastSeenUtc = now;
+            tracked.LastMessageControlId = Truncate(messageReference, 100) ?? tracked.LastMessageControlId;
+            _values.Update(tracked);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Marks an instrument's open unmapped values resolved where its saved translations now cover them (the caller
+    /// saves). An error code counts as covered once it has any action.
+    /// </summary>
+    public async Task ResolveInstrumentCoveredAsync(long instrumentId, IReadOnlyList<InstrumentValueTranslation> rows, CancellationToken ct = default)
+    {
+        var open = await _values.ListAsync(v => v.ResolvedUtc == null && v.InstrumentInterfaceId == instrumentId, ct);
+        foreach (var value in open)
+        {
+            var inbound = value.Direction == InterfaceTranslationDirection.Inbound;
+            var covered = rows.Any(r => r.DataItemKey == value.DataItemKey
+                && string.Equals(inbound ? r.InstrumentValue : r.LocalValue, value.Value, StringComparison.OrdinalIgnoreCase));
+            if (covered)
+            {
+                var tracked = await _values.GetByIdAsync(value.Id, ct) ?? value;
+                Resolve(tracked, "Translation saved.");
+            }
+        }
     }
 
     /// <summary>Adds or counts each miss of one message. Saves the changes.</summary>
@@ -50,7 +118,7 @@ public sealed class InterfaceUnmappedValueService
             var key = miss.DataItemKey;
             var value = Truncate(miss.Value, 200);
             var direction = miss.Direction;
-            var open = (await _values.ListAsync(v => v.ResolvedUtc == null && v.EndpointId == endpointId
+            var open = (await _values.ListAsync(v => v.ResolvedUtc == null && v.EndpointId == endpointId && v.InstrumentInterfaceId == null
                     && v.DataItemKey == key && v.Direction == direction, ct))
                 .FirstOrDefault(v => string.Equals(v.Value, value, StringComparison.OrdinalIgnoreCase));
             if (open is null)
@@ -88,14 +156,23 @@ public sealed class InterfaceUnmappedValueService
         var endpoints = _endpoints is null
             ? new Dictionary<long, string>()
             : (await _endpoints.ListAsync(ct)).ToDictionary(e => e.Id, e => e.Name);
+        var instruments = _instruments is null
+            ? new Dictionary<long, string>()
+            : (await _instruments.ListAsync(ct)).ToDictionary(i => i.Id, i => i.Name);
         var names = InterfaceDataItemCatalog.Translatable().ToDictionary(i => i.Key, i => i.DisplayName, StringComparer.Ordinal);
+        foreach (var field in InstrumentTranslationKeys.All)
+        {
+            names[field.Key] = field.DisplayName;
+        }
+
         return rows
             .OrderBy(v => v.ResolvedUtc is null ? 0 : 1)
             .ThenByDescending(v => v.LastSeenUtc)
             .Select(v => new InterfaceUnmappedValueDto(
                 v.Id, v.EndpointId, v.EndpointId is long id ? endpoints.GetValueOrDefault(id) : null,
                 v.DataItemKey, names.GetValueOrDefault(v.DataItemKey, v.DataItemKey), v.Value, v.Direction,
-                v.FirstSeenUtc, v.LastSeenUtc, v.Count, v.LastMessageControlId, v.ResolvedUtc, v.ResolvedBy, v.ResolvedNote))
+                v.FirstSeenUtc, v.LastSeenUtc, v.Count, v.LastMessageControlId, v.ResolvedUtc, v.ResolvedBy, v.ResolvedNote,
+                v.InstrumentInterfaceId, v.InstrumentInterfaceId is long iid ? instruments.GetValueOrDefault(iid) : null))
             .ToList();
     }
 
@@ -135,7 +212,7 @@ public sealed class InterfaceUnmappedValueService
         var keys = InterfaceValueSets.IsProcedureKey(dataItemKey)
             ? new[] { InterfaceDataItemKeys.ProcedureCode, InterfaceDataItemKeys.OrderTestCode, InterfaceDataItemKeys.ResultObrTestCode }
             : new[] { dataItemKey };
-        var open = await _values.ListAsync(v => v.ResolvedUtc == null && keys.Contains(v.DataItemKey), ct);
+        var open = await _values.ListAsync(v => v.ResolvedUtc == null && v.InstrumentInterfaceId == null && keys.Contains(v.DataItemKey), ct);
         foreach (var value in open.Where(v => endpointId is null || v.EndpointId == endpointId))
         {
             var inbound = value.Direction == InterfaceTranslationDirection.Inbound;

@@ -175,6 +175,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<InstrumentConnection> InstrumentConnections => Set<InstrumentConnection>();
     public DbSet<InstrumentFieldMapping> InstrumentFieldMappings => Set<InstrumentFieldMapping>();
     public DbSet<InstrumentTestMapping> InstrumentTestMappings => Set<InstrumentTestMapping>();
+    public DbSet<InstrumentValueTranslation> InstrumentValueTranslations => Set<InstrumentValueTranslation>();
     public DbSet<InstrumentInterfaceRule> InstrumentInterfaceRules => Set<InstrumentInterfaceRule>();
     public DbSet<InstrumentMessageLog> InstrumentMessages => Set<InstrumentMessageLog>();
     public DbSet<InstrumentInterfaceLog> InstrumentInterfaceLogs => Set<InstrumentInterfaceLog>();

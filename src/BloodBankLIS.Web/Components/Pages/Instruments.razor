@@ -76,6 +76,10 @@
             {
                 <span class="badge badge-red" title="Failed messages not yet replayed successfully or resolved">@open failed, open</span>
             }
+            @if (_unmappedInstrumentValues > 0)
+            {
+                <a class="badge badge-amber" href="/admin/hl7/translations?tab=unmapped" title="Instrument codes or values with no translation" data-inst-unmapped>@_unmappedInstrumentValues unmapped</a>
+            }
         </div>
         @if (_messages.Count == 0)
         {
@@ -183,6 +187,7 @@
     private InstrumentMessageDetailDto? _detail;
     private Feedback? _feedback;
     private bool _busy;
+    private int _unmappedInstrumentValues;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -195,6 +200,9 @@
         _status = status.Value ?? new();
         _logs = logs.Value ?? new();
         _messages = messages.Value ?? new();
+        // Shown only to users who can open the translation lists; others simply see no badge.
+        var unmapped = await Api.GetAdminHl7UnmappedValuesAsync();
+        _unmappedInstrumentValues = unmapped.Value?.Count(u => u.InstrumentInterfaceId is not null) ?? 0;
         if (!status.Succeeded) _feedback = status.ToFeedback();
         _busy = false;
     }

@@ -17,8 +17,8 @@
         <p>
             An instrument interface has four parts. <strong>Connection</strong> is the TCP listen or client
             endpoint. <strong>Configuration</strong> maps ASTM record fields onto data items such as
-            <span class="mono">patient_id</span>. <strong>Mapping</strong> translates instrument assay and
-            analyte codes into application test and subtest codes. <strong>Interface rules</strong> rewrite
+            <span class="mono">patient_id</span>. <strong>Translations</strong> turn the instrument's test,
+            subtest, value, interpretation, and error codes into the LIS's. <strong>Interface rules</strong> rewrite
             parsed values before the result is posted.
         </p>
         <p class="muted">
@@ -99,35 +99,36 @@ Group   →  subtest_code = Group (= test_code)  →  test_interp = B Pos</pre>
             interpretation in a different field. Do not invent a second path just to keep the rows unique.
         </p>
 
-        <h3 id="instrument-help-mapping" style="margin-top:1.2rem;">Mapping</h3>
+        <h3 id="instrument-help-mapping" style="margin-top:1.2rem;">Translations</h3>
         <p>
-            Mapping translates codes after the field map has produced instrument values. Kind is either
-            <strong>Assay</strong> (battery / test, such as Group → ABORH) or <strong>Analyte</strong>
-            (cell or subtest, such as Anti-D1 → Anti-D).
+            Each instrument has its own translations, by field. Values are translated after the field map and
+            before the rules, so a rule still sees, and can change, the translated value.
         </p>
         <ul>
-            <li>
-                <strong>Inbound / Both:</strong> many instrument codes may collapse to one application
-                code. Dual Anti-D wells both become <span class="mono">Anti-D</span>.
-            </li>
-            <li>
-                <strong>Outbound / Both:</strong> one application code may map to only one instrument
-                code, so an order download has a single assay to request.
-            </li>
-            <li>
-                When several inbound assay maps match, the resolver prefers the application test already
-                on the specimen's order, then the lowest sort order.
-            </li>
+            <li><strong>Result test code:</strong> the assay on a result (Group → ABORH). Several instrument codes may
+                share one test; when they do, the test ordered on the specimen wins. A code with no row is
+                <em>not posted</em>: the message waits in instrument failures.</li>
+            <li><strong>Subtest code:</strong> a well or cell (Anti-D1 → Anti-D). <span class="mono">KEEP</span> stores
+                it under the instrument's own code; <span class="mono">IGNORE</span> drops it. An analyte with no row
+                stops its assay from posting.</li>
+            <li><strong>Order test code:</strong> what the LIS asks the instrument to run for a test when it queries
+                for a specimen. One code per test. A test with no row is left out of the download and listed.</li>
+            <li><strong>Result value</strong> and <strong>Interpretation:</strong> what the instrument reports and the
+                LIS value (B Pos → B|Positive). A row can be limited to one test.</li>
+            <li><strong>Error or flag code:</strong> the message's error (L.3) or a result flag (R.7) and
+                <span class="mono">Hold</span> (not posted, review in failures), <span class="mono">Warn</span>
+                (posted with the flag shown beside the result's source), or <span class="mono">Ignore</span>.
+                Once any error code is listed, a code with no row holds the result (OCD-066).</li>
         </ul>
-        <p class="muted">Typical Echo assay and analyte rows.</p>
-        <pre class="pre">Assay    Group      →  ABORH
-Assay    Screen     →  ABSC
-Analyte  Anti-D1    →  Anti-D
-Analyte  Anti-D2    →  Anti-D
-Analyte  Screen 1   →  Cell1</pre>
+        <p class="muted">Typical Echo rows.</p>
+        <pre class="pre">Result test code   Group      →  ABORH
+Subtest code       Anti-D1    →  Anti-D
+Subtest code       Pos Ctrl   →  KEEP
+Interpretation     B Pos      →  B|Positive
+Error code         N          →  Ignore   (ASTM normal end)</pre>
         <p>
-            Unmapped codes pass through unchanged. Direction <em>Inbound</em> is enough for result
-            upload; use <em>Both</em> or <em>Outbound</em> when the instrument queries for worklists.
+            Values with no translation are listed under Admin › Interface Setup › Translation table ›
+            Unmapped values, named by instrument. <strong>Add translation</strong> there opens this tab with the row ready.
         </p>
 
         <h3 id="instrument-help-rules" style="margin-top:1.2rem;">Interface rules</h3>

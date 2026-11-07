@@ -840,6 +840,7 @@ public sealed class InterfaceUnmappedValueConfiguration : IEntityTypeConfigurati
         b.Property(m => m.ModifiedBy).HasMaxLength(100);
         b.HasIndex(m => new { m.EndpointId, m.DataItemKey, m.Direction, m.Value });
         b.HasIndex(m => m.ResolvedUtc);
+        b.HasIndex(m => m.InstrumentInterfaceId);
     }
 }
 
@@ -2073,7 +2074,9 @@ public sealed class InstrumentInterfaceConfiguration : IEntityTypeConfiguration<
             .OnDelete(DeleteBehavior.Cascade);
         b.HasMany(e => e.FieldMappings).WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
             .OnDelete(DeleteBehavior.Cascade);
-        b.HasMany(e => e.TestMappings).WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
+        b.HasMany<InstrumentTestMapping>().WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(e => e.Translations).WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
             .OnDelete(DeleteBehavior.Cascade);
         b.HasMany(e => e.Rules).WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -2118,6 +2121,22 @@ public sealed class InstrumentTestMappingConfiguration : IEntityTypeConfiguratio
         b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
         b.HasIndex(e => new { e.InterfaceId, e.Kind, e.InstrumentCode, e.ApplicationCode, e.Direction });
+    }
+}
+
+public sealed class InstrumentValueTranslationConfiguration : IEntityTypeConfiguration<InstrumentValueTranslation>
+{
+    public void Configure(EntityTypeBuilder<InstrumentValueTranslation> b)
+    {
+        b.ToTable("InstrumentValueTranslations");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.DataItemKey).HasMaxLength(80).IsRequired();
+        b.Property(e => e.InstrumentValue).HasMaxLength(120).IsRequired();
+        b.Property(e => e.LocalValue).HasMaxLength(120).IsRequired();
+        b.Property(e => e.Context).HasMaxLength(50);
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => new { e.InterfaceId, e.DataItemKey, e.Context, e.InstrumentValue, e.LocalValue, e.Direction }).IsUnique();
     }
 }
 

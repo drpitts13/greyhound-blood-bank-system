@@ -71,6 +71,7 @@ public static class DevelopmentSqliteBootstrap
         ("Patients", "Ethnicity", """ALTER TABLE "Patients" ADD COLUMN "Ethnicity" TEXT NULL"""),
         ("OrderLines", "GrouperCode", """ALTER TABLE "OrderLines" ADD COLUMN "GrouperCode" TEXT NULL"""),
         ("InterfaceValueTranslations", "EndpointId", """ALTER TABLE "InterfaceValueTranslations" ADD COLUMN "EndpointId" INTEGER NULL"""),
+        ("InterfaceUnmappedValues", "InstrumentInterfaceId", """ALTER TABLE "InterfaceUnmappedValues" ADD COLUMN "InstrumentInterfaceId" INTEGER NULL"""),
         ("TestDefinitions", "LoincCode", """ALTER TABLE "TestDefinitions" ADD COLUMN "LoincCode" TEXT NULL"""),
         ("TestResults", "AbnormalFlag", """ALTER TABLE "TestResults" ADD COLUMN "AbnormalFlag" TEXT NULL"""),
         ("ShiftHandoffs", "ProductsBelowMinimum", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ProductsBelowMinimum" INTEGER NOT NULL DEFAULT 0"""),
@@ -275,6 +276,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureMtpPackRecordsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
         await EnsureInterfaceUnmappedValuesTableAsync(context, cancellationToken);
+        await EnsureInstrumentValueTranslationsTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -1215,6 +1217,46 @@ public static class DevelopmentSqliteBootstrap
             """, ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE UNIQUE INDEX "IX_ReactionCatalogEntries_Kind_Code" ON "ReactionCatalogEntries" ("Kind", "Code")""", ct);
+    }
+
+    /// <summary>
+    /// Creates the per-instrument translation table on an existing dev database and copies the old assay and analyte
+    /// map into it, as migration 20261125000000_InstrumentValueTranslations does.
+    /// </summary>
+    private static async Task EnsureInstrumentValueTranslationsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "InstrumentInterfaces", ct)
+            || await TableExistsAsync(context, "InstrumentValueTranslations", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "InstrumentValueTranslations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_InstrumentValueTranslations" PRIMARY KEY AUTOINCREMENT,
+                "InterfaceId" INTEGER NOT NULL,
+                "DataItemKey" TEXT NOT NULL,
+                "InstrumentValue" TEXT NOT NULL,
+                "LocalValue" TEXT NOT NULL,
+                "Context" TEXT NULL,
+                "Direction" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_InstrumentValueTranslations_InstrumentInterfaces_InterfaceId" FOREIGN KEY ("InterfaceId") REFERENCES "InstrumentInterfaces" ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX "IX_InstrumentValueTranslations_InterfaceId_DataItemKey_Context_InstrumentValue_LocalValue_Direction"
+                ON "InstrumentValueTranslations" ("InterfaceId", "DataItemKey", "Context", "InstrumentValue", "LocalValue", "Direction");
+            """, ct);
+        if (await TableExistsAsync(context, "InstrumentTestMappings", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(Migrations.InstrumentValueTranslations.CopyTestMappingsSql, ct);
+        }
     }
 
     private static async Task EnsureInterfaceUnmappedValuesTableAsync(BloodBankDbContext context, CancellationToken ct)

@@ -657,7 +657,10 @@ public sealed record InterfaceUnmappedValueDto(
     string? LastMessageControlId,
     DateTime? ResolvedUtc,
     string? ResolvedBy,
-    string? ResolvedNote);
+    string? ResolvedNote,
+    // Set when the value came from an instrument rather than an EHR interface.
+    long? InstrumentInterfaceId = null,
+    string? InstrumentName = null);
 
 // ---- Users & roles ----
 

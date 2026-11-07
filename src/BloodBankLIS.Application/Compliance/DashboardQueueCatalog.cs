@@ -73,7 +73,7 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments");
         Add(cards, has(PermissionCodes.Hl7Manage), Hl7Errors, "HL7 errors", "/hl7");
         // Values an interface sent or received that no translation covered: whoever keeps the translation table fixes them.
-        Add(cards, has(PermissionCodes.AdminHl7Manage), UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
+        Add(cards, has(PermissionCodes.AdminHl7Manage) || has(PermissionCodes.AdminInstrumentsManage), UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
         Add(cards, has(PermissionCodes.DeviationManage), Deviations, "Open deviations", "/deviations");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
         return cards;

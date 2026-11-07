@@ -2090,6 +2090,16 @@ public sealed class BloodBankApiClient
             ct);
 
     // ---- Admin: Instrument interfaces ----
+    public Task<ApiResult<List<InstrumentTranslationFieldDto>>> GetAdminInstrumentTranslationFieldsAsync(CancellationToken ct = default) =>
+        SendAsync<List<InstrumentTranslationFieldDto>>(HttpMethod.Get, "api/admin/instruments/translation-fields", ct: ct);
+
+    public Task<ApiResult<InstrumentTranslationCheckDto>> CheckAdminInstrumentTranslationAsync(
+        long id, string key, string value, string? context, CancellationToken ct = default) =>
+        SendAsync<InstrumentTranslationCheckDto>(
+            HttpMethod.Get,
+            $"api/admin/instruments/{id}/translations/check?key={Uri.EscapeDataString(key)}&value={Uri.EscapeDataString(value)}{(string.IsNullOrWhiteSpace(context) ? "" : $"&context={Uri.EscapeDataString(context)}")}",
+            ct: ct);
+
     public Task<ApiResult<List<InstrumentDataItemDto>>> GetAdminInstrumentDataItemsAsync(CancellationToken ct = default) =>
         SendAsync<List<InstrumentDataItemDto>>(HttpMethod.Get, "api/admin/instruments/data-items", ct: ct);
 

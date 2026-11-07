@@ -16285,3 +16285,34 @@ Cycles 483–486 gave every coded field a translation table, but rows could only
 ### Next ranked residual
 
 LOINC and translated codes in the FHIR export; ordering-provider and location translations reviewed through the unmapped list; method and reagent lot on each result; several allowed specimen types per test.
+
+## Iterations 488–491 — Instrument translation tables (2026-11-07)
+
+### Request
+
+Instrument interfaces need translation tables like the EHR interfaces (order test codes, result test codes, result values, error codes), set up per instrument. Decisions: the new tables replace the instrument test mapping (rows migrated); a test or subtest code with no translation fails the message and is listed; error codes map to an action (Hold, Warn, Ignore).
+
+### Capability matrix rescan (interoperability: instruments)
+
+One assay/analyte map per instrument; values converted partly by text rules and partly by code. An unmapped assay or analyte passed through as the raw code, and a result could post to the first order line on the specimen even when it was another test (wrong-line fallback). Unmapped outbound tests were dropped silently; error codes were read but ignored. No picker, check, import, or unmapped list.
+
+### Design and build
+
+- **88 (table):** `InstrumentValueTranslation` per instrument with six keys and an optional test limit; `InstrumentValueTranslator` (test-limited row first, ordered-test preference, misses); validation (INST-XLAT-*); migration copies the old map (old table kept unused); `InterfaceUnmappedValues.InstrumentInterfaceId`.
+- **89 (posting):** unknown assay or analyte not posted (`INST-CODE`), test not ordered not posted (`INST-NOT-ORDERED`, fallback removed); values and interpretations translated before rules; query replies name tests left out; misses listed; viewer matches posting.
+- **90 (error codes):** `error` (L.3) and new `result_flag` (R.7) translated to Hold (`INST-HOLD`), Warn (flag in the result's source reference), Ignore; unlisted code holds once a list exists; no list, no action (L.3 is "N" on every normal message). OCD-066.
+- **91 (screens, seeds):** Translations tab (fields, suggestions, test limit, Test a value, import/export), unmapped Add translation opens the instrument, ops page unmapped badge, home card for instrument admins. Echo seed as translations (KEEP for Pos Ctrl and the crossmatch Donor record so results post as before; B Pos etc. as interpretations; N Ignore, W Warn); upgrade turns off only unchanged text rules. Demo unmapped "Antigen".
+
+### Requirements
+
+- URS-BB-552–554, FRS-BB-663–666, OCD-066.
+
+### Tests
+
+- TEST-BB-530 to 536 (unknown assay listed and replayed after a translation; not-ordered and unknown analyte not posted; interpretation by translation; Hold and Warn; query leaves out and lists; admin refuses unknown local values and actions; translator, validation, import; seed and upgrade copy).
+- Full suite: 3,934 passed.
+- Live: starting the API upgraded the dev database in place (InstrumentValueTranslations created, the Echo's 10 assay and 14 analyte rows copied, value translations added, the 12 replaced text rules turned off, numeric rules left on). Unmapped values listed Antigen as "ImmuLINK Echo (instrument)"; Add translation opened the Echo's Result test code field with an Antigen row; every seeded row matched the local value lists; Test a value gave B Pos to B|Positive. Nothing was saved and no simulator results were sent. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; per-instrument QC flag handling; LOINC and translated codes in the FHIR export; method and reagent lot on each result.

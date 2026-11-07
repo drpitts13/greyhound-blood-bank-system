@@ -12,6 +12,9 @@ public class InterfaceUnmappedValue : BaseEntity
 {
     public long? EndpointId { get; set; }
 
+    /// <summary>The instrument the value came from or was needed for; null for an EHR interface.</summary>
+    public long? InstrumentInterfaceId { get; set; }
+
     public string DataItemKey { get; set; } = string.Empty;
 
     public string Value { get; set; } = string.Empty;

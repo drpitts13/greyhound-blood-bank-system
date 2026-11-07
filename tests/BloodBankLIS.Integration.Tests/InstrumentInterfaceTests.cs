@@ -32,14 +32,14 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
             "seed",
             new InstrumentConnectionDto(null, 2577, true),
             [new InstrumentFieldMappingDto(InstrumentDataItemKeys.PatientId, "P.3", true)],
-            [new InstrumentTestMappingDto("Group", "ABORH", InstrumentMappingKind.Assay, InterfaceTranslationDirection.Both, 1)],
+            [new InstrumentTranslationDto(InstrumentTranslationKeys.ResultTestCode, "Group", "ABORH", InterfaceTranslationDirection.Inbound, 1)],
             [new InstrumentRuleDto("forty", "message.subtest_result >= 40", "set('subtest_result','4+')", 1, true, false)]));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.True(result.Value!.Connection.IsServer);
         Assert.Equal(2577, result.Value.Connection.Port);
         Assert.Single(result.Value.FieldMappings);
-        Assert.Single(result.Value.TestMappings);
+        Assert.Single(result.Value.Translations);
         Assert.Single(result.Value.Rules);
         Assert.False(result.Value.IsEnabled);
     }
@@ -230,7 +230,7 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
             "seed",
             new InstrumentConnectionDto(null, 2580, true),
             [new InstrumentFieldMappingDto(InstrumentDataItemKeys.PatientId, "P.3", true)],
-            [new InstrumentTestMappingDto("Group", "ABORH", InstrumentMappingKind.Assay, InterfaceTranslationDirection.Both, 1)],
+            [new InstrumentTranslationDto(InstrumentTranslationKeys.ResultTestCode, "Group", "ABORH", InterfaceTranslationDirection.Inbound, 1)],
             []);
 
         var denied = await Admin(context, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigView))
@@ -245,9 +245,182 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(name, allowed.Value!.Name);
     }
 
+    // TEST-BB-530: an assay code with no translation does not post; the message waits in failures and the code is
+    // listed; saving a translation clears the list entry and a replay posts.
+    [Fact]
+    public async Task UnknownAssay_IsNotPosted_IsListed_AndPostsOnReplayAfterATranslation()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        await SeedOrderAsync(context, "MRN-INST-ANT", "ACC-INST-ANT", "ABORH");
+        var raw = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-ANT", "MRN-INST-ANT", "Patient", "Test", "19590422", "M", 3)).RawMessage
+            .Replace("^^^Group", "^^^Antigen", StringComparison.Ordinal);
+
+        var first = await Processor(context).ProcessAsync(raw, iface.Id);
+
+        Assert.False(first.Accepted);
+        Assert.Contains(InstrumentTranslationKeys.UnknownCode, first.Log.ErrorDetail);
+        Assert.False(await context.TestResults.AnyAsync(r => r.TestCode == "ABORH" && r.Specimen!.AccessionNumber == "ACC-INST-ANT"));
+        var listed = await context.InterfaceUnmappedValues.AsNoTracking()
+            .SingleAsync(v => v.InstrumentInterfaceId == iface.Id && v.Value == "Antigen");
+        Assert.Equal(InstrumentTranslationKeys.ResultTestCode, listed.DataItemKey);
+
+        var current = (await Admin(context, unmapped: true).GetAsync(iface.Id))!;
+        var saved = await Admin(context, unmapped: true).UpdateAsync(iface.Id, Request(current, "Antigen is the Echo's group on this card",
+            current.Translations.Append(new InstrumentTranslationDto(InstrumentTranslationKeys.ResultTestCode, "Antigen", "ABORH", InterfaceTranslationDirection.Inbound, 50))));
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.NotNull((await context.InterfaceUnmappedValues.AsNoTracking().SingleAsync(v => v.Id == listed.Id)).ResolvedUtc);
+
+        var replay = await Processor(context).ReplayAsync(first.Log.Id);
+        Assert.True(replay!.Accepted, string.Join("; ", replay.Notes));
+        Assert.Equal(ResultSource.Instrument, (await PostedResultAsync(context, "ACC-INST-ANT", "ABORH")).Source);
+    }
+
+    // TEST-BB-530: a result for a test that is not ordered on the specimen is not filed against another test's order,
+    // and an unknown analyte stops its assay from posting.
+    [Fact]
+    public async Task NotOrderedTest_AndUnknownAnalyte_AreNotPosted()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        await SeedOrderAsync(context, "MRN-INST-NO", "ACC-INST-NO", "ABSC");
+        var group = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-NO", "MRN-INST-NO", "Patient", "Test", "19590422", "M", 3)).RawMessage;
+
+        var notOrdered = await Processor(context).ProcessAsync(group, iface.Id);
+        Assert.False(notOrdered.Accepted);
+        Assert.Contains(InstrumentTranslationKeys.NotOrderedCode, notOrdered.Log.ErrorDetail);
+        Assert.False(await context.TestResults.AnyAsync(r => r.Specimen!.AccessionNumber == "ACC-INST-NO"));
+
+        await SeedOrderAsync(context, "MRN-INST-AN", "ACC-INST-AN", "ABORH");
+        var oddAnalyte = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-AN", "MRN-INST-AN", "Patient", "Test", "19590422", "M", 3)).RawMessage
+            .Replace("^^^Anti-A", "^^^Anti-Q", StringComparison.Ordinal);
+        var unknown = await Processor(context).ProcessAsync(oddAnalyte, iface.Id);
+        Assert.False(unknown.Accepted);
+        Assert.Contains("Anti-Q", unknown.Log.ErrorDetail);
+        Assert.False(await context.TestResults.AnyAsync(r => r.Specimen!.AccessionNumber == "ACC-INST-AN"));
+        Assert.True(await context.InterfaceUnmappedValues.AnyAsync(v => v.InstrumentInterfaceId == iface.Id
+            && v.DataItemKey == InstrumentTranslationKeys.SubtestCode && v.Value == "Anti-Q"));
+    }
+
+    // TEST-BB-531: the Echo's interpretation reaches the LIS through a translation (B Pos to B|Positive), not a rule.
+    [Fact]
+    public async Task GroupInterpretation_IsTranslated_WithoutTheOldRule()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        Assert.DoesNotContain(iface.Rules, r => r.IsEnabled && r.Name == "B Pos");
+        await SeedOrderAsync(context, "MRN-INST-INT", "ACC-INST-INT", "ABORH");
+        var raw = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-INT", "MRN-INST-INT", "Patient", "Test", "19590422", "M", 3)).RawMessage;
+
+        var outcome = await Processor(context).ProcessAsync(raw, iface.Id);
+
+        Assert.True(outcome.Accepted, string.Join("; ", outcome.Notes));
+        var posted = await PostedResultAsync(context, "ACC-INST-INT", "ABORH");
+        Assert.Matches("^(A|B|O|AB)\\|(Positive|Negative)$", posted.Interpretation ?? "");
+    }
+
+    // TEST-BB-532: once an instrument lists error codes, a Hold code (or one with no translation) keeps the result off
+    // the record for review, and a Warn code posts it with the flag for the verifier.
+    [Fact]
+    public async Task ErrorCodes_HoldOrWarn()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        await SeedOrderAsync(context, "MRN-INST-HOLD", "ACC-INST-HOLD", "ABORH");
+        var held = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-HOLD", "MRN-INST-HOLD", "Patient", "Test", "19590422", "M", 3)).RawMessage
+            .Replace("L|1|N", "L|1|Q", StringComparison.Ordinal);
+
+        var hold = await Processor(context).ProcessAsync(held, iface.Id);
+
+        Assert.False(hold.Accepted);
+        Assert.Contains(InstrumentTranslationKeys.HeldCode, hold.Log.ErrorDetail);
+        Assert.True(InstrumentMessageFollowUpRule.IsOpenFailure(hold.Log.Status, hold.Log.ResolvedUtc));
+        Assert.False(await context.TestResults.AnyAsync(r => r.Specimen!.AccessionNumber == "ACC-INST-HOLD"));
+        Assert.True(await context.InterfaceUnmappedValues.AnyAsync(v => v.InstrumentInterfaceId == iface.Id
+            && v.DataItemKey == InstrumentTranslationKeys.ErrorCode && v.Value == "Q"));
+
+        await SeedOrderAsync(context, "MRN-INST-WARN", "ACC-INST-WARN", "ABORH");
+        var warned = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-WARN", "MRN-INST-WARN", "Patient", "Test", "19590422", "M", 3)).RawMessage
+            .Replace("L|1|N", "L|1|W", StringComparison.Ordinal);
+        var warn = await Processor(context).ProcessAsync(warned, iface.Id);
+        Assert.True(warn.Accepted, string.Join("; ", warn.Notes));
+        Assert.Contains("instrument flag W", (await PostedResultAsync(context, "ACC-INST-WARN", "ABORH")).SourceReference);
+    }
+
+    // TEST-BB-533: a test the instrument has no code for is left out of its order download and listed (outbound).
+    [Fact]
+    public async Task Query_ForATestWithNoInstrumentCode_LeavesItOut_AndListsIt()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        await SeedOrderAsync(context, "MRN-INST-QX", "ACC-INST-QX", "ELUTION");
+
+        const string query = "H|\\^&|||ImmuLINK|||||LIS|||LIS2-A2|20120219140243\rQ|1|ACC-INST-QX||ALL\rL|1|N\r";
+        var outcome = await Processor(context).ProcessAsync(query, iface.Id);
+
+        Assert.Contains(outcome.Notes, n => n.Contains("ELUTION not sent", StringComparison.Ordinal));
+        Assert.DoesNotContain("ELUTION", outcome.ReplyMessage ?? "");
+        Assert.True(await context.InterfaceUnmappedValues.AnyAsync(v => v.InstrumentInterfaceId == iface.Id
+            && v.DataItemKey == InstrumentTranslationKeys.OrderTestCode && v.Value == "ELUTION" && v.Direction == InterfaceTranslationDirection.Outbound));
+    }
+
+    // TEST-BB-534: a translation to a test the LIS does not have, or an error code without Hold, Warn, or Ignore, is refused.
+    [Fact]
+    public async Task Admin_RefusesUnknownLocalValues_AndBadErrorActions()
+    {
+        await using var context = _factory.Create();
+        var request = new SaveInstrumentInterfaceRequest(
+            $"XLAT-{Guid.NewGuid():N}"[..14],
+            "Development",
+            "test",
+            new InstrumentConnectionDto(null, 2590, true),
+            [new InstrumentFieldMappingDto(InstrumentDataItemKeys.PatientId, "P.3", true)],
+            [
+                new InstrumentTranslationDto(InstrumentTranslationKeys.ResultTestCode, "Group", "NOPE", InterfaceTranslationDirection.Inbound, 1),
+                new InstrumentTranslationDto(InstrumentTranslationKeys.ErrorCode, "Q", "Maybe", InterfaceTranslationDirection.Inbound, 1),
+                new InstrumentTranslationDto(InstrumentTranslationKeys.SubtestCode, "Pos Ctrl", InstrumentTranslationKeys.Keep, InterfaceTranslationDirection.Inbound, 1)
+            ],
+            []);
+
+        var refused = await Admin(context, catalog: true).CreateAsync(request);
+
+        Assert.False(refused.Succeeded);
+        Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == "INST-XLAT-LOCAL" && r.Message.Contains("NOPE"));
+        Assert.Contains(refused.Evaluation.HardStops, r => r.Code == "INST-XLAT-ACTION");
+        Assert.DoesNotContain(refused.Evaluation.HardStops, r => r.Message.Contains("Pos Ctrl"));
+    }
+
+    private async Task<InstrumentInterface> EchoAsync(BloodBankDbContext context)
+    {
+        await DatabaseSeeder.SeedInstrumentInterfacesAsync(context, CancellationToken.None);
+        return await context.InstrumentInterfaces.AsNoTracking().Include(i => i.Rules)
+            .SingleAsync(i => i.Name == DatabaseSeeder.EchoInterfaceName);
+    }
+
+    private static SaveInstrumentInterfaceRequest Request(InstrumentInterfaceDto dto, string reason, IEnumerable<InstrumentTranslationDto> translations) =>
+        new(dto.Name, dto.Environment, reason, dto.Connection, dto.FieldMappings, translations.ToList(), dto.Rules,
+            dto.InterpretationMatch, dto.InterpretationAnalyteCodes);
+
+    private InterfaceUnmappedValueService Unmapped(BloodBankDbContext context)
+    {
+        var env = new StaticEnvironmentInfo("Development", isDevMode: false);
+        return new InterfaceUnmappedValueService(
+            new EfRepository<InterfaceUnmappedValue>(context), context, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser, env),
+            instruments: new EfRepository<InstrumentInterface>(context));
+    }
+
     private InstrumentInterfaceAdminService Admin(
         BloodBankDbContext context,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        bool unmapped = false,
+        bool catalog = false)
     {
         var env = new StaticEnvironmentInfo("Development", isDevMode: false);
         return new InstrumentInterfaceAdminService(
@@ -257,7 +430,11 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
             _factory.CurrentUser,
             new AuditWriter(context, _factory.Clock, _factory.CurrentUser, env),
             new ConfigurationHistoryWriter(context, _factory.Clock, _factory.CurrentUser, env),
-            permissionEvaluator: permissions);
+            permissionEvaluator: permissions,
+            tests: catalog ? new EfRepository<BloodBankLIS.Domain.Entities.Configuration.TestDefinition>(context) : null,
+            subtests: catalog ? new EfRepository<BloodBankLIS.Domain.Entities.Configuration.SubtestDefinition>(context) : null,
+            phases: catalog ? new EfRepository<BloodBankLIS.Domain.Entities.Configuration.PhaseDefinition>(context) : null,
+            unmapped: unmapped ? Unmapped(context) : null);
     }
 
     private AstmInboundProcessor Processor(BloodBankDbContext context)
@@ -287,7 +464,8 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
             results,
             NullLogger<AstmInboundProcessor>.Instance,
             _factory.CurrentUser,
-            new AuditWriter(context, _factory.Clock, _factory.CurrentUser, env));
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser, env),
+            Unmapped(context));
     }
 
     private async Task<(long SpecimenId, long OrderId)> SeedOrderAsync(

@@ -124,18 +124,21 @@ public class AstmParserTests
                 Sex = Sex.Male
             },
             new Specimen { AccessionNumber = "0651439A" },
-            [new OrderLine { TestCode = "XM", IsActive = true }],
-            [new InstrumentTestMapping
+            [new OrderLine { TestCode = "XM", IsActive = true }, new OrderLine { TestCode = "ABID", IsActive = true }],
+            InstrumentValueTranslator.From([new InstrumentValueTranslation
             {
-                InstrumentCode = "Crossmatch",
-                ApplicationCode = "XM",
-                Kind = InstrumentMappingKind.Assay,
-                Direction = InterfaceTranslationDirection.Both
-            }],
+                DataItemKey = InstrumentTranslationKeys.OrderTestCode,
+                InstrumentValue = "Crossmatch",
+                LocalValue = "XM",
+                Direction = InterfaceTranslationDirection.Outbound
+            }]),
+            out var notSent,
             donorUnitNumber: "R02460");
 
         Assert.Contains("^^^Crossmatch", raw);
         Assert.Contains("C|1|L|Donor^R02460", raw);
+        // A test with no instrument code is left out of the download, and named.
+        Assert.Equal(["ABID"], notSent);
     }
 
     [Fact]

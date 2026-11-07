@@ -15,6 +15,7 @@ public static partial class DatabaseSeeder
     {
         if (await context.InstrumentInterfaces.AnyAsync(i => i.Name == EchoInterfaceName, ct))
         {
+            await EnsureEchoTranslationsAsync(context, ct);
             return;
         }
 
@@ -27,8 +28,8 @@ public static partial class DatabaseSeeder
             InterpretationMatch = InstrumentInterpretationMatch.AnalyteEqualsAssay,
             Connection = new InstrumentConnection { Port = EchoListenPort },
             FieldMappings = EchoFieldMappings(),
-            TestMappings = EchoTestMappings(),
-            Rules = EchoRules()
+            Translations = EchoCodeTranslations().Concat(EchoValueTranslations()).ToList(),
+            Rules = EchoRules().Where(r => !EchoRulesNowTranslations.Contains(r.Name)).ToList()
         };
 
         context.InstrumentInterfaces.Add(iface);
@@ -43,41 +44,36 @@ public static partial class DatabaseSeeder
             IsRequired = item.Required
         }).ToList();
 
-    private static List<InstrumentTestMapping> EchoTestMappings()
+    /// <summary>The Echo's assay and analyte codes (what the retired test mapping held).</summary>
+    private static List<InstrumentValueTranslation> EchoCodeTranslations()
     {
-        var rows = new List<InstrumentTestMapping>();
+        var rows = new List<InstrumentValueTranslation>();
         var order = 0;
 
-        void Assay(string instrument, string application, int sort, InterfaceTranslationDirection dir = InterfaceTranslationDirection.Both) =>
-            rows.Add(new InstrumentTestMapping
+        void Assay(string instrument, string local, bool sentToInstrument = true)
+        {
+            rows.Add(Translation(InstrumentTranslationKeys.ResultTestCode, instrument, local, order));
+            if (sentToInstrument)
             {
-                InstrumentCode = instrument,
-                ApplicationCode = application,
-                Kind = InstrumentMappingKind.Assay,
-                Direction = dir,
-                SortOrder = sort
-            });
+                rows.Add(Translation(InstrumentTranslationKeys.OrderTestCode, instrument, local, order, direction: InterfaceTranslationDirection.Outbound));
+            }
 
-        void Analyte(string instrument, string application, int sort) =>
-            rows.Add(new InstrumentTestMapping
-            {
-                InstrumentCode = instrument,
-                ApplicationCode = application,
-                Kind = InstrumentMappingKind.Analyte,
-                Direction = InterfaceTranslationDirection.Inbound,
-                SortOrder = sort
-            });
+            order++;
+        }
 
-        Assay("Group", "ABORH", order++);
-        Assay("Group2", "ABORH", order++, InterfaceTranslationDirection.Inbound);
-        Assay("Pediatric", "ABORH", order++, InterfaceTranslationDirection.Inbound);
-        Assay("Confirm", "ABORH", order++, InterfaceTranslationDirection.Inbound);
-        Assay("Donor", "ABORH-RETYPE", order++);
-        Assay("Screen", "ABSC", order++);
-        Assay("Crossmatch", "XM", order++);
-        Assay("DAT", "DAT", order++);
-        Assay("Weak D", "ABORH", order++, InterfaceTranslationDirection.Inbound);
-        Assay("Ready ID", "ABID", order++);
+        void Analyte(string instrument, string local, int sort) =>
+            rows.Add(Translation(InstrumentTranslationKeys.SubtestCode, instrument, local, sort));
+
+        Assay("Group", "ABORH");
+        Assay("Group2", "ABORH", sentToInstrument: false);
+        Assay("Pediatric", "ABORH", sentToInstrument: false);
+        Assay("Confirm", "ABORH", sentToInstrument: false);
+        Assay("Donor", "ABORH-RETYPE");
+        Assay("Screen", "ABSC");
+        Assay("Crossmatch", "XM");
+        Assay("DAT", "DAT");
+        Assay("Weak D", "ABORH", sentToInstrument: false);
+        Assay("Ready ID", "ABID");
 
         Analyte("Anti-A", AboRhPanelSubtestCodes.AntiA, 1);
         Analyte("Anti-B", AboRhPanelSubtestCodes.AntiB, 2);
@@ -94,6 +90,94 @@ public static partial class DatabaseSeeder
         Analyte("Ind Ctrl", "CC", 21);
         Analyte("DAT Rxn", "DAT", 30);
         return rows;
+    }
+
+    /// <summary>
+    /// Echo values that need saying explicitly: the screen's positive control and the crossmatch donor record are kept
+    /// under the instrument's own code (as before), the ABO/Rh and crossmatch interpretations, and the error codes: N is
+    /// the ASTM normal end of message, W is set by the "Reaction error to NT" rule. Examples only (OCD-066).
+    /// </summary>
+    private static List<InstrumentValueTranslation> EchoValueTranslations()
+    {
+        var rows = new List<InstrumentValueTranslation>
+        {
+            Translation(InstrumentTranslationKeys.SubtestCode, "Pos Ctrl", InstrumentTranslationKeys.Keep, 13),
+            Translation(InstrumentTranslationKeys.SubtestCode, "Donor", InstrumentTranslationKeys.Keep, 22),
+            Translation(InstrumentTranslationKeys.Interpretation, "IgG Comp (Check ABO Comp)", "Compatible", 40, context: "XM"),
+            Translation(InstrumentTranslationKeys.ErrorCode, "N", nameof(InstrumentErrorAction.Ignore), 1),
+            Translation(InstrumentTranslationKeys.ErrorCode, "W", nameof(InstrumentErrorAction.Warn), 2)
+        };
+        var sort = 30;
+        foreach (var abo in new[] { "A", "B", "O", "AB" })
+        {
+            rows.Add(Translation(InstrumentTranslationKeys.Interpretation, $"{abo} Pos", $"{abo}|Positive", sort++));
+            rows.Add(Translation(InstrumentTranslationKeys.Interpretation, $"{abo} Neg", $"{abo}|Negative", sort++));
+        }
+
+        return rows;
+    }
+
+    private static InstrumentValueTranslation Translation(
+        string key, string instrument, string local, int sort, string? context = null,
+        InterfaceTranslationDirection direction = InterfaceTranslationDirection.Inbound) =>
+        new()
+        {
+            DataItemKey = key,
+            InstrumentValue = instrument,
+            LocalValue = local,
+            Context = context,
+            Direction = direction,
+            SortOrder = sort
+        };
+
+    /// <summary>Seeded text rules whose work the translations now do (the last four changed nothing).</summary>
+    private static readonly HashSet<string> EchoRulesNowTranslations =
+    [
+        "B Pos", "B Neg", "A Pos", "A Neg", "O Pos", "O Neg", "AB Pos", "AB Neg",
+        "XM compatible", "XM incompatible", "DAT/Screen Positive", "DAT/Screen Negative"
+    ];
+
+    /// <summary>
+    /// An upgraded database: the assay and analyte codes were copied from the old map; add the value translations once
+    /// and turn off the seeded text rules they replace, only where a rule is still exactly as seeded.
+    /// </summary>
+    private static async Task EnsureEchoTranslationsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var echo = await context.InstrumentInterfaces
+            .Include(i => i.Translations)
+            .Include(i => i.Rules)
+            .SingleAsync(i => i.Name == EchoInterfaceName, ct);
+        if (echo.Translations.Any(t => t.DataItemKey is InstrumentTranslationKeys.Interpretation or InstrumentTranslationKeys.ErrorCode))
+        {
+            return;
+        }
+
+        if (!echo.Translations.Any(t => t.DataItemKey == InstrumentTranslationKeys.ResultTestCode))
+        {
+            foreach (var row in EchoCodeTranslations())
+            {
+                echo.Translations.Add(row);
+            }
+        }
+
+        foreach (var row in EchoValueTranslations().Where(v => !echo.Translations.Any(t =>
+                     t.DataItemKey == v.DataItemKey && string.Equals(t.InstrumentValue, v.InstrumentValue, StringComparison.OrdinalIgnoreCase))))
+        {
+            echo.Translations.Add(row);
+        }
+
+        var seeded = EchoRules().ToDictionary(r => r.Name);
+        foreach (var rule in echo.Rules.Where(r => r.IsEnabled && EchoRulesNowTranslations.Contains(r.Name)))
+        {
+            if (seeded.TryGetValue(rule.Name, out var original)
+                && rule.ConditionExpression == original.ConditionExpression
+                && rule.ActionExpression == original.ActionExpression)
+            {
+                rule.IsEnabled = false;
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
     }
 
     private static List<InstrumentInterfaceRule> EchoRules() =>

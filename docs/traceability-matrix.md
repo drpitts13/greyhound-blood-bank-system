@@ -656,6 +656,10 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-550 / FRS-BB-660 | Race, ethnicity, patient class through the translations | `Hl7AdtMapper`; `Hl7OruBuilder`; `Hl7DftBuilder`; `Hl7BpsBuilder`; `PatientService` | TEST-BB-527 | U, I | |
 | URS-BB-550 / FRS-BB-661 | Unmapped values listed, resolved, dismissed; home card | `InterfaceUnmappedValueService`; `DashboardQueueCatalog` | TEST-BB-525, TEST-BB-526, TEST-BB-528 | U, I | |
 | URS-BB-551 / FRS-BB-662 | Translation rows imported from a paste or CSV, exported as CSV | `InterfaceTranslationImport`; `AdminHl7Translations.razor` | TEST-BB-529 | U | |
+| URS-BB-552 / FRS-BB-663 | Per-instrument translation table and translator | `InstrumentValueTranslator`; `InstrumentInterfaceValidator`; migration | TEST-BB-535, TEST-BB-536 | U, I | |
+| URS-BB-552 / FRS-BB-664 | Instrument Translations tab, admin checks, Echo seed | `AdminInstruments.razor`; `InstrumentInterfaceAdminService`; `DatabaseSeeder.Instruments` | TEST-BB-530, TEST-BB-534, TEST-BB-536 | I | |
+| URS-BB-553 / FRS-BB-665 | Unknown or unordered instrument codes not posted; unmapped listed | `AstmInboundProcessor`; `AstmOrderBuilder`; `InterfaceUnmappedValueService` | TEST-BB-530, TEST-BB-531, TEST-BB-533 | I | |
+| URS-BB-554 / FRS-BB-666 | Instrument error codes Hold / Warn / Ignore | `InstrumentValueTranslator.ErrorAction`; `AstmInboundProcessor` | TEST-BB-532, TEST-BB-535 | U, I | OCD-066 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

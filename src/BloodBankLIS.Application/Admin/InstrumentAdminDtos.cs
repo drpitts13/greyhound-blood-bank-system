@@ -8,12 +8,26 @@ public sealed record InstrumentConnectionDto(string? IpAddress, int Port, bool I
 
 public sealed record InstrumentFieldMappingDto(string DataItemKey, string AstmPath, bool IsRequired, string? DisplayName = null);
 
-public sealed record InstrumentTestMappingDto(
-    string InstrumentCode,
-    string ApplicationCode,
-    InstrumentMappingKind Kind,
+/// <summary>One instrument translation row; <paramref name="Context"/> limits a value row to one LIS test.</summary>
+public sealed record InstrumentTranslationDto(
+    string DataItemKey,
+    string InstrumentValue,
+    string LocalValue,
     InterfaceTranslationDirection Direction,
-    int SortOrder);
+    int SortOrder,
+    string? Context = null);
+
+/// <summary>A translation field an instrument can fill, with the local values it may use (empty for any value).</summary>
+public sealed record InstrumentTranslationFieldDto(
+    string Key,
+    string DisplayName,
+    string Description,
+    bool Outbound,
+    bool AllowsContext,
+    IReadOnlyList<InterfaceLocalValueDto> LocalValues);
+
+/// <summary>What an instrument would do with a value, using its saved translations.</summary>
+public sealed record InstrumentTranslationCheckDto(string Input, string Output, bool Translated, string? Context, string? Note);
 
 public sealed record InstrumentRuleDto(
     string Name,
@@ -33,7 +47,7 @@ public sealed record InstrumentInterfaceDto(
     string? InterpretationAnalyteCodes,
     InstrumentConnectionDto Connection,
     IReadOnlyList<InstrumentFieldMappingDto> FieldMappings,
-    IReadOnlyList<InstrumentTestMappingDto> TestMappings,
+    IReadOnlyList<InstrumentTranslationDto> Translations,
     IReadOnlyList<InstrumentRuleDto> Rules);
 
 public sealed record SaveInstrumentInterfaceRequest(
@@ -42,7 +56,7 @@ public sealed record SaveInstrumentInterfaceRequest(
     string? ChangeReason,
     InstrumentConnectionDto Connection,
     IReadOnlyList<InstrumentFieldMappingDto>? FieldMappings,
-    IReadOnlyList<InstrumentTestMappingDto>? TestMappings,
+    IReadOnlyList<InstrumentTranslationDto>? Translations,
     IReadOnlyList<InstrumentRuleDto>? Rules,
     InstrumentInterpretationMatch InterpretationMatch = InstrumentInterpretationMatch.AnalyteEqualsAssay,
     string? InterpretationAnalyteCodes = null);

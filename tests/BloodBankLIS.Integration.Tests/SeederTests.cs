@@ -687,7 +687,80 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.All(tnsLines, l => Assert.Equal("TNS", l.GrouperCode));
         var first = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
         Assert.Equal(("WHITE", "NOT-HISPANIC"), (first.Race, first.Ethnicity));
-        var unmapped = Assert.Single(await verify.InterfaceUnmappedValues.ToListAsync());
+        var unmapped = Assert.Single(await verify.InterfaceUnmappedValues.Where(v => v.InstrumentInterfaceId == null).ToListAsync());
         Assert.Equal(("Order.TestCode", "LAB99999", (DateTime?)null), (unmapped.DataItemKey, unmapped.Value, unmapped.ResolvedUtc));
+    }
+
+    // TEST-BB-536: an upgraded database: the old assay and analyte map is copied into translations by the migration SQL,
+    // the value translations are added, and only the text rules still exactly as seeded are turned off.
+    [Fact]
+    public async Task Upgrade_CopiesTheOldMap_AndTurnsOffOnlyUnchangedTextRules()
+    {
+        using var fresh = new SqliteContextFactory();
+        await using (var context = fresh.Create())
+        {
+            var echo = new InstrumentInterface
+            {
+                Name = DatabaseSeeder.EchoInterfaceName,
+                Connection = new InstrumentConnection { Port = DatabaseSeeder.EchoListenPort },
+                Rules =
+                [
+                    new InstrumentInterfaceRule { Name = "B Pos", ConditionExpression = "message.test_interp = 'B Pos'", ActionExpression = "set('test_interp','B|Positive')", IsEnabled = true },
+                    new InstrumentInterfaceRule { Name = "A Pos", ConditionExpression = "message.test_interp = 'A Pos'", ActionExpression = "set('test_interp','A|Positive'); set('error','W')", IsEnabled = true }
+                ]
+            };
+            context.InstrumentInterfaces.Add(echo);
+            await context.SaveChangesAsync();
+            context.InstrumentTestMappings.AddRange(
+                new InstrumentTestMapping { InterfaceId = echo.Id, InstrumentCode = "Group", ApplicationCode = "ABORH", Kind = InstrumentMappingKind.Assay, Direction = InterfaceTranslationDirection.Both },
+                new InstrumentTestMapping { InterfaceId = echo.Id, InstrumentCode = "Group2", ApplicationCode = "ABORH", Kind = InstrumentMappingKind.Assay, Direction = InterfaceTranslationDirection.Inbound },
+                new InstrumentTestMapping { InterfaceId = echo.Id, InstrumentCode = "Anti-A", ApplicationCode = "Anti-A", Kind = InstrumentMappingKind.Analyte, Direction = InterfaceTranslationDirection.Inbound });
+            await context.SaveChangesAsync();
+            await context.Database.ExecuteSqlRawAsync(BloodBankLIS.Infrastructure.Persistence.Migrations.InstrumentValueTranslations.CopyTestMappingsSql);
+            await DatabaseSeeder.SeedInstrumentInterfacesAsync(context, CancellationToken.None);
+        }
+
+        await using var verify = fresh.Create();
+        var upgraded = await verify.InstrumentInterfaces.Include(i => i.Translations).Include(i => i.Rules).SingleAsync();
+        var codes = upgraded.Translations.Where(t => t.DataItemKey != BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.Interpretation
+                && t.DataItemKey != BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ErrorCode && t.LocalValue != "KEEP")
+            .Select(t => (t.DataItemKey, t.InstrumentValue, t.LocalValue, t.Direction)).OrderBy(t => t.DataItemKey).ThenBy(t => t.InstrumentValue).ToList();
+        Assert.Equal(
+            [
+                ("Instrument.OrderTestCode", "Group", "ABORH", InterfaceTranslationDirection.Outbound),
+                ("Instrument.ResultTestCode", "Group", "ABORH", InterfaceTranslationDirection.Inbound),
+                ("Instrument.ResultTestCode", "Group2", "ABORH", InterfaceTranslationDirection.Inbound),
+                ("Instrument.SubtestCode", "Anti-A", "Anti-A", InterfaceTranslationDirection.Inbound)
+            ],
+            codes);
+        Assert.Contains(upgraded.Translations, t => t.InstrumentValue == "B Pos" && t.LocalValue == "B|Positive");
+        Assert.False(upgraded.Rules.Single(r => r.Name == "B Pos").IsEnabled);
+        // A site's edited rule is left as it is.
+        Assert.True(upgraded.Rules.Single(r => r.Name == "A Pos").IsEnabled);
+    }
+
+    // TEST-BB-536: the Echo is seeded with its codes as translations (the retired map), its interpretations and error
+    // codes as translations instead of text rules, and one unmapped instrument assay for the list.
+    [Fact]
+    public async Task Seed_GivesTheEchoTranslations_InsteadOfTextRules()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var echo = await verify.InstrumentInterfaces.Include(i => i.Translations).Include(i => i.Rules)
+            .SingleAsync(i => i.Name == DatabaseSeeder.EchoInterfaceName);
+        string Local(string key, string value) => echo.Translations.Single(t => t.DataItemKey == key && t.InstrumentValue == value).LocalValue;
+        Assert.Equal("ABORH", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ResultTestCode, "Group"));
+        Assert.Equal("Cell1", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.SubtestCode, "Screen 1"));
+        Assert.Equal("B|Positive", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.Interpretation, "B Pos"));
+        Assert.Equal("Ignore", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ErrorCode, "N"));
+        Assert.Single(echo.Translations, t => t.DataItemKey == BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.OrderTestCode && t.LocalValue == "ABORH");
+        Assert.DoesNotContain(echo.Rules, r => r.IsEnabled && r.Name == "B Pos");
+        Assert.Contains(echo.Rules, r => r.IsEnabled && r.Name == "Numeric 80 to 4+");
+        Assert.True(await verify.InterfaceUnmappedValues.AnyAsync(v => v.InstrumentInterfaceId == echo.Id && v.Value == "Antigen"));
     }
 }

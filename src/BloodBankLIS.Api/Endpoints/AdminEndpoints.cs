@@ -1320,7 +1320,7 @@ public static class AdminEndpoints
         {
             var result = await svc.DismissAsync(id, req?.Reason, ct);
             return result.Succeeded ? Results.Ok(result.Value) : Results.BadRequest(new { error = result.Error });
-        }).RequirePermission(PermissionCodes.AdminHl7Manage);
+        }).RequireAnyPermission(PermissionCodes.AdminHl7Manage, PermissionCodes.AdminInstrumentsManage);
 
         translations.MapPut("/{dataItemKey}", async (string dataItemKey, SaveInterfaceTranslationsRequest req, InterfaceTranslationAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.ReplaceAsync(dataItemKey, req, ct), d => d))
@@ -1337,6 +1337,16 @@ public static class AdminEndpoints
         meta.MapGet("", async (InstrumentInterfaceAdminService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListAsync(ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("/translation-fields", async (InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.TranslationFieldsAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("/{id:long}/translations/check", async (long id, string key, string? value, string? context, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+        {
+            var result = await svc.CheckAsync(id, key, value, context, ct);
+            return result.Succeeded ? Results.Ok(result.Value) : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.AdminConfigView);
 
         meta.MapGet("/{id:long}", async (long id, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
         {

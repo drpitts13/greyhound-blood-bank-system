@@ -72,6 +72,7 @@ public sealed class SqliteToSqlServerMigrator
         "InstrumentConnections",
         "InstrumentFieldMappings",
         "InstrumentTestMappings",
+        "InstrumentValueTranslations",
         "InstrumentInterfaceRules",
         "InstrumentMessages",
         "InstrumentInterfaceLogs",

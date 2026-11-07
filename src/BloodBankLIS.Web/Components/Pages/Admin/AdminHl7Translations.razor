@@ -3,6 +3,7 @@
 @inject BloodBankApiClient Api
 @inject IJSRuntime Js
 @inject ReportDownloadCache Downloads
+@inject NavigationManager Nav
 @using BloodBankLIS.Domain.Interfaces
 @using BloodBankLIS.Domain.Reporting
 
@@ -20,7 +21,7 @@
     Translations turn LIS values into the values an interface sends, and the values it receives into LIS values.
     A row for all interfaces applies everywhere; a row for one interface overrides it there. An inbound order code
     must translate to an active test or grouper (a grouper wins when both match), or the order goes to the error queue.
-    Values that had no translation are listed under Unmapped values.
+    Values that had no translation, from EHR interfaces and instruments, are listed under Unmapped values.
 </p>
 
 <Outcome Value="_feedback" />
@@ -285,8 +286,8 @@ else
                         <tr data-xl-unmapped-row="@u.Value">
                             <td>@u.DisplayName</td>
                             <td><code>@u.Value</code></td>
-                            <td>@DirectionText(u.Direction)</td>
-                            <td>@(u.EndpointName ?? "—")</td>
+                            <td>@(u.InstrumentInterfaceId is null ? DirectionText(u.Direction) : u.Direction == InterfaceTranslationDirection.Outbound ? "Outbound (to instrument)" : "Inbound (from instrument)")</td>
+                            <td>@(u.InstrumentName is { } instrument ? $"{instrument} (instrument)" : u.EndpointName ?? "—")</td>
                             <td class="right">@u.Count</td>
                             <td class="nowrap">@u.FirstSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="nowrap">@u.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
@@ -587,6 +588,13 @@ else
     // Open the field the value belongs to, in its interface's scope, with a row ready for the value.
     private async Task AddTranslationForAsync(InterfaceUnmappedValueDto u)
     {
+        if (u.InstrumentInterfaceId is long instrumentId)
+        {
+            // Instrument translations live with the instrument: open its Translations tab with a row for the value.
+            Nav.NavigateTo($"/admin/instruments?id={instrumentId}&tab=translations&key={Uri.EscapeDataString(u.DataItemKey)}&value={Uri.EscapeDataString(u.Value)}");
+            return;
+        }
+
         if (!await ConfirmDiscardAsync()) return;
         _tab = Tab.Translations;
         // Order and result codes share the procedure-code field, so one row serves orders in and results out.

@@ -12,9 +12,12 @@ public static class AstmOrderBuilder
         Patient patient,
         Specimen specimen,
         IReadOnlyList<OrderLine> lines,
-        IReadOnlyList<InstrumentTestMapping> mappings,
+        InstrumentValueTranslator translator,
+        out IReadOnlyList<string> notSent,
         string? donorUnitNumber = null)
     {
+        var missing = new List<string>();
+        notSent = missing;
         var now = DateTime.UtcNow;
         var records = new List<string>
         {
@@ -31,9 +34,15 @@ public static class AstmOrderBuilder
         var seq = 1;
         foreach (var line in lines.Where(l => l.IsActive && !string.IsNullOrWhiteSpace(l.TestCode)))
         {
-            var assay = InstrumentMappingResolver.ToInstrument(mappings, line.TestCode!, InstrumentMappingKind.Assay);
+            var assay = translator.ToInstrument(InstrumentTranslationKeys.OrderTestCode, line.TestCode!);
             if (string.IsNullOrWhiteSpace(assay))
             {
+                // Not every test runs on every instrument; the caller names the ones left out.
+                if (!missing.Contains(line.TestCode!, StringComparer.OrdinalIgnoreCase))
+                {
+                    missing.Add(line.TestCode!);
+                }
+
                 continue;
             }
 

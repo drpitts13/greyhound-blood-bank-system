@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Instruments;
 using BloodBankLIS.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -104,6 +105,23 @@ public static partial class DatabaseSeeder
                 LastSeenUtc = seen.AddHours(2),
                 Count = 2,
                 LastMessageControlId = "DEMO-ORM-99999"
+            });
+        }
+
+        var echo = await context.InstrumentInterfaces.FirstOrDefaultAsync(i => i.Name == EchoInterfaceName, ct);
+        if (echo is not null && !await context.InterfaceUnmappedValues.AnyAsync(v => v.InstrumentInterfaceId != null, ct))
+        {
+            var seen = DateTime.UtcNow.AddHours(-1);
+            context.InterfaceUnmappedValues.Add(new InterfaceUnmappedValue
+            {
+                InstrumentInterfaceId = echo.Id,
+                DataItemKey = InstrumentTranslationKeys.ResultTestCode,
+                Value = "Antigen",
+                Direction = InterfaceTranslationDirection.Inbound,
+                FirstSeenUtc = seen,
+                LastSeenUtc = seen,
+                Count = 1,
+                LastMessageControlId = "Specimen DEMO-ANTIGEN"
             });
         }
 
