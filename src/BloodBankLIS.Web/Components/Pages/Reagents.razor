@@ -56,11 +56,37 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Reagent</h3></div>
+        <p class="muted" style="margin-top:0;">
+            <strong>Used for tests</strong> lists the tests a reagent is used for (for example ABORH, ABSC). A manual result
+            for one of them records the reagent's open lots, so a lot that fails QC can be traced to its results.
+        </p>
         <div class="form-row">
             <div class="field"><label>Code</label><input @bind="_code" @bind:event="oninput" /></div>
             <div class="field"><label>Name</label><input @bind="_name" @bind:event="oninput" /></div>
+            <div class="field"><label>Used for tests</label><input @bind="_testCodes" @bind:event="oninput" placeholder="ABORH, ABSC" /></div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name))" @onclick="SaveReagentAsync">Save reagent</button>
+        @if (_reagents.Count > 0)
+        {
+            <table class="bb" style="margin-top:1rem;" data-reagent-tests>
+                <thead><tr><th>Reagent</th><th>Used for tests</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var reagent in _reagents.Where(r => r.IsActive))
+                    {
+                        <tr>
+                            <td><span class="mono">@reagent.Code</span> @reagent.Name</td>
+                            <td><input value="@(_editTests.GetValueOrDefault(reagent.Id, reagent.TestCodes ?? ""))" @oninput="e => _editTests[reagent.Id] = e.Value?.ToString() ?? string.Empty" placeholder="none: no lots recorded" data-reagent-tests-input="@reagent.Code" /></td>
+                            <td class="right">
+                                @if (_editTests.TryGetValue(reagent.Id, out var edited) && edited != (reagent.TestCodes ?? ""))
+                                {
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => SaveTestsAsync(reagent.Id)">Save</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
     </div>
 
     <div class="bb-card">
@@ -111,6 +137,7 @@
                                     {
                                         <button class="btn btn-secondary btn-sm" @onclick="() => OpenAsync(lot.Id)">Open</button>
                                     }
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => ShowLotResultsAsync(lot)" data-lot-results="@lot.LotNumber">Results</button>
                                     @if (lot.State != ReagentLotState.Closed)
                                     {
                                         <button class="btn btn-ghost btn-sm" @onclick="() => _confirmCloseId = lot.Id">Close</button>
@@ -125,6 +152,40 @@
         else if (_lots.Count > 0)
         {
             <div class="muted" style="margin-top:1rem;">No open or received lots.</div>
+        }
+        @if (_lookbackLot is not null)
+        {
+            <div class="bb-card" style="margin-top:1rem;" data-lot-lookback>
+                <div class="bb-card-title">
+                    <h4 style="margin:0;">Results tested with @_lookbackLot.ReagentCode lot @_lookbackLot.LotNumber</h4>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _lookbackLot = null">Close</button>
+                </div>
+                <p class="muted" style="margin:.3rem 0;">Manual results entered while this lot was open for their test. Use it when the lot fails QC or is recalled: review each result and correct or invalidate as needed.</p>
+                @if (_lookback.Count == 0)
+                {
+                    <div class="empty">No results recorded with this lot.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>By</th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _lookback)
+                            {
+                                <tr>
+                                    <td class="nowrap">@(r.EnteredUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    <td><a href="/patients/@r.PatientId">@r.PatientMrn</a> @r.PatientName</td>
+                                    <td class="mono">@r.SpecimenAccession</td>
+                                    <td class="mono">@r.TestCode@(r.Version > 1 ? $" v{r.Version}" : "")</td>
+                                    <td>@ResultValueText.For(r.Value)</td>
+                                    <td>@r.Status</td>
+                                    <td>@r.EnteredBy</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
         }
     </div>
 
@@ -277,14 +338,44 @@
 
     private async Task SaveReagentAsync()
     {
-        var saved = await Api.SaveReagentAsync(new SaveReagentRequest(_code, _name));
+        var saved = await Api.SaveReagentAsync(new SaveReagentRequest(_code, _name, _testCodes));
         _feedback = saved.ToFeedback("Reagent saved.");
         if (saved.Succeeded)
         {
             _code = string.Empty;
             _name = string.Empty;
+            _testCodes = string.Empty;
             await ReloadAsync();
         }
+    }
+
+    private string _testCodes = string.Empty;
+    private readonly Dictionary<long, string> _editTests = new();
+    private ReagentLotDto? _lookbackLot;
+    private List<ReagentLotResultDto> _lookback = new();
+
+    private async Task SaveTestsAsync(long reagentId)
+    {
+        var saved = await Api.SetReagentTestsAsync(reagentId, _editTests.GetValueOrDefault(reagentId));
+        _feedback = saved.ToFeedback("Tests saved.");
+        if (saved.Succeeded)
+        {
+            _editTests.Remove(reagentId);
+            await ReloadAsync();
+        }
+    }
+
+    private async Task ShowLotResultsAsync(ReagentLotDto lot)
+    {
+        var r = await Api.GetReagentLotResultsAsync(lot.Id);
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            return;
+        }
+
+        _lookbackLot = lot;
+        _lookback = r.Value ?? new();
     }
 
     // Closed lots are one-way and take no QC; they stay on record but are hidden by default.

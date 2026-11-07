@@ -16399,3 +16399,33 @@ Held results (Cycles 490–493) wait on a review, not a fix, but the home Instru
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; method and reagent lot on each result; several allowed specimen types per test.
+
+## Iteration 495 — Reagent lot traceability on results (2026-11-07)
+
+### Capability matrix rescan (testing: traceability)
+
+Reagent QC recorded lots and daily QC, but nothing tied a result to the lots it was tested with. When a lot failed QC or was recalled, nobody could list the results that used it; the audit and traceability objective (related product, reagent, specimen) had a hole. Workflow questions: clicks (none added at entry: lots are inferred from what is open for the test); memory (none: the tests a reagent serves are configured once); inference (open, unexpired lots of reagents listing the test; both when two are open, stated on the help page); scanning (n/a); next action (lot Results opens the lookback with links to each patient); safety (makes a failed lot's results findable; changes no result); override (none).
+
+### Design
+
+- `Reagent.TestCodes`, `TestResultReagentLot`, `ReagentLotUseRule`; migration `20261127000000_ReagentLotTraceability`; dev table and column.
+- `ReagentQcService.RecordLotsInUseAsync` called from `ResultService` for manual entries and re-entries after invalidation; entry audit names the lots.
+- `SetReagentTestsAsync` (unknown tests refused, audited); `ResultsForLotAsync`, `LotsForResultAsync`; endpoints.
+- Reagent QC page: Used for tests per reagent; Results per lot (lookback card with patient links).
+- Demo: 7 reagents with tests and one open lot each; recent demo manual results recorded against them (once, only when no reagents exist).
+
+### Requirements
+
+- URS-BB-557, FRS-BB-670. Help: Reagent QC.
+
+### Tests
+
+- TEST-BB-541: test list parsing; lots in use are open, unexpired, active-reagent lots for the test (received, closed, expired, inactive excluded; two open both recorded).
+- TEST-BB-542: a manual result records only the open lot; an instrument result records none; the entry audit names the lot; the lookback finds the result with MRN and accession; an unknown lot is refused; a reagent's tests must be active tests, stored tidy, clearing allowed, audited.
+- TEST-BB-543: demo reagents and lots seeded once; recent manual results recorded without duplicates.
+- Full suite: 3,944 passed.
+- Live: starting the API added the Reagents.TestCodes column and TestResultReagentLots table in place and seeded the 7 demo reagents (the dev database had none) with their tests and open lots. Reagent QC listed each reagent's tests (AHG: ABSC, DAT, XM); Results on AHG lot AHG-24033 listed the demo's recent manual screens and DATs with patient, specimen, value, and status. No results were entered. No server errors.
+
+### Next ranked residual
+
+Show the recorded lots on the result in the chart and worklist; warn at entry when a reagent used for the test has no open lot or no passed QC today; drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export.

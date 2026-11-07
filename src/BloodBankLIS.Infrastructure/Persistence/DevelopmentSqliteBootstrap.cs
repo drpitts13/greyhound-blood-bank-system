@@ -71,6 +71,7 @@ public static class DevelopmentSqliteBootstrap
         ("Patients", "Ethnicity", """ALTER TABLE "Patients" ADD COLUMN "Ethnicity" TEXT NULL"""),
         ("OrderLines", "GrouperCode", """ALTER TABLE "OrderLines" ADD COLUMN "GrouperCode" TEXT NULL"""),
         ("InterfaceValueTranslations", "EndpointId", """ALTER TABLE "InterfaceValueTranslations" ADD COLUMN "EndpointId" INTEGER NULL"""),
+        ("Reagents", "TestCodes", """ALTER TABLE "Reagents" ADD COLUMN "TestCodes" TEXT NULL"""),
         ("InstrumentValueTranslations", "Description", """ALTER TABLE "InstrumentValueTranslations" ADD COLUMN "Description" TEXT NULL"""),
         ("InterfaceUnmappedValues", "InstrumentInterfaceId", """ALTER TABLE "InterfaceUnmappedValues" ADD COLUMN "InstrumentInterfaceId" INTEGER NULL"""),
         ("TestDefinitions", "LoincCode", """ALTER TABLE "TestDefinitions" ADD COLUMN "LoincCode" TEXT NULL"""),
@@ -965,6 +966,28 @@ public static class DevelopmentSqliteBootstrap
                     "ModifiedBy" TEXT NULL,
                     "RowVersion" BLOB NULL
                 )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "TestResultReagentLots", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "TestResultReagentLots" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_TestResultReagentLots" PRIMARY KEY AUTOINCREMENT,
+                    "TestResultId" INTEGER NOT NULL,
+                    "ReagentLotId" INTEGER NOT NULL,
+                    "ReagentCode" TEXT NOT NULL,
+                    "LotNumber" TEXT NOT NULL,
+                    "RecordedUtc" TEXT NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                );
+                CREATE INDEX "IX_TestResultReagentLots_ReagentLotId" ON "TestResultReagentLots" ("ReagentLotId");
+                CREATE INDEX "IX_TestResultReagentLots_TestResultId" ON "TestResultReagentLots" ("TestResultId");
                 """, ct);
         }
 

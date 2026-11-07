@@ -1897,6 +1897,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ReagentDto>> SaveReagentAsync(SaveReagentRequest req, CancellationToken ct = default) =>
         SendAsync<ReagentDto>(HttpMethod.Post, "api/reagents", req, ct);
 
+    public Task<ApiResult<ReagentDto>> SetReagentTestsAsync(long id, string? testCodes, CancellationToken ct = default) =>
+        SendAsync<ReagentDto>(HttpMethod.Put, $"api/reagents/{id}/tests", new SetReagentTestsRequest(testCodes), ct);
+
+    public Task<ApiResult<List<ReagentLotResultDto>>> GetReagentLotResultsAsync(long lotId, CancellationToken ct = default) =>
+        SendAsync<List<ReagentLotResultDto>>(HttpMethod.Get, $"api/reagents/lots/{lotId}/results", ct: ct);
+
     public Task<ApiResult<List<ReagentLotDto>>> GetReagentLotsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentLotDto>>(HttpMethod.Get, "api/reagents/lots", ct: ct);
 

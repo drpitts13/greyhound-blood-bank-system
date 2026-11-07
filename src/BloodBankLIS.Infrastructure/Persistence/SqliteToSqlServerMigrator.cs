@@ -29,6 +29,7 @@ public sealed class SqliteToSqlServerMigrator
         "Reagents",
         "ReagentLots",
         "ReagentDailyQcs",
+        "TestResultReagentLots",
         "ProductAboCompatibilities",
         "ProductRhCompatibilities",
         "AutoThawProducts",

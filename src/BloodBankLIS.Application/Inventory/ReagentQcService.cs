@@ -1,12 +1,32 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
 
-public sealed record ReagentDto(long Id, string Code, string Name, bool IsActive);
+public sealed record ReagentDto(long Id, string Code, string Name, bool IsActive, string? TestCodes = null);
+
+/// <summary>A result recorded as tested with a reagent lot (lot lookback).</summary>
+public sealed record ReagentLotResultDto(
+    long ResultId,
+    long PatientId,
+    string? PatientMrn,
+    string? PatientName,
+    string? SpecimenAccession,
+    string TestCode,
+    int Version,
+    ResultStatus Status,
+    DateTime? EnteredUtc,
+    string? EnteredBy,
+    string? Value);
+
+/// <summary>A reagent lot recorded against a result.</summary>
+public sealed record ResultReagentLotDto(long ReagentLotId, string ReagentCode, string LotNumber, DateTime RecordedUtc);
+
+public sealed record SetReagentTestsRequest(string? TestCodes);
 
 public sealed record ReagentLotDto(
     long Id,
@@ -64,7 +84,7 @@ public static class ReagentQcHistory
 
 public sealed record ReagentQcWorkItemDto(string Kind, long LotId, string LotNumber, long? QcId, string Message);
 
-public sealed record SaveReagentRequest(string Code, string Name);
+public sealed record SaveReagentRequest(string Code, string Name, string? TestCodes = null);
 
 public sealed record ReceiveReagentLotRequest(long ReagentId, string LotNumber, DateTime ExpiresUtc);
 
@@ -83,6 +103,11 @@ public sealed class ReagentQcService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IRepository<TestResultReagentLot>? _resultLots;
+    private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<Specimen>? _specimens;
+    private readonly IRepository<Patient>? _patients;
+    private readonly IRepository<TestDefinition>? _tests;
 
     public ReagentQcService(
         IRepository<Reagent> reagents,
@@ -91,8 +116,18 @@ public sealed class ReagentQcService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IRepository<TestResultReagentLot>? resultLots = null,
+        IRepository<TestResult>? results = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<Patient>? patients = null,
+        IRepository<TestDefinition>? tests = null)
     {
+        _resultLots = resultLots;
+        _results = results;
+        _specimens = specimens;
+        _patients = patients;
+        _tests = tests;
         _reagents = reagents;
         _lots = lots;
         _qc = qc;
@@ -107,8 +142,128 @@ public sealed class ReagentQcService
         var rows = await _reagents.ListAsync(ct);
         return rows
             .OrderBy(r => r.Code)
-            .Select(r => new ReagentDto(r.Id, r.Code, r.Name, r.IsActive))
+            .Select(r => new ReagentDto(r.Id, r.Code, r.Name, r.IsActive, r.TestCodes))
             .ToList();
+    }
+
+    /// <summary>Sets the tests a reagent is used for (audited). Unknown test codes are refused when the catalog is known.</summary>
+    public async Task<OperationResult<ReagentDto>> SetReagentTestsAsync(long reagentId, SetReagentTestsRequest request, CancellationToken ct = default)
+    {
+        var reagent = await _reagents.GetByIdAsync(reagentId, ct);
+        if (reagent is null)
+        {
+            return OperationResult<ReagentDto>.Fail("Reagent not found.");
+        }
+
+        var unknown = await UnknownTestCodesAsync(request.TestCodes, ct);
+        if (unknown is not null)
+        {
+            return OperationResult<ReagentDto>.Fail(unknown);
+        }
+
+        var before = reagent.TestCodes;
+        reagent.TestCodes = ReagentLotUseRule.NormalizeTestCodes(request.TestCodes);
+        _reagents.Update(reagent);
+        _audit.Record(AuditEventType.Update, nameof(Reagent), reagent.Id, new { TestCodes = before }, new { reagent.TestCodes },
+            "Tests the reagent is used for changed.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive, reagent.TestCodes));
+    }
+
+    private async Task<string?> UnknownTestCodesAsync(string? codes, CancellationToken ct)
+    {
+        var parsed = ReagentLotUseRule.ParseTestCodes(codes);
+        if (_tests is null || parsed.Count == 0)
+        {
+            return null;
+        }
+
+        var known = (await _tests.ListAsync(t => t.IsActive && !t.IsDraft, ct)).Select(t => t.Code.ToUpperInvariant()).ToHashSet();
+        var missing = parsed.Where(c => !known.Contains(c)).ToList();
+        return missing.Count == 0 ? null : $"Not an active test: {string.Join(", ", missing)}.";
+    }
+
+    /// <summary>
+    /// Records the open, unexpired lots of the reagents used for a manual result's test against it (saved with the
+    /// caller's next save). Returns what was recorded; nothing when no reagent lists the test.
+    /// </summary>
+    public async Task<IReadOnlyList<TestResultReagentLot>> RecordLotsInUseAsync(TestResult result, CancellationToken ct = default)
+    {
+        if (_resultLots is null || result.Id == 0)
+        {
+            return [];
+        }
+
+        var reagents = await _reagents.ListAsync(r => r.IsActive && r.TestCodes != null, ct);
+        if (!reagents.Any(r => ReagentLotUseRule.UsedFor(r, result.TestCode)))
+        {
+            return [];
+        }
+
+        var lots = await _lots.ListAsync(l => l.State == ReagentLotState.Opened, ct);
+        var codes = reagents.ToDictionary(r => r.Id, r => r.Code);
+        var now = _clock.UtcNow;
+        var recorded = ReagentLotUseRule.LotsInUse(result.TestCode, reagents, lots, now)
+            .Select(l => new TestResultReagentLot
+            {
+                TestResultId = result.Id,
+                ReagentLotId = l.Id,
+                ReagentCode = codes.GetValueOrDefault(l.ReagentId, string.Empty),
+                LotNumber = l.LotNumber,
+                RecordedUtc = now
+            })
+            .ToList();
+        foreach (var row in recorded)
+        {
+            await _resultLots.AddAsync(row, ct);
+        }
+
+        return recorded;
+    }
+
+    /// <summary>The reagent lots recorded against a result.</summary>
+    public async Task<IReadOnlyList<ResultReagentLotDto>> LotsForResultAsync(long resultId, CancellationToken ct = default) =>
+        _resultLots is null
+            ? []
+            : (await _resultLots.ListAsync(r => r.TestResultId == resultId, ct))
+                .OrderBy(r => r.ReagentCode).ThenBy(r => r.LotNumber)
+                .Select(r => new ResultReagentLotDto(r.ReagentLotId, r.ReagentCode, r.LotNumber, r.RecordedUtc))
+                .ToList();
+
+    /// <summary>Lot lookback: every result recorded as tested with the lot, newest first, with patient and specimen.</summary>
+    public async Task<OperationResult<IReadOnlyList<ReagentLotResultDto>>> ResultsForLotAsync(long lotId, CancellationToken ct = default)
+    {
+        if (await _lots.GetByIdAsync(lotId, ct) is null)
+        {
+            return OperationResult<IReadOnlyList<ReagentLotResultDto>>.Fail("Reagent lot not found.");
+        }
+
+        if (_resultLots is null || _results is null)
+        {
+            return OperationResult<IReadOnlyList<ReagentLotResultDto>>.Ok([]);
+        }
+
+        var resultIds = (await _resultLots.ListAsync(r => r.ReagentLotId == lotId, ct)).Select(r => r.TestResultId).Distinct().ToList();
+        var results = resultIds.Count == 0 ? [] : await _results.ListAsync(r => resultIds.Contains(r.Id), ct);
+        var specimenIds = results.Select(r => r.SpecimenId).Distinct().ToList();
+        var patientIds = results.Select(r => r.PatientId).Distinct().ToList();
+        var specimens = _specimens is null || specimenIds.Count == 0
+            ? new Dictionary<long, string>()
+            : (await _specimens.ListAsync(s => specimenIds.Contains(s.Id), ct)).ToDictionary(s => s.Id, s => s.AccessionNumber);
+        var patients = _patients is null || patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        IReadOnlyList<ReagentLotResultDto> rows = results
+            .OrderByDescending(r => r.EnteredUtc).ThenByDescending(r => r.Id)
+            .Select(r =>
+            {
+                var patient = patients.GetValueOrDefault(r.PatientId);
+                return new ReagentLotResultDto(
+                    r.Id, r.PatientId, patient?.MedicalRecordNumber, patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
+                    specimens.GetValueOrDefault(r.SpecimenId), r.TestCode, r.Version, r.Status, r.EnteredUtc, r.EnteredBy, r.Value);
+            })
+            .ToList();
+        return OperationResult<IReadOnlyList<ReagentLotResultDto>>.Ok(rows);
     }
 
     public async Task<OperationResult<ReagentDto>> SaveReagentAsync(SaveReagentRequest request, CancellationToken ct = default)
@@ -120,12 +275,18 @@ public sealed class ReagentQcService
             return OperationResult<ReagentDto>.Fail("Reagent code and name are required.");
         }
 
-        var reagent = new Reagent { Code = code, Name = name, IsActive = true };
+        var unknown = await UnknownTestCodesAsync(request.TestCodes, ct);
+        if (unknown is not null)
+        {
+            return OperationResult<ReagentDto>.Fail(unknown);
+        }
+
+        var reagent = new Reagent { Code = code, Name = name, IsActive = true, TestCodes = ReagentLotUseRule.NormalizeTestCodes(request.TestCodes) };
         await _reagents.AddAsync(reagent, ct);
         await _unitOfWork.SaveChangesAsync(ct);
-        _audit.Record(AuditEventType.Create, nameof(Reagent), reagent.Id, null, new { reagent.Code, reagent.Name }, "Reagent recorded.");
+        _audit.Record(AuditEventType.Create, nameof(Reagent), reagent.Id, null, new { reagent.Code, reagent.Name, reagent.TestCodes }, "Reagent recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive));
+        return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive, reagent.TestCodes));
     }
 
     public async Task<IReadOnlyList<ReagentLotDto>> ListLotsAsync(CancellationToken ct = default)

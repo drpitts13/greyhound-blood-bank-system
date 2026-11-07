@@ -17,6 +17,17 @@ public static class ReagentEndpoints
             ToResult(await service.SaveReagentAsync(request, ct)))
             .RequirePermission(PermissionCodes.ResultEnter);
 
+        group.MapPut("/{id:long}/tests", async (long id, SetReagentTestsRequest request, ReagentQcService service, CancellationToken ct) =>
+            ToResult(await service.SetReagentTestsAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.ResultEnter);
+
+        // Lot lookback: the results recorded as tested with a lot (for a lot that failed QC or was recalled).
+        group.MapGet("/lots/{id:long}/results", async (long id, ReagentQcService service, CancellationToken ct) =>
+            ToResult(await service.ResultsForLotAsync(id, ct)));
+
+        group.MapGet("/results/{resultId:long}/lots", async (long resultId, ReagentQcService service, CancellationToken ct) =>
+            Results.Ok(await service.LotsForResultAsync(resultId, ct)));
+
         group.MapGet("/lots", async (ReagentQcService service, CancellationToken ct) =>
             Results.Ok(await service.ListLotsAsync(ct)));
 

@@ -10,6 +10,29 @@ public class Reagent : BaseEntity
     public string Name { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// The LIS tests this reagent is used for (comma-separated codes, e.g. "ABORH, ABSC"). A manual result for one of
+    /// these tests records this reagent's open lots, so a lot that later fails QC can be traced to its results.
+    /// </summary>
+    public string? TestCodes { get; set; }
+}
+
+/// <summary>
+/// A reagent lot recorded against a result: a lot of a reagent used for the test that was open at the bench when the
+/// result was entered. The reagent code and lot number are kept as they were.
+/// </summary>
+public class TestResultReagentLot : BaseEntity
+{
+    public long TestResultId { get; set; }
+
+    public long ReagentLotId { get; set; }
+
+    public string ReagentCode { get; set; } = string.Empty;
+
+    public string LotNumber { get; set; } = string.Empty;
+
+    public DateTime RecordedUtc { get; set; }
 }
 
 public enum ReagentLotState

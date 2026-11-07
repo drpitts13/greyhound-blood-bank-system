@@ -549,5 +549,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-538 | I | `InstrumentInterfaceTests.HeldResult_IsReleasedWithAReason_AndOtherFailuresAreNot` | URS-BB-555 / FRS-BB-667 |
 | TEST-BB-539 | U, I | `InstrumentValueTranslatorTests.ErrorCodes_AreDescribedFromTheTable`; `InstrumentValueTranslatorTests.ErrorCodeTable_ExportsAndImportsWithMeanings`; `InstrumentInterfaceTests.ErrorCodes_HoldOrWarn`; `SeederTests.Seed_GivesTheEchoTranslations_InsteadOfTextRules` | URS-BB-554 / FRS-BB-668 |
 | TEST-BB-540 | U | `DashboardQueueCatalogTests.InstrumentFailuresCard_NamesHeldResults`; `DashboardQueueCatalogTests.InterfaceCards_FollowTheInterfacePermissions` | URS-BB-556 / FRS-BB-669 |
+| TEST-BB-541 | U | `ReagentLotUseRuleTests.TestCodes_AreParsedAndNormalized`; `ReagentLotUseRuleTests.LotsInUse_AreOpenUnexpiredLotsOfActiveReagentsForTheTest` | URS-BB-557 / FRS-BB-670 |
+| TEST-BB-542 | I | `ReagentLotTraceabilityTests.ManualResult_RecordsOpenLots_AndTheLotLookbackFindsIt`; `ReagentLotTraceabilityTests.ReagentTests_MustBeKnownTests_AndAreStoredTidy` | URS-BB-557 / FRS-BB-670 |
+| TEST-BB-543 | I | `SeederTests.Seed_AddsDemoReagentLots_AndRecordsRecentManualResults_Once` | URS-BB-557 / FRS-BB-670 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

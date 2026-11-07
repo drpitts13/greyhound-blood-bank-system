@@ -142,6 +142,21 @@ public sealed class ResultService
     public Task<IReadOnlyList<TestResult>> GetBySpecimenAsync(long specimenId, CancellationToken ct = default) =>
         _results.ListAsync(r => r.SpecimenId == specimenId, ct);
 
+    /// <summary>
+    /// A manual result records the reagent lots open for its test at entry (lot traceability). Instrument and interface
+    /// results are tested with the instrument's own reagents and record none here.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> RecordReagentLotsAsync(TestResult result, CancellationToken ct)
+    {
+        if (_reagentQc is null || result.Source != ResultSource.Manual)
+        {
+            return [];
+        }
+
+        var recorded = await _reagentQc.RecordLotsInUseAsync(result, ct);
+        return recorded.Select(r => $"{r.ReagentCode} {r.LotNumber}").ToList();
+    }
+
     private async Task<RuleEvaluation?> ReagentResultGateAsync(CancellationToken ct)
     {
         if (_policy is null || _reagentQc is null)
@@ -604,11 +619,12 @@ public sealed class ResultService
 
         await _results.AddAsync(result, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+        var lots = await RecordReagentLotsAsync(result, ct);
         _audit.Record(
             AuditEventType.Result,
             nameof(TestResult),
             result.Id,
-            newValue: new { result.TestCode, result.Value, result.Status, result.Source, result.SourceReference },
+            newValue: new { result.TestCode, result.Value, result.Status, result.Source, result.SourceReference, ReagentLots = lots },
             reason: $"Result entered from {source}.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(result, warnings);
@@ -1706,6 +1722,12 @@ public sealed class ResultService
             newValue: new { replacement.Value, replacement.Status, NewVersion = replacement.Version, replacement.Source },
             reason: "Re-entry after invalidation.");
         await _unitOfWork.SaveChangesAsync(ct);
+        // The re-entry was tested again: record the lots open now.
+        if ((await RecordReagentLotsAsync(replacement, ct)).Count > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
         return OperationResult<TestResult>.Ok(replacement);
     }
 

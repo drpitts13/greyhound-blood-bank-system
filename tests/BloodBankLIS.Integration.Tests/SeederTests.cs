@@ -691,6 +691,27 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(("Order.TestCode", "LAB99999", (DateTime?)null), (unmapped.DataItemKey, unmapped.Value, unmapped.ResolvedUtc));
     }
 
+    // TEST-BB-543: demo reagents are seeded once with the tests they are used for and an open lot each, and the demo's
+    // recent manual results are recorded against those lots, so the lot lookback has rows.
+    [Fact]
+    public async Task Seed_AddsDemoReagentLots_AndRecordsRecentManualResults_Once()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var reagents = await verify.Reagents.ToListAsync();
+        Assert.Equal(7, reagents.Count);
+        Assert.Equal("ABSC, DAT, XM", reagents.Single(r => r.Code == "AHG").TestCodes);
+        Assert.Equal(7, await verify.ReagentLots.CountAsync(l => l.State == ReagentLotState.Opened));
+        var recorded = await verify.TestResultReagentLots.ToListAsync();
+        Assert.NotEmpty(recorded);
+        Assert.Equal(recorded.Count, recorded.Select(r => (r.TestResultId, r.ReagentLotId)).Distinct().Count());
+    }
+
     // TEST-BB-536: an upgraded database: the old assay and analyte map is copied into translations by the migration SQL,
     // the value translations are added, and only the text rules still exactly as seeded are turned off.
     [Fact]

@@ -2124,6 +2124,21 @@ public sealed class InstrumentTestMappingConfiguration : IEntityTypeConfiguratio
     }
 }
 
+public sealed class TestResultReagentLotConfiguration : IEntityTypeConfiguration<TestResultReagentLot>
+{
+    public void Configure(EntityTypeBuilder<TestResultReagentLot> b)
+    {
+        b.ToTable("TestResultReagentLots");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.ReagentCode).HasMaxLength(50).IsRequired();
+        b.Property(e => e.LotNumber).HasMaxLength(80).IsRequired();
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => e.ReagentLotId);
+        b.HasIndex(e => e.TestResultId);
+    }
+}
+
 public sealed class InstrumentValueTranslationConfiguration : IEntityTypeConfiguration<InstrumentValueTranslation>
 {
     public void Configure(EntityTypeBuilder<InstrumentValueTranslation> b)
