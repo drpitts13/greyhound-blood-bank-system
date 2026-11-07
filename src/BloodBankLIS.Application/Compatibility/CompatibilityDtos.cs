@@ -10,7 +10,9 @@ public sealed record RecordCrossmatchRequest(
     CrossmatchMethod Method,
     CrossmatchResult Result = CrossmatchResult.Compatible,
     bool AntibodyScreenNegative = true,
-    string? Comment = null);
+    string? Comment = null,
+    string? OverrideReason = null,
+    string? AuthorizedBy = null);
 
 public sealed record AllocateUnitRequest(
     long BloodUnitId,

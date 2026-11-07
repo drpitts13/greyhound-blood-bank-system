@@ -1,6 +1,7 @@
 using System.Globalization;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
@@ -21,7 +22,11 @@ public sealed record Hl7PatientData(
     string? CurrentLocation,
     string? AttendingProviderId,
     string? AttendingProviderName,
-    string? PriorMrn);
+    string? PriorMrn,
+    // Local codes after translation; null when the field was empty or did not translate to a local value.
+    string? Race = null,
+    string? Ethnicity = null,
+    EncounterType? PatientClass = null);
 
 /// <summary>Order details extracted from an inbound ORM/OML message (ORC/OBR/PV1).</summary>
 public sealed record Hl7OrderData(
@@ -82,7 +87,49 @@ public static class Hl7AdtMapper
             CurrentLocation: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterCurrentLocation)),
             AttendingProviderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterAttendingProviderId)),
             AttendingProviderName: MapPersonName(message, map, InterfaceDataItemKeys.EncounterAttendingProviderName),
-            PriorMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientPriorMrn)));
+            PriorMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientPriorMrn)),
+            Race: MapLocal(map, message, InterfaceDataItemKeys.PatientRace, PatientDemographicCodes.NormalizeRace),
+            Ethnicity: MapLocal(map, message, InterfaceDataItemKeys.PatientEthnicity, PatientDemographicCodes.NormalizeEthnicity),
+            PatientClass: MapPatientClass(map, message));
+    }
+
+    /// <summary>
+    /// A coded field translated to one of the LIS's local values. A value that does not translate to one is listed as
+    /// unmapped for the interface team and not stored.
+    /// </summary>
+    private static string? MapLocal(Hl7FieldMap map, Hl7Message message, string key, Func<string?, string?> normalize)
+    {
+        var value = map.Get(message, key);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var local = normalize(value);
+        if (local is null)
+        {
+            map.Translator.RecordMiss(key, value, InterfaceTranslationDirection.Inbound);
+        }
+
+        return local;
+    }
+
+    /// <summary>PV1-2 translated to a visit type (Inpatient, Outpatient, Emergency…); unmapped values are listed.</summary>
+    private static EncounterType? MapPatientClass(Hl7FieldMap map, Hl7Message message)
+    {
+        var value = map.Get(message, InterfaceDataItemKeys.EncounterPatientClass);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (Enum.TryParse<EncounterType>(value.Trim(), ignoreCase: true, out var type) && !int.TryParse(value.Trim(), out _))
+        {
+            return type;
+        }
+
+        map.Translator.RecordMiss(InterfaceDataItemKeys.EncounterPatientClass, value, InterfaceTranslationDirection.Inbound);
+        return null;
     }
 
     public static Sex MapSex(string code) => code.ToUpperInvariant() switch
@@ -240,6 +287,36 @@ public static class Hl7OruMapper
     }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
+}
+
+/// <summary>An OMB^O27 request to send a reserved unit now (OCD-063).</summary>
+public sealed record Hl7DispenseRequestData(
+    string Mrn,
+    bool Cancel,
+    string? OrderNumber,
+    string? Din,
+    string? Destination,
+    string? Requester);
+
+/// <summary>Pure mapping of an OMB^O27 dispense request. The DIN is read only when the facility has mapped a field to it.</summary>
+public static class Hl7DispenseRequestMapper
+{
+    public static Hl7DispenseRequestData Map(Hl7Message message, Hl7FieldMap? map = null)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        map ??= Hl7FieldMap.Default(InterfaceType.Bpam, Hl7Direction.Inbound);
+        var control = map.Get(message, InterfaceDataItemKeys.DispenseOrderControl).Trim().ToUpperInvariant();
+        var dinPath = map.Path(InterfaceDataItemKeys.DispenseDin);
+        return new Hl7DispenseRequestData(
+            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Cancel: control is "CA" or "OC" or "DC",
+            OrderNumber: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseOrderNumber)),
+            Din: string.IsNullOrWhiteSpace(dinPath) ? null : Hl7AdtMapper.NullIfEmpty(message.Get(dinPath)),
+            Destination: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseDestination))
+                ?? Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispensePatientLocation)),
+            Requester: Hl7AdtMapper.MapPersonName(message, map, InterfaceDataItemKeys.DispenseRequester)
+                ?? Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseRequester)));
+    }
 }
 
 /// <summary>Pure mapping of RAS/BPS blood-product administration fields.</summary>

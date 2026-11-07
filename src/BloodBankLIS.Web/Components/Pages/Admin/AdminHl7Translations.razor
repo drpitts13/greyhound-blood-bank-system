@@ -2,6 +2,10 @@
 @inject UserSession Session
 @inject BloodBankApiClient Api
 @inject IJSRuntime Js
+@inject ReportDownloadCache Downloads
+@inject NavigationManager Nav
+@using BloodBankLIS.Domain.Interfaces
+@using BloodBankLIS.Domain.Reporting
 
 <PageTitle>Interface Translation Table &middot; Admin</PageTitle>
 
@@ -14,144 +18,408 @@
     <a class="btn btn-ghost" href="/hl7">Open HL7</a>
 </div>
 <p class="muted">
-    Translate internal codes to external values on outbound messages, and external codes to internal values
-    on inbound messages when an enabled interface is processing. Select a data item, enter the pairs, save, then choose another.
+    Translations turn LIS values into the values an interface sends, and the values it receives into LIS values.
+    A row for all interfaces applies everywhere; a row for one interface overrides it there. An inbound order code
+    must translate to an active test or grouper (a grouper wins when both match), or the order goes to the error queue.
+    Values that had no translation, from EHR interfaces and instruments, are listed under Unmapped values.
 </p>
 
 <Outcome Value="_feedback" />
 
-<div class="bb-card" style="margin-top:1rem;">
-    <div class="form-row">
-        <div class="field" style="min-width:22rem;">
-            <label>Data item</label>
-            <select @key="_selectRenderKey" value="@_selectedKey" @onchange="OnDataItemChangedAsync" disabled="@(_loading || _catalog.Count == 0)">
-                <option value="">Select a data item…</option>
-                @foreach (var item in _catalog)
-                {
-                    <option value="@item.Key">@item.DisplayName (@item.Key)</option>
-                }
-            </select>
-        </div>
-    </div>
+<div class="flex gap" style="margin:1rem 0 .5rem;" data-xl-tabs>
+    <button type="button" class="btn @(_tab == Tab.Translations ? "btn-primary" : "btn-secondary")" @onclick="() => _tab = Tab.Translations">Translations</button>
+    <button type="button" class="btn @(_tab == Tab.Unmapped ? "btn-primary" : "btn-secondary")" @onclick="ShowUnmappedAsync" data-xl-unmapped-tab>
+        Unmapped values@(_unmappedOpen > 0 ? $" ({_unmappedOpen})" : "")
+    </button>
+</div>
 
-    @if (_loading)
-    {
-        <div class="loading">Loading...</div>
-    }
-    else if (!string.IsNullOrEmpty(_selectedKey))
-    {
-        <div class="flex-between" style="margin:1rem 0 .5rem;">
-            <p class="muted" style="margin:0;">@_displayName — internal value is stored in the LIS; external value is what the interface sends or receives.</p>
-            @if (CanManage)
+@if (_tab == Tab.Translations)
+{
+    <div class="form-row" style="align-items:flex-start;gap:1rem;">
+        <div class="bb-card" style="flex:0 0 19rem;max-height:70vh;overflow:auto;" data-xl-fields>
+            <div class="field"><label>Find a field</label><input @bind="_search" @bind:event="oninput" placeholder="race, procedure, PV1-2…" /></div>
+            @if (_loading && _fields.Count == 0)
             {
-                <button type="button" class="btn btn-ghost btn-sm" @onclick="AddRow">Add row</button>
+                <div class="loading">Loading...</div>
+            }
+            @foreach (var group in VisibleFields.GroupBy(f => f.Category))
+            {
+                <div class="muted" style="margin:.8rem 0 .2rem;font-weight:600;">@group.Key</div>
+                @foreach (var f in group)
+                {
+                    <button type="button" class="btn btn-sm @(f.Key == _selectedKey ? "btn-primary" : "btn-ghost")"
+                            style="display:flex;width:100%;justify-content:space-between;text-align:left;"
+                            title="@f.Description" @onclick="() => SelectFieldAsync(f.Key)" data-xl-field="@f.Key">
+                        <span>@f.DisplayName</span>
+                        @if (f.RowCount > 0) { <span class="badge">@f.RowCount</span> }
+                    </button>
+                }
             }
         </div>
 
-        <table class="bb">
-            <thead>
-                <tr>
-                    <th>Internal value</th>
-                    <th>External value</th>
-                    <th>Direction</th>
-                    @if (CanManage) { <th></th> }
-                </tr>
-            </thead>
-            <tbody>
-                @if (_rows.Count == 0)
-                {
-                    <tr><td colspan="@(CanManage ? 4 : 3)" class="muted">No translations for this data item. Add a row to map a code.</td></tr>
-                }
-                @foreach (var row in _rows)
-                {
-                    <tr>
-                        <td><input id="@(ReferenceEquals(row, _rows[^1]) ? "xl-last-internal" : null)" @bind="row.InternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
-                        <td><input @bind="row.ExternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
-                        <td>
-                            <select @bind="row.Direction" @bind:after="MarkDirty" disabled="@(!CanManage)">
-                                @foreach (var d in Enum.GetValues<InterfaceTranslationDirection>())
-                                {
-                                    <option value="@d">@d</option>
-                                }
-                            </select>
-                        </td>
-                        @if (CanManage)
-                        {
-                            <td class="right nowrap">
-                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveRow(row)">Remove</button>
-                            </td>
-                        }
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="bb-card" style="flex:1;min-width:24rem;">
+            @if (string.IsNullOrEmpty(_selectedKey))
+            {
+                <p class="muted">Choose a field on the left to see and edit its translations.</p>
+            }
+            else
+            {
+                <div class="flex-between" style="flex-wrap:wrap;gap:.5rem;">
+                    <div>
+                        <h2 style="margin:0;">@_displayName</h2>
+                        <div class="muted">@_selectedKey &middot; @(SelectedField?.Description)</div>
+                    </div>
+                    <div class="field" style="min-width:16rem;">
+                        <label>Applies to</label>
+                        <select value="@(_endpointId?.ToString() ?? "")" @onchange="OnScopeChangedAsync" data-xl-scope>
+                            <option value="">All interfaces</option>
+                            @foreach (var e in _endpoints)
+                            {
+                                <option value="@e.Id">@e.Name only (override)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
 
-        @if (CanManage)
+                @if (_loading)
+                {
+                    <div class="loading">Loading...</div>
+                }
+                else
+                {
+                    @if (_endpointId is not null)
+                    {
+                        <p class="muted" style="margin:.8rem 0 .3rem;">
+                            Rows here apply only to @EndpointName and win over the all-interfaces rows below for the same value and direction.
+                        </p>
+                    }
+
+                    <div class="flex-between" style="margin:.8rem 0 .4rem;">
+                        <span class="muted">Local value is what the LIS stores; external value is what the interface sends or receives.</span>
+                        <div class="flex gap">
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="ExportCsvAsync" disabled="@(_rows.Count(r => !IsBlank(r)) == 0)" data-xl-export>Export CSV</button>
+                            @if (CanManage)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _importOpen = !_importOpen" data-xl-import-toggle>Import rows</button>
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="AddRow">Add row</button>
+                            }
+                        </div>
+                    </div>
+
+                    @if (_importOpen && CanManage)
+                    {
+                        <div class="bb-card" style="margin-bottom:.8rem;" data-xl-import>
+                            <p class="muted" style="margin-top:0;">
+                                Paste rows from a spreadsheet, or load a CSV file: local value, external value, and direction
+                                (Inbound, Outbound, or Both; blank is Both). A header line is fine. The rows are added to the table
+                                below; nothing is saved until you give a reason and choose Save.
+                            </p>
+                            <textarea rows="6" class="mono" style="width:100%;" @bind="_importText" @bind:event="oninput"
+                                      placeholder="@("TNS\tLAB10117\tBoth")" data-xl-import-text></textarea>
+                            <div class="flex gap" style="margin-top:.5rem;align-items:center;flex-wrap:wrap;">
+                                <InputFile OnChange="OnImportFileAsync" accept=".csv,.tsv,.txt" />
+                                <select @bind="_importReplace">
+                                    <option value="false">Add to the rows below</option>
+                                    <option value="true">Replace the rows below</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="ApplyImport" disabled="@string.IsNullOrWhiteSpace(_importText)" data-xl-import-apply>Put rows in the table</button>
+                            </div>
+                            @if (_importSummary is not null)
+                            {
+                                <div style="margin-top:.5rem;" data-xl-import-summary>
+                                    <div>@_importSummary</div>
+                                    @foreach (var p in _importProblems)
+                                    {
+                                        <div class="text-danger">Line @p.Line: @p.Message</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <datalist id="xl-local-values">
+                        @foreach (var v in _localValues)
+                        {
+                            <option value="@v.Value">@LocalValueText(v)</option>
+                        }
+                    </datalist>
+
+                    <table class="bb" data-xl-rows>
+                        <thead>
+                            <tr>
+                                <th>Local value</th>
+                                <th>External value</th>
+                                <th>Direction</th>
+                                @if (CanManage) { <th></th> }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (_rows.Count == 0)
+                            {
+                                <tr><td colspan="@(CanManage ? 4 : 3)" class="muted">No translations @(_endpointId is null ? "for all interfaces" : "for this interface"). Add a row to map a code.</td></tr>
+                            }
+                            @foreach (var row in _rows)
+                            {
+                                <tr>
+                                    <td>
+                                        <input id="@(ReferenceEquals(row, _rows[^1]) ? "xl-last-internal" : null)" list="@(_localValues.Count > 0 ? "xl-local-values" : null)"
+                                               @bind="row.InternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" />
+                                        @if (LocalValueFor(row.InternalValue) is { } lv)
+                                        {
+                                            <div class="muted" style="font-size:.85em;">@LocalValueText(lv)</div>
+                                        }
+                                        else if (_localValues.Count > 0 && !string.IsNullOrWhiteSpace(row.InternalValue))
+                                        {
+                                            <div class="text-danger" style="font-size:.85em;">Not a local value for this field</div>
+                                        }
+                                    </td>
+                                    <td><input @bind="row.ExternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
+                                    <td>
+                                        <select @bind="row.Direction" @bind:after="MarkDirty" disabled="@(!CanManage)">
+                                            @foreach (var d in Enum.GetValues<InterfaceTranslationDirection>())
+                                            {
+                                                <option value="@d">@DirectionText(d)</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    @if (CanManage)
+                                    {
+                                        <td class="right nowrap">
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveRow(row)">Remove</button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (CanManage)
+                    {
+                        <div class="flex gap" style="margin-top:1rem;align-items:flex-end;">
+                            <div class="field" style="flex:1;"><label>Reason for the change</label><input @bind="_reason" @bind:event="oninput" placeholder="e.g. Epic procedure codes from the interface team" data-xl-reason /></div>
+                            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(_busy || !_dirty || string.IsNullOrWhiteSpace(_reason))">Save</button>
+                        </div>
+                    }
+
+                    @if (_endpointId is not null && _globalRows.Count > 0)
+                    {
+                        <h3 style="margin-top:1.4rem;">All-interfaces rows (used where no override matches)</h3>
+                        <table class="bb">
+                            <thead><tr><th>Local value</th><th>External value</th><th>Direction</th></tr></thead>
+                            <tbody>
+                                @foreach (var g in _globalRows)
+                                {
+                                    <tr><td>@g.InternalValue</td><td>@g.ExternalValue</td><td>@DirectionText(g.Direction)</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    <div class="bb-card" style="margin-top:1.4rem;" data-xl-check>
+                        <h3 style="margin-top:0;">Test a value</h3>
+                        <p class="muted">See what the interface would do with a value, using the saved translations (not unsaved edits).</p>
+                        <div class="form-row">
+                            <div class="field"><label>Direction</label>
+                                <select @bind="_checkInbound">
+                                    <option value="true">Inbound (external → LIS)</option>
+                                    <option value="false">Outbound (LIS → external)</option>
+                                </select>
+                            </div>
+                            <div class="field"><label>Value</label><input @bind="_checkValue" @bind:event="oninput" placeholder="@(_checkInbound ? "e.g. LAB10117" : "e.g. TNS")" /></div>
+                            <div class="field" style="align-self:flex-end;">
+                                <button type="button" class="btn btn-secondary" @onclick="CheckAsync" disabled="@string.IsNullOrWhiteSpace(_checkValue)">Try it</button>
+                            </div>
+                        </div>
+                        @if (_check is not null)
+                        {
+                            <div style="margin-top:.6rem;" data-xl-check-result>
+                                <strong>@_check.Input → @_check.Output</strong>
+                                @if (_check.Translated)
+                                {
+                                    <span class="muted"> &middot; from @(_check.FromKey)@(_check.FromInterfaceOverride ? " (interface override)" : " (all interfaces)")</span>
+                                }
+                                else
+                                {
+                                    <span class="muted"> &middot; no translation; the value passes through unchanged</span>
+                                }
+                                @if (!string.IsNullOrEmpty(_check.Note))
+                                {
+                                    <div class="muted">@_check.Note</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="bb-card" data-xl-unmapped>
+        <div class="flex-between" style="flex-wrap:wrap;gap:.5rem;">
+            <p class="muted" style="margin:0;">
+                Values a message carried that no translation covered. Saving a translation for one clears it here; dismiss the ones that need no translation.
+            </p>
+            <label class="flex gap" style="align-items:center;"><input type="checkbox" checked="@_showResolved" @onchange="ToggleResolvedAsync" /> Show cleared</label>
+        </div>
+        @if (_unmappedLoading)
         {
-            <div class="flex gap" style="margin-top:1rem;">
-                <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_busy">Save</button>
-            </div>
+            <div class="loading">Loading...</div>
         }
-    }
-</div>
+        else if (_unmapped.Count == 0)
+        {
+            <p class="muted" style="margin-top:1rem;">Nothing unmapped. Every value the interfaces have seen had a translation.</p>
+        }
+        else
+        {
+            <table class="bb" style="margin-top:1rem;">
+                <thead>
+                    <tr>
+                        <th>Field</th><th>Value</th><th>Direction</th><th>Interface</th><th class="right">Seen</th>
+                        <th>First seen</th><th>Last seen</th><th>Last message</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in _unmapped)
+                    {
+                        <tr data-xl-unmapped-row="@u.Value">
+                            <td>@u.DisplayName</td>
+                            <td><code>@u.Value</code></td>
+                            <td>@(u.InstrumentInterfaceId is null ? DirectionText(u.Direction) : u.Direction == InterfaceTranslationDirection.Outbound ? "Outbound (to instrument)" : "Inbound (from instrument)")</td>
+                            <td>@(u.InstrumentName is { } instrument ? $"{instrument} (instrument)" : u.EndpointName ?? "—")</td>
+                            <td class="right">@u.Count</td>
+                            <td class="nowrap">@u.FirstSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@u.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(u.LastMessageControlId ?? "—")</td>
+                            <td class="right nowrap">
+                                @if (u.ResolvedUtc is not null)
+                                {
+                                    <span class="muted" title="@u.ResolvedNote">Cleared @u.ResolvedUtc.Value.ToLocalTime().ToString("yyyy-MM-dd") by @u.ResolvedBy</span>
+                                }
+                                else if (CanManage)
+                                {
+                                    <button type="button" class="btn btn-secondary btn-sm" @onclick="() => AddTranslationForAsync(u)">Add translation</button>
+                                    @if (_dismissId == u.Id)
+                                    {
+                                        <input @bind="_dismissReason" @bind:event="oninput" placeholder="Why no translation is needed" style="width:14rem;" />
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => DismissAsync(u)" disabled="@string.IsNullOrWhiteSpace(_dismissReason)">Dismiss</button>
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _dismissId = null">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => { _dismissId = u.Id; _dismissReason = string.Empty; }">Dismiss</button>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
 
 @code {
-    private List<InterfaceDataItemDto> _catalog = new();
+    private enum Tab { Translations, Unmapped }
+
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "field")] public string? FieldQuery { get; set; }
+
+    private Tab _tab = Tab.Translations;
+    private List<InterfaceTranslationFieldDto> _fields = new();
+    private List<Hl7EndpointDto> _endpoints = new();
+    private string _search = string.Empty;
     private string _selectedKey = string.Empty;
-    private int _selectRenderKey;
+    private long? _endpointId;
     private string _displayName = string.Empty;
+    private string _reason = string.Empty;
     private List<RowModel> _rows = new();
+    private List<InterfaceLocalValueDto> _localValues = new();
+    private List<InterfaceValueTranslationDto> _globalRows = new();
     private bool _loading = true;
     private bool _busy;
     private bool _dirty;
     private bool _focusNewRow;
+    private bool _importOpen;
+    private string _importText = string.Empty;
+    private bool _importReplace;
+    private string? _importSummary;
+    private List<InterfaceTranslationImport.Problem> _importProblems = new();
     private Feedback? _feedback;
+
+    private bool _checkInbound = true;
+    private string _checkValue = string.Empty;
+    private InterfaceTranslationCheckDto? _check;
+
+    private List<InterfaceUnmappedValueDto> _unmapped = new();
+    private int _unmappedOpen;
+    private bool _unmappedLoading;
+    private bool _showResolved;
+    private long? _dismissId;
+    private string _dismissReason = string.Empty;
 
     private bool CanManage => Session.Has(PermissionCodes.AdminHl7Manage);
 
+    private InterfaceTranslationFieldDto? SelectedField => _fields.FirstOrDefault(f => f.Key == _selectedKey);
+
+    private string? EndpointName => _endpoints.FirstOrDefault(e => e.Id == _endpointId)?.Name;
+
+    private IEnumerable<InterfaceTranslationFieldDto> VisibleFields => string.IsNullOrWhiteSpace(_search)
+        ? _fields
+        : _fields.Where(f => $"{f.DisplayName} {f.Key} {f.Description} {f.Category}".Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase));
+
     protected override async Task OnInitializedAsync()
     {
-        var r = await Api.GetAdminHl7AllDataItemsAsync();
-        _catalog = r.Value ?? new();
-        if (!r.Succeeded) _feedback = r.ToFeedback();
+        var fields = await Api.GetAdminHl7TranslationFieldsAsync();
+        _fields = fields.Value ?? new();
+        if (!fields.Succeeded) _feedback = fields.ToFeedback();
+        var endpoints = await Api.GetAdminHl7EndpointsAsync();
+        _endpoints = (endpoints.Value ?? new()).OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        await RefreshUnmappedAsync();
         _loading = false;
+
+        if (string.Equals(TabQuery, "unmapped", StringComparison.OrdinalIgnoreCase))
+        {
+            _tab = Tab.Unmapped;
+        }
+        else if (!string.IsNullOrWhiteSpace(FieldQuery) && _fields.Any(f => f.Key == FieldQuery))
+        {
+            await LoadAsync(FieldQuery, null);
+        }
     }
 
-    private async Task OnDataItemChangedAsync(ChangeEventArgs e)
+    private async Task<bool> ConfirmDiscardAsync() =>
+        !_dirty || await Js.InvokeAsync<bool>("confirm", "Discard unsaved translations for this field?");
+
+    private async Task SelectFieldAsync(string key)
     {
-        var next = e.Value?.ToString() ?? string.Empty;
-        if (string.Equals(next, _selectedKey, StringComparison.Ordinal))
+        if (key == _selectedKey || !await ConfirmDiscardAsync()) return;
+        await LoadAsync(key, _endpointId);
+    }
+
+    private async Task OnScopeChangedAsync(ChangeEventArgs e)
+    {
+        long? next = long.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        if (next == _endpointId) return;
+        if (!await ConfirmDiscardAsync())
         {
+            StateHasChanged();
             return;
         }
-
-        if (_dirty)
-        {
-            var discard = await Js.InvokeAsync<bool>("confirm", "Discard unsaved translations for this data item?");
-            if (!discard)
-            {
-                // The browser already shows the new choice; rebuild the select so it shows the item still being edited.
-                _selectRenderKey++;
-                return;
-            }
-        }
-
-        await LoadForKeyAsync(next);
+        await LoadAsync(_selectedKey, next);
     }
 
-    private async Task LoadForKeyAsync(string key)
+    private async Task LoadAsync(string key, long? endpointId)
     {
         _selectedKey = key;
+        _endpointId = endpointId;
         _displayName = string.Empty;
         _rows = new();
         _dirty = false;
-        if (string.IsNullOrEmpty(key))
-        {
-            return;
-        }
-
+        _check = null;
         _loading = true;
-        var r = await Api.GetAdminHl7TranslationsAsync(key);
+        var r = await Api.GetAdminHl7TranslationsAsync(key, endpointId);
         _loading = false;
         if (!r.Succeeded || r.Value is null)
         {
@@ -159,14 +427,21 @@
             return;
         }
 
-        _displayName = r.Value.DisplayName;
-        _rows = r.Value.Rows.Select(RowModel.From).ToList();
+        Apply(r.Value);
         if (_rows.Count == 0 && CanManage)
         {
             AddRow();
             _dirty = false;
         }
         _feedback = null;
+    }
+
+    private void Apply(InterfaceTranslationTableDto table)
+    {
+        _displayName = table.DisplayName;
+        _rows = table.Rows.Select(RowModel.From).ToList();
+        _localValues = table.LocalValues?.ToList() ?? new();
+        _globalRows = table.GlobalRows?.ToList() ?? new();
     }
 
     private void AddRow()
@@ -194,23 +469,179 @@
 
     private void MarkDirty() => _dirty = true;
 
+    private static bool IsBlank(RowModel r) => string.IsNullOrWhiteSpace(r.InternalValue) && string.IsNullOrWhiteSpace(r.ExternalValue);
+
+    private async Task OnImportFileAsync(InputFileChangeEventArgs e)
+    {
+        const long maxBytes = 1024 * 1024;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(maxBytes);
+            using var reader = new StreamReader(stream);
+            _importText = await reader.ReadToEndAsync();
+            _importSummary = $"Loaded {e.File.Name}. Choose Put rows in the table to use it.";
+            _importProblems = new();
+        }
+        catch (IOException)
+        {
+            _importSummary = "The file could not be read; files over 1 MB are refused.";
+        }
+    }
+
+    // Rows go into the table only; the save (with its value-list checks, reason, and audit) is unchanged.
+    private void ApplyImport()
+    {
+        var result = InterfaceTranslationImport.Parse(_importText);
+        _importProblems = result.Problems.ToList();
+        var existing = _importReplace ? new List<RowModel>() : _rows.Where(r => !IsBlank(r)).ToList();
+        var have = existing.Select(Key).ToHashSet();
+        var added = 0;
+        foreach (var row in result.Rows)
+        {
+            var model = new RowModel { InternalValue = row.LocalValue, ExternalValue = row.ExternalValue, Direction = row.Direction };
+            if (have.Add(Key(model)))
+            {
+                existing.Add(model);
+                added++;
+            }
+        }
+
+        var skipped = result.Rows.Count - added + result.Duplicates;
+        _importSummary = $"{added} row{(added == 1 ? "" : "s")} put in the table"
+            + (skipped > 0 ? $", {skipped} already there or repeated" : "")
+            + (_importProblems.Count > 0 ? $", {_importProblems.Count} line{(_importProblems.Count == 1 ? "" : "s")} not read:" : ".");
+        if (added > 0 || _importReplace)
+        {
+            _rows = existing;
+            _dirty = true;
+            if (string.IsNullOrWhiteSpace(_reason))
+            {
+                _reason = "Imported translation rows";
+            }
+        }
+
+        static (string, string, InterfaceTranslationDirection) Key(RowModel r) =>
+            (r.InternalValue.Trim().ToUpperInvariant(), r.ExternalValue.Trim().ToUpperInvariant(), r.Direction);
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        var rows = _rows.Where(r => !IsBlank(r))
+            .Select(r => new InterfaceTranslationImport.Row(r.InternalValue.Trim(), r.ExternalValue.Trim(), r.Direction));
+        var scope = _endpointId is null ? "all-interfaces" : $"interface-{_endpointId}";
+        var name = $"translations-{_selectedKey.Replace('.', '-')}-{scope}.csv";
+        var token = Downloads.Put(name, CsvFormat.ContentType, CsvFormat.Write(InterfaceTranslationImport.Columns, InterfaceTranslationImport.Cells(rows)));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+    }
+
     private async Task SaveAsync()
     {
         if (string.IsNullOrEmpty(_selectedKey)) return;
         _busy = true;
         var req = new SaveInterfaceTranslationsRequest(
-            _rows.Select(r => r.ToDto()).ToList(),
-            null);
+            _rows.Where(r => !string.IsNullOrWhiteSpace(r.InternalValue) || !string.IsNullOrWhiteSpace(r.ExternalValue)).Select(r => r.ToDto()).ToList(),
+            _reason.Trim(),
+            _endpointId);
         var r = await Api.SaveAdminHl7TranslationsAsync(_selectedKey, req);
         _busy = false;
         _feedback = r.ToFeedback("Saved.");
         if (r.Succeeded && r.Value is not null)
         {
-            _displayName = r.Value.DisplayName;
-            _rows = r.Value.Rows.Select(RowModel.From).ToList();
+            Apply(r.Value);
             _dirty = false;
+            _reason = string.Empty;
+            _check = null;
+            var fields = await Api.GetAdminHl7TranslationFieldsAsync();
+            if (fields.Succeeded && fields.Value is not null) _fields = fields.Value;
+            await RefreshUnmappedAsync();
         }
     }
+
+    private async Task CheckAsync()
+    {
+        var r = await Api.CheckAdminHl7TranslationAsync(_selectedKey, _checkValue.Trim(), _checkInbound, _endpointId);
+        _check = r.Value;
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+    }
+
+    private async Task ShowUnmappedAsync()
+    {
+        _tab = Tab.Unmapped;
+        await RefreshUnmappedAsync();
+    }
+
+    private async Task ToggleResolvedAsync(ChangeEventArgs e)
+    {
+        _showResolved = e.Value is true;
+        await RefreshUnmappedAsync();
+    }
+
+    private async Task RefreshUnmappedAsync()
+    {
+        _unmappedLoading = true;
+        var r = await Api.GetAdminHl7UnmappedValuesAsync(openOnly: !_showResolved);
+        _unmappedLoading = false;
+        _unmapped = r.Value ?? new();
+        _unmappedOpen = _showResolved ? _unmapped.Count(u => u.ResolvedUtc is null) : _unmapped.Count;
+    }
+
+    // Open the field the value belongs to, in its interface's scope, with a row ready for the value.
+    private async Task AddTranslationForAsync(InterfaceUnmappedValueDto u)
+    {
+        if (u.InstrumentInterfaceId is long instrumentId)
+        {
+            // Instrument translations live with the instrument: open its Translations tab with a row for the value.
+            Nav.NavigateTo($"/admin/instruments?id={instrumentId}&tab=translations&key={Uri.EscapeDataString(u.DataItemKey)}&value={Uri.EscapeDataString(u.Value)}");
+            return;
+        }
+
+        if (!await ConfirmDiscardAsync()) return;
+        _tab = Tab.Translations;
+        // Order and result codes share the procedure-code field, so one row serves orders in and results out.
+        var key = u.DataItemKey is "Order.TestCode" or "TestResult.ObrTestCode" && _fields.Any(f => f.Key == "Procedure.Code")
+            ? "Procedure.Code"
+            : u.DataItemKey;
+        await LoadAsync(key, null);
+        var inbound = u.Direction == InterfaceTranslationDirection.Inbound;
+        var blank = _rows.Count == 1 && string.IsNullOrWhiteSpace(_rows[0].InternalValue) && string.IsNullOrWhiteSpace(_rows[0].ExternalValue)
+            ? _rows[0]
+            : null;
+        if (blank is null)
+        {
+            AddRow();
+            blank = _rows[^1];
+        }
+
+        if (inbound) blank.ExternalValue = u.Value; else blank.InternalValue = u.Value;
+        blank.Direction = u.Direction;
+        _reason = $"Translation for unmapped {(inbound ? "inbound" : "outbound")} value {u.Value}";
+        _dirty = true;
+        _focusNewRow = true;
+    }
+
+    private async Task DismissAsync(InterfaceUnmappedValueDto u)
+    {
+        var r = await Api.DismissAdminHl7UnmappedValueAsync(u.Id, _dismissReason.Trim());
+        _feedback = r.ToFeedback($"Dismissed {u.Value}.");
+        if (r.Succeeded)
+        {
+            _dismissId = null;
+            await RefreshUnmappedAsync();
+        }
+    }
+
+    private InterfaceLocalValueDto? LocalValueFor(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : _localValues.FirstOrDefault(v => string.Equals(v.Value, value.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private static string LocalValueText(InterfaceLocalValueDto v) =>
+        v.Kind is null ? v.Label : $"{v.Kind}: {v.Label}";
+
+    private static string DirectionText(InterfaceTranslationDirection d) => d switch
+    {
+        InterfaceTranslationDirection.Inbound => "Inbound (from EHR)",
+        InterfaceTranslationDirection.Outbound => "Outbound (to EHR)",
+        _ => "Both"
+    };
 
     private sealed class RowModel
     {

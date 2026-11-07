@@ -1,0 +1,26 @@
+@* One inspection question answered Yes or No. Starts unanswered unless the facility defaults inspections to acceptable (OCD-040). *@
+<div class="bb-inspection" role="radiogroup" aria-label="@Label">
+    <span class="bb-inspection-label">@Label</span>
+    <button type="button" role="radio" aria-checked="@(Value == true ? "true" : "false")"
+            class="btn btn-sm @(Value == true ? "btn-primary" : "btn-secondary")" @onclick="() => SetAsync(true)">@YesText</button>
+    <button type="button" role="radio" aria-checked="@(Value == false ? "true" : "false")"
+            class="btn btn-sm @(Value == false ? "btn-danger" : "btn-secondary")" @onclick="() => SetAsync(false)">@NoText</button>
+    @if (Value is null)
+    {
+        <span class="bb-inspection-pending">Not answered</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public bool? Value { get; set; }
+    [Parameter] public EventCallback<bool?> ValueChanged { get; set; }
+    [Parameter] public string YesText { get; set; } = "Acceptable";
+    [Parameter] public string NoText { get; set; } = "Not acceptable";
+
+    private async Task SetAsync(bool value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}

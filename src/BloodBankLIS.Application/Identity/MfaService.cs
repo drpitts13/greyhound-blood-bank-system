@@ -19,7 +19,7 @@ public sealed record MfaCodeRequest(string Code);
 /// </summary>
 public sealed class MfaService
 {
-    public const string Issuer = "Greyhound Blood Bank LIS";
+    public const string Issuer = "HemoCore";
 
     private readonly IRepository<User> _users;
     private readonly IUnitOfWork _unitOfWork;

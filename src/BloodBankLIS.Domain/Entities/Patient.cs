@@ -22,6 +22,12 @@ public class Patient : BaseEntity
 
     public Sex Sex { get; set; } = Sex.Unknown;
 
+    /// <summary>Local race code (<see cref="Rules.PatientDemographicCodes.Races"/>), from registration or the ADT feed.</summary>
+    public string? Race { get; set; }
+
+    /// <summary>Local ethnicity code (<see cref="Rules.PatientDemographicCodes.Ethnicities"/>).</summary>
+    public string? Ethnicity { get; set; }
+
     public bool Deceased { get; set; }
 
     public DateTime? DeceasedUtc { get; set; }

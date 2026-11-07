@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -18,6 +19,85 @@ namespace BloodBankLIS.Integration.Tests;
 
 public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 {
+    private async Task<long> SeedRetypeUnitAsync(string key, UnitStatus status, bool retypeVerified)
+    {
+        await EnsureSecondVerifierAsync();
+        await using var c = _factory.Create();
+        var product = new ProductType
+        {
+            ProductCode = $"RBC-{key}", Name = "Retype RBC", ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true, RequiresRetype = true
+        };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = status,
+            QuarantineReasonCode = status == UnitStatus.Quarantine ? UnitQuarantineReason.SupervisorReview : UnitQuarantineReason.Unspecified,
+            QuarantineReason = status == UnitStatus.Quarantine ? "Supervisor review" : null,
+            HoldReason = status == UnitStatus.OnHold ? "Paperwork" : null
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        if (retypeVerified)
+        {
+            var test = new TestDefinition
+            {
+                Code = $"RT-{key}", Name = "Product retype", Category = TestCategory.AboRhRetype,
+                ResultValueType = ResultValueType.AboRh, IsActive = true, IsDraft = false, Version = 1
+            };
+            c.TestDefinitions.Add(test);
+            await c.SaveChangesAsync();
+            c.ProductRetypeResults.Add(new ProductRetypeResult
+            {
+                BloodProductId = unit.Id, TestDefinitionId = test.Id, TestCode = test.Code, Value = "O|Positive",
+                InterpretedAbo = AboGroup.O, InterpretedRh = RhType.Positive, MatchesLabel = true,
+                Status = ResultStatus.Verified, EnteredBy = "tech1", EnteredUtc = _factory.Clock.UtcNow,
+                VerifiedBy = "tech2", VerifiedUtc = _factory.Clock.UtcNow
+            });
+            await c.SaveChangesAsync();
+        }
+
+        return unit.Id;
+    }
+
+    // TEST-BB-323: a retype-required unit with no confirmed retype goes back to Received, where it can be retyped.
+    [Theory]
+    [InlineData(false, UnitStatus.Received)]
+    [InlineData(true, UnitStatus.Available)]
+    public async Task QuarantineRelease_RespectsPendingRetype(bool retypeVerified, UnitStatus expected)
+    {
+        var unitId = await SeedRetypeUnitAsync($"QREL-RT-{retypeVerified}", UnitStatus.Quarantine, retypeVerified);
+        await using var c = _factory.Create();
+
+        var released = await CreateService(c).ReleaseFromQuarantineAsync(unitId, "tech2");
+
+        Assert.True(released.Succeeded, released.Error);
+        Assert.Equal(expected, released.Unit!.Status);
+        var pending = await new InventoryRepository(c).ListPendingRetypeAsync();
+        Assert.Equal(expected == UnitStatus.Received, pending.Any(u => u.Id == unitId));
+        if (expected == UnitStatus.Received)
+        {
+            var last = await c.InventoryStatusHistory.Where(h => h.BloodProductId == unitId).OrderByDescending(h => h.Id).FirstAsync();
+            Assert.Contains(RetypeStockStatus.PendingReason, last.Reason);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, UnitStatus.Received)]
+    [InlineData(true, UnitStatus.Available)]
+    public async Task HoldRelease_RespectsPendingRetype(bool retypeVerified, UnitStatus expected)
+    {
+        var unitId = await SeedRetypeUnitAsync($"HREL-RT-{retypeVerified}", UnitStatus.OnHold, retypeVerified);
+        await using var c = _factory.Create();
+
+        var released = await CreateService(c).ReleaseFromHoldAsync(unitId, "Paperwork received");
+
+        Assert.True(released.Succeeded, released.Error);
+        Assert.Equal(expected, released.Unit!.Status);
+    }
+
     private readonly SqliteContextFactory _factory;
 
     public InventoryServiceTests(SqliteContextFactory factory) => _factory = factory;
@@ -55,7 +135,92 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             permissions: permissions,
             retype: retype,
             retypeResults: new EfRepository<ProductRetypeResult>(context),
-            discardReasons: new EfRepository<UnitDiscardReason>(context));
+            discardReasons: new EfRepository<UnitDiscardReason>(context),
+            allocations: new EfRepository<Allocation>(context),
+            reactions: new EfRepository<ReactionInvestigation>(context),
+            auditQuery: new AuditQuery(context));
+    }
+
+    /// <summary>A quarantined unit held for the given reason; optionally the remainder of a transfusion with an investigation.</summary>
+    private async Task<(long UnitId, long? ReactionId)> SeedQuarantinedAsync(
+        string unitNumber, UnitQuarantineReason reason, DateTime expiresUtc, ReactionInvestigationStatus? reaction = null)
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var c = _factory.Create();
+        var unit = new BloodUnit
+        {
+            UnitNumber = unitNumber, ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = expiresUtc, Status = UnitStatus.Quarantine, QuarantineReasonCode = reason, QuarantineReason = "Test hold"
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        if (reaction is not { } status)
+        {
+            return (unit.Id, null);
+        }
+
+        var patient = new Patient { MedicalRecordNumber = $"MRN-{unitNumber}", LastName = "Hold", FirstName = "Test", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var issue = new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-6), IssuedBy = "tech-test", Status = IssueStatus.Transfused };
+        c.Issues.Add(issue);
+        await c.SaveChangesAsync();
+        var tx = new TransfusionEvent
+        {
+            IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, StartUtc = _factory.Clock.UtcNow.AddHours(-5),
+            FinalDisposition = TransfusionDisposition.Stopped, ReactionSuspected = true, DocumentedBy = "tech-test"
+        };
+        c.TransfusionEvents.Add(tx);
+        await c.SaveChangesAsync();
+        var investigation = new ReactionInvestigation
+        {
+            TransfusionEventId = tx.Id, PatientId = patient.Id, BloodProductId = unit.Id, ReportedUtc = _factory.Clock.UtcNow, Status = status
+        };
+        c.ReactionInvestigations.Add(investigation);
+        await c.SaveChangesAsync();
+        return (unit.Id, investigation.Id);
+    }
+
+    // TEST-BB-406: a quarantined unit goes back to stock only when its hold allows it, and the board says so.
+    [Fact]
+    public async Task QuarantineRelease_FollowsWhyTheUnitIsHeld()
+    {
+        var future = _factory.Clock.UtcNow.AddDays(10);
+        var (remainder, reactionId) = await SeedQuarantinedAsync("U-QR-RXN", UnitQuarantineReason.ReactionRemainder, future, ReactionInvestigationStatus.Open);
+        var (expired, _) = await SeedQuarantinedAsync("U-QR-EXP", UnitQuarantineReason.VisualDefect, _factory.Clock.UtcNow.AddHours(-1));
+        var (disposal, _) = await SeedQuarantinedAsync("U-QR-DISP", UnitQuarantineReason.ReturnedForDisposal, future);
+        var (routine, _) = await SeedQuarantinedAsync("U-QR-OK", UnitQuarantineReason.VisualDefect, future);
+
+        await using (var c = _factory.Create())
+        {
+            var service = CreateService(c);
+            var board = await service.ListQuarantineAsync();
+            Assert.False(board.Single(r => r.UnitId == remainder).CanRelease);
+            Assert.Contains("reaction investigation", board.Single(r => r.UnitId == remainder).NextStep);
+            Assert.False(board.Single(r => r.UnitId == expired).CanRelease);
+            Assert.False(board.Single(r => r.UnitId == disposal).CanRelease);
+            Assert.True(board.Single(r => r.UnitId == routine).CanRelease);
+
+            foreach (var held in new[] { remainder, expired, disposal })
+            {
+                var refused = await service.ReleaseFromQuarantineAsync(held, "tech2");
+                Assert.False(refused.Succeeded);
+                Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == QuarantineReleaseRule.Code);
+                Assert.Equal(UnitStatus.Quarantine, (await c.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == held)).Status);
+            }
+
+            Assert.True((await service.ReleaseFromQuarantineAsync(routine, "tech2")).Succeeded);
+        }
+
+        // Once the investigation is closed, the remainder can be released.
+        await using (var c = _factory.Create())
+        {
+            var inv = await c.ReactionInvestigations.SingleAsync(r => r.Id == reactionId);
+            inv.Status = ReactionInvestigationStatus.Closed;
+            await c.SaveChangesAsync();
+            var released = await CreateService(c).ReleaseFromQuarantineAsync(remainder, "tech2");
+            Assert.True(released.Succeeded, released.Error ?? string.Join("; ", released.Evaluation?.HardStops.Select(h => h.Message) ?? []));
+        }
     }
 
     /// <summary>The three discard codes these tests use, added once per database.</summary>
@@ -232,7 +397,25 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             expires ?? _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: productCode,
             SecondVerifier: "tech2",
+            Appearance: UnitAppearance.Acceptable,
             ReceiveTemperatureCelsius: 4.0m);
+
+    // TEST-BB-315 (OCD-040): a received unit's appearance is recorded by a person.
+    [Fact]
+    public async Task ReceiveUnit_WithoutAppearance_IsRefused_AndNothingIsCreated()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+
+        await using (var context = _factory.Create())
+        {
+            var r = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("W0000APP00001", productTypeId) with { Appearance = null });
+            Assert.False(r.Succeeded);
+            Assert.Contains(r.Evaluation!.HardStops, h => h.Code == AppearanceAttestationRule.Code);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W0000APP00001"));
+    }
 
     [Fact]
     public async Task ReceiveUnit_CreatesQuarantineUnit_WithInitialHistory()
@@ -346,6 +529,381 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(blank.Id, blankRow.CurrentLocationId);
         Assert.Equal($"Location {blank.Id}", blankRow.LocationLabel);
         Assert.DoesNotContain(blank.Code, blankRow.LocationLabel, StringComparison.Ordinal);
+    }
+
+    // TEST-BB-454: a stock count sorts the scans into found, missing, recorded elsewhere, not on hand, and unresolved;
+    // it moves nothing, and finishing records the outcome in the audit trail.
+    [Fact]
+    public async Task StockCount_ReconcilesScansAgainstTheLocation_AndFinishingIsAudited()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation { Code = $"CNT-FR-{key}", Name = "Count fridge", LocationType = LocationType.Refrigerator };
+        var other = new InventoryLocation { Code = $"CNT-OT-{key}", Name = "Other fridge", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.AddRange(fridge, other);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix, long locationId) =>
+            (await service.ReceiveUnitAsync(NewUnitRequest($"U-CNT{suffix}-{key}", productTypeId) with { LocationId = locationId })).Unit!.Id;
+        var onShelf = await Receive("A", fridge.Id);
+        var missing = await Receive("B", fridge.Id);
+        var expired = await Receive("C", fridge.Id);
+        var misplaced = await Receive("D", other.Id);
+        var issued = await Receive("E", fridge.Id);
+        (await context.BloodUnits.FindAsync(expired))!.Status = UnitStatus.Expired;
+        (await context.BloodUnits.FindAsync(issued))!.Status = UnitStatus.Issued;
+        await context.SaveChangesAsync();
+
+        var scans = new[] { $"U-CNTA-{key}", $"u-cnta-{key}", $"U-CNTC-{key}", $"U-CNTD-{key}", $"U-CNTE-{key}", $"U-NOPE-{key}" };
+        var count = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, scans));
+        Assert.True(count.Succeeded, count.Error);
+        var c = count.Value!;
+        Assert.Equal(3, c.Expected);
+        Assert.Equal(new[] { onShelf, expired }, c.Found.Select(l => l.UnitId).ToArray());
+        Assert.True(c.Found.Single(l => l.UnitId == expired).Expired);
+        Assert.Equal(new[] { missing }, c.Missing.Select(l => l.UnitId).ToArray());
+        var elsewhere = Assert.Single(c.Elsewhere);
+        Assert.Equal((misplaced, InventoryCountOutcome.Elsewhere), (elsewhere.UnitId, elsewhere.Outcome));
+        Assert.Contains("Other fridge", elsewhere.RecordedLocation);
+        Assert.Equal((issued, UnitStatus.Issued), (Assert.Single(c.NotOnHand).UnitId, c.NotOnHand[0].Status));
+        Assert.Contains("No unit has the number", Assert.Single(c.Problems).Message);
+        Assert.False(c.Reconciled);
+        Assert.False(c.Recorded);
+        Assert.Equal(other.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == misplaced)).CurrentLocationId);
+        Assert.False(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(InventoryLocation) && a.EntityId == fridge.Id && a.Reason!.StartsWith("Stock count")));
+
+        var finished = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, scans, Finish: true));
+        Assert.True(finished.Value!.Recorded);
+        var audit = await context.AuditEvents.SingleAsync(a => a.EntityType == nameof(InventoryLocation) && a.EntityId == fridge.Id && a.Reason!.StartsWith("Stock count"));
+        Assert.Contains("2 of 3 found, 1 missing, 1 recorded elsewhere, 1 not on hand, 1 unresolved", audit.Reason);
+        Assert.Contains($"U-CNTB-{key}", audit.NewValueJson);
+
+        // A full, clean count is reconciled.
+        var clean = await service.ReconcileCountAsync(new InventoryCountRequest(other.Id, [$"U-CNTD-{key}"], Finish: true));
+        Assert.True(clean.Value!.Reconciled);
+
+        // TEST-BB-455: finished counts are listed newest first, each with its outcome; a location narrows the list.
+        var history = await service.ListCountHistoryAsync();
+        Assert.True(history.Succeeded, history.Error);
+        var mine = history.Value!.Where(h => h.LocationId == fridge.Id || h.LocationId == other.Id).ToList();
+        Assert.Equal(2, mine.Count);
+        Assert.False(mine.Single(h => h.LocationId == fridge.Id).Reconciled);
+        Assert.Contains("1 missing", mine.Single(h => h.LocationId == fridge.Id).Summary);
+        Assert.True(mine.Single(h => h.LocationId == other.Id).Reconciled);
+        Assert.Equal(_factory.CurrentUser.UserName, mine[0].CountedBy);
+        Assert.Equal(other.Id, Assert.Single((await service.ListCountHistoryAsync(other.Id)).Value!).LocationId);
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.AuditRead)).ListCountHistoryAsync();
+        Assert.False(denied.Succeeded);
+    }
+
+    // TEST-BB-476: an action repeated on a unit already in its status (recall, hold, damaged, discard, quarantine for a
+    // specific reason) is refused, so the reason recorded the first time stays; a unit held only by the routine receipt
+    // hold can still be quarantined for a specific reason.
+    [Fact]
+    public async Task RepeatedStatusActions_AreRefused_AndKeepTheFirstReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Available(string suffix)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-RPT{suffix}-{key}", productTypeId))).Unit!.Id;
+            var unit = (await context.BloodUnits.FindAsync(id))!;
+            unit.Status = UnitStatus.Available;
+            unit.QuarantineReasonCode = UnitQuarantineReason.Unspecified;
+            await context.SaveChangesAsync();
+            return id;
+        }
+
+        async Task<BloodUnit> Row(long id) => await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == id);
+
+        var recall = await Available("R");
+        Assert.True((await service.RecallAsync(recall, "Supplier recall 1")).Succeeded);
+        Assert.Contains("already recalled", (await service.RecallAsync(recall, "Second")).Error);
+        Assert.Equal("Supplier recall 1", (await Row(recall)).RecallReason);
+
+        var hold = await Available("H");
+        Assert.True((await service.HoldAsync(hold, "Awaiting supplier call")).Succeeded);
+        Assert.Contains("already on hold", (await service.HoldAsync(hold, "Second")).Error);
+        Assert.Equal("Awaiting supplier call", (await Row(hold)).HoldReason);
+
+        var damaged = await Available("D");
+        Assert.True((await service.MarkDamagedAsync(damaged, "Port torn")).Succeeded);
+        Assert.Contains("already marked damaged", (await service.MarkDamagedAsync(damaged, "Second")).Error);
+        Assert.Equal("Port torn", (await Row(damaged)).DamagedReason);
+
+        var discard = await Available("X");
+        Assert.True((await service.DiscardAsync(discard, new DiscardUnitCommand("EXPIRED", "First", "tech2"))).Succeeded);
+        Assert.Contains("already discarded", (await service.DiscardAsync(discard, new DiscardUnitCommand("EXPIRED", "Second", "tech2"))).Error);
+        Assert.Contains("First", (await Row(discard)).DiscardReason);
+
+        // Received units sit in the routine receipt hold; a specific quarantine is allowed once, then kept.
+        var received = (await service.ReceiveUnitAsync(NewUnitRequest($"U-RPTQ-{key}", productTypeId))).Unit!.Id;
+        Assert.Equal(UnitQuarantineReason.PendingRelease, (await Row(received)).QuarantineReasonCode);
+        Assert.True((await service.QuarantineAsync(received, UnitQuarantineReason.VisualDefect, "Clots seen")).Succeeded);
+        var again = await service.QuarantineAsync(received, UnitQuarantineReason.Other, "Second");
+        Assert.Contains("already in quarantine (Clots seen)", again.Error);
+        Assert.Equal((UnitQuarantineReason.VisualDefect, "Clots seen"), ((await Row(received)).QuarantineReasonCode, (await Row(received)).QuarantineReason));
+    }
+
+    // TEST-BB-475: a return shipment by scan returns each unit with the shipment's reason and the usual audit; a
+    // reserved unit, one already returned, a blank reason, and an unknown scan return nothing.
+    [Fact]
+    public async Task ReturnToSupplierByScan_ReturnsEachUnit_WithTheShipmentReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix) =>
+            (await service.ReceiveUnitAsync(NewUnitRequest($"U-RTS{suffix}-{key}", productTypeId))).Unit!.Id;
+        var first = await Receive("A");
+        var reserved = await Receive("B");
+        (await context.BloodUnits.FindAsync(reserved))!.Status = UnitStatus.Assigned;
+        await context.SaveChangesAsync();
+        const string reason = "Supplier recall R-2026-114";
+
+        Assert.False((await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-RTSA-{key}", " "))).Succeeded);
+        var returned = await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"u-rtsa-{key}", reason));
+        Assert.True(returned.Succeeded, returned.Error);
+        var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == first);
+        Assert.Equal((UnitStatus.ReturnedToSupplier, reason), (row.Status, row.SupplierReturnReason));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == first && a.Reason == "Unit returned to supplier."));
+
+        var again = await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-RTSA-{key}", reason));
+        Assert.Contains("already returned", again.Error);
+        // The unit page refuses a repeat too, so the recorded reason is never replaced.
+        Assert.Contains("already returned", (await service.ReturnToSupplierAsync(first, "Second reason")).Error);
+        Assert.Equal(reason, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == first)).SupplierReturnReason);
+        var assigned = await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-RTSB-{key}", reason));
+        Assert.Contains("is Assigned; it cannot be returned", assigned.Error);
+        Assert.Equal(UnitStatus.Assigned, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == reserved)).Status);
+        Assert.Contains("No unit has the number", (await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-NOPE-{key}", reason))).Error);
+    }
+
+    // TEST-BB-472: expired units on a shelf (marked Expired, or past expiry before the sweep) are listed oldest first
+    // and discarded by scan with the EXPIRED reason and the discard checks; a unit not expired, one already discarded,
+    // and a scan without the discard permission are refused.
+    [Fact]
+    public async Task DiscardExpiredByScan_DiscardsOnlyExpiredUnits_WithTheExpiredReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix) =>
+            (await service.ReceiveUnitAsync(NewUnitRequest($"U-EXD{suffix}-{key}", productTypeId))).Unit!.Id;
+        var marked = await Receive("A");
+        var pastDue = await Receive("B");
+        var fresh = await Receive("C");
+        var markedUnit = (await context.BloodUnits.FindAsync(marked))!;
+        markedUnit.Status = UnitStatus.Expired;
+        markedUnit.ExpiresUtc = _factory.Clock.UtcNow.AddDays(-2);
+        (await context.BloodUnits.FindAsync(pastDue))!.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        await context.SaveChangesAsync();
+
+        var listed = await service.ListExpiredOnShelfAsync();
+        Assert.True(listed.Succeeded, listed.Error);
+        var mine = listed.Value!.Where(u => u.UnitNumber.EndsWith(key, StringComparison.Ordinal)).Select(u => u.UnitId).ToList();
+        Assert.Equal(new[] { marked, pastDue }, mine);
+        // TEST-BB-474: the handoff count matches the list, without needing the discard permission.
+        var countBefore = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer)).CountExpiredOnShelfAsync();
+        Assert.Equal(listed.Value!.Count, countBefore);
+
+        var notExpired = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDC-{key}", "tech2"));
+        Assert.False(notExpired.Succeeded);
+        Assert.Contains("is not expired", notExpired.Error);
+        Assert.NotEqual(UnitStatus.Discarded, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == fresh)).Status);
+
+        var discarded = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"u-exda-{key}", "tech2"));
+        Assert.True(discarded.Succeeded, discarded.Error);
+        var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == marked);
+        Assert.Equal((UnitStatus.Discarded, "EXPIRED"), (row.Status, row.DiscardReasonCode));
+        Assert.Contains("Discarded by scan from the expired list", row.DiscardReason);
+        Assert.True((await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDB-{key}", "tech2"))).Succeeded);
+
+        var again = await service.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest($"U-EXDA-{key}", "tech2"));
+        Assert.Contains("already discarded", again.Error);
+        Assert.DoesNotContain((await service.ListExpiredOnShelfAsync()).Value!, u => u.UnitId == marked || u.UnitId == pastDue);
+        Assert.Equal(countBefore - 2, await service.CountExpiredOnShelfAsync());
+
+        var noPermission = CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer));
+        Assert.False((await noPermission.ListExpiredOnShelfAsync()).Succeeded);
+    }
+
+    // TEST-BB-459: count follow-up. A unit not found is marked missing with the count named in the reason and is no
+    // longer expected at the location; scanned there later it shows as not on hand (Missing); found, it goes to
+    // quarantine for inspection and the next count finds it.
+    [Fact]
+    public async Task StockCount_MissingUnit_CanBeMarkedMissing_ThenFoundOnALaterCount()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation { Code = $"CNTF-{key}", Name = "Follow-up fridge", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.Add(fridge);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+        var here = (await service.ReceiveUnitAsync(NewUnitRequest($"U-CNTFA-{key}", productTypeId) with { LocationId = fridge.Id })).Unit!.Id;
+        var lost = (await service.ReceiveUnitAsync(NewUnitRequest($"U-CNTFB-{key}", productTypeId) with { LocationId = fridge.Id })).Unit!.Id;
+
+        var first = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [$"U-CNTFA-{key}"], Finish: true));
+        Assert.Equal(lost, Assert.Single(first.Value!.Missing).UnitId);
+        var marked = await service.MarkMissingAsync(lost, $"Not found in stock count at {first.Value.LocationName}");
+        Assert.True(marked.Succeeded, marked.Error);
+        var missingUnit = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == lost);
+        Assert.Equal(UnitStatus.Missing, missingUnit.Status);
+        Assert.Contains("stock count at", missingUnit.MissingReason);
+        // Marking it missing again would replace the reason; it is refused (TEST-BB-475).
+        Assert.Contains("already marked missing", (await service.MarkMissingAsync(lost, "Another reason")).Error);
+
+        // No longer expected; scanned there it is on the shelf but recorded as missing.
+        var second = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [$"U-CNTFA-{key}", $"U-CNTFB-{key}"]));
+        Assert.Equal(1, second.Value!.Expected);
+        Assert.Equal((lost, UnitStatus.Missing), (Assert.Single(second.Value.NotOnHand).UnitId, second.Value.NotOnHand[0].Status));
+
+        // Found here: quarantined for inspection, and the next count finds it at its recorded location.
+        Assert.False((await service.LocateMissingAsync(here, "Found in stock count")).Succeeded);
+        var located = await service.LocateMissingAsync(lost, $"Found in stock count at {second.Value.LocationName}");
+        Assert.True(located.Succeeded, located.Error);
+        Assert.Equal(UnitStatus.Quarantine, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == lost)).Status);
+        var third = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [$"U-CNTFA-{key}", $"U-CNTFB-{key}"]));
+        Assert.True(third.Value!.Reconciled);
+        Assert.Contains(third.Value.Found, l => l.UnitId == lost && l.Status == UnitStatus.Quarantine);
+
+        // Marking missing needs inventory.release.
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer)).MarkMissingAsync(here, "Not found in stock count");
+        Assert.False(denied.Succeeded);
+    }
+
+    // TEST-BB-456: a cooler check compares the units scanned into a cooler with the units issued to it and in transit:
+    // packed, missing, issued under another cooler (another patient), and not issued are each caught; finishing
+    // records the check against each issue in the cooler, and the open-cooler list shows it.
+    [Fact]
+    public async Task CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var inventory = CreateService(context);
+        async Task<long> Receive(string suffix) =>
+            (await inventory.ReceiveUnitAsync(NewUnitRequest($"U-CLR{suffix}-{key}", productTypeId))).Unit!.Id;
+        var a = await Receive("A");
+        var b = await Receive("B");
+        var other = await Receive("C");
+        var stock = await Receive("D");
+        var received = await Receive("E");
+        var smith = new Patient { MedicalRecordNumber = $"MRN-CLR1-{key}", LastName = "Smith", FirstName = "Ann", DateOfBirth = new DateOnly(1960, 1, 1) };
+        var jones = new Patient { MedicalRecordNumber = $"MRN-CLR2-{key}", LastName = "Jones", FirstName = "Bob", DateOfBirth = new DateOnly(1961, 1, 1) };
+        context.Patients.AddRange(smith, jones);
+        await context.SaveChangesAsync();
+        var cooler = $"CLR-{key}";
+        Issue Issued(long unitId, Patient patient, string? coolerId, DateTime? wardReceivedUtc = null) => new()
+        {
+            BloodProductId = unitId, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-10), IssuedBy = "tech-test",
+            Status = IssueStatus.Issued, CoolerId = coolerId, IssuedToLocation = "OR 3", WardReceivedUtc = wardReceivedUtc
+        };
+        var issueA = Issued(a, smith, cooler);
+        var issueB = Issued(b, smith, $" {cooler.ToLowerInvariant()} ");
+        context.Issues.AddRange(issueA, issueB, Issued(other, jones, $"CLR-OTHER-{key}"), Issued(received, smith, cooler, _factory.Clock.UtcNow));
+        await context.SaveChangesAsync();
+
+        var service = new CoolerCheckService(
+            new EfRepository<Issue>(context), new InventoryRepository(context), new EfRepository<BloodUnit>(context),
+            new EfRepository<ProductType>(context), new EfRepository<Patient>(context),
+            new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate), _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser), context, new AuditQuery(context));
+
+        // The cooler id matches regardless of case and spacing; a unit already received on the ward is not expected.
+        var scans = new[] { $"U-CLRA-{key}", $"U-CLRA-{key}", $"U-CLRC-{key}", $"U-CLRD-{key}", $"U-NOPE-{key}" };
+        var check = await service.CheckAsync(new CoolerCheckRequest(cooler.ToLowerInvariant(), scans));
+        Assert.True(check.Succeeded, check.Error);
+        var c = check.Value!;
+        Assert.Equal((2, 1), (c.Expected, c.PatientCount));
+        Assert.Equal(new[] { a }, c.Packed.Select(l => l.UnitId).ToArray());
+        Assert.Equal(new[] { b }, c.Missing.Select(l => l.UnitId).ToArray());
+        var wrong = Assert.Single(c.OtherCooler);
+        Assert.Equal((other, $"CLR-OTHER-{key}"), (wrong.UnitId, wrong.RecordedCooler));
+        Assert.Contains("Jones", wrong.PatientName);
+        Assert.Equal(stock, Assert.Single(c.NotIssued).UnitId);
+        Assert.Contains("No unit has the number", Assert.Single(c.Problems).Message);
+        Assert.False(c.Ready);
+        Assert.False(await context.AuditEvents.AnyAsync(e => e.Reason!.StartsWith("Cooler check: ") && (e.EntityId == issueA.Id || e.EntityId == issueB.Id)));
+
+        // Finishing records the check against each issue in the cooler, naming what was wrong.
+        var finished = await service.CheckAsync(new CoolerCheckRequest(cooler, scans, Finish: true));
+        Assert.True(finished.Value!.Recorded);
+        var audits = await context.AuditEvents.Where(e => e.EntityType == nameof(Issue) && e.Reason!.StartsWith("Cooler check: ")
+            && (e.EntityId == issueA.Id || e.EntityId == issueB.Id)).ToListAsync();
+        Assert.Equal(2, audits.Count);
+        Assert.Contains("1 of 2 packed, 1 missing, 1 issued to another cooler, 1 not issued, 1 unresolved", audits[0].Reason);
+        Assert.Contains($"U-CLRC-{key}", audits[0].NewValueJson);
+
+        // A full, correct cooler is ready; the open-cooler list shows the latest check.
+        var clean = await service.CheckAsync(new CoolerCheckRequest(cooler, [$"U-CLRA-{key}", $"U-CLRB-{key}"], Finish: true));
+        Assert.True(clean.Value!.Ready);
+        var open = await service.ListOpenAsync();
+        Assert.True(open.Succeeded, open.Error);
+        var mine = Assert.Single(open.Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal((2, true), (mine.Units, mine.LastCheckReady));
+        Assert.Equal(new[] { "Smith, Ann" }, mine.Patients);
+
+        // Nothing to finish for a cooler with no issues in transit, and the check needs issue.create.
+        Assert.False((await service.CheckAsync(new CoolerCheckRequest($"CLR-EMPTY-{key}", [], Finish: true))).Succeeded);
+        Assert.Equal(0, (await service.CheckAsync(new CoolerCheckRequest($"CLR-EMPTY-{key}", []))).Value!.Expected);
+        var denied = new CoolerCheckService(
+            new EfRepository<Issue>(context), new InventoryRepository(context), new EfRepository<BloodUnit>(context),
+            new EfRepository<ProductType>(context), new EfRepository<Patient>(context),
+            new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer), _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser), context);
+        Assert.False((await denied.CheckAsync(new CoolerCheckRequest(cooler, []))).Succeeded);
+        Assert.False((await denied.ListOpenAsync()).Succeeded);
+    }
+
+    // TEST-BB-453: the Move units desk moves the scanned unit; a unit already there, an unknown or unreadable scan,
+    // a unit that cannot move, and a divided number move nothing.
+    [Fact]
+    public async Task TransferByScan_MovesTheScannedUnit_AndRefusesWhatItCannotMove()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var from = new InventoryLocation { Code = $"SCAN-FR-{key}", Name = "Main fridge", LocationType = LocationType.Refrigerator };
+        var to = new InventoryLocation { Code = $"SCAN-OR-{key}", Name = "OR fridge", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.AddRange(from, to);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var unit = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCAN-{key}", productTypeId) with { LocationId = from.Id });
+        var issued = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCANISS-{key}", productTypeId) with { LocationId = from.Id });
+        var partA = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCANA-{key}", productTypeId) with { LocationId = from.Id });
+        var partB = await service.ReceiveUnitAsync(NewUnitRequest($"U-SCANB-{key}", productTypeId) with { LocationId = from.Id });
+        Assert.True(unit.Succeeded && issued.Succeeded && partA.Succeeded && partB.Succeeded);
+        (await context.BloodUnits.FindAsync(issued.Unit!.Id))!.Status = UnitStatus.Issued;
+        foreach (var part in new[] { partA.Unit!.Id, partB.Unit!.Id })
+        {
+            (await context.BloodUnits.FindAsync(part))!.Din = $"D-SCAN-{key}";
+        }
+
+        await context.SaveChangesAsync();
+
+        var moved = await service.TransferByScanAsync(new TransferByScanRequest($"  u-scan-{key.ToLowerInvariant()} ", to.Id, "Stock OR"));
+        Assert.True(moved.Succeeded, moved.Error);
+        Assert.Equal(to.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == unit.Unit!.Id)).CurrentLocationId);
+        var history = (await new InventoryRepository(context).GetHistoryAsync(unit.Unit!.Id)).OrderByDescending(h => h.Id).First();
+        Assert.Equal((from.Id, to.Id, "Stock OR"), (history.FromLocationId!.Value, history.ToLocationId!.Value, history.Reason));
+
+        Assert.Contains("already in that location", (await service.TransferByScanAsync(new TransferByScanRequest($"U-SCAN-{key}", to.Id))).Error);
+        Assert.Contains("No unit has the number", (await service.TransferByScanAsync(new TransferByScanRequest($"U-NONE-{key}", to.Id))).Error);
+        Assert.Contains("not a readable unit number", (await service.TransferByScanAsync(new TransferByScanRequest("=???", to.Id))).Error);
+        Assert.Contains("is Issued; it cannot be moved", (await service.TransferByScanAsync(new TransferByScanRequest($"U-SCANISS-{key}", to.Id))).Error);
+        var divided = await service.TransferByScanAsync(new TransferByScanRequest($"D-SCAN-{key}", to.Id));
+        Assert.Contains("matches 2 units", divided.Error);
+        Assert.Equal(2, await context.BloodUnits.CountAsync(u => u.Din == $"D-SCAN-{key}" && u.CurrentLocationId == from.Id));
+        Assert.Contains("Scan the unit number", (await service.TransferByScanAsync(new TransferByScanRequest(" ", to.Id))).Error);
     }
 
     [Fact]
@@ -645,7 +1203,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             PatientId = blank.Id,
             IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-8),
             IssuedBy = "tech",
-            Status = IssueStatus.Issued
+            // It carries a Wasted outcome, so it was completed (TEST-BB-348).
+            Status = IssueStatus.Transfused
         };
         context.Issues.AddRange(namedIssue, missingIssue, blankIssue);
         await context.SaveChangesAsync();
@@ -2331,7 +2890,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         var result = await service.ReceiveExpectedUnitAsync(
             unitId,
-            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.False(result.Succeeded);
         Assert.Contains("outdated", result.Error, StringComparison.OrdinalIgnoreCase);
 
@@ -2358,7 +2917,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
                 unitId,
                 new ReceiveExpectedUnitRequest(
                     SecondVerifier: "tech2",
-                    ReceiveTemperatureCelsius: 4.0m));
+                    ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
             Assert.True(result.Succeeded, result.Error);
             Assert.NotEqual(UnitStatus.Expected, result.Unit!.Status);
 
@@ -2398,7 +2957,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         await using (var context = _factory.Create())
         {
             var result = await CreateService(context).ReceiveExpectedUnitAsync(
-                unitId, new ReceiveExpectedUnitRequest(VisualInspectionAcceptable: false));
+                unitId, new ReceiveExpectedUnitRequest(VisualInspectionAcceptable: false, Appearance: UnitAppearance.Acceptable));
             Assert.False(result.Succeeded);
             Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveVisualInspectionRule.Code);
         }
@@ -2423,7 +2982,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             unitId, new ReceiveExpectedUnitRequest(
                 VisualInspectionNotes: "Bag intact",
                 SecondVerifier: "tech2",
-                ReceiveTemperatureCelsius: 4.0m));
+                ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(result.Succeeded);
         Assert.Equal(UnitStatus.Quarantine, result.Unit!.Status);
         Assert.True(result.Unit.ReceiveVisualAcceptable);
@@ -2443,7 +3002,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var act = _factory.Create();
         var result = await CreateService(act).ReceiveExpectedUnitAsync(
-            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2"));
+            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", Appearance: UnitAppearance.Acceptable));
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveTemperatureRule.Code);
 
@@ -2483,7 +3042,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var receive = _factory.Create();
         var result = await CreateService(receive).ReceiveExpectedUnitAsync(
-            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);
         var pending = Assert.Single(await receive.ProductRetypeResults.Where(r => r.BloodProductId == result.Unit.Id).ToListAsync());
@@ -2559,7 +3118,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var act = _factory.Create();
-        var result = await CreateService(act).ReceiveExpectedUnitAsync(unitId, new ReceiveExpectedUnitRequest());
+        var result = await CreateService(act).ReceiveExpectedUnitAsync(unitId, new ReceiveExpectedUnitRequest(Appearance: UnitAppearance.Acceptable));
         Assert.False(result.Succeeded);
         Assert.Contains("expected", result.Error, StringComparison.OrdinalIgnoreCase);
     }
@@ -2676,7 +3235,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var released = await CreateService(context).ReleaseFromHoldAsync(unitId);
+            var released = await CreateService(context).ReleaseFromHoldAsync(unitId, "Paperwork received");
             Assert.True(released.Succeeded);
             Assert.Equal(UnitStatus.Available, released.Unit!.Status);
             Assert.Null(released.Unit.HoldReason);
@@ -2706,13 +3265,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var act = _factory.Create();
         var denied = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive));
-        var result = await denied.ReleaseFromHoldAsync(unitId);
+        var result = await denied.ReleaseFromHoldAsync(unitId, "Paperwork received");
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.HoldReleaseCode);
         Assert.Equal(UnitStatus.OnHold, (await act.BloodUnits.FindAsync(unitId))!.Status);
 
         var allowed = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease));
-        var ok = await allowed.ReleaseFromHoldAsync(unitId);
+        var ok = await allowed.ReleaseFromHoldAsync(unitId, "Paperwork received");
         Assert.True(ok.Succeeded, ok.Error);
         Assert.Equal(UnitStatus.Available, ok.Unit!.Status);
         Assert.Null(ok.Unit.HoldReason);
@@ -2749,7 +3308,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).ReleaseFromHoldAsync(unitId);
+            var result = await CreateService(context).ReleaseFromHoldAsync(unitId, "Paperwork received");
             Assert.False(result.Succeeded);
             Assert.Contains("operational hold", result.Error);
         }
@@ -2795,11 +3354,17 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var located = await CreateService(context).LocateMissingAsync(unitId);
+            // TEST-BB-408: where it was found is required, and kept with why it was missing.
+            var blank = await CreateService(context).LocateMissingAsync(unitId, " ");
+            Assert.False(blank.Succeeded);
+            Assert.Contains("where and how", blank.Error);
+            Assert.Equal(UnitStatus.Missing, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == unitId)).Status);
+
+            var located = await CreateService(context).LocateMissingAsync(unitId, "Found on shelf 2");
             Assert.True(located.Succeeded);
             Assert.Equal(UnitStatus.Quarantine, located.Unit!.Status);
             Assert.Null(located.Unit.MissingReason);
-            Assert.Contains("Located after missing", located.Unit.QuarantineReason);
+            Assert.Contains("Located after missing (Not on shelf at physical inventory): Found on shelf 2", located.Unit.QuarantineReason);
             Assert.Equal(UnitQuarantineReason.LocatedAfterMissing, located.Unit.QuarantineReasonCode);
         }
     }
@@ -2816,7 +3381,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).LocateMissingAsync(unitId);
+            var result = await CreateService(context).LocateMissingAsync(unitId, "Found on shelf 2");
             Assert.False(result.Succeeded);
             Assert.Contains("missing unit", result.Error);
         }
@@ -2838,13 +3403,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
-            .LocateMissingAsync(unitId);
+            .LocateMissingAsync(unitId, "Found on shelf 2");
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.LocateMissingCode);
         Assert.Equal(UnitStatus.Missing, (await context.BloodUnits.FindAsync(unitId))!.Status);
 
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
-            .LocateMissingAsync(unitId);
+            .LocateMissingAsync(unitId, "Found on shelf 2");
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(UnitStatus.Quarantine, allowed.Unit!.Status);
     }
@@ -2889,11 +3454,17 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var inspected = await CreateService(context).InspectDamagedAsync(unitId);
+            // TEST-BB-408: what the inspection showed is required, and kept with why it was marked damaged.
+            var blank = await CreateService(context).InspectDamagedAsync(unitId, "");
+            Assert.False(blank.Succeeded);
+            Assert.Contains("what the inspection showed", blank.Error);
+            Assert.Equal(UnitStatus.Damaged, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == unitId)).Status);
+
+            var inspected = await CreateService(context).InspectDamagedAsync(unitId, "Overwrap creased, no leak");
             Assert.True(inspected.Succeeded);
             Assert.Equal(UnitStatus.Quarantine, inspected.Unit!.Status);
             Assert.Null(inspected.Unit.DamagedReason);
-            Assert.Contains("Inspected after damage", inspected.Unit.QuarantineReason);
+            Assert.Contains("Inspected after damage (Bag leaking in refrigerator): Overwrap creased, no leak", inspected.Unit.QuarantineReason);
             Assert.Equal(UnitQuarantineReason.InspectedAfterDamage, inspected.Unit.QuarantineReasonCode);
         }
     }
@@ -2910,7 +3481,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).InspectDamagedAsync(unitId);
+            var result = await CreateService(context).InspectDamagedAsync(unitId, "Overwrap creased, no leak");
             Assert.False(result.Succeeded);
             Assert.Contains("damaged unit", result.Error);
         }
@@ -2932,13 +3503,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
-            .InspectDamagedAsync(unitId);
+            .InspectDamagedAsync(unitId, "Overwrap creased, no leak");
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.InspectDamagedCode);
         Assert.Equal(UnitStatus.Damaged, (await context.BloodUnits.FindAsync(unitId))!.Status);
 
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
-            .InspectDamagedAsync(unitId);
+            .InspectDamagedAsync(unitId, "Overwrap creased, no leak");
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(UnitStatus.Quarantine, allowed.Unit!.Status);
     }
@@ -3158,7 +3729,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Pending packing slip", row.HoldReason);
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-HOLD-OK");
 
-        var afterRelease = await service.ReleaseFromHoldAsync(held.Unit.Id);
+        var afterRelease = await service.ReleaseFromHoldAsync(held.Unit.Id, "Paperwork received");
         Assert.True(afterRelease.Succeeded, afterRelease.Error);
         Assert.DoesNotContain(await service.ListOnHoldAsync(), i => i.UnitNumber == "U-HOLD-BOARD");
     }
@@ -3633,6 +4204,82 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-359: an expiring unit ends its reservation, so it stops showing as blood held for the patient.
+    [Fact]
+    public async Task ExpireDueUnits_EndsTheReservationOnAnExpiredUnit_AndLeavesOthers()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long expiringAllocationId;
+        long liveAllocationId;
+        await using (var context = _factory.Create())
+        {
+            var patient = new Patient { MedicalRecordNumber = "MRN-EXP-RES", LastName = "Expiry", FirstName = "Res", DateOfBirth = new DateOnly(1970, 5, 5), Sex = Sex.Unknown };
+            context.Patients.Add(patient);
+            var expiring = new BloodUnit { UnitNumber = "U-EXP-RES", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-30), Status = UnitStatus.Crossmatched };
+            var live = new BloodUnit { UnitNumber = "U-LIVE-RES", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Crossmatched };
+            context.BloodUnits.AddRange(expiring, live);
+            await context.SaveChangesAsync();
+            var a1 = new Allocation { BloodProductId = expiring.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-5), AllocatedBy = "tech" };
+            var a2 = new Allocation { BloodProductId = live.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-5), AllocatedBy = "tech" };
+            context.Allocations.AddRange(a1, a2);
+            await context.SaveChangesAsync();
+            expiringAllocationId = a1.Id;
+            liveAllocationId = a2.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var swept = await CreateService(context).ExpireDueUnitsAsync();
+            Assert.True(swept.Succeeded, swept.Error);
+            Assert.True(swept.ReservationsEnded >= 1);
+        }
+
+        await using var verify = _factory.Create();
+        var ended = await verify.Allocations.AsNoTracking().SingleAsync(a => a.Id == expiringAllocationId);
+        Assert.Equal(AllocationStatus.Expired, ended.Status);
+        Assert.Contains("U-EXP-RES expired", ended.ReleaseReason);
+        Assert.Equal(AllocationStatus.Reserved, (await verify.Allocations.AsNoTracking().SingleAsync(a => a.Id == liveAllocationId)).Status);
+        Assert.True(await verify.AuditEvents.AnyAsync(e => e.EntityType == nameof(Allocation) && e.EntityId == expiringAllocationId));
+    }
+
+    // TEST-BB-379: a near-expiry unit names the patient it is reserved for, so it is issued first or replaced in time.
+    [Fact]
+    public async Task NearExpiry_NamesThePatientAReservedUnitIsHeldFor()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long reservedUnitId;
+        long freeUnitId;
+        long patientId;
+        await using (var context = _factory.Create())
+        {
+            var patient = new Patient { MedicalRecordNumber = "MRN-NEAR-RES", LastName = "Nearby", FirstName = "Rosa", DateOfBirth = new DateOnly(1972, 2, 2), Sex = Sex.Female };
+            context.Patients.Add(patient);
+            var reserved = new BloodUnit { UnitNumber = "U-NEAR-RES", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddHours(3), Status = UnitStatus.Crossmatched };
+            var free = new BloodUnit { UnitNumber = "U-NEAR-FREE", ProductTypeId = productTypeId, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddHours(4), Status = UnitStatus.Available };
+            context.BloodUnits.AddRange(reserved, free);
+            await context.SaveChangesAsync();
+            context.Allocations.AddRange(
+                new Allocation { BloodProductId = reserved.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-2), AllocatedBy = "tech" },
+                new Allocation { BloodProductId = free.Id, PatientId = patient.Id, Status = AllocationStatus.Released, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-6), AllocatedBy = "tech" });
+            await context.SaveChangesAsync();
+            reservedUnitId = reserved.Id;
+            freeUnitId = free.Id;
+            patientId = patient.Id;
+        }
+
+        await using var c = _factory.Create();
+        var rows = await CreateService(c).ListNearExpiryAsync();
+
+        var reservedRow = Assert.Single(rows, r => r.UnitId == reservedUnitId);
+        Assert.True(reservedRow.IsReserved);
+        Assert.Equal(patientId, reservedRow.ReservedPatientId);
+        Assert.Equal("Nearby, Rosa (MRN-NEAR-RES)", reservedRow.ReservedPatientLabel);
+
+        var freeRow = Assert.Single(rows, r => r.UnitId == freeUnitId);
+        Assert.False(freeRow.IsReserved);
+        Assert.Null(freeRow.ReservedPatientLabel);
+    }
+
     [Fact]
     public async Task ExpireDueUnits_WithoutInventoryDiscard_IsHardStopped()
     {
@@ -3998,7 +4645,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         var arrived = await svc.ReceiveExpectedUnitAsync(
             expected.Unit!.Id,
-            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(arrived.Succeeded, arrived.Error);
 
         var cancelled = await svc.CancelExpectedUnitAsync(pendingCancel.Unit!.Id, "Supplier cancelled ASN");
@@ -4044,7 +4691,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(forHold.Succeeded, forHold.Error);
         Assert.True((await svc.ReleaseFromQuarantineAsync(forHold.Unit!.Id, "tech2")).Succeeded);
         Assert.True((await svc.HoldAsync(forHold.Unit.Id, "Pending paperwork")).Succeeded);
-        var fromHold = await svc.ReleaseFromHoldAsync(forHold.Unit.Id);
+        var fromHold = await svc.ReleaseFromHoldAsync(forHold.Unit.Id, "Paperwork received");
         Assert.True(fromHold.Succeeded, fromHold.Error);
 
         var events = context.AuditEvents.ToList();
@@ -4057,9 +4704,22 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(events, e =>
             e.EventType == AuditEventType.ProductStatus
             && e.EntityId == forHold.Unit.Id
-            && e.Reason == "Unit released from hold."
-            && e.OldValueJson is not null
-            && e.NewValueJson is not null);
+            && e.Reason == "Unit released from hold: Paperwork received"
+            && e.OldValueJson!.Contains("Pending paperwork")
+            && e.NewValueJson!.Contains("Paperwork received"));
+
+        // TEST-BB-407: a hold release needs a reason, and an expired unit is not released to stock.
+        var blank = await svc.ReceiveUnitAsync(NewUnitRequest(hNumber + "B", productTypeId));
+        Assert.True((await svc.ReleaseFromQuarantineAsync(blank.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await svc.HoldAsync(blank.Unit.Id, "Pending paperwork")).Succeeded);
+        var noReason = await svc.ReleaseFromHoldAsync(blank.Unit.Id, " ");
+        Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == HoldReleaseRule.Code);
+        var unit = await context.BloodUnits.SingleAsync(u => u.Id == blank.Unit.Id);
+        unit.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        await context.SaveChangesAsync();
+        var expired = await svc.ReleaseFromHoldAsync(blank.Unit.Id, "Paperwork received");
+        Assert.Contains(expired.Evaluation!.HardStops, r => r.Message.Contains("expired"));
+        Assert.Equal(UnitStatus.OnHold, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == blank.Unit.Id)).Status);
     }
 
     [Fact]
@@ -4189,7 +4849,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(forMissing.Succeeded, forMissing.Error);
         Assert.True((await svc.ReleaseFromQuarantineAsync(forMissing.Unit!.Id, "tech2")).Succeeded);
         Assert.True((await svc.MarkMissingAsync(forMissing.Unit.Id, "Not on shelf at physical inventory")).Succeeded);
-        var located = await svc.LocateMissingAsync(forMissing.Unit.Id);
+        var located = await svc.LocateMissingAsync(forMissing.Unit.Id, "Found on shelf 2");
         Assert.True(located.Succeeded, located.Error);
         Assert.Equal(UnitStatus.Quarantine, located.Unit!.Status);
 
@@ -4197,7 +4857,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(forDamaged.Succeeded, forDamaged.Error);
         Assert.True((await svc.ReleaseFromQuarantineAsync(forDamaged.Unit!.Id, "tech2")).Succeeded);
         Assert.True((await svc.MarkDamagedAsync(forDamaged.Unit.Id, "Bag leaking in refrigerator")).Succeeded);
-        var inspected = await svc.InspectDamagedAsync(forDamaged.Unit.Id);
+        var inspected = await svc.InspectDamagedAsync(forDamaged.Unit.Id, "Overwrap creased, no leak");
         Assert.True(inspected.Succeeded, inspected.Error);
         Assert.Equal(UnitStatus.Quarantine, inspected.Unit!.Status);
 
@@ -4206,7 +4866,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             e.EventType == AuditEventType.ProductStatus
             && e.EntityType == nameof(BloodUnit)
             && e.EntityId == forMissing.Unit.Id
-            && e.Reason == "Unit located after missing."
+            && e.Reason == "Unit located after missing: Found on shelf 2"
             && e.OldValueJson is not null
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(mNumber));
@@ -4214,7 +4874,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             e.EventType == AuditEventType.ProductStatus
             && e.EntityType == nameof(BloodUnit)
             && e.EntityId == forDamaged.Unit.Id
-            && e.Reason == "Unit inspected after damage."
+            && e.Reason == "Unit inspected after damage: Overwrap creased, no leak"
             && e.OldValueJson is not null
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(dNumber));

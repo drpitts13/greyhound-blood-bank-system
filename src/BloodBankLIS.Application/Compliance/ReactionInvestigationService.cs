@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -27,7 +28,11 @@ public sealed record UpdateReactionInvestigationRequest(
     string? RepeatUnitAboRh = null,
     DatWorkupResult? DatResult = null,
     string? ElutionResult = null,
-    bool? RemainderQuarantined = null);
+    bool? RemainderQuarantined = null,
+    /// <summary>OCD-057: the reaction concluded, a code from the reaction list (NONE for No reaction).</summary>
+    string? ConcludedReactionCode = null,
+    /// <summary>OCD-057: treatment codes from the treatment list (NONE for No treatment).</summary>
+    IReadOnlyList<string>? TreatmentCodes = null);
 
 public sealed record ReactionInvestigationDto(
     long Id,
@@ -78,8 +83,37 @@ public sealed record ReactionInvestigationDto(
     UnitStatus? RemainderUnitStatus = null,
     string? RemainderHoldNote = null,
     bool FatalityFollowUpDue = false,
-    string? FatalityFollowUpDetail = null)
+    string? FatalityFollowUpDetail = null,
+    string? ClosedBy = null,
+    DateTime? ClosedUtc = null,
+    string? ReopenedBy = null,
+    DateTime? ReopenedUtc = null,
+    string? ReopenReason = null,
+    bool ReportedAfterTransfusion = false,
+    DateTime? OnsetUtc = null,
+    string? ConcludedReactionCode = null,
+    string? ConcludedReactionText = null,
+    string? TreatmentCodes = null,
+    string? TreatmentTexts = null,
+    // The specimen workup: each specimen with its Test Group results (null until that specimen is chosen).
+    ReactionWorkupSpecimenDto? PreWorkup = null,
+    ReactionWorkupSpecimenDto? PostWorkup = null)
 {
+    /// <summary>The specimen workup as the close gate sees it, from the results on this DTO.</summary>
+    public ReactionWorkupCompletenessRule.WorkupState SpecimenWorkupState => new(
+        PreWorkup is not null,
+        PostWorkup is not null,
+        PreWorkup?.Pending ?? 0,
+        PostWorkup?.Pending ?? 0,
+        string.Equals(PostWorkup?.VerifiedValue("DAT")?.Trim(), "Positive", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The one thing to do next, from <see cref="ReactionNextStepRule"/>.</summary>
+    public ReactionNextStepRule.Step NextStep => ReactionNextStepRule.For(new ReactionNextStepRule.Facts(
+        Status, FatalityFollowUpDue, FatalityFollowUpDetail, RemainderQuarantined, RemainderHoldNote,
+        AboRhIncompatible || RepeatPatientAboRhDiscrepancy || RepeatUnitAboRhDiscrepancy,
+        WorkupIncomplete, WorkupHoldReason,
+        string.IsNullOrWhiteSpace(ConcludedReactionCode) || string.IsNullOrWhiteSpace(TreatmentCodes)));
+
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
         string? mrn = null,
@@ -98,13 +132,17 @@ public sealed record ReactionInvestigationDto(
         bool repeatUnitAboRhDiscrepancy = false,
         string? repeatAboRhDetail = null,
         UnitStatus? remainderUnitStatus = null,
-        string? remainderHoldNote = null)
+        string? remainderHoldNote = null,
+        ReactionWorkupReader.Workup? specimenWorkup = null)
     {
-        var workup = ReactionWorkupCompletenessRule.Evaluate(
-            r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
+        // A closed case passed the gate when it was signed; the gate is shown for open cases.
+        var gate = ReactionWorkupCompletenessRule.Evaluate(
+            r.ClericalCheckCompleted, r.VisualInspectionCompleted,
+            ReactionWorkupReader.StateFor(r, specimenWorkup), r.ElutionResult);
+        var workup = r.Status == ReactionInvestigationStatus.Closed ? RuleResult.Pass(gate.Code) : gate;
         var followUp = ReactionFatalityFollowUpRule.Evaluate(
             r.IsFatality, r.CberNotifiedUtc, r.WrittenReportSubmittedUtc);
-        return new(
+        return new ReactionInvestigationDto(
             r.Id, r.TransfusionEventId, r.PatientId, r.BloodProductId, r.ReportedUtc, r.ReportedBy,
             r.ReactionType, r.Severity, r.Findings, r.Conclusions, r.FollowUp, r.Status, r.Disposition,
             r.ProductAtFault, r.IsFatality, r.FatalityNotificationStatus, r.WrittenReportDueUtc,
@@ -127,9 +165,39 @@ public sealed record ReactionInvestigationDto(
             remainderUnitStatus,
             remainderHoldNote,
             followUp.Severity == RuleSeverity.Warning,
-            followUp.Severity == RuleSeverity.Warning ? followUp.Message : null);
+            followUp.Severity == RuleSeverity.Warning ? followUp.Message : null,
+            r.ClosedBy, r.ClosedUtc, r.ReopenedBy, r.ReopenedUtc, r.ReopenReason,
+            r.ReportedAfterTransfusion, r.OnsetUtc,
+            r.ConcludedReactionCode, r.ConcludedReactionText, r.TreatmentCodes, r.TreatmentTexts,
+            specimenWorkup?.Pre, specimenWorkup?.Post);
     }
 }
+
+public sealed record ReopenReactionInvestigationRequest(string? Reason);
+
+/// <summary>
+/// The investigation on one sheet for the medical director's review and the record: the case with its workup
+/// results, plus the issue and the bedside transfusion record (times, volume, what was seen and done).
+/// </summary>
+public sealed record ReactionReportDto(
+    ReactionInvestigationDto Investigation,
+    DateTime GeneratedUtc,
+    string? ProductName,
+    DateTime? IssuedUtc,
+    string? IssuedBy,
+    string? IssuedToLocation,
+    DateTime? TransfusionStartUtc,
+    DateTime? TransfusionStopUtc,
+    decimal? VolumeTransfused,
+    string? Transfusionist,
+    string? TransfusionLocation,
+    TransfusionDisposition? FinalDisposition,
+    string? ReactionActions,
+    string? PostTransfusionObservations,
+    string? DocumentedBy);
+
+/// <summary>A reaction noticed after the transfusion was documented without one: what was seen, and when it began.</summary>
+public sealed record ReportLateReactionRequest(long IssueId, string? Description, DateTime? OnsetUtc = null, string? ReactionType = null);
 
 public sealed class ReactionInvestigationService
 {
@@ -148,6 +216,11 @@ public sealed class ReactionInvestigationService
     private readonly IRepository<ProductType>? _productTypes;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
+    private readonly IRepository<ReactionCatalogEntry>? _catalog;
+    private readonly IRepository<Specimen>? _specimens;
+    private readonly IRepository<Order>? _orders;
+    private readonly IRepository<OrderLine>? _orderLines;
+    private readonly IRepository<TestResult>? _testResults;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -164,8 +237,18 @@ public sealed class ReactionInvestigationService
         IRepository<Issue>? issues = null,
         IRepository<ProductType>? productTypes = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
-        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null,
+        IRepository<ReactionCatalogEntry>? catalog = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<Order>? orders = null,
+        IRepository<OrderLine>? orderLines = null,
+        IRepository<TestResult>? testResults = null)
     {
+        _catalog = catalog;
+        _specimens = specimens;
+        _orders = orders;
+        _orderLines = orderLines;
+        _testResults = testResults;
         _investigations = investigations;
         _transfusions = transfusions;
         _inventory = inventory;
@@ -250,6 +333,90 @@ public sealed class ReactionInvestigationService
         return row;
     }
 
+    /// <summary>
+    /// Opens an investigation for a reaction noticed after the transfusion was documented without one. The transfusion
+    /// is marked reaction-suspected (the change is audited with its earlier value), so the chart, lookback, and the
+    /// patient's next issue show it; the remainder of the unit is quarantined as for a bedside report.
+    /// </summary>
+    public async Task<OperationResult<ReactionInvestigation>> ReportLateAsync(ReportLateReactionRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var allowed = _permissions is null
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionDocument, ct)
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.ReactionInvestigate, ct);
+        var transfusion = (await _transfusions.ListAsync(t => t.IssueId == request.IssueId, ct))
+            .OrderByDescending(t => t.Id)
+            .FirstOrDefault();
+        var existing = transfusion is null
+            ? null
+            : await _investigations.FirstOrDefaultAsync(i => i.TransfusionEventId == transfusion.Id, ct);
+        var onset = request.OnsetUtc is { } o
+            ? o.Kind switch
+            {
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(o, DateTimeKind.Utc),
+                DateTimeKind.Local => o.ToUniversalTime(),
+                _ => o
+            }
+            : (DateTime?)null;
+        var check = LateReactionReportRule.Evaluate(
+            allowed, transfusion is not null, existing?.Id, transfusion?.StartUtc, onset, request.Description, _clock.UtcNow);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReactionInvestigation>.Fail($"{check.Code}: {check.Message}");
+        }
+
+        var tracked = await _transfusions.GetByIdAsync(transfusion!.Id, ct) ?? transfusion;
+        var description = request.Description!.Trim();
+        var row = new ReactionInvestigation
+        {
+            TransfusionEventId = tracked.Id,
+            PatientId = tracked.PatientId,
+            BloodProductId = tracked.BloodProductId,
+            ReportedUtc = _clock.UtcNow,
+            ReportedBy = _currentUser.UserName,
+            ReactionType = string.IsNullOrWhiteSpace(request.ReactionType) ? null : request.ReactionType.Trim(),
+            Findings = $"Reported after the transfusion: {description}",
+            Status = ReactionInvestigationStatus.Open,
+            ReportedAfterTransfusion = true,
+            OnsetUtc = onset
+        };
+
+        await TryQuarantineRemainderAsync(row, ct);
+        await _investigations.AddAsync(row, ct);
+
+        var wasSuspected = tracked.ReactionSuspected;
+        tracked.ReactionSuspected = true;
+        _transfusions.Update(tracked);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            newValue: new
+            {
+                TransfusionEventId = tracked.Id,
+                row.PatientId,
+                row.BloodProductId,
+                row.Status,
+                row.RemainderQuarantined,
+                row.ReportedAfterTransfusion,
+                row.OnsetUtc,
+                row.ReactionType
+            },
+            reason: $"Reaction reported after the transfusion: {description}");
+        _audit.Record(
+            AuditEventType.Transfusion,
+            nameof(TransfusionEvent),
+            tracked.Id,
+            oldValue: new { ReactionSuspected = wasSuspected },
+            newValue: new { tracked.ReactionSuspected, ReactionInvestigationId = row.Id },
+            reason: "Reaction reported after the transfusion was documented.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReactionInvestigation>.Ok(row);
+    }
+
     public async Task<OperationResult<ReactionInvestigation>> UpdateAsync(
         long id, UpdateReactionInvestigationRequest request, CancellationToken ct = default)
     {
@@ -265,6 +432,12 @@ public sealed class ReactionInvestigationService
         if (row is null)
         {
             return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
+        }
+
+        var locked = ReactionInvestigationLockRule.EvaluateUpdate(row.Status, ChangesFindings(row, request), request.Status);
+        if (locked.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReactionInvestigation>.Fail($"{locked.Code}: {locked.Message}");
         }
 
         var oldValue = Snapshot(row);
@@ -295,6 +468,37 @@ public sealed class ReactionInvestigationService
             }
         }
 
+        // OCD-057: the conclusion comes from the admin lists; it is required to close.
+        var conclusionSent = request.ConcludedReactionCode is not null || request.TreatmentCodes is not null;
+        var closing = request.Status == ReactionInvestigationStatus.Closed;
+        if (conclusionSent || closing)
+        {
+            var entries = _catalog is null ? [] : await _catalog.ListAsync(e => e.IsActive, ct);
+            var reaction = request.ConcludedReactionCode ?? row.ConcludedReactionCode;
+            var treatments = request.TreatmentCodes ?? SplitCodes(row.TreatmentCodes);
+            var conclusion = ReactionConclusionRule.Evaluate(reaction, treatments, entries, requireComplete: closing);
+            if (conclusion.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<ReactionInvestigation>.Fail($"{conclusion.Code}: {conclusion.Message}");
+            }
+
+            if (request.ConcludedReactionCode is not null)
+            {
+                var code = ReactionConclusionRule.Normalize(request.ConcludedReactionCode);
+                row.ConcludedReactionCode = code.Length == 0 ? null : code;
+                row.ConcludedReactionText = code.Length == 0 ? null : ReactionConclusionRule.TextFor(code, ReactionCatalogKind.ReactionType, entries);
+            }
+
+            if (request.TreatmentCodes is not null)
+            {
+                var codes = request.TreatmentCodes.Select(ReactionConclusionRule.Normalize).Where(c => c.Length > 0).Distinct().ToList();
+                row.TreatmentCodes = codes.Count == 0 ? null : string.Join("|", codes);
+                row.TreatmentTexts = codes.Count == 0
+                    ? null
+                    : string.Join("; ", codes.Select(c => ReactionConclusionRule.TextFor(c, ReactionCatalogKind.Treatment, entries)));
+            }
+        }
+
         if ((request.IsFatality == true || request.Severity == ReactionSeverity.Fatal) && !row.IsFatality)
         {
             row.IsFatality = true;
@@ -310,10 +514,12 @@ public sealed class ReactionInvestigationService
                 return OperationResult<ReactionInvestigation>.Fail("Closing an investigation requires an electronic signature.");
             }
 
+            // Both workup specimens with every Test Group test verified (a missing read counts as unverified).
+            var specimenWorkup = (await LoadWorkupsAsync([row], ct)).GetValueOrDefault(row.Id);
             var workup = ReactionWorkupCompletenessRule.Evaluate(
                 row.ClericalCheckCompleted,
                 row.VisualInspectionCompleted,
-                row.DatResult,
+                ReactionWorkupReader.StateFor(row, specimenWorkup),
                 row.ElutionResult);
             if (workup.Severity == RuleSeverity.HardStop)
             {
@@ -342,6 +548,83 @@ public sealed class ReactionInvestigationService
             row,
             remainderWarning is null ? null : [remainderWarning]);
     }
+
+    /// <summary>
+    /// Reopens a signed investigation so it can be changed. Needs a reason. The audit keeps the closing signature,
+    /// who closed it, and when; the case must be closed again with a new signature.
+    /// </summary>
+    public async Task<OperationResult<ReactionInvestigation>> ReopenAsync(
+        long id, ReopenReactionInvestigationRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var row = await _investigations.GetByIdAsync(id, ct);
+        if (row is null)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
+        }
+
+        var check = ReactionInvestigationLockRule.EvaluateReopen(row.Status, request.Reason);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReactionInvestigation>.Fail($"{check.Code}: {check.Message}");
+        }
+
+        var oldValue = new { row.Status, row.ClosedBy, row.ClosedUtc, row.ClosedSignatureId };
+        row.Status = ReactionInvestigationStatus.UnderReview;
+        row.ClosedBy = null;
+        row.ClosedUtc = null;
+        row.ClosedSignatureId = null;
+        row.ReopenedUtc = _clock.UtcNow;
+        row.ReopenedBy = _currentUser.UserName;
+        row.ReopenReason = request.Reason!.Trim();
+        _investigations.Update(row);
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            oldValue: oldValue,
+            newValue: new { row.Status, Action = "Reopened", row.ReopenedBy, row.ReopenedUtc },
+            reason: row.ReopenReason);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReactionInvestigation>.Ok(row);
+    }
+
+    /// <summary>True when the request would change any workup or conclusion field (not the status).</summary>
+    private static bool ChangesFindings(ReactionInvestigation row, UpdateReactionInvestigationRequest r) =>
+        Differs(r.ReactionType, row.ReactionType)
+        || (r.Severity is not null && r.Severity != row.Severity)
+        || Differs(r.Findings, row.Findings)
+        || Differs(r.Conclusions, row.Conclusions)
+        || Differs(r.FollowUp, row.FollowUp)
+        || Differs(r.Disposition, row.Disposition)
+        || (r.ProductAtFault is not null && r.ProductAtFault != row.ProductAtFault)
+        || (r.IsFatality == true && !row.IsFatality)
+        || (r.ClericalCheckCompleted is not null && r.ClericalCheckCompleted != row.ClericalCheckCompleted)
+        || Differs(r.ClericalCheckNotes, row.ClericalCheckNotes)
+        || (r.VisualInspectionCompleted is not null && r.VisualInspectionCompleted != row.VisualInspectionCompleted)
+        || (r.VisualInspectionAcceptable is not null && r.VisualInspectionAcceptable != row.VisualInspectionAcceptable)
+        || Differs(r.RepeatPatientAboRh, row.RepeatPatientAboRh)
+        || Differs(r.RepeatUnitAboRh, row.RepeatUnitAboRh)
+        || (r.DatResult is not null && r.DatResult != row.DatResult)
+        || Differs(r.ElutionResult, row.ElutionResult)
+        || (r.RemainderQuarantined == true && !row.RemainderQuarantined)
+        || Differs(r.ConcludedReactionCode, row.ConcludedReactionCode)
+        || (r.TreatmentCodes is not null && string.Join("|", r.TreatmentCodes.Select(ReactionConclusionRule.Normalize).Where(c => c.Length > 0).Distinct()) != (row.TreatmentCodes ?? string.Empty));
+
+    private static IReadOnlyList<string> SplitCodes(string? joined) =>
+        string.IsNullOrWhiteSpace(joined) ? [] : joined.Split('|', StringSplitOptions.RemoveEmptyEntries);
+
+    // A null request field means "not sent"; blank and null stored values are the same.
+    private static bool Differs(string? requested, string? stored) =>
+        requested is not null && !string.Equals(Normalize(requested), Normalize(stored), StringComparison.Ordinal);
+
+    private static string Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? string.Empty : value;
 
     public const string RemainderHoldCode = "RXN-REMAINDER-HOLD";
 
@@ -409,6 +692,73 @@ public sealed class ReactionInvestigationService
         return OperationResult<ReactionInvestigation>.Ok(row);
     }
 
+    /// <summary>The investigation report, with the issue and transfusion record. Needs reaction.investigate.</summary>
+    public async Task<OperationResult<ReactionReportDto>> GetReportAsync(long id, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<ReactionReportDto>.Fail(denied.Error!);
+        }
+
+        var dto = await GetDtoAsync(id, ct);
+        if (dto is null)
+        {
+            return OperationResult<ReactionReportDto>.Fail("Investigation not found.");
+        }
+
+        var transfusion = await _transfusions.GetByIdAsync(dto.TransfusionEventId, ct);
+        var issue = transfusion is null || _issues is null ? null : await _issues.GetByIdAsync(transfusion.IssueId, ct);
+        var unit = await _inventory.GetUnitAsync(dto.BloodProductId, ct);
+        var product = unit is null || _productTypes is null ? null : await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        return OperationResult<ReactionReportDto>.Ok(new ReactionReportDto(
+            dto,
+            _clock.UtcNow,
+            product?.Name,
+            issue?.IssuedUtc,
+            issue?.IssuedBy,
+            issue?.IssuedToLocation,
+            transfusion?.StartUtc,
+            transfusion?.StopUtc,
+            transfusion?.VolumeTransfused,
+            transfusion?.Transfusionist,
+            transfusion?.Location,
+            transfusion?.FinalDisposition,
+            transfusion?.ReactionActions,
+            transfusion?.PostTransfusionObservations,
+            transfusion?.DocumentedBy));
+    }
+
+    /// <summary>
+    /// Records the report print before the browser prints it: the sheet carries patient data off the system. The
+    /// audit names whether the case was open or closed when printed, since an open case's sheet is a draft.
+    /// </summary>
+    public async Task<OperationResult<ReactionInvestigation>> RecordReportPrintedAsync(long id, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var row = await _investigations.GetByIdAsync(id, ct);
+        if (row is null)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
+        }
+
+        _audit.Record(
+            AuditEventType.Print,
+            nameof(ReactionInvestigation),
+            row.Id,
+            newValue: new { Document = "Transfusion reaction investigation report", row.PatientId, row.BloodProductId, row.Status },
+            reason: row.Status == ReactionInvestigationStatus.Closed
+                ? "Reaction investigation report printed."
+                : "Reaction investigation report printed while the case is open (draft).");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReactionInvestigation>.Ok(row);
+    }
+
     public async Task<OperationResult<ReactionInvestigation>> RecordWrittenReportAsync(long id, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(ct);
@@ -453,6 +803,12 @@ public sealed class ReactionInvestigationService
         row.Status,
         row.ReactionType,
         row.Severity,
+        row.Findings,
+        row.Conclusions,
+        row.FollowUp,
+        row.Disposition,
+        row.ClericalCheckNotes,
+        row.VisualInspectionAcceptable,
         row.RepeatPatientAboRh,
         row.RepeatUnitAboRh,
         row.DatResult,
@@ -461,7 +817,15 @@ public sealed class ReactionInvestigationService
         row.VisualInspectionCompleted,
         row.RemainderQuarantined,
         row.IsFatality,
-        row.ProductAtFault
+        row.ProductAtFault,
+        row.ConcludedReactionCode,
+        row.ConcludedReactionText,
+        row.TreatmentCodes,
+        row.TreatmentTexts,
+        row.PreTransfusionSpecimenId,
+        row.PreTransfusionOrderId,
+        row.PostTransfusionSpecimenId,
+        row.PostTransfusionOrderId
     };
 
     private static bool CanHoldReactionRemainder(UnitStatus status) =>
@@ -575,8 +939,13 @@ public sealed class ReactionInvestigationService
             ? []
             : await _issues.ListAsync(i => issueIds.Contains(i.Id), ct);
 
-        return new ReactionDisplayContext(patients, types, antibodies, units, products, transfusions, issues, aboRhPolicies);
+        var workups = await LoadWorkupsAsync(rows, ct);
+        return new ReactionDisplayContext(patients, types, antibodies, units, products, transfusions, issues, aboRhPolicies, workups);
     }
+
+    private Task<IReadOnlyDictionary<long, ReactionWorkupReader.Workup>> LoadWorkupsAsync(
+        IReadOnlyList<ReactionInvestigation> rows, CancellationToken ct) =>
+        ReactionWorkupReader.LoadAsync(rows, _specimens, _orders, _orderLines, _testResults, _clock.UtcNow, ct);
 
     private sealed class ReactionDisplayContext(
         IReadOnlyList<Patient> patients,
@@ -586,8 +955,10 @@ public sealed class ReactionInvestigationService
         IReadOnlyList<ProductType> products,
         IReadOnlyList<TransfusionEvent> transfusions,
         IReadOnlyList<Issue> issues,
-        IReadOnlyDictionary<long, ProductAboRhPolicy> aboRhPolicies)
+        IReadOnlyDictionary<long, ProductAboRhPolicy> aboRhPolicies,
+        IReadOnlyDictionary<long, ReactionWorkupReader.Workup> workups)
     {
+        private readonly IReadOnlyDictionary<long, ReactionWorkupReader.Workup> _workups = workups;
         private readonly Dictionary<long, Patient> _patients = patients.ToDictionary(p => p.Id);
         private readonly Dictionary<long, PatientBloodTypeHistory> _types = types
             .GroupBy(h => h.PatientId)
@@ -629,15 +1000,24 @@ public sealed class ReactionInvestigationService
             var (incompatible, alert) = EvaluateLabeledCompatibility(
                 type, unit, product, patient?.Sex ?? Sex.Unknown, aboRhPolicy);
             var labeledUnit = unit is null ? (AboRh?)null : new AboRh(unit.Abo, unit.RhD);
-            var patientRepeat = ReactionRepeatAboRhRule.Evaluate(
-                type?.BloodType, row.RepeatPatientAboRh, "Patient");
+            // The repeat patient type is the verified ABO/Rh on the post-transfusion specimen; a case recorded before the
+            // specimen workup keeps its typed value. The pre- and post-transfusion types are also compared.
+            _workups.TryGetValue(row.Id, out var specimenWorkup);
+            var postAbo = specimenWorkup?.Post?.VerifiedValue("ABORH");
+            var preAbo = specimenWorkup?.Pre?.VerifiedValue("ABORH");
+            var patientRepeatText = postAbo ?? (row.PostTransfusionOrderId is null ? row.RepeatPatientAboRh : null);
+            var patientRepeat = ReactionRepeatAboRhRule.Evaluate(type?.BloodType, patientRepeatText, "Patient");
+            var prePost = preAbo is not null && postAbo is not null && ReactionRepeatAboRhRule.TryParseDisplay(preAbo, out var preType)
+                ? ReactionRepeatAboRhRule.Evaluate(preType, postAbo, "Post-transfusion specimen")
+                : RuleResult.Pass(ReactionRepeatAboRhRule.Code);
             var unitRepeat = ReactionRepeatAboRhRule.Evaluate(
                 labeledUnit, row.RepeatUnitAboRh, "Unit");
-            var patientDelta = patientRepeat.Severity == RuleSeverity.Warning;
+            var patientDelta = patientRepeat.Severity == RuleSeverity.Warning || prePost.Severity == RuleSeverity.Warning;
             var unitDelta = unitRepeat.Severity == RuleSeverity.Warning;
             var repeatDetail = string.Join(" ", new[]
             {
-                patientDelta ? patientRepeat.Message : null,
+                patientRepeat.Severity == RuleSeverity.Warning ? patientRepeat.Message : null,
+                prePost.Severity == RuleSeverity.Warning ? prePost.Message.Replace("disagrees with", "disagrees with the pre-transfusion specimen's", StringComparison.Ordinal) : null,
                 unitDelta ? unitRepeat.Message : null
             }.Where(m => !string.IsNullOrWhiteSpace(m)));
             return ReactionInvestigationDto.From(
@@ -658,7 +1038,8 @@ public sealed class ReactionInvestigationService
                 unitDelta,
                 string.IsNullOrWhiteSpace(repeatDetail) ? null : repeatDetail,
                 unit?.Status,
-                RemainderNote(row.RemainderQuarantined, unit?.Status));
+                RemainderNote(row.RemainderQuarantined, unit?.Status),
+                specimenWorkup);
         }
 
         private static string? RemainderNote(bool quarantined, UnitStatus? status)

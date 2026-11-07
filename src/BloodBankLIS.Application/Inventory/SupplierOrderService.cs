@@ -1,6 +1,7 @@
 using System.Globalization;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Reporting;
@@ -8,7 +9,13 @@ using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
 
-public sealed record SupplierOrderLineDto(long Id, long ProductTypeId, string ProductCode, string ProductName, AboGroup? Abo, int Quantity);
+public sealed record SupplierOrderLineDto(long Id, long ProductTypeId, string ProductCode, string ProductName, AboGroup? Abo, int Quantity)
+{
+    /// <summary>Units on the linked delivery counted against this line; null until the order is received.</summary>
+    public int? Received { get; init; }
+
+    public int Short => Received is int r ? Math.Max(0, Quantity - r) : 0;
+}
 
 public sealed record SupplierOrderDto(
     long Id,
@@ -25,7 +32,14 @@ public sealed record SupplierOrderDto(
     DateTime? ReceivedUtc,
     string? CancelReason,
     int UnitsOrdered,
-    IReadOnlyList<SupplierOrderLineDto> Lines);
+    IReadOnlyList<SupplierOrderLineDto> Lines,
+    // Submitted orders: when the blood is due (Inventory.ExpectedArrivalDueHours after submit), and whether that has passed.
+    DateTime? ArrivalDueUtc = null,
+    bool ArrivalOverdue = false)
+{
+    /// <summary>Units ordered that the linked delivery did not bring (0 before receipt).</summary>
+    public int UnitsShort => Lines.Sum(l => l.Short);
+}
 
 public sealed record CreateSupplierOrderRequest(long SupplierId);
 
@@ -42,7 +56,7 @@ public sealed record CancelSupplierOrderRequest(string Reason);
 public sealed record SupplierOrderFile(string FileName, string ContentType, byte[] Bytes);
 
 /// <summary>
-/// Supplier orders built from the par shortfall. The order is printed or exported and
+/// Supplier orders built from the minimum stock shortfall. The order is printed or exported and
 /// sent outside the system; no EDI or supplier interface is implied.
 /// </summary>
 public sealed class SupplierOrderService
@@ -52,13 +66,15 @@ public sealed class SupplierOrderService
     private readonly IRepository<BloodSupplier> _suppliers;
     private readonly IRepository<BloodDelivery> _deliveries;
     private readonly IRepository<ProductType> _products;
-    private readonly StockParService _par;
+    private readonly MinimumStockService _minimumStock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly ISignatureService? _signatures;
     private readonly IReportDocumentRenderer? _renderer;
+    private readonly IRepository<BloodUnit>? _units;
+    private readonly FacilityPolicyService? _policy;
 
     public SupplierOrderService(
         IRepository<SupplierOrder> orders,
@@ -66,20 +82,24 @@ public sealed class SupplierOrderService
         IRepository<BloodSupplier> suppliers,
         IRepository<BloodDelivery> deliveries,
         IRepository<ProductType> products,
-        StockParService par,
+        MinimumStockService minimumStock,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
         ISignatureService? signatures = null,
-        IReportDocumentRenderer? renderer = null)
+        IReportDocumentRenderer? renderer = null,
+        IRepository<BloodUnit>? units = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
+        _units = units;
         _orders = orders;
         _lines = lines;
         _suppliers = suppliers;
         _deliveries = deliveries;
         _products = products;
-        _par = par;
+        _minimumStock = minimumStock;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
@@ -106,8 +126,11 @@ public sealed class SupplierOrderService
         return order is null ? null : await ToDtoAsync(order, ct);
     }
 
-    /// <summary>Draft order with one line per par row that is short, for the shortfall quantity.</summary>
-    public async Task<OperationResult<SupplierOrderDto>> CreateFromParAsync(CreateSupplierOrderRequest request, CancellationToken ct = default)
+    /// <summary>
+    /// Draft order with one line per minimum stock row that is short, for what is still to order: the shortfall less units
+    /// already on submitted orders that have not arrived, so a shortage is not ordered twice.
+    /// </summary>
+    public async Task<OperationResult<SupplierOrderDto>> CreateFromShortfallAsync(CreateSupplierOrderRequest request, CancellationToken ct = default)
     {
         var supplier = await _suppliers.GetByIdAsync(request.SupplierId, ct);
         if (supplier is null || !supplier.IsActive)
@@ -115,10 +138,13 @@ public sealed class SupplierOrderService
             return OperationResult<SupplierOrderDto>.Fail("Supplier not found.");
         }
 
-        var shortRows = (await _par.ListAsync(ct)).Where(row => row.Shortfall > 0).ToList();
+        var rows = await _minimumStock.ListAsync(ct);
+        var shortRows = rows.Where(row => row.StillToOrder > 0).ToList();
         if (shortRows.Count == 0)
         {
-            return OperationResult<SupplierOrderDto>.Fail("No product is below par, so there is nothing to order.");
+            return OperationResult<SupplierOrderDto>.Fail(rows.Any(row => row.Shortfall > 0)
+                ? "Every shortage is already on a submitted order that has not arrived, so there is nothing more to order. Receive those orders, or cancel one to order again."
+                : "No product is below its minimum stock, so there is nothing to order.");
         }
 
         var order = new SupplierOrder
@@ -136,13 +162,13 @@ public sealed class SupplierOrderService
                 SupplierOrderId = order.Id,
                 ProductTypeId = row.ProductTypeId,
                 Abo = row.Abo,
-                Quantity = Math.Min(row.Shortfall, SupplierOrderRule.MaxLineQuantity)
+                Quantity = Math.Min(row.StillToOrder, SupplierOrderRule.MaxLineQuantity)
             }, ct);
         }
 
         _audit.Record(AuditEventType.Create, nameof(SupplierOrder), order.Id, null,
-            new { order.OrderNumber, Supplier = supplier.Code, Lines = shortRows.Count, Units = shortRows.Sum(r => r.Shortfall) },
-            "Supplier order drafted from par shortfall.");
+            new { order.OrderNumber, Supplier = supplier.Code, Lines = shortRows.Count, Units = shortRows.Sum(r => r.StillToOrder), AlreadyOnOrder = shortRows.Sum(r => Math.Min(r.Shortfall, r.OnOrder)) },
+            "Supplier order drafted from minimum stock shortfall.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(order, ct));
     }
@@ -278,12 +304,18 @@ public sealed class SupplierOrderService
         order.BloodDeliveryId = delivery.Id;
         order.ReceivedUtc = _clock.UtcNow;
         _orders.Update(order);
+        var dto = await ToDtoAsync(order, ct);
+        var shortLines = dto.Lines.Where(l => l.Short > 0)
+            .Select(l => $"{l.ProductCode} {(l.Abo?.ToString() ?? "any ABO")}: {l.Short} of {l.Quantity} short")
+            .ToList();
         _audit.Record(AuditEventType.Update, nameof(SupplierOrder), order.Id,
             new { Status = SupplierOrderStatus.Submitted },
-            new { order.Status, DeliveryId = delivery.Id, delivery.PackingListNumber },
-            "Supplier order received against a delivery.");
+            new { order.Status, DeliveryId = delivery.Id, delivery.PackingListNumber, dto.UnitsOrdered, dto.UnitsShort, Short = shortLines },
+            dto.UnitsShort == 0
+                ? "Supplier order received against a delivery."
+                : $"Supplier order received against a delivery, {dto.UnitsShort} unit(s) short: {string.Join("; ", shortLines)}.");
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(order, ct));
+        return OperationResult<SupplierOrderDto>.Ok(dto);
     }
 
     public async Task<OperationResult<SupplierOrderDto>> CancelAsync(long id, CancelSupplierOrderRequest request, CancellationToken ct = default)
@@ -353,6 +385,38 @@ public sealed class SupplierOrderService
         return prefix + (today.Count + 1).ToString("000", CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Counts the delivery's units against the order lines: lines for a named ABO group take matching units first, then
+    /// any-ABO lines take what is left of that product, so no unit is counted twice. Extra units are not counted.
+    /// </summary>
+    public static List<SupplierOrderLineDto> Reconcile(IReadOnlyList<SupplierOrderLineDto> lines, IEnumerable<BloodUnit> delivered)
+    {
+        var left = delivered.GroupBy(u => (u.ProductTypeId, u.Abo)).ToDictionary(g => g.Key, g => g.Count());
+        var received = new Dictionary<long, int>();
+        foreach (var line in lines.Where(l => l.Abo is not null))
+        {
+            var key = (line.ProductTypeId, line.Abo!.Value);
+            var take = Math.Min(line.Quantity, left.GetValueOrDefault(key));
+            left[key] = left.GetValueOrDefault(key) - take;
+            received[line.Id] = take;
+        }
+
+        foreach (var line in lines.Where(l => l.Abo is null))
+        {
+            var take = 0;
+            foreach (var key in left.Keys.Where(k => k.ProductTypeId == line.ProductTypeId).ToList())
+            {
+                var more = Math.Min(line.Quantity - take, left[key]);
+                left[key] -= more;
+                take += more;
+            }
+
+            received[line.Id] = take;
+        }
+
+        return lines.Select(l => l with { Received = received.GetValueOrDefault(l.Id) }).ToList();
+    }
+
     private async Task<SupplierOrderDto> ToDtoAsync(SupplierOrder order, CancellationToken ct)
     {
         var supplier = await _suppliers.GetByIdAsync(order.BloodSupplierId, ct);
@@ -368,9 +432,18 @@ public sealed class SupplierOrderService
             .OrderBy(l => l.ProductCode)
             .ThenBy(l => l.Abo)
             .ToList();
+        if (order.BloodDeliveryId is long deliveryId && _units is not null)
+        {
+            var delivered = await _units.ListAsync(u => u.DeliveryId == deliveryId, ct);
+            lineDtos = Reconcile(lineDtos, delivered);
+        }
+
+        var dueHours = _policy is null ? 24 : await _policy.GetExpectedArrivalDueHoursAsync(ct);
         return new SupplierOrderDto(
             order.Id, order.OrderNumber, order.BloodSupplierId, supplier?.Name ?? string.Empty, order.Status, order.Notes,
             order.CreatedUtc, order.CreatedBy, order.SubmittedBy, order.SubmittedUtc, order.BloodDeliveryId, order.ReceivedUtc,
-            order.CancelReason, lineDtos.Sum(l => l.Quantity), lineDtos);
+            order.CancelReason, lineDtos.Sum(l => l.Quantity), lineDtos,
+            order.Status == SupplierOrderStatus.Submitted ? SupplierOrderRule.ArrivalDueUtc(order.SubmittedUtc, dueHours) : null,
+            SupplierOrderRule.IsArrivalOverdue(order.Status, order.SubmittedUtc, dueHours, _clock.UtcNow));
     }
 }

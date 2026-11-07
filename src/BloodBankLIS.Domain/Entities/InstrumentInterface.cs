@@ -23,7 +23,8 @@ public class InstrumentInterface : BaseEntity
 
     public ICollection<InstrumentFieldMapping> FieldMappings { get; set; } = new List<InstrumentFieldMapping>();
 
-    public ICollection<InstrumentTestMapping> TestMappings { get; set; } = new List<InstrumentTestMapping>();
+    /// <summary>Code and value translations for this instrument (replaces the retired test mapping table).</summary>
+    public ICollection<InstrumentValueTranslation> Translations { get; set; } = new List<InstrumentValueTranslation>();
 
     public ICollection<InstrumentInterfaceRule> Rules { get; set; } = new List<InstrumentInterfaceRule>();
 }

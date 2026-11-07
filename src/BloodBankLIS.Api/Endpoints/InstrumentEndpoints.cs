@@ -59,6 +59,13 @@ public static class InstrumentEndpoints
                 .ToList());
         });
 
+        // Failed messages nobody has replayed successfully or resolved yet, oldest first.
+        group.MapGet("/messages/failed", async (IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
+            Results.Ok((await messages.ListAsync(m => m.Status == Domain.Enums.InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct))
+                .OrderBy(m => m.ReceivedUtc)
+                .Select(ToSummary)
+                .ToList()));
+
         group.MapGet("/messages/{id:long}", async (
             long id,
             IRepository<InstrumentMessageLog> messages,
@@ -86,7 +93,28 @@ public static class InstrumentEndpoints
             var outcome = await processor.ReplayAsync(id, ct);
             return outcome is null
                 ? Results.NotFound(new { error = $"Message {id} not found." })
-                : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
+                : outcome.Refused
+                    ? Results.UnprocessableEntity(new { error = string.Join(" ", outcome.Notes) })
+                    : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
+        });
+
+        // Posting a flagged result is a review decision: it takes result verification as well as instrument access.
+        group.MapPost("/messages/{id:long}/release", async (long id, ReasonBody body, AstmInboundProcessor processor, CancellationToken ct) =>
+        {
+            var outcome = await processor.ReleaseHeldAsync(id, body.Reason, ct);
+            return outcome is null
+                ? Results.NotFound(new { error = $"Message {id} not found." })
+                : outcome.Refused || !outcome.Accepted
+                    ? Results.UnprocessableEntity(new { error = string.Join(" ", outcome.Notes) })
+                    : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
+        }).RequirePermission(PermissionCodes.ResultVerify);
+
+        group.MapPost("/messages/{id:long}/resolve", async (long id, ReasonBody body, AstmInboundProcessor processor, CancellationToken ct) =>
+        {
+            var (message, error) = await processor.ResolveAsync(id, body.Reason, ct);
+            return message is null
+                ? Results.UnprocessableEntity(new { error })
+                : Results.Ok(ToSummary(message));
         });
 
         group.MapPost("/inbound/{interfaceId:long}", async (
@@ -146,7 +174,8 @@ public static class InstrumentEndpoints
     }
 
     private static InstrumentMessageSummaryDto ToSummary(InstrumentMessageLog m) =>
-        new(m.Id, m.InterfaceId, m.Direction, m.MessageKind, m.Status, m.ReceivedUtc, m.ProcessedUtc, m.SpecimenId, m.PatientId, m.ErrorDetail);
+        new(m.Id, m.InterfaceId, m.Direction, m.MessageKind, m.Status, m.ReceivedUtc, m.ProcessedUtc, m.SpecimenId, m.PatientId, m.ErrorDetail,
+            m.ResolvedUtc, m.ResolvedBy, m.ResolutionNote);
 
     private static EchoSimulatorRequest ToSim(EchoSimulatorPreviewRequest req) =>
         new(req.Assay, req.SpecimenId, req.PatientId, req.LastName, req.FirstName, req.DateOfBirth, req.Sex, req.Seed);

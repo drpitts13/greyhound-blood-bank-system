@@ -2,7 +2,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Instrument Interfaces · Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Instrument Interfaces · HemoCore</PageTitle>
 
 <h1>Instrument Interfaces</h1>
 <p class="muted">Connection status, session logs, and ASTM messages with parse, mapping, and rule traces.</p>
@@ -71,22 +71,45 @@
         }
     </div>
     <div class="bb-card">
-        <div class="bb-card-title"><h3>Messages</h3></div>
-        @if (_messages.Count == 0)
+        <div class="bb-card-title"><h3>Messages</h3>
+            @if (_messages.Count(m => m.OpenFailure) is var open && open > 0)
+            {
+                <span class="badge badge-red" title="Failed messages not yet replayed successfully or resolved">@open failed, open</span>
+            }
+            @if (_unmappedInstrumentValues > 0)
+            {
+                <a class="badge badge-amber" href="/admin/hl7/translations?tab=unmapped" title="Instrument codes or values with no translation" data-inst-unmapped>@_unmappedInstrumentValues unmapped</a>
+            }
+        </div>
+        <div class="flex gap" style="margin:.3rem 0 .6rem;" data-inst-show>
+            @foreach (var (key, label) in ShowChoices)
+            {
+                <button type="button" class="btn btn-sm @(_show == key ? "btn-primary" : "btn-secondary")" @onclick="() => _show = key" data-inst-show-choice="@key">
+                    @label (@CountFor(key))
+                </button>
+            }
+        </div>
+        @if (VisibleMessages.Count == 0)
         {
-            <div class="empty">No messages.</div>
+            <div class="empty">@(_show == "all" ? "No messages." : _show == "held" ? "No held results." : "No open failures.")</div>
         }
         else
         {
             <table class="bb">
                 <thead><tr><th>When</th><th>Kind</th><th>Status</th><th>Specimen</th><th></th></tr></thead>
                 <tbody>
-                    @foreach (var msg in _messages)
+                    @foreach (var msg in VisibleMessages)
                     {
                         <tr class="@(_detail?.Message.Id == msg.Id ? "row-active" : null)">
                             <td class="nowrap">@msg.ReceivedUtc.ToString("HH:mm:ss")</td>
                             <td>@msg.MessageKind</td>
-                            <td>@msg.Status</td>
+                            <td>
+                                @msg.Status@(msg.ResolvedUtc is not null ? " · resolved" : "")
+                                @if (msg.Held)
+                                {
+                                    <span class="badge badge-amber" title="An instrument error code held this result: review it, then release it or re-run the sample" data-inst-held>Held</span>
+                                }
+                            </td>
                             <td class="mono">@msg.SpecimenId</td>
                             <td><button class="btn btn-ghost btn-sm" @onclick="() => OpenAsync(msg.Id)">View</button></td>
                         </tr>
@@ -102,12 +125,49 @@
     @* Opens below both tables; keyed so each View re-adds the card and scrolls it into view. *@
     <div @key="_detail.Message.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <div class="bb-card-title"><h3>Message @_detail.Message.Id</h3>
-            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ReplayAsync">Replay</button>
+            @if (_detail.Message.OpenFailure)
+            {
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ReplayAsync">Replay</button>
+            }
             <button class="btn btn-ghost btn-sm" @onclick="() => _detail = null">Close</button>
         </div>
         @if (!string.IsNullOrWhiteSpace(_detail.Message.ErrorDetail))
         {
             <div class="alert alert-danger">@_detail.Message.ErrorDetail</div>
+        }
+        @if (_detail.Message.ResolvedUtc is DateTime resolvedAt)
+        {
+            <div class="alert alert-info">Resolved @resolvedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @_detail.Message.ResolvedBy: @_detail.Message.ResolutionNote</div>
+        }
+        else if (_detail.Message.OpenFailure)
+        {
+            @if (IsHeld(_detail.Message))
+            {
+                <div class="bb-card" style="margin-bottom:.8rem;" data-inst-release>
+                    <strong>Held for an instrument error code</strong>
+                    <p class="muted" style="margin:.3rem 0;">
+                        Replaying holds it again. Check the reactions on the instrument and its QC; to post the result as the
+                        instrument sent it, release it with the reason. It posts as pending verification, with the held code
+                        shown beside its source. To re-run the sample instead, resolve this message once the new result has filed.
+                    </p>
+                    @if (Session.Has(PermissionCodes.ResultVerify))
+                    {
+                        <div class="form-row">
+                            <div class="field" style="flex:1;"><label>Why can it be posted?</label><input @bind="_releaseReason" @bind:event="oninput" placeholder="e.g. Reactions reviewed on the instrument; QC in range" data-inst-release-reason /></div>
+                            <div class="field"><label>&nbsp;</label><button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReason))" @onclick="ReleaseAsync" data-inst-release-button>Release held result</button></div>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="muted" style="margin:0;">Releasing a held result needs result verification permission.</p>
+                    }
+                </div>
+            }
+            @* Handled outside replay (for example the result was entered by hand): close it with the reason. *@
+            <div class="form-row">
+                <div class="field"><label>Resolve without replay: how was it handled?</label><input @bind="_resolveReason" @bind:event="oninput" placeholder="e.g. Result entered by hand from the instrument printout" /></div>
+                <div class="field"><label>&nbsp;</label><button class="btn btn-ghost btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_resolveReason))" @onclick="ResolveAsync">Resolve</button></div>
+            </div>
         }
         <h4>Raw ASTM</h4>
         <pre class="pre">@_detail.RawMessage</pre>
@@ -163,6 +223,36 @@
     private InstrumentMessageDetailDto? _detail;
     private Feedback? _feedback;
     private bool _busy;
+    private int _unmappedInstrumentValues;
+
+    [SupplyParameterFromQuery(Name = "show")] public string? ShowQuery { get; set; }
+
+    // "open" and "held" from the home card's link; the list otherwise shows every message.
+    private string _show = "all";
+
+    private static readonly (string Key, string Label)[] ShowChoices = [("all", "All"), ("open", "Open failures"), ("held", "Held")];
+
+    private List<InstrumentMessageSummaryDto> VisibleMessages => _show switch
+    {
+        "open" => _messages.Where(m => m.OpenFailure).ToList(),
+        "held" => _messages.Where(m => m.Held).ToList(),
+        _ => _messages
+    };
+
+    private int CountFor(string key) => key switch
+    {
+        "open" => _messages.Count(m => m.OpenFailure),
+        "held" => _messages.Count(m => m.Held),
+        _ => _messages.Count
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (ShowQuery is "open" or "held")
+        {
+            _show = ShowQuery;
+        }
+    }
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -175,6 +265,18 @@
         _status = status.Value ?? new();
         _logs = logs.Value ?? new();
         _messages = messages.Value ?? new();
+        // The list holds the latest messages; add older open failures so the filters match the home card's count.
+        var failures = await Api.GetOpenInstrumentFailuresAsync();
+        foreach (var failure in failures.Value ?? new())
+        {
+            if (_messages.All(m => m.Id != failure.Id))
+            {
+                _messages.Add(failure);
+            }
+        }
+        // Shown only to users who can open the translation lists; others simply see no badge.
+        var unmapped = await Api.GetAdminHl7UnmappedValuesAsync();
+        _unmappedInstrumentValues = unmapped.Value?.Count(u => u.InstrumentInterfaceId is not null) ?? 0;
         if (!status.Succeeded) _feedback = status.ToFeedback();
         _busy = false;
     }
@@ -189,6 +291,45 @@
         }
 
         _detail = result.Value;
+    }
+
+    private string? _resolveReason;
+    private string? _releaseReason;
+
+    private static bool IsHeld(InstrumentMessageSummaryDto m) =>
+        m.OpenFailure && m.ErrorDetail?.Contains("INST-HOLD", StringComparison.Ordinal) == true;
+
+    private async Task ReleaseAsync()
+    {
+        if (_detail is null) return;
+        _busy = true;
+        var id = _detail.Message.Id;
+        var result = await Api.ReleaseHeldInstrumentResultAsync(id, _releaseReason ?? string.Empty);
+        _feedback = result.ToFeedback("Held result released: it is pending verification.");
+        if (result.Succeeded)
+        {
+            _releaseReason = null;
+            await LoadAsync();
+            await OpenAsync(id);
+        }
+
+        _busy = false;
+    }
+
+    private async Task ResolveAsync()
+    {
+        if (_detail is null) return;
+        _busy = true;
+        var result = await Api.ResolveInstrumentMessageAsync(_detail.Message.Id, _resolveReason ?? string.Empty);
+        _feedback = result.ToFeedback("Message resolved.");
+        if (result.Succeeded)
+        {
+            _resolveReason = null;
+            await LoadAsync();
+            await OpenAsync(_detail.Message.Id);
+        }
+
+        _busy = false;
     }
 
     private async Task ReplayAsync()

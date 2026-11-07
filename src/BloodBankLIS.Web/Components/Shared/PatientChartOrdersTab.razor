@@ -32,7 +32,7 @@
                 <p class="form-step">1. Visit</p>
                 <div class="form-row">
                     <div class="field"><label>Visit</label>
-                        <select @bind="NewOrderEncounterId" @bind:after="() => NewOrderEncounterIdChanged.InvokeAsync(NewOrderEncounterId)">
+                        <select @bind="NewOrderEncounterId" @bind:after="OnNewOrderVisitChangedAsync">
                             @foreach (var v in Encounters)
                             {
                                 <option value="@v.Id">@v.VisitNumber</option>
@@ -49,6 +49,17 @@
                                 <option value="@l.Id">@l.DisplayName (@l.Code)</option>
                             }
                         </select>
+                        @if (OrderVisitDefaults.VisitLocation(NewOrderVisit) is { } visitPlace)
+                        {
+                            @if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is long fromVisit && fromVisit == NewOrderLocationId)
+                            {
+                                <span class="sub" data-order-location-from-visit>From the visit (@visitPlace)</span>
+                            }
+                            else if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is null)
+                            {
+                                <span class="sub" data-order-location-unmatched>The visit says @visitPlace, which is not one ordering location; choose it here.</span>
+                            }
+                        }
                     </div>
                     <div class="field"><label>Ordering provider</label>
                         <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
@@ -60,6 +71,13 @@
                                            ItemValue="@ProviderItemValue"
                                            Clearable="true"
                                            Placeholder="Type to search providers..." />
+                        @if (NewOrderProviderId is null && OrderVisitDefaults.AttendingFor(NewOrderVisit, Providers) is { } attending)
+                        {
+                            <div class="sub" data-attending-suggestion>
+                                Visit attending: @FormatProvider(attending)
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnNewProviderChanged(attending.Id)" title="Use only if this provider ordered it">Use</button>
+                            </div>
+                        }
                     </div>
                 </div>
                 <p class="form-step">2. Order</p>
@@ -131,10 +149,14 @@
                                 {
                                     @foreach (var t in SpecimenTypes)
                                     {
-                                        <option value="@t.Code">@t.Code — @t.Description</option>
+                                        <option value="@t.Code">@t.Code — @t.Description@(SuitsAllSelected(t.Code) ? " ✓ suits the selected tests" : "")</option>
                                     }
                                 }
                             </select>
+                            @if (AcceptedSpecimenTypes.OrderNote(SpecimenTypeOrderHint.Selected(TestDefs, NewOrderTestCodes)) is { } typeNote)
+                            {
+                                <span class="sub" data-order-specimen-note>@typeNote</span>
+                            }
                         </div>
                         <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
                         @if (AccessionPreviewExpires is { } preview)
@@ -144,8 +166,16 @@
                             </div>
                         }
                         <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="OrderAcc.ValidityHours" /></div>
-                        <div class="field"><label>Identifier 1 (MRN)</label><input @bind="OrderAcc.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
-                        <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="OrderAcc.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
+                        <div class="field"><label>Patient ID 1 (MRN) on the tube</label>
+                            <input @bind="OrderAcc.Identifier1Value" @bind:event="oninput" placeholder="Scan or type from the tube label" autocomplete="off" />
+                            <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@OrderAcc.Identifier1Value" Patient="Patient" />
+                        </div>
+                        <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd) on the tube</label>
+                            <input @bind="OrderAcc.Identifier2Value" @bind:event="oninput" placeholder="From the tube label" autocomplete="off" />
+                            <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@OrderAcc.Identifier2Value" Patient="Patient" />
+                        </div>
+                        <div class="field"><label>Collected by</label><input @bind="OrderAcc.Collector" placeholder="Who drew the specimen" /></div>
+                        <div class="field"><label>Draw location</label><input @bind="OrderAcc.DrawLocation" placeholder="Ward or unit" /></div>
                     </div>
                     <div class="field">
                         <label>Specimen comment</label>
@@ -489,7 +519,7 @@
                                             else
                                             {
                                                 <div class="form-row">
-                                                    <div class="field"><label>Authorized by</label><input @bind="EditAuthorizedBy" @bind:after="() => EditAuthorizedByChanged.InvokeAsync(EditAuthorizedBy)" placeholder="@Session.UserName" /></div>
+                                                    <AuthorizerField Value="@EditAuthorizedBy" ValueChanged="v => { EditAuthorizedBy = v; return EditAuthorizedByChanged.InvokeAsync(v); }" />
                                                     <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="EditOverrideReason" @bind:after="() => EditOverrideReasonChanged.InvokeAsync(EditOverrideReason)" /></div>
                                                 </div>
                                             }
@@ -511,6 +541,9 @@
 </div>
 
 @code {
+    // The chart patient, for the live match hint under the tube-label identifiers.
+    [Parameter] public PatientDto? Patient { get; set; }
+
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public bool ShowAddOrder { get; set; }
@@ -613,6 +646,19 @@
     [Parameter] public EventCallback OnSaveEdit { get; set; }
     [Parameter] public EventCallback OnAccessionNowAfter { get; set; }
 
+    private EncounterDto? NewOrderVisit => Encounters.FirstOrDefault(v => v.Id == NewOrderEncounterId);
+
+    // A different visit brings its own ordering location when it names exactly one.
+    private async Task OnNewOrderVisitChangedAsync()
+    {
+        await NewOrderEncounterIdChanged.InvokeAsync(NewOrderEncounterId);
+        if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is long location && location != NewOrderLocationId)
+        {
+            NewOrderLocationId = location;
+            await NewOrderLocationIdChanged.InvokeAsync(location);
+        }
+    }
+
     private async Task OnNewProviderChanged(long? value)
     {
         NewOrderProviderId = value;
@@ -688,6 +734,12 @@
 
     private string? LinkExistingMismatch =>
         SpecimenTypeOrderHint.MismatchWarning(TestDefs, NewOrderTestCodes, SelectedOrLatestSpecimenType);
+
+    private bool SuitsAllSelected(string code)
+    {
+        var (types, restricted) = AcceptedSpecimenTypes.Common(SpecimenTypeOrderHint.Selected(TestDefs, NewOrderTestCodes));
+        return restricted && types.Contains(code.ToUpperInvariant());
+    }
 
     private string? SelectedOrLatestSpecimenType
     {

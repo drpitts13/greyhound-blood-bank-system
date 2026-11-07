@@ -2,7 +2,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Supervisor queue &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Supervisor queue &middot; HemoCore</PageTitle>
 
 <div class="flex-between" style="margin-bottom:1rem;">
     <h1>Supervisor queue</h1>
@@ -16,6 +16,7 @@
         <li>Antibody-identification reviews (<span class="mono">immuno.override</span>)</li>
         <li>Posted interface and instrument results to verify (<span class="mono">result.verify</span>)</li>
         <li>Units in quarantine to release (<span class="mono">inventory.release</span>)</li>
+        <li>Missing units to locate and damaged units to inspect (<span class="mono">inventory.release</span>)</li>
     </ul>
     You see only the kinds your permissions allow. Clinical gates are unchanged.
 </details>
@@ -64,11 +65,51 @@ else
                 @foreach (var row in Visible)
                 {
                     <tr>
-                        <td><span class="badge badge-gray">@KindLabel(row.Kind)</span></td>
-                        <td>@row.Title</td>
+                        <td>
+                            <span class="badge badge-gray">@KindLabel(row.Kind)</span>
+                            @if (row.DueSoon)
+                            {
+                                <span class="badge badge-red" data-due-soon title="Verify before the specimen expires">Due before specimen expiry</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.PatientId is long patientId)
+                            {
+                                <a href="@($"/patients/{patientId}")" title="Open the patient's chart">@row.Title</a>
+                            }
+                            else
+                            {
+                                @row.Title
+                            }
+                        </td>
                         <td class="muted">@row.Detail</td>
                         <td class="right nowrap">
-                            <a class="btn btn-primary btn-sm" href="@row.Href">@row.NextAction</a>
+                            @if (row.Kind == SupervisorQueueRule.KindOverrideReview && row.ContextId is long overrideId)
+                            {
+                                @* Review in place: the row already shows what was overridden, why, and by whom. *@
+                                @if (row.Href != "/supervisor")
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@row.Href">Open</a>
+                                }
+                                @if (_reviewingId == overrideId)
+                                {
+                                    <div class="field" style="min-width:16rem;margin:.25rem 0;text-align:left;">
+                                        <label>Note (required for follow-up)</label>
+                                        <input @bind="_reviewNote" />
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(overrideId, OverrideReviewOutcome.Acceptable)">Acceptable</button>
+                                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(overrideId, OverrideReviewOutcome.FollowUpRequired)">Needs follow-up</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => _reviewingId = null">Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" @onclick="() => { _reviewingId = overrideId; _reviewNote = null; }">Review</button>
+                                }
+                            }
+                            else
+                            {
+                                <a class="btn btn-primary btn-sm" href="@row.Href">@row.NextAction</a>
+                            }
                         </td>
                     </tr>
                 }
@@ -83,6 +124,9 @@ else
     private List<SupervisorQueueItemDto> _items = new();
     private string? _kind;
 
+    // A link may open one kind of work: /supervisor?kind=OverrideReview.
+    [SupplyParameterFromQuery(Name = "kind")] public string? KindQuery { get; set; }
+
     private List<(string Kind, int Count)> Kinds =>
         _items.GroupBy(i => i.Kind).Select(g => (g.Key, g.Count())).ToList();
 
@@ -92,7 +136,26 @@ else
     private bool CanSeeQueue =>
         Session.Has(PermissionCodes.ImmunoOverride)
         || Session.Has(PermissionCodes.ResultVerify)
-        || Session.Has(PermissionCodes.InventoryRelease);
+        || Session.Has(PermissionCodes.InventoryRelease)
+        || Session.Has(PermissionCodes.OverrideApprove);
+
+    private long? _reviewingId;
+    private string? _reviewNote;
+    private bool _busy;
+
+    private async Task ReviewAsync(long overrideId, OverrideReviewOutcome outcome)
+    {
+        _busy = true;
+        var r = await Api.ReviewOverrideAsync(overrideId, new ReviewOverrideRequest(outcome, _reviewNote));
+        _busy = false;
+        _fb = r.ToFeedback(outcome == OverrideReviewOutcome.Acceptable ? "Override reviewed: acceptable." : "Override reviewed: follow-up needed.");
+        if (r.Succeeded)
+        {
+            _reviewingId = null;
+            _reviewNote = null;
+            _items.RemoveAll(i => i.Kind == SupervisorQueueRule.KindOverrideReview && i.ContextId == overrideId);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,6 +174,10 @@ else
         }
 
         _items = r.Value ?? new();
+        if (SupervisorQueueRule.KindFromQuery(KindQuery) is { } kind && _items.Any(i => i.Kind == kind))
+        {
+            _kind = kind;
+        }
     }
 
     private static string KindLabel(string kind) => kind switch
@@ -118,6 +185,8 @@ else
         SupervisorQueueRule.KindAntibodyReview => "ABID review",
         SupervisorQueueRule.KindResultVerify => "Result verify",
         SupervisorQueueRule.KindQuarantineRelease => "Quarantine",
+        SupervisorQueueRule.KindDiscrepancy => "Missing or damaged",
+        SupervisorQueueRule.KindOverrideReview => "Override review",
         _ => kind
     };
 }

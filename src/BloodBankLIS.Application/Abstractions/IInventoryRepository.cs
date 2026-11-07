@@ -24,6 +24,9 @@ public interface IInventoryRepository
 
     Task<BloodUnit?> GetByComponentIdentityAsync(string componentIdentity, CancellationToken cancellationToken = default);
 
+    /// <summary>Units whose unit number or DIN is exactly this value, ignoring case (several for a divided DIN).</summary>
+    Task<IReadOnlyList<BloodUnit>> ListByUnitNumberOrDinAsync(string value, CancellationToken cancellationToken = default);
+
     Task AddUnitAsync(BloodUnit unit, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken cancellationToken = default);

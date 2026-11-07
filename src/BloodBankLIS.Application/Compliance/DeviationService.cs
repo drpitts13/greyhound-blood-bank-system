@@ -23,11 +23,13 @@ public sealed record DeviationDto(
     long? ContextId,
     string? CorrectiveAction,
     string ReportedBy,
-    DateTime ReportedUtc)
+    DateTime ReportedUtc,
+    string? ClosedBy = null,
+    DateTime? ClosedUtc = null)
 {
     public static DeviationDto From(Deviation d) => new(
         d.Id, d.Title, d.Description, d.Severity, d.Status, d.ContextType, d.ContextId,
-        d.CorrectiveAction, d.ReportedBy, d.ReportedUtc);
+        d.CorrectiveAction, d.ReportedBy, d.ReportedUtc, d.ClosedBy, d.ClosedUtc);
 }
 
 public sealed class DeviationService
@@ -57,6 +59,19 @@ public sealed class DeviationService
 
     public Task<IReadOnlyList<Deviation>> ListAsync(CancellationToken ct = default) =>
         _deviations.ListAsync(ct);
+
+    /// <summary>
+    /// Deviations linked to one record (a unit, a patient), for that record's page. "Unit" and "Hl7Message" are older
+    /// spellings of "BloodUnit" and "Hl7" and are matched too.
+    /// </summary>
+    public async Task<IReadOnlyList<Deviation>> ListForRecordAsync(string contextType, long contextId, CancellationToken ct = default)
+    {
+        var types = DeviationRecordTypes.Aliases(contextType);
+        return (await _deviations.ListAsync(d => d.ContextId == contextId && d.ContextType != null && types.Contains(d.ContextType), ct))
+            .OrderBy(d => d.Status == DeviationStatus.Closed ? 1 : 0)
+            .ThenByDescending(d => d.ReportedUtc)
+            .ToList();
+    }
 
     public async Task<OperationResult<Deviation>> CreateAsync(CreateDeviationRequest request, CancellationToken ct = default)
     {
@@ -110,26 +125,40 @@ public sealed class DeviationService
             return OperationResult<Deviation>.Fail("Deviation not found.");
         }
 
+        var check = DeviationStatusRule.Evaluate(status, row.CorrectiveAction, correctiveAction);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Deviation>.Fail(check.Message);
+        }
+
         var oldStatus = row.Status;
         var oldAction = row.CorrectiveAction;
+        var oldClosedBy = row.ClosedBy;
+        var oldClosedUtc = row.ClosedUtc;
         row.Status = status;
         if (correctiveAction is not null)
         {
-            row.CorrectiveAction = correctiveAction;
+            row.CorrectiveAction = correctiveAction.Trim();
         }
 
-        if (status == DeviationStatus.Closed)
+        if (status == DeviationStatus.Closed && oldStatus != DeviationStatus.Closed)
         {
             row.ClosedBy = _currentUser.UserName;
             row.ClosedUtc = _clock.UtcNow;
+        }
+        else if (status != DeviationStatus.Closed)
+        {
+            // Reopened: the earlier close stays in the audit trail below.
+            row.ClosedBy = null;
+            row.ClosedUtc = null;
         }
 
         _audit.Record(
             AuditEventType.Deviation,
             nameof(Deviation),
             row.Id,
-            oldValue: new { Status = oldStatus, CorrectiveAction = oldAction },
-            newValue: new { row.Status, row.CorrectiveAction },
+            oldValue: new { Status = oldStatus, CorrectiveAction = oldAction, ClosedBy = oldClosedBy, ClosedUtc = oldClosedUtc },
+            newValue: new { row.Status, row.CorrectiveAction, row.ClosedBy, row.ClosedUtc },
             reason: "Deviation status updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Deviation>.Ok(row);

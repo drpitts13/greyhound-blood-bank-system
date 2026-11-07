@@ -8,7 +8,11 @@
     <h1>Transfusion criteria</h1>
     @if (CanEdit)
     {
-        <button type="button" class="btn btn-primary" @onclick="NewDraft">New criterion</button>
+        <div class="flex gap">
+            <button type="button" class="btn btn-secondary" disabled="@_busy" @onclick="LoadDraftsAsync"
+                    title="Adds an unverified starting set, inactive, for the transfusion committee to review">Load draft criteria</button>
+            <button type="button" class="btn btn-primary" @onclick="NewDraft">New criterion</button>
+        </div>
     }
 </div>
 <p class="muted">Facility-approved indications for ordering each component (patient blood management). The software ships none: enter only criteria your medical director has approved.</p>
@@ -106,6 +110,26 @@
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadDraftsAsync()
+    {
+        _busy = true;
+        var r = await Api.LoadDraftTransfusionCriteriaAsync();
+        _busy = false;
+        if (r.Succeeded && r.Value is { } result)
+        {
+            _feedback = Feedback.Succeed(result.Added.Count == 0
+                ? "All draft criteria are already here; nothing was added."
+                : $"Added {result.Added.Count} unverified draft criteria, inactive. Review each with the transfusion committee, map its test code, and remove DRAFT from the code and name before activating."
+                    + (result.Skipped.Count == 0 ? "" : $" Already present: {string.Join(", ", result.Skipped)}."));
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {

@@ -181,7 +181,8 @@ public sealed class EncounterService
         string? attendingProviderId,
         string? attendingProviderName,
         string? triggerEvent,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        EncounterType? patientType = null)
     {
         if (string.IsNullOrWhiteSpace(visitNumber))
         {
@@ -232,7 +233,8 @@ public sealed class EncounterService
                 PatientId = patientId,
                 VisitNumber = visit,
                 AccountNumber = accountNumber,
-                EncounterType = EncounterType.Inpatient,
+                // PV1-2 patient class, translated; Unknown when the message does not say (it used to assume Inpatient).
+                EncounterType = patientType ?? EncounterType.Unknown,
                 Status = isDischarge ? EncounterStatus.Discharged : EncounterStatus.Active,
                 AdmitUtc = admitUtc ?? _clock.UtcNow,
                 DischargeUtc = isDischarge ? dischargeUtc ?? _clock.UtcNow : dischargeUtc,
@@ -251,6 +253,7 @@ public sealed class EncounterService
         if (admitUtc is not null) encounter.AdmitUtc = admitUtc;
         if (dischargeUtc is not null) encounter.DischargeUtc = dischargeUtc;
         if (currentLocation is not null) encounter.CurrentLocation = currentLocation;
+        if (patientType is not null) encounter.EncounterType = patientType.Value;
         if (attending is not null)
         {
             encounter.AttendingProviderId = attending.Id;

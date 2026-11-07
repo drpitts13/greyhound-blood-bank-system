@@ -236,6 +236,77 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
             && a.Reason == "Patient name changed: Audit path name change"));
     }
 
+    // TEST-BB-466: registering someone who matches an active patient (same birthday, same last name and initial) is
+    // refused until that match is confirmed as a different person; the confirmation is audited. A merged chart is not
+    // a match, and listing matches needs the registration permission.
+    [Fact]
+    public async Task Create_PossibleDuplicate_IsRefusedUntilConfirmed_AndTheConfirmationIsAudited()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var dob = new DateOnly(1931, 2, 3).AddDays(Random.Shared.Next(0, 3000));
+        var last = $"Dup{key}";
+        await using var context = _factory.Create();
+        var existing = new Patient { MedicalRecordNumber = $"MRN-DUPA-{key}", LastName = last, FirstName = "Robert", DateOfBirth = dob };
+        var merged = new Patient { MedicalRecordNumber = $"MRN-DUPM-{key}", LastName = last, FirstName = "Rob", DateOfBirth = dob, Status = PatientStatus.Merged };
+        context.Patients.AddRange(existing, merged);
+        await context.SaveChangesAsync();
+        var service = Patients(context, withAudit: true);
+
+        var listed = await service.ListPossibleDuplicatesAsync(last.ToUpperInvariant(), "Rob", dob);
+        Assert.True(listed.Succeeded, listed.Error);
+        Assert.Equal(existing.Id, Assert.Single(listed.Value!).Id);
+
+        var request = new CreatePatientRequest($"MRN-DUPB-{key}", last, "Rob", null, dob, Sex.Male);
+        var refused = await service.CreateAsync(request);
+        Assert.False(refused.Succeeded);
+        Assert.Contains($"MRN {existing.MedicalRecordNumber}", refused.Error);
+        Assert.DoesNotContain(merged.MedicalRecordNumber, refused.Error);
+        Assert.False(await context.Patients.AnyAsync(p => p.MedicalRecordNumber == request.MedicalRecordNumber));
+
+        // Confirming some other MRN is not confirming this one.
+        Assert.False((await service.CreateAsync(request with { ConfirmedDifferentFromMrns = ["MRN-OTHER"] })).Succeeded);
+
+        var created = await service.CreateAsync(request with { ConfirmedDifferentFromMrns = [existing.MedicalRecordNumber.ToLowerInvariant()] });
+        Assert.True(created.Succeeded, created.Error);
+        var audit = await context.AuditEvents.SingleAsync(a => a.EntityType == nameof(Patient) && a.EntityId == created.Value!.Id && a.Reason!.StartsWith("Patient created"));
+        Assert.Contains(existing.MedicalRecordNumber, audit.Reason);
+        Assert.Contains(existing.MedicalRecordNumber, audit.NewValueJson);
+
+        // A different first initial on the same birthday is not a match.
+        Assert.True((await service.CreateAsync(new CreatePatientRequest($"MRN-DUPC-{key}", last, "Susan", null, dob, Sex.Female))).Succeeded);
+
+        var denied = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge)).ListPossibleDuplicatesAsync(last, "Rob", dob);
+        Assert.False(denied.Succeeded);
+    }
+
+    // TEST-BB-467: Possible duplicates pairs active charts by the registration rule (an ADT-style upper-case chart
+    // included), older registration first, and leaves out merged charts and different first initials; it needs
+    // patient.merge.
+    [Fact]
+    public async Task PossibleDuplicatePairs_ListActiveMatches_OlderFirst()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var dob = new DateOnly(1921, 4, 5).AddDays(Random.Shared.Next(0, 3000));
+        var last = $"Pair{key}";
+        await using var context = _factory.Create();
+        var older = new Patient { MedicalRecordNumber = $"MRN-PRA-{key}", LastName = last, FirstName = "Jean", DateOfBirth = dob };
+        context.Patients.Add(older);
+        await context.SaveChangesAsync();
+        var adt = new Patient { MedicalRecordNumber = $"MRN-PRB-{key}", LastName = last.ToUpperInvariant(), FirstName = "JEANNE", DateOfBirth = dob };
+        var merged = new Patient { MedicalRecordNumber = $"MRN-PRM-{key}", LastName = last, FirstName = "Jean", DateOfBirth = dob, Status = PatientStatus.Merged };
+        var other = new Patient { MedicalRecordNumber = $"MRN-PRO-{key}", LastName = last, FirstName = "Mark", DateOfBirth = dob };
+        context.Patients.AddRange(adt, merged, other);
+        await context.SaveChangesAsync();
+
+        var result = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge)).ListPossibleDuplicatePairsAsync();
+        Assert.True(result.Succeeded, result.Error);
+        var pair = Assert.Single(result.Value!, p => p.First.LastName.Equals(last, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal((older.Id, adt.Id), (pair.First.Id, pair.Second.Id));
+
+        var denied = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite)).ListPossibleDuplicatePairsAsync();
+        Assert.False(denied.Succeeded);
+    }
+
     [Fact]
     public async Task Create_WritesPatientAccess()
     {

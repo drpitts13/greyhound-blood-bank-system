@@ -5,7 +5,7 @@ using BloodBankLIS.Domain.Rules;
 namespace BloodBankLIS.Domain.Entities;
 
 /// <summary>
-/// A blood order to a supplier, usually generated from the par shortfall. It is printed
+/// A blood order to a supplier, usually generated from the minimum stock shortfall. It is printed
 /// or exported and sent by the facility's usual route; there is no electronic interface
 /// to the supplier. A received delivery is linked back to the order.
 /// </summary>

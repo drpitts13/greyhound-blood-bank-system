@@ -42,6 +42,10 @@ public static class PatientWorkspaceEndpoints
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
+        // Read-only chronological view; opening the chart already records the patient access.
+        group.MapGet("/timeline", async (long patientId, PatientTimelineService service, CancellationToken ct) =>
+            Results.Ok(await service.GetAsync(patientId, ct)));
+
         group.MapGet("/orders", async (
             long patientId,
             long? encounterId,
@@ -63,9 +67,10 @@ public static class PatientWorkspaceEndpoints
 
         group.MapPost("/orders", async (long patientId, CreateOrderRequest request, OrderService service, CancellationToken ct) =>
         {
+            // Warnings (order rules, duplicate open tests) travel with the created order; they were dropped before.
             var result = await service.CreateAsync(patientId, request, ct);
             return result.Succeeded
-                ? Results.Created($"/api/patients/{patientId}/orders/{result.Value!.Id}", new { result.Value.Id })
+                ? EndpointResults.Created(result, o => ($"/api/patients/{patientId}/orders/{o.Id}", (object)new { o.Id }))
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 

@@ -3,7 +3,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Patients &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Patients &middot; HemoCore</PageTitle>
 
 <div class="flex-between" style="margin-bottom:1rem;">
     <h1>Patients</h1>
@@ -21,9 +21,9 @@
         <EditForm Model="_new" OnValidSubmit="CreateAsync">
             <div class="form-row">
                 <div class="field"><label>MRN</label><InputText class="" @bind-Value="_new.MedicalRecordNumber" /></div>
-                <div class="field"><label>Date of birth</label><InputDate @bind-Value="_new.DateOfBirth" /></div>
-                <div class="field"><label>Last name</label><InputText @bind-Value="_new.LastName" /></div>
-                <div class="field"><label>First name</label><InputText @bind-Value="_new.FirstName" /></div>
+                <div class="field"><label>Date of birth</label><InputDate @bind-Value="_new.DateOfBirth" @bind-Value:after="CheckDuplicatesAsync" /></div>
+                <div class="field"><label>Last name</label><InputText @bind-Value="_new.LastName" @bind-Value:after="CheckDuplicatesAsync" /></div>
+                <div class="field"><label>First name</label><InputText @bind-Value="_new.FirstName" @bind-Value:after="CheckDuplicatesAsync" /></div>
                 <div class="field"><label>Middle name</label><InputText @bind-Value="_new.MiddleName" /></div>
                 <div class="field"><label>Sex</label>
                     <InputSelect @bind-Value="_new.Sex">
@@ -38,9 +38,40 @@
                 <label>Comment</label>
                 <CodedCommentField Page="CommentPage.Patient" @bind-Value="_new.Comment" />
             </div>
-            <button class="btn btn-primary" type="submit" disabled="@_saving">Register</button>
+            @if (_possibleDuplicates.Count > 0)
+            {
+                @* A second chart for the same person splits the type and antibody history: open the existing one if it is them. *@
+                <div class="alert alert-warning" style="margin:.5rem 0;" data-possible-duplicates>
+                    <strong>This may be a patient who is already registered.</strong> Same date of birth and a matching name:
+                    <table class="bb" style="margin-top:.4rem;">
+                        <thead><tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var d in _possibleDuplicates)
+                            {
+                                <tr>
+                                    <td class="mono">@d.MedicalRecordNumber</td>
+                                    <td>@d.LastName, @d.FirstName</td>
+                                    <td>@d.DateOfBirth.ToString("yyyy-MM-dd")</td>
+                                    <td>@d.Sex</td>
+                                    <td class="right"><a class="btn btn-secondary btn-sm" href="@($"/patients/{d.Id}")">Open chart</a></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <label style="display:flex;gap:.4rem;align-items:center;margin-top:.4rem;">
+                        <input type="checkbox" @bind="_confirmDifferent" data-confirm-different />
+                        I checked: this is a different person (recorded with the registration)
+                    </label>
+                </div>
+            }
+            <button class="btn btn-primary" type="submit" disabled="@(_saving || (_possibleDuplicates.Count > 0 && !_confirmDifferent))">Register</button>
         </EditForm>
     </div>
+}
+
+@if (Session.Has(PermissionCodes.PatientMerge))
+{
+    <p class="muted" style="margin:.25rem 0 .75rem;"><a href="/patients/duplicates" data-duplicates-link>Possible duplicates</a>: charts that may be one person, to review and merge.</p>
 }
 
 <div class="bb-card">
@@ -75,7 +106,7 @@
     {
         <table class="bb">
             <thead>
-                <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>Status</th><th></th></tr>
+                <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>Location</th><th>ABO/Rh</th><th>Alerts</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
                 @foreach (var p in Filtered)
@@ -91,6 +122,37 @@
                         </td>
                         <td>@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
                         <td>@p.Sex</td>
+                        <td data-location>
+                            @if (p.CurrentVisitNumber is null)
+                            {
+                                <span class="muted">No open visit</span>
+                            }
+                            else
+                            {
+                                <span title="Current visit @p.CurrentVisitNumber">@(string.IsNullOrEmpty(p.CurrentVisitWhere) ? p.CurrentVisitNumber : p.CurrentVisitWhere)</span>
+                                @if (p.OtherOpenVisits > 0)
+                                {
+                                    <span class="badge badge-amber" data-other-open title="More than one visit is open; check which one the work belongs to">+@p.OtherOpenVisits more open</span>
+                                }
+                            }
+                        </td>
+                        <td class="mono" data-blood-type>@(p.CurrentBloodType ?? "—")</td>
+                        <td data-alerts>
+                            <div class="flex" style="flex-wrap:wrap;gap:.25rem;">
+                            @if (p.ActiveAntibodies is { Count: > 0 } abs)
+                            {
+                                <span class="badge badge-red" title="Active antibodies on file">@string.Join(", ", abs)</span>
+                            }
+                            @if (p.ActiveSpecialRequirements > 0)
+                            {
+                                <span class="badge badge-amber" title="Special requirements in effect; open the chart for details">@PatientBloodBankFlags.RequirementsLabel(p.ActiveSpecialRequirements)</span>
+                            }
+                            @if (p.InformationalNotes > 0)
+                            {
+                                <span class="badge badge-blue" title="Informational notes: shown, never enforced" data-note>@PatientBloodBankFlags.NotesLabel(p.InformationalNotes)</span>
+                            }
+                            </div>
+                        </td>
                         <td><span class="badge badge-gray">@p.Status</span></td>
                         @* The MRN and name already open the chart; only the extra destination gets a button. *@
                         <td class="right nowrap">
@@ -197,15 +259,44 @@
         _saving = true;
         var req = new CreatePatientRequest(_new.MedicalRecordNumber, _new.LastName, _new.FirstName,
             string.IsNullOrWhiteSpace(_new.MiddleName) ? null : _new.MiddleName, dateOfBirth, _new.Sex,
-            string.IsNullOrWhiteSpace(_new.Comment) ? null : _new.Comment);
+            string.IsNullOrWhiteSpace(_new.Comment) ? null : _new.Comment,
+            _confirmDifferent ? _possibleDuplicates.Select(d => d.MedicalRecordNumber).ToList() : null);
         var result = await Api.CreatePatientAsync(req);
         _saving = false;
         _createFb = result.ToFeedback("Patient registered.");
+        if (!result.Succeeded)
+        {
+            // Someone may have registered a match meanwhile: show it, and ask again.
+            await CheckDuplicatesAsync();
+        }
         if (result.Succeeded && result.Value is not null)
         {
             Nav.NavigateTo($"/patients/{result.Value.Id}");
             return;
         }
+    }
+
+    private List<PatientDto> _possibleDuplicates = new();
+    private bool _confirmDifferent;
+
+    // Once the name and date of birth are in, look for the person under another MRN.
+    private async Task CheckDuplicatesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_new.LastName) || string.IsNullOrWhiteSpace(_new.FirstName) || _new.DateOfBirth is not DateOnly dob)
+        {
+            _possibleDuplicates = new();
+            _confirmDifferent = false;
+            return;
+        }
+
+        var r = await Api.GetPossibleDuplicatePatientsAsync(_new.LastName.Trim(), _new.FirstName.Trim(), dob);
+        var found = r.Succeeded ? r.Value ?? new() : new();
+        if (!found.Select(d => d.Id).SequenceEqual(_possibleDuplicates.Select(d => d.Id)))
+        {
+            _confirmDifferent = false;
+        }
+
+        _possibleDuplicates = found;
     }
 
     private sealed class NewPatient

@@ -16,4 +16,6 @@ Create a location before you transfer a unit there. A transfer to an unknown pla
 
 **Time-out governed** is on for a new location. A governed device uses the facility return-to-available window, which ships at 30 minutes. Clear the box only for a storage device the facility has exempted from that window. An exempt device does not fail the window. The return desk still checks temperature, seal, and appearance. This setting is facility policy. It is not an FDA, AABB, or CAP determination.
 
+Editing, activating, or inactivating a location asks for the reason for the change (at least 8 characters), because these settings are enforced at transfer and issue; the reason is kept in configuration history. Adding a new location does not ask.
+
 Inactivate a location that is out of service so new transfers cannot select it. A location that still holds units cannot be inactivated: transfer them first. Admin › Refrigerators & Freezers is a shorter form for temperature-controlled devices.

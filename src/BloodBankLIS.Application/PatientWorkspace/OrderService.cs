@@ -262,7 +262,21 @@ public sealed class OrderService
         long patientId, CreateOrderRequest request, CancellationToken ct = default) =>
         CreateCoreAsync(patientId, request, ct);
 
-    private async Task<OperationResult<Order>> CreateCoreAsync(long patientId, CreateOrderRequest request, CancellationToken ct)
+    /// <summary>
+    /// A transfusion reaction workup order: the Test Group for one workup specimen, created by an investigator who
+    /// already holds reaction.investigate. The order is typed as a reaction workup before its specimen is linked, so an
+    /// expired pre-transfusion tube can be used (OCD-058).
+    /// </summary>
+    public Task<OperationResult<Order>> CreateForReactionWorkupAsync(
+        long patientId, CreateOrderRequest request, string orderName, CancellationToken ct = default) =>
+        CreateCoreAsync(patientId, request, ct, OrderType.TransfusionReactionWorkup, orderName);
+
+    private async Task<OperationResult<Order>> CreateCoreAsync(
+        long patientId,
+        CreateOrderRequest request,
+        CancellationToken ct,
+        OrderType? headerType = null,
+        string? headerName = null)
     {
         if (request.Lines.Count == 0)
         {
@@ -322,7 +336,18 @@ public sealed class OrderService
         }
 
         builtLines = ruleOutcome.Lines;
+        // Checked before this order is saved, so it never finds itself.
+        var duplicateTests = await DuplicateOpenTestsAsync(patientId, builtLines, ct);
         OrderLineBuilder.ApplyHeaderFromLines(order, builtLines);
+        if (headerType is { } type)
+        {
+            order.OrderType = type;
+        }
+
+        if (!string.IsNullOrWhiteSpace(headerName))
+        {
+            order.OrderName = headerName;
+        }
 
         var validation = OrderValidator.Validate(
             order,
@@ -424,7 +449,33 @@ public sealed class OrderService
             }
         }
 
-        return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
+        return OperationResult<Order>.Ok(order, duplicateTests is null ? ruleOutcome.Warnings : [.. ruleOutcome.Warnings, duplicateTests]);
+    }
+
+    private async Task<RuleResult?> DuplicateOpenTestsAsync(long patientId, IEnumerable<OrderLine> newLines, CancellationToken ct, long? excludeOrderId = null)
+    {
+        var codes = newLines.Where(l => l.LineCategory == OrderCategory.Test && !string.IsNullOrWhiteSpace(l.TestCode))
+            .Select(l => l.TestCode!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (codes.Count == 0)
+        {
+            return null;
+        }
+
+        var openOrders = (await _orders.ListAsync(o => o.PatientId == patientId, ct))
+            .Where(o => o.Id != excludeOrderId && o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+            .ToDictionary(o => o.Id);
+        if (openOrders.Count == 0)
+        {
+            return null;
+        }
+
+        var orderIds = openOrders.Keys.ToList();
+        var openLines = (await _orderLines.ListAsync(l => orderIds.Contains(l.OrderId) && l.IsActive && l.LineCategory == OrderCategory.Test, ct))
+            .Where(l => !string.IsNullOrWhiteSpace(l.TestCode) && l.ResultStatus != ResultStatus.Verified)
+            .Select(l => new DuplicateTestOrderRule.OpenLine(l.TestCode!, openOrders[l.OrderId].OrderNumber));
+        return DuplicateTestOrderRule.Evaluate(codes, openLines);
     }
 
     public async Task<EvaluationResult<Order>> UpdateAsync(long patientId, long orderId, UpdateOrderRequest request, CancellationToken ct = default)
@@ -487,6 +538,7 @@ public sealed class OrderService
         }
 
         builtLines = ruleOutcome.Lines;
+        var duplicateTests = await DuplicateOpenTestsAsync(patientId, builtLines, ct, excludeOrderId: order.Id);
         OrderLineBuilder.ApplyHeaderFromLines(order, builtLines);
 
         var validation = OrderValidator.Validate(
@@ -568,7 +620,9 @@ public sealed class OrderService
             }
         }
 
-        return EvaluationResult<Order>.Ok(order);
+        var updateWarnings = duplicateTests is null ? ruleOutcome.Warnings : [.. ruleOutcome.Warnings, duplicateTests];
+        // Rule warnings were dropped here before; they now reach the chart like those of a new order.
+        return EvaluationResult<Order>.Ok(order, updateWarnings.Count == 0 ? null : new RuleEvaluation(updateWarnings));
     }
 
     public async Task<OperationResult<Order>> CancelAsync(long patientId, long orderId, CancelOrderRequest request, CancellationToken ct = default)
@@ -766,13 +820,16 @@ public sealed class OrderService
             return OperationResult<PatientOrderDto>.Fail("Specimen does not belong to this patient.");
         }
 
-        if (specimen.Status != SpecimenStatus.Accepted)
+        // OCD-058: a reaction workup order may use an expired (pre-transfusion) specimen.
+        var expiredAllowed = ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType);
+        if (specimen.Status != SpecimenStatus.Accepted
+            && !(expiredAllowed && specimen.Status == SpecimenStatus.Expired))
         {
             return OperationResult<PatientOrderDto>.Fail(
                 $"Only Accepted specimens can be linked. Specimen {specimen.AccessionNumber} is {specimen.Status}.");
         }
 
-        if (specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
+        if (!expiredAllowed && specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
         {
             return OperationResult<PatientOrderDto>.Fail(
                 $"Specimen {specimen.AccessionNumber} has expired and cannot be linked.");
@@ -945,6 +1002,7 @@ public sealed class OrderService
                     LineCategory = OrderCategory.Test,
                     LineName = await ResolveTestNameAsync(code, ct),
                     TestCode = code,
+                    GrouperCode = string.IsNullOrWhiteSpace(input.GrouperCode) ? null : input.GrouperCode.Trim().ToUpperInvariant(),
                     OrderType = OrderLineBuilder.MapTestOrderType(code)
                 });
             }
@@ -991,7 +1049,7 @@ public sealed class OrderService
             {
                 foreach (var member in TestGrouperMembers.Parse(grouper.MemberTestsJson).OrderBy(m => m.SortOrder))
                 {
-                    expanded.Add(new OrderLineInputDto(OrderCategory.Test, member.TestCode, null));
+                    expanded.Add(new OrderLineInputDto(OrderCategory.Test, member.TestCode, null, grouper.Code));
                 }
             }
             else
@@ -1100,7 +1158,8 @@ public sealed class OrderService
 
         if (!overrideAttempted)
         {
-            return EvaluationResult<Order>.Blocked(new RuleEvaluation([rule]));
+            return EvaluationResult<Order>.Blocked(
+                OverrideFieldsRule.WithMissing(new RuleEvaluation([rule]), request.OverrideReason, request.AuthorizedBy));
         }
 
         if (_exceptionDefinitions is null || _permissions is null || _currentUser is null)

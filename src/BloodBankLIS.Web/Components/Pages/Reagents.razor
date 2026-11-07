@@ -4,7 +4,7 @@
 @inject UserSession Session
 @inject IJSRuntime Js
 
-<PageTitle>Reagent QC &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Reagent QC &middot; HemoCore</PageTitle>
 
 <h1>Reagent QC</h1>
 <p class="muted">Record reagent lots and the daily QC row.</p>
@@ -22,7 +22,7 @@
     <div class="bb-card-title"><h3>Worklist</h3></div>
     @if (_work.Count == 0)
     {
-        <div class="muted">No overdue, failed, or unreviewed QC.</div>
+        <div class="muted">No overdue, failed, or unreviewed QC, and no lot to close or replace.</div>
     }
     else
     {
@@ -40,9 +40,21 @@
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => ReviewAsync(qcId)">Review</button>
                             }
-                            else if (row.Kind != ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter) && QcLots.Any(l => l.Id == row.LotId))
+                            else if (row.Kind == ReagentQcWorklistRule.Replace && Session.Has(PermissionCodes.ResultEnter)
+                                     && _lots.FirstOrDefault(l => l.Id == row.LotId) is { } replaceLot)
+                            {
+                                <button class="btn btn-secondary btn-sm" data-receive-next-lot @onclick="() => StartReceiveForAsync(replaceLot.ReagentId)">Receive next lot</button>
+                            }
+                            else if (row.Kind != ReagentQcWorklistRule.Unreviewed && row.Kind != ReagentQcWorklistRule.Expired
+                                     && Session.Has(PermissionCodes.ResultEnter) && QcLots.Any(l => l.Id == row.LotId))
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => StartQcForLotAsync(row.LotId)">Enter QC</button>
+                            }
+                            @if (row.ResultsToReview > 0 && _lots.FirstOrDefault(l => l.Id == row.LotId) is { } failedLot)
+                            {
+                                <button class="btn btn-danger btn-sm" @onclick="() => ShowLotResultsAsync(failedLot)" data-qc-results-to-review>
+                                    @row.ResultsToReview result@(row.ResultsToReview == 1 ? "" : "s") to review
+                                </button>
                             }
                         </td>
                     </tr>
@@ -56,11 +68,37 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Reagent</h3></div>
+        <p class="muted" style="margin-top:0;">
+            <strong>Used for tests</strong> lists the tests a reagent is used for (for example ABORH, ABSC). A manual result
+            for one of them records the reagent's open lots, so a lot that fails QC can be traced to its results.
+        </p>
         <div class="form-row">
             <div class="field"><label>Code</label><input @bind="_code" @bind:event="oninput" /></div>
             <div class="field"><label>Name</label><input @bind="_name" @bind:event="oninput" /></div>
+            <div class="field"><label>Used for tests</label><input @bind="_testCodes" @bind:event="oninput" placeholder="ABORH, ABSC" /></div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name))" @onclick="SaveReagentAsync">Save reagent</button>
+        @if (_reagents.Count > 0)
+        {
+            <table class="bb" style="margin-top:1rem;" data-reagent-tests>
+                <thead><tr><th>Reagent</th><th>Used for tests</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var reagent in _reagents.Where(r => r.IsActive))
+                    {
+                        <tr>
+                            <td><span class="mono">@reagent.Code</span> @reagent.Name</td>
+                            <td><input value="@(_editTests.GetValueOrDefault(reagent.Id, reagent.TestCodes ?? ""))" @oninput="e => _editTests[reagent.Id] = e.Value?.ToString() ?? string.Empty" placeholder="none: no lots recorded" data-reagent-tests-input="@reagent.Code" /></td>
+                            <td class="right">
+                                @if (_editTests.TryGetValue(reagent.Id, out var edited) && edited != (reagent.TestCodes ?? ""))
+                                {
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => SaveTestsAsync(reagent.Id)">Save</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
     </div>
 
     <div class="bb-card">
@@ -81,7 +119,7 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Lot number</label><input @bind="_lotNumber" @bind:event="oninput" /></div>
+            <div class="field"><label>Lot number</label><input id="reagent-lot-number" @bind="_lotNumber" @bind:event="oninput" /></div>
             <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_expiresLocal" /></div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(_reagentId == 0 || string.IsNullOrWhiteSpace(_lotNumber))" @onclick="ReceiveLotAsync">Receive lot</button>
@@ -96,7 +134,14 @@
                             <td class="mono">@lot.ReagentCode</td>
                             <td class="mono">@lot.LotNumber</td>
                             <td>@lot.State</td>
-                            <td>@lot.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @lot.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                                @{ var now = DateTime.UtcNow; var expired = lot.ExpiresUtc <= now; }
+                                @if (lot.State != ReagentLotState.Closed)
+                                {
+                                    <span class="badge @(expired ? "badge-red" : ReagentLotRule.ExpiringSoon(lot.ExpiresUtc, now) ? "badge-amber" : "badge-gray")" data-lot-expiry="@lot.LotNumber">@ReagentLotRule.ExpiryText(lot.ExpiresUtc, now)</span>
+                                }
+                            </td>
                             <td class="right nowrap">
                                 @if (_confirmCloseId == lot.Id)
                                 {
@@ -107,10 +152,11 @@
                                 }
                                 else
                                 {
-                                    @if (lot.State == ReagentLotState.Received)
+                                    @if (lot.State == ReagentLotState.Received && lot.ExpiresUtc > DateTime.UtcNow)
                                     {
                                         <button class="btn btn-secondary btn-sm" @onclick="() => OpenAsync(lot.Id)">Open</button>
                                     }
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => ShowLotResultsAsync(lot)" data-lot-results="@lot.LotNumber">Results</button>
                                     @if (lot.State != ReagentLotState.Closed)
                                     {
                                         <button class="btn btn-ghost btn-sm" @onclick="() => _confirmCloseId = lot.Id">Close</button>
@@ -126,10 +172,71 @@
         {
             <div class="muted" style="margin-top:1rem;">No open or received lots.</div>
         }
+        @if (_lookbackLot is not null)
+        {
+            <div class="bb-card" style="margin-top:1rem;" data-lot-lookback>
+                <div class="bb-card-title">
+                    <h4 style="margin:0;">Results tested with @_lookbackLot.ReagentCode lot @_lookbackLot.LotNumber</h4>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _lookbackLot = null">Close</button>
+                </div>
+                <p class="muted" style="margin:.3rem 0;">Manual results entered while this lot was open for their test. Use it when the lot fails QC or is recalled: review each result and correct or invalidate as needed.</p>
+                @if (_lookback.Count(r => r.ToReview) is var toReview && toReview > 0)
+                {
+                    <div class="alert alert-danger" style="margin:.3rem 0;" data-lot-to-review>
+                        This lot's latest QC failed. @toReview result@(toReview == 1 ? " was" : "s were") tested with it since it last passed QC; they are listed first as <strong>To review</strong>.
+                    </div>
+                }
+                @if (_lookback.Count == 0)
+                {
+                    <div class="empty">No results recorded with this lot.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>By</th><th>Review</th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _lookback)
+                            {
+                                <tr>
+                                    <td class="nowrap">@(r.EnteredUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    <td><a href="/patients/@r.PatientId">@r.PatientMrn</a> @r.PatientName</td>
+                                    <td class="mono">@r.SpecimenAccession</td>
+                                    <td class="mono">@r.TestCode@(r.Version > 1 ? $" v{r.Version}" : "")</td>
+                                    <td>@ResultValueText.For(r.Value)</td>
+                                    <td>@r.Status @if (r.ToReview) { <span class="badge badge-red">To review</span> }</td>
+                                    <td>@r.EnteredBy</td>
+                                    <td data-lot-review="@r.ResultId">
+                                        @if (r.ReviewedUtc is DateTime reviewedAt)
+                                        {
+                                            <span class="muted">Reviewed @reviewedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @r.ReviewedBy: @r.ReviewNote</span>
+                                        }
+                                        else if (r.ToReview && Session.Has(PermissionCodes.ResultVerify))
+                                        {
+                                            <input style="width:14rem;" placeholder="What was found or done" value="@_reviewNotes.GetValueOrDefault(r.ResultId)"
+                                                   @oninput="e => _reviewNotes[r.ResultId] = e.Value?.ToString() ?? string.Empty" />
+                                            <button class="btn btn-secondary btn-sm" disabled="@string.IsNullOrWhiteSpace(_reviewNotes.GetValueOrDefault(r.ResultId))"
+                                                    @onclick="() => MarkReviewedAsync(r.ResultId)">Mark reviewed</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        }
     </div>
 
     <div class="bb-card" id="reagent-qc-form">
         <div class="bb-card-title"><h3>Daily QC</h3></div>
+        <div class="field">
+            <label>Scan lot</label>
+            <input @bind="_lotScan" @bind:event="oninput" @onkeydown="OnLotScanKey" placeholder="Scan or type the lot number; Enter to select" autocomplete="off" data-lot-scan />
+            @if (_lotScanMessage is not null)
+            {
+                <span class="sub">@_lotScanMessage</span>
+            }
+        </div>
         <div class="form-row">
             <div class="field">
                 <label>Lot</label>
@@ -141,7 +248,15 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Expected</label><input id="reagent-qc-expected" @bind="_expected" @bind:event="oninput" @bind:after="SyncPassedFromResults" /></div>
+            <div class="field"><label>Expected</label><input id="reagent-qc-expected" @bind="_expected" @bind:event="oninput" @bind:after="SyncPassedFromResults" />
+                @if (string.IsNullOrWhiteSpace(_expected) && LastExpected is { } lastExpected)
+                {
+                    <div class="sub" data-last-expected>
+                        Last recorded for this reagent: @lastExpected
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => UseLastExpected(lastExpected)" title="Check it against the package insert">Use it</button>
+                    </div>
+                }
+            </div>
             <div class="field"><label>Observed</label><input @bind="_observed" @bind:event="oninput" @bind:after="SyncPassedFromResults" /></div>
             <div class="field"><label>Passed</label><input type="checkbox" @bind="_passed" /></div>
         </div>
@@ -157,6 +272,34 @@
             }
         }
         <button class="btn btn-primary btn-sm" disabled="@(_qcLotId == 0 || !ResultsCompared)" @onclick="RecordQcAsync">Record QC</button>
+    </div>
+
+    <div class="bb-card" data-recent-qc>
+        <div class="bb-card-title"><h3>Recent QC (14 days)</h3></div>
+        @if (_recentQc.Count == 0)
+        {
+            <div class="muted">No QC recorded in the last 14 days.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Performed</th><th>Reagent / lot</th><th>Expected</th><th>Observed</th><th>Result</th><th>Performed by</th><th>Reviewed by</th></tr></thead>
+                <tbody>
+                    @foreach (var q in _recentQc)
+                    {
+                        <tr>
+                            <td class="nowrap">@q.PerformedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(q.ReagentCode ?? "—") <span class="mono">@q.LotNumber</span></td>
+                            <td>@q.ExpectedResult</td>
+                            <td>@q.ObservedResult</td>
+                            <td><span class="badge @(q.Passed ? "badge-green" : "badge-red")">@(q.Passed ? "Passed" : "Failed")</span></td>
+                            <td>@q.PerformedBy</td>
+                            <td>@(q.ReviewedBy is null ? "Not reviewed" : $"{q.ReviewedBy} {q.ReviewedUtc:yyyy-MM-dd HH:mm}")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
     </div>
 }
 
@@ -184,7 +327,17 @@
     /// <summary>Passed follows the comparison as results are typed; the tech can still change it before recording.</summary>
     private void SyncPassedFromResults() => _passed = ResultsMatch;
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    [SupplyParameterFromQuery(Name = "lot")] public long? LotQuery { get; set; }
+
+    // From a failed-QC alert: open that lot's results.
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        if (LotQuery is long lotId && _lots.FirstOrDefault(l => l.Id == lotId) is { } lot)
+        {
+            await ShowLotResultsAsync(lot);
+        }
+    }
 
     private async Task ReloadAsync()
     {
@@ -196,18 +349,96 @@
         if (QcLots.All(l => l.Id != _qcLotId)) _qcLotId = QcLots.Count == 1 ? QcLots[0].Id : 0;
         var work = await Api.GetReagentQcWorklistAsync();
         if (work.Succeeded) _work = work.Value ?? new();
+        var recent = await Api.GetRecentReagentQcAsync();
+        if (recent.Succeeded) _recentQc = recent.Value ?? new();
+    }
+
+    // Recent QC for the history table and the expected-result offer.
+    private List<ReagentDailyQcDto> _recentQc = new();
+
+    private string? LastExpected =>
+        QcLots.FirstOrDefault(l => l.Id == _qcLotId) is { } lot ? ReagentQcHistory.LastExpected(lot.ReagentId, _recentQc) : null;
+
+    private void UseLastExpected(string expected)
+    {
+        _expected = expected;
+        SyncPassedFromResults();
+    }
+
+    // Barcode-first: the scanned lot number selects the one open lot that carries it.
+    private string _lotScan = string.Empty;
+    private string? _lotScanMessage;
+
+    private void OnLotScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_lotScan)) return;
+        if (ReagentQcHistory.LotForScan(_lotScan, QcLots) is { } lot)
+        {
+            _qcLotId = lot.Id;
+            _lotScanMessage = $"Selected {lot.ReagentCode} {lot.LotNumber}.";
+            _lotScan = string.Empty;
+        }
+        else
+        {
+            _lotScanMessage = $"No single open lot is numbered \"{_lotScan.Trim()}\". Receive or open it first, or choose from the list.";
+        }
     }
 
     private async Task SaveReagentAsync()
     {
-        var saved = await Api.SaveReagentAsync(new SaveReagentRequest(_code, _name));
+        var saved = await Api.SaveReagentAsync(new SaveReagentRequest(_code, _name, _testCodes));
         _feedback = saved.ToFeedback("Reagent saved.");
         if (saved.Succeeded)
         {
             _code = string.Empty;
             _name = string.Empty;
+            _testCodes = string.Empty;
             await ReloadAsync();
         }
+    }
+
+    private string _testCodes = string.Empty;
+    private readonly Dictionary<long, string> _editTests = new();
+    private ReagentLotDto? _lookbackLot;
+    private List<ReagentLotResultDto> _lookback = new();
+
+    private async Task SaveTestsAsync(long reagentId)
+    {
+        var saved = await Api.SetReagentTestsAsync(reagentId, _editTests.GetValueOrDefault(reagentId));
+        _feedback = saved.ToFeedback("Tests saved.");
+        if (saved.Succeeded)
+        {
+            _editTests.Remove(reagentId);
+            await ReloadAsync();
+        }
+    }
+
+    private readonly Dictionary<long, string> _reviewNotes = new();
+
+    private async Task MarkReviewedAsync(long resultId)
+    {
+        if (_lookbackLot is null) return;
+        var r = await Api.ReviewReagentLotResultAsync(_lookbackLot.Id, resultId, _reviewNotes.GetValueOrDefault(resultId) ?? string.Empty);
+        _feedback = r.ToFeedback("Marked reviewed.");
+        if (r.Succeeded)
+        {
+            _reviewNotes.Remove(resultId);
+            await ShowLotResultsAsync(_lookbackLot);
+            _work = (await Api.GetReagentQcWorklistAsync()).Value ?? _work;
+        }
+    }
+
+    private async Task ShowLotResultsAsync(ReagentLotDto lot)
+    {
+        var r = await Api.GetReagentLotResultsAsync(lot.Id);
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            return;
+        }
+
+        _lookbackLot = lot;
+        _lookback = r.Value ?? new();
     }
 
     // Closed lots are one-way and take no QC; they stay on record but are hidden by default.
@@ -224,6 +455,16 @@
         StateHasChanged();
         await Js.ScrollIntoViewAsync("reagent-qc-form");
         await Js.FocusSelectAsync("reagent-qc-expected", preventScroll: true);
+    }
+
+    /// <summary>From a Replace worklist row: pick the reagent in Receive lot and put the cursor on the lot number.</summary>
+    private async Task StartReceiveForAsync(long reagentId)
+    {
+        _reagentId = reagentId;
+        _lotNumber = string.Empty;
+        StateHasChanged();
+        await Js.ScrollIntoViewAsync("reagent-lot-number");
+        await Js.FocusSelectAsync("reagent-lot-number", preventScroll: true);
     }
 
     private async Task ReceiveLotAsync()

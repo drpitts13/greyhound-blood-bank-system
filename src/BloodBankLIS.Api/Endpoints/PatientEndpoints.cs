@@ -25,6 +25,14 @@ public static class PatientEndpoints
             return Results.Ok(patient);
         });
 
+        group.MapGet("/possible-duplicates/pairs", async (PatientService patients, CancellationToken ct) =>
+            EndpointResults.From(await patients.ListPossibleDuplicatePairsAsync(ct), d => d))
+            .RequirePermission(PermissionCodes.PatientMerge);
+
+        group.MapGet("/possible-duplicates", async (string? lastName, string? firstName, DateOnly dateOfBirth, PatientService patients, CancellationToken ct) =>
+            EndpointResults.From(await patients.ListPossibleDuplicatesAsync(lastName, firstName, dateOfBirth, ct), d => d))
+            .RequirePermission(PermissionCodes.PatientWrite);
+
         group.MapPost("/", async (CreatePatientRequest request, PatientService patients, CancellationToken ct) =>
             EndpointResults.Created(await patients.CreateAsync(request, ct),
                 p => ($"/api/patients/{p.Id}", (object)PatientDto.From(p))))

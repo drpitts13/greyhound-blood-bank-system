@@ -25,15 +25,33 @@ public sealed record AlertCandidate(
 public static class AlertRule
 {
     public const string TemperatureExcursion = "temperature-excursion";
+    public const string RetrospectiveCrossmatchIncompatible = "retro-xm-incompatible";
     public const string UnitsExpired = "units-expired";
-    public const string ParShortage = "par-shortage";
+    // The stored source value predates the "minimum stock" name; changing it would orphan open alerts.
+    public const string MinimumStockShortage = "par-shortage";
     public const string NearExpiry = "near-expiry";
     public const string ReagentQc = "reagent-qc";
     public const string BackupFailed = "backup-failed";
     public const string BackupOverdue = "backup-overdue";
+    public const string TransfusionNotCompleted = "transfusion-not-completed";
 
-    /// <summary>Sources the scan keeps in step with the current condition.</summary>
-    public static readonly IReadOnlyList<string> ConditionSources = [ParShortage, NearExpiry, ReagentQc, BackupOverdue];
+    /// <summary>
+    /// The name the alerts help page uses for each source. A help test fails when a source has no name here
+    /// or the page does not describe it, so a new alert cannot ship undocumented.
+    /// </summary>
+    public static string? HelpName(string source) => source switch
+    {
+        TemperatureExcursion => "Temperature excursion",
+        RetrospectiveCrossmatchIncompatible => "Incompatible after release",
+        UnitsExpired => "Units expired",
+        MinimumStockShortage => "Below minimum stock",
+        NearExpiry => "Near expiry",
+        ReagentQc => "Reagent QC",
+        BackupFailed => "Backup failed",
+        BackupOverdue => "Backup overdue",
+        TransfusionNotCompleted => "Transfusion not completed",
+        _ => null
+    };
 
     /// <summary>Still active: the condition has not cleared. An acknowledged alert can still be active.</summary>
     public static bool IsActive(Alert alert) => alert.ResolvedUtc is null;
@@ -59,4 +77,30 @@ public static class AlertRule
         var toResolve = activeForSource.Where(a => !foundKeys.Contains(a.Key)).ToList();
         return (toRaise, toResolve);
     }
+
+    /// <summary>
+    /// Active alerts whose condition still holds but now reads differently (severity, title, message, or link), with what
+    /// they should now say. Refreshed in place: not raised again, and an acknowledgement stands.
+    /// </summary>
+    public static IReadOnlyList<(Alert Alert, AlertCandidate Now)> Changed(
+        IReadOnlyCollection<Alert> activeForSource,
+        IReadOnlyCollection<AlertCandidate> found)
+    {
+        var byKey = found
+            .GroupBy(c => c.Key, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        return activeForSource
+            .Where(a => byKey.TryGetValue(a.Key, out var now)
+                && (a.Severity != now.Severity || a.Title != now.Title || a.Message != now.Message || a.Link != now.Link))
+            .Select(a => (a, byKey[a.Key]))
+            .ToList();
+    }
+
+    /// <summary>
+    /// An acknowledged alert whose condition has become more severe (information to warning, say) is raised again, open,
+    /// so the change is seen; the acknowledged one is closed and keeps who acknowledged it. Anything else that changed is
+    /// refreshed in place.
+    /// </summary>
+    public static bool RaisesAgain(Alert alert, AlertCandidate now) =>
+        alert.AcknowledgedUtc is not null && now.Severity > alert.Severity;
 }

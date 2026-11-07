@@ -90,14 +90,14 @@ public class InstrumentMessageViewBuilderTests
                 DataItemKey = item.Key,
                 AstmPath = item.DefaultAstmPath
             }).ToList(),
-            TestMappings =
+            Translations =
             [
-                Map("Group", "ABORH", InstrumentMappingKind.Assay),
-                Map("Screen", "ABSC", InstrumentMappingKind.Assay),
-                Map("Anti-A", AboRhPanelSubtestCodes.AntiA, InstrumentMappingKind.Analyte),
-                Map("Anti-D1", AboRhPanelSubtestCodes.AntiD, InstrumentMappingKind.Analyte),
-                Map("Mono Ctrl", AboRhPanelSubtestCodes.Control, InstrumentMappingKind.Analyte),
-                Map("Screen 1", "Cell1", InstrumentMappingKind.Analyte)
+                Map(InstrumentTranslationKeys.ResultTestCode, "Group", "ABORH"),
+                Map(InstrumentTranslationKeys.ResultTestCode, "Screen", "ABSC"),
+                Map(InstrumentTranslationKeys.SubtestCode, "Anti-A", AboRhPanelSubtestCodes.AntiA),
+                Map(InstrumentTranslationKeys.SubtestCode, "Anti-D1", AboRhPanelSubtestCodes.AntiD),
+                Map(InstrumentTranslationKeys.SubtestCode, "Mono Ctrl", AboRhPanelSubtestCodes.Control),
+                Map(InstrumentTranslationKeys.SubtestCode, "Screen 1", "Cell1")
             ],
             Rules =
             [
@@ -120,12 +120,12 @@ public class InstrumentMessageViewBuilderTests
             ]
         };
 
-    private static InstrumentTestMapping Map(string instrument, string application, InstrumentMappingKind kind) =>
+    private static InstrumentValueTranslation Map(string key, string instrument, string local) =>
         new()
         {
-            InstrumentCode = instrument,
-            ApplicationCode = application,
-            Kind = kind,
-            Direction = InterfaceTranslationDirection.Both
+            DataItemKey = key,
+            InstrumentValue = instrument,
+            LocalValue = local,
+            Direction = InterfaceTranslationDirection.Inbound
         };
 }

@@ -2,12 +2,19 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Downtime Snapshot &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Downtime Snapshot &middot; HemoCore</PageTitle>
 
 <h1>Downtime reconciliation snapshot</h1>
 <p class="muted">
     After an outage, see what is left to work in each queue. This page only counts; it changes nothing.
 </p>
+@if (Session.Has(PermissionCodes.IssueCreate))
+{
+    <p>
+        Before a planned outage, or as one starts: <a href="/downtime/patients">print the downtime patient summary</a>
+        (blood type, antibodies, special requirements, specimens, and units for every patient being worked for now).
+    </p>
+}
 
 @if (!Session.Has(PermissionCodes.AuditRead))
 {
@@ -41,6 +48,11 @@ else
                     <td><a href="/hl7">Open HL7</a></td>
                 </tr>
                 <tr>
+                    <td>Failed instrument messages not yet replayed or resolved</td>
+                    <td class="mono">@Work(_snap.OpenInstrumentFailures)</td>
+                    <td><a href="/instruments">Open Instruments</a></td>
+                </tr>
+                <tr>
                     <td>Pending outbound HL7 (received, errored, or nacked)</td>
                     <td class="mono">@Work(_snap.PendingOutboundHl7)</td>
                     <td><a href="/hl7">Open HL7</a></td>
@@ -49,6 +61,27 @@ else
                     <td>Open issues (still Issued)</td>
                     <td class="mono">@Work(_snap.OpenIssues)</td>
                     <td><a href="/issuing">Open Issue &amp; Transfuse</a></td>
+                </tr>
+                <tr>
+                    <td>Paper issues back-entered, transfusion not yet entered
+                        <span class="sub">Of these, @_snap.BackEntriesAwaitingWardReceipt not yet received at the ward</span></td>
+                    <td class="mono">@Work(_snap.BackEntriesAwaitingTransfusion)</td>
+                    <td><a href="/issuing?desk=issued">Open Issued units</a><span class="sub"><a href="/issuing?desk=transit">Open In transit</a></span></td>
+                </tr>
+                <tr data-queue="verify">
+                    <td>Results entered and waiting for verification
+                        @if (_snap.ResultsVerifyBeforeExpiry > 0)
+                        {
+                            <span class="sub">Of these, @_snap.ResultsVerifyBeforeExpiry must be verified before their specimen expires</span>
+                        }
+                    </td>
+                    <td class="mono">@Work(_snap.ResultsAwaitingVerification)</td>
+                    <td><a href="/test-worklist?show=verify">Open To verify</a></td>
+                </tr>
+                <tr data-queue="reservations-lapsed">
+                    <td>Reservations past their end time, unit still held</td>
+                    <td class="mono">@Work(_snap.ReservationsLapsed)</td>
+                    <td><a href="/issuing?desk=ready">Open Ready to issue</a></td>
                 </tr>
                 <tr>
                     <td>Pending retrospective crossmatches</td>

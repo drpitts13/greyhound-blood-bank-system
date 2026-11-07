@@ -11,7 +11,7 @@ public static class InterfaceTypeDefaults
         InterfaceType.Orders => "ORM,OML",
         InterfaceType.Results => "ORU",
         InterfaceType.Billing => "DFT",
-        InterfaceType.Bpam => "RAS,BPS",
+        InterfaceType.Bpam => "RAS,BPS,OMB",
         _ => "ADT"
     };
 

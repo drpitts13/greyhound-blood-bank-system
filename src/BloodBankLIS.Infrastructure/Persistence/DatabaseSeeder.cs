@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.Rules.Config;
 using BloodBankLIS.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,11 +40,14 @@ public static partial class DatabaseSeeder
         await EnsureRequireSecondAboForCellularIssuePolicyAsync(context, cancellationToken);
         await EnsureUncrossmatchedIssuePoliciesAsync(context, cancellationToken);
         await EnsureAntibodyIdentificationPoliciesAsync(context, cancellationToken);
+        await EnsureCatalogPoliciesStoredAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
         await SeedOrderCancellationReasonsAsync(context, cancellationToken);
         await SeedUnitDiscardReasonsAsync(context, cancellationToken);
+        await SeedSpecimenRejectionReasonsAsync(context, cancellationToken);
+        await SeedReactionCatalogAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
@@ -65,12 +69,17 @@ public static partial class DatabaseSeeder
         await EnsureAgtypeTestAsync(context, cancellationToken);
         await EnsureUnitAntigenTypingTestAsync(context, cancellationToken);
         await EnsureWeakDTestAsync(context, cancellationToken);
+        await EnsureExampleTestsAsync(context, cancellationToken);
+        await EnsureStarterInterfaceTranslationsAsync(context, cancellationToken);
         await EnsureNeonatalTypeAndScreenTestAsync(context, cancellationToken);
         await EnsureCrossmatchTestsAsync(context, cancellationToken);
         await EnsureCrossmatchSettingsAsync(context, cancellationToken);
         await EnsureAbscPanelAsync(context, cancellationToken);
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
+        await RepairAboRhForwardTypeLogicAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
+        await EnsureReactionWorkupGroupersAsync(context, cancellationToken);
+        await EnsureReactionWorkupSettingsAsync(context, cancellationToken);
         await SeedReflexRulesAsync(context, cancellationToken);
         await SeedRuleDefinitionsAsync(context, cancellationToken);
         await SeedLocationsAsync(context, cancellationToken);
@@ -87,6 +96,7 @@ public static partial class DatabaseSeeder
         await SeedDemoClinicalDataAsync(context, cancellationToken);
         await EnsureIsbtPermissionsAsync(context, cancellationToken);
         await EnsureEmergencyReleasePermissionGrantAsync(context, cancellationToken);
+        await EnsureOverrideApproveSupervisorGrantAsync(context, cancellationToken);
         await SeedIsbt128LookupsAsync(context, cancellationToken);
         await EnsureCompatibilityRuleCatalogAsync(context, cancellationToken);
         await SeedInstrumentInterfacesAsync(context, cancellationToken);
@@ -134,16 +144,21 @@ public static partial class DatabaseSeeder
 
         await context.SaveChangesAsync(ct);
 
-        // Technologist is not in the admin grant list above; give them specimen.edit
-        // when the permission is introduced on an upgraded database.
-        if (missing.Contains(PermissionCodes.SpecimenEdit))
+        // Technologist is not in the admin grant list above; give them bench permissions
+        // (specimen.edit, shift.handoff) when they are introduced on an upgraded database.
+        foreach (var benchCode in new[] { PermissionCodes.SpecimenEdit, PermissionCodes.ShiftHandoff, PermissionCodes.ProviderOutsideAdd })
         {
-            var techRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Technologist", ct);
-            var editPerm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == PermissionCodes.SpecimenEdit, ct);
-            if (techRole is not null && editPerm is not null
-                && !await context.RolePermissions.AnyAsync(rp => rp.RoleId == techRole.Id && rp.PermissionId == editPerm.Id, ct))
+            if (!missing.Contains(benchCode))
             {
-                context.RolePermissions.Add(new RolePermission { RoleId = techRole.Id, PermissionId = editPerm.Id });
+                continue;
+            }
+
+            var techRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Technologist", ct);
+            var benchPerm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == benchCode, ct);
+            if (techRole is not null && benchPerm is not null
+                && !await context.RolePermissions.AnyAsync(rp => rp.RoleId == techRole.Id && rp.PermissionId == benchPerm.Id, ct))
+            {
+                context.RolePermissions.Add(new RolePermission { RoleId = techRole.Id, PermissionId = benchPerm.Id });
                 await context.SaveChangesAsync(ct);
             }
         }
@@ -172,6 +187,42 @@ public static partial class DatabaseSeeder
             }
         }
 
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Marks that the one-time Supervisor grant of <c>override.approve</c> has run.</summary>
+    internal const string OverrideApproveSupervisorGrantKey = "Seed.OverrideApproveSupervisorGrant";
+
+    /// <summary>
+    /// Product owner decision (2026-11-02): Supervisors review overrides (<c>override.approve</c>). Granted once on
+    /// existing databases; the marker keeps a later administrator removal from being undone at the next start.
+    /// </summary>
+    private static async Task EnsureOverrideApproveSupervisorGrantAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == OverrideApproveSupervisorGrantKey, ct))
+        {
+            return;
+        }
+
+        var perm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == PermissionCodes.OverrideApprove, ct);
+        var supervisor = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Supervisor", ct);
+        if (perm is null || supervisor is null)
+        {
+            return;
+        }
+
+        if (!await context.RolePermissions.AnyAsync(rp => rp.RoleId == supervisor.Id && rp.PermissionId == perm.Id, ct))
+        {
+            context.RolePermissions.Add(new RolePermission { RoleId = supervisor.Id, PermissionId = perm.Id });
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = OverrideApproveSupervisorGrantKey,
+            Value = "done",
+            Category = "System",
+            Description = "One-time grant of override.approve to Supervisor has run. Removing the permission from the role afterwards is kept."
+        });
         await context.SaveChangesAsync(ct);
     }
 
@@ -351,6 +402,46 @@ public static partial class DatabaseSeeder
                 Category = "Issue",
                 Description = "Inclusive upper age treated as childbearing potential when applying uncrossmatched RhD policy."
             });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Stores every Facility Policies setting that an existing database does not have yet, at its catalog default, with
+    /// a configuration-history row. The settings seed above only runs on an empty table, so a database upgraded from
+    /// before a setting existed would otherwise run on a default in code that nobody can see or audit (Cycle 359).
+    /// Code defaults equal catalog defaults (TEST-BB-397), so storing them changes no behavior.
+    /// </summary>
+    private static async Task EnsureCatalogPoliciesStoredAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var stored = (await context.SystemSettings.Select(s => s.Key).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
+        var missing = FacilityPolicyCatalog.All.Where(d => !stored.Contains(d.Key)).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        var added = missing.Select(d => new SystemSetting
+        {
+            Key = d.Key,
+            Value = d.DefaultValue,
+            Category = d.Category,
+            Description = d.Description
+        }).ToList();
+        context.SystemSettings.AddRange(added);
+        await context.SaveChangesAsync(ct);
+
+        var now = DateTime.UtcNow;
+        context.ConfigurationChangeHistory.AddRange(added.Select(row => new Domain.Audit.ConfigurationChangeHistory
+        {
+            EntityType = nameof(SystemSetting),
+            EntityId = row.Id,
+            Version = 1,
+            Action = ConfigChangeAction.Create,
+            NewValueJson = System.Text.Json.JsonSerializer.Serialize(new { row.Key, row.Value, row.Category }),
+            ChangeReason = "Facility policy was not stored; added at its Facility Policies default, which the system was already using.",
+            ChangedBy = "system",
+            ChangedUtc = now
+        }));
         await context.SaveChangesAsync(ct);
     }
 
@@ -952,7 +1043,8 @@ public static partial class DatabaseSeeder
             PermissionCodes.PrintLabel,
             PermissionCodes.BillingReview,
             PermissionCodes.Hl7Manage, PermissionCodes.InstrumentManage,
-            PermissionCodes.AuditRead
+            PermissionCodes.AuditRead, PermissionCodes.ShiftHandoff,
+            PermissionCodes.ProviderOutsideAdd
         };
 
         // Supervisor: technologist plus the dangerous/override actions.
@@ -964,6 +1056,8 @@ public static partial class DatabaseSeeder
             PermissionCodes.InventoryDiscard,
             PermissionCodes.IssueOverride,
             PermissionCodes.IssueEmergencyRelease,
+            PermissionCodes.IssueDowntimeBackEntry,
+            PermissionCodes.OverrideApprove,
             PermissionCodes.PatientMerge,
             PermissionCodes.PrintReprint,
             PermissionCodes.BillingCancel, PermissionCodes.BillingExport,
@@ -1073,6 +1167,103 @@ public static partial class DatabaseSeeder
     /// Starter discard codes for wastage reporting. They are facility-editable examples,
     /// not a regulatory list. OTHER requires a comment.
     /// </summary>
+    /// <summary>Starter list for the facility to edit (Admin › Specimen Rejection Reasons); not a regulatory list.</summary>
+    /// <summary>
+    /// OCD-057. No reaction and No treatment always exist. The starter reaction list follows the adverse reaction
+    /// categories of the CDC NHSN Hemovigilance Module, as an example for the facility to edit. No treatments are
+    /// seeded: the facility's medical director defines them in Administration.
+    /// </summary>
+    private static async Task SeedReactionCatalogAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var existing = await context.ReactionCatalogEntries.ToListAsync(ct);
+        foreach (var kind in new[] { ReactionCatalogKind.ReactionType, ReactionCatalogKind.Treatment })
+        {
+            if (!existing.Any(e => e.Kind == kind && e.Code == ReactionConclusionRule.NoneCode))
+            {
+                context.ReactionCatalogEntries.Add(new ReactionCatalogEntry
+                {
+                    Kind = kind,
+                    Code = ReactionConclusionRule.NoneCode,
+                    Text = kind == ReactionCatalogKind.ReactionType ? ReactionConclusionRule.NoReactionText : ReactionConclusionRule.NoTreatmentText,
+                    SortOrder = 0,
+                    IsActive = true,
+                    IsNoneOption = true
+                });
+            }
+        }
+
+        if (!existing.Any(e => e.Kind == ReactionCatalogKind.ReactionType && !e.IsNoneOption))
+        {
+            var starter = new (string Code, string Text)[]
+            {
+                ("AHTR", "Acute hemolytic transfusion reaction"),
+                ("DHTR", "Delayed hemolytic transfusion reaction"),
+                ("DSTR", "Delayed serologic transfusion reaction"),
+                ("ALLERGIC", "Allergic reaction"),
+                ("HYPOTENSIVE", "Hypotensive transfusion reaction"),
+                ("FNHTR", "Febrile non-hemolytic transfusion reaction"),
+                ("TACO", "Transfusion-associated circulatory overload"),
+                ("TRALI", "Transfusion-related acute lung injury"),
+                ("TAD", "Transfusion-associated dyspnea"),
+                ("TAGVHD", "Transfusion-associated graft-versus-host disease"),
+                ("PTP", "Post-transfusion purpura"),
+                ("TTI", "Transfusion-transmitted infection"),
+                ("OTHER", "Other or unknown")
+            };
+            var sort = 10;
+            foreach (var (code, text) in starter)
+            {
+                context.ReactionCatalogEntries.Add(new ReactionCatalogEntry
+                {
+                    Kind = ReactionCatalogKind.ReactionType, Code = code, Text = text, SortOrder = sort, IsActive = true
+                });
+                sort += 10;
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedSpecimenRejectionReasonsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var seeds = new (string Code, string Text, bool RequiresComment, int Sort)[]
+        {
+            ("HEMOLYZED", "Hemolyzed", false, 10),
+            ("CLOTTED", "Clotted", false, 20),
+            ("QNS", "Quantity not sufficient", false, 30),
+            ("UNLABELED", "Unlabeled", false, 40),
+            ("LABEL", "Label incomplete, illegible, or does not match the requisition", false, 50),
+            ("WBIT", "Suspected wrong blood in tube", true, 60),
+            ("TUBE", "Wrong tube type", false, 70),
+            ("AGE", "Too old to test", false, 80),
+            ("OTHER", "Other", true, 90)
+        };
+
+        var changed = false;
+        foreach (var (code, text, requiresComment, sort) in seeds)
+        {
+            if (await context.SpecimenRejectionReasons.AnyAsync(r => r.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.SpecimenRejectionReasons.Add(new SpecimenRejectionReason
+            {
+                Code = code,
+                Text = text,
+                RequiresComment = requiresComment,
+                SortOrder = sort,
+                IsActive = true
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
     private static async Task SeedUnitDiscardReasonsAsync(BloodBankDbContext context, CancellationToken ct)
     {
         var seeds = new (string Code, string Text, bool RequiresComment, int Sort)[]
@@ -1253,6 +1444,15 @@ public static partial class DatabaseSeeder
             "RBC or whole blood (or other crossmatch-required product) requires a compatible, unexpired crossmatch unless emergency release. Not overridable via exception catalog.",
             minSecurityLevel: 0,
             isOverridable: false,
+            ct);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            CrossmatchSpecimenRule.RetrospectiveCode,
+            "Retrospective crossmatch on an expired pre-transfusion specimen",
+            "After emergency release, the retrospective crossmatch may be recorded on the pre-transfusion specimen after it expires (OCD-050). Requires a reason and the authorizer; the override goes to supervisor review.",
+            minSecurityLevel: 0,
+            isOverridable: true,
             ct);
 
         changed |= await EnsureExceptionDefinitionAsync(
@@ -1835,6 +2035,7 @@ public static partial class DatabaseSeeder
     {
         if (await context.SpecialRequirementDefinitions.AnyAsync(ct))
         {
+            await EnsureCategorizedSpecialRequirementExamplesAsync(context, ct);
             return;
         }
 
@@ -1847,8 +2048,10 @@ public static partial class DatabaseSeeder
             SpecialRequirementEnforcementKind kind,
             int sort,
             string? productAttribute = null,
-            string? instruction = null) => new()
+            string? instruction = null,
+            string? unitTest = null) => new()
         {
+            UnitTestCode = unitTest,
             Code = code,
             Name = name,
             Level = level,
@@ -1859,16 +2062,18 @@ public static partial class DatabaseSeeder
             IsActive = true,
             IsDraft = false,
             EffectiveUtc = now,
-            Version = 1
+            Version = 1,
+            Category = SpecialRequirementDefinitionValidator.CategoryFor(kind)
         };
 
         context.SpecialRequirementDefinitions.AddRange(
             Def(SpecialRequirementCatalog.Irradiated, "Irradiated", SpecialRequirementLevel.Unit,
                 SpecialRequirementEnforcementKind.RequireProductAttribute, 10, "IRRAD",
                 "Issue only irradiated units."),
+            // Met by the product code or a negative CMV test recorded on the unit.
             Def(SpecialRequirementCatalog.CmvNegative, "CMV-negative", SpecialRequirementLevel.Unit,
-                SpecialRequirementEnforcementKind.RequireProductAttribute, 20, "CMVNEG",
-                "Issue only CMV-negative units."),
+                SpecialRequirementEnforcementKind.RequireUnitTestNegative, 20, "CMVNEG",
+                "Issue only CMV-negative units.", unitTest: "CMV"),
             Def(SpecialRequirementCatalog.Leukoreduced, "Leukoreduced", SpecialRequirementLevel.Unit,
                 SpecialRequirementEnforcementKind.RequireProductAttribute, 30, "LR",
                 "Issue only leukoreduced units."),
@@ -1891,6 +2096,71 @@ public static partial class DatabaseSeeder
                 SpecialRequirementEnforcementKind.RequireAboSubgroup, 90,
                 instruction: "Record A1/A2 subgroup on group A or AB patients before issue."));
 
+        await context.SaveChangesAsync(ct);
+        await EnsureCategorizedSpecialRequirementExamplesAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Starter entries for one unit category each, added by code when missing. They are examples the facility edits
+    /// or deactivates, not clinical policy.
+    /// </summary>
+    private static async Task EnsureCategorizedSpecialRequirementExamplesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        SpecialRequirementDefinition Example(
+            string code,
+            string name,
+            SpecialRequirementCategory category,
+            SpecialRequirementEnforcementKind kind,
+            ComponentClass? componentClass,
+            int sort,
+            string? productAttribute = null,
+            string? allowedAbo = null,
+            string? unitTest = null,
+            string? instruction = null) => new()
+        {
+            Code = code,
+            Name = name,
+            Level = category == SpecialRequirementCategory.Informational ? SpecialRequirementLevel.Patient : SpecialRequirementLevel.Unit,
+            Category = category,
+            EnforcementKind = kind,
+            ComponentClass = componentClass,
+            ProductAttributeCode = productAttribute,
+            AllowedAboGroups = allowedAbo,
+            UnitTestCode = unitTest,
+            Instruction = instruction,
+            SortOrder = sort,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        };
+
+        var examples = new[]
+        {
+            Example("GRPO-RBC", "Group O red cells only", SpecialRequirementCategory.UnitTyping,
+                SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, 100, allowedAbo: "O"),
+            Example("CMVNEG-RBC", "CMV-negative red cells", SpecialRequirementCategory.UnitTyping,
+                SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells, 110, "CMVNEG", unitTest: "CMV"),
+            Example("HBSNEG-RBC", "HbS-negative red cells", SpecialRequirementCategory.UnitTyping,
+                SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells, 120, unitTest: "HBS"),
+            Example("IRRAD-RBC", "Irradiated red cells", SpecialRequirementCategory.UnitModification,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.RedBloodCells, 130, "IRRAD"),
+            Example("IRRAD-PLT", "Irradiated platelets", SpecialRequirementCategory.UnitModification,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.Platelets, 140, "IRRAD"),
+            Example("CALL-TSMD", "Call the transfusion service physician", SpecialRequirementCategory.Informational,
+                SpecialRequirementEnforcementKind.Informational, null, 150,
+                instruction: "Call the transfusion service physician before issuing products to this patient."),
+        };
+
+        var existing = await context.SpecialRequirementDefinitions.Select(d => d.Code).ToListAsync(ct);
+        var missing = examples.Where(e => !existing.Contains(e.Code)).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        context.SpecialRequirementDefinitions.AddRange(missing);
         await context.SaveChangesAsync(ct);
     }
 
@@ -2327,6 +2597,34 @@ public static partial class DatabaseSeeder
             AntibodyScreenCells.Select((code, i) =>
                 new PanelSubtestAssignment(code, true, i + 1, AntibodyScreenPhases)).ToList())!;
 
+    /// <summary>
+    /// Databases seeded before the forward-type fix hold ABO/Rh logic tables that expect
+    /// group A to be anti-A negative / anti-B positive. That blocks correct A and B typings
+    /// and would let reactions be interpreted as the wrong group, so it is corrected in place.
+    /// </summary>
+    private static async Task RepairAboRhForwardTypeLogicAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var defs = await context.TestDefinitions
+            .Where(t => t.InterpretationLogicJson != null && t.InterpretationLogicJson != "")
+            .ToListAsync(ct);
+        var changed = false;
+        foreach (var def in defs)
+        {
+            var repaired = InterpretationLogicDefinitions.RepairSwappedForwardType(
+                InterpretationLogicDefinitions.Parse(def.InterpretationLogicJson), out var defChanged);
+            if (defChanged)
+            {
+                def.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(repaired);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
     private static async Task EnsureAbscPanelAsync(BloodBankDbContext context, CancellationToken ct)
     {
         await EnsureAntibodyScreenSubtestsAsync(context, ct);
@@ -2744,6 +3042,56 @@ public static partial class DatabaseSeeder
         await context.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Starter Test Groups for the transfusion reaction workup (OCD-059): repeat ABO/Rh and DAT on the
+    /// pre-transfusion specimen; repeat ABO/Rh, DAT, and antibody screen on the post-transfusion specimen. Examples
+    /// the facility edits in Test Groups, added once by code.
+    /// </summary>
+    private static async Task EnsureReactionWorkupGroupersAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var groups = new[]
+        {
+            (Code: ReactionWorkupSettings.DefaultPreTransfusionGroupCode, Name: "Reaction workup - pre-transfusion",
+                Members: new[] { "ABORH", "DAT" }),
+            (Code: ReactionWorkupSettings.DefaultPostTransfusionGroupCode, Name: "Reaction workup - post-transfusion",
+                Members: new[] { "ABORH", "DAT", "ABSC" })
+        };
+        foreach (var g in groups)
+        {
+            if (await context.TestGroupers.AnyAsync(x => x.Code == g.Code, ct))
+            {
+                continue;
+            }
+
+            context.TestGroupers.Add(new TestGrouper
+            {
+                Code = g.Code,
+                Name = g.Name,
+                MemberTestsJson = TestGrouperMembers.ToJson(g.Members.Select((code, i) => new TestGrouperMember(code, i + 1)).ToList()),
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            });
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureReactionWorkupSettingsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ReactionWorkupSettings.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var row = ReactionWorkupSettings.CreateDefault();
+        row.EffectiveUtc = DateTime.UtcNow;
+        context.ReactionWorkupSettings.Add(row);
+        await context.SaveChangesAsync(ct);
+    }
+
     private static async Task SeedReflexRulesAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (await context.ReflexRules.AnyAsync(ct))
@@ -2926,7 +3274,8 @@ public static partial class DatabaseSeeder
             Barcode = "SPC-ACC0001",
             CollectedUtc = now.AddHours(-2),
             ReceivedUtc = now.AddHours(-1),
-            ExpiresUtc = now.AddDays(3),
+            // The demo patient is transfused, so the policy window runs from collection, as accession would compute it.
+            ExpiresUtc = SpecimenValidityPolicy.ComputeExpiresUtc(now.AddHours(-2), alloimmunizationRisk: true),
             Status = SpecimenStatus.Accepted
         };
         context.Specimens.Add(specimen);
@@ -3061,7 +3410,8 @@ public static partial class DatabaseSeeder
             RhD = RhType.Positive,
             ExpiresUtc = now.AddDays(25),
             CurrentLocationId = fridge.Id,
-            Status = UnitStatus.Issued,
+            // A transfusion running at the bedside (started, not yet completed), shown as "Transfusing since".
+            Status = UnitStatus.TransfusionStarted,
             CollectionFacility = "Regional Blood Center"
         };
         context.BloodUnits.AddRange(unit1, unit2, unitIssued);
@@ -3126,18 +3476,32 @@ public static partial class DatabaseSeeder
         context.Issues.Add(issue);
         await context.SaveChangesAsync(ct);
 
-        context.TransfusionEvents.Add(new TransfusionEvent
+        // Started at the bedside 15 minutes ago and still running: no stop, volume, or outcome yet. The issue stays
+        // Issued until the transfusion is completed (a finished record on an Issued issue would be inconsistent).
+        var transfusion = new TransfusionEvent
         {
             IssueId = issue.Id,
             BloodProductId = unitIssued.Id,
             PatientId = patient.Id,
             StartUtc = now.AddMinutes(-15),
-            StopUtc = now.AddMinutes(-5),
-            VolumeTransfused = 250m,
             Transfusionist = "RN Jones",
-            ReactionSuspected = false,
-            FinalDisposition = TransfusionDisposition.Completed,
-            DocumentedBy = "tech2"
+            DocumentedBy = "tech2",
+            PatientIdentificationMethod = "MedicalRecordNumber+DateOfBirth",
+            Location = "4W Med/Surg"
+        };
+        context.TransfusionEvents.Add(transfusion);
+        context.InventoryStatusHistory.Add(new InventoryStatusHistory
+        {
+            BloodProductId = unitIssued.Id,
+            FromStatus = UnitStatus.Issued,
+            ToStatus = UnitStatus.TransfusionStarted,
+            FromLocationId = fridge.Id,
+            ToLocationId = fridge.Id,
+            Reason = "Transfusion started at the bedside",
+            ChangedBy = "tech2",
+            ChangedUtc = now.AddMinutes(-15),
+            RelatedEntityType = nameof(TransfusionEvent),
+            RelatedEntityId = issue.Id
         });
 
         await context.SaveChangesAsync(ct);

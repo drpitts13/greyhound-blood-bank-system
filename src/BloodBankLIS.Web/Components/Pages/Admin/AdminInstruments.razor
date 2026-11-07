@@ -3,6 +3,9 @@
 @inject UserSession Session
 @inject BloodBankApiClient Api
 @inject IJSRuntime Js
+@inject ReportDownloadCache Downloads
+@using BloodBankLIS.Domain.Interfaces
+@using BloodBankLIS.Domain.Reporting
 
 <PageTitle>Instrument Interfaces · Admin</PageTitle>
 
@@ -22,7 +25,7 @@
     <a class="btn btn-ghost" href="/instruments">Open status</a>
     <a class="btn btn-ghost" href="/instruments/simulator">Simulator</a>
 </div>
-<p class="muted">Define ASTM instrument connections (TCP/IP), field maps, test mappings, and if/then rules. Leave IP blank to listen as the server. Restart the API after changing a listen port.</p>
+<p class="muted">Define ASTM instrument connections (TCP/IP), field maps, translations, and if/then rules. Leave IP blank to listen as the server. Restart the API after changing a listen port.</p>
 
 <Outcome Value="_feedback" />
 
@@ -45,7 +48,7 @@
                     <tr>
                         <td>@item.Name</td>
                         <td class="mono">@(item.Connection.IsServer ? $"listen :{item.Connection.Port}" : $"{item.Connection.IpAddress}:{item.Connection.Port}")</td>
-                        <td>@item.FieldMappings.Count / @item.TestMappings.Count</td>
+                        <td>@item.FieldMappings.Count / @item.Translations.Count</td>
                         <td>@item.Rules.Count</td>
                         <td>
                             @if (item.IsEnabled) { <span class="badge badge-green">Enabled</span> }
@@ -72,7 +75,7 @@
         <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
             <button type="button" class="btn @TabClass("connection")" @onclick='() => _tab = "connection"'>Connection</button>
             <button type="button" class="btn @TabClass("configuration")" @onclick='() => _tab = "configuration"'>Configuration</button>
-            <button type="button" class="btn @TabClass("mapping")" @onclick='() => _tab = "mapping"'>Mapping</button>
+            <button type="button" class="btn @TabClass("translations")" @onclick='() => _tab = "translations"' data-inst-translations-tab>Translations</button>
             <button type="button" class="btn @TabClass("rules")" @onclick='() => _tab = "rules"'>Interface rules</button>
         </div>
 
@@ -127,41 +130,139 @@
                 </tbody>
             </table>
         }
-        else if (_tab == "mapping")
+        else if (_tab == "translations")
         {
             <p class="muted">
-                Assay maps the instrument battery to an application test (Group → ABORH). Analyte maps a
-                well or cell to a subtest (Anti-D1 → Anti-D). Several inbound instrument codes may share
-                one application code; outbound allows only one instrument code per application code.
-                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showHelp = true">Open help</button>
+                This instrument's codes and values, translated to the LIS's. A result whose test or subtest code has no
+                translation is not posted: it waits in instrument failures and is listed under Unmapped values. Once error
+                codes are listed here, an error or flag code without a row holds the result (OCD-066).
             </p>
-            <table class="bb">
-                <thead><tr><th>Instrument</th><th>Application</th><th>Kind</th><th>Direction</th><th>Order</th><th></th></tr></thead>
-                <tbody>
-                    @foreach (var row in _editing.TestMappings)
-                    {
-                        <tr>
-                            <td><input id="@(ReferenceEquals(row, _editing.TestMappings[^1]) ? "map-last-code" : null)" class="mono" @bind="row.InstrumentCode" /></td>
-                            <td><input class="mono" @bind="row.ApplicationCode" /></td>
-                            <td>
-                                <select @bind="row.Kind">
-                                    @foreach (var k in Enum.GetValues<InstrumentMappingKind>()) { <option value="@k">@k</option> }
-                                </select>
-                            </td>
-                            <td>
-                                <select @bind="row.Direction">
-                                    @foreach (var d in Enum.GetValues<InterfaceTranslationDirection>()) { <option value="@d">@d</option> }
-                                </select>
-                            </td>
-                            <td><input type="number" @bind="row.SortOrder" /></td>
-                            <td><button class="btn btn-ghost btn-sm" @onclick="() => _editing.TestMappings.Remove(row)">Remove</button></td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-            @if (CanManage)
+            <div class="flex gap" style="flex-wrap:wrap;margin-bottom:.6rem;" data-inst-xlat-fields>
+                @foreach (var f in _xlatFields)
+                {
+                    var count = _editing.Translations.Count(t => t.DataItemKey == f.Key && !t.IsBlank);
+                    <button type="button" class="btn btn-sm @(f.Key == _xlatKey ? "btn-primary" : "btn-secondary")" title="@f.Description"
+                            @onclick="() => SelectXlatField(f.Key)" data-inst-xlat-field="@f.Key">
+                        @f.DisplayName @if (count > 0) { <span class="badge">@count</span> }
+                    </button>
+                }
+            </div>
+            @if (XlatField is { } field)
             {
-                <button class="btn btn-secondary" style="margin-top:.6rem;" @onclick="AddMapping">Add mapping</button>
+                <p class="muted" style="margin:.2rem 0 .6rem;">@field.Description</p>
+                @if (IsErrorField)
+                {
+                    <p class="muted" style="margin:0 0 .6rem;" data-inst-error-help>
+                        This table decides what each code does, code by code (OCD-066): <strong>Hold</strong> keeps the result off
+                        the record for review, <strong>Warn</strong> posts it with the code and its meaning beside the result,
+                        <strong>Ignore</strong> does nothing. Take each code's meaning from the vendor manual. A code the
+                        instrument sends that is not in the table is held, because the table cannot decide it, and is listed
+                        under Unmapped values.
+                    </p>
+                }
+                <datalist id="inst-local-values">
+                    @foreach (var v in field.LocalValues)
+                    {
+                        <option value="@v.Value">@(v.Kind is null ? v.Label : $"{v.Kind}: {v.Label}")</option>
+                    }
+                </datalist>
+                <datalist id="inst-tests">
+                    @foreach (var t in TestValues)
+                    {
+                        <option value="@t.Value">@t.Label</option>
+                    }
+                </datalist>
+                <div class="flex gap" style="justify-content:flex-end;margin-bottom:.4rem;">
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="ExportXlatAsync" disabled="@(!XlatRows.Any(r => !r.IsBlank))">Export CSV</button>
+                    @if (CanManage)
+                    {
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _xlatImportOpen = !_xlatImportOpen">Import rows</button>
+                    }
+                </div>
+                @if (_xlatImportOpen && CanManage)
+                {
+                    <div class="bb-card" style="margin-bottom:.6rem;" data-inst-xlat-import>
+                        <p class="muted" style="margin-top:0;">Paste rows from a spreadsheet or a CSV file: instrument value, local value, and@(field.AllowsContext ? " an optional test the row is limited to" : " (no third column)")@(IsErrorField ? ", then the code's meaning" : ""). A header line is fine. Rows go into the table below; Save the interface to keep them.</p>
+                        <textarea rows="5" class="mono" style="width:100%;" @bind="_xlatImportText" @bind:event="oninput" data-inst-xlat-import-text></textarea>
+                        <div class="flex gap" style="margin-top:.4rem;align-items:center;">
+                            <InputFile OnChange="OnXlatFileAsync" accept=".csv,.tsv,.txt" />
+                            <button type="button" class="btn btn-secondary btn-sm" @onclick="ApplyXlatImport" disabled="@string.IsNullOrWhiteSpace(_xlatImportText)" data-inst-xlat-import-apply>Put rows in the table</button>
+                        </div>
+                        @if (_xlatImportSummary is not null)
+                        {
+                            <div style="margin-top:.4rem;" data-inst-xlat-import-summary>@_xlatImportSummary</div>
+                        }
+                    </div>
+                }
+                <table class="bb" data-inst-xlat-rows>
+                    <thead>
+                        <tr>
+                            <th>@(IsErrorField ? "Error code" : "Instrument value")</th>
+                            @if (IsErrorField) { <th>Meaning</th> }
+                            <th>@(IsErrorField ? "Action" : "Local value")</th>
+                            @if (field.AllowsContext) { <th>Only for test</th> }
+                            <th>Order</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!XlatRows.Any())
+                        {
+                            <tr><td colspan="6" class="muted">@(IsErrorField ? "No error codes: this instrument's error and flag codes are not acted on until its table lists them." : $"No rows for {field.DisplayName}.")</td></tr>
+                        }
+                        @foreach (var row in XlatRows)
+                        {
+                            <tr>
+                                <td><input id="@(ReferenceEquals(row, XlatRows.LastOrDefault()) ? "xlat-last-code" : null)" class="mono" @bind="row.InstrumentValue" disabled="@(!CanManage)" /></td>
+                                @if (IsErrorField)
+                                {
+                                    <td><input @bind="row.Description" placeholder="from the vendor manual" disabled="@(!CanManage)" data-inst-error-meaning /></td>
+                                }
+                                <td>
+                                    <input class="mono" list="@(field.LocalValues.Count > 0 ? "inst-local-values" : null)" @bind="row.LocalValue" @bind:event="oninput" disabled="@(!CanManage)" />
+                                    @if (field.LocalValues.Count > 0 && !string.IsNullOrWhiteSpace(row.LocalValue))
+                                    {
+                                        var lv = field.LocalValues.FirstOrDefault(v => string.Equals(v.Value, row.LocalValue.Trim(), StringComparison.OrdinalIgnoreCase));
+                                        <div class="@(lv is null ? "text-danger" : "muted")" style="font-size:.85em;">@(lv is null ? "Not a local value for this field" : $"{lv.Kind}: {lv.Label}")</div>
+                                    }
+                                </td>
+                                @if (field.AllowsContext)
+                                {
+                                    <td><input class="mono" list="inst-tests" placeholder="all tests" @bind="row.Context" disabled="@(!CanManage)" /></td>
+                                }
+                                <td><input type="number" style="width:5rem;" @bind="row.SortOrder" disabled="@(!CanManage)" /></td>
+                                <td>@if (CanManage) { <button class="btn btn-ghost btn-sm" @onclick="() => _editing.Translations.Remove(row)">Remove</button> }</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (CanManage)
+                {
+                    <button class="btn btn-secondary" style="margin-top:.6rem;" @onclick="AddMapping">Add row</button>
+                }
+
+                @if (_editId is not null)
+                {
+                    <div class="bb-card" style="margin-top:1rem;" data-inst-xlat-check>
+                        <h3 style="margin-top:0;">Test a value</h3>
+                        <p class="muted">Uses this instrument's saved translations (not unsaved edits).</p>
+                        <div class="form-row">
+                            <div class="field"><label>@(field.Outbound ? "LIS test" : "Instrument value")</label><input @bind="_checkValue" @bind:event="oninput" /></div>
+                            @if (field.AllowsContext)
+                            {
+                                <div class="field"><label>For test</label><input list="inst-tests" @bind="_checkContext" placeholder="optional" /></div>
+                            }
+                            <div class="field" style="align-self:flex-end;"><button type="button" class="btn btn-secondary" @onclick="CheckXlatAsync" disabled="@string.IsNullOrWhiteSpace(_checkValue)">Try it</button></div>
+                        </div>
+                        @if (_check is not null)
+                        {
+                            <div data-inst-xlat-check-result>
+                                <strong>@_check.Input → @_check.Output</strong>
+                                <span class="muted"> &middot; @(_check.Translated ? "translated" : "no translation")</span>
+                                @if (!string.IsNullOrEmpty(_check.Note)) { <div class="muted">@_check.Note</div> }
+                            </div>
+                        }
+                    </div>
+                }
             }
         }
         else
@@ -237,13 +338,131 @@
     private bool _busy;
     private bool _showHelp;
     private string? _focusId;
+    private List<InstrumentTranslationFieldDto> _xlatFields = new();
+    private string _xlatKey = "Instrument.ResultTestCode";
+    private bool _xlatImportOpen;
+    private string _xlatImportText = string.Empty;
+    private string? _xlatImportSummary;
+    private string _checkValue = string.Empty;
+    private string? _checkContext;
+    private InstrumentTranslationCheckDto? _check;
     private bool CanManage => Session.Has(PermissionCodes.AdminInstrumentsManage);
+
+    [SupplyParameterFromQuery(Name = "id")] public long? IdQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "key")] public string? KeyQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "value")] public string? ValueQuery { get; set; }
+
+    private InstrumentTranslationFieldDto? XlatField => _xlatFields.FirstOrDefault(f => f.Key == _xlatKey);
+
+    private bool IsErrorField => _xlatKey == "Instrument.ErrorCode";
+
+    private IEnumerable<XlatRow> XlatRows => _editing?.Translations.Where(t => t.DataItemKey == _xlatKey) ?? [];
+
+    private IReadOnlyList<InterfaceLocalValueDto> TestValues =>
+        _xlatFields.FirstOrDefault(f => f.Key == "Instrument.ResultTestCode")?.LocalValues ?? [];
 
     protected override async Task OnInitializedAsync()
     {
         var catalog = await Api.GetAdminInstrumentDataItemsAsync();
         _catalog = catalog.Value ?? new();
+        var fields = await Api.GetAdminInstrumentTranslationFieldsAsync();
+        _xlatFields = fields.Value ?? new();
         await LoadAsync();
+
+        // Opened from Unmapped values: the instrument, its translations, the field, and a row ready for the value.
+        if (IdQuery is long id)
+        {
+            await EditAsync(id);
+            if (_editing is not null && string.Equals(TabQuery, "translations", StringComparison.OrdinalIgnoreCase))
+            {
+                _tab = "translations";
+                if (_xlatFields.Any(f => f.Key == KeyQuery))
+                {
+                    _xlatKey = KeyQuery!;
+                    if (!string.IsNullOrWhiteSpace(ValueQuery))
+                    {
+                        var outbound = XlatField?.Outbound == true;
+                        _editing.Translations.Add(new XlatRow
+                        {
+                            DataItemKey = _xlatKey,
+                            InstrumentValue = outbound ? string.Empty : ValueQuery,
+                            LocalValue = outbound ? ValueQuery : string.Empty,
+                            SortOrder = NextOrder(XlatRows.Select(r => r.SortOrder))
+                        });
+                        _changeReason = $"Translation for unmapped instrument value {ValueQuery}";
+                    }
+                }
+            }
+        }
+    }
+
+    private void SelectXlatField(string key)
+    {
+        _xlatKey = key;
+        _check = null;
+        _xlatImportSummary = null;
+    }
+
+    private async Task CheckXlatAsync()
+    {
+        if (_editId is not long id) return;
+        var r = await Api.CheckAdminInstrumentTranslationAsync(id, _xlatKey, _checkValue.Trim(), _checkContext);
+        _check = r.Value;
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+    }
+
+    private async Task OnXlatFileAsync(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await using var stream = e.File.OpenReadStream(1024 * 1024);
+            using var reader = new StreamReader(stream);
+            _xlatImportText = await reader.ReadToEndAsync();
+            _xlatImportSummary = $"Loaded {e.File.Name}. Choose Put rows in the table to use it.";
+        }
+        catch (IOException)
+        {
+            _xlatImportSummary = "The file could not be read; files over 1 MB are refused.";
+        }
+    }
+
+    private void ApplyXlatImport()
+    {
+        if (_editing is null) return;
+        var result = InterfaceTranslationImport.ParseInstrument(_xlatImportText);
+        var allowsContext = XlatField?.AllowsContext == true;
+        var added = 0;
+        var order = NextOrder(XlatRows.Select(r => r.SortOrder));
+        foreach (var row in result.Rows)
+        {
+            var context = allowsContext ? row.Context : null;
+            if (XlatRows.Any(r => string.Equals(r.InstrumentValue.Trim(), row.InstrumentValue, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(r.LocalValue.Trim(), row.LocalValue, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals((r.Context ?? "").Trim(), context ?? "", StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            _editing.Translations.Add(new XlatRow { DataItemKey = _xlatKey, InstrumentValue = row.InstrumentValue, LocalValue = row.LocalValue, Context = context, Description = row.Description, SortOrder = order++ });
+            added++;
+        }
+
+        var problems = string.Join(" ", result.Problems.Select(p => $"Line {p.Line}: {p.Message}"));
+        _xlatImportSummary = $"{added} row{(added == 1 ? "" : "s")} put in the table."
+            + (result.Duplicates > 0 || added < result.Rows.Count ? " Rows already there or repeated were skipped." : "")
+            + (problems.Length > 0 ? $" Not read: {problems}" : "");
+        _changeReason ??= "Imported instrument translation rows";
+    }
+
+    private async Task ExportXlatAsync()
+    {
+        var rows = XlatRows.Where(r => !r.IsBlank)
+            .Select(r => new InterfaceTranslationImport.InstrumentRow(r.InstrumentValue.Trim(), r.LocalValue.Trim(),
+                string.IsNullOrWhiteSpace(r.Context) ? null : r.Context.Trim(), string.IsNullOrWhiteSpace(r.Description) ? null : r.Description.Trim()));
+        var name = $"instrument-{(_editing?.Name ?? "new").Replace(' ', '-')}-{_xlatKey.Replace('.', '-')}.csv";
+        var token = Downloads.Put(name, CsvFormat.ContentType, CsvFormat.Write(InterfaceTranslationImport.InstrumentColumns, InterfaceTranslationImport.InstrumentCells(rows)));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
     }
 
     private async Task LoadAsync()
@@ -296,8 +515,8 @@
     private void AddMapping()
     {
         if (_editing is null) return;
-        _editing.TestMappings.Add(new MapRow { SortOrder = NextOrder(_editing.TestMappings.Select(m => m.SortOrder)) });
-        _focusId = "map-last-code";
+        _editing.Translations.Add(new XlatRow { DataItemKey = _xlatKey, SortOrder = NextOrder(XlatRows.Select(m => m.SortOrder)) });
+        _focusId = "xlat-last-code";
     }
 
     private void AddRule()
@@ -369,7 +588,7 @@
             InstrumentInterpretationMatch.AnalyteEqualsAssay;
         public string? InterpretationAnalyteCodes { get; set; }
         public List<FieldRow> FieldMappings { get; set; } = new();
-        public List<MapRow> TestMappings { get; set; } = new();
+        public List<XlatRow> Translations { get; set; } = new();
         public List<RuleRow> Rules { get; set; } = new();
 
         public static EditModel From(InstrumentInterfaceDto dto) => new()
@@ -382,13 +601,14 @@
             InterpretationMatch = dto.InterpretationMatch,
             InterpretationAnalyteCodes = dto.InterpretationAnalyteCodes,
             FieldMappings = dto.FieldMappings.Select(m => new FieldRow { DataItemKey = m.DataItemKey, AstmPath = m.AstmPath, IsRequired = m.IsRequired }).ToList(),
-            TestMappings = dto.TestMappings.Select(m => new MapRow
+            Translations = dto.Translations.Select(t => new XlatRow
             {
-                InstrumentCode = m.InstrumentCode,
-                ApplicationCode = m.ApplicationCode,
-                Kind = m.Kind,
-                Direction = m.Direction,
-                SortOrder = m.SortOrder
+                DataItemKey = t.DataItemKey,
+                InstrumentValue = t.InstrumentValue,
+                LocalValue = t.LocalValue,
+                Context = t.Context,
+                Description = t.Description,
+                SortOrder = t.SortOrder
             }).ToList(),
             Rules = dto.Rules.Select(r => new RuleRow
             {
@@ -405,7 +625,9 @@
             new(Name, Environment, reason,
                 new InstrumentConnectionDto(IpAddress, Port, string.IsNullOrWhiteSpace(IpAddress)),
                 FieldMappings.Select(m => new InstrumentFieldMappingDto(m.DataItemKey, m.AstmPath, m.IsRequired)).ToList(),
-                TestMappings.Select(m => new InstrumentTestMappingDto(m.InstrumentCode, m.ApplicationCode, m.Kind, m.Direction, m.SortOrder)).ToList(),
+                Translations.Where(t => !t.IsBlank)
+                    .Select(t => new InstrumentTranslationDto(t.DataItemKey, t.InstrumentValue, t.LocalValue, InterfaceTranslationDirection.Inbound, t.SortOrder, t.Context, t.Description))
+                    .ToList(),
                 Rules.Select(r => new InstrumentRuleDto(r.Name, r.ConditionExpression, r.ActionExpression, r.SortOrder, r.IsEnabled, r.StopOnMatch)).ToList(),
                 InterpretationMatch,
                 InterpretationAnalyteCodes);
@@ -418,13 +640,16 @@
         public bool IsRequired { get; set; }
     }
 
-    private sealed class MapRow
+    private sealed class XlatRow
     {
-        public string InstrumentCode { get; set; } = "";
-        public string ApplicationCode { get; set; } = "";
-        public InstrumentMappingKind Kind { get; set; } = InstrumentMappingKind.Assay;
-        public InterfaceTranslationDirection Direction { get; set; } = InterfaceTranslationDirection.Both;
+        public string DataItemKey { get; set; } = "";
+        public string InstrumentValue { get; set; } = "";
+        public string LocalValue { get; set; } = "";
+        public string? Context { get; set; }
+        public string? Description { get; set; }
         public int SortOrder { get; set; }
+
+        public bool IsBlank => string.IsNullOrWhiteSpace(InstrumentValue) && string.IsNullOrWhiteSpace(LocalValue);
     }
 
     private sealed class RuleRow

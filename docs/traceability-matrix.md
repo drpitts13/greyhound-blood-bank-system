@@ -146,6 +146,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-065 / FRS-BB-099 | One current result row after restoring a prior verified; prior versions visible on the patient panel | `ResultLifecycleRule.IsCurrentRow`; PatientDetail version history | `ResultLifecycleRuleTests`; `ResultLifecycleTests` restore assertion | A,I | RISK-BB-068 |
 | URS-BB-066 / FRS-BB-100 | Workspace order create requires patient.write in Application | `ORD-CREATE-PERM` | `OrderAuthorizationRuleTests`; `OrderServiceAuthorizationTests` | D,I | RISK-BB-069 |
 | URS-BB-067 / FRS-BB-101 | Test History includes superseded verified versions with status and reason | `PatientTestHistoryService` | `PatientTestHistoryTests` | A,I | RISK-BB-070 |
+| URS-BB-067 / FRS-BB-619 | Test History names the enterer and source; corrected or invalidated chains on their own | `PatientTestHistoryService`; `PatientTestHistoryView.RevisedOnly` | TEST-BB-485 | I | |
 | URS-BB-068 / FRS-BB-102 | User/role directory writes require admin.users.manage or admin.roles.manage in Application | `USR-CREATE-PERM`, `USR-UPD-PERM`, `USR-ASSIGN-PERM`, `ROLE-CREATE-PERM`, `ROLE-UPD-PERM` | `AdminAuthorizationRuleTests`; `UserAdminAuthorizationTests` | D,I | RISK-BB-071 |
 | URS-BB-069 / FRS-BB-103 | Direct interface transfusion documentation requires transfusion.document in Application | `TXN-IFACE-PERM` | `IssueAuthorizationRuleTests`; `InterfaceTransfusionAuthorizationTests` | D,I | RISK-BB-072 |
 | URS-BB-070 / FRS-BB-104 | Subtest, blood-attribute, and reflex-rule create/update write TestChange | `AuditEventType.TestChange` | `SubtestAndGrouperAdminTests`; `AdminCatalogTests`; `ReflexRulesTests` | A | RISK-BB-073 |
@@ -409,6 +410,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-335 / FRS-BB-370 | End-of-shift handoff records a queue snapshot with a required note and a different-user acknowledgment | `ShiftHandoffRule`; `ShiftHandoffService`; `ShiftHandoff.razor` | TEST-BB-225 | D,A,U | Does not claim AABB compliance. Clinical gates are unchanged |
 | URS-BB-336 / FRS-BB-371 | Specimen barcode changes only through Relabel with a required reason; metadata edit cannot change barcode | `SpecimenRelabelRule`; `SpecimenService.RelabelAsync`; `PatientChartSpecimensTab.razor` | TEST-BB-226 | D,A,U | Does not claim AABB compliance. Accession number stays immutable. Clinical gates are unchanged |
 | URS-BB-337 / FRS-BB-372 | Supervisor worklist lists ABID review, result verify, and quarantine release for permissions the user already has | `SupervisorQueueRule`; `SupervisorQueueService`; `SupervisorQueue.razor` | TEST-BB-227 | D,A,U | Does not claim AABB compliance. Clinical gates are unchanged |
+| URS-BB-337 / FRS-BB-618 | Supervisor card names deadline and review items | `DashboardQueueCatalog.SupervisorNote` | TEST-BB-484 | U | |
+| URS-BB-337 / FRS-BB-634 | Supervisor queue deadline badge, patient link, kind link | `SupervisorQueueRule.KindFromQuery` | TEST-BB-500 | U | |
 | URS-BB-338 / FRS-BB-373 | Name changes require a reason and retain the previous name as a searchable historical alias | `PatientHistoricalAliasRule`; `PatientService.UpdateAsync`; `PatientChartHeader.razor` | TEST-BB-228 | D,A,U | Does not claim AABB compliance. MRN stays immutable from demographics edit. Clinical gates are unchanged |
 | URS-BB-339 / FRS-BB-374 | Inbound ADT name changes retain the previous name as a searchable historical alias | `PatientHistoricalAliasWriter`; `Hl7InboundProcessor.ApplyPresentDemographicsAsync` | TEST-BB-229 | A | Does not claim AABB compliance. Sparse ADT blanks do not clear or archive names. Clinical gates are unchanged |
 | URS-BB-340 / FRS-BB-375 | A patient merge can be undone from its ledger when the survivor has had no new clinical activity | `PatientUnmergeRule`; `PatientMergeService.UnmergeAsync`; `PatientChartHeader.razor` | TEST-BB-230 | D,I | Does not claim AABB compliance. Pre-ledger merges cannot be reversed. History is not deleted |
@@ -446,13 +449,252 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-407 / FRS-BB-442 | Coded discard reason and wastage report | `DiscardReasonRule`; `UnitDiscardReasonAdminService`; `AdminDiscardReasons.razor`; `UnitDetail.razor`; RPT-WASTAGE | TEST-BB-297 | D / I | Competitor gap G3. Starter codes are facility-editable examples, not a regulatory list |
 | URS-BB-408 / FRS-BB-443 | Crossmatch-to-transfusion utilization by ordering location and provider | `UtilizationRule`; `UtilizationService`; `UtilizationEndpoints`; `Utilization.razor` | TEST-BB-298 | D / I | Competitor gap G4. No benchmark supplied |
 | URS-BB-409 / FRS-BB-444 | In-app alert inbox with condition reconciliation and acknowledgement | `AlertRule`; `AlertService`; `AlertScanner`; `AlertScanService`; `Alerts.razor`; `AlertBadge.razor` | TEST-BB-299 | D / I | Competitor gap G5. In-app only |
+| URS-BB-409 / FRS-BB-621 | Alert inbox filtered by kind, with time open | `AlertInboxView` | TEST-BB-487 | U | |
 | URS-BB-410 / FRS-BB-445 | CSV export for reports and the audit trail with a formula guard | `CsvFormat`; `ReportService`; `AuditCsvExport`; `AuditEndpoints`; `ReportRun.razor`; `Audit.razor` | TEST-BB-300 | D / I | Competitor gap G6 |
-| URS-BB-411 / FRS-BB-446 | Supplier order from the par shortfall with a signed submit, export, and delivery link | `SupplierOrderRule`; `SupplierOrderService`; `SupplierOrderEndpoints`; `SupplierOrders.razor` | TEST-BB-301 | D / I | Competitor gap G7. No EDI |
+| URS-BB-411 / FRS-BB-446 | Supplier order from the minimum stock shortfall with a signed submit, export, and delivery link | `SupplierOrderRule`; `SupplierOrderService`; `SupplierOrderEndpoints`; `SupplierOrders.razor` | TEST-BB-301 | D / I | Competitor gap G7. No EDI |
 | URS-BB-412 / FRS-BB-447 | Verified database backup with manifest, retention, and failure or overdue alerts | `DatabaseBackupRule`; `DatabaseBackupService`; `DatabaseBackupScheduleService`; `BackupEndpoints`; `AdminBackups.razor` | TEST-BB-302 | D / I | Competitor gap G8. SQL Server path not exercised in tests |
 | URS-BB-413 / FRS-BB-448 | TOTP second factor for sign-in, with policy for privileged users | `Totp`; `MfaRule`; `AuthSessionService`; `MfaService`; `MfaEndpoints`; `AccountMfa.razor`; `Login.razor` | TEST-BB-303 | D / I | Competitor gap G9. Policy default off |
 | URS-BB-414 / FRS-BB-449 | Automatic quarantine after a sustained storage excursion | `StorageTemperatureRule`; `StorageTemperatureService`; `AlertScanService` | TEST-BB-304 | D / I | OCD-036 decided 2026-10-31 |
 | URS-BB-415 / FRS-BB-450 | MFA facility option; refused sign-in until enrolled | `MfaRule`; `AuthSessionService`; `Login.razor` | TEST-BB-305 | D / I | OCD-037 decided 2026-10-31 |
 | URS-BB-416 / FRS-BB-451 | PBM ordering criteria and review | `TransfusionIndicationRule`; `TransfusionIndicationService`; `OrderService`; `PbmEndpoints`; `AdminTransfusionCriteria.razor` | TEST-BB-306 | D / I | OCD-038 open: no criteria shipped |
+| URS-BB-417 / FRS-BB-452 | Top-bar scan-anything lookup | `UniversalLookupService`; `LookupEndpoints`; `GlobalLookupBar.razor`; `MainLayout.razor` | TEST-BB-307 | D / I | Read-only. Endpoint uses the shared authenticated-user filter |
+| URS-BB-418 / FRS-BB-453 | Patient timeline | `PatientTimelineService`; `PatientWorkspaceEndpoints`; `PatientChartTimelineTab.razor` | TEST-BB-308 | D / I | Read-only |
+| URS-BB-419 / FRS-BB-454 | Specimen history | `SpecimenTimelineService`; `SpecimenEndpoints`; `SpecimenTimelinePanel.razor`; `PatientChartSpecimensTab.razor` | TEST-BB-309 | D / I | Read-only; audit-row driven |
+| URS-BB-420 / FRS-BB-455 | Role-focused home | `DashboardHome`; `DashboardQueueCatalog`; `Home.razor` | TEST-BB-310 | D / I | No permission change; order and grouping only |
+| URS-BB-421 / FRS-BB-456 | Patient identifiers read, not copied, at issue and bedside | `PatientIdentifierEntryRule`; `FacilityPolicyCatalog`; `ReferenceEndpoints`; `IdentifierMatchHint.razor`; `Issuing.razor`; `PatientChartProductsTab.razor` | TEST-BB-311 | D / I | OCD-039 decided: policy, default off |
+| URS-BB-422 / FRS-BB-457 | Choices show real identifiers and never swap silently | `ComboBoxDisplay`; `FilterableComboBox.razor`; `UnitPickerComboBox.razor` | TEST-BB-312 | D / I | Affects all 15 pages using searchable choices |
+| URS-BB-423 / FRS-BB-458 | Enter flow through issue, ward receipt, and bedside fields; shortcut list | `ui.js`; `Issuing.razor`; `PatientChartProductsTab.razor`; `UnitScanVerificationPanel.razor` | TEST-BB-313 | D / I | Never presses an action button |
+| URS-BB-424 / FRS-BB-459 | Return inspection attested; override authorizer named | `ReturnInspectionRule`; `OverrideFieldsRule`; `IssuingService`; `InspectionAnswer.razor`; `AuthorizerField.razor` | TEST-BB-314 | D / I | OCD-040 (return part), OCD-041 |
+| URS-BB-425 / FRS-BB-460 | Appearance attested at issue, ward receipt, and receipt | `AppearanceAttestationRule`; `IssuingService`; `InventoryService`; `AppearanceSelect.razor` | TEST-BB-315 | D / I | Completes OCD-040 |
+| URS-BB-426 / FRS-BB-461 | Eluate alloantibodies post to antibody history on verification | `EluateVerificationRule`; `DatElutionWorkupService`; `ImmunohematologyEndpoints`; `PatientChartDatElutionTab.razor` | TEST-BB-317 | D / I | OCD-042 |
+| URS-BB-427 / FRS-BB-462 | ISBT licensed-code readiness report | `IsbtReadinessRule`; `IsbtReadinessService`; `AdminEndpoints`; `AdminIsbtProductCodes.razor` | TEST-BB-318 | D / I | OCD-004 stays open until a licensed extract is loaded |
+| URS-BB-428 / FRS-BB-463 | Unverified draft PBM criteria, inactive until reviewed | `PbmDraftCriteria`; `TransfusionIndicationRule`; `TransfusionIndicationAdminService`; `PbmEndpoints`; `AdminTransfusionCriteria.razor` | TEST-BB-319 | D / I | OCD-038 content still requires SME verification |
+| URS-BB-429 / FRS-BB-464 | Read-only FHIR R4 API for the EHR | `FhirMapper`; `FhirReadService`; `FhirEndpoints` | TEST-BB-320 | I | OCD-043; terminology mapping and EHR authentication require interface / SME verification |
+| URS-BB-430 / FRS-BB-465 | Emergency release cannot override an established ABO conflict for red cells | `EmergencyUncrossmatchedAboRule`; `IssueGate`; `IssuingService` | TEST-BB-321 | D / I | OCD-044 |
+| URS-BB-431 / FRS-BB-466 | Readable 400 for unreadable requests | `RequestReadError`; `Program.cs` | TEST-BB-322 | D / I | Live check on the development API |
+| URS-BB-432 / FRS-BB-467 | Units come back to stock through retype; mislabeled units never leave | `RetypeStockStatus`; `IssueGate`; `IssuingService`; `InventoryService`; `Issuing.razor`; `Inventory.razor` | TEST-BB-323 | D / I | |
+| URS-BB-433 / FRS-BB-468 | MTP activation, board, and close | `MtpActivation`; `MtpActivationRule`; `MtpActivationService`; `IssuingService`; `IssuingEndpoints`; `Issuing.razor` | TEST-BB-324 | D / I | Pack composition and ratios not configured (facility policy) |
+| URS-BB-434 / FRS-BB-469 | Facility MTP packs and round guidance | `MtpPackDefinition`; `MtpPackRule`; `MtpPackAdminService`; `MtpActivationService`; `IssuingEndpoints`; `AdminMtpPacks.razor`; `Issuing.razor` | TEST-BB-325 | D / I | None shipped (OCD-012) |
+| URS-BB-435 / FRS-BB-470 | MTP pack records, transport containers, printable pack report | `TransportContainer`; `MtpPackRecord`; `TransportContainerRule`; `MtpPackReportText`; `MtpPackingService`; `TransportContainerAdminService`; `IssuingEndpoints`; `MtpPackReport.razor`; `AdminTransportContainers.razor`; `Issuing.razor` | TEST-BB-326 | D / I | OCD-045 wording review |
+| URS-BB-436 / FRS-BB-471 | Signed reaction investigations locked; reasoned reopen | `ReactionInvestigationLockRule`; `ReactionInvestigationService`; `ComplianceEndpoints`; `Reactions.razor` | TEST-BB-327 | D / I | |
+| URS-BB-437 / FRS-BB-473 | Transfusion recorded only through bedside documentation; consistent times and volume | `TransfusionDocumentationRule`; `IssuingService`; `IssuingEndpoints`; `Issuing.razor`; chart and unit pages | TEST-BB-329 | D / I | |
+| URS-BB-438 / FRS-BB-474 | Shift handoff accountability | `ShiftHandoffRule`; `ShiftHandoffService`; `ComplianceEndpoints`; `DatabaseSeeder`; `ShiftHandoff.razor` | TEST-BB-330 | D / I | |
+| URS-BB-439 / FRS-BB-475 | Late-entry issue time with reason | `IssueTimeRule`; `IssuingService`; `PatientChartProductsTab.razor` | TEST-BB-331 | D / I | Fuller downtime back-entry awaits product decision |
+| URS-BB-440 / FRS-BB-476 | Second-person override review | `OverrideReviewRule`; `OverrideReviewService`; `SupervisorQueueService`; `ComplianceEndpoints`; `SupervisorQueue.razor` | TEST-BB-332 | D / I | Reviewer role and timeframe are facility policy |
+| URS-BB-441 / FRS-BB-477 | Invalid results never stay behind the type of record | `DerivedFromSourceRule`; `ResultService`; `SecondAboDeterminationRule`; `SpecimenService`; issue and compatibility services | TEST-BB-333 | D / I | |
+| URS-BB-442 / FRS-BB-478 | Coded specimen rejection reasons | `SpecimenRejectionReasonRule`; `SpecimenService`; `SpecimenRejectionReasonAdminService`; reason picker; admin page | TEST-BB-334 | D / I | |
+| URS-BB-443 / FRS-BB-479 | Specimen rejection reports by cause | `SpecimenService`; `ReportSourceCatalog`; `ReportViewSql`; `EfReportSourceReader`; `ReportSeedCatalog` | TEST-BB-335 | D / I | |
+| URS-BB-444 / FRS-BB-480 | Incompatible retrospective crossmatch alert | `RetrospectiveCrossmatchIncompatibleRule`; `CompatibilityService`; `AlertService`; `IssuingService`; issue desk | TEST-BB-336 | D / I | |
+| URS-BB-445 / FRS-BB-481 | Override authorizer checked against the directory | `AuthorizerDirectoryRule`; `BloodBankDbContext`; `SupervisorQueueService`; `AuthorizerField` | TEST-BB-337 | D / I | |
+| URS-BB-446 / FRS-BB-482 | MTP overrides recorded as massive-transfusion releases | `OverrideActionRule`; `IssuingService`; `SupervisorQueueService` | TEST-BB-338 | D / I | |
+| URS-BB-447 / FRS-BB-483 | Returns never dispose directly | `ReturnDisposalRule`; `IssuingService`; issue desk and unit page return forms | TEST-BB-340 | D / I | |
+| URS-BB-448 / FRS-BB-484 | Reserve a returned unit again in one step | `ReturnDto`; issue desk; unit page | TEST-BB-341 | I | |
+| URS-BB-449 / FRS-BB-485 | Transfusion judged against the unit at its start | `TransfusionDocumentationRule`; `IssuingService` | TEST-BB-342 | D / I | |
+| URS-BB-450 / FRS-BB-486 | Start a transfusion at the bedside, complete it later | `IssuingService`; issuing endpoints; issue desk | TEST-BB-343 | I | |
+| URS-BB-451 / FRS-BB-487 | Reminder for transfusions not completed | `TransfusionCompletionRule`; `AlertScanner`; issue desk | TEST-BB-346 | D / I | |
+| URS-BB-451 / FRS-BB-617 | Overdue completions lead Issued units and are named on the home card | `IssuingService.ListOutstandingIssuedAsync`; `DashboardQueueCatalog.OutstandingNote` | TEST-BB-483 | I | |
+| URS-BB-452 / FRS-BB-488 | Chart and timeline show running transfusions as running | `PatientProductHistoryService`; `PatientTimelineService`; product history tab | TEST-BB-347 | I | |
+| URS-BB-453 / FRS-BB-489 | Running transfusions never reported with an outcome | `TransfusionRecordState`; report readers and views; lookback; unit activity; utilization | TEST-BB-348 | D / I | |
+| URS-BB-454 / FRS-BB-490 | Tube-label identifiers and collector at accession | `SpecimenLabelIdentityRule`; `SpecimenService`; chart accession forms | TEST-BB-349 | D / I | |
+| URS-BB-455 / FRS-BB-491 | Receive a specimen by scanning the tube | `SpecimenReceiptScanRule`; `SpecimenService`; test worklist | TEST-BB-350 | D / I | |
+| URS-BB-456 / FRS-BB-492 | Accept by scan; draw-to-receipt time | `SpecimenTransitRule`; `SpecimenService`; test worklist | TEST-BB-351 | D / I | |
+| URS-BB-457 / FRS-BB-493 | ABO/Rh correction retires the derived type at once | `ResultService`; `DerivedFromSourceRule` | TEST-BB-352 | D / I | |
+| URS-BB-458 / FRS-BB-494 | Second ABO/Rh from a separate specimen | `SecondAboDeterminationRule`; `PatientBloodTypeHistory`; `ResultService` | TEST-BB-353 | D / I | |
+| URS-BB-459 / FRS-BB-495 | Handoff counts running transfusions and incompatible retrospective crossmatches | `ShiftHandoffService`; shift handoff page | TEST-BB-354 | I | |
+| URS-BB-460 / FRS-BB-496 | Manual ABO/Rh counts only when documented (OCD-048) | `ManualBloodTypeDocumentationRule`; `SecondAboDeterminationRule`; `ImmunohematologyService`; chart overview | TEST-BB-355 | D / I | |
+| URS-BB-461 / FRS-BB-497 | Blood type history shows source, retirement, and what counts | `BloodTypeHistoryLabel`; `BloodTypeDto`; chart overview | TEST-BB-356 | D / A | |
+| URS-BB-462 / FRS-BB-498 | Outbound results carry final, corrected, or wrong status | `ResultReleaseRule`; `Hl7OruBuilder`; `Hl7OutboundService` | TEST-BB-357 | D / I | |
+| URS-BB-463 / FRS-BB-499 | Corrections and withdrawals reach the EHR automatically | `IResultReleasePublisher`; `Hl7OutboundService`; `ResultService` | TEST-BB-358 | D / I | |
+| URS-BB-464 / FRS-BB-500 | Expiring units end their reservations | `InventoryService`; `AlertScanner`; `ExpiredUnitSweepService` | TEST-BB-359 | I | |
+| URS-BB-465 / FRS-BB-501 | Expired crossmatch is not shown as ready | `ProductAllocationDisplayStatusRule`; `PatientAllocationService`; `IssuingService` | TEST-BB-360 | D / I | |
+| URS-BB-466 / FRS-BB-502 | Dashboard count of reservations needing a new crossmatch | `ReadyToIssueAttentionRule`; `Home.razor` | TEST-BB-361 | D | |
+| URS-BB-467 / FRS-BB-503 | Ready to issue board lists issuable units first | `ReadyToIssueAttentionRule`; `IssuingService`; `Issuing.razor` | TEST-BB-362 | D | |
+| URS-BB-468 / FRS-BB-504 | No crossmatch on an expired specimen; repeat offered when a crossmatch expires | `CrossmatchSpecimenRule`; `CompatibilityService`; `CrossmatchEntryNeed`; `PatientChartProductsTab.razor` | TEST-BB-363 | D / I | |
+| URS-BB-469 / FRS-BB-505 | Retrospective crossmatch on an expired pre-transfusion specimen as an exception | `CrossmatchSpecimenRule`; `CompatibilityService`; `Compatibility.razor` | TEST-BB-364 | D / I | |
+| URS-BB-470 / FRS-BB-506 | Interface results apply the manual specimen gate on every branch | `ResultService.EnterFromExternalAsync` | TEST-BB-365 | I | |
+| URS-BB-471 / FRS-BB-507 | Corrections can be completed after the specimen expires | `ResultService` | TEST-BB-366 | I | |
+| URS-BB-471 / FRS-BB-507 (worklist path, invalidation) | Worklist correction and invalidation after the specimen expires | `ResultService.SaveTestResultAsync`, `InvalidateResultAsync` | TEST-BB-367 | I | |
+| URS-BB-472 / FRS-BB-508 | Verification deadline before the specimen expires | `VerificationDeadlineRule`; `TestWorklistService`; `SupervisorQueueService`; `TestWorklist.razor` | TEST-BB-368 | D / I | |
+| URS-BB-473 / FRS-BB-509 | Dashboard count of results to verify before specimen expiry | `PendingTestAttentionRule`; `Home.razor` | TEST-BB-369 | D | |
+| URS-BB-474 / FRS-BB-510 / SRS-BB-447 | Shift handoff counts results to verify before specimen expiry | `ShiftHandoffService`; `ShiftHandoff.razor`; migration `20261105000000_ShiftHandoffVerifyBeforeExpiry` | TEST-BB-370 | I | |
+| URS-BB-475 / FRS-BB-511 | Verify-before deadline on the chart Tests tab | `VerificationDeadlineBadge.razor`; `PatientChartTestsTab.razor` | TEST-BB-371 | I | |
+| URS-BB-476 / FRS-BB-512 | Chart second-ABO cue matches issue | `BloodTypeDto.Determinations`; `PatientChartHeader.razor` | TEST-BB-372 | D | |
+| URS-BB-476 / FRS-BB-513 | Chart discrepancy banner matches issue | `IssueGate.DiscrepancyInput`; `BloodTypeDto.DiscrepancyInput` | TEST-BB-373 | D | |
+| URS-BB-477 / FRS-BB-514 | Unit chart return choice follows the server | `UnitDetail.razor`; `IssuingService` | TEST-BB-374 | I | |
+| URS-BB-478 / FRS-BB-515 | Chart specimen edit uses the server's policy expiration | `SpecimenService.PreviewExpirationAsync`; `PatientChartSpecimensTab.razor`; `PatientDetail.razor` | TEST-BB-375 | I | |
+| URS-BB-478 / FRS-BB-516 | Accession expiration preview matches accession | `PatientChartSpecimensTab.razor`; `SpecimenService.PreviewExpirationAsync` | TEST-BB-376 | I | |
+| URS-BB-478 (demo data) | Demo specimens seeded with the policy expiration | `DatabaseSeeder` | TEST-BB-377 | I | |
+| URS-BB-479 / FRS-BB-518 | Near-expiry reserved units name the patient | `InventoryService`; `AlertScanner`; `Inventory.razor` | TEST-BB-379 | I | |
+| URS-BB-479 / FRS-BB-519 | Dashboard counts reserved units expiring soon | `ReadyToIssueAttentionRule.CardNote`; `Home.razor` | TEST-BB-380 | D | |
+| URS-BB-480 / FRS-BB-520 | Exception catalog changes need a reason | `ExceptionCatalogChangeReasonRule`; `ExceptionDefinitionAdminService`; `AdminExceptions.razor` | TEST-BB-381 | D / I | |
+| URS-BB-481 / FRS-BB-521 | Active compatibility table rule changes need a reason | `CompatibilityTableChangeReasonRule`; `CompatibilityRuleAdminService`; `AdminCompatibilityRules.razor` | TEST-BB-382 | D / I | |
+| URS-BB-482 / FRS-BB-522 | Issue gate reads the active compatibility table, stricter only (OCD-052) | `CompatibilityTablePolicy`; `CompatibilityRuleValidator`; `IssuingService` | TEST-BB-383 | D / I | |
+| URS-BB-482 / FRS-BB-523 | Admin table says what each row does at issue | `CompatibilityTablePolicy.DescribeAtIssue`; `AdminCompatibilityRules.razor` | TEST-BB-384 | D | |
+| URS-BB-483 / FRS-BB-524 | Access changes need a reason and keep the before state | `AccessChangeReasonRule`; `UserAdminService` | TEST-BB-385 | I | |
+| URS-BB-484 / FRS-BB-525 | Pre-specimen emergency release with controls (OCD-053) | `EmergencyPreSpecimenRule`; `IssueGate`; `Issuing.razor` | TEST-BB-386 | D / I | |
+| URS-BB-484 / FRS-BB-526 | Ready to issue board offers pre-specimen emergency release | `IssuingService`; `Issuing.razor` | TEST-BB-387 | I | |
+| URS-BB-444 / FRS-BB-527 | Incompatible retrospective crossmatch opens a deviation | `RetrospectiveCrossmatchIncompatibleRule`; `CompatibilityService` | TEST-BB-390 | D / I | |
+| URS-BB-485 / FRS-BB-528 | Add an override authorizer as an outside provider | `OutsideProviderRule`; `OrderingProviderAdminService`; `AuthorizerField.razor` | TEST-BB-391 | D / I | |
+| URS-BB-486 / FRS-BB-529 | Downtime back-entry of a paper issue, judged as of its time | `DowntimeBackEntryRule`; `IssuingService`; `Issuing.razor` | TEST-BB-392 | D / I | |
+| URS-BB-487 / FRS-BB-530 | Facility setting: receive specimens by scan only | `SpecimenReceiptScanRule`; `SpecimenService`; specimen worklist; chart | TEST-BB-393 | D / I | |
+| URS-BB-486 / FRS-BB-531 | Ward receipt and transfusion of a back-entered issue identified from the paper record | `DowntimeBackEntryRule`; `IssuingService`; `Issuing.razor` | TEST-BB-394 | D / I | |
+| URS-BB-486 / FRS-BB-532 | Back-entered ward receipt keeps the paper receipt time; In transit asks for it instead of overdue | `DowntimeBackEntryRule`; `IssuingService`; `Issuing.razor` | TEST-BB-395 | D / I | |
+| URS-BB-486 / FRS-BB-533 | Downtime snapshot counts back-entered issues still to complete | `DowntimeReconciliationService`; downtime page | TEST-BB-396 | I | |
+| URS-BB-488 / FRS-BB-534 | Facility policy keys and defaults match the admin catalog | `FacilityPolicyService`; `FacilityPolicyCatalog` | TEST-BB-397 | A | |
+| URS-BB-488 / FRS-BB-535 | Missing facility policies stored at their defaults with history | `DatabaseSeeder` | TEST-BB-398 | I | |
+| URS-BB-489 / FRS-BB-536 | Interface error resolution note, audit, and recently resolved list | `Hl7InboundProcessor`; `Hl7OutboundSender`; HL7 page | TEST-BB-399 | I | |
+| URS-BB-489 / FRS-BB-537 | Failed instrument messages: replay only when open, resolve with reason, audit | `InstrumentMessageFollowUpRule`; `AstmInboundProcessor`; Instruments page | TEST-BB-400 | D / I | |
+| URS-BB-489 / FRS-BB-538 | Dashboard and downtime snapshot count open interface failures | `DashboardQueueCatalog`; `DashboardHome`; `DowntimeReconciliationService` | TEST-BB-401 | A / I | |
+| URS-BB-490 / FRS-BB-539 | Report a reaction noticed after the transfusion | `LateReactionReportRule`; `ReactionInvestigationService`; chart Product history | TEST-BB-402 | D / I | |
+| URS-BB-490 / FRS-BB-540 | Special requirement linked to the reaction investigation that led to it | `SpecialRequirementService`; Reactions page; chart | TEST-BB-403 | I | |
+| URS-BB-490 / FRS-BB-541 | Reaction board shows and sorts by the next step | `ReactionNextStepRule`; Reactions page | TEST-BB-404 | D | |
+| URS-BB-487 / FRS-BB-542 | Expired pending specimens say to reject, and the dashboard names them | `PendingSpecimenAttentionRule`; specimen worklist; dashboard | TEST-BB-405 | A | |
+| URS-BB-491 / FRS-BB-543 | Quarantine release follows why the unit is held | `QuarantineReleaseRule`; `InventoryService`; quarantine board | TEST-BB-406 | D / I | |
+| URS-BB-491 / FRS-BB-544 | Hold release with a reason, keeping the hold reason; not for expired units | `HoldReleaseRule`; `InventoryService`; hold board and unit page | TEST-BB-407 | D / I | |
+| URS-BB-491 / FRS-BB-545 | Locate and inspect record what was found | `InventoryService`; discrepancy board and unit page | TEST-BB-408 | I | |
+| URS-BB-492 / FRS-BB-546 | Reaction concluded and treatment chosen from admin lists at close | `ReactionConclusionRule`; `ReactionCatalogAdminService`; `ReactionInvestigationService` | TEST-BB-409 | D / I | |
+| URS-BB-483 / FRS-BB-547 | Storage location changes record a reason | `StorageLocationChangeReasonRule`; `InventoryLocationAdminService` | TEST-BB-410 | D / I | |
+| URS-BB-483 / FRS-BB-548 | Transport container and MTP pack changes record a reason | `ValidatedConfigChangeReasonRule`; container and pack admin | TEST-BB-411 | D / I | |
+| URS-BB-493 / FRS-BB-549, FRS-BB-550 | Special requirements by unit category: typings, modifications, informational banner, issue procedures; start and end dates | `SpecialTransfusionRequirementRule`; `IssueGate`; `SpecialRequirementLoader`; `SpecialRequirementAdminService`; `SpecialRequirementService` | TEST-BB-412 | D / I | |
+| URS-BB-493 / FRS-BB-551 | Unit tests (CMV, HbS) recorded on the unit, latest result counts, corrections with a reason | `UnitSpecialTestRule`; `UnitSpecialTestService` | TEST-BB-413 | D / I | |
+| URS-BB-493 / FRS-BB-552 | Reserved units checked against a later special requirement on the chart | `PatientAllocationService.ListActiveAsync` | TEST-BB-414 | I | |
+| URS-BB-494 / FRS-BB-553 | Several units issued to one patient without re-entering the patient and destination | `IssueRun`; `Issuing.razor` | TEST-BB-415 | D | |
+| URS-BB-494 / FRS-BB-554 | A cooler received at the ward unit after unit, with the next unit offered | `IssueRun.NextToReceive`; `Issuing.razor` | TEST-BB-416 | D | |
+| URS-BB-495 / FRS-BB-555 | Dispense and return sent to the EHR (BPS^O29) | `Hl7BpsBuilder`; `Hl7OutboundService` | TEST-BB-417 | D / I | |
+| URS-BB-496 / FRS-BB-561 | Near-expiry units on the home screen | `DashboardQueueCatalog.NearExpiry`; `DashboardHome` | TEST-BB-423 | D | |
+| URS-BB-496 / FRS-BB-562 | Near-expiry rows offer issue or allocation | `IssueRun.ForNearExpiry` | TEST-BB-424 | D | |
+| URS-BB-497 / FRS-BB-563 | Lapsed reservations shown and released from Ready to issue | `ReadyToIssueAttentionRule.ReservationLapsed`; `CompatibilityService.ReleaseAllocationAsync` | TEST-BB-425 | D / I | |
+| URS-BB-498 / FRS-BB-564 | Open product orders beside minimum stock | `MinimumStockService`; `MinimumStockRule.OpenOrdersExceedOnHand` | TEST-BB-426 | D / I | |
+| URS-BB-499 / FRS-BB-566 | Entered results say Verify on the bench | `TestWorkItemDto.BenchActionLabelFor` | TEST-BB-427 | D | |
+| URS-BB-499 / FRS-BB-567 | To verify filter on the test worklist | `TestWorklistView.ToVerify` | TEST-BB-428 | D | |
+| URS-BB-500 / FRS-BB-568 | Handoff counts results to verify, lapsed reservations, near-expiry units | `ShiftHandoffService`; `ShiftHandoffDto.QueueSummary` | TEST-BB-429 | D / I | |
+| URS-BB-501 / FRS-BB-569 | Printable downtime patient summary, audited print | `DowntimePatientSummaryService` | TEST-BB-430 | I | |
+| URS-BB-502 / FRS-BB-570 | Downtime snapshot counts results to verify and lapsed reservations | `DowntimeReconciliationService` | TEST-BB-431 | I | |
+| URS-BB-503 / FRS-BB-571 | Scan a tube to work its tests; Start testing after accept | `TestWorklistView.ForTube` | TEST-BB-432 | D | Accept prompt: run check not exercised |
+| URS-BB-503 / FRS-BB-572 | Bench tube scan matches the label barcode | `TestWorklistView.ForTube` | TEST-BB-433 | D / I | |
+| URS-BB-501 / FRS-BB-573 | One patient's downtime summary from the chart, audited print | `DowntimePatientSummaryService.GetAsync(patientId)` | TEST-BB-434 | I | |
+| URS-BB-504 / FRS-BB-574 | Results to verify card on the home screen | `DashboardQueueCatalog.ToVerifyCard` | TEST-BB-435 | D | |
+| URS-BB-505 / FRS-BB-575 | Patient list shows ABO/Rh, antibodies, special requirements | `PatientService.ListDtosAsync` | TEST-BB-436 | I | |
+| URS-BB-505 / FRS-BB-576 | Top-bar lookup patient rows show type and alerts | `UniversalLookupService.PatientHitAsync` | TEST-BB-437 | I | |
+| URS-BB-505 / FRS-BB-577 | Patient pickers show type and alerts; merged records marked | `PatientDto.PickerLabel` | TEST-BB-438 | D | |
+| URS-BB-505 / FRS-BB-578 | Enforced requirements counted apart from informational notes | `PatientBloodBankFlags.NotesInEffect` | TEST-BB-440 | D / I | |
+| URS-BB-506 / FRS-BB-579 | Compatibility reserve checks special requirements; banner for the chosen patient | `CompatibilityService.AllocateUnitAsync` | TEST-BB-441 | I | Banner: run check |
+| URS-BB-506 / FRS-BB-580 | Compatibility reserve picker offers compatible units | `Compatibility.razor` | Run check | R | Page state; the compatible list is covered by PatientAllocationTests |
+| URS-BB-507 / FRS-BB-581 | Reaction workup Test Group settings | `ReactionWorkupSettingsAdminService` | TEST-BB-442 | D / I | |
+| URS-BB-507 / FRS-BB-582 | Pre- and post-transfusion specimens ordered by Test Group | `ReactionWorkupService` | TEST-BB-443, TEST-BB-445, TEST-BB-448 | D / I | |
+| URS-BB-507 / FRS-BB-583 | Expired pre-transfusion tube usable for workup orders only (OCD-058) | `ReactionWorkupSpecimenRule.AllowsExpiredSpecimen` | TEST-BB-444, TEST-BB-445 | D / I | |
+| URS-BB-507 / FRS-BB-584 | Close gate on verified workup results; repeat ABO/Rh from results | `ReactionWorkupCompletenessRule` | TEST-BB-446, TEST-BB-447 | D / I | |
+| URS-BB-508 / FRS-BB-585 | Printable reaction investigation report, audited print | `ReactionInvestigationService.GetReportAsync` | TEST-BB-449 | I | |
+| URS-BB-507 / FRS-BB-586 | Reaction workup lines marked on the bench | `TestWorkItemDto.ReactionWorkup` | TEST-BB-450 | I | |
+| URS-BB-509 / FRS-BB-587 | Recollection asked for after a rejected tube | `SpecimenRecollectionRule` | TEST-BB-451 | I | |
+| URS-BB-509 / FRS-BB-632 | No-result notice to the EHR when a tube is rejected (OCD-062) | `Hl7OutboundService.PublishSpecimenRejectedAsync`; `Hl7OruBuilder.BuildNoResult` | TEST-BB-498 | U, I | |
+| URS-BB-509 / FRS-BB-588 | Recollect filter and home note | `TestWorklistView.Recollect`; `DashboardQueueCatalog.PendingTestsNote` | TEST-BB-452 | D | |
+| URS-BB-510 / FRS-BB-589 | Move units by scan | `InventoryService.TransferByScanAsync` | TEST-BB-453 | I | |
+| URS-BB-511 / FRS-BB-590 | Stock count by scan, audited | `InventoryService.ReconcileCountAsync` | TEST-BB-454 | I | |
+| URS-BB-511 / FRS-BB-591 | Stock count history | `InventoryService.ListCountHistoryAsync` | TEST-BB-455 | I | |
+| URS-BB-512 / FRS-BB-592 | Cooler check before dispatch, audited | `CoolerCheckService.CheckAsync` | TEST-BB-456 | I | |
+| URS-BB-512 / FRS-BB-593 | Cooler check shown on In transit and at ward receipt | `ReadyToIssueFormCue.CoolerCheckNotice` | TEST-BB-457 | U | |
+| URS-BB-513 / FRS-BB-594 | Return a cooler in one run | `IssueRun.NextToReturn` | TEST-BB-458 | U | |
+| URS-BB-511 / FRS-BB-595 | Stock count follow-up: mark missing, found here | `InventoryService.MarkMissingAsync`; `InventoryService.LocateMissingAsync` | TEST-BB-459 | I | |
+| URS-BB-512 / FRS-BB-596 | Coolers out and their checks in the shift handoff | `ShiftHandoffService.CreateAsync` | TEST-BB-460 | U, I | |
+| URS-BB-512 / FRS-BB-597 | Cooler checks on the home In transit card | `DashboardQueueCatalog.InTransitNote` | TEST-BB-461 | U | |
+| URS-BB-512 / FRS-BB-592 | Demo cooler checks: one per state | `DatabaseSeeder.EnsureCoolerCheckDemoAsync` | TEST-BB-462 | I | Demo data |
+| URS-BB-507 / FRS-BB-598 | Reaction workup on the home Reactions card | `DashboardQueueCatalog.ReactionsNote` | TEST-BB-463 | U | |
+| URS-BB-337 / FRS-BB-599 | Missing and damaged units on the supervisor queue | `SupervisorQueueService.ListAsync` | TEST-BB-464 | I, U | |
+| URS-BB-509 / FRS-BB-600 | Tests with no specimen: bench view and STAT note | `TestWorklistView.NoSpecimen`; `DashboardQueueCatalog.PendingTestsNote` | TEST-BB-465 | U, I | |
+| URS-BB-514 / FRS-BB-601 | Possible duplicate patients at registration | `PossibleDuplicatePatientRule`; `PatientService.CreateAsync` | TEST-BB-466 | U, I | |
+| URS-BB-514 / FRS-BB-602 | Possible duplicates report, merge from it | `PatientService.ListPossibleDuplicatePairsAsync` | TEST-BB-467 | I | |
+| URS-BB-411 / FRS-BB-603 | Supplier order received vs ordered | `SupplierOrderService.Reconcile`; `SupplierOrderService.ReceiveAsync` | TEST-BB-468 | I | |
+| URS-BB-411 / FRS-BB-603 | Demo supplier order received short | `DatabaseSeeder.EnsureSupplyDemoAsync` | TEST-BB-469 | I | Demo data |
+| URS-BB-515 / FRS-BB-604 | J/K between tests on the worklist | `ui.js` bench shortcut | TEST-BB-470 | U | |
+| URS-BB-506 / FRS-BB-605 | Crossmatch unit picker offers the patient's units | `CrossmatchUnitOffer.Build` | TEST-BB-471 | U | |
+| URS-BB-516 / FRS-BB-606 | Discard expired units by scan | `InventoryService.DiscardExpiredByScanAsync` | TEST-BB-472 | I | |
+| URS-BB-516 / FRS-BB-607 | Expired on shelf home card | `DashboardQueueCatalog.ExpiredOnShelf` | TEST-BB-473 | U | |
+| URS-BB-516 / FRS-BB-608 | Expired units on a shelf in the shift handoff | `ShiftHandoffService.CreateAsync`; `InventoryService.CountExpiredOnShelfAsync` | TEST-BB-474 | U, I | |
+| URS-BB-517 / FRS-BB-609 | Return to supplier by scan; no repeat return or repeat missing | `InventoryService.ReturnToSupplierByScanAsync`; `ReturnToSupplierAsync`; `MarkMissingAsync` | TEST-BB-475 | I | |
+| URS-BB-517 / FRS-BB-610 | Repeated status actions keep the first reason | `InventoryService.RefuseRepeat` | TEST-BB-476 | I | |
+| URS-BB-518 / FRS-BB-611 | Test turnaround reports | `ReportSourceCatalog.TestTurnaround`; `ReportViewSql` | TEST-BB-477 | I | |
+| URS-BB-519 / FRS-BB-612 | Patient antibody card, print audited | `DowntimePatientSummaryService.RecordAntibodyCardPrintedAsync` | TEST-BB-478 | I | |
+| URS-BB-520 / FRS-BB-613 | User access review, dormant accounts | `UserAdminService.RecordAccessReviewAsync`; `DormantAccountRule` | TEST-BB-479 | U, I | |
+| URS-BB-521 / FRS-BB-614 | Ward issue request, requested first at issue | `IssueRequestService`; `ReadyToIssueAttentionRule.IssuableFirst` | TEST-BB-480 | U, I | |
+| URS-BB-521 / FRS-BB-615 | Visit location suggested as the issue destination | `PatientVisitLocation.For` | TEST-BB-481 | U | |
+| URS-BB-521 / FRS-BB-616 | Chart issue panel destination from request or visit | `PatientVisitLocation.For` (visit list) | TEST-BB-482 | U | |
+| URS-BB-521 / FRS-BB-633 | EHR dispense requests (OMB^O27) become issue requests (OCD-063) | `InterfaceDispenseRequestService`; `Hl7DispenseRequestMapper` | TEST-BB-499 | I | |
+| URS-BB-522 / FRS-BB-620 | New order location from the visit; attending offered | `OrderVisitDefaults` | TEST-BB-486 | U | |
+| URS-BB-523 / FRS-BB-622 | Chart links open the named tube, order, or visit's orders | `PatientChartUrls`; `PatientDetail.razor` | TEST-BB-488 | U | |
+| URS-BB-524 / FRS-BB-623 | Deviation closes with a corrective action; list by severity and age | `DeviationStatusRule`; `DeviationService`; `DeviationListView` | TEST-BB-489 | U, I | |
+| URS-BB-524 / FRS-BB-624 | Open deviations on the home screen, critical named | `DashboardQueueCatalog.DeviationsCard` | TEST-BB-490 | U | |
+| URS-BB-524 / FRS-BB-625 | Deviations shown on, and recorded from, the unit and patient pages | `DeviationService.ListForRecordAsync`; `LinkedDeviations.razor` | TEST-BB-491 | I | |
+| URS-BB-524 / FRS-BB-626 | Deviation record linked by scan or identifier | `DeviationRecordTypes.FromLookup`; `Deviations.razor` | TEST-BB-492 | U | |
+| URS-BB-524 / FRS-BB-627 | Shift handoff counts open and critical deviations | `ShiftHandoffService`; `ShiftHandoffDto.QueueSummary` | TEST-BB-493 | U, I | |
+| URS-BB-525 / FRS-BB-631 | Batch verification of eligible routine results (OCD-061) | `BatchVerifyRule`; `BatchVerifyService` | TEST-BB-497 | U, I | |
+| URS-BB-526 / FRS-BB-635 | Audit trail found by scanning the record; unit page link | `LookupRecordType`; `Audit.razor` | TEST-BB-501 | U | |
+| URS-BB-527 / FRS-BB-636 | Duplicate testing warned at order entry | `DuplicateTestOrderRule`; `OrderService.CreateAsync` | TEST-BB-502 | U, I | |
+| URS-BB-528 / FRS-BB-637 | Current visit in the chart header | `CurrentVisit` | TEST-BB-503 | U | |
+| URS-BB-529 / FRS-BB-638 | Visit, account, and other identifiers in the find box | `UniversalLookupService` | TEST-BB-504 | I | |
+| URS-BB-530 / FRS-BB-639 | Where the patient is, on the list and in the find box | `CurrentVisit`; `PatientService`; `UniversalLookupService` | TEST-BB-505 | U, I | |
+| URS-BB-531 / FRS-BB-640 | Patient pickers say where the patient is | `PatientDto.PickerLabel` | TEST-BB-506 | U, I | |
+| URS-BB-532 / FRS-BB-641 | Below minimum stock home card | `DashboardQueueCatalog.LowStockCard` | TEST-BB-507 | U | |
+| URS-BB-533 / FRS-BB-642 | Shift handoff counts products below minimum stock | `ShiftHandoffService` | TEST-BB-508 | U, I | |
+| URS-BB-534 / FRS-BB-643 | Units on submitted supplier orders count as on order | `MinimumStockService`; `SupplierOrderService` | TEST-BB-509 | U, I | |
+| URS-BB-535 / FRS-BB-644 | Overdue supplier orders | `SupplierOrderRule.IsArrivalOverdue` | TEST-BB-510 | U, I | |
+| URS-BB-536 / FRS-BB-645 | Open alerts stay current; shortage alert follows orders | `AlertRule.Changed`; `AlertScanner` | TEST-BB-511 | U, I | |
+| URS-BB-537 / FRS-BB-646 | Acknowledged alert raised again when more severe | `AlertRule.RaisesAgain` | TEST-BB-512 | U, I | |
+| URS-BB-538 / FRS-BB-647 | Collector required to accept a tube (policy) | `SpecimenCollectorRule` | TEST-BB-513 | U, I | OCD-064 |
+| URS-BB-539 / FRS-BB-648 | Accessioned tubes linked to their visit | `SpecimenService.AccessionAsync` | TEST-BB-514 | I | |
+| URS-BB-540 / FRS-BB-649 | Choose the tube's visit at accession; visit on Specimens | `CurrentVisit.DefaultForNewTube` | TEST-BB-515 | U | |
+| URS-BB-541 / FRS-BB-650 | Numeric and titer test settings | `TestDefinition`; `TestDefinitionValidator` | TEST-BB-518, TEST-BB-521 | U, I | |
+| URS-BB-542 / FRS-BB-651 | Numeric results checked and flagged | `NumericResultRule` | TEST-BB-516, TEST-BB-519 | U, I | |
+| URS-BB-543 / FRS-BB-652 | Titer entry, endpoint, and score | `TiterRule` | TEST-BB-517, TEST-BB-519 | U, I | OCD-065 |
+| URS-BB-544 / FRS-BB-653 | Titer display, trend, and EHR value | `ResultValueText`; `PatientTestHistoryService` | TEST-BB-517, TEST-BB-519 | U, I | OCD-065 |
+| URS-BB-545 / FRS-BB-654 | Example tests seeded as drafts | `DatabaseSeeder.TestCatalogExamples` | TEST-BB-520 | I | OCD-065 |
+| URS-BB-546 / FRS-BB-655 | Numeric reference range sent in OBX-7 | `Hl7OruBuilder` | TEST-BB-522 | I | |
+| URS-BB-547 / FRS-BB-656 | LOINC code per test in OBX-3 | `LoincCodeRule`; `Hl7OruBuilder` | TEST-BB-523 | U, I | |
+| URS-BB-548 / FRS-BB-657 | Translations for all interfaces or one interface, local value lists, reason | `InterfaceValueTranslator`; `InterfaceTranslationAdminService`; `InterfaceValueSets` | TEST-BB-524, TEST-BB-525 | U, I | |
+| URS-BB-548 / FRS-BB-658 | Translations admin page and starter rows | `AdminHl7Translations.razor`; `DatabaseSeeder.InterfaceTranslations` | TEST-BB-528 | I | |
+| URS-BB-549 / FRS-BB-659 | Grouper precedence in and out; unknown order code to the error queue | `TestCodeTranslationRule`; `Hl7InboundProcessor`; `Hl7OutboundService` | TEST-BB-526 | I | |
+| URS-BB-550 / FRS-BB-660 | Race, ethnicity, patient class through the translations | `Hl7AdtMapper`; `Hl7OruBuilder`; `Hl7DftBuilder`; `Hl7BpsBuilder`; `PatientService` | TEST-BB-527 | U, I | |
+| URS-BB-550 / FRS-BB-661 | Unmapped values listed, resolved, dismissed; home card | `InterfaceUnmappedValueService`; `DashboardQueueCatalog` | TEST-BB-525, TEST-BB-526, TEST-BB-528 | U, I | |
+| URS-BB-551 / FRS-BB-662 | Translation rows imported from a paste or CSV, exported as CSV | `InterfaceTranslationImport`; `AdminHl7Translations.razor` | TEST-BB-529 | U | |
+| URS-BB-552 / FRS-BB-663 | Per-instrument translation table and translator | `InstrumentValueTranslator`; `InstrumentInterfaceValidator`; migration | TEST-BB-535, TEST-BB-536 | U, I | |
+| URS-BB-552 / FRS-BB-664 | Instrument Translations tab, admin checks, Echo seed | `AdminInstruments.razor`; `InstrumentInterfaceAdminService`; `DatabaseSeeder.Instruments` | TEST-BB-530, TEST-BB-534, TEST-BB-536 | I | |
+| URS-BB-553 / FRS-BB-665 | Unknown or unordered instrument codes not posted; unmapped listed | `AstmInboundProcessor`; `AstmOrderBuilder`; `InterfaceUnmappedValueService` | TEST-BB-530, TEST-BB-531, TEST-BB-533 | I | |
+| URS-BB-554 / FRS-BB-666 | Instrument error codes Hold / Warn / Ignore | `InstrumentValueTranslator.ErrorAction`; `AstmInboundProcessor` | TEST-BB-532, TEST-BB-535 | U, I | OCD-066 |
+| URS-BB-555 / FRS-BB-667 | Release a held instrument result with a reason | `InstrumentMessageFollowUpRule`; `AstmInboundProcessor.ReleaseHeldAsync`; `Instruments.razor` | TEST-BB-537, TEST-BB-538 | U, I | OCD-066 |
+| URS-BB-554 / FRS-BB-668 | Error code table with meanings decides each code's action | `InstrumentValueTranslator.Describe`; `AdminInstruments.razor`; `InterfaceTranslationImport.ParseInstrument` | TEST-BB-539 | U, I | OCD-066 (decided) |
+| URS-BB-556 / FRS-BB-669 | Held instrument results on the home card and a held filter | `DashboardQueueCatalog.InstrumentFailuresCard`; `Instruments.razor` | TEST-BB-540, TEST-BB-401 | U | |
+| URS-BB-557 / FRS-BB-670 | Reagent lots recorded on manual results; lot lookback | `ReagentLotUseRule`; `ReagentQcService`; `ResultService`; `Reagents.razor` | TEST-BB-541, TEST-BB-542, TEST-BB-543 | U, I | |
+| URS-BB-558 / FRS-BB-671 | Lots shown on chart results; entry warnings for missing lots and QC | `ReagentLotUseRule.EntryWarnings`; `ReagentQcService.LotLabelsForResultsAsync`; `PatientDetail.razor` | TEST-BB-544 | U, I | |
+| URS-BB-558 / FRS-BB-672 | Lots on worklist lines for the verifier | `TestWorklistService`; `TestWorklist.razor`; `PatientChartTestsTab.razor` | TEST-BB-545 | I | |
+| URS-BB-559 / FRS-BB-673 | Failed QC names and opens the results to review | `ReagentLotUseRule.ReviewSinceUtc`; `ReagentQcService`; `AlertScanner`; `Reagents.razor` | TEST-BB-546 | U, I | |
+| URS-BB-560 / FRS-BB-674 | Mark a result reviewed for a failed lot | `ReagentLotUseRule.EvaluateReview`; `ReagentQcService.ReviewLotResultAsync`; `Reagents.razor` | TEST-BB-547 | U, I | |
+| URS-BB-561 / FRS-BB-675 | Verified results in the FHIR API with LOINC | `FhirMapper.TestResult`; `FhirReadService` | TEST-BB-548, TEST-BB-320 | I | OCD-043 |
+| URS-BB-562 / FRS-BB-676 | Several accepted specimen types per test | `AcceptedSpecimenTypes`; `SpecimenTypeCompatibilityRule`; `TestDefinitionValidator`; `AdminTests.razor` | TEST-BB-549 | U | |
+| URS-BB-562 / FRS-BB-677 | Order entry shows accepted and common specimen types | `AcceptedSpecimenTypes.Common`; `AcceptedSpecimenTypes.OrderNote`; `PatientChartOrdersTab.razor` | TEST-BB-550 | U | |
+| URS-BB-563 / FRS-BB-678 | FHIR DiagnosticReport per order | `FhirMapper.DiagnosticReport`; `FhirReadService`; `FhirEndpoints` | TEST-BB-551 | I | OCD-043 |
+| URS-BB-564 / FRS-BB-679 | FHIR Specimen; results and reports point at their tube | `FhirMapper.Specimen`; `FhirReadService`; `FhirEndpoints` | TEST-BB-552, TEST-BB-551 | I | OCD-043 |
+| URS-BB-565 / FRS-BB-680 | Handoff counts instrument failures and failed reagent lots | `ShiftHandoffService` | TEST-BB-553 | I | |
+| URS-BB-565 / FRS-BB-681 | Handoff counts HL7 errors and unmapped interface values | `ShiftHandoffService` | TEST-BB-554 | I | |
+| URS-BB-566 / FRS-BB-682 | Handoff preview before recording | `ShiftHandoffService.PreviewAsync`; `ShiftHandoff.razor` | TEST-BB-555 | I | |
+| URS-BB-567 / FRS-BB-683 | Handoff queues link to their boards, urgent first | `ShiftHandoffItems`; `HandoffItemLinks.razor` | TEST-BB-556 | U | |
+| URS-BB-567 / FRS-BB-684 | Home handoff card names urgent items | `DashboardQueueCatalog.HandoffNote` | TEST-BB-557 | U | |
+| URS-BB-568 / FRS-BB-685 | Reagent QC worklist follows the lot's current state; expired open lots flagged | `ReagentQcWorklistRule`; `ReagentLotUseRule.EntryWarnings`; `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-558 | U | |
+| URS-BB-569 / FRS-BB-686 | Reagent lot lifecycle controls and audit | `ReagentLotRule`; `ReagentQcService`; `Reagents.razor` | TEST-BB-559 | U, I | |
+| URS-BB-570 / FRS-BB-687 | Reagent lot near expiry with no next lot: receive one | `ReagentQcWorklistRule`; `DashboardQueueCatalog.ReagentQcNote`; `AlertScanner`; `Reagents.razor` | TEST-BB-560 | U, I | |
+| URS-BB-571 / FRS-BB-688 | Specimens-tab accession names waiting orders and their accepted types | `SpecimenTypeOrderHint`; `PatientChartSpecimensTab.razor` | TEST-BB-561 | U | |
+| URS-BB-572 / FRS-BB-689 | Link a new tube to the waiting orders at accession | `SpecimenTypeOrderHint.LinkableOnAccession`; `PatientChartSpecimensTab.razor`; `PatientDetail.AccessionAsync`; `OrderService.LinkSpecimenAsync` | TEST-BB-562 | U | |
+| URS-BB-573 / FRS-BB-690 | Offer to link an accepted tube to its waiting orders | `WaitingOrderLinkPrompt.razor`; `SpecimenTypeOrderHint.OrderList` / `LinkOutcome`; `TestWorklist.razor`; `PatientDetail.razor` | TEST-BB-563 | U | |
+| URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
+| URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
+| URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
+| URS-BB-494 / FRS-BB-556 | Several units for one patient at the bedside, with the next unit offered | `IssueRun.NextAtBedside`; `Issuing.razor` | TEST-BB-418 | D | |
+| URS-BB-494 / FRS-BB-557 | Scan and Enter selects in pick lists; a picked unit brings its reserved patient | `FilterableComboBox`; `IssueRun.ForPickedUnit` | TEST-BB-419 | D | |
+| URS-BB-494 / FRS-BB-558 | Unit page shows its reservation and issues from there | `UnitDetail.razor`; `IssueRun.RoutineIssueBlocks` | TEST-BB-420 | D | |
+| URS-BB-494 / FRS-BB-559 | Issued unit page shows where it went and its next step | `UnitDetail.razor`; `IssueRun.NextStepForIssued` | TEST-BB-421 | D | |
+| URS-BB-494 / FRS-BB-560 | Timelines show the crossmatch result and ward receipt | `PatientTimelineService`; `CrossmatchValidityRule.Shown` | TEST-BB-422 | D / I | |
+| URS-BB-494 / FRS-BB-565 | Several units reserved for one order without reopening the panel | `PatientDetail.razor` | Run check | R | UI state only; exercised live in Cycle 390 |
+| OCD-041 / FRS-BB-517 | Issue override fields stored as named and trimmed; blank authorizer refused | `IssuingService` | TEST-BB-378 | I | |
+| URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

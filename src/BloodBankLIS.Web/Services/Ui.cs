@@ -71,6 +71,7 @@ public static class Ui
         ProductAllocationDisplayStatus.ReadyForIssue => "badge badge-green",
         ProductAllocationDisplayStatus.Exception => "badge badge-red",
         ProductAllocationDisplayStatus.Reserved => "badge badge-amber",
+        ProductAllocationDisplayStatus.CrossmatchExpired => "badge badge-amber",
         _ => "badge"
     };
 
@@ -79,6 +80,7 @@ public static class Ui
         ProductAllocationDisplayStatus.ReadyForIssue => "Ready for issue",
         ProductAllocationDisplayStatus.Exception => "Exception",
         ProductAllocationDisplayStatus.Reserved => "Reserved",
+        ProductAllocationDisplayStatus.CrossmatchExpired => "Crossmatch expired",
         _ => status.ToString()
     };
 

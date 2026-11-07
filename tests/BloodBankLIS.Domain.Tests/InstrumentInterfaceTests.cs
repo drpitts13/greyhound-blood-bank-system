@@ -8,29 +8,29 @@ namespace BloodBankLIS.Domain.Tests;
 public class InstrumentInterfaceTests
 {
     [Fact]
-    public void MappingResolver_UsesOrderWhenMultipleApplicationCodesShareInstrumentCode()
+    public void Translator_UsesOrderWhenMultipleTestsShareInstrumentCode()
     {
-        var mappings = new[]
-        {
-            Map("Group", "ABORH-RETYPE", InstrumentMappingKind.Assay, 1),
-            Map("Group", "ABORH", InstrumentMappingKind.Assay, 2)
-        };
+        var translator = InstrumentValueTranslator.From(
+        [
+            Map(InstrumentTranslationKeys.ResultTestCode, "Group", "ABORH-RETYPE", 1),
+            Map(InstrumentTranslationKeys.ResultTestCode, "Group", "ABORH", 2)
+        ]);
 
-        Assert.Equal("ABORH", InstrumentMappingResolver.ToApplication(mappings, "Group", InstrumentMappingKind.Assay, ["ABORH"]));
-        Assert.Equal("ABORH-RETYPE", InstrumentMappingResolver.ToApplication(mappings, "Group", InstrumentMappingKind.Assay, null));
+        Assert.Equal("ABORH", translator.ToLocal(InstrumentTranslationKeys.ResultTestCode, "Group", orderedTests: ["ABORH"]));
+        Assert.Equal("ABORH-RETYPE", translator.ToLocal(InstrumentTranslationKeys.ResultTestCode, "group"));
     }
 
     [Fact]
-    public void MappingResolver_CollapsesInboundAnalytesOntoOneApplicationCode()
+    public void Translator_CollapsesInboundAnalytesOntoOneSubtest()
     {
-        var mappings = new[]
-        {
-            Map("Anti-D1", "Anti-D", InstrumentMappingKind.Analyte, 1),
-            Map("Anti-D2", "Anti-D", InstrumentMappingKind.Analyte, 2)
-        };
+        var translator = InstrumentValueTranslator.From(
+        [
+            Map(InstrumentTranslationKeys.SubtestCode, "Anti-D1", "Anti-D", 1),
+            Map(InstrumentTranslationKeys.SubtestCode, "Anti-D2", "Anti-D", 2)
+        ]);
 
-        Assert.Equal("Anti-D", InstrumentMappingResolver.ToApplication(mappings, "Anti-D1", InstrumentMappingKind.Analyte));
-        Assert.Equal("Anti-D", InstrumentMappingResolver.ToApplication(mappings, "Anti-D2", InstrumentMappingKind.Analyte));
+        Assert.Equal("Anti-D", translator.ToLocal(InstrumentTranslationKeys.SubtestCode, "Anti-D1"));
+        Assert.Equal("Anti-D", translator.ToLocal(InstrumentTranslationKeys.SubtestCode, "Anti-D2"));
     }
 
     [Fact]
@@ -100,15 +100,15 @@ public class InstrumentInterfaceTests
             duplicateName: false,
             duplicatePort: false,
             fieldMappings: [new InstrumentFieldMapping { DataItemKey = "patient_id", AstmPath = "P.3" }],
-            testMappings:
+            translations:
             [
-                Map("Group", "ABORH", InstrumentMappingKind.Assay, 1, InterfaceTranslationDirection.Both),
-                Map("Group2", "ABORH", InstrumentMappingKind.Assay, 2, InterfaceTranslationDirection.Both)
+                Map(InstrumentTranslationKeys.OrderTestCode, "Group", "ABORH", 1, InterfaceTranslationDirection.Outbound),
+                Map(InstrumentTranslationKeys.OrderTestCode, "Group2", "ABORH", 2, InterfaceTranslationDirection.Outbound)
             ],
             rules: []);
 
         Assert.True(evaluation.IsHardStopped);
-        Assert.Contains(evaluation.HardStops, r => r.Code == "INST-MAP-APP");
+        Assert.Contains(evaluation.HardStops, r => r.Code == "INST-XLAT-OUT");
     }
 
     [Theory]
@@ -169,24 +169,26 @@ public class InstrumentInterfaceTests
             duplicateName: false,
             duplicatePort: false,
             fieldMappings: [new InstrumentFieldMapping { DataItemKey = "patient_id", AstmPath = "P.3" }],
-            testMappings: [],
+            translations: [],
             rules: []);
 
         Assert.True(evaluation.IsHardStopped);
         Assert.Contains(evaluation.HardStops, r => r.Code == "INST-INTERP-CODES");
     }
 
-    private static InstrumentTestMapping Map(
+    private static InstrumentValueTranslation Map(
+        string key,
         string instrument,
-        string application,
-        InstrumentMappingKind kind,
+        string local,
         int sort,
-        InterfaceTranslationDirection direction = InterfaceTranslationDirection.Inbound) =>
+        InterfaceTranslationDirection direction = InterfaceTranslationDirection.Inbound,
+        string? context = null) =>
         new()
         {
-            InstrumentCode = instrument,
-            ApplicationCode = application,
-            Kind = kind,
+            DataItemKey = key,
+            InstrumentValue = instrument,
+            LocalValue = local,
+            Context = context,
             Direction = direction,
             SortOrder = sort
         };

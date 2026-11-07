@@ -60,7 +60,9 @@ public sealed record EncounterDto(
 public sealed record OrderLineInputDto(
     OrderCategory LineCategory,
     string? TestCode,
-    long? ProductTypeId);
+    long? ProductTypeId,
+    // Set when the line comes from expanding a test grouper.
+    string? GrouperCode = null);
 
 public sealed record OrderLineDto(
     long Id,
@@ -72,11 +74,12 @@ public sealed record OrderLineDto(
     long? ProductTypeId,
     FulfillmentStatus? FulfillmentStatus,
     ResultStatus? ResultStatus,
-    string? Comment = null)
+    string? Comment = null,
+    string? GrouperCode = null)
 {
     public static OrderLineDto From(OrderLine line) => new(
         line.Id, line.LineNumber, line.LineCategory, line.LineName, line.TestCode, line.OrderType,
-        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus, line.Comment);
+        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus, line.Comment, line.GrouperCode);
 }
 
 public sealed record CreateOrderRequest(
@@ -263,4 +266,38 @@ public sealed record PatientTestHistoryRowDto(
     ResultStatus Status,
     ResultSource Source,
     bool IsCurrent,
-    string? Reason);
+    string? Reason,
+    string? EnteredBy = null,
+    DateTime? EnteredUtc = null,
+    string? InvalidatedBy = null,
+    // Part of a correction or invalidation: a later version, a superseded one, or a corrected or invalidated status.
+    bool HasRevision = false,
+    string? Units = null,
+    // Numeric results: L, H, LL, or HH against the test's ranges.
+    string? AbnormalFlag = null,
+    // Titers: the change from the previous titer of the same test ("2 dilutions higher than 1:8 on 2026-10-01").
+    string? Trend = null);
+
+/// <summary>Views over the chart's test history.</summary>
+public static class PatientTestHistoryView
+{
+    /// <summary>
+    /// Only results that were corrected or invalidated, every version of each, grouped by tube and test with the newest
+    /// version first, so what changed reads as one chain.
+    /// </summary>
+    public static IReadOnlyList<PatientTestHistoryRowDto> RevisedOnly(IEnumerable<PatientTestHistoryRowDto> rows) =>
+        rows.Where(r => r.HasRevision)
+            .OrderBy(r => r.AccessionNumber, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.TestCode, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(r => r.Version)
+            .ToList();
+
+    public static string SourceLabel(ResultSource source) => source switch
+    {
+        ResultSource.Manual => "Manual",
+        ResultSource.Instrument => "Instrument",
+        ResultSource.Interface => "Interface",
+        ResultSource.Calculated => "Calculated",
+        _ => source.ToString()
+    };
+}

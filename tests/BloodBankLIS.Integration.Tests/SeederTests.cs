@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -56,10 +57,58 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
 
             // The original demo patient, five clinical scenarios, plus alloimmunization,
             // autologous/directed FDA/AABB validation, HL7 data-load patients, and the
-            // unit antigen typing patient.
-            Assert.Equal(10, await verify.Patients.CountAsync());
-            Assert.Equal(11, await verify.Encounters.CountAsync());
-            Assert.Equal(16, await verify.Orders.CountAsync());
+            // unit antigen typing patient, the massive transfusion demo patient, the multi-unit run patient,
+            // and the special-requirements patient.
+            Assert.Equal(14, await verify.Patients.CountAsync());
+            Assert.Equal(14, await verify.Encounters.CountAsync());
+
+            // TEST-BB-439: special requirements demo: two enforced and one informational, in effect, typed twice O+.
+            var special = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0023");
+            var specialRows = await verify.SpecialTransfusionRequirements.Where(r => r.PatientId == special.Id).ToListAsync();
+            var definitionCodes = await verify.SpecialRequirementDefinitions
+                .Where(d => specialRows.Select(r => r.RequirementDefinitionId).Contains(d.Id))
+                .Select(d => d.Code)
+                .ToListAsync();
+            Assert.Equal(new[] { "CALL-TSMD", "CMVNEG-RBC", "IRRAD-RBC" }, definitionCodes.Order().ToArray());
+            Assert.All(specialRows, r => Assert.True(
+                SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, DateTime.UtcNow)));
+            Assert.Equal(2, await verify.PatientBloodTypeHistory.CountAsync(h => h.PatientId == special.Id && h.Abo == AboGroup.O));
+
+            // Multi-unit demo: two reserved, two in one cooler in transit, two received at the bedside.
+            var multi = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0022");
+            Assert.Equal(2, await verify.Allocations.CountAsync(a => a.PatientId == multi.Id && a.Status == AllocationStatus.Reserved));
+            Assert.Equal(2, await verify.Issues.CountAsync(i => i.PatientId == multi.Id && i.CoolerId == "Cooler M2" && i.WardReceivedUtc == null));
+            Assert.Equal(2, await verify.Issues.CountAsync(i => i.PatientId == multi.Id && i.WardReceivedUtc != null && i.Status == IssueStatus.Issued));
+            // Its red-cell order uses the type-and-screen tube, so more units can be reserved in the demo.
+            var redCellOrder = await verify.Orders.SingleAsync(o => o.OrderNumber == "ORD0023");
+            Assert.True(await verify.OrderSpecimens.AnyAsync(os => os.OrderId == redCellOrder.Id));
+
+            // Demo MTP: one active protocol, four units issued under it, all in one recorded pack.
+            var mtp = await verify.MtpActivations.SingleAsync();
+            Assert.Equal(MtpActivationStatus.Active, mtp.Status);
+            Assert.Equal(4, await verify.Issues.CountAsync(i => i.MtpActivationId == mtp.Id && i.IssueType == IssueType.MassiveTransfusion));
+            var pack = await verify.MtpPackRecords.SingleAsync();
+            Assert.Equal(4, await verify.Issues.CountAsync(i => i.MtpPackRecordId == pack.Id));
+            Assert.Null((await verify.TransportContainers.SingleAsync()).MinTemperatureC);
+            Assert.Equal(20, await verify.Orders.CountAsync());
+            // TEST-BB-465: a STAT type and screen with no tube, for the bench's No specimen view.
+            var stat = await verify.Orders.SingleAsync(o => o.OrderNumber == "ORD0024");
+            Assert.Equal(OrderPriority.Stat, stat.Priority);
+            Assert.False(await verify.OrderSpecimens.AnyAsync(os => os.OrderId == stat.Id));
+            Assert.Equal(2, await verify.OrderLines.CountAsync(l => l.OrderId == stat.Id));
+
+            // TEST-BB-447: the reaction demo's specimen workup: ACC0014 before the issue with ORD0016 (DAT and ABO/Rh),
+            // and the post-transfusion tube ACC0024 with the TRX-POST group ordered, unresulted.
+            var reaction = await verify.ReactionInvestigations.SingleAsync(r => r.PreTransfusionOrderId != null);
+            Assert.Equal("ACC0014", (await verify.Specimens.SingleAsync(sp => sp.Id == reaction.PreTransfusionSpecimenId)).AccessionNumber);
+            Assert.Equal("ORD0016", (await verify.Orders.SingleAsync(o => o.Id == reaction.PreTransfusionOrderId)).OrderNumber);
+            Assert.Equal(new[] { "ABORH", "DAT" }, (await verify.OrderLines.Where(l => l.OrderId == reaction.PreTransfusionOrderId).Select(l => l.TestCode).ToListAsync()).Order().ToArray());
+            Assert.Equal("ACC0024", (await verify.Specimens.SingleAsync(sp => sp.Id == reaction.PostTransfusionSpecimenId)).AccessionNumber);
+            var postOrder = await verify.Orders.SingleAsync(o => o.Id == reaction.PostTransfusionOrderId);
+            Assert.Equal((OrderType.TransfusionReactionWorkup, $"RXN-{reaction.Id}-POST"), (postOrder.OrderType, postOrder.OrderNumber));
+            Assert.Equal(3, await verify.OrderLines.CountAsync(l => l.OrderId == postOrder.Id));
+            Assert.False(await verify.TestResults.AnyAsync(r => r.OrderId == postOrder.Id));
+            Assert.Equal(("TRX-PRE", "TRX-POST"), await verify.ReactionWorkupSettings.Select(x => ValueTuple.Create(x.PreTransfusionTestGroupCode, x.PostTransfusionTestGroupCode)).SingleAsync());
             Assert.Equal("false", (await verify.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch)).Value);
             Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0009"));
             Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0010"));
@@ -97,8 +146,17 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // (three available + one completed source + two V0A/V0B results),
             // autologous + directed, lookback sibling, missing + damaged,
             // and two expected inbound packing-list units, plus the Helen BPAM unit,
-            // plus two units assigned for unit antigen typing.
-            Assert.Equal(53, await verify.BloodUnits.CountAsync());
+            // plus two units assigned for unit antigen typing, plus four issued under the demo MTP.
+            Assert.Equal(68, await verify.BloodUnits.CountAsync());
+            // TEST-BB-469: a demo supplier order for five group O red cells, received against a delivery of three.
+            var demoOrder = await verify.SupplierOrders.SingleAsync(o => o.OrderNumber == "SO-DEMO-001");
+            Assert.Equal(SupplierOrderStatus.Received, demoOrder.Status);
+            Assert.Equal(3, await verify.BloodUnits.CountAsync(u => u.DeliveryId == demoOrder.BloodDeliveryId));
+            Assert.Equal(5, (await verify.SupplierOrderLines.SingleAsync(l => l.SupplierOrderId == demoOrder.Id)).Quantity);
+            // TEST-BB-509: a submitted demo order for one group A red cell, not yet received, shows as on order.
+            var onOrder = await verify.SupplierOrders.SingleAsync(o => o.OrderNumber == "SO-DEMO-002");
+            Assert.Equal(SupplierOrderStatus.Submitted, onOrder.Status);
+            Assert.Equal((AboGroup?)AboGroup.A, (await verify.SupplierOrderLines.SingleAsync(l => l.SupplierOrderId == onOrder.Id)).Abo);
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Expected));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123ASN0001" && u.ShipmentId == "ASN-DEMO-01"));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));
@@ -169,7 +227,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency, emergency.CrossmatchStatus);
         Assert.NotNull(emergency.OverrideId);
         Assert.True(await verify.Overrides.AnyAsync(o =>
-            o.Action == OverrideAction.EmergencyRelease && o.ContextId == emergency.Id));
+            o.Action == OverrideAction.EmergencyRelease && o.ContextId == emergency.BloodProductId));
 
         var reaction = await verify.TransfusionEvents.SingleAsync(t => t.ReactionSuspected);
         Assert.Equal(TransfusionDisposition.Stopped, reaction.FinalDisposition);
@@ -249,6 +307,61 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             e.PatientId == helen.Id
             && e.TriggerType == BillingTriggerType.UnitTransfused
             && e.Status == BillingEventStatus.Pending));
+    }
+
+    // TEST-BB-462: the demo shows each cooler check state: Cooler M2 checked with all units packed, Cooler 1 checked
+    // with one unit missing, CLR-TRAUMA-1 not checked. Seeding again adds no more check rows.
+    [Fact]
+    public async Task Seed_DemoCoolers_ShowEachCheckState_Once()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var coolers = new CoolerCheckService(
+            new EfRepository<Issue>(verify), new InventoryRepository(verify), new EfRepository<BloodUnit>(verify),
+            new EfRepository<ProductType>(verify), new EfRepository<Patient>(verify),
+            new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate), _factory.CurrentUser,
+            new AuditWriter(verify, _factory.Clock, _factory.CurrentUser), verify, new AuditQuery(verify));
+        var open = (await coolers.SummarizeOpenAsync()).ToDictionary(c => c.CoolerId);
+        Assert.True(open["Cooler M2"].LastCheckReady);
+        Assert.False(open["Cooler 1"].LastCheckReady);
+        Assert.NotNull(open["Cooler 1"].LastCheckedUtc);
+        Assert.Null(open["CLR-TRAUMA-1"].LastCheckedUtc);
+
+        var checks = await verify.AuditEvents.CountAsync(e => e.EntityType == nameof(Issue) && e.Reason!.StartsWith("Cooler check: "));
+        Assert.Equal(open["Cooler M2"].Units + open["Cooler 1"].Units, checks);
+        Assert.Contains("1 missing", (await verify.AuditEvents.FirstAsync(e => e.Reason!.StartsWith("Cooler check: Cooler 1"))).Reason);
+    }
+
+    // TEST-BB-377: the demo patient's specimens are seeded with the expiration policy gives them, so editing one needs no override.
+    [Fact]
+    public async Task Seed_DemoPatientSpecimens_ExpireAsPolicySays()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var patient = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
+        var service = new BloodBankLIS.Application.Specimens.SpecimenService(
+            new EfRepository<Specimen>(verify), new EfRepository<Patient>(verify), new EfRepository<SpecimenTypeDefinition>(verify),
+            verify, _factory.Clock, transfusions: new EfRepository<TransfusionEvent>(verify));
+        foreach (var accession in new[] { "ACC0001", "ACC-PEND-COL", "ACC-PEND-RCV" })
+        {
+            var specimen = await verify.Specimens.SingleAsync(s => s.AccessionNumber == accession);
+            var preview = await service.PreviewExpirationAsync(patient.Id, specimen.SpecimenType, specimen.CollectedUtc);
+            Assert.True(preview.Succeeded, preview.Error);
+            Assert.Equal(preview.Value!.PolicyExpiresUtc, specimen.ExpiresUtc);
+        }
     }
 
     [Fact]
@@ -499,7 +612,178 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "CUSTOM"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "OR"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "ED"));
-            Assert.Equal(10, await verify.Patients.CountAsync());
+            Assert.Equal(14, await verify.Patients.CountAsync());
         }
+    }
+
+    // TEST-BB-520: the example tests are seeded once each as inactive drafts that would pass validation if activated,
+    // with their subtests; the anti-K titer demo shows two titers three weeks apart.
+    [Fact]
+    public async Task Seed_AddsExampleTestsAsValidDrafts_AndTheTiterDemo()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        string[] codes = ["ABTITER", "ABOTITER", "FMHQ", "DATIGG", "ELUTION", "WEAKDP", "RHKPHENO"];
+        var subtests = (await verify.SubtestDefinitions.Where(s => s.IsActive && !s.IsDraft).Select(s => s.Code).ToListAsync())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var attributes = (await verify.BloodAttributeDefinitions.Where(a => a.IsActive).Select(a => a.Code).ToListAsync()).ToHashSet(StringComparer.Ordinal);
+        var phases = (await verify.PhaseDefinitions.Where(p => p.IsActive && !p.IsDraft).ToListAsync())
+            .ToDictionary(p => p.Code, StringComparer.OrdinalIgnoreCase);
+        foreach (var code in codes)
+        {
+            var definition = Assert.Single(await verify.TestDefinitions.Where(t => t.Code == code).ToListAsync());
+            Assert.True(definition.IsDraft && !definition.IsActive, code);
+            Assert.Equal(DatabaseSeeder.ExampleTestReason, definition.ChangeReason);
+            var evaluation = BloodBankLIS.Domain.Rules.Config.TestDefinitionValidator.Validate(
+                definition, false, subtests, attributes, null, phases);
+            Assert.False(evaluation.IsHardStopped, $"{code}: {string.Join("; ", evaluation.HardStops.Select(h => h.Message))}");
+        }
+
+        Assert.True(subtests.IsSupersetOf(["IGG", "C3D", "DATCTL", "LASTWASH"]));
+        var titer = await verify.TestDefinitions.SingleAsync(t => t.Code == "ABTITER");
+        Assert.Equal((1, 2048, "AHG", "1+", true), (titer.TiterStartDilution, titer.TiterEndDilution, titer.TiterPhaseCode, titer.TiterEndpointMinGrade, titer.TiterScored));
+        var fmhq = await verify.TestDefinitions.SingleAsync(t => t.Code == "FMHQ");
+        Assert.Equal(("%", 2), (fmhq.ResultUnits, fmhq.DecimalPlaces));
+        Assert.Null(fmhq.ReferenceHigh);
+
+        var patient = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0004");
+        var titers = await verify.TestResults.Where(r => r.PatientId == patient.Id && r.TestCode == "ABTITER").OrderBy(r => r.VerifiedUtc).ToListAsync();
+        Assert.Equal(["Titer 1:8 (score 28)", "Titer 1:32 (score 48)"], titers.Select(r => r.Interpretation));
+        Assert.Equal(2, titers.Select(r => r.SpecimenId).Distinct().Count());
+    }
+
+    // TEST-BB-528: starter translations are seeded once per field (TNS <-> LAB10117, patient classes, race and
+    // ethnicity), a field the site has edited is left alone, demo type and screen lines keep their grouper, two demo
+    // patients have race and ethnicity, and one unmapped order code is listed.
+    [Fact]
+    public async Task Seed_AddsStarterTranslations_OncePerField_AndTheTranslationDemo()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            var race = await context.InterfaceValueTranslations.Where(t => t.DataItemKey == "Patient.Race" && t.InternalValue == "OTHER").ToListAsync();
+            context.InterfaceValueTranslations.RemoveRange(race);
+            await context.SaveChangesAsync();
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var tns = Assert.Single(await verify.InterfaceValueTranslations.Where(t => t.DataItemKey == "Procedure.Code").ToListAsync());
+        Assert.Equal(("TNS", "LAB10117", InterfaceTranslationDirection.Both, (long?)null), (tns.InternalValue, tns.ExternalValue, tns.Direction, tns.EndpointId));
+        var classes = await verify.InterfaceValueTranslations.Where(t => t.DataItemKey == "Encounter.PatientClass").ToListAsync();
+        Assert.Equal(5, classes.Count);
+        Assert.Equal(InterfaceTranslationDirection.Outbound, classes.Single(c => c.InternalValue == "Observation").Direction);
+        // The site removed OTHER: a later seed does not put it back.
+        Assert.Equal(5, await verify.InterfaceValueTranslations.CountAsync(t => t.DataItemKey == "Patient.Race"));
+        Assert.Equal(2, await verify.InterfaceValueTranslations.CountAsync(t => t.DataItemKey == "Patient.Ethnicity"));
+
+        var tnsLines = await verify.OrderLines.Where(l => l.Order!.TestCode == "TNS" && (l.TestCode == "ABORH" || l.TestCode == "ABSC")).ToListAsync();
+        Assert.NotEmpty(tnsLines);
+        Assert.All(tnsLines, l => Assert.Equal("TNS", l.GrouperCode));
+        var first = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
+        Assert.Equal(("WHITE", "NOT-HISPANIC"), (first.Race, first.Ethnicity));
+        var unmapped = Assert.Single(await verify.InterfaceUnmappedValues.Where(v => v.InstrumentInterfaceId == null).ToListAsync());
+        Assert.Equal(("Order.TestCode", "LAB99999", (DateTime?)null), (unmapped.DataItemKey, unmapped.Value, unmapped.ResolvedUtc));
+    }
+
+    // TEST-BB-543: demo reagents are seeded once with the tests they are used for and an open lot each, and the demo's
+    // recent manual results are recorded against those lots, so the lot lookback has rows.
+    [Fact]
+    public async Task Seed_AddsDemoReagentLots_AndRecordsRecentManualResults_Once()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var reagents = await verify.Reagents.ToListAsync();
+        Assert.Equal(7, reagents.Count);
+        Assert.Equal("ABSC, DAT, XM", reagents.Single(r => r.Code == "AHG").TestCodes);
+        Assert.Equal(7, await verify.ReagentLots.CountAsync(l => l.State == ReagentLotState.Opened));
+        var recorded = await verify.TestResultReagentLots.ToListAsync();
+        Assert.NotEmpty(recorded);
+        Assert.Equal(recorded.Count, recorded.Select(r => (r.TestResultId, r.ReagentLotId)).Distinct().Count());
+    }
+
+    // TEST-BB-536: an upgraded database: the old assay and analyte map is copied into translations by the migration SQL,
+    // the value translations are added, and only the text rules still exactly as seeded are turned off.
+    [Fact]
+    public async Task Upgrade_CopiesTheOldMap_AndTurnsOffOnlyUnchangedTextRules()
+    {
+        using var fresh = new SqliteContextFactory();
+        await using (var context = fresh.Create())
+        {
+            var echo = new InstrumentInterface
+            {
+                Name = DatabaseSeeder.EchoInterfaceName,
+                Connection = new InstrumentConnection { Port = DatabaseSeeder.EchoListenPort },
+                Rules =
+                [
+                    new InstrumentInterfaceRule { Name = "B Pos", ConditionExpression = "message.test_interp = 'B Pos'", ActionExpression = "set('test_interp','B|Positive')", IsEnabled = true },
+                    new InstrumentInterfaceRule { Name = "A Pos", ConditionExpression = "message.test_interp = 'A Pos'", ActionExpression = "set('test_interp','A|Positive'); set('error','W')", IsEnabled = true }
+                ]
+            };
+            context.InstrumentInterfaces.Add(echo);
+            await context.SaveChangesAsync();
+            context.InstrumentTestMappings.AddRange(
+                new InstrumentTestMapping { InterfaceId = echo.Id, InstrumentCode = "Group", ApplicationCode = "ABORH", Kind = InstrumentMappingKind.Assay, Direction = InterfaceTranslationDirection.Both },
+                new InstrumentTestMapping { InterfaceId = echo.Id, InstrumentCode = "Group2", ApplicationCode = "ABORH", Kind = InstrumentMappingKind.Assay, Direction = InterfaceTranslationDirection.Inbound },
+                new InstrumentTestMapping { InterfaceId = echo.Id, InstrumentCode = "Anti-A", ApplicationCode = "Anti-A", Kind = InstrumentMappingKind.Analyte, Direction = InterfaceTranslationDirection.Inbound });
+            await context.SaveChangesAsync();
+            await context.Database.ExecuteSqlRawAsync(BloodBankLIS.Infrastructure.Persistence.Migrations.InstrumentValueTranslations.CopyTestMappingsSql);
+            await DatabaseSeeder.SeedInstrumentInterfacesAsync(context, CancellationToken.None);
+        }
+
+        await using var verify = fresh.Create();
+        var upgraded = await verify.InstrumentInterfaces.Include(i => i.Translations).Include(i => i.Rules).SingleAsync();
+        var codes = upgraded.Translations.Where(t => t.DataItemKey != BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.Interpretation
+                && t.DataItemKey != BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ErrorCode && t.LocalValue != "KEEP")
+            .Select(t => (t.DataItemKey, t.InstrumentValue, t.LocalValue, t.Direction)).OrderBy(t => t.DataItemKey).ThenBy(t => t.InstrumentValue).ToList();
+        Assert.Equal(
+            [
+                ("Instrument.OrderTestCode", "Group", "ABORH", InterfaceTranslationDirection.Outbound),
+                ("Instrument.ResultTestCode", "Group", "ABORH", InterfaceTranslationDirection.Inbound),
+                ("Instrument.ResultTestCode", "Group2", "ABORH", InterfaceTranslationDirection.Inbound),
+                ("Instrument.SubtestCode", "Anti-A", "Anti-A", InterfaceTranslationDirection.Inbound)
+            ],
+            codes);
+        Assert.Contains(upgraded.Translations, t => t.InstrumentValue == "B Pos" && t.LocalValue == "B|Positive");
+        Assert.False(upgraded.Rules.Single(r => r.Name == "B Pos").IsEnabled);
+        // A site's edited rule is left as it is.
+        Assert.True(upgraded.Rules.Single(r => r.Name == "A Pos").IsEnabled);
+    }
+
+    // TEST-BB-536: the Echo is seeded with its codes as translations (the retired map), its interpretations and error
+    // codes as translations instead of text rules, and one unmapped instrument assay for the list.
+    [Fact]
+    public async Task Seed_GivesTheEchoTranslations_InsteadOfTextRules()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var echo = await verify.InstrumentInterfaces.Include(i => i.Translations).Include(i => i.Rules)
+            .SingleAsync(i => i.Name == DatabaseSeeder.EchoInterfaceName);
+        string Local(string key, string value) => echo.Translations.Single(t => t.DataItemKey == key && t.InstrumentValue == value).LocalValue;
+        Assert.Equal("ABORH", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ResultTestCode, "Group"));
+        Assert.Equal("Cell1", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.SubtestCode, "Screen 1"));
+        Assert.Equal("B|Positive", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.Interpretation, "B Pos"));
+        Assert.Equal("Ignore", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ErrorCode, "N"));
+        Assert.All(echo.Translations.Where(t => t.DataItemKey == BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ErrorCode),
+            t => Assert.False(string.IsNullOrWhiteSpace(t.Description)));
+        Assert.Single(echo.Translations, t => t.DataItemKey == BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.OrderTestCode && t.LocalValue == "ABORH");
+        Assert.DoesNotContain(echo.Rules, r => r.IsEnabled && r.Name == "B Pos");
+        Assert.Contains(echo.Rules, r => r.IsEnabled && r.Name == "Numeric 80 to 4+");
+        Assert.True(await verify.InterfaceUnmappedValues.AnyAsync(v => v.InstrumentInterfaceId == echo.Id && v.Value == "Antigen"));
     }
 }

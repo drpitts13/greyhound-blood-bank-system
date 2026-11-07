@@ -24,7 +24,11 @@ public sealed record SaveExceptionDefinitionRequest(
     string Name,
     string? Description,
     int MinSecurityLevel,
-    bool IsOverridable);
+    bool IsOverridable,
+    // Why the exception is being changed; required to change or switch an existing one (EXC.REASON.REQUIRED).
+    string? Reason = null);
+
+public sealed record ExceptionDefinitionActiveRequest(string? Reason);
 
 public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
 {
@@ -102,7 +106,7 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
         await _exceptions.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
         var dto = ExceptionDefinitionDto.From(entity);
-        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
+        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ExceptionDefinitionDto>.Ok(dto, validation);
     }
@@ -137,6 +141,12 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
             return EvaluationResult<ExceptionDefinitionDto>.Blocked(validation);
         }
 
+        var reason = ExceptionCatalogChangeReasonRule.Evaluate(request.Reason);
+        if (reason.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<ExceptionDefinitionDto>.Blocked(new RuleEvaluation([reason]));
+        }
+
         var old = ExceptionDefinitionDto.From(entity);
         entity.RuleCode = ruleCode;
         entity.Name = request.Name.Trim();
@@ -145,12 +155,13 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
         entity.IsOverridable = request.IsOverridable;
         _exceptions.Update(entity);
 
-        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, ExceptionDefinitionDto.From(entity), null);
+        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, ExceptionDefinitionDto.From(entity), request.Reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ExceptionDefinitionDto>.Ok(ExceptionDefinitionDto.From(entity), validation);
     }
 
-    public async Task<EvaluationResult<ExceptionDefinitionDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
+    public async Task<EvaluationResult<ExceptionDefinitionDto>> SetActiveAsync(
+        long id, bool active, CancellationToken ct = default, string? reason = null)
     {
         var denied = await RejectUnauthorizedAsync(
             PermissionCodes.AdminConfigActivate,
@@ -169,11 +180,17 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
             return EvaluationResult<ExceptionDefinitionDto>.Fail("Exception definition not found.");
         }
 
+        var reasonCheck = ExceptionCatalogChangeReasonRule.Evaluate(reason);
+        if (reasonCheck.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<ExceptionDefinitionDto>.Blocked(new RuleEvaluation([reasonCheck]));
+        }
+
         var old = ExceptionDefinitionDto.From(entity);
         entity.IsActive = active;
         _exceptions.Update(entity);
         var action = active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate;
-        RecordChange("ExceptionDefinition", entity.Id, 1, action, ToAuditType(action), old, ExceptionDefinitionDto.From(entity), null);
+        RecordChange("ExceptionDefinition", entity.Id, 1, action, ToAuditType(action), old, ExceptionDefinitionDto.From(entity), reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ExceptionDefinitionDto>.Ok(ExceptionDefinitionDto.From(entity), new RuleEvaluation([]));
     }

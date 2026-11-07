@@ -1,0 +1,108 @@
+@page "/inventory/return-to-supplier"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Return to supplier &middot; HemoCore</PageTitle>
+
+<div class="flex-between">
+    <h1>Return units to the supplier</h1>
+    <div class="flex gap">
+        <button type="button" class="btn btn-ghost" onclick="window.print()" disabled="@(_run.Count(r => r.Unit is not null) == 0)">Print list</button>
+        <a class="btn btn-ghost" href="/inventory">Inventory</a>
+    </div>
+</div>
+<p class="muted">
+    Pack a return shipment (a recall, short-dated stock, a consignee reject): give the reason once, then scan each unit. Each
+    scan returns that unit at once, with the same checks and audit as a return from the unit page. A unit that is reserved,
+    issued, or already returned is refused with its status. <strong>Print list</strong> prints the units returned in this run
+    to go with the shipment.
+</p>
+
+@if (!Session.Has(PermissionCodes.InventoryReceive))
+{
+    <div class="muted">No permission to return units to the supplier.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="field" style="flex:2;">
+                <label>Reason for this shipment</label>
+                <input @bind="_reason" @bind:event="oninput" placeholder="e.g. Supplier recall R-2026-114" data-return-reason />
+            </div>
+            <div class="field">
+                <label>Scan unit number</label>
+                <input @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" disabled="@string.IsNullOrWhiteSpace(_reason)"
+                       placeholder="@(string.IsNullOrWhiteSpace(_reason) ? "Give the reason first" : "Scan, then the next")" autocomplete="off" data-return-scan />
+            </div>
+        </div>
+        <Outcome Value="_fb" />
+
+        @if (_run.Count > 0)
+        {
+            <h3 style="margin-top:1rem;">This run: @_run.Count(r => r.Unit is not null) returned@(_run.Any(r => r.Unit is null) ? $", {_run.Count(r => r.Unit is null)} not returned" : "")</h3>
+            <table class="bb" data-return-run>
+                <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>Supplier</th><th>Reason</th><th>Result</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _run)
+                    {
+                        <tr>
+                            <td class="mono">@(row.Unit?.UnitNumber ?? row.Scan)</td>
+                            <td class="mono">@(row.Unit?.Isbt128ProductCode ?? row.Unit?.ProductCodeData ?? "—")</td>
+                            <td>@(row.Unit?.BloodType ?? "—")</td>
+                            <td>@(row.Unit?.Supplier ?? "—")</td>
+                            <td>@row.Reason</td>
+                            <td>
+                                @if (row.Unit is not null)
+                                {
+                                    <span class="badge badge-gray">Returned</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red">Not returned</span> <span class="sub">@row.Error</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private string _reason = string.Empty;
+    private string _scan = string.Empty;
+    private Feedback? _fb;
+    private bool _busy;
+
+    private sealed record RunRow(string Scan, string Reason, BloodUnitDto? Unit, string? Error);
+    // Newest first, so the unit just scanned is at the top.
+    private readonly List<RunRow> _run = new();
+
+    // A scanner ends with Enter: return the scanned unit, record the outcome, clear for the next scan.
+    private async Task OnScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || string.IsNullOrWhiteSpace(_reason) || _busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var scan = _scan.Trim();
+        var reason = _reason.Trim();
+        var r = await Api.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest(scan, reason));
+        _busy = false;
+        _scan = string.Empty;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _run.Insert(0, new RunRow(scan, reason, r.Value, null));
+            _fb = Feedback.Succeed($"Returned {r.Value.UnitNumber} to the supplier. Scan the next unit.");
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+            _run.Insert(0, new RunRow(scan, reason, null, _fb.Error ?? string.Join(" ", _fb.HardStops.Select(h => h.Message))));
+        }
+    }
+}

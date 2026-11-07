@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
@@ -30,6 +31,8 @@ public sealed class Hl7InboundProcessor
     public const string ReplayDisabledMessage = "Replay is turned off for this interface.";
     public const string AlreadyAppliedMessage = "This message already applied and was not replayed.";
     public const string ResolveReasonRequired = "A reason is required to resolve an interface error without replaying it.";
+    private readonly InterfaceValueSets? _valueSets;
+    private readonly InterfaceUnmappedValueService? _unmapped;
     private readonly IRepository<Hl7MessageLog> _logs;
     private readonly IRepository<InterfaceErrorQueueItem> _errors;
     private readonly IRepository<Patient> _patients;
@@ -46,6 +49,7 @@ public sealed class Hl7InboundProcessor
     private readonly IInterfaceFieldMappingRepository? _mappings;
     private readonly IInterfaceValueTranslationRepository? _translations;
     private readonly InterfaceTransfusionService? _bpam;
+    private readonly InterfaceDispenseRequestService? _dispenseRequests;
     private readonly PatientMergeService? _merges;
     private readonly ResultService? _results;
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
@@ -75,8 +79,14 @@ public sealed class Hl7InboundProcessor
         IRepository<Specimen>? specimens = null,
         ICurrentUser? currentUser = null,
         IAuditWriter? audit = null,
-        PatientHistoricalAliasWriter? aliasWriter = null)
+        PatientHistoricalAliasWriter? aliasWriter = null,
+        InterfaceDispenseRequestService? dispenseRequests = null,
+        InterfaceValueSets? valueSets = null,
+        InterfaceUnmappedValueService? unmapped = null)
     {
+        _valueSets = valueSets;
+        _unmapped = unmapped;
+        _dispenseRequests = dispenseRequests;
         _logs = logs;
         _errors = errors;
         _patients = patients;
@@ -127,13 +137,14 @@ public sealed class Hl7InboundProcessor
         item.Resolved = true;
         item.ResolvedBy = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? "system" : _currentUser.UserName;
         item.ResolvedUtc = _clock.UtcNow;
+        item.ResolutionNote = Truncate(reason.Trim());
         _errors.Update(item);
         _audit?.Record(
             AuditEventType.Interface,
             nameof(InterfaceErrorQueueItem),
             item.Id,
             oldValue: new { Resolved = false, item.Hl7MessageId },
-            newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId },
+            newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId, item.ResolutionNote },
             reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<InterfaceErrorQueueItem>.Ok(item);
@@ -207,11 +218,23 @@ public sealed class Hl7InboundProcessor
             item.Resolved = true;
             item.ResolvedBy = resolvedBy;
             item.ResolvedUtc = now;
+            item.ResolutionNote = ReplayResolutionNote;
             _errors.Update(item);
+            _audit?.Record(
+                AuditEventType.Interface,
+                nameof(InterfaceErrorQueueItem),
+                item.Id,
+                oldValue: new { Resolved = false, item.Hl7MessageId },
+                newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId, item.ResolutionNote },
+                reason: ReplayResolutionNote);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
     }
+
+    public const string ReplayResolutionNote = "Resolved by a successful replay of the stored message.";
+
+    private static string Truncate(string value) => value.Length <= 500 ? value : value[..500];
 
     public async Task<Hl7ProcessResult> ProcessAsync(string rawMessage, long? endpointId = null, bool isReplay = false, CancellationToken ct = default)
     {
@@ -271,20 +294,23 @@ public sealed class Hl7InboundProcessor
                 log);
         }
 
+        Hl7FieldMap? usedMap = null;
         try
         {
             var (map, resolvedId, enabled) = await ResolveInboundAsync(message.MessageType, endpointId, ct);
             log.EndpointId ??= resolvedId;
             if (enabled)
             {
-                map.Translator = await LoadTranslatorAsync(ct);
+                map.Translator = await LoadTranslatorAsync(log.EndpointId, ct);
             }
 
+            usedMap = map;
             var text = await DispatchAsync(message, map, ct);
             log.Status = isReplay ? Hl7MessageStatus.Replayed : Hl7MessageStatus.Processed;
             log.AckCode = AckCode.Accept;
             log.ProcessedUtc = now;
             await _unitOfWork.SaveChangesAsync(ct);
+            await RecordMissesAsync(usedMap.Translator, log.EndpointId, message.MessageControlId, ct);
             return new Hl7ProcessResult(
                 Hl7AckBuilder.BuildAck(message, AckCode.Accept, text, ackControlId, now),
                 AckCode.Accept,
@@ -306,6 +332,11 @@ public sealed class Hl7InboundProcessor
                 Resolved = false
             }, ct);
             await _unitOfWork.SaveChangesAsync(ct);
+            if (usedMap is not null)
+            {
+                await RecordMissesAsync(usedMap.Translator, log.EndpointId, message.MessageControlId, ct);
+            }
+
             return new Hl7ProcessResult(
                 Hl7AckBuilder.BuildAck(message, AckCode.ApplicationError, ex.Message, ackControlId, now),
                 AckCode.ApplicationError,
@@ -319,6 +350,7 @@ public sealed class Hl7InboundProcessor
             "ADT" => await HandleAdtAsync(message, map, ct),
             "ORM" or "OML" => await HandleOrmAsync(message, map, ct),
             "RAS" or "BPS" => await HandleBpamAsync(message, map, ct),
+            "OMB" => await HandleDispenseRequestAsync(message, map, ct),
             "ORU" => await HandleOruAsync(message, map, ct),
             _ => throw new Hl7MappingException($"Unsupported message type '{message.MessageType}'.")
         };
@@ -359,7 +391,9 @@ public sealed class Hl7InboundProcessor
                 FirstName = data.FirstName,
                 MiddleName = data.MiddleName,
                 DateOfBirth = data.DateOfBirth ?? default,
-                Sex = data.Sex
+                Sex = data.Sex,
+                Race = data.Race,
+                Ethnicity = data.Ethnicity
             };
             await _patients.AddAsync(patient, ct);
             await _unitOfWork.SaveChangesAsync(ct);
@@ -381,7 +415,8 @@ public sealed class Hl7InboundProcessor
             data.AttendingProviderId,
             data.AttendingProviderName,
             data.TriggerEvent,
-            ct);
+            ct,
+            data.PatientClass);
 
         if (visitNote is not null)
         {
@@ -457,7 +492,8 @@ public sealed class Hl7InboundProcessor
             data.AttendingProviderId,
             data.AttendingProviderName,
             data.TriggerEvent,
-            ct);
+            ct,
+            data.PatientClass);
 
         return visitNote is null
             ? $"Patient {data.PriorMrn} merged into {data.Mrn}."
@@ -527,6 +563,17 @@ public sealed class Hl7InboundProcessor
         if (data.Sex != Sex.Unknown)
         {
             patient.Sex = data.Sex;
+        }
+
+        // Like sex, a message without (or with an unmapped) race or ethnicity keeps what is on file.
+        if (data.Race is not null)
+        {
+            patient.Race = data.Race;
+        }
+
+        if (data.Ethnicity is not null)
+        {
+            patient.Ethnicity = data.Ethnicity;
         }
     }
 
@@ -598,6 +645,16 @@ public sealed class Hl7InboundProcessor
         var testCode = string.IsNullOrWhiteSpace(data.TestCode)
             ? data.OrderType.ToString()
             : data.TestCode.Trim().ToUpperInvariant();
+        if (!string.IsNullOrWhiteSpace(data.TestCode) && _valueSets is not null)
+        {
+            var known = await _valueSets.ForAsync(InterfaceDataItemKeys.OrderTestCode, ct);
+            if (!known.Any(k => string.Equals(k.Value, testCode, StringComparison.OrdinalIgnoreCase)))
+            {
+                // Listed for the interface team; the message goes to the error queue to be reprocessed once mapped.
+                map.Translator.RecordMiss(InterfaceDataItemKeys.OrderTestCode, data.TestCode.Trim(), InterfaceTranslationDirection.Inbound);
+                throw new Hl7MappingException(TestCodeTranslationRule.UnknownOrderCodeMessage(data.TestCode.Trim()));
+            }
+        }
         var createResult = await _ordersService.CreateFromHl7Async(patient.Id, new CreateOrderRequest(
             encounter.Id,
             location.Id,
@@ -812,6 +869,51 @@ public sealed class Hl7InboundProcessor
         }
     }
 
+    /// <summary>
+    /// OCD-063: an OMB^O27 asks for a reserved unit to be sent now (or cancels that). The patient is found by MRN,
+    /// following merges; the unit and the request are handled like a ward request in the LIS. Anything that cannot be
+    /// resolved without guessing goes to the error queue with the reason.
+    /// </summary>
+    private async Task<string> HandleDispenseRequestAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
+    {
+        if (_dispenseRequests is null)
+        {
+            throw new Hl7MappingException("Dispense requests from the EHR are not configured.");
+        }
+
+        var data = Hl7DispenseRequestMapper.Map(message, map);
+        if (string.IsNullOrWhiteSpace(data.Mrn))
+        {
+            throw new Hl7MappingException("Dispense request has no patient identifier (PID-3).");
+        }
+
+        var patient = _merges is not null
+            ? await _merges.FindByMrnAsync(data.Mrn, followMerge: true, ct)
+            : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        patient = await PatientMergeFollow.ResolveClinicalRecordAsync(_patients, patient, ct);
+        if (patient is null)
+        {
+            throw new Hl7MappingException($"No patient with MRN {data.Mrn}.");
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        if (clinical.Severity == RuleSeverity.HardStop)
+        {
+            throw new Hl7MappingException(clinical.Message);
+        }
+
+        try
+        {
+            return await _dispenseRequests.HandleAsync(new InterfaceDispenseRequest(
+                patient.Id, data.Cancel, data.OrderNumber, data.Din, data.Destination, data.Requester,
+                message.Get("MSH-10")), ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new Hl7MappingException(ex.Message);
+        }
+    }
+
     private async Task<(Hl7FieldMap Map, long? EndpointId, bool Enabled)> ResolveInboundAsync(
         string messageType,
         long? requestedId,
@@ -821,7 +923,7 @@ public sealed class Hl7InboundProcessor
         {
             "ADT" => InterfaceType.Adt,
             "ORM" or "OML" => InterfaceType.Orders,
-            "RAS" or "BPS" => InterfaceType.Bpam,
+            "RAS" or "BPS" or "OMB" => InterfaceType.Bpam,
             "ORU" => InterfaceType.Results,
             _ => InterfaceType.Adt
         };
@@ -862,7 +964,8 @@ public sealed class Hl7InboundProcessor
         return (Hl7FieldMap.From(endpoint), endpoint.Id, endpoint.IsEnabled);
     }
 
-    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(CancellationToken ct)
+    /// <summary>The interface's translations (its overrides over the global rows), a grouper before a test.</summary>
+    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(long? endpointId, CancellationToken ct)
     {
         if (_translations is null)
         {
@@ -870,7 +973,17 @@ public sealed class Hl7InboundProcessor
         }
 
         var rows = await _translations.ListAsync(ct);
-        return InterfaceValueTranslator.From(rows);
+        var groupers = _valueSets is null ? null : await _valueSets.GrouperCodesAsync(ct);
+        return InterfaceValueTranslator.From(rows, endpointId, groupers is null ? null : groupers.Contains);
+    }
+
+    /// <summary>Lists the values this message needed that had no translation, for the interface team.</summary>
+    private async Task RecordMissesAsync(InterfaceValueTranslator translator, long? endpointId, string? controlId, CancellationToken ct)
+    {
+        if (_unmapped is not null && translator.Misses.Count > 0)
+        {
+            await _unmapped.RecordAsync(translator.Misses, endpointId, controlId, ct);
+        }
     }
 }
 

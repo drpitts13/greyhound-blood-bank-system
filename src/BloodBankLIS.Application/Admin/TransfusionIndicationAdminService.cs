@@ -23,6 +23,9 @@ public sealed record TransfusionIndicationCriterionDto(
         c.Id, c.Code, c.Name, c.ComponentClass, c.LabTestCode, c.Comparison, c.Threshold, c.Unit, c.LookbackHours, c.SortOrder, c.IsActive);
 }
 
+/// <summary>Result of loading the draft set: codes added (inactive) and codes skipped because they already exist.</summary>
+public sealed record LoadDraftCriteriaResultDto(IReadOnlyList<string> Added, IReadOnlyList<string> Skipped);
+
 public sealed record SaveTransfusionIndicationCriterionRequest(
     string Code,
     string Name,
@@ -115,6 +118,16 @@ public sealed class TransfusionIndicationAdminService : ConfigAdminServiceBase
 
         var old = TransfusionIndicationCriterionDto.From(entity);
         entity.IsActive = active;
+        if (active)
+        {
+            var validation = TransfusionIndicationRule.Validate(entity, duplicateCode: false);
+            if (validation.IsHardStopped)
+            {
+                entity.IsActive = false;
+                return EvaluationResult<TransfusionIndicationCriterionDto>.Blocked(validation);
+            }
+        }
+
         _criteria.Update(entity);
         var dto = TransfusionIndicationCriterionDto.From(entity);
         RecordChange(EntityType, entity.Id, 1,
@@ -122,6 +135,52 @@ public sealed class TransfusionIndicationAdminService : ConfigAdminServiceBase
             active ? AuditEventType.Activate : AuditEventType.Deactivate, old, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TransfusionIndicationCriterionDto>.Ok(dto);
+    }
+
+    /// <summary>
+    /// OCD-038: adds the unverified draft set INACTIVE for committee review. A code that already exists is skipped,
+    /// never overwritten. Each added row is recorded in configuration history.
+    /// </summary>
+    public async Task<LoadDraftCriteriaResultDto> LoadDraftsAsync(CancellationToken ct = default)
+    {
+        var existing = (await _criteria.ListAsync(ct)).Select(c => c.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = new List<TransfusionIndicationCriterion>();
+        var skipped = new List<string>();
+        foreach (var d in PbmDraftCriteria.All)
+        {
+            if (existing.Contains(d.Code))
+            {
+                skipped.Add(d.Code);
+                continue;
+            }
+
+            var entity = new TransfusionIndicationCriterion
+            {
+                Code = d.Code,
+                Name = d.Name,
+                ComponentClass = d.ComponentClass,
+                LabTestCode = d.LabTestCode,
+                Comparison = d.Comparison,
+                Threshold = d.Threshold,
+                Unit = d.Unit,
+                LookbackHours = d.LookbackHours,
+                SortOrder = d.SortOrder,
+                IsActive = false
+            };
+            await _criteria.AddAsync(entity, ct);
+            added.Add(entity);
+        }
+
+        await UnitOfWork.SaveChangesAsync(ct);
+        foreach (var entity in added)
+        {
+            RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null,
+                TransfusionIndicationCriterionDto.From(entity),
+                "Unverified draft loaded inactive for transfusion committee review (OCD-038).");
+        }
+
+        await UnitOfWork.SaveChangesAsync(ct);
+        return new LoadDraftCriteriaResultDto(added.Select(a => a.Code).ToList(), skipped);
     }
 
     private static void Apply(TransfusionIndicationCriterion entity, SaveTransfusionIndicationCriterionRequest r)

@@ -1,0 +1,110 @@
+@using BloodBankLIS.Application.PatientWorkspace
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+@* Read-only chronological view of the patient's record, newest first, filterable by kind of event. *@
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h3>Timeline</h3>
+        <span class="flex gap">
+            @if (Session.Has(PermissionCodes.AuditRead))
+            {
+                <a class="btn btn-ghost btn-sm" href="@AuditUrls.For("Patient", PatientId)" title="Every audited change to this patient's record">Full audit trail</a>
+            }
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_loading" @onclick="LoadAsync">Refresh</button>
+        </span>
+    </div>
+
+    <div class="flex gap" style="flex-wrap:wrap;margin-bottom:.75rem;">
+        @foreach (var filter in Filters)
+        {
+            var key = filter.Key;
+            <button type="button" class="btn btn-sm @(_filter == key ? "btn-primary" : "btn-secondary")" @onclick="() => _filter = key">
+                @filter.Label (@Count(key))
+            </button>
+        }
+        <label class="bb-timeline-toggle">
+            <input type="checkbox" @bind="_attentionOnly" /> Warnings and critical only
+        </label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading timeline...</div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    else if (Visible.Count == 0)
+    {
+        <div class="empty">@(_events.Count == 0 ? "Nothing recorded for this patient yet." : "No events match this filter.")</div>
+    }
+    else
+    {
+        <TimelineEventList Events="Visible" />
+    }
+</div>
+
+@code {
+    private static readonly (string Key, string Label)[] Filters =
+    [
+        ("all", "All"),
+        ("orders", "Orders & specimens"),
+        ("testing", "Testing"),
+        ("alerts", "Antibodies & requirements"),
+        ("products", "Products & transfusion"),
+        ("visits", "Visits")
+    ];
+
+    [Parameter, EditorRequired] public long PatientId { get; set; }
+
+    private List<TimelineEventDto> _events = [];
+    private long _loadedFor;
+    private bool _loading;
+    private string? _error;
+    private string _filter = "all";
+    private bool _attentionOnly;
+
+    private List<TimelineEventDto> Visible => _events
+        .Where(e => Matches(e, _filter))
+        .Where(e => !_attentionOnly || e.Severity != TimelineSeverity.Info)
+        .ToList();
+
+    private int Count(string filter) => _events.Count(e => Matches(e, filter));
+
+    private static bool Matches(TimelineEventDto e, string filter) => filter switch
+    {
+        "orders" => e.Category is TimelineCategory.Order or TimelineCategory.Specimen,
+        "testing" => e.Category == TimelineCategory.Testing,
+        "alerts" => e.Category == TimelineCategory.Alert,
+        "products" => e.Category is TimelineCategory.Product or TimelineCategory.Transfusion,
+        "visits" => e.Category == TimelineCategory.Visit,
+        _ => true
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor != PatientId)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        var result = await Api.GetPatientTimelineAsync(PatientId);
+        _loading = false;
+        _loadedFor = PatientId;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _events = [];
+            _error = result.Error ?? "The timeline could not be loaded. Try Refresh.";
+            return;
+        }
+
+        _events = result.Value;
+    }
+}

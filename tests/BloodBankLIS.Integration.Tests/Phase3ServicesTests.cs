@@ -469,6 +469,75 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(SpecimenStatus.Accepted, updated.Value.Status);
     }
 
+    // TEST-BB-375: the expiration preview the chart uses is the one the save enforces, including the allo-risk window.
+    [Fact]
+    public async Task ExpirationPreview_MatchesTheSave_ForAnAlloRiskPatient()
+    {
+        var patientId = await EnsurePatientAsync("MRN-PREVIEW-ALLO");
+        var specimenId = await AccessionAsync("ACC-PREVIEW-ALLO", patientId);
+        await using (var setup = _factory.Create())
+        {
+            var patient = await setup.Patients.FindAsync(patientId);
+            patient!.RecentPregnancyUtc = _factory.Clock.UtcNow.AddDays(-10);
+            await setup.SaveChangesAsync();
+        }
+
+        var collected = _factory.Clock.UtcNow.AddHours(-6);
+        await using var context = _factory.Create();
+        var preview = await Specimens(context).PreviewExpirationAsync(patientId, "EDTA", collected);
+        Assert.True(preview.Succeeded, preview.Error);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours), preview.Value!.PolicyExpiresUtc);
+        Assert.True(preview.Value.ShortenedForAlloimmunizationRisk);
+
+        // Saving the previewed expiration needs no override.
+        var kept = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, DrawLocation: "4W", ExpiresUtc: preview.Value.PolicyExpiresUtc));
+        Assert.True(kept.Succeeded, kept.Error);
+        Assert.Equal(preview.Value.PolicyExpiresUtc, kept.Value!.ExpiresUtc);
+
+        // The catalog window the chart used to fill in is longer than policy, so it needs an override.
+        var longer = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, DrawLocation: "4W", ExpiresUtc: collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours)));
+        Assert.False(longer.Succeeded);
+    }
+
+    // TEST-BB-376: the accession preview with validity hours matches accession, still capped by the allo-risk window.
+    [Fact]
+    public async Task ExpirationPreview_WithValidityHours_MatchesAccession()
+    {
+        var patientId = await EnsurePatientAsync("MRN-PREVIEW-HRS");
+        await using (var setup = _factory.Create())
+        {
+            var patient = await setup.Patients.FindAsync(patientId);
+            patient!.RecentPregnancyUtc = _factory.Clock.UtcNow.AddDays(-10);
+            await setup.SaveChangesAsync();
+        }
+
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+        await using var context = _factory.Create();
+        var preview = await Specimens(context).PreviewExpirationAsync(patientId, "EDTA", collected, validityHours: 168);
+        var accessioned = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest("ACC-PREVIEW-HRS", patientId, "EDTA", collected, ValidityHours: 168));
+
+        Assert.True(accessioned.Succeeded, accessioned.Error);
+        Assert.Equal(accessioned.Value!.ExpiresUtc, preview.Value!.PolicyExpiresUtc);
+        Assert.True(preview.Value.ShortenedForAlloimmunizationRisk);
+    }
+
+    [Fact]
+    public async Task ExpirationPreview_WithoutRisk_IsTheCatalogWindow_AndUnknownPatientFails()
+    {
+        var patientId = await EnsurePatientAsync("MRN-PREVIEW-STD");
+        var collected = _factory.Clock.UtcNow.AddHours(-1);
+        await using var context = _factory.Create();
+        var preview = await Specimens(context).PreviewExpirationAsync(patientId, "EDTA", collected);
+        Assert.True(preview.Succeeded, preview.Error);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours), preview.Value!.PolicyExpiresUtc);
+        Assert.False(preview.Value.ShortenedForAlloimmunizationRisk);
+
+        Assert.False((await Specimens(context).PreviewExpirationAsync(999_999, "EDTA", collected)).Succeeded);
+    }
+
     [Fact]
     public async Task Update_BarcodeChange_IsHardStopped()
     {
@@ -665,6 +734,29 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         Assert.False(denied.Succeeded);
         Assert.Contains("authorized override", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.False(await context.Overrides.AnyAsync(o => o.ContextId == specimenId));
+    }
+
+    // TEST-BB-316 (OCD-041): an override started without an authorizer says so and records nothing.
+    [Fact]
+    public async Task Update_ExpiryChange_ReasonWithoutAuthorizer_SaysWhoIsMissing()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-NOAUTH");
+        var specimenId = await AccessionAsync("ACC-EDIT-NOAUTH", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+
+        await using var context = _factory.Create();
+        await EnsureExpirationOverrideExceptionAsync(context);
+        var denied = await Specimens(context, new FixedPermissionEvaluator(3)).UpdateAsync(
+            specimenId,
+            new UpdateSpecimenRequest(
+                collected,
+                ExpiresUtc: collected.AddHours(240),
+                OverrideReason: "Extended for delayed XM",
+                AuthorizedBy: "  "));
+
+        Assert.False(denied.Succeeded);
+        Assert.Contains("name who authorized it", denied.Error, StringComparison.Ordinal);
         Assert.False(await context.Overrides.AnyAsync(o => o.ContextId == specimenId));
     }
 
@@ -1175,6 +1267,43 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
                     .ToListAsync(),
                 a => a.EventType == AuditEventType.Override && a.Reason == "Historical record import");
         }
+    }
+
+    // TEST-BB-355 (OCD-048): a documented manual type needs its record named; the documentation is stored and audited.
+    [Fact]
+    public async Task ManualBloodType_Documented_NeedsAReference_AndIsStored()
+    {
+        var patientId = await EnsurePatientAsync("MRN-MANUAL-DOC");
+        await using (var context = _factory.Create())
+        {
+            var noRef = await Immuno(context).RecordBloodTypeManualAsync(patientId, AboGroup.A, RhType.Positive, "Outside records",
+                documentation: ManualTypeDocumentation.OutsideSource, documentationReference: "  ");
+            Assert.False(noRef.Succeeded);
+            Assert.Contains(ManualBloodTypeDocumentationRule.Code, noRef.Error);
+            Assert.False(await context.PatientBloodTypeHistory.AnyAsync(h => h.PatientId == patientId));
+
+            var ok = await Immuno(context).RecordBloodTypeManualAsync(patientId, AboGroup.A, RhType.Positive, "Outside records",
+                documentation: ManualTypeDocumentation.OutsideSource, documentationReference: "St Mary's lab, 2026-10-01, report 44821");
+            Assert.True(ok.Succeeded, ok.Error);
+            Assert.Equal(ManualTypeDocumentation.OutsideSource, ok.Value!.ManualDocumentation);
+            Assert.Equal("St Mary's lab, 2026-10-01, report 44821", ok.Value.ManualDocumentationReference);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == patientId
+            && a.NewValueJson!.Contains("report 44821")));
+    }
+
+    [Fact]
+    public async Task ManualBloodType_Undocumented_StoresNoDocumentation()
+    {
+        var patientId = await EnsurePatientAsync("MRN-MANUAL-UNDOC");
+        await using var context = _factory.Create();
+        var r = await Immuno(context).RecordBloodTypeManualAsync(patientId, AboGroup.O, RhType.Negative, "Verbal report",
+            documentation: ManualTypeDocumentation.NotDocumented, documentationReference: "ignored");
+        Assert.True(r.Succeeded, r.Error);
+        Assert.Equal(ManualTypeDocumentation.NotDocumented, r.Value!.ManualDocumentation);
+        Assert.Null(r.Value.ManualDocumentationReference);
     }
 
     [Fact]

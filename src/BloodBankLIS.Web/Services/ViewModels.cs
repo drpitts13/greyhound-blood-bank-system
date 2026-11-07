@@ -53,7 +53,10 @@ public sealed record Hl7ErrorVm(
     long? EndpointId = null,
     bool? ReplayAllowed = null,
     bool? RetriesExhausted = null,
-    bool? ControlAlreadyApplied = null);
+    bool? ControlAlreadyApplied = null,
+    string? ResolvedBy = null,
+    DateTime? ResolvedUtc = null,
+    string? ResolutionNote = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 

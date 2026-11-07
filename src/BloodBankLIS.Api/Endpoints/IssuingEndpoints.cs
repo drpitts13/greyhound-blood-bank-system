@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Issuing;
@@ -61,8 +62,97 @@ public static class IssuingEndpoints
             return EndpointResults.CreatedEvaluation(result, i => ($"/api/issues/{i.Id}", (object)IssueDto.From(i)));
         }).RequirePermission(PermissionCodes.IssueCreate);
 
+        // Massive transfusion protocol: activate (who called it and why), board, close. OCD-012 permission.
+        app.MapPost("/api/patients/{patientId:long}/mtp", async (long patientId, ActivateMtpRequest request, MtpActivationService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.ActivateAsync(patientId, request, ct), d => d))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueEmergencyRelease);
+        app.MapGet("/api/patients/{patientId:long}/mtp", async (long patientId, MtpActivationService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListForPatientAsync(patientId, ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        app.MapGet("/api/mtp/active", async (MtpActivationService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListActiveAsync(ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        // Facility packs (OCD-012): active ones for the desk; the admin catalog below.
+        app.MapGet("/api/mtp/packs", async (MtpPackAdminService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListActiveAsync(ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        var packs = app.MapGroup("/api/admin/mtp-packs").WithTags("Admin: MTP Packs").RequireAuthenticatedUser();
+        packs.MapGet("", async (MtpPackAdminService svc, CancellationToken ct) => Results.Ok(await svc.ListAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        packs.MapPost("", async (SaveMtpPackRequest req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        packs.MapPut("/{id:long}", async (long id, SaveMtpPackRequest req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        packs.MapPost("/{id:long}/activate", async (long id, ConfigActiveRequest? req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+        packs.MapPost("/{id:long}/deactivate", async (long id, ConfigActiveRequest? req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        // Physical packs sent during a protocol, and the printable pack report.
+        app.MapPost("/api/mtp/{id:long}/packs", async (long id, PackMtpRequest request, MtpPackingService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.PackAsync(id, request, ct), d => d))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueCreate);
+        app.MapGet("/api/mtp/{id:long}/packs", async (long id, MtpPackingService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListForActivationAsync(id, ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        app.MapGet("/api/mtp/pack-records/{id:long}/report", async (long id, MtpPackingService svc, CancellationToken ct) =>
+                await svc.GetReportAsync(id, ct) is { } report ? Results.Ok(report) : Results.NotFound())
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        app.MapPost("/api/mtp/pack-records/{id:long}/printed", async (long id, MtpPackingService svc, CancellationToken ct) =>
+                await svc.RecordPrintedAsync(id, ct) ? Results.NoContent() : Results.NotFound())
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+
+        // Coolers and other transport vessels: active ones for the desk; the admin catalog below.
+        app.MapGet("/api/transport-containers", async (TransportContainerAdminService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListActiveAsync(ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        var containers = app.MapGroup("/api/admin/transport-containers").WithTags("Admin: Transport Containers").RequireAuthenticatedUser();
+        containers.MapGet("", async (TransportContainerAdminService svc, CancellationToken ct) => Results.Ok(await svc.ListAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        containers.MapPost("", async (SaveTransportContainerRequest req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        containers.MapPut("/{id:long}", async (long id, SaveTransportContainerRequest req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        containers.MapPost("/{id:long}/activate", async (long id, ConfigActiveRequest? req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+        containers.MapPost("/{id:long}/deactivate", async (long id, ConfigActiveRequest? req, TransportContainerAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        app.MapPost("/api/mtp/{id:long}/close", async (long id, CloseMtpRequest request, MtpActivationService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.CloseAsync(id, request, ct), d => d))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueEmergencyRelease);
+
         issues.MapGet("/pending-retrospective-crossmatch", async (IssuingService service, CancellationToken ct) =>
             Results.Ok(await service.ListPendingRetrospectiveCrossmatchesAsync(ct)))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
+        issues.MapGet("/coolers", async (CoolerCheckService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListOpenAsync(ct), d => d))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
+        issues.MapPost("/coolers/check", async (CoolerCheckRequest request, CoolerCheckService service, CancellationToken ct) =>
+            EndpointResults.From(await service.CheckAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.IssueCreate);
 
         issues.MapGet("/in-transit", async (IssuingService service, CancellationToken ct) =>
@@ -116,6 +206,30 @@ public static class IssuingEndpoints
             return EndpointResults.FromEvaluation(result, r => ReturnDto.From(r));
         }).RequirePermission(PermissionCodes.IssueReturn);
 
+        // Bedside start, then completion. The service accepts transfusion.start / transfusion.complete or transfusion.document.
+        issues.MapPost("/{id:long}/transfusion/start", async (
+            long id,
+            StartTransfusionRequest request,
+            IssuingService service,
+            CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await service.StartTransfusionAsync(id, request, ct), t => TransfusionEventDto.From(t)));
+
+        issues.MapPost("/{id:long}/transfusion/complete", async (
+            long id,
+            CompleteTransfusionRequest request,
+            IssuingService service,
+            BillingService billing,
+            CancellationToken ct) =>
+        {
+            var result = await service.CompleteTransfusionAsync(id, request, ct);
+            if (result.Succeeded)
+            {
+                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);
+            }
+
+            return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
+        });
+
         issues.MapPost("/{id:long}/transfusion", async (
             long id,
             DocumentTransfusionRequest request,
@@ -124,21 +238,6 @@ public static class IssuingEndpoints
             CancellationToken ct) =>
         {
             var result = await service.DocumentTransfusionAsync(id, request, ct);
-            if (result.Succeeded)
-            {
-                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);
-            }
-
-            return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
-        }).RequirePermission(PermissionCodes.TransfusionDocument);
-
-        issues.MapPost("/{id:long}/mark-transfused", async (
-            long id,
-            IssuingService service,
-            BillingService billing,
-            CancellationToken ct) =>
-        {
-            var result = await service.MarkTransfusedAsync(id, ct);
             if (result.Succeeded)
             {
                 await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);

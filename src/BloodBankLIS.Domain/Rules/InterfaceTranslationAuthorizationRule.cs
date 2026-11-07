@@ -6,6 +6,9 @@ namespace BloodBankLIS.Domain.Rules;
 /// </summary>
 public static class InterfaceTranslationAuthorizationRule
 {
+    /// <summary>A translation's local value must be one the LIS has (an active test or grouper, a visit type…).</summary>
+    public const string LocalValueCode = "HL7XLAT-LOCAL-VALUE";
+
     public const string ReplaceCode = "HL7XLAT-REPLACE-PERM";
 
     public static RuleResult EvaluateReplace(bool hasAdminHl7Manage) =>

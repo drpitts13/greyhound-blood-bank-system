@@ -13,6 +13,9 @@ public static class FacilityPolicyKeys
 
     /// <summary>Minutes after issue when a unit may still return to Available inventory.</summary>
     public const string ReturnToAvailableMinutes = "Issue.ReturnToAvailableMinutes";
+
+    /// <summary>Hours after a bedside start when an uncompleted transfusion is raised as a reminder (0 = off).</summary>
+    public const string TransfusionCompletionReminderHours = "Transfusion.CompletionReminderHours";
     public const string RequireQuarantineReleaseVerifier = "Inventory.RequireQuarantineReleaseVerifier";
     public const string RequireReceiveVisualInspection = "Inventory.RequireReceiveVisualInspection";
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";
@@ -25,6 +28,12 @@ public static class FacilityPolicyKeys
 
     /// <summary>The user who entered a patient ABO/Rh result may not verify it (establishes current type).</summary>
     public const string BlockAboSelfVerify = "Result.BlockAboSelfVerify";
+
+    /// <summary>A second person may verify eligible routine results in a batch (OCD-061). Default off.</summary>
+    public const string AllowBatchVerify = "Result.AllowBatchVerify";
+
+    /// <summary>A tube is accepted for testing only when who collected it is recorded (OCD-064). Default off.</summary>
+    public const string RequireSpecimenCollector = "Specimen.RequireCollector";
 
     /// <summary>Retired. Unit retype is the supplier confirmation and no longer requires a second reviewer.</summary>
     public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
@@ -78,4 +87,13 @@ public static class FacilityPolicyKeys
     public const string ExcursionQuarantineMinutes = "Inventory.ExcursionQuarantineMinutes";
     public const string PbmEvaluateOrders = "Order.PbmEvaluate";
     public const string PbmRequireJustification = "Order.PbmRequireJustification";
+
+    /// <summary>When true, issue and bedside forms start with the patient's MRN and DOB filled in. Default off (OCD-039).</summary>
+    public const string PrefillPatientIdentifiers = "Issue.PrefillPatientIdentifiers";
+
+    /// <summary>When true, a specimen can be received only by scanning the tube, not from a list row. Default off (OCD-056).</summary>
+    public const string RequireSpecimenReceiptByScan = "Specimen.RequireReceiptByScan";
+
+    /// <summary>When true, unit inspections (return, appearance at issue and receipt) start as acceptable. Default off (OCD-040).</summary>
+    public const string InspectionDefaultAcceptable = "Inspection.DefaultAcceptable";
 }

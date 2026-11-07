@@ -1,0 +1,171 @@
+@page "/admin/transport-containers"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Transport Containers &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Transport containers</h1>
+    @if (CanEdit)
+    {
+        <button type="button" class="btn btn-primary" @onclick="NewContainer">New container</button>
+    }
+</div>
+<p class="muted">The coolers, insulated bags, and boxes the blood bank packs units into. When a massive transfusion pack is recorded, the tech picks one of these.</p>
+<div class="alert alert-warning">The temperature range and validated hours are your facility's own container validation results. The software supplies none. Leave them blank until they are validated. A packing temperature outside the range is recorded and printed on the pack report; it is not blocked.</div>
+<Outcome Value="_feedback" />
+@if (CanActivate || Session.Has(PermissionCodes.AdminConfigEdit))
+{
+    @* These entries record a validation or a medical-director decision, so edits and activation say why. *@
+    <div class="field" style="max-width:32rem;"><label>Reason for the change</label>
+        <input @bind="_changeReason" @bind:event="oninput" placeholder="e.g. Revalidated 2026-11-04, report QA-17" />
+    </div>
+}
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_items.Count == 0)
+    {
+        <div class="empty">No containers. Add the coolers and other vessels your blood bank uses before recording MTP packs.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Temperature range</th><th>Validated hours</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var c in _items)
+                {
+                    <tr>
+                        <td class="mono">@c.Code</td>
+                        <td>@c.Name@if (!string.IsNullOrWhiteSpace(c.Description)) { <div class="muted">@c.Description</div> }</td>
+                        <td>@TypeLabel(c.ContainerType)</td>
+                        <td>@c.RangeText</td>
+                        <td>@(c.ValidatedHours is int h ? $"{h} h" : "—")</td>
+                        <td>@if (c.IsActive) { <span class="badge badge-green">Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
+                        <td class="right nowrap">
+                            @if (CanEdit) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(c)">Edit</button> }
+                            @if (CanActivate) { <button type="button" class="btn btn-ghost btn-sm" disabled="@(!HasReason)" title="@(HasReason ? null : "Give the reason for the change first")" @onclick="() => SetActiveAsync(c)">@(c.IsActive ? "Deactivate" : "Activate")</button> }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing)
+{
+    @* Keyed by the item, so New and each Edit bring the editor into view. *@
+    <div @key="_editId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        <h2>@(_editId is null ? "New container" : "Edit container")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_code" maxlength="20" placeholder="e.g. COOLER-L" /></div>
+            <div class="field" style="flex:2;"><label>Name</label><input @bind="_name" maxlength="200" placeholder="e.g. Large validated cooler" /></div>
+            <div class="field">
+                <label>Type</label>
+                <select @bind="_type">
+                    @foreach (var t in Enum.GetValues<TransportContainerType>())
+                    {
+                        <option value="@t">@TypeLabel(t)</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Sort</label><input type="number" @bind="_sort" /></div>
+        </div>
+        <div class="form-row">
+            <div class="field" style="flex:2;"><label>Description</label><input @bind="_description" maxlength="500" placeholder="Optional, e.g. ice packs and how to pack" /></div>
+            <div class="field"><label>Lowest °C (validated)</label><input type="number" step="0.1" @bind="_min" /></div>
+            <div class="field"><label>Highest °C (validated)</label><input type="number" step="0.1" @bind="_max" /></div>
+            <div class="field"><label>Validated hours</label><input type="number" min="1" max="168" @bind="_hours" /></div>
+        </div>
+        <div class="flex gap">
+            <button type="button" class="btn btn-primary" disabled="@(_busy || (_editId is not null && !HasReason))" title="@(_editId is not null && !HasReason ? "Give the reason for the change at the top of the page" : null)" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => _editing = false">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TransportContainerDto> _items = [];
+    private Feedback? _feedback;
+    private bool _busy;
+    private bool _editing;
+    private long? _editId;
+    private string _code = string.Empty;
+    private string _name = string.Empty;
+    private TransportContainerType _type = TransportContainerType.Cooler;
+    private string? _description;
+    private decimal? _min;
+    private decimal? _max;
+    private int? _hours;
+    private int _sort;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private string _changeReason = string.Empty;
+    private bool HasReason => _changeReason.Trim().Length >= ValidatedConfigChangeReasonRule.MinimumLength;
+
+    public static string TypeLabel(TransportContainerType t) => t switch
+    {
+        TransportContainerType.InsulatedBag => "Insulated bag",
+        _ => t.ToString()
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Api.GetTransportContainersAsync();
+        _items = r.Value ?? [];
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+    }
+
+    // Range and hours start blank: they come from the facility's validation, never from the form.
+    private void NewContainer()
+    {
+        _editId = null;
+        _code = _name = string.Empty;
+        _type = TransportContainerType.Cooler;
+        _description = null;
+        _min = _max = null;
+        _hours = null;
+        _sort = (_items.Count + 1) * 10;
+        _editing = true;
+    }
+
+    private void Edit(TransportContainerDto c)
+    {
+        _editId = c.Id;
+        _code = c.Code;
+        _name = c.Name;
+        _type = c.ContainerType;
+        _description = c.Description;
+        _min = c.MinTemperatureC;
+        _max = c.MaxTemperatureC;
+        _hours = c.ValidatedHours;
+        _sort = c.SortOrder;
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        var r = await Api.SaveTransportContainerAsync(_editId,
+            new SaveTransportContainerRequest(_code, _name, _type, _description, _min, _max, _hours, _sort, _editId is null ? null : _changeReason));
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Container added." : "Container updated.");
+        if (r.Succeeded)
+        {
+            _editing = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task SetActiveAsync(TransportContainerDto c)
+    {
+        _busy = true;
+        var r = await Api.SetTransportContainerActiveAsync(c.Id, !c.IsActive, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback(c.IsActive ? "Container deactivated." : "Container activated.");
+        if (r.Succeeded) await LoadAsync();
+    }
+}

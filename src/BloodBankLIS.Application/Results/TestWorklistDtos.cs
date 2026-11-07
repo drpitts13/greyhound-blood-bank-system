@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Results;
 
@@ -44,19 +45,56 @@ public sealed record TestWorkItemDto(
     string? CurrentResultEnteredBy = null,
     bool AboRhDeltaHold = false,
     string? AboRhDeltaDetail = null,
-    string? Comment = null)
+    string? Comment = null,
+    bool BlockAboSelfVerify = true,
+    string? VerificationDeadlineNotice = null,
+    // The tube's label barcode, so a bench scan of the label finds the line as well as its accession.
+    string? SpecimenBarcode = null,
+    // The line belongs to a transfusion reaction workup order: an investigation is waiting on it.
+    bool ReactionWorkup = false,
+    // Reagent lots recorded with the current result when it was entered by hand ("AHG AHG-24033").
+    IReadOnlyList<string>? CurrentResultReagentLots = null)
 {
+    /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
+    public string ReactionHref => $"/reactions?patientId={PatientId}";
+
     public bool HasPostedInterfaceOrInstrumentValue =>
         CurrentResultStatus is ResultStatus.PendingVerification
         && CurrentResultSource is ResultSource.Interface or ResultSource.Instrument;
 
     public string BenchActionLabel =>
         CanEnterResults
-            ? HasPostedInterfaceOrInstrumentValue ? "Verify" : "Enter"
-            : "Blocked";
+            ? HasPostedInterfaceOrInstrumentValue || AwaitsVerification ? "Verify" : "Enter"
+            : NeedsRecollection ? SpecimenRecollectionRule.BenchLabel : "Blocked";
+
+    /// <summary>The line's tube was rejected or cancelled: a new specimen must be collected and linked.</summary>
+    public bool NeedsRecollection => SpecimenRecollectionRule.NeedsRecollection(SpecimenStatus);
+
+    /// <summary>A result is on the line and waiting for verification, whoever or whatever entered it.</summary>
+    public bool AwaitsVerification =>
+        CurrentResultId is > 0
+        && CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected;
+
+    /// <summary>
+    /// The bench button for this user: Review instead of Verify when this user entered the ABO/Rh and may not verify
+    /// it themselves.
+    /// </summary>
+    public string BenchActionLabelFor(string? userName) =>
+        BenchActionLabel == "Verify" && IsAboSelfVerifyBlocked(userName) ? "Review" : BenchActionLabel;
+
+    /// <summary>Where the waiting value came from, for the verify prompt.</summary>
+    public string AwaitingValueOrigin => CurrentResultSource switch
+    {
+        ResultSource.Interface => "The interface value",
+        ResultSource.Instrument => "The instrument value",
+        _ => string.IsNullOrWhiteSpace(CurrentResultEnteredBy)
+            ? "The entered value"
+            : $"The value entered by {CurrentResultEnteredBy}"
+    };
 
     public bool IsAboSelfVerifyBlocked(string? userName) =>
-        CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
+        BlockAboSelfVerify
+        && CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && string.Equals(TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(CurrentResultEnteredBy)
         && string.Equals(CurrentResultEnteredBy, userName, StringComparison.OrdinalIgnoreCase);
@@ -89,7 +127,67 @@ public sealed record TestWorkItemDto(
 
     public bool NeedsSpecimenLink =>
         SpecimenId is null or 0
+        || NeedsRecollection
         || BlockReason?.Contains("No specimen is linked", StringComparison.OrdinalIgnoreCase) == true;
 
     public string ChartAccessionHref => $"/patients/{PatientId}?tab=orders&panel=accession";
+}
+
+/// <summary>Views over the bench list that do not change what is on it.</summary>
+public static class TestWorklistView
+{
+    /// <summary>
+    /// Lines this user can verify now: a result waiting for verification, entry not blocked, and not an ABO/Rh this
+    /// user entered. Order is kept.
+    /// </summary>
+    public static IReadOnlyList<TestWorkItemDto> ToVerify(IEnumerable<TestWorkItemDto> items, string? userName) =>
+        items.Where(i => i.AwaitsVerification && i.BenchActionLabelFor(userName) == "Verify").ToList();
+
+    /// <summary>Lines whose tube was rejected or cancelled: a new specimen must be collected. Order is kept.</summary>
+    public static IReadOnlyList<TestWorkItemDto> Recollect(IEnumerable<TestWorkItemDto> items) =>
+        items.Where(i => i.NeedsRecollection).ToList();
+
+    /// <summary>
+    /// Lines with no tube linked yet (not a rejected one: that is Recollect): the specimen still has to be collected or
+    /// accessioned. Rush priorities first, then oldest order first.
+    /// </summary>
+    public static IReadOnlyList<TestWorkItemDto> NoSpecimen(IEnumerable<TestWorkItemDto> items) =>
+        items.Where(i => i.SpecimenId is null or 0 && !i.NeedsRecollection)
+            .OrderBy(i => IsRush(i.Priority) ? 0 : 1)
+            .ThenBy(i => i.OrderedUtc)
+            .ToList();
+
+    /// <summary>Orders (not lines) at a rush priority that have no tube yet.</summary>
+    public static int RushOrdersWithoutSpecimen(IEnumerable<TestWorkItemDto> items) =>
+        NoSpecimen(items).Where(i => IsRush(i.Priority)).Select(i => i.OrderId).Distinct().Count();
+
+    /// <summary>The priorities the bench marks urgent.</summary>
+    public static bool IsRush(OrderPriority priority) =>
+        priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol;
+
+    /// <summary>The tube as scanned or typed, cleaned the same way as a receipt scan (scanner noise removed, trimmed, upper case).</summary>
+    public static string NormalizeTube(string? scan) => SpecimenReceiptScanRule.Normalize(scan);
+
+    /// <summary>
+    /// Lines on the tube whose accession number or label barcode is the scan (exact, ignoring case and spaces), the same
+    /// match as receiving a tube by scan. Order is kept.
+    /// </summary>
+    public static IReadOnlyList<TestWorkItemDto> ForTube(IEnumerable<TestWorkItemDto> items, string? scan)
+    {
+        var tube = NormalizeTube(scan);
+        return tube.Length == 0
+            ? items.ToList()
+            : items.Where(i => SpecimenReceiptScanRule.Matches(tube, i.AccessionNumber ?? string.Empty, i.SpecimenBarcode)).ToList();
+    }
+
+    /// <summary>How the scanned tube is named on the bench: its accession when a line matched (a label scan), else the scan.</summary>
+    public static string TubeLabel(IEnumerable<TestWorkItemDto> items, string? scan)
+    {
+        var tube = NormalizeTube(scan);
+        return ForTube(items, tube).Select(i => i.AccessionNumber).FirstOrDefault(a => !string.IsNullOrWhiteSpace(a)) ?? tube;
+    }
+
+    /// <summary>The first line that can take a result now (not blocked, specimen linked), or null.</summary>
+    public static TestWorkItemDto? FirstToWork(IEnumerable<TestWorkItemDto> items) =>
+        items.FirstOrDefault(i => i is { CanEnterResults: true, NeedsSpecimenLink: false });
 }

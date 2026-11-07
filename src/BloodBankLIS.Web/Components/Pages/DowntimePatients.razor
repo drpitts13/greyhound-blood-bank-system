@@ -1,0 +1,227 @@
+@page "/downtime/patients"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject IJSRuntime Js
+
+<PageTitle>Downtime Patient Summary &middot; HemoCore</PageTitle>
+
+@* Seven columns, several lines per patient: print this sheet landscape. Only present while this page is open. *@
+<style>
+    @@media print { @@page { size: landscape; margin: 10mm; } }
+</style>
+
+<div class="flex-between no-print">
+    @if (PatientId is long chartId)
+    {
+        <a class="btn btn-ghost" href="@($"/patients/{chartId}")">Back to chart</a>
+    }
+    else
+    {
+        <a class="btn btn-ghost" href="/downtime">Downtime Snapshot</a>
+    }
+    @if (_summary is not null)
+    {
+        <div class="flex gap">
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+            <button type="button" class="btn btn-primary" disabled="@(_busy || _summary.Patients.Count == 0)" @onclick="PrintAsync" data-print-downtime>Print</button>
+        </div>
+    }
+</div>
+
+<h1>Downtime patient summary@(PatientId is null ? "" : ": one patient")</h1>
+@if (PatientId is null)
+{
+    <p class="muted no-print">
+        Print this before a planned outage, or as soon as one starts, and keep it at the issue bench. It lists every patient
+        the blood bank is working for now: a specimen not yet expired, a unit reserved, or a unit issued and still out.
+        Printing is recorded in the audit trail.
+    </p>
+}
+else
+{
+    <p class="muted no-print">
+        This patient's blood bank summary on one sheet, for example before a planned outage or a procedure. It lists the same
+        items as the full downtime summary. Printing is recorded in the audit trail.
+    </p>
+}
+
+@if (!Session.Has(PermissionCodes.IssueCreate))
+{
+    <div class="muted">No permission to view the downtime patient summary.</div>
+}
+else if (_loading)
+{
+    <div class="loading">Loading patients...</div>
+}
+else if (_summary is null && _fb is not null && !string.IsNullOrEmpty(_fb.Error))
+{
+    <Outcome Value="_fb" />
+}
+else if (_summary is null)
+{
+    <div class="empty">Summary unavailable.</div>
+}
+else
+{
+    <Outcome Value="_fb" />
+    <p class="mtp-report-sub">
+        Printed from HemoCore at @_summary.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") (local time) &middot;
+        @_summary.Patients.Count @(_summary.Patients.Count == 1 ? "patient" : "patients") &middot;
+        Accurate only as of this time: anything done after it is not on the sheet.
+    </p>
+    @if (_summary.Patients.Count == 0)
+    {
+        <div class="empty">@(PatientId is null ? "No patient has a current specimen, a reserved unit, or an issued unit." : "This patient was not found, or was merged into another record.")</div>
+    }
+    else
+    {
+        <div class="mtp-report">
+            <table data-downtime-patients>
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>ABO/Rh on file</th>
+                        <th>Antibodies</th>
+                        <th>Special requirements</th>
+                        <th>Current specimen</th>
+                        <th>Units</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _summary.Patients)
+                    {
+                        <tr data-mrn="@p.MedicalRecordNumber">
+                            <td>
+                                <strong>@p.Name</strong>
+                                <div class="mono">@p.MedicalRecordNumber</div>
+                                <div class="sub">DOB @p.DateOfBirth.ToString("yyyy-MM-dd")</div>
+                            </td>
+                            <td>
+                                <strong class="mono">@p.AboRh</strong>
+                                @if (!p.SecondDeterminationOnFile)
+                                {
+                                    <div class="sub"><strong>No second determination on file</strong></div>
+                                }
+                            </td>
+                            <td>
+                                @if (p.Antibodies.Count == 0)
+                                {
+                                    <span class="muted">None on file</span>
+                                }
+                                else
+                                {
+                                    <strong>@string.Join(", ", p.Antibodies)</strong>
+                                }
+                            </td>
+                            <td>
+                                @if (p.SpecialRequirements.Count == 0 && p.Informational.Count == 0)
+                                {
+                                    <span class="muted">None</span>
+                                }
+                                @foreach (var r in p.SpecialRequirements)
+                                {
+                                    <div><strong>@r</strong></div>
+                                }
+                                @foreach (var note in p.Informational)
+                                {
+                                    <div class="sub">Note: @note</div>
+                                }
+                            </td>
+                            <td>
+                                @if (p.Specimens.Count == 0)
+                                {
+                                    <span class="muted">None current</span>
+                                }
+                                @foreach (var s in p.Specimens)
+                                {
+                                    <div class="mono">@s.AccessionNumber</div>
+                                    <div class="sub">Expires @(s.ExpiresUtc is DateTime e ? e.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "not set")</div>
+                                }
+                            </td>
+                            <td>
+                                @if (p.Units.Count == 0)
+                                {
+                                    <span class="muted">None</span>
+                                }
+                                @foreach (var u in p.Units)
+                                {
+                                    <div>
+                                        <span class="mono">@u.UnitNumber</span> @u.Product <span class="mono">@u.AboRh</span>
+                                        <div class="sub">
+                                            @(u.Issued ? $"Issued{(string.IsNullOrWhiteSpace(u.IssuedToLocation) ? "" : " to " + u.IssuedToLocation)}" : "Reserved")
+                                            &middot; unit expires @u.UnitExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                            @if (u.ReservationEndsUtc is DateTime ends)
+                                            {
+                                                <text> &middot; reservation ends @ends.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</text>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="sub">
+            This sheet is a copy for an outage, not a substitute for the facility's downtime procedure. Recheck patient
+            identity and unit labels at issue as usual, and enter every paper issue in the system when it is back.
+        </p>
+    }
+}
+
+@code {
+    private DowntimePatientSummary? _summary;
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _fb;
+
+    // From the chart: one patient's sheet. Absent: everyone the blood bank is working for.
+    [SupplyParameterFromQuery(Name = "patientId")]
+    public long? PatientId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Session.Has(PermissionCodes.IssueCreate))
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        var r = await Api.GetDowntimePatientSummaryAsync(PatientId);
+        _loading = false;
+        _busy = false;
+        _fb = null;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _summary = r.Value;
+        }
+        else
+        {
+            _summary = null;
+            _fb = r.ToFeedback();
+        }
+    }
+
+    // The print is audited before the browser's print dialog opens: the sheet carries patient data off the system.
+    private async Task PrintAsync()
+    {
+        _busy = true;
+        var recorded = await Api.RecordDowntimePatientSummaryPrintedAsync(PatientId);
+        _busy = false;
+        if (!recorded.Succeeded)
+        {
+            _fb = recorded.ToFeedback();
+            return;
+        }
+
+        await Js.InvokeVoidAsync("print");
+    }
+}

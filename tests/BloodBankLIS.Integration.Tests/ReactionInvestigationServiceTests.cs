@@ -32,7 +32,11 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             bloodTypes: new EfRepository<PatientBloodTypeHistory>(context),
             antibodies: new EfRepository<AntibodyHistory>(context),
             issues: new EfRepository<Issue>(context),
-            productTypes: new EfRepository<ProductType>(context));
+            productTypes: new EfRepository<ProductType>(context),
+            specimens: new EfRepository<Specimen>(context),
+            orders: new EfRepository<Order>(context),
+            orderLines: new EfRepository<OrderLine>(context),
+            testResults: new EfRepository<TestResult>(context));
 
     [Fact]
     public async Task Update_WithoutReactionInvestigate_IsHardStopped()
@@ -173,6 +177,115 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.Equal(IssueType.Standard, row.IssueType);
     }
 
+    private async Task<long> ClosedInvestigationAsync(BloodBankDbContext context, string conclusions)
+    {
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+        var closed = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "Febrile non-hemolytic", ReactionSeverity.Mild, "Fever 38.6 C", conclusions, null, null, false, null,
+                ReactionInvestigationStatus.Closed,
+                ClosedSignatureId: 7,
+                ClericalCheckCompleted: true,
+                VisualInspectionCompleted: true,
+                DatResult: DatWorkupResult.Negative, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
+        Assert.True(closed.Succeeded, closed.Error);
+        return opened.Id;
+    }
+
+    // TEST-BB-327: a closed, signed investigation is locked; resending the same values is not a change.
+    [Fact]
+    public async Task ClosedInvestigation_RefusesChanges_ButAcceptsAnUnchangedResave()
+    {
+        await using var context = _factory.Create();
+        var id = await ClosedInvestigationAsync(context, "Febrile reaction; no further action");
+
+        var changed = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, "Rewritten after signing", null, null, null, null, null));
+        Assert.False(changed.Succeeded);
+        Assert.Contains(ReactionInvestigationLockRule.LockedCode, changed.Error);
+
+        var backToOpen = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Open));
+        Assert.False(backToOpen.Succeeded);
+
+        var resave = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            "Febrile non-hemolytic", ReactionSeverity.Mild, "Fever 38.6 C", "Febrile reaction; no further action", "", null, false, false, null,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true, DatResult: DatWorkupResult.Negative));
+        Assert.True(resave.Succeeded, resave.Error);
+
+        await using var verify = _factory.Create();
+        var row = await verify.ReactionInvestigations.FindAsync(id);
+        Assert.Equal(ReactionInvestigationStatus.Closed, row!.Status);
+        Assert.Equal("Febrile reaction; no further action", row.Conclusions);
+        Assert.Equal(7, row.ClosedSignatureId);
+    }
+
+    [Fact]
+    public async Task Reopen_NeedsReason_KeepsTheCloseInTheAudit_AndNeedsANewSignatureToClose()
+    {
+        await using var context = _factory.Create();
+        var id = await ClosedInvestigationAsync(context, "Allergic; premedicate");
+
+        var noReason = await CreateService(context).ReopenAsync(id, new ReopenReactionInvestigationRequest(" "));
+        Assert.False(noReason.Succeeded);
+        Assert.Contains(ReactionInvestigationLockRule.ReopenCode, noReason.Error);
+
+        var reopened = await CreateService(context).ReopenAsync(id, new ReopenReactionInvestigationRequest("Culture came back positive"));
+        Assert.True(reopened.Succeeded, reopened.Error);
+        Assert.Equal(ReactionInvestigationStatus.UnderReview, reopened.Value!.Status);
+        Assert.Null(reopened.Value.ClosedSignatureId);
+        Assert.Equal("Culture came back positive", reopened.Value.ReopenReason);
+        Assert.Equal(_factory.CurrentUser.UserName, reopened.Value.ReopenedBy);
+
+        var reopenAudit = await context.AuditEvents.Where(a => a.EventType == AuditEventType.ReactionInvestigation && a.EntityId == id)
+            .OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Equal("Culture came back positive", reopenAudit.Reason);
+        Assert.Contains("\"ClosedSignatureId\":7", reopenAudit.OldValueJson);
+
+        var twice = await CreateService(context).ReopenAsync(id, new ReopenReactionInvestigationRequest("Again"));
+        Assert.False(twice.Succeeded);
+
+        var edited = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, "Bacterial contamination suspected", null, null, true, null, null));
+        Assert.True(edited.Succeeded, edited.Error);
+        var editAudit = await context.AuditEvents.Where(a => a.EventType == AuditEventType.ReactionInvestigation && a.EntityId == id)
+            .OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Contains("Allergic; premedicate", editAudit.OldValueJson);
+        Assert.Contains("Bacterial contamination suspected", editAudit.NewValueJson);
+
+        var unsigned = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
+        Assert.False(unsigned.Succeeded);
+
+        var signed = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ClosedSignatureId: 8, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
+        Assert.True(signed.Succeeded, signed.Error);
+        Assert.Equal(8, signed.Value!.ClosedSignatureId);
+    }
+
+    [Fact]
+    public async Task ClosedFatality_StillTakesItsFollowUpReporting()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+        Assert.True((await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            "Hemolytic", ReactionSeverity.Fatal, null, "Fatal acute hemolytic reaction", null, null, null, true,
+            ReactionInvestigationStatus.Closed, ClosedSignatureId: 9,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true, DatResult: DatWorkupResult.Negative, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]))).Succeeded);
+
+        var cber = await CreateService(context).RecordCberNotificationAsync(opened.Id);
+
+        Assert.True(cber.Succeeded, cber.Error);
+        Assert.Equal(ReactionInvestigationStatus.Closed, cber.Value!.Status);
+    }
+
     [Fact]
     public async Task Update_IncompleteWorkup_DoesNotClose()
     {
@@ -186,7 +299,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             new UpdateReactionInvestigationRequest(
                 null, null, null, null, null, null, null, null,
                 ReactionInvestigationStatus.Closed,
-                ClosedSignatureId: 1));
+                ClosedSignatureId: 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.False(closed.Succeeded);
         Assert.Contains(ReactionWorkupCompletenessRule.Code, closed.Error);
         Assert.Equal(ReactionInvestigationStatus.Open, (await context.ReactionInvestigations.FindAsync(opened.Id))!.Status);
@@ -195,6 +308,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.True(stillDue.WorkupIncomplete);
         Assert.Contains("Clerical check", stillDue.WorkupHoldReason);
 
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
         var completed = await CreateService(context).UpdateAsync(
             opened.Id,
             new UpdateReactionInvestigationRequest(
@@ -203,11 +317,104 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
                 ClosedSignatureId: 1,
                 ClericalCheckCompleted: true,
                 VisualInspectionCompleted: true,
-                DatResult: DatWorkupResult.Negative));
+                DatResult: DatWorkupResult.Negative, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.True(completed.Succeeded, completed.Error);
         Assert.Equal(ReactionInvestigationStatus.Closed, completed.Value!.Status);
         var ready = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
         Assert.False(ready.WorkupIncomplete);
+    }
+
+    // TEST-BB-446: closing needs every workup test verified; the board shows each specimen with its results.
+    [Fact]
+    public async Task Close_WaitsForEveryWorkupTestToBeVerified_AndTheBoardShowsTheResults()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+        var postDat = await context.TestResults.SingleAsync(r => r.OrderId == opened.PostTransfusionOrderId && r.TestCode == "DAT");
+        postDat.Status = ResultStatus.Entered;
+        await context.SaveChangesAsync();
+        Assert.True((await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true))).Succeeded);
+
+        UpdateReactionInvestigationRequest Close() => new(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ClosedSignatureId: 4,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]);
+        var waiting = await CreateService(context).UpdateAsync(opened.Id, Close());
+        Assert.False(waiting.Succeeded);
+        Assert.Contains("1 still to verify", waiting.Error);
+
+        var row = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.Equal(ReactionWorkupSpecimenDto.PreRole, row.PreWorkup!.Role);
+        Assert.Equal(0, row.PreWorkup.Pending);
+        Assert.Equal(1, row.PostWorkup!.Pending);
+        Assert.Equal(new[] { "ABORH", "DAT" }, row.PostWorkup.Lines.Select(l => l.TestCode).ToArray());
+        Assert.Contains("1 still to verify", row.WorkupHoldReason);
+
+        postDat.Status = ResultStatus.Verified;
+        await context.SaveChangesAsync();
+        var closed = await CreateService(context).UpdateAsync(opened.Id, Close());
+        Assert.True(closed.Succeeded, closed.Error);
+        Assert.Equal(ReactionInvestigationStatus.Closed, closed.Value!.Status);
+    }
+
+    // TEST-BB-449: the report carries the issue and bedside record with the workup; its print is audited, as a draft
+    // while the case is open, and needs reaction.investigate.
+    [Fact]
+    public async Task Report_CarriesTheTransfusionRecordAndWorkup_AndItsPrintIsAudited()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        transfusion.StartUtc = _factory.Clock.UtcNow.AddHours(-2);
+        transfusion.ReactionActions = "Stopped at 15 minutes; line kept open with saline.";
+        transfusion.Transfusionist = "RN Test";
+        await context.SaveChangesAsync();
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+
+        var report = await CreateService(context).GetReportAsync(opened.Id);
+        Assert.True(report.Succeeded, report.Error);
+        Assert.Equal("Stopped at 15 minutes; line kept open with saline.", report.Value!.ReactionActions);
+        Assert.Equal("RN Test", report.Value.Transfusionist);
+        Assert.Equal(_factory.Clock.UtcNow.AddHours(-2), report.Value.TransfusionStartUtc);
+        Assert.NotNull(report.Value.IssuedUtc);
+        Assert.Equal(new[] { "ABORH", "DAT" }, report.Value.Investigation.PostWorkup!.Lines.Select(l => l.TestCode).ToArray());
+
+        var printed = await CreateService(context).RecordReportPrintedAsync(opened.Id);
+        Assert.True(printed.Succeeded, printed.Error);
+        var audit = await context.AuditEvents.Where(a => a.EventType == AuditEventType.Print && a.EntityType == nameof(ReactionInvestigation) && a.EntityId == opened.Id)
+            .SingleAsync();
+        Assert.Contains("while the case is open (draft)", audit.Reason);
+
+        var denied = CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.LookbackManage));
+        Assert.False((await denied.GetReportAsync(opened.Id)).Succeeded);
+        Assert.False((await denied.RecordReportPrintedAsync(opened.Id)).Succeeded);
+        Assert.False((await CreateService(context).GetReportAsync(long.MaxValue)).Succeeded);
+    }
+
+    // TEST-BB-446: the repeat patient type comes from the verified post-transfusion ABO/Rh, compared with the
+    // current type and with the pre-transfusion specimen.
+    [Fact]
+    public async Task RepeatAboRh_ComesFromTheWorkupResults()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        await ReactionWorkupTestData.CompleteAsync(context, opened.Id, _factory.Clock.UtcNow);
+
+        var agrees = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.False(agrees.RepeatPatientAboRhDiscrepancy);
+
+        var postAbo = await context.TestResults.SingleAsync(r => r.OrderId == opened.PostTransfusionOrderId && r.TestCode == "ABORH");
+        postAbo.Value = BloodBankLIS.Domain.ValueObjects.AboRhResultValue.Format(AboGroup.B, RhType.Positive);
+        await context.SaveChangesAsync();
+
+        var differs = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(differs.RepeatPatientAboRhDiscrepancy);
+        Assert.Contains("pre-transfusion specimen", differs.RepeatAboRhDetail);
+        Assert.Equal("Review the ABO/Rh discrepancy.", differs.NextStep.Text);
     }
 
     [Fact]

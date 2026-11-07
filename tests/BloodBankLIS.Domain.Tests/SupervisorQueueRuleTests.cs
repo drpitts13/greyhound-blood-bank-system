@@ -43,5 +43,11 @@ public class SupervisorQueueRuleTests
         Assert.True(
             SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindResultVerify)
             < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindQuarantineRelease));
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindQuarantineRelease)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindDiscrepancy));
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindDiscrepancy)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOverrideReview));
     }
 }

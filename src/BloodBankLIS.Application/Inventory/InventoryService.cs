@@ -54,6 +54,8 @@ public sealed class InventoryService
     private readonly DeliveryService? _deliveries;
     private readonly IRepository<UnitModificationUnit>? _modificationUnits;
     private readonly IRepository<UnitDiscardReason>? _discardReasons;
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IAuditQuery? _auditQuery;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -74,8 +76,13 @@ public sealed class InventoryService
         IRepository<ProductRetypeResult>? retypeResults = null,
         DeliveryService? deliveries = null,
         IRepository<UnitModificationUnit>? modificationUnits = null,
-        IRepository<UnitDiscardReason>? discardReasons = null)
+        IRepository<UnitDiscardReason>? discardReasons = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<ReactionInvestigation>? reactions = null,
+        IAuditQuery? auditQuery = null)
     {
+        _auditQuery = auditQuery;
+        _reactions = reactions;
         _repository = repository;
         _unitAttributes = unitAttributes;
         _bloodAttributes = bloodAttributes;
@@ -95,6 +102,7 @@ public sealed class InventoryService
         _retypeResults = retypeResults;
         _modificationUnits = modificationUnits;
         _discardReasons = discardReasons;
+        _allocations = allocations;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -165,6 +173,7 @@ public sealed class InventoryService
             .OrderBy(u => u.ExpiresUtc)
             .ToList();
         var locationNames = await LoadLocationNamesAsync(near.Select(u => u.CurrentLocationId).OfType<long>(), ct);
+        var reservedFor = await LoadReservedPatientsAsync(near.Select(u => u.Id).ToList(), ct);
 
         return near
             .Select(u =>
@@ -175,15 +184,74 @@ public sealed class InventoryService
                     locationNames.TryGetValue(locationId, out locationName);
                 }
 
-                return NearExpiryWorkItemDto.From(u, locationName);
+                var row = NearExpiryWorkItemDto.From(u, locationName);
+                return reservedFor.TryGetValue(u.Id, out var patient)
+                    ? row with { ReservedPatientId = patient.Id, ReservedPatientMrn = patient.Mrn, ReservedPatientName = patient.Name }
+                    : row;
             })
             .ToList();
+    }
+
+    /// <summary>The patient on each unit's Reserved allocation; units without one are left out.</summary>
+    private async Task<Dictionary<long, (long Id, string? Mrn, string? Name)>> LoadReservedPatientsAsync(
+        IReadOnlyList<long> unitIds, CancellationToken ct)
+    {
+        var result = new Dictionary<long, (long Id, string? Mrn, string? Name)>();
+        if (_allocations is null || unitIds.Count == 0)
+        {
+            return result;
+        }
+
+        var reserved = await _allocations.ListAsync(
+            a => unitIds.Contains(a.BloodProductId) && a.Status == AllocationStatus.Reserved, ct);
+        if (reserved.Count == 0)
+        {
+            return result;
+        }
+
+        var patientIds = reserved.Select(a => a.PatientId).Distinct().ToList();
+        var patients = _patients is null
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        foreach (var allocation in reserved.OrderByDescending(a => a.AllocatedUtc))
+        {
+            if (result.ContainsKey(allocation.BloodProductId))
+            {
+                continue;
+            }
+
+            patients.TryGetValue(allocation.PatientId, out var patient);
+            var name = patient is null ? null : $"{patient.LastName}, {patient.FirstName}".Trim(' ', ',');
+            result[allocation.BloodProductId] = (
+                allocation.PatientId,
+                string.IsNullOrWhiteSpace(patient?.MedicalRecordNumber) ? null : patient.MedicalRecordNumber.Trim(),
+                string.IsNullOrWhiteSpace(name) ? null : name);
+        }
+
+        return result;
     }
 
     /// <summary>
     /// SoftBank/SafeTrace quality-quarantine worklist: units in
     /// <see cref="UnitStatus.Quarantine"/> with a coded disposition.
     /// </summary>
+    private readonly IRepository<ReactionInvestigation>? _reactions;
+
+    /// <summary>Units whose reaction investigation is still open (not closed), among those given.</summary>
+    private async Task<HashSet<long>> OpenReactionUnitIdsAsync(IReadOnlyCollection<long> unitIds, CancellationToken ct) =>
+        _reactions is null || unitIds.Count == 0
+            ? []
+            : (await _reactions.ListAsync(r => unitIds.Contains(r.BloodProductId) && r.Status != ReactionInvestigationStatus.Closed, ct))
+                .Select(r => r.BloodProductId)
+                .ToHashSet();
+
+    private async Task<QuarantineReleaseRule.Decision> EvaluateQuarantineReleaseAsync(BloodUnit unit, CancellationToken ct) =>
+        QuarantineReleaseRule.Evaluate(
+            unit.QuarantineReasonCode,
+            (await OpenReactionUnitIdsAsync([unit.Id], ct)).Contains(unit.Id),
+            _retypeResults is not null && await ProductRetypeConfirmation.HasVerifiedMismatchAsync(_retypeResults, unit.Id, ct),
+            unit.ExpiresUtc <= _clock.UtcNow);
+
     public async Task<IReadOnlyList<QuarantineWorkItemDto>> ListQuarantineAsync(CancellationToken ct = default)
     {
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine), ct);
@@ -200,7 +268,20 @@ public sealed class InventoryService
         var locationIds = rows.Select(u => u.CurrentLocationId).OfType<long>().Distinct().ToList();
         var locationNames = await LoadLocationNamesAsync(locationIds, ct);
         var modificationResultIds = await ModificationResultUnitIdsAsync(unitIds, ct);
+        var openReactions = await OpenReactionUnitIdsAsync(unitIds, ct);
+        var verifiedMismatches = new HashSet<long>();
+        if (_retypeResults is not null)
+        {
+            foreach (var id in unitIds)
+            {
+                if (await ProductRetypeConfirmation.HasVerifiedMismatchAsync(_retypeResults, id, ct))
+                {
+                    verifiedMismatches.Add(id);
+                }
+            }
+        }
 
+        var now = _clock.UtcNow;
         return rows
             .OrderBy(u => u.CreatedUtc)
             .Select(u =>
@@ -213,8 +294,11 @@ public sealed class InventoryService
                     locationNames.TryGetValue(locationId, out locationName);
                 }
 
+                var release = QuarantineReleaseRule.Evaluate(
+                    u.QuarantineReasonCode, openReactions.Contains(u.Id), verifiedMismatches.Contains(u.Id), u.ExpiresUtc <= now);
                 return QuarantineWorkItemDto.From(
-                    u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id));
+                    u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id))
+                    with { NextStep = release.NextStep, CanRelease = release.CanRelease };
             })
             .ToList();
     }
@@ -427,11 +511,11 @@ public sealed class InventoryService
             return denied;
         }
 
-        var appearance = await EvaluateReceiveAppearanceAsync(
+        var (appearanceBlocked, receivedAppearance) = await EvaluateReceiveAppearanceAsync(
             request.VisualInspectionAcceptable, request.Appearance, ct);
-        if (appearance is not null)
+        if (appearanceBlocked is not null)
         {
-            return appearance;
+            return appearanceBlocked;
         }
 
         var temperature = await EvaluateReceiveTemperatureAsync(request.ReceiveTemperatureCelsius, ct);
@@ -521,11 +605,11 @@ public sealed class InventoryService
                 ? deliveryGate.Context.PackingListNumber
                 : string.IsNullOrWhiteSpace(request.ShipmentId) ? null : request.ShipmentId.Trim(),
             ReceiveVisualAcceptable = request.VisualInspectionAcceptable
-                && ReceiveAppearanceRule.IsAcceptable(request.Appearance),
+                && ReceiveAppearanceRule.IsAcceptable(receivedAppearance),
             ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
                 ? null
                 : request.VisualInspectionNotes.Trim(),
-            ReceiveAppearance = request.Appearance,
+            ReceiveAppearance = receivedAppearance,
             ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius,
             DonationRestriction = request.DonationRestriction,
             ReservedPatientId = AutologousDirectedRule.RequiresRecipient(request.DonationRestriction)
@@ -700,11 +784,11 @@ public sealed class InventoryService
                 "This unit is outdated and cannot be received. Return it to the supplier.");
         }
 
-        var appearance = await EvaluateReceiveAppearanceAsync(
+        var (appearanceBlocked, receivedAppearance) = await EvaluateReceiveAppearanceAsync(
             request.VisualInspectionAcceptable, request.Appearance, ct);
-        if (appearance is not null)
+        if (appearanceBlocked is not null)
         {
-            return appearance;
+            return appearanceBlocked;
         }
 
         var temperature = await EvaluateReceiveTemperatureAsync(request.ReceiveTemperatureCelsius, ct);
@@ -728,11 +812,11 @@ public sealed class InventoryService
 
         var destination = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
         unit.ReceiveVisualAcceptable = request.VisualInspectionAcceptable
-            && ReceiveAppearanceRule.IsAcceptable(request.Appearance);
+            && ReceiveAppearanceRule.IsAcceptable(receivedAppearance);
         unit.ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
             ? null
             : request.VisualInspectionNotes.Trim();
-        unit.ReceiveAppearance = request.Appearance;
+        unit.ReceiveAppearance = receivedAppearance;
         unit.ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius;
         if (request.LocationId is long loc)
         {
@@ -853,7 +937,7 @@ public sealed class InventoryService
         bool releaseToAvailable,
         bool visualInspectionAcceptable = true,
         string? visualInspectionNotes = null,
-        UnitAppearance appearance = UnitAppearance.Acceptable,
+        UnitAppearance? recordedAppearance = null,
         string? secondVerifier = null,
         decimal? receiveTemperatureCelsius = null,
         DonationRestriction donationRestriction = DonationRestriction.Allogeneic,
@@ -877,7 +961,7 @@ public sealed class InventoryService
 
         draft.RebuildIdentity();
 
-        var appear = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, appearance, ct);
+        var (appear, appearance) = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, recordedAppearance, ct);
         if (appear is not null)
         {
             return appear;
@@ -1046,6 +1130,9 @@ public sealed class InventoryService
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
+        if (RefuseRepeat(unit, UnitStatus.Recalled, "recalled") is { } repeat)
+            return repeat;
+
         unit.RecallReason = reason;
         return await ChangeStatusAsync(unit, UnitStatus.Recalled, reason, ct);
     }
@@ -1071,6 +1158,13 @@ public sealed class InventoryService
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
+
+        // A unit held only by the routine receipt hold may be quarantined for a specific reason; one already quarantined
+        // for a specific reason keeps it.
+        if (unit.Status == UnitStatus.Quarantine
+            && unit.QuarantineReasonCode is not (UnitQuarantineReason.Unspecified or UnitQuarantineReason.PendingRelease))
+            return InventoryActionResult.Fail(
+                $"{unit.UnitNumber} is already in quarantine ({unit.QuarantineReason ?? unit.QuarantineReasonCode.ToString()}); the reason recorded then stays.");
 
         var note = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         unit.QuarantineReasonCode = reasonCode;
@@ -1131,6 +1225,13 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
         }
 
+        // Why the unit is held decides whether it may go back to stock at all.
+        var releasable = await EvaluateQuarantineReleaseAsync(unit, ct);
+        if (!releasable.CanRelease)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([releasable.Result]));
+        }
+
         var isModificationResult = await IsModificationResultAsync(unit.Id, ct);
         var label = ModificationLabelVerificationRule.Evaluate(isModificationResult, unit.UnitNumber, scannedUnitNumber);
         if (label.Severity == RuleSeverity.HardStop)
@@ -1138,12 +1239,18 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([label]));
         }
 
+        var stock = await StockStatusAsync(unit, ct);
         unit.QuarantineReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.Unspecified;
         var reason = string.IsNullOrWhiteSpace(secondVerifier)
             ? "Released from quarantine"
             : $"Released from quarantine; second verifier {secondVerifier.Trim()}";
-        var changed = await ChangeStatusAsync(unit, UnitStatus.Available, reason, ct);
+        if (stock == UnitStatus.Received)
+        {
+            reason = $"{reason} ({RetypeStockStatus.PendingReason})";
+        }
+
+        var changed = await ChangeStatusAsync(unit, stock, reason, ct);
         if (!changed.Succeeded)
         {
             return changed;
@@ -1159,6 +1266,7 @@ public sealed class InventoryService
                 unit.UnitNumber,
                 unit.Status,
                 Path = "QuarantineRelease",
+                RetypePending = stock == UnitStatus.Received,
                 SecondVerifier = string.IsNullOrWhiteSpace(secondVerifier) ? null : secondVerifier.Trim(),
                 ModificationLabelScan = isModificationResult ? unit.UnitNumber : null
             },
@@ -1185,21 +1293,33 @@ public sealed class InventoryService
         return SecondVerifierDirectoryRule.Evaluate(secondVerifier, match is not null);
     }
 
-    private async Task<InventoryActionResult?> EvaluateReceiveAppearanceAsync(
-        bool visualAcceptable, UnitAppearance appearance, CancellationToken ct)
+    /// <summary>
+    /// Resolves the recorded appearance (OCD-040) and applies the receipt inspection rules. When receipt inspection
+    /// is required, an unrecorded appearance is refused unless the facility default treats it as acceptable.
+    /// </summary>
+    private async Task<(InventoryActionResult? Blocked, UnitAppearance Appearance)> EvaluateReceiveAppearanceAsync(
+        bool visualAcceptable, UnitAppearance? recorded, CancellationToken ct)
     {
         var required = _policy is null || await _policy.GetRequireReceiveVisualInspectionAsync(ct);
+        var facilityDefault = _policy is not null && await _policy.GetInspectionDefaultAcceptableAsync(ct);
+        var attested = AppearanceAttestationRule.Resolve(recorded, facilityDefault, "receiving the unit", inspectionRequired: required);
+        if (attested.Result.Severity == RuleSeverity.HardStop)
+        {
+            return (InventoryActionResult.Blocked(new RuleEvaluation([attested.Result])), attested.Appearance);
+        }
+
+        var appearance = attested.Appearance;
         var coded = ReceiveAppearanceRule.Evaluate(required, appearance);
         if (coded.Severity == RuleSeverity.HardStop)
         {
-            return InventoryActionResult.Blocked(new RuleEvaluation([coded]));
+            return (InventoryActionResult.Blocked(new RuleEvaluation([coded])), appearance);
         }
 
         var acceptable = visualAcceptable && ReceiveAppearanceRule.IsAcceptable(appearance);
         var visual = ReceiveVisualInspectionRule.Evaluate(required, acceptable);
         return visual.Severity == RuleSeverity.HardStop
-            ? InventoryActionResult.Blocked(new RuleEvaluation([visual]))
-            : null;
+            ? (InventoryActionResult.Blocked(new RuleEvaluation([visual])), appearance)
+            : (null, appearance);
     }
 
     private async Task<InventoryActionResult?> EvaluateReceiveTemperatureAsync(decimal? celsius, CancellationToken ct)
@@ -1294,6 +1414,9 @@ public sealed class InventoryService
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
+        if (RefuseRepeat(unit, UnitStatus.OnHold, "on hold") is { } repeat)
+            return repeat;
+
         unit.HoldReason = reason.Trim();
         var fromStatus = unit.Status;
         var held = await ChangeStatusAsync(unit, UnitStatus.OnHold, reason.Trim(), ct);
@@ -1319,7 +1442,7 @@ public sealed class InventoryService
         return held;
     }
 
-    public async Task<InventoryActionResult> ReleaseFromHoldAsync(long unitId, CancellationToken ct = default)
+    public async Task<InventoryActionResult> ReleaseFromHoldAsync(long unitId, string? reason = null, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateHoldRelease, ct);
@@ -1335,8 +1458,21 @@ public sealed class InventoryService
         if (unit.Status != UnitStatus.OnHold)
             return InventoryActionResult.Fail("Only a unit on operational hold can be released from hold.");
 
+        var check = HoldReleaseRule.Evaluate(reason, unit.ExpiresUtc <= _clock.UtcNow);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([check]));
+        }
+
+        // Keep why it was held alongside why it was released; the hold reason is cleared from the unit.
+        var heldFor = unit.HoldReason;
+        var releaseReason = reason!.Trim();
         unit.HoldReason = null;
-        var changed = await ChangeStatusAsync(unit, UnitStatus.Available, "Released from operational hold", ct);
+        var stock = await StockStatusAsync(unit, ct);
+        var changed = await ChangeStatusAsync(unit, stock,
+            stock == UnitStatus.Received
+                ? $"Released from operational hold: {releaseReason} ({RetypeStockStatus.PendingReason})"
+                : $"Released from operational hold: {releaseReason}", ct);
         if (!changed.Succeeded)
         {
             return changed;
@@ -1346,9 +1482,9 @@ public sealed class InventoryService
             AuditEventType.ProductStatus,
             nameof(BloodUnit),
             unit.Id,
-            oldValue: new { Status = UnitStatus.OnHold },
-            newValue: new { unit.UnitNumber, unit.Status, Path = "HoldRelease" },
-            reason: "Unit released from hold.");
+            oldValue: new { Status = UnitStatus.OnHold, HoldReason = heldFor },
+            newValue: new { unit.UnitNumber, unit.Status, Path = "HoldRelease", ReleaseReason = releaseReason },
+            reason: $"Unit released from hold: {releaseReason}");
         await _unitOfWork.SaveChangesAsync(ct);
         return changed;
     }
@@ -1371,6 +1507,9 @@ public sealed class InventoryService
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
+
+        if (RefuseRepeat(unit, UnitStatus.Missing, "marked missing") is { } repeat)
+            return repeat;
 
         unit.MissingReason = reason.Trim();
         var fromStatus = unit.Status;
@@ -1400,8 +1539,12 @@ public sealed class InventoryService
     /// <summary>
     /// Recovered units enter quality quarantine for inspection before they can return to Available.
     /// </summary>
-    public async Task<InventoryActionResult> LocateMissingAsync(long unitId, CancellationToken ct = default)
+    public async Task<InventoryActionResult> LocateMissingAsync(long unitId, string? foundNote = null, CancellationToken ct = default)
     {
+        // Where and how the unit turned up is the custody record for the time it was missing.
+        if (string.IsNullOrWhiteSpace(foundNote))
+            return InventoryActionResult.Fail("Say where and how the unit was found.");
+
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateLocateMissing, ct);
         if (denied is not null)
@@ -1419,9 +1562,10 @@ public sealed class InventoryService
         var prior = unit.MissingReason;
         unit.MissingReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.LocatedAfterMissing;
+        var found = foundNote.Trim();
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
-            ? "Located after missing; pending inspection"
-            : $"Located after missing ({prior}); pending inspection";
+            ? $"Located after missing: {found}; pending inspection"
+            : $"Located after missing ({prior}): {found}; pending inspection";
         var fromStatus = unit.Status;
         var located = await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
         if (!located.Succeeded)
@@ -1440,9 +1584,10 @@ public sealed class InventoryService
                 Status = UnitStatus.Quarantine,
                 Path = "LocateMissing",
                 ReasonCode = UnitQuarantineReason.LocatedAfterMissing,
-                PriorReason = prior
+                PriorReason = prior,
+                Found = found
             },
-            reason: "Unit located after missing.");
+            reason: $"Unit located after missing: {found}");
         await _unitOfWork.SaveChangesAsync(ct);
         return located;
     }
@@ -1466,6 +1611,9 @@ public sealed class InventoryService
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
+
+        if (RefuseRepeat(unit, UnitStatus.Damaged, "marked damaged") is { } repeat)
+            return repeat;
 
         unit.DamagedReason = reason.Trim();
         var fromStatus = unit.Status;
@@ -1495,8 +1643,12 @@ public sealed class InventoryService
     /// <summary>
     /// Inspected damaged units enter quality quarantine; they cannot return directly to Available.
     /// </summary>
-    public async Task<InventoryActionResult> InspectDamagedAsync(long unitId, CancellationToken ct = default)
+    public async Task<InventoryActionResult> InspectDamagedAsync(long unitId, string? findings = null, CancellationToken ct = default)
     {
+        // What the inspection showed is what quality review decides on.
+        if (string.IsNullOrWhiteSpace(findings))
+            return InventoryActionResult.Fail("Say what the inspection showed.");
+
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateInspectDamaged, ct);
         if (denied is not null)
@@ -1514,9 +1666,10 @@ public sealed class InventoryService
         var prior = unit.DamagedReason;
         unit.DamagedReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.InspectedAfterDamage;
+        var seen = findings.Trim();
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
-            ? "Inspected after damage; pending quality review"
-            : $"Inspected after damage ({prior}); pending quality review";
+            ? $"Inspected after damage: {seen}; pending quality review"
+            : $"Inspected after damage ({prior}): {seen}; pending quality review";
         var fromStatus = unit.Status;
         var inspected = await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
         if (!inspected.Succeeded)
@@ -1535,11 +1688,52 @@ public sealed class InventoryService
                 Status = UnitStatus.Quarantine,
                 Path = "InspectDamaged",
                 ReasonCode = UnitQuarantineReason.InspectedAfterDamage,
-                PriorReason = prior
+                PriorReason = prior,
+                Findings = seen
             },
-            reason: "Unit inspected after damage.");
+            reason: $"Unit inspected after damage: {seen}");
         await _unitOfWork.SaveChangesAsync(ct);
         return inspected;
+    }
+
+    /// <summary>
+    /// Returns the unit in hand to its supplier by its scan (a return shipment: one reason for all), with the same checks
+    /// and audit as <see cref="ReturnToSupplierAsync"/>. A divided number matching several units returns none; a unit whose
+    /// status does not allow a return (reserved, issued, already returned...) is refused with its status.
+    /// </summary>
+    public async Task<InventoryActionResult> ReturnToSupplierByScanAsync(ReturnToSupplierByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return InventoryActionResult.Fail("A reason is required to return a unit to the supplier.");
+        }
+
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
+        {
+            return InventoryActionResult.Fail(error);
+        }
+
+        // A unit already returned counts as "allowed" by the transition table (same status), so it is excluded first.
+        var returnable = candidates
+            .Where(u => u.Status != UnitStatus.ReturnedToSupplier && InventoryStatusTransition.IsAllowed(u.Status, UnitStatus.ReturnedToSupplier))
+            .ToList();
+        if (returnable.Count == 0)
+        {
+            var unit = candidates[0];
+            return InventoryActionResult.Fail(unit.Status == UnitStatus.ReturnedToSupplier
+                ? $"{unit.UnitNumber} is already returned to the supplier."
+                : $"{unit.UnitNumber} is {unit.Status}; it cannot be returned to the supplier. Release its reservation or resolve it first.");
+        }
+
+        if (returnable.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {returnable.Count} units ({string.Join(", ", returnable.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Return each from its unit page.");
+        }
+
+        return await ReturnToSupplierAsync(returnable[0].Id, request.Reason, ct);
     }
 
     /// <summary>
@@ -1561,6 +1755,9 @@ public sealed class InventoryService
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
+
+        if (RefuseRepeat(unit, UnitStatus.ReturnedToSupplier, "returned to the supplier") is { } repeat)
+            return repeat;
 
         unit.SupplierReturnReason = reason.Trim();
         var fromStatus = unit.Status;
@@ -1673,6 +1870,290 @@ public sealed class InventoryService
         return InventoryActionResult.Ok(unit);
     }
 
+    /// <summary>
+    /// Moves the unit in hand to a location by its scanned unit number (DIN, with or without the scanner's '=') or
+    /// component label, with the same checks and audit as <see cref="TransferAsync"/>. A scan matching several units
+    /// (a divided DIN) moves none; each is moved from its unit page. A unit already in the location is not "moved".
+    /// </summary>
+    public async Task<InventoryActionResult> TransferByScanAsync(TransferByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
+        {
+            return InventoryActionResult.Fail(error);
+        }
+
+        var movable = candidates.Where(u => TransferableStatuses.Contains(u.Status)).ToList();
+        if (movable.Count == 0)
+        {
+            return InventoryActionResult.Fail($"{candidates[0].UnitNumber} is {candidates[0].Status}; it cannot be moved.");
+        }
+
+        if (movable.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {movable.Count} units ({string.Join(", ", movable.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Move each from its unit page.");
+        }
+
+        var unit = movable[0];
+        if (unit.CurrentLocationId == request.ToLocationId)
+        {
+            return InventoryActionResult.Fail($"{unit.UnitNumber} is already in that location.");
+        }
+
+        return await TransferAsync(unit.Id, request.ToLocationId,
+            string.IsNullOrWhiteSpace(request.Reason) ? "Moved by scan" : request.Reason.Trim(), ct);
+    }
+
+    public const string ExpiredDiscardReasonCode = "EXPIRED";
+
+    // Expired by the sweep, or past its expiry on a shelf before the next sweep runs.
+    private static bool IsExpiredOnShelf(BloodUnit u, DateTime now) =>
+        u.Status == UnitStatus.Expired || (InventoryUnitScopes.OnHand.Contains(u.Status) && u.ExpiresUtc <= now);
+
+    /// <summary>
+    /// Expired units still on a shelf (marked Expired, or past their expiry before the sweep runs), oldest expiry first,
+    /// with where each is recorded, so they can be pulled and discarded. Needs the discard permission.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<ExpiredUnitDto>>> ListExpiredOnShelfAsync(CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedDiscardAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<IReadOnlyList<ExpiredUnitDto>>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        var now = _clock.UtcNow;
+        var rows = (await _repository.SearchAsync(new InventorySearchCriteria(Statuses: InventoryUnitScopes.OnShelf), ct))
+            .Where(u => IsExpiredOnShelf(u, now))
+            .ToList();
+        var products = await LoadProductsAsync(rows, ct);
+        var locations = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
+        return OperationResult<IReadOnlyList<ExpiredUnitDto>>.Ok(rows
+            .OrderBy(u => u.ExpiresUtc)
+            .ThenBy(u => u.UnitNumber, StringComparer.Ordinal)
+            .Select(u =>
+            {
+                products.TryGetValue(u.ProductTypeId, out var product);
+                string? location = null;
+                if (u.CurrentLocationId is long id)
+                {
+                    locations.TryGetValue(id, out location);
+                }
+
+                return new ExpiredUnitDto(u.Id, u.UnitNumber, product?.ProductCode, product?.Name, u.BloodType.ToString(), u.Status, u.ExpiresUtc, location);
+            })
+            .ToList());
+    }
+
+    /// <summary>
+    /// How many expired units are still on a shelf, without the discard permission check, for summaries (shift handoff)
+    /// whose caller is authorized for its own action. Read-only.
+    /// </summary>
+    public async Task<int> CountExpiredOnShelfAsync(CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        return (await _repository.SearchAsync(new InventorySearchCriteria(Statuses: InventoryUnitScopes.OnShelf), ct))
+            .Count(u => IsExpiredOnShelf(u, now));
+    }
+
+    /// <summary>
+    /// Discards the expired unit in hand by its scan, with the EXPIRED discard reason and the same checks and audit as a
+    /// discard from the unit page (permission, second verifier when required). A unit that is not expired, or a divided
+    /// number matching several units, is refused; those are discarded from the unit page with their own reason.
+    /// </summary>
+    public async Task<InventoryActionResult> DiscardExpiredByScanAsync(DiscardExpiredByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
+        {
+            return InventoryActionResult.Fail(error);
+        }
+
+        var now = _clock.UtcNow;
+        var expired = candidates.Where(u => IsExpiredOnShelf(u, now)).ToList();
+        if (expired.Count == 0)
+        {
+            var unit = candidates[0];
+            return InventoryActionResult.Fail(unit.Status == UnitStatus.Discarded
+                ? $"{unit.UnitNumber} is already discarded."
+                : $"{unit.UnitNumber} is not expired ({unit.Status}, expires {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC). Discard it from its unit page with its own reason.");
+        }
+
+        if (expired.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {expired.Count} expired units ({string.Join(", ", expired.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Discard each from its unit page.");
+        }
+
+        return await DiscardAsync(expired[0].Id,
+            new DiscardUnitCommand(ExpiredDiscardReasonCode, "Discarded by scan from the expired list", request.SecondVerifier), ct);
+    }
+
+    /// <summary>
+    /// The units a scanned unit number (DIN, with or without the scanner's '='), or a component label, names: one, or
+    /// several for a divided DIN. An empty, unreadable, or unknown scan gives the reason instead.
+    /// </summary>
+    private Task<(string Key, List<BloodUnit> Units, string? Error)> ResolveScanAsync(string? scan, CancellationToken ct) =>
+        InventoryScanResolver.ResolveAsync(_repository, scan, ct);
+
+    /// <summary>
+    /// A stock count at one location: what is recorded there (on hand or expired, not yet discarded) against what was
+    /// scanned. Found, Missing (recorded here, not scanned), Elsewhere (scanned here, recorded in another place), Not on
+    /// hand (scanned here but issued, transfused, discarded...), and scans that name no unit or a divided number. Moves
+    /// nothing. With <see cref="InventoryCountRequest.Finish"/> the outcome is recorded in the audit trail.
+    /// </summary>
+    public async Task<OperationResult<InventoryCountDto>> ReconcileCountAsync(InventoryCountRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedTransferAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<InventoryCountDto>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        var location = _locations is null ? null : await _locations.GetByIdAsync(request.LocationId, ct);
+        if (_locations is not null && location is null)
+        {
+            return OperationResult<InventoryCountDto>.Fail("Location not found.");
+        }
+
+        var locationName = location is null ? $"location {request.LocationId}" : $"{location.Code} {location.Name}".Trim();
+        var expected = await _repository.SearchAsync(
+            new InventorySearchCriteria(LocationId: request.LocationId, Statuses: InventoryUnitScopes.OnShelf), ct);
+        var expectedIds = expected.Select(u => u.Id).ToHashSet();
+        var productNames = _productTypes is null
+            ? new Dictionary<long, string>()
+            : (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id, p => p.Name);
+        var locationNames = _locations is null
+            ? new Dictionary<long, string>()
+            : (await _locations.ListAsync(ct)).ToDictionary(l => l.Id, l => $"{l.Code} {l.Name}".Trim());
+        var now = _clock.UtcNow;
+
+        InventoryCountLineDto Line(BloodUnit u, InventoryCountOutcome outcome) => new(
+            u.Id, u.UnitNumber, productNames.GetValueOrDefault(u.ProductTypeId), u.BloodType.ToString(), u.Status, u.ExpiresUtc, outcome,
+            u.CurrentLocationId is long l ? locationNames.GetValueOrDefault(l) ?? $"location {l}" : null)
+        {
+            Expired = u.Status == UnitStatus.Expired || u.ExpiresUtc <= now
+        };
+
+        var foundIds = new HashSet<long>();
+        var elsewhere = new Dictionary<long, InventoryCountLineDto>();
+        var notOnHand = new Dictionary<long, InventoryCountLineDto>();
+        var problems = new List<InventoryCountProblemDto>();
+        foreach (var scan in request.Scans.Where(s => !string.IsNullOrWhiteSpace(s)))
+        {
+            var (key, units, error) = await ResolveScanAsync(scan, ct);
+            if (error is not null)
+            {
+                problems.Add(new InventoryCountProblemDto(scan.Trim(), error));
+                continue;
+            }
+
+            var here = units.Where(u => expectedIds.Contains(u.Id)).ToList();
+            if (units.Count > 1 && here.Count != 1)
+            {
+                problems.Add(new InventoryCountProblemDto(scan.Trim(),
+                    $"{key} matches {units.Count} units ({string.Join(", ", units.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}); check each by its label."));
+                continue;
+            }
+
+            var unit = here.Count == 1 ? here[0] : units[0];
+            if (expectedIds.Contains(unit.Id))
+            {
+                foundIds.Add(unit.Id);
+            }
+            else if (InventoryUnitScopes.OnShelf.Contains(unit.Status))
+            {
+                elsewhere[unit.Id] = Line(unit, InventoryCountOutcome.Elsewhere);
+            }
+            else
+            {
+                notOnHand[unit.Id] = Line(unit, InventoryCountOutcome.NotOnHand);
+            }
+        }
+
+        var dto = new InventoryCountDto(
+            request.LocationId,
+            locationName,
+            expected.Count,
+            request.Scans.Count(s => !string.IsNullOrWhiteSpace(s)),
+            expected.Where(u => foundIds.Contains(u.Id)).OrderBy(u => u.UnitNumber).Select(u => Line(u, InventoryCountOutcome.Found)).ToList(),
+            expected.Where(u => !foundIds.Contains(u.Id)).OrderBy(u => u.UnitNumber).Select(u => Line(u, InventoryCountOutcome.Missing)).ToList(),
+            elsewhere.Values.OrderBy(l => l.UnitNumber).ToList(),
+            notOnHand.Values.OrderBy(l => l.UnitNumber).ToList(),
+            problems,
+            request.Finish);
+
+        if (request.Finish)
+        {
+            _audit.Record(
+                AuditEventType.ProductStatus,
+                nameof(InventoryLocation),
+                request.LocationId,
+                newValue: new
+                {
+                    Document = "Stock count",
+                    Location = locationName,
+                    dto.Expected,
+                    dto.Scanned,
+                    Found = dto.Found.Count,
+                    Missing = dto.Missing.Select(l => l.UnitNumber).ToList(),
+                    Elsewhere = dto.Elsewhere.Select(l => l.UnitNumber).ToList(),
+                    NotOnHand = dto.NotOnHand.Select(l => $"{l.UnitNumber} ({l.Status})").ToList(),
+                    Unresolved = dto.Problems.Select(p => p.Scan).ToList()
+                },
+                reason: dto.Reconciled
+                    ? $"Stock count at {locationName}: all {dto.Expected} units found."
+                    : $"Stock count at {locationName}: {dto.Found.Count} of {dto.Expected} found, {dto.Missing.Count} missing, {dto.Elsewhere.Count} recorded elsewhere, {dto.NotOnHand.Count} not on hand, {dto.Problems.Count} unresolved scans.");
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return OperationResult<InventoryCountDto>.Ok(dto);
+    }
+
+    private const string StockCountReasonPrefix = "Stock count at ";
+
+    /// <summary>
+    /// Finished stock counts, newest first, read from the audit events each count writes against its location.
+    /// A location id narrows to one location.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<InventoryCountHistoryDto>>> ListCountHistoryAsync(
+        long? locationId = null, int take = 20, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedTransferAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<IReadOnlyList<InventoryCountHistoryDto>>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        if (_auditQuery is null || _locations is null)
+        {
+            return OperationResult<IReadOnlyList<InventoryCountHistoryDto>>.Ok([]);
+        }
+
+        var locations = (await _locations.ListAsync(ct)).Where(l => locationId is null || l.Id == locationId).ToList();
+        var history = new List<InventoryCountHistoryDto>();
+        foreach (var location in locations)
+        {
+            var events = await _auditQuery.ListForEntityAsync(nameof(InventoryLocation), location.Id, ct);
+            history.AddRange(events
+                .Where(e => e.Reason is not null && e.Reason.StartsWith(StockCountReasonPrefix, StringComparison.Ordinal))
+                .Select(e => new InventoryCountHistoryDto(
+                    location.Id,
+                    $"{location.Code} {location.Name}".Trim(),
+                    e.OccurredUtc,
+                    e.UserName,
+                    e.Reason!,
+                    e.Reason!.Contains(": all ", StringComparison.Ordinal))));
+        }
+
+        return OperationResult<IReadOnlyList<InventoryCountHistoryDto>>.Ok(
+            history.OrderByDescending(h => h.CountedUtc).Take(Math.Clamp(take, 1, 200)).ToList());
+    }
+
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedTransferAsync(ct);
@@ -1778,6 +2259,11 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
         }
 
+        if (RefuseRepeat(unit, UnitStatus.Discarded, "discarded") is { } repeat)
+        {
+            return repeat;
+        }
+
         var transition = InventoryStatusTransition.Evaluate(unit.Status, UnitStatus.Discarded);
         if (transition.Severity == RuleSeverity.HardStop)
         {
@@ -1859,6 +2345,7 @@ public sealed class InventoryService
         }
 
         var expired = 0;
+        var reservationsEnded = 0;
         foreach (var unit in due)
         {
             if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Expired))
@@ -1895,11 +2382,62 @@ public sealed class InventoryService
                 },
                 reason: "Unit expired.");
             expired++;
+
+            // An expired unit can no longer be issued, so its reservation must not keep showing as blood held for the patient.
+            reservationsEnded += await EndReservationsAsync(unit, now, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return InventoryActionResult.OkSweep(expired);
+        return InventoryActionResult.OkSweep(expired, reservationsEnded);
     }
+
+    private async Task<int> EndReservationsAsync(BloodUnit unit, DateTime now, CancellationToken ct)
+    {
+        if (_allocations is null)
+        {
+            return 0;
+        }
+
+        var reserved = await _allocations.ListAsync(a => a.BloodProductId == unit.Id && a.Status == AllocationStatus.Reserved, ct);
+        foreach (var row in reserved)
+        {
+            var tracked = await _allocations.GetByIdAsync(row.Id, ct) ?? row;
+            tracked.Status = AllocationStatus.Expired;
+            tracked.ReleaseReason = $"Unit {unit.UnitNumber} expired at {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC.";
+            _allocations.Update(tracked);
+            _audit.Record(
+                AuditEventType.Assignment,
+                nameof(Allocation),
+                tracked.Id,
+                oldValue: new { Status = AllocationStatus.Reserved },
+                newValue: new { Status = AllocationStatus.Expired, tracked.PatientId, unit.UnitNumber },
+                reason: tracked.ReleaseReason);
+        }
+
+        return reserved.Count;
+    }
+
+    /// <summary>Available, or Received when the product requires a retype that is not yet confirmed.</summary>
+    private async Task<UnitStatus> StockStatusAsync(BloodUnit unit, CancellationToken ct)
+    {
+        var product = unit.ProductType ?? await _repository.GetProductTypeAsync(unit.ProductTypeId, ct);
+        if (product?.RequiresRetype != true)
+        {
+            return UnitStatus.Available;
+        }
+
+        var confirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypeResults, product, unit.Id, ct);
+        return RetypeStockStatus.ForStock(requiresRetype: true, confirmed);
+    }
+
+    /// <summary>
+    /// The status table lets a unit "move" to the status it already has, so an action repeated on a unit already in its
+    /// target status would replace the reason recorded the first time. Those actions refuse instead.
+    /// </summary>
+    private static InventoryActionResult? RefuseRepeat(BloodUnit unit, UnitStatus target, string already) =>
+        unit.Status == target
+            ? InventoryActionResult.Fail($"{unit.UnitNumber} is already {already}; the reason recorded then stays.")
+            : null;
 
     private async Task<InventoryActionResult> ChangeStatusAsync(BloodUnit unit, UnitStatus toStatus, string reason, CancellationToken ct)
     {

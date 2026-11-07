@@ -5,6 +5,7 @@ using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,8 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestResult>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<SpecimenTypeDefinition>(c), _factory.Clock,
             eligibility: Eligibility(c),
-            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            policy: new BloodBankLIS.Application.Compliance.FacilityPolicyService(new EfRepository<SystemSetting>(c)));
 
     private ElectronicCrossmatchEligibilityService Eligibility(BloodBankDbContext c) =>
         new(new EfRepository<Patient>(c),
@@ -547,6 +549,34 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task PendingWorklist_AboSelfVerifyBlock_FollowsFacilityPolicy()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "ABORH");
+        var save = await Results(c).EnterAboRhAsync(new EnterAboRhRequest(
+            seed.specimen!.Id, AboGroup.O, RhType.Positive, OrderId: seed.order.Id));
+        Assert.True(save.Succeeded, save.Error);
+
+        // Unset policy defaults to blocking the enterer.
+        var blocked = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.True(blocked.IsAboSelfVerifyBlocked(save.Value!.EnteredBy));
+
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.BlockAboSelfVerify, Value = "false", Category = "Result" };
+        c.SystemSettings.Add(setting);
+        await c.SaveChangesAsync();
+        try
+        {
+            var allowed = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+            Assert.False(allowed.IsAboSelfVerifyBlocked(save.Value.EnteredBy));
+        }
+        finally
+        {
+            c.SystemSettings.Remove(setting);
+            await c.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
     public async Task SaveComplete_VerifiesResult_AndMovesToCompletedFilter()
     {
         await using var c = _factory.Create();
@@ -605,6 +635,272 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
 
         await context.Entry(original!).ReloadAsync();
         Assert.NotNull(original.SupersededByResultId);
+    }
+
+    // TEST-BB-368: a pending result whose specimen expires soon names the deadline and is listed first.
+    [Fact]
+    public async Task PendingResult_WhoseSpecimenExpiresSoon_NamesTheDeadline_AndComesFirst()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var pending = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(pending.Succeeded, pending.Error);
+
+        var other = await SeedOrderWithTestAsync(c);
+        other.specimen!.ExpiresUtc = _factory.Clock.UtcNow.AddDays(3);
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(2);
+        await c.SaveChangesAsync();
+
+        var rows = (await Worklist(c).ListPendingGlobalAsync())
+            .Where(r => r.OrderLineId == seed.line.Id || r.OrderLineId == other.line.Id)
+            .ToList();
+        Assert.Equal(seed.line.Id, rows[0].OrderLineId);
+        Assert.StartsWith("Verify before", rows[0].VerificationDeadlineNotice);
+        Assert.Null(rows[1].VerificationDeadlineNotice);
+    }
+
+    // TEST-BB-371: the patient chart's Tests tab gets the same verify-before deadline as the worklist.
+    [Fact]
+    public async Task PatientTestsTab_CarriesTheVerificationDeadline()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(5);
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.StartsWith("Verify before", row.VerificationDeadlineNotice);
+
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddDays(3);
+        await c.SaveChangesAsync();
+        Assert.Null(Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending)).VerificationDeadlineNotice);
+    }
+
+    // TEST-BB-370: the shift handoff counts results that must be verified before their specimen expires.
+    [Fact]
+    public async Task ShiftHandoff_CountsResultsToVerifyBeforeSpecimenExpiry()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(2);
+        await c.SaveChangesAsync();
+
+        var handoff = await new BloodBankLIS.Application.Compliance.ShiftHandoffService(
+                new EfRepository<ShiftHandoff>(c), c, _factory.Clock, _factory.CurrentUser,
+                tests: Worklist(c), audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser))
+            .CreateAsync(new BloodBankLIS.Application.Compliance.CreateShiftHandoffRequest("Night shift: one screen to verify"));
+
+        Assert.True(handoff.Succeeded, handoff.Error);
+        Assert.True(handoff.Value!.PendingTestsVerifyBeforeExpiry >= 1);
+        Assert.True(handoff.Value.PendingTests >= handoff.Value.PendingTestsVerifyBeforeExpiry);
+        Assert.Equal(handoff.Value.PendingTestsVerifyBeforeExpiry,
+            BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).PendingTestsVerifyBeforeExpiry);
+        // TEST-BB-429: the entered result is also counted as waiting for verification.
+        Assert.True(handoff.Value.ResultsAwaitingVerification >= 1);
+        Assert.Contains("to verify", BloodBankLIS.Application.Compliance.ShiftHandoffDto.From(handoff.Value).QueueSummary);
+    }
+
+    // TEST-BB-451: rejecting a tube names the open orders that now need a new specimen, and the bench shows their lines
+    // as Recollect with the reason, offering Accession.
+    [Fact]
+    public async Task RejectedTube_NamesItsWaitingOrders_AndTheBenchAsksForRecollection()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "DAT");
+        var specimens = new BloodBankLIS.Application.Specimens.SpecimenService(
+            new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
+            c, _factory.Clock, currentUser: _factory.CurrentUser,
+            orderSpecimens: new EfRepository<OrderSpecimen>(c), orders: new EfRepository<Order>(c));
+
+        var rejected = await specimens.RejectAsync(seed.specimen!.Id, "Hemolyzed", null);
+        Assert.True(rejected.Succeeded, rejected.Error);
+        var warning = Assert.Single(rejected.Warnings!, w => w.Code == SpecimenRecollectionRule.Code);
+        Assert.Contains(seed.order.OrderNumber, warning.Message);
+
+        var row = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id), r => r.OrderLineId == seed.line.Id);
+        Assert.False(row.CanEnterResults);
+        Assert.True(row.NeedsRecollection);
+        Assert.True(row.NeedsSpecimenLink);
+        Assert.Equal("Recollect", row.BenchActionLabel);
+        Assert.Contains("was rejected (Hemolyzed)", row.BlockReason);
+        Assert.Contains("Collect a new specimen", row.BlockReason);
+
+        // A tube with no open orders is rejected without the recollection warning.
+        var spare = new Specimen
+        {
+            AccessionNumber = $"ACC-{Guid.NewGuid():N}", PatientId = seed.patient.Id, EncounterId = seed.encounter.Id, SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1), ExpiresUtc = _factory.Clock.UtcNow.AddDays(2), Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(spare);
+        await c.SaveChangesAsync();
+        var spareRejected = await specimens.RejectAsync(spare.Id, "Clotted", null);
+        Assert.True(spareRejected.Succeeded, spareRejected.Error);
+        Assert.DoesNotContain(spareRejected.Warnings ?? [], w => w.Code == SpecimenRecollectionRule.Code);
+    }
+
+    // TEST-BB-444 (OCD-058): a reaction workup line on an expired tube can be resulted and verified; an ordinary order
+    // on the same expired tube stays blocked.
+    [Fact]
+    public async Task ExpiredTube_TakesReactionWorkupResults_ButNotOrdinaryOnes()
+    {
+        await using var c = _factory.Create();
+        var workup = await SeedOrderWithTestAsync(c, testCode: "DAT");
+        var ordinary = await SeedOrderWithTestAsync(c, testCode: "DAT");
+        var workupOrder = await c.Orders.SingleAsync(o => o.Id == workup.order.Id);
+        workupOrder.OrderType = OrderType.TransfusionReactionWorkup;
+        foreach (var tube in new[] { workup.specimen!, ordinary.specimen! })
+        {
+            var tracked = await c.Specimens.SingleAsync(sp => sp.Id == tube.Id);
+            tracked.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            tracked.Status = SpecimenStatus.Expired;
+        }
+
+        await c.SaveChangesAsync();
+
+        var workupRow = Assert.Single(await Worklist(c).ListForSpecimenAsync(workup.specimen!.Id), r => r.OrderLineId == workup.line.Id);
+        Assert.True(workupRow.CanEnterResults, workupRow.BlockReason);
+        var ordinaryRow = Assert.Single(await Worklist(c).ListForSpecimenAsync(ordinary.specimen!.Id), r => r.OrderLineId == ordinary.line.Id);
+        Assert.False(ordinaryRow.CanEnterResults);
+        // TEST-BB-450: the bench marks the workup line and links to the investigation; the ordinary line is unmarked.
+        Assert.True(workupRow.ReactionWorkup);
+        Assert.Equal($"/reactions?patientId={workup.patient.Id}", workupRow.ReactionHref);
+        Assert.False(ordinaryRow.ReactionWorkup);
+
+        var saved = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            workup.specimen.Id, workup.order.Id, workup.line.Id, "DAT", "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(saved.Succeeded, saved.Error);
+        var refused = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            ordinary.specimen.Id, ordinary.order.Id, ordinary.line.Id, "DAT", "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.False(refused.Succeeded);
+        Assert.Contains("Expired", refused.Error);
+    }
+
+    // TEST-BB-433: worklist rows carry the tube's label barcode, so a label scan on the bench finds them.
+    [Fact]
+    public async Task WorklistRow_CarriesTheLabelBarcode_AndALabelScanFindsIt()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var label = $"LBL-{seed.line.Id}";
+        seed.specimen!.Barcode = label;
+        await c.SaveChangesAsync();
+
+        var rows = await Worklist(c).ListPendingGlobalAsync();
+        var row = Assert.Single(rows, r => r.OrderLineId == seed.line.Id);
+        Assert.Equal(label, row.SpecimenBarcode);
+        var onTube = TestWorklistView.ForTube(rows, label.ToLowerInvariant());
+        Assert.Contains(onTube, r => r.OrderLineId == seed.line.Id);
+        Assert.All(onTube, r => Assert.Equal(seed.specimen.Id, r.SpecimenId));
+        Assert.Equal(seed.specimen.AccessionNumber, TestWorklistView.TubeLabel(rows, label));
+    }
+
+    // TEST-BB-431: after downtime, results entered from paper and waiting for verification are counted on the snapshot.
+    [Fact]
+    public async Task DowntimeSnapshot_CountsResultsToVerify_AndThoseDueBeforeSpecimenExpiry()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(2);
+        await c.SaveChangesAsync();
+
+        var snapshot = await new BloodBankLIS.Application.Compliance.DowntimeReconciliationService(
+                new EfRepository<InterfaceErrorQueueItem>(c), new EfRepository<Hl7MessageLog>(c), new EfRepository<Issue>(c),
+                new AuditQuery(c), _factory.Clock, _factory.CurrentUser,
+                new FixedPermissionEvaluator(1, PermissionCodes.AuditRead), tests: Worklist(c))
+            .GetSnapshotAsync();
+
+        Assert.True(snapshot.Succeeded, snapshot.Error);
+        Assert.True(snapshot.Value!.ResultsAwaitingVerification >= 1);
+        Assert.True(snapshot.Value.ResultsVerifyBeforeExpiry >= 1);
+        Assert.True(snapshot.Value.ResultsAwaitingVerification >= snapshot.Value.ResultsVerifyBeforeExpiry);
+        // Without the worklist (older wiring) the new counts stay zero rather than failing.
+        Assert.Equal(0, (await new BloodBankLIS.Application.Compliance.DowntimeReconciliationService(
+                new EfRepository<InterfaceErrorQueueItem>(c), new EfRepository<Hl7MessageLog>(c), new EfRepository<Issue>(c),
+                new AuditQuery(c), _factory.Clock, _factory.CurrentUser)
+            .GetSnapshotAsync()).Value!.ResultsAwaitingVerification);
+    }
+
+    [Fact]
+    public async Task PendingCorrection_OnAnExpiredSpecimen_CanStillBeWorkedFromTheWorklist()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: true, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Positive", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: "Transcription error", UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        seed.specimen.Status = SpecimenStatus.Expired;
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.Equal(ResultStatus.Corrected, row.CurrentResultStatus);
+        Assert.True(row.CanEnterResults, row.BlockReason);
+    }
+
+    // TEST-BB-367 (OCD-051): the worklist correction of a verified result works after the specimen expires.
+    [Fact]
+    public async Task WorklistCorrection_AfterTheSpecimenExpires_CreatesTheCorrectedVersion()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var verified = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: true, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(verified.Succeeded, verified.Error);
+
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        seed.specimen.Status = SpecimenStatus.Expired;
+        await c.SaveChangesAsync();
+
+        var corrected = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Positive", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: "Transcription error", UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(corrected.Succeeded, corrected.Error);
+        Assert.Equal(ResultStatus.Corrected, corrected.Value!.Status);
+    }
+
+    [Fact]
+    public async Task CorrectionReason_DoesNotLetAFirstResultPost_OnAnExpiredSpecimen()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        seed.specimen!.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        await c.SaveChangesAsync();
+
+        var save = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: "Not really a correction", UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.False(save.Succeeded);
+        Assert.Contains("has expired", save.Error);
+        Assert.False(await c.TestResults.AnyAsync(r => r.SpecimenId == seed.specimen.Id));
     }
 
     [Fact]

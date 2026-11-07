@@ -20,6 +20,12 @@ public class OrderLine : BaseEntity
 
     public string? TestCode { get; set; }
 
+    /// <summary>
+    /// The test grouper this line was ordered as part of (for example TNS for ABORH and ABSC), so a result can be
+    /// reported to the EHR under the grouper's procedure code. Null when the test was ordered on its own.
+    /// </summary>
+    public string? GrouperCode { get; set; }
+
     public OrderType OrderType { get; set; } = OrderType.Other;
 
     public long? ProductTypeId { get; set; }

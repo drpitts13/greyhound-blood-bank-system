@@ -134,9 +134,24 @@ public sealed record NearExpiryWorkItemDto(
     RhType RhD,
     long ProductTypeId,
     long? CurrentLocationId = null,
-    string? CurrentLocationName = null)
+    string? CurrentLocationName = null,
+    // The patient whose reservation is on this unit, when there is one: issue it first or reserve a replacement.
+    long? ReservedPatientId = null,
+    string? ReservedPatientMrn = null,
+    string? ReservedPatientName = null)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public bool IsReserved => ReservedPatientId is not null;
+
+    /// <summary>"Name (MRN)", or the MRN or patient id alone when that is all that is recorded.</summary>
+    public string? ReservedPatientLabel => ReservedPatientId is not long id
+        ? null
+        : !string.IsNullOrWhiteSpace(ReservedPatientName)
+            ? string.IsNullOrWhiteSpace(ReservedPatientMrn) ? ReservedPatientName : $"{ReservedPatientName} ({ReservedPatientMrn})"
+            : !string.IsNullOrWhiteSpace(ReservedPatientMrn) ? ReservedPatientMrn : $"patient {id}";
+
+    public const string ReservedNextStep = "Issue it first or reserve a replacement.";
 
     public static NearExpiryWorkItemDto From(BloodUnit u, string? locationName = null) => new(
         u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId,
@@ -160,7 +175,10 @@ public sealed record QuarantineWorkItemDto(
     long? CurrentLocationId = null,
     string? CurrentLocationName = null,
     decimal? Volume = null,
-    bool RequiresLabelScan = false)
+    bool RequiresLabelScan = false,
+    // From QuarantineReleaseRule: what to do with the unit, and whether Release is allowed.
+    string? NextStep = null,
+    bool CanRelease = true)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 

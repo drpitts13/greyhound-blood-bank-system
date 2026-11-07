@@ -1,0 +1,62 @@
+@inject IJSRuntime Js
+@inject UserSession Session
+
+@* Text and control size for this user at this workstation. Every size in app.css and Bootstrap is in rem,
+   so one root font size scales text, fields, buttons, and the sidebar together. Kept in the browser per
+   user, so the next person signing in at a shared bench gets their own size, not the last person's. *@
+<label class="bb-text-size">
+    <span>Text size</span>
+    <select value="@_size" @onchange="OnChangeAsync">
+        @foreach (var (value, label) in Sizes)
+        {
+            <option value="@value">@label</option>
+        }
+    </select>
+</label>
+
+@code {
+    public static readonly (string Value, string Label)[] Sizes =
+    [
+        ("small", "Small"),
+        ("default", "Default"),
+        ("large", "Large"),
+        ("larger", "Larger"),
+        ("largest", "Largest")
+    ];
+
+    private string _size = "default";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        // Per-browser convenience only; any failure keeps the default size.
+        try
+        {
+            var stored = await Js.InvokeAsync<string?>("bbUi.textSize.load", Session.UserName);
+            if (Sizes.Any(s => s.Value == stored) && stored != _size)
+            {
+                _size = stored!;
+                StateHasChanged();
+            }
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+    }
+
+    private async Task OnChangeAsync(ChangeEventArgs e)
+    {
+        var chosen = e.Value?.ToString();
+        if (!Sizes.Any(s => s.Value == chosen))
+            return;
+
+        _size = chosen!;
+        try
+        {
+            await Js.InvokeVoidAsync("bbUi.textSize.save", Session.UserName, _size);
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+    }
+}

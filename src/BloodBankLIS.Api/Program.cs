@@ -26,6 +26,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Encoder = ClinicalJson.WebOptions.Encoder;
 });
 
+// An unreadable body or a malformed route/query value reaches the exception handler in every environment, so the
+// caller always gets a readable 400 instead of an empty response (Development) or a 500.
+builder.Services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
+
 var dbProvider = DatabaseOptions.ResolveProvider(builder.Configuration, builder.Environment.IsDevelopment());
 var connectionString = DatabaseOptions.ResolveConnectionString(builder.Configuration, builder.Environment.IsDevelopment());
 
@@ -123,40 +127,64 @@ if (effectiveDevMode)
         "This must never be used in a production environment.", devMode.UserName);
 }
 
-if (app.Environment.IsDevelopment())
+app.UseExceptionHandler(exceptionHandlerApp =>
 {
-    app.MapOpenApi();
-    app.UseExceptionHandler(exceptionHandlerApp =>
+    exceptionHandlerApp.Run(async context =>
     {
-        exceptionHandlerApp.Run(async context =>
+        var ex = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+        if (ex is BadHttpRequestException bad)
         {
-            var ex = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
-            if (ex is Microsoft.Data.SqlClient.SqlException or Microsoft.Data.Sqlite.SqliteException)
-            {
-                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-                context.Response.ContentType = "application/problem+json";
-                await context.Response.WriteAsJsonAsync(new
-                {
-                    title = "Database unavailable",
-                    detail = "The application could not use the database. In Development, SQLite is stored under %LOCALAPPDATA%\\BloodBankLIS\\bloodbank.dev.db. Stop the API and restart it so migrations can recreate an out-of-date file, or delete bloodbank.dev.db (and -wal/-shm) manually if the problem persists.",
-                    status = 503
-                });
-                return;
-            }
-
-            // Surface the deepest message — EF wraps SQLite/SQL errors as DbUpdateException
-            // with the actionable detail on InnerException.
-            var detail = ex?.InnerException?.Message ?? ex?.Message;
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            // The caller's request is at fault: say which field, never echo the value or internals.
+            context.Response.StatusCode = bad.StatusCode;
             context.Response.ContentType = "application/problem+json";
             await context.Response.WriteAsJsonAsync(new
             {
-                title = "An unexpected error occurred.",
-                detail,
-                status = 500
+                title = BloodBankLIS.Application.Common.RequestReadError.Title,
+                detail = BloodBankLIS.Application.Common.RequestReadError.Describe(bad),
+                status = bad.StatusCode
             });
+            return;
+        }
+
+        if (!app.Environment.IsDevelopment())
+        {
+            // Production: no exception detail leaves the server.
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsJsonAsync(new { title = "An unexpected error occurred.", status = 500 });
+            return;
+        }
+
+        if (ex is Microsoft.Data.SqlClient.SqlException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                title = "Database unavailable",
+                detail = "The application could not use the database. In Development, SQLite is stored under %LOCALAPPDATA%\\BloodBankLIS\\bloodbank.dev.db. Stop the API and restart it so migrations can recreate an out-of-date file, or delete bloodbank.dev.db (and -wal/-shm) manually if the problem persists.",
+                status = 503
+            });
+            return;
+        }
+
+        // Surface the deepest message — EF wraps SQLite/SQL errors as DbUpdateException
+        // with the actionable detail on InnerException.
+        var detail = ex?.InnerException?.Message ?? ex?.Message;
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            title = "An unexpected error occurred.",
+            detail,
+            status = 500
         });
     });
+});
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
 
     app.Logger.LogInformation(
         "Database provider: {Provider}. Connection: {Connection}",
@@ -184,13 +212,15 @@ app.MapInventoryEndpoints();
 app.MapModificationEndpoints();
 app.MapReagentEndpoints();
 app.MapStorageTemperatureEndpoints();
-app.MapStockParEndpoints();
+app.MapMinimumStockEndpoints();
 app.MapUtilizationEndpoints();
 app.MapAlertEndpoints();
 app.MapSupplierOrderEndpoints();
 app.MapBackupEndpoints();
 app.MapMfaEndpoints();
 app.MapPbmEndpoints();
+app.MapLookupEndpoints();
+app.MapFhirEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

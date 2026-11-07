@@ -386,7 +386,7 @@ public sealed class LookbackService
                 issue.IssueType,
                 issue.Status,
                 tx?.Id,
-                tx?.FinalDisposition,
+                tx is null ? null : TransfusionRecordState.Outcome(tx.FinalDisposition, tx.StopUtc, issue.Status),
                 tx?.ReactionSuspected ?? false));
         }
 

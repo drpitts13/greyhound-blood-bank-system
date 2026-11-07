@@ -14,6 +14,7 @@ using BloodBankLIS.Application.Services;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Specimens;
+using BloodBankLIS.Application.Search;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Domain.Isbt128;
@@ -73,12 +74,13 @@ public static class DependencyInjection
         services.AddScoped<IDeliveryLineStore, DeliveryLineStore>();
         services.AddScoped<DeliveryService>();
         services.AddScoped<InventoryService>();
+        services.AddScoped<UnitSpecialTestService>();
         services.AddScoped<UnitActivityService>();
         services.AddScoped<ProductRetypeService>();
         services.AddScoped<BloodProductModificationService>();
         services.AddScoped<ReagentQcService>();
         services.AddScoped<StorageTemperatureService>();
-        services.AddScoped<StockParService>();
+        services.AddScoped<MinimumStockService>();
         services.AddScoped<UtilizationService>();
         services.AddScoped<AlertService>();
         services.AddScoped<AlertScanner>();
@@ -86,16 +88,21 @@ public static class DependencyInjection
         services.AddScoped<DatabaseBackupService>();
         services.AddScoped<TransfusionIndicationService>();
         services.AddScoped<TransfusionIndicationAdminService>();
+        services.AddScoped<MtpPackAdminService>();
+        services.AddScoped<TransportContainerAdminService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();
         services.AddScoped<SpecialRequirementService>();
         services.AddScoped<LookbackService>();
         services.AddScoped<ReactionInvestigationService>();
+        services.AddScoped<ReactionWorkupService>();
         services.AddScoped<DeviationService>();
         services.AddScoped<ShiftHandoffService>();
         services.AddScoped<SupervisorQueueService>();
+        services.AddScoped<OverrideReviewService>();
         services.AddScoped<DatElutionWorkupService>();
         services.AddScoped<DowntimeReconciliationService>();
+        services.AddScoped<DowntimePatientSummaryService>();
         services.AddScoped<IsbtLookupCatalog>();
         services.AddScoped<IsbtParsingService>();
         services.AddScoped<ScanSessionService>();
@@ -106,6 +113,13 @@ public static class DependencyInjection
         services.AddScoped<PatientService>();
         services.AddScoped<PatientMergeService>();
         services.AddScoped<SpecimenService>();
+        services.AddScoped<UniversalLookupService>();
+        services.AddScoped<BloodBankLIS.Application.Interop.Fhir.FhirReadService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.MtpActivationService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.MtpPackingService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.CoolerCheckService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.IssueRequestService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.InterfaceDispenseRequestService>();
         services.AddScoped<ExpiredSpecimenOrderService>();
         services.AddScoped<OrderingProviderService>();
         services.AddScoped<OrderingLocationService>();
@@ -113,12 +127,15 @@ public static class DependencyInjection
         services.AddScoped<RuleEngineService>();
         services.AddScoped<OrderService>();
         services.AddScoped<PatientProductHistoryService>();
+        services.AddScoped<PatientTimelineService>();
+        services.AddScoped<SpecimenTimelineService>();
         services.AddScoped<PatientTestHistoryService>();
         services.AddScoped<AutoThawService>();
         services.AddScoped<PatientAllocationService>();
         services.AddScoped<UnitAntigenTypingService>();
         services.AddScoped<ResultService>();
         services.AddScoped<TestWorklistService>();
+        services.AddScoped<BatchVerifyService>();
         services.AddScoped<ImmunohematologyService>();
         services.AddScoped<AntibodyIdentificationService>();
         services.AddScoped<BloodAttributeCompatLoader>();
@@ -147,6 +164,7 @@ public static class DependencyInjection
         services.AddScoped<ExpirationModificationCodeAdminService>();
         services.AddScoped<AutoThawProductAdminService>();
         services.AddScoped<IsbtProductCodeAdminService>();
+        services.AddScoped<IsbtReadinessService>();
         services.TryAddSingleton<IIccbbaExtractDirectory>(sp =>
             IccbbaExtractDirectory.FromConfiguration(sp.GetService<IConfiguration>()));
         services.AddScoped<OrderingProviderAdminService>();
@@ -159,6 +177,8 @@ public static class DependencyInjection
         services.AddScoped<FacilityPolicyAdminService>();
         services.AddScoped<CrossmatchSettingsAdminService>();
         services.AddScoped<CrossmatchSettingsReader>();
+        services.AddScoped<ReactionWorkupSettingsAdminService>();
+        services.AddScoped<ReactionWorkupSettingsReader>();
         services.AddScoped<CrossmatchAttachmentService>();
         services.AddScoped<CompatibilityRuleAdminService>();
         services.AddScoped<ChargeCodeAdminService>();
@@ -171,8 +191,12 @@ public static class DependencyInjection
         services.AddScoped<CodedCommentAdminService>();
         services.AddScoped<OrderCancellationReasonAdminService>();
         services.AddScoped<UnitDiscardReasonAdminService>();
+        services.AddScoped<SpecimenRejectionReasonAdminService>();
+        services.AddScoped<ReactionCatalogAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();
         services.AddScoped<InterfaceTranslationAdminService>();
+        services.AddScoped<InterfaceValueSets>();
+        services.AddScoped<InterfaceUnmappedValueService>();
         services.AddScoped<IInstrumentInterfaceRepository, InstrumentInterfaceRepository>();
         services.AddScoped<InstrumentInterfaceAdminService>();
         services.AddSingleton<IInstrumentRuntimeStatus, BloodBankLIS.Infrastructure.Instruments.InstrumentRuntimeStatus>();
@@ -185,6 +209,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         // Default environment descriptor; the host (API/Web) overrides with the real one.
         services.TryAddSingleton<IEnvironmentInfo>(new StaticEnvironmentInfo());
+        services.TryAddSingleton<IFacilityTimeZone>(sp => FacilityTimeZone.FromConfiguration(sp.GetService<IConfiguration>()));
         services.TryAddCurrentUser();
 
         return services;

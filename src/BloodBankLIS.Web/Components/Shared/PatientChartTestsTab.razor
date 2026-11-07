@@ -1,3 +1,4 @@
+@inject UserSession Session
 <div class="bb-card">
     <div class="bb-card-title">
         <h3>Test results</h3>
@@ -48,13 +49,14 @@
                     @* One record per tbody: the facts, the row's actions on a line underneath, then any open entry panel. *@
                     <tbody class="record">
                     <tr class="@TestRowClass(item)">
-                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
+                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span>@if (item.ReactionWorkup) { <a class="badge badge-red" style="margin-left:.35rem;" href="@item.ReactionHref" title="This test is part of a transfusion reaction workup; the investigation closes only when it is verified" data-reaction-workup>Reaction workup</a> }</td>
                         <td>
                             <span class="mono">@item.OrderNumber</span>
                             <span class="sub mono">@(item.AccessionNumber ?? "—")</span>
                             @if (item.SpecimenExpiresUtc is DateTime expires)
                             {
                                 <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                                <VerificationDeadlineBadge Item="item" />
                             }
                             else
                             {
@@ -80,12 +82,16 @@
                             {
                                 <span class="badge badge-gray">Pending</span>
                             }
-                            <span class="sub mono">@(item.CurrentResultValue ?? "—")</span>
+                            <span class="sub mono">@ResultValueText.For(item.CurrentResultValue)</span>
                             @if (item.AboRhDeltaHold)
                             {
                                 <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
                             }
                             <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")</span>
+                            @if (item.CurrentResultReagentLots is { Count: > 0 } lots)
+                            {
+                                <span class="sub" title="Reagent lots open for this test when the result was entered" data-worklist-lots>Lots: @string.Join(", ", lots)</span>
+                            }
                         </td>
                         <td>
                             @if (IsRush(item.Priority))
@@ -112,7 +118,7 @@
                                     <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                                 }
                                 <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => OnToggleEntry.InvokeAsync(item.OrderLineId)">
-                                    @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
+                                    @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabelFor(Session.UserName))
                                 </button>
                             </div>
                         </td>

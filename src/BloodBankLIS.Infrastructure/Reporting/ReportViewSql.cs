@@ -1,6 +1,7 @@
 using System.Globalization;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Reporting;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Infrastructure.Reporting;
 
@@ -44,6 +45,9 @@ public static class ReportViewSql
         var dateOfBirth = sqlServer ? "CONVERT(varchar(10), p.DateOfBirth, 23)" : "p.DateOfBirth";
         var activeTest = "td.Code = r.TestCode AND td.IsActive = 1 AND td.IsDraft = 0";
         var discardedMonth = sqlServer ? "CONVERT(varchar(7), h.DiscardedUtc, 126)" : "substr(h.DiscardedUtc, 1, 7)";
+        // Specimens rejected before RejectedUtc was recorded fall back to their last modification time.
+        var rejectedAt = "COALESCE(s.RejectedUtc, s.ModifiedUtc)";
+        var rejectedMonth = sqlServer ? $"CONVERT(varchar(7), {rejectedAt}, 126)" : $"substr({rejectedAt}, 1, 7)";
         var testName = sqlServer
             ? $"(SELECT TOP 1 td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC)"
             : $"(SELECT td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC LIMIT 1)";
@@ -80,7 +84,7 @@ public static class ReportViewSql
                 {CaseEnum("i.Status", typeof(IssueStatus))} AS issue_status,
                 t.StartUtc AS transfusion_start_utc,
                 t.StopUtc AS transfusion_stop_utc,
-                {CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition))} AS disposition
+                CASE WHEN t.Id IS NULL THEN NULL ELSE {TransfusionRecordState.SqlDisposition("t.StopUtc", "i.Status", CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition)))} END AS disposition
             FROM Issues i
             INNER JOIN BloodProducts u ON u.Id = i.BloodProductId
             INNER JOIN ProductTypes pt ON pt.Id = u.ProductTypeId
@@ -194,8 +198,9 @@ public static class ReportViewSql
                 u.UnitNumber AS unit_number,
                 pt.Name AS product_name,
                 p.MedicalRecordNumber AS mrn,
-                {CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition))} AS detail
+                {TransfusionRecordState.SqlDisposition("t.StopUtc", "ti.Status", CaseEnum("t.FinalDisposition", typeof(TransfusionDisposition)))} AS detail
             FROM TransfusionEvents t
+            INNER JOIN Issues ti ON ti.Id = t.IssueId
             INNER JOIN BloodProducts u ON u.Id = t.BloodProductId
             INNER JOIN ProductTypes pt ON pt.Id = u.ProductTypeId
             INNER JOIN Patients p ON p.Id = t.PatientId
@@ -226,6 +231,51 @@ public static class ReportViewSql
             FROM TestResults r
             INNER JOIN Patients p ON p.Id = r.PatientId
             INNER JOIN Specimens s ON s.Id = r.SpecimenId
+            """);
+
+        yield return (ReportViewCatalog.SpecimenRejections, $"""
+            SELECT
+                {rejectedAt} AS rejected_utc,
+                {rejectedMonth} AS rejected_month,
+                COALESCE(s.RejectionReasonCode, 'UNCODED') AS rejection_reason_code,
+                s.RejectionReason AS rejection_reason,
+                s.RejectedBy AS rejected_by,
+                s.AccessionNumber AS accession_number,
+                s.SpecimenType AS specimen_type,
+                COALESCE(s.DrawLocation, '') AS draw_location,
+                COALESCE(s.Collector, '') AS collector,
+                s.CollectedUtc AS collected_utc,
+                s.ReceivedUtc AS received_utc,
+                p.MedicalRecordNumber AS mrn,
+                {person} AS patient_name
+            FROM Specimens s
+            INNER JOIN Patients p ON p.Id = s.PatientId
+            WHERE s.Status = {(int)SpecimenStatus.Rejected}
+            """);
+
+        string Minutes(string from, string to) => sqlServer
+            ? $"DATEDIFF(minute, {from}, {to})"
+            : $"CAST(ROUND((julianday({to}) - julianday({from})) * 1440) AS INTEGER)";
+        var verifiedMonth = sqlServer ? "CONVERT(varchar(7), r.VerifiedUtc, 126)" : "substr(r.VerifiedUtc, 1, 7)";
+        yield return (ReportViewCatalog.TestTurnaround, $"""
+            SELECT
+                r.VerifiedUtc AS verified_utc,
+                {verifiedMonth} AS verified_month,
+                o.OrderedUtc AS ordered_utc,
+                s.ReceivedUtc AS received_utc,
+                {CaseEnum("o.Priority", typeof(OrderPriority))} AS priority,
+                r.TestCode AS test_code,
+                o.OrderNumber AS order_number,
+                s.AccessionNumber AS accession_number,
+                {Minutes("o.OrderedUtc", "r.VerifiedUtc")} AS minutes_order_to_verify,
+                CASE WHEN s.ReceivedUtc IS NULL THEN NULL ELSE {Minutes("s.ReceivedUtc", "r.VerifiedUtc")} END AS minutes_receipt_to_verify,
+                p.MedicalRecordNumber AS mrn,
+                {person} AS patient_name
+            FROM TestResults r
+            INNER JOIN Orders o ON o.Id = r.OrderId
+            INNER JOIN Specimens s ON s.Id = r.SpecimenId
+            INNER JOIN Patients p ON p.Id = r.PatientId
+            WHERE r.Status = {(int)ResultStatus.Verified} AND r.SupersededByResultId IS NULL AND r.VerifiedUtc IS NOT NULL
             """);
     }
 

@@ -5,8 +5,9 @@ namespace BloodBankLIS.Domain.Entities;
 
 /// <summary>
 /// First-class patient DAT and elution study. Records post-transfusion or
-/// investigation DAT/elution outside a reaction packet. Does not identify
-/// antibodies and does not post to antibody history.
+/// investigation DAT/elution outside a reaction packet. Structured eluate findings
+/// (<see cref="DatElutionEluateFinding"/>) post to antibody history only when a second
+/// person verifies the completed workup, and only alloantibodies post (OCD-042).
 /// </summary>
 public class DatElutionWorkup : BaseEntity
 {
@@ -37,4 +38,9 @@ public class DatElutionWorkup : BaseEntity
     public DateTime? VoidedUtc { get; set; }
 
     public string? VoidReason { get; set; }
+
+    /// <summary>Second person who verified the completed workup; verification posts eluate alloantibodies.</summary>
+    public string? VerifiedBy { get; set; }
+
+    public DateTime? VerifiedUtc { get; set; }
 }

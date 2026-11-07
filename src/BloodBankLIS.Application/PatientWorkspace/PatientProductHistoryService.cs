@@ -181,17 +181,21 @@ public sealed class PatientProductHistoryService
 
             var unit = units.GetValueOrDefault(t.BloodProductId);
             var (visit, orderNum, missing) = ResolveContext(issue.EncounterId, issue.OrderId, encounters, orders);
-            var eventType = t.FinalDisposition == TransfusionDisposition.Stopped
-                ? PatientProductHistoryEventType.PartiallyTransfused
-                : PatientProductHistoryEventType.Transfused;
+            // A record with no stop on an issue still Issued is running; its disposition field is only a default.
+            var inProgress = t.StopUtc is null && issue.Status == IssueStatus.Issued;
+            var eventType = inProgress
+                ? PatientProductHistoryEventType.TransfusionStarted
+                : t.FinalDisposition == TransfusionDisposition.Stopped
+                    ? PatientProductHistoryEventType.PartiallyTransfused
+                    : PatientProductHistoryEventType.Transfused;
 
             rows.Add(new PatientProductHistoryRowDto(
                 t.Id, nameof(TransfusionEvent), eventType, t.StartUtc ?? t.CreatedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(issue, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(t.DocumentedBy),
                 IssueDestinationCue.Format(t.Location ?? issue.IssuedToLocation, issuePlaces),
-                null, t.StartUtc, t.StopUtc, t.VolumeTransfused, t.FinalDisposition.ToString(),
-                t.ReactionSuspected, missing, false, t.PatientIdentificationMethod,
+                null, t.StartUtc, t.StopUtc, t.VolumeTransfused, inProgress ? "In progress" : t.FinalDisposition.ToString(),
+                t.ReactionSuspected, missing, inProgress, t.PatientIdentificationMethod,
                 t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString()));
         }
 

@@ -1,5 +1,6 @@
 @page "/admin/special-requirements"
 @using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Domain.Rules.Config
 @inject UserSession Session
 @inject BloodBankApiClient Api
 
@@ -16,14 +17,26 @@
         }
     </div>
 </div>
-<p class="muted">Catalog of unit, issuing, and patient special transfusion requirements.</p>
+<p class="muted">The requirements staff can add to a patient chart. Unit typings and modifications apply to one unit category and are enforced at selection and issue; informational ones show as a banner.</p>
 <details class="bb-help">
     <summary>How it works</summary>
     <ul>
-        <li>Assignments on the patient chart are enforced while they are clinically active (not end-dated).</li>
-        <li>The list keeps the requirement code. A blank name stays Requirement {id}. That label is not written onto the requirement, and the edit form keeps the stored name.</li>
+        <li><strong>Unit typings</strong>: what the unit must type as, for one unit category: an allowed ABO group, RhD negative, antigen negative, or a negative unit test (CMV, HbS). A unit test is met by the product code carrying the attribute or by a negative result recorded on the unit.</li>
+        <li><strong>Unit modifications</strong>: the product attribute the unit must carry, for one unit category (irradiated, washed, leukoreduced, volume reduced).</li>
+        <li><strong>Informational</strong>: banner text shown on the patient chart and the issue desk. Never enforced.</li>
+        <li><strong>Issue procedures</strong>: acknowledgments at issue, complex crossmatch, A1/A2 subgroup typing.</li>
+        <li>Unit typings and modifications that are not met stop selection and issue. On emergency or MTP release they need an authorized override instead. Issue procedures are never overridden.</li>
+        <li>Entries made before unit categories show <em>All categories</em> and apply to every unit, as before.</li>
+        <li>A requirement on the chart applies from its start date and no longer applies on and after its end date.</li>
     </ul>
 </details>
+<div class="flex gap" style="margin:.75rem 0;">
+    @foreach (var category in Enum.GetValues<SpecialRequirementCategory>())
+    {
+        var c = category;
+        <button type="button" class="btn btn-sm @(_category == c ? "btn-primary" : "btn-secondary")" @onclick="() => SelectCategory(c)">@TabName(c) (@_items.Count(d => d.Category == c))</button>
+    }
+</div>
 
 <Outcome Value="_feedback" />
 
@@ -38,63 +51,119 @@
 }
 else
 {
-    @foreach (var level in Enum.GetValues<SpecialRequirementLevel>())
-    {
-        <div class="bb-card" style="margin-top:1rem;">
-            <div class="bb-card-title"><h3>@level-level</h3></div>
-            @{
-                var rows = Filtered.Where(d => d.Level == level).ToList();
-            }
-            @if (rows.Count == 0)
-            {
-                <div class="empty">No @level.ToString().ToLowerInvariant()-level special requirements.</div>
-            }
-            else
-            {
-                <table class="bb">
-                    <thead><tr><th>Code</th><th>Name</th><th>Enforcement</th><th>Attribute</th><th>Ver</th><th>Status</th><th></th></tr></thead>
-                    <tbody>
-                        @foreach (var d in rows)
-                        {
-                            <tr>
-                                <td class="mono">@d.Code</td>
-                                <td>@d.NameLabel</td>
-                                <td>@d.EnforcementKind</td>
-                                <td class="mono">@d.ProductAttributeCode</td>
-                                <td>@d.Version</td>
-                                <td>@StatusBadge(d)</td>
-                                <td class="right nowrap">
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(d.Id)">Edit</button>
-                                    @if (Session.Has(PermissionCodes.AdminAuditReview))
-                                    {
-                                        <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(d.Id)">History</button>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </div>
-    }
+    var rows = Filtered.Where(d => d.Category == _category).ToList();
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>@TabName(_category)</h3></div>
+        @if (rows.Count == 0)
+        {
+            <div class="empty">No @TabName(_category).ToLowerInvariant().</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Code</th><th>Name</th>
+                        @if (IsUnitFact(_category)) { <th>Unit category</th> }
+                        <th>@(_category == SpecialRequirementCategory.Informational ? "Banner text" : "Requires")</th>
+                        <th>Ver</th><th>Status</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in rows)
+                    {
+                        <tr>
+                            <td class="mono">@d.Code</td>
+                            <td>@d.NameLabel</td>
+                            @if (IsUnitFact(_category)) { <td>@SpecialRequirementLabel.UnitCategory(d.Category, d.ComponentClass)</td> }
+                            <td>@Requires(d)</td>
+                            <td>@d.Version</td>
+                            <td>@StatusBadge(d)</td>
+                            <td class="right nowrap">
+                                <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(d.Id)">Edit</button>
+                                @if (Session.Has(PermissionCodes.AdminAuditReview))
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(d.Id)">History</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
 }
 
 @if (_editing is not null)
 {
     <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New special requirement" : $"Edit: {_editing.Code}")</h2>
+        <p class="muted">@TabName(_editing.Category)</p>
         <div class="form-row">
             <div class="field"><label>Code</label><input class="mono" @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
-            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
-            <div class="field"><label>Level</label>
-                <select @bind="_editing.Level">@foreach (var l in Enum.GetValues<SpecialRequirementLevel>()) { <option value="@l">@l</option> }</select>
-            </div>
-            <div class="field"><label>Enforcement</label>
-                <select @bind="_editing.EnforcementKind">@foreach (var k in Enum.GetValues<SpecialRequirementEnforcementKind>()) { <option value="@k">@k</option> }</select>
-            </div>
-            <div class="field"><label>Product attribute</label><input class="mono" @bind="_editing.ProductAttributeCode" placeholder="IRRAD / CMVNEG when required" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" placeholder="@NamePlaceholder(_editing.Category)" /></div>
+            @if (IsUnitFact(_editing.Category))
+            {
+                <div class="field"><label>Unit category</label>
+                    <select @bind="_editing.ComponentClassValue">
+                        @if (_editId is not null && _editing.ComponentClass is null)
+                        {
+                            <option value="">All categories</option>
+                        }
+                        else
+                        {
+                            <option value="">Choose...</option>
+                        }
+                        @foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@ComponentClassLabels.Label(c)</option> }
+                    </select>
+                </div>
+            }
+            @if (_editing.Category == SpecialRequirementCategory.UnitTyping)
+            {
+                <div class="field"><label>Unit must be</label>
+                    <select @bind="_editing.EnforcementKind">
+                        @foreach (var k in SpecialRequirementDefinitionValidator.KindsFor(SpecialRequirementCategory.UnitTyping)) { <option value="@k">@SpecialRequirementLabel.Kind(k)</option> }
+                    </select>
+                </div>
+                @if (_editing.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitAbo)
+                {
+                    <div class="field"><label>Allowed unit ABO groups</label>
+                        <div class="flex gap">
+                            @foreach (var g in new[] { AboGroup.O, AboGroup.A, AboGroup.B, AboGroup.AB })
+                            {
+                                var group = g;
+                                <label class="flex" style="gap:.25rem;"><input type="checkbox" checked="@_editing.Allows(group)" @onchange="e => _editing.SetAllowed(group, e.Value is true)" /> @group</label>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (_editing.EnforcementKind == SpecialRequirementEnforcementKind.RequireAntigenNegative)
+                {
+                    <div class="field"><label>Antigen</label><input class="mono" @bind="_editing.AntigenCode" placeholder="Blank: entered on the chart" /></div>
+                }
+                @if (_editing.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitTestNegative)
+                {
+                    <div class="field"><label>Unit test code</label><input class="mono" @bind="_editing.UnitTestCode" placeholder="CMV / HBS" /></div>
+                    <div class="field"><label>Or product attribute</label>@AttributeInput()</div>
+                }
+            }
+            @if (_editing.Category == SpecialRequirementCategory.UnitModification)
+            {
+                <div class="field"><label>Product attribute</label>@AttributeInput()</div>
+            }
+            @if (_editing.Category == SpecialRequirementCategory.IssueProcedure)
+            {
+                <div class="field"><label>Level</label>
+                    <select @bind="_editing.Level">@foreach (var l in Enum.GetValues<SpecialRequirementLevel>()) { <option value="@l">@l</option> }</select>
+                </div>
+                <div class="field"><label>Enforcement</label>
+                    <select @bind="_editing.EnforcementKind">
+                        @foreach (var k in SpecialRequirementDefinitionValidator.KindsFor(SpecialRequirementCategory.IssueProcedure)) { <option value="@k">@SpecialRequirementLabel.Kind(k)</option> }
+                    </select>
+                </div>
+            }
             <div class="field"><label>Sort order</label><input type="number" @bind="_editing.SortOrder" /></div>
-            <div class="field" style="grid-column:1/-1;"><label>Instruction</label><input @bind="_editing.Instruction" /></div>
+            <div class="field" style="grid-column:1/-1;"><label>@(_editing.Category == SpecialRequirementCategory.Informational ? "Banner text (required)" : "Instruction")</label><input @bind="_editing.Instruction" /></div>
         </div>
         <div class="field" style="margin-top:.6rem;"><label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
             <input @bind="_changeReason" placeholder="Why is this change being made?" />
@@ -127,6 +196,8 @@ else
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
 
     private List<SpecialRequirementDefinitionDto> _items = new();
+    private List<ProductAttributeDto> _attributes = new();
+    private SpecialRequirementCategory _category = SpecialRequirementCategory.UnitTyping;
     private string _filter = string.Empty;
     private bool _includeInactive = true;
     private bool _loading = true;
@@ -147,7 +218,65 @@ else
                 || d.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || d.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase));
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _attributes = ((await Api.GetProductAttributesAsync()).Value ?? new()).Where(a => a.IsActive).ToList();
+    }
+
+    private void SelectCategory(SpecialRequirementCategory category)
+    {
+        _category = category;
+        CancelEdit();
+    }
+
+    private static bool IsUnitFact(SpecialRequirementCategory c) =>
+        c is SpecialRequirementCategory.UnitTyping or SpecialRequirementCategory.UnitModification;
+
+    private static string TabName(SpecialRequirementCategory c) => c switch
+    {
+        SpecialRequirementCategory.UnitTyping => "Unit typings",
+        SpecialRequirementCategory.UnitModification => "Unit modifications",
+        SpecialRequirementCategory.Informational => "Informational",
+        _ => "Issue procedures"
+    };
+
+    private static string NamePlaceholder(SpecialRequirementCategory c) => c switch
+    {
+        SpecialRequirementCategory.UnitTyping => "e.g. Group O red cells only",
+        SpecialRequirementCategory.UnitModification => "e.g. Irradiated red cells",
+        SpecialRequirementCategory.Informational => "e.g. Call the transfusion service physician",
+        _ => "e.g. Blood warmer"
+    };
+
+    private static string Requires(SpecialRequirementDefinitionDto d) => d.EnforcementKind switch
+    {
+        SpecialRequirementEnforcementKind.RequireUnitAbo => $"Group {d.AllowedAboGroups?.Replace(",", " or ")}",
+        SpecialRequirementEnforcementKind.RequireRhNegative => "RhD negative",
+        SpecialRequirementEnforcementKind.RequireAntigenNegative =>
+            string.IsNullOrWhiteSpace(d.AntigenCode) ? "Antigen negative (antigen on the chart)" : $"{d.AntigenCode} negative",
+        SpecialRequirementEnforcementKind.RequireUnitTestNegative =>
+            $"{d.UnitTestCode} test negative" + (string.IsNullOrWhiteSpace(d.ProductAttributeCode) ? string.Empty : $" or {d.ProductAttributeCode} product"),
+        SpecialRequirementEnforcementKind.RequireProductAttribute => d.ProductAttributeCode ?? string.Empty,
+        SpecialRequirementEnforcementKind.Informational => d.Instruction ?? string.Empty,
+        _ => SpecialRequirementLabel.Kind(d.EnforcementKind)
+    };
+
+    private RenderFragment AttributeInput() => __builder =>
+    {
+        if (_editing is null) return;
+        if (_attributes.Count == 0)
+        {
+            <input class="mono" @bind="_editing.ProductAttributeCode" placeholder="IRRAD / WASHED" />
+        }
+        else
+        {
+            <select @bind="_editing.ProductAttributeCode">
+                <option value="">@(_editing.Category == SpecialRequirementCategory.UnitTyping ? "None" : "Choose...")</option>
+                @foreach (var a in _attributes) { <option value="@a.Code">@a.Name (@a.Code)</option> }
+            </select>
+        }
+    };
 
     private async Task LoadAsync()
     {
@@ -160,7 +289,7 @@ else
     {
         _editId = null;
         _changeReason = string.Empty;
-        _editing = new EditModel { SortOrder = (_items.Count + 1) * 10 };
+        _editing = EditModel.New(_category, (_items.Count + 1) * 10);
     }
 
     private async Task EditAsync(long id)
@@ -226,16 +355,64 @@ else
         public string? Instruction { get; set; }
         public int SortOrder { get; set; }
         public bool IsActive { get; set; }
+        public SpecialRequirementCategory Category { get; set; }
+        public ComponentClass? ComponentClass { get; set; }
+        public string? AntigenCode { get; set; }
+        public string? UnitTestCode { get; set; }
+        private readonly HashSet<AboGroup> _allowed = new();
 
-        public static EditModel From(SpecialRequirementDefinitionDto d) => new()
+        // The select binds a string so "All categories" / "Choose..." can be empty.
+        public string ComponentClassValue
         {
-            Code = d.Code, Name = d.Name, Level = d.Level, EnforcementKind = d.EnforcementKind,
-            ProductAttributeCode = d.ProductAttributeCode, Instruction = d.Instruction,
-            SortOrder = d.SortOrder, IsActive = d.IsActive
+            get => ComponentClass?.ToString() ?? string.Empty;
+            set => ComponentClass = Enum.TryParse<ComponentClass>(value, out var c) ? c : null;
+        }
+
+        public bool Allows(AboGroup g) => _allowed.Contains(g);
+
+        public void SetAllowed(AboGroup g, bool allowed)
+        {
+            if (allowed) _allowed.Add(g); else _allowed.Remove(g);
+        }
+
+        public static EditModel New(SpecialRequirementCategory category, int sort) => new()
+        {
+            Category = category,
+            SortOrder = sort,
+            Level = category == SpecialRequirementCategory.Informational ? SpecialRequirementLevel.Patient
+                : category == SpecialRequirementCategory.IssueProcedure ? SpecialRequirementLevel.Issuing
+                : SpecialRequirementLevel.Unit,
+            EnforcementKind = SpecialRequirementDefinitionValidator.KindsFor(category)[0]
         };
 
-        public SaveSpecialRequirementDefinitionRequest ToRequest(string? reason) => new(
-            Code, Name, Level, EnforcementKind, ProductAttributeCode, Instruction, SortOrder,
-            string.IsNullOrWhiteSpace(reason) ? null : reason);
+        public static EditModel From(SpecialRequirementDefinitionDto d)
+        {
+            var m = new EditModel
+            {
+                Code = d.Code, Name = d.Name, Level = d.Level, EnforcementKind = d.EnforcementKind,
+                ProductAttributeCode = d.ProductAttributeCode, Instruction = d.Instruction,
+                SortOrder = d.SortOrder, IsActive = d.IsActive, Category = d.Category,
+                ComponentClass = d.ComponentClass, AntigenCode = d.AntigenCode, UnitTestCode = d.UnitTestCode
+            };
+            foreach (var g in SpecialTransfusionRequirementRule.ParseAboGroups(d.AllowedAboGroups)) m._allowed.Add(g);
+            return m;
+        }
+
+        public SaveSpecialRequirementDefinitionRequest ToRequest(string? reason)
+        {
+            var kind = EnforcementKind;
+            // Fields that do not belong to the chosen kind are not sent.
+            return new(
+                Code, Name, Level, kind,
+                kind is SpecialRequirementEnforcementKind.RequireProductAttribute or SpecialRequirementEnforcementKind.RequireUnitTestNegative
+                    ? ProductAttributeCode : null,
+                Instruction, SortOrder,
+                string.IsNullOrWhiteSpace(reason) ? null : reason,
+                Category,
+                Category is SpecialRequirementCategory.UnitTyping or SpecialRequirementCategory.UnitModification ? ComponentClass : null,
+                kind == SpecialRequirementEnforcementKind.RequireUnitAbo ? string.Join(",", _allowed.OrderBy(g => g)) : null,
+                kind == SpecialRequirementEnforcementKind.RequireAntigenNegative ? AntigenCode : null,
+                kind == SpecialRequirementEnforcementKind.RequireUnitTestNegative ? UnitTestCode : null);
+        }
     }
 }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Printing;
 using BloodBankLIS.Application.Compliance;
@@ -13,6 +14,7 @@ using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +52,19 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             workups: new EfRepository<AntibodyIdentificationWorkup>(c),
             retypes: new EfRepository<ProductRetypeResult>(c));
 
-    private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
+    private CompatibilityService CompatibilityWithAlerts(BloodBankDbContext c) =>
+        new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c),
+            alerts: new AlertService(new EfRepository<Alert>(c), c, _factory.Clock, _factory.CurrentUser,
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)),
+            deviations: new EfRepository<Deviation>(c));
+
+    private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null, IProductDispensePublisher? dispense = null)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
         return new IssuingService(
@@ -81,6 +95,11 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             orderActions: new EfRepository<OrderAction>(c),
             retypes: new EfRepository<ProductRetypeResult>(c),
             autoThawRequests: new EfRepository<AutoThawRequest>(c),
+            mtpActivations: new EfRepository<MtpActivation>(c),
+            compatibilityVersions: new EfRepository<CompatibilityRuleVersion>(c),
+            compatibilityRules: new EfRepository<CompatibilityRule>(c),
+            unitSpecialTests: new EfRepository<BloodComponentSpecialTest>(c),
+            dispensePublisher: dispense,
             electronicCrossmatch: new ElectronicCrossmatchEligibilityService(
                 new EfRepository<Patient>(c),
                 new EfRepository<PatientBloodTypeHistory>(c),
@@ -136,7 +155,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             PatientIdentifier2Value: s.DateOfBirth,
             IssueType: issueType,
             OverrideReason: overrideReason,
-            AuthorizedBy: authorizedBy);
+            AuthorizedBy: authorizedBy,
+            Appearance: UnitAppearance.Acceptable);
 
     private static DocumentTransfusionRequest TxReq(
         Scenario s,
@@ -248,6 +268,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var result = await Compatibility(c).RecordCrossmatchAsync(
             new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
         Assert.True(result.Succeeded);
+        // TEST-BB-422: the clinical status matches the recorded result.
+        Assert.Equal(CrossmatchClinicalStatus.Compatible, result.Value!.ClinicalStatus);
     }
 
     private async Task AllocateAsync(Scenario s)
@@ -430,7 +452,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(issued.Succeeded, issued.Error);
 
         var receipt = await Issuing(c).RecordWardReceiptAsync(
-            issued.Value!.Id, new WardReceiptRequest("ward-nurse"));
+            issued.Value!.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.True(receipt.Succeeded, receipt.Error);
 
         var events = c.AuditEvents.ToList();
@@ -554,7 +576,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            var receipt = await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+            var receipt = await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
             Assert.True(receipt.Succeeded);
             Assert.Equal("ward-nurse", receipt.Value!.WardReceivedBy);
 
@@ -731,29 +753,195 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(IssueStatus.Issued, issued.Value!.Status);
     }
 
+    // TEST-BB-329: inconsistent times or volume are refused and leave the unit issued; consistent ones document.
     [Fact]
-    public async Task MarkTransfused_CompletesIssuedUnit()
+    public async Task DocumentTransfusion_InconsistentTimesOrVolume_AreRefused()
     {
-        var s = await SeedAsync("MARKTX");
+        var s = await SeedAsync("TX-DOC");
         await RecordCompatibleCrossmatchAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            (await c.BloodUnits.FindAsync(s.UnitId))!.Volume = 300m;
+            await c.SaveChangesAsync();
+            Assert.True((await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId))).Succeeded);
+            // Issued three hours ago, so a start two hours ago is consistent with the unit's life (TEST-BB-342).
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+            {
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-3), LateEntryReason = "Charted after the shift"
+            });
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+        }
+
+        var now = _factory.Clock.UtcNow;
+        await using (var c = _factory.Create())
+        {
+            var backwards = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = now.AddHours(-1), StopUtc = now.AddHours(-2) });
+            Assert.Contains(backwards.Evaluation!.HardStops, r => r.Code == TransfusionDocumentationRule.Code);
+
+            var tooMuch = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { VolumeTransfused = 450m });
+            Assert.Contains(tooMuch.Evaluation!.HardStops, r => r.Message.Contains("more than the unit held"));
+
+            var future = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = now.AddHours(2) });
+            Assert.True(future.Evaluation!.IsHardStopped);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+
+            var ok = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with
+            {
+                StartUtc = now.AddHours(-2), StopUtc = now.AddHours(-1), VolumeTransfused = 280m
+            });
+            Assert.True(ok.Succeeded, ok.Error);
+            Assert.Equal(280m, ok.Value!.VolumeTransfused);
+        }
+    }
+
+    // TEST-BB-331: a backdated issue needs a reason and keeps both times; a future issue time is refused.
+    [Fact]
+    public async Task Issue_LateEntry_NeedsReason_AndKeepsBothTimes()
+    {
+        var s = await SeedAsync("LATE-ISS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        var now = _factory.Clock.UtcNow;
+
+        await using (var c = _factory.Create())
+        {
+            var future = await Issuing(c).IssueUnitAsync(IssueReq(s) with { IssuedUtc = now.AddHours(2) });
+            Assert.Contains(future.Evaluation!.HardStops, r => r.Code == IssueTimeRule.Code);
+
+            var noReason = await Issuing(c).IssueUnitAsync(IssueReq(s) with { IssuedUtc = now.AddHours(-3) });
+            Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == IssueTimeRule.Code);
+            Assert.False(await c.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+        }
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var late = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+            {
+                IssuedUtc = now.AddHours(-3), LateEntryReason = "Issued on paper during downtime"
+            });
+            Assert.True(late.Succeeded, late.Error ?? string.Join("; ", late.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = late.Value!.Id;
+            Assert.Equal(now.AddHours(-3), late.Value.IssuedUtc);
+            Assert.Equal("Issued on paper during downtime", late.Value.LateEntryReason);
+            var dto = IssueDto.From(late.Value);
+            Assert.Equal("Issued on paper during downtime", dto.LateEntryReason);
+            Assert.NotNull(dto.EnteredUtc);
+        }
+
+        await using var verify = _factory.Create();
+        var audit = await verify.AuditEvents.Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains("LateEntryReason")).OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Contains("Issued on paper during downtime", audit.NewValueJson);
+        Assert.Contains("EnteredUtc", audit.NewValueJson);
+    }
+
+    // TEST-BB-392 (OCD-054): a paper issue from downtime, whose unit, specimen, and crossmatch have expired since, can be
+    // back-entered only by a role holding issue.downtime-backentry, with the paper record's time, a reason, and its DIN.
+    [Fact]
+    public async Task DowntimeBackEntry_JudgesExpiryAsOfThePaperTime_AndIsControlledByRole()
+    {
+        var s = await SeedAsync("DOWNTIME-BE");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        var now = _factory.Clock.UtcNow;
+        var paperTime = now.AddHours(-3);
+
+        // Downtime: the unit went out on paper; since then the unit, specimen, and crossmatch expired and the sweep ran.
+        await using (var c = _factory.Create())
+        {
+            var unit = await c.BloodUnits.SingleAsync(u => u.Id == s.UnitId);
+            unit.ExpiresUtc = now.AddHours(-1);
+            unit.Status = UnitStatus.Expired;
+            var specimen = await c.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+            specimen.CollectedUtc = now.AddHours(-6);
+            specimen.ExpiresUtc = now.AddMinutes(-30);
+            foreach (var xm in await c.Crossmatches.Where(x => x.BloodProductId == s.UnitId).ToListAsync())
+            {
+                xm.PerformedUtc = now.AddHours(-5);
+                xm.ExpiresUtc = now.AddMinutes(-30);
+            }
+
+            var allocation = await c.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId);
+            allocation.AllocatedUtc = now.AddHours(-5);
+            allocation.Status = AllocationStatus.Expired;
+            await c.SaveChangesAsync();
+        }
+
+        IssueUnitRequest BackEntry(DateTime? at = null, string? din = null) => IssueReq(s) with
+        {
+            IssuedUtc = at ?? paperTime,
+            LateEntryReason = "Issued on paper during LIS downtime",
+            DowntimeBackEntry = true,
+            BackEntryDin = din ?? s.UnitNumber.ToLowerInvariant()
+        };
+
+        await using (var c = _factory.Create())
+        {
+            // An ordinary late entry is still judged now, so the expired unit is refused.
+            var ordinary = await Issuing(c).IssueUnitAsync(IssueReq(s) with { IssuedUtc = paperTime, LateEntryReason = "Issued on paper during LIS downtime" });
+            Assert.False(ordinary.Succeeded);
+
+            var noRole = await Issuing(c, new FixedPermissionEvaluator(3, PermissionCodes.IssueCreate)).IssueUnitAsync(BackEntry());
+            Assert.Contains(noRole.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.PermissionCode);
+
+            var noTime = await Issuing(c).IssueUnitAsync(BackEntry() with { IssuedUtc = null });
+            Assert.Contains(noTime.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.TimeCode);
+
+            var wrongDin = await Issuing(c).IssueUnitAsync(BackEntry(din: "W0000 26 999999"));
+            Assert.Contains(wrongDin.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.DinCode);
+
+            // Paper time after the unit expired: still expired then, so still refused.
+            var afterExpiry = await Issuing(c).IssueUnitAsync(BackEntry(at: now.AddMinutes(-20)));
+            Assert.False(afterExpiry.Succeeded);
+            Assert.False(await c.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            // As of the paper time the unit and specimen were near expiry: those warnings still need an override.
+            var unacknowledged = await Issuing(c).IssueUnitAsync(BackEntry());
+            Assert.True(unacknowledged.Evaluation!.RequiresOverride);
+            Assert.Contains(unacknowledged.Evaluation.Warnings, w => w.Code == "UNIT-NEAR-EXPIRY");
+
+            var entered = await Issuing(c).IssueUnitAsync(BackEntry() with
+            {
+                OverrideReason = "Near-expiry unit issued on paper during downtime", AuthorizedBy = "dr-authorizer"
+            });
+            Assert.True(entered.Succeeded, entered.Error ?? string.Join("; ", entered.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.True(entered.Value!.DowntimeBackEntry);
+            Assert.Equal(paperTime, entered.Value.IssuedUtc);
+            Assert.True(IssueDto.From(entered.Value).DowntimeBackEntry);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Issued, (await verify.BloodUnits.SingleAsync(u => u.Id == s.UnitId)).Status);
+        var audit = await verify.AuditEvents.Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains("\"DowntimeBackEntry\":true")).SingleAsync();
+        Assert.Contains("Issued on paper during LIS downtime", audit.NewValueJson);
+        Assert.True(await verify.InventoryStatusHistory.AnyAsync(h => h.BloodProductId == s.UnitId && h.Reason!.StartsWith("Downtime back-entry")));
+    }
+
+    [Fact]
+    public async Task Issue_WithoutStatedTime_IsNotALateEntry()
+    {
+        var s = await SeedAsync("NOW-ISS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
 
         await using var c = _factory.Create();
-        var reserved = await Compatibility(c).AllocateUnitAsync(
-            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
-        Assert.True(reserved.Succeeded, reserved.Error);
-
         var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+
         Assert.True(issued.Succeeded, issued.Error);
-
-        var marked = await Issuing(c).MarkTransfusedAsync(issued.Value!.Id);
-        Assert.True(marked.Succeeded, marked.Error);
-        Assert.Equal(TransfusionDisposition.Completed, marked.Value!.FinalDisposition);
-
-        var unit = await c.BloodUnits.FindAsync(s.UnitId);
-        Assert.Equal(UnitStatus.Transfused, unit!.Status);
-        var issue = await c.Issues.FindAsync(issued.Value.Id);
-        Assert.Equal(IssueStatus.Transfused, issue!.Status);
-        Assert.NotNull(issue.WardReceivedUtc);
+        Assert.Null(issued.Value!.LateEntryReason);
     }
 
     [Fact]
@@ -796,6 +984,848 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.False(allocated.Succeeded);
         Assert.True(allocated.Evaluation!.IsHardStopped);
         Assert.Contains(allocated.Evaluation.HardStops, r => r.Code == AboCompatibilityRule.AboCode);
+    }
+
+    private async Task AddVerifiedRetypeAsync(long unitId, string key, bool matchesLabel)
+    {
+        await using var c = _factory.Create();
+        var test = new TestDefinition
+        {
+            Code = $"RETYPE-{key}", Name = "Product retype", Category = TestCategory.AboRhRetype,
+            ResultValueType = ResultValueType.AboRh, IsActive = true, IsDraft = false, Version = 1
+        };
+        c.TestDefinitions.Add(test);
+        await c.SaveChangesAsync();
+        c.ProductRetypeResults.Add(new ProductRetypeResult
+        {
+            BloodProductId = unitId, TestDefinitionId = test.Id, TestCode = test.Code,
+            Value = matchesLabel ? "O|Positive" : "A|Positive",
+            InterpretedAbo = matchesLabel ? AboGroup.O : AboGroup.A, InterpretedRh = RhType.Positive,
+            MatchesLabel = matchesLabel, DiscrepancyDetail = matchesLabel ? null : "Labeled O Positive; interpreted A Positive.",
+            Status = ResultStatus.Verified, EnteredBy = "tech1", EnteredUtc = _factory.Clock.UtcNow,
+            VerifiedBy = "tech2", VerifiedUtc = _factory.Clock.UtcNow
+        });
+        await c.SaveChangesAsync();
+    }
+
+    // TEST-BB-323: an emergency-released unit that was never retyped goes back to Received, not Available, on return.
+    [Fact]
+    public async Task Return_OfUnretypedEmergencyUnit_GoesBackToReceived_ForRetype()
+    {
+        var s = await SeedAsync("RET-UNRETYPED", requiresRetype: true, unitStatus: UnitStatus.Received);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease, overrideReason: "Emergency before retype", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = issued.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed; cooler intact", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            Assert.Contains("\"RetypePending\":true", returned.Value!.ReissueEvaluationJson);
+            Assert.True(ReturnDto.From(returned.Value).RetypePending);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Received, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var last = await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).OrderByDescending(h => h.Id).FirstAsync();
+        Assert.Equal(UnitStatus.Received, last.ToStatus);
+        Assert.Contains(RetypeStockStatus.PendingReason, last.Reason);
+        Assert.Contains(await new InventoryRepository(verify).ListPendingRetypeAsync(), u => u.Id == s.UnitId);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Return && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains("\"RetypePending\":true")));
+    }
+
+    [Fact]
+    public async Task Return_OfRetypedUnit_StillGoesToAvailable()
+    {
+        var s = await SeedAsync("RET-RETYPED", requiresRetype: true, unitStatus: UnitStatus.Available);
+        await AddVerifiedRetypeAsync(s.UnitId, "RET-RETYPED", matchesLabel: true);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease, overrideReason: "Emergency", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = issued.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    // TEST-BB-343: start at the bedside, then complete; the unit shows as transfusing in between.
+    private static StartTransfusionRequest StartReq(Scenario s, DateTime? startUtc = null) =>
+        new(StartUtc: startUtc, PatientIdentifier1Value: s.Mrn, PatientIdentifier2Value: s.DateOfBirth);
+
+    private async Task<long> IssuedAndReceivedAsync(Scenario s, int issuedHoursAgo = 1)
+    {
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+        {
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-issuedHoursAgo), LateEntryReason = "Charted after the shift"
+        });
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.True((await Issuing(c).RecordWardReceiptAsync(issued.Value!.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+        return issued.Value!.Id;
+    }
+
+    [Fact]
+    public async Task StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord()
+    {
+        var s = await SeedAsync("TX-STARTCOMP");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var now = _factory.Clock.UtcNow;
+
+        long transfusionId;
+        await using (var c = _factory.Create())
+        {
+            var started = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s, now.AddMinutes(-40)));
+            Assert.True(started.Succeeded, started.Error ?? string.Join("; ", started.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            transfusionId = started.Value!.Id;
+            Assert.Null(started.Value.StopUtc);
+            Assert.Equal(UnitStatus.TransfusionStarted, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+            Assert.Equal(IssueStatus.Issued, (await c.Issues.FindAsync(issueId))!.Status);
+
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
+            Assert.Equal(now.AddMinutes(-40), row.TransfusionStartedUtc);
+
+            // While it runs: no second start, no one-step documentation, no return.
+            Assert.False((await Issuing(c).StartTransfusionAsync(issueId, StartReq(s))).Succeeded);
+            var again = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s));
+            Assert.False(again.Succeeded);
+            Assert.Contains("Complete it", again.Error);
+            Assert.False((await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var completed = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(
+                TransfusionDisposition.Completed, StopUtc: now.AddMinutes(-5), VolumeTransfused: 280m, ReactionSuspected: true));
+            Assert.True(completed.Succeeded, completed.Error ?? string.Join("; ", completed.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(transfusionId, completed.Value!.Id);
+        }
+
+        await using var verify = _factory.Create();
+        var record = await verify.TransfusionEvents.SingleAsync(t => t.IssueId == issueId);
+        Assert.Equal(now.AddMinutes(-40), record.StartUtc);
+        Assert.Equal(now.AddMinutes(-5), record.StopUtc);
+        Assert.Equal(280m, record.VolumeTransfused);
+        // The suspected reaction then quarantines the remainder (existing reaction behavior).
+        Assert.Contains(await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).ToListAsync(),
+            h => h.FromStatus == UnitStatus.TransfusionStarted && h.ToStatus == UnitStatus.Transfused);
+        Assert.Equal(IssueStatus.Transfused, (await verify.Issues.FindAsync(issueId))!.Status);
+        Assert.True(await verify.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId && a.Reason == "Transfusion started."));
+    }
+
+    // TEST-BB-483: a transfusion whose completion is overdue leads the Issued units list; the rest keep issue order.
+    [Fact]
+    public async Task CompletionOverdue_LeadsTheIssuedList()
+    {
+        var earlier = await SeedAsync("TX-ORDER-A");
+        var earlierIssue = await IssuedAndReceivedAsync(earlier, issuedHoursAgo: 10);
+        var later = await SeedAsync("TX-ORDER-B");
+        var laterIssue = await IssuedAndReceivedAsync(later, issuedHoursAgo: 9);
+        var now = _factory.Clock.UtcNow;
+        await using var c = _factory.Create();
+        var started = await Issuing(c).StartTransfusionAsync(laterIssue, StartReq(later, now.AddHours(-8)));
+        Assert.True(started.Succeeded, started.Error ?? string.Join("; ", started.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+
+        var rows = (await Issuing(c).ListOutstandingIssuedAsync()).ToList();
+        var overdue = rows.FindIndex(r => r.IssueId == laterIssue);
+        var waiting = rows.FindIndex(r => r.IssueId == earlierIssue);
+        Assert.True(rows[overdue].TransfusionCompletionOverdue);
+        Assert.False(rows[waiting].TransfusionCompletionOverdue);
+        Assert.True(overdue < waiting);
+        Assert.Equal("1 transfusion completion overdue", DashboardQueueCatalog.OutstandingNote(rows));
+    }
+
+    [Fact]
+    public async Task Start_WithoutIdentifiers_IsRefused_AndRecordsNothing()
+    {
+        var s = await SeedAsync("TX-STARTNOID");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using var c = _factory.Create();
+        var started = await Issuing(c).StartTransfusionAsync(issueId, new StartTransfusionRequest());
+        Assert.False(started.Succeeded);
+        Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+    }
+
+    [Fact]
+    public async Task Complete_WithoutStart_OrWithStopBeforeStart_IsRefused()
+    {
+        var s = await SeedAsync("TX-COMPBAD");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await using var c = _factory.Create();
+        var notStarted = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.False(notStarted.Succeeded);
+        Assert.Contains("No started transfusion", notStarted.Error);
+
+        Assert.True((await Issuing(c).StartTransfusionAsync(issueId, StartReq(s, now.AddMinutes(-10)))).Succeeded);
+        var backwards = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(
+            TransfusionDisposition.Completed, StopUtc: now.AddMinutes(-30)));
+        Assert.Contains(backwards.Evaluation!.HardStops, r => r.Code == TransfusionDocumentationRule.Code);
+        Assert.Equal(UnitStatus.TransfusionStarted, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task FinishedRecordOnAnIssuedIssue_IsNotShownAsStarted_AndCannotBeStartedAgain()
+    {
+        var s = await SeedAsync("TX-LEGACY");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await using var c = _factory.Create();
+        c.TransfusionEvents.Add(new TransfusionEvent
+        {
+            IssueId = issueId, BloodProductId = s.UnitId, PatientId = s.PatientId,
+            StartUtc = now.AddMinutes(-30), StopUtc = now.AddMinutes(-10), DocumentedBy = "legacy"
+        });
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
+        Assert.Null(row.TransfusionStartedUtc);
+        var again = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s));
+        Assert.False(again.Succeeded);
+        Assert.Contains("already has a transfusion record", again.Error);
+    }
+
+    // TEST-BB-354: the shift handoff counts running transfusions and incompatible retrospective crossmatches.
+    [Fact]
+    public async Task ShiftHandoff_CountsRunningTransfusions_AndIncompatibleRetrospectiveCrossmatches()
+    {
+        var running = await SeedAsync("HO-RUN");
+        var runningIssue = await IssuedAndReceivedAsync(running, issuedHoursAgo: 8);
+        var emergency = await SeedAsync("HO-RETRO");
+        await AllocateAsync(emergency);
+
+        ShiftHandoff before;
+        await using (var c = _factory.Create())
+        {
+            before = (await Handoff(c).CreateAsync(new CreateShiftHandoffRequest("Before"))).Value!;
+            Assert.True((await Issuing(c).StartTransfusionAsync(runningIssue, StartReq(running, _factory.Clock.UtcNow.AddHours(-7)))).Succeeded);
+            Assert.True((await Issuing(c).IssueUnitAsync(IssueReq(
+                emergency, IssueType.EmergencyRelease, overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Succeeded);
+            Assert.True((await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+                emergency.UnitId, emergency.PatientId, emergency.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible))).Succeeded);
+        }
+
+        await using var v = _factory.Create();
+        var after = await Handoff(v).CreateAsync(new CreateShiftHandoffRequest("After"));
+        Assert.True(after.Succeeded, after.Error);
+        Assert.Equal(before.TransfusionsRunning + 1, after.Value!.TransfusionsRunning);
+        Assert.Equal(before.TransfusionsCompletionOverdue + 1, after.Value.TransfusionsCompletionOverdue);
+        Assert.Equal(before.RetrospectiveIncompatible + 1, after.Value.RetrospectiveIncompatible);
+        Assert.Equal(after.Value.RetrospectiveIncompatible, ShiftHandoffDto.From(after.Value).RetrospectiveIncompatible);
+    }
+
+    private ShiftHandoffService Handoff(BloodBankDbContext c) =>
+        new(new EfRepository<ShiftHandoff>(c), c, _factory.Clock, _factory.CurrentUser,
+            issuing: Issuing(c), audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ShiftHandoff));
+
+    [Fact]
+    public async Task StartOnlyPermission_CanStart_ButNotComplete()
+    {
+        var s = await SeedAsync("TX-STARTPERM");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var startOnly = new FixedPermissionEvaluator(1, PermissionCodes.TransfusionStart);
+        await using var c = _factory.Create();
+        Assert.True((await Issuing(c, startOnly).StartTransfusionAsync(issueId, StartReq(s))).Succeeded);
+        var complete = await Issuing(c, startOnly).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.False(complete.Succeeded);
+        Assert.Contains(complete.Evaluation!.HardStops, r => r.Message.Contains("transfusion.complete"));
+    }
+
+    // TEST-BB-342: a transfusion is judged against the unit's life at its start time, not when it is charted.
+    private async Task<long> IssuedThreeHoursAgoAsync(Scenario s)
+    {
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+        {
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-3),
+            LateEntryReason = "Charted after the shift"
+        });
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.True((await Issuing(c).RecordWardReceiptAsync(issued.Value!.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+        return issued.Value!.Id;
+    }
+
+    private async Task ExpireUnitAsync(long unitId, DateTime expiresUtc)
+    {
+        await using var c = _factory.Create();
+        await c.BloodUnits.Where(u => u.Id == unitId).ExecuteUpdateAsync(u => u.SetProperty(x => x.ExpiresUtc, expiresUtc));
+    }
+
+    [Fact]
+    public async Task DocumentTransfusion_UnitExpiredAfterItStarted_CanBeDocumented()
+    {
+        var s = await SeedAsync("TX-LATECHART");
+        var issueId = await IssuedThreeHoursAgoAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await ExpireUnitAsync(s.UnitId, now.AddMinutes(-30));
+
+        await using var c = _factory.Create();
+        var documented = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with
+        {
+            StartUtc = now.AddHours(-2),
+            StopUtc = now.AddHours(-1)
+        });
+        Assert.True(documented.Succeeded, documented.Error ?? string.Join("; ", documented.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.Equal(UnitStatus.Transfused, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task DocumentTransfusion_StartedAfterExpiry_IsRefused()
+    {
+        var s = await SeedAsync("TX-STARTEXP");
+        var issueId = await IssuedThreeHoursAgoAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await ExpireUnitAsync(s.UnitId, now.AddMinutes(-30));
+
+        await using var c = _factory.Create();
+        var documented = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = now.AddMinutes(-10) });
+        Assert.False(documented.Succeeded);
+        Assert.Contains(documented.Evaluation!.HardStops, r => r.Message.Contains("had expired") && r.Message.Contains("before the transfusion started"));
+        Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task DocumentTransfusion_StartBeforeIssue_IsRefused()
+    {
+        var s = await SeedAsync("TX-BEFOREISS");
+        var issueId = await IssuedThreeHoursAgoAsync(s);
+
+        await using var c = _factory.Create();
+        var documented = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = _factory.Clock.UtcNow.AddHours(-4) });
+        Assert.False(documented.Succeeded);
+        Assert.Contains(documented.Evaluation!.HardStops, r => r.Code == TransfusionDocumentationRule.Code && r.Message.Contains("before the unit was issued"));
+        Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+    }
+
+    // TEST-BB-341: a unit returned to stock offers one step to reserve it again for the same patient,
+    // through the normal reservation (nothing reserved automatically), and can then be reissued.
+    [Fact]
+    public async Task Return_ToStock_OffersReserveAgain_ThenReissues()
+    {
+        var s = await SeedAsync("RET-AGAIN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed yet", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            var dto = ReturnDto.From(returned.Value!);
+            Assert.True(dto.BackInStock);
+            Assert.Equal(s.PatientId, dto.PatientId);
+            Assert.Equal($"/compatibility?patientId={s.PatientId}&bloodUnitId={s.UnitId}&from=return", dto.ReserveAgainHref);
+            Assert.False(await c.Allocations.AnyAsync(a => a.BloodProductId == s.UnitId && a.Status == AllocationStatus.Reserved));
+        }
+
+        await AllocateAsync(s);
+        await using (var c = _factory.Create())
+        {
+            var reissued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(reissued.Succeeded, reissued.Error ?? string.Join("; ", reissued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(2, await verify.Allocations.CountAsync(a => a.BloodProductId == s.UnitId && a.Status == AllocationStatus.Consumed));
+    }
+
+    [Fact]
+    public async Task Return_ToQuarantine_OffersNoReserveAgain()
+    {
+        var s = await SeedAsync("RET-NOAGAIN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+        }
+
+        await using var c2 = _factory.Create();
+        var returned = await Issuing(c2).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+            "Seal damaged", TemperatureAcceptable: true, SealIntegrityAcceptable: false, VisualInspectionAcceptable: true,
+            Destination: UnitStatus.Quarantine));
+        Assert.True(returned.Succeeded, returned.Error);
+        var dto = ReturnDto.From(returned.Value!);
+        Assert.False(dto.BackInStock);
+        Assert.Null(dto.ReserveAgainHref);
+    }
+
+    // TEST-BB-323: a unit whose verified retype disagrees with its label cannot leave on any issue type.
+    [Fact]
+    public async Task EmergencyRelease_OfUnitWithVerifiedRetypeMismatch_IsHardStopped()
+    {
+        var s = await SeedAsync("RET-MISMATCH", requiresRetype: true, unitStatus: UnitStatus.Received);
+        await AddVerifiedRetypeAsync(s.UnitId, "RET-MISMATCH", matchesLabel: false);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Emergency", authorizedBy: "dr-authorizer"));
+
+        Assert.False(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == IssueGate.UnitRetypeMismatchCode);
+        Assert.Equal(UnitStatus.Received, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    private MtpActivationService Mtp(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+        new(new EfRepository<MtpActivation>(c), new EfRepository<Patient>(c), new EfRepository<Issue>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3),
+            new EfRepository<MtpPackDefinition>(c));
+
+    private async Task<long> ActivateMtpAsync(long patientId)
+    {
+        await using var c = _factory.Create();
+        var activated = await Mtp(c).ActivateAsync(patientId, new ActivateMtpRequest("Dr. Rivera, trauma", "Hemorrhagic shock", "ED trauma 1"));
+        Assert.True(activated.Succeeded, activated.Error ?? string.Join("; ", activated.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        return activated.Value!.Id;
+    }
+
+    private MtpPackAdminService Packs(BloodBankDbContext c)
+    {
+        var env = new BloodBankLIS.Infrastructure.Common.StaticEnvironmentInfo("Development", isDevMode: false);
+        return new(new EfRepository<MtpPackDefinition>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
+    }
+
+    private TransportContainerAdminService Containers(BloodBankDbContext c)
+    {
+        var env = new BloodBankLIS.Infrastructure.Common.StaticEnvironmentInfo("Development", isDevMode: false);
+        return new(new EfRepository<TransportContainer>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
+    }
+
+    private MtpPackingService Packing(BloodBankDbContext c, IPermissionEvaluator? permissions = null, IFacilityTimeZone? timeZone = null) =>
+        new(new EfRepository<MtpPackRecord>(c), new EfRepository<MtpActivation>(c), new EfRepository<TransportContainer>(c),
+            new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new EfRepository<Patient>(c),
+            new EfRepository<MtpPackDefinition>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3), timeZone);
+
+    // TEST-BB-328: the pack report prints the facility's local time and names the zone; the UTC record is unchanged.
+    [Fact]
+    public async Task MtpPackReport_PrintsLocalTime_AndNamesTheZone()
+    {
+        var (_, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-LOCAL", "COOL-T");
+        var chicago = BloodBankLIS.Infrastructure.Common.FacilityTimeZone.FromId("America/Chicago");
+        await using var c = _factory.Create();
+        var packed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.True(packed.Succeeded, packed.Error);
+
+        var report = await Packing(c, timeZone: chicago).GetReportAsync(packed.Value!.Id);
+
+        Assert.Equal(chicago.Label, report!.TimeZoneLabel);
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(report.PackedUtc, DateTimeKind.Utc), chicago.Zone), report.PackedLocal);
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(report.ActivatedUtc, DateTimeKind.Utc), chicago.Zone), report.ActivatedLocal);
+        var unit = Assert.Single(report.Units);
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(unit.ExpiresUtc, DateTimeKind.Utc), chicago.Zone), unit.ExpiresLocal);
+        Assert.NotEqual(report.PackedUtc, report.PackedLocal);
+    }
+
+    /// <summary>Activates MTP for a seeded patient and issues its unit under it; returns (activation, issue, container).</summary>
+    private async Task<(Scenario S, long ActivationId, long IssueId, long ContainerId)> IssuedUnderMtpAsync(string key, string containerCode)
+    {
+        var s = await SeedAsync(key);
+        await AllocateAsync(s);
+        var activationId = await ActivateMtpAsync(s.PatientId);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.MassiveTransfusion, overrideReason: "MTP", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        var container = await Containers(c).CreateAsync(new SaveTransportContainerRequest(
+            containerCode, "Large cooler", TransportContainerType.Cooler, null, 1m, 10m, 4, 10));
+        Assert.True(container.Succeeded, container.Error);
+        return (s, activationId, issued.Value!.Id, container.Value!.Id);
+    }
+
+    // TEST-BB-411: a transport container's validated range and hours change only with a reason.
+    [Fact]
+    public async Task TransportContainer_Update_And_Deactivate_NeedAReason()
+    {
+        await using var c = _factory.Create();
+        var created = await Containers(c).CreateAsync(new SaveTransportContainerRequest(
+            "COOL-RSN", "Reason cooler", TransportContainerType.Cooler, null, 1m, 10m, 4, 10));
+        Assert.True(created.Succeeded, created.Error);
+
+        var change = new SaveTransportContainerRequest("COOL-RSN", "Reason cooler", TransportContainerType.Cooler, null, 1m, 6m, 6, 10);
+        var refused = await Containers(c).UpdateAsync(created.Value!.Id, change);
+        Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == ValidatedConfigChangeReasonRule.Code);
+        Assert.Equal(10m, (await c.TransportContainers.AsNoTracking().SingleAsync(x => x.Id == created.Value.Id)).MaxTemperatureC);
+
+        var updated = await Containers(c).UpdateAsync(created.Value.Id, change with { Reason = "Revalidated 2026-11-04, report QA-17" });
+        Assert.True(updated.Succeeded, updated.Error);
+        Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityId == created.Value.Id && h.ChangeReason == "Revalidated 2026-11-04, report QA-17"));
+
+        Assert.False((await Containers(c).SetActiveAsync(created.Value.Id, false)).Succeeded);
+        Assert.True((await Containers(c).SetActiveAsync(created.Value.Id, false, "Cooler lid cracked, retired")).Succeeded);
+    }
+
+    // TEST-BB-326: a pack records container, temperature, packer, and units; its report carries everything printed.
+    [Fact]
+    public async Task MtpPack_IsRecorded_Audited_AndReported()
+    {
+        var (s, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-COOL", "COOL-A");
+
+        long packId;
+        await using (var c = _factory.Create())
+        {
+            var packed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, "Cooler 3", 4.5m, [issueId], "To trauma bay"));
+            Assert.True(packed.Succeeded, packed.Error ?? string.Join("; ", packed.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(1, packed.Value!.PackNumber);
+            Assert.Equal(1, packed.Value.UnitCount);
+            Assert.False(packed.Value.TemperatureOutsideRange);
+            packId = packed.Value.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.Equal(packId, (await c.Issues.FindAsync(issueId))!.MtpPackRecordId);
+            var audit = await c.AuditEvents.SingleAsync(a => a.EventType == AuditEventType.MassiveTransfusionProtocol
+                && a.EntityType == nameof(MtpPackRecord) && a.EntityId == packId);
+            Assert.Contains("Packed", audit.NewValueJson);
+            Assert.Contains("U-MTP-COOL", audit.NewValueJson);
+
+            var report = await Packing(c).GetReportAsync(packId);
+            Assert.NotNull(report);
+            Assert.Equal(1, report.PackNumber);
+            Assert.Equal(activationId, report.MtpActivationId);
+            Assert.Equal("MRN-MTP-COOL", report.MedicalRecordNumber);
+            Assert.Equal("Dr. Rivera, trauma", report.RequestedBy);
+            Assert.Equal("COOL-A", report.ContainerCode);
+            Assert.Equal("Cooler 3", report.ContainerLabel);
+            Assert.Equal("1.0 to 10.0 °C", report.ContainerRange);
+            Assert.Equal(4.5m, report.TemperatureC);
+            Assert.Equal(_factory.CurrentUser.UserName, report.PackedBy);
+            var unit = Assert.Single(report.Units);
+            Assert.Equal("U-MTP-COOL", unit.UnitNumber);
+            Assert.Equal("RBC-MTP-COOL", unit.ProductCode);
+            Assert.Equal("Test RBC", unit.ProductName);
+            Assert.Equal("O Pos", unit.BloodType);
+            Assert.True(unit.ExpiresUtc > _factory.Clock.UtcNow);
+            Assert.True(unit.Uncrossmatched);
+            Assert.Equal("Uncrossmatched", unit.Crossmatch);
+            Assert.Contains(report.Disclaimers, l => l.Contains("Uncrossmatched"));
+            Assert.Contains(report.Disclaimers, l => l.Contains("up to 4 hours"));
+
+            Assert.True(await Packing(c).RecordPrintedAsync(packId));
+            Assert.True(await c.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Print && a.EntityType == nameof(MtpPackRecord) && a.EntityId == packId));
+            Assert.Equal(1, Assert.Single(await Packing(c).ListForActivationAsync(activationId)).UnitCount);
+        }
+    }
+
+    [Fact]
+    public async Task MtpPack_OutOfRangeTemperature_IsRecordedAndFlagged()
+    {
+        var (_, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-WARM", "COOL-W");
+        await using var c = _factory.Create();
+
+        var packed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 12.0m, [issueId]));
+
+        Assert.True(packed.Succeeded, packed.Error);
+        Assert.True(packed.Value!.TemperatureOutsideRange);
+        Assert.Contains(packed.Evaluation!.Warnings, r => r.Code == TransportContainerRule.PackCode);
+        var report = await Packing(c).GetReportAsync(packed.Value.Id);
+        Assert.True(report!.TemperatureOutsideRange);
+        Assert.Contains(report.Disclaimers, l => l.Contains("outside the range"));
+    }
+
+    [Fact]
+    public async Task MtpPack_Refusals_WriteNothing()
+    {
+        var (s, activationId, issueId, containerId) = await IssuedUnderMtpAsync("MTP-NOPK", "COOL-N");
+        await using var c = _factory.Create();
+
+        var noTemperature = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, null, [issueId]));
+        Assert.True(noTemperature.Evaluation!.IsHardStopped);
+
+        var notOurs = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId, 999_999]));
+        Assert.Contains(notOurs.Evaluation!.HardStops, r => r.Message.Contains("issue 999999"));
+
+        var noPermission = await Packing(c, new FixedPermissionEvaluator(1, PermissionCodes.IssueReturn))
+            .PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.True(noPermission.Evaluation!.IsHardStopped);
+
+        Assert.False(await c.MtpPackRecords.AnyAsync(p => p.MtpActivationId == activationId));
+        Assert.Null((await c.Issues.FindAsync(issueId))!.MtpPackRecordId);
+
+        // A unit can be in only one pack, and a closed protocol takes no more packs.
+        Assert.True((await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]))).Succeeded);
+        var twice = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.Contains(twice.Evaluation!.HardStops, r => r.Message.Contains("U-MTP-NOPK"));
+        Assert.True((await Mtp(c).CloseAsync(activationId, new CloseMtpRequest("Bleeding controlled"))).Succeeded);
+        var closed = await Packing(c).PackAsync(activationId, new PackMtpRequest(containerId, null, 4m, [issueId]));
+        Assert.Contains(closed.Evaluation!.HardStops, r => r.Message.Contains("closed"));
+        Assert.Equal(1, await c.MtpPackRecords.CountAsync(p => p.MtpActivationId == activationId));
+    }
+
+    // TEST-BB-325: a facility pack chosen at activation gives round guidance on the board; it never blocks an issue.
+    [Fact]
+    public async Task MtpPack_ChosenAtActivation_ShowsRoundProgress_AndIgnoresReturnedUnits()
+    {
+        var s = await SeedAsync("MTP-PACK");
+        await AllocateAsync(s);
+        long packId;
+        await using (var c = _factory.Create())
+        {
+            var pack = await Packs(c).CreateAsync(new SaveMtpPackRequest("pk-a", "Adult pack", 2, 2, 0, 0, 0, 10));
+            Assert.True(pack.Succeeded, pack.Error);
+            Assert.Equal("PK-A", pack.Value!.Code);
+            Assert.Equal("2 red cells, 2 plasma", pack.Value.Summary);
+            Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityType == nameof(MtpPackDefinition) && h.EntityId == pack.Value.Id));
+            packId = pack.Value.Id;
+
+            var activated = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Rivera", "Shock", null, packId));
+            Assert.True(activated.Succeeded, activated.Error);
+            Assert.Equal(1, activated.Value!.Pack!.CurrentRound);
+        }
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.MassiveTransfusion, overrideReason: "MTP", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = issued.Value!.Id;
+            var board = Assert.Single(await Mtp(c).ListActiveAsync(), a => a.PatientId == s.PatientId);
+            Assert.Equal("PK-A", board.Pack!.Code);
+            Assert.Equal(1, Assert.Single(board.Pack.Components, x => x.ComponentClass == ComponentClass.RedBloodCells).InCurrentRound);
+            Assert.Equal(0, Assert.Single(board.Pack.Components, x => x.ComponentClass == ComponentClass.Plasma).InCurrentRound);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            var board = Assert.Single(await Mtp(c).ListActiveAsync(), a => a.PatientId == s.PatientId);
+            Assert.Equal(0, Assert.Single(board.Pack!.Components, x => x.ComponentClass == ComponentClass.RedBloodCells).InCurrentRound);
+            Assert.Equal(1, Assert.Single(board.Counts).Returned);
+        }
+    }
+
+    [Fact]
+    public async Task MtpActivation_WithInactiveOrUnknownPack_IsRefused()
+    {
+        var s = await SeedAsync("MTP-PACK-OFF");
+        await using var c = _factory.Create();
+        var pack = await Packs(c).CreateAsync(new SaveMtpPackRequest("PK-OFF", "Retired pack", 4, 4, 1, 0, 0, 10));
+        // TEST-BB-411: switching a pack off says why.
+        var noReason = await Packs(c).SetActiveAsync(pack.Value!.Id, false);
+        Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == ValidatedConfigChangeReasonRule.Code);
+        Assert.True((await Packs(c).SetActiveAsync(pack.Value!.Id, false, "Pack retired by medical director 2026-11-04")).Succeeded);
+        Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityId == pack.Value.Id
+            && h.ChangeReason == "Pack retired by medical director 2026-11-04"));
+
+        foreach (var id in new long[] { pack.Value.Id, 999_999 })
+        {
+            var refused = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Rivera", "Shock", null, id));
+            Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == MtpPackRule.Code);
+        }
+
+        Assert.False(await c.MtpActivations.AnyAsync(a => a.PatientId == s.PatientId));
+        Assert.DoesNotContain(await Packs(c).ListActiveAsync(), p => p.Id == pack.Value.Id);
+    }
+
+    [Fact]
+    public async Task MtpPack_InvalidContents_AreRefused_AndNoneAreShipped()
+    {
+        await using var c = _factory.Create();
+        var empty = await Packs(c).CreateAsync(new SaveMtpPackRequest("PK-ZERO", "Nothing", 0, 0, 0, 0, 0, 10));
+        Assert.Contains(empty.Evaluation!.HardStops, r => r.Code == MtpPackRule.Code);
+        Assert.False(await c.MtpPackDefinitions.AnyAsync(p => p.Code == "PK-ZERO"));
+    }
+
+    // TEST-BB-324: a massive-transfusion issue needs an active protocol activation for the patient.
+    [Fact]
+    public async Task MassiveTransfusionIssue_WithoutActivation_IsRefused()
+    {
+        var s = await SeedAsync("MTP-NONE");
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.MassiveTransfusion, overrideReason: "MTP", authorizedBy: "dr-authorizer"));
+
+        Assert.False(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == MtpActivationRule.NotActiveCode);
+        Assert.False(await c.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+    }
+
+    [Fact]
+    public async Task MassiveTransfusionIssue_LinksToActivation_AndCountsOnTheBoard()
+    {
+        var s = await SeedAsync("MTP-LINK");
+        await AllocateAsync(s);
+        var activationId = await ActivateMtpAsync(s.PatientId);
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.MassiveTransfusion, overrideReason: $"MTP #{activationId}: Hemorrhagic shock", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(activationId, issued.Value!.MtpActivationId);
+        }
+
+        await using var verify = _factory.Create();
+        var board = Assert.Single(await Mtp(verify).ListActiveAsync(), a => a.Id == activationId);
+        var count = Assert.Single(board.Counts);
+        Assert.Equal(ComponentClass.RedBloodCells, count.ComponentClass);
+        Assert.Equal(1, count.Issued);
+        Assert.Equal("U-MTP-LINK", Assert.Single(board.Units).UnitNumber);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains($"\"MtpActivationId\":{activationId}")));
+    }
+
+    // TEST-BB-338: an MTP issue's override is recorded as a massive-transfusion release, not a warning override.
+    [Fact]
+    public async Task MassiveTransfusionIssue_RecordsAMassiveTransfusionOverride_AndQueueNamesIt()
+    {
+        var s = await SeedAsync("MTP-ACTION");
+        await AllocateAsync(s);
+        await ActivateMtpAsync(s.PatientId);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.MassiveTransfusion, overrideReason: "MTP: hemorrhage", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.NotNull(issued.Value!.OverrideId);
+
+        var row = await c.Overrides.AsNoTracking().SingleAsync(o => o.Id == issued.Value.OverrideId);
+        Assert.Equal(OverrideAction.MassiveTransfusion, row.Action);
+        Assert.Equal("Massive transfusion release", OverrideActionRule.Describe(row.Action));
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_DoesNotNeedOrLinkAnActivation()
+    {
+        var s = await SeedAsync("MTP-EMERG");
+        await AllocateAsync(s);
+        await ActivateMtpAsync(s.PatientId);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Single uncrossmatched unit", authorizedBy: "dr-authorizer"));
+
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Null(issued.Value!.MtpActivationId);
+    }
+
+    [Fact]
+    public async Task MtpActivation_OncePerPatient_ClosedWithReason_AndAudited()
+    {
+        var s = await SeedAsync("MTP-LIFE");
+        var activationId = await ActivateMtpAsync(s.PatientId);
+
+        await using var c = _factory.Create();
+        var again = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Lee", "Still bleeding"));
+        Assert.Contains(again.Evaluation!.HardStops, r => r.Code == MtpActivationRule.AlreadyActiveCode);
+
+        var noReason = await Mtp(c).CloseAsync(activationId, new CloseMtpRequest(" "));
+        Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == MtpActivationRule.CloseCode);
+
+        var closed = await Mtp(c).CloseAsync(activationId, new CloseMtpRequest("Bleeding controlled"));
+        Assert.True(closed.Succeeded, closed.Error);
+        Assert.Equal(MtpActivationStatus.Closed, closed.Value!.Status);
+        Assert.Equal("Bleeding controlled", closed.Value.CloseReason);
+        Assert.DoesNotContain(await Mtp(c).ListActiveAsync(), a => a.Id == activationId);
+
+        var twice = await Mtp(c).CloseAsync(activationId, new CloseMtpRequest("Again"));
+        Assert.True(twice.Evaluation!.IsHardStopped);
+
+        var events = await c.AuditEvents.Where(a => a.EventType == AuditEventType.MassiveTransfusionProtocol && a.EntityId == activationId).ToListAsync();
+        Assert.Equal(2, events.Count);
+        Assert.Contains(events, e => e.NewValueJson!.Contains("Activated") && e.Reason == "Hemorrhagic shock");
+        Assert.Contains(events, e => e.NewValueJson!.Contains("Closed") && e.Reason == "Bleeding controlled");
+
+        // After closing, a new protocol can be activated, and a new MTP issue needs it.
+        var reopened = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Lee", "Rebleed"));
+        Assert.True(reopened.Succeeded, reopened.Error);
+        Assert.Equal(2, (await Mtp(c).ListForPatientAsync(s.PatientId)).Count);
+    }
+
+    [Fact]
+    public async Task MtpActivation_WithoutEmergencyPermission_IsRefused()
+    {
+        var s = await SeedAsync("MTP-PERM");
+        await using var c = _factory.Create();
+
+        var denied = await Mtp(c, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
+            .ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Rivera", "Shock"));
+
+        Assert.False(denied.Succeeded);
+        Assert.True(denied.Evaluation!.IsHardStopped);
+        Assert.False(await c.MtpActivations.AnyAsync(a => a.PatientId == s.PatientId));
+    }
+
+    // TEST-BB-321: emergency override cannot release red cells that conflict with an established ABO group.
+    [Fact]
+    public async Task EmergencyRelease_RedCellsConflictingWithEstablishedType_AreRefused_EvenWithOverride()
+    {
+        var s = await SeedAsync("EMERG-ABO", patientAbo: AboGroup.O, unitAbo: AboGroup.A,
+            requiresRetype: true, unitStatus: UnitStatus.Received);
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Massive hemorrhage", authorizedBy: "dr-authorizer"));
+
+            Assert.False(issued.Succeeded);
+            Assert.True(issued.Evaluation!.IsHardStopped);
+            Assert.Contains(issued.Evaluation.HardStops, r => r.Code == EmergencyUncrossmatchedAboRule.EstablishedConflictCode);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Received, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.False(await verify.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+        Assert.False(await verify.Overrides.AnyAsync(o => o.ContextType == nameof(Issue) && o.ContextId == s.UnitId));
+        var blocked = await verify.AuditEvents.SingleAsync(a =>
+            a.EventType == AuditEventType.EmergencyRelease && a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId);
+        Assert.Equal("Issue blocked by safety gate.", blocked.Reason);
+        Assert.Contains(EmergencyUncrossmatchedAboRule.EstablishedConflictCode, blocked.NewValueJson);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_GroupORedCells_ForEstablishedGroupA_StillIssueWithOverride()
+    {
+        var s = await SeedAsync("EMERG-ABO-O", patientAbo: AboGroup.A, unitAbo: AboGroup.O,
+            requiresRetype: true, unitStatus: UnitStatus.Received);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease,
+            overrideReason: "Massive hemorrhage, uncrossmatched O units", authorizedBy: "dr-authorizer"));
+
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
     }
 
     [Fact]
@@ -858,6 +1888,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     {
         var s = await SeedAsync("MTP");
         await AllocateAsync(s);
+        await ActivateMtpAsync(s.PatientId);
 
         await using var c = _factory.Create();
         var issued = await Issuing(c).IssueUnitAsync(IssueReq(
@@ -875,6 +1906,27 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         var queue = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
         Assert.Contains(queue, q => q.IssueId == persisted.Id && q.IssueType == IssueType.MassiveTransfusion);
+    }
+
+    // TEST-BB-378 (OCD-041): the issue override stores the reason and authorizer as named, trimmed, and refuses a blank authorizer.
+    [Fact]
+    public async Task EmergencyRelease_Override_StoresTrimmedFields_AndNeedsAnAuthorizer()
+    {
+        var s = await SeedAsync("OVR-TRIM");
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var blank = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Hemorrhage", authorizedBy: "   "));
+        Assert.False(blank.Succeeded);
+        Assert.Contains(blank.Evaluation!.Warnings, w => w.Code == OverrideFieldsRule.Code);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "  Hemorrhage  ", authorizedBy: "  dr-authorizer "));
+        Assert.True(issued.Succeeded, issued.Error);
+        var stored = await c.Overrides.AsNoTracking().SingleAsync(o => o.Id == issued.Value!.OverrideId);
+        Assert.Equal("Hemorrhage", stored.Reason);
+        Assert.Equal("dr-authorizer", stored.AuthorizedBy);
     }
 
     [Fact]
@@ -999,6 +2051,86 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null((await verify.Issues.FindAsync(issueId))!.RetrospectiveCrossmatchCompletedUtc);
     }
 
+    // TEST-BB-336: an incompatible retrospective crossmatch warns, raises one critical alert, and leads the board.
+    [Fact]
+    public async Task EmergencyRelease_IncompatibleXm_RaisesCriticalAlert_AndLeadsTheBoard()
+    {
+        var calm = await SeedAsync("RETROCALM");
+        await AllocateAsync(calm);
+        var s = await SeedAsync("RETROALRT");
+        await AllocateAsync(s);
+
+        long issueId;
+        long calmIssueId;
+        await using (var c = _factory.Create())
+        {
+            // The calm issue is older, so by due time alone it would be listed first.
+            calmIssueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                calm, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var xm = await CompatibilityWithAlerts(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible));
+            Assert.True(xm.Succeeded, xm.Error);
+            var warning = Assert.Single(xm.Evaluation!.Warnings, w => w.Code == RetrospectiveCrossmatchIncompatibleRule.Code);
+            Assert.Contains("issued", warning.Message);
+            Assert.Contains("Deviation ", warning.Message);
+
+            // A repeat incompatible crossmatch does not raise a second alert or open a second deviation.
+            Assert.True((await CompatibilityWithAlerts(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible))).Succeeded);
+
+            var pending = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
+            var ids = pending.Select(p => p.IssueId).ToList();
+            Assert.True(ids.IndexOf(issueId) < ids.IndexOf(calmIssueId), "The incompatible row should lead the board.");
+        }
+
+        await using var verify = _factory.Create();
+        var alerts = await verify.Alerts.Where(a => a.Source == AlertRule.RetrospectiveCrossmatchIncompatible && a.Key == $"RETROXM:ISSUE-{issueId}").ToListAsync();
+        var alert = Assert.Single(alerts);
+        Assert.Equal(AlertSeverity.Critical, alert.Severity);
+        Assert.Contains("MRN", alert.Message);
+        Assert.Equal("/issuing?desk=retro", alert.Link);
+
+        // TEST-BB-390 (OCD-046): the incompatible result opened exactly one critical deviation linked to the issue, audited.
+        var deviation = Assert.Single(await verify.Deviations
+            .Where(d => d.ContextType == RetrospectiveCrossmatchIncompatibleRule.DeviationContextType && d.ContextId == issueId)
+            .ToListAsync());
+        Assert.Equal(DeviationSeverity.Critical, deviation.Severity);
+        Assert.Equal(DeviationStatus.Open, deviation.Status);
+        Assert.Contains($"Issue {issueId}", deviation.Description);
+        Assert.Contains($"Deviation {deviation.Id} was opened.", alert.Message);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Deviation && a.EntityId == deviation.Id));
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_CompatibleXm_RaisesNoAlert()
+    {
+        var s = await SeedAsync("RETRONOALRT");
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+            var xm = await CompatibilityWithAlerts(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+            Assert.True(xm.Succeeded, xm.Error);
+            Assert.DoesNotContain(xm.Evaluation?.Warnings ?? [], w => w.Code == RetrospectiveCrossmatchIncompatibleRule.Code);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.Alerts.AnyAsync(a => a.Key == $"RETROXM:ISSUE-{issueId}"));
+        Assert.False(await verify.Deviations.AnyAsync(d => d.ContextType == RetrospectiveCrossmatchIncompatibleRule.DeviationContextType && d.ContextId == issueId));
+    }
+
     [Fact]
     public async Task EmergencyRelease_Return_DropsRetrospectiveWorklist()
     {
@@ -1014,7 +2146,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never transfused"))).Succeeded);
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never transfused", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
         var pending = await Issuing(ctx).ListPendingRetrospectiveCrossmatchesAsync();
         Assert.DoesNotContain(pending, p => p.IssueId == issueId);
     }
@@ -1034,7 +2166,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed; cooler intact"));
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed; cooler intact", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.True(returned.Succeeded);
         }
 
@@ -1047,6 +2179,165 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.Contains(history, h => h.FromStatus == UnitStatus.Issued && h.ToStatus == UnitStatus.Returned);
             Assert.Contains(history, h => h.FromStatus == UnitStatus.Returned && h.ToStatus == UnitStatus.Available);
         }
+    }
+
+    // TEST-BB-314 (OCD-040): a return that could go back to stock needs a recorded inspection.
+    private async Task<(Scenario S, long IssueId)> IssuedForReturnAsync(string tag)
+    {
+        var s = await SeedAsync(tag);
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        return (s, (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id);
+    }
+
+    [Fact]
+    public async Task Return_WithUnansweredInspection_IsRefused_AndTheUnitStaysIssued()
+    {
+        var (s, issueId) = await IssuedForReturnAsync("RET-INSP1");
+
+        await using (var c = _factory.Create())
+        {
+            var r = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed", TemperatureAcceptable: true));
+            Assert.False(r.Succeeded);
+            var stop = Assert.Single(r.Evaluation!.HardStops, h => h.Code == ReturnInspectionRule.Code);
+            Assert.Contains("seal integrity, visual inspection", stop.Message);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Issued, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.Empty(await verify.Returns.Where(x => x.IssueId == issueId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Return_WithFacilityDefault_TreatsUnansweredAsAcceptable_AndSaysSo()
+    {
+        var (s, issueId) = await IssuedForReturnAsync("RET-INSP2");
+        // This class shares one database across tests: turn the policy back off afterwards.
+        await SetInspectionDefaultAsync(true);
+        try
+        {
+            await using (var c = _factory.Create())
+            {
+                Assert.True((await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed"))).Succeeded);
+            }
+
+            await using var verify = _factory.Create();
+            Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+            var json = (await verify.Returns.SingleAsync(x => x.IssueId == issueId)).ReissueEvaluationJson!;
+            Assert.Contains("\"InspectionFromFacilityDefault\":true", json);
+        }
+        finally
+        {
+            await SetInspectionDefaultAsync(false);
+        }
+    }
+
+    private async Task SetInspectionDefaultAsync(bool on)
+    {
+        await using var c = _factory.Create();
+        var row = await c.SystemSettings.FirstOrDefaultAsync(x => x.Key == FacilityPolicyKeys.InspectionDefaultAcceptable);
+        if (row is null)
+        {
+            c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.InspectionDefaultAcceptable, Value = on ? "true" : "false", Category = "Inventory" });
+        }
+        else
+        {
+            row.Value = on ? "true" : "false";
+        }
+
+        await c.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Return_ExplicitQuarantine_WithoutInspection_IsAllowed_AndRecordedAsUnanswered()
+    {
+        var (s, issueId) = await IssuedForReturnAsync("RET-INSP3");
+
+        await using (var c = _factory.Create())
+        {
+            var r = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Unsure of storage", Destination: UnitStatus.Quarantine));
+            Assert.True(r.Succeeded, r.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Quarantine, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var json = (await verify.Returns.SingleAsync(x => x.IssueId == issueId)).ReissueEvaluationJson!;
+        Assert.Contains("\"InspectionUnanswered\":true", json);
+        Assert.Contains("\"InspectionFromFacilityDefault\":false", json);
+    }
+
+    // TEST-BB-315 (OCD-040): appearance at issue and ward receipt is what a person saw on the bag.
+    [Fact]
+    public async Task Issue_WithoutAppearance_IsRefused_AndTheUnitIsNotIssued()
+    {
+        var s = await SeedAsync("APP-ISS1");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            var r = await Issuing(c).IssueUnitAsync(IssueReq(s) with { Appearance = null });
+            Assert.False(r.Succeeded);
+            Assert.Contains(r.Evaluation!.HardStops, h => h.Code == AppearanceAttestationRule.Code);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.NotEqual(UnitStatus.Issued, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.Empty(await verify.Issues.Where(i => i.BloodProductId == s.UnitId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Issue_WithFacilityDefault_RecordsAcceptable_AndAuditsThatItWasDefaulted()
+    {
+        var s = await SeedAsync("APP-ISS2");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await SetInspectionDefaultAsync(true);
+        try
+        {
+            long issueId;
+            await using (var c = _factory.Create())
+            {
+                var r = await Issuing(c).IssueUnitAsync(IssueReq(s) with { Appearance = null });
+                Assert.True(r.Succeeded, r.Error);
+                issueId = r.Value!.Id;
+            }
+
+            await using var verify = _factory.Create();
+            Assert.Equal(UnitAppearance.Acceptable, (await verify.Issues.FindAsync(issueId))!.IssueAppearance);
+            var audit = await verify.AuditEvents
+                .Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId && a.NewValueJson!.Contains("AppearanceFromFacilityDefault"))
+                .ToListAsync();
+            Assert.Contains(audit, a => a.NewValueJson!.Contains("\"AppearanceFromFacilityDefault\":true"));
+        }
+        finally
+        {
+            await SetInspectionDefaultAsync(false);
+        }
+    }
+
+    [Fact]
+    public async Task WardReceipt_WithoutAppearance_IsRefused()
+    {
+        var (_, issueId) = await IssuedForReturnAsync("APP-WARD1");
+
+        await using var c = _factory.Create();
+        var r = await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+        Assert.False(r.Succeeded);
+        var stop = Assert.Single(r.Evaluation!.HardStops, h => h.Code == AppearanceAttestationRule.Code);
+        Assert.Contains("acknowledging receipt", stop.Message);
+    }
+
+    [Fact]
+    public async Task Return_ExplicitAvailable_WithoutInspection_IsRefused()
+    {
+        var (_, issueId) = await IssuedForReturnAsync("RET-INSP4");
+
+        await using var c = _factory.Create();
+        var r = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Back to stock", Destination: UnitStatus.Available));
+        Assert.False(r.Succeeded);
+        Assert.Contains(r.Evaluation!.HardStops, h => h.Code == ReturnInspectionRule.Code);
     }
 
     [Fact]
@@ -1064,7 +2355,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Out of temperature range", TemperatureAcceptable: false));
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Out of temperature range", TemperatureAcceptable: false, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.True(returned.Succeeded);
         }
 
@@ -1087,14 +2378,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-31) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-31) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
         {
             var available = await Issuing(c).ReturnUnitAsync(
                 issueId,
-                new ReturnUnitRequest("Still unused", Destination: UnitStatus.Available));
+                new ReturnUnitRequest("Still unused", Destination: UnitStatus.Available, TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.False(available.Succeeded);
             Assert.Contains("30 minutes", available.Error, StringComparison.OrdinalIgnoreCase);
 
@@ -1126,14 +2417,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             stored!.CurrentLocationId = location.Id;
             await c.SaveChangesAsync();
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
         {
             var available = await Issuing(c).ReturnUnitAsync(
                 issueId,
-                new ReturnUnitRequest("Caller says the window is fine", TimeOutOfStorageAcceptable: true, Destination: UnitStatus.Available));
+                new ReturnUnitRequest("Caller says the window is fine", TimeOutOfStorageAcceptable: true, Destination: UnitStatus.Available, TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.False(available.Succeeded);
             Assert.Contains("30 minutes", available.Error, StringComparison.OrdinalIgnoreCase);
 
@@ -1141,6 +2432,49 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True(row.StorageTimeOutGoverned);
             Assert.False(row.StorageTimeOutAcceptable);
             Assert.Equal("Window elapsed", ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable));
+        }
+    }
+
+    // TEST-BB-374: the outstanding-issue row's time-out decision follows the facility window, which the unit chart now uses.
+    [Fact]
+    public async Task OutstandingIssue_TimeOutDecision_FollowsTheFacilityWindow()
+    {
+        var s = await SeedAsync("RETURN-WIN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "WIN-RET", Name = "Governed fridge 2", TimeOutGoverned = true };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            var stored = await c.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await c.SaveChangesAsync();
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40), LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
+        }
+
+        try
+        {
+            await using (var c = _factory.Create())
+            {
+                Assert.False(Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId).StorageTimeOutAcceptable);
+                c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.ReturnToAvailableMinutes, Value = "60", Category = "Inventory" });
+                await c.SaveChangesAsync();
+            }
+
+            await using var v = _factory.Create();
+            var row = Assert.Single(await Issuing(v).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.True(row.StorageTimeOutGoverned);
+            Assert.True(row.StorageTimeOutAcceptable);
+        }
+        finally
+        {
+            await using var cleanup = _factory.Create();
+            cleanup.SystemSettings.RemoveRange(cleanup.SystemSettings.Where(x => x.Key == FacilityPolicyKeys.ReturnToAvailableMinutes));
+            await cleanup.SaveChangesAsync();
         }
     }
 
@@ -1161,7 +2495,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             stored!.CurrentLocationId = location.Id;
             await c.SaveChangesAsync();
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
@@ -1175,7 +2509,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 new ReturnUnitRequest(
                     "Exempt device, still in temperature",
                     TimeOutOfStorageAcceptable: false,
-                    Destination: UnitStatus.Available));
+                    Destination: UnitStatus.Available, TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.True(returned.Succeeded, returned.Error);
             Assert.Contains("\"TimeOutOfStorageAcceptable\":true", returned.Value!.ReissueEvaluationJson, StringComparison.Ordinal);
             Assert.Contains("\"TimeOutGoverned\":false", returned.Value.ReissueEvaluationJson, StringComparison.Ordinal);
@@ -1185,8 +2519,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    // TEST-BB-340: a return asking for disposal quarantines the unit and points to the coded discard.
     [Fact]
-    public async Task Return_AfterThirtyMinutes_DiscardedAllowed()
+    public async Task Return_AfterThirtyMinutes_DisposalRequested_QuarantinesInstead()
     {
         var s = await SeedAsync("RETURN-DISP");
         await RecordCompatibleCrossmatchAsync(s);
@@ -1196,23 +2531,29 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-45) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-45) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
         {
             var disposed = await Issuing(c).ReturnUnitAsync(
                 issueId,
-                new ReturnUnitRequest("Broken seal after issue", Destination: UnitStatus.Discarded));
+                new ReturnUnitRequest("Not needed, held too long", Destination: UnitStatus.Discarded));
             Assert.True(disposed.Succeeded, disposed.Error);
+            Assert.Contains(disposed.Evaluation!.Warnings, w => w.Code == ReturnDisposalRule.Code);
         }
 
         await using var verify = _factory.Create();
-        Assert.Equal(UnitStatus.Discarded, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var unit = (await verify.BloodUnits.FindAsync(s.UnitId))!;
+        Assert.Equal(UnitStatus.Quarantine, unit.Status);
+        Assert.Equal(UnitQuarantineReason.ReturnedForDisposal, unit.QuarantineReasonCode);
+        Assert.Null(unit.DiscardReasonCode);
+        Assert.DoesNotContain(await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).ToListAsync(),
+            h => h.ToStatus == UnitStatus.Discarded);
     }
 
     [Fact]
-    public async Task Return_FailedVisual_DisposesAndLeavesOutstanding()
+    public async Task Return_FailedVisual_QuarantinesAndLeavesOutstanding()
     {
         var s = await SeedAsync("RETURN-VIS");
         await RecordCompatibleCrossmatchAsync(s);
@@ -1236,11 +2577,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                     Destination: UnitStatus.Discarded));
             Assert.True(disposed.Succeeded, disposed.Error);
             Assert.False(disposed.Value!.ReissueEligible);
+            Assert.Contains(disposed.Evaluation!.Warnings, w => w.Code == ReturnDisposalRule.Code && w.Message.Contains("failed return inspection"));
             Assert.DoesNotContain(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
         }
 
         await using var verify = _factory.Create();
-        Assert.Equal(UnitStatus.Discarded, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var unit = (await verify.BloodUnits.FindAsync(s.UnitId))!;
+        Assert.Equal(UnitStatus.Quarantine, unit.Status);
+        Assert.Equal(UnitQuarantineReason.FailedReturnInspection, unit.QuarantineReasonCode);
         Assert.Equal(IssueStatus.Returned, (await verify.Issues.FindAsync(issueId))!.Status);
     }
 
@@ -1372,6 +2716,310 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
         Assert.True(issued.Evaluation!.IsHardStopped);
         Assert.Contains(issued.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+    }
+
+    /// <summary>Adds a catalog entry for one unit category and puts it on the patient's chart.</summary>
+    private async Task RequireAsync(
+        long patientId,
+        string code,
+        SpecialRequirementCategory category,
+        SpecialRequirementEnforcementKind kind,
+        ComponentClass componentClass,
+        string? attribute = null,
+        string? allowedAbo = null,
+        string? unitTest = null)
+    {
+        await using var c = _factory.Create();
+        var definition = new SpecialRequirementDefinition
+        {
+            Code = code,
+            Name = code,
+            Level = SpecialRequirementLevel.Unit,
+            Category = category,
+            EnforcementKind = kind,
+            ComponentClass = componentClass,
+            ProductAttributeCode = attribute,
+            AllowedAboGroups = allowedAbo,
+            UnitTestCode = unitTest,
+            IsActive = true,
+            Version = 1
+        };
+        c.SpecialRequirementDefinitions.Add(definition);
+        await c.SaveChangesAsync();
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = patientId,
+            RequirementDefinitionId = definition.Id,
+            RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Ordered by the transfusion service physician",
+            EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        });
+        await c.SaveChangesAsync();
+    }
+
+    // TEST-BB-441: reserving from Compatibility applies the same special requirement check as the chart and issue.
+    [Fact]
+    public async Task CompatibilityReserve_RefusesAUnitThatMissesARequirement_ButReservesOneThatMeetsIt()
+    {
+        var rbc = await SeedAsync("CPR-RBC", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await RequireAsync(rbc.PatientId, "CPR-T1", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+
+        await using (var c = _factory.Create())
+        {
+            var preview = await CompatibilityWithRequirements(c).EvaluateCompatibilityAsync(new EvaluateCompatibilityRequest(rbc.UnitId, rbc.PatientId));
+            Assert.Contains(preview.Value!.HardStops, r => r.Code == SpecialTransfusionRequirementRule.Code);
+
+            var refused = await CompatibilityWithRequirements(c).AllocateUnitAsync(new AllocateUnitRequest(rbc.UnitId, rbc.PatientId, rbc.SpecimenId));
+            Assert.False(refused.Succeeded);
+            var stop = Assert.Single(refused.Evaluation!.HardStops, r => r.Code == SpecialTransfusionRequirementRule.Code);
+            Assert.Contains("must be group O", stop.Message);
+            Assert.False(await c.Allocations.AnyAsync(a => a.BloodProductId == rbc.UnitId && a.Status == AllocationStatus.Reserved));
+        }
+
+        // The red-cell typing does not apply to plasma: group A plasma is reserved for the same requirement.
+        var plasma = await SeedAsync("CPR-FFP", patientAbo: AboGroup.A, unitAbo: AboGroup.A,
+            requiresCrossmatch: false, componentClass: ComponentClass.Plasma);
+        await RequireAsync(plasma.PatientId, "CPR-T2", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+        await using var ctx = _factory.Create();
+        var reserved = await CompatibilityWithRequirements(ctx).AllocateUnitAsync(new AllocateUnitRequest(plasma.UnitId, plasma.PatientId, plasma.SpecimenId));
+        Assert.True(reserved.Succeeded, reserved.Error);
+    }
+
+    private CompatibilityService CompatibilityWithRequirements(BloodBankDbContext c) =>
+        new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c),
+            specialRequirements: new EfRepository<SpecialTransfusionRequirement>(c),
+            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c),
+            productAttributeAssignments: new EfRepository<ProductAttributeAssignment>(c),
+            productAttributes: new EfRepository<ProductAttribute>(c),
+            unitSpecialTests: new EfRepository<BloodComponentSpecialTest>(c));
+
+    // TEST-BB-412: a red-cell typing stops a group A red cell but not group A plasma for the same patient.
+    [Fact]
+    public async Task Issue_GroupORedCellsOnly_RefusesAGroupARedCell_ButNotGroupAPlasma()
+    {
+        var rbc = await SeedAsync("GRPO-RBC", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await RecordCompatibleCrossmatchAsync(rbc);
+        await AllocateAsync(rbc);
+        await RequireAsync(rbc.PatientId, "GRPO-T1", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+
+        await using (var c = _factory.Create())
+        {
+            var refused = await Issuing(c).IssueUnitAsync(IssueReq(rbc));
+            Assert.True(refused.Evaluation!.IsHardStopped);
+            var stop = Assert.Single(refused.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+            Assert.Contains("must be group O", stop.Message);
+            Assert.NotEqual(UnitStatus.Issued, (await c.BloodUnits.FindAsync(rbc.UnitId))!.Status);
+        }
+
+        var plasma = await SeedAsync("GRPO-FFP", patientAbo: AboGroup.A, unitAbo: AboGroup.A,
+            requiresCrossmatch: false, componentClass: ComponentClass.Plasma);
+        await AllocateAsync(plasma);
+        await RequireAsync(plasma.PatientId, "GRPO-T2", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, ComponentClass.RedBloodCells, allowedAbo: "O");
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(plasma));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+    }
+
+    // TEST-BB-412: on emergency release an unmet modification needs the authorized override, which is recorded.
+    [Fact]
+    public async Task Issue_UnmetModification_OnEmergencyRelease_IssuesUnderTheRecordedOverride()
+    {
+        var s = await SeedAsync("IRRAD-EMERG");
+        await AllocateAsync(s);
+        await RequireAsync(s.PatientId, "IRR-EM", SpecialRequirementCategory.UnitModification,
+            SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.RedBloodCells, attribute: "IRRAD");
+
+        await using (var c = _factory.Create())
+        {
+            var routine = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.Contains(routine.Evaluation!.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+
+            var withoutOverride = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+            Assert.False(withoutOverride.Succeeded);
+            Assert.True(withoutOverride.RequiresOverride);
+            Assert.Contains(withoutOverride.Evaluation!.Results, r =>
+                r.Code == IssueGate.SpecialReqCode && r.Severity == RuleSeverity.Warning);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Exsanguinating, no irradiated units on the shelf", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        }
+
+        await using var verify = _factory.Create();
+        var ovr = await verify.Overrides.Where(o => o.ContextType == nameof(Issue) && o.ContextId == s.UnitId).SingleAsync();
+        Assert.Contains(IssueGate.SpecialReqCode, ovr.RuleCode);
+    }
+
+    // TEST-BB-412: a CMV-negative typing is met by a negative CMV test recorded on the unit.
+    [Fact]
+    public async Task Issue_CmvNegativeTyping_IsMetByANegativeTestRecordedOnTheUnit()
+    {
+        var s = await SeedAsync("CMV-TEST");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await RequireAsync(s.PatientId, "CMV-T", SpecialRequirementCategory.UnitTyping,
+            SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells,
+            attribute: "CMVNEG", unitTest: "CMV");
+
+        await using (var c = _factory.Create())
+        {
+            var refused = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+            c.BloodComponentSpecialTests.Add(new BloodComponentSpecialTest { BloodProductId = s.UnitId, TestCode = "cmv", Result = "Negative" });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+    }
+
+    private Hl7OutboundService Outbound(BloodBankDbContext c) =>
+        new(
+            new EfRepository<TestResult>(c),
+            new EfRepository<Patient>(c),
+            new EfRepository<Hl7MessageLog>(c),
+            c,
+            _factory.Clock,
+            endpoints: new EfRepository<InterfaceEndpoint>(c),
+            issues: new EfRepository<Issue>(c),
+            units: new EfRepository<BloodUnit>(c),
+            productTypes: new EfRepository<ProductType>(c),
+            orders: new EfRepository<Order>(c));
+
+    // TEST-BB-417: issue and return tell the EHR (BPS^O29) only while an outbound blood product interface is enabled.
+    [Fact]
+    public async Task IssueAndReturn_QueueADispenseMessage_OnlyWithAnEnabledBloodProductInterface()
+    {
+        var quiet = await SeedAsync("BPS-OFF");
+        await AllocateAsync(quiet);
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c, dispense: Outbound(c)).IssueUnitAsync(IssueReq(quiet, IssueType.EmergencyRelease,
+                overrideReason: "Bleeding, interface test", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error);
+            Assert.False(await c.Hl7Messages.AnyAsync(m => m.MessageType == "BPS" && m.MessageControlId.EndsWith(issued.Value!.Id.ToString())));
+        }
+
+        long endpointId;
+        await using (var c = _factory.Create())
+        {
+            var endpoint = new InterfaceEndpoint
+            {
+                Name = "EHR blood product status",
+                Direction = Hl7Direction.Outbound,
+                InterfaceType = InterfaceType.Bpam,
+                MessageTypes = "BPS",
+                IsEnabled = true
+            };
+            c.InterfaceEndpoints.Add(endpoint);
+            await c.SaveChangesAsync();
+            endpointId = endpoint.Id;
+        }
+
+        try
+        {
+            var s = await SeedAsync("BPS-ON");
+            await AllocateAsync(s);
+            long issueId;
+            await using (var c = _factory.Create())
+            {
+                var issued = await Issuing(c, dispense: Outbound(c)).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease,
+                    overrideReason: "Bleeding, interface test", authorizedBy: "dr-authorizer"));
+                Assert.True(issued.Succeeded, issued.Error);
+                issueId = issued.Value!.Id;
+            }
+
+            await using (var c = _factory.Create())
+            {
+                var returned = await Issuing(c, dispense: Outbound(c)).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                    "Not needed; cooler intact", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+                Assert.True(returned.Succeeded, returned.Error);
+            }
+
+            await using var verify = _factory.Create();
+            var messages = await verify.Hl7Messages
+                .Where(m => m.MessageType == "BPS" && m.EndpointId == endpointId)
+                .OrderBy(m => m.Id)
+                .ToListAsync();
+            Assert.Equal(2, messages.Count);
+            Assert.All(messages, m => Assert.Equal(Hl7Direction.Outbound, m.Direction));
+            Assert.Contains("BPX|1|DS^", messages[0].RawMessage);
+            Assert.Contains("U-BPS-ON", messages[0].RawMessage);
+            Assert.Contains("BPX|1|RA^", messages[1].RawMessage);
+        }
+        finally
+        {
+            await using var c = _factory.Create();
+            var endpoint = await c.InterfaceEndpoints.FindAsync(endpointId);
+            endpoint!.IsEnabled = false;
+            await c.SaveChangesAsync();
+        }
+    }
+
+    // TEST-BB-425: a reservation past its end time is still listed, with that time, until it is released with a reason.
+    [Fact]
+    public async Task LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason()
+    {
+        var s = await SeedAsync("RES-LAPSED");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long allocationId;
+        await using (var c = _factory.Create())
+        {
+            var allocation = await c.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId && a.Status == AllocationStatus.Reserved);
+            allocation.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-2);
+            await c.SaveChangesAsync();
+            allocationId = allocation.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var row = (await Issuing(c).ListReadyToIssueAllocationsAsync()).Single(r => r.AllocationId == allocationId);
+            Assert.Equal(_factory.Clock.UtcNow.AddHours(-2), row.ReservationExpiresUtc);
+            Assert.True(ReadyToIssueAttentionRule.ReservationLapsed(row, _factory.Clock.UtcNow));
+
+            // TEST-BB-429: the shift handoff counts it until it is released.
+            var handoff = await new ShiftHandoffService(
+                    new EfRepository<ShiftHandoff>(c), c, _factory.Clock, _factory.CurrentUser, issuing: Issuing(c))
+                .CreateAsync(new CreateShiftHandoffRequest("Night shift: one reservation past its end"));
+            Assert.True(handoff.Succeeded, handoff.Error);
+            Assert.True(handoff.Value!.ReservationsLapsed >= 1);
+
+            // TEST-BB-431: so does the downtime snapshot.
+            var snapshot = await new DowntimeReconciliationService(
+                    new EfRepository<InterfaceErrorQueueItem>(c), new EfRepository<Hl7MessageLog>(c), new EfRepository<Issue>(c),
+                    new BloodBankLIS.Infrastructure.Audit.AuditQuery(c), _factory.Clock, _factory.CurrentUser, issuing: Issuing(c))
+                .GetSnapshotAsync();
+            Assert.True(snapshot.Succeeded, snapshot.Error);
+            Assert.True(snapshot.Value!.ReservationsLapsed >= 1);
+
+            var noReason = await Compatibility(c).ReleaseAllocationAsync(allocationId, " ");
+            Assert.False(noReason.Succeeded);
+            var released = await Compatibility(c).ReleaseAllocationAsync(allocationId, "Reservation ended, transfusion not needed");
+            Assert.True(released.Succeeded, released.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.DoesNotContain(await Issuing(verify).ListReadyToIssueAllocationsAsync(), r => r.AllocationId == allocationId);
     }
 
     [Fact]
@@ -1556,7 +3204,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, reactionSuspected: true));
             Assert.True(tx.Succeeded);
@@ -1583,7 +3231,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, TransfusionDisposition.Stopped, reactionSuspected: true));
             Assert.True(tx.Succeeded);
@@ -1613,7 +3261,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, TransfusionDisposition.Completed, reactionSuspected: true));
             Assert.True(tx.Succeeded, tx.Error);
@@ -1625,6 +3273,80 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitQuarantineReason.ReactionRemainder, unit.QuarantineReasonCode);
         var inv = await verify.ReactionInvestigations.SingleAsync(r => r.PatientId == s.PatientId);
         Assert.True(inv.RemainderQuarantined);
+    }
+
+    // TEST-BB-402: a reaction noticed after the transfusion was documented without one opens an investigation, marks
+    // the transfusion (audited with its earlier value), and is refused when it cannot be valid.
+    [Fact]
+    public async Task LateReactionReport_OpensAnInvestigation_AndMarksTheTransfusion()
+    {
+        var s = await SeedAsync("RXNLATE");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+            {
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-10), LateEntryReason = "Entered after the shift"
+            });
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+        }
+
+        ReactionInvestigationService Reactions(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+            new(new EfRepository<ReactionInvestigation>(c), new EfRepository<TransfusionEvent>(c), new InventoryRepository(c),
+                c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+                permissions: permissions ?? new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument));
+
+        await using (var c = _factory.Create())
+        {
+            // Not yet transfused: nothing to report against.
+            var early = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever"));
+            Assert.Contains("Document the transfusion first", early.Error);
+
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+            var tx = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s, TransfusionDisposition.Completed) with
+            {
+                StartUtc = _factory.Clock.UtcNow.AddHours(-8),
+                StopUtc = _factory.Clock.UtcNow.AddHours(-6)
+            });
+            Assert.True(tx.Succeeded, tx.Error ?? string.Join("; ", tx.Evaluation?.HardStops.Select(r => r.Code + " " + r.Message) ?? []));
+            Assert.False(await c.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var noRole = await Reactions(c, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
+                .ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever and chills"));
+            Assert.Contains(LateReactionReportRule.Code, noRole.Error);
+            var blank = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, " "));
+            Assert.Contains("Describe the reaction", blank.Error);
+            var beforeStart = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever", _factory.Clock.UtcNow.AddHours(-9)));
+            Assert.Contains("before the transfusion started", beforeStart.Error);
+            var future = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Fever", _factory.Clock.UtcNow.AddHours(2)));
+            Assert.Contains("in the future", future.Error);
+            Assert.False(await c.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+
+            var reported = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(
+                issueId, "Fever 39.2 C and chills; reported by RN Lee", _factory.Clock.UtcNow.AddHours(-2), "FNHTR"));
+            Assert.True(reported.Succeeded, reported.Error);
+            Assert.True(reported.Value!.ReportedAfterTransfusion);
+            Assert.Equal(_factory.Clock.UtcNow.AddHours(-2), reported.Value.OnsetUtc);
+            Assert.StartsWith("Reported after the transfusion:", reported.Value.Findings);
+
+            var again = await Reactions(c).ReportLateAsync(new ReportLateReactionRequest(issueId, "Still febrile"));
+            Assert.Contains($"investigation {reported.Value.Id} is already open", again.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var transfusion = await verify.TransfusionEvents.SingleAsync(t => t.IssueId == issueId);
+        Assert.True(transfusion.ReactionSuspected);
+        var flagAudit = await verify.AuditEvents.SingleAsync(a => a.EntityType == nameof(TransfusionEvent) && a.EntityId == transfusion.Id
+            && a.Reason == "Reaction reported after the transfusion was documented.");
+        Assert.Contains("\"ReactionSuspected\":false", flagAudit.OldValueJson);
+        Assert.Single(await verify.ReactionInvestigations.Where(r => r.TransfusionEventId == transfusion.Id).ToListAsync());
     }
 
     [Fact]
@@ -1642,7 +3364,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, reactionSuspected: true));
         }
@@ -1654,10 +3376,12 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<ReactionInvestigation>(ctx),
             new EfRepository<TransfusionEvent>(ctx),
             new InventoryRepository(ctx),
-            ctx, _factory.Clock, _factory.CurrentUser, audit);
+            ctx, _factory.Clock, _factory.CurrentUser, audit,
+            specimens: new EfRepository<Specimen>(ctx), orders: new EfRepository<Order>(ctx),
+            orderLines: new EfRepository<OrderLine>(ctx), testResults: new EfRepository<TestResult>(ctx));
 
         var closed = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
-            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1));
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.False(closed.Succeeded);
         Assert.Contains(ReactionWorkupCompletenessRule.Code, closed.Error);
 
@@ -1668,8 +3392,15 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             DatWorkupResult.Negative, null, true));
         Assert.True(saved.Succeeded);
 
+        // The checklist alone no longer closes the case: the specimen workup must be resulted and verified too.
+        var withoutSpecimens = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
+        Assert.False(withoutSpecimens.Succeeded);
+        Assert.Contains("pre-transfusion specimen", withoutSpecimens.Error);
+        await ReactionWorkupTestData.CompleteAsync(ctx, inv.Id, _factory.Clock.UtcNow);
+
         var closeOk = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
-            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1));
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.True(closeOk.Succeeded);
         Assert.Equal(ReactionInvestigationStatus.Closed, closeOk.Value!.Status);
     }
@@ -2159,15 +3890,15 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using var ctx = _factory.Create();
         var issuing = Issuing(ctx);
-        var visual = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VisualInspectionAcceptable: false));
+        var visual = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VisualInspectionAcceptable: false, Appearance: UnitAppearance.Acceptable));
         Assert.False(visual.Succeeded);
         Assert.Contains("visual inspection", visual.Error, StringComparison.OrdinalIgnoreCase);
 
-        var first = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+        var first = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.True(first.Succeeded);
         Assert.Equal(UnitAppearance.Acceptable, first.Value!.WardAppearance);
 
-        var dup = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("another-nurse"));
+        var dup = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("another-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.False(dup.Succeeded);
         Assert.Contains("already acknowledged", dup.Error, StringComparison.OrdinalIgnoreCase);
     }
@@ -2208,7 +3939,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        var returned = await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never arrived on the ward"));
+        var returned = await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never arrived on the ward", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
         Assert.True(returned.Succeeded);
     }
 
@@ -2280,7 +4011,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var transit = await Issuing(c).ListInTransitAsync();
             Assert.DoesNotContain(transit, t => t.IssueId == issueId);
         }
@@ -2550,6 +4281,163 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null(bothRow.CrossmatchNotice);
     }
 
+    private CompatibilityService CompatibilityWithExceptions(BloodBankDbContext c) =>
+        new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityCrossmatch),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c),
+            exceptionDefinitions: new EfRepository<ExceptionDefinition>(c),
+            overrides: new EfRepository<Override>(c));
+
+    /// <summary>Emergency release, then the pre-transfusion specimen expires. Returns the issue id.</summary>
+    private async Task<long> EmergencyReleaseThenExpireSpecimenAsync(Scenario s, bool collectedAfterIssue = false, bool withDefinition = true)
+    {
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease,
+            overrideReason: "Uncrossmatched release for hemorrhage", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded, issued.Error);
+        var specimen = await c.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+        specimen.CollectedUtc = collectedAfterIssue ? issued.Value!.IssuedUtc.AddMinutes(1) : issued.Value!.IssuedUtc.AddMinutes(-30);
+        specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-5);
+        var definition = await c.ExceptionDefinitions.FirstOrDefaultAsync(e => e.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode);
+        if (definition is null)
+        {
+            definition = new ExceptionDefinition
+            {
+                RuleCode = CrossmatchSpecimenRule.RetrospectiveCode, Name = "Retro XM on expired specimen",
+                MinSecurityLevel = 0, IsOverridable = true
+            };
+            c.ExceptionDefinitions.Add(definition);
+        }
+
+        definition.IsActive = withDefinition;
+
+        await c.SaveChangesAsync();
+        return issued.Value.Id;
+    }
+
+    private static RecordCrossmatchRequest RetroXm(Scenario s, string? reason = null, string? authorizedBy = null) =>
+        new(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible,
+            OverrideReason: reason, AuthorizedBy: authorizedBy);
+
+    // TEST-BB-364 (OCD-050): the retrospective crossmatch on an expired pre-transfusion specimen is an exception, not a hard stop.
+    [Fact]
+    public async Task RetrospectiveXm_OnExpiredPreTransfusionSpecimen_AsksForAnException_ThenRecordsIt()
+    {
+        var s = await SeedAsync("RETROEXC");
+        var issueId = await EmergencyReleaseThenExpireSpecimenAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            var asked = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s));
+            Assert.False(asked.Succeeded);
+            Assert.Empty(asked.Evaluation!.HardStops);
+            Assert.Contains(asked.Evaluation.Warnings, w => w.Code == CrossmatchSpecimenRule.RetrospectiveCode);
+            Assert.False(await c.Crossmatches.AnyAsync(x => x.BloodProductId == s.UnitId));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var halfway = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s, reason: "Pre-transfusion sample; patient transfused since"));
+            Assert.False(halfway.Succeeded);
+            Assert.Contains(halfway.Evaluation!.Warnings, w => w.Code == OverrideFieldsRule.Code);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recorded = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(
+                RetroXm(s, reason: "Pre-transfusion sample; patient transfused since", authorizedBy: "dr-supervisor"));
+            Assert.True(recorded.Succeeded, recorded.Error);
+            Assert.Contains(recorded.Evaluation!.Warnings, w => w.Code == CrossmatchSpecimenRule.RetrospectiveCode);
+        }
+
+        await using var v = _factory.Create();
+        var xm = await v.Crossmatches.SingleAsync(x => x.BloodProductId == s.UnitId);
+        var exception = await v.Overrides.SingleAsync(o => o.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode);
+        Assert.Equal(nameof(Crossmatch), exception.ContextType);
+        Assert.Equal(xm.Id, exception.ContextId);
+        Assert.Equal("dr-supervisor", exception.AuthorizedBy);
+        Assert.Null(exception.ReviewOutcome);
+        Assert.Equal(xm.Id, (await v.Issues.SingleAsync(i => i.Id == issueId)).RetrospectiveCrossmatchId);
+        Assert.True(await v.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Override && a.EntityType == nameof(Crossmatch) && a.EntityId == xm.Id));
+    }
+
+    [Fact]
+    public async Task RetrospectiveXm_OnSpecimenCollectedAfterIssue_ThatExpired_IsStillAHardStop()
+    {
+        var s = await SeedAsync("RETROPOST");
+        await EmergencyReleaseThenExpireSpecimenAsync(s, collectedAfterIssue: true);
+
+        await using var c = _factory.Create();
+        var r = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s, "reason", "dr-supervisor"));
+        Assert.False(r.Succeeded);
+        Assert.Contains(r.Evaluation!.HardStops, h => h.Code == CrossmatchSpecimenRule.Code);
+        Assert.False(await c.Overrides.AnyAsync(o => o.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode));
+    }
+
+    [Fact]
+    public async Task RetrospectiveXm_Exception_WithoutAnActiveDefinition_IsRefused()
+    {
+        var s = await SeedAsync("RETRONODEF");
+        await EmergencyReleaseThenExpireSpecimenAsync(s, withDefinition: false);
+
+        await using var c = _factory.Create();
+        var r = await CompatibilityWithExceptions(c).RecordCrossmatchAsync(RetroXm(s, "reason", "dr-supervisor"));
+        Assert.False(r.Succeeded);
+        Assert.Contains(r.Evaluation!.HardStops, h => h.Code == "EXC-DEF-MISSING");
+        Assert.False(await c.Crossmatches.AnyAsync(x => x.BloodProductId == s.UnitId));
+    }
+
+    // TEST-BB-363: a crossmatch recorded directly on an expired specimen is refused and nothing is saved.
+    [Fact]
+    public async Task RecordCrossmatch_OnAnExpiredSpecimen_IsRefused_AndNothingIsSaved()
+    {
+        var s = await SeedAsync("XMSPECEXP");
+        await using (var aged = _factory.Create())
+        {
+            var specimen = await aged.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+            specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-5);
+            await aged.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var result = await Compatibility(c).RecordCrossmatchAsync(
+            new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+
+        Assert.False(result.Succeeded);
+        var stop = Assert.Single(result.Evaluation!.HardStops);
+        Assert.Equal(CrossmatchSpecimenRule.Code, stop.Code);
+        Assert.Contains("ACC-XMSPECEXP", stop.Message);
+        Assert.False(await c.Crossmatches.AnyAsync(x => x.BloodProductId == s.UnitId));
+    }
+
+    // TEST-BB-360: once the only compatible crossmatch expires, the issue desk no longer shows the unit as ready.
+    [Fact]
+    public async Task ListReadyToIssue_AnExpiredCrossmatch_ShowsCrossmatchExpired_NotReady()
+    {
+        var s = await SeedAsync("RDYXMEXP");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using (var aged = _factory.Create())
+        {
+            var xm = await aged.Crossmatches.SingleAsync(x => x.BloodProductId == s.UnitId);
+            xm.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+            await aged.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var row = Assert.Single(await Issuing(c).ListReadyToIssueAllocationsAsync(), r => r.BloodUnitId == s.UnitId);
+        Assert.Equal(ProductAllocationDisplayStatus.CrossmatchExpired, row.DisplayStatus);
+        Assert.True(row.CrossmatchBlocksRoutineIssue);
+        Assert.Null(row.CrossmatchExpiresUtc);
+    }
+
     [Fact]
     public async Task ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate()
     {
@@ -2717,7 +4605,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             Assert.DoesNotContain(await Issuing(c).ListInTransitAsync(), t => t.IssueId == issueId);
             var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
             Assert.Equal(s.UnitNumber, row.UnitNumber);
@@ -2762,7 +4650,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed after receipt"))).Succeeded);
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed after receipt", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
         Assert.DoesNotContain(await Issuing(ctx).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
     }
 
@@ -2777,7 +4665,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
@@ -2799,7 +4687,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
@@ -2826,7 +4714,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True(issued.Succeeded, issued.Error);
             issueId = issued.Value!.Id;
             Assert.True((await Issuing(c).RecordWardReceiptAsync(
-                issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan))).Succeeded);
+                issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan, Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
@@ -2854,16 +4742,13 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
             Assert.True(issued.Succeeded, issued.Error);
             issueId = issued.Value!.Id;
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
-        ctx.SystemSettings.Add(new SystemSetting
-        {
-            Key = FacilityPolicyKeys.RequireSecondVerifier,
-            Value = "true",
-            Category = "Transfusion"
-        });
+        // The fixture runs with the second verifier off; turn it on for this test only.
+        var required = await ctx.SystemSettings.SingleAsync(x => x.Key == FacilityPolicyKeys.RequireSecondVerifier);
+        required.Value = "true";
         ctx.Users.Add(new User { UserName = "ward-nurse", DisplayName = "Ward Nurse", IsActive = true });
         await ctx.SaveChangesAsync();
 
@@ -2881,12 +4766,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
         finally
         {
-            var flag = await ctx.SystemSettings.SingleOrDefaultAsync(x => x.Key == FacilityPolicyKeys.RequireSecondVerifier);
-            if (flag is not null)
-            {
-                ctx.SystemSettings.Remove(flag);
-                await ctx.SaveChangesAsync();
-            }
+            required.Value = "false";
+            await ctx.SaveChangesAsync();
         }
     }
 
@@ -2910,22 +4791,126 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var ctx = _factory.Create();
         var issuing = Issuing(ctx);
 
-        var missing = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+        var missing = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.False(missing.Succeeded);
         Assert.Contains(IsbtErrorCodes.UnitScanMismatch, missing.Error);
 
         var mismatch = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest(
             "ward-nurse",
-            VerifiedScan: scan with { Din = "W9999999999999" }));
+            VerifiedScan: scan with { Din = "W9999999999999" }, Appearance: UnitAppearance.Acceptable));
         Assert.False(mismatch.Succeeded);
         Assert.True(mismatch.Evaluation!.IsHardStopped);
         Assert.Contains(mismatch.Evaluation.HardStops, r => r.Code == IsbtErrorCodes.UnitScanMismatch);
 
-        var ok = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan));
+        var ok = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan, Appearance: UnitAppearance.Acceptable));
         Assert.True(ok.Succeeded, ok.Error);
         Assert.Equal("ward-nurse", ok.Value!.WardReceivedBy);
         var stored = await ctx.Issues.FindAsync(issueId);
         Assert.False(string.IsNullOrWhiteSpace(stored!.WardScanJson));
+    }
+
+    // TEST-BB-394 (OCD-054): a back-entered issue's ward receipt and transfusion can identify the unit by the DIN on the
+    // paper record instead of a scan, only for that issue and only for a role holding issue.downtime-backentry.
+    [Fact]
+    public async Task DowntimeBackEntry_WardReceiptAndTransfusion_UseThePaperDin_InPlaceOfTheScan()
+    {
+        var paper = await SeedAsync("BE-BEDSIDE");
+        await RecordCompatibleCrossmatchAsync(paper);
+        await AllocateAsync(paper);
+        await AttachIsbtIdentityAsync(paper.UnitId);
+        var live = await SeedAsync("BE-LIVE");
+        await RecordCompatibleCrossmatchAsync(live);
+        await AllocateAsync(live);
+        await AttachIsbtIdentityAsync(live.UnitId);
+        var din = $"W{paper.UnitId:D12}";
+        await using (var c = _factory.Create())
+        {
+            // The crossmatch was done before the paper issue.
+            foreach (var xm in await c.Crossmatches.Where(x => x.BloodProductId == paper.UnitId).ToListAsync())
+            {
+                xm.PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-90);
+            }
+
+            c.Users.Add(new User { UserName = "be-witness", DisplayName = "Back-entry Witness", IsActive = true });
+            await c.SaveChangesAsync();
+        }
+
+        long paperIssueId;
+        long liveIssueId;
+        await using (var c = _factory.Create())
+        {
+            var backEntered = await Issuing(c).IssueUnitAsync(IssueReq(paper) with
+            {
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-1),
+                LateEntryReason = "Issued on paper during LIS downtime",
+                DowntimeBackEntry = true,
+                BackEntryDin = din
+            });
+            Assert.True(backEntered.Succeeded, backEntered.Error ?? string.Join("; ", backEntered.Evaluation?.Results.Where(r => r.Severity != RuleSeverity.Pass).Select(r => r.Code) ?? []));
+            paperIssueId = backEntered.Value!.Id;
+            var ordinary = await Issuing(c).IssueUnitAsync(IssueReq(live) with { VerifiedScan = MatchingScan(live.UnitId) });
+            Assert.True(ordinary.Succeeded, ordinary.Error);
+            liveIssueId = ordinary.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            // The ordinary issue must still be scanned.
+            var notBackEntry = await Issuing(c).DocumentTransfusionAsync(liveIssueId, TxReq(live) with { BackEntryDin = $"W{live.UnitId:D12}" });
+            Assert.Contains(notBackEntry.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.NotBackEntryCode);
+
+            var noRole = await Issuing(c, new FixedPermissionEvaluator(3, PermissionCodes.TransfusionDocument))
+                .DocumentTransfusionAsync(paperIssueId, TxReq(paper) with { BackEntryDin = din });
+            Assert.Contains(noRole.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.PermissionCode);
+
+            var wrongDin = await Issuing(c).DocumentTransfusionAsync(paperIssueId, TxReq(paper) with { BackEntryDin = "W999999999999" });
+            Assert.Contains(wrongDin.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.DinCode);
+
+            // Neither a scan nor the paper DIN: the scan is still required.
+            Assert.False((await Issuing(c).DocumentTransfusionAsync(paperIssueId, TxReq(paper))).Succeeded);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == paperIssueId));
+
+            // TEST-BB-395: on In transit the back-entered issue asks for its receipt, not "overdue".
+            var transit = Assert.Single(await Issuing(c).ListInTransitAsync(), r => r.IssueId == paperIssueId);
+            Assert.True(transit.DowntimeBackEntry);
+            Assert.False(transit.IsOverdue);
+
+            WardReceiptRequest Ward(DateTime? at) => new(
+                "RN Paper", Appearance: UnitAppearance.Acceptable, BackEntryDin: din.ToLowerInvariant(), ReceivedUtc: at);
+            var issuedAt = _factory.Clock.UtcNow.AddHours(-1);
+            foreach (var bad in new DateTime?[] { null, issuedAt.AddMinutes(-5), _factory.Clock.UtcNow.AddHours(1) })
+            {
+                var refused = await Issuing(c).RecordWardReceiptAsync(paperIssueId, Ward(bad));
+                Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == DowntimeBackEntryRule.ReceiptTimeCode);
+            }
+
+            var ward = await Issuing(c).RecordWardReceiptAsync(paperIssueId, Ward(issuedAt.AddMinutes(10)));
+            Assert.True(ward.Succeeded, ward.Error ?? string.Join("; ", ward.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal(issuedAt.AddMinutes(10), ward.Value!.WardReceivedUtc);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var receiptAudit = await c.AuditEvents.Where(a => a.EntityType == nameof(Issue) && a.EntityId == paperIssueId
+                && a.NewValueJson!.Contains("FromPaperRecord")).SingleAsync();
+            Assert.Contains("\"FromPaperRecord\":true", receiptAudit.NewValueJson);
+            Assert.Contains("\"Late\":false", receiptAudit.NewValueJson);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var documented = await Issuing(c).DocumentTransfusionAsync(paperIssueId, TxReq(paper) with
+            {
+                StartUtc = _factory.Clock.UtcNow.AddMinutes(-50),
+                StopUtc = _factory.Clock.UtcNow.AddMinutes(-20),
+                BackEntryDin = din,
+                // The paper DIN is not electronic identification, so the second verifier is still required.
+                SecondVerifier = "be-witness"
+            });
+            Assert.True(documented.Succeeded, documented.Error ?? string.Join("; ", documented.Evaluation?.HardStops.Select(r => r.Code + " " + r.Message) ?? []));
+            Assert.Equal(DowntimeBackEntryRule.PaperDinMethod, documented.Value!.UnitIdentificationMethod);
+            Assert.Null(documented.Value.BedsideScanVerificationJson);
+        }
     }
 
     private static ComponentScanVerificationRequest MatchingScan(long unitId) =>
@@ -2956,7 +4941,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             var issued = await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddHours(-5), CoolerId = "CLR-LATE" });
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddHours(-5), CoolerId = "CLR-LATE" , LateEntryReason = "Simulated earlier issue for the test" });
             Assert.True(issued.Succeeded);
             issueId = issued.Value!.Id;
             var transit = await Issuing(c).ListInTransitAsync();
@@ -2965,7 +4950,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Cooler returned unused"))).Succeeded);
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Cooler returned unused", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
         var after = await Issuing(ctx).ListInTransitAsync();
         Assert.DoesNotContain(after, t => t.IssueId == issueId);
     }
@@ -3015,6 +5000,123 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             issued.Evaluation?.Warnings ?? [],
             r => r.Code == BloodUnitExpirationRule.NearExpiryCode);
         Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    // TEST-BB-387 (OCD-053): the Ready to issue board offers emergency release on a specimen-blocked row only for an eligible unit.
+    [Fact]
+    public async Task ReadyToIssue_ExpiredSpecimen_OffersEmergencyOnlyForGroupORedCells()
+    {
+        var groupO = await SeedAsync("PRE-BOARD-O");
+        var groupA = await SeedAsync("PRE-BOARD-A", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await AllocateAsync(groupO);
+        await AllocateAsync(groupA);
+        await using (var setup = _factory.Create())
+        {
+            foreach (var specimen in await setup.Specimens.Where(x => x.Id == groupO.SpecimenId || x.Id == groupA.SpecimenId).ToListAsync())
+            {
+                specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            }
+
+            await setup.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var rows = await Issuing(c).ListReadyToIssueAllocationsAsync();
+
+        var oRow = Assert.Single(rows, r => r.BloodUnitId == groupO.UnitId);
+        Assert.True(oRow.SpecimenBlocksIssue);
+        Assert.True(oRow.PreSpecimenEmergencyAllowed);
+        Assert.Contains("OCD-053", oRow.SpecimenBlockReason);
+
+        var aRow = Assert.Single(rows, r => r.BloodUnitId == groupA.UnitId);
+        Assert.True(aRow.SpecimenBlocksIssue);
+        Assert.False(aRow.PreSpecimenEmergencyAllowed);
+        Assert.Contains("only group O red cells", aRow.SpecimenBlockReason);
+    }
+
+    // TEST-BB-386 (OCD-053): emergency release of group O red cells goes ahead without a usable specimen, as an override that names the rule.
+    [Fact]
+    public async Task EmergencyRelease_WithAnExpiredSpecimen_GroupORedCells_IssuesUnderOverride()
+    {
+        var s = await SeedAsync("PRE-SPEC");
+        await AllocateAsync(s);
+        await using (var setup = _factory.Create())
+        {
+            var specimen = await setup.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+            specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var routine = await Issuing(c).IssueUnitAsync(IssueReq(s));
+        Assert.False(routine.Succeeded);
+        Assert.Contains(routine.Evaluation!.HardStops, h => h.Code == SpecimenExpirationRule.ExpiredCode);
+
+        var asked = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+        Assert.False(asked.Succeeded);
+        Assert.Empty(asked.Evaluation!.HardStops);
+        Assert.Contains(asked.Evaluation.Warnings, w => w.Code == EmergencyPreSpecimenRule.Code);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease, overrideReason: "Trauma bay, no sample yet", authorizedBy: "dr-trauma"));
+        Assert.True(issued.Succeeded, issued.Error);
+        var exception = await c.Overrides.AsNoTracking().SingleAsync(o => o.Id == issued.Value!.OverrideId);
+        Assert.Contains(EmergencyPreSpecimenRule.Code, exception.RuleCode);
+        Assert.Equal("dr-trauma", exception.AuthorizedBy);
+    }
+
+    // TEST-BB-383 (OCD-052): the active compatibility table makes a gate warning a hard stop for its component class.
+    [Fact]
+    public async Task Issue_ActiveCompatibilityTable_MakesAWarningAHardStop_AndNeverSoftens()
+    {
+        var s = await SeedAsync("COMPAT-TABLE");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long versionId;
+        await using (var setup = _factory.Create())
+        {
+            var unit = await setup.BloodUnits.SingleAsync(u => u.Id == s.UnitId);
+            unit.ExpiresUtc = _factory.Clock.UtcNow.AddHours(3);
+            var version = new CompatibilityRuleVersion
+            {
+                Version = "TABLE-GATE", PolicyVersion = "P-GATE", EffectiveDate = new DateOnly(2026, 11, 1),
+                Notes = "Gate test", IsActive = true
+            };
+            setup.CompatibilityRuleVersions.Add(version);
+            await setup.SaveChangesAsync();
+            setup.CompatibilityRules.AddRange(
+                new CompatibilityRule
+                {
+                    CompatibilityRuleVersionId = version.Id, RuleCode = BloodUnitExpirationRule.NearExpiryCode,
+                    ComponentClass = ComponentClass.RedBloodCells, Severity = "HardStop", Description = "Near-expiry red cells need a fresh unit.", IsActive = true
+                },
+                // A row asking to soften the ABO hard stop is ignored by the gate.
+                new CompatibilityRule
+                {
+                    CompatibilityRuleVersionId = version.Id, RuleCode = AboCompatibilityRule.AboCode,
+                    ComponentClass = ComponentClass.RedBloodCells, Severity = "Warning", Description = "Softening attempt.", IsActive = true
+                });
+            await setup.SaveChangesAsync();
+            versionId = version.Id;
+        }
+
+        try
+        {
+            await using var c = _factory.Create();
+            var blocked = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.False(blocked.Succeeded);
+            var stop = Assert.Single(blocked.Evaluation!.HardStops, h => h.Code == BloodUnitExpirationRule.NearExpiryCode);
+            Assert.EndsWith(CompatibilityTablePolicy.EscalatedNote, stop.Message);
+            Assert.NotEqual(UnitStatus.Issued, (await c.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == s.UnitId)).Status);
+        }
+        finally
+        {
+            await using var cleanup = _factory.Create();
+            var version = await cleanup.CompatibilityRuleVersions.SingleAsync(v => v.Id == versionId);
+            version.IsActive = false;
+            await cleanup.SaveChangesAsync();
+        }
     }
 
     [Fact]

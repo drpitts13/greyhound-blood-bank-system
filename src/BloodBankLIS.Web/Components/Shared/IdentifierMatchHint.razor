@@ -1,0 +1,21 @@
+@using BloodBankLIS.Domain.Rules
+
+@* Live match hint under an identifier field. Never shows the expected value; the server still enforces the check. *@
+@if (Patient is not null)
+{
+    var hint = PatientIdentifierEntryRule.Check(Type, Value, Patient.MedicalRecordNumber, Patient.DateOfBirth, Patient.LastName, Patient.FirstName);
+    @if (hint == PatientIdentifierEntryRule.Hint.Matches)
+    {
+        <div class="bb-id-hint ok" role="status">&#10003; Matches the patient record</div>
+    }
+    else if (hint == PatientIdentifierEntryRule.Hint.DoesNotMatch)
+    {
+        <div class="bb-id-hint stop" role="alert">&#10007; Does not match this patient. Check the wristband or requisition.</div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public IdentityTokenType Type { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public PatientDto? Patient { get; set; }
+}

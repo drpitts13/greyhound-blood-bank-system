@@ -37,7 +37,8 @@ public sealed class FacilityPolicyService
         GetIntAsync(FacilityPolicyKeys.SpecimenLookbackDays, SpecimenValidityPolicy.DefaultLookbackDays, ct);
 
     public Task<bool> GetRequireSecondVerifierAsync(CancellationToken ct = default) =>
-        GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, false, ct);
+        // Same default as the catalog and the seeded setting (OCD-008: a facility may turn it off).
+        GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, true, ct);
 
     public Task<bool> GetRequireWardReceiptAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireWardReceipt, true, ct);
@@ -47,6 +48,9 @@ public sealed class FacilityPolicyService
 
     public Task<int> GetInTransitDueHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.InTransitDueHours, 4, ct);
+
+    public Task<int> GetTransfusionCompletionReminderHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.TransfusionCompletionReminderHours, TransfusionCompletionRule.DefaultReminderHours, ct);
 
     public Task<int> GetReturnToAvailableMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.ReturnToAvailableMinutes, ReturnReissueRule.DefaultReturnToAvailableMinutes, ct);
@@ -87,6 +91,12 @@ public sealed class FacilityPolicyService
     public Task<int> GetRetentionYearsAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.RetentionYears, 10, ct);
 
+    public Task<bool> GetAllowBatchVerifyAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.AllowBatchVerify, false, ct);
+
+    public Task<bool> GetRequireSpecimenCollectorAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireSpecimenCollector, false, ct);
+
     public Task<bool> GetBlockResultsWhenReagentQcOpenAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen, false, ct);
 
@@ -113,6 +123,15 @@ public sealed class FacilityPolicyService
 
     public Task<bool> GetPbmRequireJustificationAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.PbmRequireJustification, false, ct);
+
+    public Task<bool> GetRequireSpecimenReceiptByScanAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan, false, ct);
+
+    public Task<bool> GetPrefillPatientIdentifiersAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.PrefillPatientIdentifiers, false, ct);
+
+    public Task<bool> GetInspectionDefaultAcceptableAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.InspectionDefaultAcceptable, false, ct);
 
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);

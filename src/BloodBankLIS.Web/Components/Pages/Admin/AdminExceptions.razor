@@ -55,11 +55,11 @@
                             {
                                 @if (e.IsActive)
                                 {
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, false)">Deactivate</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginSetActive(e, false)">Deactivate</button>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, true)">Activate</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginSetActive(e, true)">Activate</button>
                                 }
                             }
                         </td>
@@ -67,6 +67,14 @@
                 }
             </tbody>
         </table>
+    }
+    @if (_pendingActive is { } pending)
+    {
+        <div class="form-row" style="margin-top:.75rem;">
+            <div class="field" style="flex:1;"><label>Why @(pending.Active ? "activate" : "deactivate") @pending.RuleCode?</label><input @bind="_activeReason" @bind:event="oninput" placeholder="At least 8 characters" /></div>
+            <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_activeReason))" @onclick="ConfirmSetActiveAsync">@(pending.Active ? "Activate" : "Deactivate")</button>
+            <button class="btn btn-ghost btn-sm" @onclick="() => _pendingActive = null">Cancel</button>
+        </div>
     }
 </div>
 
@@ -81,6 +89,7 @@
         </div>
         <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
         <label class="flex" style="gap:.35rem; margin-top:.4rem;"><input type="checkbox" @bind="_draft.IsOverridable" /> Overridable</label>
+        <div class="field" style="margin-top:.4rem;"><label>Reason for the change@(_editId is null ? " (optional)" : string.Empty)</label><input @bind="_draft.Reason" placeholder="Who asked for it, and why" /></div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
             <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
@@ -140,7 +149,8 @@
         if (_draft is null) return;
         _busy = true;
         var req = new SaveExceptionDefinitionRequest(
-            _draft.RuleCode, _draft.Name, _draft.Description, _draft.MinSecurityLevel, _draft.IsOverridable);
+            _draft.RuleCode, _draft.Name, _draft.Description, _draft.MinSecurityLevel, _draft.IsOverridable,
+            string.IsNullOrWhiteSpace(_draft.Reason) ? null : _draft.Reason.Trim());
         var r = _editId is null
             ? await Api.CreateAdminExceptionAsync(req)
             : await Api.UpdateAdminExceptionAsync(_editId.Value, req);
@@ -149,13 +159,28 @@
         if (r.Succeeded) { _draft = null; await LoadAsync(); }
     }
 
-    private async Task SetActiveAsync(long id, bool active)
+    private (long Id, string RuleCode, bool Active)? _pendingActive;
+    private string _activeReason = string.Empty;
+
+    private void BeginSetActive(ExceptionDefinitionDto e, bool active)
     {
+        _pendingActive = (e.Id, e.RuleCode, active);
+        _activeReason = string.Empty;
+        _feedback = null;
+    }
+
+    private async Task ConfirmSetActiveAsync()
+    {
+        if (_pendingActive is not { } pending) return;
         _busy = true;
-        var r = await Api.SetAdminExceptionActiveAsync(id, active);
+        var r = await Api.SetAdminExceptionActiveAsync(pending.Id, pending.Active, _activeReason.Trim());
         _busy = false;
-        _feedback = r.ToFeedback(active ? "Activated." : "Deactivated.");
-        if (r.Succeeded) await LoadAsync();
+        _feedback = r.ToFeedback(pending.Active ? "Activated." : "Deactivated.");
+        if (r.Succeeded)
+        {
+            _pendingActive = null;
+            await LoadAsync();
+        }
     }
 
     private sealed class Draft
@@ -165,6 +190,7 @@
         public string? Description { get; set; }
         public int MinSecurityLevel { get; set; } = 2;
         public bool IsOverridable { get; set; } = true;
+        public string? Reason { get; set; }
 
         public static Draft From(ExceptionDefinitionDto e) => new()
         {

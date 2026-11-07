@@ -28,6 +28,13 @@
 </details>
 
 <Outcome Value="_feedback" />
+@if (CanActivate || CanEdit)
+{
+    @* Settings here are enforced at transfer and issue, so every edit, activation, and deactivation records why. *@
+    <div class="field" style="max-width:32rem;"><label>Reason for the change</label>
+        <input @bind="_changeReason" @bind:event="oninput" placeholder="e.g. New fridge validated 2026-11-04, range per SOP 12" />
+    </div>
+}
 
 <div class="bb-card" style="margin-top:1rem;">
     <div class="flex gap" style="margin-bottom:.6rem;">
@@ -92,11 +99,11 @@
                             {
                                 @if (loc.IsActive)
                                 {
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(loc.Id, false)">Deactivate</button>
+                                    <button class="btn btn-ghost btn-sm" disabled="@(!HasReason)" title="@(HasReason ? null : "Give the reason for the change first")" @onclick="() => SetActiveAsync(loc.Id, false)">Deactivate</button>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(loc.Id, true)">Activate</button>
+                                    <button class="btn btn-ghost btn-sm" disabled="@(!HasReason)" title="@(HasReason ? null : "Give the reason for the change first")" @onclick="() => SetActiveAsync(loc.Id, true)">Activate</button>
                                 }
                             }
                         </td>
@@ -148,7 +155,7 @@
         </div>
         <label class="flex" style="gap:.35rem;margin:.6rem 0;"><input type="checkbox" @bind="_draft.ApplyTypeDefaults" /> Apply AABB storage defaults for the selected type on save</label>
         <div class="flex gap">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-primary" disabled="@(_busy || (_editId is not null && !HasReason))" title="@(_editId is not null && !HasReason ? "Give the reason for the change at the top of the page" : null)" @onclick="SaveAsync">Save</button>
             <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
         </div>
     </div>
@@ -256,7 +263,8 @@
             _draft.DefaultInTransitHours,
             _draft.Notes,
             _draft.ApplyTypeDefaults,
-            _draft.TimeOutGoverned);
+            _draft.TimeOutGoverned,
+            _editId is null ? null : _changeReason);
         var r = _editId is null
             ? await Api.CreateAdminInventoryLocationAsync(req)
             : await Api.UpdateAdminInventoryLocationAsync(_editId.Value, req);
@@ -264,6 +272,7 @@
         if (r.Succeeded)
         {
             _feedback = r.ToFeedback("Inventory location saved.");
+            _changeReason = string.Empty;
             _editId = null;
             _draft = null;
             await LoadAsync();
@@ -277,11 +286,14 @@
     private async Task SetActiveAsync(long id, bool active)
     {
         _busy = true;
-        var r = await Api.SetAdminInventoryLocationActiveAsync(id, active);
+        var r = await Api.SetAdminInventoryLocationActiveAsync(id, active, _changeReason);
         _busy = false;
         _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
-        if (r.Succeeded) await LoadAsync();
+        if (r.Succeeded) { _changeReason = string.Empty; await LoadAsync(); }
     }
+
+    private string _changeReason = string.Empty;
+    private bool HasReason => _changeReason.Trim().Length >= StorageLocationChangeReasonRule.MinimumLength;
 
     private static string StorageSummary(InventoryLocationAdminDto loc)
     {

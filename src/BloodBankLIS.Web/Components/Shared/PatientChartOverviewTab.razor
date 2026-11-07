@@ -63,11 +63,19 @@
                 <tbody>
                     @foreach (var t in TypeHistory)
                     {
-                        <tr>
-                            <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong>@if (t.IsCurrent) { <span class="sub">Current</span> }</td>
+                        <tr class="@(t.Invalidated ? "row-muted" : "")">
+                            <td>
+                                <strong style="@(t.Invalidated ? "text-decoration:line-through;" : "")">@Ui.BloodType(t.Abo, t.RhD)</strong>
+                                @if (t.IsCurrent) { <span class="sub">Current</span> }
+                                @if (t.Invalidated) { <span class="badge badge-red">Retired</span> }
+                            </td>
                             <td>@t.AboSubgroup</td>
-                            <td>@t.Source</td>
-                            <td>@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @(t.SourceLabel ?? t.Source.ToString())
+                                @if (t.Invalidated && !string.IsNullOrWhiteSpace(t.Reason)) { <span class="sub">@t.Reason</span> }
+                                @if (!t.CountsAsDetermination && !t.Invalidated) { <span class="sub">Does not count as an ABO/Rh determination</span> }
+                            </td>
+                            <td>@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub">@t.RecordedBy</span></td>
                         </tr>
                     }
                 </tbody>
@@ -114,6 +122,22 @@
                 }
             </div>
             <div class="field"><label>Reason (required)</label><input @bind="TypeReason" @bind:after="() => TypeReasonChanged.InvokeAsync(TypeReason)" /></div>
+            <div class="form-row">
+                <div class="field"><label>Documented source</label>
+                    <select @bind="TypeDocumentation" @bind:after="() => TypeDocumentationChanged.InvokeAsync(TypeDocumentation)">
+                        <option value="@ManualTypeDocumentation.NotDocumented">Not documented</option>
+                        <option value="@ManualTypeDocumentation.PreviousBloodBankSystem">Previous blood bank system</option>
+                        <option value="@ManualTypeDocumentation.OutsideSource">Documented outside source</option>
+                    </select>
+                </div>
+                @if (TypeDocumentation != ManualTypeDocumentation.NotDocumented)
+                {
+                    <div class="field" style="flex:1;"><label>Record or report (required)</label>
+                        <input @bind="TypeDocumentationReference" @bind:after="() => TypeDocumentationReferenceChanged.InvokeAsync(TypeDocumentationReference)" placeholder="e.g. legacy LIS record, or outside lab, date, report number" />
+                    </div>
+                }
+            </div>
+            <p class="muted">Only a type documented from a previous blood bank system or an outside source counts as one of the two ABO/Rh determinations needed for red-cell issue. An undocumented type is recorded but does not count.</p>
             <button class="btn btn-danger" disabled="@Busy" @onclick="OnRecordType">Record blood type</button>
         }
     </div>
@@ -137,17 +161,17 @@
         else
         {
             <table class="bb">
-                <thead><tr><th>Requirement</th><th>Level</th><th>Antigen</th><th>Reason</th><th>Effective</th><th>End date</th><th>Active</th><th></th></tr></thead>
+                <thead><tr><th>Requirement</th><th>Type</th><th>Antigen</th><th>Reason</th><th>Start</th><th>End date</th><th>Active</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var r in SpecialRequirements)
                     {
                         <tr>
                             <td>@(r.Name ?? r.Code ?? r.RequirementType.ToString())</td>
-                            <td>@r.Level</td>
+                            <td>@(r.CategoryLabel is { Length: > 0 } category ? category : r.Level?.ToString())</td>
                             <td class="mono">@r.AntigenCode</td>
-                            <td>@r.Reason</td>
-                            <td class="nowrap">@r.EffectiveUtc.ToString("yyyy-MM-dd")</td>
-                            <td class="nowrap">@(r.ExpiresUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td>@r.Reason@if (r.ReactionInvestigationId is long fromReaction) { <span class="sub"><a href="/reactions">From reaction investigation @fromReaction</a></span> }</td>
+                            <td class="nowrap">@LocalDate(r.EffectiveUtc)</td>
+                            <td class="nowrap">@(r.ExpiresUtc is { } endUtc ? LocalDate(endUtc) : "—")</td>
                             <td>@(r.IsClinicallyActive ? "Yes" : "No")</td>
                             <td class="right">
                                 @if (r.IsClinicallyActive && Session.Has(PermissionCodes.ImmunoOverride))
@@ -175,17 +199,32 @@
             <div class="form-row">
                 <div class="field"><label>Requirement</label>
                     <select @bind="SrDefinitionId" @bind:after="() => SrDefinitionIdChanged.InvokeAsync(SrDefinitionId)">
-                        @foreach (var d in SrCatalog)
+                        @foreach (var group in SrCatalog.GroupBy(d => d.Category).OrderBy(g => g.Key))
                         {
-                            <option value="@d.Id">@d.Name (@d.Level)</option>
+                            <optgroup label="@SpecialRequirementLabel.Category(group.Key)">
+                                @foreach (var d in group)
+                                {
+                                    <option value="@d.Id">@d.ChoiceLabel</option>
+                                }
+                            </optgroup>
                         }
                     </select>
                 </div>
-                @if (SelectedSrDefinition?.EnforcementKind == SpecialRequirementEnforcementKind.RequireAntigenNegative)
+                @if (SelectedSrDefinition is { EnforcementKind: SpecialRequirementEnforcementKind.RequireAntigenNegative } antigenDef
+                     && string.IsNullOrWhiteSpace(antigenDef.AntigenCode))
                 {
                     <div class="field"><label>Antigen code</label><input @bind="SrAntigen" @bind:after="() => SrAntigenChanged.InvokeAsync(SrAntigen)" placeholder="Required for antigen-negative" /></div>
                 }
+                <div class="field"><label>Start date</label><input type="date" @bind="SrStartDate" @bind:after="() => SrStartDateChanged.InvokeAsync(SrStartDate)" /></div>
                 <div class="field"><label>End date (optional)</label><input type="date" @bind="SrEndDate" @bind:after="() => SrEndDateChanged.InvokeAsync(SrEndDate)" /></div>
+                @if (SelectedSrDefinition?.Category == SpecialRequirementCategory.Informational)
+                {
+                    <div class="muted" style="grid-column:1/-1;">Shown as a banner on the chart and the issue desk: @SelectedSrDefinition.Instruction. Not enforced.</div>
+                }
+                else if (SelectedSrDefinition is { } chosen && chosen.Category is SpecialRequirementCategory.UnitTyping or SpecialRequirementCategory.UnitModification)
+                {
+                    <div class="muted" style="grid-column:1/-1;">Enforced for @(SpecialRequirementLabel.UnitCategory(chosen.Category, chosen.ComponentClass).ToLowerInvariant() is "all categories" ? "every unit" : SpecialRequirementLabel.UnitCategory(chosen.Category, chosen.ComponentClass) + " units") at selection and issue. Applies from the start date; no longer applies on and after the end date.</div>
+                }
                 <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="SrReason" @bind:after="() => SrReasonChanged.InvokeAsync(SrReason)" /></div>
             </div>
             <button class="btn btn-primary" disabled="@Busy" @onclick="OnAddSr">Add</button>
@@ -432,6 +471,10 @@
     [Parameter] public EventCallback<AboSubgroup> TypeSubgroupChanged { get; set; }
     [Parameter] public string TypeReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> TypeReasonChanged { get; set; }
+    [Parameter] public ManualTypeDocumentation TypeDocumentation { get; set; } = ManualTypeDocumentation.NotDocumented;
+    [Parameter] public EventCallback<ManualTypeDocumentation> TypeDocumentationChanged { get; set; }
+    [Parameter] public string TypeDocumentationReference { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> TypeDocumentationReferenceChanged { get; set; }
     [Parameter] public long? SrDeactivateId { get; set; }
     [Parameter] public string SrDeactivateReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> SrDeactivateReasonChanged { get; set; }
@@ -439,6 +482,12 @@
     [Parameter] public EventCallback<long> SrDefinitionIdChanged { get; set; }
     [Parameter] public string? SrAntigen { get; set; }
     [Parameter] public EventCallback<string?> SrAntigenChanged { get; set; }
+    // Facility calendar date of a stored instant; an end date shows the first day the requirement no longer applies.
+    private static string LocalDate(DateTime utc) =>
+        DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime().ToString("yyyy-MM-dd");
+
+    [Parameter] public DateTime? SrStartDate { get; set; }
+    [Parameter] public EventCallback<DateTime?> SrStartDateChanged { get; set; }
     [Parameter] public DateTime? SrEndDate { get; set; }
     [Parameter] public EventCallback<DateTime?> SrEndDateChanged { get; set; }
     [Parameter] public string SrReason { get; set; } = string.Empty;

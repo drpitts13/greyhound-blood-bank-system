@@ -262,3 +262,20 @@ public class EmergencyReleaseReasonNoticeTests
         Assert.Null(ReadyToIssueFormCue.EmergencyReleaseReasonNotice(null));
     }
 }
+
+// TEST-BB-457: ward receipt names the cooler with its latest check before dispatch; an id that already says
+// "Cooler" is not doubled; when the check state is unknown only the cooler is named.
+public class CoolerCheckNoticeTests
+{
+    [Fact]
+    public void CoolerCheckNotice_SaysWhetherTheCoolerWasCheckedBeforeItLeft()
+    {
+        var at = new DateTime(2026, 11, 5, 9, 30, 0);
+        Assert.Equal("Cooler CLR-1: checked 2026-11-05 09:30, all units packed", ReadyToIssueFormCue.CoolerCheckNotice(" CLR-1 ", true, at, true));
+        Assert.Equal("Cooler M2: checked 2026-11-05 09:30 with differences; compare each unit with its issue", ReadyToIssueFormCue.CoolerCheckNotice("Cooler M2", true, at, false));
+        Assert.Equal("Cooler CLR-1: not checked before it left", ReadyToIssueFormCue.CoolerCheckNotice("CLR-1", true, null, null));
+        Assert.Equal("Cooler CLR-1", ReadyToIssueFormCue.CoolerCheckNotice("CLR-1", false, null, null));
+        Assert.Equal("cooler 3", ReadyToIssueFormCue.CoolerNotice("cooler 3"));
+        Assert.Null(ReadyToIssueFormCue.CoolerCheckNotice("  ", true, at, true));
+    }
+}

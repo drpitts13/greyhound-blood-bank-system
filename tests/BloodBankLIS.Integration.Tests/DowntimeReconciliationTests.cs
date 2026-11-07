@@ -22,7 +22,8 @@ public class DowntimeReconciliationTests : IClassFixture<SqliteContextFactory>
             new AuditQuery(c),
             _factory.Clock,
             _factory.CurrentUser,
-            permissions);
+            permissions,
+            new EfRepository<InstrumentMessageLog>(c));
 
     [Fact]
     public async Task GetSnapshot_WithoutAuditRead_IsBlocked()
@@ -131,6 +132,50 @@ public class DowntimeReconciliationTests : IClassFixture<SqliteContextFactory>
             Status = IssueStatus.Issued,
             RetrospectiveCrossmatchDueUtc = _factory.Clock.UtcNow.AddHours(-1)
         });
+
+        // TEST-BB-396: paper issues back-entered after downtime, one received at the ward, one transfused (not counted).
+        var paperCases = new[] { ((DateTime?)null, IssueStatus.Issued), (_factory.Clock.UtcNow.AddHours(-1), IssueStatus.Issued), (null, IssueStatus.Transfused) };
+        for (var n = 0; n < paperCases.Length; n++)
+        {
+            var (received, status) = paperCases[n];
+            var paperUnit = new BloodUnit
+            {
+                UnitNumber = $"U-DTBE{n}-{key}",
+                ProductTypeId = product.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = status == IssueStatus.Issued ? UnitStatus.Issued : UnitStatus.Transfused
+            };
+            c.BloodUnits.Add(paperUnit);
+            await c.SaveChangesAsync();
+            c.Issues.Add(new Issue
+            {
+                BloodProductId = paperUnit.Id,
+                PatientId = patient.Id,
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-3),
+                IssuedBy = "tech-test",
+                Status = status,
+                DowntimeBackEntry = true,
+                WardReceivedUtc = received
+            });
+        }
+
+        await c.SaveChangesAsync();
+
+        // TEST-BB-401: only the open instrument failure counts.
+        foreach (var (status, resolved) in new[] { (InstrumentMessageStatus.Failed, (DateTime?)null), (InstrumentMessageStatus.Failed, _factory.Clock.UtcNow), (InstrumentMessageStatus.Processed, null) })
+        {
+            c.InstrumentMessages.Add(new InstrumentMessageLog
+            {
+                InterfaceId = 1,
+                RawMessage = "H|",
+                Status = status,
+                ReceivedUtc = _factory.Clock.UtcNow,
+                ResolvedUtc = resolved
+            });
+        }
+
         await c.SaveChangesAsync();
 
         var after = await Service(c, new FixedPermissionEvaluator(1, PermissionCodes.AuditRead))
@@ -139,7 +184,10 @@ public class DowntimeReconciliationTests : IClassFixture<SqliteContextFactory>
         var snap = after.Value!;
         Assert.Equal(before.Value!.UnresolvedInterfaceErrors + 1, snap.UnresolvedInterfaceErrors);
         Assert.Equal(before.Value.PendingOutboundHl7 + 1, snap.PendingOutboundHl7);
-        Assert.Equal(before.Value.OpenIssues + 1, snap.OpenIssues);
+        Assert.Equal(before.Value.OpenIssues + 3, snap.OpenIssues);
+        Assert.Equal(before.Value.BackEntriesAwaitingTransfusion + 2, snap.BackEntriesAwaitingTransfusion);
+        Assert.Equal(before.Value.BackEntriesAwaitingWardReceipt + 1, snap.BackEntriesAwaitingWardReceipt);
+        Assert.Equal(before.Value.OpenInstrumentFailures + 1, snap.OpenInstrumentFailures);
         Assert.Equal(before.Value.PendingRetrospectiveCrossmatches + 1, snap.PendingRetrospectiveCrossmatches);
         Assert.Equal(AuditHashChainRule.OkCode, snap.AuditChainCode);
         Assert.True(snap.HashedAuditRows >= 0);

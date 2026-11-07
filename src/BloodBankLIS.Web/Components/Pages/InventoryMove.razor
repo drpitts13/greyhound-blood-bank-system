@@ -1,0 +1,123 @@
+@page "/inventory/move"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Move units &middot; HemoCore</PageTitle>
+
+<div class="flex-between">
+    <h1>Move units</h1>
+    <a class="btn btn-ghost" href="/inventory">Inventory</a>
+</div>
+<p class="muted">
+    Stock a satellite refrigerator or move a batch between locations: choose where the units go, then scan each unit number.
+    Each scan moves that unit at once, with the same checks and audit as a transfer from the unit page (status, active
+    location, component allowed, storage range). A divided unit number moves nothing; move those from the unit page.
+</p>
+
+@if (!Session.Has(PermissionCodes.InventoryTransfer))
+{
+    <div class="muted">No permission to move units.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="field">
+                <label>Move to</label>
+                <select @bind="_toLocationId" data-move-to>
+                    <option value="0">Choose a location</option>
+                    @foreach (var l in _locations.Where(l => l.IsActive))
+                    {
+                        <option value="@l.Id">@l.ChoiceLabel</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Reason (optional)</label><input @bind="_reason" placeholder="e.g. Stock OR refrigerator" /></div>
+            <div class="field">
+                <label>Scan unit number</label>
+                <input @ref="_scanInput" @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" disabled="@(_toLocationId == 0)"
+                       placeholder="@(_toLocationId == 0 ? "Choose a location first" : "Scan, then the next")" autocomplete="off" data-move-scan />
+            </div>
+        </div>
+        <Outcome Value="_fb" />
+
+        @if (_run.Count > 0)
+        {
+            <h3 style="margin-top:1rem;">This run: @MovedCount moved@(RefusedCount > 0 ? $", {RefusedCount} not moved" : "")</h3>
+            <table class="bb" data-move-run>
+                <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>To</th><th>Result</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _run)
+                    {
+                        <tr>
+                            <td class="mono">@(row.Unit is null ? row.Scan : row.Unit.UnitNumber)</td>
+                            <td class="mono">@(row.Unit?.Isbt128ProductCode ?? row.Unit?.ProductCodeData ?? "—")</td>
+                            <td>@(row.Unit?.BloodType ?? "—")</td>
+                            <td>@row.Destination</td>
+                            <td>
+                                @if (row.Unit is not null)
+                                {
+                                    <span class="badge badge-green">Moved</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red" title="@row.Error">Not moved</span>
+                                    <span class="sub">@row.Error</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private List<InventoryLocationDto> _locations = new();
+    private long _toLocationId;
+    private string? _reason;
+    private string _scan = string.Empty;
+    private Feedback? _fb;
+    private bool _busy;
+    private ElementReference _scanInput;
+
+    private sealed record RunRow(string Scan, string Destination, BloodUnitDto? Unit, string? Error);
+
+    // Newest first, so the unit just scanned is at the top.
+    private readonly List<RunRow> _run = new();
+    private int MovedCount => _run.Count(r => r.Unit is not null);
+    private int RefusedCount => _run.Count(r => r.Unit is null);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _locations = (await Api.GetLocationsAsync()).Value ?? new();
+    }
+
+    // A scanner ends with Enter: move the scanned unit, record the outcome, clear for the next scan.
+    private async Task OnScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || _busy || _toLocationId == 0)
+        {
+            return;
+        }
+
+        _busy = true;
+        var scan = _scan.Trim();
+        var destination = _locations.FirstOrDefault(l => l.Id == _toLocationId)?.ChoiceLabel ?? $"location {_toLocationId}";
+        var r = await Api.TransferUnitByScanAsync(new TransferByScanRequest(scan, _toLocationId, _reason));
+        _busy = false;
+        _scan = string.Empty;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _run.Insert(0, new RunRow(scan, destination, r.Value, null));
+            _fb = Feedback.Succeed($"Moved {r.Value.UnitNumber} to {destination}. Scan the next unit.");
+        }
+        else
+        {
+            var error = r.ToFeedback().Error ?? "Not moved.";
+            _run.Insert(0, new RunRow(scan, destination, null, error));
+            _fb = r.ToFeedback();
+        }
+    }
+}

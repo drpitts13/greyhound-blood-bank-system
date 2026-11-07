@@ -26,14 +26,20 @@ public sealed class Hl7OutboundSender
         IRepository<InterfaceEndpoint> endpoints,
         IRepository<InterfaceErrorQueueItem> errors,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IAuditWriter? audit = null)
     {
         _logs = logs;
         _endpoints = endpoints;
         _errors = errors;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _audit = audit;
     }
+
+    private readonly IAuditWriter? _audit;
+
+    public const string DeliveredResolutionNote = "Resolved: the message was delivered and acknowledged on a later send.";
 
     public const int DefaultMaxRetries = 5;
 
@@ -215,7 +221,15 @@ public sealed class Hl7OutboundSender
             item.Resolved = true;
             item.ResolvedBy = "outbound";
             item.ResolvedUtc = now;
+            item.ResolutionNote = DeliveredResolutionNote;
             _errors.Update(item);
+            _audit?.Record(
+                AuditEventType.Interface,
+                nameof(InterfaceErrorQueueItem),
+                item.Id,
+                oldValue: new { Resolved = false, item.Hl7MessageId },
+                newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId, item.ResolutionNote },
+                reason: DeliveredResolutionNote);
         }
     }
 

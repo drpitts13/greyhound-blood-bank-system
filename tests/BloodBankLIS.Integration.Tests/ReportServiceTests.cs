@@ -28,7 +28,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(9, list.Value!.Count);
+        Assert.Equal(13, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -184,6 +184,127 @@ public class ReportServiceTests : IDisposable
         Assert.Equal("ABO/Rh", sqlRow[3]);
         Assert.Equal("AboRh", sqlRow[4]);
         Assert.Equal("O Pos", sqlRow[5]);
+    }
+
+    // TEST-BB-335: rejections are counted by month, reason code, draw location, and collector.
+    [Fact]
+    public async Task RejectionsByCause_GroupsRejectedSpecimens_AndSkipsOthers()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-RPT-REJ", LastName = "Report", FirstName = "Reject", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        db.Patients.Add(patient);
+        await db.SaveChangesAsync();
+
+        var rejectedAt = new DateTime(2026, 10, 15, 8, 0, 0, DateTimeKind.Utc);
+        Specimen Make(string accession, SpecimenStatus status, string? code, string location, string collector, DateTime? rejected) => new()
+        {
+            AccessionNumber = accession,
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = rejectedAt.AddHours(-2),
+            DrawLocation = location,
+            Collector = collector,
+            Status = status,
+            RejectionReasonCode = code,
+            RejectionReason = code is null ? (status == SpecimenStatus.Rejected ? "legacy free text" : null) : code + " text",
+            RejectedUtc = rejected,
+            RejectedBy = rejected is null ? null : "tech-test"
+        };
+        db.Specimens.AddRange(
+            Make("RPT-REJ-1", SpecimenStatus.Rejected, "WBIT", "4 West", "RN Lee", rejectedAt),
+            Make("RPT-REJ-2", SpecimenStatus.Rejected, "WBIT", "4 West", "RN Lee", rejectedAt.AddDays(1)),
+            Make("RPT-REJ-3", SpecimenStatus.Rejected, "HEMOLYZED", "ED", "RN Diaz", rejectedAt),
+            Make("RPT-REJ-4", SpecimenStatus.Rejected, null, "ED", "RN Diaz", rejectedAt),
+            Make("RPT-OK-5", SpecimenStatus.Accepted, null, "4 West", "RN Lee", null));
+        await db.SaveChangesAsync();
+
+        var service = Service(db);
+        var list = await service.ListAsync();
+        var byCause = list.Value!.Single(r => r.Code == "RPT-REJECTIONS-BY-CAUSE");
+        var run = await service.RunAsync(byCause.Id, new Dictionary<string, string?>());
+        Assert.True(run.Succeeded, run.Error);
+        var rows = run.Value!.Rows;
+        Assert.Equal(3, rows.Count);
+        Assert.Contains(rows, r => r.Contains("2026-10") && r.Contains("WBIT") && r.Contains("4 West") && r.Contains("RN Lee") && r.Contains("2"));
+        Assert.Contains(rows, r => r.Contains("HEMOLYZED") && r.Contains("ED") && r.Contains("1"));
+        Assert.Contains(rows, r => r.Contains("UNCODED") && r.Contains("ED") && r.Contains("1"));
+
+        var detail = list.Value!.Single(r => r.Code == "RPT-SPECIMEN-REJECTIONS");
+        var detailRun = await service.RunAsync(detail.Id, new Dictionary<string, string?>());
+        Assert.True(detailRun.Succeeded, detailRun.Error);
+        Assert.Equal(4, detailRun.Value!.Rows.Count);
+        Assert.DoesNotContain(detailRun.Value.Rows, r => r.Contains("RPT-OK-5"));
+    }
+
+    // TEST-BB-477: turnaround counts verified current results on an order (not superseded or unverified ones), in
+    // minutes from order and from receipt; the by-priority report groups them with the average and longest; the
+    // SQL view gives the same minutes.
+    [Fact]
+    public async Task TestTurnaround_MinutesFromOrderAndReceipt_ByPriority()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-TAT", LastName = "Turn", FirstName = "Around", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        db.Patients.Add(patient);
+        await db.SaveChangesAsync();
+        var t0 = new DateTime(2026, 10, 20, 8, 0, 0, DateTimeKind.Utc);
+        var specimen = new Specimen { AccessionNumber = "ACC-TAT", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = t0, ReceivedUtc = t0.AddMinutes(15), Status = SpecimenStatus.Accepted };
+        var encounter = new Encounter { PatientId = patient.Id, VisitNumber = "VIS-TAT", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = t0.AddDays(-1) };
+        var location = new OrderingLocation { Code = "LOC-TAT", Name = "ED", IsActive = true };
+        db.AddRange(specimen, encounter, location);
+        await db.SaveChangesAsync();
+        Order NewOrder(string number, OrderPriority priority) => new()
+        {
+            OrderNumber = number, PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderCategory = OrderCategory.Test, OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen, Priority = priority, Status = OrderStatus.Completed, Source = OrderSource.Manual, OrderedUtc = t0
+        };
+        var stat = NewOrder("ORD-TAT-S", OrderPriority.Stat);
+        var routine = NewOrder("ORD-TAT-R", OrderPriority.Routine);
+        db.Orders.AddRange(stat, routine);
+        await db.SaveChangesAsync();
+        TestResult Result(Order order, string code, int minutes, ResultStatus status = ResultStatus.Verified) => new()
+        {
+            SpecimenId = specimen.Id, PatientId = patient.Id, OrderId = order.Id, TestCode = code, Value = "Negative",
+            Status = status, EnteredUtc = t0.AddMinutes(minutes - 5), VerifiedUtc = status == ResultStatus.Verified ? t0.AddMinutes(minutes) : null
+        };
+        var superseded = Result(stat, "ABSC", 500);
+        db.TestResults.AddRange(Result(stat, "ABORH", 40), Result(stat, "ABORH", 60), superseded, Result(routine, "ABORH", 240),
+            Result(routine, "ABSC", 300, ResultStatus.Entered));
+        await db.SaveChangesAsync();
+        var correction = Result(stat, "ABSC", 90);
+        db.TestResults.Add(correction);
+        await db.SaveChangesAsync();
+        superseded.SupersededByResultId = correction.Id;
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var detail = await service.RunAsync(list.Single(r => r.Code == "RPT-TAT").Id, new Dictionary<string, string?>());
+        Assert.True(detail.Succeeded, detail.Error);
+        Assert.Equal(4, detail.Value!.Rows.Count);
+        var columns = detail.Value.Columns.ToList();
+        var abscStat = detail.Value.Rows.Single(r => r[columns.IndexOf("test_code")] == "ABSC");
+        Assert.Equal(("90", "75"), (abscStat[columns.IndexOf("minutes_order_to_verify")], abscStat[columns.IndexOf("minutes_receipt_to_verify")]));
+
+        var byPriority = await service.RunAsync(list.Single(r => r.Code == "RPT-TAT-BY-PRIORITY").Id, new Dictionary<string, string?>());
+        Assert.True(byPriority.Succeeded, byPriority.Error);
+        Assert.Contains(byPriority.Value!.Rows, r => r.Contains("Stat") && r.Contains("ABORH") && r.Contains("2") && r.Contains("50") && r.Contains("60"));
+        Assert.Contains(byPriority.Value.Rows, r => r.Contains("Routine") && r.Contains("ABORH") && r.Contains("1") && r.Contains("240"));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-TAT-SQL",
+            Name = "SQL turnaround",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT test_code, priority, minutes_order_to_verify, minutes_receipt_to_verify FROM rpt_test_turnaround WHERE order_number = 'ORD-TAT-S' ORDER BY minutes_order_to_verify"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "40", "60", "90" }, sqlRun.Value!.Rows.Select(r => r[2] ?? "").ToArray());
+        Assert.Equal(("Stat", "75"), (sqlRun.Value.Rows[2][1], sqlRun.Value.Rows[2][3]));
     }
 
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>

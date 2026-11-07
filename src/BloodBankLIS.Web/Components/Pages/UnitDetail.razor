@@ -6,7 +6,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>@(UnitNumberTitle) &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>@(UnitNumberTitle) &middot; HemoCore</PageTitle>
 
 <InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Inventory" />
 
@@ -22,8 +22,65 @@ else if (_unit is null)
 else
 {
     <UnitChartHeader Unit="_unit" ProductCode="@ProductCode(_unit)" ProductName="@ProductName(_unit.ProductTypeId)" LocationName="@LocationName(_unit.CurrentLocationId)" />
-    <UnitChartTabBar Current="_tab" OnSelect="SelectTab" />
+    <UnitChartTabBar Current="@_tab" OnSelect="SelectTab" />
+    @if (_issuedRow is { } issued)
+    {
+        @* Found by a scan: where the unit went, and its next step. *@
+        <div class="alert alert-info" style="margin-top:.5rem;" data-unit-issued>
+            <strong>Issued to @(issued.PatientDisplayName ?? $"patient {issued.PatientId}")@(string.IsNullOrWhiteSpace(issued.MedicalRecordNumber) ? "" : $" ({issued.MedicalRecordNumber})")</strong>
+            <span> · @(string.IsNullOrWhiteSpace(issued.IssuedToLocation) ? "no destination recorded" : issued.IssuedToLocation) · issued @issued.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(string.IsNullOrWhiteSpace(issued.IssuedBy) ? "" : $" by {issued.IssuedBy}")@(string.IsNullOrWhiteSpace(issued.CoolerId) ? "" : $" · {issued.CoolerId}")</span>
+            <div class="muted">@IssuedStatusLine(issued)</div>
+            <div class="flex gap" style="margin-top:.4rem;flex-wrap:wrap;">
+                <a class="btn btn-ghost btn-sm" href="@($"/patients/{issued.PatientId}?tab=products")">Open chart · Products</a>
+                @if (Session.Has(PermissionCodes.TransfusionDocument))
+                {
+                    @switch (IssueRun.NextStepForIssued(issued))
+                    {
+                        case IssuedNextStep.ReceiveOnWard:
+                            <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=receipt&issueId={issued.IssueId}")">Receive on ward</a>
+                            break;
+                        case IssuedNextStep.StartTransfusion:
+                            <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=transfuse&issueId={issued.IssueId}")">Start / document transfusion</a>
+                            break;
+                        default:
+                            <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=transfuse&issueId={issued.IssueId}")">Complete transfusion</a>
+                            break;
+                    }
+                }
+                @if (IssueRun.CanReturn(issued) && Session.Has(PermissionCodes.IssueReturn))
+                {
+                    <a class="btn btn-secondary btn-sm" href="@($"/issuing?desk=return&issueId={issued.IssueId}")">Return</a>
+                }
+            </div>
+        </div>
+    }
+    @if (_reservation is { } reserved)
+    {
+        @* Found by a scan: say whose unit it is and go straight to issuing it. *@
+        <div class="alert @(IssueRun.OffersRoutineIssue(reserved) ? "alert-info" : "alert-warning")" style="margin-top:.5rem;" data-unit-reservation>
+            <strong>Reserved for @(reserved.PatientDisplayName ?? $"patient {reserved.PatientId}")@(string.IsNullOrWhiteSpace(reserved.MedicalRecordNumber) ? "" : $" ({reserved.MedicalRecordNumber})")</strong>
+            @if (ReadyToIssueFormCue.CrossmatchWorklistNotice(reserved.LatestCrossmatchResult, reserved.CrossmatchExpiresUtc) is { } xm)
+            {
+                <span> · @xm</span>
+            }
+            <div class="flex gap" style="margin-top:.4rem;flex-wrap:wrap;">
+                <a class="btn btn-ghost btn-sm" href="@($"/patients/{reserved.PatientId}?tab=products")">Open chart · Products</a>
+                @if (IssueRun.OffersRoutineIssue(reserved) && Session.Has(PermissionCodes.IssueCreate))
+                {
+                    <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=issue&bloodUnitId={reserved.BloodUnitId}")">Issue</a>
+                }
+                else if (!IssueRun.OffersRoutineIssue(reserved))
+                {
+                    <span class="muted">Before routine issue: @string.Join(" ", IssueRun.RoutineIssueBlocks(reserved)) <a href="/issuing?desk=ready">Ready to issue</a></span>
+                }
+            </div>
+        </div>
+    }
     <Outcome Value="_actionFb" />
+    @if (_reserveAgainHref is not null && Session.Has(PermissionCodes.CompatibilityAllocate))
+    {
+        <p class="muted">The unit is back in stock and no longer reserved for this patient. <a class="btn btn-secondary btn-sm" href="@_reserveAgainHref">Reserve again for this patient</a></p>
+    }
 
     @if (_autoThawAllocationId is long thawAllocationId)
     {
@@ -108,6 +165,7 @@ else
                 </p>
             }
         </div>
+        <LinkedDeviations ContextType="@DeviationRecordTypes.BloodUnit" ContextId="_unit.Id" Noun="unit" />
     }
 
     @if (_tab == "actions")
@@ -146,12 +204,7 @@ else
                         }
                         else
                         {
-                        <div class="field" style="min-width:14rem;">
-                            <label>Appearance</label>
-                            <select @bind="_arrivalAppearance">
-                                @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                            </select>
-                        </div>
+                        <AppearanceSelect Style="min-width:14rem;" @bind-Value="_arrivalAppearance" />
                         <div class="field" style="min-width:16rem;">
                             <label>Arrival notes</label>
                             <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
@@ -189,15 +242,24 @@ else
                     }
                     @if (_unit.Status == UnitStatus.OnHold && Session.Has(PermissionCodes.InventoryRelease))
                     {
-                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(_unit.Id)">Release from hold</button>
+                        <div class="field" style="min-width:16rem;"><label>How was the hold resolved?</label>
+                            <input @bind="_holdReleaseReason" @bind:event="oninput" placeholder="e.g. Supplier paperwork received" />
+                        </div>
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReleaseReason))" @onclick="() => ReleaseHoldAsync(_unit.Id)">Release from hold</button>
                     }
                     @if (_unit.Status == UnitStatus.Missing && Session.Has(PermissionCodes.InventoryRelease))
                     {
-                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => LocateMissingAsync(_unit.Id)">Unit located</button>
+                        <div class="field" style="min-width:16rem;"><label>Where and how was it found?</label>
+                            <input @bind="_discrepancyNote" @bind:event="oninput" placeholder="e.g. Back of shelf 2, OR satellite fridge" />
+                        </div>
+                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discrepancyNote))" @onclick="() => LocateMissingAsync(_unit.Id)">Unit located</button>
                     }
                     @if (_unit.Status == UnitStatus.Damaged && Session.Has(PermissionCodes.InventoryRelease))
                     {
-                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => InspectDamagedAsync(_unit.Id)">Inspect into quarantine</button>
+                        <div class="field" style="min-width:16rem;"><label>What did the inspection show?</label>
+                            <input @bind="_discrepancyNote" @bind:event="oninput" placeholder="e.g. Port intact, crease in overwrap, no leak" />
+                        </div>
+                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discrepancyNote))" @onclick="() => InspectDamagedAsync(_unit.Id)">Inspect into quarantine</button>
                     }
                     @if (Session.Has(PermissionCodes.PrintLabel))
                     {
@@ -238,12 +300,12 @@ else
                         @if (_showAllocOverride)
                         {
                             <div class="field"><label>Override reason</label><input @bind="_allocOverrideReason" /></div>
-                            <div class="field"><label>Authorized by</label><input @bind="_allocAuthorizedBy" /></div>
+                            <AuthorizerField @bind-Value="_allocAuthorizedBy" />
                         }
                     }
                     @if (_unit.Status == UnitStatus.Issued && _selectedIssueId is long issuedId && Session.Has(PermissionCodes.TransfusionDocument))
                     {
-                        <button type="button" class="btn btn-link btn-sm" disabled="@_busy" @onclick="() => MarkInventoryTransfusedAsync(issuedId)">Transfuse</button>
+                        <a class="btn btn-link btn-sm" href="@($"/issuing?desk=transfuse&issueId={issuedId}")" title="Opens the bedside documentation form with this unit">Document transfusion</a>
                     }
                     @if (_unit.Status == UnitStatus.Issued && Session.Has(PermissionCodes.IssueReturn))
                     {
@@ -255,17 +317,16 @@ else
                                     <option value="@UnitStatus.Available">Available</option>
                                 }
                                 <option value="@UnitStatus.Quarantine">Quarantine</option>
-                                <option value="@UnitStatus.Discarded">Disposed</option>
                             </select>
                         </div>
                         <input @bind="_changeStatusReason" @bind:event="oninput" placeholder="Reason" style="flex:1;min-width:12rem;" />
                         @if (_changeStatusDestination == UnitStatus.Available)
                         {
-                            <label class="checkbox-item"><input type="checkbox" @bind="_changeTempOk" /> Temperature acceptable</label>
-                            <label class="checkbox-item"><input type="checkbox" @bind="_changeSealOk" /> Seal intact</label>
-                            <label class="checkbox-item"><input type="checkbox" @bind="_changeVisualOk" /> Visual inspection acceptable</label>
+                            <InspectionAnswer Label="Temperature" @bind-Value="_changeTempOk" />
+                            <InspectionAnswer Label="Seal" YesText="Intact" NoText="Broken" @bind-Value="_changeSealOk" />
+                            <InspectionAnswer Label="Visual inspection" @bind-Value="_changeVisualOk" />
                         }
-                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_changeStatusReason))" @onclick="() => ChangeIssuedStatusAsync(_unit.Id)">Change status</button>
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_changeStatusReason) || ChangeInspectionMissing)" @onclick="() => ChangeIssuedStatusAsync(_unit.Id)">Change status</button>
                     }
                 </div>
 
@@ -434,12 +495,62 @@ else
                 <button class="btn btn-secondary btn-sm" disabled="@(_busy || _uaCatalogId is null)" @onclick="() => SaveUnitAttributeAsync(_unit.Id)">Save attribute</button>
             }
         </div>
+
+        <div class="bb-card" style="margin-top:1rem;">
+            <div class="bb-card-title"><h3>Unit tests</h3></div>
+            <p class="muted">Results for tests done on this unit after it arrived, such as CMV or HbS. The latest result for each test is the unit's result: a patient requirement for CMV- or HbS-negative units is met by a Negative here or by the product code. A correction keeps the earlier result and needs a reason.</p>
+            @if (_unitTests.Count == 0)
+            {
+                <div class="muted">No unit tests recorded.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Test</th><th>Result</th><th>Recorded</th><th>By</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var test in _unitTests)
+                        {
+                            <tr class="@(test.IsCurrent ? null : "muted")">
+                                <td class="mono">@test.TestCode</td>
+                                <td>@test.Result</td>
+                                <td class="nowrap">@test.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@test.RecordedBy</td>
+                                <td>@(test.IsCurrent ? "Current" : "Corrected")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (Session.Has(PermissionCodes.InventoryReceive))
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Test code</label><input class="mono" @bind="_utCode" @bind:event="oninput" placeholder="CMV / HBS" /></div>
+                    <div class="field"><label>Result</label>
+                        <select @bind="_utResult">
+                            <option value="@UnitSpecialTestRule.Negative">Negative</option>
+                            <option value="@UnitSpecialTestRule.Positive">Positive</option>
+                        </select>
+                    </div>
+                    @if (UnitTestCorrects is { } current)
+                    {
+                        <div class="field" style="grid-column:1/-1;"><label>Reason for correcting @current.TestCode (recorded @current.Result)</label><input @bind="_utReason" @bind:event="oninput" /></div>
+                    }
+                </div>
+                <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_utCode))" @onclick="() => RecordUnitTestAsync(_unit.Id)">Record result</button>
+            }
+        </div>
     }
 
     @if (_tab == "history")
     {
         <div class="bb-card">
-            <div class="bb-card-title"><h3>Status history</h3></div>
+            <div class="bb-card-title">
+                <h3>Status history</h3>
+                @if (Session.Has(PermissionCodes.AuditRead))
+                {
+                    <a class="btn btn-ghost btn-sm" href="@AuditUrls.For("BloodUnit", _unit.Id)" title="Every audited change to this unit">Full audit trail</a>
+                }
+            </div>
             <p class="muted">Everything done to this unit — receive, allocate, crossmatch, issue, return, transfuse, modify and status changes. Use it to trace product dispositions.</p>
             <details class="bb-help">
                 <summary>How rows are worded</summary>
@@ -519,6 +630,17 @@ else
     private bool _loading = true;
     private string? _error;
     private BloodUnitDto? _unit;
+    // The reservation on Ready to issue for this unit, if it has one.
+    private ReadyToIssueWorkItemDto? _reservation;
+    // The outstanding issue for this unit, if it is out of the bank.
+    private OutstandingIssueWorkItemDto? _issuedRow;
+
+    private static string IssuedStatusLine(OutstandingIssueWorkItemDto row) => IssueRun.NextStepForIssued(row) switch
+    {
+        IssuedNextStep.ReceiveOnWard => "In transit, not yet received on the ward.",
+        IssuedNextStep.StartTransfusion => $"Received on the ward {row.WardReceivedUtc!.Value.ToLocalTime():HH:mm}{(string.IsNullOrWhiteSpace(row.WardReceivedBy) ? "" : $" by {row.WardReceivedBy}")}; transfusion not started.",
+        _ => $"Transfusing since {row.TransfusionStartedUtc!.Value.ToLocalTime():HH:mm}{(row.TransfusionCompletionOverdue ? " (completion overdue)" : "")}."
+    };
     private long _loadedId;
     private string _tab = "overview";
     private bool _busy;
@@ -530,6 +652,16 @@ else
     private List<PatientDto> _patients = new();
     private List<UnitActivityDto> _activity = new();
     private List<UnitBloodAttributeDto> _unitAttributes = new();
+    private List<UnitSpecialTestDto> _unitTests = new();
+    private string _utCode = string.Empty;
+    private string _utResult = UnitSpecialTestRule.Negative;
+    private string _utReason = string.Empty;
+
+    // The current result the entry would change, so the form asks for the reason before saving.
+    private UnitSpecialTestDto? UnitTestCorrects => _unitTests.FirstOrDefault(t =>
+        t.IsCurrent
+        && t.TestCode == UnitSpecialTestRule.NormalizeCode(_utCode)
+        && UnitSpecialTestRule.NormalizeResult(t.Result) != _utResult);
     private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
     private List<AllocatableOrderDto> _allocatableOrders = new();
     private long? _autoThawAllocationId;
@@ -550,12 +682,17 @@ else
     private string _allocAuthorizedBy = string.Empty;
     private long _selectedEligibleRuleId;
     private long? _selectedIssueId;
-    private DateTime? _selectedIssuedUtc;
+    private bool? _selectedTimeOutAcceptable;
     private UnitStatus _changeStatusDestination = UnitStatus.Available;
     private string _changeStatusReason = string.Empty;
-    private bool _changeTempOk = true;
-    private bool _changeSealOk = true;
-    private bool _changeVisualOk = true;
+    // OCD-040: null = not answered; required only when the unit would go back to Available.
+    private bool? _changeTempOk;
+    private bool? _changeSealOk;
+    private bool? _changeVisualOk;
+
+    private bool ChangeInspectionMissing =>
+        _changeStatusDestination == UnitStatus.Available
+        && !ReturnInspectionRule.AllAnswered(_changeTempOk, _changeSealOk, _changeVisualOk);
     private long _transferTo;
     private string _transferReason = string.Empty;
     private List<UnitDiscardReasonRefDto> _discardReasons = new();
@@ -580,7 +717,7 @@ else
     private string _supplierReturnReason = string.Empty;
     private string _directedConversionReason = string.Empty;
     private string? _directedConversionVerifier;
-    private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _arrivalAppearance;
     private string? _arrivalVisualNotes;
     private string? _arrivalSecondVerifier;
     private bool _requireReceiveVerifier;
@@ -591,10 +728,9 @@ else
     private IEnumerable<DirectoryUserDto> VerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
-    private bool IssuedCanReturnToAvailable =>
-        _selectedIssuedUtc is DateTime issued
-        && ReturnReissueRule.IsWithinReturnToAvailableWindow(
-            issued, DateTime.UtcNow, ReturnReissueRule.DefaultReturnToAvailableMinutes);
+    // The server's decision for this issue (facility window and storage-location exemption), not a default here.
+    // Without an outstanding issue row the unit is offered Quarantine only.
+    private bool IssuedCanReturnToAvailable => _selectedTimeOutAcceptable == true;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -687,19 +823,29 @@ else
 
         _activity = (await Api.GetUnitActivityAsync(id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(id)).Value ?? new();
+        _unitTests = (await Api.GetUnitSpecialTestsAsync(id)).Value ?? new();
+        _reservation = Session.HasAny(PermissionCodes.IssueCreate, PermissionCodes.CompatibilityAllocate)
+            ? (await Api.GetReadyToIssueAllocationsAsync()).Value?.FirstOrDefault(r => r.BloodUnitId == id)
+            : null;
         _retypeDetail = (await Api.GetUnitRetypeAsync(id)).Value;
         _allocatableOrders = (await Api.GetUnitAllocatableOrdersAsync(id)).Value ?? new();
         _eligibleMods = (await Api.GetEligibleModificationsAsync(id)).Value ?? new();
         _selectedIssueId = null;
-        _selectedIssuedUtc = null;
-        if (_unit.Status == UnitStatus.Issued)
+        _issuedRow = null;
+        _selectedTimeOutAcceptable = null;
+        if (_unit.Status is UnitStatus.Issued or UnitStatus.TransfusionStarted)
         {
             var outstanding = await Api.GetOutstandingIssuesAsync();
             var row = outstanding.Value?.FirstOrDefault(i => i.BloodUnitId == id);
+            _issuedRow = row;
             _selectedIssueId = row?.IssueId;
-            _selectedIssuedUtc = row?.IssuedUtc
-                ?? _activity.LastOrDefault(a => a.EventType == "Issue")?.WhenUtc;
+            _selectedTimeOutAcceptable = row?.StorageTimeOutAcceptable;
             _changeStatusDestination = IssuedCanReturnToAvailable ? UnitStatus.Available : UnitStatus.Quarantine;
+            var inspectionDefault = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.InspectionDefaultAcceptable);
+            bool? start = inspectionDefault.Succeeded && inspectionDefault.Value?.Enabled == true ? true : null;
+            _changeTempOk = start;
+            _changeSealOk = start;
+            _changeVisualOk = start;
         }
     }
 
@@ -806,7 +952,7 @@ else
             _showAllocOverride = true;
             if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
             {
-                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+                _allocAuthorizedBy = string.Empty;
             }
 
             _actionFb = r.ToFeedback();
@@ -876,25 +1022,34 @@ else
 
         _busy = true;
         var r = await Api.ChangeIssuedUnitStatusAsync(unitId, new ReturnUnitRequest(
-            _changeStatusReason.Trim(), _changeTempOk, _changeSealOk, _changeVisualOk,
+            _changeStatusReason.Trim(),
+            _changeStatusDestination == UnitStatus.Available ? _changeTempOk : null,
+            _changeStatusDestination == UnitStatus.Available ? _changeSealOk : null,
+            _changeStatusDestination == UnitStatus.Available ? _changeVisualOk : null,
             Destination: _changeStatusDestination));
         _busy = false;
         if (r.Succeeded) _changeStatusReason = string.Empty;
+        _reserveAgainHref = r.Succeeded ? r.Value?.ReserveAgainHref : null;
         await AfterActionAsync(r, $"Unit status changed to {_changeStatusDestination}.");
     }
 
-    private async Task MarkInventoryTransfusedAsync(long issueId)
-    {
-        _busy = true;
-        var r = await Api.MarkIssueTransfusedAsync(issueId);
-        _busy = false;
-        await AfterActionAsync(r, "Unit marked transfused.");
-    }
+    // Set after a return to stock: one click back to Compatibility to reserve it again for the same patient.
+    private string? _reserveAgainHref;
 
     private async Task OnRetypeSaved()
     {
         await RefreshDetailsAsync();
         _tab = "retype";
+    }
+
+    private async Task RecordUnitTestAsync(long unitId)
+    {
+        _busy = true;
+        var r = await Api.RecordUnitSpecialTestAsync(unitId,
+            new RecordUnitSpecialTestRequest(_utCode, _utResult, string.IsNullOrWhiteSpace(_utReason) ? null : _utReason));
+        _busy = false;
+        if (r.Succeeded) { _utCode = string.Empty; _utReason = string.Empty; _utResult = UnitSpecialTestRule.Negative; }
+        await AfterActionAsync(r, "Unit test result recorded.");
     }
 
     private async Task SaveUnitAttributeAsync(long unitId)
@@ -946,10 +1101,13 @@ else
         await AfterActionAsync(r, "Unit placed in quality quarantine.");
     }
 
+    private string _holdReleaseReason = string.Empty;
+
     private async Task ReleaseHoldAsync(long id)
     {
         _busy = true;
-        var r = await Api.ReleaseHoldAsync(id);
+        var r = await Api.ReleaseHoldAsync(id, _holdReleaseReason);
+        if (r.Succeeded) _holdReleaseReason = string.Empty;
         _busy = false;
         await AfterActionAsync(r, "Unit released from operational hold.");
     }
@@ -963,10 +1121,13 @@ else
         await AfterActionAsync(r, "Unit marked missing. It cannot be issued until located.");
     }
 
+    private string _discrepancyNote = string.Empty;
+
     private async Task LocateMissingAsync(long id)
     {
         _busy = true;
-        var r = await Api.LocateMissingAsync(id);
+        var r = await Api.LocateMissingAsync(id, _discrepancyNote);
+        if (r.Succeeded) _discrepancyNote = string.Empty;
         _busy = false;
         await AfterActionAsync(r, "Unit located into quarantine for inspection.");
     }
@@ -1006,7 +1167,8 @@ else
     private async Task InspectDamagedAsync(long id)
     {
         _busy = true;
-        var r = await Api.InspectDamagedAsync(id);
+        var r = await Api.InspectDamagedAsync(id, _discrepancyNote);
+        if (r.Succeeded) _discrepancyNote = string.Empty;
         _busy = false;
         await AfterActionAsync(r, "Damaged unit moved to quarantine for quality review.");
     }
@@ -1023,7 +1185,7 @@ else
         _busy = false;
         if (r.Succeeded)
         {
-            _arrivalAppearance = UnitAppearance.Acceptable;
+            _arrivalAppearance = null;
             _arrivalVisualNotes = null;
             _arrivalSecondVerifier = null;
             _arrivalTemperatureCelsius = null;

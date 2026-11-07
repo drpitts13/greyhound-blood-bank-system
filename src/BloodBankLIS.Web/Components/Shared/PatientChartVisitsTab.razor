@@ -46,7 +46,7 @@
                 {
                     <tr class="@(v.Status == EncounterStatus.Active ? "row-active" : "")">
                         <td class="mono">
-                            <a href="@($"/patients/{PatientId}?tab=orders")"><strong>@v.VisitNumber</strong></a>
+                            <a href="@PatientChartUrls.VisitOrders(PatientId, v.Id)" title="This visit's orders"><strong>@v.VisitNumber</strong></a>
                         </td>
                         <td>@v.EncounterType</td>
                         <td class="nowrap">@(v.AdmitUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
@@ -54,7 +54,7 @@
                         <td>@(v.CurrentLocation ?? v.AdmissionLocation ?? "—")</td>
                         <td><span class="@(v.Status == EncounterStatus.Active ? "badge badge-green" : "badge")">@v.Status</span></td>
                         <td class="right nowrap">
-                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{PatientId}?tab=orders")">Open Orders</a>
+                            <a class="btn btn-ghost btn-sm" href="@PatientChartUrls.VisitOrders(PatientId, v.Id)">Open Orders</a>
                         </td>
                     </tr>
                 }

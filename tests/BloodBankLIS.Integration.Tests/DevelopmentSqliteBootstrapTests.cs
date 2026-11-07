@@ -62,6 +62,42 @@ public class DevelopmentSqliteBootstrapTests
         }
     }
 
+    // A required column on the additive list is added in place: the database and its data are kept, not recreated.
+    [Fact]
+    public async Task InitializeAsync_AddsAMissingAdditiveColumn_WithoutRecreating()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gbb-bootstrap-{Guid.NewGuid():N}.db");
+        try
+        {
+            var options = new DbContextOptionsBuilder<BloodBankDbContext>()
+                .UseSqlite($"Data Source={path}")
+                .Options;
+            await using var context = new BloodBankDbContext(
+                options,
+                new SystemClock(),
+                new StaticCurrentUser("test"));
+
+            await context.Database.EnsureCreatedAsync();
+            context.SystemSettings.Add(new Domain.Entities.SystemSetting { Key = "Test.KeepMe", Value = "1", Description = "marker" });
+            await context.SaveChangesAsync();
+            await context.Database.ExecuteSqlRawAsync("""ALTER TABLE "ShiftHandoffs" DROP COLUMN "CriticalDeviations";""");
+            Assert.False(await ColumnExistsAsync(context, "ShiftHandoffs", "CriticalDeviations"));
+
+            await DevelopmentSqliteBootstrap.InitializeAsync(context, NullLogger.Instance);
+
+            Assert.True(await ColumnExistsAsync(context, "ShiftHandoffs", "CriticalDeviations"));
+            Assert.True(await context.SystemSettings.AnyAsync(s => s.Key == "Test.KeepMe"));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
     private static async Task<bool> ColumnExistsAsync(BloodBankDbContext context, string table, string column)
     {
         await context.Database.OpenConnectionAsync();

@@ -49,7 +49,10 @@ Recommended paper capture (minimum):
 2. Replay interface queues: pending → processed; error → manual review.
    Idempotency keys (`MessageControlId` + business key) must reject duplicates.
 3. Enter downtime paper records. Do not reuse an invalid specimen merely
-   because a prior result exists.
+   because a prior result exists. A paper issue whose unit or specimen has
+   expired since is entered as a downtime back-entry (OCD-054), by a role
+   holding `issue.downtime-backentry`; expiration is judged as of the paper
+   time.
 4. Re-verify patient, specimen, and unit identifiers before the first
    electronic issue after recovery.
 5. Complete retrospective crossmatch for any emergency issues recorded on paper.

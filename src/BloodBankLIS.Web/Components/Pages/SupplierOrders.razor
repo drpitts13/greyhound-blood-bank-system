@@ -4,14 +4,14 @@
 @inject ReportDownloadCache Downloads
 @inject IJSRuntime Js
 
-<PageTitle>Supplier orders &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Supplier orders &middot; HemoCore</PageTitle>
 
 <h1>Supplier orders</h1>
-<p class="muted">Build a blood order from the par shortfall, sign it, send it, and link the delivery when it arrives.</p>
+<p class="muted">Build a blood order from the minimum stock shortfall, sign it, send it, and link the delivery when it arrives.</p>
 <details class="bb-help">
     <summary>How it works</summary>
     <ul>
-        <li>A new order has one line per par row that is short, for the shortfall. Change quantities before you submit. A zero removes the line.</li>
+        <li>A new order has one line per minimum stock row that is short, for the shortfall. Change quantities before you submit. A zero removes the line.</li>
         <li>Submitting needs your electronic signature. The order is then fixed.</li>
         <li>Export PDF or CSV and send it to the supplier by your usual route. Nothing is sent electronically.</li>
         <li>When the delivery arrives, link it to the order. The delivery must be from the same supplier.</li>
@@ -22,7 +22,7 @@
 @if (CanEdit)
 {
     <div class="bb-card">
-        <div class="bb-card-title"><h3>New order from par</h3></div>
+        <div class="bb-card-title"><h3>New order from minimum stock</h3></div>
         <div class="form-row">
             <div class="field">
                 <label>Supplier</label>
@@ -55,7 +55,17 @@
                     <tr class="@(order.Id == _selected?.Id ? "selected" : null)">
                         <td class="mono">@order.OrderNumber</td>
                         <td>@order.SupplierName</td>
-                        <td><span class="badge @StatusClass(order.Status)">@order.Status</span></td>
+                        <td>
+                            <span class="badge @StatusClass(order.Status)">@order.Status</span>
+                            @if (order.UnitsShort > 0)
+                            {
+                                <span class="badge badge-amber" style="margin-left:.25rem;" data-order-short>Short @order.UnitsShort</span>
+                            }
+                            @if (order.ArrivalOverdue)
+                            {
+                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToString("yyyy-MM-dd HH:mm") UTC; chase the supplier" data-arrival-overdue>Arrival overdue</span>
+                            }
+                        </td>
                         <td class="right">@order.UnitsOrdered</td>
                         <td>@order.CreatedUtc.ToString("yyyy-MM-dd HH:mm") &middot; @order.CreatedBy</td>
                         <td><button class="btn btn-ghost btn-sm" @onclick="() => Select(order)">Open</button></td>
@@ -72,7 +82,7 @@
     <div @key="current.Id" class="bb-card" data-scroll-on-show>
         <div class="bb-card-title"><h3>@current.OrderNumber &middot; @current.SupplierName &middot; @current.Status</h3></div>
         <table class="bb">
-            <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th></tr></thead>
+            <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th>@if (current.DeliveryId is not null) { <th class="right">Received</th><th class="right">Short</th> }</tr></thead>
             <tbody>
                 @foreach (var line in _editLines)
                 {
@@ -89,6 +99,20 @@
                                 @line.Quantity
                             }
                         </td>
+                        @if (current.DeliveryId is not null && current.Lines.FirstOrDefault(l => l.ProductTypeId == line.ProductTypeId && l.Abo == line.Abo) is { } got)
+                        {
+                            <td class="right">@got.Received</td>
+                            <td class="right">
+                                @if (got.Short > 0)
+                                {
+                                    <span class="badge badge-amber" data-line-short>@got.Short</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">0</span>
+                                }
+                            </td>
+                        }
                     </tr>
                 }
             </tbody>
@@ -108,7 +132,10 @@
         </div>
         @if (current.SubmittedUtc is DateTime submitted)
         {
-            <p class="muted">Submitted by @current.SubmittedBy @submitted.ToString("yyyy-MM-dd HH:mm") UTC.</p>
+            <p class="muted">Submitted by @current.SubmittedBy @submitted.ToString("yyyy-MM-dd HH:mm") UTC.@if (current.ArrivalDueUtc is DateTime due)
+                {
+                    <span class="@(current.ArrivalOverdue ? "text-danger" : null)" data-arrival-due> Arrival due @due.ToString("yyyy-MM-dd HH:mm") UTC@(current.ArrivalOverdue ? ": overdue, chase the supplier" : "").</span>
+                }</p>
         }
         @if (current.ReceivedUtc is DateTime received)
         {
@@ -252,7 +279,7 @@
     }
 
     private Task CreateAsync() =>
-        RunAsync(() => Api.CreateSupplierOrderAsync(new CreateSupplierOrderRequest(_supplierId)), "Draft order created from the par shortfall.");
+        RunAsync(() => Api.CreateSupplierOrderAsync(new CreateSupplierOrderRequest(_supplierId)), "Draft order created from the minimum stock shortfall.");
 
     private Task SaveAsync() =>
         RunAsync(() => Api.UpdateSupplierOrderAsync(_selected!.Id, new UpdateSupplierOrderRequest(

@@ -42,8 +42,15 @@ public sealed class CompatibilityService
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
+    private readonly AlertService? _alerts;
+    private readonly IRepository<Deviation>? _deviations;
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
+    private readonly IRepository<SpecialTransfusionRequirement>? _specialRequirements;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<ProductAttributeAssignment>? _productAttributeAssignments;
+    private readonly IRepository<ProductAttribute>? _productAttributes;
+    private readonly IRepository<BloodComponentSpecialTest>? _unitSpecialTests;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -68,8 +75,20 @@ public sealed class CompatibilityService
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
         IRepository<Override>? overrides = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
-        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null,
+        AlertService? alerts = null,
+        IRepository<Deviation>? deviations = null,
+        IRepository<SpecialTransfusionRequirement>? specialRequirements = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        IRepository<ProductAttributeAssignment>? productAttributeAssignments = null,
+        IRepository<ProductAttribute>? productAttributes = null,
+        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null)
     {
+        _specialRequirements = specialRequirements;
+        _requirementDefinitions = requirementDefinitions;
+        _productAttributeAssignments = productAttributeAssignments;
+        _productAttributes = productAttributes;
+        _unitSpecialTests = unitSpecialTests;
         _inventory = inventory;
         _crossmatches = crossmatches;
         _allocations = allocations;
@@ -83,6 +102,7 @@ public sealed class CompatibilityService
         _clock = clock;
         _currentUser = currentUser;
         _issues = issues;
+        _deviations = deviations;
         _audit = audit;
         _policy = policy;
         _permissions = permissions;
@@ -93,6 +113,7 @@ public sealed class CompatibilityService
         _overrides = overrides;
         _aboCompatibilities = aboCompatibilities;
         _rhCompatibilities = rhCompatibilities;
+        _alerts = alerts;
     }
 
     public Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(
@@ -150,6 +171,26 @@ public sealed class CompatibilityService
             return EvaluationResult<Crossmatch>.Fail("Specimen not found.");
         }
 
+        var retroIssue = await OpenRetrospectiveIssueAsync(unit.Id, request.PatientId, ct);
+        var specimenCheck = CrossmatchSpecimenRule.Evaluate(
+            specimen.AccessionNumber,
+            specimen.ExpiresUtc,
+            _clock.UtcNow,
+            retroIssue is not null && CrossmatchSpecimenRule.IsPreTransfusionSpecimen(specimen.CollectedUtc, retroIssue.IssuedUtc));
+        if (specimenCheck.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([specimenCheck]));
+        }
+
+        if (specimenCheck.Severity == RuleSeverity.Warning)
+        {
+            var refused = await EvaluateExpiredSpecimenExceptionAsync(specimenCheck, request, ct);
+            if (refused is not null)
+            {
+                return EvaluationResult<Crossmatch>.Blocked(refused);
+            }
+        }
+
         var result = request.Result;
 
         if (request.Method == CrossmatchMethod.Electronic)
@@ -174,6 +215,7 @@ public sealed class CompatibilityService
             SpecimenId = specimen.Id,
             Method = request.Method,
             Result = result,
+            ClinicalStatus = CrossmatchValidityRule.ClinicalStatusFor(result),
             PerformedUtc = _clock.UtcNow,
             PerformedBy = _currentUser.UserName,
             ExpiresUtc = specimen.ExpiresUtc ?? _clock.UtcNow.AddHours(DefaultCrossmatchValidityHours),
@@ -201,31 +243,104 @@ public sealed class CompatibilityService
             reason: request.Method == CrossmatchMethod.Electronic
                 ? "Electronic crossmatch recorded."
                 : "Serologic crossmatch recorded.");
-        await _unitOfWork.SaveChangesAsync(ct);
-        await TryCloseRetrospectiveCrossmatchAsync(crossmatch, ct);
+        if (specimenCheck.Severity == RuleSeverity.Warning)
+        {
+            await _overrides!.AddAsync(new Override
+            {
+                Action = OverrideAction.WarningOverride,
+                ContextType = nameof(Crossmatch),
+                ContextId = crossmatch.Id,
+                RuleCode = CrossmatchSpecimenRule.RetrospectiveCode,
+                Reason = request.OverrideReason!.Trim(),
+                AuthorizedBy = request.AuthorizedBy!.Trim(),
+                OverriddenUtc = _clock.UtcNow
+            }, ct);
+            _audit?.Record(
+                AuditEventType.Override,
+                nameof(Crossmatch),
+                crossmatch.Id,
+                newValue: new { crossmatch.BloodProductId, crossmatch.PatientId, crossmatch.SpecimenId, RuleCode = CrossmatchSpecimenRule.RetrospectiveCode },
+                reason: $"Retrospective crossmatch on expired pre-transfusion specimen {specimen.AccessionNumber}: {request.OverrideReason!.Trim()} (authorized by {request.AuthorizedBy!.Trim()}).");
+        }
 
-        RuleEvaluation? evaluation = null;
+        await _unitOfWork.SaveChangesAsync(ct);
+        var retroIncompatible = await TryCloseRetrospectiveCrossmatchAsync(crossmatch, unit, ct);
+
+        var notices = new List<RuleResult>();
+        if (specimenCheck.Severity == RuleSeverity.Warning)
+        {
+            notices.Add(RuleResult.Warning(
+                CrossmatchSpecimenRule.RetrospectiveCode,
+                $"Recorded as an exception on expired pre-transfusion specimen {specimen.AccessionNumber}. The override goes to supervisor review."));
+        }
+
+        if (retroIncompatible is not null)
+        {
+            notices.Add(retroIncompatible);
+        }
+
         if (request.Method != CrossmatchMethod.Electronic)
         {
             var xmOpen = await EvaluateSerologicOpenWorkupAsync(request.PatientId, ct);
             if (xmOpen.Severity != RuleSeverity.Pass)
             {
-                evaluation = new RuleEvaluation([xmOpen]);
+                notices.Add(xmOpen);
             }
         }
 
-        return EvaluationResult<Crossmatch>.Ok(crossmatch, evaluation);
+        return EvaluationResult<Crossmatch>.Ok(crossmatch, notices.Count == 0 ? null : new RuleEvaluation(notices));
+    }
+
+    /// <summary>The issue still waiting for a retrospective crossmatch for this unit and patient, if any.</summary>
+    private async Task<Issue?> OpenRetrospectiveIssueAsync(long unitId, long patientId, CancellationToken ct) =>
+        _issues is null
+            ? null
+            : await _issues.FirstOrDefaultAsync(i =>
+                i.BloodProductId == unitId
+                && i.PatientId == patientId
+                && i.TestsIncompleteAtIssue
+                && i.RetrospectiveCrossmatchCompletedUtc == null
+                && i.Status != IssueStatus.Returned, ct);
+
+    /// <summary>
+    /// OCD-050: the exception needs a reason, the authorizer, and an active exception definition
+    /// the user may use. Returns the refusal, or null when the crossmatch may be recorded.
+    /// </summary>
+    private async Task<RuleEvaluation?> EvaluateExpiredSpecimenExceptionAsync(
+        RuleResult warning,
+        RecordCrossmatchRequest request,
+        CancellationToken ct)
+    {
+        var evaluation = new RuleEvaluation([warning]);
+        if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
+        {
+            return OverrideFieldsRule.WithMissing(evaluation, request.OverrideReason, request.AuthorizedBy);
+        }
+
+        if (_permissions is null || _exceptionDefinitions is null || _overrides is null)
+        {
+            return new RuleEvaluation([RuleResult.HardStop(
+                "EXC-DEF-MISSING",
+                "The expired-specimen exception cannot be authorized here.")]);
+        }
+
+        var definition = await _exceptionDefinitions.FirstOrDefaultAsync(
+            e => e.RuleCode == CrossmatchSpecimenRule.RetrospectiveCode && e.IsActive, ct);
+        var userLevel = await _permissions.GetMaxSecurityLevelAsync(_currentUser.UserName, ct);
+        var access = ExceptionOverridePolicy.EvaluateAccess(userLevel, definition, CrossmatchSpecimenRule.RetrospectiveCode);
+        return access.Severity == RuleSeverity.HardStop ? new RuleEvaluation([access]) : null;
     }
 
     /// <summary>
     /// Completes an emergency/MTP follow-up when a post-issue compatible XM is recorded.
-    /// Incompatible results stay on the worklist with an updated clinical status.
+    /// Incompatible results stay on the worklist with an updated clinical status, raise a critical
+    /// alert, and return a warning for the person who recorded the crossmatch.
     /// </summary>
-    private async Task TryCloseRetrospectiveCrossmatchAsync(Crossmatch xm, CancellationToken ct)
+    private async Task<RuleResult?> TryCloseRetrospectiveCrossmatchAsync(Crossmatch xm, BloodUnit unit, CancellationToken ct)
     {
         if (_issues is null)
         {
-            return;
+            return null;
         }
 
         var open = await _issues.FirstOrDefaultAsync(i =>
@@ -238,9 +353,10 @@ public sealed class CompatibilityService
 
         if (open is null)
         {
-            return;
+            return null;
         }
 
+        RuleResult? notice = null;
         if (xm.Result == CrossmatchResult.Compatible)
         {
             open.CrossmatchStatus = CrossmatchClinicalStatus.Compatible;
@@ -264,13 +380,71 @@ public sealed class CompatibilityService
                 open.Id,
                 newValue: new { xm.Id, xm.Result },
                 reason: "Retrospective crossmatch incompatible; follow-up remains open.");
+            notice = RetrospectiveCrossmatchIncompatibleRule.Warning(unit.UnitNumber, unit.Status);
         }
         else
         {
-            return;
+            return null;
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+        if (notice is not null)
+        {
+            var patient = await _patients.GetByIdAsync(open.PatientId, ct);
+            var name = patient is null ? null : string.Join(", ", new[] { patient.LastName, patient.FirstName }.Where(n => !string.IsNullOrWhiteSpace(n)));
+            var deviationId = await OpenRetrospectiveIncompatibleDeviationAsync(open, xm, unit, patient?.MedicalRecordNumber, name, ct);
+            notice = RetrospectiveCrossmatchIncompatibleRule.Warning(unit.UnitNumber, unit.Status, deviationId);
+            if (_alerts is not null)
+            {
+                await _alerts.RaiseAsync(RetrospectiveCrossmatchIncompatibleRule.Alert(
+                    open.Id, patient?.MedicalRecordNumber, name, unit.UnitNumber, unit.Status, deviationId), ct);
+            }
+        }
+
+        return notice;
+    }
+
+    /// <summary>
+    /// OCD-046: an incompatible retrospective crossmatch requires a deviation. One is opened per issue; a repeat
+    /// incompatible crossmatch on the same issue reuses it.
+    /// </summary>
+    private async Task<long?> OpenRetrospectiveIncompatibleDeviationAsync(
+        Issue issue, Crossmatch xm, BloodUnit unit, string? mrn, string? patientName, CancellationToken ct)
+    {
+        if (_deviations is null)
+        {
+            return null;
+        }
+
+        var existing = await _deviations.FirstOrDefaultAsync(
+            d => d.ContextType == RetrospectiveCrossmatchIncompatibleRule.DeviationContextType && d.ContextId == issue.Id, ct);
+        if (existing is not null)
+        {
+            return existing.Id;
+        }
+
+        var deviation = new Deviation
+        {
+            Title = RetrospectiveCrossmatchIncompatibleRule.DeviationTitle(unit.UnitNumber),
+            Description = RetrospectiveCrossmatchIncompatibleRule.DeviationDescription(
+                issue.Id, mrn, patientName, unit.UnitNumber, unit.Status, xm.Id),
+            Severity = RetrospectiveCrossmatchIncompatibleRule.DeviationSeverityLevel,
+            Status = DeviationStatus.Open,
+            ContextType = RetrospectiveCrossmatchIncompatibleRule.DeviationContextType,
+            ContextId = issue.Id,
+            ReportedBy = _currentUser.UserName,
+            ReportedUtc = _clock.UtcNow
+        };
+        await _deviations.AddAsync(deviation, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit?.Record(
+            AuditEventType.Deviation,
+            nameof(Deviation),
+            deviation.Id,
+            newValue: new { deviation.Title, deviation.Severity, deviation.ContextType, deviation.ContextId, CrossmatchId = xm.Id },
+            reason: "Incompatible retrospective crossmatch after emergency release (OCD-046).");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return deviation.Id;
     }
 
     public async Task<EvaluationResult<RuleEvaluation>> EvaluateCompatibilityAsync(
@@ -309,6 +483,11 @@ public sealed class CompatibilityService
                 bloodAttrs.PatientAntigens,
                 bloodAttrs.UnitSignificantAntibodies,
                 bloodAttrs.UnitAntigens));
+
+            // The same check as the chart's Allocate panel and issue: a unit that cannot be issued to this patient
+            // is not reserved for them either.
+            results.AddRange((await UnmetSpecialRequirementsAsync(request.PatientId, unit, productType, bloodAttrs.UnitAntigens, ct))
+                .Select(message => RuleResult.HardStop(SpecialTransfusionRequirementRule.Code, message)));
         }
 
         await AppendAllocateOpenWorkupAsync(results, request.PatientId, ct);
@@ -381,6 +560,11 @@ public sealed class CompatibilityService
                 bloodAttrs.PatientAntigens,
                 bloodAttrs.UnitSignificantAntibodies,
                 bloodAttrs.UnitAntigens));
+
+            // The same check as the chart's Allocate panel and issue: a unit that cannot be issued to this patient
+            // is not reserved for them either.
+            results.AddRange((await UnmetSpecialRequirementsAsync(request.PatientId, unit, productType, bloodAttrs.UnitAntigens, ct))
+                .Select(message => RuleResult.HardStop(SpecialTransfusionRequirementRule.Code, message)));
         }
 
         await AppendAllocateOpenWorkupAsync(results, request.PatientId, ct);
@@ -473,6 +657,30 @@ public sealed class CompatibilityService
         await _unitOfWork.SaveChangesAsync(ct);
 
         return EvaluationResult<Allocation>.Ok(allocation, evaluation);
+    }
+
+    private async Task<IReadOnlyList<string>> UnmetSpecialRequirementsAsync(
+        long patientId,
+        BloodUnit unit,
+        ProductType productType,
+        IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
+        CancellationToken ct)
+    {
+        var requirements = await SpecialRequirementLoader.ForPatientAsync(_specialRequirements, _requirementDefinitions, patientId, ct);
+        if (requirements.Count == 0)
+        {
+            return [];
+        }
+
+        var attributesByProduct = await SpecialRequirementLoader.ProductAttributeCodesByProductTypeAsync(
+            _productAttributeAssignments, _productAttributes, ct);
+        var negativeTests = await SpecialRequirementLoader.NegativeTestCodesByUnitAsync(_unitSpecialTests, [unit.Id], ct);
+        return SpecialTransfusionRequirementRule.UnmetUnitRequirements(
+            requirements,
+            attributesByProduct.GetValueOrDefault(unit.ProductTypeId) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            unitAntigens,
+            _clock.UtcNow,
+            SpecialRequirementLoader.Typing(unit, productType.ComponentClass, negativeTests));
     }
 
     public async Task<EvaluationResult<Allocation>> ReleaseAllocationAsync(long allocationId, string reason, CancellationToken ct = default)
@@ -581,7 +789,7 @@ public sealed class CompatibilityService
             h => h.PatientId == patientId && h.IsCurrent && h.Abo != AboGroup.Unknown && h.RhD != RhType.Unknown, ct);
         var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
-            history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+            SecondAboDeterminationRule.FromHistory(history));
         var hasAntibodyHistory = await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct);
         var screenNegative = requestAntibodyScreenNegative
             && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct);
@@ -650,7 +858,7 @@ public sealed class CompatibilityService
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
         {
-            return evaluation;
+            return OverrideFieldsRule.WithMissing(evaluation, request.OverrideReason, request.AuthorizedBy);
         }
 
         if (_permissions is null || _exceptionDefinitions is null || _overrides is null)

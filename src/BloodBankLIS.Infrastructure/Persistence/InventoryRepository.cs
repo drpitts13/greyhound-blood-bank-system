@@ -52,6 +52,14 @@ public sealed class InventoryRepository : IInventoryRepository
             u => u.ComponentIdentity == componentIdentity || u.UnitNumber == componentIdentity,
             cancellationToken);
 
+    public async Task<IReadOnlyList<BloodUnit>> ListByUnitNumberOrDinAsync(string value, CancellationToken cancellationToken = default)
+    {
+        var upper = value.Trim().ToUpperInvariant();
+        return await _context.BloodUnits
+            .Where(u => u.UnitNumber.ToUpper() == upper || (u.Din != null && u.Din.ToUpper() == upper))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddUnitAsync(BloodUnit unit, CancellationToken cancellationToken = default) =>
         await _context.BloodUnits.AddAsync(unit, cancellationToken);
 

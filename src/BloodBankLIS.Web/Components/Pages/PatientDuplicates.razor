@@ -1,0 +1,92 @@
+@page "/patients/duplicates"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Possible duplicates &middot; HemoCore</PageTitle>
+
+<div class="flex-between">
+    <h1>Possible duplicates</h1>
+    <a class="btn btn-ghost" href="/patients">Patients</a>
+</div>
+<p class="muted">
+    Active charts that may be one person: the same date of birth with the same last name and first initial, or with
+    first and last names swapped, including patients registered by ADT. Two charts split the ABO/Rh and antibody history
+    the issue gate relies on. Compare them, then merge the duplicate into the chart that should survive, usually the one
+    that holds the blood bank history. This list changes nothing; the merge asks for a reason and is audited.
+</p>
+
+@if (!Session.Has(PermissionCodes.PatientMerge))
+{
+    <div class="muted">Reviewing possible duplicates requires the patient merge permission.</div>
+}
+else if (_pairs is null)
+{
+    <div class="loading">Loading…</div>
+}
+else if (_pairs.Count == 0)
+{
+    <div class="bb-card"><p class="muted" style="margin:0;" data-duplicates-empty>No possible duplicates among active patients.</p></div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>@_pairs.Count pair@(_pairs.Count == 1 ? "" : "s") to review</h3></div>
+        <table class="bb" data-duplicate-pairs>
+            <thead><tr><th>Chart</th><th>Born</th><th>Registered</th><th>Blood bank history</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var pair in _pairs)
+                {
+                    @foreach (var (p, other) in new[] { (pair.First, pair.Second), (pair.Second, pair.First) })
+                    {
+                        <tr class="@(p == pair.First ? "" : "row-continued")">
+                            <td><a href="@($"/patients/{p.Id}")">@p.LastName, @p.FirstName</a> <span class="sub mono">@p.MedicalRecordNumber</span></td>
+                            <td class="nowrap">@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
+                            <td class="nowrap">@p.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd") <span class="sub">@p.CreatedBy</span></td>
+                            <td>@History(p)</td>
+                            <td class="right">
+                                <a class="btn btn-secondary btn-sm" href="@($"/patients/{p.Id}?mergeMrn={Uri.EscapeDataString(other.MedicalRecordNumber)}")"
+                                   title="Opens this chart's merge form naming @other.MedicalRecordNumber; you give the reason and confirm">Keep this, merge @other.MedicalRecordNumber in</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<PossibleDuplicatePairDto>? _pairs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.Has(PermissionCodes.PatientMerge))
+        {
+            return;
+        }
+
+        var r = await Api.GetPossibleDuplicatePairsAsync();
+        _pairs = r.Succeeded ? r.Value ?? new() : new();
+    }
+
+    private static string History(PatientDto p)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(p.CurrentBloodType))
+        {
+            parts.Add(p.CurrentBloodType!);
+        }
+
+        if (p.ActiveAntibodies is { Count: > 0 } antibodies)
+        {
+            parts.Add($"antibodies: {string.Join(", ", antibodies)}");
+        }
+
+        if (p.ActiveSpecialRequirements > 0)
+        {
+            parts.Add($"{p.ActiveSpecialRequirements} special requirement{(p.ActiveSpecialRequirements == 1 ? "" : "s")}");
+        }
+
+        return parts.Count == 0 ? "None on file" : string.Join("; ", parts);
+    }
+}

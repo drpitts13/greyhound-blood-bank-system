@@ -15,12 +15,11 @@ public static class SpecimenTypeCompatibilityRule
         var normalizedType = specimenTypeCode.Trim();
         var normalizedTest = testCode.Trim();
 
-        if (!string.IsNullOrWhiteSpace(requiredSpecimenType)
-            && !string.Equals(requiredSpecimenType.Trim(), normalizedType, StringComparison.OrdinalIgnoreCase))
+        if (!AcceptedSpecimenTypes.Accepts(requiredSpecimenType, normalizedType))
         {
             results.Add(RuleResult.HardStop(
                 "SPECIMEN.TYPE.REQUIRED",
-                $"Test {normalizedTest} requires specimen type '{requiredSpecimenType.Trim()}' but specimen is '{normalizedType}'."));
+                $"Test {normalizedTest} requires specimen type {AcceptedSpecimenTypes.Describe(requiredSpecimenType)} but specimen is '{normalizedType}'."));
         }
 
         if (excludedTestCodes.Contains(normalizedTest))

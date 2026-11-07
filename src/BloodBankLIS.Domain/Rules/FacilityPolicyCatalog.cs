@@ -40,6 +40,9 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.RequireWardReceipt, "Transfusion", "Require ward receipt",
             "Receiving location must acknowledge the unit before transfusion documentation.",
             FacilityPolicyValueKind.Boolean, "true", "AABB 5.28 / SoftBank remote issue"),
+        new(FacilityPolicyKeys.TransfusionCompletionReminderHours, "Transfusion", "Transfusion completion reminder hours",
+            "Hours after a transfusion is started at the bedside when, if it has not been completed, a reminder alert asks for the stop time, volume, and outcome. A documentation reminder, not an infusion time limit. 0 turns it off.",
+            FacilityPolicyValueKind.Integer, "6", "Facility SOP", 0, 24),
         new(FacilityPolicyKeys.RetrospectiveCrossmatchDueHours, "Issue", "Retrospective XM due hours",
             "Hours after uncrossmatched emergency or MTP issue when retrospective testing is due.",
             FacilityPolicyValueKind.Integer, "24", "21 CFR 606.151(b)", 1, 72),
@@ -83,7 +86,7 @@ public static class FacilityPolicyCatalog
             "Optional. When true, directed-to-allogeneic conversion requires a distinct directory user.",
             FacilityPolicyValueKind.Boolean, "true", "AABB 5.4 / 21 CFR 606.160 / OCD-008"),
         new(FacilityPolicyKeys.ExpectedArrivalDueHours, "Inventory", "Expected arrival due hours",
-            "Hours after packing-list expect when inbound arrival is due.",
+            "Hours after packing-list expect, or after a supplier order is submitted, when inbound arrival is due.",
             FacilityPolicyValueKind.Integer, "24", "AABB 5.6", 1, 168),
         new(FacilityPolicyKeys.NearExpiryWarningHours, "Inventory", "Near-expiry warning hours",
             "Hours before expiration when the near-expiry worklist includes the unit.",
@@ -94,6 +97,12 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.BlockAboSelfVerify, "Result", "Block ABO/Rh self-verify",
             "When true, the user who entered a patient ABO/Rh cannot verify it. Default on. MarkComplete does not auto-verify ABO/Rh.",
             FacilityPolicyValueKind.Boolean, "true", "Facility SOP / OCD-013"),
+        new(FacilityPolicyKeys.AllowBatchVerify, "Result", "Allow batch verification",
+            "When true, a person other than the one who entered them may verify several eligible results at once: plainly Negative antibody screens and DATs, and ABO/Rh results matching the historical type, on patients with no antibody history or special requirement in effect. Each still passes the normal verification checks. Default off; the medical director turns it on.",
+            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-061"),
+        new(FacilityPolicyKeys.RequireSpecimenCollector, "Specimen", "Require the collector before accepting a tube",
+            "When true, a specimen is accepted for testing only when who collected it (the collector on the label) is recorded. Collecting and receiving are not blocked; record the collector on the specimen, then accept. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-064"),
         new(FacilityPolicyKeys.RetentionYears, "Records", "Record retention years",
             "Minimum product record retention. Automated purge is not performed.",
             FacilityPolicyValueKind.Integer, "10", "21 CFR 606.160(d) / CAP TRM.42120", 5, 30),
@@ -144,8 +153,21 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
         new(FacilityPolicyKeys.PbmRequireJustification, "Order", "Require a reason for orders outside criteria",
             "When true (and evaluation is on), a manual product order outside the criteria needs a selected indication or a written reason before it is saved. Interface orders are recorded, never stopped. Default off.",
-            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)")
+            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
+        new(FacilityPolicyKeys.PrefillPatientIdentifiers, "Issue", "Pre-fill patient identifiers at issue and bedside",
+            "When true, the issue forms and bedside transfusion documentation start with the patient's MRN and date of birth already entered, and staff confirm them visually. When false, staff scan or type both identifiers from the wristband or requisition, so the two-identifier check compares what was read with the record. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-039"),
+        new(FacilityPolicyKeys.RequireSpecimenReceiptByScan, "Specimen", "Receive specimens by scan only",
+            "When true, a specimen is received only by scanning the tube's accession or label barcode, so the tube received is the one in hand. Receive from a worklist or chart row is refused. When false, either way is allowed and the record shows which was used. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-056"),
+        new(FacilityPolicyKeys.InspectionDefaultAcceptable, "Inventory", "Start unit inspections as acceptable",
+            "When true, return inspections (temperature, seal, visual) and unit appearance at issue, ward receipt, and delivery receipt start as acceptable, and a return that leaves an inspection unanswered counts it as acceptable. When false, staff must answer each inspection and the server refuses a return with an unanswered inspection. Time out of storage is always computed. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-040")
     ];
+
+    /// <summary>The catalog default of a yes/no policy; true for a key the catalog does not define.</summary>
+    public static bool BoolDefault(string key) =>
+        !bool.TryParse(Find(key)?.DefaultValue, out var value) || value;
 
     public static FacilityPolicyDefinition? Find(string key) =>
         All.FirstOrDefault(d => string.Equals(d.Key, key, StringComparison.Ordinal));

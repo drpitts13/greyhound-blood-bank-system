@@ -34,8 +34,16 @@ public static class InstrumentMessageViewBuilder
         return Build(message, iface);
     }
 
-    public static InstrumentMessageView Build(AstmMessage message, InstrumentInterface? iface)
+    /// <param name="orderedTestsBySpecimen">
+    /// The tests ordered on each accession, so the mapping shown is the one posting chooses when one instrument code
+    /// maps to several tests.
+    /// </param>
+    public static InstrumentMessageView Build(
+        AstmMessage message,
+        InstrumentInterface? iface,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? orderedTestsBySpecimen = null)
     {
+        var translator = InstrumentValueTranslator.From(iface?.Translations);
         var paths = IndexPaths(iface);
         var parsed = new List<InstrumentParsedFieldDto>();
         var mapped = new List<InstrumentMappedValueDto>();
@@ -99,9 +107,9 @@ public static class InstrumentMessageViewBuilder
                              ?? group.Order.GetField(3);
             var patientId = Read(paths, [group.Patient], InstrumentDataItemKeys.PatientId)
                             ?? group.Patient.GetField(3);
-            var appTest = InstrumentMappingResolver.ToApplication(
-                iface?.TestMappings ?? [], assayCode, InstrumentMappingKind.Assay)
-                ?? assayCode;
+            var ordered = specimenId is not null && orderedTestsBySpecimen?.TryGetValue(specimenId, out var codes) == true ? codes : null;
+            var appTest = translator.ToLocal(InstrumentTranslationKeys.ResultTestCode, assayCode, orderedTests: ordered)
+                ?? NoTranslation;
 
             AddParsed(InstrumentDataItemKeys.PatientId, patientId, once: true);
             AddParsed(
@@ -136,11 +144,16 @@ public static class InstrumentMessageViewBuilder
             {
                 var analyte = Read(paths, [result], InstrumentDataItemKeys.SubtestCode)
                               ?? result.GetComponent(3, 4);
-                var rawResult = CellReactionGradeValue.NormalizeDisplay(
-                    Read(paths, [result], InstrumentDataItemKeys.SubtestResult) ?? result.GetComponent(4, 1));
+                var rawResult = CellReactionGradeValue.NormalizeDisplay(translator.Inbound(
+                    InstrumentTranslationKeys.ResultValue,
+                    Read(paths, [result], InstrumentDataItemKeys.SubtestResult) ?? result.GetComponent(4, 1),
+                    appTest).Value);
                 var isInterp = InstrumentInterpretationClassifier.IsInterpretation(analyte, assayCode, iface);
                 var rawInterp = isInterp
-                    ? (Read(paths, [result], InstrumentDataItemKeys.TestInterp) ?? result.GetField(4))
+                    ? translator.Inbound(
+                        InstrumentTranslationKeys.Interpretation,
+                        Read(paths, [result], InstrumentDataItemKeys.TestInterp) ?? result.GetField(4),
+                        appTest).Value
                     : null;
 
                 var bag = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
@@ -164,9 +177,12 @@ public static class InstrumentMessageViewBuilder
                 var mappedAnalyte = applied.GetValueOrDefault(InstrumentDataItemKeys.SubtestCode) ?? analyte;
                 var mappedResult = applied.GetValueOrDefault(InstrumentDataItemKeys.SubtestResult) ?? rawResult;
                 var mappedInterp = applied.GetValueOrDefault(InstrumentDataItemKeys.TestInterp) ?? rawInterp;
-                var appSub = InstrumentMappingResolver.ToApplication(
-                    iface?.TestMappings ?? [], mappedAnalyte ?? string.Empty, InstrumentMappingKind.Analyte)
-                    ?? mappedAnalyte;
+                var appSub = translator.ToLocal(InstrumentTranslationKeys.SubtestCode, mappedAnalyte) switch
+                {
+                    null => NoTranslation,
+                    var keep when string.Equals(keep, InstrumentTranslationKeys.Keep, StringComparison.OrdinalIgnoreCase) => mappedAnalyte,
+                    var local => local
+                };
 
                 AddParsed(InstrumentDataItemKeys.SubtestCode, analyte);
                 if (isInterp)
@@ -201,6 +217,9 @@ public static class InstrumentMessageViewBuilder
         AddParsed(InstrumentDataItemKeys.Error, Read(paths, message.Records, InstrumentDataItemKeys.Error), once: true);
         return new InstrumentMessageView(FormatRaw(message.Raw), parsed, mapped);
     }
+
+    /// <summary>Shown as the application value when the instrument's code has no translation (the assay does not post).</summary>
+    public const string NoTranslation = "(no translation)";
 
     private static bool LooksLikeNumericCapture(string? value) =>
         !string.IsNullOrWhiteSpace(value)

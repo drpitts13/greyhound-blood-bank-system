@@ -26,14 +26,15 @@ public static class InventoryStatusTransition
                 UnitStatus.Expired, UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing,
                 UnitStatus.ReturnedToSupplier
             ],
+            // Received: an unretyped unit goes back to the retype worklist (RetypeStockStatus).
             [UnitStatus.Quarantine] =
             [
-                UnitStatus.Available, UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Recalled,
+                UnitStatus.Available, UnitStatus.Received, UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Recalled,
                 UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.OnHold] =
             [
-                UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.Discarded, UnitStatus.Expired,
+                UnitStatus.Available, UnitStatus.Received, UnitStatus.Quarantine, UnitStatus.Discarded, UnitStatus.Expired,
                 UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.Available] =
@@ -91,7 +92,7 @@ public static class InventoryStatusTransition
             ],
             [UnitStatus.Returned] =
             [
-                UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
+                UnitStatus.Available, UnitStatus.Received, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
                 UnitStatus.Expired, UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.Transferred] =

@@ -71,6 +71,22 @@ public static class IssueAuthorizationRule
                 DocumentTransfusionCode,
                 "Documenting a transfusion requires the transfusion.document permission.");
 
+    /// <summary>Starting at the bedside: transfusion.start, or transfusion.document (which covers the whole record).</summary>
+    public static RuleResult EvaluateStartTransfusion(bool hasStartOrDocument) =>
+        hasStartOrDocument
+            ? RuleResult.Pass(DocumentTransfusionCode)
+            : RuleResult.HardStop(
+                DocumentTransfusionCode,
+                "Starting a transfusion requires the transfusion.start or transfusion.document permission.");
+
+    /// <summary>Completing a started transfusion: transfusion.complete, or transfusion.document.</summary>
+    public static RuleResult EvaluateCompleteTransfusion(bool hasCompleteOrDocument) =>
+        hasCompleteOrDocument
+            ? RuleResult.Pass(DocumentTransfusionCode)
+            : RuleResult.HardStop(
+                DocumentTransfusionCode,
+                "Completing a transfusion requires the transfusion.complete or transfusion.document permission.");
+
     public static RuleResult EvaluateWardReceipt(bool hasTransfusionDocument) =>
         hasTransfusionDocument
             ? RuleResult.Pass(WardReceiptCode)

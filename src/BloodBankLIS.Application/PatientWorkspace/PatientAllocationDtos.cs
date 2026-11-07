@@ -30,7 +30,12 @@ public sealed record PatientAllocationRowDto(
     DateTime? UnitExpiresUtc = null,
     string? UnitBloodType = null,
     string? StorageLocationName = null,
-    DateTime? CrossmatchExpiresUtc = null);
+    DateTime? CrossmatchExpiresUtc = null,
+    // What an unissued reserved unit lacks for the patient's special requirements; null when it meets them.
+    string? SpecialRequirementNotice = null,
+    // The ward's open request to issue this unit, and where to.
+    DateTime? IssueRequestedUtc = null,
+    string? IssueRequestedTo = null);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,

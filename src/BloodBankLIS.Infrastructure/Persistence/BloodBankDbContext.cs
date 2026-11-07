@@ -84,11 +84,17 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<Deviation> Deviations => Set<Deviation>();
     public DbSet<ShiftHandoff> ShiftHandoffs => Set<ShiftHandoff>();
     public DbSet<DatElutionWorkup> DatElutionWorkups => Set<DatElutionWorkup>();
+    public DbSet<DatElutionEluateFinding> DatElutionEluateFindings => Set<DatElutionEluateFinding>();
+    public DbSet<MtpActivation> MtpActivations => Set<MtpActivation>();
+    public DbSet<MtpPackDefinition> MtpPackDefinitions => Set<MtpPackDefinition>();
+    public DbSet<TransportContainer> TransportContainers => Set<TransportContainer>();
+    public DbSet<MtpPackRecord> MtpPackRecords => Set<MtpPackRecord>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<Override> Overrides => Set<Override>();
     public DbSet<InterfaceEndpoint> InterfaceEndpoints => Set<InterfaceEndpoint>();
     public DbSet<InterfaceFieldMapping> InterfaceFieldMappings => Set<InterfaceFieldMapping>();
     public DbSet<InterfaceValueTranslation> InterfaceValueTranslations => Set<InterfaceValueTranslation>();
+    public DbSet<InterfaceUnmappedValue> InterfaceUnmappedValues => Set<InterfaceUnmappedValue>();
     public DbSet<Hl7MessageLog> Hl7Messages => Set<Hl7MessageLog>();
     public DbSet<InterfaceErrorQueueItem> InterfaceErrorQueue => Set<InterfaceErrorQueueItem>();
     public DbSet<PrintJob> PrintJobs => Set<PrintJob>();
@@ -130,8 +136,11 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<CodedCommentDefinition> CodedCommentDefinitions => Set<CodedCommentDefinition>();
     public DbSet<OrderCancellationReason> OrderCancellationReasons => Set<OrderCancellationReason>();
     public DbSet<UnitDiscardReason> UnitDiscardReasons => Set<UnitDiscardReason>();
+    public DbSet<SpecimenRejectionReason> SpecimenRejectionReasons => Set<SpecimenRejectionReason>();
+    public DbSet<ReactionCatalogEntry> ReactionCatalogEntries => Set<ReactionCatalogEntry>();
     public DbSet<TransfusionIndicationCriterion> TransfusionIndicationCriteria => Set<TransfusionIndicationCriterion>();
     public DbSet<CrossmatchSettings> CrossmatchSettings => Set<CrossmatchSettings>();
+    public DbSet<ReactionWorkupSettings> ReactionWorkupSettings => Set<ReactionWorkupSettings>();
     public DbSet<ExpirationModificationCode> ExpirationModificationCodes => Set<ExpirationModificationCode>();
     public DbSet<AutoThawProduct> AutoThawProducts => Set<AutoThawProduct>();
     public DbSet<AutoThawRequest> AutoThawRequests => Set<AutoThawRequest>();
@@ -141,12 +150,13 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<Reagent> Reagents => Set<Reagent>();
     public DbSet<ReagentLot> ReagentLots => Set<ReagentLot>();
     public DbSet<ReagentDailyQc> ReagentDailyQcs => Set<ReagentDailyQc>();
+    public DbSet<TestResultReagentLot> TestResultReagentLots => Set<TestResultReagentLot>();
     public DbSet<StorageTemperatureReading> StorageTemperatureReadings => Set<StorageTemperatureReading>();
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<DatabaseBackup> DatabaseBackups => Set<DatabaseBackup>();
     public DbSet<SupplierOrder> SupplierOrders => Set<SupplierOrder>();
     public DbSet<SupplierOrderLine> SupplierOrderLines => Set<SupplierOrderLine>();
-    public DbSet<StockParLevel> StockParLevels => Set<StockParLevel>();
+    public DbSet<MinimumStockLevel> MinimumStockLevels => Set<MinimumStockLevel>();
 
     // ISBT 128 component identity / lookups / workflow
     public DbSet<BloodComponentRawScan> BloodComponentRawScans => Set<BloodComponentRawScan>();
@@ -166,6 +176,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<InstrumentConnection> InstrumentConnections => Set<InstrumentConnection>();
     public DbSet<InstrumentFieldMapping> InstrumentFieldMappings => Set<InstrumentFieldMapping>();
     public DbSet<InstrumentTestMapping> InstrumentTestMappings => Set<InstrumentTestMapping>();
+    public DbSet<InstrumentValueTranslation> InstrumentValueTranslations => Set<InstrumentValueTranslation>();
     public DbSet<InstrumentInterfaceRule> InstrumentInterfaceRules => Set<InstrumentInterfaceRule>();
     public DbSet<InstrumentMessageLog> InstrumentMessages => Set<InstrumentMessageLog>();
     public DbSet<InstrumentInterfaceLog> InstrumentInterfaceLogs => Set<InstrumentInterfaceLog>();
@@ -204,6 +215,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         RejectAuditEventMutations();
+        await StampOverrideAuthorizersAsync(cancellationToken);
         ApplyAuditMetadata();
         var captures = CaptureAuditEntries();
 
@@ -237,6 +249,41 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     {
         // Route synchronous saves through the async pipeline to keep one audit path.
         return SaveChangesAsync(acceptAllChangesOnSuccess).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Records, on each new override, how its typed authorizer matched the active provider and user
+    /// directory at that moment. Done here so every service that records an override is covered.
+    /// </summary>
+    private async Task StampOverrideAuthorizersAsync(CancellationToken cancellationToken)
+    {
+        var pending = ChangeTracker.Entries<Override>()
+            .Where(e => e.State == EntityState.Added && e.Entity.AuthorizerMatch is null)
+            .Select(e => e.Entity)
+            .ToList();
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        var providers = (await OrderingProviders.AsNoTracking()
+                .Where(p => p.IsActive)
+                .Select(p => new { p.ProviderId, p.Name, p.SourceSystem })
+                .ToListAsync(cancellationToken))
+            .Select(p => new AuthorizerDirectoryRule.Entry(p.ProviderId, p.Name, OutsideProviderRule.IsOutside(p.SourceSystem)))
+            .ToList();
+        var users = (await Users.AsNoTracking()
+                .Where(u => u.IsActive && !u.IsServiceAccount)
+                .Select(u => new { u.UserName, u.DisplayName })
+                .ToListAsync(cancellationToken))
+            .Select(u => new AuthorizerDirectoryRule.Entry(u.UserName, u.DisplayName))
+            .ToList();
+        foreach (var row in pending)
+        {
+            var match = AuthorizerDirectoryRule.Match(row.AuthorizedBy, providers, users);
+            row.AuthorizerMatch = match.Match;
+            row.AuthorizerReference = match.Reference;
+        }
     }
 
     private void RejectAuditEventMutations()

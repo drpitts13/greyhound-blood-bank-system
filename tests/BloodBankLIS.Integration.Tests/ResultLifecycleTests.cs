@@ -155,6 +155,193 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
             && a.NewValueJson.Contains("Manual"));
     }
 
+    private SpecimenService GuardedSpecimens(BloodBankDbContext c) =>
+        new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
+            c, _factory.Clock, currentUser: _factory.CurrentUser,
+            results: new EfRepository<TestResult>(c), allocations: new EfRepository<Allocation>(c), units: new EfRepository<BloodUnit>(c));
+
+    private async Task<long> VerifiedAboRhAsync(long specimenId, AboGroup abo, RhType rh)
+    {
+        await using var context = _factory.Create();
+        var entered = await Results(context).EnterAboRhAsync(new EnterAboRhRequest(specimenId, abo, rh));
+        Assert.True(entered.Succeeded, entered.Error);
+        var verified = await Results(context, user: Verifier).VerifyResultAsync(entered.Value!.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+        return entered.Value.Id;
+    }
+
+    // TEST-BB-333: invalidating the result a blood type came from retires that type; nothing earlier is reinstated.
+    [Fact]
+    public async Task InvalidateVerifiedAboRh_RetiresTheDerivedType_AndWarns()
+    {
+        var patientId = await EnsurePatientAsync("MRN-WBIT-INV");
+        var specimenId = await AccessionAsync("ACC-WBIT-INV", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.A, RhType.Positive);
+
+        await using (var context = _factory.Create())
+        {
+            Assert.True(await context.PatientBloodTypeHistory.AnyAsync(h => h.PatientId == patientId && h.IsCurrent && h.SourceResultId == resultId));
+            var invalidated = await Results(context).InvalidateResultAsync(resultId, "Wrong blood in tube");
+            Assert.True(invalidated.Succeeded, invalidated.Error);
+            Assert.Contains(invalidated.Warnings, w => w.Code == DerivedFromSourceRule.TypeRetiredCode);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.PatientBloodTypeHistory.AnyAsync(h => h.PatientId == patientId && h.IsCurrent));
+        var retired = await verify.PatientBloodTypeHistory.SingleAsync(h => h.SourceResultId == resultId);
+        Assert.NotNull(retired.InvalidatedUtc);
+        Assert.Contains("Wrong blood in tube", retired.Reason);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Invalidate
+            && a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == retired.Id));
+    }
+
+    // TEST-BB-352: correcting a verified ABO/Rh retires the type recorded from it at once, not at verification.
+    [Fact]
+    public async Task CorrectVerifiedAboRh_RetiresTheDerivedTypeImmediately_AndWarns()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ABO-CORR");
+        var specimenId = await AccessionAsync("ACC-ABO-CORR", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.A, RhType.Positive);
+
+        await using (var context = _factory.Create())
+        {
+            var corrected = await Results(context).CorrectResultAsync(resultId, "O Positive", "Transcription error: tube read as O.");
+            Assert.True(corrected.Succeeded, corrected.Error);
+            var warning = Assert.Single(corrected.Warnings, w => w.Code == DerivedFromSourceRule.TypeRetiredCode);
+            Assert.Contains("A Positive", warning.Message);
+            Assert.Contains("until the correction is verified", warning.Message);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.PatientBloodTypeHistory.AnyAsync(h => h.PatientId == patientId && h.IsCurrent));
+        var retired = await verify.PatientBloodTypeHistory.SingleAsync(h => h.SourceResultId == resultId);
+        Assert.NotNull(retired.InvalidatedUtc);
+        Assert.Contains("Source result corrected", retired.Reason);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Correct
+            && a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == retired.Id));
+        Assert.False(SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(
+            await verify.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync())));
+    }
+
+    // TEST-BB-353: a second ABO/Rh determination must come from a separate specimen.
+    [Fact]
+    public async Task SameSpecimenRetest_IsNotASecondDetermination_ButASecondTubeIs()
+    {
+        var patientId = await EnsurePatientAsync("MRN-2ND-TUBE");
+        var first = await AccessionAsync("ACC-2ND-TUBE-A", patientId);
+        await VerifiedAboRhAsync(first, AboGroup.B, RhType.Positive);
+        await VerifiedAboRhAsync(first, AboGroup.B, RhType.Positive);
+
+        await using (var verify = _factory.Create())
+        {
+            var history = await verify.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync();
+            Assert.Equal(2, history.Count);
+            Assert.All(history, h => Assert.Equal(first, h.SpecimenId));
+            Assert.False(SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(history)));
+        }
+
+        var second = await AccessionAsync("ACC-2ND-TUBE-B", patientId);
+        await VerifiedAboRhAsync(second, AboGroup.B, RhType.Positive);
+        await using var again = _factory.Create();
+        var all = await again.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync();
+        Assert.True(SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(all)));
+    }
+
+    [Fact]
+    public async Task Backfill_FillsTheSpecimenFromTheSourceResult()
+    {
+        var patientId = await EnsurePatientAsync("MRN-2ND-FILL");
+        var specimenId = await AccessionAsync("ACC-2ND-FILL", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.A, RhType.Negative);
+        await using var c = _factory.Create();
+        await c.PatientBloodTypeHistory.Where(h => h.SourceResultId == resultId)
+            .ExecuteUpdateAsync(u => u.SetProperty(h => h.SpecimenId, (long?)null));
+
+        await c.Database.ExecuteSqlRawAsync(BloodTypeSpecimenBackfill.Sql);
+        Assert.Equal(specimenId, (await c.PatientBloodTypeHistory.AsNoTracking().SingleAsync(h => h.SourceResultId == resultId)).SpecimenId);
+    }
+
+    // TEST-BB-357: a verified result later invalidated can be sent to the EHR as wrong; unverified results cannot be sent.
+    [Fact]
+    public async Task Outbound_InvalidatedVerifiedResult_IsSentAsWrong_UnverifiedIsRefused()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ORU-W");
+        var specimenId = await AccessionAsync("ACC-ORU-W", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.A, RhType.Positive);
+
+        long retractionId;
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Results(context).InvalidateResultAsync(resultId, "Wrong blood in tube")).Succeeded);
+            retractionId = (await context.TestResults.AsNoTracking().SingleAsync(r => r.Id == resultId)).SupersededByResultId!.Value;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var queued = await Outbound(context).QueueResultMessageAsync(retractionId);
+            Assert.True(queued.Succeeded, queued.Error);
+            var obx = queued.Value!.RawMessage.Split('\r', StringSplitOptions.RemoveEmptyEntries).Single(x => x.StartsWith("OBX|", StringComparison.Ordinal));
+            Assert.Equal("W", obx.Split('|')[11]);
+        }
+
+        var otherSpecimen = await AccessionAsync("ACC-ORU-UNV", patientId);
+        await using var c2 = _factory.Create();
+        var entered = await Results(c2).EnterAboRhAsync(new EnterAboRhRequest(otherSpecimen, AboGroup.A, RhType.Positive));
+        Assert.True(entered.Succeeded, entered.Error);
+        var refused = await Outbound(c2).QueueResultMessageAsync(entered.Value!.Id);
+        Assert.False(refused.Succeeded);
+    }
+
+    private BloodBankLIS.HL7.Messaging.Hl7OutboundService Outbound(BloodBankDbContext c) =>
+        new(new EfRepository<TestResult>(c), new EfRepository<Patient>(c), new EfRepository<Hl7MessageLog>(c), c, _factory.Clock);
+
+    [Fact]
+    public async Task InvalidatedType_IsNotASecondConcordantDetermination()
+    {
+        var patientId = await EnsurePatientAsync("MRN-WBIT-2ND");
+        var first = await AccessionAsync("ACC-WBIT-2ND-A", patientId);
+        var firstResult = await VerifiedAboRhAsync(first, AboGroup.O, RhType.Positive);
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Results(context).InvalidateResultAsync(firstResult, "Wrong blood in tube")).Succeeded);
+        }
+
+        var second = await AccessionAsync("ACC-WBIT-2ND-B", patientId);
+        await VerifiedAboRhAsync(second, AboGroup.O, RhType.Positive);
+
+        await using var verify = _factory.Create();
+        var history = await verify.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync();
+        Assert.Equal(2, history.Count);
+        Assert.False(SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(history)));
+        Assert.False(IssueGate.HasUnresolvedAboRhDiscrepancy(history.Where(h => h.InvalidatedUtc is null).Select(h => (h.BloodType, h.IsCurrent))));
+    }
+
+    // TEST-BB-333: a specimen with active results cannot be rejected until they are invalidated.
+    [Fact]
+    public async Task RejectSpecimen_WithActiveResults_IsRefused_ThenAllowedAfterInvalidation()
+    {
+        var patientId = await EnsurePatientAsync("MRN-WBIT-REJ");
+        var specimenId = await AccessionAsync("ACC-WBIT-REJ", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.B, RhType.Negative);
+
+        await using (var context = _factory.Create())
+        {
+            var refused = await GuardedSpecimens(context).RejectAsync(specimenId, "Mislabeled");
+            Assert.False(refused.Succeeded);
+            Assert.Contains(DerivedFromSourceRule.RejectWithResultsCode, refused.Error);
+            Assert.Contains("ABORH", refused.Error, StringComparison.OrdinalIgnoreCase);
+            Assert.NotEqual(SpecimenStatus.Rejected, (await context.Specimens.FindAsync(specimenId))!.Status);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Results(context).InvalidateResultAsync(resultId, "Mislabeled specimen")).Succeeded);
+            var rejected = await GuardedSpecimens(context).RejectAsync(specimenId, "Mislabeled");
+            Assert.True(rejected.Succeeded, rejected.Error);
+            Assert.Equal(SpecimenStatus.Rejected, rejected.Value!.Status);
+        }
+    }
+
     [Fact]
     public async Task InvalidateVerified_CreatesNewVersion_AndRetainsOriginal()
     {
@@ -354,6 +541,56 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(ResultSource.Instrument, entered.Value!.Source);
         Assert.Equal(ResultStatus.PendingVerification, entered.Value.Status);
         Assert.Equal("ANALYZER-ABO", entered.Value.SourceReference);
+    }
+
+    // TEST-BB-365: an instrument re-sending a pending result is refused once the specimen has expired, as manual entry is.
+    [Fact]
+    public async Task InterfaceResend_OnAnExpiredSpecimen_IsRefused_AndThePendingValueStands()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var patientId = await EnsurePatientAsync($"MRN-LIFECYCLE-EXP-{key}");
+        var specimenId = await AccessionAsync($"ACC-LIFECYCLE-EXP-{key}", patientId);
+        long orderId;
+        await using (var context = _factory.Create())
+        {
+            var location = new OrderingLocation { Code = $"LOC-EXP-{key}", Name = "Lab", IsActive = true };
+            context.OrderingLocations.Add(location);
+            var encounter = new Encounter
+            {
+                PatientId = patientId, VisitNumber = $"VIS-EXP-{key}", EncounterType = EncounterType.Inpatient,
+                Status = EncounterStatus.Active, AdmitUtc = _factory.Clock.UtcNow.AddDays(-1)
+            };
+            context.Encounters.Add(encounter);
+            await context.SaveChangesAsync();
+            var order = new Order
+            {
+                OrderNumber = $"ORD-EXP-{key}", PatientId = patientId, EncounterId = encounter.Id, OrderingLocationId = location.Id,
+                OrderCategory = OrderCategory.Test, Priority = OrderPriority.Routine,
+                OrderedUtc = _factory.Clock.UtcNow, Status = OrderStatus.InProcess
+            };
+            context.Orders.Add(order);
+            await context.SaveChangesAsync();
+            orderId = order.Id;
+
+            var first = await Results(context).EnterFromInstrumentAsync(specimenId, orderId, "HGB", "9.0", "g/dL", null, "ANALYZER-1");
+            Assert.True(first.Succeeded, first.Error);
+            Assert.Equal(ResultStatus.PendingVerification, first.Value!.Status);
+
+            var specimen = await context.Specimens.SingleAsync(s => s.Id == specimenId);
+            specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var resent = await Results(context).EnterFromInstrumentAsync(specimenId, orderId, "HGB", "12.5", "g/dL", null, "ANALYZER-1");
+            Assert.False(resent.Succeeded);
+            Assert.Contains("has expired", resent.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var stored = await verify.TestResults.SingleAsync(r => r.SpecimenId == specimenId && r.TestCode == "HGB");
+        Assert.Equal("9.0", stored.Value);
     }
 
     [Fact]

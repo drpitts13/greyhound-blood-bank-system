@@ -20,4 +20,4 @@ Each role has a security level. Exception overrides in the exception catalog req
 
 A training database includes Administrator, Supervisor, Technologist, Read only, Interface analyst, Inventory manager, Billing analyst, Auditor, and a service account. Treat those as examples. Your facility's roles should match your procedure. Do not grant `issue.emergency-release` to every technologist because the supervisor is at lunch. Emergency release is a separate permission from ordinary issue.
 
-Open [Users](users) to see who holds a role. Changing the role changes everyone assigned to it the next time they sign in.
+Open [Users](users) to see who holds a role. Changing a role's permission codes or security level requires a reason of at least 8 characters (a description-only edit does not), and ends the open sessions of everyone who holds it, so the change applies at once.

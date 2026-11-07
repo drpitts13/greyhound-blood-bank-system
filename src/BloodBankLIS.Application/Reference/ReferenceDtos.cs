@@ -63,17 +63,17 @@ public sealed record BloodSupplierRefDto(long Id, string Code, string Name, stri
         BloodSupplierLabel.ForChoice(supplier.Id, supplier.Code, supplier.Name));
 }
 
-public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, string? Department, bool IsActive, string DisplayName)
+public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, string? Department, bool IsActive, string DisplayName, string? Hl7MappingCode = null)
 {
     public static OrderingLocationRefDto From(OrderingLocation l) => new(
         l.Id, l.Code, l.Name, l.Department, l.IsActive,
-        StorageLocationLabel.Format(l.Id, l.Name));
+        StorageLocationLabel.Format(l.Id, l.Name), l.Hl7MappingCode);
 }
 
-public sealed record OrderingProviderRefDto(long Id, string ProviderId, string Name, string? Specialty, string? Location)
+public sealed record OrderingProviderRefDto(long Id, string ProviderId, string Name, string? Specialty, string? Location, bool Outside = false)
 {
     public static OrderingProviderRefDto From(OrderingProvider p) => new(
-        p.Id, p.ProviderId, p.Name, p.Specialty, p.Location);
+        p.Id, p.ProviderId, p.Name, p.Specialty, p.Location, OutsideProviderRule.IsOutside(p.SourceSystem));
 }
 
 public sealed record TestDefinitionListItemDto(
