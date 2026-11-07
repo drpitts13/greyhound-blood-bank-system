@@ -10,7 +10,7 @@
 </div>
 <p class="muted">
     Active charts that may be one person: the same date of birth with the same last name and first initial, or with
-    first and last names swapped, including patients registered by ADT. Two charts split the ABO/Rh and antibody history
+    first and last names swapped, including patients registered by ADT, or that carry the same identifier from another system (such as an enterprise id). Each pair says why it is listed. Two charts split the ABO/Rh and antibody history
     the issue gate relies on. Compare them, then merge the duplicate into the chart that should survive, usually the one
     that holds the blood bank history. This list changes nothing; the merge asks for a reason and is audited.
 </p>
@@ -36,6 +36,10 @@ else
             <tbody>
                 @foreach (var pair in _pairs)
                 {
+                    @if (!string.IsNullOrWhiteSpace(pair.Reason))
+                    {
+                        <tr><td colspan="5" class="sub" data-duplicate-reason><strong>Why:</strong> @pair.Reason</td></tr>
+                    }
                     @foreach (var (p, other) in new[] { (pair.First, pair.Second), (pair.Second, pair.First) })
                     {
                         <tr class="@(p == pair.First ? "" : "row-continued")">

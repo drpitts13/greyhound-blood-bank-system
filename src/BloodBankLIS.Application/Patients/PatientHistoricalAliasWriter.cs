@@ -68,17 +68,21 @@ public sealed class PatientHistoricalAliasWriter
 
     /// <summary>
     /// Keeps identifiers an interface sent beside the MRN (an enterprise id, another facility's number) as alternate
-    /// identifiers, so search finds the patient by them. An account number (type AN) is stored as one. Returns the
-    /// identifiers newly recorded; ones already on the chart are not repeated.
+    /// identifiers, so search finds the patient by them. An account number (type AN) is stored as one. Ones already on
+    /// this chart are not repeated. An identifier another chart already holds is a possible duplicate: it is kept on
+    /// this chart with its authority marked "also on" that chart's MRN (so both charts are found by it and the Possible
+    /// duplicates report pairs them), and returned in <see cref="ExternalIdentifierOutcome.Conflicts"/>.
     /// </summary>
-    public async Task<IReadOnlyList<string>> RecordExternalIdentifiersAsync(
+    public async Task<ExternalIdentifierOutcome> RecordExternalIdentifiersAsync(
         long patientId,
         string mrn,
         IEnumerable<(string Value, string? AssigningAuthority, string? TypeCode)> identifiers,
+        Func<long, CancellationToken, Task<string?>> mrnOfPatient,
         CancellationToken ct = default)
     {
-        var existing = (await _identifiers.ListAsync(i => i.PatientId == patientId, ct)).ToList();
+        var mine = (await _identifiers.ListAsync(i => i.PatientId == patientId, ct)).ToList();
         var added = new List<string>();
+        var conflicts = new List<(string Value, string OtherMrn)>();
         foreach (var (rawValue, authority, typeCode) in identifiers)
         {
             var value = PatientHistoricalAliasRule.TruncateAliasValue(rawValue.Trim());
@@ -90,10 +94,20 @@ public sealed class PatientHistoricalAliasWriter
             var type = string.Equals(typeCode, "AN", StringComparison.OrdinalIgnoreCase)
                 ? IdentityTokenType.AccountNumber
                 : IdentityTokenType.Other;
-            var label = string.Join(" ", new[] { authority, typeCode }.Where(s => !string.IsNullOrWhiteSpace(s)));
-            if (existing.Any(i => i.IdentifierType == type && string.Equals(i.Value, value, StringComparison.OrdinalIgnoreCase)))
+            if (mine.Any(i => i.IdentifierType == type && string.Equals(i.Value, value, StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
+            }
+
+            var label = string.Join(" ", new[] { authority, typeCode }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            var stored = label.Length == 0 ? null : label;
+            var holder = await _identifiers.FirstOrDefaultAsync(
+                i => i.PatientId != patientId && i.IdentifierType == type && i.Value == value && i.AssigningAuthority == stored, ct);
+            if (holder is not null)
+            {
+                var otherMrn = await mrnOfPatient(holder.PatientId, ct) ?? $"patient {holder.PatientId}";
+                conflicts.Add((value, otherMrn));
+                stored = Truncate(label.Length == 0 ? $"also on {otherMrn}" : $"{label}, also on {otherMrn}");
             }
 
             var row = new PatientIdentifier
@@ -101,14 +115,21 @@ public sealed class PatientHistoricalAliasWriter
                 PatientId = patientId,
                 IdentifierType = type,
                 Value = value,
-                AssigningAuthority = label.Length == 0 ? null : label,
+                AssigningAuthority = stored,
                 IsActive = true
             };
             await _identifiers.AddAsync(row, ct);
-            existing.Add(row);
-            added.Add(label.Length == 0 ? value : $"{value} ({label})");
+            mine.Add(row);
+            added.Add(stored is null ? value : $"{value} ({stored})");
         }
 
-        return added;
+        return new ExternalIdentifierOutcome(added, conflicts);
     }
+
+    private static string Truncate(string value) => value.Length <= 100 ? value : value[..100];
 }
+
+/// <summary>Identifiers recorded on the chart, and those another chart already held (a possible duplicate).</summary>
+public sealed record ExternalIdentifierOutcome(
+    IReadOnlyList<string> Added,
+    IReadOnlyList<(string Value, string OtherMrn)> Conflicts);

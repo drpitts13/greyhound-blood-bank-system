@@ -47,7 +47,7 @@
         @if (Patient.Aliases is { Count: > 0 })
         {
             <div class="muted" style="margin-top:.35rem;">
-                Historical aliases:
+                Other identifiers and aliases:
                 @foreach (var alias in Patient.Aliases)
                 {
                     <span class="badge badge-gray" style="margin-right:.35rem;">@alias.KindLabel: @alias.Value</span>

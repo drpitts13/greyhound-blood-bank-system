@@ -405,22 +405,32 @@ public sealed class Hl7InboundProcessor
             _patients.Update(patient);
         }
 
+        // An identifier already on another chart is a possible duplicate; the sender is told in the acknowledgment.
+        string? duplicateNote = null;
         if (_aliasWriter is not null && data.OtherIdentifiers is { Count: > 0 } others)
         {
             var recorded = await _aliasWriter.RecordExternalIdentifiersAsync(
                 patient.Id,
                 patient.MedicalRecordNumber,
                 others.Select(o => (o.Id, o.AssigningAuthority, o.TypeCode)),
+                async (id, token) => (await _patients.GetByIdAsync(id, token))?.MedicalRecordNumber,
                 ct);
-            if (recorded.Count > 0)
+            if (recorded.Added.Count > 0)
             {
                 _audit?.Record(
                     AuditEventType.Update,
                     nameof(Patient),
                     patient.Id,
-                    newValue: new { patient.MedicalRecordNumber, ExternalIdentifiers = recorded },
-                    reason: $"External identifiers recorded from ADT^{data.TriggerEvent} PID-3.");
+                    newValue: new { patient.MedicalRecordNumber, ExternalIdentifiers = recorded.Added },
+                    reason: recorded.Conflicts.Count == 0
+                        ? $"External identifiers recorded from ADT^{data.TriggerEvent} PID-3."
+                        : $"External identifiers recorded from ADT^{data.TriggerEvent} PID-3; possible duplicate of {string.Join(", ", recorded.Conflicts.Select(c => c.OtherMrn).Distinct())}.");
                 await _unitOfWork.SaveChangesAsync(ct);
+            }
+
+            if (recorded.Conflicts.Count > 0)
+            {
+                duplicateNote = $"Possible duplicate: {string.Join("; ", recorded.Conflicts.Select(c => $"{c.Value} is also on {c.OtherMrn}"))}; review on Possible duplicates.";
             }
         }
 
@@ -437,14 +447,10 @@ public sealed class Hl7InboundProcessor
             ct,
             data.PatientClass);
 
-        if (visitNote is not null)
-        {
-            return created
-                ? $"Patient {data.Mrn} created. {visitNote}"
-                : $"Patient {data.Mrn} updated. {visitNote}";
-        }
-
-        return created ? $"Patient {data.Mrn} created." : $"Patient {data.Mrn} updated.";
+        var outcome = visitNote is not null
+            ? (created ? $"Patient {data.Mrn} created. {visitNote}" : $"Patient {data.Mrn} updated. {visitNote}")
+            : (created ? $"Patient {data.Mrn} created." : $"Patient {data.Mrn} updated.");
+        return duplicateNote is null ? outcome : $"{outcome} {duplicateNote}";
     }
 
     private async Task<string> HandleAdtMergeAsync(Hl7PatientData data, CancellationToken ct)

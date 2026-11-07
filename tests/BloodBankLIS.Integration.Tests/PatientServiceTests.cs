@@ -302,9 +302,41 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(result.Succeeded, result.Error);
         var pair = Assert.Single(result.Value!, p => p.First.LastName.Equals(last, StringComparison.OrdinalIgnoreCase));
         Assert.Equal((older.Id, adt.Id), (pair.First.Id, pair.Second.Id));
+        Assert.Equal(PossibleDuplicatePatientRule.SameNameAndBirthday, pair.Reason);
 
         var denied = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite)).ListPossibleDuplicatePairsAsync();
         Assert.False(denied.Succeeded);
+    }
+
+    // TEST-BB-569: two active charts carrying the same external identifier are a possible-duplicate pair even with
+    // different names, with the reason; the chart lists its external identifiers.
+    [Fact]
+    public async Task PossibleDuplicatePairs_IncludeChartsSharingAnExternalIdentifier()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var first = new Patient { MedicalRecordNumber = $"MRN-XA-{key}", LastName = $"Alpha{key}", FirstName = "Ann", DateOfBirth = new DateOnly(1950, 1, 2) };
+        var second = new Patient { MedicalRecordNumber = $"MRN-XB-{key}", LastName = $"Beta{key}", FirstName = "Bea", DateOfBirth = new DateOnly(1961, 3, 4) };
+        var third = new Patient { MedicalRecordNumber = $"MRN-XC-{key}", LastName = $"Gamma{key}", FirstName = "Cy", DateOfBirth = new DateOnly(1970, 5, 6) };
+        context.Patients.AddRange(first, second, third);
+        await context.SaveChangesAsync();
+        context.PatientIdentifiers.AddRange(
+            new PatientIdentifier { PatientId = first.Id, IdentifierType = IdentityTokenType.Other, Value = $"EPI-{key}", AssigningAuthority = "EPI PI" },
+            new PatientIdentifier { PatientId = second.Id, IdentifierType = IdentityTokenType.Other, Value = $"EPI-{key}", AssigningAuthority = $"EPI PI, also on MRN-XA-{key}" },
+            new PatientIdentifier { PatientId = third.Id, IdentifierType = IdentityTokenType.Other, Value = $"OWN-{key}", AssigningAuthority = "OTHER", IsActive = true },
+            new PatientIdentifier { PatientId = third.Id, IdentifierType = IdentityTokenType.Other, Value = $"EPI-{key}", AssigningAuthority = "OLD", IsActive = false });
+        await context.SaveChangesAsync();
+
+        var result = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge)).ListPossibleDuplicatePairsAsync();
+        Assert.True(result.Succeeded, result.Error);
+        var pair = Assert.Single(result.Value!, p => p.First.Id == first.Id || p.Second.Id == first.Id);
+        Assert.Equal((first.Id, second.Id), (pair.First.Id, pair.Second.Id));
+        Assert.Equal($"Both charts carry external ID EPI-{key} (EPI PI)", pair.Reason);
+        Assert.DoesNotContain(result.Value!, p => p.First.Id == third.Id || p.Second.Id == third.Id);
+
+        var aliases = await Patients(context).ListAliasesAsync(third.Id);
+        var external = Assert.Single(aliases);
+        Assert.Equal("External ID (OTHER)", external.KindLabel);
     }
 
     [Fact]

@@ -16987,3 +16987,23 @@ Alternate identifiers were last worked in Cycles 185–186 (prior names and MRNs
 ### Tests
 
 - TEST-BB-568: MR-typed repetition chosen when second (ADT and ORM); untyped feed uses the first; custom path read as configured with no others kept; integration: two ADTs file the patient under the MR, keep EPI as External ID and the AN as Account once, audited.
+
+## Iteration 521 — Charts sharing an external identifier are possible duplicates (2026-11-07)
+
+### Capability matrix rescan (patient identification)
+
+Following Cycle 520. Two problems found: (1) `PatientIdentifiers` is unique on type, value, and authority, so an ADT for a second chart carrying an enterprise id already on another chart would fail the whole message (NAK) and stall the feed — a defect introduced by Cycle 520, fixed here before it was released; (2) the chart only showed prior names and MRNs, so the external identifiers Cycle 520 kept were not visible there (its FRS overstated this; it is true from this cycle). The Possible duplicates report paired charts only by name and birthday, missing the strongest signal: the same enterprise id on two charts. Workflow questions: safety (a likely duplicate is surfaced rather than silently becoming a second chart, and never auto-merged); feed continuity (the message is accepted); memory (the chart, ACK, audit, and report each say which chart it duplicates and why).
+
+### Design
+
+- Writer returns added and conflicting identifiers; a conflict is stored with authority "…, also on MRN"; ADT audit and ACK name it.
+- Report pairs by shared external identifier value; `PossibleDuplicatePairDto.Reason`; report row "Why:".
+- Chart and patient list include external identifiers and accounts.
+
+### Requirements
+
+- URS-BB-579, FRS-BB-696. Help: HL7 setup, possible duplicates.
+
+### Tests
+
+- TEST-BB-569: shared identifier pairs two differently named charts with the reason, older first; an inactive copy does not pair; name pairs carry their reason; the chart lists the external id; a second ADT chart with the same enterprise id is accepted, marked "also on", and the ACK says possible duplicate.

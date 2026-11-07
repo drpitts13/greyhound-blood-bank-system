@@ -455,6 +455,16 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Single(identifiers, i => i.IdentifierType == IdentityTokenType.AccountNumber && i.Value == "ACCT-9");
         Assert.True(await context.AuditEvents.AnyAsync(a =>
             a.EntityType == nameof(Patient) && a.EntityId == patient.Id && a.Reason != null && a.Reason.StartsWith("External identifiers recorded")));
+
+        // TEST-BB-569: a new chart arriving with the same enterprise id says it is a possible duplicate.
+        var second = await Processor(context).ProcessAsync(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|CTRL-PID3-3|P|2.5\r" +
+            "PID|1||EPI-77001^^^EPI^PI~HL7-PID3B^^^HOSP^MR||Other^Name||19900101|F");
+        Assert.True(second.Accepted);
+        Assert.Contains("Possible duplicate: EPI-77001 is also on HL7-PID3", second.AckMessage);
+        var newChart = await context.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-PID3B");
+        var copy = await context.PatientIdentifiers.SingleAsync(i => i.PatientId == newChart.Id && i.Value == "EPI-77001");
+        Assert.Equal("EPI PI, also on HL7-PID3", copy.AssigningAuthority);
     }
 
     [Fact]

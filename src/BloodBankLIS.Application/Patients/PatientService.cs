@@ -139,8 +139,11 @@ public sealed class PatientService
         // Spelled out rather than calling IsHistoricalAlias: the database cannot run a C# method,
         // and the untranslatable query stopped every patient chart from opening.
         var rows = await _identifiers.ListAsync(i => i.PatientId == patientId
+            && i.IsActive
             && (i.IdentifierType == IdentityTokenType.PriorFullName
-                || i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber), ct);
+                || i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber
+                || i.IdentifierType == IdentityTokenType.Other
+                || i.IdentifierType == IdentityTokenType.AccountNumber), ct);
         return rows
             .OrderBy(a => a.IdentifierType)
             .ThenBy(a => a.Value, StringComparer.OrdinalIgnoreCase)
@@ -202,10 +205,25 @@ public sealed class PatientService
         }
 
         var active = (await ListDtosAsync(ct)).Where(p => p.Status != PatientStatus.Merged).ToList();
-        var pairs = new List<PossibleDuplicatePairDto>();
+        var reasons = new Dictionary<(long, long), List<string>>();
+        void AddPair(PatientDto a, PatientDto b, string reason)
+        {
+            var (first, second) = Older(a, b);
+            var key = (first.Id, second.Id);
+            if (!reasons.TryGetValue(key, out var list))
+            {
+                reasons[key] = list = new List<string>();
+            }
+
+            if (!list.Contains(reason))
+            {
+                list.Add(reason);
+            }
+        }
+
         foreach (var sameBirthday in active.GroupBy(p => p.DateOfBirth))
         {
-            var group = sameBirthday.OrderBy(p => p.CreatedUtc).ThenBy(p => p.Id).ToList();
+            var group = sameBirthday.ToList();
             for (var i = 0; i < group.Count; i++)
             {
                 for (var j = i + 1; j < group.Count; j++)
@@ -214,14 +232,43 @@ public sealed class PatientService
                             group[i].LastName, group[i].FirstName, group[i].DateOfBirth,
                             group[j].LastName, group[j].FirstName, group[j].DateOfBirth))
                     {
-                        pairs.Add(new PossibleDuplicatePairDto(group[i], group[j]));
+                        AddPair(group[i], group[j], PossibleDuplicatePatientRule.SameNameAndBirthday);
                     }
                 }
             }
         }
 
+        // The same identifier from another system (an enterprise id) on two active charts is the same person's id.
+        if (_identifiers is not null)
+        {
+            var byId = active.ToDictionary(p => p.Id);
+            var shared = (await _identifiers.ListAsync(i => i.IsActive && i.IdentifierType == IdentityTokenType.Other, ct))
+                .Where(i => byId.ContainsKey(i.PatientId))
+                .GroupBy(i => i.Value.Trim().ToUpperInvariant());
+            foreach (var group in shared)
+            {
+                var owners = group.Select(i => i.PatientId).Distinct().Select(id => byId[id]).ToList();
+                for (var i = 0; i < owners.Count; i++)
+                {
+                    for (var j = i + 1; j < owners.Count; j++)
+                    {
+                        // The chart that first held it names the authority; a later chart's copy is marked "also on".
+                        var sample = group.OrderBy(i => i.Id).First();
+                        AddPair(owners[i], owners[j], PossibleDuplicatePatientRule.SharedIdentifier(sample.Value, sample.AssigningAuthority));
+                    }
+                }
+            }
+        }
+
+        var byPatientId = active.ToDictionary(p => p.Id);
+        var pairs = reasons
+            .Select(kv => new PossibleDuplicatePairDto(byPatientId[kv.Key.Item1], byPatientId[kv.Key.Item2], string.Join("; ", kv.Value)))
+            .ToList();
         return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Ok(
             pairs.OrderBy(p => p.First.LastName, StringComparer.OrdinalIgnoreCase).ThenBy(p => p.First.MedicalRecordNumber).ToList());
+
+        static (PatientDto First, PatientDto Second) Older(PatientDto a, PatientDto b) =>
+            (a.CreatedUtc, a.Id).CompareTo((b.CreatedUtc, b.Id)) <= 0 ? (a, b) : (b, a);
     }
 
     private async Task<List<Patient>> FindPossibleDuplicatePatientsAsync(
@@ -498,9 +545,13 @@ public sealed class PatientService
         return OperationResult<Patient>.Ok(patient);
     }
 
+    // Prior names and MRNs, and identifiers other systems use for the patient (Cycle 520).
     private static bool IsHistoricalAlias(PatientIdentifier identifier) =>
-        identifier.IdentifierType is IdentityTokenType.PriorFullName
-            or IdentityTokenType.PriorMedicalRecordNumber;
+        identifier.IsActive
+        && identifier.IdentifierType is IdentityTokenType.PriorFullName
+            or IdentityTokenType.PriorMedicalRecordNumber
+            or IdentityTokenType.Other
+            or IdentityTokenType.AccountNumber;
 
     private async Task<OperationResult<Patient>?> RejectUnauthorizedAsync(
         Func<bool, RuleResult> evaluate, CancellationToken ct)

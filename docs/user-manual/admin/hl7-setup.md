@@ -18,7 +18,7 @@ Edit a live interface only when you can watch the next message. A bad map files 
 
 Vendor presets are a starting map, not a validation. Compare the preset with the specification you received from the sending system before you go live.
 
-> Patient identifiers. When the EHR sends several identifiers in PID-3, the LIS uses the one typed `MR` (CX.5) as the medical record number, or the first when none is typed, and keeps the others on the chart as **External ID** or **Account** entries, which search finds. Map the MRN to a different field only if the EHR does not type its identifiers.
+> Patient identifiers. When the EHR sends several identifiers in PID-3, the LIS uses the one typed `MR` (CX.5) as the medical record number, or the first when none is typed, and keeps the others on the chart as **External ID** or **Account** entries, which search finds. If an identifier is already on another chart, the message is still accepted; the new chart's copy is marked "also on" the other MRN, the acknowledgment says it is a possible duplicate, and the pair appears on **Possible duplicates**. Map the MRN to a different field only if the EHR does not type its identifiers.
 
 ## Read-only FHIR API
 

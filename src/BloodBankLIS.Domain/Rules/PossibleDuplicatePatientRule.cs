@@ -10,6 +10,15 @@ public static class PossibleDuplicatePatientRule
 {
     public const string Code = "PAT-POSSIBLE-DUP";
 
+    /// <summary>Why a pair is listed: matching name and date of birth.</summary>
+    public const string SameNameAndBirthday = "Same name and date of birth";
+
+    /// <summary>Why a pair is listed: both charts carry the same identifier from another system.</summary>
+    public static string SharedIdentifier(string value, string? authority) =>
+        string.IsNullOrWhiteSpace(authority)
+            ? $"Both charts carry external ID {value.Trim()}"
+            : $"Both charts carry external ID {value.Trim()} ({authority.Trim()})";
+
     public static bool IsPossibleDuplicate(
         string? lastName, string? firstName, DateOnly dateOfBirth,
         string? otherLastName, string? otherFirstName, DateOnly otherDateOfBirth)
