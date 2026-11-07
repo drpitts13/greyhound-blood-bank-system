@@ -1563,6 +1563,44 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task Irradiation_RecordsTheIrradiatorAndIndicator_AndRefusesWhatThePolicyRequires()
+    {
+        // TEST-BB-564
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("IRRDEV");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var recordedId = await CreateUnitAsync("U-IRRDEV-1", sourceProductId, volume: 300m);
+        var failedId = await CreateUnitAsync("U-IRRDEV-2", sourceProductId, volume: 300m);
+        var policyId = await CreateUnitAsync("U-IRRDEV-3", sourceProductId, volume: 300m);
+        var policySecondId = await CreateUnitAsync("U-IRRDEV-4", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var recorded = await CreateService(context).ApplySingleAsync(recordedId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: " IRR-1 ", IndicatorConfirmed: true));
+        Assert.True(recorded.Succeeded, recorded.Error);
+        var row = Assert.Single(await CreateService(context).GetHistoryAsync(recordedId));
+        Assert.Equal("IRR-1", row.DeviceId);
+        Assert.True(row.IndicatorConfirmed);
+        Assert.Contains(await context.AuditEvents.Where(a => a.EntityType == nameof(UnitModification)).Select(a => a.NewValueJson).ToListAsync(),
+            json => json != null && json.Contains("IRR-1"));
+
+        var failed = await CreateService(context).ApplySingleAsync(failedId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-1", IndicatorConfirmed: false));
+        Assert.False(failed.Succeeded);
+        Assert.Contains(failed.Evaluation!.HardStops, stop => stop.Code == ModificationDeviceRule.Code);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(failedId))!.Status);
+
+        context.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.RequireIrradiationRecord, Value = "true" });
+        await context.SaveChangesAsync();
+        var service = CreateService(context, policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+        var missing = await service.ApplyBatchAsync(new PerformBatchModificationRequest(ruleId, new[] { policyId, policySecondId }, "Irradiate", SupplyLot: "LOT-1"));
+        Assert.False(missing.Succeeded);
+        Assert.Contains(missing.Evaluation!.HardStops, stop => stop.Message.Contains("irradiator"));
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(policyId))!.Status);
+        var batch = await service.ApplyBatchAsync(new PerformBatchModificationRequest(ruleId, new[] { policyId, policySecondId }, "Irradiate", SupplyLot: "LOT-1", DeviceId: "IRR-2", IndicatorConfirmed: true));
+        Assert.True(batch.Succeeded, batch.Error);
+    }
+
+    [Fact]
     public async Task ApplyBatch_IneligibleUnit_ModifiesNone()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("BATCH");

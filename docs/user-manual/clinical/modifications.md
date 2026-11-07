@@ -26,6 +26,14 @@ You can record a supply description and lot with the modification. Both are opti
 
 > Facility policy. When require supply lot is on, a blank lot is a hard stop and the units are not modified.
 
+## Device and dose indicator
+
+Irradiation asks for the **Irradiator** (scan or type its id) and the **Dose indicator** reading: **Shows irradiated** or **Does not show irradiated**. Other one-to-one modifications (wash, thaw, volume reduction) take an optional **Device**. Both are stored on the modification, written to the audit record, and shown in the **Device** column of modification history. The irradiator stays filled for the next unit; the indicator is cleared, because it is read on each unit.
+
+If the indicator does not show irradiated, the unit is not recorded as irradiated and nothing is changed: follow the irradiation SOP for that unit.
+
+> Facility policy. When **Require irradiator and dose indicator** is on, an irradiation with no irradiator or an unchecked indicator is a hard stop. That policy ships off (OCD-067).
+
 ## Batch
 
 For irradiate, thaw, volume reduction, leukoreduction, and wash, you can apply the selected rule and the same reason to the unit on the form plus the unit numbers you list. If any unit is ineligible, none of them are modified.

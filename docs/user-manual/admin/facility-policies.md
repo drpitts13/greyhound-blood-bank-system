@@ -22,4 +22,4 @@ Links on this page open [Crossmatch settings](crossmatch-settings) and [Compatib
 
 The bench feels a policy change on the next action. It does not reprint old issues. Say in the reason which procedure version you are implementing.
 
-Three operational settings ship off or at a default that only warns. **Block results when reagent QC is open** stays off, so patient resulting continues while the reagent worklist has overdue, failed, or unreviewed rows. **Final disposition due hours** ships at 24 and only fills the warning board. **Require supply lot** stays off, so a modification can be saved without a lot.
+Three operational settings ship off or at a default that only warns. **Block results when reagent QC is open** stays off, so patient resulting continues while the reagent worklist has overdue, failed, or unreviewed rows. **Final disposition due hours** ships at 24 and only fills the warning board. **Require supply lot** stays off, so a modification can be saved without a lot. **Require irradiator and dose indicator** stays off too (OCD-067): an irradiation can be saved without them, but an indicator reported as not showing irradiated is always refused.

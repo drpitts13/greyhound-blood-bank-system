@@ -16892,3 +16892,22 @@ Cycle 514 linked waiting orders when a tube is accepted at accession. A tube col
 ### Tests
 
 - TEST-BB-563: the prompt text names each order with its tests; the outcome names linked orders and any failures with the reason.
+
+## Iteration 516 — Irradiator and dose indicator on irradiation (2026-11-07)
+
+### Capability matrix rescan
+
+Rows by most recent cycle: modifications (Partial, last Cycle 219), alternate identifiers (185), assigned products (224), elution/reflex (273). The "No specimen" queue already exists on the test worklist and home card. Chosen: modifications. An irradiation recorded who, when, the rule, and an optional supply lot, but not which irradiator was used or whether the dose indicator on the unit changed, the two facts an irradiated-product record is checked against. A technologist whose indicator did not change could still save the unit as irradiated. Workflow questions: scanning (the irradiator id scans); memory (the irradiator stays for the next unit; the indicator is asked per unit); safety (a unit is never recorded as irradiated against a failed indicator); override (requiring both is facility policy, OCD-067).
+
+### Design
+
+- `UnitModification.DeviceId`, `IndicatorConfirmed`; migration and dev bootstrap columns; single and batch requests.
+- `ModificationDeviceRule` (always refuse a failed indicator; policy `Modification.RequireIrradiationRecord` requires both); audit payload; history Device column.
+
+### Requirements
+
+- URS-BB-574, FRS-BB-691, OCD-067. Help: modifications, facility policies.
+
+### Tests
+
+- TEST-BB-564: failed indicator refused with the policy off; policy requires irradiator and confirmed indicator (batch refused, nothing modified, then succeeds); other types record a device unchecked; stored, audited, and described on history.

@@ -211,6 +211,33 @@
             <div class="field"><label>Supply lot (optional)</label><input @bind="_supplyLot" /></div>
         </div>
         <p class="muted">Leave the lot blank unless facility policy requires it. That policy is off unless an administrator turns it on.</p>
+        @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
+        {
+            var irradiate = _selectedRule.ModificationType == ModificationType.Irradiate;
+            <div class="form-row" style="margin-top:.6rem;" data-modification-device>
+                <div class="field"><label>@(irradiate ? "Irradiator" : "Device (optional)")</label>
+                    <input @bind="_deviceId" placeholder="@(irradiate ? "Scan or type the irradiator" : "Cell washer, thawer, or other device")" autocomplete="off" />
+                </div>
+                @if (irradiate)
+                {
+                    <div class="field"><label>Dose indicator</label>
+                        <select @bind="_indicator" data-irradiation-indicator>
+                            <option value="">Not checked</option>
+                            <option value="yes">Shows irradiated</option>
+                            <option value="no">Does not show irradiated</option>
+                        </select>
+                    </div>
+                }
+            </div>
+            @if (irradiate && _indicator == "no")
+            {
+                <div class="alert alert-danger" style="margin-top:.4rem;">The unit will not be recorded as irradiated. Follow the irradiation SOP for this unit.</div>
+            }
+            else if (irradiate)
+            {
+                <p class="muted">Check the indicator on each unit after irradiation. Your facility may require the irradiator and a confirmed indicator (an administrator setting).</p>
+            }
+        }
         <div class="field" style="margin-top:.6rem;"><label>Reason (required)</label>
             <input @bind="_reason" @bind:event="oninput" placeholder="Why is this modification being performed?" style="width:100%;" />
         </div>
@@ -298,7 +325,7 @@
         <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
         <p class="muted">The patient is named when a product order points at the modification, including the medical record number when it is recorded. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one.</p>
         <table class="bb">
-            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Supply</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Supply</th><th>Device</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
             <tbody>
                 @foreach (var h in _history)
                 {
@@ -310,6 +337,7 @@
                         <td class="mono">@FormatHistoryResults(h)</td>
                         <td>@FormatHistoryLocations(h)</td>
                         <td>@FormatSupply(h)</td>
+                        <td>@(ModificationDeviceRule.Describe(h.DeviceId, h.IndicatorConfirmed) ?? "—")</td>
                         <td class="mono">@h.ExpirationOffsetCodeApplied</td>
                         <td class="nowrap">@h.ResultExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@h.Reason</td>
@@ -372,6 +400,17 @@
     private string _reason = string.Empty;
     private string? _supplyDescription;
     private string? _supplyLot;
+    private string? _deviceId;
+    // "", "yes", or "no" from the dose indicator list; irradiation only.
+    private string _indicator = string.Empty;
+
+    private bool? IndicatorConfirmed =>
+        _selectedRule?.ModificationType != ModificationType.Irradiate ? null : _indicator switch
+        {
+            "yes" => true,
+            "no" => false,
+            _ => null
+        };
     private string _batchUnitNumbers = string.Empty;
     private Feedback? _actionFb;
     private ModificationResultVm? _lastResult;
@@ -571,6 +610,8 @@
         _children.Clear();
         _childCount = 2;
         _reason = string.Empty;
+        // The indicator is read per unit; the irradiator stays for the next unit.
+        _indicator = string.Empty;
 
         var eligible = await Api.GetEligibleModificationsAsync(u.Id);
         _eligible = eligible.Value ?? new();
@@ -756,7 +797,7 @@
 
             r = await Api.ApplyModificationAsync(
                 _unit.Id,
-                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot));
+                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed));
         }
 
         _busy = false;
@@ -768,6 +809,7 @@
             _aliquotParentConfirmed = false;
             _retiredSources = new();
             _reason = string.Empty;
+            _indicator = string.Empty;
             _singleResultVolume = null;
             var retiredSources = new List<(long Id, string? Number)>();
             if (!_lastWasAliquot && _unit is not null)
@@ -871,7 +913,7 @@
 
         _busy = true;
         var result = await Api.ApplyBatchModificationAsync(new PerformBatchModificationRequest(
-            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot));
+            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed));
         _busy = false;
         _actionFb = result.ToFeedback("Batch modification completed.");
         if (result.Succeeded)
@@ -879,6 +921,8 @@
             _reason = string.Empty;
             _supplyDescription = null;
             _supplyLot = null;
+            _deviceId = null;
+            _indicator = string.Empty;
             _batchUnitNumbers = string.Empty;
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
             _history = history.Value ?? new();

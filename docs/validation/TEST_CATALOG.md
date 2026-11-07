@@ -572,5 +572,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-561 | U | `SpecimenAccessionWaitingTests.Waiting_IsOpenTestOrdersWithoutASpecimen`; `SpecimenAccessionWaitingTests.AccessionType_StartsOnATypeTheWaitingOrdersAccept` | URS-BB-571 / FRS-BB-688 |
 | TEST-BB-562 | U | `SpecimenAccessionWaitingTests.LinkableOnAccession_IsTestOrdersOnTheVisitThatAcceptTheType` (link validation and audit: existing `OrderService.LinkSpecimenAsync` tests) | URS-BB-572 / FRS-BB-689 |
 | TEST-BB-563 | U | `SpecimenAccessionWaitingTests.AcceptPrompt_NamesTheOrders_AndReportsTheLinks` (order selection as in TEST-BB-562, link validation and audit by the existing `OrderService.LinkSpecimenAsync` tests) | URS-BB-573 / FRS-BB-690 |
+| TEST-BB-564 | U, I | `ModificationDeviceRuleTests.Irradiation_RefusesAnUnconfirmedIndicator_EvenWithThePolicyOff`; `ModificationDeviceRuleTests.Irradiation_UnderThePolicy_NeedsTheIrradiatorAndAConfirmedIndicator`; `ModificationDeviceRuleTests.OtherModifications_RecordADeviceWithoutChecks`; `BloodProductModificationServiceTests.Irradiation_RecordsTheIrradiatorAndIndicator_AndRefusesWhatThePolicyRequires` | URS-BB-574 / FRS-BB-691 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

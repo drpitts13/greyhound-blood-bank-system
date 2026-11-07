@@ -276,7 +276,9 @@ public sealed class BloodProductModificationService
                         ? patientLabel
                         : ModificationHistoryPatientCue.Format(null, orderCouldNotBeRead: true),
                     m.SupplyDescription,
-                    m.SupplyLot);
+                    m.SupplyLot,
+                    m.DeviceId,
+                    m.IndicatorConfirmed);
             })
             .ToList();
     }
@@ -642,7 +644,9 @@ public sealed class BloodProductModificationService
             orderLink.Context,
             inherited.Attributes,
             supplyDescription: request.SupplyDescription,
-            supplyLot: request.SupplyLot);
+            supplyLot: request.SupplyLot,
+            deviceId: request.DeviceId,
+            indicatorConfirmed: request.IndicatorConfirmed);
     }
 
     /// <summary>
@@ -724,7 +728,9 @@ public sealed class BloodProductModificationService
                 ct,
                 inheritedAttributes: item.Attributes,
                 supplyDescription: request.SupplyDescription,
-                supplyLot: request.SupplyLot);
+                supplyLot: request.SupplyLot,
+                deviceId: request.DeviceId,
+                indicatorConfirmed: request.IndicatorConfirmed);
             if (!last.Succeeded)
             {
                 return last;
@@ -827,13 +833,23 @@ public sealed class BloodProductModificationService
         IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null,
         bool keepParent = false,
         string? supplyDescription = null,
-        string? supplyLot = null)
+        string? supplyLot = null,
+        string? deviceId = null,
+        bool? indicatorConfirmed = null)
     {
         var requiredLot = _policy is not null && await _policy.GetRequireModificationSupplyLotAsync(ct);
         var supply = ModificationSupplyLotRule.Evaluate(requiredLot, supplyLot);
         if (supply.Severity == RuleSeverity.HardStop)
         {
             return ModificationActionResult.Blocked(new RuleEvaluation([supply]));
+        }
+
+        var requiredIrradiation = rule.ModificationType == ModificationType.Irradiate
+            && _policy is not null && await _policy.GetRequireIrradiationRecordAsync(ct);
+        var device = ModificationDeviceRule.Evaluate(rule.ModificationType, requiredIrradiation, deviceId, indicatorConfirmed);
+        if (device.Severity == RuleSeverity.HardStop)
+        {
+            return ModificationActionResult.Blocked(new RuleEvaluation([device]));
         }
 
         var restriction = UnitModificationRestrictionRule.Evaluate(
@@ -917,7 +933,9 @@ public sealed class BloodProductModificationService
             PerformedBy = _currentUser.UserName,
             PerformedUtc = now,
             SupplyDescription = string.IsNullOrWhiteSpace(supplyDescription) ? null : supplyDescription.Trim(),
-            SupplyLot = string.IsNullOrWhiteSpace(supplyLot) ? null : supplyLot.Trim()
+            SupplyLot = string.IsNullOrWhiteSpace(supplyLot) ? null : supplyLot.Trim(),
+            DeviceId = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId.Trim(),
+            IndicatorConfirmed = rule.ModificationType == ModificationType.Irradiate ? indicatorConfirmed : null
         };
         await _modifications.AddAsync(header, ct);
 
@@ -1112,7 +1130,9 @@ public sealed class BloodProductModificationService
                 ParentVolumeBefore = parentVolumeBefore,
                 ParentVolumeAfter = parentVolumeAfter,
                 header.SupplyDescription,
-                header.SupplyLot
+                header.SupplyLot,
+                header.DeviceId,
+                header.IndicatorConfirmed
             },
             reason: reason);
 
