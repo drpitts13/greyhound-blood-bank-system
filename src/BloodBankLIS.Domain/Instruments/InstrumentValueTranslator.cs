@@ -81,6 +81,21 @@ public sealed class InstrumentValueTranslator
         return (InstrumentErrorAction.Hold, false);
     }
 
+    /// <summary>
+    /// An error code as staff should read it: the code with its meaning from the instrument's error code table when
+    /// one is recorded ("Q (Questionable reaction)"), else the code alone.
+    /// </summary>
+    public string? Meaning(string code, string? context = null) =>
+        Ranked(InstrumentTranslationKeys.ErrorCode, InterfaceTranslationDirection.Inbound, context)
+            .FirstOrDefault(r => Same(r.InstrumentValue, code))?.Description?.Trim() is { Length: > 0 } meaning ? meaning : null;
+
+    public string Describe(string code, string? context = null)
+    {
+        var row = Ranked(InstrumentTranslationKeys.ErrorCode, InterfaceTranslationDirection.Inbound, context)
+            .FirstOrDefault(r => Same(r.InstrumentValue, code));
+        return string.IsNullOrWhiteSpace(row?.Description) ? code.Trim() : $"{row.InstrumentValue.Trim()} ({row.Description.Trim()})";
+    }
+
     public void RecordMiss(string key, string? value, InterfaceTranslationDirection direction)
     {
         var v = value?.Trim();

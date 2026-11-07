@@ -15,7 +15,8 @@ public sealed record InstrumentTranslationDto(
     string LocalValue,
     InterfaceTranslationDirection Direction,
     int SortOrder,
-    string? Context = null);
+    string? Context = null,
+    string? Description = null);
 
 /// <summary>A translation field an instrument can fill, with the local values it may use (empty for any value).</summary>
 public sealed record InstrumentTranslationFieldDto(

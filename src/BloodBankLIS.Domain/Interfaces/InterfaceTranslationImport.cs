@@ -81,11 +81,11 @@ public static class InterfaceTranslationImport
     }
 
     /// <summary>An instrument translation row: what the instrument sends, the LIS value, and an optional test limit.</summary>
-    public sealed record InstrumentRow(string InstrumentValue, string LocalValue, string? Context);
+    public sealed record InstrumentRow(string InstrumentValue, string LocalValue, string? Context, string? Description = null);
 
     public sealed record InstrumentResult(IReadOnlyList<InstrumentRow> Rows, IReadOnlyList<Problem> Problems, int Duplicates);
 
-    public static readonly string[] InstrumentColumns = ["Instrument value", "Local value", "Test limit"];
+    public static readonly string[] InstrumentColumns = ["Instrument value", "Local value", "Test limit", "Meaning"];
 
     /// <summary>
     /// Instrument rows for one field: instrument value, local value, and an optional LIS test the row is limited to.
@@ -120,9 +120,10 @@ public static class InterfaceTranslationImport
             var instrument = Clean(cells.ElementAtOrDefault(0));
             var local = Clean(cells.ElementAtOrDefault(1));
             var context = Clean(cells.ElementAtOrDefault(2));
-            if (cells.Skip(3).Any(c => !string.IsNullOrWhiteSpace(c)))
+            var meaning = Clean(cells.ElementAtOrDefault(3));
+            if (cells.Skip(4).Any(c => !string.IsNullOrWhiteSpace(c)))
             {
-                problems.Add(new Problem(i + 1, "More than three columns: expected instrument value, local value, test limit."));
+                problems.Add(new Problem(i + 1, "More than four columns: expected instrument value, local value, test limit, meaning."));
                 continue;
             }
 
@@ -138,14 +139,14 @@ public static class InterfaceTranslationImport
                 continue;
             }
 
-            rows.Add(new InstrumentRow(instrument, local, context.Length == 0 ? null : context));
+            rows.Add(new InstrumentRow(instrument, local, context.Length == 0 ? null : context, meaning.Length == 0 ? null : meaning));
         }
 
         return new InstrumentResult(rows, problems, duplicates);
     }
 
     public static IEnumerable<IReadOnlyList<string?>> InstrumentCells(IEnumerable<InstrumentRow> rows) =>
-        rows.Select(r => (IReadOnlyList<string?>)new[] { r.InstrumentValue, r.LocalValue, r.Context });
+        rows.Select(r => (IReadOnlyList<string?>)new[] { r.InstrumentValue, r.LocalValue, r.Context, r.Description });
 
     /// <summary>Blank is Both; also accepts In/Out, I/O/B, and the enum names, in any case.</summary>
     public static InterfaceTranslationDirection? ParseDirection(string? text) => (text ?? string.Empty).Trim().ToUpperInvariant() switch

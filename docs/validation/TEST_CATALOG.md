@@ -547,5 +547,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-536 | I | `SeederTests.Upgrade_CopiesTheOldMap_AndTurnsOffOnlyUnchangedTextRules`; `SeederTests.Seed_GivesTheEchoTranslations_InsteadOfTextRules` | URS-BB-552 / FRS-BB-663 / FRS-BB-664 |
 | TEST-BB-537 | U | `InstrumentMessageFollowUpRuleTests.Release_NeedsAHeldOpenFailure_AndAReason` | URS-BB-555 / FRS-BB-667 |
 | TEST-BB-538 | I | `InstrumentInterfaceTests.HeldResult_IsReleasedWithAReason_AndOtherFailuresAreNot` | URS-BB-555 / FRS-BB-667 |
+| TEST-BB-539 | U, I | `InstrumentValueTranslatorTests.ErrorCodes_AreDescribedFromTheTable`; `InstrumentValueTranslatorTests.ErrorCodeTable_ExportsAndImportsWithMeanings`; `InstrumentInterfaceTests.ErrorCodes_HoldOrWarn`; `SeederTests.Seed_GivesTheEchoTranslations_InsteadOfTextRules` | URS-BB-554 / FRS-BB-668 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

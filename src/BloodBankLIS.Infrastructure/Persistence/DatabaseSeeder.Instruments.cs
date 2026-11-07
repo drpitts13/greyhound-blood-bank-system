@@ -104,8 +104,8 @@ public static partial class DatabaseSeeder
             Translation(InstrumentTranslationKeys.SubtestCode, "Pos Ctrl", InstrumentTranslationKeys.Keep, 13),
             Translation(InstrumentTranslationKeys.SubtestCode, "Donor", InstrumentTranslationKeys.Keep, 22),
             Translation(InstrumentTranslationKeys.Interpretation, "IgG Comp (Check ABO Comp)", "Compatible", 40, context: "XM"),
-            Translation(InstrumentTranslationKeys.ErrorCode, "N", nameof(InstrumentErrorAction.Ignore), 1),
-            Translation(InstrumentTranslationKeys.ErrorCode, "W", nameof(InstrumentErrorAction.Warn), 2)
+            ErrorCode("N", InstrumentErrorAction.Ignore, 1, EchoErrorMeanings["N"]),
+            ErrorCode("W", InstrumentErrorAction.Warn, 2, EchoErrorMeanings["W"])
         };
         var sort = 30;
         foreach (var abo in new[] { "A", "B", "O", "AB" })
@@ -115,6 +115,20 @@ public static partial class DatabaseSeeder
         }
 
         return rows;
+    }
+
+    /// <summary>Example meanings for the Echo's error code table; the laboratory confirms them from the vendor manual (OCD-066).</summary>
+    private static readonly Dictionary<string, string> EchoErrorMeanings = new()
+    {
+        ["N"] = "Normal end of message (ASTM termination code)",
+        ["W"] = "Reaction flagged by the instrument; graded NT by the \"Reaction error to NT\" rule"
+    };
+
+    private static InstrumentValueTranslation ErrorCode(string code, InstrumentErrorAction action, int sort, string meaning)
+    {
+        var row = Translation(InstrumentTranslationKeys.ErrorCode, code, action.ToString(), sort);
+        row.Description = meaning;
+        return row;
     }
 
     private static InstrumentValueTranslation Translation(
@@ -149,6 +163,19 @@ public static partial class DatabaseSeeder
             .SingleAsync(i => i.Name == EchoInterfaceName, ct);
         if (echo.Translations.Any(t => t.DataItemKey is InstrumentTranslationKeys.Interpretation or InstrumentTranslationKeys.ErrorCode))
         {
+            // Give the seeded error codes their meaning once, where nobody has written one.
+            var unexplained = echo.Translations.Where(t => t.DataItemKey == InstrumentTranslationKeys.ErrorCode
+                && string.IsNullOrWhiteSpace(t.Description) && EchoErrorMeanings.ContainsKey(t.InstrumentValue)).ToList();
+            foreach (var row in unexplained)
+            {
+                row.Description = EchoErrorMeanings[row.InstrumentValue];
+            }
+
+            if (unexplained.Count > 0)
+            {
+                await context.SaveChangesAsync(ct);
+            }
+
             return;
         }
 

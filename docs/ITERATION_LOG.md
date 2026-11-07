@@ -16343,3 +16343,34 @@ Cycles 488–491 let an instrument error code hold a result. A held result then 
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; held and released counts on the Instrument failures home card; LOINC and translated codes in the FHIR export; method and reagent lot on each result.
+
+## Iteration 493 — Error code table decides each code's action (OCD-066 decided) (2026-11-07)
+
+### Decision
+
+Product owner: OCD-066 is decided per error code, by a table.
+
+### Capability matrix rescan
+
+Cycle 490 stored each code's action as a translation row (code → Hold/Warn/Ignore) but not what the code means, so the table read as bare letters and the hold and warn notes said only "Q" or "W"; staff had to look up the vendor manual to understand a held result. Workflow questions: memory (the code's meaning is now on the row and in every note); inference (the meaning comes from the table, not the person reading); safety (a code missing from the table still holds, and is listed so the table gets completed); override (release after review, Cycle 492).
+
+### Design
+
+- `InstrumentValueTranslation.Description` (migration `20261126000000_InstrumentTranslationDescription`).
+- Error code field on the Translations tab: Error code, Meaning, Action, Only for test, with the rule explained; import/export Meaning column.
+- `InstrumentValueTranslator.Meaning` / `Describe`: hold and warn notes and the result's source say "W (Reaction flagged by the instrument…)"; Test a value shows the meaning or that an unlisted code is held.
+- Echo seed meanings (added once on upgrade where blank). OCD-066 moved to Decided 2026-11-07.
+
+### Requirements
+
+- URS-BB-554 (reworded), FRS-BB-668.
+
+### Tests
+
+- TEST-BB-539: Describe uses the table's code and meaning; an error code table round-trips through CSV with meanings and a fifth column is refused; the Warn note carries the meaning; seeded Echo codes have meanings.
+- Full suite: 3,938 passed.
+- Live: the dev database gained the Description column in place and the Echo's N and W rows their meanings. The error code table showed Error code, Meaning, Action, Only for test with the rule explained; Test a value gave W → Warn with its meaning and Z → Hold "not in this instrument's error code table". Nothing was saved. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; held and released counts on the Instrument failures home card; LOINC and translated codes in the FHIR export.

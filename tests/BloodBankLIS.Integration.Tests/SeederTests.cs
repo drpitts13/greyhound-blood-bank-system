@@ -758,6 +758,8 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Cell1", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.SubtestCode, "Screen 1"));
         Assert.Equal("B|Positive", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.Interpretation, "B Pos"));
         Assert.Equal("Ignore", Local(BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ErrorCode, "N"));
+        Assert.All(echo.Translations.Where(t => t.DataItemKey == BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.ErrorCode),
+            t => Assert.False(string.IsNullOrWhiteSpace(t.Description)));
         Assert.Single(echo.Translations, t => t.DataItemKey == BloodBankLIS.Domain.Instruments.InstrumentTranslationKeys.OrderTestCode && t.LocalValue == "ABORH");
         Assert.DoesNotContain(echo.Rules, r => r.IsEnabled && r.Name == "B Pos");
         Assert.Contains(echo.Rules, r => r.IsEnabled && r.Name == "Numeric 80 to 4+");

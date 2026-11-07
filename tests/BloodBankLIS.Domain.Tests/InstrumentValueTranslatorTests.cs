@@ -59,6 +59,20 @@ public class InstrumentValueTranslatorTests
         Assert.Equal((InstrumentTranslationKeys.ErrorCode, "Q"), (miss.DataItemKey, miss.Value));
     }
 
+    // TEST-BB-539: each error code's action and meaning come from the instrument's error code table, code by code.
+    [Fact]
+    public void ErrorCodes_AreDescribedFromTheTable()
+    {
+        var hold = Row(InstrumentTranslationKeys.ErrorCode, "Q", "Hold");
+        hold.Description = "Questionable reaction";
+        var translator = InstrumentValueTranslator.From([hold, Row(InstrumentTranslationKeys.ErrorCode, "N", "Ignore")]);
+
+        Assert.Equal("Q (Questionable reaction)", translator.Describe("q"));
+        Assert.Equal("N", translator.Describe("N"));
+        Assert.Equal("Z", translator.Describe("Z"));
+        Assert.Equal(InstrumentErrorAction.Hold, translator.ErrorAction("Q").Action);
+    }
+
     [Fact]
     public void Validation_NamesBadRows()
     {
@@ -74,6 +88,25 @@ public class InstrumentValueTranslatorTests
         ]);
 
         Assert.Equal(["INST-XLAT-KEY", "INST-XLAT", "INST-XLAT-CONTEXT", "INST-XLAT-ACTION", "INST-XLAT-OUT"], results.Select(r => r.Code));
+    }
+
+    // TEST-BB-539: an error code table round-trips through CSV with its meanings.
+    [Fact]
+    public void ErrorCodeTable_ExportsAndImportsWithMeanings()
+    {
+        InterfaceTranslationImport.InstrumentRow[] rows =
+        [
+            new("Q", "Hold", null, "Questionable reaction, review"),
+            new("N", "Ignore", null, "Normal end of message")
+        ];
+        var csv = System.Text.Encoding.UTF8.GetString(BloodBankLIS.Domain.Reporting.CsvFormat.Write(
+            InterfaceTranslationImport.InstrumentColumns, InterfaceTranslationImport.InstrumentCells(rows)));
+
+        var back = InterfaceTranslationImport.ParseInstrument(csv);
+
+        Assert.Empty(back.Problems);
+        Assert.Equal(rows, back.Rows);
+        Assert.Single(InterfaceTranslationImport.ParseInstrument("A,B,,C,extra").Problems);
     }
 
     [Fact]

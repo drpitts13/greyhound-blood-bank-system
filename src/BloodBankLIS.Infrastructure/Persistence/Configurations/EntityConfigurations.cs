@@ -2134,6 +2134,7 @@ public sealed class InstrumentValueTranslationConfiguration : IEntityTypeConfigu
         b.Property(e => e.InstrumentValue).HasMaxLength(120).IsRequired();
         b.Property(e => e.LocalValue).HasMaxLength(120).IsRequired();
         b.Property(e => e.Context).HasMaxLength(50);
+        b.Property(e => e.Description).HasMaxLength(200);
         b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
         b.HasIndex(e => new { e.InterfaceId, e.DataItemKey, e.Context, e.InstrumentValue, e.LocalValue, e.Direction }).IsUnique();

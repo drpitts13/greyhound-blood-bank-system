@@ -326,14 +326,16 @@ public sealed class AstmInboundProcessor
                         .Distinct(StringComparer.OrdinalIgnoreCase);
                     foreach (var code in codes)
                     {
+                        // The instrument's error code table decides each code's action (OCD-066); notes carry its meaning.
                         var (action, _) = translator.ErrorAction(code, appTest);
-                        if (action == InstrumentErrorAction.Hold && !holds.Contains(code, StringComparer.OrdinalIgnoreCase))
+                        var label = translator.Describe(code, appTest);
+                        if (action == InstrumentErrorAction.Hold && !holds.Contains(label, StringComparer.OrdinalIgnoreCase))
                         {
-                            holds.Add(code);
+                            holds.Add(label);
                         }
-                        else if (action == InstrumentErrorAction.Warn && !warnings.Contains(code, StringComparer.OrdinalIgnoreCase))
+                        else if (action == InstrumentErrorAction.Warn && !warnings.Contains(label, StringComparer.OrdinalIgnoreCase))
                         {
-                            warnings.Add(code);
+                            warnings.Add(label);
                         }
                     }
                 }

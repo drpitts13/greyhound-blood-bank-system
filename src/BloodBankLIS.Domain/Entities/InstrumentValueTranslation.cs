@@ -28,4 +28,7 @@ public class InstrumentValueTranslation : BaseEntity
     public InterfaceTranslationDirection Direction { get; set; } = InterfaceTranslationDirection.Inbound;
 
     public int SortOrder { get; set; }
+
+    /// <summary>What the instrument value means (from the vendor manual), shown with it; used on error codes.</summary>
+    public string? Description { get; set; }
 }

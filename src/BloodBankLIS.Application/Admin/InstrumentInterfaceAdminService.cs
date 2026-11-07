@@ -97,9 +97,12 @@ public sealed class InstrumentInterfaceAdminService : ConfigAdminServiceBase
         if (key == InstrumentTranslationKeys.ErrorCode)
         {
             var (action, translated) = translator.ErrorAction(input, ctx);
+            var meaning = translator.Meaning(input, ctx);
             return OperationResult<InstrumentTranslationCheckDto>.Ok(new InstrumentTranslationCheckDto(
                 input, action.ToString(), translated, ctx,
-                translated ? null : "No translation: an unknown error code holds the result (OCD-066)."));
+                translated
+                    ? (meaning is null ? "No meaning recorded for this code." : $"Means: {meaning}.")
+                    : "Not in this instrument's error code table, so the table cannot decide: the result is held (OCD-066)."));
         }
 
         var outcome = translator.Inbound(key, input, ctx);
@@ -384,7 +387,8 @@ public sealed class InstrumentInterfaceAdminService : ConfigAdminServiceBase
                 Direction = t.DataItemKey?.Trim() == InstrumentTranslationKeys.OrderTestCode
                     ? InterfaceTranslationDirection.Outbound
                     : InterfaceTranslationDirection.Inbound,
-                SortOrder = t.SortOrder
+                SortOrder = t.SortOrder,
+                Description = string.IsNullOrWhiteSpace(t.Description) ? null : t.Description.Trim()
             })
             .GroupBy(t => (t.DataItemKey, Context: t.Context?.ToUpperInvariant(), Instrument: t.InstrumentValue.ToUpperInvariant(), Local: t.LocalValue.ToUpperInvariant()))
             .Select(g => g.First())
@@ -430,7 +434,7 @@ public sealed class InstrumentInterfaceAdminService : ConfigAdminServiceBase
             }).ToList(),
             children.Translations
                 .OrderBy(t => t.DataItemKey).ThenBy(t => t.SortOrder).ThenBy(t => t.InstrumentValue)
-                .Select(t => new InstrumentTranslationDto(t.DataItemKey, t.InstrumentValue, t.LocalValue, t.Direction, t.SortOrder, t.Context))
+                .Select(t => new InstrumentTranslationDto(t.DataItemKey, t.InstrumentValue, t.LocalValue, t.Direction, t.SortOrder, t.Context, t.Description))
                 .ToList(),
             children.Rules
                 .OrderBy(r => r.SortOrder)

@@ -150,6 +150,16 @@
             @if (XlatField is { } field)
             {
                 <p class="muted" style="margin:.2rem 0 .6rem;">@field.Description</p>
+                @if (IsErrorField)
+                {
+                    <p class="muted" style="margin:0 0 .6rem;" data-inst-error-help>
+                        This table decides what each code does, code by code (OCD-066): <strong>Hold</strong> keeps the result off
+                        the record for review, <strong>Warn</strong> posts it with the code and its meaning beside the result,
+                        <strong>Ignore</strong> does nothing. Take each code's meaning from the vendor manual. A code the
+                        instrument sends that is not in the table is held, because the table cannot decide it, and is listed
+                        under Unmapped values.
+                    </p>
+                }
                 <datalist id="inst-local-values">
                     @foreach (var v in field.LocalValues)
                     {
@@ -172,7 +182,7 @@
                 @if (_xlatImportOpen && CanManage)
                 {
                     <div class="bb-card" style="margin-bottom:.6rem;" data-inst-xlat-import>
-                        <p class="muted" style="margin-top:0;">Paste rows from a spreadsheet or a CSV file: instrument value, local value, and@(field.AllowsContext ? " an optional test the row is limited to" : " (no third column)"). A header line is fine. Rows go into the table below; Save the interface to keep them.</p>
+                        <p class="muted" style="margin-top:0;">Paste rows from a spreadsheet or a CSV file: instrument value, local value, and@(field.AllowsContext ? " an optional test the row is limited to" : " (no third column)")@(IsErrorField ? ", then the code's meaning" : ""). A header line is fine. Rows go into the table below; Save the interface to keep them.</p>
                         <textarea rows="5" class="mono" style="width:100%;" @bind="_xlatImportText" @bind:event="oninput" data-inst-xlat-import-text></textarea>
                         <div class="flex gap" style="margin-top:.4rem;align-items:center;">
                             <InputFile OnChange="OnXlatFileAsync" accept=".csv,.tsv,.txt" />
@@ -187,7 +197,9 @@
                 <table class="bb" data-inst-xlat-rows>
                     <thead>
                         <tr>
-                            <th>Instrument value</th><th>Local value</th>
+                            <th>@(IsErrorField ? "Error code" : "Instrument value")</th>
+                            @if (IsErrorField) { <th>Meaning</th> }
+                            <th>@(IsErrorField ? "Action" : "Local value")</th>
                             @if (field.AllowsContext) { <th>Only for test</th> }
                             <th>Order</th><th></th>
                         </tr>
@@ -195,12 +207,16 @@
                     <tbody>
                         @if (!XlatRows.Any())
                         {
-                            <tr><td colspan="5" class="muted">No rows for @field.DisplayName.</td></tr>
+                            <tr><td colspan="6" class="muted">@(IsErrorField ? "No error codes: this instrument's error and flag codes are not acted on until its table lists them." : $"No rows for {field.DisplayName}.")</td></tr>
                         }
                         @foreach (var row in XlatRows)
                         {
                             <tr>
                                 <td><input id="@(ReferenceEquals(row, XlatRows.LastOrDefault()) ? "xlat-last-code" : null)" class="mono" @bind="row.InstrumentValue" disabled="@(!CanManage)" /></td>
+                                @if (IsErrorField)
+                                {
+                                    <td><input @bind="row.Description" placeholder="from the vendor manual" disabled="@(!CanManage)" data-inst-error-meaning /></td>
+                                }
                                 <td>
                                     <input class="mono" list="@(field.LocalValues.Count > 0 ? "inst-local-values" : null)" @bind="row.LocalValue" @bind:event="oninput" disabled="@(!CanManage)" />
                                     @if (field.LocalValues.Count > 0 && !string.IsNullOrWhiteSpace(row.LocalValue))
@@ -339,6 +355,8 @@
 
     private InstrumentTranslationFieldDto? XlatField => _xlatFields.FirstOrDefault(f => f.Key == _xlatKey);
 
+    private bool IsErrorField => _xlatKey == "Instrument.ErrorCode";
+
     private IEnumerable<XlatRow> XlatRows => _editing?.Translations.Where(t => t.DataItemKey == _xlatKey) ?? [];
 
     private IReadOnlyList<InterfaceLocalValueDto> TestValues =>
@@ -426,7 +444,7 @@
                 continue;
             }
 
-            _editing.Translations.Add(new XlatRow { DataItemKey = _xlatKey, InstrumentValue = row.InstrumentValue, LocalValue = row.LocalValue, Context = context, SortOrder = order++ });
+            _editing.Translations.Add(new XlatRow { DataItemKey = _xlatKey, InstrumentValue = row.InstrumentValue, LocalValue = row.LocalValue, Context = context, Description = row.Description, SortOrder = order++ });
             added++;
         }
 
@@ -440,7 +458,8 @@
     private async Task ExportXlatAsync()
     {
         var rows = XlatRows.Where(r => !r.IsBlank)
-            .Select(r => new InterfaceTranslationImport.InstrumentRow(r.InstrumentValue.Trim(), r.LocalValue.Trim(), string.IsNullOrWhiteSpace(r.Context) ? null : r.Context.Trim()));
+            .Select(r => new InterfaceTranslationImport.InstrumentRow(r.InstrumentValue.Trim(), r.LocalValue.Trim(),
+                string.IsNullOrWhiteSpace(r.Context) ? null : r.Context.Trim(), string.IsNullOrWhiteSpace(r.Description) ? null : r.Description.Trim()));
         var name = $"instrument-{(_editing?.Name ?? "new").Replace(' ', '-')}-{_xlatKey.Replace('.', '-')}.csv";
         var token = Downloads.Put(name, CsvFormat.ContentType, CsvFormat.Write(InterfaceTranslationImport.InstrumentColumns, InterfaceTranslationImport.InstrumentCells(rows)));
         await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
@@ -588,6 +607,7 @@
                 InstrumentValue = t.InstrumentValue,
                 LocalValue = t.LocalValue,
                 Context = t.Context,
+                Description = t.Description,
                 SortOrder = t.SortOrder
             }).ToList(),
             Rules = dto.Rules.Select(r => new RuleRow
@@ -606,7 +626,7 @@
                 new InstrumentConnectionDto(IpAddress, Port, string.IsNullOrWhiteSpace(IpAddress)),
                 FieldMappings.Select(m => new InstrumentFieldMappingDto(m.DataItemKey, m.AstmPath, m.IsRequired)).ToList(),
                 Translations.Where(t => !t.IsBlank)
-                    .Select(t => new InstrumentTranslationDto(t.DataItemKey, t.InstrumentValue, t.LocalValue, InterfaceTranslationDirection.Inbound, t.SortOrder, t.Context))
+                    .Select(t => new InstrumentTranslationDto(t.DataItemKey, t.InstrumentValue, t.LocalValue, InterfaceTranslationDirection.Inbound, t.SortOrder, t.Context, t.Description))
                     .ToList(),
                 Rules.Select(r => new InstrumentRuleDto(r.Name, r.ConditionExpression, r.ActionExpression, r.SortOrder, r.IsEnabled, r.StopOnMatch)).ToList(),
                 InterpretationMatch,
@@ -626,6 +646,7 @@
         public string InstrumentValue { get; set; } = "";
         public string LocalValue { get; set; } = "";
         public string? Context { get; set; }
+        public string? Description { get; set; }
         public int SortOrder { get; set; }
 
         public bool IsBlank => string.IsNullOrWhiteSpace(InstrumentValue) && string.IsNullOrWhiteSpace(LocalValue);

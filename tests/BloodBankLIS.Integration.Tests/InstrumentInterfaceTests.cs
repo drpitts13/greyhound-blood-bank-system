@@ -350,7 +350,8 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
             .Replace("L|1|N", "L|1|W", StringComparison.Ordinal);
         var warn = await Processor(context).ProcessAsync(warned, iface.Id);
         Assert.True(warn.Accepted, string.Join("; ", warn.Notes));
-        Assert.Contains("instrument flag W", (await PostedResultAsync(context, "ACC-INST-WARN", "ABORH")).SourceReference);
+        // The warning carries the code's meaning from the error code table.
+        Assert.Contains("instrument flag W (Reaction flagged by the instrument", (await PostedResultAsync(context, "ACC-INST-WARN", "ABORH")).SourceReference);
     }
 
     // TEST-BB-538: a held result is posted only by a release with a reason: it files as pending verification with the
