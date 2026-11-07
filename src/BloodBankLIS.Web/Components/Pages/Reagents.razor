@@ -180,7 +180,7 @@
                 else
                 {
                     <table class="bb">
-                        <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>By</th></tr></thead>
+                        <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>By</th><th>Review</th></tr></thead>
                         <tbody>
                             @foreach (var r in _lookback)
                             {
@@ -192,6 +192,19 @@
                                     <td>@ResultValueText.For(r.Value)</td>
                                     <td>@r.Status @if (r.ToReview) { <span class="badge badge-red">To review</span> }</td>
                                     <td>@r.EnteredBy</td>
+                                    <td data-lot-review="@r.ResultId">
+                                        @if (r.ReviewedUtc is DateTime reviewedAt)
+                                        {
+                                            <span class="muted">Reviewed @reviewedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @r.ReviewedBy: @r.ReviewNote</span>
+                                        }
+                                        else if (r.ToReview && Session.Has(PermissionCodes.ResultVerify))
+                                        {
+                                            <input style="width:14rem;" placeholder="What was found or done" value="@_reviewNotes.GetValueOrDefault(r.ResultId)"
+                                                   @oninput="e => _reviewNotes[r.ResultId] = e.Value?.ToString() ?? string.Empty" />
+                                            <button class="btn btn-secondary btn-sm" disabled="@string.IsNullOrWhiteSpace(_reviewNotes.GetValueOrDefault(r.ResultId))"
+                                                    @onclick="() => MarkReviewedAsync(r.ResultId)">Mark reviewed</button>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -384,6 +397,21 @@
         {
             _editTests.Remove(reagentId);
             await ReloadAsync();
+        }
+    }
+
+    private readonly Dictionary<long, string> _reviewNotes = new();
+
+    private async Task MarkReviewedAsync(long resultId)
+    {
+        if (_lookbackLot is null) return;
+        var r = await Api.ReviewReagentLotResultAsync(_lookbackLot.Id, resultId, _reviewNotes.GetValueOrDefault(resultId) ?? string.Empty);
+        _feedback = r.ToFeedback("Marked reviewed.");
+        if (r.Succeeded)
+        {
+            _reviewNotes.Remove(resultId);
+            await ShowLotResultsAsync(_lookbackLot);
+            _work = (await Api.GetReagentQcWorklistAsync()).Value ?? _work;
         }
     }
 

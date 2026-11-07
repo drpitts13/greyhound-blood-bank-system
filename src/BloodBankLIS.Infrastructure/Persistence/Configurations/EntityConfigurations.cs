@@ -2132,6 +2132,8 @@ public sealed class TestResultReagentLotConfiguration : IEntityTypeConfiguration
         b.HasKey(e => e.Id);
         b.Property(e => e.ReagentCode).HasMaxLength(50).IsRequired();
         b.Property(e => e.LotNumber).HasMaxLength(80).IsRequired();
+        b.Property(e => e.ReviewedBy).HasMaxLength(100);
+        b.Property(e => e.ReviewNote).HasMaxLength(500);
         b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
         b.HasIndex(e => e.ReagentLotId);

@@ -97,6 +97,25 @@ public class AlertWorkflowTests : IDisposable
         Assert.Equal(1, (await reagents.ListWorkAsync()).Single(w => w.LotId == lotId && w.Kind == ReagentQcWorklistRule.Failed).ResultsToReview);
         var lookback = (await reagents.ResultsForLotAsync(lotId)).Value!;
         Assert.Equal([(after, true), (before, false)], lookback.Select(r => (r.ResultId, r.ToReview)));
+
+        // TEST-BB-547: a result to review is marked reviewed with a note (audited); the count and the alert drop it.
+        Assert.Contains("Say what", (await reagents.ReviewLotResultAsync(lotId, after, " ")).Error);
+        Assert.Contains("since it last passed", (await reagents.ReviewLotResultAsync(lotId, before, "checked")).Error);
+        var reviewed = await reagents.ReviewLotResultAsync(lotId, after, "Repeated with lot FQ-2: Positive confirmed.");
+        Assert.True(reviewed.Succeeded, reviewed.Error);
+        Assert.Equal((false, "tech-test", "Repeated with lot FQ-2: Positive confirmed."), (reviewed.Value!.ToReview, reviewed.Value.ReviewedBy, reviewed.Value.ReviewNote));
+        Assert.Contains("already", (await reagents.ReviewLotResultAsync(lotId, after, "again")).Error);
+        Assert.Equal(0, (await reagents.ListWorkAsync()).Single(w => w.LotId == lotId && w.Kind == ReagentQcWorklistRule.Failed).ResultsToReview);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(TestResult) && a.EntityId == after && a.Reason!.StartsWith("Reviewed after reagent lot FQ-1 failed QC")));
+
+        await using (var c = _factory.Create())
+        {
+            await Scanner(c).ScanAsync();
+        }
+
+        await using var after2 = _factory.Create();
+        var refreshed = await after2.Alerts.SingleAsync(a => a.Source == AlertRule.ReagentQc && a.Title == "Reagent QC failed: lot FQ-1" && a.ResolvedUtc == null);
+        Assert.DoesNotContain("review", refreshed.Message);
     }
 
     // TEST-BB-346: a transfusion started and not completed within the reminder hours raises a warning,

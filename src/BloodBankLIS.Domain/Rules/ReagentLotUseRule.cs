@@ -45,6 +45,29 @@ public static class ReagentLotUseRule
         return rows.LastOrDefault(q => q.Passed && q.PerformedUtc < latest!.PerformedUtc)?.PerformedUtc ?? DateTime.MinValue;
     }
 
+    public const string ReviewCode = "REAGENT-LOT-REVIEW";
+
+    /// <summary>
+    /// Marking a result reviewed for a failed lot: only a result still to review (recorded with the lot after its last
+    /// passed QC, not yet reviewed), and only with a note saying what was found or done.
+    /// </summary>
+    public static RuleResult EvaluateReview(bool inReviewWindow, bool alreadyReviewed, string? note)
+    {
+        if (alreadyReviewed)
+        {
+            return RuleResult.HardStop(ReviewCode, "This result is already marked reviewed for this lot.");
+        }
+
+        if (!inReviewWindow)
+        {
+            return RuleResult.HardStop(ReviewCode, "Only a result tested with this lot since it last passed QC, while its latest QC is failed, needs this review.");
+        }
+
+        return string.IsNullOrWhiteSpace(note)
+            ? RuleResult.HardStop(ReviewCode, "Say what was found or done, for example that the test was repeated with another lot and agreed, or the result was corrected.")
+            : RuleResult.Pass(ReviewCode);
+    }
+
     public const string NoOpenLotCode = "RES-REAGENT-NO-LOT";
     public const string QcNotPassedCode = "RES-REAGENT-QC";
 

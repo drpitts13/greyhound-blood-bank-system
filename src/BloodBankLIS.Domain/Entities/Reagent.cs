@@ -33,6 +33,13 @@ public class TestResultReagentLot : BaseEntity
     public string LotNumber { get; set; } = string.Empty;
 
     public DateTime RecordedUtc { get; set; }
+
+    /// <summary>When someone reviewed this result after the lot failed QC, and what they found or did.</summary>
+    public DateTime? ReviewedUtc { get; set; }
+
+    public string? ReviewedBy { get; set; }
+
+    public string? ReviewNote { get; set; }
 }
 
 public enum ReagentLotState

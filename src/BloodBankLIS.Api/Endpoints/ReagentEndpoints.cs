@@ -25,6 +25,11 @@ public static class ReagentEndpoints
         group.MapGet("/lots/{id:long}/results", async (long id, ReagentQcService service, CancellationToken ct) =>
             ToResult(await service.ResultsForLotAsync(id, ct)));
 
+        // A result tested with a lot that failed QC has been reviewed: a verifier says what was found or done.
+        group.MapPost("/lots/{id:long}/results/{resultId:long}/review", async (long id, long resultId, ReasonBody body, ReagentQcService service, CancellationToken ct) =>
+            ToResult(await service.ReviewLotResultAsync(id, resultId, body.Reason, ct)))
+            .RequirePermission(PermissionCodes.ResultVerify);
+
         group.MapGet("/results/{resultId:long}/lots", async (long resultId, ReagentQcService service, CancellationToken ct) =>
             Results.Ok(await service.LotsForResultAsync(resultId, ct)));
 

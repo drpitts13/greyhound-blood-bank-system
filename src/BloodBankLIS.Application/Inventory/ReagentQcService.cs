@@ -22,8 +22,11 @@ public sealed record ReagentLotResultDto(
     DateTime? EnteredUtc,
     string? EnteredBy,
     string? Value,
-    // The lot's latest QC failed and this result was recorded with it after its last passed QC.
-    bool ToReview = false);
+    // The lot's latest QC failed and this result was recorded with it after its last passed QC, not yet reviewed.
+    bool ToReview = false,
+    DateTime? ReviewedUtc = null,
+    string? ReviewedBy = null,
+    string? ReviewNote = null);
 
 /// <summary>A reagent lot recorded against a result.</summary>
 public sealed record ResultReagentLotDto(long ReagentLotId, string ReagentCode, string LotNumber, DateTime RecordedUtc);
@@ -259,6 +262,48 @@ public sealed class ReagentQcService
                 g => (IReadOnlyList<string>)g.OrderBy(r => r.ReagentCode).ThenBy(r => r.LotNumber).Select(r => $"{r.ReagentCode} {r.LotNumber}").ToList());
     }
 
+    /// <summary>
+    /// Records that a result tested with a lot whose QC failed has been reviewed (what was found or done), audited.
+    /// The result itself is not changed: correct or invalidate it through the result workflow when needed.
+    /// </summary>
+    public async Task<OperationResult<ReagentLotResultDto>> ReviewLotResultAsync(long lotId, long resultId, string? note, CancellationToken ct = default)
+    {
+        if (_resultLots is null)
+        {
+            return OperationResult<ReagentLotResultDto>.Fail("Lot traceability is not available.");
+        }
+
+        var use = (await _resultLots.ListAsync(r => r.ReagentLotId == lotId && r.TestResultId == resultId, ct)).FirstOrDefault();
+        if (use is null)
+        {
+            return OperationResult<ReagentLotResultDto>.Fail("That result is not recorded as tested with this lot.");
+        }
+
+        var since = ReagentLotUseRule.ReviewSinceUtc(await _qc.ListAsync(q => q.ReagentLotId == lotId, ct), out _);
+        var check = ReagentLotUseRule.EvaluateReview(since is not null && use.RecordedUtc > since.Value, use.ReviewedUtc is not null, note);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReagentLotResultDto>.Fail($"{check.Code}: {check.Message}");
+        }
+
+        var tracked = await _resultLots.GetByIdAsync(use.Id, ct) ?? use;
+        tracked.ReviewedUtc = _clock.UtcNow;
+        tracked.ReviewedBy = _currentUser.UserName;
+        tracked.ReviewNote = note!.Trim().Length <= 500 ? note.Trim() : note.Trim()[..500];
+        _resultLots.Update(tracked);
+        _audit.Record(AuditEventType.Update, nameof(TestResult), resultId,
+            new { ReagentLot = $"{use.ReagentCode} {use.LotNumber}", Reviewed = false },
+            new { ReagentLot = $"{use.ReagentCode} {use.LotNumber}", Reviewed = true, tracked.ReviewedBy },
+            $"Reviewed after reagent lot {use.LotNumber} failed QC: {tracked.ReviewNote}");
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        var rows = await ResultsForLotAsync(lotId, ct);
+        var row = rows.Value?.FirstOrDefault(r => r.ResultId == resultId);
+        return row is null
+            ? OperationResult<ReagentLotResultDto>.Fail("Result not found.")
+            : OperationResult<ReagentLotResultDto>.Ok(row);
+    }
+
     /// <summary>The reagent lots recorded against a result.</summary>
     public async Task<IReadOnlyList<ResultReagentLotDto>> LotsForResultAsync(long resultId, CancellationToken ct = default) =>
         _resultLots is null
@@ -286,7 +331,8 @@ public sealed class ReagentQcService
         var since = ReagentLotUseRule.ReviewSinceUtc(await _qc.ListAsync(q => q.ReagentLotId == lotId, ct), out _);
         var toReview = since is null
             ? new HashSet<long>()
-            : uses.Where(u => u.RecordedUtc > since.Value).Select(u => u.TestResultId).ToHashSet();
+            : uses.Where(u => u.RecordedUtc > since.Value && u.ReviewedUtc == null).Select(u => u.TestResultId).ToHashSet();
+        var reviews = uses.Where(u => u.ReviewedUtc is not null).GroupBy(u => u.TestResultId).ToDictionary(g => g.Key, g => g.OrderByDescending(u => u.ReviewedUtc).First());
         var results = resultIds.Count == 0 ? [] : await _results.ListAsync(r => resultIds.Contains(r.Id), ct);
         var specimenIds = results.Select(r => r.SpecimenId).Distinct().ToList();
         var patientIds = results.Select(r => r.PatientId).Distinct().ToList();
@@ -305,7 +351,10 @@ public sealed class ReagentQcService
                 return new ReagentLotResultDto(
                     r.Id, r.PatientId, patient?.MedicalRecordNumber, patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
                     specimens.GetValueOrDefault(r.SpecimenId), r.TestCode, r.Version, r.Status, r.EnteredUtc, r.EnteredBy, r.Value,
-                    toReview.Contains(r.Id));
+                    toReview.Contains(r.Id),
+                    reviews.GetValueOrDefault(r.Id)?.ReviewedUtc,
+                    reviews.GetValueOrDefault(r.Id)?.ReviewedBy,
+                    reviews.GetValueOrDefault(r.Id)?.ReviewNote);
             })
             .ToList();
         return OperationResult<IReadOnlyList<ReagentLotResultDto>>.Ok(rows);
@@ -517,7 +566,7 @@ public sealed class ReagentQcService
             var since = ReagentLotUseRule.ReviewSinceUtc(rows.Where(q => q.ReagentLotId == item.LotId), out _);
             var count = since is null
                 ? 0
-                : (await _resultLots.ListAsync(r => r.ReagentLotId == item.LotId && r.RecordedUtc > since.Value, ct))
+                : (await _resultLots.ListAsync(r => r.ReagentLotId == item.LotId && r.RecordedUtc > since.Value && r.ReviewedUtc == null, ct))
                     .Select(r => r.TestResultId).Distinct().Count();
             result.Add(item with { ResultsToReview = count });
         }

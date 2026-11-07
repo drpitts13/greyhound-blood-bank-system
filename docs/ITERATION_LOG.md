@@ -16503,3 +16503,27 @@ A failed daily QC raised a critical "QC failed" alert, and Cycles 495–497 made
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test; mark a reviewed result as reviewed for a failed lot (so the to-review count goes down).
+
+## Iteration 499 — Mark results reviewed for a failed reagent lot (2026-11-07)
+
+### Capability matrix rescan (testing: traceability)
+
+Cycle 498 counted the results to review after a failed QC, but the count could not go down: there was no record that a result had been reviewed or what was decided, so the alert stayed and nobody could see the remaining work. Workflow questions: clicks (note and Mark reviewed on the row); memory (the list shows who reviewed what); safety (the review records a decision and changes no result; correction stays in the result workflow); override (none; result verification permission and a required note, audited).
+
+### Design
+
+- Review fields on `TestResultReagentLot`; `ReagentLotUseRule.EvaluateReview`; `ReagentQcService.ReviewLotResultAsync`; endpoint; lookback note and button; reviewed rows leave the count.
+
+### Requirements
+
+- URS-BB-560, FRS-BB-674. Help: Reagent QC.
+
+### Tests
+
+- TEST-BB-547: blank note, a result before the last pass, and a second review are refused; a review records who and the note, clears To review, drops the worklist count to 0, writes the result audit, and the rescanned alert no longer asks for a review.
+- Full suite: 3,948 passed.
+- Live: the API added the three review columns to the dev database in place; /reagents?lot=7 loaded the AHG lot's 6 results with the new Review column (empty: the lot's QC has not failed). Nothing was reviewed. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test.

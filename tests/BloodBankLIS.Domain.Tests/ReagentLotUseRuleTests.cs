@@ -79,4 +79,14 @@ public class ReagentLotUseRuleTests
         Assert.Equal(DateTime.MinValue, ReagentLotUseRule.ReviewSinceUtc([Qc(3, false), Qc(1, false)], out _));
         Assert.Null(ReagentLotUseRule.ReviewSinceUtc([], out _));
     }
+
+    // TEST-BB-547: only a result still to review, not yet reviewed, can be marked reviewed, and only with a note.
+    [Fact]
+    public void Review_NeedsAResultToReview_AndANote()
+    {
+        Assert.Equal(RuleSeverity.Pass, ReagentLotUseRule.EvaluateReview(true, false, "Repeated, agreed").Severity);
+        Assert.Contains("already", ReagentLotUseRule.EvaluateReview(true, true, "x").Message);
+        Assert.Contains("since it last passed", ReagentLotUseRule.EvaluateReview(false, false, "x").Message);
+        Assert.Contains("Say what", ReagentLotUseRule.EvaluateReview(true, false, "  ").Message);
+    }
 }
