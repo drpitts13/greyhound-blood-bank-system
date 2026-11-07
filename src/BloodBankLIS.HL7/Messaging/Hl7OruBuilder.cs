@@ -47,7 +47,8 @@ public static class Hl7OruBuilder
         InterfaceValueTranslator? translator = null,
         string? referenceRange = null,
         string? loincCode = null,
-        string? testName = null)
+        string? testName = null,
+        string? serviceCode = null)
     {
         ArgumentNullException.ThrowIfNull(patient);
         ArgumentNullException.ThrowIfNull(result);
@@ -66,7 +67,7 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), translator.ToExternal(InterfaceDataItemKeys.PatientDateOfBirth, patient.DateOfBirth.ToString("yyyyMMdd")))
             .Set(map.Path(InterfaceDataItemKeys.PatientSex), translator.ToExternal(InterfaceDataItemKeys.PatientSex, SexCode(patient.Sex)))
             .Set("OBR-1", "1")
-            .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, result.TestCode))
+            .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), serviceCode ?? translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, result.TestCode))
             .Set(map.Path(InterfaceDataItemKeys.ResultVerifiedUtc), translator.ToExternal(InterfaceDataItemKeys.ResultVerifiedUtc, (result.VerifiedUtc ?? nowUtc).ToString(Hl7MessageBuilder.Hl7TimestampFormat)))
             .Set("OBX-1", "1")
             .Set("OBX-2", ObxValueType(result))
@@ -130,7 +131,8 @@ public static class Hl7OruBuilder
         Hl7OutboundIdentity? identity = null,
         Hl7Encoding? encoding = null,
         Hl7FieldMap? map = null,
-        InterfaceValueTranslator? translator = null)
+        InterfaceValueTranslator? translator = null,
+        string? serviceCode = null)
     {
         ArgumentNullException.ThrowIfNull(patient);
         ArgumentNullException.ThrowIfNull(order);
@@ -151,7 +153,7 @@ public static class Hl7OruBuilder
             .Set("OBR-1", "1")
             .Set("OBR-2", order.OrderNumber)
             .Set("OBR-3", string.IsNullOrWhiteSpace(order.FillerOrderNumber) ? accessionNumber : order.FillerOrderNumber)
-            .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, testCode))
+            .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), serviceCode ?? translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, testCode))
             .Set("OBR-25", NoResult)
             .Set("OBX-1", "1")
             .Set("OBX-2", "TX")

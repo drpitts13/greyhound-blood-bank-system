@@ -106,8 +106,13 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         var referenceRange = definition?.ResultValueType == ResultValueType.Numeric
             ? NumericLimits.From(definition).Hl7ReferenceRange()
             : null;
+        // A test ordered as part of a grouper is reported under the grouper's procedure code when it has one.
+        var grouperCode = result.OrderId is long orderId && _orderLines is not null
+            ? (await _orderLines.FirstOrDefaultAsync(l => l.OrderId == orderId && l.TestCode == result.TestCode && l.IsActive, ct))?.GrouperCode
+            : null;
         var raw = Hl7OruBuilder.Build(patient, result, controlId, now, resolved.Identity, map: resolved.Map, translator: translator,
-            referenceRange: referenceRange, loincCode: definition?.LoincCode, testName: definition?.Name);
+            referenceRange: referenceRange, loincCode: definition?.LoincCode, testName: definition?.Name,
+            serviceCode: TestCodeTranslationRule.ServiceCode(translator, result.TestCode, grouperCode));
 
         var log = new Hl7MessageLog
         {
@@ -215,7 +220,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
                 MessageControlId = controlId,
                 RawMessage = Hl7OruBuilder.BuildNoResult(
                     patient, orders[line.OrderId], line.TestCode!, specimen.AccessionNumber, reason, controlId, now,
-                    resolved.Identity, map: resolved.Map, translator: translator),
+                    resolved.Identity, map: resolved.Map, translator: translator,
+                    serviceCode: TestCodeTranslationRule.ServiceCode(translator, line.TestCode!, line.GrouperCode)),
                 Status = Hl7MessageStatus.Received,
                 ReceivedUtc = now
             }, ct);

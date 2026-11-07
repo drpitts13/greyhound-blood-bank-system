@@ -60,7 +60,9 @@ public sealed record EncounterDto(
 public sealed record OrderLineInputDto(
     OrderCategory LineCategory,
     string? TestCode,
-    long? ProductTypeId);
+    long? ProductTypeId,
+    // Set when the line comes from expanding a test grouper.
+    string? GrouperCode = null);
 
 public sealed record OrderLineDto(
     long Id,
@@ -72,11 +74,12 @@ public sealed record OrderLineDto(
     long? ProductTypeId,
     FulfillmentStatus? FulfillmentStatus,
     ResultStatus? ResultStatus,
-    string? Comment = null)
+    string? Comment = null,
+    string? GrouperCode = null)
 {
     public static OrderLineDto From(OrderLine line) => new(
         line.Id, line.LineNumber, line.LineCategory, line.LineName, line.TestCode, line.OrderType,
-        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus, line.Comment);
+        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus, line.Comment, line.GrouperCode);
 }
 
 public sealed record CreateOrderRequest(

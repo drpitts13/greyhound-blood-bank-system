@@ -1002,6 +1002,7 @@ public sealed class OrderService
                     LineCategory = OrderCategory.Test,
                     LineName = await ResolveTestNameAsync(code, ct),
                     TestCode = code,
+                    GrouperCode = string.IsNullOrWhiteSpace(input.GrouperCode) ? null : input.GrouperCode.Trim().ToUpperInvariant(),
                     OrderType = OrderLineBuilder.MapTestOrderType(code)
                 });
             }
@@ -1048,7 +1049,7 @@ public sealed class OrderService
             {
                 foreach (var member in TestGrouperMembers.Parse(grouper.MemberTestsJson).OrderBy(m => m.SortOrder))
                 {
-                    expanded.Add(new OrderLineInputDto(OrderCategory.Test, member.TestCode, null));
+                    expanded.Add(new OrderLineInputDto(OrderCategory.Test, member.TestCode, null, grouper.Code));
                 }
             }
             else

@@ -630,6 +630,16 @@ public sealed class Hl7InboundProcessor
         var testCode = string.IsNullOrWhiteSpace(data.TestCode)
             ? data.OrderType.ToString()
             : data.TestCode.Trim().ToUpperInvariant();
+        if (!string.IsNullOrWhiteSpace(data.TestCode) && _valueSets is not null)
+        {
+            var known = await _valueSets.ForAsync(InterfaceDataItemKeys.OrderTestCode, ct);
+            if (!known.Any(k => string.Equals(k.Value, testCode, StringComparison.OrdinalIgnoreCase)))
+            {
+                // Listed for the interface team; the message goes to the error queue to be reprocessed once mapped.
+                map.Translator.RecordMiss(InterfaceDataItemKeys.OrderTestCode, data.TestCode.Trim(), InterfaceTranslationDirection.Inbound);
+                throw new Hl7MappingException(TestCodeTranslationRule.UnknownOrderCodeMessage(data.TestCode.Trim()));
+            }
+        }
         var createResult = await _ordersService.CreateFromHl7Async(patient.Id, new CreateOrderRequest(
             encounter.Id,
             location.Id,

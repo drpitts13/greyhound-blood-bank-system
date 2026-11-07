@@ -209,6 +209,7 @@ public sealed class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
     {
         b.ToTable("OrderLines");
         b.HasKey(l => l.Id);
+        b.Property(l => l.GrouperCode).HasMaxLength(50);
         b.Property(l => l.LineName).HasMaxLength(200).IsRequired();
         b.Property(l => l.TestCode).HasMaxLength(50);
         b.Property(l => l.Comment).HasMaxLength(2000);
