@@ -13,6 +13,21 @@ public static class PossibleDuplicatePatientRule
     /// <summary>Why a pair is listed: matching name and date of birth.</summary>
     public const string SameNameAndBirthday = "Same name and date of birth";
 
+    /// <summary>
+    /// A dismissed pair stays off the report while every reason it is listed for now was among those reviewed; a new
+    /// reason (new evidence) brings it back.
+    /// </summary>
+    public static bool StillDismissed(string? currentReasons, string? reviewedReasons)
+    {
+        var reviewed = Split(reviewedReasons);
+        return Split(currentReasons).All(reviewed.Contains);
+    }
+
+    private static HashSet<string> Split(string? reasons) =>
+        (reasons ?? string.Empty)
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>True when a pair's reason includes a shared identifier from another system.</summary>
     public static bool IsSharedIdentifierReason(string? reason) =>
         reason is not null && reason.Contains(SharedIdentifierPrefix, StringComparison.Ordinal);

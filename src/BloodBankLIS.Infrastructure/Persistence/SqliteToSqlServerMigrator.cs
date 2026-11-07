@@ -138,6 +138,7 @@ public sealed class SqliteToSqlServerMigrator
         "SpecialTransfusionRequirements",
         "PatientIdentifiers",
         "PatientMerges",
+        "PatientDuplicateDismissals",
         "PatientMergeMoves",
         "ShiftHandoffs",
         "ReactionInvestigations",

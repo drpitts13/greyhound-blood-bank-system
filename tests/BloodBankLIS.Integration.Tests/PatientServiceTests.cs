@@ -24,7 +24,8 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         new(new EfRepository<Patient>(c), c, _factory.Clock, Specimens(c, _factory),
             audit: withAudit ? new AuditWriter(c, _factory.Clock, _factory.CurrentUser) : null,
             currentUser: _factory.CurrentUser, permissions: permissions,
-            identifiers: new EfRepository<PatientIdentifier>(c));
+            identifiers: new EfRepository<PatientIdentifier>(c),
+            dismissals: new EfRepository<PatientDuplicateDismissal>(c));
 
     private async Task<long> EnsurePatientAsync(string mrn)
     {
@@ -337,6 +338,43 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         var aliases = await Patients(context).ListAliasesAsync(third.Id);
         var external = Assert.Single(aliases);
         Assert.Equal("External ID (OTHER)", external.KindLabel);
+    }
+
+    // TEST-BB-572: a reviewer records that a listed pair are different people (reason required, merge permission,
+    // audited); the pair leaves the report and returns when the charts come to share an identifier.
+    [Fact]
+    public async Task DismissPossibleDuplicate_HidesThePair_UntilNewEvidenceLinksThem()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var dob = new DateOnly(1931, 7, 8).AddDays(Random.Shared.Next(0, 3000));
+        await using var context = _factory.Create();
+        var first = new Patient { MedicalRecordNumber = $"MRN-DA-{key}", LastName = $"Dism{key}", FirstName = "Lee", DateOfBirth = dob };
+        context.Patients.Add(first);
+        await context.SaveChangesAsync();
+        var second = new Patient { MedicalRecordNumber = $"MRN-DB-{key}", LastName = $"Dism{key}", FirstName = "Leo", DateOfBirth = dob };
+        context.Patients.Add(second);
+        await context.SaveChangesAsync();
+        var mergers = Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge), withAudit: true);
+        bool Listed(IEnumerable<PossibleDuplicatePairDto> pairs) => pairs.Any(p => p.First.Id == first.Id && p.Second.Id == second.Id);
+        Assert.True(Listed((await mergers.ListPossibleDuplicatePairsAsync()).Value!));
+
+        Assert.False((await mergers.DismissPossibleDuplicateAsync(new DismissPossibleDuplicateRequest(first.Id, second.Id, " "))).Succeeded);
+        var denied = Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite));
+        Assert.False((await denied.DismissPossibleDuplicateAsync(new DismissPossibleDuplicateRequest(first.Id, second.Id, "Twins"))).Succeeded);
+
+        var dismissed = await mergers.DismissPossibleDuplicateAsync(new DismissPossibleDuplicateRequest(second.Id, first.Id, "Siblings; different SSNs on the registration."));
+        Assert.True(dismissed.Succeeded, dismissed.Error);
+        Assert.False(Listed((await mergers.ListPossibleDuplicatePairsAsync()).Value!));
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Patient) && a.EntityId == first.Id && a.Reason != null && a.Reason.StartsWith($"Not the same person as {second.MedicalRecordNumber}")));
+        Assert.False((await mergers.DismissPossibleDuplicateAsync(new DismissPossibleDuplicateRequest(first.Id, second.Id, "Again"))).Succeeded);
+
+        context.PatientIdentifiers.AddRange(
+            new PatientIdentifier { PatientId = first.Id, IdentifierType = IdentityTokenType.Other, Value = $"EPI-D-{key}", AssigningAuthority = "EPI PI" },
+            new PatientIdentifier { PatientId = second.Id, IdentifierType = IdentityTokenType.Other, Value = $"EPI-D-{key}", AssigningAuthority = $"EPI PI, also on {first.MedicalRecordNumber}" });
+        await context.SaveChangesAsync();
+        var back = (await mergers.ListPossibleDuplicatePairsAsync()).Value!.Single(p => p.First.Id == first.Id && p.Second.Id == second.Id);
+        Assert.Contains("Both charts carry external ID", back.Reason);
     }
 
     [Fact]

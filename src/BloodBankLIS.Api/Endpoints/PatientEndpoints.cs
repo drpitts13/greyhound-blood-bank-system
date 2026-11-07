@@ -29,6 +29,10 @@ public static class PatientEndpoints
             EndpointResults.From(await patients.ListPossibleDuplicatePairsAsync(ct), d => d))
             .RequirePermission(PermissionCodes.PatientMerge);
 
+        group.MapPost("/possible-duplicates/dismiss", async (DismissPossibleDuplicateRequest request, PatientService patients, CancellationToken ct) =>
+            EndpointResults.From(await patients.DismissPossibleDuplicateAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.PatientMerge);
+
         group.MapGet("/possible-duplicates", async (string? lastName, string? firstName, DateOnly dateOfBirth, PatientService patients, CancellationToken ct) =>
             EndpointResults.From(await patients.ListPossibleDuplicatesAsync(lastName, firstName, dateOfBirth, ct), d => d))
             .RequirePermission(PermissionCodes.PatientWrite);

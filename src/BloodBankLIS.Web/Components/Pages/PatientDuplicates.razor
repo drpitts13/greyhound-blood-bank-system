@@ -12,8 +12,12 @@
     Active charts that may be one person: the same date of birth with the same last name and first initial, or with
     first and last names swapped, including patients registered by ADT, or that carry the same identifier from another system (such as an enterprise id). Each pair says why it is listed. Two charts split the ABO/Rh and antibody history
     the issue gate relies on. Compare them, then merge the duplicate into the chart that should survive, usually the one
-    that holds the blood bank history. This list changes nothing; the merge asks for a reason and is audited.
+    that holds the blood bank history. This list changes nothing; the merge asks for a reason and is audited. If the two
+    charts are different people, <strong>Not the same person</strong> takes the pair off the list with your reason (audited);
+    it comes back if something new links them.
 </p>
+
+<Outcome Value="_fb" />
 
 @if (!Session.Has(PermissionCodes.PatientMerge))
 {
@@ -36,10 +40,27 @@ else
             <tbody>
                 @foreach (var pair in _pairs)
                 {
-                    @if (!string.IsNullOrWhiteSpace(pair.Reason))
-                    {
-                        <tr><td colspan="5" class="sub" data-duplicate-reason><strong>Why:</strong> @pair.Reason</td></tr>
-                    }
+                    <tr>
+                        <td colspan="5" class="sub" data-duplicate-reason>
+                            @if (!string.IsNullOrWhiteSpace(pair.Reason))
+                            {
+                                <strong>Why:</strong> @pair.Reason
+                            }
+                            @if (_dismissing == (pair.First.Id, pair.Second.Id))
+                            {
+                                <span class="flex gap" style="display:inline-flex;align-items:center;margin-left:.75rem;flex-wrap:wrap;">
+                                    <input placeholder="Why they are different people" @bind="_dismissReason" @bind:event="oninput" style="min-width:18rem;" data-dismiss-reason />
+                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_dismissReason))" @onclick="() => DismissAsync(pair)">Confirm</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => _dismissing = null">Cancel</button>
+                                </span>
+                            }
+                            else
+                            {
+                                <button class="btn btn-ghost btn-sm" style="margin-left:.75rem;" @onclick="() => BeginDismiss(pair)" data-dismiss-pair
+                                        title="Record that these charts are different people; the pair returns if something new links them">Not the same person</button>
+                            }
+                        </td>
+                    </tr>
                     @foreach (var (p, other) in new[] { (pair.First, pair.Second), (pair.Second, pair.First) })
                     {
                         <tr class="@(p == pair.First ? "" : "row-continued")">
@@ -61,6 +82,29 @@ else
 
 @code {
     private List<PossibleDuplicatePairDto>? _pairs;
+    private (long, long)? _dismissing;
+    private string _dismissReason = string.Empty;
+    private bool _busy;
+    private Feedback? _fb;
+
+    private void BeginDismiss(PossibleDuplicatePairDto pair)
+    {
+        _dismissing = (pair.First.Id, pair.Second.Id);
+        _dismissReason = string.Empty;
+    }
+
+    private async Task DismissAsync(PossibleDuplicatePairDto pair)
+    {
+        _busy = true;
+        var r = await Api.DismissPossibleDuplicateAsync(new DismissPossibleDuplicateRequest(pair.First.Id, pair.Second.Id, _dismissReason));
+        _busy = false;
+        _fb = r.ToFeedback($"Recorded: {pair.First.MedicalRecordNumber} and {pair.Second.MedicalRecordNumber} are different people.");
+        if (r.Succeeded)
+        {
+            _dismissing = null;
+            _pairs?.Remove(pair);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

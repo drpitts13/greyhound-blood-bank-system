@@ -17,6 +17,9 @@ public sealed record CreatePatientRequest(
 /// <summary>Two active charts that may be one person (<c>PossibleDuplicatePatientRule</c>), older registration first.</summary>
 public sealed record PossibleDuplicatePairDto(PatientDto First, PatientDto Second, string? Reason = null);
 
+/// <summary>Two charts on the Possible duplicates report the reviewer found to be different people.</summary>
+public sealed record DismissPossibleDuplicateRequest(long FirstPatientId, long SecondPatientId, string Reason);
+
 public sealed record UpdatePatientRequest(
     string LastName,
     string FirstName,

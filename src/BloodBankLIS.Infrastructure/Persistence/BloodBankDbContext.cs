@@ -79,6 +79,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<SpecialRequirementDefinition> SpecialRequirementDefinitions => Set<SpecialRequirementDefinition>();
     public DbSet<PatientIdentifier> PatientIdentifiers => Set<PatientIdentifier>();
     public DbSet<PatientMerge> PatientMerges => Set<PatientMerge>();
+    public DbSet<PatientDuplicateDismissal> PatientDuplicateDismissals => Set<PatientDuplicateDismissal>();
     public DbSet<PatientMergeMove> PatientMergeMoves => Set<PatientMergeMove>();
     public DbSet<LookbackNotification> LookbackNotifications => Set<LookbackNotification>();
     public DbSet<Deviation> Deviations => Set<Deviation>();

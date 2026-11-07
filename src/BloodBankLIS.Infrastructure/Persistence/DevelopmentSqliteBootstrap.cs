@@ -294,6 +294,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
         await EnsureInterfaceUnmappedValuesTableAsync(context, cancellationToken);
         await EnsureInstrumentValueTranslationsTableAsync(context, cancellationToken);
+        await EnsurePatientDuplicateDismissalsTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -1296,6 +1297,35 @@ public static class DevelopmentSqliteBootstrap
         {
             await context.Database.ExecuteSqlRawAsync(Migrations.InstrumentValueTranslations.CopyTestMappingsSql, ct);
         }
+    }
+
+    private static async Task EnsurePatientDuplicateDismissalsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "PatientDuplicateDismissals", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "PatientDuplicateDismissals" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_PatientDuplicateDismissals" PRIMARY KEY AUTOINCREMENT,
+                "FirstPatientId" INTEGER NOT NULL,
+                "SecondPatientId" INTEGER NOT NULL,
+                "ReviewedReasons" TEXT NOT NULL,
+                "Reason" TEXT NOT NULL,
+                "DismissedBy" TEXT NOT NULL,
+                "DismissedUtc" TEXT NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE UNIQUE INDEX "IX_PatientDuplicateDismissals_FirstPatientId_SecondPatientId" ON "PatientDuplicateDismissals" ("FirstPatientId", "SecondPatientId");
+            """, ct);
     }
 
     private static async Task EnsureInterfaceUnmappedValuesTableAsync(BloodBankDbContext context, CancellationToken ct)

@@ -580,5 +580,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-569 | I | `PatientServiceTests.PossibleDuplicatePairs_IncludeChartsSharingAnExternalIdentifier`; `PatientServiceTests.PossibleDuplicatePairs_ListActiveMatches_OlderFirst` (reason); `Phase5Hl7Tests.InboundAdt_TakesTheMrRepetition_AndKeepsTheOthersAsExternalIdentifiers` (second chart with the same enterprise id) | URS-BB-579 / FRS-BB-696 |
 | TEST-BB-570 | U, I | `ExternalIdentifierAuthorityTests.AlsoOnMark_ReadsBackTheIssuerAndTheOtherChart`; `ExternalIdentifierAuthorityTests.SameIssuer_IgnoresTheMark`; `PatientMergeServiceTests.Merge_OfChartsSharingAnExternalId_KeepsOneCopyOnTheSurvivor` | URS-BB-580 / FRS-BB-697 |
 | TEST-BB-571 | U | `DashboardQueueCatalogTests.PossibleDuplicatesCard_ForMergers_NamesSharedIdentifierPairs` | URS-BB-581 / FRS-BB-698 |
+| TEST-BB-572 | U, I | `PossibleDuplicateDismissalTests.StillDismissed_OnlyWhileNoNewReasonAppears`; `PatientServiceTests.DismissPossibleDuplicate_HidesThePair_UntilNewEvidenceLinksThem` | URS-BB-582 / FRS-BB-699 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

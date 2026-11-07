@@ -692,6 +692,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-579 / FRS-BB-696 | Shared external identifier flags a possible duplicate | `PatientHistoricalAliasWriter`; `Hl7InboundProcessor.HandleAdtAsync`; `PatientService.ListPossibleDuplicatePairsAsync`; `PatientDuplicates.razor` | TEST-BB-569 | I | |
 | URS-BB-580 / FRS-BB-697 | Shared identifier: link to the other chart; one copy after merge | `ExternalIdentifierAuthority`; `PatientMergeService`; `PatientChartHeader.razor`; `Patients.razor` | TEST-BB-570 | U, I | |
 | URS-BB-581 / FRS-BB-698 | Possible duplicates home card | `DashboardQueueCatalog.PossibleDuplicatesNote`; `Home.razor` | TEST-BB-571 | U | |
+| URS-BB-582 / FRS-BB-699 | Dismiss a possible-duplicate pair as different people | `PatientService.DismissPossibleDuplicateAsync`; `PossibleDuplicatePatientRule.StillDismissed`; `PatientDuplicates.razor` | TEST-BB-572 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

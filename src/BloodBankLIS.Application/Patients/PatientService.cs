@@ -33,6 +33,8 @@ public sealed class PatientService
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<Encounter>? _encounters;
 
+    private readonly IRepository<PatientDuplicateDismissal>? _dismissals;
+
     public PatientService(
         IRepository<Patient> patients,
         IUnitOfWork unitOfWork,
@@ -47,8 +49,10 @@ public sealed class PatientService
         IRepository<AntibodyHistory>? antibodies = null,
         IRepository<SpecialTransfusionRequirement>? requirements = null,
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
-        IRepository<Encounter>? encounters = null)
+        IRepository<Encounter>? encounters = null,
+        IRepository<PatientDuplicateDismissal>? dismissals = null)
     {
+        _dismissals = dismissals;
         _encounters = encounters;
         _requirementDefinitions = requirementDefinitions;
         _bloodTypes = bloodTypes;
@@ -261,14 +265,93 @@ public sealed class PatientService
         }
 
         var byPatientId = active.ToDictionary(p => p.Id);
+        // A pair a reviewer found to be different people stays off while nothing new links them.
+        var dismissed = _dismissals is null
+            ? new Dictionary<(long, long), string>()
+            : (await _dismissals.ListAsync(ct)).ToDictionary(d => (d.FirstPatientId, d.SecondPatientId), d => d.ReviewedReasons);
         var pairs = reasons
             .Select(kv => new PossibleDuplicatePairDto(byPatientId[kv.Key.Item1], byPatientId[kv.Key.Item2], string.Join("; ", kv.Value)))
+            .Where(pair => !dismissed.TryGetValue(OrderedKey(pair.First.Id, pair.Second.Id), out var reviewed)
+                || !PossibleDuplicatePatientRule.StillDismissed(pair.Reason, reviewed))
             .ToList();
         return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Ok(
             pairs.OrderBy(p => p.First.LastName, StringComparer.OrdinalIgnoreCase).ThenBy(p => p.First.MedicalRecordNumber).ToList());
 
         static (PatientDto First, PatientDto Second) Older(PatientDto a, PatientDto b) =>
             (a.CreatedUtc, a.Id).CompareTo((b.CreatedUtc, b.Id)) <= 0 ? (a, b) : (b, a);
+    }
+
+    private static (long, long) OrderedKey(long a, long b) => a < b ? (a, b) : (b, a);
+
+    /// <summary>
+    /// Records that a listed pair are different people, with the reason (patient.merge; audited). The pair leaves the
+    /// report until a new reason links the two charts.
+    /// </summary>
+    public async Task<OperationResult<PossibleDuplicatePairDto>> DismissPossibleDuplicateAsync(
+        DismissPossibleDuplicateRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (_dismissals is null)
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail("Duplicate review is not configured.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail("Say why these charts are different people.");
+        }
+
+        var listed = await ListPossibleDuplicatePairsAsync(ct);
+        if (!listed.Succeeded)
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail(listed.Error ?? "Not authorized.");
+        }
+
+        var key = OrderedKey(request.FirstPatientId, request.SecondPatientId);
+        var pair = listed.Value!.FirstOrDefault(p => OrderedKey(p.First.Id, p.Second.Id) == key);
+        if (pair is null)
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail("These two charts are not on the Possible duplicates list.");
+        }
+
+        var now = _clock.UtcNow;
+        var user = _currentUser?.UserName ?? "system";
+        var existing = await _dismissals.FirstOrDefaultAsync(d => d.FirstPatientId == key.Item1 && d.SecondPatientId == key.Item2, ct);
+        if (existing is null)
+        {
+            await _dismissals.AddAsync(new PatientDuplicateDismissal
+            {
+                FirstPatientId = key.Item1,
+                SecondPatientId = key.Item2,
+                ReviewedReasons = pair.Reason ?? string.Empty,
+                Reason = request.Reason.Trim(),
+                DismissedBy = user,
+                DismissedUtc = now
+            }, ct);
+        }
+        else
+        {
+            existing.ReviewedReasons = pair.Reason ?? string.Empty;
+            existing.Reason = request.Reason.Trim();
+            existing.DismissedBy = user;
+            existing.DismissedUtc = now;
+            _dismissals.Update(existing);
+        }
+
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            pair.First.Id,
+            newValue: new
+            {
+                NotDuplicateOf = pair.Second.MedicalRecordNumber,
+                pair.First.MedicalRecordNumber,
+                ListedBecause = pair.Reason
+            },
+            reason: $"Not the same person as {pair.Second.MedicalRecordNumber}: {request.Reason.Trim()}");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<PossibleDuplicatePairDto>.Ok(pair);
     }
 
     private async Task<List<Patient>> FindPossibleDuplicatePatientsAsync(

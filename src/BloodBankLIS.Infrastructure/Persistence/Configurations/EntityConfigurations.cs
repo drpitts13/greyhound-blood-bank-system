@@ -1978,6 +1978,21 @@ public sealed class MtpPackDefinitionConfiguration : IEntityTypeConfiguration<Mt
     }
 }
 
+public sealed class PatientDuplicateDismissalConfiguration : IEntityTypeConfiguration<PatientDuplicateDismissal>
+{
+    public void Configure(EntityTypeBuilder<PatientDuplicateDismissal> b)
+    {
+        b.ToTable("PatientDuplicateDismissals");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ReviewedReasons).HasMaxLength(1000).IsRequired();
+        b.Property(x => x.Reason).HasMaxLength(1000).IsRequired();
+        b.Property(x => x.DismissedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.FirstPatientId, x.SecondPatientId }).IsUnique();
+    }
+}
+
 public sealed class PatientMergeConfiguration : IEntityTypeConfiguration<PatientMerge>
 {
     public void Configure(EntityTypeBuilder<PatientMerge> b)

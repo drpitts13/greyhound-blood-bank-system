@@ -17044,3 +17044,21 @@ Cycles 521–522 flag a chart the EHR registers with an identifier already on an
 ### Tests
 
 - TEST-BB-571: card for mergers only, linked to the report; name pairs give no note; a pair with a shared identifier (alone or with a name match) is named; two pairs counted.
+
+## Iteration 524 — Possible duplicates: record "not the same person" (2026-11-07)
+
+### Capability matrix rescan (duplicate review)
+
+With the Possible duplicates card on the home screen (Cycle 523), a pair reviewed and found to be different people (relatives with similar names, a common name and birthday) stayed on the report and in the count forever. A queue that never empties is soon ignored, which hides the real duplicates. Workflow questions: next action (each pair can be resolved one way or the other: merge, or not the same person); memory (the decision and reason are kept, so the next reviewer does not repeat it); safety (a dismissal is limited to the evidence reviewed; a new shared identifier brings the pair back); audit (who, when, why).
+
+### Design
+
+- `PatientDuplicateDismissal` table; `DismissPossibleDuplicateAsync`; report filter with `StillDismissed`; endpoint; page action with a required reason.
+
+### Requirements
+
+- URS-BB-582, FRS-BB-699. Help: patients.
+
+### Tests
+
+- TEST-BB-572: still dismissed only while no new reason; integration: listed, refused without a reason or without merge permission, dismissed (either order) and gone, audited, not dismissable again, returns once the charts share an external identifier.
