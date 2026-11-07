@@ -8,6 +8,7 @@ using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
@@ -38,6 +39,52 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
         var work = await service.ListWorkAsync();
         Assert.DoesNotContain(work, row => row.QcId == qc.Value.Id);
         Assert.DoesNotContain(work, row => row.LotId == lot.Value.Id && row.Kind == ReagentQcWorklistRule.Overdue);
+    }
+
+    [Fact]
+    public async Task ReagentLot_Lifecycle_RefusesExpiredAndDuplicateLots_AndAuditsOpenAndClose()
+    {
+        // TEST-BB-559
+        await using var context = _factory.Create();
+        var service = Qc(context, _factory.CurrentUser);
+        var reagent = await service.SaveReagentAsync(new SaveReagentRequest("ANTI-D-LC", "Anti-D lifecycle"));
+        var now = _factory.Clock.UtcNow;
+
+        var expired = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value!.Id, "LC-OLD", now.AddDays(-1)));
+        Assert.False(expired.Succeeded);
+        Assert.Contains("expired", expired.Error);
+
+        var lot = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, "LC-1", now.AddDays(20)));
+        Assert.True(lot.Succeeded, lot.Error);
+        var duplicate = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, " lc-1 ", now.AddDays(25)));
+        Assert.False(duplicate.Succeeded);
+        Assert.Contains("already has", duplicate.Error);
+
+        Assert.True((await service.OpenLotAsync(lot.Value!.Id)).Succeeded);
+        Assert.True((await service.CloseLotAsync(lot.Value.Id)).Succeeded);
+        Assert.False((await service.CloseLotAsync(lot.Value.Id)).Succeeded);
+        Assert.False((await service.OpenLotAsync(lot.Value.Id)).Succeeded);
+        var messages = await context.AuditEvents
+            .Where(a => a.EntityType == nameof(ReagentLot) && a.EntityId == lot.Value.Id)
+            .Select(a => a.Reason)
+            .ToListAsync();
+        Assert.Contains("Reagent lot opened.", messages);
+        Assert.Contains("Reagent lot closed.", messages);
+
+        // Once closed, the number may be received again.
+        var again = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, "LC-1", now.AddDays(25)));
+        Assert.True(again.Succeeded, again.Error);
+
+        // A lot that has since expired can be neither opened nor tested.
+        var stale = await context.ReagentLots.SingleAsync(l => l.Id == again.Value!.Id);
+        stale.ExpiresUtc = now.AddHours(-1);
+        await context.SaveChangesAsync();
+        var open = await service.OpenLotAsync(stale.Id);
+        Assert.False(open.Succeeded);
+        Assert.Contains("close it and open a new lot", open.Error);
+        var qc = await service.RecordQcAsync(new RecordReagentQcRequest(stale.Id, "Positive", "Positive", true));
+        Assert.False(qc.Succeeded);
+        Assert.Contains("close it rather than testing it", qc.Error);
     }
 
     [Fact]

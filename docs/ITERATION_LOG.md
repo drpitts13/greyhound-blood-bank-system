@@ -16795,3 +16795,24 @@ Two defects in the reagent QC worklist: every failed QC row ever recorded stayed
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; acknowledging a handoff from the home card; a reagent lot's expiry shown on the lot table with days left.
+
+## Iteration 511 — Reagent lot lifecycle controls (2026-11-07)
+
+### Capability matrix rescan (testing: reagent QC)
+
+Cycle 510 flagged expired open lots, but the lot actions themselves had no checks: a lot could be received with an expiry already past or under a number already open for the same reagent, an expired lot could be opened and given daily QC, and opening or closing a lot wrote no audit. The lot table showed only the raw expiry. Workflow questions: memory (days left on each lot); next action (an expired lot can only be closed); safety (no expired or duplicate lot enters use; lot state changes audited).
+
+### Design
+
+- `ReagentLotRule` (Domain): EvaluateReceive, EvaluateOpen, EvaluateQc hard stops; ExpiryText and ExpiringSoon (7 days).
+- `ReagentQcService`: checks in ReceiveLot, OpenLot, RecordQc; audit on open and close; closing a closed lot refused.
+- Reagents lot table: days-left badge; no Open on an expired lot.
+
+### Requirements
+
+- URS-BB-569, FRS-BB-686. Help: Reagent QC.
+
+### Tests
+
+- TEST-BB-559: rule success and failure paths; days-left text; integration: expired and duplicate receipt refused (number reusable after close), open and close audited, second close and reopen refused, an expired lot cannot be opened or tested.
+- Full suite: 3,975 passed.

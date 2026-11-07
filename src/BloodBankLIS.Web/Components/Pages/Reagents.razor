@@ -129,7 +129,14 @@
                             <td class="mono">@lot.ReagentCode</td>
                             <td class="mono">@lot.LotNumber</td>
                             <td>@lot.State</td>
-                            <td>@lot.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @lot.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                                @{ var now = DateTime.UtcNow; var expired = lot.ExpiresUtc <= now; }
+                                @if (lot.State != ReagentLotState.Closed)
+                                {
+                                    <span class="badge @(expired ? "badge-red" : ReagentLotRule.ExpiringSoon(lot.ExpiresUtc, now) ? "badge-amber" : "badge-gray")" data-lot-expiry="@lot.LotNumber">@ReagentLotRule.ExpiryText(lot.ExpiresUtc, now)</span>
+                                }
+                            </td>
                             <td class="right nowrap">
                                 @if (_confirmCloseId == lot.Id)
                                 {
@@ -140,7 +147,7 @@
                                 }
                                 else
                                 {
-                                    @if (lot.State == ReagentLotState.Received)
+                                    @if (lot.State == ReagentLotState.Received && lot.ExpiresUtc > DateTime.UtcNow)
                                     {
                                         <button class="btn btn-secondary btn-sm" @onclick="() => OpenAsync(lot.Id)">Open</button>
                                     }

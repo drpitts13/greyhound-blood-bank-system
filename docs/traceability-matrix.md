@@ -679,6 +679,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-567 / FRS-BB-683 | Handoff queues link to their boards, urgent first | `ShiftHandoffItems`; `HandoffItemLinks.razor` | TEST-BB-556 | U | |
 | URS-BB-567 / FRS-BB-684 | Home handoff card names urgent items | `DashboardQueueCatalog.HandoffNote` | TEST-BB-557 | U | |
 | URS-BB-568 / FRS-BB-685 | Reagent QC worklist follows the lot's current state; expired open lots flagged | `ReagentQcWorklistRule`; `ReagentLotUseRule.EntryWarnings`; `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-558 | U | |
+| URS-BB-569 / FRS-BB-686 | Reagent lot lifecycle controls and audit | `ReagentLotRule`; `ReagentQcService`; `Reagents.razor` | TEST-BB-559 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

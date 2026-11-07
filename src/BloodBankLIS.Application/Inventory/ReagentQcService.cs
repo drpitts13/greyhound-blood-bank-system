@@ -414,6 +414,14 @@ public sealed class ReagentQcService
             return OperationResult<ReagentLotDto>.Fail("Reagent not found.");
         }
 
+        var numberInUse = (await _lots.ListAsync(l => l.ReagentId == reagent.Id && l.State != ReagentLotState.Closed, ct))
+            .Any(l => string.Equals(l.LotNumber.Trim(), lotNumber, StringComparison.OrdinalIgnoreCase));
+        var receive = ReagentLotRule.EvaluateReceive(request.ExpiresUtc, _clock.UtcNow, numberInUse);
+        if (receive.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReagentLotDto>.Fail(receive.Message);
+        }
+
         var lot = new ReagentLot
         {
             ReagentId = reagent.Id,
@@ -444,13 +452,17 @@ public sealed class ReagentQcService
             return OperationResult<ReagentLotDto>.Fail("Reagent lot not found.");
         }
 
-        if (lot.State == ReagentLotState.Closed)
+        var open = ReagentLotRule.EvaluateOpen(lot.State, lot.ExpiresUtc, _clock.UtcNow);
+        if (open.Severity == RuleSeverity.HardStop)
         {
-            return OperationResult<ReagentLotDto>.Fail("A closed lot cannot be opened.");
+            return OperationResult<ReagentLotDto>.Fail(open.Message);
         }
 
+        var before = new { lot.State, lot.OpenedUtc };
         lot.State = ReagentLotState.Opened;
         lot.OpenedUtc ??= _clock.UtcNow;
+        _lots.Update(lot);
+        _audit.Record(AuditEventType.Update, nameof(ReagentLot), lot.Id, before, new { lot.State, lot.OpenedUtc, lot.LotNumber }, "Reagent lot opened.");
         await _unitOfWork.SaveChangesAsync(ct);
         return await LotResultAsync(lot, ct);
     }
@@ -463,8 +475,16 @@ public sealed class ReagentQcService
             return OperationResult<ReagentLotDto>.Fail("Reagent lot not found.");
         }
 
+        if (lot.State == ReagentLotState.Closed)
+        {
+            return OperationResult<ReagentLotDto>.Fail("This lot is already closed.");
+        }
+
+        var before = new { lot.State, lot.ClosedUtc };
         lot.State = ReagentLotState.Closed;
         lot.ClosedUtc = _clock.UtcNow;
+        _lots.Update(lot);
+        _audit.Record(AuditEventType.Update, nameof(ReagentLot), lot.Id, before, new { lot.State, lot.ClosedUtc, lot.LotNumber }, "Reagent lot closed.");
         await _unitOfWork.SaveChangesAsync(ct);
         return await LotResultAsync(lot, ct);
     }
@@ -477,9 +497,15 @@ public sealed class ReagentQcService
         }
 
         var lot = await _lots.GetByIdAsync(request.ReagentLotId, ct);
-        if (lot is null || lot.State == ReagentLotState.Closed)
+        if (lot is null)
         {
             return OperationResult<ReagentDailyQcDto>.Fail("Record QC on an open or received lot.");
+        }
+
+        var qcCheck = ReagentLotRule.EvaluateQc(lot.State, lot.ExpiresUtc, _clock.UtcNow);
+        if (qcCheck.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReagentDailyQcDto>.Fail(qcCheck.Message);
         }
 
         var now = _clock.UtcNow;
