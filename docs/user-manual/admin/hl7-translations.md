@@ -22,6 +22,12 @@ The fields are listed on the left, grouped as Tests and procedures, Patient, Vis
 
 **Local value** is what this system stores. Where the field has a fixed list (tests and groupers, sex, visit type, race, ethnicity, abnormal flag), the box suggests the list and says what each value is, and a value not on the list cannot be saved. **External value** is what the EHR sends or expects. Every save asks for a **reason**, which is kept in the configuration history with the rows before and after.
 
+## Importing and exporting rows
+
+**Import rows** takes rows pasted from a spreadsheet, or a CSV file: local value, external value, and direction (Inbound, Outbound, or Both; blank means Both), with or without a header line. Choose whether they are added to the rows shown or replace them, then **Put rows in the table**. A line that cannot be read (a blank value, an unknown direction, extra columns) is listed by line number and left out; rows already in the table are not added twice. Nothing is saved yet: check the rows, give a reason, and **Save**, which checks the local values against the field's list as usual.
+
+**Export CSV** downloads the rows shown, in the same three columns, so the interface team can review them in a spreadsheet and send them back for import.
+
 ## Test and procedure codes
 
 **Test or grouper procedure code** is one field for orders in (OBR-4 on ORM) and results out (OBR-4 on ORU), so one row such as **TNS ↔ LAB10117** serves both. Map a code to a test, or to a test grouper:

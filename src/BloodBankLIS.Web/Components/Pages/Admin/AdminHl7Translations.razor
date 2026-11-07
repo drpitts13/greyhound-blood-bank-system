@@ -2,6 +2,9 @@
 @inject UserSession Session
 @inject BloodBankApiClient Api
 @inject IJSRuntime Js
+@inject ReportDownloadCache Downloads
+@using BloodBankLIS.Domain.Interfaces
+@using BloodBankLIS.Domain.Reporting
 
 <PageTitle>Interface Translation Table &middot; Admin</PageTitle>
 
@@ -92,11 +95,46 @@
 
                     <div class="flex-between" style="margin:.8rem 0 .4rem;">
                         <span class="muted">Local value is what the LIS stores; external value is what the interface sends or receives.</span>
-                        @if (CanManage)
-                        {
-                            <button type="button" class="btn btn-ghost btn-sm" @onclick="AddRow">Add row</button>
-                        }
+                        <div class="flex gap">
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="ExportCsvAsync" disabled="@(_rows.Count(r => !IsBlank(r)) == 0)" data-xl-export>Export CSV</button>
+                            @if (CanManage)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _importOpen = !_importOpen" data-xl-import-toggle>Import rows</button>
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="AddRow">Add row</button>
+                            }
+                        </div>
                     </div>
+
+                    @if (_importOpen && CanManage)
+                    {
+                        <div class="bb-card" style="margin-bottom:.8rem;" data-xl-import>
+                            <p class="muted" style="margin-top:0;">
+                                Paste rows from a spreadsheet, or load a CSV file: local value, external value, and direction
+                                (Inbound, Outbound, or Both; blank is Both). A header line is fine. The rows are added to the table
+                                below; nothing is saved until you give a reason and choose Save.
+                            </p>
+                            <textarea rows="6" class="mono" style="width:100%;" @bind="_importText" @bind:event="oninput"
+                                      placeholder="@("TNS\tLAB10117\tBoth")" data-xl-import-text></textarea>
+                            <div class="flex gap" style="margin-top:.5rem;align-items:center;flex-wrap:wrap;">
+                                <InputFile OnChange="OnImportFileAsync" accept=".csv,.tsv,.txt" />
+                                <select @bind="_importReplace">
+                                    <option value="false">Add to the rows below</option>
+                                    <option value="true">Replace the rows below</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="ApplyImport" disabled="@string.IsNullOrWhiteSpace(_importText)" data-xl-import-apply>Put rows in the table</button>
+                            </div>
+                            @if (_importSummary is not null)
+                            {
+                                <div style="margin-top:.5rem;" data-xl-import-summary>
+                                    <div>@_importSummary</div>
+                                    @foreach (var p in _importProblems)
+                                    {
+                                        <div class="text-danger">Line @p.Line: @p.Message</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
 
                     <datalist id="xl-local-values">
                         @foreach (var v in _localValues)
@@ -302,6 +340,11 @@ else
     private bool _busy;
     private bool _dirty;
     private bool _focusNewRow;
+    private bool _importOpen;
+    private string _importText = string.Empty;
+    private bool _importReplace;
+    private string? _importSummary;
+    private List<InterfaceTranslationImport.Problem> _importProblems = new();
     private Feedback? _feedback;
 
     private bool _checkInbound = true;
@@ -424,6 +467,71 @@ else
     }
 
     private void MarkDirty() => _dirty = true;
+
+    private static bool IsBlank(RowModel r) => string.IsNullOrWhiteSpace(r.InternalValue) && string.IsNullOrWhiteSpace(r.ExternalValue);
+
+    private async Task OnImportFileAsync(InputFileChangeEventArgs e)
+    {
+        const long maxBytes = 1024 * 1024;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(maxBytes);
+            using var reader = new StreamReader(stream);
+            _importText = await reader.ReadToEndAsync();
+            _importSummary = $"Loaded {e.File.Name}. Choose Put rows in the table to use it.";
+            _importProblems = new();
+        }
+        catch (IOException)
+        {
+            _importSummary = "The file could not be read; files over 1 MB are refused.";
+        }
+    }
+
+    // Rows go into the table only; the save (with its value-list checks, reason, and audit) is unchanged.
+    private void ApplyImport()
+    {
+        var result = InterfaceTranslationImport.Parse(_importText);
+        _importProblems = result.Problems.ToList();
+        var existing = _importReplace ? new List<RowModel>() : _rows.Where(r => !IsBlank(r)).ToList();
+        var have = existing.Select(Key).ToHashSet();
+        var added = 0;
+        foreach (var row in result.Rows)
+        {
+            var model = new RowModel { InternalValue = row.LocalValue, ExternalValue = row.ExternalValue, Direction = row.Direction };
+            if (have.Add(Key(model)))
+            {
+                existing.Add(model);
+                added++;
+            }
+        }
+
+        var skipped = result.Rows.Count - added + result.Duplicates;
+        _importSummary = $"{added} row{(added == 1 ? "" : "s")} put in the table"
+            + (skipped > 0 ? $", {skipped} already there or repeated" : "")
+            + (_importProblems.Count > 0 ? $", {_importProblems.Count} line{(_importProblems.Count == 1 ? "" : "s")} not read:" : ".");
+        if (added > 0 || _importReplace)
+        {
+            _rows = existing;
+            _dirty = true;
+            if (string.IsNullOrWhiteSpace(_reason))
+            {
+                _reason = "Imported translation rows";
+            }
+        }
+
+        static (string, string, InterfaceTranslationDirection) Key(RowModel r) =>
+            (r.InternalValue.Trim().ToUpperInvariant(), r.ExternalValue.Trim().ToUpperInvariant(), r.Direction);
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        var rows = _rows.Where(r => !IsBlank(r))
+            .Select(r => new InterfaceTranslationImport.Row(r.InternalValue.Trim(), r.ExternalValue.Trim(), r.Direction));
+        var scope = _endpointId is null ? "all-interfaces" : $"interface-{_endpointId}";
+        var name = $"translations-{_selectedKey.Replace('.', '-')}-{scope}.csv";
+        var token = Downloads.Put(name, CsvFormat.ContentType, CsvFormat.Write(InterfaceTranslationImport.Columns, InterfaceTranslationImport.Cells(rows)));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+    }
 
     private async Task SaveAsync()
     {

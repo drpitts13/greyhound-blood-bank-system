@@ -16259,3 +16259,29 @@ One global translation table, applied inbound only when an inbound endpoint was 
 ### Next ranked residual
 
 Translation rows imported from a file (bulk load from the EHR build); LOINC and translated codes in the FHIR export; per-interface field-level "required translation" (error instead of pass-through) for fields other than order codes; ordering-provider and location translations reviewed with the same unmapped list.
+
+## Iteration 487 — Import and export interface translations (2026-11-07)
+
+### Capability matrix rescan (interoperability: translation upkeep)
+
+Cycles 483–486 gave every coded field a translation table, but rows could only be typed one at a time. An EHR build hands over procedure-code and demographic code lists as spreadsheets with dozens to hundreds of rows; retyping them is slow and invites transcription errors in test codes that decide what is ordered. Workflow questions: clicks (three per row before), memory (none, the list is in the spreadsheet), inference (direction defaults to Both), scanning (n/a; paste replaces typing), next action (the reason is prefilled and Save is the next step), safety (an imported row still passes the local value lists, so a code cannot map to a test the LIS lacks), override (none; the save keeps its reason and audit).
+
+### Design
+
+- **`InterfaceTranslationImport`** (Domain): parses tab- or comma-separated lines (quotes, header, BOM, formula-guard apostrophe), direction defaulting to Both; problems by line number; repeats counted once. `Cells` writes rows for `CsvFormat` so an export reads back unchanged.
+- **Translations page:** **Import rows** (paste or CSV/TSV/TXT up to 1 MB; add or replace) puts rows in the table only, with a summary of what was added, already there, and not read. **Export CSV** downloads the table as shown.
+- No new API or schema: Save (`ReplaceAsync`) still validates, requires the reason, and records history and audit.
+
+### Requirements
+
+- URS-BB-551, FRS-BB-662. Help: interface translations.
+
+### Tests
+
+- TEST-BB-529: spreadsheet paste with header and blank direction; CSV quotes and two-column lines; blank values, unknown direction, and extra columns named by line and skipped, repeats counted once; export round trip including a formula-guarded code; empty input.
+- Full suite: 3,921 passed.
+- Live: Race field, pasted a header, WHITE (already there), DECLINED/ASKU in, and a "sideways" line: the table gained DECLINED/ASKU Inbound, the summary said 1 added, 1 already there, and line 4 not read; the reason was prefilled. Export CSV returned text/csv with the seven rows. Nothing was saved. No server errors.
+
+### Next ranked residual
+
+LOINC and translated codes in the FHIR export; ordering-provider and location translations reviewed through the unmapped list; method and reagent lot on each result; several allowed specimen types per test.

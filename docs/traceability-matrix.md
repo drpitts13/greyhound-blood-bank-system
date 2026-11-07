@@ -655,6 +655,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-549 / FRS-BB-659 | Grouper precedence in and out; unknown order code to the error queue | `TestCodeTranslationRule`; `Hl7InboundProcessor`; `Hl7OutboundService` | TEST-BB-526 | I | |
 | URS-BB-550 / FRS-BB-660 | Race, ethnicity, patient class through the translations | `Hl7AdtMapper`; `Hl7OruBuilder`; `Hl7DftBuilder`; `Hl7BpsBuilder`; `PatientService` | TEST-BB-527 | U, I | |
 | URS-BB-550 / FRS-BB-661 | Unmapped values listed, resolved, dismissed; home card | `InterfaceUnmappedValueService`; `DashboardQueueCatalog` | TEST-BB-525, TEST-BB-526, TEST-BB-528 | U, I | |
+| URS-BB-551 / FRS-BB-662 | Translation rows imported from a paste or CSV, exported as CSV | `InterfaceTranslationImport`; `AdminHl7Translations.razor` | TEST-BB-529 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
