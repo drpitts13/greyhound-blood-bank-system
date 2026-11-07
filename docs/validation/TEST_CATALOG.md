@@ -522,5 +522,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-511 | U, I | `AlertRuleTests.Changed_ListsAlertsThatNowReadDifferently`; `AlertWorkflowTests.ShortageAlert_FollowsWhatIsOnOrder_WithoutRaisingAgain` | URS-BB-536 / FRS-BB-645 |
 | TEST-BB-512 | U, I | `AlertRuleTests.RaisesAgain_OnlyWhenAnAcknowledgedAlertBecomesMoreSevere`; `AlertWorkflowTests.AcknowledgedShortage_IsRaisedAgain_WhenItsOrderIsLate` | URS-BB-537 / FRS-BB-646 |
 | TEST-BB-513 | U, I | `SpecimenCollectorRuleTests.Accept_NeedsTheCollector_OnlyWhenRequired`; `SpecimenCollectorTests.Required_AcceptIsRefusedUntilTheCollectorIsRecorded`; `SpecimenCollectorTests.NotRequired_ByDefault_ATubeWithoutACollectorIsAccepted` | URS-BB-538 / FRS-BB-647 |
+| TEST-BB-514 | I | `SpecimenVisitLinkTests.OneOpenVisit_IsTheTubesVisit_AndANamedVisitIsUsed`; `SpecimenVisitLinkTests.TwoOpenVisits_NoneIsGuessed`; `SpecimenVisitLinkTests.AnotherPatientsVisit_OrACancelledOne_IsRefused` | URS-BB-539 / FRS-BB-648 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

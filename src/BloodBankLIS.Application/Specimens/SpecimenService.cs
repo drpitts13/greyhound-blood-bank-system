@@ -23,6 +23,7 @@ public sealed class SpecimenService
     /// <summary>Default specimen validity window when no facility policy is registered.</summary>
     public const int DefaultValidityHours = SpecimenValidityPolicy.DefaultStandardHours;
 
+    private readonly IRepository<Encounter>? _encounters;
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<Patient> _patients;
     private readonly IRepository<SpecimenTypeDefinition> _specimenTypes;
@@ -68,8 +69,10 @@ public sealed class SpecimenService
         IRepository<SpecimenRejectionReason>? rejectionReasons = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
         IRepository<Order>? orders = null,
-        ISpecimenRejectionPublisher? rejectionNotices = null)
+        ISpecimenRejectionPublisher? rejectionNotices = null,
+        IRepository<Encounter>? encounters = null)
     {
+        _encounters = encounters;
         _rejectionNotices = rejectionNotices;
         _orderSpecimens = orderSpecimens;
         _orders = orders;
@@ -209,6 +212,12 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail(identity.Message);
         }
 
+        var (visitId, visitError) = await ResolveVisitAsync(patient.Id, request.EncounterId, ct);
+        if (visitError is not null)
+        {
+            return OperationResult<Specimen>.Fail(visitError);
+        }
+
         var expiresUtc = await ComputeExpiresUtcAsync(
             request.CollectedUtc, typeDef, patient, request.ValidityHours, ct);
         var acceptNow = request.AcceptImmediately;
@@ -225,6 +234,7 @@ public sealed class SpecimenService
         {
             AccessionNumber = request.AccessionNumber,
             PatientId = request.PatientId,
+            EncounterId = visitId,
             SpecimenType = typeCode,
             Barcode = request.Barcode,
             CollectedUtc = request.CollectedUtc,
@@ -733,6 +743,34 @@ public sealed class SpecimenService
             ? SpecimenReceiptScanRule.NotFound(normalized)
             : SpecimenReceiptScanRule.Ambiguous(normalized, await ScanRequiredAsync(ct));
         return (null, $"{miss.Code}: {miss.Message}");
+    }
+
+    /// <summary>
+    /// The visit a new tube belongs to: the one named, which must be this patient's and not cancelled; otherwise the
+    /// patient's open visit (active, not discharged) when there is exactly one. With several open visits none is guessed.
+    /// </summary>
+    private async Task<(long? VisitId, string? Error)> ResolveVisitAsync(long patientId, long? requested, CancellationToken ct)
+    {
+        if (_encounters is null)
+        {
+            return (requested is > 0 ? requested : null, null);
+        }
+
+        if (requested is > 0)
+        {
+            var visit = await _encounters.GetByIdAsync(requested.Value, ct);
+            if (visit is null || visit.PatientId != patientId)
+            {
+                return (null, "That visit is not this patient's. Choose one of the patient's visits.");
+            }
+
+            return visit.Status == EncounterStatus.Cancelled
+                ? (null, $"Visit {visit.VisitNumber} is cancelled. Choose an open visit.")
+                : (visit.Id, null);
+        }
+
+        var open = await _encounters.ListAsync(e => e.PatientId == patientId && e.Status == EncounterStatus.Active && e.DischargeUtc == null, ct);
+        return (open.Count == 1 ? open[0].Id : null, null);
     }
 
     private async Task<bool> CollectorRequiredAsync(CancellationToken ct) =>

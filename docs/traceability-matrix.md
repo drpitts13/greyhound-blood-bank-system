@@ -641,6 +641,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-536 / FRS-BB-645 | Open alerts stay current; shortage alert follows orders | `AlertRule.Changed`; `AlertScanner` | TEST-BB-511 | U, I | |
 | URS-BB-537 / FRS-BB-646 | Acknowledged alert raised again when more severe | `AlertRule.RaisesAgain` | TEST-BB-512 | U, I | |
 | URS-BB-538 / FRS-BB-647 | Collector required to accept a tube (policy) | `SpecimenCollectorRule` | TEST-BB-513 | U, I | OCD-064 |
+| URS-BB-539 / FRS-BB-648 | Accessioned tubes linked to their visit | `SpecimenService.AccessionAsync` | TEST-BB-514 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

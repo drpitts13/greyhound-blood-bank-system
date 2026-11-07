@@ -16062,3 +16062,34 @@ Specimens record two patient identifiers from the label, the draw location, and 
 ### Next ranked residual
 
 Rescan the desks; OCD-064 (collector default), OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 476 — Accessioned tubes are linked to their visit (2026-11-06)
+
+### Capability matrix rescan (orders and specimens: visits)
+
+Specimens carry a visit (`EncounterId`), and the electronic crossmatch eligibility count of negative antibody screens uses the tube's visit first. But accession through the application had no way to set it: only seeded and interface data had visits (14 of 16 dev specimens). Every tube accessioned in the chart was visit-less, and the count fell back to the order's visit (questions 3, 6).
+
+### Design
+
+- **`AccessionSpecimenRequest.EncounterId`** (optional).
+- **Named visit:** used when it is this patient's and not cancelled; another patient's visit or a cancelled one is refused, and nothing is saved.
+- **No visit named:** the patient's open visit (active, not discharged) when there is exactly one; with several, none is guessed.
+- **Chart:** the order-with-new-tube form passes the order's visit; plain accession relies on the inference.
+- `SpecimenDto` returns the visit. No schema change (the column existed).
+
+### Requirements
+
+- URS-BB-539, FRS-BB-648. Help: patient specimens.
+
+### Tests
+
+- TEST-BB-514:
+  - one open visit is the tube's visit; a named (discharged) visit is used
+  - with two open visits no visit is set
+  - another patient's visit and a cancelled visit are refused, and nothing is saved
+- Full suite: 3,862 passed (each test project run on its own; the web project compiled to a separate folder)
+- Not checked live: an API and web instance started outside this session at 8:37 PM held the ports and the build output, so the change was not run in the browser; the visit link is covered by the tests.
+
+### Next ranked residual
+
+Rescan the desks; OCD-064 (collector default), OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

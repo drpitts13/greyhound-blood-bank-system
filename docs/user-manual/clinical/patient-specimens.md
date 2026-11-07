@@ -18,6 +18,8 @@ Record the specimen type, collection time, who collected it, and where. Scan or 
 
 Print the specimen label from **Printing** or the print action on the specimen. The label layout (what sits on the 2×1 inch label) is an administrator setting. You choose the printer and confirm the identifiers.
 
+A new tube is linked to the visit it was drawn on. Accessioned with a new order, it takes the order's visit. Accessioned on its own, it takes the patient's open visit when there is only one; with more than one open visit, no visit is guessed.
+
 ## Receive and accept
 
 A collected specimen is received into the laboratory, then accepted for testing. Until it is accepted, the worklist shows it as not ready. Reject the specimen when it is hemolyzed, mislabeled, or otherwise unsuitable.

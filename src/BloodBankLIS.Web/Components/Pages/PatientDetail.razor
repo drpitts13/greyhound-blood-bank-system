@@ -1960,7 +1960,9 @@ else
                 Identifier2Value: string.IsNullOrWhiteSpace(_orderAcc.Identifier2Value) ? null : _orderAcc.Identifier2Value,
                 Collector: string.IsNullOrWhiteSpace(_orderAcc.Collector) ? null : _orderAcc.Collector.Trim(),
                 DrawLocation: string.IsNullOrWhiteSpace(_orderAcc.DrawLocation) ? null : _orderAcc.DrawLocation.Trim(),
-                Comment: string.IsNullOrWhiteSpace(_orderAcc.Comment) ? null : _orderAcc.Comment);
+                Comment: string.IsNullOrWhiteSpace(_orderAcc.Comment) ? null : _orderAcc.Comment,
+                // The tube belongs to the visit the order is placed on.
+                EncounterId: _newOrderEncounterId > 0 ? _newOrderEncounterId : null);
             var acc = await Api.AccessionSpecimenAsync(accReq);
             if (!acc.Succeeded || acc.Value is null)
             {

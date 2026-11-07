@@ -21,7 +21,9 @@ public sealed record AccessionSpecimenRequest(
     IdentityTokenType? Identifier2Type = null,
     string? Identifier2Value = null,
     string? Comment = null,
-    bool AcceptImmediately = true);
+    bool AcceptImmediately = true,
+    // The visit the tube was drawn on. Omitted: the patient's open visit when there is exactly one, else none.
+    long? EncounterId = null);
 
 public sealed record UpdateSpecimenRequest(
     DateTime CollectedUtc,
@@ -57,12 +59,13 @@ public sealed record SpecimenDto(
     SpecimenStatus Status,
     string? RejectionReason,
     string? Comment = null,
-    bool HasCompletedTypeAndScreen = false)
+    bool HasCompletedTypeAndScreen = false,
+    long? EncounterId = null)
 {
     public static SpecimenDto From(Specimen s, string? typeDescription = null, bool hasCompletedTypeAndScreen = false) => new(
         s.Id, s.AccessionNumber, s.PatientId, s.SpecimenType, typeDescription, s.Barcode,
         s.DrawLocation, s.Collector, s.CollectedUtc, s.ReceivedUtc, s.ExpiresUtc, s.Status, s.RejectionReason,
-        s.Comment, hasCompletedTypeAndScreen);
+        s.Comment, hasCompletedTypeAndScreen, s.EncounterId);
 }
 
 public sealed record PendingSpecimenWorkItemDto(
