@@ -79,6 +79,18 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Products (by ABO where the level names one) with fewer available units than their minimum stock level.</summary>
     public int ProductsBelowMinimum { get; set; }
 
+    /// <summary>Instrument messages that failed and are still open (replay, release, or resolve).</summary>
+    public int InstrumentFailuresOpen { get; set; }
+
+    /// <summary>Of those, results an instrument error code held for review.</summary>
+    public int InstrumentResultsHeld { get; set; }
+
+    /// <summary>Reagent lots whose latest daily QC failed.</summary>
+    public int ReagentLotsFailedQc { get; set; }
+
+    /// <summary>Results tested with those lots since they last passed QC and not yet reviewed.</summary>
+    public int ReagentResultsToReview { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

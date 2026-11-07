@@ -561,5 +561,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-550 | U | `AcceptedSpecimenTypesTests.OrderNote_NamesAcceptedTypes_AndWhetherOneTubeSuitsAll` | URS-BB-562 / FRS-BB-677 |
 | TEST-BB-551 | I | `FhirReadServiceTests.OrderReport_IsPartialThenFinalThenCorrected` | URS-BB-563 / FRS-BB-678 |
 | TEST-BB-552 | I | `FhirReadServiceTests.Specimens_CarryTheirStateAndExpiry_AndResultsPointAtThem`; `FhirReadServiceTests.OrderReport_IsPartialThenFinalThenCorrected` | URS-BB-564 / FRS-BB-679 |
+| TEST-BB-553 | I | `ShiftHandoffServiceTests.Create_CountsInstrumentFailuresAndFailedReagentLots` | URS-BB-565 / FRS-BB-680 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -673,6 +673,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-562 / FRS-BB-677 | Order entry shows accepted and common specimen types | `AcceptedSpecimenTypes.Common`; `AcceptedSpecimenTypes.OrderNote`; `PatientChartOrdersTab.razor` | TEST-BB-550 | U | |
 | URS-BB-563 / FRS-BB-678 | FHIR DiagnosticReport per order | `FhirMapper.DiagnosticReport`; `FhirReadService`; `FhirEndpoints` | TEST-BB-551 | I | OCD-043 |
 | URS-BB-564 / FRS-BB-679 | FHIR Specimen; results and reports point at their tube | `FhirMapper.Specimen`; `FhirReadService`; `FhirEndpoints` | TEST-BB-552, TEST-BB-551 | I | OCD-043 |
+| URS-BB-565 / FRS-BB-680 | Handoff counts instrument failures and failed reagent lots | `ShiftHandoffService` | TEST-BB-553 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

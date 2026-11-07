@@ -16650,3 +16650,27 @@ FHIR results and reports (Cycles 500, 503) did not say which tube they came from
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; FHIR search parameters beyond patient (date, status).
+
+## Iteration 505 — Shift handoff counts instrument failures and failed reagent lots (2026-11-07)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Cycles 488–499 added held instrument results and failed-lot result review, but the shift handoff packet did not count them, so a held result or a failed lot's results could wait unseen across a shift change. Workflow questions: memory (the packet carries the counts); next action (failed reagent QC leads the summary); safety (results possibly affected by a failed lot are named at handover).
+
+### Design
+
+- Four `ShiftHandoff` counts (migration, dev columns), filled from instrument messages and the reagent QC worklist; summary line and audit snapshot.
+
+### Requirements
+
+- URS-BB-565, FRS-BB-680. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-553: a held and a non-held open failure and a resolved one; a lot whose latest QC failed with two results after its last pass and one before: the handoff counts the open failures, the held one, the failed lot, and two results to review, and the summary leads with REAGENT QC FAILED.
+- Full suite: 3,963 passed.
+- Live: the API added the four handoff columns to the dev database in place; the Shift handoff page loaded (no handoffs recorded there; none was recorded). No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; HL7 errors and unmapped interface values in the shift handoff.

@@ -274,6 +274,62 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(audit, e => e.NewValueJson != null && e.NewValueJson.Contains("CriticalDeviations", StringComparison.OrdinalIgnoreCase));
     }
 
+    // TEST-BB-553: a handoff counts open instrument failures and the results held among them, and reagent lots whose
+    // latest QC failed with the results still to review; the summary leads with failed reagent QC.
+    [Fact]
+    public async Task Create_CountsInstrumentFailuresAndFailedReagentLots()
+    {
+        await using var context = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var iface = new InstrumentInterface { Name = $"HO-{Guid.NewGuid():N}"[..12], Connection = new InstrumentConnection { Port = 2999 } };
+        context.InstrumentInterfaces.Add(iface);
+        await context.SaveChangesAsync();
+        InstrumentMessageLog Message(string? error, DateTime? resolved = null) => new()
+        {
+            InterfaceId = iface.Id, RawMessage = "x", Status = InstrumentMessageStatus.Failed, ReceivedUtc = now, ErrorDetail = error, ResolvedUtc = resolved
+        };
+        context.InstrumentMessages.AddRange(
+            Message("Instrument error Q (Hold): ABORH for ACC held for review, not posted (INST-HOLD)."),
+            Message("Instrument code X has no translation to a test (INST-CODE)"),
+            Message("held (INST-HOLD)", resolved: now));
+        var reagent = new Reagent { Code = $"HO-{Guid.NewGuid():N}"[..10], Name = "Handoff AHG", TestCodes = "HOSC" };
+        context.Reagents.Add(reagent);
+        await context.SaveChangesAsync();
+        var lot = new ReagentLot { ReagentId = reagent.Id, LotNumber = "HO-1", ReceivedUtc = now.AddDays(-3), ExpiresUtc = now.AddDays(30), State = ReagentLotState.Opened };
+        context.ReagentLots.Add(lot);
+        await context.SaveChangesAsync();
+        context.ReagentDailyQcs.AddRange(
+            new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.AddDays(-1).Date, ExpectedResult = "4+", ObservedResult = "4+", Passed = true, PerformedBy = "a", PerformedUtc = now.AddHours(-24), ReviewedBy = "b", ReviewedUtc = now.AddHours(-23) },
+            new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.Date, ExpectedResult = "4+", ObservedResult = "0", Passed = false, PerformedBy = "a", PerformedUtc = now.AddHours(-1) });
+        context.TestResultReagentLots.AddRange(
+            new TestResultReagentLot { TestResultId = 900001, ReagentLotId = lot.Id, ReagentCode = reagent.Code, LotNumber = "HO-1", RecordedUtc = now.AddHours(-3) },
+            new TestResultReagentLot { TestResultId = 900002, ReagentLotId = lot.Id, ReagentCode = reagent.Code, LotNumber = "HO-1", RecordedUtc = now.AddHours(-2) },
+            new TestResultReagentLot { TestResultId = 900003, ReagentLotId = lot.Id, ReagentCode = reagent.Code, LotNumber = "HO-1", RecordedUtc = now.AddHours(-30) });
+        await context.SaveChangesAsync();
+        var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
+        var reagents = new ReagentQcService(
+            new EfRepository<Reagent>(context), new EfRepository<ReagentLot>(context), new EfRepository<ReagentDailyQc>(context),
+            context, _factory.Clock, _factory.CurrentUser, audit, new EfRepository<TestResultReagentLot>(context));
+        var expectedOpen = await context.InstrumentMessages.CountAsync(m => m.Status == InstrumentMessageStatus.Failed && m.ResolvedUtc == null);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: audit,
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            instrumentMessages: new EfRepository<InstrumentMessageLog>(context),
+            reagentQc: reagents);
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Instruments and reagents"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Equal(expectedOpen, created.Value!.InstrumentFailuresOpen);
+        Assert.True(created.Value.InstrumentResultsHeld >= 1 && created.Value.InstrumentFailuresOpen >= 2);
+        Assert.True(created.Value.ReagentLotsFailedQc >= 1);
+        Assert.True(created.Value.ReagentResultsToReview >= 2);
+        var summary = ShiftHandoffDto.From(created.Value).QueueSummary;
+        Assert.StartsWith("REAGENT QC FAILED:", summary);
+        Assert.Contains("held for review", summary);
+    }
+
     // TEST-BB-508: a handoff counts products below their minimum stock level, without admin.config.edit, and keeps the
     // count in its audit snapshot.
     [Fact]

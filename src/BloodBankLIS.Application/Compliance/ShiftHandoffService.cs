@@ -45,7 +45,11 @@ public sealed record ShiftHandoffDto(
     int ExpiredOnShelf = 0,
     int OpenDeviations = 0,
     int CriticalDeviations = 0,
-    int ProductsBelowMinimum = 0)
+    int ProductsBelowMinimum = 0,
+    int InstrumentFailuresOpen = 0,
+    int InstrumentResultsHeld = 0,
+    int ReagentLotsFailedQc = 0,
+    int ReagentResultsToReview = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -54,6 +58,10 @@ public sealed record ShiftHandoffDto(
         (ActiveMtp > 0 ? $"MASSIVE TRANSFUSION ACTIVE: {ActiveMtp}; " : "") +
         (RetrospectiveIncompatible > 0 ? $"INCOMPATIBLE AFTER RELEASE: {RetrospectiveIncompatible}; " : "") +
         (CriticalDeviations > 0 ? $"CRITICAL DEVIATION OPEN: {CriticalDeviations}; " : "") +
+        (ReagentLotsFailedQc > 0
+            ? $"REAGENT QC FAILED: {ReagentLotsFailedQc} {(ReagentLotsFailedQc == 1 ? "lot" : "lots")}" +
+              (ReagentResultsToReview > 0 ? $", {ReagentResultsToReview} {(ReagentResultsToReview == 1 ? "result" : "results")} to review" : "") + "; "
+            : "") +
         (TransfusionsRunning > 0
             ? $"transfusing {TransfusionsRunning}" + (TransfusionsCompletionOverdue > 0 ? $", {TransfusionsCompletionOverdue} completion overdue" : "") + "; "
             : "") +
@@ -77,7 +85,10 @@ public sealed record ShiftHandoffDto(
             : "") +
         (ExpiredOnShelf > 0 ? $"; EXPIRED ON SHELF {ExpiredOnShelf}, to discard" : "") +
         (ProductsBelowMinimum > 0 ? $"; BELOW MINIMUM STOCK {ProductsBelowMinimum} {(ProductsBelowMinimum == 1 ? "product" : "products")}" : "") +
-        (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "");
+        (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "") +
+        (InstrumentFailuresOpen > 0
+            ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
+            : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
@@ -87,7 +98,8 @@ public sealed record ShiftHandoffDto(
         h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible,
         h.PendingTestsVerifyBeforeExpiry, h.ResultsAwaitingVerification, h.ReservationsLapsed,
         h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences,
-        h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum);
+        h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
+        h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview);
 }
 
 /// <summary>
@@ -114,6 +126,8 @@ public sealed class ShiftHandoffService
     private readonly IRepository<Deviation>? _deviations;
     // Read without admin.config.edit: minimum stock levels are configuration, the shortage is shift work.
     private readonly MinimumStockService? _minimumStock;
+    private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
+    private readonly ReagentQcService? _reagentQc;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -131,9 +145,13 @@ public sealed class ShiftHandoffService
         InventoryService? inventory = null,
         CoolerCheckService? coolers = null,
         IRepository<Deviation>? deviations = null,
-        MinimumStockService? minimumStock = null)
+        MinimumStockService? minimumStock = null,
+        IRepository<InstrumentMessageLog>? instrumentMessages = null,
+        ReagentQcService? reagentQc = null)
     {
         _minimumStock = minimumStock;
+        _instrumentMessages = instrumentMessages;
+        _reagentQc = reagentQc;
         _deviations = deviations;
         _coolers = coolers;
         _inventory = inventory;
@@ -238,6 +256,13 @@ public sealed class ShiftHandoffService
         var openDeviations = _deviations is null
             ? []
             : await _deviations.ListAsync(d => d.Status != DeviationStatus.Closed, ct);
+        // The next shift picks up failed instrument messages (held results wait on a review) and failed reagent lots.
+        var instrumentFailures = _instrumentMessages is null
+            ? []
+            : await _instrumentMessages.ListAsync(m => m.Status == InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct);
+        var failedLots = _reagentQc is null
+            ? []
+            : (await _reagentQc.ListWorkAsync(ct)).Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
 
         var row = new ShiftHandoff
         {
@@ -271,7 +296,11 @@ public sealed class ShiftHandoffService
             ExpiredOnShelf = _inventory is null ? 0 : await _inventory.CountExpiredOnShelfAsync(ct),
             OpenDeviations = openDeviations.Count,
             CriticalDeviations = openDeviations.Count(d => d.Severity == DeviationSeverity.Critical),
-            ProductsBelowMinimum = _minimumStock is null ? 0 : (await _minimumStock.ListAsync(ct)).Count(r => r.Shortfall > 0)
+            ProductsBelowMinimum = _minimumStock is null ? 0 : (await _minimumStock.ListAsync(ct)).Count(r => r.Shortfall > 0),
+            InstrumentFailuresOpen = instrumentFailures.Count,
+            InstrumentResultsHeld = instrumentFailures.Count(m => InstrumentMessageFollowUpRule.IsHeld(m.Status, m.ResolvedUtc, m.ErrorDetail)),
+            ReagentLotsFailedQc = failedLots.Count,
+            ReagentResultsToReview = failedLots.Sum(l => l.ResultsToReview)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -350,7 +379,11 @@ public sealed class ShiftHandoffService
         row.ExpiredOnShelf,
         row.OpenDeviations,
         row.CriticalDeviations,
-        row.ProductsBelowMinimum
+        row.ProductsBelowMinimum,
+        row.InstrumentFailuresOpen,
+        row.InstrumentResultsHeld,
+        row.ReagentLotsFailedQc,
+        row.ReagentResultsToReview
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
