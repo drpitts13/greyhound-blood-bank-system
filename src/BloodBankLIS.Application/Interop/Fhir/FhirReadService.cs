@@ -25,6 +25,7 @@ public sealed class FhirReadService
     private readonly IAuditWriter? _audit;
     private readonly IRepository<TestResult>? _results;
     private readonly IRepository<TestDefinition>? _tests;
+    private readonly IRepository<OrderLine>? _orderLines;
 
     public FhirReadService(
         IRepository<Patient> patients,
@@ -38,8 +39,10 @@ public sealed class FhirReadService
         IUnitOfWork unitOfWork,
         IAuditWriter? audit = null,
         IRepository<TestResult>? results = null,
-        IRepository<TestDefinition>? tests = null)
+        IRepository<TestDefinition>? tests = null,
+        IRepository<OrderLine>? orderLines = null)
     {
+        _orderLines = orderLines;
         _results = results;
         _tests = tests;
         _patients = patients;
@@ -187,6 +190,59 @@ public sealed class FhirReadService
         var resources = rows.OrderBy(o => o.OrderedUtc).Select(FhirMapper.ServiceRequest).ToList();
         await AuditIfAnyAsync(patientId, resources.Count, ct);
         return FhirMapper.Bundle(resources, selfUrl);
+    }
+
+    /// <summary>One report per order that has at least one verified result; unverified results are never included.</summary>
+    public async Task<JsonObject> SearchDiagnosticReportsAsync(long patientId, string selfUrl, CancellationToken ct = default)
+    {
+        var resources = new List<JsonObject>();
+        if (_results is not null)
+        {
+            var orders = await _orders.ListAsync(o => o.PatientId == patientId, ct);
+            foreach (var order in orders.OrderBy(o => o.OrderedUtc))
+            {
+                if (await ReportAsync(order, ct) is { } report)
+                {
+                    resources.Add(report);
+                }
+            }
+        }
+
+        await AuditIfAnyAsync(patientId, resources.Count, ct);
+        return FhirMapper.Bundle(resources, selfUrl);
+    }
+
+    public async Task<JsonObject?> ReadDiagnosticReportAsync(long id, CancellationToken ct = default)
+    {
+        var order = (await _orders.ListAsync(o => o.Id == id, ct)).FirstOrDefault();
+        if (order is null || _results is null || await ReportAsync(order, ct) is not { } report)
+        {
+            return null;
+        }
+
+        return await AuditedAsync(order.PatientId, report, ct);
+    }
+
+    private async Task<JsonObject?> ReportAsync(Order order, CancellationToken ct)
+    {
+        var verified = await _results!.ListAsync(r => r.OrderId == order.Id && r.SupersededByResultId == null && r.VerifiedUtc != null
+            && (r.Status == ResultStatus.Verified || r.Status == ResultStatus.Corrected), ct);
+        if (verified.Count == 0)
+        {
+            return null;
+        }
+
+        // Complete when every active test line has a verified current result.
+        var complete = true;
+        if (_orderLines is not null)
+        {
+            var codes = (await _orderLines.ListAsync(l => l.OrderId == order.Id && l.IsActive && l.TestCode != null, ct))
+                .Select(l => l.TestCode!.ToUpperInvariant()).Distinct();
+            var done = verified.Select(r => r.TestCode.ToUpperInvariant()).ToHashSet();
+            complete = codes.All(done.Contains);
+        }
+
+        return FhirMapper.DiagnosticReport(order, verified, complete);
     }
 
     public async Task<JsonObject?> ReadServiceRequestAsync(long id, CancellationToken ct = default)

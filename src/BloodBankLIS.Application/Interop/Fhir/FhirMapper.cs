@@ -20,6 +20,42 @@ public static class FhirMapper
     public const string FlagCodeSystem = "urn:hemocore:transfusion-requirement";
     public const string LoincSystem = "http://loinc.org";
     public const string InterpretationSystem = "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
+    public const string OrderCodeSystem = "urn:hemocore:order";
+    public const string DiagnosticSectionSystem = "http://terminology.hl7.org/CodeSystem/v2-0074";
+
+    /// <summary>
+    /// One order's verified results as a blood bank report: partial while any test on the order has no verified
+    /// result, final when all have, corrected when a result was corrected after verification.
+    /// </summary>
+    public static JsonObject DiagnosticReport(Order o, IReadOnlyList<TestResult> verified, bool complete)
+    {
+        var code = string.IsNullOrWhiteSpace(o.TestCode)
+            ? new JsonObject { ["text"] = string.IsNullOrWhiteSpace(o.OrderName) ? "Blood bank order" : o.OrderName }
+            : Concept(OrderCodeSystem, o.TestCode, string.IsNullOrWhiteSpace(o.OrderName) ? o.TestCode : o.OrderName);
+        var resource = new JsonObject
+        {
+            ["resourceType"] = "DiagnosticReport",
+            ["id"] = o.Id.ToString(),
+            ["basedOn"] = new JsonArray(Reference("ServiceRequest", o.Id)),
+            ["status"] = !complete ? "partial" : verified.Any(r => r.Status == ResultStatus.Corrected) ? "corrected" : "final",
+            ["category"] = new JsonArray(Concept(DiagnosticSectionSystem, "BLB", "Blood Bank")),
+            ["code"] = code,
+            ["subject"] = Reference("Patient", o.PatientId),
+            ["result"] = new JsonArray(verified.OrderBy(r => r.TestCode).ThenBy(r => r.Id)
+                .Select(r => (JsonNode)Reference("Observation", "result-" + r.Id)).ToArray())
+        };
+        if (verified.Where(r => r.EnteredUtc is not null).Select(r => r.EnteredUtc!.Value).DefaultIfEmpty().Min() is var first && first != default)
+        {
+            resource["effectiveDateTime"] = Instant(first);
+        }
+
+        if (verified.Where(r => r.VerifiedUtc is not null).Select(r => r.VerifiedUtc!.Value).DefaultIfEmpty().Max() is var issued && issued != default)
+        {
+            resource["issued"] = Instant(issued);
+        }
+
+        return resource;
+    }
 
     /// <summary>
     /// A verified test result as a laboratory Observation: the local test code, plus its LOINC code when the test has
@@ -330,12 +366,15 @@ public static class FhirMapper
                     Read("Observation", "patient"),
                     Read("Flag", "patient"),
                     Read("ServiceRequest", "patient"),
+                    Read("DiagnosticReport", "patient"),
                     Read("BiologicallyDerivedProduct", "identifier"))
             })
         };
     }
 
     public static JsonObject Reference(string type, long id) => new() { ["reference"] = $"{type}/{id}" };
+
+    public static JsonObject Reference(string type, string id) => new() { ["reference"] = $"{type}/{id}" };
 
     private static JsonArray Given(Patient p)
     {

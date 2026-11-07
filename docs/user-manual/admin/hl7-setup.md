@@ -22,7 +22,7 @@ Vendor presets are a starting map, not a validation. Compare the preset with the
 
 Besides HL7 v2, the system offers a read-only FHIR R4 API at `/fhir` for the EHR. It cannot create, change, or delete anything.
 
-- It serves the patient, the current ABO/Rh and active antibodies, verified test results, special transfusion requirements, orders, and blood product status. A superseded blood type, a retired antibody, or an unverified result is never sent. A corrected result is sent as corrected; a result that was invalidated after verification reads as entered in error.
+- It serves the patient, the current ABO/Rh and active antibodies, verified test results, special transfusion requirements, orders, and blood product status. A superseded blood type, a retired antibody, or an unverified result is never sent. A corrected result is sent as corrected; a result that was invalidated after verification reads as entered in error. Each order with verified results is also a report (DiagnosticReport, category Blood Bank) listing them: partial until every test on the order is verified, then final, or corrected.
 - The caller must be signed in. Every read that returns a patient's data is recorded in the audit trail as a patient access, marked FHIR.
 - Codes use this system's own code systems with readable text. A test result also carries the test's LOINC code when one is recorded on Admin › Tests (none are pre-filled). Numeric results carry units, the reference range, and the flag. Other SNOMED CT or LOINC mappings, and how the EHR authenticates, must be agreed with your interface team before go-live.
 - `/fhir/metadata` lists what the API supports.

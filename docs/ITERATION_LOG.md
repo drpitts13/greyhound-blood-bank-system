@@ -16602,3 +16602,27 @@ Cycle 501 let a test accept several types, but ordering with Accession now still
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; FHIR DiagnosticReport grouping a specimen's results; the same accepted-type note on the Specimens tab accession form.
+
+## Iteration 503 — FHIR DiagnosticReport per order (2026-11-07)
+
+### Capability matrix rescan (interoperability: FHIR)
+
+Cycle 500 made verified results readable as Observations, but an EHR expects a report per order that says whether the order is complete; without it a partially verified type and screen looks the same as a finished one. Workflow questions: inference (completeness from the order's active test lines); safety (only verified results; partial until all are verified; corrected marked); audit (patient access).
+
+### Design
+
+- `FhirMapper.DiagnosticReport` (BLB category, order code, results, partial/final/corrected, effective and issued times); `FhirReadService.SearchDiagnosticReportsAsync`/`ReadDiagnosticReportAsync` (optional order lines); endpoints; capability statement.
+
+### Requirements
+
+- URS-BB-563, FRS-BB-678. Help: HL7 setup (FHIR).
+
+### Tests
+
+- TEST-BB-551: one of two lines verified gives a partial report with that result, category BLB, code TNS, based on the order; both verified gives final with two results and issued at the last verification; a correction gives corrected; unknown order and patient give nothing.
+- Full suite: 3,961 passed.
+- Live: /fhir/DiagnosticReport?patient=1 returned MRN0001's type and screen as one final Blood Bank report (code TNS, based on ServiceRequest/1) listing its verified ABORH and ABSC results, issued at the later verification. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; FHIR Specimen resource for the tube a report used.

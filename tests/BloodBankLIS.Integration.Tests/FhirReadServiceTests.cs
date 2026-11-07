@@ -28,7 +28,48 @@ public class FhirReadServiceTests : IDisposable
             new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
             new EfRepository<Order>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), c,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c));
+            new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c), new EfRepository<OrderLine>(c));
+
+    // TEST-BB-551: an order's verified results are a blood bank DiagnosticReport: partial while a test on the order
+    // has no verified result, final when all have, corrected after a verified correction; an order with none is absent.
+    [Fact]
+    public async Task OrderReport_IsPartialThenFinalThenCorrected()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var now = _factory.Clock.UtcNow;
+        var order = await c.Orders.SingleAsync(o => o.OrderNumber == "ORD-FHIR1");
+        order.TestCode = "TNS";
+        c.OrderLines.AddRange(
+            new OrderLine { OrderId = order.Id, LineNumber = 1, LineName = "ABO/Rh", TestCode = "ABORH", IsActive = true },
+            new OrderLine { OrderId = order.Id, LineNumber = 2, LineName = "Screen", TestCode = "ABSC", IsActive = true });
+        var specimen = new Specimen { AccessionNumber = "ACC-FHIR-DR", PatientId = f.Patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddHours(-3), Status = SpecimenStatus.Accepted };
+        c.Add(specimen);
+        await c.SaveChangesAsync();
+        var abo = new TestResult { SpecimenId = specimen.Id, PatientId = f.Patient.Id, OrderId = order.Id, TestCode = "ABORH", Value = "O|Negative", Status = ResultStatus.Verified, Source = ResultSource.Manual, EnteredUtc = now.AddHours(-2), VerifiedUtc = now.AddHours(-1) };
+        var screen = new TestResult { SpecimenId = specimen.Id, PatientId = f.Patient.Id, OrderId = order.Id, TestCode = "ABSC", Value = "Negative", Status = ResultStatus.Entered, Source = ResultSource.Manual, EnteredUtc = now.AddHours(-2) };
+        c.AddRange(abo, screen);
+        await c.SaveChangesAsync();
+
+        var partial = Assert.Single(Resources(await FhirWithResults(c).SearchDiagnosticReportsAsync(f.Patient.Id, "/fhir/DiagnosticReport")));
+        Assert.Equal(("partial", "BLB", "TNS"), ((string?)partial["status"], (string?)partial["category"]![0]!["coding"]![0]!["code"], (string?)partial["code"]!["coding"]![0]!["code"]));
+        Assert.Equal([$"Observation/result-{abo.Id}"], partial["result"]!.AsArray().Select(r => (string?)r!["reference"]));
+        Assert.Equal($"ServiceRequest/{order.Id}", (string?)partial["basedOn"]![0]!["reference"]);
+
+        screen.Status = ResultStatus.Verified;
+        screen.VerifiedUtc = now;
+        await c.SaveChangesAsync();
+        var final = await FhirWithResults(c).ReadDiagnosticReportAsync(order.Id);
+        Assert.Equal("final", (string?)final!["status"]);
+        Assert.Equal(2, final["result"]!.AsArray().Count);
+        Assert.Equal(now.ToString("yyyy-MM-ddTHH:mm:ssZ"), (string?)final["issued"]);
+
+        screen.Status = ResultStatus.Corrected;
+        await c.SaveChangesAsync();
+        Assert.Equal("corrected", (string?)(await FhirWithResults(c).ReadDiagnosticReportAsync(order.Id))!["status"]);
+        Assert.Null(await FhirWithResults(c).ReadDiagnosticReportAsync(999_999));
+        Assert.Empty(Resources(await FhirWithResults(c).SearchDiagnosticReportsAsync(999_999, "/x")));
+    }
 
     // TEST-BB-548: verified results reach the EHR as laboratory Observations: local code plus the test's LOINC code
     // when it has one, numeric value with units, reference range, and flag, linked to the order; corrected ones as
