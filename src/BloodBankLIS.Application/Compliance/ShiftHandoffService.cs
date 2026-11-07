@@ -49,7 +49,9 @@ public sealed record ShiftHandoffDto(
     int InstrumentFailuresOpen = 0,
     int InstrumentResultsHeld = 0,
     int ReagentLotsFailedQc = 0,
-    int ReagentResultsToReview = 0)
+    int ReagentResultsToReview = 0,
+    int Hl7ErrorsOpen = 0,
+    int UnmappedInterfaceValues = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -88,7 +90,9 @@ public sealed record ShiftHandoffDto(
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "") +
         (InstrumentFailuresOpen > 0
             ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
-            : "");
+            : "") +
+        (Hl7ErrorsOpen > 0 ? $"; HL7 errors {Hl7ErrorsOpen}" : "") +
+        (UnmappedInterfaceValues > 0 ? $"; unmapped interface values {UnmappedInterfaceValues}" : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
@@ -99,7 +103,8 @@ public sealed record ShiftHandoffDto(
         h.PendingTestsVerifyBeforeExpiry, h.ResultsAwaitingVerification, h.ReservationsLapsed,
         h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences,
         h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
-        h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview);
+        h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
+        h.Hl7ErrorsOpen, h.UnmappedInterfaceValues);
 }
 
 /// <summary>
@@ -128,6 +133,8 @@ public sealed class ShiftHandoffService
     private readonly MinimumStockService? _minimumStock;
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
     private readonly ReagentQcService? _reagentQc;
+    private readonly IRepository<InterfaceErrorQueueItem>? _hl7Errors;
+    private readonly IRepository<InterfaceUnmappedValue>? _unmapped;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -147,8 +154,12 @@ public sealed class ShiftHandoffService
         IRepository<Deviation>? deviations = null,
         MinimumStockService? minimumStock = null,
         IRepository<InstrumentMessageLog>? instrumentMessages = null,
-        ReagentQcService? reagentQc = null)
+        ReagentQcService? reagentQc = null,
+        IRepository<InterfaceErrorQueueItem>? hl7Errors = null,
+        IRepository<InterfaceUnmappedValue>? unmapped = null)
     {
+        _hl7Errors = hl7Errors;
+        _unmapped = unmapped;
         _minimumStock = minimumStock;
         _instrumentMessages = instrumentMessages;
         _reagentQc = reagentQc;
@@ -300,7 +311,9 @@ public sealed class ShiftHandoffService
             InstrumentFailuresOpen = instrumentFailures.Count,
             InstrumentResultsHeld = instrumentFailures.Count(m => InstrumentMessageFollowUpRule.IsHeld(m.Status, m.ResolvedUtc, m.ErrorDetail)),
             ReagentLotsFailedQc = failedLots.Count,
-            ReagentResultsToReview = failedLots.Sum(l => l.ResultsToReview)
+            ReagentResultsToReview = failedLots.Sum(l => l.ResultsToReview),
+            Hl7ErrorsOpen = _hl7Errors is null ? 0 : (await _hl7Errors.ListAsync(e => !e.Resolved, ct)).Count,
+            UnmappedInterfaceValues = _unmapped is null ? 0 : (await _unmapped.ListAsync(v => v.ResolvedUtc == null, ct)).Count
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -383,7 +396,9 @@ public sealed class ShiftHandoffService
         row.InstrumentFailuresOpen,
         row.InstrumentResultsHeld,
         row.ReagentLotsFailedQc,
-        row.ReagentResultsToReview
+        row.ReagentResultsToReview,
+        row.Hl7ErrorsOpen,
+        row.UnmappedInterfaceValues
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

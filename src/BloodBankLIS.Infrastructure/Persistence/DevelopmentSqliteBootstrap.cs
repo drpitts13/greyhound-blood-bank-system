@@ -84,6 +84,8 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "InstrumentResultsHeld", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "InstrumentResultsHeld" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "ReagentLotsFailedQc", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentLotsFailedQc" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "ReagentResultsToReview", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentResultsToReview" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "Hl7ErrorsOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "Hl7ErrorsOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "UnmappedInterfaceValues", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "UnmappedInterfaceValues" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RetrospectiveIncompatible", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RetrospectiveIncompatible" INTEGER NOT NULL DEFAULT 0"""),
         ("ReactionInvestigations", "ReopenedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedUtc" TEXT NULL"""),
         ("ReactionInvestigations", "ReopenedBy", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedBy" TEXT NULL"""),

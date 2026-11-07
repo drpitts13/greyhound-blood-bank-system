@@ -16674,3 +16674,27 @@ Cycles 488–499 added held instrument results and failed-lot result review, but
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; HL7 errors and unmapped interface values in the shift handoff.
+
+## Iteration 506 — Shift handoff counts HL7 errors and unmapped interface values (2026-11-07)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Cycle 505 added instrument and reagent counts, but the handoff still missed open HL7 errors (an order that did not file, a result that did not reach the EHR) and unmapped interface values (which make orders fail until translated). Workflow questions: memory (counts carried over); next action (the summary names both); safety (an order or result stuck in the interface is handed over).
+
+### Design
+
+- `ShiftHandoff.Hl7ErrorsOpen`, `UnmappedInterfaceValues` (migration, dev columns); counted at record time; summary and audit snapshot.
+
+### Requirements
+
+- URS-BB-565 (extended), FRS-BB-681. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-554: an open and a resolved HL7 error, an open and a resolved unmapped value: the handoff counts the open ones and names both in the summary.
+- Full suite: 3,964 passed.
+- Live: the API added ShiftHandoffs.Hl7ErrorsOpen and UnmappedInterfaceValues to the dev database in place (logged ALTER TABLE). No handoff was recorded. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; show the live handoff counts before recording (a preview).

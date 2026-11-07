@@ -330,6 +330,41 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("held for review", summary);
     }
 
+    // TEST-BB-554: a handoff counts open HL7 errors and open unmapped interface values (resolved ones are not counted).
+    [Fact]
+    public async Task Create_CountsHl7ErrorsAndUnmappedInterfaceValues()
+    {
+        await using var context = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var log = new Hl7MessageLog { RawMessage = "MSH|^~\\&|", Direction = Hl7Direction.Inbound, ReceivedUtc = now };
+        context.Hl7Messages.Add(log);
+        await context.SaveChangesAsync();
+        context.InterfaceErrorQueue.AddRange(
+            new InterfaceErrorQueueItem { Hl7MessageId = log.Id, ErrorType = "Mapping", ErrorDetail = "HL7-ORDER-CODE" },
+            new InterfaceErrorQueueItem { Hl7MessageId = log.Id, ErrorType = "Mapping", ErrorDetail = "done", Resolved = true, ResolvedUtc = now });
+        context.InterfaceUnmappedValues.AddRange(
+            new InterfaceUnmappedValue { DataItemKey = "Order.TestCode", Value = "LAB-HO", Direction = InterfaceTranslationDirection.Inbound, FirstSeenUtc = now, LastSeenUtc = now, Count = 1 },
+            new InterfaceUnmappedValue { DataItemKey = "Order.TestCode", Value = "LAB-HO2", Direction = InterfaceTranslationDirection.Inbound, FirstSeenUtc = now, LastSeenUtc = now, Count = 1, ResolvedUtc = now });
+        await context.SaveChangesAsync();
+        var expectedErrors = await context.InterfaceErrorQueue.CountAsync(e => !e.Resolved);
+        var expectedUnmapped = await context.InterfaceUnmappedValues.CountAsync(v => v.ResolvedUtc == null);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            hl7Errors: new EfRepository<InterfaceErrorQueueItem>(context),
+            unmapped: new EfRepository<InterfaceUnmappedValue>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Interfaces"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Equal((expectedErrors, expectedUnmapped), (created.Value!.Hl7ErrorsOpen, created.Value.UnmappedInterfaceValues));
+        Assert.True(expectedErrors >= 1 && expectedUnmapped >= 1);
+        var summary = ShiftHandoffDto.From(created.Value).QueueSummary;
+        Assert.Contains($"HL7 errors {expectedErrors}", summary);
+        Assert.Contains($"unmapped interface values {expectedUnmapped}", summary);
+    }
+
     // TEST-BB-508: a handoff counts products below their minimum stock level, without admin.config.edit, and keeps the
     // count in its audit snapshot.
     [Fact]

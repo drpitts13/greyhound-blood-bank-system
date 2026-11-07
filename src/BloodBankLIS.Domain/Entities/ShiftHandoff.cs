@@ -91,6 +91,12 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Results tested with those lots since they last passed QC and not yet reviewed.</summary>
     public int ReagentResultsToReview { get; set; }
 
+    /// <summary>HL7 messages in the interface error queue not yet resolved (an order, result, or admission that did not file or send).</summary>
+    public int Hl7ErrorsOpen { get; set; }
+
+    /// <summary>Interface values with no translation, still open on the Unmapped values list.</summary>
+    public int UnmappedInterfaceValues { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }
