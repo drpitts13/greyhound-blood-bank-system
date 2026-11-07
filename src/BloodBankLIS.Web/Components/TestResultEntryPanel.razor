@@ -1,5 +1,6 @@
 @using BloodBankLIS.Application.Admin
 @using BloodBankLIS.Application.Reference
+@using BloodBankLIS.Domain.Rules
 @using BloodBankLIS.Domain.ValueObjects
 @inject BloodBankApiClient Api
 @inject UserSession Session
@@ -211,9 +212,70 @@
             else if (_definition.ResultValueType == ResultValueType.Numeric)
             {
                 <div class="form-row" style="margin-top:.5rem;">
-                    <div class="field"><label>Value</label><input @bind="_value" /></div>
+                    <div class="field"><label>Value</label><input @bind="_value" @bind:event="oninput" inputmode="decimal" data-numeric-value /></div>
                     <div class="field"><label>Units</label><input @bind="_units" placeholder="e.g. g/dL" /></div>
                 </div>
+                @if (_definition.Numeric?.ReferenceText(_units) is { } reference)
+                {
+                    <p class="muted" style="margin:.25rem 0 0;" data-numeric-reference>Reference @reference</p>
+                }
+                @if (NumericCheck is { } check)
+                {
+                    @if (!check.IsAllowed)
+                    {
+                        <p class="text-danger" style="margin:.25rem 0 0;" data-numeric-check>@check.Result.Message</p>
+                    }
+                    else if (check.Flag is { } flag)
+                    {
+                        <p style="margin:.25rem 0 0;" data-numeric-check>
+                            <span class="badge @(flag is "LL" or "HH" ? "badge-red" : "badge-amber")">@flag</span>
+                            @(check.Critical?.Message ?? (flag == "L" ? "Below the reference range." : "Above the reference range."))
+                        </p>
+                    }
+                }
+            }
+            else if (_definition.ResultValueType == ResultValueType.Titer && _definition.Titer is { } titer)
+            {
+                @* One row per dilution, read until the first negative; endpoint and score follow the shared rule. *@
+                <table class="bb" style="margin-top:.5rem;max-width:28rem;" data-titer-entry>
+                    <thead><tr><th>Dilution</th><th>Reaction@(string.IsNullOrWhiteSpace(titer.PhaseCode) ? "" : $" ({titer.PhaseCode})")</th></tr></thead>
+                    <tbody>
+                        @foreach (var dilution in TiterRule.Dilutions(titer.StartDilution, titer.EndDilution))
+                        {
+                            var d = dilution;
+                            <tr>
+                                <td class="mono">1:@d</td>
+                                <td>
+                                    <select value="@_titerGrades.GetValueOrDefault(d, string.Empty)" @onchange="e => SetTiterGrade(d, e.Value?.ToString())" aria-label="@($"Reaction at 1:{d}")">
+                                        <option value="">—</option>
+                                        @foreach (var grade in TiterRule.Grades)
+                                        {
+                                            <option value="@grade">@grade</option>
+                                        }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (_titerGrades.Count > 0)
+                {
+                    var titerCheck = TiterRule.Evaluate(titer, TiterReadings());
+                    <p style="margin:.25rem 0 0;" data-titer-check>
+                        @if (titerCheck.Value is { } t)
+                        {
+                            <strong>@t.Interpretation</strong>
+                        }
+                        else
+                        {
+                            <span class="text-danger">@titerCheck.Result.Message</span>
+                        }
+                        @if (titerCheck.Pattern is { } pattern)
+                        {
+                            <span class="badge badge-amber" style="margin-left:.5rem;">@pattern.Message</span>
+                        }
+                    </p>
+                }
             }
             else if (_definition.ResultValueType == ResultValueType.FreeText)
             {
@@ -429,6 +491,8 @@
     private AboGroup _abo = AboGroup.O;
     private RhType _rh = RhType.Positive;
     private string _value = string.Empty;
+    // Titer tests: the grade read at each dilution (1:n).
+    private Dictionary<int, string> _titerGrades = new();
     private string _codedValue = string.Empty;
     private string _units = string.Empty;
     private string _interpretation = string.Empty;
@@ -494,6 +558,12 @@
         }
 
         _panelSubtests = _definition?.PanelSubtests.ToList() ?? [];
+        _titerGrades = new();
+        if (_definition?.ResultValueType == ResultValueType.Numeric && string.IsNullOrWhiteSpace(_units))
+        {
+            _units = _definition.ResultUnits ?? string.Empty;
+        }
+
         ResetSubtestValues();
         ResetBloodAttrResults();
         _unitNumber = string.Empty;
@@ -582,7 +652,11 @@
             return;
         }
 
-        if (_definition?.ResultValueType == ResultValueType.AboRh && AboRhResultValue.TryParsePanel(WorkItem.CurrentResultValue, out var panel))
+        if (_definition?.ResultValueType == ResultValueType.Titer && TiterResultValue.TryParse(WorkItem.CurrentResultValue, out var storedTiter))
+        {
+            _titerGrades = storedTiter!.Readings.ToDictionary(r => r.Dilution, r => r.Grade);
+        }
+        else if (_definition?.ResultValueType == ResultValueType.AboRh && AboRhResultValue.TryParsePanel(WorkItem.CurrentResultValue, out var panel))
         {
             _abo = panel.Abo;
             _rh = panel.Rh;
@@ -933,7 +1007,8 @@
             includeOverride ? _overrideReason.Trim() : null,
             includeOverride ? _authorizedBy.Trim() : null,
             includeOverride ? _historyResolution : null,
-            signatureId);
+            signatureId,
+            TiterReadings: _definition?.ResultValueType == ResultValueType.Titer ? TiterReadings() : null);
 
         var r = await Api.SaveTestResultAsync(req, signatureId);
         _busy = false;
@@ -964,6 +1039,26 @@
             _correctionReason = string.Empty;
             _overrideReason = string.Empty;
             await OnSaved.InvokeAsync();
+        }
+    }
+
+    private NumericEvaluation? NumericCheck =>
+        _definition?.Numeric is { } limits && !string.IsNullOrWhiteSpace(_value)
+            ? NumericResultRule.Evaluate(_value, limits, _units)
+            : null;
+
+    private IReadOnlyList<TiterReading> TiterReadings() =>
+        _titerGrades.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)).OrderBy(kv => kv.Key).Select(kv => new TiterReading(kv.Key, kv.Value)).ToList();
+
+    private void SetTiterGrade(int dilution, string? grade)
+    {
+        if (string.IsNullOrWhiteSpace(grade))
+        {
+            _titerGrades.Remove(dilution);
+        }
+        else
+        {
+            _titerGrades[dilution] = grade;
         }
     }
 

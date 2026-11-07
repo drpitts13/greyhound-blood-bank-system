@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Reference;
 
@@ -14,7 +15,12 @@ public sealed record TestDefinitionForEntryDto(
     IReadOnlyList<BloodAttributeListItemDto> BloodAttributeScope,
     BloodAttributeKind? BloodAttributeScopeKind,
     bool ContributesToUnitBloodAttributes,
-    bool ContributesToAntibodyHistory = false);
+    bool ContributesToAntibodyHistory = false,
+    // Numeric tests: units and limits, so entry shows the range and flags as the value is typed.
+    string? ResultUnits = null,
+    NumericLimits? Numeric = null,
+    // Titer tests: the dilution series, phase, endpoint grade, and scoring.
+    TiterSettings? Titer = null);
 
 /// <summary>
 /// An interpretation the result can be given, with the reaction pattern that implies it

@@ -3,6 +3,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
@@ -46,6 +47,7 @@ public sealed class PatientTestHistoryService
         var orders = (await _orders.ListAsync(o => o.PatientId == patientId, ct))
             .ToDictionary(o => o.Id);
         var testNames = ResolveTestNames(await _testDefinitions.ListAsync(ct));
+        var trends = TiterTrends(results);
 
         return results
             .OrderByDescending(r => ResultLifecycleRule.IsCurrentRow(r.SupersededByResultId))
@@ -85,9 +87,38 @@ public sealed class PatientTestHistoryService
                     r.EnteredBy,
                     r.EnteredUtc,
                     r.InvalidatedBy,
-                    r.Version > 1 || r.SupersededByResultId is not null || r.Status is ResultStatus.Corrected or ResultStatus.Invalidated);
+                    r.Version > 1 || r.SupersededByResultId is not null || r.Status is ResultStatus.Corrected or ResultStatus.Invalidated,
+                    r.Units,
+                    r.AbnormalFlag,
+                    trends.GetValueOrDefault(r.Id));
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// For each current titer, the change from the previous current titer of the same test, oldest first. Information
+    /// only: what change matters is the facility's (OCD-065).
+    /// </summary>
+    private static Dictionary<long, string> TiterTrends(IEnumerable<TestResult> results)
+    {
+        var trends = new Dictionary<long, string>();
+        var titers = results
+            .Where(r => ResultLifecycleRule.IsCurrentRow(r.SupersededByResultId) && r.Status != ResultStatus.Invalidated)
+            .Select(r => (Result: r, Ok: TiterResultValue.TryParse(r.Value, out var titer), Titer: titer))
+            .Where(x => x.Ok)
+            .GroupBy(x => x.Result.TestCode, StringComparer.OrdinalIgnoreCase);
+        foreach (var test in titers)
+        {
+            var ordered = test.OrderBy(x => x.Result.VerifiedUtc ?? x.Result.EnteredUtc ?? x.Result.CreatedUtc).ToList();
+            for (var i = 1; i < ordered.Count; i++)
+            {
+                var previous = ordered[i - 1];
+                trends[ordered[i].Result.Id] = TiterRule.DescribeChange(
+                    previous.Titer!, previous.Result.VerifiedUtc ?? previous.Result.EnteredUtc ?? previous.Result.CreatedUtc, ordered[i].Titer!);
+            }
+        }
+
+        return trends;
     }
 
     private static string? FirstReason(params string?[] reasons) =>

@@ -2,6 +2,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
@@ -65,16 +66,32 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, result.TestCode))
             .Set(map.Path(InterfaceDataItemKeys.ResultVerifiedUtc), translator.ToExternal(InterfaceDataItemKeys.ResultVerifiedUtc, (result.VerifiedUtc ?? nowUtc).ToString(Hl7MessageBuilder.Hl7TimestampFormat)))
             .Set("OBX-1", "1")
-            .Set("OBX-2", "ST")
+            .Set("OBX-2", ObxValueType(result))
             .Set(map.Path(InterfaceDataItemKeys.ResultObxIdentifier), translator.ToExternal(InterfaceDataItemKeys.ResultObxIdentifier, result.TestCode))
-            .Set(map.Path(InterfaceDataItemKeys.ResultValue), translator.ToExternal(InterfaceDataItemKeys.ResultValue, result.Value))
+            .Set(map.Path(InterfaceDataItemKeys.ResultValue), translator.ToExternal(InterfaceDataItemKeys.ResultValue, ObxValue(result)))
             .Set(map.Path(InterfaceDataItemKeys.ResultUnits), translator.ToExternal(InterfaceDataItemKeys.ResultUnits, result.Units))
             .Set(map.Path(InterfaceDataItemKeys.ResultInterpretation), translator.ToExternal(InterfaceDataItemKeys.ResultInterpretation, result.Interpretation))
             .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), translator.ToExternal(InterfaceDataItemKeys.ResultObxStatus,
                 ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null) ?? ResultReleaseRule.Final));
+        if (!string.IsNullOrWhiteSpace(result.AbnormalFlag))
+        {
+            // OBX-8 abnormal flags (HL7 table 0078): L, H, LL, HH from the test's reference and critical limits.
+            builder.Set("OBX-8", result.AbnormalFlag);
+        }
 
         return builder.Build();
     }
+
+    /// <summary>NM for a numeric result (a number with units or a range flag); ST for everything else, titers included.</summary>
+    public static string ObxValueType(TestResult result) =>
+        (!string.IsNullOrWhiteSpace(result.Units) || !string.IsNullOrWhiteSpace(result.AbnormalFlag))
+        && decimal.TryParse(result.Value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out _)
+            ? "NM"
+            : "ST";
+
+    /// <summary>The value as the EHR reads it: a titer as its endpoint ("1:32"), anything else as stored.</summary>
+    public static string? ObxValue(TestResult result) =>
+        TiterResultValue.TryParse(result.Value, out var titer) ? titer!.EndpointLabel : result.Value;
 
     /// <summary>OBR-25 and OBX-11 value meaning no result can be obtained for the order (HL7 tables 0123 and 0085).</summary>
     public const string NoResult = "X";

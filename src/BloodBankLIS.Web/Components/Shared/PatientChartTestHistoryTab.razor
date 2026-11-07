@@ -35,7 +35,17 @@
                         <td class="nowrap">@h.VerifiedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><strong>@h.TestName</strong> <span class="mono muted">@h.TestCode</span></td>
                         <td>@h.Version</td>
-                        <td>@DisplayHistoryValue(h)</td>
+                        <td>
+                            @DisplayHistoryValue(h)
+                            @if (!string.IsNullOrWhiteSpace(h.AbnormalFlag))
+                            {
+                                <span class="badge @(h.AbnormalFlag is "LL" or "HH" ? "badge-red" : "badge-amber")" title="Outside the test's @(h.AbnormalFlag is "LL" or "HH" ? "critical limits" : "reference range")" data-abnormal-flag>@h.AbnormalFlag</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(h.Trend))
+                            {
+                                <span class="sub" data-titer-trend>@h.Trend</span>
+                            }
+                        </td>
                         <td><span class="@Ui.Badge(h.Status)">@h.Status</span>@(h.IsCurrent ? null : " prior")</td>
                         <td>@(h.Reason ?? "—")</td>
                         <td class="mono">
@@ -95,5 +105,5 @@
     }
 
     private static string DisplayHistoryValue(PatientTestHistoryRowDto r) =>
-        r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
+        r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : ResultValueText.For(r.Value, r.Units);
 }

@@ -268,7 +268,12 @@ public sealed record PatientTestHistoryRowDto(
     DateTime? EnteredUtc = null,
     string? InvalidatedBy = null,
     // Part of a correction or invalidation: a later version, a superseded one, or a corrected or invalidated status.
-    bool HasRevision = false);
+    bool HasRevision = false,
+    string? Units = null,
+    // Numeric results: L, H, LL, or HH against the test's ranges.
+    string? AbnormalFlag = null,
+    // Titers: the change from the previous titer of the same test ("2 dilutions higher than 1:8 on 2026-10-01").
+    string? Trend = null);
 
 /// <summary>Views over the chart's test history.</summary>
 public static class PatientTestHistoryView

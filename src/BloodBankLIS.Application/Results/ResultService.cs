@@ -271,6 +271,7 @@ public sealed class ResultService
         }
 
         var savedValueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
+        allWarnings.AddRange(await ApplyResultShapeAsync(saveResult.Value, savedValueType, ct));
         if (TestDefinitionValidator.IsCrossmatchResultType(savedValueType)
             || string.Equals(normalizedCode, CrossmatchTestCode, StringComparison.OrdinalIgnoreCase))
         {
@@ -1440,6 +1441,7 @@ public sealed class ResultService
                 Version = current.Version + 1,
                 Value = current.Value,
                 Units = current.Units,
+                AbnormalFlag = current.AbnormalFlag,
                 Interpretation = current.Interpretation,
                 Status = ResultStatus.Invalidated,
                 Source = current.Source,
@@ -2000,12 +2002,74 @@ public sealed class ResultService
                 (PanelResultValue.Format(request.Subtests), null, interpretationLabel));
         }
 
+        if (valueType == ResultValueType.Titer)
+        {
+            var titerDef = await LoadActiveDefinitionAsync(normalizedCode, ct);
+            var settings = titerDef is null ? null : TiterSettings.From(titerDef);
+            if (settings is null)
+            {
+                return OperationResult<(string, string?, string?)>.Fail(
+                    $"{TiterRule.ConfigCode}: This titer test is not set up (dilutions and endpoint grade). Ask an administrator.");
+            }
+
+            var titer = TiterRule.Evaluate(settings, request.TiterReadings);
+            return titer.Value is null
+                ? OperationResult<(string, string?, string?)>.Fail($"{titer.Result.Code}: {titer.Result.Message}")
+                : OperationResult<(string, string?, string?)>.Ok((titer.Value.Serialize(), null, titer.Value.Interpretation));
+        }
+
         if (string.IsNullOrWhiteSpace(request.Value))
         {
             return OperationResult<(string, string?, string?)>.Fail("Result value is required.");
         }
 
+        if (valueType == ResultValueType.Numeric && await LoadActiveDefinitionAsync(normalizedCode, ct) is { } numericDef)
+        {
+            var units = string.IsNullOrWhiteSpace(request.Units) ? numericDef.ResultUnits : request.Units.Trim();
+            var numeric = NumericResultRule.Evaluate(request.Value, NumericLimits.From(numericDef), units);
+            return numeric.IsAllowed
+                ? OperationResult<(string, string?, string?)>.Ok((request.Value.Trim(), units, request.Interpretation))
+                : OperationResult<(string, string?, string?)>.Fail($"{numeric.Result.Code}: {numeric.Result.Message}");
+        }
+
         return OperationResult<(string, string?, string?)>.Ok((request.Value.Trim(), request.Units, request.Interpretation));
+    }
+
+    private async Task<TestDefinition?> LoadActiveDefinitionAsync(string normalizedCode, CancellationToken ct) =>
+        _testDefinitions is null
+            ? null
+            : await _testDefinitions.FirstOrDefaultAsync(d => d.IsActive && d.Code == normalizedCode, ct);
+
+    /// <summary>
+    /// After a numeric or titer result is saved: the numeric flag (L/H/LL/HH) is stored and a critical value warns; a
+    /// titer with a reaction after a negative dilution warns. Every saved version gets its own flag.
+    /// </summary>
+    private async Task<IReadOnlyList<RuleResult>> ApplyResultShapeAsync(TestResult saved, ResultValueType valueType, CancellationToken ct)
+    {
+        if (valueType is not (ResultValueType.Numeric or ResultValueType.Titer)
+            || await LoadActiveDefinitionAsync(saved.TestCode, ct) is not { } definition)
+        {
+            return [];
+        }
+
+        if (valueType == ResultValueType.Titer)
+        {
+            return TiterResultValue.TryParse(saved.Value, out var titer)
+                && TiterSettings.From(definition) is { } settings
+                && TiterRule.Evaluate(settings, titer!.Readings).Pattern is { } pattern
+                ? [pattern]
+                : [];
+        }
+
+        var numeric = NumericResultRule.Evaluate(saved.Value, NumericLimits.From(definition), saved.Units);
+        if (saved.AbnormalFlag != numeric.Flag)
+        {
+            saved.AbnormalFlag = numeric.Flag;
+            _results.Update(saved);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return numeric.Critical is { } critical ? [critical] : [];
     }
 
     private async Task<bool> UsedCatalogInterpretationAsync(

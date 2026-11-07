@@ -307,7 +307,10 @@ public static class ReferenceEndpoints
                 scopedBloodAttrs,
                 def.BloodAttributeScopeKind,
                 def.ContributesToUnitBloodAttributes,
-                def.ContributesToAntibodyHistory));
+                def.ContributesToAntibodyHistory,
+                def.ResultUnits,
+                def.ResultValueType == ResultValueType.Numeric ? NumericLimits.From(def) : null,
+                def.ResultValueType == ResultValueType.Titer ? TiterSettings.From(def) : null));
         });
     }
 
