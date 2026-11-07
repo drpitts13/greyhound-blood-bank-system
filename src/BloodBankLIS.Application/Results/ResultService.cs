@@ -146,15 +146,14 @@ public sealed class ResultService
     /// A manual result records the reagent lots open for its test at entry (lot traceability). Instrument and interface
     /// results are tested with the instrument's own reagents and record none here.
     /// </summary>
-    private async Task<IReadOnlyList<string>> RecordReagentLotsAsync(TestResult result, CancellationToken ct)
+    private async Task<LotUse> RecordReagentLotsAsync(TestResult result, CancellationToken ct)
     {
         if (_reagentQc is null || result.Source != ResultSource.Manual)
         {
-            return [];
+            return LotUse.None;
         }
 
-        var recorded = await _reagentQc.RecordLotsInUseAsync(result, ct);
-        return recorded.Select(r => $"{r.ReagentCode} {r.LotNumber}").ToList();
+        return await _reagentQc.RecordLotsInUseAsync(result, ct);
     }
 
     private async Task<RuleEvaluation?> ReagentResultGateAsync(CancellationToken ct)
@@ -619,12 +618,21 @@ public sealed class ResultService
 
         await _results.AddAsync(result, ct);
         await _unitOfWork.SaveChangesAsync(ct);
-        var lots = await RecordReagentLotsAsync(result, ct);
+        var lotUse = await RecordReagentLotsAsync(result, ct);
+        if (lotUse.Warnings.Count > 0)
+        {
+            warnings = warnings.Concat(lotUse.Warnings).ToList();
+        }
+
         _audit.Record(
             AuditEventType.Result,
             nameof(TestResult),
             result.Id,
-            newValue: new { result.TestCode, result.Value, result.Status, result.Source, result.SourceReference, ReagentLots = lots },
+            newValue: new
+            {
+                result.TestCode, result.Value, result.Status, result.Source, result.SourceReference,
+                ReagentLots = lotUse.Recorded.Select(r => $"{r.ReagentCode} {r.LotNumber}").ToList()
+            },
             reason: $"Result entered from {source}.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(result, warnings);
@@ -1723,7 +1731,7 @@ public sealed class ResultService
             reason: "Re-entry after invalidation.");
         await _unitOfWork.SaveChangesAsync(ct);
         // The re-entry was tested again: record the lots open now.
-        if ((await RecordReagentLotsAsync(replacement, ct)).Count > 0)
+        if ((await RecordReagentLotsAsync(replacement, ct)).Recorded.Count > 0)
         {
             await _unitOfWork.SaveChangesAsync(ct);
         }

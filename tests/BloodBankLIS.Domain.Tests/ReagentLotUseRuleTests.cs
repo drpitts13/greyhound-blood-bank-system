@@ -42,4 +42,27 @@ public class ReagentLotUseRuleTests
         Assert.Empty(ReagentLotUseRule.LotsInUse("XM", reagents, lots, Now));
         Assert.Empty(ReagentLotUseRule.LotsInUse(null, reagents, lots, Now));
     }
+
+    // TEST-BB-544: entry warnings say when a reagent used for the test has no open lot, and when a recorded lot has no
+    // passed QC today; they never stop the result.
+    [Fact]
+    public void EntryWarnings_NameMissingLotsAndQc()
+    {
+        Reagent[] reagents =
+        [
+            new() { Id = 1, Code = "AHG", TestCodes = "ABSC" },
+            new() { Id = 2, Code = "SCREEN-CELLS", TestCodes = "ABSC" },
+            new() { Id = 3, Code = "ANTI-A", TestCodes = "ABORH" }
+        ];
+        ReagentLot[] inUse = [new() { Id = 10, ReagentId = 1, LotNumber = "AHG-1" }, new() { Id = 11, ReagentId = 1, LotNumber = "AHG-2" }];
+
+        var warnings = ReagentLotUseRule.EntryWarnings("absc", reagents, inUse, new HashSet<long> { 10 });
+
+        Assert.All(warnings, w => Assert.Equal(RuleSeverity.Warning, w.Severity));
+        Assert.Equal(
+            [(ReagentLotUseRule.QcNotPassedCode, "AHG lot AHG-2 has no passed QC recorded today."),
+             (ReagentLotUseRule.NoOpenLotCode, "No open lot of SCREEN-CELLS is recorded for ABSC, so this result records no SCREEN-CELLS lot. Open the lot in use on Reagent QC.")],
+            warnings.Select(w => (w.Code, w.Message)));
+        Assert.Empty(ReagentLotUseRule.EntryWarnings("XM", reagents, [], new HashSet<long>()));
+    }
 }

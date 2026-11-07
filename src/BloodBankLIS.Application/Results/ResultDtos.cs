@@ -85,7 +85,9 @@ public sealed record TestResultDto(
     DateTime? InvalidatedUtc,
     string? InvalidationReason,
     // Numeric results: L or H outside the reference range, LL or HH beyond a critical limit.
-    string? AbnormalFlag = null)
+    string? AbnormalFlag = null,
+    // Reagent lots recorded when it was entered by hand ("AHG AHG-24033"); filled where lists show them.
+    IReadOnlyList<string>? ReagentLots = null)
 {
     public static TestResultDto From(TestResult r) => new(
         r.Id, r.SpecimenId, r.PatientId, r.OrderId, r.TestCode, r.Version, r.SupersededByResultId,

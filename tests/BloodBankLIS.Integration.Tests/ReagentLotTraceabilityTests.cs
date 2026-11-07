@@ -89,6 +89,8 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
         {
             var manual = await Results(c).EnterResultAsync(new EnterResultRequest(specimenId, "TRHGB", "13.1"));
             Assert.True(manual.Succeeded, manual.Error);
+            // TEST-BB-544: the open lot has no QC today, so the entry says so, and the result is still recorded.
+            Assert.Contains(manual.Warnings, w => w.Code == BloodBankLIS.Domain.Rules.ReagentLotUseRule.QcNotPassedCode && w.Message.Contains("L-OPEN"));
             manualId = manual.Value!.Id;
             var instrument = await Results(c).EnterResultAsync(new EnterResultRequest(specimenId, "TRX", "4+", Source: ResultSource.Instrument, SourceReference: "ECHO"));
             Assert.True(instrument.Succeeded, instrument.Error);
@@ -96,6 +98,9 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var verify = _factory.Create();
+        var labels = await Qc(verify).LotLabelsForResultsAsync([manualId, instrumentId]);
+        Assert.Equal(["TR-ANTI L-OPEN"], labels[manualId]);
+        Assert.False(labels.ContainsKey(instrumentId));
         var lots = await Qc(verify).LotsForResultAsync(manualId);
         Assert.Equal(["L-OPEN"], lots.Select(l => l.LotNumber));
         Assert.Equal("TR-ANTI", lots[0].ReagentCode);

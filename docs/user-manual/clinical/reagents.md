@@ -20,7 +20,7 @@ The worklist shows lots with no QC for the current day, rows that failed, and ro
 
 ## Which results used a lot
 
-Give each reagent the tests it is used for under **Used for tests** (for example Anti-A: ABORH; AHG: ABSC, DAT, XM). When a result for one of those tests is entered by hand, the open, unexpired lots of those reagents are recorded against it, with no extra step. If two lots of one reagent are open, both are recorded. Instrument results are tested with the instrument's own reagents and record none here.
+Give each reagent the tests it is used for under **Used for tests** (for example Anti-A: ABORH; AHG: ABSC, DAT, XM). When a result for one of those tests is entered by hand, the open, unexpired lots of those reagents are recorded against it, with no extra step. If two lots of one reagent are open, both are recorded. Instrument results are tested with the instrument's own reagents and record none here. The chart shows the recorded lots under each result (**Lots:**). When you enter a result by hand you are told, without being stopped, if a reagent used for the test has no open lot (so none is recorded for it) or if a recorded lot has no passed QC today.
 
 **Results** on a lot lists every result recorded with it: patient, specimen, test, value, status, and who entered it. Use it when a lot fails QC or is recalled, then review each result and correct or invalidate it as your procedure says. Keep only the lots actually in use open, so the record matches the bench.
 

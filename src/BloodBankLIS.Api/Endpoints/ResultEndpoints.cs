@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -168,10 +169,11 @@ public static class ResultEndpoints
                 r => TestResultDto.From(r));
         }).RequirePermission(PermissionCodes.ResultInvalidate);
 
-        app.MapGet("/api/specimens/{specimenId:long}/results", async (long specimenId, ResultService service, CancellationToken ct) =>
+        app.MapGet("/api/specimens/{specimenId:long}/results", async (long specimenId, ResultService service, ReagentQcService reagents, CancellationToken ct) =>
         {
             var results = await service.GetBySpecimenAsync(specimenId, ct);
-            return Results.Ok(results.Select(TestResultDto.From));
+            var lots = await reagents.LotLabelsForResultsAsync(results.Select(r => r.Id), ct);
+            return Results.Ok(results.Select(r => TestResultDto.From(r) with { ReagentLots = lots.GetValueOrDefault(r.Id) }));
         }).WithTags("Results");
     }
 

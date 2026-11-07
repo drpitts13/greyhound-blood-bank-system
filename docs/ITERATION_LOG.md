@@ -16429,3 +16429,28 @@ Reagent QC recorded lots and daily QC, but nothing tied a result to the lots it 
 ### Next ranked residual
 
 Show the recorded lots on the result in the chart and worklist; warn at entry when a reagent used for the test has no open lot or no passed QC today; drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export.
+
+## Iteration 496 — Reagent lots on the chart, and entry warnings (2026-11-07)
+
+### Capability matrix rescan (testing: traceability)
+
+Cycle 495 recorded lots against manual results, but only the lot lookback showed them: the verifier and the chart could not see which lots a result used, and nobody was told when a reagent for the test had no open lot (the result then silently records none) or a lot in use had no passed QC that day. Workflow questions: memory (lots shown beside the result); next action (the warning names the reagent and says to open its lot on Reagent QC); safety (information only: the existing facility policy is still what can block resulting).
+
+### Design
+
+- `TestResultDto.ReagentLots` from the specimen results endpoint; chart specimen results show "Lots: …".
+- `ReagentLotUseRule.EntryWarnings` (`RES-REAGENT-NO-LOT`, `RES-REAGENT-QC`) returned with the created result.
+
+### Requirements
+
+- URS-BB-558, FRS-BB-671. Help: Reagent QC.
+
+### Tests
+
+- TEST-BB-544: warnings name the reagent without an open lot and the lot without today's passed QC, in reagent order, and only for reagents listing the test; a manual entry carries the QC warning and still records the result; result lot labels for a list of results.
+- Full suite: 3,945 passed.
+- Live: MRN0001's ACC0001 results showed "Lots: A1-CELLS A1-24301, ANTI-A AA-24117, ANTI-B AB-24118, ANTI-D AD-24092, B-CELLS BC-24302" under ABORH and "Lots: AHG AHG-24033, SCREEN-CELLS SC-24415" under ABSC. No result was entered (the entry warnings are covered by the tests). No server errors.
+
+### Next ranked residual
+
+Show lots on the worklist verify view; drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test.

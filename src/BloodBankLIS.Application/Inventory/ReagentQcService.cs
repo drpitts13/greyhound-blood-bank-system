@@ -28,6 +28,12 @@ public sealed record ResultReagentLotDto(long ReagentLotId, string ReagentCode, 
 
 public sealed record SetReagentTestsRequest(string? TestCodes);
 
+/// <summary>The lots recorded against a result and anything the person entering it should know.</summary>
+public sealed record LotUse(IReadOnlyList<TestResultReagentLot> Recorded, IReadOnlyList<RuleResult> Warnings)
+{
+    public static LotUse None { get; } = new([], []);
+}
+
 public sealed record ReagentLotDto(
     long Id,
     long ReagentId,
@@ -187,23 +193,30 @@ public sealed class ReagentQcService
     /// Records the open, unexpired lots of the reagents used for a manual result's test against it (saved with the
     /// caller's next save). Returns what was recorded; nothing when no reagent lists the test.
     /// </summary>
-    public async Task<IReadOnlyList<TestResultReagentLot>> RecordLotsInUseAsync(TestResult result, CancellationToken ct = default)
+    public async Task<LotUse> RecordLotsInUseAsync(TestResult result, CancellationToken ct = default)
     {
         if (_resultLots is null || result.Id == 0)
         {
-            return [];
+            return LotUse.None;
         }
 
         var reagents = await _reagents.ListAsync(r => r.IsActive && r.TestCodes != null, ct);
         if (!reagents.Any(r => ReagentLotUseRule.UsedFor(r, result.TestCode)))
         {
-            return [];
+            return LotUse.None;
         }
 
         var lots = await _lots.ListAsync(l => l.State == ReagentLotState.Opened, ct);
         var codes = reagents.ToDictionary(r => r.Id, r => r.Code);
         var now = _clock.UtcNow;
-        var recorded = ReagentLotUseRule.LotsInUse(result.TestCode, reagents, lots, now)
+        var inUse = ReagentLotUseRule.LotsInUse(result.TestCode, reagents, lots, now);
+        var inUseIds = inUse.Select(l => l.Id).ToList();
+        var today = now.Date;
+        var passedToday = (await _qc.ListAsync(q => inUseIds.Contains(q.ReagentLotId) && q.Passed, ct))
+            .Where(q => q.QcDateUtc.Date == today)
+            .Select(q => q.ReagentLotId)
+            .ToHashSet();
+        var recorded = inUse
             .Select(l => new TestResultReagentLot
             {
                 TestResultId = result.Id,
@@ -218,7 +231,23 @@ public sealed class ReagentQcService
             await _resultLots.AddAsync(row, ct);
         }
 
-        return recorded;
+        return new LotUse(recorded, ReagentLotUseRule.EntryWarnings(result.TestCode, reagents, inUse, passedToday));
+    }
+
+    /// <summary>The recorded lots of several results, as "AHG AHG-24033", for result lists.</summary>
+    public async Task<IReadOnlyDictionary<long, IReadOnlyList<string>>> LotLabelsForResultsAsync(IEnumerable<long> resultIds, CancellationToken ct = default)
+    {
+        var ids = resultIds.Distinct().ToList();
+        if (_resultLots is null || ids.Count == 0)
+        {
+            return new Dictionary<long, IReadOnlyList<string>>();
+        }
+
+        return (await _resultLots.ListAsync(r => ids.Contains(r.TestResultId), ct))
+            .GroupBy(r => r.TestResultId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<string>)g.OrderBy(r => r.ReagentCode).ThenBy(r => r.LotNumber).Select(r => $"{r.ReagentCode} {r.LotNumber}").ToList());
     }
 
     /// <summary>The reagent lots recorded against a result.</summary>

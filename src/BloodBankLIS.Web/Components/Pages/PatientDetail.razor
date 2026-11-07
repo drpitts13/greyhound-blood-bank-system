@@ -3078,7 +3078,13 @@ else
                         {
                             <tr>
                                 <td class="mono">@r.TestCode</td>
-                                <td>@DisplayResultValue(r)</td>
+                                <td>
+                                    @DisplayResultValue(r)
+                                    @if (r.ReagentLots is { Count: > 0 } lots)
+                                    {
+                                        <div class="muted" style="font-size:.85em;" title="Reagent lots open for this test when it was entered" data-result-lots>Lots: @string.Join(", ", lots)</div>
+                                    }
+                                </td>
                                 <td>@r.Version</td>
                                 <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
                                 <td>@r.Source</td>

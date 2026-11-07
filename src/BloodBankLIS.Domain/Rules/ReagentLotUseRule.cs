@@ -28,6 +28,40 @@ public static class ReagentLotUseRule
         && !string.IsNullOrWhiteSpace(testCode)
         && ParseTestCodes(reagent.TestCodes).Contains(testCode.Trim().ToUpperInvariant());
 
+    public const string NoOpenLotCode = "RES-REAGENT-NO-LOT";
+    public const string QcNotPassedCode = "RES-REAGENT-QC";
+
+    /// <summary>
+    /// Information for the person entering a manual result, never a stop: a reagent used for the test has no open lot
+    /// (so the result records none for it), or a recorded lot has no passed QC today. The Reagent QC worklist and the
+    /// facility policy that can block resulting are unchanged.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> EntryWarnings(
+        string? testCode,
+        IEnumerable<Reagent> reagents,
+        IReadOnlyList<ReagentLot> lotsInUse,
+        IReadOnlySet<long> lotsWithPassedQcToday)
+    {
+        var results = new List<RuleResult>();
+        foreach (var reagent in reagents.Where(r => UsedFor(r, testCode)).OrderBy(r => r.Code, StringComparer.OrdinalIgnoreCase))
+        {
+            var lots = lotsInUse.Where(l => l.ReagentId == reagent.Id).ToList();
+            if (lots.Count == 0)
+            {
+                results.Add(RuleResult.Warning(NoOpenLotCode,
+                    $"No open lot of {reagent.Code} is recorded for {testCode!.Trim().ToUpperInvariant()}, so this result records no {reagent.Code} lot. Open the lot in use on Reagent QC."));
+                continue;
+            }
+
+            foreach (var lot in lots.Where(l => !lotsWithPassedQcToday.Contains(l.Id)))
+            {
+                results.Add(RuleResult.Warning(QcNotPassedCode, $"{reagent.Code} lot {lot.LotNumber} has no passed QC recorded today."));
+            }
+        }
+
+        return results;
+    }
+
     public static IReadOnlyList<ReagentLot> LotsInUse(string? testCode, IEnumerable<Reagent> reagents, IEnumerable<ReagentLot> lots, DateTime nowUtc)
     {
         var reagentIds = reagents.Where(r => UsedFor(r, testCode)).Select(r => r.Id).ToHashSet();
