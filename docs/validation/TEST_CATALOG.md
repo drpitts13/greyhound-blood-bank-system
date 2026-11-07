@@ -583,5 +583,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-572 | U, I | `PossibleDuplicateDismissalTests.StillDismissed_OnlyWhileNoNewReasonAppears`; `PatientServiceTests.DismissPossibleDuplicate_HidesThePair_UntilNewEvidenceLinksThem` | URS-BB-582 / FRS-BB-699 |
 | TEST-BB-573 | U, I | `RhigEvaluationRuleTests.Facts_StateWhatIsOnFile`; `RhigEvaluationRuleTests.Complete_NeedsTheDecisionRecorded`; `RhigEvaluationRuleTests.Complete_Passes_WhenTheDecisionIsRecorded`; `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` | URS-BB-583 / FRS-BB-700 |
 | TEST-BB-574 | U, I | `DashboardQueueCatalogTests.OpenRhigCard_ForRecordersAndVerifiers_CountsThoseReadyToComplete`; `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (queue) | URS-BB-584 / FRS-BB-701 |
+| TEST-BB-575 | U, I | `RhigGivenRuleTests.Given_IsRefused_UntilTheEvaluationAndEntriesAllowIt`; `RhigGivenRuleTests.Difference_IsNotedOnly_WhenTheVialsDiffer`; `DashboardQueueCatalogTests.OpenRhigCard_ForRecordersAndVerifiers_CountsThoseReadyToComplete` (to give); `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (given) | URS-BB-585 / FRS-BB-702 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -1988,6 +1988,9 @@ public sealed class RhigEvaluationConfiguration : IEntityTypeConfiguration<RhigE
         b.Property(x => x.DecisionNote).HasMaxLength(1000);
         b.Property(x => x.RecordedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.CompletedBy).HasMaxLength(100);
+        b.Property(x => x.GivenLot).HasMaxLength(100);
+        b.Property(x => x.GivenBy).HasMaxLength(100);
+        b.Property(x => x.GivenNote).HasMaxLength(1000);
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => x.PatientId);

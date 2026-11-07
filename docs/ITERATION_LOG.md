@@ -17102,3 +17102,21 @@ Cycle 525 put RhIG evaluations on the chart, but an evaluation started at delive
 ### Tests
 
 - TEST-BB-574: card for recorders and verifiers only; note counts ready ones; queue lists an incomplete evaluation as not ready, ready once filled in, gone once completed.
+
+## Iteration 527 — Record the RhIG given (2026-11-07)
+
+### Capability matrix rescan (patient-product traceability)
+
+Cycles 525–526 record and track RhIG evaluations, but a completed evaluation did not say what was actually given: no lot, vials, or time. A lot recall could not be traced to patients, and a candidate whose RhIG was never given dropped off the list at completion. Recording what was given does not depend on OCD-069 (it records, it does not decide). Workflow questions: scanning (the lot scans); inference (vials start at the recommendation); safety (a different dose is noted for review, not silently accepted or blocked; a candidate not yet given stays on the list); audit (who, when, lot, vials, difference).
+
+### Design
+
+- Given columns on `RhigEvaluation`; `EvaluateGiven`, `GivenDifference`; `RecordGivenAsync` (issue.create); chart form and display; `/rhig` "To give"; card note.
+
+### Requirements
+
+- URS-BB-585, FRS-BB-702. Help: RhIG evaluations, dashboard.
+
+### Tests
+
+- TEST-BB-575: refused on an open or non-candidate evaluation, twice, without a lot, outside 1–50 vials, in the future; difference noted only when vials differ; integration: completed candidate listed To give, refused without issue permission or lot, recorded with the difference audited, then off the list and not recorded twice; card note counts to give.

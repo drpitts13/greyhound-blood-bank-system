@@ -61,6 +61,45 @@ public static class RhigEvaluationRule
         };
     }
 
+    public const string GivenCode = "RHIG-GIVEN";
+
+    /// <summary>
+    /// RhIG given is recorded on a completed evaluation that found a candidate, once: the lot, vials (1–50), and a time
+    /// not in the future are required.
+    /// </summary>
+    public static RuleResult EvaluateGiven(bool completed, RhigDecision decision, bool alreadyGiven, string? lot, int vials, DateTime givenUtc, DateTime nowUtc)
+    {
+        if (!completed || decision != RhigDecision.Candidate)
+        {
+            return RuleResult.HardStop(GivenCode, "Record RhIG given on a completed evaluation that found the patient a candidate.");
+        }
+
+        if (alreadyGiven)
+        {
+            return RuleResult.HardStop(GivenCode, "RhIG given is already recorded for this evaluation.");
+        }
+
+        if (string.IsNullOrWhiteSpace(lot))
+        {
+            return RuleResult.HardStop(GivenCode, "Scan or type the RhIG lot number.");
+        }
+
+        if (vials is < 1 or > 50)
+        {
+            return RuleResult.HardStop(GivenCode, "Vials given must be between 1 and 50.");
+        }
+
+        return givenUtc > nowUtc.AddMinutes(5)
+            ? RuleResult.HardStop(GivenCode, "The time given cannot be in the future.")
+            : RuleResult.Pass(GivenCode);
+    }
+
+    /// <summary>A note when the vials given differ from those recommended; informational, not a stop.</summary>
+    public static string? GivenDifference(int? recommended, int? given) =>
+        recommended is int r && given is int g && r != g
+            ? $"{g} vial{(g == 1 ? "" : "s")} given; {r} recommended."
+            : null;
+
     public static RuleResult EvaluateValues(int? vials, decimal? fetalBleedPercent)
     {
         if (vials is < 0 or > 50)

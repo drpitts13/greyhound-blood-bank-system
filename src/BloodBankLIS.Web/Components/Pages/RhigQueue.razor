@@ -6,7 +6,8 @@
 
 <h1>Open RhIG evaluations</h1>
 <p class="muted">
-    RhIG evaluations recorded on patient charts and not yet completed, oldest event first. <strong>Ready</strong> means the
+    RhIG evaluations recorded on patient charts and not yet completed, and completed candidates with no RhIG given recorded
+    (<strong>To give</strong>), oldest event first. <strong>Ready</strong> means the
     record says what was decided and can be completed by a verifier; the others still need the decision, the vials, the
     quantitation, or a reason. Open a chart to finish or complete it. Candidacy and dosing follow your facility's procedure (OCD-069).
 </p>
@@ -35,7 +36,11 @@ else
                         <td>@Decision(e)</td>
                         <td class="nowrap">@e.RecordedUtc.ToString("yyyy-MM-dd HH:mm") <span class="sub">@e.RecordedBy</span></td>
                         <td>
-                            @if (item.ReadyToComplete)
+                            @if (item.Evaluation.AwaitsGiving)
+                            {
+                                <span class="badge badge-blue" data-rhig-to-give>To give</span>
+                            }
+                            else if (item.ReadyToComplete)
                             {
                                 <span class="badge badge-green" data-rhig-ready>Ready to complete</span>
                             }

@@ -139,8 +139,16 @@ public static class DashboardQueueCatalog
             "share an external ID");
 
     /// <summary>The Open RhIG evaluations card note: those filled in and waiting only to be completed.</summary>
-    public static string? RhigQueueNote(IEnumerable<BloodBankLIS.Application.Immunohematology.RhigQueueItemDto> items) =>
-        AttentionNote(items.Count(i => i.ReadyToComplete), "ready to complete", "ready to complete");
+    public static string? RhigQueueNote(IEnumerable<BloodBankLIS.Application.Immunohematology.RhigQueueItemDto> items)
+    {
+        var list = items.ToList();
+        var parts = new[]
+        {
+            AttentionNote(list.Count(i => i.ReadyToComplete), "ready to complete", "ready to complete"),
+            AttentionNote(list.Count(i => i.Evaluation.AwaitsGiving), "to give", "to give")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
 
     public static string? AttentionNote(int count, string singular, string plural)
     {

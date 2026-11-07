@@ -21,13 +21,31 @@ public sealed record RhigEvaluationDto(
     DateTime RecordedUtc,
     string? CompletedBy,
     DateTime? CompletedUtc,
-    IReadOnlyList<string> Facts)
+    IReadOnlyList<string> Facts,
+    string? GivenLot = null,
+    int? GivenVials = null,
+    DateTime? GivenUtc = null,
+    string? GivenBy = null,
+    string? GivenNote = null)
 {
     public bool IsCompleted => CompletedUtc is not null;
+
+    public bool IsGiven => GivenUtc is not null;
+
+    /// <summary>A completed candidate with no RhIG given recorded yet.</summary>
+    public bool AwaitsGiving => IsCompleted && Decision == RhigDecision.Candidate && !IsGiven;
+
+    public string? GivenDifference => RhigEvaluationRule.GivenDifference(VialsRecommended, GivenVials);
 }
 
-/// <summary>An open RhIG evaluation on the cross-patient queue; ready when it can be completed as recorded.</summary>
+/// <summary>
+/// An RhIG evaluation still needing work on the cross-patient queue: open (ready when it can be completed as recorded),
+/// or completed as a candidate with no RhIG given recorded.
+/// </summary>
 public sealed record RhigQueueItemDto(RhigEvaluationDto Evaluation, string PatientName, string Mrn, bool ReadyToComplete);
+
+/// <summary>The RhIG lot and vials issued for a completed candidate evaluation.</summary>
+public sealed record RecordRhigGivenRequest(string Lot, int Vials, DateTime GivenUtc, string? Note);
 
 /// <summary>Creates or updates an open RhIG evaluation (null id creates one).</summary>
 public sealed record SaveRhigEvaluationRequest(
@@ -96,7 +114,8 @@ public sealed class RhigEvaluationService
     /// </summary>
     public async Task<IReadOnlyList<RhigQueueItemDto>> ListOpenAsync(CancellationToken ct = default)
     {
-        var open = await _evaluations.ListAsync(e => e.CompletedUtc == null, ct);
+        var open = await _evaluations.ListAsync(
+            e => e.CompletedUtc == null || (e.Decision == RhigDecision.Candidate && e.GivenUtc == null), ct);
         if (open.Count == 0)
         {
             return [];
@@ -114,8 +133,9 @@ public sealed class RhigEvaluationService
             }
 
             var (motherRh, antiD) = await PatientFactsAsync(e.PatientId, ct);
-            var ready = RhigEvaluationRule.EvaluateComplete(e.Decision, e.VialsRecommended, e.DecisionNote, e.FetalBleedScreen, e.FetalBleedPercent)
-                .Severity != RuleSeverity.HardStop;
+            var ready = e.CompletedUtc is null
+                && RhigEvaluationRule.EvaluateComplete(e.Decision, e.VialsRecommended, e.DecisionNote, e.FetalBleedScreen, e.FetalBleedPercent)
+                    .Severity != RuleSeverity.HardStop;
             items.Add(new RhigQueueItemDto(
                 ToDto(e, motherRh, antiD),
                 patient is null ? $"Patient {e.PatientId}" : $"{patient.LastName}, {patient.FirstName}",
@@ -245,6 +265,49 @@ public sealed class RhigEvaluationService
         return await ResultAsync(row, ct);
     }
 
+    /// <summary>Records the RhIG lot and vials issued for a completed candidate evaluation (issue.create; audited; once).</summary>
+    public async Task<OperationResult<RhigEvaluationDto>> RecordGivenAsync(long patientId, long id, RecordRhigGivenRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await DeniedAsync(PermissionCodes.IssueCreate, "Recording RhIG given requires issue permission.", ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var row = await _evaluations.GetByIdAsync(id, ct);
+        if (row is null || row.PatientId != patientId)
+        {
+            return OperationResult<RhigEvaluationDto>.Fail("RhIG evaluation not found.");
+        }
+
+        var givenUtc = DateTime.SpecifyKind(request.GivenUtc, DateTimeKind.Utc);
+        var check = RhigEvaluationRule.EvaluateGiven(
+            row.CompletedUtc is not null, row.Decision, row.GivenUtc is not null, request.Lot, request.Vials, givenUtc, _clock.UtcNow);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<RhigEvaluationDto>.Fail(check.Message);
+        }
+
+        row.GivenLot = request.Lot.Trim();
+        row.GivenVials = request.Vials;
+        row.GivenUtc = givenUtc;
+        row.GivenBy = _currentUser.UserName;
+        row.GivenNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+        _evaluations.Update(row);
+        _audit.Record(
+            AuditEventType.Update,
+            nameof(RhigEvaluation),
+            row.Id,
+            oldValue: new { GivenUtc = (DateTime?)null },
+            newValue: new { row.PatientId, row.GivenLot, row.GivenVials, row.GivenUtc, row.GivenBy, row.GivenNote, row.VialsRecommended },
+            reason: RhigEvaluationRule.GivenDifference(row.VialsRecommended, row.GivenVials) is { } difference
+                ? $"RhIG given recorded. {difference}"
+                : "RhIG given recorded.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return await ResultAsync(row, ct);
+    }
+
     private async Task<OperationResult<RhigEvaluationDto>> ResultAsync(RhigEvaluation row, CancellationToken ct)
     {
         var (motherRh, antiD) = await PatientFactsAsync(row.PatientId, ct);
@@ -262,7 +325,8 @@ public sealed class RhigEvaluationService
     private static RhigEvaluationDto ToDto(RhigEvaluation e, RhType? motherRh, bool antiD) =>
         new(e.Id, e.PatientId, e.Context, e.EventUtc, e.InfantRh, e.FetalBleedScreen, e.FetalBleedPercent, e.Decision,
             e.VialsRecommended, e.DecisionNote, e.RecordedBy, e.RecordedUtc, e.CompletedBy, e.CompletedUtc,
-            RhigEvaluationRule.Facts(motherRh, antiD, e.InfantRh, e.FetalBleedScreen, e.FetalBleedPercent));
+            RhigEvaluationRule.Facts(motherRh, antiD, e.InfantRh, e.FetalBleedScreen, e.FetalBleedPercent),
+            e.GivenLot, e.GivenVials, e.GivenUtc, e.GivenBy, e.GivenNote);
 
     private static object Snapshot(RhigEvaluation e) => new
     {

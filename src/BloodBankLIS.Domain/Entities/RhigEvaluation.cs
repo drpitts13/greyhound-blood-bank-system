@@ -41,4 +41,15 @@ public class RhigEvaluation : BaseEntity
     public string? CompletedBy { get; set; }
 
     public DateTime? CompletedUtc { get; set; }
+
+    /// <summary>The RhIG lot issued for this evaluation, once recorded.</summary>
+    public string? GivenLot { get; set; }
+
+    public int? GivenVials { get; set; }
+
+    public DateTime? GivenUtc { get; set; }
+
+    public string? GivenBy { get; set; }
+
+    public string? GivenNote { get; set; }
 }

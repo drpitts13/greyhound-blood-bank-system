@@ -214,9 +214,19 @@ public class DashboardQueueCatalogTests
         Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ImmunoRecord)), c => c.Key == DashboardQueueCatalog.OpenRhig);
         Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)), c => c.Key == DashboardQueueCatalog.OpenRhig);
 
-        RhigQueueItemDto Item(bool ready) => new(null!, "Mother, Ann", "MRN1", ready);
+        RhigQueueItemDto Item(bool ready) => new(
+            new RhigEvaluationDto(1, 1, RhigContext.Postpartum, DateTime.UtcNow, RhType.Unknown, FetalBleedScreen.NotDone, null,
+                RhigDecision.Undetermined, null, null, "tech", DateTime.UtcNow, null, null, []),
+            "Mother, Ann", "MRN1", ready);
         Assert.Null(DashboardQueueCatalog.RhigQueueNote([Item(false)]));
         Assert.Equal("2 ready to complete", DashboardQueueCatalog.RhigQueueNote([Item(true), Item(false), Item(true)]));
+
+        // TEST-BB-575: completed candidates with no RhIG given recorded are counted as to give.
+        var toGive = new RhigQueueItemDto(
+            new RhigEvaluationDto(1, 1, RhigContext.Postpartum, DateTime.UtcNow, RhType.Positive, FetalBleedScreen.Negative, null,
+                RhigDecision.Candidate, 1, null, "tech", DateTime.UtcNow, "lead", DateTime.UtcNow, []),
+            "Mother, Ann", "MRN1", false);
+        Assert.Equal("1 ready to complete; 1 to give", DashboardQueueCatalog.RhigQueueNote([Item(true), toGive]));
     }
 
     // TEST-BB-435: verifiers get a Results to verify card that counts only what they can verify now.

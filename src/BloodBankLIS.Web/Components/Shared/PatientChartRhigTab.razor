@@ -104,6 +104,45 @@
                     }
                 </div>
                 <div class="sub">Recorded by @e.RecordedBy @e.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</div>
+                @if (e.IsGiven)
+                {
+                    <div style="margin-top:.3rem;" data-rhig-given>
+                        <strong>Given:</strong> @e.GivenVials vial@(e.GivenVials == 1 ? "" : "s"), lot <span class="mono">@e.GivenLot</span>,
+                        @e.GivenUtc?.ToString("yyyy-MM-dd HH:mm") by @e.GivenBy
+                        @if (e.GivenDifference is { } difference)
+                        {
+                            <span class="badge badge-amber" style="margin-left:.35rem;">@difference</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(e.GivenNote))
+                        {
+                            <span class="muted"> — @e.GivenNote</span>
+                        }
+                    </div>
+                }
+                else if (e.AwaitsGiving && Session.Has(PermissionCodes.IssueCreate))
+                {
+                    @if (_givingId == e.Id)
+                    {
+                        <div class="form-row" style="margin-top:.4rem;" data-rhig-give-form>
+                            <div class="field"><label>RhIG lot</label><input @bind="_givenLot" @bind:event="oninput" placeholder="Scan or type the lot" autocomplete="off" /></div>
+                            <div class="field"><label>Vials given</label><input type="number" min="1" max="50" @bind="_givenVials" /></div>
+                            <div class="field"><label>Given at (UTC)</label><input type="datetime-local" @bind="_givenUtc" /></div>
+                            <div class="field"><label>Note</label><input @bind="_givenNote" /></div>
+                        </div>
+                        @if (RhigEvaluationRule.GivenDifference(e.VialsRecommended, _givenVials) is { } preview)
+                        {
+                            <div class="alert alert-warning" style="margin-top:.3rem;">@preview</div>
+                        }
+                        <div class="flex gap" style="margin-top:.3rem;">
+                            <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_givenLot))" @onclick="() => RecordGivenAsync(e)">Record given</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => _givingId = null">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary btn-sm" style="margin-top:.4rem;" @onclick="() => BeginGive(e)" data-rhig-give>Record RhIG given</button>
+                    }
+                }
                 @if (!e.IsCompleted)
                 {
                     <div class="flex gap" style="margin-top:.4rem;">
@@ -152,6 +191,35 @@
         if (!r.Succeeded)
         {
             _fb = r.ToFeedback();
+        }
+    }
+
+    private long? _givingId;
+    private string _givenLot = string.Empty;
+    private int _givenVials = 1;
+    private DateTime _givenUtc = DateTime.UtcNow;
+    private string? _givenNote;
+
+    // Starts on the vials recommended, so the usual case is a lot scan and Record given.
+    private void BeginGive(RhigEvaluationDto e)
+    {
+        _givingId = e.Id;
+        _givenLot = string.Empty;
+        _givenVials = e.VialsRecommended ?? 1;
+        _givenUtc = DateTime.UtcNow;
+        _givenNote = null;
+    }
+
+    private async Task RecordGivenAsync(RhigEvaluationDto e)
+    {
+        _busy = true;
+        var r = await Api.RecordRhigGivenAsync(PatientId, e.Id, new RecordRhigGivenRequest(_givenLot, _givenVials, DateTime.SpecifyKind(_givenUtc, DateTimeKind.Utc), _givenNote));
+        _busy = false;
+        _fb = r.ToFeedback("RhIG given recorded.");
+        if (r.Succeeded)
+        {
+            _givingId = null;
+            await LoadAsync();
         }
     }
 

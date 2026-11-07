@@ -61,11 +61,24 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
 
         Assert.True(Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id).ReadyToComplete);
         var completed = await verifier.CompleteAsync(patient.Id, saved.Value.Id);
-        Assert.DoesNotContain(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id);
         Assert.True(completed.Succeeded, completed.Error);
         Assert.True(completed.Value!.IsCompleted);
         Assert.False((await recorder.SaveAsync(patient.Id, new SaveRhigEvaluationRequest(
             saved.Value.Id, RhigContext.Postpartum, delivery, RhType.Positive, FetalBleedScreen.Positive, 0.6m, RhigDecision.Candidate, 3, null))).Succeeded);
+
+        // TEST-BB-575: a completed candidate waits on the queue to be given; giving needs issue permission and a lot.
+        Assert.True(Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id).Evaluation.AwaitsGiving);
+        Assert.False((await recorder.RecordGivenAsync(patient.Id, saved.Value.Id, new RecordRhigGivenRequest("LOT-7", 2, _factory.Clock.UtcNow, null))).Succeeded);
+        var issuer = Service(c, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate));
+        Assert.False((await issuer.RecordGivenAsync(patient.Id, saved.Value.Id, new RecordRhigGivenRequest(" ", 2, _factory.Clock.UtcNow, null))).Succeeded);
+        var given = await issuer.RecordGivenAsync(patient.Id, saved.Value.Id, new RecordRhigGivenRequest(" LOT-7 ", 1, _factory.Clock.UtcNow.AddMinutes(-30), "Second vial on hold"));
+        Assert.True(given.Succeeded, given.Error);
+        Assert.Equal("LOT-7", given.Value!.GivenLot);
+        Assert.Equal("1 vial given; 2 recommended.", given.Value.GivenDifference);
+        Assert.DoesNotContain(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id);
+        Assert.False((await issuer.RecordGivenAsync(patient.Id, saved.Value.Id, new RecordRhigGivenRequest("LOT-8", 1, _factory.Clock.UtcNow, null))).Succeeded);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(RhigEvaluation) && a.EntityId == saved.Value.Id && a.Reason == "RhIG given recorded. 1 vial given; 2 recommended."));
 
         var audits = await c.AuditEvents.Where(a => a.EntityType == nameof(RhigEvaluation) && a.EntityId == saved.Value.Id).Select(a => a.Reason).ToListAsync();
         Assert.Contains("RhIG evaluation recorded.", audits);

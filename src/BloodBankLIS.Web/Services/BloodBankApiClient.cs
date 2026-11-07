@@ -69,6 +69,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<RhigEvaluationDto>> SaveRhigEvaluationAsync(long patientId, SaveRhigEvaluationRequest req, CancellationToken ct = default) =>
         SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig", req, ct);
 
+    public Task<ApiResult<RhigEvaluationDto>> RecordRhigGivenAsync(long patientId, long id, RecordRhigGivenRequest req, CancellationToken ct = default) =>
+        SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig/{id}/given", req, ct);
+
     public Task<ApiResult<RhigEvaluationDto>> CompleteRhigEvaluationAsync(long patientId, long id, CancellationToken ct = default) =>
         SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig/{id}/complete", ct: ct);
 

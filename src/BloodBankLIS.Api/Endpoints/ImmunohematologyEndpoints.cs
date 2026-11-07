@@ -45,6 +45,10 @@ public static class ImmunohematologyEndpoints
             EndpointResults.From(await service.SaveAsync(patientId, request, ct), d => d))
             .RequirePermission(PermissionCodes.ImmunoRecord);
 
+        patients.MapPost("/{patientId:long}/rhig/{id:long}/given", async (long patientId, long id, RecordRhigGivenRequest request, RhigEvaluationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.RecordGivenAsync(patientId, id, request, ct), d => d))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
         patients.MapPost("/{patientId:long}/rhig/{id:long}/complete", async (long patientId, long id, RhigEvaluationService service, CancellationToken ct) =>
             EndpointResults.From(await service.CompleteAsync(patientId, id, ct), d => d))
             .RequirePermission(PermissionCodes.ResultVerify);

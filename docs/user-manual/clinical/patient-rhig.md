@@ -17,6 +17,8 @@ Each record lists the facts on file next to what you entered: the patient's curr
 
 A supervisor with result verification uses **Complete**. Completion is refused until the record says what was decided: a candidate needs the vials recommended, and after a positive screen the quantitation the dose was based on; a non-candidate needs the reason. A completed record cannot be changed; record a new evaluation if something was wrong. Recording, edits, and completion are in the audit trail.
 
-> Recording needs the immunohematology record permission; completing needs result verification.
+Once a candidate evaluation is completed, **Record RhIG given** takes the RhIG lot (scan or type), the vials given (starting at the vials recommended), the time, and an optional note. It is recorded once and audited. If the vials given differ from those recommended, the record and the audit say so ("1 vial given; 2 recommended."); it is not refused. Until RhIG given is recorded, the evaluation stays on the RhIG list as **To give**.
+
+> Recording needs the immunohematology record permission; completing needs result verification; recording RhIG given needs issue permission.
 
 **Patients & testing › RhIG** lists every open evaluation across patients, oldest event first, each linked to its chart. **Ready to complete** means the record says what was decided; the others still need an entry. The home screen's **Open RhIG evaluations** card counts them and says how many are ready to complete.
