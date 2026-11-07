@@ -16931,3 +16931,22 @@ Thaw in place at allocation rewrote every unit's expiration to a fixed 24 hours 
 ### Tests
 
 - TEST-BB-565: shelf life applied (6 hours), capped at the frozen expiration; change refused without a reason or beyond 720 hours, audited with the reason; the allocation row carries the hours.
+
+## Iteration 518 — Reflex tests say where they came from (2026-11-07)
+
+### Capability matrix rescan
+
+Thawed units near expiry are already on the near-expiry board and alert (reserved units included), so that candidate was set aside. Stale rows: alternate identifiers (185), elution / special / reflex (273). Reflex rules add a test when a verified result matches, and corrections re-run them when verified, but the added line looked like any other order line: nothing said a reflex had fired, which result caused it, or that the verify just added work. A technologist verifying a positive screen had to notice a new ABID row on their own. Workflow questions: next action (the note names the added test); memory (the badge keeps the reason on the row); traceability (the line stores the trigger result id, test, and value, beside the existing audit).
+
+### Design
+
+- `OrderLine.ReflexFromTestCode`, `ReflexFromValue`, `ReflexFromResultId` (migration, dev bootstrap); set by `ApplyReflexRulesAsync`.
+- `TestWorkItemDto.ReflexFrom`; worklist badge; `TestWorklistView.NewReflexNote` after reloads, dismissible.
+
+### Requirements
+
+- URS-BB-576, FRS-BB-693. Help: reflex rules, test worklist.
+
+### Tests
+
+- TEST-BB-566: the reflex line stores the trigger test, value, and result id (the trigger line does not); the worklist item carries "ABSC Positive"; the note names only reflex lines that just appeared.

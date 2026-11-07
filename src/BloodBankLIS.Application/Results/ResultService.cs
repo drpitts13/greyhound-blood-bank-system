@@ -1098,7 +1098,11 @@ public sealed class ResultService
                 TestCode = reflexCode,
                 OrderType = OrderLineBuilder.MapTestOrderType(reflexCode),
                 ResultStatus = ResultStatus.Pending,
-                IsActive = true
+                IsActive = true,
+                ReflexFromTestCode = triggerCode,
+                ReflexFromValue = string.Equals(rule.TriggerResultValue.Trim(), interpretation, StringComparison.OrdinalIgnoreCase)
+                    && interpretation.Length > 0 ? interpretation : resultValue,
+                ReflexFromResultId = result.Id
             };
             await _orderLines.AddAsync(line, ct);
             addedLines.Add((line, rule.Code));

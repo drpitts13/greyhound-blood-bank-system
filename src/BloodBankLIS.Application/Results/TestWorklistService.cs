@@ -323,7 +323,8 @@ public sealed class TestWorklistService
                 blockAboSelfVerify,
                 VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow),
                 specimen?.Barcode,
-                order.OrderType == OrderType.TransfusionReactionWorkup));
+                order.OrderType == OrderType.TransfusionReactionWorkup,
+                ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue)));
         }
 
         // The verifier sees the reagent lots a hand-entered result was tested with.

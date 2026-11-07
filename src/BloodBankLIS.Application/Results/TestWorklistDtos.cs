@@ -53,7 +53,9 @@ public sealed record TestWorkItemDto(
     // The line belongs to a transfusion reaction workup order: an investigation is waiting on it.
     bool ReactionWorkup = false,
     // Reagent lots recorded with the current result when it was entered by hand ("AHG AHG-24033").
-    IReadOnlyList<string>? CurrentResultReagentLots = null)
+    IReadOnlyList<string>? CurrentResultReagentLots = null,
+    // A line added by a reflex rule: the verified result that added it ("ABSC Positive").
+    string? ReflexFrom = null)
 {
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";
@@ -156,6 +158,26 @@ public static class TestWorklistView
             .OrderBy(i => IsRush(i.Priority) ? 0 : 1)
             .ThenBy(i => i.OrderedUtc)
             .ToList();
+
+    /// <summary>
+    /// Reflex lines in <paramref name="after"/> that were not in <paramref name="before"/>, as one note for the bench:
+    /// "Reflex added: ABID on ORD-1 (from ABSC Positive)." Null when none.
+    /// </summary>
+    public static string? NewReflexNote(IEnumerable<TestWorkItemDto> before, IEnumerable<TestWorkItemDto> after)
+    {
+        var known = before.Select(i => i.OrderLineId).ToHashSet();
+        var added = after
+            .Where(i => i.ReflexFrom is not null && !known.Contains(i.OrderLineId))
+            .Select(i => $"{i.TestCode} on {i.OrderNumber} (from {i.ReflexFrom})")
+            .ToList();
+        return added.Count == 0 ? null : $"Reflex added: {string.Join("; ", added)}.";
+    }
+
+    /// <summary>"ABSC Positive" for a reflex line; null for any other line.</summary>
+    public static string? ReflexLabel(string? fromTestCode, string? fromValue) =>
+        string.IsNullOrWhiteSpace(fromTestCode)
+            ? null
+            : string.IsNullOrWhiteSpace(fromValue) ? fromTestCode.Trim() : $"{fromTestCode.Trim()} {fromValue.Trim()}";
 
     /// <summary>Orders (not lines) at a rush priority that have no tube yet.</summary>
     public static int RushOrdersWithoutSpecimen(IEnumerable<TestWorkItemDto> items) =>

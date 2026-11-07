@@ -32,6 +32,13 @@
 </details>
 
 <Outcome Value="_fb" />
+@if (_reflexNote is not null)
+{
+    <div class="alert alert-info flex gap" style="align-items:center;" data-reflex-added>
+        <span>@_reflexNote</span>
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _reflexNote = null">Dismiss</button>
+    </div>
+}
 
 <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
     <button type="button" class="btn @TabClass("tests")" @onclick='() => SelectTab("tests")'>Patient tests</button>
@@ -193,7 +200,7 @@
                                 <span class="muted">None</span>
                             }
                         </td>
-                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span>@if (item.ReactionWorkup) { <a class="badge badge-red" style="margin-left:.35rem;" href="@item.ReactionHref" title="This test is part of a transfusion reaction workup; the investigation closes only when it is verified" data-reaction-workup>Reaction workup</a> }</td>
+                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span>@if (item.ReactionWorkup) { <a class="badge badge-red" style="margin-left:.35rem;" href="@item.ReactionHref" title="This test is part of a transfusion reaction workup; the investigation closes only when it is verified" data-reaction-workup>Reaction workup</a> }@if (item.ReflexFrom is not null) { <span class="badge badge-blue" style="margin-left:.35rem;" title="Added by a reflex rule when this result was verified" data-reflex-from>Reflex from @item.ReflexFrom</span> }</td>
                         <td>
                             <span class="mono">@item.OrderNumber</span>
                             <span class="sub mono">@(item.AccessionNumber ?? "—")</span>
@@ -650,9 +657,20 @@
             return;
         }
 
+        var before = _items;
         _items = r.Value ?? new();
+        // After the first load, reflex lines that just appeared (a verify here added them) are named for the bench.
+        if (_loadedOnce)
+        {
+            _reflexNote = TestWorklistView.NewReflexNote(before, _items) ?? _reflexNote;
+        }
+
+        _loadedOnce = true;
         await LoadBatchAsync();
     }
+
+    private bool _loadedOnce;
+    private string? _reflexNote;
 
     // Batch verification candidates, for verifiers only; every candidate starts selected.
     private BatchVerifyCandidatesDto? _batch;

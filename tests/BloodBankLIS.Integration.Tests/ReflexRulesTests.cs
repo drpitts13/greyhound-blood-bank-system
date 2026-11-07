@@ -183,7 +183,15 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
         var pending = await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending);
         Assert.Contains(pending, i => i.TestCode == "ABID" && i.SpecimenId == specimen.Id);
 
+        // TEST-BB-566: the reflex line names the verified result that added it, and the worklist shows it.
         var abidLine = lines.Single(l => l.TestCode == "ABID");
+        Assert.Equal("ABSC", abidLine.ReflexFromTestCode);
+        Assert.Equal("Positive", abidLine.ReflexFromValue);
+        Assert.Equal(save.Value.Id, abidLine.ReflexFromResultId);
+        Assert.Null(lines.Single(l => l.TestCode == "ABSC").ReflexFromTestCode);
+        Assert.Equal("ABSC Positive", pending.Single(i => i.TestCode == "ABID").ReflexFrom);
+        Assert.DoesNotContain(pending, i => i.TestCode == "ABSC" && i.ReflexFrom != null);
+
         var reflexAudit = await c.AuditEvents.SingleAsync(a =>
             a.EventType == AuditEventType.OrderChange
             && a.EntityType == nameof(OrderLine)
