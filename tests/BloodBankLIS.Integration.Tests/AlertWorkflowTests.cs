@@ -330,4 +330,44 @@ public class AlertWorkflowTests : IDisposable
         Assert.Equal(AlertSeverity.Warning, late.Severity);
         Assert.EndsWith("2 on order, 2 overdue: chase the supplier.", late.Message);
     }
+
+    // TEST-BB-512: acknowledged while covered by a timely order, the shortage alert is raised again, open, when the order
+    // is late; the acknowledged one is closed and keeps who acknowledged it.
+    [Fact]
+    public async Task AcknowledgedShortage_IsRaisedAgain_WhenItsOrderIsLate()
+    {
+        await using var c = _factory.Create();
+        var product = new ProductType { ProductCode = "RBC-ACK", Name = "Red cells" };
+        var supplier = new BloodSupplier { Code = "SUP-ACK", Name = "Supplier", Registration = "R-ACK" };
+        c.AddRange(product, supplier);
+        await c.SaveChangesAsync();
+        c.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = product.Id, Abo = AboGroup.B, MinimumAvailable = 1 });
+        var order = new SupplierOrder
+        {
+            OrderNumber = "SO-ACK-1", BloodSupplierId = supplier.Id, Status = SupplierOrderStatus.Submitted, SubmittedUtc = _factory.Clock.UtcNow
+        };
+        c.SupplierOrders.Add(order);
+        await c.SaveChangesAsync();
+        c.SupplierOrderLines.Add(new SupplierOrderLine { SupplierOrderId = order.Id, ProductTypeId = product.Id, Abo = AboGroup.B, Quantity = 1 });
+        await c.SaveChangesAsync();
+
+        await Scanner(c).ScanAsync();
+        var covered = await c.Alerts.AsNoTracking().SingleAsync(a => a.Source == AlertRule.MinimumStockShortage);
+        Assert.Equal(AlertSeverity.Info, covered.Severity);
+        Assert.True((await Alerts(c).AcknowledgeAsync(covered.Id, new AcknowledgeAlertRequest("Order SO-ACK-1 placed"))).Succeeded);
+
+        _factory.Clock.UtcNow = _factory.Clock.UtcNow.AddHours(25);
+        Assert.Equal(1, (await Scanner(c).ScanAsync()).Raised);
+        var rows = await c.Alerts.AsNoTracking().Where(a => a.Source == AlertRule.MinimumStockShortage).OrderBy(a => a.Id).ToListAsync();
+        Assert.Equal(2, rows.Count);
+        Assert.NotNull(rows[0].AcknowledgedUtc);
+        Assert.NotNull(rows[0].ResolvedUtc);
+        Assert.Equal(AlertSeverity.Info, rows[0].Severity);
+        Assert.True(AlertRule.IsOpen(rows[1]));
+        Assert.Equal(AlertSeverity.Warning, rows[1].Severity);
+        Assert.EndsWith("1 overdue: chase the supplier.", rows[1].Message);
+
+        // Nothing changed: no third alert.
+        Assert.Equal(0, (await Scanner(c).ScanAsync()).Raised);
+    }
 }

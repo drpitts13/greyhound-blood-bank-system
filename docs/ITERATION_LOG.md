@@ -16001,3 +16001,31 @@ The below minimum stock alert was raised once with the shortfall and never chang
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 474 — An acknowledged alert that worsens comes back (2026-11-06)
+
+### Capability matrix rescan (operations: alert inbox)
+
+Cycle 473 refreshes open alerts in place and keeps an acknowledgement. A shortage acknowledged as information while its order was on time therefore stayed acknowledged, out of the open list, when the order became late and the alert a warning: the change was hidden behind the earlier acknowledgement (question 6 for supply; alert vs warning separation).
+
+### Design
+
+- **`AlertRule.RaisesAgain`:** an acknowledged alert whose condition now has a higher severity.
+- **`AlertService.SyncAsync`:** such an alert is closed (its acknowledgement kept, nothing overwritten) and a new open alert is raised with the same key, the current severity and text, and the time now; it counts as raised.
+- Lower or equal severity, or an alert still open, is refreshed in place as before. No schema change.
+
+### Requirements
+
+- URS-BB-537, FRS-BB-646. Help: alerts.
+
+### Tests
+
+- TEST-BB-512:
+  - only an acknowledged alert whose severity rises is raised again; an open alert, or an equal or lower severity, is not
+  - a shortage acknowledged as information while covered is raised again, open, as a warning naming the overdue unit when the order is late; the acknowledged alert is closed with its acknowledgement; a further scan raises nothing
+- Full suite: 3,853 passed
+- Live: the API's startup scan left the one open shortage alert (unacknowledged, a warning) as it was, with no second alert and no server errors. No alert was acknowledged live, so raising again is covered by the tests.
+
+### Next ranked residual
+
+Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

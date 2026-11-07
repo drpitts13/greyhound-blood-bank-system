@@ -95,4 +95,12 @@ public static class AlertRule
             .Select(a => (a, byKey[a.Key]))
             .ToList();
     }
+
+    /// <summary>
+    /// An acknowledged alert whose condition has become more severe (information to warning, say) is raised again, open,
+    /// so the change is seen; the acknowledged one is closed and keeps who acknowledged it. Anything else that changed is
+    /// refreshed in place.
+    /// </summary>
+    public static bool RaisesAgain(Alert alert, AlertCandidate now) =>
+        alert.AcknowledgedUtc is not null && now.Severity > alert.Severity;
 }

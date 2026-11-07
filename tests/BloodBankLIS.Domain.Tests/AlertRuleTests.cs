@@ -83,4 +83,23 @@ public class AlertRuleTests
         Assert.Same(differs, alert);
         Assert.Equal((AlertSeverity.Info, "msg"), (current.Severity, current.Message));
     }
+
+    // TEST-BB-512: only an acknowledged alert whose severity rises is raised again; an open one, or a lower or equal
+    // severity, is refreshed in place.
+    [Fact]
+    public void RaisesAgain_OnlyWhenAnAcknowledgedAlertBecomesMoreSevere()
+    {
+        var acknowledged = Active("PAR:1", acknowledged: true);
+        acknowledged.Severity = AlertSeverity.Info;
+        Assert.True(AlertRule.RaisesAgain(acknowledged, Found("PAR:1")));
+        Assert.False(AlertRule.RaisesAgain(acknowledged, Found("PAR:1") with { Severity = AlertSeverity.Info }));
+
+        var open = Active("PAR:2");
+        open.Severity = AlertSeverity.Info;
+        Assert.False(AlertRule.RaisesAgain(open, Found("PAR:2")));
+
+        var warned = Active("PAR:3", acknowledged: true);
+        warned.Severity = AlertSeverity.Warning;
+        Assert.False(AlertRule.RaisesAgain(warned, Found("PAR:3") with { Severity = AlertSeverity.Info }));
+    }
 }
