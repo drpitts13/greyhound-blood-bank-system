@@ -29,6 +29,8 @@ public sealed class TestWorklistService
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly FacilityPolicyService? _policy;
 
+    private readonly Inventory.ReagentQcService? _reagentQc;
+
     public TestWorklistService(
         IRepository<Order> orders,
         IRepository<OrderLine> orderLines,
@@ -43,8 +45,10 @@ public sealed class TestWorklistService
         IClock clock,
         ElectronicCrossmatchEligibilityService? eligibility = null,
         IRepository<AntibodyIdentificationWorkup>? workups = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        Inventory.ReagentQcService? reagentQc = null)
     {
+        _reagentQc = reagentQc;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -320,6 +324,18 @@ public sealed class TestWorklistService
                 VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow),
                 specimen?.Barcode,
                 order.OrderType == OrderType.TransfusionReactionWorkup));
+        }
+
+        // The verifier sees the reagent lots a hand-entered result was tested with.
+        if (_reagentQc is not null)
+        {
+            var lots = await _reagentQc.LotLabelsForResultsAsync(items.Where(i => i.CurrentResultId is not null).Select(i => i.CurrentResultId!.Value), ct);
+            if (lots.Count > 0)
+            {
+                items = items.Select(i => i.CurrentResultId is long id && lots.TryGetValue(id, out var labels)
+                    ? i with { CurrentResultReagentLots = labels }
+                    : i).ToList();
+            }
         }
 
         // Results that stop being verifiable when their specimen expires come right after rush work.

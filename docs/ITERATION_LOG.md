@@ -16454,3 +16454,27 @@ Cycle 495 recorded lots against manual results, but only the lot lookback showed
 ### Next ranked residual
 
 Show lots on the worklist verify view; drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test.
+
+## Iteration 497 — Reagent lots on the worklist for the verifier (2026-11-07)
+
+### Capability matrix rescan (operations: verification)
+
+Cycle 496 showed lots on the chart's specimen results, but verification happens on the test worklist and the chart Tests tab, which did not show them: the verifier had to open the specimen to see what the result was tested with. Workflow questions: clicks (none: lots beside the source); memory (none); safety (unchanged, information only).
+
+### Design
+
+- `TestWorkItemDto.CurrentResultReagentLots` from `TestWorklistService` (lots looked up once per list); "Lots: …" on the test worklist and the chart Tests tab.
+
+### Requirements
+
+- URS-BB-558 (extended), FRS-BB-672.
+
+### Tests
+
+- TEST-BB-545: a worklist line whose current result was entered by hand carries its recorded lot.
+- Full suite: 3,946 passed.
+- Live: the To verify view showed MRN0006's DAT (entered by hand, Negative) with "Source: Manual · Lots: AHG AHG-24033". No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test; a reagent lot's status (failed QC) flagged on results it was used for.

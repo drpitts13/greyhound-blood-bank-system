@@ -88,6 +88,10 @@
                                 <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
                             }
                             <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")</span>
+                            @if (item.CurrentResultReagentLots is { Count: > 0 } lots)
+                            {
+                                <span class="sub" title="Reagent lots open for this test when the result was entered" data-worklist-lots>Lots: @string.Join(", ", lots)</span>
+                            }
                         </td>
                         <td>
                             @if (IsRush(item.Priority))

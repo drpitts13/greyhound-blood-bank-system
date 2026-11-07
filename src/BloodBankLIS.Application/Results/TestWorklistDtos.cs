@@ -51,7 +51,9 @@ public sealed record TestWorkItemDto(
     // The tube's label barcode, so a bench scan of the label finds the line as well as its accession.
     string? SpecimenBarcode = null,
     // The line belongs to a transfusion reaction workup order: an investigation is waiting on it.
-    bool ReactionWorkup = false)
+    bool ReactionWorkup = false,
+    // Reagent lots recorded with the current result when it was entered by hand ("AHG AHG-24033").
+    IReadOnlyList<string>? CurrentResultReagentLots = null)
 {
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";

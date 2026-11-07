@@ -114,6 +114,52 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
         Assert.False((await Qc(verify).ResultsForLotAsync(999999)).Succeeded);
     }
 
+    // TEST-BB-545: the worklist line for a hand-entered result carries the reagent lots recorded with it, for the verifier.
+    [Fact]
+    public async Task WorklistLine_ShowsTheLotsOfItsResult()
+    {
+        var now = _factory.Clock.UtcNow;
+        await using (var c = _factory.Create())
+        {
+            var reagent = new Reagent { Code = "WL-AHG", Name = "Worklist AHG", TestCodes = "WLSC" };
+            c.Reagents.Add(reagent);
+            await c.SaveChangesAsync();
+            c.ReagentLots.Add(new ReagentLot { ReagentId = reagent.Id, LotNumber = "WL-1", ReceivedUtc = now.AddDays(-2), ExpiresUtc = now.AddDays(20), State = ReagentLotState.Opened });
+            await c.SaveChangesAsync();
+        }
+
+        var specimenId = await SpecimenAsync("MRN-TRACE-WL", "ACC-TRACE-WL");
+        long orderId;
+        await using (var c = _factory.Create())
+        {
+            var specimen = await c.Specimens.SingleAsync(s => s.Id == specimenId);
+            var location = new OrderingLocation { Code = "WL-LOC", Name = "Worklist", IsActive = true };
+            c.OrderingLocations.Add(location);
+            var encounter = new Encounter { PatientId = specimen.PatientId, VisitNumber = "VIS-TRACE-WL", Status = EncounterStatus.Active };
+            c.Encounters.Add(encounter);
+            await c.SaveChangesAsync();
+            var order = new Order { OrderNumber = "ORD-TRACE-WL", PatientId = specimen.PatientId, EncounterId = encounter.Id, OrderingLocationId = location.Id, TestCode = "WLSC", Status = OrderStatus.InProcess, OrderedUtc = now };
+            c.Orders.Add(order);
+            await c.SaveChangesAsync();
+            c.OrderLines.Add(new OrderLine { OrderId = order.Id, LineNumber = 1, LineName = "WLSC", TestCode = "WLSC", ResultStatus = ResultStatus.Pending, IsActive = true });
+            c.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = specimenId, IsPrimary = true });
+            await c.SaveChangesAsync();
+            orderId = order.Id;
+            var entered = await Results(c).EnterResultAsync(new EnterResultRequest(specimenId, "WLSC", "Negative", OrderId: orderId));
+            Assert.True(entered.Succeeded, entered.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var worklist = new TestWorklistService(
+            new EfRepository<Order>(verify), new EfRepository<OrderLine>(verify), new EfRepository<OrderSpecimen>(verify),
+            new EfRepository<Specimen>(verify), new EfRepository<Patient>(verify),
+            new EfRepository<PatientBloodTypeHistory>(verify), new EfRepository<AntibodyHistory>(verify),
+            new EfRepository<TestResult>(verify), new EfRepository<TestDefinition>(verify), new EfRepository<SpecimenTypeDefinition>(verify),
+            _factory.Clock, reagentQc: Qc(verify));
+        var line = Assert.Single(await worklist.ListForSpecimenAsync(specimenId), i => i.TestCode == "WLSC");
+        Assert.Equal(["WL-AHG WL-1"], line.CurrentResultReagentLots);
+    }
+
     [Fact]
     public async Task ReagentTests_MustBeKnownTests_AndAreStoredTidy()
     {
