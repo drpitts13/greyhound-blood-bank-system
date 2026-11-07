@@ -97,6 +97,12 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Interface values with no translation, still open on the Unmapped values list.</summary>
     public int UnmappedInterfaceValues { get; set; }
 
+    /// <summary>RhIG evaluations still needing work: not completed, or a completed candidate with no RhIG given recorded.</summary>
+    public int RhigOpen { get; set; }
+
+    /// <summary>Of those, completed candidates with no RhIG given recorded.</summary>
+    public int RhigToGive { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

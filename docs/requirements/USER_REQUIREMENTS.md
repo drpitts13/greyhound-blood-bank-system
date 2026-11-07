@@ -592,3 +592,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-584 | Open RhIG evaluations across all patients are listed in one place and counted on the home screen, with those ready to complete called out, so none is left unfinished on a chart. | P2 | FRS-BB-701 |
 | URS-BB-585 | The RhIG actually given (lot, vials, time, by whom) is recorded on the completed evaluation, so an RhIG lot can be traced to the patients who received it; a dose that differs from the recommendation is noted; a candidate not yet given RhIG stays on the RhIG list. | P2 | FRS-BB-702 |
 | URS-BB-586 | For a recall, the blood bank can find every patient given an RhIG lot, and the patient timeline shows RhIG evaluations and doses with the other blood bank events. | P2 | FRS-BB-703 |
+| URS-BB-587 | The shift handoff carries the RhIG evaluations still needing work, and how many are waiting to be given, linked to the RhIG list. | P2 | FRS-BB-704 |

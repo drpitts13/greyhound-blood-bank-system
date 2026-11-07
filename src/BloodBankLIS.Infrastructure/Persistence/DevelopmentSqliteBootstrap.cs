@@ -231,6 +231,8 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
         ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
         ("UnitModifications", "SupplyLot", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyLot" TEXT NULL"""),
+        ("ShiftHandoffs", "RhigOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RhigToGive", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigToGive" INTEGER NOT NULL DEFAULT 0"""),
         ("RhigEvaluations", "GivenLot", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenLot" TEXT NULL"""),
         ("RhigEvaluations", "GivenVials", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenVials" INTEGER NULL"""),
         ("RhigEvaluations", "GivenUtc", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenUtc" TEXT NULL"""),

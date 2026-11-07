@@ -17138,3 +17138,21 @@ Cycle 527 stored the RhIG lot given, but nothing answered the recall question "w
 ### Tests
 
 - TEST-BB-576: lot found in any case with spaces trimmed, unknown and blank lots find nothing; the timeline has three RhIG events, the given one marked with the difference.
+
+## Iteration 529 — RhIG on the shift handoff (2026-11-07)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Every open queue is in the shift handoff packet (Cycles 505–509) except the RhIG list added in Cycles 526–527: an evaluation started on nights, or a candidate whose RhIG was not yet given, did not reach the incoming technologist. Workflow questions: memory (the packet carries it); next action (the item opens the RhIG list); safety (to-give is named; urgency is left to the facility, OCD-069).
+
+### Design
+
+- `RhigOpen`, `RhigToGive` on `ShiftHandoff` (migration, bootstrap); snapshot, DTO, summary, audit snapshot; handoff item.
+
+### Requirements
+
+- URS-BB-587, FRS-BB-704. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-577: the item and summary name the count and those to give; the snapshot counts open and to-give evaluations (a given candidate and a non-candidate are not counted).

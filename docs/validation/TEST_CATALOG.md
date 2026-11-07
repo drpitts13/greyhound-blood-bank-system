@@ -585,5 +585,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-574 | U, I | `DashboardQueueCatalogTests.OpenRhigCard_ForRecordersAndVerifiers_CountsThoseReadyToComplete`; `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (queue) | URS-BB-584 / FRS-BB-701 |
 | TEST-BB-575 | U, I | `RhigGivenRuleTests.Given_IsRefused_UntilTheEvaluationAndEntriesAllowIt`; `RhigGivenRuleTests.Difference_IsNotedOnly_WhenTheVialsDiffer`; `DashboardQueueCatalogTests.OpenRhigCard_ForRecordersAndVerifiers_CountsThoseReadyToComplete` (to give); `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (given) | URS-BB-585 / FRS-BB-702 |
 | TEST-BB-576 | I | `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (lot trace and timeline) | URS-BB-586 / FRS-BB-703 |
+| TEST-BB-577 | U, I | `ShiftHandoffItemsTests.RhigEvaluations_AreAHandoffItem_WithThoseToGive`; `ShiftHandoffServiceTests.Create_CountsRhigEvaluationsStillNeedingWork` | URS-BB-587 / FRS-BB-704 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

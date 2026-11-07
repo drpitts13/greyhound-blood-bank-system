@@ -31,6 +31,15 @@ public class ShiftHandoffItemsTests
         Assert.Equal("/admin/hl7/translations?tab=unmapped", items[5].Href);
     }
 
+    // TEST-BB-577: RhIG evaluations still needing work are a handoff item linked to the RhIG list, naming those to give.
+    [Fact]
+    public void RhigEvaluations_AreAHandoffItem_WithThoseToGive()
+    {
+        var item = Assert.Single(ShiftHandoffItems.For(Handoff() with { RhigOpen = 3, RhigToGive = 1 }));
+        Assert.Equal(("RhIG evaluations", 3, "/rhig", "1 to give", false), (item.Label, item.Count, item.Href, item.Detail, item.Urgent));
+        Assert.Contains("RhIG evaluations 3, 1 to give", (Handoff() with { RhigOpen = 3, RhigToGive = 1 }).QueueSummary);
+    }
+
     [Fact]
     public void Items_AreEmpty_WhenNothingIsOpen() =>
         Assert.Empty(ShiftHandoffItems.For(Handoff()));

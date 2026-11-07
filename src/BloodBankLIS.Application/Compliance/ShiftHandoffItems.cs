@@ -53,6 +53,7 @@ public static class ShiftHandoffItems
             detail: Note((h.InstrumentResultsHeld, "held for review")));
         Add(h.Hl7ErrorsOpen, "HL7 errors", "/hl7");
         Add(h.UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
+        Add(h.RhigOpen, "RhIG evaluations", "/rhig", detail: Note((h.RhigToGive, "to give")));
 
         return items.OrderBy(i => i.Urgent ? 0 : 1).ToList();
     }

@@ -330,6 +330,42 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("held for review", summary);
     }
 
+    // TEST-BB-577: a handoff counts RhIG evaluations still needing work and, of those, the ones to give.
+    [Fact]
+    public async Task Create_CountsRhigEvaluationsStillNeedingWork()
+    {
+        await using var context = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var patient = new Patient { MedicalRecordNumber = $"MRN-HO-RH-{Guid.NewGuid():N}"[..20], LastName = "Handoff", FirstName = "Rh", DateOfBirth = new DateOnly(1990, 1, 1) };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+        RhigEvaluation Eval(RhigDecision decision, bool completed, bool given) => new()
+        {
+            PatientId = patient.Id, EventUtc = now, Decision = decision, RecordedBy = "tech", RecordedUtc = now,
+            CompletedUtc = completed ? now : null, CompletedBy = completed ? "lead" : null,
+            GivenUtc = given ? now : null, GivenLot = given ? "L1" : null, GivenVials = given ? 1 : null
+        };
+        context.RhigEvaluations.AddRange(
+            Eval(RhigDecision.Undetermined, false, false),
+            Eval(RhigDecision.Candidate, true, false),
+            Eval(RhigDecision.Candidate, true, true),
+            Eval(RhigDecision.NotCandidate, true, false));
+        await context.SaveChangesAsync();
+        var expectedOpen = await context.RhigEvaluations.CountAsync(e => e.CompletedUtc == null || (e.Decision == RhigDecision.Candidate && e.GivenUtc == null));
+        var expectedToGive = await context.RhigEvaluations.CountAsync(e => e.CompletedUtc != null && e.Decision == RhigDecision.Candidate && e.GivenUtc == null);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            rhig: new EfRepository<RhigEvaluation>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("RhIG"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Equal((expectedOpen, expectedToGive), (created.Value!.RhigOpen, created.Value.RhigToGive));
+        Assert.True(expectedOpen >= 2 && expectedToGive >= 1);
+    }
+
     // TEST-BB-554: a handoff counts open HL7 errors and open unmapped interface values (resolved ones are not counted).
     [Fact]
     public async Task Create_CountsHl7ErrorsAndUnmappedInterfaceValues()

@@ -21,3 +21,5 @@ The counts are a snapshot, not a sign-out of each patient. Write the handoff not
 If you name the incoming technologist, pick them from the list; the name must be an active user other than you. Leave it blank to hand off to whoever is on the next shift. An active massive transfusion protocol is listed first on the packet, then any emergency release whose retrospective crossmatch came back incompatible, then transfusions still running at the bedside (and how many are overdue for completion).
 
 The next shift should read the note before relying on the dashboard alone. The note does not assign tasks inside the software. It is the record of what you said you left.
+
+The handoff also counts **RhIG evaluations** still needing work (not completed, or a candidate with no RhIG given recorded) and says how many are waiting to be given; the item opens the RhIG list.
