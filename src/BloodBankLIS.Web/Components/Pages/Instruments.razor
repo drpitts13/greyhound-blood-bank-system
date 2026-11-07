@@ -81,21 +81,35 @@
                 <a class="badge badge-amber" href="/admin/hl7/translations?tab=unmapped" title="Instrument codes or values with no translation" data-inst-unmapped>@_unmappedInstrumentValues unmapped</a>
             }
         </div>
-        @if (_messages.Count == 0)
+        <div class="flex gap" style="margin:.3rem 0 .6rem;" data-inst-show>
+            @foreach (var (key, label) in ShowChoices)
+            {
+                <button type="button" class="btn btn-sm @(_show == key ? "btn-primary" : "btn-secondary")" @onclick="() => _show = key" data-inst-show-choice="@key">
+                    @label (@CountFor(key))
+                </button>
+            }
+        </div>
+        @if (VisibleMessages.Count == 0)
         {
-            <div class="empty">No messages.</div>
+            <div class="empty">@(_show == "all" ? "No messages." : _show == "held" ? "No held results." : "No open failures.")</div>
         }
         else
         {
             <table class="bb">
                 <thead><tr><th>When</th><th>Kind</th><th>Status</th><th>Specimen</th><th></th></tr></thead>
                 <tbody>
-                    @foreach (var msg in _messages)
+                    @foreach (var msg in VisibleMessages)
                     {
                         <tr class="@(_detail?.Message.Id == msg.Id ? "row-active" : null)">
                             <td class="nowrap">@msg.ReceivedUtc.ToString("HH:mm:ss")</td>
                             <td>@msg.MessageKind</td>
-                            <td>@msg.Status@(msg.ResolvedUtc is not null ? " · resolved" : "")</td>
+                            <td>
+                                @msg.Status@(msg.ResolvedUtc is not null ? " · resolved" : "")
+                                @if (msg.Held)
+                                {
+                                    <span class="badge badge-amber" title="An instrument error code held this result: review it, then release it or re-run the sample" data-inst-held>Held</span>
+                                }
+                            </td>
                             <td class="mono">@msg.SpecimenId</td>
                             <td><button class="btn btn-ghost btn-sm" @onclick="() => OpenAsync(msg.Id)">View</button></td>
                         </tr>
@@ -211,6 +225,35 @@
     private bool _busy;
     private int _unmappedInstrumentValues;
 
+    [SupplyParameterFromQuery(Name = "show")] public string? ShowQuery { get; set; }
+
+    // "open" and "held" from the home card's link; the list otherwise shows every message.
+    private string _show = "all";
+
+    private static readonly (string Key, string Label)[] ShowChoices = [("all", "All"), ("open", "Open failures"), ("held", "Held")];
+
+    private List<InstrumentMessageSummaryDto> VisibleMessages => _show switch
+    {
+        "open" => _messages.Where(m => m.OpenFailure).ToList(),
+        "held" => _messages.Where(m => m.Held).ToList(),
+        _ => _messages
+    };
+
+    private int CountFor(string key) => key switch
+    {
+        "open" => _messages.Count(m => m.OpenFailure),
+        "held" => _messages.Count(m => m.Held),
+        _ => _messages.Count
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (ShowQuery is "open" or "held")
+        {
+            _show = ShowQuery;
+        }
+    }
+
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
@@ -222,6 +265,15 @@
         _status = status.Value ?? new();
         _logs = logs.Value ?? new();
         _messages = messages.Value ?? new();
+        // The list holds the latest messages; add older open failures so the filters match the home card's count.
+        var failures = await Api.GetOpenInstrumentFailuresAsync();
+        foreach (var failure in failures.Value ?? new())
+        {
+            if (_messages.All(m => m.Id != failure.Id))
+            {
+                _messages.Add(failure);
+            }
+        }
         // Shown only to users who can open the translation lists; others simply see no badge.
         var unmapped = await Api.GetAdminHl7UnmappedValuesAsync();
         _unmappedInstrumentValues = unmapped.Value?.Count(u => u.InstrumentInterfaceId is not null) ?? 0;

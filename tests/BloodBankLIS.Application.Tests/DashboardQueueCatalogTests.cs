@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Results;
@@ -134,9 +135,30 @@ public class DashboardQueueCatalogTests
     public void InterfaceCards_FollowTheInterfacePermissions()
     {
         Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.Hl7Manage)), c => c.Key == DashboardQueueCatalog.Hl7Errors && c.Href == "/hl7");
-        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.InstrumentManage)), c => c.Key == DashboardQueueCatalog.InstrumentFailures && c.Href == "/instruments");
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.InstrumentManage)), c => c.Key == DashboardQueueCatalog.InstrumentFailures && c.Href == "/instruments?show=open");
         var bench = DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter));
         Assert.DoesNotContain(bench, c => c.Key is DashboardQueueCatalog.Hl7Errors or DashboardQueueCatalog.InstrumentFailures);
+    }
+
+    // TEST-BB-540: the Instrument failures card counts open failures and says how many are held for an instrument error
+    // code (they wait on a review, not a fix); resolved failures and other failures are not counted as held.
+    [Fact]
+    public void InstrumentFailuresCard_NamesHeldResults()
+    {
+        var now = new DateTime(2026, 11, 7, 12, 0, 0, DateTimeKind.Utc);
+        InstrumentMessageSummaryDto Message(long id, string? error, DateTime? resolved = null) => new(
+            id, 1, Hl7Direction.Inbound, InstrumentMessageKind.Result, InstrumentMessageStatus.Failed, now, now, "ACC", "MRN", error, resolved);
+
+        var (count, note) = DashboardQueueCatalog.InstrumentFailuresCard(
+        [
+            Message(1, "Instrument error Q (Hold): ABORH for ACC held for review, not posted (INST-HOLD)."),
+            Message(2, "Instrument error W (Hold): ABSC for ACC held for review, not posted (INST-HOLD)."),
+            Message(3, "Instrument code X has no translation to a test (INST-CODE)"),
+            Message(4, "held (INST-HOLD)", resolved: now)
+        ]);
+
+        Assert.Equal((3, "2 held for instrument error codes"), (count, note));
+        Assert.Equal((1, (string?)null), DashboardQueueCatalog.InstrumentFailuresCard([Message(3, "INST-CODE")]));
     }
 
     // TEST-BB-528: unmapped interface values are on the home screen for whoever keeps the translation table.

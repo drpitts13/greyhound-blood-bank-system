@@ -662,6 +662,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-554 / FRS-BB-666 | Instrument error codes Hold / Warn / Ignore | `InstrumentValueTranslator.ErrorAction`; `AstmInboundProcessor` | TEST-BB-532, TEST-BB-535 | U, I | OCD-066 |
 | URS-BB-555 / FRS-BB-667 | Release a held instrument result with a reason | `InstrumentMessageFollowUpRule`; `AstmInboundProcessor.ReleaseHeldAsync`; `Instruments.razor` | TEST-BB-537, TEST-BB-538 | U, I | OCD-066 |
 | URS-BB-554 / FRS-BB-668 | Error code table with meanings decides each code's action | `InstrumentValueTranslator.Describe`; `AdminInstruments.razor`; `InterfaceTranslationImport.ParseInstrument` | TEST-BB-539 | U, I | OCD-066 (decided) |
+| URS-BB-556 / FRS-BB-669 | Held instrument results on the home card and a held filter | `DashboardQueueCatalog.InstrumentFailuresCard`; `Instruments.razor` | TEST-BB-540, TEST-BB-401 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

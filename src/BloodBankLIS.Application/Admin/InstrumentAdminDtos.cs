@@ -98,6 +98,9 @@ public sealed record InstrumentMessageSummaryDto(
 {
     /// <summary>A failed message nobody has replayed successfully or resolved yet.</summary>
     public bool OpenFailure => Status == InstrumentMessageStatus.Failed && ResolvedUtc is null;
+
+    /// <summary>An open failure whose result an instrument error code held: review it, then release or re-run.</summary>
+    public bool Held => BloodBankLIS.Domain.Rules.InstrumentMessageFollowUpRule.IsHeld(Status, ResolvedUtc, ErrorDetail);
 }
 
 public sealed record InstrumentParsedFieldDto(string DataItem, string? Value);

@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Results;
@@ -70,7 +71,7 @@ public static class DashboardQueueCatalog
             || canIssue || has(PermissionCodes.CompatibilityAllocate), LowStock, "Below minimum stock", "/inventory/minimum-stock");
         // Expired units still recorded on a shelf: pull and discard them (inventory.discard).
         Add(cards, has(PermissionCodes.InventoryDiscard), ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired");
-        Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments");
+        Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments?show=open");
         Add(cards, has(PermissionCodes.Hl7Manage), Hl7Errors, "HL7 errors", "/hl7");
         // Values an interface sent or received that no translation covered: whoever keeps the translation table fixes them.
         Add(cards, has(PermissionCodes.AdminHl7Manage) || has(PermissionCodes.AdminInstrumentsManage), UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
@@ -108,6 +109,16 @@ public static class DashboardQueueCatalog
             AttentionNote(TestWorklistView.RushOrdersWithoutSpecimen(items), "STAT/urgent order waiting for a specimen", "STAT/urgent orders waiting for a specimen")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
+    /// <summary>
+    /// The Instrument failures card: open failures, and how many of them are results an instrument error code held,
+    /// which wait on a review (release or re-run) rather than a fix and replay.
+    /// </summary>
+    public static (int Count, string? Note) InstrumentFailuresCard(IEnumerable<InstrumentMessageSummaryDto> failures)
+    {
+        var open = failures.Where(f => f.OpenFailure).ToList();
+        return (open.Count, AttentionNote(open.Count(f => f.Held), "held for an instrument error code", "held for instrument error codes"));
     }
 
     public static string? AttentionNote(int count, string singular, string plural)

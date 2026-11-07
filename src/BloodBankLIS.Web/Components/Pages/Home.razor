@@ -436,7 +436,16 @@
             case DashboardQueueCatalog.TemperatureExcursions:
                 return await CountList(card.Key, Api.GetOpenTemperatureExcursionsAsync());
             case DashboardQueueCatalog.InstrumentFailures:
-                return await CountList(card.Key, Api.GetOpenInstrumentFailuresAsync());
+            {
+                var result = await Api.GetOpenInstrumentFailuresAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var (open, note) = DashboardQueueCatalog.InstrumentFailuresCard(result.Value);
+                return (card.Key, open, note);
+            }
             case DashboardQueueCatalog.Hl7Errors:
                 return await CountList(card.Key, Api.GetHl7ErrorsAsync());
             case DashboardQueueCatalog.UnmappedInterfaceValues:

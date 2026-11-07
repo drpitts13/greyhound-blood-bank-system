@@ -548,5 +548,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-537 | U | `InstrumentMessageFollowUpRuleTests.Release_NeedsAHeldOpenFailure_AndAReason` | URS-BB-555 / FRS-BB-667 |
 | TEST-BB-538 | I | `InstrumentInterfaceTests.HeldResult_IsReleasedWithAReason_AndOtherFailuresAreNot` | URS-BB-555 / FRS-BB-667 |
 | TEST-BB-539 | U, I | `InstrumentValueTranslatorTests.ErrorCodes_AreDescribedFromTheTable`; `InstrumentValueTranslatorTests.ErrorCodeTable_ExportsAndImportsWithMeanings`; `InstrumentInterfaceTests.ErrorCodes_HoldOrWarn`; `SeederTests.Seed_GivesTheEchoTranslations_InsteadOfTextRules` | URS-BB-554 / FRS-BB-668 |
+| TEST-BB-540 | U | `DashboardQueueCatalogTests.InstrumentFailuresCard_NamesHeldResults`; `DashboardQueueCatalogTests.InterfaceCards_FollowTheInterfacePermissions` | URS-BB-556 / FRS-BB-669 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -16374,3 +16374,28 @@ Cycle 490 stored each code's action as a translation row (code → Hold/Warn/Ign
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; held and released counts on the Instrument failures home card; LOINC and translated codes in the FHIR export.
+
+## Iteration 494 — Held instrument results on the home card and a held filter (2026-11-07)
+
+### Capability matrix rescan (operations: instrument failures)
+
+Held results (Cycles 490–493) wait on a review, not a fix, but the home Instrument failures card counted them with every other failure and opened the full message list, where nothing marked them. Workflow questions: clicks (card to the open failures in one, then Held in one more, instead of opening each failed message); memory (the card says how many are held); next action (held rows carry a badge and the release panel); safety (unchanged: held results still need review and verification).
+
+### Design
+
+- `InstrumentMessageSummaryDto.Held`; `DashboardQueueCatalog.InstrumentFailuresCard` (count, "N held for instrument error codes"); card link `/instruments?show=open`.
+- Instruments page: All / Open failures / Held with counts, Held badge, older open failures merged into the list.
+
+### Requirements
+
+- URS-BB-556, FRS-BB-669. Help: instruments.
+
+### Tests
+
+- TEST-BB-540: the card counts open failures and names held ones (resolved and non-held failures are not held; no held, no note); the card opens the open failures.
+- Full suite: 3,939 passed.
+- Live: the home Instrument failures card links to /instruments?show=open; the page opened on Open failures with All / Open failures / Held counts (0 on the dev database, which has no instrument messages) and the Held view said "No held results." No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; method and reagent lot on each result; several allowed specimen types per test.
