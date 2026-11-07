@@ -16154,3 +16154,29 @@ Other gaps found (test codes hard-coded in about a dozen places, method and reag
 ### Next ranked residual
 
 The remaining test-catalog gaps, in order: test codes hard-coded in services (replace with a role on the test); method and reagent lot on each result; LOINC codes and several allowed specimen types; the unused flags (verification required, contributes to compatibility). Confirm OCD-065 with the medical director before activating any example.
+
+## Iteration 481 — The reference range goes to the EHR (2026-11-07)
+
+### Capability matrix rescan (interoperability: results)
+
+Cycles 478–480 send a numeric result as NM with units (OBX-6) and its flag (OBX-8), but not the reference range the flag was judged against (OBX-7), because the message builder never saw the test definition. An H with no range on the EHR side reads as unexplained (residual recorded in Cycle 480).
+
+### Design
+
+- **`NumericLimits.Hl7ReferenceRange()`:** "0.10-0.30", or ">=0.10" / "<=0.30" when only one side is set, at the test's decimal places; none when no range is set.
+- **`Hl7OutboundService`:** reads the result's active test definition and, for a Numeric test, passes the range to `Hl7OruBuilder`.
+- **`Hl7OruBuilder`:** sets OBX-7 only for an NM observation. Other results are unchanged; no schema change.
+
+### Requirements
+
+- URS-BB-546, FRS-BB-655. Help: tests (admin).
+
+### Tests
+
+- TEST-BB-522: a queued numeric result reads OBX-2 NM, OBX-5 0.45, OBX-6 %, OBX-7 0.00-0.30, OBX-8 H; one-sided ranges format as >= and <=; no range gives none.
+- Full suite: 3,889 passed
+- Not checked in the browser: the change is in the outbound message only, with nothing on screen; queuing a message live would write to the dev database. TEST-BB-522 runs the real outbound path.
+
+### Next ranked residual
+
+The remaining test-catalog gaps: test codes hard-coded in services (replace with a role on the test); method and reagent lot on each result; LOINC codes and several allowed specimen types; the unused flags (verification required, contributes to compatibility). Confirm OCD-065 with the medical director before activating any example.

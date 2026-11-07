@@ -648,6 +648,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-543 / FRS-BB-652 | Titer entry, endpoint, and score | `TiterRule` | TEST-BB-517, TEST-BB-519 | U, I | OCD-065 |
 | URS-BB-544 / FRS-BB-653 | Titer display, trend, and EHR value | `ResultValueText`; `PatientTestHistoryService` | TEST-BB-517, TEST-BB-519 | U, I | OCD-065 |
 | URS-BB-545 / FRS-BB-654 | Example tests seeded as drafts | `DatabaseSeeder.TestCatalogExamples` | TEST-BB-520 | I | OCD-065 |
+| URS-BB-546 / FRS-BB-655 | Numeric reference range sent in OBX-7 | `Hl7OruBuilder` | TEST-BB-522 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -192,4 +192,31 @@ public class NumericTiterResultTests : IDisposable
         Assert.Equal("2 dilutions higher than 1:8 on 2026-10-01", rows.Single(r => r.Value == thirtyTwo.Serialize()).Trend);
         Assert.Null(rows.Single(r => r.Value == eight.Serialize()).Trend);
     }
+
+    // TEST-BB-522: a numeric result queued for the EHR carries the test's reference range in OBX-7, beside units and flag.
+    [Fact]
+    public async Task QueuedNumericResult_CarriesTheReferenceRange()
+    {
+        long resultId;
+        await using (var c = _factory.Create())
+        {
+            var f = await SeedAsync(c);
+            var saved = await SaveAsync(Save(f, "FMHQ", "0.45", complete: true));
+            Assert.True(saved.Succeeded, saved.Error);
+            resultId = saved.Value!.Id;
+        }
+
+        await using var context = _factory.Create();
+        var outbound = new BloodBankLIS.HL7.Messaging.Hl7OutboundService(
+            new EfRepository<TestResult>(context), new EfRepository<Patient>(context), new EfRepository<Hl7MessageLog>(context), context,
+            _factory.Clock, endpoints: new EfRepository<InterfaceEndpoint>(context), testDefinitions: new EfRepository<TestDefinition>(context));
+        var queued = await outbound.QueueResultMessageAsync(resultId);
+        Assert.True(queued.Succeeded, queued.Error);
+        var obx = queued.Value!.RawMessage.Split('\r').Single(s => s.StartsWith("OBX")).Split('|');
+        Assert.Equal(("NM", "0.45", "%", "0.00-0.30", "H"), (obx[2], obx[5], obx[6], obx[7], obx[8]));
+
+        Assert.Equal(">=0.1", new NumericLimits(ReferenceLow: 0.1m).Hl7ReferenceRange());
+        Assert.Equal("<=5", new NumericLimits(ReferenceHigh: 5m).Hl7ReferenceRange());
+        Assert.Null(new NumericLimits().Hl7ReferenceRange());
+    }
 }

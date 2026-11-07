@@ -44,7 +44,8 @@ public static class Hl7OruBuilder
         Hl7OutboundIdentity? identity = null,
         Hl7Encoding? encoding = null,
         Hl7FieldMap? map = null,
-        InterfaceValueTranslator? translator = null)
+        InterfaceValueTranslator? translator = null,
+        string? referenceRange = null)
     {
         ArgumentNullException.ThrowIfNull(patient);
         ArgumentNullException.ThrowIfNull(result);
@@ -73,6 +74,12 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.ResultInterpretation), translator.ToExternal(InterfaceDataItemKeys.ResultInterpretation, result.Interpretation))
             .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), translator.ToExternal(InterfaceDataItemKeys.ResultObxStatus,
                 ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null) ?? ResultReleaseRule.Final));
+        if (!string.IsNullOrWhiteSpace(referenceRange) && ObxValueType(result) == "NM")
+        {
+            // OBX-7 reference range of a numeric result, from the test definition.
+            builder.Set("OBX-7", referenceRange);
+        }
+
         if (!string.IsNullOrWhiteSpace(result.AbnormalFlag))
         {
             // OBX-8 abnormal flags (HL7 table 0078): L, H, LL, HH from the test's reference and critical limits.

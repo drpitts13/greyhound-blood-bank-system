@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.Domain.Rules;
@@ -29,6 +30,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
     private readonly IRepository<Specimen>? _specimens;
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
     private readonly IRepository<OrderLine>? _orderLines;
+    private readonly IRepository<TestDefinition>? _testDefinitions;
 
     public Hl7OutboundService(
         IRepository<TestResult> results,
@@ -45,8 +47,10 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         IRepository<Order>? orders = null,
         IRepository<Specimen>? specimens = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
-        IRepository<OrderLine>? orderLines = null)
+        IRepository<OrderLine>? orderLines = null,
+        IRepository<TestDefinition>? testDefinitions = null)
     {
+        _testDefinitions = testDefinitions;
         _specimens = specimens;
         _orderSpecimens = orderSpecimens;
         _orderLines = orderLines;
@@ -89,7 +93,14 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         var controlId = $"OUT{now:yyyyMMddHHmmssfff}";
         var resolved = await ResolveOutboundAsync(InterfaceType.Results, ct);
         var translator = await LoadTranslatorAsync(ct);
-        var raw = Hl7OruBuilder.Build(patient, result, controlId, now, resolved.Identity, map: resolved.Map, translator: translator);
+        var definition = _testDefinitions is null
+            ? null
+            : await _testDefinitions.FirstOrDefaultAsync(d => d.IsActive && d.Code == result.TestCode, ct);
+        var referenceRange = definition?.ResultValueType == ResultValueType.Numeric
+            ? NumericLimits.From(definition).Hl7ReferenceRange()
+            : null;
+        var raw = Hl7OruBuilder.Build(patient, result, controlId, now, resolved.Identity, map: resolved.Map, translator: translator,
+            referenceRange: referenceRange);
 
         var log = new Hl7MessageLog
         {

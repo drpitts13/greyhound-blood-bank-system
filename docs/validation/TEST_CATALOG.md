@@ -530,5 +530,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-519 | I | `NumericTiterResultTests.Numeric_IsChecked_Flagged_AndSentWithUnitsAndFlag`; `NumericTiterResultTests.Titer_IsStoredWithEndpointAndScore_AndACorrectionRecomputes`; `NumericTiterResultTests.History_TrendsTitersOfTheSameTest_OldestFirst` | URS-BB-542–544 / FRS-BB-651–653 |
 | TEST-BB-520 | I | `SeederTests.Seed_AddsExampleTestsAsValidDrafts_AndTheTiterDemo` | URS-BB-545 / FRS-BB-654 |
 | TEST-BB-521 | I | `AdminConfigTests.NumericAndTiterSettings_RoundTrip_AndOnlyTheMatchingPartIsKept` | URS-BB-541 / FRS-BB-650 |
+| TEST-BB-522 | I | `NumericTiterResultTests.QueuedNumericResult_CarriesTheReferenceRange` | URS-BB-546 / FRS-BB-655 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

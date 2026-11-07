@@ -20,7 +20,7 @@ For a **Numeric** test, set the **Units** (for example %), **Decimal places**, a
 - **Reference**: a value outside it is flagged **L** or **H**.
 - **Critical**: a value beyond it is flagged **LL** or **HH** and warns when saved.
 
-The reference range must lie inside the reportable range, and the critical limits outside the reference range. The flag is stored with the result and sent to the EHR.
+The reference range must lie inside the reportable range, and the critical limits outside the reference range. The flag is stored with the result and sent to the EHR, with the units and the reference range.
 
 ## Titers
 

@@ -34,6 +34,17 @@ public sealed record NumericLimits(
         return string.IsNullOrWhiteSpace(units) ? range : $"{range} {units.Trim()}";
     }
 
+    /// <summary>
+    /// The reference range as HL7 OBX-7 carries it: "0.10-0.30", "&gt;=0.10", or "&lt;=0.30"; null when none is set.
+    /// </summary>
+    public string? Hl7ReferenceRange() => (ReferenceLow, ReferenceHigh) switch
+    {
+        ({ } low, { } high) => $"{Format(low)}-{Format(high)}",
+        ({ } low, null) => $">={Format(low)}",
+        (null, { } high) => $"<={Format(high)}",
+        _ => null
+    };
+
     public string Format(decimal value) =>
         DecimalPlaces is int places ? value.ToString("F" + places, CultureInfo.InvariantCulture) : value.ToString(CultureInfo.InvariantCulture);
 }
