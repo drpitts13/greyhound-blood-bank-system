@@ -198,11 +198,13 @@ public static class TestDefinitionValidator
 
         if (!string.IsNullOrWhiteSpace(d.RequiredSpecimenType) && activeSpecimenTypeCodes is not null)
         {
-            var required = d.RequiredSpecimenType.Trim();
-            if (!activeSpecimenTypeCodes.Contains(required))
+            foreach (var required in AcceptedSpecimenTypes.Parse(d.RequiredSpecimenType))
             {
-                results.Add(RuleResult.HardStop("TESTDEF.SPECTYPE.MISSING",
-                    $"Required specimen type '{required}' is not in the active specimen type catalog."));
+                if (!activeSpecimenTypeCodes.Contains(required))
+                {
+                    results.Add(RuleResult.HardStop("TESTDEF.SPECTYPE.MISSING",
+                        $"Specimen type '{required}' is not in the active specimen type catalog."));
+                }
             }
         }
 

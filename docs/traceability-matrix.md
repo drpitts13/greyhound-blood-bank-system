@@ -669,6 +669,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-559 / FRS-BB-673 | Failed QC names and opens the results to review | `ReagentLotUseRule.ReviewSinceUtc`; `ReagentQcService`; `AlertScanner`; `Reagents.razor` | TEST-BB-546 | U, I | |
 | URS-BB-560 / FRS-BB-674 | Mark a result reviewed for a failed lot | `ReagentLotUseRule.EvaluateReview`; `ReagentQcService.ReviewLotResultAsync`; `Reagents.razor` | TEST-BB-547 | U, I | |
 | URS-BB-561 / FRS-BB-675 | Verified results in the FHIR API with LOINC | `FhirMapper.TestResult`; `FhirReadService` | TEST-BB-548, TEST-BB-320 | I | OCD-043 |
+| URS-BB-562 / FRS-BB-676 | Several accepted specimen types per test | `AcceptedSpecimenTypes`; `SpecimenTypeCompatibilityRule`; `TestDefinitionValidator`; `AdminTests.razor` | TEST-BB-549 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

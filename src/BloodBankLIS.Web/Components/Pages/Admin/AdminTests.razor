@@ -365,15 +365,28 @@
                 <textarea rows="3" @bind="_editing.AllowedResultValues"></textarea>
             </div>
             }
-            <div class="field"><label>Default / required specimen type</label>
-                <select @bind="_editing.RequiredSpecimenType">
+            <div class="field" data-test-specimen-types><label>Preferred specimen type</label>
+                <select value="@(AcceptedSpecimenTypes.Preferred(_editing.RequiredSpecimenType) ?? "")" @onchange="e => SetPreferredSpecimenType(e.Value?.ToString())">
                     <option value="">— Any —</option>
                     @foreach (var t in _catalogSpecimenTypes)
                     {
                         <option value="@t.Code">@t.Code — @t.Description</option>
                     }
                 </select>
-                <p class="muted" style="margin:.25rem 0 0;font-size:.85rem;">Prefills accession. Result entry is blocked if the specimen type does not match.</p>
+                @if (AcceptedSpecimenTypes.Preferred(_editing.RequiredSpecimenType) is { } preferredType)
+                {
+                    <div style="margin-top:.35rem;font-size:.9rem;">
+                        <span class="muted">Also accepted:</span>
+                        @foreach (var t in _catalogSpecimenTypes.Where(t => !string.Equals(t.Code, preferredType, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            <label style="margin-right:.6rem;white-space:nowrap;">
+                                <input type="checkbox" checked="@AcceptedSpecimenTypes.Parse(_editing.RequiredSpecimenType).Contains(t.Code.ToUpperInvariant())"
+                                       @onchange="e => ToggleAcceptedSpecimenType(t.Code, e.Value is true)" data-accept-type="@t.Code" /> @t.Code
+                            </label>
+                        }
+                    </div>
+                }
+                <p class="muted" style="margin:.25rem 0 0;font-size:.85rem;">The preferred type prefills accession. Result entry is blocked unless the specimen is the preferred type or one also accepted.</p>
             </div>
             <div class="field"><label>Testing method</label><input @bind="_editing.TestingMethod" /></div>
             <div class="field"><label>Performing department</label><input @bind="_editing.PerformingDepartment" /></div>
@@ -431,6 +444,33 @@
     private List<PhaseListItemDto> _catalogPhases = new();
     private List<BloodAttributeListItemDto> _catalogBloodAttributes = new();
     private List<SpecimenTypeListItemDto> _catalogSpecimenTypes = new();
+
+    // The stored list keeps the preferred type first, then the others in catalog order.
+    private void SetPreferredSpecimenType(string? code)
+    {
+        if (_editing is null) return;
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            _editing.RequiredSpecimenType = null;
+            return;
+        }
+
+        var others = AcceptedSpecimenTypes.Parse(_editing.RequiredSpecimenType).Skip(1)
+            .Where(c => !string.Equals(c, code, StringComparison.OrdinalIgnoreCase));
+        _editing.RequiredSpecimenType = AcceptedSpecimenTypes.Normalize(string.Join(",", new[] { code }.Concat(others)));
+    }
+
+    private void ToggleAcceptedSpecimenType(string code, bool accepted)
+    {
+        if (_editing is null) return;
+        var current = AcceptedSpecimenTypes.Parse(_editing.RequiredSpecimenType).ToList();
+        if (current.Count == 0) return;
+        var preferred = current[0];
+        var others = current.Skip(1).Where(c => !string.Equals(c, code, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (accepted) others.Add(code.ToUpperInvariant());
+        var ordered = _catalogSpecimenTypes.Select(t => t.Code.ToUpperInvariant()).Where(others.Contains);
+        _editing.RequiredSpecimenType = AcceptedSpecimenTypes.Normalize(string.Join(",", new[] { preferred }.Concat(ordered)));
+    }
     private bool _loading = true;
     private bool _includeInactive = true;
     private string _filter = string.Empty;

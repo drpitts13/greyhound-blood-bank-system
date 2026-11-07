@@ -12,6 +12,10 @@ routes:
 
 **Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (a choice list, a graded reaction, free text), which panel subtests it includes, and how an interpretation is derived. The list keeps the test code. When the name is blank, the list says Test and the id. That wording is not saved, and the edit form still shows the stored name.
 
+## Specimen types
+
+**Preferred specimen type** prefills the specimen type when the test is accessioned. **Also accepted** lists the other types the test may be performed on (for example EDTA preferred, clotted also accepted). Result entry is blocked only when the specimen is none of these; order entry warns before that. Leave the preferred type empty to accept any type. A specimen type's own **excluded tests** still apply. Which types each test accepts is your laboratory's decision.
+
 ## Numeric results
 
 For a **Numeric** test, set the **Units** (for example %), **Decimal places**, and any of three ranges. Each is optional and your facility's own:

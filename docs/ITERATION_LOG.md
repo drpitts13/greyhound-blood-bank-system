@@ -16553,3 +16553,28 @@ The read-only FHIR API (Cycle 276, OCD-043) served blood type and antibodies but
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; several allowed specimen types per test; FHIR DiagnosticReport grouping a specimen's results.
+
+## Iteration 501 — Several accepted specimen types per test (2026-11-07)
+
+### Capability matrix rescan (orders and specimens)
+
+A test could name one required specimen type, so a laboratory that runs a screen on EDTA or on a clotted tube had to leave the type empty (accepting anything, including tubes it does not validate) or turn a valid tube away at result entry. Workflow questions: clicks (none at the bench: the preferred type still prefills); memory (the accepted types are named in the warning and the stop); inference (preferred first); safety (types outside the list stay a hard stop at result entry; excluded tests per specimen type still apply); override (none needed for a listed type).
+
+### Design
+
+- `AcceptedSpecimenTypes` over the existing `RequiredSpecimenType` column (ordered list, no migration).
+- Compatibility rule, validator, admin save, order-entry hint; Admin › Tests preferred select and also-accepted checkboxes.
+
+### Requirements
+
+- URS-BB-562, FRS-BB-676. Help: test definitions.
+
+### Tests
+
+- TEST-BB-549: parsing, normalizing, preferred, describing; accepts any listed type, any type when empty, nothing when the specimen has no type; result entry accepts CLOT for "EDTA, CLOT" and refuses HEP naming both; the validator refuses a listed type missing from the catalog.
+- Full suite: 3,959 passed.
+- Live: ABSC's editor showed Preferred specimen type "— Any —" (unchanged seed); choosing EDTA revealed Also accepted with SERUM, which could be ticked. Not saved (servers stopped with the edit open). No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; FHIR DiagnosticReport grouping a specimen's results; show the accepted types on the accession form beside the preferred one.

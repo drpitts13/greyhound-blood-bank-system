@@ -61,9 +61,9 @@ public static class SpecimenTypeOrderHint
         var byCode = tests.ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
         foreach (var code in selectedCodes)
         {
-            if (byCode.TryGetValue(code, out var test) && !string.IsNullOrWhiteSpace(test.RequiredSpecimenType))
+            if (byCode.TryGetValue(code, out var test) && AcceptedSpecimenTypes.Preferred(test.RequiredSpecimenType) is { } preferred)
             {
-                return test.RequiredSpecimenType;
+                return preferred;
             }
         }
 
@@ -82,9 +82,8 @@ public static class SpecimenTypeOrderHint
 
         var mismatched = tests
             .Where(t => selectedCodes.Contains(t.Code, StringComparer.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(t.RequiredSpecimenType)
-                && !string.Equals(t.RequiredSpecimenType, specimenType, StringComparison.OrdinalIgnoreCase))
-            .Select(t => $"{t.Code} requires {t.RequiredSpecimenType}")
+                && !AcceptedSpecimenTypes.Accepts(t.RequiredSpecimenType, specimenType))
+            .Select(t => $"{t.Code} requires {AcceptedSpecimenTypes.Describe(t.RequiredSpecimenType)}")
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (mismatched.Count == 0)

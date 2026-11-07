@@ -600,9 +600,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
             : null;
 
-        e.RequiredSpecimenType = string.IsNullOrWhiteSpace(req.RequiredSpecimenType)
-            ? null
-            : req.RequiredSpecimenType.Trim().ToUpperInvariant();
+        // An ordered list: the preferred type first, then the others the test also accepts.
+        e.RequiredSpecimenType = AcceptedSpecimenTypes.Normalize(req.RequiredSpecimenType);
 
         e.TestingMethod = req.TestingMethod?.Trim();
 
