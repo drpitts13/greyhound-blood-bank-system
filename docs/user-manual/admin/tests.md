@@ -12,6 +12,24 @@ routes:
 
 **Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (a choice list, a graded reaction, free text), which panel subtests it includes, and how an interpretation is derived. The list keeps the test code. When the name is blank, the list says Test and the id. That wording is not saved, and the edit form still shows the stored name.
 
+## Numeric results
+
+For a **Numeric** test, set the **Units** (for example %), **Decimal places**, and any of three ranges. Each is optional and your facility's own:
+
+- **Reportable**: what the method can report. A value outside it is refused at entry (dilute and repeat, or report it as above or below the range).
+- **Reference**: a value outside it is flagged **L** or **H**.
+- **Critical**: a value beyond it is flagged **LL** or **HH** and warns when saved.
+
+The reference range must lie inside the reportable range, and the critical limits outside the reference range. The flag is stored with the result and sent to the EHR.
+
+## Titers
+
+For a **Titer** test, set the **First** and **Last dilution** (the last must be the first doubled, for example 1 to 2048), the **phase** the tubes are read at, the **weakest grade that counts** toward the endpoint, and whether a **score** is calculated. The form lists the dilutions. Which grade is the endpoint, how the score is counted, and what change matters are decisions for your medical director (OCD-065).
+
+## Example tests
+
+The catalog includes example tests as **inactive drafts**: antibody and ABO titers, fetal bleed quantitation, a DAT with IgG and C3, an elution, a weak D panel, and an Rh/Kell phenotype. Review each with your medical director, adjust it, and activate only the ones your laboratory performs.
+
 ## History
 
 Mark the tests that write patient ABO, Rh, antibody screen, or antibody identification into history. Those are the tests the issue gate and electronic crossmatch read. A test you forget to mark will verify on the worklist and still leave the chart without a blood type. A test you mark by mistake can overwrite history with a value that was never meant to be a type.

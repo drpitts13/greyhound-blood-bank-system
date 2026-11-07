@@ -615,4 +615,45 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(14, await verify.Patients.CountAsync());
         }
     }
+
+    // TEST-BB-520: the example tests are seeded once each as inactive drafts that would pass validation if activated,
+    // with their subtests; the anti-K titer demo shows two titers three weeks apart.
+    [Fact]
+    public async Task Seed_AddsExampleTestsAsValidDrafts_AndTheTiterDemo()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        string[] codes = ["ABTITER", "ABOTITER", "FMHQ", "DATIGG", "ELUTION", "WEAKDP", "RHKPHENO"];
+        var subtests = (await verify.SubtestDefinitions.Where(s => s.IsActive && !s.IsDraft).Select(s => s.Code).ToListAsync())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var attributes = (await verify.BloodAttributeDefinitions.Where(a => a.IsActive).Select(a => a.Code).ToListAsync()).ToHashSet(StringComparer.Ordinal);
+        var phases = (await verify.PhaseDefinitions.Where(p => p.IsActive && !p.IsDraft).ToListAsync())
+            .ToDictionary(p => p.Code, StringComparer.OrdinalIgnoreCase);
+        foreach (var code in codes)
+        {
+            var definition = Assert.Single(await verify.TestDefinitions.Where(t => t.Code == code).ToListAsync());
+            Assert.True(definition.IsDraft && !definition.IsActive, code);
+            Assert.Equal(DatabaseSeeder.ExampleTestReason, definition.ChangeReason);
+            var evaluation = BloodBankLIS.Domain.Rules.Config.TestDefinitionValidator.Validate(
+                definition, false, subtests, attributes, null, phases);
+            Assert.False(evaluation.IsHardStopped, $"{code}: {string.Join("; ", evaluation.HardStops.Select(h => h.Message))}");
+        }
+
+        Assert.True(subtests.IsSupersetOf(["IGG", "C3D", "DATCTL", "LASTWASH"]));
+        var titer = await verify.TestDefinitions.SingleAsync(t => t.Code == "ABTITER");
+        Assert.Equal((1, 2048, "AHG", "1+", true), (titer.TiterStartDilution, titer.TiterEndDilution, titer.TiterPhaseCode, titer.TiterEndpointMinGrade, titer.TiterScored));
+        var fmhq = await verify.TestDefinitions.SingleAsync(t => t.Code == "FMHQ");
+        Assert.Equal(("%", 2), (fmhq.ResultUnits, fmhq.DecimalPlaces));
+        Assert.Null(fmhq.ReferenceHigh);
+
+        var patient = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0004");
+        var titers = await verify.TestResults.Where(r => r.PatientId == patient.Id && r.TestCode == "ABTITER").OrderBy(r => r.VerifiedUtc).ToListAsync();
+        Assert.Equal(["Titer 1:8 (score 28)", "Titer 1:32 (score 48)"], titers.Select(r => r.Interpretation));
+        Assert.Equal(2, titers.Select(r => r.SpecimenId).Distinct().Count());
+    }
 }

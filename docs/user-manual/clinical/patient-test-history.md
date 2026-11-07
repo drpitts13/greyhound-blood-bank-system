@@ -14,6 +14,8 @@ routes:
 
 Use this tab when a result on the overview surprises you, when you are investigating a discrepancy, or when a clinician asks what the previous type and screen showed.
 
+Numeric results show their units and, when outside the test's ranges, **L**, **H**, **LL**, or **HH**. A titer shows as its endpoint (for example 1:32), and a later titer of the same test says how it changed, for example "2 dilutions higher than 1:8 on 2026-10-01". That is information only: what change matters is your medical director's decision.
+
 Each version keeps who entered it, who verified it, and when. **Entered / verified** shows the person who entered the result (hover for the time), how it arrived (**Manual**, **Instrument**, **Interface**, or **Calculated**), who verified it, and who invalidated it. A correction does not remove the earlier version. To explain a change, tick **Corrected or invalidated only**: every version of each changed result is listed together, by tube and test, newest first, with the reason on each row. The accession opens that tube's history on Specimens, and the order number opens Orders showing that order.
 
 > Warning. An ABO or Rh discrepancy between the current result and history blocks routine issue until it is resolved with Retain or Replace. Test History is where you see both values.

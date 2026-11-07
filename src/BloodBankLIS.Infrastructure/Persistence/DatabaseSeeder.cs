@@ -69,6 +69,7 @@ public static partial class DatabaseSeeder
         await EnsureAgtypeTestAsync(context, cancellationToken);
         await EnsureUnitAntigenTypingTestAsync(context, cancellationToken);
         await EnsureWeakDTestAsync(context, cancellationToken);
+        await EnsureExampleTestsAsync(context, cancellationToken);
         await EnsureNeonatalTypeAndScreenTestAsync(context, cancellationToken);
         await EnsureCrossmatchTestsAsync(context, cancellationToken);
         await EnsureCrossmatchSettingsAsync(context, cancellationToken);

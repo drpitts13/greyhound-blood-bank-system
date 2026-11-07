@@ -16119,3 +16119,38 @@ Cycle 476 links a new tube to its visit, inferring the only open visit. With sev
 ### Next ranked residual
 
 Rescan the desks; OCD-064 (collector default), OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iterations 478–480 — Numeric results and titers in the test catalog (2026-11-07)
+
+Requested by the user: improve the Tests tables to accommodate any type of blood bank test, with the changes in the seeded data. Decided in conversation: new result shapes first; fill and add example tests; phased commits.
+
+### Capability matrix rescan (testing: the test catalog)
+
+A test definition could describe coded, free-text, ABO/Rh, graded panel (with phases and check cells), crossmatch, and antigen results. Two common shapes were missing:
+- **Titers** (anti-D or anti-K in pregnancy, ABO before an ABO-incompatible transplant): no dilution series, endpoint, score, or trend.
+- **Numeric results** (fetal bleed quantitation): no units, decimals, or ranges on the definition, so any number was accepted and nothing was flagged.
+Other gaps found (test codes hard-coded in about a dozen places, method and reagent lots not on results, LOINC codes, several specimen types, unused flags) are recorded for later; the user chose result shapes first.
+
+### Design
+
+- **Schema (part 1):** numeric settings (units, decimals, reportable, reference, critical) and titer settings (first and last dilution, phase, endpoint grade, scored) on `TestDefinition`; `ResultValueType.Titer`; `TestCategory.AntibodyTiter`; `TestResult.AbnormalFlag`. Migration and dev additive columns. Validator checks for consistent ranges and a doubling series.
+- **Rules:**
+  - `NumericResultRule`: decimals and reportable range refuse entry; L/H/LL/HH flags; a critical warning.
+  - `TiterRule`: every dilution to the first negative; endpoint at the configured grade; example score values; a warning for a reaction after a negative; change in dilution steps.
+- **Entry and output (part 2):** `ResultService` validates both shapes on save and correction and stores the flag. The worklist entry panel shows units, the reference range, and live flags, or one grade per dilution with the endpoint. Tests and Test History show "1:32" and the trend. The ORU sends NM with units and OBX-8, or the titer as 1:n.
+- **Admin and seed (part 3):** numeric and titer sections on the Tests page. Seven example tests and four subtests are seeded once as **inactive drafts** for the medical director (OCD-065). A demo anti-K titer pair is added for MRN0004.
+- **Not done (recorded):** OBX-7 reference range (the message builder does not load the definition); a per-test score table (score values are fixed examples).
+
+### Requirements
+
+- URS-BB-541 to 545, FRS-BB-650 to 654; OCD-065. Help: tests (admin), test worklist, patient test history.
+
+### Tests
+
+- TEST-BB-516 (numeric rule), 517 (titer rule), 518 (validator), 519 (entry, history, ORU), 520 (seeded examples valid as drafts, and the demo), 521 (admin round trip).
+- Full suite: 3,888 passed
+- Live: starting the API upgraded the dev database in place (14 patients before and after) and added the seven examples as inactive drafts and the two demo titers. MRN0004's Test History showed "1:32 · 2 dilutions higher than 1:8 on 2026-10-17" above the earlier 1:8. Admin › Tests opened ABTITER with 1 to 2048, AHG, 1+, scored, and the 12 dilutions listed; FMHQ with %, 2 decimals, reportable 0–100, reference and critical empty. Nothing was saved. Result entry for a titer or numeric test was not tried live: the examples are drafts and cannot be ordered until activated (covered by TEST-BB-519). No server errors.
+
+### Next ranked residual
+
+The remaining test-catalog gaps, in order: test codes hard-coded in services (replace with a role on the test); method and reagent lot on each result; LOINC codes and several allowed specimen types; the unused flags (verification required, contributes to compatibility). Confirm OCD-065 with the medical director before activating any example.

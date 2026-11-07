@@ -636,11 +636,38 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         e.ContributesToUnitBloodAttributes = req.ContributesToUnitBloodAttributes;
 
+        ApplyResultShape(e, req.ResultValueType, req.ResultShape);
+
         e.ChangeReason = req.ChangeReason;
 
     }
 
 
+
+    /// <summary>Numeric settings are kept only on a numeric test, titer settings only on a titer test.</summary>
+    private static void ApplyResultShape(TestDefinition e, ResultValueType valueType, TestResultShapeDto? shape)
+    {
+        var numeric = valueType == ResultValueType.Numeric ? shape : null;
+        e.ResultUnits = string.IsNullOrWhiteSpace(numeric?.ResultUnits) ? null : numeric.ResultUnits.Trim();
+        e.DecimalPlaces = numeric?.DecimalPlaces;
+        e.ReportableLow = numeric?.ReportableLow;
+        e.ReportableHigh = numeric?.ReportableHigh;
+        e.ReferenceLow = numeric?.ReferenceLow;
+        e.ReferenceHigh = numeric?.ReferenceHigh;
+        e.CriticalLow = numeric?.CriticalLow;
+        e.CriticalHigh = numeric?.CriticalHigh;
+
+        var titer = valueType == ResultValueType.Titer ? shape : null;
+        e.TiterStartDilution = titer?.TiterStartDilution;
+        e.TiterEndDilution = titer?.TiterEndDilution;
+        e.TiterPhaseCode = string.IsNullOrWhiteSpace(titer?.TiterPhaseCode) ? null : titer.TiterPhaseCode.Trim().ToUpperInvariant();
+        e.TiterEndpointMinGrade = string.IsNullOrWhiteSpace(titer?.TiterEndpointMinGrade) ? null : titer.TiterEndpointMinGrade.Trim();
+        e.TiterScored = titer?.TiterScored ?? false;
+    }
+
+    private static TestResultShapeDto ShapeOf(TestDefinition t) => new(
+        t.ResultUnits, t.DecimalPlaces, t.ReportableLow, t.ReportableHigh, t.ReferenceLow, t.ReferenceHigh, t.CriticalLow, t.CriticalHigh,
+        t.TiterStartDilution, t.TiterEndDilution, t.TiterPhaseCode, t.TiterEndpointMinGrade, t.TiterScored);
 
     private static TestDefinitionDto Map(TestDefinition t) => new(
 
@@ -660,7 +687,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         t.ContributesToUnitBloodAttributes,
 
-        t.Version, t.IsActive, t.IsDraft, t.EffectiveUtc, t.RetiredUtc, t.ChangeReason);
+        t.Version, t.IsActive, t.IsDraft, t.EffectiveUtc, t.RetiredUtc, t.ChangeReason, ShapeOf(t));
 
 
 

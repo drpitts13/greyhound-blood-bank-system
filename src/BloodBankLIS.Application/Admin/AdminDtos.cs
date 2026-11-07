@@ -120,7 +120,8 @@ public sealed record TestDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason)
+    string? ChangeReason,
+    TestResultShapeDto? ResultShape = null)
 {
     /// <summary>
     /// Catalog list. A blank name stays the test id.
@@ -150,7 +151,27 @@ public sealed record SaveTestDefinitionRequest(
     IReadOnlyList<string>? BloodAttributeScopeCodes,
     BloodAttributeKind? BloodAttributeScopeKind,
     bool ContributesToUnitBloodAttributes,
-    string? ChangeReason);
+    string? ChangeReason,
+    TestResultShapeDto? ResultShape = null);
+
+/// <summary>
+/// Numeric settings (units, decimal places, reportable, reference, and critical limits) and titer settings (dilution
+/// series, phase, endpoint grade, scoring). Only the part matching the test's result value type is kept.
+/// </summary>
+public sealed record TestResultShapeDto(
+    string? ResultUnits = null,
+    int? DecimalPlaces = null,
+    decimal? ReportableLow = null,
+    decimal? ReportableHigh = null,
+    decimal? ReferenceLow = null,
+    decimal? ReferenceHigh = null,
+    decimal? CriticalLow = null,
+    decimal? CriticalHigh = null,
+    int? TiterStartDilution = null,
+    int? TiterEndDilution = null,
+    string? TiterPhaseCode = null,
+    string? TiterEndpointMinGrade = null,
+    bool TiterScored = false);
 
 // ---- Test groupers ----
 

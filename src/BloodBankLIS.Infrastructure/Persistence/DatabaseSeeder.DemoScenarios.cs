@@ -71,6 +71,7 @@ public static partial class DatabaseSeeder
         await EnsureIssueRequestDemoAsync(context, ct);
         await EnsureOrderingLocationMappingDemoAsync(context, ct);
         await EnsureDeviationDemoAsync(context, ct);
+        await EnsureTiterDemoAsync(context, ct);
     }
 
     /// <summary>
