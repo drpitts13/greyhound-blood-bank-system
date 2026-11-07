@@ -180,6 +180,16 @@ public static class TestDefinitionValidator
             }
         }
 
+        if (d.ResultValueType == ResultValueType.Numeric)
+        {
+            ValidateNumeric(d, results);
+        }
+
+        if (d.ResultValueType == ResultValueType.Titer)
+        {
+            ValidateTiter(d, phasesByCode, results);
+        }
+
         if (!string.IsNullOrWhiteSpace(d.RequiredSpecimenType) && activeSpecimenTypeCodes is not null)
         {
             var required = d.RequiredSpecimenType.Trim();
@@ -191,6 +201,62 @@ public static class TestDefinitionValidator
         }
 
         return new RuleEvaluation(results);
+    }
+
+    /// <summary>Numeric limits are consistent: each range low ≤ high, reference inside reportable, critical outside reference.</summary>
+    private static void ValidateNumeric(TestDefinition d, List<RuleResult> results)
+    {
+        if (d.DecimalPlaces is < 0 or > 4)
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.NUM.DECIMALS", "Decimal places must be 0 to 4."));
+        }
+
+        foreach (var (name, low, high) in new[]
+        {
+            ("Reportable", d.ReportableLow, d.ReportableHigh),
+            ("Reference", d.ReferenceLow, d.ReferenceHigh),
+            ("Critical", d.CriticalLow, d.CriticalHigh)
+        })
+        {
+            if (low is decimal l && high is decimal h && l > h)
+            {
+                results.Add(RuleResult.HardStop("TESTDEF.NUM.RANGE", $"{name} low must not be above {name.ToLowerInvariant()} high."));
+            }
+        }
+
+        if ((d.ReportableLow is decimal rl && d.ReferenceLow is decimal refLow && refLow < rl)
+            || (d.ReportableHigh is decimal rh && d.ReferenceHigh is decimal refHigh && refHigh > rh))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.NUM.REFERENCE", "The reference range must lie inside the reportable range."));
+        }
+
+        if ((d.CriticalLow is decimal cl && d.ReferenceLow is decimal lowRef && cl > lowRef)
+            || (d.CriticalHigh is decimal ch && d.ReferenceHigh is decimal highRef && ch < highRef))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.NUM.CRITICAL", "Critical limits must lie outside the reference range."));
+        }
+    }
+
+    /// <summary>A titer needs a doubling series, a known phase, and a positive endpoint grade.</summary>
+    private static void ValidateTiter(TestDefinition d, IReadOnlyDictionary<string, PhaseDefinition>? phasesByCode, List<RuleResult> results)
+    {
+        if (d.TiterStartDilution is not int start || d.TiterEndDilution is not int end || !TiterRule.IsValidSeries(start, end))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.TITER.SERIES",
+                $"A titer needs a first dilution of at least 1 and a last dilution that is the first doubled 1 to {TiterRule.MaxSteps} times (for example 1 to 2048)."));
+        }
+
+        if (TiterRule.Strength(d.TiterEndpointMinGrade) <= 0)
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.TITER.ENDPOINT",
+                $"Choose the weakest grade that counts toward the endpoint ({string.Join(", ", TiterRule.Grades.Skip(1))})."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(d.TiterPhaseCode) && phasesByCode is not null && !phasesByCode.ContainsKey(d.TiterPhaseCode.Trim()))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.TITER.PHASE",
+                $"Titer phase '{d.TiterPhaseCode.Trim()}' is not in the active phase catalog."));
+        }
     }
 
     public static bool UsesPanelSubtests(ResultValueType valueType) =>

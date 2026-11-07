@@ -855,6 +855,7 @@ public enum TestCategory
     ProductModification = 7,
     TransfusionReactionInvestigation = 8,
     AboRhRetype = 9,
+    AntibodyTiter = 10,
     Other = 99
 }
 
@@ -868,7 +869,9 @@ public enum ResultValueType
     Subtest = 4,
     BloodAttribute = 5,
     Crossmatch = 6,
-    ComplexCrossmatch = 7
+    ComplexCrossmatch = 7,
+    // A doubling dilution series with an endpoint (and optional score).
+    Titer = 8
 }
 
 /// <summary>

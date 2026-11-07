@@ -253,6 +253,7 @@ public sealed class TestResultConfiguration : IEntityTypeConfiguration<TestResul
         b.Property(r => r.TestCode).HasMaxLength(50).IsRequired();
         b.Property(r => r.Value).HasMaxLength(4000);
         b.Property(r => r.Units).HasMaxLength(50);
+        b.Property(r => r.AbnormalFlag).HasMaxLength(10);
         b.Property(r => r.Interpretation).HasMaxLength(500);
         b.Property(r => r.EnteredBy).HasMaxLength(100);
         b.Property(r => r.VerifiedBy).HasMaxLength(100);
@@ -1288,6 +1289,15 @@ public sealed class TestDefinitionConfiguration : IEntityTypeConfiguration<TestD
         b.Property(t => t.TestingMethod).HasMaxLength(150);
         b.Property(t => t.PerformingDepartment).HasMaxLength(150);
         b.Property(t => t.ChargeCodeMapping).HasMaxLength(50);
+        b.Property(t => t.ResultUnits).HasMaxLength(50);
+        b.Property(t => t.ReportableLow).HasPrecision(18, 4);
+        b.Property(t => t.ReportableHigh).HasPrecision(18, 4);
+        b.Property(t => t.ReferenceLow).HasPrecision(18, 4);
+        b.Property(t => t.ReferenceHigh).HasPrecision(18, 4);
+        b.Property(t => t.CriticalLow).HasPrecision(18, 4);
+        b.Property(t => t.CriticalHigh).HasPrecision(18, 4);
+        b.Property(t => t.TiterPhaseCode).HasMaxLength(50);
+        b.Property(t => t.TiterEndpointMinGrade).HasMaxLength(10);
         b.Property(t => t.ChangeReason).HasMaxLength(1000);
         b.Property(t => t.ApprovedBy).HasMaxLength(100);
         b.Property(t => t.CreatedBy).HasMaxLength(100).IsRequired();
