@@ -28,6 +28,10 @@ Scope for the project: inbound **ADT** (demographics/encounter), **ORM/OML** (or
 
 Field mappings live on each `InterfaceEndpoint` as `InterfaceFieldMappings` rows (data item key → HL7 path such as `PID-3-1`). Admin **Interface Setup** (`/admin/hl7`) can apply an EHR/billing vendor preset (Epic, Cerner, Meditech, Epic Resolute, Cerner Patient Accounting) or edit paths by hand. Inbound ADT/ORM/BPAM mappers and outbound ORU/DFT builders read those paths; catalog defaults match the original hard-coded locations when no rows are stored.
 
+### 2.0 Value translations
+
+Coded values are translated by `InterfaceValueTranslation` rows (Admin › HL7 › Translations): data item key, local value, external value, direction (Inbound, Outbound, Both), and an optional interface. Rows for one interface win over all-interfaces rows for the same key, direction, and value. `Procedure.Code` is shared by inbound OBR-4 (`Order.TestCode`) and outbound result OBR-4 (`TestResult.ObrTestCode`); those keys fall back to it when they have no matching row of their own. Inbound, a procedure code that matches both a grouper and a test resolves to the grouper, whose tests are ordered with `OrderLine.GrouperCode` set; a code that resolves to no active test or grouper is an `HL7-ORDER-CODE` mapping error. Outbound, a result whose line has a grouper with an outbound translation is sent with that code in OBR-4 (OBX-3 stays the test). Each message's untranslated values (on keys that have rows, and always order codes) are logged in `InterfaceUnmappedValues` for the interface team; a saved translation resolves them. Outbound PID-10-1, PID-22-1, BPS PV1-2, and OBX-8 (abnormal flag, else interpretation) are translated.
+
 ### 2.1 Inbound ADT (A01 admit, A04 register, A08 update)
 Default catalog (customizable per endpoint):
 | Data item | Default HL7 |
@@ -36,6 +40,9 @@ Default catalog (customizable per endpoint):
 | `Patient.LastName` / `FirstName` / `MiddleName` | `PID-5-1` / `PID-5-2` / `PID-5-3` |
 | `Patient.DateOfBirth` | `PID-7` |
 | `Patient.Sex` | `PID-8` |
+| `Patient.Race` | `PID-10-1` (translated; stored only when it is on the local list) |
+| `Patient.Ethnicity` | `PID-22-1` (translated; stored only when it is on the local list) |
+| `Encounter.PatientClass` | `PV1-2` (translated to the visit type; Unknown on a new visit when not translated) |
 | `Encounter.AccountNumber` | `PID-18-1` |
 | `Encounter.VisitNumber` | `PV1-19-1` |
 | `Encounter.CurrentLocation` | `PV1-3-1` |

@@ -650,6 +650,11 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-545 / FRS-BB-654 | Example tests seeded as drafts | `DatabaseSeeder.TestCatalogExamples` | TEST-BB-520 | I | OCD-065 |
 | URS-BB-546 / FRS-BB-655 | Numeric reference range sent in OBX-7 | `Hl7OruBuilder` | TEST-BB-522 | I | |
 | URS-BB-547 / FRS-BB-656 | LOINC code per test in OBX-3 | `LoincCodeRule`; `Hl7OruBuilder` | TEST-BB-523 | U, I | |
+| URS-BB-548 / FRS-BB-657 | Translations for all interfaces or one interface, local value lists, reason | `InterfaceValueTranslator`; `InterfaceTranslationAdminService`; `InterfaceValueSets` | TEST-BB-524, TEST-BB-525 | U, I | |
+| URS-BB-548 / FRS-BB-658 | Translations admin page and starter rows | `AdminHl7Translations.razor`; `DatabaseSeeder.InterfaceTranslations` | TEST-BB-528 | I | |
+| URS-BB-549 / FRS-BB-659 | Grouper precedence in and out; unknown order code to the error queue | `TestCodeTranslationRule`; `Hl7InboundProcessor`; `Hl7OutboundService` | TEST-BB-526 | I | |
+| URS-BB-550 / FRS-BB-660 | Race, ethnicity, patient class through the translations | `Hl7AdtMapper`; `Hl7OruBuilder`; `Hl7DftBuilder`; `Hl7BpsBuilder`; `PatientService` | TEST-BB-527 | U, I | |
+| URS-BB-550 / FRS-BB-661 | Unmapped values listed, resolved, dismissed; home card | `InterfaceUnmappedValueService`; `DashboardQueueCatalog` | TEST-BB-525, TEST-BB-526, TEST-BB-528 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

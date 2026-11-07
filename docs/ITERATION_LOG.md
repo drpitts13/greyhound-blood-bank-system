@@ -16211,3 +16211,51 @@ Results reached the EHR identified only by the local test code (OBX-3 = "ABORH")
 ### Next ranked residual
 
 LOINC in the FHIR export; test codes hard-coded in services (replace with a role on the test); method and reagent lot on each result; several allowed specimen types; the unused flags (verification required, contributes to compatibility). Confirm OCD-065 before activating any example.
+
+## Iterations 483–486 — Interface translations (2026-11-07)
+
+### Request
+
+Interfaces need a translation system: test codes (Epic procedure codes, at the test or the test grouper level, the grouper taking precedence when both could be used; for example TNS ↔ LAB10117), in either direction or both, and other fields such as result interpretation, race, patient type, and sex. Decisions: global translations with per-interface overrides; unknown inbound order codes go to the error queue and every unmapped value is listed; race and ethnicity stored on the patient; TNS ↔ LAB10117 seeded.
+
+### Capability matrix rescan (interoperability: value translation)
+
+One global translation table, applied inbound only when an inbound endpoint was enabled. The grouper an order line came from was discarded, so results always went out under the member test's code. No keys for race, ethnicity, patient class, or abnormal flag; a dispense status key used by BPS could not be saved. No race or ethnicity on the patient; ADT ignored PID-10, PID-22, and PV1-2 and opened every visit as Inpatient; BPS sent PV1-2 "U". A raw abnormal flag overwrote the translated OBX-8. Unmapped inbound values passed silently, although the help page said they errored. Saving took no reason.
+
+### Part 1 (483): translation core
+
+- `InterfaceValueTranslation.EndpointId`; interface rows override all-interfaces rows.
+- `Procedure.Code` shared by order and result OBR-4 with fallback; new keys for race, ethnicity, patient class, abnormal flag, dispense status.
+- `InterfaceValueSets` (local value lists), hard stop HL7XLAT-LOCAL-VALUE; required change reason; `CheckAsync`.
+- `InterfaceUnmappedValue` log filled by each message's misses; resolved by a saved translation or dismissed with a reason.
+
+### Part 2 (484): test and grouper codes
+
+- `OrderLine.GrouperCode`, set when a grouper expands.
+- Inbound OBR-4: grouper wins; an unknown code goes to the error queue (HL7-ORDER-CODE) and the unmapped list.
+- Outbound OBR-4: the grouper's procedure code when it has one, else the test's (TNS line ABORH result → OBR-4 LAB10117, OBX-3 ABORH).
+
+### Part 3 (485): race, ethnicity, patient class
+
+- `Patient.Race` and `Patient.Ethnicity` from PID-10/22 via the translations; shown and edited on the chart (audited); sparse updates keep them.
+- PV1-2 sets the visit type (Unknown when not sent or not translated; no longer always Inpatient).
+- Outbound PID-10/22 on ORU, DFT, BPS; BPS PV1-2 translated; OBX-8 the translated flag, else the translated interpretation.
+
+### Part 4 (486): admin page, home card, seeds
+
+- Translations page: grouped fields with counts and search, scope selector with the all-interfaces rows beside overrides, local value suggestions (test or grouper), reason, Test a value, Unmapped values tab (Add translation, Dismiss with reason).
+- Home card **Unmapped interface values** for interface administrators.
+- Starter rows seeded once per field: TNS ↔ LAB10117; HL7 patient classes (Observation outbound only); CDC race and ethnicity codes. Demo: TNS lines keep their grouper, MRN0001 and MRN0002 have race and ethnicity, one unmapped LAB99999.
+- Help rewritten (it wrongly said every untranslated value errors); chart help; HL7 design §2.0.
+
+### Requirements
+
+- URS-BB-548–550, FRS-BB-657–661.
+
+### Tests
+
+- TEST-BB-524 (translator scope, fallback, grouper precedence, misses), TEST-BB-525 (admin save, scope, value lists, unmapped resolve and dismiss), TEST-BB-526 (inbound LAB10117 → TNS lines, outbound OBR-4 LAB10117, LAB99999 to the error queue), TEST-BB-527 (race, ethnicity, patient class in and out; OBX-8), TEST-BB-528 (seeds once per field, demo, home card).
+
+### Next ranked residual
+
+Translation rows imported from a file (bulk load from the EHR build); LOINC and translated codes in the FHIR export; per-interface field-level "required translation" (error instead of pass-through) for fields other than order codes; ordering-provider and location translations reviewed with the same unmapped list.

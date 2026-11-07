@@ -2059,11 +2059,27 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<InterfaceDataItemDto>>> GetAdminHl7AllDataItemsAsync(CancellationToken ct = default) =>
         SendAsync<List<InterfaceDataItemDto>>(HttpMethod.Get, "api/admin/hl7/data-items/all", ct: ct);
 
-    public Task<ApiResult<InterfaceTranslationTableDto>> GetAdminHl7TranslationsAsync(string dataItemKey, CancellationToken ct = default) =>
+    public Task<ApiResult<InterfaceTranslationTableDto>> GetAdminHl7TranslationsAsync(string dataItemKey, long? endpointId = null, CancellationToken ct = default) =>
         SendAsync<InterfaceTranslationTableDto>(
             HttpMethod.Get,
-            $"api/admin/hl7/translations?dataItemKey={Uri.EscapeDataString(dataItemKey)}",
+            $"api/admin/hl7/translations?dataItemKey={Uri.EscapeDataString(dataItemKey)}{(endpointId is { } e ? $"&endpointId={e}" : "")}",
             ct: ct);
+
+    public Task<ApiResult<List<InterfaceTranslationFieldDto>>> GetAdminHl7TranslationFieldsAsync(CancellationToken ct = default) =>
+        SendAsync<List<InterfaceTranslationFieldDto>>(HttpMethod.Get, "api/admin/hl7/translations/fields", ct: ct);
+
+    public Task<ApiResult<InterfaceTranslationCheckDto>> CheckAdminHl7TranslationAsync(
+        string dataItemKey, string value, bool inbound, long? endpointId, CancellationToken ct = default) =>
+        SendAsync<InterfaceTranslationCheckDto>(
+            HttpMethod.Get,
+            $"api/admin/hl7/translations/check?dataItemKey={Uri.EscapeDataString(dataItemKey)}&value={Uri.EscapeDataString(value)}&inbound={inbound.ToString().ToLowerInvariant()}{(endpointId is { } e ? $"&endpointId={e}" : "")}",
+            ct: ct);
+
+    public Task<ApiResult<List<InterfaceUnmappedValueDto>>> GetAdminHl7UnmappedValuesAsync(bool openOnly = true, CancellationToken ct = default) =>
+        SendAsync<List<InterfaceUnmappedValueDto>>(HttpMethod.Get, $"api/admin/hl7/translations/unmapped?openOnly={openOnly.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<InterfaceUnmappedValueDto>> DismissAdminHl7UnmappedValueAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<InterfaceUnmappedValueDto>(HttpMethod.Post, $"api/admin/hl7/translations/unmapped/{id}/dismiss", new ReasonOnlyRequest(reason), ct);
 
     public Task<ApiResult<InterfaceTranslationTableDto>> SaveAdminHl7TranslationsAsync(
         string dataItemKey, SaveInterfaceTranslationsRequest req, CancellationToken ct = default) =>

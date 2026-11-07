@@ -439,6 +439,8 @@
                 return await CountList(card.Key, Api.GetOpenInstrumentFailuresAsync());
             case DashboardQueueCatalog.Hl7Errors:
                 return await CountList(card.Key, Api.GetHl7ErrorsAsync());
+            case DashboardQueueCatalog.UnmappedInterfaceValues:
+                return await CountList(card.Key, Api.GetAdminHl7UnmappedValuesAsync());
             case DashboardQueueCatalog.Handoff:
             {
                 var result = await Api.GetOpenShiftHandoffAsync();

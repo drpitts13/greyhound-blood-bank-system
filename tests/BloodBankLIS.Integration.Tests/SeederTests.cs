@@ -656,4 +656,38 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(["Titer 1:8 (score 28)", "Titer 1:32 (score 48)"], titers.Select(r => r.Interpretation));
         Assert.Equal(2, titers.Select(r => r.SpecimenId).Distinct().Count());
     }
+
+    // TEST-BB-528: starter translations are seeded once per field (TNS <-> LAB10117, patient classes, race and
+    // ethnicity), a field the site has edited is left alone, demo type and screen lines keep their grouper, two demo
+    // patients have race and ethnicity, and one unmapped order code is listed.
+    [Fact]
+    public async Task Seed_AddsStarterTranslations_OncePerField_AndTheTranslationDemo()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            var race = await context.InterfaceValueTranslations.Where(t => t.DataItemKey == "Patient.Race" && t.InternalValue == "OTHER").ToListAsync();
+            context.InterfaceValueTranslations.RemoveRange(race);
+            await context.SaveChangesAsync();
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var tns = Assert.Single(await verify.InterfaceValueTranslations.Where(t => t.DataItemKey == "Procedure.Code").ToListAsync());
+        Assert.Equal(("TNS", "LAB10117", InterfaceTranslationDirection.Both, (long?)null), (tns.InternalValue, tns.ExternalValue, tns.Direction, tns.EndpointId));
+        var classes = await verify.InterfaceValueTranslations.Where(t => t.DataItemKey == "Encounter.PatientClass").ToListAsync();
+        Assert.Equal(5, classes.Count);
+        Assert.Equal(InterfaceTranslationDirection.Outbound, classes.Single(c => c.InternalValue == "Observation").Direction);
+        // The site removed OTHER: a later seed does not put it back.
+        Assert.Equal(5, await verify.InterfaceValueTranslations.CountAsync(t => t.DataItemKey == "Patient.Race"));
+        Assert.Equal(2, await verify.InterfaceValueTranslations.CountAsync(t => t.DataItemKey == "Patient.Ethnicity"));
+
+        var tnsLines = await verify.OrderLines.Where(l => l.Order!.TestCode == "TNS" && (l.TestCode == "ABORH" || l.TestCode == "ABSC")).ToListAsync();
+        Assert.NotEmpty(tnsLines);
+        Assert.All(tnsLines, l => Assert.Equal("TNS", l.GrouperCode));
+        var first = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
+        Assert.Equal(("WHITE", "NOT-HISPANIC"), (first.Race, first.Ethnicity));
+        var unmapped = Assert.Single(await verify.InterfaceUnmappedValues.ToListAsync());
+        Assert.Equal(("Order.TestCode", "LAB99999", (DateTime?)null), (unmapped.DataItemKey, unmapped.Value, unmapped.ResolvedUtc));
+    }
 }

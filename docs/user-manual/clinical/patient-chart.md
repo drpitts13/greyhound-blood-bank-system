@@ -30,7 +30,7 @@ Use the tabs for the detail: Visits, Orders, Specimens, Tests, Test History, DAT
 
 ## Changing identity
 
-Update demographics from the chart when your permission allows it. A name change asks for a reason. The previous name stays on the chart as an alias so old paperwork still finds the patient.
+Update demographics from the chart when your permission allows it. Race and ethnicity are chosen from the lists on the edit form, or left *Not recorded*; they usually arrive from the EHR by ADT and go back on results, charges, and dispense messages. A name change asks for a reason. The previous name stays on the chart as an alias so old paperwork still finds the patient.
 
 Merging is for a confirmed duplicate. It requires supervisor permission. You merge into the surviving chart. The losing MRN remains as a pointer and cannot be used for new work. Unmerge is available only when nothing has been recorded on the surviving chart because of the merge. If orders, results, or issues exist after the merge, do not unmerge. Correct the clinical record instead, and record a deviation if the merge was wrong.
 

@@ -139,6 +139,15 @@ public class DashboardQueueCatalogTests
         Assert.DoesNotContain(bench, c => c.Key is DashboardQueueCatalog.Hl7Errors or DashboardQueueCatalog.InstrumentFailures);
     }
 
+    // TEST-BB-528: unmapped interface values are on the home screen for whoever keeps the translation table.
+    [Fact]
+    public void UnmappedValuesCard_FollowsTheInterfaceAdminPermission()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.AdminHl7Manage)),
+            c => c.Key == DashboardQueueCatalog.UnmappedInterfaceValues && c.Href == "/admin/hl7/translations?tab=unmapped");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.Hl7Manage)), c => c.Key == DashboardQueueCatalog.UnmappedInterfaceValues);
+    }
+
     // TEST-BB-435: verifiers get a Results to verify card that counts only what they can verify now.
     [Fact]
     public void ToVerify_ForVerifiersOnly_CountsTheirOwnVerifiableResults_WithTheExpiryNote()
