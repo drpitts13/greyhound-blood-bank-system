@@ -99,7 +99,9 @@ public sealed class AlertScanner
                 AlertRule.ReagentQc,
                 $"QC:{item.Kind}:{item.LotId}:{item.QcId}",
                 item.Kind == ReagentQcWorklistRule.Failed ? AlertSeverity.Critical : AlertSeverity.Warning,
-                $"Reagent QC {item.Kind.ToLowerInvariant()}: lot {item.LotNumber}",
+                item.Kind == ReagentQcWorklistRule.Replace
+                    ? $"Reagent lot to replace: lot {item.LotNumber}"
+                    : $"Reagent QC {item.Kind.ToLowerInvariant()}: lot {item.LotNumber}",
                 item.ResultsToReview > 0
                     ? $"{item.Message} {item.ResultsToReview} result{(item.ResultsToReview == 1 ? " was" : "s were")} tested with this lot since it last passed QC: review {(item.ResultsToReview == 1 ? "it" : "them")}."
                     : item.Message,

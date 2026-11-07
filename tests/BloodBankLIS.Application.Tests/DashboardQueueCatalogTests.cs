@@ -324,5 +324,6 @@ public class DashboardQueueCatalogTests
         // TEST-BB-558: expired lots are named on the card.
         Assert.Equal("1 overdue; 2 lots expired", DashboardQueueCatalog.ReagentQcNote([
             Work(ReagentQcWorklistRule.Overdue), Work(ReagentQcWorklistRule.Expired), Work(ReagentQcWorklistRule.Expired)]));
+        Assert.Equal("1 lot to replace", DashboardQueueCatalog.ReagentQcNote([Work(ReagentQcWorklistRule.Replace)]));
     }
 }

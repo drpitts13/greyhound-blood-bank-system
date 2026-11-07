@@ -16816,3 +16816,25 @@ Cycle 510 flagged expired open lots, but the lot actions themselves had no check
 
 - TEST-BB-559: rule success and failure paths; days-left text; integration: expired and duplicate receipt refused (number reusable after close), open and close audited, second close and reopen refused, an expired lot cannot be opened or tested.
 - Full suite: 3,975 passed.
+
+## Iteration 512 — Receive the next reagent lot before the open one expires (2026-11-07)
+
+### Capability matrix rescan (operations: reagent QC, home screen)
+
+Residual considered and set aside: acknowledging a shift handoff from the home card. The card already opens the handoff page, where the Acknowledge button sits next to the queues and notes; acknowledging from home would let the incoming technologist acknowledge without seeing what was handed over, so it stays on the handoff page.
+
+Chosen gap: Cycles 510–511 handle a lot once it has expired, but nothing warned beforehand. A bench learned that its only AHG lot had run out when the worklist said Expired and result entry stopped recording a lot. Workflow questions: memory (no one has to track expiry dates against stock on hand); next action (receive the next lot, one click to the form with the reagent chosen); safety (testing does not reach an expired lot with no replacement).
+
+### Design
+
+- `ReagentQcWorklistRule` kind Replace: opened, within 7 days of expiry, and no other non-closed lot of the reagent expiring later.
+- Card note ("lots to replace"), alert (warning), Reagents row **Receive next lot**.
+
+### Requirements
+
+- URS-BB-570, FRS-BB-687. Help: Reagent QC.
+
+### Tests
+
+- TEST-BB-560: Replace only for the opened lot near expiry with nothing later (a received later lot, a closed later lot, a lot not near expiry, and a received lot are handled); card note; integration: the item appears, then clears once the next lot is received.
+- Full suite: 3,977 passed.

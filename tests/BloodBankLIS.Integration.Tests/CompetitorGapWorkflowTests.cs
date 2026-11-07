@@ -88,6 +88,24 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReagentLot_NearExpiryWithNoNextLot_AsksToReceiveOne_UntilANextLotIsReceived()
+    {
+        // TEST-BB-560
+        await using var context = _factory.Create();
+        var service = Qc(context, _factory.CurrentUser);
+        var reagent = await service.SaveReagentAsync(new SaveReagentRequest("ANTI-K-RP", "Anti-K replace"));
+        var now = _factory.Clock.UtcNow;
+        var lot = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value!.Id, "RP-1", now.AddDays(4)));
+        Assert.True((await service.OpenLotAsync(lot.Value!.Id)).Succeeded);
+
+        var replace = Assert.Single(await service.ListWorkAsync(), w => w.LotId == lot.Value.Id && w.Kind == ReagentQcWorklistRule.Replace);
+        Assert.Contains("no later lot of ANTI-K-RP is received", replace.Message);
+
+        await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, "RP-2", now.AddDays(90)));
+        Assert.DoesNotContain(await service.ListWorkAsync(), w => w.LotId == lot.Value.Id && w.Kind == ReagentQcWorklistRule.Replace);
+    }
+
+    [Fact]
     public async Task PatientResult_StaysOpenWhenReagentQcPolicyIsOff()
     {
         await using var context = _factory.Create();

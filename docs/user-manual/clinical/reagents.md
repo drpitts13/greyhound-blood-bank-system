@@ -14,7 +14,7 @@ Each day, record the expected result, the observed result, and whether the row p
 
 > Hard stop. Review is blocked when the reviewer is the person who performed the QC.
 
-The worklist shows lots with no QC for the current day, lots whose latest QC failed, rows that have not been reviewed, and lots that have expired while still open. A failure stays on the list until the lot passes QC again or is closed. An expired lot asks to be closed and replaced rather than tested; a result entered for its test records no lot of that reagent and says so. Closing a lot takes it off the overdue list.
+The worklist shows lots with no QC for the current day, lots whose latest QC failed, rows that have not been reviewed, and lots that have expired while still open. A failure stays on the list until the lot passes QC again or is closed. An expired lot asks to be closed and replaced rather than tested; a result entered for its test records no lot of that reagent and says so. Closing a lot takes it off the overdue list. When an open lot has a week or less left and no later lot of that reagent has been received, the worklist asks you to receive the next lot; **Receive next lot** selects the reagent in the receive form and puts the cursor on the lot number. Receiving a lot that expires later clears the item.
 
 > Facility policy. Patient resulting stays available while this worklist has rows. An administrator can turn on **Block results when reagent QC is open**. That policy ships off. It is not a CLIA hold.
 

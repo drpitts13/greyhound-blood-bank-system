@@ -22,7 +22,7 @@
     <div class="bb-card-title"><h3>Worklist</h3></div>
     @if (_work.Count == 0)
     {
-        <div class="muted">No overdue, failed, or unreviewed QC.</div>
+        <div class="muted">No overdue, failed, or unreviewed QC, and no lot to close or replace.</div>
     }
     else
     {
@@ -39,6 +39,11 @@
                             @if (row.QcId is long qcId && row.Kind == ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter))
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => ReviewAsync(qcId)">Review</button>
+                            }
+                            else if (row.Kind == ReagentQcWorklistRule.Replace && Session.Has(PermissionCodes.ResultEnter)
+                                     && _lots.FirstOrDefault(l => l.Id == row.LotId) is { } replaceLot)
+                            {
+                                <button class="btn btn-secondary btn-sm" data-receive-next-lot @onclick="() => StartReceiveForAsync(replaceLot.ReagentId)">Receive next lot</button>
                             }
                             else if (row.Kind != ReagentQcWorklistRule.Unreviewed && row.Kind != ReagentQcWorklistRule.Expired
                                      && Session.Has(PermissionCodes.ResultEnter) && QcLots.Any(l => l.Id == row.LotId))
@@ -114,7 +119,7 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Lot number</label><input @bind="_lotNumber" @bind:event="oninput" /></div>
+            <div class="field"><label>Lot number</label><input id="reagent-lot-number" @bind="_lotNumber" @bind:event="oninput" /></div>
             <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_expiresLocal" /></div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(_reagentId == 0 || string.IsNullOrWhiteSpace(_lotNumber))" @onclick="ReceiveLotAsync">Receive lot</button>
@@ -450,6 +455,16 @@
         StateHasChanged();
         await Js.ScrollIntoViewAsync("reagent-qc-form");
         await Js.FocusSelectAsync("reagent-qc-expected", preventScroll: true);
+    }
+
+    /// <summary>From a Replace worklist row: pick the reagent in Receive lot and put the cursor on the lot number.</summary>
+    private async Task StartReceiveForAsync(long reagentId)
+    {
+        _reagentId = reagentId;
+        _lotNumber = string.Empty;
+        StateHasChanged();
+        await Js.ScrollIntoViewAsync("reagent-lot-number");
+        await Js.FocusSelectAsync("reagent-lot-number", preventScroll: true);
     }
 
     private async Task ReceiveLotAsync()

@@ -23,7 +23,13 @@ public static class ReagentQcReviewRule
     }
 }
 
-public readonly record struct ReagentQcLotFact(long LotId, string LotNumber, ReagentLotState State, DateTime ExpiresUtc);
+public readonly record struct ReagentQcLotFact(
+    long LotId,
+    string LotNumber,
+    ReagentLotState State,
+    DateTime ExpiresUtc,
+    long ReagentId = 0,
+    string? ReagentCode = null);
 
 public readonly record struct ReagentQcFact(
     long Id,
@@ -40,6 +46,7 @@ public static class ReagentQcWorklistRule
     public const string Failed = "Failed";
     public const string Unreviewed = "Unreviewed";
     public const string Expired = "Expired";
+    public const string Replace = "Replace";
 
     public static IReadOnlyList<ReagentQcWorkItem> Evaluate(
         IReadOnlyList<ReagentQcLotFact> lots,
@@ -64,6 +71,22 @@ public static class ReagentQcWorklistRule
                     null,
                     $"Lot {lot.LotNumber} expired {lot.ExpiresUtc:yyyy-MM-dd}: close it and open a new lot. Results do not record an expired lot."));
                 continue;
+            }
+
+            // An open lot near its expiry with no later lot of the reagent on hand: receive the next lot before it runs out.
+            if (lot.State == ReagentLotState.Opened
+                && ReagentLotRule.ExpiringSoon(lot.ExpiresUtc, nowUtc)
+                && !lots.Any(other => other.LotId != lot.LotId
+                                      && other.ReagentId == lot.ReagentId
+                                      && other.State != ReagentLotState.Closed
+                                      && other.ExpiresUtc > lot.ExpiresUtc))
+            {
+                var reagent = string.IsNullOrWhiteSpace(lot.ReagentCode) ? "this reagent" : lot.ReagentCode;
+                items.Add(new ReagentQcWorkItem(
+                    Replace,
+                    lot.LotId,
+                    null,
+                    $"Lot {lot.LotNumber} {ReagentLotRule.ExpiryText(lot.ExpiresUtc, nowUtc)} (expires {lot.ExpiresUtc:yyyy-MM-dd}) and no later lot of {reagent} is received: receive the next lot."));
             }
 
             var testedToday = qcRows.Any(row => row.LotId == lot.LotId && row.QcDateUtc.Date == today);
