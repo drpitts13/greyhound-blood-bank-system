@@ -564,5 +564,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-553 | I | `ShiftHandoffServiceTests.Create_CountsInstrumentFailuresAndFailedReagentLots` | URS-BB-565 / FRS-BB-680 |
 | TEST-BB-554 | I | `ShiftHandoffServiceTests.Create_CountsHl7ErrorsAndUnmappedInterfaceValues` | URS-BB-565 / FRS-BB-681 |
 | TEST-BB-555 | I | `ShiftHandoffServiceTests.Preview_MatchesTheRecordedCounts_AndSavesNothing` | URS-BB-566 / FRS-BB-682 |
+| TEST-BB-556 | U | `ShiftHandoffItemsTests.Items_AreTheNonEmptyQueues_UrgentFirst_LinkedToTheirBoards`; `ShiftHandoffItemsTests.Items_AreEmpty_WhenNothingIsOpen`; `ShiftHandoffItemsTests.RetrospectiveCrossmatch_IsUrgentOnlyWhenOverdue` | URS-BB-567 / FRS-BB-683 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

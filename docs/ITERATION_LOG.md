@@ -16722,3 +16722,27 @@ The handoff counts were only visible after recording, so the person handing over
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; link each count in the preview to its queue.
+
+## Iteration 508 — Shift handoff queues link to their boards (2026-11-07)
+
+### Capability matrix rescan (operations: shift handoff)
+
+The handoff (Cycles 505–507) was one long text line: the incoming technologist read "Retro 3, 1 overdue; … unmapped interface values 2" and then had to find each board. Workflow questions: clicks (one per queue from the handoff); memory (which board holds which queue is in the link); next action (urgent items first, in red); safety (unchanged counts).
+
+### Design
+
+- `ShiftHandoffItems.For` (Application, testable); `HandoffItemLinks` component on the preview and the awaiting-acknowledgment card; the recent list keeps the summary line.
+
+### Requirements
+
+- URS-BB-567, FRS-BB-683. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-556: only non-empty queues, urgent first with their details and links; nothing open gives no items; retrospective crossmatch is urgent only when overdue.
+- Full suite: 3,968 passed.
+- Live: the handoff preview listed 12 linked queues, urgent first in red (massive transfusion → /issuing; transfusing with 1 completion overdue; retrospective crossmatch 3, 1 overdue; expired on shelf 2), then outstanding issued, in transit with its overdue and cooler details, pending tests, specimens, reactions, minimum stock, deviations, unmapped values. Nothing was recorded. No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; the accepted-type note on the Specimens tab accession form; the same linked items on the home screen's shift handoff card.

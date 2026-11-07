@@ -31,7 +31,7 @@ else
                     <span> → <span class="mono">@_open.ToUser</span></span>
                 }
             </p>
-            <p class="muted">@QueueSummary(_open)</p>
+            <HandoffItemLinks Items="ShiftHandoffItems.For(_open)" />
             <p>@_open.Notes</p>
             @if (!string.Equals(_open.FromUser, Session.UserName, StringComparison.OrdinalIgnoreCase))
             {
@@ -53,7 +53,7 @@ else
                     <strong>What you are handing over</strong>
                     <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadPreviewAsync">Refresh counts</button>
                 </div>
-                <p class="muted" style="margin:.3rem 0 0;">@_preview.QueueSummary</p>
+                <HandoffItemLinks Items="ShiftHandoffItems.For(_preview)" />
                 <p class="muted" style="margin:.2rem 0 0;font-size:.85rem;">Counted now; the handoff records the counts again when you save. Mention in the note anything the counts do not show.</p>
             </div>
         }
