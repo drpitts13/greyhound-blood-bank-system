@@ -666,6 +666,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-557 / FRS-BB-670 | Reagent lots recorded on manual results; lot lookback | `ReagentLotUseRule`; `ReagentQcService`; `ResultService`; `Reagents.razor` | TEST-BB-541, TEST-BB-542, TEST-BB-543 | U, I | |
 | URS-BB-558 / FRS-BB-671 | Lots shown on chart results; entry warnings for missing lots and QC | `ReagentLotUseRule.EntryWarnings`; `ReagentQcService.LotLabelsForResultsAsync`; `PatientDetail.razor` | TEST-BB-544 | U, I | |
 | URS-BB-558 / FRS-BB-672 | Lots on worklist lines for the verifier | `TestWorklistService`; `TestWorklist.razor`; `PatientChartTestsTab.razor` | TEST-BB-545 | I | |
+| URS-BB-559 / FRS-BB-673 | Failed QC names and opens the results to review | `ReagentLotUseRule.ReviewSinceUtc`; `ReagentQcService`; `AlertScanner`; `Reagents.razor` | TEST-BB-546 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

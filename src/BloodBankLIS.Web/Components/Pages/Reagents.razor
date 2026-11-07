@@ -44,6 +44,12 @@
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => StartQcForLotAsync(row.LotId)">Enter QC</button>
                             }
+                            @if (row.ResultsToReview > 0 && _lots.FirstOrDefault(l => l.Id == row.LotId) is { } failedLot)
+                            {
+                                <button class="btn btn-danger btn-sm" @onclick="() => ShowLotResultsAsync(failedLot)" data-qc-results-to-review>
+                                    @row.ResultsToReview result@(row.ResultsToReview == 1 ? "" : "s") to review
+                                </button>
+                            }
                         </td>
                     </tr>
                 }
@@ -161,6 +167,12 @@
                     <button class="btn btn-ghost btn-sm" @onclick="() => _lookbackLot = null">Close</button>
                 </div>
                 <p class="muted" style="margin:.3rem 0;">Manual results entered while this lot was open for their test. Use it when the lot fails QC or is recalled: review each result and correct or invalidate as needed.</p>
+                @if (_lookback.Count(r => r.ToReview) is var toReview && toReview > 0)
+                {
+                    <div class="alert alert-danger" style="margin:.3rem 0;" data-lot-to-review>
+                        This lot's latest QC failed. @toReview result@(toReview == 1 ? " was" : "s were") tested with it since it last passed QC; they are listed first as <strong>To review</strong>.
+                    </div>
+                }
                 @if (_lookback.Count == 0)
                 {
                     <div class="empty">No results recorded with this lot.</div>
@@ -178,7 +190,7 @@
                                     <td class="mono">@r.SpecimenAccession</td>
                                     <td class="mono">@r.TestCode@(r.Version > 1 ? $" v{r.Version}" : "")</td>
                                     <td>@ResultValueText.For(r.Value)</td>
-                                    <td>@r.Status</td>
+                                    <td>@r.Status @if (r.ToReview) { <span class="badge badge-red">To review</span> }</td>
                                     <td>@r.EnteredBy</td>
                                 </tr>
                             }
@@ -289,7 +301,17 @@
     /// <summary>Passed follows the comparison as results are typed; the tech can still change it before recording.</summary>
     private void SyncPassedFromResults() => _passed = ResultsMatch;
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    [SupplyParameterFromQuery(Name = "lot")] public long? LotQuery { get; set; }
+
+    // From a failed-QC alert: open that lot's results.
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        if (LotQuery is long lotId && _lots.FirstOrDefault(l => l.Id == lotId) is { } lot)
+        {
+            await ShowLotResultsAsync(lot);
+        }
+    }
 
     private async Task ReloadAsync()
     {

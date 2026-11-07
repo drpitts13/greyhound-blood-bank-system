@@ -65,4 +65,18 @@ public class ReagentLotUseRuleTests
             warnings.Select(w => (w.Code, w.Message)));
         Assert.Empty(ReagentLotUseRule.EntryWarnings("XM", reagents, [], new HashSet<long>()));
     }
+
+    // TEST-BB-546: the review window after a failed QC starts at the lot's last passed QC before it.
+    [Fact]
+    public void ReviewSince_IsTheLastPassBeforeTheLatestFailure()
+    {
+        ReagentDailyQc Qc(int hoursAgo, bool passed) => new() { PerformedUtc = Now.AddHours(-hoursAgo), Passed = passed };
+
+        Assert.Equal(Now.AddHours(-26), ReagentLotUseRule.ReviewSinceUtc([Qc(50, true), Qc(26, true), Qc(1, false)], out var failed));
+        Assert.True(failed);
+        Assert.Null(ReagentLotUseRule.ReviewSinceUtc([Qc(26, false), Qc(1, true)], out failed));
+        Assert.False(failed);
+        Assert.Equal(DateTime.MinValue, ReagentLotUseRule.ReviewSinceUtc([Qc(3, false), Qc(1, false)], out _));
+        Assert.Null(ReagentLotUseRule.ReviewSinceUtc([], out _));
+    }
 }

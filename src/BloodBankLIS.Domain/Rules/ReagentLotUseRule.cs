@@ -28,6 +28,23 @@ public static class ReagentLotUseRule
         && !string.IsNullOrWhiteSpace(testCode)
         && ParseTestCodes(reagent.TestCodes).Contains(testCode.Trim().ToUpperInvariant());
 
+    /// <summary>
+    /// When a lot's latest QC failed, the results to review are those recorded with it after its last passed QC
+    /// before that failure (all of them when it never passed). Null when the latest QC passed or there is none.
+    /// </summary>
+    public static DateTime? ReviewSinceUtc(IEnumerable<ReagentDailyQc> lotQc, out bool failed)
+    {
+        var rows = lotQc.OrderBy(q => q.PerformedUtc).ThenBy(q => q.Id).ToList();
+        var latest = rows.LastOrDefault();
+        failed = latest is { Passed: false };
+        if (!failed)
+        {
+            return null;
+        }
+
+        return rows.LastOrDefault(q => q.Passed && q.PerformedUtc < latest!.PerformedUtc)?.PerformedUtc ?? DateTime.MinValue;
+    }
+
     public const string NoOpenLotCode = "RES-REAGENT-NO-LOT";
     public const string QcNotPassedCode = "RES-REAGENT-QC";
 

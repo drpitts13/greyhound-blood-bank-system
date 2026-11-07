@@ -554,5 +554,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-543 | I | `SeederTests.Seed_AddsDemoReagentLots_AndRecordsRecentManualResults_Once` | URS-BB-557 / FRS-BB-670 |
 | TEST-BB-544 | U, I | `ReagentLotUseRuleTests.EntryWarnings_NameMissingLotsAndQc`; `ReagentLotTraceabilityTests.ManualResult_RecordsOpenLots_AndTheLotLookbackFindsIt` | URS-BB-558 / FRS-BB-671 |
 | TEST-BB-545 | I | `ReagentLotTraceabilityTests.WorklistLine_ShowsTheLotsOfItsResult` | URS-BB-558 / FRS-BB-672 |
+| TEST-BB-546 | U, I | `ReagentLotUseRuleTests.ReviewSince_IsTheLastPassBeforeTheLatestFailure`; `AlertWorkflowTests.FailedQc_NamesTheResultsToReview_AndTheAlertOpensThem` | URS-BB-559 / FRS-BB-673 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -100,8 +100,10 @@ public sealed class AlertScanner
                 $"QC:{item.Kind}:{item.LotId}:{item.QcId}",
                 item.Kind == ReagentQcWorklistRule.Failed ? AlertSeverity.Critical : AlertSeverity.Warning,
                 $"Reagent QC {item.Kind.ToLowerInvariant()}: lot {item.LotNumber}",
-                item.Message,
-                "/reagents"))
+                item.ResultsToReview > 0
+                    ? $"{item.Message} {item.ResultsToReview} result{(item.ResultsToReview == 1 ? " was" : "s were")} tested with this lot since it last passed QC: review {(item.ResultsToReview == 1 ? "it" : "them")}."
+                    : item.Message,
+                item.ResultsToReview > 0 ? $"/reagents?lot={item.LotId}" : "/reagents"))
             .ToList();
         Add(await _alerts.SyncAsync(AlertRule.ReagentQc, qc, ct));
 

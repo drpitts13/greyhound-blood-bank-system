@@ -16478,3 +16478,28 @@ Cycle 496 showed lots on the chart's specimen results, but verification happens 
 ### Next ranked residual
 
 Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test; a reagent lot's status (failed QC) flagged on results it was used for.
+
+## Iteration 498 — Failed reagent QC names the results to review (2026-11-07)
+
+### Capability matrix rescan (testing: traceability)
+
+A failed daily QC raised a critical "QC failed" alert, and Cycles 495–497 made a lot's results listable, but nothing connected the two: staff had to find the lot, open its lookback, and work out which results came after the last good QC. Workflow questions: clicks (alert to the results in one); memory (none: the window is computed); inference (results recorded after the last passed QC before the failure); next action (review each, then correct or invalidate as procedure says); safety (surfaces results that may need correction; changes none).
+
+### Design
+
+- `ReagentLotUseRule.ReviewSinceUtc`; `ReagentQcWorkItemDto.ResultsToReview`; `ReagentLotResultDto.ToReview`.
+- Alert message and link `/reagents?lot={id}`; worklist button "N results to review"; lookback banner, To review badge, listed first.
+
+### Requirements
+
+- URS-BB-559, FRS-BB-673. Help: Reagent QC.
+
+### Tests
+
+- TEST-BB-546: the review window starts at the last pass before the latest failure (none when the latest passed; all when it never passed); a failed lot with one result before and one after its last pass: the alert counts one and links the lot, the worklist counts one, the lookback lists the later result first as To review.
+- Full suite: 3,947 passed.
+- Live: /reagents?lot=7 opened "Results tested with AHG lot AHG-24033" with its 6 results; its QC has not failed, so no To review banner. No QC was recorded (the failed path is covered by the tests). No server errors.
+
+### Next ranked residual
+
+Drop the retired `InstrumentTestMappings` table after a release; LOINC and translated codes in the FHIR export; several allowed specimen types per test; mark a reviewed result as reviewed for a failed lot (so the to-review count goes down).

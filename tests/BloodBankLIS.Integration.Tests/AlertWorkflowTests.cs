@@ -37,10 +37,66 @@ public class AlertWorkflowTests : IDisposable
             patients: new EfRepository<Patient>(c), allocations: new EfRepository<Allocation>(c));
         var reagents = new ReagentQcService(
             new EfRepository<Reagent>(c), new EfRepository<ReagentLot>(c), new EfRepository<ReagentDailyQc>(c),
-            c, _factory.Clock, _factory.CurrentUser, audit);
+            c, _factory.Clock, _factory.CurrentUser, audit,
+            new EfRepository<TestResultReagentLot>(c), new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<Patient>(c));
         return new AlertScanner(Alerts(c), minimumStock, inventory, reagents,
             new EfRepository<TransfusionEvent>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<Patient>(c), new FacilityPolicyService(new EfRepository<SystemSetting>(c)), _factory.Clock);
+    }
+
+    // TEST-BB-546: a lot whose latest QC failed names the results tested with it since its last passed QC, on the
+    // worklist, in the critical alert (which opens that lot's results), and in the lookback (listed first, To review).
+    [Fact]
+    public async Task FailedQc_NamesTheResultsToReview_AndTheAlertOpensThem()
+    {
+        var now = _factory.Clock.UtcNow;
+        long lotId, before, after;
+        await using (var c = _factory.Create())
+        {
+            var reagent = new Reagent { Code = "FQ-AHG", Name = "Failed QC AHG", TestCodes = "FQSC" };
+            c.Reagents.Add(reagent);
+            await c.SaveChangesAsync();
+            var lot = new ReagentLot { ReagentId = reagent.Id, LotNumber = "FQ-1", ReceivedUtc = now.AddDays(-5), ExpiresUtc = now.AddDays(30), State = ReagentLotState.Opened };
+            c.ReagentLots.Add(lot);
+            var patient = new Patient { MedicalRecordNumber = "MRN-FQ", LastName = "Qc", FirstName = "Failed", DateOfBirth = new DateOnly(1980, 1, 1), Sex = Sex.Unknown };
+            c.Patients.Add(patient);
+            await c.SaveChangesAsync();
+            var specimen = new Specimen { AccessionNumber = "ACC-FQ", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddDays(-2), Status = SpecimenStatus.Accepted };
+            c.Specimens.Add(specimen);
+            await c.SaveChangesAsync();
+            TestResult Result(string value, DateTime at) => new() { SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = "FQSC", Value = value, Status = ResultStatus.Verified, Source = ResultSource.Manual, EnteredUtc = at, EnteredBy = "tech" };
+            var r1 = Result("Negative", now.AddHours(-30));
+            var r2 = Result("Positive", now.AddHours(-2));
+            c.TestResults.AddRange(r1, r2);
+            await c.SaveChangesAsync();
+            c.TestResultReagentLots.AddRange(
+                new TestResultReagentLot { TestResultId = r1.Id, ReagentLotId = lot.Id, ReagentCode = "FQ-AHG", LotNumber = "FQ-1", RecordedUtc = now.AddHours(-30) },
+                new TestResultReagentLot { TestResultId = r2.Id, ReagentLotId = lot.Id, ReagentCode = "FQ-AHG", LotNumber = "FQ-1", RecordedUtc = now.AddHours(-2) });
+            c.ReagentDailyQcs.AddRange(
+                new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.AddDays(-1).Date, ExpectedResult = "4+", ObservedResult = "4+", Passed = true, PerformedBy = "tech", PerformedUtc = now.AddHours(-26), ReviewedBy = "sup", ReviewedUtc = now.AddHours(-25) },
+                new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.Date, ExpectedResult = "4+", ObservedResult = "0", Passed = false, PerformedBy = "tech", PerformedUtc = now.AddHours(-1) });
+            await c.SaveChangesAsync();
+            (lotId, before, after) = (lot.Id, r1.Id, r2.Id);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            await Scanner(c).ScanAsync();
+        }
+
+        await using var verify = _factory.Create();
+        var alert = await verify.Alerts.SingleAsync(a => a.Source == AlertRule.ReagentQc && a.Title == "Reagent QC failed: lot FQ-1" && a.ResolvedUtc == null);
+        Assert.Equal(AlertSeverity.Critical, alert.Severity);
+        Assert.Contains("1 result was tested with this lot since it last passed QC", alert.Message);
+        Assert.Equal($"/reagents?lot={lotId}", alert.Link);
+
+        var reagents = new ReagentQcService(
+            new EfRepository<Reagent>(verify), new EfRepository<ReagentLot>(verify), new EfRepository<ReagentDailyQc>(verify),
+            verify, _factory.Clock, _factory.CurrentUser, new AuditWriter(verify, _factory.Clock, _factory.CurrentUser),
+            new EfRepository<TestResultReagentLot>(verify), new EfRepository<TestResult>(verify), new EfRepository<Specimen>(verify), new EfRepository<Patient>(verify));
+        Assert.Equal(1, (await reagents.ListWorkAsync()).Single(w => w.LotId == lotId && w.Kind == ReagentQcWorklistRule.Failed).ResultsToReview);
+        var lookback = (await reagents.ResultsForLotAsync(lotId)).Value!;
+        Assert.Equal([(after, true), (before, false)], lookback.Select(r => (r.ResultId, r.ToReview)));
     }
 
     // TEST-BB-346: a transfusion started and not completed within the reminder hours raises a warning,
