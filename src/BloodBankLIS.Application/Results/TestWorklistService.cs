@@ -197,6 +197,9 @@ public sealed class TestWorklistService
         var results = await _results.ListAsync(
             r => r.OrderId != null && orderIds.Contains(r.OrderId.Value), ct);
         var currentResults = BuildCurrentResults(results);
+        var resultVersions = results.ToDictionary(
+            r => r.Id,
+            r => new ReflexTriggerChangeRule.ResultVersion(r.Id, r.SupersededByResultId, r.Status, r.Value, r.Interpretation));
 
         // Same read as ResultService.VerifyAsync, so the Verify button matches what the server allows.
         // Fail closed: a missing policy service still blocks ABO self-verify.
@@ -324,7 +327,10 @@ public sealed class TestWorklistService
                 VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow),
                 specimen?.Barcode,
                 order.OrderType == OrderType.TransfusionReactionWorkup,
-                ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue)));
+                ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue),
+                ReflexTriggerNotice: line.ReflexFromResultId is long triggerId
+                    ? ReflexTriggerChangeRule.Notice(triggerId, line.ReflexFromTestCode, line.ReflexFromValue, line.TestCode, resultVersions)
+                    : null));
         }
 
         // The verifier sees the reagent lots a hand-entered result was tested with.

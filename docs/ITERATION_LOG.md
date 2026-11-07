@@ -16950,3 +16950,21 @@ Thawed units near expiry are already on the near-expiry board and alert (reserve
 ### Tests
 
 - TEST-BB-566: the reflex line stores the trigger test, value, and result id (the trigger line does not); the worklist item carries "ABSC Positive"; the note names only reflex lines that just appeared.
+
+## Iteration 519 — Reflex test flagged when its trigger changes (2026-11-07)
+
+### Capability matrix rescan (testing: reflex, corrections)
+
+Cycle 518 stored the result that added each reflex line. A positive screen corrected to negative (or invalidated) left its ABID on the worklist with nothing to say the reason had gone, so the bench could spend a panel on a test no longer indicated, or a supervisor could not see why it was ordered. Correcting negative to positive already adds the reflex when the correction is verified. Workflow questions: memory (the row says what changed); next action (check whether the test is still needed); safety (nothing is cancelled automatically, since the test may be under way or still wanted); traceability (the stored trigger id is followed through the correction chain).
+
+### Design
+
+- `ReflexTriggerChangeRule.Notice` over the order's result versions (already loaded by the worklist); `TestWorkItemDto.ReflexTriggerNotice`; amber badge and notice.
+
+### Requirements
+
+- URS-BB-577, FRS-BB-694. Help: reflex rules, test worklist.
+
+### Tests
+
+- TEST-BB-567: standing trigger and same-value correction give no notice; a pending correction says "is being corrected", a verified one "was corrected"; invalidation says so; integration: correct, withdraw the correction (OCD-016 restores the trigger, notice clears), invalidate the trigger; the ABID line stays active throughout.

@@ -55,7 +55,9 @@ public sealed record TestWorkItemDto(
     // Reagent lots recorded with the current result when it was entered by hand ("AHG AHG-24033").
     IReadOnlyList<string>? CurrentResultReagentLots = null,
     // A line added by a reflex rule: the verified result that added it ("ABSC Positive").
-    string? ReflexFrom = null)
+    string? ReflexFrom = null,
+    // That result was later invalidated or corrected so it no longer matches: check whether the test is still needed.
+    string? ReflexTriggerNotice = null)
 {
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";
