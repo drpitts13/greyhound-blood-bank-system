@@ -279,6 +279,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecimenDto>> ReceiveSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/receive", ct: ct);
 
+    public Task<ApiResult<SpecimenDto>> RecordSpecimenCollectorAsync(long id, string collector, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/collector", new RecordSpecimenCollectorRequest(collector), ct);
+
     public Task<ApiResult<SpecimenDto>> AcceptSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/accept", ct: ct);
 

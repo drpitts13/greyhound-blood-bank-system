@@ -32,6 +32,9 @@ public static class FacilityPolicyKeys
     /// <summary>A second person may verify eligible routine results in a batch (OCD-061). Default off.</summary>
     public const string AllowBatchVerify = "Result.AllowBatchVerify";
 
+    /// <summary>A tube is accepted for testing only when who collected it is recorded (OCD-064). Default off.</summary>
+    public const string RequireSpecimenCollector = "Specimen.RequireCollector";
+
     /// <summary>Retired. Unit retype is the supplier confirmation and no longer requires a second reviewer.</summary>
     public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";

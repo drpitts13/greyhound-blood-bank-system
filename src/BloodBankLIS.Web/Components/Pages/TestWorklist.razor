@@ -367,7 +367,20 @@
                             }
                             else if (row.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
                             {
-                                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => AcceptPendingAsync(row.SpecimenId)">Accept</button>
+                                @if (_collectorRequired && string.IsNullOrWhiteSpace(row.Collector))
+                                {
+                                    @* The facility requires the collector before acceptance (OCD-064): record it from the label here. *@
+                                    <span class="flex" style="display:inline-flex;gap:.25rem;" data-collector-needed>
+                                        <input style="width:9rem;" placeholder="Collector on label" aria-label="Collector on the label"
+                                               value="@CollectorDraft(row.SpecimenId)" @oninput="e => _collectorDrafts[row.SpecimenId] = e.Value?.ToString() ?? string.Empty" />
+                                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(CollectorDraft(row.SpecimenId)))"
+                                                @onclick="() => RecordCollectorAsync(row.SpecimenId)">Save collector</button>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => AcceptPendingAsync(row.SpecimenId)">Accept</button>
+                                }
                             }
                             @if (Session.Has(PermissionCodes.SpecimenReject) && _rejectingSpecimenId != row.SpecimenId)
                             {
@@ -514,6 +527,24 @@
     private string _specimenScan = string.Empty;
     // OCD-056: when the facility requires receipt by scan, rows offer no Receive button.
     private bool _receiptByScanOnly;
+    // Facility policy Specimen.RequireCollector (OCD-064) and collectors being typed for received tubes.
+    private bool _collectorRequired;
+    private readonly Dictionary<long, string> _collectorDrafts = new();
+
+    private string CollectorDraft(long specimenId) => _collectorDrafts.GetValueOrDefault(specimenId, string.Empty);
+
+    private async Task RecordCollectorAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.RecordSpecimenCollectorAsync(specimenId, CollectorDraft(specimenId));
+        _busy = false;
+        _fb = r.ToFeedback("Collector recorded. The tube can be accepted.");
+        if (r.Succeeded)
+        {
+            _collectorDrafts.Remove(specimenId);
+            await LoadPendingSpecimensAsync();
+        }
+    }
     // What a scan does on the pending list: receive (default) or accept. Accepting is a deliberate mode.
     private bool _scanAccepts;
     private long? _rejectingSpecimenId;
@@ -553,6 +584,8 @@
         _tube = TestWorklistView.NormalizeTube(AccessionQuery);
         var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
         _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
+        var collectorPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenCollector);
+        _collectorRequired = collectorPolicy.Succeeded && collectorPolicy.Value?.Enabled == true;
         await LoadQcBlockAsync();
         if (string.Equals(TabQuery, "retype", StringComparison.OrdinalIgnoreCase))
         {

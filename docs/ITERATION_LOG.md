@@ -16029,3 +16029,36 @@ Cycle 473 refreshes open alerts in place and keeps an acknowledgement. A shortag
 ### Next ranked residual
 
 Rescan the desks; confirm OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.
+
+## Iteration 475 — The collector before a tube is accepted (policy, OCD-064) (2026-11-06)
+
+### Capability matrix rescan (orders and specimens: collection)
+
+Specimens record two patient identifiers from the label, the draw location, and the collector, but the collector was always optional. Pretransfusion specimen practice expects the person who drew the tube to be identifiable; whether that should block acceptance, and by default, is the facility's decision (question 6; no clinical rule invented).
+
+### Design
+
+- **Policy `Specimen.RequireCollector`** (Boolean, **default off**), in Facility policies under Specimen, sourced "Medical director / OCD-064".
+- **`SpecimenCollectorRule`** (SPEC-COLLECTOR, hard stop when required and the collector is blank).
+- **Applied at acceptance only:** from a row, by scan (naming the tube), and accession with "accept now". Collecting and receiving are not blocked.
+- **Record collector:** `RecordCollectorAsync` (specimen.accession) for a collected or received tube, audited. Found in the live run of the tests: specimen edit allows only accepted tubes, so without this a received tube missing its collector could be neither accepted nor corrected.
+- **Pending specimens:** while the collector is missing, the row shows the collector box and **Save collector** instead of Accept.
+- **Chart accession form:** "Collected by (required to accept)" while the policy is on and accept now is ticked (policy readable by bench pages).
+- **OCD-064** recorded for the default and for whether a staff directory or HL7 hold is needed.
+
+### Requirements
+
+- URS-BB-538, FRS-BB-647; OCD-064. Help: patient specimens.
+
+### Tests
+
+- TEST-BB-513:
+  - the rule stops a blank collector only when required
+  - with the policy on: accession with accept now and no collector is refused and nothing is saved; a tube collected with a blank collector is received, refused at accept by scan (naming the tube); a blank collector is refused; the collector is recorded (trimmed, audited, on the pending list) and the tube accepted; recording on an accepted tube is refused; accession with a collector is accepted
+  - with the policy off (default), a tube without a collector is accepted
+- Full suite: 3,859 passed. The tests also caught that accession stored a blank collector as typed (" "); accession now trims it and stores none, as the specimen edit already did.
+- Live (read-only, setting left off): Facility policies listed **Require the collector before accepting a tube** (Specimen.RequireCollector, false, Medical director / OCD-064); Pending specimens showed Receive and Accept as before, with no collector prompt. No server errors. The setting was not turned on live; the on path is covered by the tests.
+
+### Next ranked residual
+
+Rescan the desks; OCD-064 (collector default), OCD-062 and OCD-063 message details with the EHR team (spec drafted). Unidentified (trauma) patient registration needs registration policy: ask the SME before building.

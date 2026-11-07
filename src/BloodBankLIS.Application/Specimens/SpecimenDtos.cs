@@ -78,7 +78,9 @@ public sealed record PendingSpecimenWorkItemDto(
     SpecimenStatus Status,
     bool IsExpired,
     // "received 42 min after draw" or "waiting 1 h 05 min since draw".
-    string? TransitNote = null)
+    string? TransitNote = null,
+    // Who collected the tube, as recorded; blank when the label did not give one.
+    string? Collector = null)
 {
     public static PendingSpecimenWorkItemDto From(Specimen s, Patient? patient, DateTime now) => new(
         s.Id,
@@ -92,5 +94,9 @@ public sealed record PendingSpecimenWorkItemDto(
         s.ExpiresUtc,
         s.Status,
         s.ExpiresUtc is DateTime expires && expires <= now,
-        SpecimenTransitRule.Describe(s.CollectedUtc, s.ReceivedUtc, now));
+        SpecimenTransitRule.Describe(s.CollectedUtc, s.ReceivedUtc, now),
+        s.Collector);
 }
+
+/// <summary>Who collected the tube, recorded before acceptance (OCD-064).</summary>
+public sealed record RecordSpecimenCollectorRequest(string? Collector);

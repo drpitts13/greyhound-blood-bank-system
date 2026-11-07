@@ -94,6 +94,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetAllowBatchVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowBatchVerify, false, ct);
 
+    public Task<bool> GetRequireSpecimenCollectorAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireSpecimenCollector, false, ct);
+
     public Task<bool> GetBlockResultsWhenReagentQcOpenAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen, false, ct);
 

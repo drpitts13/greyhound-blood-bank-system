@@ -61,7 +61,7 @@
                     <input @bind="Accession.Identifier2Value" @bind:event="oninput" placeholder="From the tube label" autocomplete="off" />
                     <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@Accession.Identifier2Value" Patient="Patient" />
                 </div>
-                <div class="field"><label>Collected by</label><input @bind="Accession.Collector" placeholder="Who drew the specimen" /></div>
+                <div class="field"><label>Collected by@(CollectorRequired && Accession.AcceptImmediately ? " (required to accept)" : "")</label><input @bind="Accession.Collector" placeholder="Who drew the specimen" data-collector-required="@(CollectorRequired ? "true" : "false")" /></div>
                 <div class="field"><label>Draw location</label><input @bind="Accession.DrawLocation" placeholder="Ward or unit" /></div>
             </div>
                 <div class="field">
@@ -288,6 +288,8 @@
     private void ToggleHistory(long specimenId) => _historyId = _historyId == specimenId ? null : specimenId;
 
     [Parameter] public bool ShowAccession { get; set; }
+    // Facility policy Specimen.RequireCollector: a tube is accepted only with its collector recorded.
+    [Parameter] public bool CollectorRequired { get; set; }
     [Parameter] public Feedback? Feedback { get; set; }
     [Parameter] public Feedback? EditFeedback { get; set; }
     [Parameter] public PatientAccessionForm Accession { get; set; } = new();

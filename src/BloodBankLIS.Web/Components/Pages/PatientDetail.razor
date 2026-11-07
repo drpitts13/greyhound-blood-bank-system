@@ -257,6 +257,7 @@ else
         <PatientChartSpecimensTab
             Patient="_patient"
             ShowAccession="_showAccession"
+            CollectorRequired="_collectorRequired"
             Feedback="_accessionFb"
             EditFeedback="_editFb"
             Accession="_acc"
@@ -891,6 +892,8 @@ else
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(Id)).Value ?? new();
         _specimenTypes = (await Api.GetReferenceSpecimenTypesAsync()).Value ?? new();
+        var collectorPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenCollector);
+        _collectorRequired = collectorPolicy.Succeeded && collectorPolicy.Value?.Enabled == true;
         _specialRequirements = (await Api.GetSpecialRequirementsAsync(Id)).Value ?? new();
         _srCatalog = (await Api.GetReferenceSpecialRequirementsAsync()).Value ?? new();
         if (_srDefinitionId == 0 && _srCatalog.Count > 0)
@@ -1290,6 +1293,7 @@ else
     }
 
     private bool _ptagRequired;
+    private bool _collectorRequired;
     private bool _ptagRequiredLoaded;
     private string _ptagScan = string.Empty;
     private Feedback? _ptagPrepareFb;

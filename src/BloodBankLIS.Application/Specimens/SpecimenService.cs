@@ -212,6 +212,15 @@ public sealed class SpecimenService
         var expiresUtc = await ComputeExpiresUtcAsync(
             request.CollectedUtc, typeDef, patient, request.ValidityHours, ct);
         var acceptNow = request.AcceptImmediately;
+        if (acceptNow)
+        {
+            var collector = SpecimenCollectorRule.EvaluateAccept(request.Collector, await CollectorRequiredAsync(ct));
+            if (collector.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Specimen>.Fail($"{collector.Code}: {collector.Message}");
+            }
+        }
+
         var specimen = new Specimen
         {
             AccessionNumber = request.AccessionNumber,
@@ -222,7 +231,7 @@ public sealed class SpecimenService
             ReceivedUtc = acceptNow ? _clock.UtcNow : null,
             ExpiresUtc = expiresUtc,
             DrawLocation = request.DrawLocation,
-            Collector = request.Collector,
+            Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim(),
             Identifier1Type = id1Type,
             Identifier1Value = id1Value,
             Identifier2Type = id2Type,
@@ -726,6 +735,9 @@ public sealed class SpecimenService
         return (null, $"{miss.Code}: {miss.Message}");
     }
 
+    private async Task<bool> CollectorRequiredAsync(CancellationToken ct) =>
+        _policy is not null && await _policy.GetRequireSpecimenCollectorAsync(ct);
+
     private async Task<bool> ScanRequiredAsync(CancellationToken ct) =>
         _policy is not null && await _policy.GetRequireSpecimenReceiptByScanAsync(ct);
 
@@ -749,6 +761,57 @@ public sealed class SpecimenService
             oldValue: previous,
             newValue: new { specimen.Status, specimen.ReceivedUtc, ReceiptMethod = method },
             reason: "Specimen received in the blood bank.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Specimen>.Ok(specimen);
+    }
+
+    /// <summary>
+    /// Records who collected a tube that is collected or received but not yet accepted, so it can be accepted where the
+    /// facility requires the collector (OCD-064). An accepted tube is changed through the specimen edit instead. Audited.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> RecordCollectorAsync(long specimenId, string? collector, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var name = collector?.Trim() ?? string.Empty;
+        if (name.Length == 0)
+        {
+            return OperationResult<Specimen>.Fail("Enter who collected the tube, as shown on the label.");
+        }
+
+        if (name.Length > 100)
+        {
+            return OperationResult<Specimen>.Fail("The collector cannot exceed 100 characters.");
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null)
+        {
+            return OperationResult<Specimen>.Fail("Specimen not found.");
+        }
+
+        if (specimen.Status is not (SpecimenStatus.Collected or SpecimenStatus.Received))
+        {
+            return OperationResult<Specimen>.Fail(specimen.Status == SpecimenStatus.Accepted
+                ? "This specimen is accepted; change the collector by editing the specimen."
+                : $"A specimen with status {specimen.Status} cannot be changed.");
+        }
+
+        var previous = new { specimen.Collector };
+        specimen.Collector = name;
+        _specimens.Update(specimen);
+        _audit?.Record(
+            AuditEventType.Specimen,
+            nameof(Specimen),
+            specimen.Id,
+            oldValue: previous,
+            newValue: new { specimen.Collector },
+            reason: "Collector recorded before acceptance.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
@@ -777,6 +840,13 @@ public sealed class SpecimenService
         if (gate.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<Specimen>.Fail(nameTheTube ? $"{specimen.AccessionNumber}: {gate.Message}" : gate.Message);
+        }
+
+        var collector = SpecimenCollectorRule.EvaluateAccept(specimen.Collector, await CollectorRequiredAsync(ct));
+        if (collector.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(
+                nameTheTube ? $"{specimen.AccessionNumber}: {collector.Code}: {collector.Message}" : $"{collector.Code}: {collector.Message}");
         }
 
         var previous = new { specimen.Status };

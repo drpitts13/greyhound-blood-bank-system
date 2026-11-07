@@ -17,7 +17,7 @@ namespace BloodBankLIS.Api.Endpoints;
 /// </summary>
 public static class ReferenceEndpoints
 {
-    /// <summary>Yes/no facility policies that bench pages may read to show the right prompts. Each defaults to true.</summary>
+    /// <summary>Yes/no facility policies that bench pages may read to show the right prompts, each with its catalog default.</summary>
     private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         FacilityPolicyKeys.RequireSecondAboForCellularIssue,
@@ -26,7 +26,9 @@ public static class ReferenceEndpoints
         FacilityPolicyKeys.InspectionDefaultAcceptable,
         FacilityPolicyKeys.BlockAboSelfVerify,
         // The test worklist shows the reagent QC result block before anything is keyed.
-        FacilityPolicyKeys.BlockResultsWhenReagentQcOpen
+        FacilityPolicyKeys.BlockResultsWhenReagentQcOpen,
+        // The chart's accession form marks the collector required to accept (OCD-064).
+        FacilityPolicyKeys.RequireSpecimenCollector
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)

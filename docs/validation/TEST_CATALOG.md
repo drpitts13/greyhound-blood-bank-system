@@ -521,5 +521,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-510 | U, I | `SupplierOrderRuleTests.Arrival_IsDueAfterTheWindow_AndOverdueOnlyWhileSubmitted`; `SupplierOrderTests.SubmittedOrder_PastItsArrivalWindow_IsOverdue` | URS-BB-535 / FRS-BB-644 |
 | TEST-BB-511 | U, I | `AlertRuleTests.Changed_ListsAlertsThatNowReadDifferently`; `AlertWorkflowTests.ShortageAlert_FollowsWhatIsOnOrder_WithoutRaisingAgain` | URS-BB-536 / FRS-BB-645 |
 | TEST-BB-512 | U, I | `AlertRuleTests.RaisesAgain_OnlyWhenAnAcknowledgedAlertBecomesMoreSevere`; `AlertWorkflowTests.AcknowledgedShortage_IsRaisedAgain_WhenItsOrderIsLate` | URS-BB-537 / FRS-BB-646 |
+| TEST-BB-513 | U, I | `SpecimenCollectorRuleTests.Accept_NeedsTheCollector_OnlyWhenRequired`; `SpecimenCollectorTests.Required_AcceptIsRefusedUntilTheCollectorIsRecorded`; `SpecimenCollectorTests.NotRequired_ByDefault_ATubeWithoutACollectorIsAccepted` | URS-BB-538 / FRS-BB-647 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

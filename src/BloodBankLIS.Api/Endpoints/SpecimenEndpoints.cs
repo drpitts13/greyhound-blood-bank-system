@@ -118,6 +118,18 @@ public static class SpecimenEndpoints
             return dto is null ? Results.NotFound() : Results.Ok(dto);
         }).RequirePermission(PermissionCodes.SpecimenAccession);
 
+        group.MapPost("/{id:long}/collector", async (long id, RecordSpecimenCollectorRequest request, SpecimenService service, CancellationToken ct) =>
+        {
+            var result = await service.RecordCollectorAsync(id, request.Collector, ct);
+            if (!result.Succeeded)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            var dto = await service.GetAsync(result.Value!.Id, ct);
+            return dto is null ? Results.NotFound() : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.SpecimenAccession);
+
         group.MapPost("/{id:long}/accept", async (long id, SpecimenService service, CancellationToken ct) =>
         {
             var result = await service.AcceptAsync(id, ct);
