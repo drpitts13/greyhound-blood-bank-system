@@ -39,15 +39,18 @@ public sealed record PatientAliasDto(
     long Id,
     IdentityTokenType IdentifierType,
     string Value,
-    bool IsActive)
+    bool IsActive,
+    string? AssigningAuthority = null)
 {
     public static PatientAliasDto From(PatientIdentifier i) =>
-        new(i.Id, i.IdentifierType, i.Value, i.IsActive);
+        new(i.Id, i.IdentifierType, i.Value, i.IsActive, i.AssigningAuthority);
 
     public string KindLabel => IdentifierType switch
     {
         IdentityTokenType.PriorFullName => "Prior name",
         IdentityTokenType.PriorMedicalRecordNumber => "Prior MRN",
+        IdentityTokenType.Other => string.IsNullOrWhiteSpace(AssigningAuthority) ? "External ID" : $"External ID ({AssigningAuthority})",
+        IdentityTokenType.AccountNumber => string.IsNullOrWhiteSpace(AssigningAuthority) ? "Account" : $"Account ({AssigningAuthority})",
         _ => IdentifierType.ToString()
     };
 }

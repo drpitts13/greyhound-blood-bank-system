@@ -431,6 +431,33 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task InboundAdt_TakesTheMrRepetition_AndKeepsTheOthersAsExternalIdentifiers()
+    {
+        // TEST-BB-568
+        const string pid3 = "EPI-77001^^^EPI^PI~HL7-PID3^^^HOSP^MR~ACCT-9^^^HOSP^AN";
+        string Message(string control) =>
+            $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|{control}|P|2.5\r" +
+            $"PID|1||{pid3}||Pidthree^Pat||19800101|M";
+
+        await using (var setup = _factory.Create())
+        {
+            Assert.True((await Processor(setup).ProcessAsync(Message("CTRL-PID3-1"))).Accepted);
+            Assert.True((await Processor(setup).ProcessAsync(Message("CTRL-PID3-2"))).Accepted);
+        }
+
+        await using var context = _factory.Create();
+        Assert.False(await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "EPI-77001"));
+        var patient = await context.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-PID3");
+        var identifiers = await context.PatientIdentifiers.Where(i => i.PatientId == patient.Id).ToListAsync();
+        var external = Assert.Single(identifiers, i => i.IdentifierType == IdentityTokenType.Other);
+        Assert.Equal("EPI-77001", external.Value);
+        Assert.Equal("EPI PI", external.AssigningAuthority);
+        Assert.Single(identifiers, i => i.IdentifierType == IdentityTokenType.AccountNumber && i.Value == "ACCT-9");
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Patient) && a.EntityId == patient.Id && a.Reason != null && a.Reason.StartsWith("External identifiers recorded")));
+    }
+
+    [Fact]
     public async Task InboundAdt_SparseA08_DoesNotArchiveWhenNameUnchanged()
     {
         await using (var setup = _factory.Create())

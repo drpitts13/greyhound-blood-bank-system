@@ -16968,3 +16968,22 @@ Cycle 518 stored the result that added each reflex line. A positive screen corre
 ### Tests
 
 - TEST-BB-567: standing trigger and same-value correction give no notice; a pending correction says "is being corrected", a verified one "was corrected"; invalidation says so; integration: correct, withdraw the correction (OCD-016 restores the trigger, notice clears), invalidate the trigger; the ABID line stays active throughout.
+
+## Iteration 520 — PID-3: the MRN by identifier type, other identifiers kept (2026-11-07)
+
+### Capability matrix rescan (patient identification, interoperability)
+
+Alternate identifiers were last worked in Cycles 185–186 (prior names and MRNs). Inbound HL7 read the MRN from the first PID-3 repetition only. Epic and other EHRs commonly send several repetitions (for example an enterprise id first, then the facility MRN typed MR); the LIS would then register or match the patient under the enterprise id, a second chart for the same person and a patient identification risk. The other identifiers were discarded, so a lookup by enterprise id found nothing. Workflow questions: safety (the MRN is chosen by its type, not position); search (other identifiers are kept and found); audit (recorded identifiers are named in an audit row); compatibility (untyped feeds and custom-mapped endpoints behave as before).
+
+### Design
+
+- `Hl7PatientIdentifiers` (read, select, MRN, others) used by all inbound mappers.
+- `PatientHistoricalAliasWriter.RecordExternalIdentifiersAsync`; ADT audit; alias DTO carries the authority for the chart label.
+
+### Requirements
+
+- URS-BB-578, FRS-BB-695. Help: HL7 setup; HL7 design 2.1.
+
+### Tests
+
+- TEST-BB-568: MR-typed repetition chosen when second (ADT and ORM); untyped feed uses the first; custom path read as configured with no others kept; integration: two ADTs file the patient under the MR, keep EPI as External ID and the AN as Account once, audited.

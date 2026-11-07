@@ -26,7 +26,9 @@ public sealed record Hl7PatientData(
     // Local codes after translation; null when the field was empty or did not translate to a local value.
     string? Race = null,
     string? Ethnicity = null,
-    EncounterType? PatientClass = null);
+    EncounterType? PatientClass = null,
+    // PID-3 repetitions other than the MRN (enterprise id, other facilities' numbers), kept as alternate identifiers.
+    IReadOnlyList<Hl7PatientIdentifier>? OtherIdentifiers = null);
 
 /// <summary>Order details extracted from an inbound ORM/OML message (ORC/OBR/PV1).</summary>
 public sealed record Hl7OrderData(
@@ -73,7 +75,7 @@ public static class Hl7AdtMapper
         map ??= Hl7FieldMap.Default(InterfaceType.Adt, Hl7Direction.Inbound);
 
         return new Hl7PatientData(
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             LastName: map.Get(message, InterfaceDataItemKeys.PatientLastName),
             FirstName: map.Get(message, InterfaceDataItemKeys.PatientFirstName),
             MiddleName: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientMiddleName)),
@@ -90,7 +92,8 @@ public static class Hl7AdtMapper
             PriorMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientPriorMrn)),
             Race: MapLocal(map, message, InterfaceDataItemKeys.PatientRace, PatientDemographicCodes.NormalizeRace),
             Ethnicity: MapLocal(map, message, InterfaceDataItemKeys.PatientEthnicity, PatientDemographicCodes.NormalizeEthnicity),
-            PatientClass: MapPatientClass(map, message));
+            PatientClass: MapPatientClass(map, message),
+            OtherIdentifiers: Hl7PatientIdentifiers.Others(message, map));
     }
 
     /// <summary>
@@ -202,7 +205,7 @@ public static class Hl7OrmMapper
         return new Hl7OrderData(
             OrderControl: FirstNonEmpty(map.Get(message, InterfaceDataItemKeys.OrderControl), "NW"),
             PlacerOrderId: placer,
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             OrderType: MapOrderType(testCode ?? string.Empty),
             TestCode: testCode,
             VisitNumber: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterVisitNumber)),
@@ -257,7 +260,7 @@ public static class Hl7OruMapper
             map.Get(message, InterfaceDataItemKeys.ResultObxIdentifier));
 
         return new Hl7ResultData(
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             PlacerOrderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderNumber)),
             TestCode: testCode,
             Value: FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultValue)),
@@ -308,7 +311,7 @@ public static class Hl7DispenseRequestMapper
         var control = map.Get(message, InterfaceDataItemKeys.DispenseOrderControl).Trim().ToUpperInvariant();
         var dinPath = map.Path(InterfaceDataItemKeys.DispenseDin);
         return new Hl7DispenseRequestData(
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             Cancel: control is "CA" or "OC" or "DC",
             OrderNumber: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseOrderNumber)),
             Din: string.IsNullOrWhiteSpace(dinPath) ? null : Hl7AdtMapper.NullIfEmpty(message.Get(dinPath)),
@@ -337,7 +340,7 @@ public static class Hl7BpamMapper
             || reactionRaw.Contains("REACTION", StringComparison.OrdinalIgnoreCase);
 
         return new Hl7BpamData(
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             UnitNumber: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.UnitNumber)),
             Din: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.UnitDin)),
             StartUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.TransfusionStartUtc)),

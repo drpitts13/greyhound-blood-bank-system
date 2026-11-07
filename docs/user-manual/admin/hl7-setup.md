@@ -18,6 +18,8 @@ Edit a live interface only when you can watch the next message. A bad map files 
 
 Vendor presets are a starting map, not a validation. Compare the preset with the specification you received from the sending system before you go live.
 
+> Patient identifiers. When the EHR sends several identifiers in PID-3, the LIS uses the one typed `MR` (CX.5) as the medical record number, or the first when none is typed, and keeps the others on the chart as **External ID** or **Account** entries, which search finds. Map the MRN to a different field only if the EHR does not type its identifiers.
+
 ## Read-only FHIR API
 
 Besides HL7 v2, the system offers a read-only FHIR R4 API at `/fhir` for the EHR. It cannot create, change, or delete anything.

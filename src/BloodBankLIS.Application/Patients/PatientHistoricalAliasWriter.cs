@@ -65,4 +65,50 @@ public sealed class PatientHistoricalAliasWriter
         }, ct);
         return priorName;
     }
+
+    /// <summary>
+    /// Keeps identifiers an interface sent beside the MRN (an enterprise id, another facility's number) as alternate
+    /// identifiers, so search finds the patient by them. An account number (type AN) is stored as one. Returns the
+    /// identifiers newly recorded; ones already on the chart are not repeated.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> RecordExternalIdentifiersAsync(
+        long patientId,
+        string mrn,
+        IEnumerable<(string Value, string? AssigningAuthority, string? TypeCode)> identifiers,
+        CancellationToken ct = default)
+    {
+        var existing = (await _identifiers.ListAsync(i => i.PatientId == patientId, ct)).ToList();
+        var added = new List<string>();
+        foreach (var (rawValue, authority, typeCode) in identifiers)
+        {
+            var value = PatientHistoricalAliasRule.TruncateAliasValue(rawValue.Trim());
+            if (string.IsNullOrWhiteSpace(value) || string.Equals(value, mrn, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var type = string.Equals(typeCode, "AN", StringComparison.OrdinalIgnoreCase)
+                ? IdentityTokenType.AccountNumber
+                : IdentityTokenType.Other;
+            var label = string.Join(" ", new[] { authority, typeCode }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            if (existing.Any(i => i.IdentifierType == type && string.Equals(i.Value, value, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            var row = new PatientIdentifier
+            {
+                PatientId = patientId,
+                IdentifierType = type,
+                Value = value,
+                AssigningAuthority = label.Length == 0 ? null : label,
+                IsActive = true
+            };
+            await _identifiers.AddAsync(row, ct);
+            existing.Add(row);
+            added.Add(label.Length == 0 ? value : $"{value} ({label})");
+        }
+
+        return added;
+    }
 }

@@ -405,6 +405,25 @@ public sealed class Hl7InboundProcessor
             _patients.Update(patient);
         }
 
+        if (_aliasWriter is not null && data.OtherIdentifiers is { Count: > 0 } others)
+        {
+            var recorded = await _aliasWriter.RecordExternalIdentifiersAsync(
+                patient.Id,
+                patient.MedicalRecordNumber,
+                others.Select(o => (o.Id, o.AssigningAuthority, o.TypeCode)),
+                ct);
+            if (recorded.Count > 0)
+            {
+                _audit?.Record(
+                    AuditEventType.Update,
+                    nameof(Patient),
+                    patient.Id,
+                    newValue: new { patient.MedicalRecordNumber, ExternalIdentifiers = recorded },
+                    reason: $"External identifiers recorded from ADT^{data.TriggerEvent} PID-3.");
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+        }
+
         var visitNote = await _encounters.UpsertVisitFromHl7Async(
             patient.Id,
             data.VisitNumber ?? string.Empty,
