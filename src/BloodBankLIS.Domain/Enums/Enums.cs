@@ -1226,3 +1226,27 @@ public enum DeliveryStatus
     Open = 0,
     Completed = 1
 }
+
+/// <summary>What exposure an RhIG evaluation follows.</summary>
+public enum RhigContext
+{
+    Antepartum = 0,
+    Postpartum = 1,
+    OtherExposure = 2
+}
+
+/// <summary>Fetal bleed (fetomaternal hemorrhage) screen result on an RhIG evaluation.</summary>
+public enum FetalBleedScreen
+{
+    NotDone = 0,
+    Negative = 1,
+    Positive = 2
+}
+
+/// <summary>The reviewer's RhIG decision (OCD-069: the criteria are the facility's).</summary>
+public enum RhigDecision
+{
+    Undetermined = 0,
+    Candidate = 1,
+    NotCandidate = 2
+}

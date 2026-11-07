@@ -17062,3 +17062,25 @@ With the Possible duplicates card on the home screen (Cycle 523), a pair reviewe
 ### Tests
 
 - TEST-BB-572: still dismissed only while no new reason; integration: listed, refused without a reason or without merge permission, dismissed (either order) and gone, audited, not dismissable again, returns once the charts share an external identifier.
+
+## Iteration 525 — RhIG evaluation on the chart (2026-11-07)
+
+### Capability matrix rescan
+
+Duplicate handling closed out in Cycles 520–524. The partial rows remaining are ISBT catalogs (licensed extract) and modifications; cooler issue and duplicate-test warnings already exist. The gap analysis's ranked list still had **Rank 11: RhIG workflow missing (Medium, SME for indications)**, and the code had nothing for Rh immune globulin: no record of a delivery's infant Rh, fetal bleed screen, quantitation, or the decision and dose, which a transfusion service documents for every Rh-negative delivery. Workflow questions: memory (the facts on file are listed beside the entry: current Rh type, anti-D on history); safety (no invented candidacy rule or dose formula; completion requires a supervisor and a filled-in decision; completed records are fixed); audit (record, edit, complete).
+
+### Design
+
+- `RhigEvaluation` table; `RhigEvaluationRule` (facts, completeness, bounds); `RhigEvaluationService`; endpoints; chart tab **RhIG**; OCD-069 for the clinical rules.
+
+### Requirements
+
+- URS-BB-583, FRS-BB-700, OCD-069. Help: RhIG evaluations.
+
+### Tests
+
+- TEST-BB-573: facts listed without a conclusion; completion refused for each missing piece and accepted when complete; bounds; integration: record with immuno.record, completion refused without result.verify and without quantitation after a positive screen, future event refused, edit, complete, completed record not editable, audit rows.
+
+### Next
+
+RhIG follow-ups once OCD-069 is answered: an open-evaluations queue, and recording the RhIG issued (lot and vials).

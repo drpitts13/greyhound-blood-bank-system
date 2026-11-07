@@ -101,6 +101,7 @@ public static class DependencyInjection
         services.AddScoped<SupervisorQueueService>();
         services.AddScoped<OverrideReviewService>();
         services.AddScoped<DatElutionWorkupService>();
+        services.AddScoped<RhigEvaluationService>();
         services.AddScoped<DowntimeReconciliationService>();
         services.AddScoped<DowntimePatientSummaryService>();
         services.AddScoped<IsbtLookupCatalog>();

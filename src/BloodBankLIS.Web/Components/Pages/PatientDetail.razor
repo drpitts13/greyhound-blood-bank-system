@@ -328,6 +328,11 @@ else
         <PatientChartDatElutionTab PatientId="Id" />
     }
 
+    @if (_tab == "rhig")
+    {
+        <PatientChartRhigTab PatientId="Id" />
+    }
+
     @if (_tab == "test-history")
     {
         <PatientChartTestHistoryTab
@@ -799,7 +804,7 @@ else
 
     private static readonly HashSet<string> KnownTabs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "overview", "timeline", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "products", "history"
+        "overview", "timeline", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "rhig", "products", "history"
     };
 
     private string? _appliedTabQuery;

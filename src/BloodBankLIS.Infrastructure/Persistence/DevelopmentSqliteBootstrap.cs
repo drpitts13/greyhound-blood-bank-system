@@ -295,6 +295,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureInterfaceUnmappedValuesTableAsync(context, cancellationToken);
         await EnsureInstrumentValueTranslationsTableAsync(context, cancellationToken);
         await EnsurePatientDuplicateDismissalsTableAsync(context, cancellationToken);
+        await EnsureRhigEvaluationsTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -1297,6 +1298,42 @@ public static class DevelopmentSqliteBootstrap
         {
             await context.Database.ExecuteSqlRawAsync(Migrations.InstrumentValueTranslations.CopyTestMappingsSql, ct);
         }
+    }
+
+    private static async Task EnsureRhigEvaluationsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "RhigEvaluations", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "RhigEvaluations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_RhigEvaluations" PRIMARY KEY AUTOINCREMENT,
+                "PatientId" INTEGER NOT NULL,
+                "Context" INTEGER NOT NULL,
+                "EventUtc" TEXT NOT NULL,
+                "InfantRh" INTEGER NOT NULL,
+                "FetalBleedScreen" INTEGER NOT NULL,
+                "FetalBleedPercent" TEXT NULL,
+                "Decision" INTEGER NOT NULL,
+                "VialsRecommended" INTEGER NULL,
+                "DecisionNote" TEXT NULL,
+                "RecordedBy" TEXT NOT NULL,
+                "RecordedUtc" TEXT NOT NULL,
+                "CompletedBy" TEXT NULL,
+                "CompletedUtc" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_RhigEvaluations_PatientId" ON "RhigEvaluations" ("PatientId");
+            """, ct);
     }
 
     private static async Task EnsurePatientDuplicateDismissalsTableAsync(BloodBankDbContext context, CancellationToken ct)

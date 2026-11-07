@@ -1978,6 +1978,22 @@ public sealed class MtpPackDefinitionConfiguration : IEntityTypeConfiguration<Mt
     }
 }
 
+public sealed class RhigEvaluationConfiguration : IEntityTypeConfiguration<RhigEvaluation>
+{
+    public void Configure(EntityTypeBuilder<RhigEvaluation> b)
+    {
+        b.ToTable("RhigEvaluations");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.FetalBleedPercent).HasPrecision(7, 3);
+        b.Property(x => x.DecisionNote).HasMaxLength(1000);
+        b.Property(x => x.RecordedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.CompletedBy).HasMaxLength(100);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.PatientId);
+    }
+}
+
 public sealed class PatientDuplicateDismissalConfiguration : IEntityTypeConfiguration<PatientDuplicateDismissal>
 {
     public void Configure(EntityTypeBuilder<PatientDuplicateDismissal> b)

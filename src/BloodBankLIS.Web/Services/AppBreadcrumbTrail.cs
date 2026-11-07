@@ -72,6 +72,7 @@ public static class AppBreadcrumbTrail
         ["tests"] = "Tests",
         ["test-history"] = "Test History",
         ["dat-elution"] = "DAT / Elution",
+        ["rhig"] = "RhIG",
         ["products"] = "Products",
         ["history"] = "Product History"
     };

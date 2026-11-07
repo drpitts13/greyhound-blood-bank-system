@@ -60,6 +60,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PatientDto>> GetPatientAsync(long id, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Get, $"api/patients/{id}", ct: ct);
 
+    public Task<ApiResult<List<RhigEvaluationDto>>> GetRhigEvaluationsAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<RhigEvaluationDto>>(HttpMethod.Get, $"api/patients/{patientId}/rhig", ct: ct);
+
+    public Task<ApiResult<RhigEvaluationDto>> SaveRhigEvaluationAsync(long patientId, SaveRhigEvaluationRequest req, CancellationToken ct = default) =>
+        SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig", req, ct);
+
+    public Task<ApiResult<RhigEvaluationDto>> CompleteRhigEvaluationAsync(long patientId, long id, CancellationToken ct = default) =>
+        SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig/{id}/complete", ct: ct);
+
     public Task<ApiResult<List<PossibleDuplicatePairDto>>> GetPossibleDuplicatePairsAsync(CancellationToken ct = default) =>
         SendAsync<List<PossibleDuplicatePairDto>>(HttpMethod.Get, "api/patients/possible-duplicates/pairs", ct: ct);
 

@@ -32,6 +32,18 @@ public static class ImmunohematologyEndpoints
                 h => ($"/api/patients/{patientId}/blood-type", (object)BloodTypeDto.From(h))))
             .RequirePermission(PermissionCodes.ImmunoOverride);
 
+        // RhIG evaluations (OCD-069): facts on file, the decision and dose recorded by the reviewer.
+        patients.MapGet("/{patientId:long}/rhig", async (long patientId, RhigEvaluationService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(patientId, ct)));
+
+        patients.MapPost("/{patientId:long}/rhig", async (long patientId, SaveRhigEvaluationRequest request, RhigEvaluationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.SaveAsync(patientId, request, ct), d => d))
+            .RequirePermission(PermissionCodes.ImmunoRecord);
+
+        patients.MapPost("/{patientId:long}/rhig/{id:long}/complete", async (long patientId, long id, RhigEvaluationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.CompleteAsync(patientId, id, ct), d => d))
+            .RequirePermission(PermissionCodes.ResultVerify);
+
         patients.MapGet("/{patientId:long}/antibodies", async (long patientId, ImmunohematologyService service, CancellationToken ct) =>
         {
             var antibodies = await service.ListAntibodyDtosAsync(patientId, activeOnly: true, ct);
