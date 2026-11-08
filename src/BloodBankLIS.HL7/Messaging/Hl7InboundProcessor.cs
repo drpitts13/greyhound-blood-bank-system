@@ -740,7 +740,8 @@ public sealed class Hl7InboundProcessor
             provider?.Id,
             OrderSource.Hl7,
             "HL7",
-            null), ct);
+            null,
+            NeededByUtc: data.NeededByUtc), ct);
 
         if (!createResult.Succeeded)
         {

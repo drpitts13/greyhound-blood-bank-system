@@ -31,7 +31,10 @@ public sealed record BloodOrderToPrepareDto(
     // The usable specimen the reserve form starts with (one with a completed type and screen when there is one), or null.
     long? UsableSpecimenId = null,
     // A usable specimen is on file but its ABO/Rh and antibody screen are not both verified yet.
-    bool TypeAndScreenPending = false);
+    bool TypeAndScreenPending = false,
+    // When it is needed, and whether that time has passed.
+    DateTime? NeededByUtc = null,
+    bool NeededByPassed = false);
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -153,11 +156,15 @@ public sealed class BloodOrderWorklistService
                 BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete)!,
                 BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete),
                 specimen?.Id,
-                hasSpecimen && !typeAndScreenComplete));
+                hasSpecimen && !typeAndScreenComplete,
+                order.NeededByUtc,
+                OrderNeededByRule.Passed(order.NeededByUtc, now)));
         }
 
+        // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.
         return rows
             .OrderBy(r => r.Rush ? 0 : 1)
+            .ThenBy(r => r.NeededByUtc ?? DateTime.MaxValue)
             .ThenBy(r => r.OrderedUtc)
             .ToList();
     }

@@ -96,7 +96,9 @@ public sealed record CreateOrderRequest(
     long? SpecimenId = null,
     string? Comment = null,
     IReadOnlyList<long>? ActionDefinitionIds = null,
-    IReadOnlyList<ProductIndicationInputDto>? Indications = null);
+    IReadOnlyList<ProductIndicationInputDto>? Indications = null,
+    // When it is needed (surgery start, scheduled transfusion); optional.
+    DateTime? NeededByUtc = null);
 
 public sealed record CancelOrderRequest(string ReasonCode);
 
@@ -192,7 +194,8 @@ public sealed record PatientOrderDto(
     string? CurrentResultEnteredBy = null,
     string? CurrentResultTestCode = null,
     IReadOnlyList<OrderActionDto>? Actions = null,
-    string? CancellationReasonCode = null)
+    string? CancellationReasonCode = null,
+    DateTime? NeededByUtc = null)
 {
     public bool IsUrgentPriority =>
         Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease

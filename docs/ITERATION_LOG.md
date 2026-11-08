@@ -17665,3 +17665,24 @@ Cycle 555 lists blood orders to prepare, but Reserve N units opened the patient'
 - Found in the live check: the reserve form offers only specimens with a completed type and screen, but the worklist picked the newest usable specimen, which had none, so the specimen was left blank. The worklist now uses the type-and-screen check the reserve form uses: a specimen with a completed type and screen is chosen; if none, the next step is Finish type and screen (chart tests).
 - TEST-BB-627: a usable specimen without a completed type and screen: Finish type and screen, linking to tests.
 - TEST-BB-628: with the check, the worklist says Finish type and screen for an unverified specimen; the demo order reserves on ACC0001.
+
+## Iteration 557 — Needed-by time on orders (2026-11-08)
+
+### Capability matrix rescan (orders: timing)
+
+Blood for surgery and scheduled transfusions is ordered hours ahead; the bench prepares by when it is needed, not when it was ordered. Orders had only the order time and a priority, and the EHR's timing start (TQ1-7) was ignored, so Blood orders to prepare could only sort by order time. Workflow questions: memory (no sticky note with the surgery time); next action (prepared in the order they are needed; passed times flagged); interoperability (TQ1-7, configurable); safety (no priority or check changes; a time before the order is refused as an entry error).
+
+### Design
+
+- `Order.NeededByUtc` and migration; `OrderNeededByRule`; create request and audit; HL7 data item and mapper; chart form and rows; worklist sort, flag, and card note.
+
+### Requirements
+
+- URS-BB-614, FRS-BB-731. Help: Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-629: optional, not before the order (one minute allowed), passed at the time.
+- TEST-BB-630: TQ1-7 maps to the needed-by time (UTC); absent stays null.
+- TEST-BB-631: kept on a created order and its list row; one before the order refused.
+- TEST-BB-632: the worklist carries the needed-by time and flags a passed one.

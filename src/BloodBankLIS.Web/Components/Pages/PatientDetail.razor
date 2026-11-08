@@ -206,6 +206,7 @@ else
             OnAccessionNowAfter="OnNewOrderAccessionNowChanged"
             @bind-NewOrderEncounterId="_newOrderEncounterId"
             @bind-NewOrderPriority="_newOrderPriority"
+            @bind-NewOrderNeededBy="_newOrderNeededBy"
             @bind-NewOrderLocationId="_newOrderLocationId"
             @bind-NewOrderProviderId="_newOrderProviderId"
             @bind-NewOrderSpecimenId="_newOrderSpecimenId"
@@ -650,6 +651,8 @@ else
     private long _newOrderSpecimenId;
     private bool _newOrderAccessionNow;
     private string? _newOrderComment;
+    // Entered in local time on the form; sent as UTC.
+    private DateTime? _newOrderNeededBy;
     private string? _editOrderComment;
     private PatientAccessionForm _orderAcc = new();
 
@@ -2035,7 +2038,8 @@ else
             null,
             specimenId,
             string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment,
-            Indications: _newOrderProductTypeIds.Count > 0 ? PbmInputs() : null);
+            Indications: _newOrderProductTypeIds.Count > 0 ? PbmInputs() : null,
+            NeededByUtc: _newOrderNeededBy is DateTime localNeeded ? DateTime.SpecifyKind(localNeeded, DateTimeKind.Local).ToUniversalTime() : null);
         var r = await Api.CreatePatientOrderAsync(Id, req);
         _busy = false;
         if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
@@ -2057,6 +2061,7 @@ else
         _newOrderSpecimenId = 0;
         _newOrderAccessionNow = false;
         _newOrderComment = null;
+        _newOrderNeededBy = null;
         _orderAcc = new();
         _ordersLoaded = false;
         await LoadOrdersAsync();

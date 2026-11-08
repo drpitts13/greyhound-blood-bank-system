@@ -232,7 +232,8 @@ public sealed class OrderService
                     o.Comment,
                     current?.Id, current?.Value, current?.Source, current?.EnteredBy, current?.TestCode,
                     actionsByOrder.GetValueOrDefault(o.Id),
-                    o.CancellationReasonCode);
+                    o.CancellationReasonCode,
+                    o.NeededByUtc);
             })
             .ToList();
     }
@@ -304,6 +305,12 @@ public sealed class OrderService
             return OperationResult<Order>.Fail($"Order number '{request.OrderNumber}' already exists.");
         }
 
+        var neededBy = OrderNeededByRule.Evaluate(request.OrderedUtc, request.NeededByUtc);
+        if (neededBy.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Order>.Fail(neededBy.Message);
+        }
+
         var (orderingProviderId, orderingProviderName) = await ResolveOrderingProviderAsync(request.OrderingProviderId, ct);
         var productTypeMap = await LoadProductTypeMapAsync(ct);
         var lineInputs = OrderLineBuilder.WithCrossmatchLineIfNeeded(request.Lines, productTypeMap);
@@ -322,6 +329,7 @@ public sealed class OrderService
             OrderingProviderId = orderingProviderId,
             OrderingProvider = orderingProviderName,
             OrderedUtc = request.OrderedUtc,
+            NeededByUtc = request.NeededByUtc,
             SourceSystem = request.SourceSystem,
             OrderedByUser = request.OrderedByUser,
             Comment = NormalizeComment(request.Comment)
@@ -417,7 +425,7 @@ public sealed class OrderService
             AuditEventType.OrderChange,
             nameof(Order),
             order.Id,
-            newValue: new { order.OrderNumber, order.Status, order.Source, LineCount = builtLines.Count },
+            newValue: new { order.OrderNumber, order.Status, order.Source, LineCount = builtLines.Count, order.NeededByUtc },
             reason: "Order created.");
 
         var requireCompletedTypeAndScreen = builtLines.Any(l => l.LineCategory == OrderCategory.Product);

@@ -41,6 +41,7 @@ public class BloodOrderWorklistTests
             Priority = priority, Status = status, OrderedUtc = now.AddHours(-hoursAgo)
         };
         var routineOrder = NewOrder(routine, "BO-1", OrderPriority.Routine, 4);
+        routineOrder.NeededByUtc = now.AddMinutes(-10);
         var statOrder = NewOrder(stat, "BO-2", OrderPriority.Stat, 1);
         var coveredOrder = NewOrder(covered, "BO-3", OrderPriority.Routine, 6);
         var cancelledOrder = NewOrder(routine, "BO-4", OrderPriority.Routine, 7, OrderStatus.Cancelled);
@@ -82,6 +83,9 @@ public class BloodOrderWorklistTests
         var routineRow = rows[1];
         Assert.Equal((3, 1, 1, 1, true, "Reserve 1 unit", "3 × Red Blood Cells"),
             (routineRow.Requested, routineRow.Reserved, routineRow.Issued, routineRow.Remaining, routineRow.HasUsableSpecimen, routineRow.NextStep, routineRow.Products));
+        // TEST-BB-632: the needed-by time is carried, and one that has passed is flagged.
+        Assert.Equal((now.AddMinutes(-10), true), (routineRow.NeededByUtc, routineRow.NeededByPassed));
+        Assert.Equal(((DateTime?)null, false), (statRow.NeededByUtc, statRow.NeededByPassed));
         // TEST-BB-626: the next step opens the reserve form with the order and the usable specimen chosen.
         var specimenId = c.Specimens.Single(x => x.AccessionNumber == "ACC-BO-1").Id;
         Assert.Equal((specimenId, $"/patients/{routine.Id}?tab=products&reserveOrder={routineOrder.Id}&reserveSpecimen={specimenId}"),

@@ -84,7 +84,19 @@ public class NumericTiterResultTests : IDisposable
             [new OrderLineInputDto(OrderCategory.Test, "FMHQ", null), new OrderLineInputDto(OrderCategory.Test, "ABTITER", null)],
             OrderPriority.Routine, _factory.Clock.UtcNow, null, OrderSource.Manual, null, null, SpecimenId: specimen.Id));
         Assert.True(created.Succeeded, created.Error);
-        return new Fixture(patient, specimen, Assert.Single(await Orders(c).ListByPatientAsync(patient.Id)));
+
+        // TEST-BB-631: a needed-by time is kept with the order; one before the order was placed is refused.
+        var tooEarly = await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
+            encounter.Id, location.Id, "ORD-NT-EARLY", [new OrderLineInputDto(OrderCategory.Test, "FMHQ", null)],
+            OrderPriority.Routine, _factory.Clock.UtcNow, null, OrderSource.Manual, null, null, NeededByUtc: _factory.Clock.UtcNow.AddHours(-2)));
+        Assert.Contains("before the order was placed", tooEarly.Error);
+        var timed = await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
+            encounter.Id, location.Id, "ORD-NT-TIMED", [new OrderLineInputDto(OrderCategory.Test, "FMHQ", null)],
+            OrderPriority.Timed, _factory.Clock.UtcNow, null, OrderSource.Manual, null, null, NeededByUtc: _factory.Clock.UtcNow.AddHours(3)));
+        Assert.True(timed.Succeeded, timed.Error);
+        Assert.Equal(_factory.Clock.UtcNow.AddHours(3), timed.Value!.NeededByUtc);
+        Assert.Equal(_factory.Clock.UtcNow.AddHours(3), (await Orders(c).ListByPatientAsync(patient.Id)).Single(o => o.OrderNumber == "ORD-NT-TIMED").NeededByUtc);
+        return new Fixture(patient, specimen, Assert.Single(await Orders(c).ListByPatientAsync(patient.Id), o => o.OrderNumber == "ORD-NT1"));
     }
 
     private static SaveTestResultRequest Save(Fixture f, string code, string? value, bool complete = false,

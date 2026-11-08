@@ -42,6 +42,9 @@
                     <div class="field"><label>Priority</label>
                         <select @bind="NewOrderPriority" @bind:after="() => NewOrderPriorityChanged.InvokeAsync(NewOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
                     </div>
+                    <div class="field"><label>Needed by (optional)</label>
+                        <input type="datetime-local" @bind="NewOrderNeededBy" @bind:after="() => NewOrderNeededByChanged.InvokeAsync(NewOrderNeededBy)" data-order-needed-by />
+                    </div>
                     <div class="field"><label>Ordering location</label>
                         <select @bind="NewOrderLocationId" @bind:after="() => NewOrderLocationIdChanged.InvokeAsync(NewOrderLocationId)">
                             @foreach (var l in OrderingLocations)
@@ -262,7 +265,12 @@
                     @* One record per tbody: the facts, the row's actions on a line underneath, then any open form. *@
                     <tbody class="record">
                     <tr class="@OrderRowClass(o)">
-                        <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span></td>
+                        <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span>
+                            @if (o.NeededByUtc is DateTime orderNeededBy)
+                            {
+                                <span class="sub" data-order-needed-by-shown>needed by @orderNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            }
+                        </td>
                         <td>@o.OrderCategory<span class="sub">@o.Source</span></td>
                         <td>
                             <div class="muted mono" style="margin-bottom:.15rem;">@o.OrderNumber</div>
@@ -576,6 +584,8 @@
     [Parameter] public long NewOrderEncounterId { get; set; }
     [Parameter] public EventCallback<long> NewOrderEncounterIdChanged { get; set; }
     [Parameter] public OrderPriority NewOrderPriority { get; set; } = OrderPriority.Routine;
+    [Parameter] public DateTime? NewOrderNeededBy { get; set; }
+    [Parameter] public EventCallback<DateTime?> NewOrderNeededByChanged { get; set; }
     [Parameter] public EventCallback<OrderPriority> NewOrderPriorityChanged { get; set; }
     [Parameter] public long NewOrderLocationId { get; set; }
     [Parameter] public EventCallback<long> NewOrderLocationIdChanged { get; set; }

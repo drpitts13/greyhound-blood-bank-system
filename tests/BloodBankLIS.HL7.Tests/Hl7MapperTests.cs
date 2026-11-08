@@ -63,6 +63,23 @@ public class Hl7MapperTests
         Assert.Equal(OrderType.TypeAndScreen, data.OrderType);
         Assert.Equal(OrderPriority.Routine, data.Priority);
         Assert.Null(data.OrderingProviderId);
+        Assert.Null(data.NeededByUtc);
+    }
+
+    // TEST-BB-630: the timing start date/time (TQ1-7) is the order's needed-by time.
+    [Fact]
+    public void OrmMapper_ReadsTheNeededByTime()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|C9|P|2.5\r" +
+            "PID|1||MRN777^^^HOSP^MR||Smith^Jane\r" +
+            "ORC|NW|PLACER-200\r" +
+            "TQ1|1||||||20260530140000\r" +
+            "OBR|1|PLACER-200||TS^Type and Screen");
+
+        var data = Hl7OrmMapper.Map(message);
+
+        Assert.Equal(new DateTime(2026, 5, 30, 14, 0, 0, DateTimeKind.Utc), data.NeededByUtc);
     }
 
     [Theory]

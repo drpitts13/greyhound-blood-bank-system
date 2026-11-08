@@ -7,8 +7,8 @@
 
 <h1>Blood orders to prepare</h1>
 <p class="muted">
-    Open blood (product) orders whose units are not all reserved or issued yet, across patients: rush orders first, then the
-    oldest. Each row says what is still needed and the next step. A patient with no usable specimen needs one collected
+    Open blood (product) orders whose units are not all reserved or issued yet, across patients: rush orders first, then by
+    when they are needed, then the oldest. Each row says what is still needed and the next step. A patient with no usable specimen needs one collected
     before units can be crossmatched; otherwise reserve the units from the patient's products, which runs the
     compatibility checks.
 </p>
@@ -53,6 +53,10 @@ else
                                 <span class="sub">@r.Priority</span>
                             }
                             <span class="sub nowrap">ordered @r.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            @if (r.NeededByUtc is DateTime neededBy)
+                            {
+                                <span class="@(r.NeededByPassed ? "badge badge-red" : "sub") nowrap" data-needed-by>needed by @neededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(r.NeededByPassed ? " (passed)" : "")</span>
+                            }
                         </td>
                         <td>@r.Products</td>
                         <td><strong>@r.Remaining</strong> <span class="sub">of @r.Requested (@r.Reserved reserved, @r.Issued issued)</span></td>
