@@ -1,0 +1,90 @@
+@page "/blood-orders"
+@using BloodBankLIS.Application.PatientWorkspace
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Blood orders to prepare &middot; HemoCore</PageTitle>
+
+<h1>Blood orders to prepare</h1>
+<p class="muted">
+    Open blood (product) orders whose units are not all reserved or issued yet, across patients: rush orders first, then the
+    oldest. Each row says what is still needed and the next step. A patient with no usable specimen needs one collected
+    before units can be crossmatched; otherwise reserve the units from the patient's products, which runs the
+    compatibility checks.
+</p>
+
+@if (!Session.Has(PermissionCodes.CompatibilityAllocate))
+{
+    <div class="alert alert-warning">This list needs the allocate permission.</div>
+}
+else if (_rows is null)
+{
+    <div class="loading">Loading orders...</div>
+}
+else if (_rows.Count == 0)
+{
+    <div class="empty">No blood orders are waiting for units.</div>
+}
+else
+{
+    <div class="bb-card">
+        <table class="bb" data-blood-orders>
+            <thead><tr><th>Patient</th><th>Type / antibodies</th><th>Order</th><th>Products</th><th>Still needed</th><th>Specimen</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in _rows)
+                {
+                    <tr>
+                        <td><a href="@($"/patients/{r.PatientId}")">@r.PatientName</a> <span class="sub mono">@r.Mrn</span></td>
+                        <td>
+                            <span class="mono">@(r.CurrentBloodType ?? "No type on file")</span>
+                            @if (r.ActiveAntibodies.Count > 0)
+                            {
+                                <span class="badge badge-red">@string.Join(", ", r.ActiveAntibodies)</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="mono">@r.OrderNumber</span>
+                            @if (r.Rush)
+                            {
+                                <span class="badge badge-red">@r.Priority</span>
+                            }
+                            else
+                            {
+                                <span class="sub">@r.Priority</span>
+                            }
+                            <span class="sub nowrap">ordered @r.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                        </td>
+                        <td>@r.Products</td>
+                        <td><strong>@r.Remaining</strong> <span class="sub">of @r.Requested (@r.Reserved reserved, @r.Issued issued)</span></td>
+                        <td>
+                            @if (r.HasUsableSpecimen)
+                            {
+                                <span class="sub">Usable@(r.SpecimenExpiresUtc is DateTime until ? $" until {until.ToLocalTime():yyyy-MM-dd HH:mm}" : "")</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-amber">None usable</span>
+                            }
+                        </td>
+                        <td class="right"><a class="btn btn-primary btn-sm" href="@r.Href">@r.NextStep</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<BloodOrderToPrepareDto>? _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            return;
+        }
+
+        var r = await Api.GetBloodOrdersToPrepareAsync();
+        _rows = r.Succeeded ? r.Value ?? new() : new();
+    }
+}

@@ -220,6 +220,7 @@ app.MapBackupEndpoints();
 app.MapMfaEndpoints();
 app.MapPbmEndpoints();
 app.MapLookupEndpoints();
+app.MapBloodOrderEndpoints();
 app.MapFhirEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();

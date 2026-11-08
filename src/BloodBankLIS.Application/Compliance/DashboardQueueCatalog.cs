@@ -42,6 +42,7 @@ public static class DashboardQueueCatalog
     public const string OpenRhig = "open-rhig";
     public const string TubesDueForDiscard = "tubes-due-discard";
     public const string Unidentified = "unidentified-patients";
+    public const string BloodOrders = "blood-orders";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -52,6 +53,8 @@ public static class DashboardQueueCatalog
             || has(PermissionCodes.IssueReturn)
             || has(PermissionCodes.TransfusionDocument);
 
+        // Blood orders whose units are not all reserved yet: what to crossmatch and reserve next.
+        Add(cards, has(PermissionCodes.CompatibilityAllocate), BloodOrders, "Blood orders to prepare", "/blood-orders");
         Add(cards, canIssue, Ready, "Ready to issue", "/issuing?desk=ready");
         Add(cards, canIssue, SecondAbo, "Second ABO/Rh", "/issuing?desk=second");
         Add(cards, canIssue, Retrospective, "Retrospective crossmatch", "/issuing?desk=retro");
@@ -143,6 +146,18 @@ public static class DashboardQueueCatalog
             pairs.Count(p => PossibleDuplicatePatientRule.IsSharedIdentifierReason(p.Reason)),
             "shares an external ID",
             "share an external ID");
+
+    /// <summary>The Blood orders to prepare card note: rush orders, and orders waiting for a specimen.</summary>
+    public static string? BloodOrdersNote(IEnumerable<BloodBankLIS.Application.PatientWorkspace.BloodOrderToPrepareDto> rows)
+    {
+        var list = rows.ToList();
+        var parts = new[]
+        {
+            AttentionNote(list.Count(r => r.Rush), "rush", "rush"),
+            AttentionNote(list.Count(r => !r.HasUsableSpecimen), "needs a specimen", "need a specimen")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
 
     /// <summary>The Open RhIG evaluations card note: those filled in and waiting only to be completed.</summary>
     public static string? RhigQueueNote(IEnumerable<BloodBankLIS.Application.Immunohematology.RhigQueueItemDto> items)

@@ -47,6 +47,10 @@
 
     <details class="nav-section" open="@SectionOpen(TransfusionPaths)">
         <summary>Transfusion</summary>
+        @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            <NavLink href="blood-orders" ActiveClass="active">Blood orders to prepare</NavLink>
+        }
         <NavLink href="compatibility" ActiveClass="active">Compatibility</NavLink>
         <NavLink href="issuing" ActiveClass="active">Issue &amp; Transfuse</NavLink>
         @if (Session.Has(PermissionCodes.LookbackManage))
@@ -239,7 +243,7 @@
 
     private static readonly string[] InventorySectionPaths = ["inventory", "storage-temps"];
 
-    private static readonly string[] TransfusionPaths = ["compatibility", "issuing", "lookback", "reactions", "mtp"];
+    private static readonly string[] TransfusionPaths = ["blood-orders", "compatibility", "issuing", "lookback", "reactions", "mtp"];
 
     private static readonly string[] QualityPaths = ["supervisor", "deviations", "handoff", "audit", "downtime"];
 

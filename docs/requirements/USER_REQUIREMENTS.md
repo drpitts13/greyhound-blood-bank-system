@@ -617,3 +617,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-609 | The shift handoff names unidentified patients still to be merged (as urgent) and stored tubes due for discard. | P2 | FRS-BB-726 |
 | URS-BB-610 | When units issued under an earlier identity (an unidentified patient's temporary MRN) are still out after a merge, the chart and the identify step warn that the wristband may differ from the chart. | P1 | FRS-BB-727 |
 | URS-BB-611 | A unit issued under an earlier MRN is marked on the In transit and Issued units boards and on the transfusion form, where the wristband is checked. | P1 | FRS-BB-728 |
+| URS-BB-612 | The bench sees, across patients, every open blood order whose units are not all reserved, rush first, with what is still needed and the next step (collect a specimen or reserve units). | P1 | FRS-BB-729 |

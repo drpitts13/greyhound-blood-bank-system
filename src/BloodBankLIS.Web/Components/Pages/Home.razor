@@ -422,6 +422,13 @@
             }
             case DashboardQueueCatalog.ExpiredOnShelf:
                 return await CountList(card.Key, Api.GetExpiredOnShelfAsync());
+            case DashboardQueueCatalog.BloodOrders:
+            {
+                var result = await Api.GetBloodOrdersToPrepareAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.BloodOrdersNote(result.Value))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.Unidentified:
                 return await CountList(card.Key, Api.GetUnidentifiedPatientsAsync());
             case DashboardQueueCatalog.TubesDueForDiscard:

@@ -27,6 +27,7 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 - Instrument failures, when you manage instrument interfaces: failed instrument messages nobody has replayed successfully or resolved. HL7 errors, when you manage HL7: interface errors still open.
 - Open deviations, when you manage deviations: every deviation not yet closed. The card names critical ones, which puts it under Needs attention.
 - Open RhIG evaluations, when you record immunohematology results or verify results: RhIG evaluations not yet completed, and completed candidates with no RhIG given recorded. The card says how many are ready to complete and how many are to give.
+- Blood orders to prepare, when you can reserve units: open blood orders whose units are not all reserved yet; the card says how many are rush and how many need a specimen.
 - Tubes due for discard, when you store tubes: stored tubes past your facility's keep-until date, which opens Store tubes with the list. It stays at zero until your facility sets a retention period.
 - Unidentified patients, when you can merge charts: emergency charts registered without identification and not yet merged into the identified patient's chart.
 - Possible duplicates, when you can merge charts: pairs of charts that may be one person. Pairs that carry the same identifier from another system (for example an enterprise id sent by the EHR) are named, which puts the card under Needs attention.

@@ -629,5 +629,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-618 | I | `UnidentifiedPatientTests.Unidentified_IsRegisteredInOneStep_AndMergedOnceIdentified` (units still out) | URS-BB-610 / FRS-BB-727 |
 | TEST-BB-619 | U | `IssuedUnderEarlierIdentityRuleTests.EarlierMrn_AndBedsideNotice` | URS-BB-611 / FRS-BB-728 |
 | TEST-BB-620 | I | `Phase4IssuingTests.IssuedList_NamesAnEarlierMrn_WhenTheChartChangedSinceIssue` | URS-BB-611 / FRS-BB-728 |
+| TEST-BB-621 | U | `BloodOrderPreparationRuleTests.Remaining_AndNextStep` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-622 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-623 | U | `DashboardHomeTests.BloodOrders_IsForAllocators_WithRushAndSpecimenNotes` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-624 | I | `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` | URS-BB-612 / FRS-BB-729 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

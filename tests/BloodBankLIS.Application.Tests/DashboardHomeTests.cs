@@ -209,4 +209,19 @@ public class DashboardHomeTests
         var layout = DashboardHome.Arrange([State(TubesDueForDiscard, 4)], WorkFocus.Bench);
         Assert.DoesNotContain(layout.Attention, c => c.Card.Key == TubesDueForDiscard);
     }
+
+    // TEST-BB-623: Blood orders to prepare is a card for those who allocate, on the bench view; its note names rush orders
+    // and those waiting for a specimen.
+    [Fact]
+    public void BloodOrders_IsForAllocators_WithRushAndSpecimenNotes()
+    {
+        Assert.Contains(Select(c => c == PermissionCodes.CompatibilityAllocate), card => card.Key == BloodOrders && card.Href == "/blood-orders");
+        Assert.DoesNotContain(Select(c => c == PermissionCodes.ResultEnter), card => card.Key == BloodOrders);
+        Assert.True(DashboardHome.InFocus(BloodOrders, WorkFocus.Bench));
+
+        BloodBankLIS.Application.PatientWorkspace.BloodOrderToPrepareDto Row(bool rush, bool specimen) => new(
+            1, "O1", 1, "P", "M", null, [], OrderPriority.Routine, rush, DateTime.UtcNow, "1 × RBC", 1, 0, 0, 1, specimen, null, "x", "/");
+        Assert.Equal("1 rush; 1 needs a specimen", BloodOrdersNote([Row(true, true), Row(false, false)]));
+        Assert.Null(BloodOrdersNote([Row(false, true)]));
+    }
 }

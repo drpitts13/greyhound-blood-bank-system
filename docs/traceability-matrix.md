@@ -722,6 +722,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-609 / FRS-BB-726 | Unidentified patients and tubes due on the handoff | `ShiftHandoffService`; `ShiftHandoffItems` | TEST-BB-615, TEST-BB-616 | U, I | |
 | URS-BB-610 / FRS-BB-727 | Units still out under an earlier identity | `IssuedUnderEarlierIdentityRule`; `PatientMergeService.ListIssuedUnderEarlierIdentityAsync/IdentifyAsync`; `PatientChartHeader.razor` | TEST-BB-617, TEST-BB-618 | U, I | OCD-071 |
 | URS-BB-611 / FRS-BB-728 | Earlier identity on the ward and bedside boards | `IssuedUnderEarlierIdentityRule`; `IssuingDtos`; `Issuing.razor` | TEST-BB-619, TEST-BB-620 | U, I | OCD-071 |
+| URS-BB-612 / FRS-BB-729 | Blood orders to prepare | `BloodOrderPreparationRule`; `BloodOrderWorklistService`; `BloodOrders.razor`; `DashboardQueueCatalog` | TEST-BB-621, TEST-BB-622, TEST-BB-623, TEST-BB-624 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

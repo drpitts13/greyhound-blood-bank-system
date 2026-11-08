@@ -17620,3 +17620,26 @@ Cycle 553 warns on the chart when units are still out under an earlier MRN, but 
 
 - TEST-BB-619: earlier MRN only when different (case and spaces ignored, no current MRN none); bedside note text.
 - TEST-BB-620: the issued list has no earlier MRN for a unit issued under the current MRN, and names it once the MRN at issue differs.
+
+## Iteration 555 — Blood orders to prepare (2026-11-08)
+
+### Capability matrix rescan (operations: worklists)
+
+The earlier-identity warnings are complete (Cycles 553–554). Next gap: blood (product) orders were visible only on each patient's chart. Ready to issue lists units already reserved, but nothing showed, across patients, which orders still needed units crossmatched and reserved, or which were waiting for a specimen. A bench running surgical and STAT requests needs that list. Workflow questions: memory (no chart-by-chart search); next action (collect a specimen, or reserve N units, one click); safety (no compatibility decision here; reserving runs its checks); priority (rush orders first).
+
+Found while checking authorization for the new endpoint: `GET /api/lookup/recent` (Cycle 551) was mapped without the signed-in check the lookup uses; it now requires a signed-in user.
+
+### Design
+
+- `BloodOrderPreparationRule`; `BloodOrderWorklistService` and endpoint; `/blood-orders` page and menu entry; home card with note.
+
+### Requirements
+
+- URS-BB-612, FRS-BB-729. Help: Blood orders to prepare, home screen.
+
+### Tests
+
+- TEST-BB-621: remaining never below zero; specimen first, then units to reserve; nothing when covered.
+- TEST-BB-622: a STAT order with an expired specimen leads, needing a specimen; a routine order with one reserved, one released, and one issued unit needs one more; covered and cancelled orders not listed; products summarized.
+- TEST-BB-623: card for allocators on the Bench view; note names rush and needing a specimen.
+- TEST-BB-624: the demo STAT order for two red cell units is listed with two still needed; added once (seeder count 21 orders).

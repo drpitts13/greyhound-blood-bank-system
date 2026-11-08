@@ -1,0 +1,22 @@
+---
+slug: blood-orders
+title: Blood orders to prepare
+order: 245
+chapter: Compatibility and issue
+summary: See every open blood order whose units are not all reserved yet, rush orders first, with the next step for each.
+routes:
+  - /blood-orders
+---
+
+**Blood orders to prepare** (Transfusion) lists, across patients, every open blood (product) order whose units are not all reserved or issued yet. Rush orders (STAT, urgent, emergency, massive transfusion) come first, then the oldest. You need the allocate permission.
+
+Each row shows the patient with the current ABO/Rh and any active antibodies, the order number and priority, the products ordered (each product line is one unit), and how many units are **still needed** out of those ordered, counting units reserved on the order and units already issued on it. A reservation that was released, or a unit that came back, does not count.
+
+**Specimen** says whether the patient has a usable specimen (accepted or received, not expired, not discarded) and until when. The button on the row is the next step:
+
+- **Collect a specimen**: there is no usable specimen, so units cannot be crossmatched yet. It opens the patient's specimens.
+- **Reserve N units**: it opens the patient's products, where reserving runs the usual compatibility checks.
+
+An order drops off the list once its units are all reserved or issued, or when it is completed or cancelled. The home screen's **Blood orders to prepare** card counts the orders and says how many are rush and how many need a specimen.
+
+> Demo data. In a development database, ORD-PREP-DEMO is a STAT order for two red cell units for MRN0001 with nothing reserved yet.
