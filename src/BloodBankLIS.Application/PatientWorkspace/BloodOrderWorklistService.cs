@@ -37,7 +37,9 @@ public sealed record BloodOrderToPrepareDto(
     bool TypeAndScreenPending = false,
     // When it is needed, and whether that time has passed.
     DateTime? NeededByUtc = null,
-    bool NeededByPassed = false);
+    bool NeededByPassed = false,
+    // The patient's clinically active special transfusion requirements (not informational ones): what the units must be.
+    IReadOnlyList<string>? Requirements = null);
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -55,6 +57,8 @@ public sealed class BloodOrderWorklistService
     private readonly IRepository<AntibodyHistory> _antibodies;
     private readonly IClock _clock;
     private readonly BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? _typeAndScreen;
+    private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
+    private readonly IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? _requirementDefinitions;
 
     public BloodOrderWorklistService(
         IRepository<Order> orders,
@@ -66,8 +70,12 @@ public sealed class BloodOrderWorklistService
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<AntibodyHistory> antibodies,
         IClock clock,
-        BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? typeAndScreen = null)
+        BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? typeAndScreen = null,
+        IRepository<SpecialTransfusionRequirement>? requirements = null,
+        IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? requirementDefinitions = null)
     {
+        _requirements = requirements;
+        _requirementDefinitions = requirementDefinitions;
         _typeAndScreen = typeAndScreen;
         _orders = orders;
         _lines = lines;
@@ -142,6 +150,7 @@ public sealed class BloodOrderWorklistService
         }
         var types = (await _bloodTypes.ListAsync(t => patientIds.Contains(t.PatientId) && t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
         var antibodies = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
+        var requirementText = await RequirementsAsync(patientIds, now, ct);
 
         var rows = new List<BloodOrderToPrepareDto>();
         foreach (var group in productLines.Where(l => orders.ContainsKey(l.OrderId)).GroupBy(l => l.OrderId))
@@ -179,7 +188,8 @@ public sealed class BloodOrderWorklistService
                 specimen?.Id,
                 hasSpecimen && !typeAndScreenComplete,
                 order.NeededByUtc,
-                OrderNeededByRule.Passed(order.NeededByUtc, now)));
+                OrderNeededByRule.Passed(order.NeededByUtc, now),
+                requirementText.GetValueOrDefault(order.PatientId) ?? []));
         }
 
         // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.
@@ -188,5 +198,26 @@ public sealed class BloodOrderWorklistService
             .ThenBy(r => r.NeededByUtc ?? DateTime.MaxValue)
             .ThenBy(r => r.OrderedUtc)
             .ToList();
+    }
+
+    /// <summary>Each patient's clinically active, non-informational special requirements, worded as on the downtime sheet.</summary>
+    private async Task<Dictionary<long, List<string>>> RequirementsAsync(List<long> patientIds, DateTime now, CancellationToken ct)
+    {
+        if (_requirements is null)
+        {
+            return [];
+        }
+
+        var rows = await _requirements.ListAsync(r => patientIds.Contains(r.PatientId) && r.IsActive, ct);
+        var definitionIds = rows.Select(r => r.RequirementDefinitionId).OfType<long>().Distinct().ToList();
+        var definitions = _requirementDefinitions is null || definitionIds.Count == 0
+            ? new Dictionary<long, BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>()
+            : (await _requirementDefinitions.ListAsync(d => definitionIds.Contains(d.Id), ct)).ToDictionary(d => d.Id);
+        return rows
+            .Select(r => Compliance.SpecialRequirementDto.From(r, r.RequirementDefinitionId is { } id ? definitions.GetValueOrDefault(id) : null, now))
+            .Where(r => r.IsClinicallyActive && !r.IsInformational)
+            .GroupBy(r => r.PatientId)
+            .ToDictionary(g => g.Key, g => g.Select(Compliance.DowntimePatientSummaryService.RequirementText)
+                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList());
     }
 }

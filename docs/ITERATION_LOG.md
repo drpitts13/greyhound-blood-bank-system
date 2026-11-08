@@ -17816,3 +17816,21 @@ The order history (Cycle 563) needed the chart, the Orders tab, and History. A s
 ### Tests
 
 - TEST-BB-643: exact match (case and spaces), partial, duplicate number, blank, no orders.
+
+## Iteration 565 — Special requirements on Blood orders to prepare (2026-11-08)
+
+### Capability matrix rescan (operations: worklists; safety: special requirements)
+
+Blood orders to prepare showed the type and antibodies but not the patient's special transfusion requirements (irradiated, CMV negative, antigen negative), so the technologist learned what the units had to be only on the chart or when the reserve check refused a unit. Workflow questions: memory (requirements shown where the work is chosen); safety (selection starts with the right units; the reserve and issue checks are unchanged); clicks (no chart visit to check).
+
+### Design
+
+- `BloodOrderToPrepareDto.Requirements` from active, non-informational requirements, worded as on the downtime sheet; "Units must be" on the row.
+
+### Requirements
+
+- URS-BB-622, FRS-BB-739. Help: Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-644: active requirements listed with the antigen; expired, inactivated, and another patient's left out; none gives an empty list.

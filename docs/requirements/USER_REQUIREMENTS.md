@@ -627,3 +627,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-619 | Supervisors can report blood order turnaround: minutes from order to the first unit reserved and issued, whether a unit was ready by the needed-by time, and averages by month and priority. | P3 | FRS-BB-736 |
 | URS-BB-620 | From an order on the chart, staff can open the order's history: placed, each audited change with who and where, a passed needed-by time while open, its specimens, results, and its units from reservation to transfusion. | P2 | FRS-BB-737 |
 | URS-BB-621 | An order number found in the find box, or chosen on Blood orders to prepare, opens that order's history on the chart without a further click. | P3 | FRS-BB-738 |
+| URS-BB-622 | Blood orders to prepare shows each patient's active special transfusion requirements, so the technologist knows what the units must be before opening the chart. | P2 | FRS-BB-739 |

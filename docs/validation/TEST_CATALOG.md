@@ -652,5 +652,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-641 | I | `ReportServiceTests.BloodOrderTurnaround_MinutesToFirstUnit_ByPriority` | URS-BB-619 / FRS-BB-736 |
 | TEST-BB-642 | I | `OrderTimelineTests.OrderHistory_FromPlacedToTransfused` | URS-BB-620 / FRS-BB-737 |
 | TEST-BB-643 | U | `OrderHistoryLinkRuleTests.HistoryToOpen_OnlyForTheOneExactMatch` | URS-BB-621 / FRS-BB-738 |
+| TEST-BB-644 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (requirements) | URS-BB-622 / FRS-BB-739 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

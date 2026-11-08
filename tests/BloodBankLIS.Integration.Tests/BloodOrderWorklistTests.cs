@@ -109,6 +109,19 @@ public class BloodOrderWorklistTests
         Assert.Equal((true, true, "Finish type and screen", $"/patients/{routine.Id}?tab=tests"),
             (pending.HasUsableSpecimen, pending.TypeAndScreenPending, pending.NextStep, pending.Href));
         Assert.False(Assert.Single(checkedRows, r => r.OrderNumber == "BO-2").TypeAndScreenPending);
+
+        // TEST-BB-644: the patient's active special requirements are listed with the order (antigen named; an expired or
+        // inactivated one, and another patient's, are not); a patient with none has an empty list.
+        c.SpecialTransfusionRequirements.AddRange(
+            new SpecialTransfusionRequirement { PatientId = stat.Id, RequirementType = SpecialTransfusionRequirementType.Irradiated, Reason = "Stem cell transplant", EffectiveUtc = now.AddDays(-1) },
+            new SpecialTransfusionRequirement { PatientId = stat.Id, RequirementType = SpecialTransfusionRequirementType.AntigenNegative, AntigenCode = "K", Reason = "Anti-K", EffectiveUtc = now.AddDays(-1) },
+            new SpecialTransfusionRequirement { PatientId = stat.Id, RequirementType = SpecialTransfusionRequirementType.Washed, Reason = "Old", EffectiveUtc = now.AddDays(-30), ExpiresUtc = now.AddDays(-2) },
+            new SpecialTransfusionRequirement { PatientId = stat.Id, RequirementType = SpecialTransfusionRequirementType.CmvNegative, Reason = "Entered in error", EffectiveUtc = now.AddDays(-1), IsActive = false },
+            new SpecialTransfusionRequirement { PatientId = covered.Id, RequirementType = SpecialTransfusionRequirementType.Washed, Reason = "Other patient", EffectiveUtc = now.AddDays(-1) });
+        await c.SaveChangesAsync();
+        var withRequirements = await Service(c, factory).ListAsync();
+        Assert.Equal(["AntigenNegative (K)", "Irradiated"], Assert.Single(withRequirements, r => r.OrderNumber == "BO-2").Requirements!);
+        Assert.Empty(Assert.Single(withRequirements, r => r.OrderNumber == "BO-1").Requirements!);
     }
 
     private static BloodOrderWorklistService Service(BloodBankDbContext c, SqliteContextFactory f) => new(
@@ -116,7 +129,8 @@ public class BloodOrderWorklistTests
         new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
         new EfRepository<AntibodyHistory>(c), f.Clock,
         new AntibodyScreenCompatLoader(new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c), new EfRepository<AntibodyHistory>(c),
-            clock: f.Clock, specimens: new EfRepository<Specimen>(c), orders: new EfRepository<Order>(c)));
+            clock: f.Clock, specimens: new EfRepository<Specimen>(c), orders: new EfRepository<Order>(c)),
+        new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c));
 
     // TEST-BB-635: a recorded shift handoff counts the blood orders to prepare as the worklist lists them.
     [Fact]

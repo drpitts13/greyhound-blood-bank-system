@@ -41,6 +41,10 @@ else
                             {
                                 <span class="badge badge-red">@string.Join(", ", r.ActiveAntibodies)</span>
                             }
+                            @if (r.Requirements is { Count: > 0 } needs)
+                            {
+                                <span class="sub" data-order-requirements><span class="badge badge-amber">Units must be</span> @string.Join(", ", needs)</span>
+                            }
                         </td>
                         <td>
                             <a class="mono" href="@PatientChartUrls.Order(r.PatientId, r.OrderNumber)" title="Open this order's history on the chart" data-order-history-link>@r.OrderNumber</a>
