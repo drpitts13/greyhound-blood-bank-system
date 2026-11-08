@@ -413,6 +413,16 @@
             </p>
         }
 
+        @if (AllocOrderId > 0 && OrderProgress is { } progress)
+        {
+            <div class="@(progress.Remaining == 0 ? "alert alert-success" : "muted")" style="margin-top:.5rem;" data-reserve-progress>
+                @progress.Message
+                @if (progress.Remaining == 0 && FromBloodOrders)
+                {
+                    <a class="btn btn-ghost btn-sm" href="/blood-orders" data-reserve-back>Back to Blood orders to prepare</a>
+                }
+            </div>
+        }
         @if (ReservedThisRun.Count > 0)
         {
             @* Several units for one order: the order, visit, and specimen stay; each unit is checked on its own. *@
@@ -500,6 +510,9 @@
     [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
     [Parameter] public IReadOnlyList<AllocatableOrderDto> AllocatableOrders { get; set; } = [];
     [Parameter] public long AllocOrderId { get; set; }
+    // How far the chosen order is covered, refreshed after each reservation; and whether the form came from the worklist.
+    [Parameter] public BloodOrderProgressDto? OrderProgress { get; set; }
+    [Parameter] public bool FromBloodOrders { get; set; }
     [Parameter] public EventCallback<long?> OnAllocOrderPicked { get; set; }
     [Parameter] public bool ShowIssuedTransfused { get; set; }
     [Parameter] public EventCallback OnToggleIssuedTransfused { get; set; }

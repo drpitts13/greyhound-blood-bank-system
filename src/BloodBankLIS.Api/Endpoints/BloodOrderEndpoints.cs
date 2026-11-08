@@ -14,5 +14,12 @@ public static class BloodOrderEndpoints
             .WithTags("Orders")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.CompatibilityAllocate);
+
+        // The reserve form's line for the chosen order: how many more units it needs.
+        app.MapGet("/api/blood-orders/{orderId:long}/progress", async (long orderId, BloodOrderWorklistService service, CancellationToken ct) =>
+                await service.GetProgressAsync(orderId, ct) is { } progress ? Results.Ok(progress) : Results.NotFound())
+            .WithTags("Orders")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.CompatibilityAllocate);
     }
 }

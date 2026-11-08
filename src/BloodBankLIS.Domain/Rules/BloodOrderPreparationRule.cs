@@ -9,6 +9,14 @@ public static class BloodOrderPreparationRule
 {
     public static int Remaining(int requested, int reserved, int issued) => Math.Max(0, requested - reserved - issued);
 
+    /// <summary>What the reserve form says about the chosen order: how many more units it needs, or that it is covered.</summary>
+    public static string ReserveProgress(int requested, int remaining) =>
+        requested <= 0
+            ? "This order has no units ordered."
+            : remaining <= 0
+                ? $"All {requested} {(requested == 1 ? "unit" : "units")} for this order {(requested == 1 ? "is" : "are")} reserved or issued."
+                : $"{remaining} more {(remaining == 1 ? "unit" : "units")} needed for this order ({requested - remaining} of {requested} reserved or issued).";
+
     /// <summary>
     /// The downtime sheet line for an order still to prepare: "ORD-1 (Stat): 2 × Red cells, 2 still needed, needed by
     /// 2026-11-08 10:00 UTC".

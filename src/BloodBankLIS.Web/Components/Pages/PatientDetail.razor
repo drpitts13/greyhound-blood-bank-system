@@ -393,6 +393,8 @@ else
             LinkableSpecimens="LinkableSpecimens"
             AllocatableOrders="_allocatableOrders"
             AllocOrderId="_allocatingOrderId ?? 0"
+            OrderProgress="_orderProgress"
+            FromBloodOrders="ReserveOrderQuery is not null"
             OnAllocOrderPicked="OnAllocOrderPicked"
             ShowIssuedTransfused="_showIssuedTransfused"
             OnToggleIssuedTransfused="ToggleShowIssuedTransfusedAsync"
@@ -524,6 +526,17 @@ else
     [SupplyParameterFromQuery(Name = "reserveOrder")] public long? ReserveOrderQuery { get; set; }
     [SupplyParameterFromQuery(Name = "reserveSpecimen")] public long? ReserveSpecimenQuery { get; set; }
     private bool _reserveQueryApplied;
+    private BloodOrderProgressDto? _orderProgress;
+
+    private async Task LoadOrderProgressAsync()
+    {
+        _orderProgress = null;
+        if (_allocatingOrderId is long orderId && Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            var r = await Api.GetBloodOrderProgressAsync(orderId);
+            _orderProgress = r.Succeeded ? r.Value : null;
+        }
+    }
     [SupplyParameterFromQuery(Name = "visit")] public long? VisitQuery { get; set; }
     // From a reaction investigation: the special requirement form starts naming it, and the requirement is linked to it.
     [SupplyParameterFromQuery(Name = "reaction")] public long? ReactionQuery { get; set; }
@@ -1190,7 +1203,13 @@ else
         }
     }
 
-    private Task OnAllocOrderPicked(long? orderId)
+    private async Task OnAllocOrderPicked(long? orderId)
+    {
+        await PickAllocOrderAsync(orderId);
+        await LoadOrderProgressAsync();
+    }
+
+    private Task PickAllocOrderAsync(long? orderId)
     {
         if ((orderId is > 0 ? orderId : null) != _allocatingOrderId) _reservedThisRun.Clear();
         _allocatingOrderId = orderId is > 0 ? orderId : null;
@@ -1535,6 +1554,7 @@ else
             _selectedUnit = null;
             await LoadCompatibleUnitsAsync();
             await LoadAllocationsAsync();
+            await LoadOrderProgressAsync();
             _testsLoaded = false;
             if (r.Value?.AutoThawEligible == true)
             {

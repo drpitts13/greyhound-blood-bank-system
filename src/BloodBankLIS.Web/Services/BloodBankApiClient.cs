@@ -1844,6 +1844,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<TimelineEventDto>>> GetPatientTimelineAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<TimelineEventDto>>(HttpMethod.Get, $"api/patients/{patientId}/timeline", ct: ct);
 
+    public Task<ApiResult<BloodOrderProgressDto>> GetBloodOrderProgressAsync(long orderId, CancellationToken ct = default) =>
+        SendAsync<BloodOrderProgressDto>(HttpMethod.Get, $"api/blood-orders/{orderId}/progress", ct: ct);
+
     public Task<ApiResult<List<BloodOrderToPrepareDto>>> GetBloodOrdersToPrepareAsync(CancellationToken ct = default) =>
         SendAsync<List<BloodOrderToPrepareDto>>(HttpMethod.Get, "api/blood-orders/to-prepare", ct: ct);
 

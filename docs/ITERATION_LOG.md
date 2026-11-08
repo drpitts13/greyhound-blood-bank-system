@@ -17742,3 +17742,22 @@ The downtime patient sheet is what the bench works from in an outage: type, anti
 
 - TEST-BB-636: line with and without a needed-by time.
 - TEST-BB-637: on demo data the sheet lists MRN0001's STAT order with units still needed and its needed-by time.
+
+## Iteration 561 — Order progress on the reserve form (2026-11-08)
+
+### Capability matrix rescan (patient-product: reservation)
+
+From Blood orders to prepare the reserve form opens on the order (Cycle 556), but it did not say how many units the order still needed, so the technologist counted, and nothing said when the order was covered or led back to the next order. Workflow questions: memory (no counting); next action (back to the worklist when covered); safety (a count only; reserving runs every check).
+
+### Design
+
+- `ReserveProgress`; `GetProgressAsync` and endpoint; reserve panel line refreshed on order choice and after each reservation; back link.
+
+### Requirements
+
+- URS-BB-618, FRS-BB-735. Help: Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-638: units still needed, one unit, covered, none ordered.
+- TEST-BB-639: progress for a partly covered order, a covered order, and none for an unknown order.

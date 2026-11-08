@@ -42,4 +42,14 @@ public class BloodOrderPreparationRuleTests
             BloodOrderPreparationRule.DowntimeLine("ORD-1", "Stat", "2 × Red cells", 1, new DateTime(2026, 11, 8, 10, 0, 0, DateTimeKind.Utc)));
         Assert.Equal("ORD-2 (Routine): 1 × Plasma, 1 still needed", BloodOrderPreparationRule.DowntimeLine("ORD-2", "Routine", "1 × Plasma", 1, null));
     }
+
+    // TEST-BB-638: the reserve form's line says how many more units the order needs, or that it is covered.
+    [Fact]
+    public void ReserveProgress_SaysWhatIsLeft()
+    {
+        Assert.Equal("2 more units needed for this order (1 of 3 reserved or issued).", BloodOrderPreparationRule.ReserveProgress(3, 2));
+        Assert.Equal("1 more unit needed for this order (0 of 1 reserved or issued).", BloodOrderPreparationRule.ReserveProgress(1, 1));
+        Assert.Equal("All 2 units for this order are reserved or issued.", BloodOrderPreparationRule.ReserveProgress(2, 0));
+        Assert.Equal("This order has no units ordered.", BloodOrderPreparationRule.ReserveProgress(0, 0));
+    }
 }

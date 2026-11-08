@@ -94,6 +94,14 @@ public class BloodOrderWorklistTests
             (routineRow.UsableSpecimenId, routineRow.Href));
         Assert.Null(statRow.UsableSpecimenId);
 
+        // TEST-BB-639: one order's progress, also once it is covered; an unknown order has none.
+        var service = Service(c, factory);
+        var routineProgress = (await service.GetProgressAsync(routineOrder.Id))!;
+        Assert.Equal((3, 1, 1, 1, "1 more unit needed for this order (2 of 3 reserved or issued)."),
+            (routineProgress.Requested, routineProgress.Reserved, routineProgress.Issued, routineProgress.Remaining, routineProgress.Message));
+        Assert.Equal("All 1 unit for this order is reserved or issued.", (await service.GetProgressAsync(coveredOrder.Id))!.Message);
+        Assert.Null(await service.GetProgressAsync(-1));
+
         // TEST-BB-628: with the type-and-screen check, a usable specimen whose ABO/Rh and screen are not verified says so,
         // and the next step is to finish the type and screen, not to reserve.
         var checkedRows = await Service(c, factory).ListAsync();

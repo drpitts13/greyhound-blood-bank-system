@@ -623,3 +623,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-615 | An open order's needed-by time is changed or cleared from the chart when a surgery moves, with the earlier time kept in the audit trail. | P3 | FRS-BB-732 |
 | URS-BB-616 | The shift handoff names the blood orders still to prepare, urgent when a needed-by time has passed. | P2 | FRS-BB-733 |
 | URS-BB-617 | The downtime patient sheet lists each patient's blood orders still to prepare, with what is needed and by when, and includes patients whose only open work is such an order. | P2 | FRS-BB-734 |
+| URS-BB-618 | The reserve form says how many more units the chosen order needs, updated after each reservation, and when it is covered (with the way back to the worklist when it came from there). | P3 | FRS-BB-735 |

@@ -7,6 +7,9 @@ using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
+/// <summary>How far one order's units are covered: ordered, reserved, issued, still needed, and the line to show.</summary>
+public sealed record BloodOrderProgressDto(long OrderId, string OrderNumber, int Requested, int Reserved, int Issued, int Remaining, string Message);
+
 /// <summary>An open blood order with units still to prepare.</summary>
 public sealed record BloodOrderToPrepareDto(
     long OrderId,
@@ -75,6 +78,24 @@ public sealed class BloodOrderWorklistService
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
         _clock = clock;
+    }
+
+    /// <summary>One order's progress (also when it is fully covered), or null when it is not a patient's order.</summary>
+    public async Task<BloodOrderProgressDto?> GetProgressAsync(long orderId, CancellationToken ct = default)
+    {
+        var order = await _orders.GetByIdAsync(orderId, ct);
+        if (order is null)
+        {
+            return null;
+        }
+
+        var requested = (await _lines.ListAsync(l => l.OrderId == orderId && l.IsActive && l.LineCategory == OrderCategory.Product
+            && (l.FulfillmentStatus == FulfillmentStatus.Ordered || l.FulfillmentStatus == FulfillmentStatus.PartiallyFulfilled), ct)).Count;
+        var reserved = (await _allocations.ListAsync(a => a.OrderId == orderId && a.Status == AllocationStatus.Reserved, ct)).Count;
+        var issued = (await _issues.ListAsync(i => i.OrderId == orderId && i.Status != IssueStatus.Returned, ct)).Count;
+        var remaining = BloodOrderPreparationRule.Remaining(requested, reserved, issued);
+        return new BloodOrderProgressDto(order.Id, order.OrderNumber, requested, reserved, issued, remaining,
+            BloodOrderPreparationRule.ReserveProgress(requested, remaining));
     }
 
     public async Task<IReadOnlyList<BloodOrderToPrepareDto>> ListAsync(CancellationToken ct = default)
