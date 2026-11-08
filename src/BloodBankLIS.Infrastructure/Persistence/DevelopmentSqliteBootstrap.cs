@@ -245,6 +245,8 @@ public static class DevelopmentSqliteBootstrap
         ("Specimens", "DiscardedBy", """ALTER TABLE "Specimens" ADD COLUMN "DiscardedBy" TEXT NULL"""),
         ("Specimens", "DiscardReason", """ALTER TABLE "Specimens" ADD COLUMN "DiscardReason" TEXT NULL"""),
         ("SpecimenStorageEvents", "Discarded", """ALTER TABLE "SpecimenStorageEvents" ADD COLUMN "Discarded" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "UnidentifiedPatients", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "UnidentifiedPatients" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "TubesDueForDiscard", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TubesDueForDiscard" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RhigOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigOpen" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RhigToGive", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigToGive" INTEGER NOT NULL DEFAULT 0"""),
         ("RhigEvaluations", "GivenLot", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenLot" TEXT NULL"""),

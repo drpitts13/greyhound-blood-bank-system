@@ -366,6 +366,31 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(expectedOpen >= 2 && expectedToGive >= 1);
     }
 
+    // TEST-BB-616: a handoff counts unidentified patients not yet merged (a merged one is not counted).
+    [Fact]
+    public async Task Create_CountsUnidentifiedPatientsNotYetMerged()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        context.Patients.AddRange(
+            new Patient { MedicalRecordNumber = $"UNK-HO-{key}-1", LastName = "UNIDENTIFIED", FirstName = "TRAUMA 1", DateOfBirth = new DateOnly(1990, 1, 1), Unidentified = true },
+            new Patient { MedicalRecordNumber = $"UNK-HO-{key}-2", LastName = "UNIDENTIFIED", FirstName = "TRAUMA 2", DateOfBirth = new DateOnly(1990, 1, 1), Unidentified = true, Status = PatientStatus.Merged });
+        await context.SaveChangesAsync();
+        var expected = await context.Patients.CountAsync(p => p.Unidentified && p.Status != PatientStatus.Merged);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            patients: new EfRepository<Patient>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Unidentified"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Equal(expected, created.Value!.UnidentifiedPatients);
+        Assert.True(expected >= 1);
+        Assert.Equal(0, created.Value.TubesDueForDiscard);
+    }
+
     // TEST-BB-554: a handoff counts open HL7 errors and open unmapped interface values (resolved ones are not counted).
     [Fact]
     public async Task Create_CountsHl7ErrorsAndUnmappedInterfaceValues()

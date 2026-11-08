@@ -40,6 +40,20 @@ public class ShiftHandoffItemsTests
         Assert.Contains("RhIG evaluations 3, 1 to give", (Handoff() with { RhigOpen = 3, RhigToGive = 1 }).QueueSummary);
     }
 
+    // TEST-BB-615: unidentified patients still unmerged lead the handoff (urgent, linked to Patients); tubes due for discard
+    // are a routine item linked to Store tubes; both are in the summary line.
+    [Fact]
+    public void UnidentifiedPatientsAndTubesDue_AreHandoffItems()
+    {
+        var handoff = Handoff() with { UnidentifiedPatients = 2, TubesDueForDiscard = 5, RhigOpen = 1 };
+        var items = ShiftHandoffItems.For(handoff);
+        Assert.Equal(("Unidentified patients", 2, "/patients", "to merge once identified", true), (items[0].Label, items[0].Count, items[0].Href, items[0].Detail, items[0].Urgent));
+        var tubes = Assert.Single(items, i => i.Label == "Tubes due for discard");
+        Assert.Equal(("/specimens/store", false), (tubes.Href, tubes.Urgent));
+        Assert.Contains("UNIDENTIFIED PATIENTS 2, to merge once identified", handoff.QueueSummary);
+        Assert.Contains("tubes due for discard 5", handoff.QueueSummary);
+    }
+
     [Fact]
     public void Items_AreEmpty_WhenNothingIsOpen() =>
         Assert.Empty(ShiftHandoffItems.For(Handoff()));

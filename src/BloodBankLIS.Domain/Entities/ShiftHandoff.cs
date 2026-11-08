@@ -103,6 +103,12 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Of those, completed candidates with no RhIG given recorded.</summary>
     public int RhigToGive { get; set; }
 
+    /// <summary>Unidentified emergency patients not yet merged into an identified chart.</summary>
+    public int UnidentifiedPatients { get; set; }
+
+    /// <summary>Stored tubes past the facility's keep-until date (0 when no retention period is set).</summary>
+    public int TubesDueForDiscard { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

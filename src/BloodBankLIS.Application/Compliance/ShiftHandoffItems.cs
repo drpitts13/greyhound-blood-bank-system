@@ -54,6 +54,9 @@ public static class ShiftHandoffItems
         Add(h.Hl7ErrorsOpen, "HL7 errors", "/hl7");
         Add(h.UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
         Add(h.RhigOpen, "RhIG evaluations", "/rhig", detail: Note((h.RhigToGive, "to give")));
+        // A chart still unidentified splits the patient's history until it is merged into the identified chart.
+        Add(h.UnidentifiedPatients, "Unidentified patients", "/patients", urgent: true, detail: "to merge once identified");
+        Add(h.TubesDueForDiscard, "Tubes due for discard", "/specimens/store");
 
         return items.OrderBy(i => i.Urgent ? 0 : 1).ToList();
     }

@@ -17563,3 +17563,22 @@ The find box opens anything by scan, but a technologist moving between the issue
 ### Tests
 
 - TEST-BB-614: newest first, once each, at most eight; a reopened chart moves first; a merged-away chart shows as its survivor; another user's openings excluded; no signed-in user, nothing.
+
+## Iteration 552 — Unidentified patients and tubes due on the handoff (2026-11-08)
+
+### Capability matrix rescan (operations: shift handoff)
+
+The recent iterations added two kinds of open work that outlast a shift: unidentified emergency charts waiting to be merged once the patient is identified (Cycles 541–542), and stored tubes past their keep-until date (Cycles 539–540). The home screen counted them, but the shift handoff did not, so the next shift was not told. Workflow questions: memory (the outgoing shift does not have to remember them); safety (an unmerged unidentified chart keeps the patient's history split, so it is urgent); next action (each item links to its page); audit (counts kept in the acknowledged snapshot).
+
+### Design
+
+- `ShiftHandoff.UnidentifiedPatients/TubesDueForDiscard` and migration; counts in `ShiftHandoffService`; summary line and items.
+
+### Requirements
+
+- URS-BB-609, FRS-BB-726. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-615: unidentified patients first and urgent with link and note; tubes due routine with link; both in the summary.
+- TEST-BB-616: a recorded handoff counts unidentified patients not merged (a merged one not); tubes due 0 without storage.

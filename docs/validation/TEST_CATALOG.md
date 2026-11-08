@@ -623,5 +623,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-612 | I | `UniversalLookupTests.ShipmentReference_FindsTheShipment` | URS-BB-607 / FRS-BB-724 |
 | TEST-BB-613 | I | `PatientTimelineTests.OutsideAntibody_SaysWhereItWasReported` | URS-BB-607 / FRS-BB-724 |
 | TEST-BB-614 | I | `UniversalLookupTests.RecentPatients_AreTheUsersOwnLatestChartOpenings` | URS-BB-608 / FRS-BB-725 |
+| TEST-BB-615 | U | `ShiftHandoffItemsTests.UnidentifiedPatientsAndTubesDue_AreHandoffItems` | URS-BB-609 / FRS-BB-726 |
+| TEST-BB-616 | I | `ShiftHandoffServiceTests.Create_CountsUnidentifiedPatientsNotYetMerged` | URS-BB-609 / FRS-BB-726 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

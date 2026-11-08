@@ -53,7 +53,9 @@ public sealed record ShiftHandoffDto(
     int Hl7ErrorsOpen = 0,
     int UnmappedInterfaceValues = 0,
     int RhigOpen = 0,
-    int RhigToGive = 0)
+    int RhigToGive = 0,
+    int UnidentifiedPatients = 0,
+    int TubesDueForDiscard = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -95,7 +97,9 @@ public sealed record ShiftHandoffDto(
             : "") +
         (Hl7ErrorsOpen > 0 ? $"; HL7 errors {Hl7ErrorsOpen}" : "") +
         (UnmappedInterfaceValues > 0 ? $"; unmapped interface values {UnmappedInterfaceValues}" : "") +
-        (RhigOpen > 0 ? $"; RhIG evaluations {RhigOpen}" + (RhigToGive > 0 ? $", {RhigToGive} to give" : "") : "");
+        (RhigOpen > 0 ? $"; RhIG evaluations {RhigOpen}" + (RhigToGive > 0 ? $", {RhigToGive} to give" : "") : "") +
+        (UnidentifiedPatients > 0 ? $"; UNIDENTIFIED PATIENTS {UnidentifiedPatients}, to merge once identified" : "") +
+        (TubesDueForDiscard > 0 ? $"; tubes due for discard {TubesDueForDiscard}" : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
@@ -107,7 +111,7 @@ public sealed record ShiftHandoffDto(
         h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences,
         h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
-        h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive);
+        h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard);
 }
 
 /// <summary>
@@ -139,6 +143,8 @@ public sealed class ShiftHandoffService
     private readonly IRepository<InterfaceErrorQueueItem>? _hl7Errors;
     private readonly IRepository<InterfaceUnmappedValue>? _unmapped;
     private readonly IRepository<RhigEvaluation>? _rhig;
+    private readonly IRepository<Patient>? _patientCharts;
+    private readonly BloodBankLIS.Application.Specimens.SpecimenStorageService? _tubeStorage;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -161,8 +167,12 @@ public sealed class ShiftHandoffService
         ReagentQcService? reagentQc = null,
         IRepository<InterfaceErrorQueueItem>? hl7Errors = null,
         IRepository<InterfaceUnmappedValue>? unmapped = null,
-        IRepository<RhigEvaluation>? rhig = null)
+        IRepository<RhigEvaluation>? rhig = null,
+        IRepository<Patient>? patients = null,
+        BloodBankLIS.Application.Specimens.SpecimenStorageService? tubeStorage = null)
     {
+        _patientCharts = patients;
+        _tubeStorage = tubeStorage;
         _hl7Errors = hl7Errors;
         _unmapped = unmapped;
         _rhig = rhig;
@@ -358,7 +368,11 @@ public sealed class ShiftHandoffService
             Hl7ErrorsOpen = _hl7Errors is null ? 0 : (await _hl7Errors.ListAsync(e => !e.Resolved, ct)).Count,
             UnmappedInterfaceValues = _unmapped is null ? 0 : (await _unmapped.ListAsync(v => v.ResolvedUtc == null, ct)).Count,
             RhigOpen = rhigOpen.Count,
-            RhigToGive = rhigOpen.Count(e => e.CompletedUtc != null)
+            RhigToGive = rhigOpen.Count(e => e.CompletedUtc != null),
+            UnidentifiedPatients = _patientCharts is null
+                ? 0
+                : (await _patientCharts.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct)).Count,
+            TubesDueForDiscard = _tubeStorage is null ? 0 : (await _tubeStorage.ListDueForDiscardAsync(ct)).Count
         };
     }
 
@@ -434,7 +448,9 @@ public sealed class ShiftHandoffService
         row.Hl7ErrorsOpen,
         row.UnmappedInterfaceValues,
         row.RhigOpen,
-        row.RhigToGive
+        row.RhigToGive,
+        UnidentifiedPatients = row.UnidentifiedPatients,
+        TubesDueForDiscard = row.TubesDueForDiscard
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
