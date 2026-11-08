@@ -890,6 +890,14 @@ public sealed class IssuingService
             .ToDictionary(g => g.Key, g => g.ToList());
         var requireSecondAbo = await _policy.GetRequireSecondAboForCellularIssueAsync(ct);
         var nearExpiryWindow = TimeSpan.FromHours(await _policy.GetNearExpiryWarningHoursAsync(ct));
+        // The open orders the units are reserved for: when each is needed, so the desk issues the most pressing first.
+        var reservedOrderIds = reserved.Select(a => a.OrderId).OfType<long>().Distinct().ToList();
+        var reservedOrders = reservedOrderIds.Count == 0
+            ? new Dictionary<long, Order>()
+            : (await _orders.ListAsync(o => reservedOrderIds.Contains(o.Id)
+                    && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Discontinued, ct))
+                .ToDictionary(o => o.Id);
+        var neededSoonMinutes = await _policy.GetBloodOrderNeededBySoonMinutesAsync(ct);
         var antibodies = _antibodies is null
             ? []
             : await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
@@ -958,6 +966,7 @@ public sealed class IssuingService
                 latestXm?.Result == CrossmatchResult.Incompatible,
                 hasValidCrossmatch);
             var specimen = SelectCurrentSpecimen(specimens.Where(s => s.PatientId == allocation.PatientId));
+            var forOrder = allocation.OrderId is long reservedFor ? reservedOrders.GetValueOrDefault(reservedFor) : null;
             var expires = specimen?.ExpiresUtc;
             var specimenExpired = expires is DateTime exp && now >= exp;
             var (specimenBlocksIssue, specimenBlockReason) = DescribeSpecimenBlock(specimen, specimenExpired);
@@ -1052,7 +1061,16 @@ public sealed class IssuingService
                 allocation.IssueRequestedUtc,
                 allocation.IssueRequestedBy,
                 allocation.IssueRequestedTo,
-                PatientVisitLocation.For(allocation.EncounterId, encountersByPatient.GetValueOrDefault(allocation.PatientId) ?? [])));
+                PatientVisitLocation.For(allocation.EncounterId, encountersByPatient.GetValueOrDefault(allocation.PatientId) ?? []))
+            {
+                OrderNumber = forOrder?.OrderNumber,
+                NeededByUtc = forOrder?.NeededByUtc,
+                NeededByPassed = OrderNeededByRule.Passed(forOrder?.NeededByUtc, now),
+                NeededBySoon = OrderNeededByRule.DueSoon(forOrder?.NeededByUtc, now, neededSoonMinutes),
+                NeededInMinutes = OrderNeededByRule.DueSoon(forOrder?.NeededByUtc, now, neededSoonMinutes)
+                    ? OrderNeededByRule.MinutesUntil(forOrder?.NeededByUtc, now)
+                    : null
+            });
         }
 
         return ReadyToIssueAttentionRule.IssuableFirst(items);

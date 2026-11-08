@@ -17941,3 +17941,22 @@ Cycle 570 marked blood orders needed soon on the worklist and home card, but the
 
 - TEST-BB-649: needed soon makes the item urgent and is named in its detail and the summary, beside past needed-by.
 - TEST-BB-650: on demo data, 0 with the window off; with a 60-minute window the STAT order 30 minutes out is counted and stored with the handoff.
+
+## Iteration 572 — Needed-by on the issue desk (2026-11-08)
+
+### Capability matrix rescan (patient-product: issue)
+
+Needed-by times (Cycles 557–571) guided preparation, the home card, and the handoff, but once units were reserved they moved to Ready to issue, which did not know them: the desk could not tell which reserved unit the OR needed in 20 minutes. Workflow questions: memory (no checking the chart for the surgery time); next action (the most pressing unit is listed first in its group); safety (display and order only; every issue check unchanged).
+
+### Design
+
+- Ready to issue rows carry the reserved order's number and needed-by (open orders only), passed and needed-soon flags (OCD-075 window); sort within each group: requests, then earliest needed-by; row badge.
+
+### Requirements
+
+- URS-BB-627, FRS-BB-744. Help: Issue and Transfuse.
+
+### Tests
+
+- TEST-BB-651: requests first, then earliest needed-by, then no time.
+- TEST-BB-652: a unit needed in 20 minutes is needed soon (20 min) with its order number; one 5 minutes late is passed; a unit with no order, or reserved for a cancelled order, has no time; the late one is listed before the soon one.

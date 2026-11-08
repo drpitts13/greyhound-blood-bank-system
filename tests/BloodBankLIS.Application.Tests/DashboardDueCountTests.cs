@@ -146,6 +146,16 @@ public class DashboardDueCountTests
         };
 
         Assert.Equal(new long[] { 4, 2, 1, 3 }, ReadyToIssueAttentionRule.IssuableFirst(rows).Select(r => r.AllocationId).ToArray());
+
+        // TEST-BB-651: after the ward's requests, units whose order is needed earliest come next; without a time, last.
+        var byNeed = new[]
+        {
+            Ready(5),
+            Ready(6) with { NeededByUtc = at.AddHours(2) },
+            Ready(7) with { NeededByUtc = at.AddMinutes(30) },
+            Ready(8) with { NeededByUtc = at.AddHours(5), IssueRequestedUtc = at }
+        };
+        Assert.Equal(new long[] { 8, 7, 6, 5 }, ReadyToIssueAttentionRule.IssuableFirst(byNeed).Select(r => r.AllocationId).ToArray());
         Assert.StartsWith("2 requested by the ward", ReadyToIssueAttentionRule.CardNote(rows, at));
         Assert.Null(ReadyToIssueAttentionRule.CardNote([Ready(1)], at));
     }

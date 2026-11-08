@@ -3545,6 +3545,66 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(items, i => i.PatientId == ready.PatientId);
     }
 
+    // TEST-BB-652: a reserved unit carries the needed-by time of the open order it is reserved for, marked passed or needed
+    // soon (OCD-075 window), and among units that can be issued now the earliest needed-by comes first; a unit reserved
+    // without an order, or for a cancelled one, has no time.
+    [Fact]
+    public async Task ListReadyToIssue_ShowsWhenTheOrderIsNeeded_EarliestFirst()
+    {
+        var soon = await SeedAsync("NBY-SOON");
+        var late = await SeedAsync("NBY-LATE");
+        var none = await SeedAsync("NBY-NONE");
+        var cancelled = await SeedAsync("NBY-CANC");
+        foreach (var s in new[] { none, soon, late, cancelled })
+        {
+            await AllocateAsync(s);
+        }
+
+        var now = _factory.Clock.UtcNow;
+        await using (var c = _factory.Create())
+        {
+            var location = new OrderingLocation { Code = "LOC-RDY-NB", Name = "OR", IsActive = true };
+            c.OrderingLocations.Add(location);
+            await c.SaveChangesAsync();
+            async Task ForOrderAsync(Scenario s, string number, DateTime neededBy, OrderStatus status = OrderStatus.InProcess)
+            {
+                var encounter = new Encounter { PatientId = s.PatientId, VisitNumber = $"VIS-{number}", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddDays(-1) };
+                c.Encounters.Add(encounter);
+                await c.SaveChangesAsync();
+                var order = new Order
+                {
+                    OrderNumber = number, PatientId = s.PatientId, EncounterId = encounter.Id, OrderingLocationId = location.Id,
+                    OrderCategory = OrderCategory.Product, OrderName = "Red cells", OrderType = OrderType.Other, Priority = OrderPriority.Routine,
+                    Status = status, Source = OrderSource.Manual, OrderedUtc = now.AddHours(-2), NeededByUtc = neededBy
+                };
+                c.Orders.Add(order);
+                await c.SaveChangesAsync();
+                var allocation = await c.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId && a.Status == AllocationStatus.Reserved);
+                allocation.OrderId = order.Id;
+                await c.SaveChangesAsync();
+            }
+
+            await ForOrderAsync(soon, "ORD-RDY-SOON", now.AddMinutes(20));
+            await ForOrderAsync(late, "ORD-RDY-LATE", now.AddMinutes(-5));
+            await ForOrderAsync(cancelled, "ORD-RDY-CANC", now.AddMinutes(-30), OrderStatus.Cancelled);
+            c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, Value = "60" });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var rows = (await Issuing(ctx).ListReadyToIssueAllocationsAsync())
+            .Where(r => new[] { soon.UnitId, late.UnitId, none.UnitId, cancelled.UnitId }.Contains(r.BloodUnitId)).ToList();
+        var soonRow = rows.Single(r => r.BloodUnitId == soon.UnitId);
+        Assert.Equal(("ORD-RDY-SOON", true, false, 20), (soonRow.OrderNumber, soonRow.NeededBySoon, soonRow.NeededByPassed, soonRow.NeededInMinutes ?? 0));
+        var lateRow = rows.Single(r => r.BloodUnitId == late.UnitId);
+        Assert.Equal((true, false, (int?)null), (lateRow.NeededByPassed, lateRow.NeededBySoon, lateRow.NeededInMinutes));
+        Assert.Null(rows.Single(r => r.BloodUnitId == none.UnitId).NeededByUtc);
+        Assert.Null(rows.Single(r => r.BloodUnitId == cancelled.UnitId).NeededByUtc);
+        // All four are in the same group (none crossmatched yet), so the needed-by time decides their order.
+        Assert.Single(rows.Select(ReadyToIssueAttentionRule.CanIssueRoutinely).Distinct());
+        Assert.Equal(new[] { late.UnitId, soon.UnitId }, rows.Take(2).Select(r => r.BloodUnitId).ToArray());
+    }
+
     [Fact]
     public async Task ListReadyToIssue_FlagsCellularUnitWhenSecondAboIsMissing()
     {

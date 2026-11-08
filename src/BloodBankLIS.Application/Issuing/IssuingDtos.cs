@@ -356,7 +356,14 @@ public sealed record ReadyToIssueWorkItemDto(
     string? IssueRequestedBy = null,
     string? IssueRequestedTo = null,
     // Where the patient's open visit says they are; a suggestion for the issue destination, never filled in alone.
-    string? PatientVisitLocation = null);
+    string? PatientVisitLocation = null,
+    // The open order the unit is reserved for, when it is needed by (a surgery start, a scheduled transfusion), whether
+    // that has passed, and whether it is within the facility's warning window (OCD-075) with the minutes left.
+    string? OrderNumber = null,
+    DateTime? NeededByUtc = null,
+    bool NeededByPassed = false,
+    bool NeededBySoon = false,
+    int? NeededInMinutes = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

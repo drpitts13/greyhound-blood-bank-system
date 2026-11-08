@@ -80,9 +80,14 @@ public static class ReadyToIssueAttentionRule
     /// Rows that can be issued now come first; within each group, units the ward has asked for come first (earliest
     /// request first), and the rest keep their order.
     /// </summary>
+    /// <summary>
+    /// Units that can be issued now first; within each group the ward's requests (oldest first), then the earliest
+    /// needed-by time of the order the unit is reserved for; otherwise the order they were reserved in.
+    /// </summary>
     public static IReadOnlyList<ReadyToIssueWorkItemDto> IssuableFirst(IEnumerable<ReadyToIssueWorkItemDto> rows) =>
         rows.OrderBy(static row => CanIssueRoutinely(row) ? 0 : 1)
             .ThenBy(static row => row.IssueRequestedUtc ?? DateTime.MaxValue)
+            .ThenBy(static row => row.NeededByUtc ?? DateTime.MaxValue)
             .ToList();
 
     public static int CountRequested(IEnumerable<ReadyToIssueWorkItemDto> rows) =>
