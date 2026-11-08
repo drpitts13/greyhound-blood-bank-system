@@ -17704,3 +17704,22 @@ Cycle 557 records a needed-by time at order entry, but surgeries move, and the o
 ### Tests
 
 - TEST-BB-633: a time before the order refused; set and moved (each audited with the earlier time); cleared (audited); unknown order and cancelled order refused.
+
+## Iteration 559 — Blood orders on the shift handoff (2026-11-08)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Blood orders to prepare (Cycles 555–558) is on the home screen, but the shift handoff did not carry it, so a surgical order still waiting for crossmatch, or one already past its needed-by time, was not handed over. Workflow questions: memory (the outgoing shift does not have to recall open orders); safety (a passed needed-by time is urgent); next action (the item opens the worklist); audit (counts kept in the acknowledged snapshot).
+
+### Design
+
+- `ShiftHandoff.BloodOrdersToPrepare/BloodOrdersPastNeededBy` and migration; counted from the worklist; summary and item.
+
+### Requirements
+
+- URS-BB-616, FRS-BB-733. Help: shift handoff.
+
+### Tests
+
+- TEST-BB-634: item with link, routine without a passed time, urgent with one; summary text.
+- TEST-BB-635: a recorded handoff on demo data counts what the worklist lists.

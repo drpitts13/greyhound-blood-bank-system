@@ -109,6 +109,12 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Stored tubes past the facility's keep-until date (0 when no retention period is set).</summary>
     public int TubesDueForDiscard { get; set; }
 
+    /// <summary>Open blood orders whose units are not all reserved or issued yet.</summary>
+    public int BloodOrdersToPrepare { get; set; }
+
+    /// <summary>Of those, orders whose needed-by time has passed.</summary>
+    public int BloodOrdersPastNeededBy { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

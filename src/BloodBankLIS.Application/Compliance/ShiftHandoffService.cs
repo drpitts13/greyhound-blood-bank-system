@@ -55,7 +55,9 @@ public sealed record ShiftHandoffDto(
     int RhigOpen = 0,
     int RhigToGive = 0,
     int UnidentifiedPatients = 0,
-    int TubesDueForDiscard = 0)
+    int TubesDueForDiscard = 0,
+    int BloodOrdersToPrepare = 0,
+    int BloodOrdersPastNeededBy = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -99,7 +101,10 @@ public sealed record ShiftHandoffDto(
         (UnmappedInterfaceValues > 0 ? $"; unmapped interface values {UnmappedInterfaceValues}" : "") +
         (RhigOpen > 0 ? $"; RhIG evaluations {RhigOpen}" + (RhigToGive > 0 ? $", {RhigToGive} to give" : "") : "") +
         (UnidentifiedPatients > 0 ? $"; UNIDENTIFIED PATIENTS {UnidentifiedPatients}, to merge once identified" : "") +
-        (TubesDueForDiscard > 0 ? $"; tubes due for discard {TubesDueForDiscard}" : "");
+        (TubesDueForDiscard > 0 ? $"; tubes due for discard {TubesDueForDiscard}" : "") +
+        (BloodOrdersToPrepare > 0
+            ? $"; blood orders to prepare {BloodOrdersToPrepare}" + (BloodOrdersPastNeededBy > 0 ? $", {BloodOrdersPastNeededBy} PAST NEEDED-BY" : "")
+            : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
@@ -111,7 +116,8 @@ public sealed record ShiftHandoffDto(
         h.NearExpiryUnits, h.NearExpiryReserved, h.CoolersInTransit, h.CoolersNotChecked, h.CoolersWithDifferences,
         h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
-        h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard);
+        h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
+        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy);
 }
 
 /// <summary>
@@ -145,6 +151,7 @@ public sealed class ShiftHandoffService
     private readonly IRepository<RhigEvaluation>? _rhig;
     private readonly IRepository<Patient>? _patientCharts;
     private readonly BloodBankLIS.Application.Specimens.SpecimenStorageService? _tubeStorage;
+    private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -169,8 +176,10 @@ public sealed class ShiftHandoffService
         IRepository<InterfaceUnmappedValue>? unmapped = null,
         IRepository<RhigEvaluation>? rhig = null,
         IRepository<Patient>? patients = null,
-        BloodBankLIS.Application.Specimens.SpecimenStorageService? tubeStorage = null)
+        BloodBankLIS.Application.Specimens.SpecimenStorageService? tubeStorage = null,
+        BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null)
     {
+        _bloodOrders = bloodOrders;
         _patientCharts = patients;
         _tubeStorage = tubeStorage;
         _hl7Errors = hl7Errors;
@@ -326,6 +335,7 @@ public sealed class ShiftHandoffService
             : (await _reagentQc.ListWorkAsync(ct)).Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
 
         // RhIG evaluations still needing work: open, or a completed candidate with nothing given (Cycle 526–527).
+        var bloodOrders = _bloodOrders is null ? [] : await _bloodOrders.ListAsync(ct);
         var rhigOpen = _rhig is null
             ? []
             : (await _rhig.ListAsync(e => e.CompletedUtc == null || (e.Decision == RhigDecision.Candidate && e.GivenUtc == null), ct)).ToList();
@@ -372,7 +382,9 @@ public sealed class ShiftHandoffService
             UnidentifiedPatients = _patientCharts is null
                 ? 0
                 : (await _patientCharts.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct)).Count,
-            TubesDueForDiscard = _tubeStorage is null ? 0 : (await _tubeStorage.ListDueForDiscardAsync(ct)).Count
+            TubesDueForDiscard = _tubeStorage is null ? 0 : (await _tubeStorage.ListDueForDiscardAsync(ct)).Count,
+            BloodOrdersToPrepare = bloodOrders.Count,
+            BloodOrdersPastNeededBy = bloodOrders.Count(o => o.NeededByPassed)
         };
     }
 
@@ -450,7 +462,9 @@ public sealed class ShiftHandoffService
         row.RhigOpen,
         row.RhigToGive,
         UnidentifiedPatients = row.UnidentifiedPatients,
-        TubesDueForDiscard = row.TubesDueForDiscard
+        TubesDueForDiscard = row.TubesDueForDiscard,
+        BloodOrdersToPrepare = row.BloodOrdersToPrepare,
+        BloodOrdersPastNeededBy = row.BloodOrdersPastNeededBy
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

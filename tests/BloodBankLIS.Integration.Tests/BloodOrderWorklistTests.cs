@@ -1,4 +1,6 @@
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -107,6 +109,28 @@ public class BloodOrderWorklistTests
         new EfRepository<AntibodyHistory>(c), f.Clock,
         new AntibodyScreenCompatLoader(new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c), new EfRepository<AntibodyHistory>(c),
             clock: f.Clock, specimens: new EfRepository<Specimen>(c), orders: new EfRepository<Order>(c)));
+
+    // TEST-BB-635: a recorded shift handoff counts the blood orders to prepare as the worklist lists them.
+    [Fact]
+    public async Task Handoff_CountsBloodOrdersToPrepare()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var c = factory.Create();
+        var listed = await Service(c, factory).ListAsync();
+        var handoff = await new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(c), c, factory.Clock, factory.CurrentUser,
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            bloodOrders: Service(c, factory)).CreateAsync(new CreateShiftHandoffRequest("Blood orders"));
+
+        Assert.True(handoff.Succeeded, handoff.Error);
+        Assert.True(listed.Count >= 1);
+        Assert.Equal((listed.Count, listed.Count(o => o.NeededByPassed)), (handoff.Value!.BloodOrdersToPrepare, handoff.Value.BloodOrdersPastNeededBy));
+    }
 
     // TEST-BB-624: the demo has one STAT order for two red cell units with nothing reserved, listed to prepare; added once.
     [Fact]

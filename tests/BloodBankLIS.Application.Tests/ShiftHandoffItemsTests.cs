@@ -54,6 +54,19 @@ public class ShiftHandoffItemsTests
         Assert.Contains("tubes due for discard 5", handoff.QueueSummary);
     }
 
+    // TEST-BB-634: blood orders to prepare are a handoff item linked to the worklist, urgent when a needed-by time has
+    // passed, and in the summary line.
+    [Fact]
+    public void BloodOrdersToPrepare_AreAHandoffItem_UrgentWhenPastNeededBy()
+    {
+        var routine = Assert.Single(ShiftHandoffItems.For(Handoff() with { BloodOrdersToPrepare = 3 }));
+        Assert.Equal(("Blood orders to prepare", 3, "/blood-orders", (string?)null, false), (routine.Label, routine.Count, routine.Href, routine.Detail, routine.Urgent));
+        var late = Handoff() with { BloodOrdersToPrepare = 3, BloodOrdersPastNeededBy = 1 };
+        var item = Assert.Single(ShiftHandoffItems.For(late));
+        Assert.Equal(("1 past needed-by", true), (item.Detail, item.Urgent));
+        Assert.Contains("blood orders to prepare 3, 1 PAST NEEDED-BY", late.QueueSummary);
+    }
+
     [Fact]
     public void Items_AreEmpty_WhenNothingIsOpen() =>
         Assert.Empty(ShiftHandoffItems.For(Handoff()));
