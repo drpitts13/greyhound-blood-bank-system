@@ -120,7 +120,7 @@ public class BloodOrderWorklistTests
             new SpecialTransfusionRequirement { PatientId = covered.Id, RequirementType = SpecialTransfusionRequirementType.Washed, Reason = "Other patient", EffectiveUtc = now.AddDays(-1) });
         await c.SaveChangesAsync();
         var withRequirements = await Service(c, factory).ListAsync();
-        Assert.Equal(["AntigenNegative (K)", "Irradiated"], Assert.Single(withRequirements, r => r.OrderNumber == "BO-2").Requirements!);
+        Assert.Equal(["Antigen-negative (K)", "Irradiated"], Assert.Single(withRequirements, r => r.OrderNumber == "BO-2").Requirements!);
         Assert.Empty(Assert.Single(withRequirements, r => r.OrderNumber == "BO-1").Requirements!);
     }
 

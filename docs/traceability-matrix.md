@@ -733,6 +733,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-620 / FRS-BB-737 | Order history | `OrderTimelineService`; `OrderTimelinePanel.razor`; `PatientChartOrdersTab.razor` | TEST-BB-642 | I | |
 | URS-BB-621 / FRS-BB-738 | Order history from search and the worklist | `OrderHistoryLinkRule`; `PatientChartOrdersTab.razor`; `BloodOrders.razor` | TEST-BB-643 | U | |
 | URS-BB-622 / FRS-BB-739 | Special requirements on Blood orders to prepare | `BloodOrderWorklistService`; `BloodOrders.razor` | TEST-BB-644 | I | |
+| URS-BB-623 / FRS-BB-740 | One wording for special requirements | `SpecialRequirementLabel`; `SpecialRequirementDto.From` | TEST-BB-645 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -284,9 +284,9 @@ public sealed class DowntimePatientSummaryService
         return OperationResult<DowntimePatientRow>.Ok(card);
     }
 
-    /// <summary>"Irradiated", "Antigen negative (K)": a requirement as the downtime sheet and the blood order worklist show it.</summary>
+    /// <summary>"Irradiated", "Antigen-negative (K)": a requirement as the downtime sheet and the blood order worklist show it.</summary>
     internal static string RequirementText(SpecialRequirementDto r) =>
-        string.IsNullOrWhiteSpace(r.AntigenCode) ? r.Name ?? r.RequirementType.ToString() : $"{r.Name} ({r.AntigenCode})";
+        SpecialRequirementLabel.Display(r.Name, r.RequirementType, r.AntigenCode);
 
     private static string AboRhText(AboGroup abo, RhType rh) =>
         abo == AboGroup.Unknown && rh == RhType.Unknown ? "Not on file" : new Domain.ValueObjects.AboRh(abo, rh).ToString();

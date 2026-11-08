@@ -469,7 +469,7 @@
 
     private static string EnforcedLabel(SpecialRequirementDto r)
     {
-        var name = r.AntigenCode is null ? (r.Name ?? r.Code ?? r.RequirementType.ToString()) : $"{r.Name ?? r.Code} {r.AntigenCode}";
+        var name = SpecialRequirementLabel.Display(r.Name ?? r.Code, r.RequirementType, r.AntigenCode);
         return r.ComponentClass is { } c && !name.Contains(ComponentClassLabels.Label(c), StringComparison.OrdinalIgnoreCase)
             ? $"{name} ({ComponentClassLabels.Label(c)})"
             : name;

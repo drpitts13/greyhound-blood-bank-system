@@ -15,6 +15,38 @@ public static class SpecialRequirementLabel
     /// </summary>
     public static string Name(long requirementId, string? name) =>
         string.IsNullOrWhiteSpace(name) ? $"Requirement {requirementId}" : name.Trim();
+
+    /// <summary>
+    /// The name a requirement type has when no catalog entry names it, worded as the seeded catalog: "CMV-negative",
+    /// "Antigen-negative", never the code name.
+    /// </summary>
+    public static string TypeName(SpecialTransfusionRequirementType type) => type switch
+    {
+        SpecialTransfusionRequirementType.Irradiated => "Irradiated",
+        SpecialTransfusionRequirementType.CmvNegative => "CMV-negative",
+        SpecialTransfusionRequirementType.Leukoreduced => "Leukoreduced",
+        SpecialTransfusionRequirementType.Washed => "Washed",
+        SpecialTransfusionRequirementType.AntigenNegative => "Antigen-negative",
+        _ => "Other"
+    };
+
+    /// <summary>
+    /// A patient's requirement as every screen names it: the catalog name (or the type's name), then the antigen in
+    /// brackets when there is one and the name does not already say it: "Antigen-negative (K)", "Irradiated".
+    /// </summary>
+    public static string Display(string? name, SpecialTransfusionRequirementType type, string? antigenCode)
+    {
+        var label = string.IsNullOrWhiteSpace(name) ? TypeName(type) : name.Trim();
+        if (string.IsNullOrWhiteSpace(antigenCode))
+        {
+            return label;
+        }
+
+        var antigen = antigenCode.Trim();
+        var named = label.Split([' ', '-', '(', ')', ','], StringSplitOptions.RemoveEmptyEntries)
+            .Any(word => string.Equals(word, antigen, StringComparison.OrdinalIgnoreCase));
+        return named ? label : $"{label} ({antigen})";
+    }
     /// <summary>The admin table name.</summary>
     public static string Category(SpecialRequirementCategory category) => category switch
     {

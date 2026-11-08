@@ -72,7 +72,7 @@ public sealed record SpecialRequirementDto(
             r.EnteredBy,
             r.RequirementDefinitionId ?? definition?.Id,
             code,
-            definition?.Name ?? r.RequirementType.ToString(),
+            string.IsNullOrWhiteSpace(definition?.Name) ? SpecialRequirementLabel.TypeName(r.RequirementType) : definition.Name,
             definition?.Level,
             definition?.EnforcementKind,
             definition?.Instruction,

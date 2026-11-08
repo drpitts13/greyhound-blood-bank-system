@@ -72,7 +72,7 @@ public class PatientTimelineTests : IDisposable
 
         var requirement = Event(events, $"req-{f.Requirement.Id}");
         Assert.Equal(TimelineSeverity.Warning, requirement.Severity);
-        Assert.Contains("K-negative", requirement.Title);
+        Assert.Contains("Antigen-negative (K)", requirement.Title);
     }
 
     [Fact]

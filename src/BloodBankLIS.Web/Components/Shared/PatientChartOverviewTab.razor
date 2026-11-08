@@ -166,7 +166,7 @@
                     @foreach (var r in SpecialRequirements)
                     {
                         <tr>
-                            <td>@(r.Name ?? r.Code ?? r.RequirementType.ToString())</td>
+                            <td>@SpecialRequirementLabel.Display(r.Name ?? r.Code, r.RequirementType, null)</td>
                             <td>@(r.CategoryLabel is { Length: > 0 } category ? category : r.Level?.ToString())</td>
                             <td class="mono">@r.AntigenCode</td>
                             <td>@r.Reason@if (r.ReactionInvestigationId is long fromReaction) { <span class="sub"><a href="/reactions">From reaction investigation @fromReaction</a></span> }</td>

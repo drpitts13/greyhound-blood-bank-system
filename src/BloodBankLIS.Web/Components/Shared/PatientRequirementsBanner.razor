@@ -51,7 +51,6 @@
 
     private static string Label(SpecialRequirementDto r)
     {
-        var name = r.Name ?? r.Code ?? r.RequirementType.ToString();
-        return string.IsNullOrWhiteSpace(r.AntigenCode) ? name : $"{name} ({r.AntigenCode})";
+        return SpecialRequirementLabel.Display(r.Name ?? r.Code, r.RequirementType, r.AntigenCode);
     }
 }

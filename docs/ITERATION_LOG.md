@@ -17834,3 +17834,21 @@ Blood orders to prepare showed the type and antibodies but not the patient's spe
 ### Tests
 
 - TEST-BB-644: active requirements listed with the antigen; expired, inactivated, and another patient's left out; none gives an empty list.
+
+## Iteration 566 — One wording for special requirements (2026-11-08)
+
+### Capability matrix rescan (safety: special requirements; UX: consistent terminology)
+
+The same requirement was named differently by screen: "Antigen negative K" in the chart header, "K-negative" on the timeline, "AntigenNegative (K)" on the downtime sheet and the blood order worklist, and a requirement without a named catalog entry showed its code name ("CmvNegative"). Workflow questions: memory (one name to recognise on the chart, the sheet, and the worklist); safety (the antigen is always named beside the requirement); no rule or check changes.
+
+### Design
+
+- `SpecialRequirementLabel.TypeName` and `Display`; used wherever a patient's requirement is named.
+
+### Requirements
+
+- URS-BB-623, FRS-BB-740.
+
+### Tests
+
+- TEST-BB-645: type names, antigen in brackets, a name that already says the antigen, trimming. Timeline and worklist tests updated to the shared wording.

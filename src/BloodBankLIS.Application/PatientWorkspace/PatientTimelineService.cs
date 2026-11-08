@@ -179,9 +179,8 @@ public sealed class PatientTimelineService
             : (await _requirementDefinitions.ListAsync(d => definitionIds.Contains(d.Id), ct)).ToDictionary(d => d.Id);
         foreach (var r in requirements)
         {
-            var name = r.RequirementDefinitionId is long id && definitions.TryGetValue(id, out var d) && !string.IsNullOrWhiteSpace(d.Name)
-                ? d.Name
-                : r.AntigenCode is { Length: > 0 } antigen ? $"{antigen}-negative" : r.RequirementType.ToString();
+            var name = SpecialRequirementLabel.Display(
+                r.RequirementDefinitionId is long id && definitions.TryGetValue(id, out var d) ? d.Name : null, r.RequirementType, r.AntigenCode);
             events.Add(new(r.EffectiveUtc, TimelineCategory.Alert, TimelineSeverity.Warning,
                 $"Transfusion requirement added: {name}",
                 Join($"Reason: {r.Reason}", r.ExpiresUtc is DateTime until ? $"until {until:yyyy-MM-dd}" : null,
