@@ -174,7 +174,7 @@ public sealed class SpecimenTimelineService
             foreach (var s in await _storage.ListAsync(x => x.SpecimenId == specimen.Id, ct))
             {
                 events.Add(new(s.StoredUtc, TimelineCategory.Specimen, TimelineSeverity.Info,
-                    s.PreviousLocation is null ? $"Stored in {s.Location}" : $"Moved to {s.Location}",
+                    s.Discarded ? "Tube discarded" : s.PreviousLocation is null ? $"Stored in {s.Location}" : $"Moved to {s.Location}",
                     PatientTimelineService.Join(s.PreviousLocation is null ? null : $"From {s.PreviousLocation}", s.Note),
                     s.StoredBy, null, $"sto-{s.Id}"));
             }

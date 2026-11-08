@@ -66,4 +66,12 @@ public class Specimen : BaseEntity
     public DateTime? StoredUtc { get; set; }
 
     public string? StoredBy { get; set; }
+
+    /// <summary>When the tube was thrown away (Store tubes, Discard); the place it was in is kept on its storage history.</summary>
+    public DateTime? DiscardedUtc { get; set; }
+
+    public string? DiscardedBy { get; set; }
+
+    /// <summary>Why the tube was discarded before its retention date, or null when it was due.</summary>
+    public string? DiscardReason { get; set; }
 }

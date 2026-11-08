@@ -20,4 +20,7 @@ public class SpecimenStorageEvent : BaseEntity
     public string StoredBy { get; set; } = string.Empty;
 
     public string? Note { get; set; }
+
+    /// <summary>The tube was discarded here (Location is "Discarded"); not a storage place.</summary>
+    public bool Discarded { get; set; }
 }

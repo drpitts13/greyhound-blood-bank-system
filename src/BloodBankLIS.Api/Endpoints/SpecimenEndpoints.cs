@@ -70,6 +70,14 @@ public static class SpecimenEndpoints
             EndpointResults.From(await service.StoreAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.SpecimenAccession);
 
+        // Stored tubes past the facility's retention date (none when no period is set), and discarding one by scan.
+        group.MapGet("/due-for-discard", async (SpecimenStorageService service, CancellationToken ct) =>
+            Results.Ok(await service.ListDueForDiscardAsync(ct)));
+
+        group.MapPost("/discard", async (DiscardSpecimenRequest request, SpecimenStorageService service, CancellationToken ct) =>
+            EndpointResults.From(await service.DiscardAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.SpecimenAccession);
+
         group.MapGet("/{id:long}/timeline", async (long id, SpecimenTimelineService service, CancellationToken ct) =>
         {
             var timeline = await service.GetAsync(id, ct);

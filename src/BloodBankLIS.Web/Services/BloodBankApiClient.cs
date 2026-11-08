@@ -1793,6 +1793,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<StoredSpecimenDto>> StoreSpecimenAsync(StoreSpecimenRequest req, CancellationToken ct = default) =>
         SendAsync<StoredSpecimenDto>(HttpMethod.Post, "api/specimens/store", req, ct);
 
+    public Task<ApiResult<List<TubeInPlaceDto>>> GetTubesDueForDiscardAsync(CancellationToken ct = default) =>
+        SendAsync<List<TubeInPlaceDto>>(HttpMethod.Get, "api/specimens/due-for-discard", ct: ct);
+
+    public Task<ApiResult<DiscardedSpecimenDto>> DiscardSpecimenAsync(DiscardSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<DiscardedSpecimenDto>(HttpMethod.Post, "api/specimens/discard", req, ct);
+
     public Task<ApiResult<SpecimenTimelineDto>> GetSpecimenTimelineAsync(long specimenId, CancellationToken ct = default) =>
         SendAsync<SpecimenTimelineDto>(HttpMethod.Get, $"api/specimens/{specimenId}/timeline", ct: ct);
 

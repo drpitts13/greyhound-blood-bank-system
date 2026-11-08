@@ -601,3 +601,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-593 | One storage place is one place however it is typed or scanned ("Rack 3", "rack3", "RACK-3"), and the places already in use are offered, so tubes are not split across misspelled places. | P3 | FRS-BB-710 |
 | URS-BB-594 | RhIG evaluations ready for a verifier appear on the Supervisor queue with the other work a technologist cannot finish alone. | P3 | FRS-BB-711 |
 | URS-BB-595 | When the last test on a tube is done and the tube has not been put away, the bench is offered to store it, with the tube carried to Store tubes. | P3 | FRS-BB-712 |
+| URS-BB-596 | Stored tubes are discarded by scan, with a list of tubes past the facility's retention period; a tube still needed for an unfinished order or an open reaction investigation is kept, and an early discard needs a reason. | P2 | FRS-BB-713 |

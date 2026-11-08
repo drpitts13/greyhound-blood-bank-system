@@ -94,6 +94,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetAllowBatchVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowBatchVerify, false, ct);
 
+    public Task<int> GetSpecimenRetentionDaysAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
+
     public Task<bool> GetRequireSpecimenCollectorAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireSpecimenCollector, false, ct);
 

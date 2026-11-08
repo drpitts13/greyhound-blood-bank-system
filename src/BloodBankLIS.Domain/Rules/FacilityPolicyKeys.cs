@@ -38,6 +38,9 @@ public static class FacilityPolicyKeys
     /// <summary>Retired. Unit retype is the supplier confirmation and no longer requires a second reviewer.</summary>
     public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";
+
+    /// <summary>Days a patient tube is kept after its expiration before it is due for discard (OCD-070). 0 = not set.</summary>
+    public const string SpecimenRetentionDays = "Specimen.RetentionDays";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";
 
     /// <summary>Facility must enable computer XM after AABB 5.16 validation (SoftBank/SafeTrace switch).</summary>

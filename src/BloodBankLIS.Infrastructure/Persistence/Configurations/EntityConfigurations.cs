@@ -147,6 +147,8 @@ public sealed class SpecimenConfiguration : IEntityTypeConfiguration<Specimen>
         b.HasKey(s => s.Id);
         b.Property(s => s.StorageLocation).HasMaxLength(100);
         b.Property(s => s.StoredBy).HasMaxLength(100);
+        b.Property(s => s.DiscardedBy).HasMaxLength(100);
+        b.Property(s => s.DiscardReason).HasMaxLength(500);
         b.Property(s => s.AccessionNumber).HasMaxLength(50).IsRequired();
         b.Property(s => s.SpecimenType).HasMaxLength(100).IsRequired();
         b.Property(s => s.Barcode).HasMaxLength(100);

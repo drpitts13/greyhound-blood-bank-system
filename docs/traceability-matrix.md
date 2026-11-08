@@ -706,6 +706,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-593 / FRS-BB-710 | One spelling per storage place | `SpecimenStorageRule`; `SpecimenStorageService.KnownPlacesAsync`; `StoreTubes.razor` | TEST-BB-584 | U, I | |
 | URS-BB-594 / FRS-BB-711 | RhIG ready to complete on the Supervisor queue | `SupervisorQueueService`; `RhigEvaluationRule.Summary`; `SupervisorQueue.razor` | TEST-BB-585 | I | |
 | URS-BB-595 / FRS-BB-712 | Offer to store a finished tube | `TestWorklistView.TubeFinished`; `TestWorklist.razor`; `StoreTubes.razor` | TEST-BB-586 | U | |
+| URS-BB-596 / FRS-BB-713 | Discard stored tubes, due-for-discard list | `SpecimenDiscardRule`; `SpecimenStorageService.DiscardAsync/ListDueForDiscardAsync`; `StoreTubes.razor` | TEST-BB-587, TEST-BB-588 | U, I | OCD-070 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

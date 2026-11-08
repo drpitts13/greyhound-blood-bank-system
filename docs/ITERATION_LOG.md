@@ -17314,3 +17314,22 @@ Store tubes (Cycles 533–536) works only if someone remembers to use it. The mo
 ### Tests
 
 - TEST-BB-586: offered when no line on the tube remains and it is not stored; not when a line remains (any case), when already stored, or without a saved line or accession.
+
+## Iteration 539 — Discard stored tubes (2026-11-07)
+
+### Capability matrix rescan (orders and specimens: retention)
+
+Tubes could be stored and moved (Cycles 533–538) but never discarded: every rack filled with tubes that the system still showed as stored, and the rack lists stopped matching the racks. Benches discard tubes on a schedule from a paper list. Workflow questions: scanning (the tube in hand is scanned as it is thrown away); memory (the due list and keep-until dates replace the paper schedule); safety (a tube an unfinished order or an open reaction investigation still needs cannot be discarded, whatever the reason); override (early discard needs a reason, kept on the tube and audited); no clinical rule invented (retention days is a facility policy, default not set, OCD-070).
+
+### Design
+
+- `SpecimenDiscardRule` (keep-until, hard stops, early reason); policy `Specimen.RetentionDays`; `Specimen.DiscardedUtc/By/Reason` and `SpecimenStorageEvent.Discarded` (migration, bootstrap); `DiscardAsync`, `ListDueForDiscardAsync` and endpoints; Store tubes Discard card, due list, Keep until column; timeline, chart, and lookup show the discard.
+
+### Requirements
+
+- URS-BB-596, FRS-BB-713. OCD-070 updated. Help: Store tubes.
+
+### Tests
+
+- TEST-BB-587: keep-until from expiration or collection, not set at 0; pass when due; reason needed early or with no period (warning when given); open orders named; open investigation and already discarded refused; reason length.
+- TEST-BB-588: with no period nothing is due and a reason is needed; with 7 days the old tube is listed with its place and keep-until; permission; discard by lower-case scan clears the place, keeps it on a discard history row, audits, refuses a second discard and a later store, leaves the due and place lists and known places; early discard with a reason (trimmed) kept and audited; timeline "Tube discarded"; the demo reaction tube on an open investigation and a tube on an open order are kept.

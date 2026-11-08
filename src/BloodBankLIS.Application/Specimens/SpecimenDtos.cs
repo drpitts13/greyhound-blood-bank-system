@@ -62,12 +62,13 @@ public sealed record SpecimenDto(
     bool HasCompletedTypeAndScreen = false,
     long? EncounterId = null,
     string? StorageLocation = null,
-    DateTime? StoredUtc = null)
+    DateTime? StoredUtc = null,
+    DateTime? DiscardedUtc = null)
 {
     public static SpecimenDto From(Specimen s, string? typeDescription = null, bool hasCompletedTypeAndScreen = false) => new(
         s.Id, s.AccessionNumber, s.PatientId, s.SpecimenType, typeDescription, s.Barcode,
         s.DrawLocation, s.Collector, s.CollectedUtc, s.ReceivedUtc, s.ExpiresUtc, s.Status, s.RejectionReason,
-        s.Comment, hasCompletedTypeAndScreen, s.EncounterId, s.StorageLocation, s.StoredUtc);
+        s.Comment, hasCompletedTypeAndScreen, s.EncounterId, s.StorageLocation, s.StoredUtc, s.DiscardedUtc);
 }
 
 public sealed record PendingSpecimenWorkItemDto(

@@ -146,6 +146,10 @@
                             {
                                 <div class="sub" data-specimen-stored>Stored: @s.StorageLocation</div>
                             }
+                            @if (s.DiscardedUtc is DateTime discarded)
+                            {
+                                <div class="sub" data-specimen-discarded>Discarded @discarded.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                            }
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(s.Comment) ? "—" : s.Comment)</td>
                         <td class="right nowrap">

@@ -230,7 +230,8 @@ public sealed class UniversalLookupService
                     s.AccessionNumber,
                     $"Specimen for {PatientLabel(owner, s.PatientId)}",
                     $"{s.SpecimenType} · {s.Status} · collected {s.CollectedUtc:yyyy-MM-dd HH:mm} UTC"
-                        + (string.IsNullOrWhiteSpace(s.StorageLocation) ? string.Empty : $" · stored in {s.StorageLocation}"),
+                        + (string.IsNullOrWhiteSpace(s.StorageLocation) ? string.Empty : $" · stored in {s.StorageLocation}")
+                        + (s.DiscardedUtc is DateTime discarded ? $" · discarded {discarded:yyyy-MM-dd}" : string.Empty),
                     $"/patients/{s.PatientId}?tab=specimens&specimen={s.Id}");
             })
             .ToList();
