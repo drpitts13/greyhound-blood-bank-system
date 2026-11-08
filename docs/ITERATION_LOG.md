@@ -17333,3 +17333,21 @@ Tubes could be stored and moved (Cycles 533–538) but never discarded: every ra
 
 - TEST-BB-587: keep-until from expiration or collection, not set at 0; pass when due; reason needed early or with no period (warning when given); open orders named; open investigation and already discarded refused; reason length.
 - TEST-BB-588: with no period nothing is due and a reason is needed; with 7 days the old tube is listed with its place and keep-until; permission; discard by lower-case scan clears the place, keeps it on a discard history row, audits, refuses a second discard and a later store, leaves the due and place lists and known places; early discard with a reason (trimmed) kept and audited; timeline "Tube discarded"; the demo reaction tube on an open investigation and a tube on an open order are kept.
+
+## Iteration 540 — Tubes due for discard on the home screen (2026-11-08)
+
+### Capability matrix rescan (operations: queues)
+
+Cycle 539 lists tubes due for discard on Store tubes, but only someone who opens that page sees them; the home screen gathers every other queue. Workflow questions: memory (no need to remember to check the racks); next action (one click to the list); clicks (one); safety (none: a count only, discard still by scan with its checks).
+
+### Design
+
+- `TubesDueForDiscard` card for specimen.accession on the Bench view, counted from the due-for-discard list; routine (no attention note).
+
+### Requirements
+
+- URS-BB-597, FRS-BB-714. Help: home screen, Store tubes.
+
+### Tests
+
+- TEST-BB-589: card for tube storers only, link and label, on the Bench view and not the issue desk, not under Needs attention on its own.

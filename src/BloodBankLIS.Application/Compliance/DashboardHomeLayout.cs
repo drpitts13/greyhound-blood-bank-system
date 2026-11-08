@@ -43,7 +43,7 @@ public static class DashboardHome
 
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
-        [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, ReagentQc, InstrumentFailures, SecondAbo, Supervisor],
+        [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, ReagentQc, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
         [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, ExpiredOnShelf, LowStock],
         [WorkFocus.Supervisor] = [Supervisor, ToVerify, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock]
     };

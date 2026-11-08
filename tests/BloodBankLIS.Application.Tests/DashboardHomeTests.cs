@@ -194,4 +194,19 @@ public class DashboardHomeTests
         var layout = DashboardHome.Arrange([State(NearExpiry, 3, NearExpiryNote(1)), State(DashboardQueueCatalog.LowStock, count, note)], WorkFocus.IssueDesk);
         Assert.Equal([DashboardQueueCatalog.LowStock, NearExpiry], layout.Attention.Select(c => c.Card.Key));
     }
+
+    // TEST-BB-589: Tubes due for discard is a card for whoever stores tubes, on the bench view, and a routine count:
+    // it does not need attention on its own.
+    [Fact]
+    public void TubesDueForDiscard_IsForTubeStorers_OnTheBench_AndRoutine()
+    {
+        Assert.Contains(Select(c => c == PermissionCodes.SpecimenAccession),
+            card => card.Key == TubesDueForDiscard && card.Href == "/specimens/store" && card.Label == "Tubes due for discard");
+        Assert.DoesNotContain(Select(c => c == PermissionCodes.ResultEnter), card => card.Key == TubesDueForDiscard);
+        Assert.True(DashboardHome.InFocus(TubesDueForDiscard, WorkFocus.Bench));
+        Assert.False(DashboardHome.InFocus(TubesDueForDiscard, WorkFocus.IssueDesk));
+
+        var layout = DashboardHome.Arrange([State(TubesDueForDiscard, 4)], WorkFocus.Bench);
+        Assert.DoesNotContain(layout.Attention, c => c.Card.Key == TubesDueForDiscard);
+    }
 }

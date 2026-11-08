@@ -40,6 +40,7 @@ public static class DashboardQueueCatalog
     public const string UnmappedInterfaceValues = "interface-unmapped";
     public const string PossibleDuplicates = "possible-duplicates";
     public const string OpenRhig = "open-rhig";
+    public const string TubesDueForDiscard = "tubes-due-discard";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -59,6 +60,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.ResultEnter), PendingTests, "Pending tests", "/test-worklist");
         Add(cards, has(PermissionCodes.ResultVerify), ToVerify, "Results to verify", "/test-worklist?show=verify");
         Add(cards, has(PermissionCodes.SpecimenAccession), PendingSpecimens, "Pending specimens", "/test-worklist?tab=specimens");
+        // Stored tubes past the facility's retention date (OCD-070): whoever stores tubes pulls and discards them.
+        Add(cards, has(PermissionCodes.SpecimenAccession), TubesDueForDiscard, "Tubes due for discard", "/specimens/store");
         // Daily reagent QC is bench work: whoever enters results records and reviews it.
         Add(cards, has(PermissionCodes.ResultEnter), ReagentQc, "Reagent QC", "/reagents");
         Add(cards, has(PermissionCodes.ReactionInvestigate), Reactions, "Reaction investigations", "/reactions");

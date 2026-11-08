@@ -597,5 +597,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-586 | U | `TubeFinishedTests.TubeFinished_OnlyWhenNoLineIsLeft_AndTheTubeIsNotStored` | URS-BB-595 / FRS-BB-712 |
 | TEST-BB-587 | U | `SpecimenDiscardRuleTests.Evaluate_KeepsANeededTube_AndAsksForAReasonWhenEarly`, `SpecimenDiscardRuleTests.KeepUntil_IsExpirationPlusRetentionDays_OrNotSet` | URS-BB-596 / FRS-BB-713 |
 | TEST-BB-588 | I | `SpecimenDiscardTests.Tube_IsDiscardedWhenDue_OrEarlyWithAReason_AndKeptWhileStillNeeded` | URS-BB-596 / FRS-BB-713 |
+| TEST-BB-589 | U | `DashboardHomeTests.TubesDueForDiscard_IsForTubeStorers_OnTheBench_AndRoutine` | URS-BB-597 / FRS-BB-714 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
