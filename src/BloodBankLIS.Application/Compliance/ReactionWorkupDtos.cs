@@ -21,7 +21,9 @@ public sealed record ReactionWorkupSpecimenDto(
     bool Expired,
     long OrderId,
     string OrderNumber,
-    IReadOnlyList<ReactionWorkupLineDto> Lines)
+    IReadOnlyList<ReactionWorkupLineDto> Lines,
+    // Where the tube is stored (Store tubes), so it can be pulled for the workup.
+    string? StorageLocation = null)
 {
     public const string PreRole = "Pre-transfusion";
     public const string PostRole = "Post-transfusion";

@@ -17224,3 +17224,21 @@ RhIG is complete apart from OCD-069 (Cycles 525–532). Next gap: the system rec
 ### Tests
 
 - TEST-BB-581: stored by barcode in any case with the place trimmed and a note; refused without permission, for the same place (naming the current one), an unknown scan, a cancelled tube, and a blank place; a move keeps both places in order, is audited, and appears on the timeline; a rejected tube may be stored; the place is bounded.
+
+## Iteration 534 — Show where a tube is stored where it is looked for (2026-11-07)
+
+### Capability matrix rescan (specimens, reaction workup)
+
+Cycle 533 records where tubes are kept, but the place showed only on the chart and the tube's history. The two moments a tube is hunted for are a scan at the bench (top-bar lookup) and a transfusion reaction workup, which needs the pre-transfusion tube. Workflow questions: clicks (the place is on the lookup result and the reaction page, no chart visit); memory (no rack log); sample data (the reaction demo's tube is stored and moved, so the feature can be seen).
+
+### Design
+
+- Lookup specimen detail; `ReactionWorkupSpecimenDto.StorageLocation` and the reaction page badge; `EnsureSpecimenStorageDemoAsync`.
+
+### Requirements
+
+- URS-BB-591, FRS-BB-708. Help: Store tubes.
+
+### Tests
+
+- TEST-BB-582: the lookup hit names the stored place; the demo tube is stored with both places in order, added once.

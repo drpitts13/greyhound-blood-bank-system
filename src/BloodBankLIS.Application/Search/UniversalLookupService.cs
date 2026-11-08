@@ -229,7 +229,8 @@ public sealed class UniversalLookupService
                     true,
                     s.AccessionNumber,
                     $"Specimen for {PatientLabel(owner, s.PatientId)}",
-                    $"{s.SpecimenType} · {s.Status} · collected {s.CollectedUtc:yyyy-MM-dd HH:mm} UTC",
+                    $"{s.SpecimenType} · {s.Status} · collected {s.CollectedUtc:yyyy-MM-dd HH:mm} UTC"
+                        + (string.IsNullOrWhiteSpace(s.StorageLocation) ? string.Empty : $" · stored in {s.StorageLocation}"),
                     $"/patients/{s.PatientId}?tab=specimens&specimen={s.Id}");
             })
             .ToList();

@@ -92,7 +92,8 @@ public static class ReactionWorkupReader
                 specimen.ExpiresUtc is DateTime expires && expires <= nowUtc,
                 order.Id,
                 order.OrderNumber,
-                workupLines);
+                workupLines,
+                specimen.StorageLocation);
         }
 
         bool Withdrawn(long? orderId) =>

@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Application.Search;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -73,6 +74,31 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
             new EfRepository<SpecimenStorageEvent>(c)).GetAsync(tube.Id);
         Assert.Contains(timeline!.Events, e => e.Title == "Stored in Rack 3" && e.Detail == "A4");
         Assert.Contains(timeline.Events, e => e.Title == "Moved to Retention fridge 2" && e.Detail == "From Rack 3");
+
+        // TEST-BB-582: scanning the tube into the top-bar lookup says where it is.
+        var lookup = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c));
+        var hit = Assert.Single((await lookup.LookupAsync(tube.AccessionNumber)).Hits);
+        Assert.EndsWith(" · stored in Retention fridge 2", hit.Detail);
+    }
+
+    // TEST-BB-582: the demo's reaction pre-transfusion tube was stored, then moved, with both places kept; added once.
+    [Fact]
+    public async Task Demo_ReactionTube_IsStoredWithItsHistory()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var v = factory.Create();
+        var tube = await v.Specimens.AsNoTracking().SingleAsync(s => s.AccessionNumber == "ACC0014");
+        Assert.Equal("Retention fridge R2", tube.StorageLocation);
+        var history = await v.SpecimenStorageEvents.AsNoTracking().Where(e => e.SpecimenId == tube.Id).OrderBy(e => e.StoredUtc).ToListAsync();
+        Assert.Equal(["Bench rack 1", "Retention fridge R2"], history.Select(h => h.Location));
+        Assert.Equal("Bench rack 1", history[1].PreviousLocation);
     }
 
     [Fact]

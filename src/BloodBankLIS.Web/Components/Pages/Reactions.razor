@@ -242,6 +242,10 @@ else
                             <div>
                                 <span class="mono">@workup.AccessionNumber</span>
                                 <span class="sub">collected @workup.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") · order <span class="mono">@workup.OrderNumber</span></span>
+                                @if (!string.IsNullOrWhiteSpace(workup.StorageLocation))
+                                {
+                                    <span class="badge badge-blue" title="Where the tube is stored (Store tubes)" data-workup-stored>Stored: @workup.StorageLocation</span>
+                                }
                                 @if (workup.Expired)
                                 {
                                     <span class="badge badge-gray" title="Reaction workup orders may use an expired pre-transfusion tube (OCD-058)">Expired: workup allowed</span>
