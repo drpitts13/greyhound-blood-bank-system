@@ -17260,3 +17260,21 @@ Store tubes (Cycles 533–534) records where each tube goes, but a rack could no
 ### Tests
 
 - TEST-BB-583: a place in any case with spaces finds the tube with its patient; a moved tube is not listed in its old place; a blank place lists nothing.
+
+## Iteration 536 — One spelling per storage place (2026-11-07)
+
+### Capability matrix rescan
+
+Safety rescan: Rh-positive products for childbearing-age Rh-negative recipients are already governed (OCD-003, issue gate). The weakest new feature was Store tubes (Cycles 533–535): places are free text, so "Rack 3", "rack3", and "RACK-3" became three places, and a tube stored under one spelling did not appear when the rack was scanned under another. Workflow questions: inference (the same place is recognised and stored under the spelling in use); memory (known places are offered); safety (tubes are not lost to a misspelling); no clinical rule.
+
+### Design
+
+- `SpecimenStorageRule.Key/SamePlace/Canonical`; `KnownPlacesAsync` and endpoint; storing and listing by key; datalist on Store tubes.
+
+### Requirements
+
+- URS-BB-593, FRS-BB-710. Help: Store tubes.
+
+### Tests
+
+- TEST-BB-584: places match ignoring case, spaces, and punctuation but not different numbers; canonical spelling; "already stored" by key; a tube stored as "RACK-3" lands in "Rack 3" and lists under "rack3"; known places one spelling each, newest first.

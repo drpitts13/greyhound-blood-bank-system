@@ -598,3 +598,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-590 | The blood bank records by scan where each tube is stored (rack, shelf, position), sees it on the chart, and keeps every earlier place when a tube is moved, so a tube can be found again for repeat testing or a reaction workup. | P2 | FRS-BB-707 |
 | URS-BB-591 | Where a tube is stored is shown where it is being looked for: on the top-bar lookup and on a transfusion reaction investigation's workup tubes. | P3 | FRS-BB-708 |
 | URS-BB-592 | Scanning a rack or shelf shows every tube recorded there now, so the place can be checked against the system and a tube found in it. | P3 | FRS-BB-709 |
+| URS-BB-593 | One storage place is one place however it is typed or scanned ("Rack 3", "rack3", "RACK-3"), and the places already in use are offered, so tubes are not split across misspelled places. | P3 | FRS-BB-710 |

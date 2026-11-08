@@ -74,13 +74,14 @@ public sealed class SpecimenStorageService
     /// </summary>
     public async Task<IReadOnlyList<TubeInPlaceDto>> ListInPlaceAsync(string? location, CancellationToken ct = default)
     {
-        var place = location?.Trim().ToUpperInvariant();
-        if (string.IsNullOrEmpty(place))
+        if (SpecimenStorageRule.Key(location).Length == 0)
         {
             return [];
         }
 
-        var tubes = await _specimens.ListAsync(s => s.StorageLocation != null && s.StorageLocation.ToUpper() == place, ct);
+        var tubes = (await _specimens.ListAsync(s => s.StorageLocation != null, ct))
+            .Where(s => SpecimenStorageRule.SamePlace(s.StorageLocation, location))
+            .ToList();
         if (tubes.Count == 0)
         {
             return [];
@@ -99,6 +100,18 @@ public sealed class SpecimenStorageService
                     patient is null ? $"Patient {t.PatientId}" : $"{patient.LastName}, {patient.FirstName}",
                     patient?.MedicalRecordNumber ?? "—", t.CollectedUtc, t.StoredUtc, t.StoredBy);
             })
+            .ToList();
+    }
+
+    /// <summary>Places tubes have been stored in, most recently used first, one spelling each.</summary>
+    public async Task<IReadOnlyList<string>> KnownPlacesAsync(CancellationToken ct = default)
+    {
+        var events = await _events.ListAsync(ct);
+        return events
+            .OrderByDescending(e => e.StoredUtc)
+            .Select(e => e.Location.Trim())
+            .Where(l => SpecimenStorageRule.Key(l).Length > 0)
+            .DistinctBy(SpecimenStorageRule.Key)
             .ToList();
     }
 
@@ -133,7 +146,10 @@ public sealed class SpecimenStorageService
             return OperationResult<StoredSpecimenDto>.Fail($"No tube has accession or barcode {scan}.");
         }
 
-        var location = request.Location?.Trim() ?? string.Empty;
+        // The same place typed or scanned another way ("rack3" for "Rack 3") is stored under the spelling already in use.
+        var location = string.IsNullOrWhiteSpace(request.Location)
+            ? string.Empty
+            : SpecimenStorageRule.Canonical(request.Location, await KnownPlacesAsync(ct));
         var check = SpecimenStorageRule.Evaluate(specimen.Status, specimen.StorageLocation, location);
         if (check.Severity == RuleSeverity.HardStop)
         {

@@ -29,8 +29,24 @@ public static class SpecimenStorageRule
             return RuleResult.HardStop(Code, "A cancelled tube is not stored.");
         }
 
-        return string.Equals(currentLocation?.Trim(), place, StringComparison.OrdinalIgnoreCase)
-            ? RuleResult.HardStop(Code, $"The tube is already stored in {currentLocation!.Trim()}.")
+        return currentLocation is not null && SamePlace(currentLocation, place)
+            ? RuleResult.HardStop(Code, $"The tube is already stored in {currentLocation.Trim()}.")
             : RuleResult.Pass(Code);
     }
+
+    /// <summary>
+    /// A place's key for matching: letters and digits only, upper case, so "Rack 3", "rack3", and "RACK-3" are one place.
+    /// </summary>
+    public static string Key(string? place) =>
+        new((place ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
+
+    public static bool SamePlace(string? first, string? second)
+    {
+        var a = Key(first);
+        return a.Length > 0 && a == Key(second);
+    }
+
+    /// <summary>The spelling already in use for this place, or the place as entered (trimmed) when it is new.</summary>
+    public static string Canonical(string place, IEnumerable<string> knownPlaces) =>
+        knownPlaces.FirstOrDefault(k => SamePlace(k, place))?.Trim() ?? place.Trim();
 }

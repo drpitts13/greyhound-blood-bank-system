@@ -81,6 +81,22 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(await service.ListInPlaceAsync("Rack 3"), t => t.SpecimenId == tube.Id);
         Assert.Empty(await service.ListInPlaceAsync(" "));
 
+        // TEST-BB-584: the same place spelled another way is stored under the spelling in use, and listed with it.
+        var second = new Specimen
+        {
+            PatientId = patient.Id, AccessionNumber = $"ACC-ST2-{key}", SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1), Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(second);
+        await c.SaveChangesAsync();
+        var spelled = await service.StoreAsync(new StoreSpecimenRequest(second.AccessionNumber, "RACK-3"));
+        Assert.True(spelled.Succeeded, spelled.Error);
+        Assert.Equal("Rack 3", spelled.Value!.Location);
+        Assert.Contains(await service.ListInPlaceAsync("rack3"), t => t.SpecimenId == second.Id);
+        var places = await service.KnownPlacesAsync();
+        Assert.Equal("Rack 3", places[0]);
+        Assert.Single(places, p => SpecimenStorageRule.SamePlace(p, "Rack 3"));
+
         // TEST-BB-582: scanning the tube into the top-bar lookup says where it is.
         var lookup = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c));
@@ -105,6 +121,17 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         var history = await v.SpecimenStorageEvents.AsNoTracking().Where(e => e.SpecimenId == tube.Id).OrderBy(e => e.StoredUtc).ToListAsync();
         Assert.Equal(["Bench rack 1", "Retention fridge R2"], history.Select(h => h.Location));
         Assert.Equal("Bench rack 1", history[1].PreviousLocation);
+    }
+
+    [Fact]
+    public void Places_MatchIgnoringCaseSpacesAndPunctuation()
+    {
+        Assert.True(SpecimenStorageRule.SamePlace("Rack 3", "rack-3"));
+        Assert.False(SpecimenStorageRule.SamePlace("Rack 3", "Rack 33"));
+        Assert.False(SpecimenStorageRule.SamePlace(" ", "-"));
+        Assert.Equal("Retention fridge R2", SpecimenStorageRule.Canonical(" retention-fridge r2 ", ["Bench rack 1", "Retention fridge R2"]));
+        Assert.Equal("New shelf", SpecimenStorageRule.Canonical(" New shelf ", ["Bench rack 1"]));
+        Assert.Contains("already stored in Rack 3", SpecimenStorageRule.Evaluate(SpecimenStatus.Accepted, "Rack 3", "RACK3").Message);
     }
 
     [Fact]

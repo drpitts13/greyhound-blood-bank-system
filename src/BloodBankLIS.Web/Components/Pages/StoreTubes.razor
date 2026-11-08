@@ -24,7 +24,13 @@ else
             <div class="field">
                 <label>Storage place</label>
                 <input id="store-location" @bind="_location" @bind:event="oninput" @onkeydown="OnLocationKey"
-                       placeholder="Scan the rack or type the shelf" autocomplete="off" data-store-location />
+                       placeholder="Scan the rack or type the shelf" autocomplete="off" list="store-places" data-store-location />
+                <datalist id="store-places">
+                    @foreach (var place in _places)
+                    {
+                        <option value="@place"></option>
+                    }
+                </datalist>
             </div>
             <div class="field">
                 <label>Tube</label>
@@ -100,6 +106,13 @@ else
     private readonly List<StoredSpecimenDto> _stored = new();
 
     private List<TubeInPlaceDto>? _inPlace;
+    private List<string> _places = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var r = await Api.GetSpecimenStoragePlacesAsync();
+        _places = r.Succeeded ? r.Value ?? new() : new();
+    }
     private string _inPlaceFor = string.Empty;
 
     // Scanning the place shows what is recorded there, then waits for tubes.
@@ -114,7 +127,8 @@ else
 
     private async Task LoadInPlaceAsync()
     {
-        _inPlaceFor = _location.Trim();
+        // Show the place under the spelling already in use when this is the same place typed another way.
+        _inPlaceFor = SpecimenStorageRule.Canonical(_location, _places);
         var r = await Api.GetTubesInPlaceAsync(_inPlaceFor);
         _inPlace = r.Succeeded ? r.Value ?? new() : new();
     }
@@ -131,6 +145,12 @@ else
         if (r.Succeeded && r.Value is { } stored)
         {
             _stored.Insert(0, stored);
+            _location = stored.Location;
+            if (!_places.Any(p => SpecimenStorageRule.SamePlace(p, stored.Location)))
+            {
+                _places.Insert(0, stored.Location);
+            }
+
             _fb = Feedback.Succeed(stored.PreviousLocation is null
                 ? $"{stored.AccessionNumber} stored in {stored.Location}."
                 : $"{stored.AccessionNumber} moved from {stored.PreviousLocation} to {stored.Location}.");
