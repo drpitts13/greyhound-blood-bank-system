@@ -18035,3 +18035,22 @@ The find box takes units, specimens, orders, patients, visits, RhIG lots, and sh
 ### Tests
 
 - TEST-BB-659: two units in transit in "CLR 12" (one already received, another cooler's unit) are found by " clr12 " with the destination and link; once all are received the cooler is not found.
+
+## Iteration 577 — Rendered page tests (bUnit) (2026-11-08)
+
+### Capability matrix rescan (QA: what the user reads)
+
+The Cycle 573 defect ("Usable until … None usable" on every Blood orders to prepare row) passed every test because the tests checked the data behind the row, not the markup; a live check found it two cycles later. With the user's go-ahead, bUnit was added so pages can be rendered in tests.
+
+### Design
+
+- `bunit` 2.14.0 in `BloodBankLIS.Help.Tests` (which already references the web project). A page test renders the real page with a real `BloodBankApiClient` whose `HttpClient` is answered by a canned handler (rows serialized with the API's `ClinicalJson.WebOptions`) and a dev-mode `UserSession`.
+- First test: Blood orders to prepare's specimen cell in each state (usable, none usable, type and screen pending, specimen expiring before needed-by) says one thing and never "None usable" beside a usable specimen; the next-step button carries the row's step and link.
+
+### Verification
+
+- Reintroducing the Cycle 573 markup made the test fail with the text users saw ("Usable until 2026-11-09 07:00None usable"); the fixed page was restored from git and the test passes. Validation plan and architecture note the page tests.
+
+### Tests
+
+- TEST-BB-660.
