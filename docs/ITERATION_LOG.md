@@ -17798,3 +17798,21 @@ Patients and specimens have timelines (and units their history), but an order di
 ### Tests
 
 - TEST-BB-642: full sequence and order, audited change with user at workstation and changed field, released reservation reason, issue destination, transfusion volume, passed needed-by only while open; another patient's or an unknown order has no history.
+
+## Iteration 564 — Order history from search and the worklist (2026-11-08)
+
+### Capability matrix rescan (orders: search everywhere)
+
+The order history (Cycle 563) needed the chart, the Orders tab, and History. A scanned or typed order number in the find box already reached the Orders tab filtered to that order, and Blood orders to prepare named the order without a link. Workflow questions: clicks (find box or worklist straight to the history); memory (no retyping the order number); safety (read-only; nothing opens when the number is ambiguous).
+
+### Design
+
+- `OrderHistoryLinkRule.HistoryToOpen`; Orders tab opens it once per number from `?order=`; worklist order numbers link there.
+
+### Requirements
+
+- URS-BB-621, FRS-BB-738. Help: Orders, Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-643: exact match (case and spaces), partial, duplicate number, blank, no orders.

@@ -615,6 +615,29 @@
     // The order whose history is open under its row (one at a time).
     private long? _orderHistoryId;
 
+    /// <summary>
+    /// An order number whose history opens once its order is loaded (the find box, Blood orders to prepare). Applied
+    /// once per number, so closing the history keeps it closed.
+    /// </summary>
+    [Parameter] public string? OpenHistoryOrderNumber { get; set; }
+    private string? _appliedHistoryOrderNumber;
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(OpenHistoryOrderNumber)
+            || string.Equals(OpenHistoryOrderNumber, _appliedHistoryOrderNumber, StringComparison.OrdinalIgnoreCase)
+            || Loading || Orders.Count == 0)
+        {
+            return;
+        }
+
+        _appliedHistoryOrderNumber = OpenHistoryOrderNumber;
+        if (OrderHistoryLinkRule.HistoryToOpen(Orders.Select(o => (o.Id, o.OrderNumber)), OpenHistoryOrderNumber) is long id)
+        {
+            _orderHistoryId = id;
+        }
+    }
+
     private void ToggleOrderHistory(long orderId) => _orderHistoryId = _orderHistoryId == orderId ? null : orderId;
     private DateTime? _neededByEdit;
     private Feedback? _neededByFb;

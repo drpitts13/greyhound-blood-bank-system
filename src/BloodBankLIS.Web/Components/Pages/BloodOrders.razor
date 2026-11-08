@@ -43,7 +43,7 @@ else
                             }
                         </td>
                         <td>
-                            <span class="mono">@r.OrderNumber</span>
+                            <a class="mono" href="@PatientChartUrls.Order(r.PatientId, r.OrderNumber)" title="Open this order's history on the chart" data-order-history-link>@r.OrderNumber</a>
                             @if (r.Rush)
                             {
                                 <span class="badge badge-red">@r.Priority</span>

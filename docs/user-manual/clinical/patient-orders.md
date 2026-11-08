@@ -34,7 +34,7 @@ Cancel requires a reason from the cancellation catalog. Cancellation does not de
 
 ## Order history
 
-**History** on an order's row opens what happened to it, newest first: when it was placed (priority, source, provider, needed-by), each recorded change such as a moved needed-by time or a cancellation (who, at which workstation, what changed), its specimens' collection and receipt, its results, and for a product order each unit reserved, crossmatched, issued, returned, and transfused. While the order is open, a needed-by time that has passed is shown as a warning. **Warnings and critical only** narrows the list; **Full audit trail** (audit readers) opens every audited change to the order.
+**History** on an order's row opens what happened to it, newest first: when it was placed (priority, source, provider, needed-by), each recorded change such as a moved needed-by time or a cancellation (who, at which workstation, what changed), its specimens' collection and receipt, its results, and for a product order each unit reserved, crossmatched, issued, returned, and transfused. While the order is open, a needed-by time that has passed is shown as a warning. **Warnings and critical only** narrows the list; **Full audit trail** (audit readers) opens every audited change to the order. Scanning or typing an order number in the find box, or choosing an order number on **Blood orders to prepare**, opens the chart with that order's history already open.
 
 ## From the order to the unit
 
