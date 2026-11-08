@@ -36,6 +36,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Workups</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -87,6 +88,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -108,6 +110,7 @@
             @if (_mfgDetail.OpenWorkups.Count > 0)
             {
                 <h4>Open workups</h4>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Next</th><th></th></tr></thead>
                     <tbody>
@@ -125,11 +128,13 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             @if (_mfgDetail.CompletedWorkups.Count > 0)
             {
                 <h4 style="margin-top:1rem;">Completed identifications of record</h4>
                 <p class="muted">These workups already posted or completed using this manufacturer's lots. History count is posted Identified findings only and does not identify antibodies.</p>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Status</th><th>History</th><th></th></tr></thead>
                     <tbody>
@@ -148,6 +153,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
     </div>
@@ -189,6 +195,7 @@
         {
             @if (_mfgDetail.OpenWorkups.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Next</th><th></th></tr></thead>
                     <tbody>
@@ -206,10 +213,12 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             @if (_mfgDetail.CompletedWorkups.Count > 0)
             {
                 <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Status</th><th>History</th><th></th></tr></thead>
                     <tbody>
@@ -228,6 +237,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
         <div class="field"><label>Reason (required)</label>
@@ -256,6 +266,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -325,6 +336,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -347,6 +359,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -379,11 +392,13 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
         @if (_detail.OpenWorkups.Count > 0)
         {
             <h4 style="margin-top:1rem;">Open workups using this lot</h4>
             <p class="muted">Deactivating the lot HardStops Accept and complete on these workups. This list does not identify antibodies.</p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Patient</th><th>MRN</th><th>Next</th><th></th></tr></thead>
                 <tbody>
@@ -400,11 +415,13 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
         @if (_detail.CompletedWorkups.Count > 0)
         {
             <h4 style="margin-top:1rem;">Completed identifications of record</h4>
             <p class="muted">These workups already completed using this lot. History count is posted Identified findings only and does not identify antibodies or void history.</p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Patient</th><th>MRN</th><th>Status</th><th>History</th><th></th></tr></thead>
                 <tbody>
@@ -422,6 +439,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -471,6 +489,7 @@
                 </div>
                 @if (cell.Role != PanelCellRole.Autocontrol)
                 {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Antigen</th><th>Expression</th><th></th></tr></thead>
                         <tbody>
@@ -501,6 +520,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
                     <button class="btn btn-ghost btn-sm" type="button" @onclick="() => AddAntigen(cell)">Add antigen</button>
                     @if (_attributes.Any(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id)))
                     {
@@ -543,6 +563,7 @@
         {
             @if (_detail.OpenWorkups.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Next</th><th></th></tr></thead>
                     <tbody>
@@ -559,10 +580,12 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             @if (_detail.CompletedWorkups.Count > 0)
             {
                 <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Status</th><th>History</th><th></th></tr></thead>
                     <tbody>
@@ -580,6 +603,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
         <div class="field"><label>Reason (required)</label>

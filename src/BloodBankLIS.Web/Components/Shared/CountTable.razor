@@ -1,4 +1,5 @@
 @* Units in one group of a stock count. *@
+<div class="table-scroll">
 <table class="bb">
     <thead>
         <tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th>Expires</th>@if (ShowRecorded) { <th>Recorded in</th> }@if (Action is not null) { <th></th> }</tr>
@@ -30,6 +31,7 @@
         }
     </tbody>
 </table>
+</div>
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<InventoryCountLineDto> Rows { get; set; } = [];

@@ -44,6 +44,7 @@ else
         @if (_run.Count > 0)
         {
             <h3 style="margin-top:1rem;">This run: @MovedCount moved@(RefusedCount > 0 ? $", {RefusedCount} not moved" : "")</h3>
+            <div class="table-scroll">
             <table class="bb" data-move-run>
                 <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>To</th><th>Result</th></tr></thead>
                 <tbody>
@@ -69,6 +70,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

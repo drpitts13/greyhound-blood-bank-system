@@ -39,6 +39,7 @@ else
             <span class="muted">Generated @_snap.GeneratedUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
         </div>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Queue</th><th>Count</th><th>Where to work it</th></tr></thead>
             <tbody>
@@ -100,6 +101,7 @@ else
                 </tr>
             </tbody>
         </table>
+        </div>
         <p class="muted" style="margin-top:.75rem;">
             Audit chain <span class="mono">@_snap.AuditChainCode</span>: @_snap.AuditChainMessage
         </p>

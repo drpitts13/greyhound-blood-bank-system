@@ -144,6 +144,7 @@
                         }
                     </datalist>
 
+                    <div class="table-scroll">
                     <table class="bb" data-xl-rows>
                         <thead>
                             <tr>
@@ -192,6 +193,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
 
                     @if (CanManage)
                     {
@@ -204,6 +206,7 @@
                     @if (_endpointId is not null && _globalRows.Count > 0)
                     {
                         <h3 style="margin-top:1.4rem;">All-interfaces rows (used where no override matches)</h3>
+                        <div class="table-scroll">
                         <table class="bb">
                             <thead><tr><th>Local value</th><th>External value</th><th>Direction</th></tr></thead>
                             <tbody>
@@ -213,6 +216,7 @@
                                 }
                             </tbody>
                         </table>
+                        </div>
                     }
 
                     <div class="bb-card" style="margin-top:1.4rem;" data-xl-check>
@@ -273,6 +277,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb" style="margin-top:1rem;">
                 <thead>
                     <tr>
@@ -316,6 +321,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

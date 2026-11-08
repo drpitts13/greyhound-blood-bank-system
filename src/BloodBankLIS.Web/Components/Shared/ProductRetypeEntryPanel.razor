@@ -27,6 +27,7 @@
             </p>
             @if (Detail.Latest.CellReactions is { Count: > 0 })
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Cell</th><th>Reaction</th></tr></thead>
                     <tbody>
@@ -39,6 +40,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             else if (!string.IsNullOrWhiteSpace(Detail.Latest.DisplayValue))
             {
@@ -140,6 +142,7 @@
                 </div>
             }
         </div>
+        <div class="table-scroll">
         <table class="bb" style="margin-top:.5rem;">
             <thead><tr><th>Subtest</th><th>Reaction</th><th></th></tr></thead>
             <tbody>
@@ -170,6 +173,7 @@
                 }
             </tbody>
         </table>
+        </div>
         <Outcome Value="_fb" />
         <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="SaveAsync">Record retype</button>
     </div>;

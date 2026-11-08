@@ -3207,6 +3207,7 @@ else
             }
             else
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Test</th><th>Value</th><th>Ver.</th><th>Status</th><th>Source</th><th>Verified by</th><th></th></tr></thead>
                     <tbody>
@@ -3309,6 +3310,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             }
 
             @if (Session.Has(PermissionCodes.ResultEnter) && s.Status == SpecimenStatus.Accepted)
@@ -3326,6 +3328,7 @@ else
                         <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
                         <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh">@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }</select></div>
                     </div>
+                    <div class="table-scroll">
                     <table class="bb" style="margin-top:.5rem;">
                         <thead><tr><th>Subtest</th><th>Reaction</th><th></th></tr></thead>
                         <tbody>
@@ -3354,6 +3357,7 @@ else
                             }
                         </tbody>
                     </table>
+                    </div>
                     <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="() => EnterAboRhAsync(s.Id)">Enter @_panelTestCode panel</button>
                     }
                     <hr style="margin:.75rem 0;border:none;border-top:1px solid var(--bb-border);" />

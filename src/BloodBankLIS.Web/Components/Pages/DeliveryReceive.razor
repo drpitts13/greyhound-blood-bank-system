@@ -41,6 +41,7 @@ else
             <div class="field"><label>Supplier</label><div>@_delivery.SupplierNameLabel</div></div>
             <div class="field"><label>Packing list</label><div class="mono">@(_delivery.PackingListNumber ?? "—")</div></div>
         </div>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Product</th><th>Expected</th><th>Received</th><th>Variance</th></tr></thead>
             <tbody>
@@ -55,6 +56,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
         @if (AllExpectedReceived)
         {
             @* Finishing here saves going back to the delivery record just to complete it. *@

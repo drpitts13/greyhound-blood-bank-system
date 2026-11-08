@@ -24,6 +24,7 @@
                     </div>
                 }
             </p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
                 <tbody>
@@ -41,6 +42,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
             {
                 <div class="flex gap" style="margin-top:.85rem;">
@@ -58,6 +60,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Type</th><th>Subgroup</th><th>Source</th><th>Recorded</th></tr></thead>
                 <tbody>
@@ -80,6 +83,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
 
         @if (Session.Has(PermissionCodes.ImmunoOverride))
@@ -321,6 +325,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Specificity</th><th>Status</th><th>Source</th><th>Active</th><th></th></tr></thead>
                 <tbody>
@@ -350,6 +355,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
 
         @if (DeactivateId is not null && OpenAbidWorkups.Count == 0)
@@ -409,6 +415,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Antigen</th><th>Code</th><th>Result</th><th>Source</th><th>Tested</th></tr></thead>
                 <tbody>
@@ -424,6 +431,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
         @if (Session.Has(PermissionCodes.ImmunoRecord))
         {

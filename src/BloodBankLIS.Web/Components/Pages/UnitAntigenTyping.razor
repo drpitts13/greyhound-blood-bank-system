@@ -32,6 +32,7 @@ else if (_session is not null)
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Antigen</th><th>Result</th></tr></thead>
                 <tbody>
@@ -50,6 +51,7 @@ else if (_session is not null)
                     }
                 </tbody>
             </table>
+            </div>
             <div class="flex gap" style="margin-top:.75rem;">
                 <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Verify results</button>
                 <a class="btn btn-ghost" href="@ChartHref">Back to products</a>

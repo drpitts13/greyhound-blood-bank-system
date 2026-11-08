@@ -259,7 +259,7 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Date/time / visit</th><th>Type / source</th><th>Order</th><th>Priority</th><th>Location / provider</th><th>Specimen</th><th>Status / result</th><th>Comment</th></tr></thead>
+            <thead><tr><th>Date/time / visit</th><th>Order</th><th>Priority</th><th>Location / provider</th><th>Specimen</th><th>Status / result</th><th>Comment</th></tr></thead>
                 @foreach (var o in Orders)
                 {
                     @* One record per tbody: the facts, the row's actions on a line underneath, then any open form. *@
@@ -287,9 +287,9 @@
                                 }
                             }
                         </td>
-                        <td>@o.OrderCategory<span class="sub">@o.Source</span></td>
                         <td>
-                            <div class="muted mono" style="margin-bottom:.15rem;">@o.OrderNumber</div>
+                            @* Order number, then what kind of order and where it came from (a column of its own made the chart too wide). *@
+                            <div class="muted" style="margin-bottom:.15rem;"><span class="mono">@o.OrderNumber</span> · @o.OrderCategory · @o.Source</div>
                             @foreach (var line in o.Lines)
                             {
                                 <div>@line.LineName <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
@@ -342,7 +342,7 @@
                         <td>@(string.IsNullOrWhiteSpace(o.Comment) ? "—" : o.Comment)</td>
                     </tr>
                     <tr class="row-actions @OrderRowClass(o)">
-                        <td colspan="8">
+                        <td colspan="7">
                             <div class="row-actions-bar">
                                 <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ToggleOrderHistory(o.Id)" data-order-history-toggle>@(_orderHistoryId == o.Id ? "Hide history" : "History")</button>
                                 @if (CanVerifyPostedOrderResult(o))
@@ -367,14 +367,14 @@
                     </tr>
                     @if (_orderHistoryId == o.Id && Patient is not null)
                     {
-                        <tr><td colspan="8">
+                        <tr><td colspan="7">
                             <OrderTimelinePanel PatientId="Patient.Id" OrderId="o.Id" OrderNumber="@o.OrderNumber" OnClose="() => _orderHistoryId = null" />
                         </td></tr>
                     }
                     @if (LinkingOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Link specimen to order <span class="mono">@o.OrderNumber</span>. Tests on this order will appear on the worklist for the selected specimen.</p>
                                     <div class="flex gap" style="align-items:end;">
@@ -409,7 +409,7 @@
                     @if (AllocatingOrderId == o.Id && Session.Has(PermissionCodes.CompatibilityAllocate))
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Allocate a compatible unit to order <span class="mono">@o.OrderNumber</span>.</p>
                                     <div class="flex gap" style="align-items:end;flex-wrap:wrap;">
@@ -432,7 +432,7 @@
                     @if (AddingActionOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Eligible modifications for the allocated unit on order <span class="mono">@o.OrderNumber</span>.</p>
                                     @if (EligibleModifications.Count == 0)
@@ -462,7 +462,7 @@
                     @if (EditingOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Editing order <span class="mono">@o.OrderNumber</span></p>
                                     <div class="form-row">

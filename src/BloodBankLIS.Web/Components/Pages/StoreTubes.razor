@@ -65,6 +65,7 @@ else
         <Outcome Value="_discardFb" />
         @if (_discarded.Count > 0)
         {
+            <div class="table-scroll">
             <table class="bb" data-discarded-tubes>
                 <thead><tr><th>Tube</th><th>Patient</th><th>Was in</th><th>When</th><th>Early</th></tr></thead>
                 <tbody>
@@ -80,6 +81,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -88,6 +90,7 @@ else
         <div class="bb-card" data-due-for-discard>
             <div class="bb-card-title"><h3>Due for discard (@_due.Count)</h3></div>
             <p class="muted">Stored tubes past their keep-until date, oldest first. Pull each from its place and scan it under Discard tubes.</p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Tube</th><th>Patient</th><th>Place</th><th>Kept until</th></tr></thead>
                 <tbody>
@@ -102,6 +105,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         </div>
     }
 
@@ -115,6 +119,7 @@ else
             }
             else
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Tube</th><th>Patient</th><th>Type</th><th>Status</th><th>Collected</th><th>Stored</th><th>Keep until</th></tr></thead>
                     <tbody>
@@ -145,6 +150,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             }
         </div>
     }
@@ -153,6 +159,7 @@ else
     {
         <div class="bb-card">
             <div class="bb-card-title"><h3>Stored this session (@_stored.Count)</h3></div>
+            <div class="table-scroll">
             <table class="bb" data-stored-tubes>
                 <thead><tr><th>Tube</th><th>Patient</th><th>Stored in</th><th>Was in</th><th>When</th></tr></thead>
                 <tbody>
@@ -168,6 +175,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         </div>
     }
 }

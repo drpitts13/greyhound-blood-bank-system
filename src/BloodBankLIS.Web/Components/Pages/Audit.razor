@@ -93,6 +93,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>When (UTC)</th><th>Action</th><th>Entity</th><th>User</th><th>Workstation</th><th>Reason</th><th>Old / new</th><th>Sig</th></tr></thead>
             <tbody>
@@ -137,6 +138,7 @@
                 }
             </tbody>
         </table>
+        </div>
         <div class="flex gap" style="margin-top:.75rem;">
             <span class="muted">@(_total == 0 ? 0 : _skip + 1)–@Math.Min(_skip + _events.Count, _total) of @_total</span>
             <button class="btn btn-ghost btn-sm" disabled="@(_busy || _skip == 0)" @onclick="() => LoadAsync(Math.Max(0, _skip - _take))">Previous</button>

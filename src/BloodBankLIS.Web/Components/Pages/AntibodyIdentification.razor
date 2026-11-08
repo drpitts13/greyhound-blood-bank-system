@@ -38,6 +38,7 @@ else if (_workup is null)
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Opened</th><th>Specimen</th><th>Panel</th><th>Manufacturer</th><th>Lot</th><th>Next</th><th></th></tr></thead>
                 <tbody>
@@ -104,6 +105,7 @@ else if (_workup is null)
                     }
                 </tbody>
             </table>
+            </div>
         }
 
         @if (Session.Has(PermissionCodes.ImmunoRecord))
@@ -282,6 +284,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Specificity</th><th>Status</th><th>Active</th></tr></thead>
                 <tbody>
@@ -295,6 +298,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -307,6 +311,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Antigen</th><th>Result</th><th>Method</th></tr></thead>
                 <tbody>
@@ -325,6 +330,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -353,6 +359,7 @@ else
     <div class="bb-card" id="abid-antigram">
         <div class="bb-card-title"><h3>Antigram</h3></div>
         <div style="overflow:auto;">
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -405,6 +412,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         </div>
         @if (CanEdit)
         {
@@ -449,6 +457,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Specificity</th><th>Class</th><th>Source</th><th>History</th><th>Rationale</th></tr></thead>
                 <tbody>
@@ -464,6 +473,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 

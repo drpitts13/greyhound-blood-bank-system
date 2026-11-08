@@ -57,6 +57,7 @@
                 @(_showAllColumns ? "Show key columns only" : "Show all details (19 more)")
             </button>
         </div>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Date/time</th><th>Event</th><th>Unit / product</th><th>Unit type</th><th>Location</th><th>Performed by</th><th>Compatibility</th><th>Disposition</th></tr></thead>
                 @foreach (var h in Rows)
@@ -163,6 +164,7 @@
                     </tbody>
                 }
         </table>
+        </div>
     }
 </div>
 

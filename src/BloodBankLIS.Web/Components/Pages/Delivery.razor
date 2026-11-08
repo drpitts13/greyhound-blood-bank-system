@@ -76,6 +76,7 @@ else
     <div class="bb-card">
         <div class="bb-card-title"><h3>Expected counts</h3></div>
         <p class="muted">Counts are by product, such as RBC or FFP. Received counts come from the units entered on this delivery. More units than expected is allowed and shows as over.</p>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Product</th><th>Expected</th><th>Received</th><th>Variance</th><th></th></tr></thead>
             <tbody>
@@ -119,6 +120,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
         @if (_delivery.Status == DeliveryStatus.Open && Session.Has(PermissionCodes.InventoryReceive))
         {
             <div class="flex gap" style="margin-top:.6rem;">
@@ -141,6 +143,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th></th></tr></thead>
                 <tbody>
@@ -156,6 +159,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

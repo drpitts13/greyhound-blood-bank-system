@@ -27,6 +27,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -98,6 +99,7 @@
                 }
             </tbody>
         </table>
+        </div>
         @if (_resolveId is not null)
         {
             <div @key="_resolveId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
@@ -113,6 +115,7 @@
         @* Who closed each error and why: a reason given by hand, or the replay or resend that delivered it. *@
         <details style="margin-top:1rem;">
             <summary>Recently resolved (@_resolvedErrors.Count)</summary>
+            <div class="table-scroll">
             <table class="bb" style="margin-top:.5rem;">
                 <thead><tr><th>Resolved</th><th>By</th><th>Message</th><th>Error</th><th>Why</th></tr></thead>
                 <tbody>
@@ -128,6 +131,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         </details>
     }
 </div>
@@ -170,6 +174,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Patient</th><th>MRN</th><th>Order / test / unit</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
             <tbody>
@@ -247,6 +252,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
     @if (_detail is not null && _viewId is long viewedId && !_messages.Any(m => m.Id == viewedId))
     {

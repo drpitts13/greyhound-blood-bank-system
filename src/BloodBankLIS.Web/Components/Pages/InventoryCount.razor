@@ -91,6 +91,7 @@ else
             @if (c.Elsewhere.Count > 0)
             {
                 <h3>Recorded in another location</h3>
+                <div class="table-scroll">
                 <table class="bb" data-count-elsewhere>
                     <thead><tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th>Recorded in</th><th></th></tr></thead>
                     <tbody>
@@ -112,6 +113,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             }
             @if (c.Missing.Count > 0)
             {
@@ -146,6 +148,7 @@ else
     {
         <div class="bb-card" style="margin-top:1rem;">
             <div class="bb-card-title"><h3>Recent counts</h3></div>
+            <div class="table-scroll">
             <table class="bb" data-count-history>
                 <thead><tr><th>When</th><th>Location</th><th>By</th><th>Outcome</th></tr></thead>
                 <tbody>
@@ -160,6 +163,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         </div>
     }
 }

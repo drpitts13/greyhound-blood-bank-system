@@ -40,6 +40,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Name</th><th>Connection</th><th>Maps</th><th>Rules</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -65,6 +66,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -116,6 +118,7 @@
                 analyte results.
                 <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showHelp = true">Open help</button>
             </p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Data item</th><th>ASTM path</th><th>Required</th></tr></thead>
                 <tbody>
@@ -129,6 +132,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
         else if (_tab == "translations")
         {
@@ -194,6 +198,7 @@
                         }
                     </div>
                 }
+                <div class="table-scroll">
                 <table class="bb" data-inst-xlat-rows>
                     <thead>
                         <tr>
@@ -235,6 +240,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 @if (CanManage)
                 {
                     <button class="btn btn-secondary" style="margin-top:.6rem;" @onclick="AddMapping">Add row</button>
@@ -267,6 +273,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Name</th><th>If</th><th>Then</th><th>Order</th><th>On</th><th>Stop</th><th></th></tr></thead>
                 <tbody>
@@ -284,6 +291,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             @if (CanManage)
             {
                 <button class="btn btn-secondary" style="margin-top:.6rem;" @onclick="AddRule">Add rule</button>

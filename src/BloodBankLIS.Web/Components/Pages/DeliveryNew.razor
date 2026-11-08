@@ -33,6 +33,7 @@
         <div class="field"><label>Ordered (UTC)</label><input type="datetime-local" @bind="_orderedLocal" /></div>
         <div class="field"><label>Packing list</label><input @bind="_packingList" placeholder="Optional" /></div>
     </div>
+    <div class="table-scroll">
     <table class="bb">
         <thead><tr><th>Product</th><th>Expected quantity</th><th></th></tr></thead>
         <tbody>
@@ -58,6 +59,7 @@
             }
         </tbody>
     </table>
+    </div>
     <div class="flex gap" style="margin-top:.6rem;">
         <button class="btn btn-secondary" type="button" disabled="@(!CanAddLine)" title="@(CanAddLine ? null : "Every product is already on this delivery.")" @onclick="AddLine">Add product</button>
         <button class="btn btn-primary" disabled="@_busy" @onclick="() => CreateAsync(enterUnits: true)">Save and enter units</button>

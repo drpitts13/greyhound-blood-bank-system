@@ -17868,3 +17868,18 @@ After the special requirements box was fixed on request (its End date button ran
 ### Verification
 
 - Re-measured every page above: no element passes its card; the five boards scroll inside their cards. Specimens row buttons (Results, History, Print label, Edit, Relabel, Reject) still work. Full test suite run. No new requirement IDs: layout only, no behaviour change.
+
+## Iteration 568 — Every page fits its cards (2026-11-08)
+
+### Capability matrix rescan (UX: layout on every page)
+
+Iteration 567 measured the chart and the main boards. This one measured every other page, 109 in all (each route without a parameter plus the chart tabs on three demo patients), loaded in same-size frames at 1024 px and checked for any button, field, cell, or badge past its card. Twelve more overflowed, all tables: HL7 message log (+261 px), Billing charge review (+211), Deviations (+207), Admin compatibility rules (+156), Patients (+125), Minimum stock and Par (+68), Admin inventory locations, Audit, Admin history, ISBT product codes, and Admin rules (+23 to +37). The chart Orders tab on MRN0022 was +16 with the most orders.
+
+### Design
+
+- Every `table.bb` in pages and shared components (172 tables in 96 files) sits in the `.table-scroll` box from Cycle 567, so it scrolls inside its card only when wider than it; tables that fit look the same. Four tables holding a searchable dropdown are left unwrapped (the box would clip its menu).
+- The chart Orders table is one of those four, so it was narrowed instead: type and source (for example "Product · Manual") moved under the order number, and the table has seven columns.
+
+### Verification
+
+- Re-measured all 109 pages: nothing passes its card; 21 tables scroll inside their cards at this width. Orders tab measured with the Edit form (and its provider dropdown) open and closed, on MRN0001, MRN0005, MRN0022, and MRN0023. Full test suite run. Layout only.

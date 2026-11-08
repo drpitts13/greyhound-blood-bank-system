@@ -28,6 +28,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb" style="margin-top:.5rem;" data-rhig-lot-results>
                 <thead><tr><th>Patient</th><th>Given</th><th>Vials</th><th>By</th></tr></thead>
                 <tbody>
@@ -42,6 +43,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     }
 </div>
@@ -57,6 +59,7 @@ else if (_items.Count == 0)
 else
 {
     <div class="bb-card">
+        <div class="table-scroll">
         <table class="bb" data-rhig-queue>
             <thead><tr><th>Patient</th><th>Event</th><th>Decision</th><th>Recorded</th><th></th></tr></thead>
             <tbody>
@@ -86,6 +89,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 

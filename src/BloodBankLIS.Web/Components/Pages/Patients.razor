@@ -63,6 +63,7 @@
                 @* A second chart for the same person splits the type and antibody history: open the existing one if it is them. *@
                 <div class="alert alert-warning" style="margin:.5rem 0;" data-possible-duplicates>
                     <strong>This may be a patient who is already registered.</strong> Same date of birth and a matching name:
+                    <div class="table-scroll">
                     <table class="bb" style="margin-top:.4rem;">
                         <thead><tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th></th></tr></thead>
                         <tbody>
@@ -78,6 +79,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
                     <label style="display:flex;gap:.4rem;align-items:center;margin-top:.4rem;">
                         <input type="checkbox" @bind="_confirmDifferent" data-confirm-different />
                         I checked: this is a different person (recorded with the registration)
@@ -124,6 +126,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>Location</th><th>ABO/Rh</th><th>Alerts</th><th>Status</th><th></th></tr>
@@ -185,6 +188,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 

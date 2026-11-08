@@ -26,6 +26,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Kind</th><th>Lot</th><th>Detail</th><th></th></tr></thead>
             <tbody>
@@ -61,6 +62,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -80,6 +82,7 @@
         <button class="btn btn-primary btn-sm" disabled="@(string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name))" @onclick="SaveReagentAsync">Save reagent</button>
         @if (_reagents.Count > 0)
         {
+            <div class="table-scroll">
             <table class="bb" style="margin-top:1rem;" data-reagent-tests>
                 <thead><tr><th>Reagent</th><th>Used for tests</th><th></th></tr></thead>
                 <tbody>
@@ -98,6 +101,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -125,6 +129,7 @@
         <button class="btn btn-primary btn-sm" disabled="@(_reagentId == 0 || string.IsNullOrWhiteSpace(_lotNumber))" @onclick="ReceiveLotAsync">Receive lot</button>
         @if (VisibleLots.Any())
         {
+            <div class="table-scroll">
             <table class="bb" style="margin-top:1rem;">
                 <thead><tr><th>Reagent</th><th>Lot</th><th>State</th><th>Expires</th><th></th></tr></thead>
                 <tbody>
@@ -167,6 +172,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
         else if (_lots.Count > 0)
         {
@@ -192,6 +198,7 @@
                 }
                 else
                 {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>By</th><th>Review</th></tr></thead>
                         <tbody>
@@ -222,6 +229,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
                 }
             </div>
         }
@@ -282,6 +290,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Performed</th><th>Reagent / lot</th><th>Expected</th><th>Observed</th><th>Result</th><th>Performed by</th><th>Reviewed by</th></tr></thead>
                 <tbody>
@@ -299,6 +308,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

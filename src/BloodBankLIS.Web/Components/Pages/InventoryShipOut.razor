@@ -55,6 +55,7 @@ else
         @if (_run.Count > 0)
         {
             <h3 style="margin-top:1rem;">This shipment: @_run.Count(r => r.Unit is not null) shipped@(_run.Any(r => r.Unit is null) ? $", {_run.Count(r => r.Unit is null)} not shipped" : "")</h3>
+            <div class="table-scroll">
             <table class="bb" data-ship-run>
                 <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>Expires</th><th>To</th><th>Result</th></tr></thead>
                 <tbody>
@@ -80,6 +81,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -91,6 +93,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Facility</th><th>Reference</th><th>Shipped</th><th>Units</th><th></th></tr></thead>
                 <tbody>
@@ -130,6 +133,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

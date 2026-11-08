@@ -47,6 +47,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Order</th><th>Supplier</th><th>Status</th><th class="right">Units</th><th>Created</th><th></th></tr></thead>
             <tbody>
@@ -73,6 +74,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -81,6 +83,7 @@
     @* Keyed so opening another order scrolls its detail into view again. *@
     <div @key="current.Id" class="bb-card" data-scroll-on-show>
         <div class="bb-card-title"><h3>@current.OrderNumber &middot; @current.SupplierName &middot; @current.Status</h3></div>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th>@if (current.DeliveryId is not null) { <th class="right">Received</th><th class="right">Short</th> }</tr></thead>
             <tbody>
@@ -117,6 +120,7 @@
                 }
             </tbody>
         </table>
+        </div>
         <div class="form-row" style="margin-top:.75rem;">
             <div class="field" style="flex:2;">
                 <label>Notes</label>

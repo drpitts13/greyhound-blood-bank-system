@@ -19,6 +19,7 @@
                 else if (Allocations.Count == 0) { <div class="empty">@(ShowIssuedTransfused ? "No product allocations." : "No active product allocations.")</div> }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
                     <thead><tr><th>Unit / product</th><th>Expires</th><th>Unit type</th><th>Location</th><th>Crossmatch</th><th>Status</th><th>Unit</th></tr></thead>
                 @foreach (var a in Allocations)
@@ -117,6 +118,7 @@
                     </tbody>
                 }
         </table>
+        </div>
     }
 
     @if (LastIssue is not null)

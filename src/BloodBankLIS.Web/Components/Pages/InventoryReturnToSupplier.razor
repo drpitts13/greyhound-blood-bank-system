@@ -41,6 +41,7 @@ else
         @if (_run.Count > 0)
         {
             <h3 style="margin-top:1rem;">This run: @_run.Count(r => r.Unit is not null) returned@(_run.Any(r => r.Unit is null) ? $", {_run.Count(r => r.Unit is null)} not returned" : "")</h3>
+            <div class="table-scroll">
             <table class="bb" data-return-run>
                 <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>Supplier</th><th>Reason</th><th>Result</th></tr></thead>
                 <tbody>
@@ -66,6 +67,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

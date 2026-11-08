@@ -106,6 +106,7 @@
             </div>
             @if (_children.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>#</th><th>Generated product code</th><th>Volume (mL, required)</th></tr></thead>
                     <tbody>
@@ -120,6 +121,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 @if (_unit.Volume is decimal sourceVolume)
                 {
                     <div class="muted">
@@ -151,6 +153,7 @@
                     SelectedItemChanged="OnPoolUnitSelected"
                     ExcludeIds="PoolExcludeIds" />
             </div>
+            <div class="table-scroll">
             <table class="bb" style="margin-top:.6rem;">
                 <thead><tr><th>Unit #</th><th>ABO/Rh</th><th>Location</th><th class="right">Volume</th><th></th></tr></thead>
                 <tbody>
@@ -173,6 +176,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             @if (PoolLocationGap)
             {
                 <div class="muted">These units are not in the same storage location. Transfer them to one location before pooling.</div>
@@ -275,6 +279,7 @@
         {
             <p>@RetiredSourceCue</p>
         }
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Location</th><th>Expires</th><th></th></tr></thead>
             <tbody>
@@ -316,6 +321,7 @@
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 
@@ -324,6 +330,7 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
         <p class="muted">The patient is named when a product order points at the modification, including the medical record number when it is recorded. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one.</p>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Supply</th><th>Device</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
             <tbody>
@@ -347,6 +354,7 @@
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 

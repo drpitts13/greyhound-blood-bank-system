@@ -41,6 +41,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr><th>Ordering location</th><th>Provider</th><th class="right">Crossmatched</th><th class="right">Issued</th><th class="right">Transfused</th><th class="right">C:T ratio</th><th class="right">Transfused / crossmatched</th><th class="right">Transfused / issued</th></tr>
@@ -55,6 +56,7 @@
                     <UtilizationRow Row="_report.Total" Bold="true" />
                 </tfoot>
             </table>
+            </div>
         }
     </div>
 }
@@ -71,6 +73,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Ordered (UTC)</th><th>Order</th><th>MRN</th><th>Product</th><th>Location</th><th>Provider</th><th>Finding</th><th>Reason given</th></tr></thead>
             <tbody>
@@ -89,6 +92,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 

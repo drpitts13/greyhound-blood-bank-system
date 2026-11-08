@@ -48,6 +48,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr><th>Code</th><th>Name</th><th>Category</th><th>Value type</th><th>Ver</th><th>Status</th><th></th></tr>
@@ -73,6 +74,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -197,6 +199,7 @@
                     }
                     else
                     {
+                        <div class="table-scroll">
                         <table class="bb">
                             <thead><tr><th>Subtest</th><th>Type</th><th>Required</th><th>Phases</th><th>Order</th><th></th></tr></thead>
                             <tbody>
@@ -243,6 +246,7 @@
                                 }
                             </tbody>
                         </table>
+                        </div>
                     }
                 </div>
 
@@ -269,6 +273,7 @@
                         }
                         else if (LogicTableColumns.Any())
                         {
+                            <div class="table-scroll">
                             <table class="bb">
                                 <thead>
                                     @if (LogicColumnGroups.Any(g => g.Phases.Count > 0))
@@ -351,6 +356,7 @@
                                     }
                                 </tbody>
                             </table>
+                            </div>
                         }
                         else
                         {
