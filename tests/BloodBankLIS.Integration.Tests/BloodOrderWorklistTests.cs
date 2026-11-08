@@ -132,6 +132,30 @@ public class BloodOrderWorklistTests
         Assert.Equal((listed.Count, listed.Count(o => o.NeededByPassed)), (handoff.Value!.BloodOrdersToPrepare, handoff.Value.BloodOrdersPastNeededBy));
     }
 
+    // TEST-BB-637: the downtime sheet lists each patient's blood orders still to prepare, with what is needed and by when.
+    [Fact]
+    public async Task DowntimeSheet_ListsBloodOrdersToPrepare()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var c = factory.Create();
+        var summary = await new DowntimePatientSummaryService(
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c), new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
+            new BloodBankLIS.Infrastructure.Audit.AuditWriter(c, factory.Clock, factory.CurrentUser), c, factory.Clock,
+            bloodOrders: Service(c, factory)).GetAsync();
+
+        var row = Assert.Single(summary.Patients, p => p.MedicalRecordNumber == "MRN0001");
+        var line = Assert.Single(row.BloodOrders!, l => l.StartsWith("ORD-PREP-DEMO"));
+        Assert.Contains("(Stat): 2 × ", line);
+        Assert.Contains("2 still needed, needed by ", line);
+    }
+
     // TEST-BB-624: the demo has one STAT order for two red cell units with nothing reserved, listed to prepare; added once.
     [Fact]
     public async Task Demo_HasAStatOrderToPrepare()

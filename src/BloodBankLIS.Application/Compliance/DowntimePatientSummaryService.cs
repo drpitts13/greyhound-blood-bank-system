@@ -34,7 +34,9 @@ public sealed record DowntimePatientRow(
     IReadOnlyList<DowntimeSpecimenLine> Specimens,
     IReadOnlyList<DowntimeUnitLine> Units,
     // RhIG evaluations still needing work (not completed, or a candidate not yet given).
-    IReadOnlyList<string>? Rhig = null);
+    IReadOnlyList<string>? Rhig = null,
+    // Blood orders whose units are not all reserved yet: what to crossmatch and by when.
+    IReadOnlyList<string>? BloodOrders = null);
 
 public sealed record DowntimePatientSummary(DateTime GeneratedUtc, IReadOnlyList<DowntimePatientRow> Patients);
 
@@ -59,6 +61,7 @@ public sealed class DowntimePatientSummaryService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly IRepository<RhigEvaluation>? _rhig;
+    private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
 
     public DowntimePatientSummaryService(
         IRepository<Patient> patients,
@@ -74,8 +77,10 @@ public sealed class DowntimePatientSummaryService
         IAuditWriter audit,
         IUnitOfWork unitOfWork,
         IClock clock,
-        IRepository<RhigEvaluation>? rhig = null)
+        IRepository<RhigEvaluation>? rhig = null,
+        BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null)
     {
+        _bloodOrders = bloodOrders;
         _rhig = rhig;
         _patients = patients;
         _specimens = specimens;
@@ -118,12 +123,18 @@ public sealed class DowntimePatientSummaryService
                 e => (e.CompletedUtc == null || (e.Decision == RhigDecision.Candidate && e.GivenUtc == null))
                     && (patientId == null || e.PatientId == patientId), ct)).ToList();
 
+        // A blood order still to prepare puts the patient on the sheet: the bench may have to crossmatch on paper.
+        var ordersToPrepare = _bloodOrders is null
+            ? []
+            : (await _bloodOrders.ListAsync(ct)).Where(o => patientId == null || o.PatientId == patientId).ToList();
+
         var patientIds = patientId is long one
             ? new HashSet<long> { one }
             : specimens.Select(s => s.PatientId)
                 .Concat(reserved.Select(a => a.PatientId))
                 .Concat(issued.Select(i => i.PatientId))
                 .Concat(rhigOpen.Select(e => e.PatientId))
+                .Concat(ordersToPrepare.Select(o => o.PatientId))
                 .ToHashSet();
         if (patientIds.Count == 0)
         {
@@ -201,6 +212,9 @@ public sealed class DowntimePatientSummaryService
                         .Select(e => RhigEvaluationRule.OutstandingLine(
                             e.Context, e.EventUtc, e.Decision, e.VialsRecommended, e.CompletedUtc is not null, e.GivenUtc is not null))
                         .OfType<string>()
+                        .ToList(),
+                    ordersToPrepare.Where(o => o.PatientId == p.Id)
+                        .Select(o => BloodOrderPreparationRule.DowntimeLine(o.OrderNumber, o.Priority.ToString(), o.Products, o.Remaining, o.NeededByUtc))
                         .ToList());
             })
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)

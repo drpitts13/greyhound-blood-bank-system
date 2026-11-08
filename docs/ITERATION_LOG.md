@@ -17723,3 +17723,22 @@ Blood orders to prepare (Cycles 555–558) is on the home screen, but the shift 
 
 - TEST-BB-634: item with link, routine without a passed time, urgent with one; summary text.
 - TEST-BB-635: a recorded handoff on demo data counts what the worklist lists.
+
+## Iteration 560 — Blood orders on the downtime sheet (2026-11-08)
+
+### Capability matrix rescan (interoperability: downtime)
+
+The downtime patient sheet is what the bench works from in an outage: type, antibodies, requirements, specimens, units, RhIG. Blood orders still to prepare (Cycles 555–559) were not on it, so a surgical order waiting for crossmatch, and its needed-by time, disappeared from view when the system went down, and a patient whose only open work was such an order was left off the sheet entirely. Workflow questions: memory (the paper copy carries the order and its time); safety (an order still to crossmatch is visible during the outage); audit (the sheet's print is already audited).
+
+### Design
+
+- `BloodOrderPreparationRule.DowntimeLine`; `DowntimePatientSummaryService` includes the worklist's orders; sheet lines.
+
+### Requirements
+
+- URS-BB-617, FRS-BB-734. Help: downtime.
+
+### Tests
+
+- TEST-BB-636: line with and without a needed-by time.
+- TEST-BB-637: on demo data the sheet lists MRN0001's STAT order with units still needed and its needed-by time.

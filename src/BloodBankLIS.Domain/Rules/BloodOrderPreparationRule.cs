@@ -10,6 +10,14 @@ public static class BloodOrderPreparationRule
     public static int Remaining(int requested, int reserved, int issued) => Math.Max(0, requested - reserved - issued);
 
     /// <summary>
+    /// The downtime sheet line for an order still to prepare: "ORD-1 (Stat): 2 × Red cells, 2 still needed, needed by
+    /// 2026-11-08 10:00 UTC".
+    /// </summary>
+    public static string DowntimeLine(string orderNumber, string priority, string products, int remaining, DateTime? neededByUtc) =>
+        $"{orderNumber} ({priority}): {products}, {remaining} still needed"
+        + (neededByUtc is DateTime needed ? $", needed by {needed:yyyy-MM-dd HH:mm} UTC" : string.Empty);
+
+    /// <summary>
     /// Where the next step opens on the patient's chart: the specimens to collect one, or the reserve form with the order
     /// (and the usable specimen) already chosen.
     /// </summary>

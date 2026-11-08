@@ -644,5 +644,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-633 | I | `NumericTiterResultTests.NeededBy_IsChangedOrCleared_WithTheEarlierTimeKept` | URS-BB-615 / FRS-BB-732 |
 | TEST-BB-634 | U | `ShiftHandoffItemsTests.BloodOrdersToPrepare_AreAHandoffItem_UrgentWhenPastNeededBy` | URS-BB-616 / FRS-BB-733 |
 | TEST-BB-635 | I | `BloodOrderWorklistTests.Handoff_CountsBloodOrdersToPrepare` | URS-BB-616 / FRS-BB-733 |
+| TEST-BB-636 | U | `BloodOrderPreparationRuleTests.DowntimeLine_SaysWhatAndByWhen` | URS-BB-617 / FRS-BB-734 |
+| TEST-BB-637 | I | `BloodOrderWorklistTests.DowntimeSheet_ListsBloodOrdersToPrepare` | URS-BB-617 / FRS-BB-734 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

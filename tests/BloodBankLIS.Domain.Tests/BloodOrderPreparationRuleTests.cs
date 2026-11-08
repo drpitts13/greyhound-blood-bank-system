@@ -33,4 +33,13 @@ public class BloodOrderPreparationRuleTests
         Assert.Equal("Collect a specimen", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: false, typeAndScreenComplete: false));
         Assert.Equal("/patients/7?tab=tests", BloodOrderPreparationRule.NextStepHref(7, 42, 9, typeAndScreenComplete: false));
     }
+
+    // TEST-BB-636: the downtime sheet line names the order, priority, products, what is still needed, and by when.
+    [Fact]
+    public void DowntimeLine_SaysWhatAndByWhen()
+    {
+        Assert.Equal("ORD-1 (Stat): 2 × Red cells, 1 still needed, needed by 2026-11-08 10:00 UTC",
+            BloodOrderPreparationRule.DowntimeLine("ORD-1", "Stat", "2 × Red cells", 1, new DateTime(2026, 11, 8, 10, 0, 0, DateTimeKind.Utc)));
+        Assert.Equal("ORD-2 (Routine): 1 × Plasma, 1 still needed", BloodOrderPreparationRule.DowntimeLine("ORD-2", "Routine", "1 × Plasma", 1, null));
+    }
 }

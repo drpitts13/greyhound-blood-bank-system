@@ -23,6 +23,7 @@ Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /
 - special requirements in effect, with informational notes below them
 - current specimens with their expiration
 - reserved and issued units: unit number, product, ABO/Rh, unit expiration, and when the reservation ends
+- blood orders still to prepare: order, priority, products, how many units are still needed, and the needed-by time (a patient whose only open work is such an order is on the sheet too)
 
 **Print** records who printed it and which patients it carried in the audit trail before the print dialog opens.
 

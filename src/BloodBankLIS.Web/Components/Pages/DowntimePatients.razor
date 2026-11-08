@@ -114,13 +114,17 @@ else
                                 }
                             </td>
                             <td>
-                                @if (p.SpecialRequirements.Count == 0 && p.Informational.Count == 0 && p.Rhig is not { Count: > 0 })
+                                @if (p.SpecialRequirements.Count == 0 && p.Informational.Count == 0 && p.Rhig is not { Count: > 0 } && p.BloodOrders is not { Count: > 0 })
                                 {
                                     <span class="muted">None</span>
                                 }
                                 @foreach (var line in p.Rhig ?? [])
                                 {
                                     <div data-downtime-rhig><strong>RhIG:</strong> @line</div>
+                                }
+                                @foreach (var line in p.BloodOrders ?? [])
+                                {
+                                    <div data-downtime-blood-order><strong>Blood order:</strong> @line</div>
                                 }
                                 @foreach (var r in p.SpecialRequirements)
                                 {
