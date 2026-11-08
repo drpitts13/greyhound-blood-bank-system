@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Audit;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,5 +19,13 @@ public sealed class AuditQuery : IAuditQuery
         await _context.AuditEvents.AsNoTracking()
             .Where(e => e.EntityType == entityType && e.EntityId == entityId)
             .OrderBy(e => e.Id)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<AuditEvent>> ListLatestForUserAsync(
+        string userName, AuditEventType eventType, string entityType, int take, CancellationToken cancellationToken = default) =>
+        await _context.AuditEvents.AsNoTracking()
+            .Where(e => e.UserName == userName && e.EventType == eventType && e.EntityType == entityType && e.EntityId != null)
+            .OrderByDescending(e => e.Id)
+            .Take(take)
             .ToListAsync(cancellationToken);
 }

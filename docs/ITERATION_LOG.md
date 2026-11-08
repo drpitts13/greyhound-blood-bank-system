@@ -17545,3 +17545,21 @@ The newborn link from ADT completes the mother and infant work (Cycles 547–549
 
 - TEST-BB-612: a reference typed in another case and spacing finds one shipment hit with its link; the shipped unit's hit says where it went. Lookup record types include Shipment; the no-match message names shipments.
 - TEST-BB-613: an outside antibody's timeline entry names the facility and date.
+
+## Iteration 551 — Recent patients in the find box (2026-11-08)
+
+### Capability matrix rescan (UX: search everywhere)
+
+The find box opens anything by scan, but a technologist moving between the issue desk, the bench, and the same few charts all shift had to type or scan the patient again every time. Every chart opening is already audited per user ("Patient record opened."), so the recent list costs no new storage and cannot be forged by the browser. Workflow questions: memory (no MRN to remember); clicks (focus, Arrow, Enter); keyboard (/ then Enter); privacy (only the user's own openings); merges (a merged-away chart shows as its survivor).
+
+### Design
+
+- `IAuditQuery.ListLatestForUserAsync`; `RecentPatientsAsync` and `GET /api/lookup/recent`; find box shows them on focus.
+
+### Requirements
+
+- URS-BB-608, FRS-BB-725. Help: finding records.
+
+### Tests
+
+- TEST-BB-614: newest first, once each, at most eight; a reopened chart moves first; a merged-away chart shows as its survivor; another user's openings excluded; no signed-in user, nothing.

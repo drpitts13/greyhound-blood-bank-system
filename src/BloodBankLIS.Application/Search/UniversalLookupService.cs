@@ -37,6 +37,10 @@ public sealed class UniversalLookupService
     private readonly IRepository<Encounter>? _encounters;
 
     private readonly IRepository<RhigEvaluation>? _rhig;
+    private readonly IAuditQuery? _auditQuery;
+    private readonly ICurrentUser? _currentUser;
+
+    public const int RecentPatientCount = 8;
 
     public UniversalLookupService(
         IRepository<Patient> patients,
@@ -51,8 +55,12 @@ public sealed class UniversalLookupService
         IClock? clock = null,
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
         IRepository<Encounter>? encounters = null,
-        IRepository<RhigEvaluation>? rhig = null)
+        IRepository<RhigEvaluation>? rhig = null,
+        IAuditQuery? auditQuery = null,
+        ICurrentUser? currentUser = null)
     {
+        _auditQuery = auditQuery;
+        _currentUser = currentUser;
         _rhig = rhig;
         _encounters = encounters;
         _requirementDefinitions = requirementDefinitions;
@@ -129,6 +137,48 @@ public sealed class UniversalLookupService
             partial,
             truncated,
             truncated ? $"Showing the first {PartialLimit} of each kind. Type more of the name or number to narrow the list." : null);
+    }
+
+    /// <summary>
+    /// The charts the signed-in user opened most recently (from their own "Patient record opened" audit rows), newest
+    /// first, one row per patient; a merged-away chart shows as the chart it was merged into. Nothing new is stored.
+    /// </summary>
+    public async Task<LookupResultDto> RecentPatientsAsync(CancellationToken ct = default)
+    {
+        var user = _currentUser?.UserName;
+        if (_auditQuery is null || string.IsNullOrWhiteSpace(user))
+        {
+            return LookupResultDto.Empty(string.Empty);
+        }
+
+        var opened = await _auditQuery.ListLatestForUserAsync(user, AuditEventType.PatientAccess, nameof(Patient), 200, ct);
+        var latest = opened
+            .GroupBy(e => e.EntityId!.Value)
+            .Select(g => (PatientId: g.Key, Opened: g.Max(e => e.OccurredUtc)))
+            .OrderByDescending(x => x.Opened)
+            .ToList();
+        var patients = await PatientsByIdAsync(latest.Select(x => x.PatientId), ct);
+        var hits = new List<LookupHitDto>();
+        foreach (var (patientId, openedUtc) in latest)
+        {
+            if (!patients.TryGetValue(patientId, out var patient))
+            {
+                continue;
+            }
+
+            var hit = await PatientHitAsync(patient, exact: true, $"Opened {openedUtc:yyyy-MM-dd HH:mm} UTC", ct);
+            if (hits.All(h => h.Id != hit.Id))
+            {
+                hits.Add(hit);
+            }
+
+            if (hits.Count == RecentPatientCount)
+            {
+                break;
+            }
+        }
+
+        return new LookupResultDto(string.Empty, hits, false, hits.Count == 0 ? "No charts opened yet." : "Your recent patients");
     }
 
     /// <summary>A scanned RhIG lot recorded as given: one hit that opens the lot trace (who received it).</summary>

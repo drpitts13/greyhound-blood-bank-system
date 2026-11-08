@@ -8,6 +8,10 @@ public static class LookupEndpoints
 {
     public static void MapLookupEndpoints(this WebApplication app)
     {
+        // The signed-in user's recently opened charts, shown when the lookup is focused with nothing typed.
+        app.MapGet("/api/lookup/recent", async (UniversalLookupService service, CancellationToken ct) =>
+            Results.Ok(await service.RecentPatientsAsync(ct)));
+
         app.MapPost("/api/lookup", async (LookupRequest request, UniversalLookupService service, CancellationToken ct) =>
                 Results.Ok(await service.LookupAsync(request.Query, ct)))
             .WithTags("Lookup")

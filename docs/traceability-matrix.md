@@ -718,6 +718,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-605 / FRS-BB-722 | Infant Rh suggested on the mother's RhIG evaluation | `MotherInfantLinkRule.SuggestInfantRh/OfferLink`; `PatientChartRhigTab.razor`; `PatientChartHeader.razor` | TEST-BB-608, TEST-BB-609 | U, I | OCD-074 |
 | URS-BB-606 / FRS-BB-723 | Newborn linked to the mother from ADT PID-21 | `InterfaceDataItemCatalog`; `Hl7AdtMapper`; `Hl7InboundProcessor.LinkMotherFromAdtAsync` | TEST-BB-610, TEST-BB-611 | U, I | |
 | URS-BB-607 / FRS-BB-724 | Shipment lookup; outside antibody on the timeline | `UniversalLookupService.ExactShipmentsAsync`; `InventoryShipOut.razor`; `PatientTimelineService` | TEST-BB-612, TEST-BB-613 | I | |
+| URS-BB-608 / FRS-BB-725 | Recent patients in the lookup | `UniversalLookupService.RecentPatientsAsync`; `AuditQuery.ListLatestForUserAsync`; `GlobalLookupBar.razor` | TEST-BB-614 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

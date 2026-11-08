@@ -9,6 +9,8 @@ routes: []
 
 The **find box** in the top bar is on every page. Click it, or press **/** or **Ctrl+K**, then scan a barcode or type and press **Enter**. Press **?** outside a text field to see every keyboard shortcut.
 
+Click the find box (or press **/**) without typing to see **Your recent patients**: the last eight charts you opened, newest first, each with the type, antibodies, and requirements, ready for the Arrow keys and **Enter**. They come from your own chart openings in the audit trail; no one else's are shown.
+
 It takes:
 
 - **A unit number (DIN)**: scanned from the bag (`=` barcode) or typed, with or without spaces. Opens the unit.

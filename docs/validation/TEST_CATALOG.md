@@ -622,5 +622,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-611 | I | `Phase5Hl7Tests.InboundAdt_Pid21_LinksTheNewbornToTheMother` | URS-BB-606 / FRS-BB-723 |
 | TEST-BB-612 | I | `UniversalLookupTests.ShipmentReference_FindsTheShipment` | URS-BB-607 / FRS-BB-724 |
 | TEST-BB-613 | I | `PatientTimelineTests.OutsideAntibody_SaysWhereItWasReported` | URS-BB-607 / FRS-BB-724 |
+| TEST-BB-614 | I | `UniversalLookupTests.RecentPatients_AreTheUsersOwnLatestChartOpenings` | URS-BB-608 / FRS-BB-725 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

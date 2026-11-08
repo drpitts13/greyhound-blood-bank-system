@@ -1,5 +1,7 @@
 using BloodBankLIS.Application.Search;
+using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Infrastructure.Persistence;
 
@@ -423,6 +425,54 @@ public class UniversalLookupTests : IDisposable
 
         var unitHit = Assert.Single((await Lookup(c).LookupAsync(f.Unit.UnitNumber)).Hits);
         Assert.EndsWith("shipped to St. Mary's Hospital", unitHit.Detail);
+    }
+
+    // TEST-BB-614: recent patients are the signed-in user's own chart openings, newest first, once each, at most eight; a
+    // merged-away chart shows as the chart it was merged into; another user's openings do not count.
+    [Fact]
+    public async Task RecentPatients_AreTheUsersOwnLatestChartOpenings()
+    {
+        await using var c = _factory.Create();
+        var patients = Enumerable.Range(1, 10)
+            .Select(i => new Patient { MedicalRecordNumber = $"MRN-REC-{i:D2}", LastName = $"Recent{i:D2}", FirstName = "Pat", DateOfBirth = new DateOnly(1980, 1, i) })
+            .ToList();
+        c.Patients.AddRange(patients);
+        await c.SaveChangesAsync();
+        var survivor = patients[9];
+        patients[8].Status = PatientStatus.Merged;
+        patients[8].MergedIntoPatientId = survivor.Id;
+        var t0 = _factory.Clock.UtcNow;
+        void Opened(Patient p, int minutes, string user = "tech-test") => c.AuditEvents.Add(new AuditEvent
+        {
+            EventType = AuditEventType.PatientAccess, EntityType = nameof(Patient), EntityId = p.Id, UserName = user,
+            OccurredUtc = t0.AddMinutes(minutes), Reason = "Patient record opened."
+        });
+        for (var i = 0; i < 8; i++)
+        {
+            Opened(patients[i], i);
+        }
+
+        Opened(patients[0], 20);              // opened again: first, once
+        Opened(patients[8], 21);              // merged away: shows as the survivor
+        Opened(survivor, 5);                  // and the survivor appears once
+        Opened(patients[7], 30, "someone-else");
+        await c.SaveChangesAsync();
+
+        var lookup = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
+            auditQuery: new AuditQuery(c), currentUser: _factory.CurrentUser);
+        var recent = await lookup.RecentPatientsAsync();
+
+        Assert.Equal("Your recent patients", recent.Message);
+        Assert.Equal(UniversalLookupService.RecentPatientCount, recent.Hits.Count);
+        Assert.Equal([survivor.Id, patients[0].Id, patients[7].Id, patients[6].Id], recent.Hits.Take(4).Select(h => h.Id));
+        Assert.Equal(recent.Hits.Count, recent.Hits.Select(h => h.Id).Distinct().Count());
+        Assert.All(recent.Hits, h => Assert.Equal(LookupHitKind.Patient, h.Kind));
+        Assert.Contains("Opened", recent.Hits[1].Detail);
+
+        var anonymous = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c), auditQuery: new AuditQuery(c));
+        Assert.Empty((await anonymous.RecentPatientsAsync()).Hits);
     }
 
     private sealed record Fixture(Patient Patient, BloodUnit Unit, ProductType Product);

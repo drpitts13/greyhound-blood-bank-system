@@ -13,6 +13,7 @@
            autocomplete="off"
            spellcheck="false"
            @bind="_query" @bind:event="oninput"
+           @onfocusin="ShowRecentAsync"
            @onkeydown="OnKeyDown"
            @onkeydown:preventDefault="_suppressKey" />
     @if (_open)
@@ -34,7 +35,11 @@
                 }
                 else
                 {
-                    @if (!_result.Hits.All(h => h.Exact))
+                    @if (_result.Query.Length == 0)
+                    {
+                        <div class="bb-lookup-note" data-lookup-recent>@(_result.Message ?? "Your recent patients")</div>
+                    }
+                    else if (!_result.Hits.All(h => h.Exact))
                     {
                         <div class="bb-lookup-note">Partial matches. Choose the right record.</div>
                     }
@@ -176,6 +181,27 @@
         }
 
         _active = _result.Hits.Count > 0 ? 0 : -1;
+    }
+
+    // Focus with nothing typed: the user's recently opened charts, ready for Arrow keys and Enter.
+    private async Task ShowRecentAsync()
+    {
+        if (_query.Trim().Length > 0)
+        {
+            return;
+        }
+
+        var recent = await Api.GetRecentPatientsAsync();
+        if (!recent.Succeeded || recent.Value is not { Hits.Count: > 0 } list || _query.Trim().Length > 0)
+        {
+            return;
+        }
+
+        _result = list;
+        _error = null;
+        _busy = false;
+        _active = -1;
+        _open = true;
     }
 
     private void Go(string href)
