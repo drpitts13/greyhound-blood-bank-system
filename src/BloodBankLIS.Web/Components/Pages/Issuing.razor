@@ -312,6 +312,10 @@
                                     <span class="@(row.NeededByPassed ? "badge badge-red" : row.NeededBySoon ? "badge badge-amber" : "badge badge-gray")"
                                           title="Needed by @readyNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm") for order @row.OrderNumber" data-ready-needed-by>Needed @readyNeededBy.ToLocalTime().ToString("HH:mm")@(row.NeededByPassed ? " (passed)" : row.NeededInMinutes is int readyIn ? $" (in {readyIn} min)" : "")</span>
                                 }
+                                @if (row.ExpiresBeforeNeeded)
+                                {
+                                    <span class="badge badge-amber" title="The crossmatch or its specimen expires before the order is needed: issue before then, or draw a new specimen" data-ready-expires-before-needed>Expires before needed-by</span>
+                                }
                                 @if (row.OpenAntibodyWorkup)
                                 {
                                     <span class="badge badge-amber" title="@row.OpenAntibodyWorkupNotice">Open ABID</span>

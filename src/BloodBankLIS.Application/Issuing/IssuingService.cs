@@ -1069,7 +1069,12 @@ public sealed class IssuingService
                 NeededBySoon = OrderNeededByRule.DueSoon(forOrder?.NeededByUtc, now, neededSoonMinutes),
                 NeededInMinutes = OrderNeededByRule.DueSoon(forOrder?.NeededByUtc, now, neededSoonMinutes)
                     ? OrderNeededByRule.MinutesUntil(forOrder?.NeededByUtc, now)
-                    : null
+                    : null,
+                ExpiresBeforeNeeded = OrderNeededByRule.ExpiresBeforeNeeded(
+                    OrderNeededByRule.EarliestEnd(
+                        CrossmatchValidityRule.CurrentCompatibleExpiresUtc(unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)), now),
+                        expires),
+                    forOrder?.NeededByUtc, now)
             });
         }
 

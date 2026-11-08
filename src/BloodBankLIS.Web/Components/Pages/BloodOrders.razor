@@ -74,6 +74,10 @@ else
                             {
                                 <span class="sub">Usable@(r.SpecimenExpiresUtc is DateTime until ? $" until {until.ToLocalTime():yyyy-MM-dd HH:mm}" : "")</span>
                             }
+                            @if (r.SpecimenExpiresBeforeNeeded)
+                            {
+                                <span class="badge badge-amber" title="Units crossmatched on this specimen cannot be issued after it expires" data-specimen-before-needed>Expires before needed-by: draw a new specimen</span>
+                            }
                             else
                             {
                                 <span class="badge badge-amber">None usable</span>

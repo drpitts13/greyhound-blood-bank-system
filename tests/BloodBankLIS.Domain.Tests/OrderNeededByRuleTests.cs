@@ -39,4 +39,22 @@ public class OrderNeededByRuleTests
         Assert.Equal(1, OrderNeededByRule.MinutesUntil(Ordered.AddSeconds(10), Ordered));
         Assert.Null(OrderNeededByRule.MinutesUntil(null, Ordered));
     }
+
+    // TEST-BB-653: validity that ends before a needed-by time still ahead is flagged; ending at or after it, a passed
+    // needed-by, or an unknown time is not. The earlier of two validity ends is the one that counts.
+    [Fact]
+    public void ExpiresBeforeNeeded_AndEarliestEnd()
+    {
+        Assert.True(OrderNeededByRule.ExpiresBeforeNeeded(Ordered.AddDays(2), Ordered.AddDays(3), Ordered));
+        Assert.False(OrderNeededByRule.ExpiresBeforeNeeded(Ordered.AddDays(3), Ordered.AddDays(3), Ordered));
+        Assert.False(OrderNeededByRule.ExpiresBeforeNeeded(Ordered.AddDays(4), Ordered.AddDays(3), Ordered));
+        Assert.False(OrderNeededByRule.ExpiresBeforeNeeded(Ordered.AddDays(-2), Ordered.AddDays(-1), Ordered));
+        Assert.False(OrderNeededByRule.ExpiresBeforeNeeded(null, Ordered.AddDays(3), Ordered));
+        Assert.False(OrderNeededByRule.ExpiresBeforeNeeded(Ordered.AddDays(2), null, Ordered));
+
+        Assert.Equal(Ordered.AddDays(1), OrderNeededByRule.EarliestEnd(Ordered.AddDays(1), Ordered.AddDays(2)));
+        Assert.Equal(Ordered.AddDays(1), OrderNeededByRule.EarliestEnd(Ordered.AddDays(3), Ordered.AddDays(1)));
+        Assert.Equal(Ordered.AddDays(2), OrderNeededByRule.EarliestEnd(null, Ordered.AddDays(2)));
+        Assert.Null(OrderNeededByRule.EarliestEnd(null, null));
+    }
 }

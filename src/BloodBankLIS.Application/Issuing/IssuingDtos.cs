@@ -363,7 +363,9 @@ public sealed record ReadyToIssueWorkItemDto(
     DateTime? NeededByUtc = null,
     bool NeededByPassed = false,
     bool NeededBySoon = false,
-    int? NeededInMinutes = null);
+    int? NeededInMinutes = null,
+    // The crossmatch or specimen stops being valid before the order is needed: issue before then, or prepare again.
+    bool ExpiresBeforeNeeded = false);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

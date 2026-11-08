@@ -63,6 +63,7 @@ public static class ReadyToIssueAttentionRule
             DashboardQueueCatalog.AttentionNote(CountRequested(rows), "requested by the ward", "requested by the ward"),
             DashboardQueueCatalog.AttentionNote(CountCrossmatchExpired(rows.Select(r => r.DisplayStatus)), "needs a new crossmatch", "need a new crossmatch"),
             DashboardQueueCatalog.AttentionNote(CountExpiringSoon(rows), "expires soon", "expire soon"),
+            DashboardQueueCatalog.AttentionNote(rows.Count(static r => r.ExpiresBeforeNeeded), "crossmatch ends before it is needed", "crossmatches end before they are needed"),
             nowUtc is DateTime now
                 ? DashboardQueueCatalog.AttentionNote(CountReservationLapsed(rows, now), "past its reservation, to issue or release", "past their reservation, to issue or release")
                 : null

@@ -138,6 +138,19 @@ public class BloodOrderWorklistTests
         (await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.BloodOrderNeededBySoonMinutes)).Value = "0";
         await c.SaveChangesAsync();
         Assert.All(await Service(c, factory, policy: true).ListAsync(), r => Assert.False(r.NeededBySoon));
+
+        // TEST-BB-654: an order needed after its usable specimen expires (ACC-BO-1, two days) is flagged for a new
+        // specimen and counted on the card; one needed before the specimen expires, or already passed, is not.
+        Assert.False(withRequirements.Single(r => r.OrderNumber == "BO-1").SpecimenExpiresBeforeNeeded);
+        var routine2 = await c.Orders.SingleAsync(o => o.Id == routineOrder.Id);
+        routine2.NeededByUtc = now.AddDays(3);
+        await c.SaveChangesAsync();
+        var later = (await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "BO-1");
+        Assert.True(later.SpecimenExpiresBeforeNeeded);
+        Assert.Contains("1 specimen expires before it is needed", BloodBankLIS.Application.Compliance.DashboardQueueCatalog.BloodOrdersNote([later]));
+        routine2.NeededByUtc = now.AddDays(1);
+        await c.SaveChangesAsync();
+        Assert.False((await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "BO-1").SpecimenExpiresBeforeNeeded);
     }
 
     private static BloodOrderWorklistService Service(BloodBankDbContext c, SqliteContextFactory f, bool policy = false) => new(

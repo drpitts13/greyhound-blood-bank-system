@@ -3555,7 +3555,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var late = await SeedAsync("NBY-LATE");
         var none = await SeedAsync("NBY-NONE");
         var cancelled = await SeedAsync("NBY-CANC");
-        foreach (var s in new[] { none, soon, late, cancelled })
+        var far = await SeedAsync("NBY-FAR");
+        foreach (var s in new[] { none, soon, late, cancelled, far })
         {
             await AllocateAsync(s);
         }
@@ -3587,22 +3588,31 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             await ForOrderAsync(soon, "ORD-RDY-SOON", now.AddMinutes(20));
             await ForOrderAsync(late, "ORD-RDY-LATE", now.AddMinutes(-5));
             await ForOrderAsync(cancelled, "ORD-RDY-CANC", now.AddMinutes(-30), OrderStatus.Cancelled);
+            // Needed after the specimen (2 days) expires.
+            await ForOrderAsync(far, "ORD-RDY-FAR", now.AddDays(3));
             c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, Value = "60" });
             await c.SaveChangesAsync();
         }
 
         await using var ctx = _factory.Create();
         var rows = (await Issuing(ctx).ListReadyToIssueAllocationsAsync())
-            .Where(r => new[] { soon.UnitId, late.UnitId, none.UnitId, cancelled.UnitId }.Contains(r.BloodUnitId)).ToList();
+            .Where(r => new[] { soon.UnitId, late.UnitId, none.UnitId, cancelled.UnitId, far.UnitId }.Contains(r.BloodUnitId)).ToList();
         var soonRow = rows.Single(r => r.BloodUnitId == soon.UnitId);
         Assert.Equal(("ORD-RDY-SOON", true, false, 20), (soonRow.OrderNumber, soonRow.NeededBySoon, soonRow.NeededByPassed, soonRow.NeededInMinutes ?? 0));
         var lateRow = rows.Single(r => r.BloodUnitId == late.UnitId);
         Assert.Equal((true, false, (int?)null), (lateRow.NeededByPassed, lateRow.NeededBySoon, lateRow.NeededInMinutes));
         Assert.Null(rows.Single(r => r.BloodUnitId == none.UnitId).NeededByUtc);
         Assert.Null(rows.Single(r => r.BloodUnitId == cancelled.UnitId).NeededByUtc);
-        // All four are in the same group (none crossmatched yet), so the needed-by time decides their order.
+        // All are in the same group (none crossmatched yet), so the needed-by time decides their order.
         Assert.Single(rows.Select(ReadyToIssueAttentionRule.CanIssueRoutinely).Distinct());
-        Assert.Equal(new[] { late.UnitId, soon.UnitId }, rows.Take(2).Select(r => r.BloodUnitId).ToArray());
+        Assert.Equal(new[] { late.UnitId, soon.UnitId, far.UnitId }, rows.Take(3).Select(r => r.BloodUnitId).ToArray());
+
+        // TEST-BB-655: the unit whose order is needed after its specimen expires is flagged and counted on the card; the
+        // one needed in 20 minutes, and the one already late, are not.
+        Assert.True(rows.Single(r => r.BloodUnitId == far.UnitId).ExpiresBeforeNeeded);
+        Assert.False(soonRow.ExpiresBeforeNeeded);
+        Assert.False(lateRow.ExpiresBeforeNeeded);
+        Assert.Contains("1 crossmatch ends before it is needed", ReadyToIssueAttentionRule.CardNote(rows));
     }
 
     [Fact]

@@ -17960,3 +17960,23 @@ Needed-by times (Cycles 557–571) guided preparation, the home card, and the ha
 
 - TEST-BB-651: requests first, then earliest needed-by, then no time.
 - TEST-BB-652: a unit needed in 20 minutes is needed soon (20 min) with its order number; one 5 minutes late is passed; a unit with no order, or reserved for a cancelled order, has no time; the late one is listed before the soon one.
+
+## Iteration 573 — Specimen or crossmatch ends before it is needed (2026-11-08)
+
+### Capability matrix rescan (safety: specimen and crossmatch validity; operations: preparation)
+
+A crossmatch is good only while its specimen is valid. When a surgery is scheduled two days out and the type-and-screen specimen expires tomorrow, units reserved today cannot be issued when the OR calls, and nothing said so until the issue gate refused them at the time of need. Workflow questions: memory (no comparing the specimen expiry with the surgery time by hand); next action (draw a new specimen now); safety (earlier warning only; the reserve and issue checks are unchanged). Comparing two recorded times invents no clinical rule.
+
+### Design
+
+- `OrderNeededByRule.ExpiresBeforeNeeded` and `EarliestEnd`; worklist row flag and card count; Ready to issue flag (earlier of crossmatch end and specimen expiry) and card count; amber notes on both boards.
+
+### Requirements
+
+- URS-BB-628, FRS-BB-745. Help: Blood orders to prepare; Issue and Transfuse.
+
+### Tests
+
+- TEST-BB-653: before, at, and after the needed-by time; a passed time; unknown times; earliest end.
+- TEST-BB-654: an order needed in three days on a specimen valid for two is flagged and counted; needed in one day, or passed, it is not.
+- TEST-BB-655: a reserved unit whose order is needed in three days on a two-day specimen is flagged and counted on the card; units needed in 20 minutes or already late are not.

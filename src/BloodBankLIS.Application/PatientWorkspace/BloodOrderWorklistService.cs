@@ -42,7 +42,9 @@ public sealed record BloodOrderToPrepareDto(
     IReadOnlyList<string>? Requirements = null,
     // The needed-by time is within the facility's warning window (OCD-075; off by default), and how many minutes away.
     bool NeededBySoon = false,
-    int? NeededInMinutes = null);
+    int? NeededInMinutes = null,
+    // The usable specimen expires before the needed-by time: a new specimen is needed for the units to be issuable then.
+    bool SpecimenExpiresBeforeNeeded = false);
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -198,7 +200,8 @@ public sealed class BloodOrderWorklistService
                 OrderNeededByRule.Passed(order.NeededByUtc, now),
                 requirementText.GetValueOrDefault(order.PatientId) ?? [],
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes),
-                OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes) ? OrderNeededByRule.MinutesUntil(order.NeededByUtc, now) : null));
+                OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes) ? OrderNeededByRule.MinutesUntil(order.NeededByUtc, now) : null,
+                hasSpecimen && OrderNeededByRule.ExpiresBeforeNeeded(specimen?.ExpiresUtc, order.NeededByUtc, now)));
         }
 
         // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.
