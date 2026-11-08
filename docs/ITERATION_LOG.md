@@ -17468,3 +17468,23 @@ Shipping is complete apart from OCD-072 (Cycles 544–545). Next gap: an antibod
 - TEST-BB-602: facility length, future date, date without facility; source label.
 - TEST-BB-603: future date and date without facility refused; facility trimmed and date kept, audited, labelled; a local antibody has no source label.
 - TEST-BB-604: the antibody card marks an antibody known only from an outside report and reads plain when also found here.
+
+## Iteration 547 — Mother and infant charts (2026-11-08)
+
+### Capability matrix rescan (patients: relationships)
+
+Outside antibody reports are complete apart from OCD-073 (Cycle 546). Next gap: a newborn's chart and the mother's chart had no link. Staff had to remember and look up the other chart to see the mother's antibodies (which can be present in the infant) or the infant's type (for the mother's RhIG decision). Mature systems link mother and baby. Workflow questions: memory (each chart names the other); clicks (one link from either chart); safety (information only, so no product or testing behavior changes; neonatal rules are OCD-074; the link follows merges so it is never left on a merged-away chart); audit (link and removal with reason).
+
+### Design
+
+- `Patient.MotherPatientId`; `MotherInfantLinkRule`; link, unlink, family service methods and endpoints; merge move; chart header Mother/Infants with link form and maternal antibody note; demo newborn.
+
+### Requirements
+
+- URS-BB-604, FRS-BB-721, OCD-074. Help: patient chart.
+
+### Tests
+
+- TEST-BB-605: merged infant, unknown, self, merged mother, the infant's own infant, and a mother not born first are refused.
+- TEST-BB-606: permission and rule refusals; link audited; repeat refused; family both ways with type and antibodies; merge moves the link to the surviving chart and unmerge moves it back; unlink needs a reason, audited; nothing to unlink refused.
+- TEST-BB-607: demo newborn linked to MRN0025, added once; seeder count 18 patients.

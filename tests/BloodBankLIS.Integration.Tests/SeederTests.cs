@@ -59,7 +59,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // autologous/directed FDA/AABB validation, HL7 data-load patients, and the
             // unit antigen typing patient, the massive transfusion demo patient, the multi-unit run patient,
             // the special-requirements patient, and the two RhIG demo mothers (Cycle 530).
-            Assert.Equal(17, await verify.Patients.CountAsync()); // 16 named demo patients and the unidentified trauma patient
+            Assert.Equal(18, await verify.Patients.CountAsync()); // 16 named demo patients, the unidentified trauma patient, and the demo newborn
             Assert.Equal(16, await verify.Encounters.CountAsync());
 
             // TEST-BB-439: special requirements demo: two enforced and one informational, in effect, typed twice O+.
@@ -612,7 +612,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "CUSTOM"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "OR"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "ED"));
-            Assert.Equal(17, await verify.Patients.CountAsync()); // 16 named demo patients and the unidentified trauma patient
+            Assert.Equal(18, await verify.Patients.CountAsync()); // 16 named demo patients, the unidentified trauma patient, and the demo newborn
         }
     }
 

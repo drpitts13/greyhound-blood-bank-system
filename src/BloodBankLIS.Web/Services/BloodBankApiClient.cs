@@ -94,6 +94,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PatientDto>> UpdatePatientAsync(long id, UpdatePatientRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Put, $"api/patients/{id}", req, ct);
 
+    public Task<ApiResult<PatientFamilyDto>> GetPatientFamilyAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<PatientFamilyDto>(HttpMethod.Get, $"api/patients/{patientId}/family", ct: ct);
+
+    public Task<ApiResult<PatientDto>> LinkMotherAsync(long infantId, LinkMotherRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{infantId}/mother", req, ct);
+
+    public Task<ApiResult<PatientDto>> UnlinkMotherAsync(long infantId, UnlinkMotherRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{infantId}/mother/unlink", req, ct);
+
     public Task<ApiResult<List<PatientDto>>> GetUnidentifiedPatientsAsync(CancellationToken ct = default) =>
         SendAsync<List<PatientDto>>(HttpMethod.Get, "api/patients/unidentified", ct: ct);
 

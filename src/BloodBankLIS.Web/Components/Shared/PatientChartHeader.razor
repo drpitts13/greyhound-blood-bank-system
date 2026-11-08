@@ -43,6 +43,61 @@
                 }
             </div>
         }
+        @if (_family is { } family)
+        {
+            <div class="muted" style="margin-top:.25rem;" data-family>
+                @if (family.Mother is { } mother)
+                {
+                    <span data-family-mother>Mother: <a href="@($"/patients/{mother.Id}")">@mother.Name</a> <span class="mono">@mother.MedicalRecordNumber</span>
+                        &middot; @(mother.CurrentBloodType ?? "type not on file")@(mother.ActiveAntibodies.Count > 0 ? $" · {string.Join(", ", mother.ActiveAntibodies)}" : "")</span>
+                    @if (Session.Has(PermissionCodes.PatientWrite) && !_unlinking)
+                    {
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _unlinking = true">Remove link</button>
+                    }
+                }
+                @if (family.Infants.Count > 0)
+                {
+                    <span data-family-infants>@(family.Mother is null ? "" : " · ")Infants:
+                        @foreach (var infant in family.Infants)
+                        {
+                            <a style="margin-left:.3rem;" href="@($"/patients/{infant.Id}")">@infant.Name</a>
+                            <span class="mono">@infant.MedicalRecordNumber</span>
+                            <span class="sub">(born @infant.DateOfBirth.ToString("yyyy-MM-dd"), @(infant.CurrentBloodType ?? "type not on file"))</span>
+                        }
+                    </span>
+                }
+                @if (family.Mother is null && Session.Has(PermissionCodes.PatientWrite) && Patient.Status != PatientStatus.Merged)
+                {
+                    @if (_linking)
+                    {
+                        <span class="flex gap" style="display:inline-flex;align-items:center;">
+                            <input @bind="_motherMrn" placeholder="Mother's MRN" style="max-width:12rem;" data-mother-mrn />
+                            <button type="button" class="btn btn-primary btn-sm" disabled="@_familyBusy" @onclick="LinkMotherAsync" data-mother-link>Link</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _linking = false">Cancel</button>
+                        </span>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _linking = true" data-mother-link-open>Link mother</button>
+                    }
+                }
+            </div>
+            @if (family.Mother is { ActiveAntibodies.Count: > 0 } antibodyMother)
+            {
+                <div class="alert alert-info" style="margin-top:.4rem;" data-maternal-antibodies>
+                    The mother has @string.Join(", ", antibodyMother.ActiveAntibodies) on record. Maternal antibodies can be present in the infant's blood.
+                </div>
+            }
+            @if (_unlinking)
+            {
+                <div class="flex gap" style="align-items:flex-end;margin-top:.4rem;">
+                    <div class="field" style="flex:1;"><label>Why remove the mother link?</label><input @bind="_unlinkReason" placeholder="e.g. Linked to the wrong chart" /></div>
+                    <button type="button" class="btn btn-secondary btn-sm" disabled="@_familyBusy" @onclick="UnlinkMotherAsync">Remove link</button>
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _unlinking = false">Cancel</button>
+                </div>
+            }
+            <Outcome Value="_familyFb" />
+        }
         @if (VisitsLoaded)
         {
             var (visit, otherOpen) = CurrentVisit.For(Encounters);
@@ -312,6 +367,61 @@
     }
 
     [Parameter, EditorRequired] public PatientDto Patient { get; set; } = default!;
+
+    // Mother and infant charts (information only): loaded when the chart changes.
+    private PatientFamilyDto? _family;
+    private long _familyFor;
+    private bool _linking;
+    private bool _unlinking;
+    private bool _familyBusy;
+    private string _motherMrn = string.Empty;
+    private string _unlinkReason = string.Empty;
+    private Feedback? _familyFb;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Patient.Id != _familyFor)
+        {
+            _familyFor = Patient.Id;
+            _linking = _unlinking = false;
+            _familyFb = null;
+            await LoadFamilyAsync();
+        }
+    }
+
+    private async Task LoadFamilyAsync()
+    {
+        var r = await Api.GetPatientFamilyAsync(Patient.Id);
+        _family = r.Succeeded ? r.Value : null;
+    }
+
+    private async Task LinkMotherAsync()
+    {
+        _familyBusy = true;
+        var r = await Api.LinkMotherAsync(Patient.Id, new LinkMotherRequest(_motherMrn));
+        _familyBusy = false;
+        _familyFb = r.ToFeedback("Mother linked.");
+        if (r.Succeeded)
+        {
+            _linking = false;
+            _motherMrn = string.Empty;
+            await LoadFamilyAsync();
+        }
+    }
+
+    private async Task UnlinkMotherAsync()
+    {
+        _familyBusy = true;
+        var r = await Api.UnlinkMotherAsync(Patient.Id, new UnlinkMotherRequest(_unlinkReason));
+        _familyBusy = false;
+        _familyFb = r.ToFeedback("Mother link removed.");
+        if (r.Succeeded)
+        {
+            _unlinking = false;
+            _unlinkReason = string.Empty;
+            await LoadFamilyAsync();
+        }
+    }
     [Parameter] public BloodTypeDto? CurrentType { get; set; }
     [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
     [Parameter] public bool VisitsLoaded { get; set; }

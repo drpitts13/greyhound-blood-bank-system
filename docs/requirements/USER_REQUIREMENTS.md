@@ -609,3 +609,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-601 | Units are shipped to another facility by scan, with the receiving facility kept on each unit, so a recall or lookback names who to notify. | P2 | FRS-BB-718 |
 | URS-BB-602 | Recent shipments to other facilities are listed with their units, so what was sent where can be answered and the packing list printed again; facilities already shipped to are offered. | P3 | FRS-BB-719 |
 | URS-BB-603 | An antibody reported by another facility is recorded with that facility and the date identified there, and the chart and antibody card show it as an outside report. | P2 | FRS-BB-720 |
+| URS-BB-604 | An infant's chart is linked to the mother's chart, so each shows the other's ABO/Rh and antibodies, with maternal antibodies noted on the infant's chart. | P2 | FRS-BB-721 |

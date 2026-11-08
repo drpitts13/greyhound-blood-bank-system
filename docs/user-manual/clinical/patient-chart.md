@@ -24,6 +24,12 @@ The header shows the current name, MRN, date of birth, and sex, and the current 
 
 Use the tabs for the detail: Visits, Orders, Specimens, Tests, Test History, DAT / Elution, Products, and Product History. Each tab has its own topic in this guide. On Tests, a result waiting for verification whose specimen expires soon shows **Verify before** and the time, as on the test worklist.
 
+## Mother and infant
+
+On a newborn's chart, **Link mother** takes the mother's MRN and links the two charts (you need patient registration permission). The infant's chart then shows **Mother** with her ABO/Rh and antibodies, and a note when she has antibodies on record, since maternal antibodies can be present in the infant's blood. The mother's chart lists her linked **Infants** with their birth dates and types, which helps with her RhIG decision. The mother must be another chart, born before the infant. **Remove link** asks why (for example, linked to the wrong chart); the earlier link stays in the audit trail. If the mother's chart is merged into another, her infants are linked to the surviving chart. The link is information only: it changes no testing or product rule. Neonatal policies are your medical director's (OCD-074).
+
+> Demo data. In a development database, MRN0027 (newborn) is linked to the RhIG demo mother MRN0025.
+
 ## Antibody card
 
 **Antibody card** in the chart header shows a wallet-size card for the patient to carry: name, date of birth, MRN, blood type, the active antibodies (one known only from another facility's report says "reported by" that facility), and the special requirements in effect, with the instruction to show it to the blood bank before any transfusion. **Print card** prints it; the print is recorded in the audit trail with what the card carried. A patient with no antibody and no special requirement on file has nothing to carry, so no card is printed. The card does not replace a pretransfusion sample.

@@ -613,5 +613,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-602 | U | `OutsideAntibodyReportRuleTests.Evaluate_And_SourceLabel` | URS-BB-603 / FRS-BB-720 |
 | TEST-BB-603 | I | `Phase3ServicesTests.OutsideAntibody_KeepsTheReportingFacilityAndDate` | URS-BB-603 / FRS-BB-720 |
 | TEST-BB-604 | I | `DowntimePatientSummaryTests.AntibodyCard_MarksOutsideReports` | URS-BB-603 / FRS-BB-720 |
+| TEST-BB-605 | U | `MotherInfantLinkRuleTests.Evaluate_RefusesWhatCannotBeTheMother` | URS-BB-604 / FRS-BB-721 |
+| TEST-BB-606 | I | `MotherInfantTests.Infant_IsLinkedToTheMother_AndTheLinkFollowsAMerge` | URS-BB-604 / FRS-BB-721 |
+| TEST-BB-607 | I | `MotherInfantTests.Demo_NewbornIsLinkedToTheRhigMother` | URS-BB-604 / FRS-BB-721 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

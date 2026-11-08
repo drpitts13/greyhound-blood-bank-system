@@ -39,6 +39,25 @@ public sealed record MergePatientsRequest(string DuplicateMrn, string Reason);
 /// <summary>An unidentified emergency patient: sex (or Unknown) and an estimated age; a note such as where they arrived.</summary>
 public sealed record CreateUnidentifiedPatientRequest(Sex? Sex, int? EstimatedAgeYears, string? Note = null);
 
+/// <summary>Link this (infant's) chart to the mother's chart by her MRN.</summary>
+public sealed record LinkMotherRequest(string MotherMrn);
+
+/// <summary>Remove the mother link (linked to the wrong chart), with why.</summary>
+public sealed record UnlinkMotherRequest(string Reason);
+
+/// <summary>A linked mother or infant as the other chart shows them: who, and the blood bank facts that matter.</summary>
+public sealed record FamilyMemberDto(
+    long Id,
+    string MedicalRecordNumber,
+    string Name,
+    DateOnly DateOfBirth,
+    Sex Sex,
+    string? CurrentBloodType,
+    IReadOnlyList<string> ActiveAntibodies);
+
+/// <summary>The patient's linked mother (null when none) and the infants linked to this patient.</summary>
+public sealed record PatientFamilyDto(FamilyMemberDto? Mother, IReadOnlyList<FamilyMemberDto> Infants);
+
 /// <summary>The unidentified chart is now known to be the patient with this MRN: merge it into theirs.</summary>
 public sealed record IdentifyPatientRequest(string IdentifiedMrn, string Reason);
 

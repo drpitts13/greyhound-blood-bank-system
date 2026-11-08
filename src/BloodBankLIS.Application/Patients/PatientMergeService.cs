@@ -43,6 +43,9 @@ public sealed class PatientMergeService
     private readonly IClock? _clock;
     private readonly IRepository<RhigEvaluation>? _rhig;
 
+    /// <summary>Merge ledger entity type for an infant whose mother link moved to the surviving chart.</summary>
+    private const string MotherLinkMove = "PatientMotherLink";
+
     public PatientMergeService(
         IRepository<Patient> patients,
         IRepository<PatientIdentifier> identifiers,
@@ -325,6 +328,9 @@ public sealed class PatientMergeService
         {
             moves.AddRange(await ReassignAsync(_rhig, r => r.PatientId == duplicate.Id, r => r.PatientId = survivor.Id, nameof(RhigEvaluation), ct));
         }
+
+        // Infants linked to the duplicate (as their mother) are linked to the surviving chart.
+        moves.AddRange(await ReassignAsync(_patients, p => p.MotherPatientId == duplicate.Id, p => p.MotherPatientId = survivor.Id, MotherLinkMove, ct));
 
         PatientMerge? ledger = null;
         if (_mergeLedger is not null)
@@ -814,6 +820,7 @@ public sealed class PatientMergeService
             nameof(PtagIdentifier) => _ptags is null || await ChangedPatientAsync(_ptags, move.EntityId, survivorId, mergedUtc, p => p.PatientId, ct),
             nameof(BloodComponentCompatibilityDecision) => _decisions is null || await ChangedPatientAsync(_decisions, move.EntityId, survivorId, mergedUtc, d => d.PatientId, ct),
             nameof(RhigEvaluation) => _rhig is null || await ChangedPatientAsync(_rhig, move.EntityId, survivorId, mergedUtc, r => r.PatientId, ct),
+            MotherLinkMove => await ChangedNullablePatientAsync(_patients, move.EntityId, survivorId, mergedUtc, p => p.MotherPatientId, ct),
             _ => true
         };
     }
@@ -936,6 +943,9 @@ public sealed class PatientMergeService
                 {
                     await AssignAsync(_rhig, move.EntityId, row => row.PatientId = duplicateId, ct);
                 }
+                break;
+            case MotherLinkMove:
+                await AssignAsync(_patients, move.EntityId, row => row.MotherPatientId = duplicateId, ct);
                 break;
         }
     }

@@ -78,6 +78,7 @@ public static partial class DatabaseSeeder
         await EnsureSpecimenStorageDemoAsync(context, ct);
         await EnsureUnidentifiedPatientDemoAsync(context, ct);
         await EnsureShipOutDemoAsync(context, ct);
+        await EnsureMotherInfantDemoAsync(context, ct);
     }
 
     /// <summary>

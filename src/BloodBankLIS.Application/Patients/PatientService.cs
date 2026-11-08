@@ -373,6 +373,111 @@ public sealed class PatientService
     private static string DescribeForMatch(Patient p) =>
         $"MRN {p.MedicalRecordNumber} ({p.LastName}, {p.FirstName}, born {p.DateOfBirth:yyyy-MM-dd})";
 
+    /// <summary>The patient's linked mother and the infants linked to the patient, with current ABO/Rh and active antibodies.</summary>
+    public async Task<PatientFamilyDto?> GetFamilyAsync(long patientId, CancellationToken ct = default)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var mother = patient.MotherPatientId is long motherId ? await _patients.GetByIdAsync(motherId, ct) : null;
+        var infants = (await _patients.ListAsync(p => p.MotherPatientId == patientId && p.Status != PatientStatus.Merged, ct))
+            .OrderBy(p => p.DateOfBirth)
+            .ToList();
+        var ids = infants.Select(i => i.Id).Append(mother?.Id ?? 0).Where(i => i > 0).ToList();
+        var types = _bloodTypes is null
+            ? Array.Empty<PatientBloodTypeHistory>().ToLookup(t => t.PatientId)
+            : (await _bloodTypes.ListAsync(t => ids.Contains(t.PatientId) && t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
+        var antibodies = _antibodies is null
+            ? Array.Empty<AntibodyHistory>().ToLookup(a => a.PatientId)
+            : (await _antibodies.ListAsync(a => ids.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
+        FamilyMemberDto Member(Patient p) => new(
+            p.Id, p.MedicalRecordNumber, $"{p.LastName}, {p.FirstName}", p.DateOfBirth, p.Sex,
+            PatientBloodBankFlags.CurrentBloodType(types[p.Id]),
+            PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]));
+
+        return new PatientFamilyDto(mother is null ? null : Member(mother), infants.Select(Member).ToList());
+    }
+
+    /// <summary>Links the infant's chart to the mother's chart by her MRN (<see cref="MotherInfantLinkRule"/>); audited.</summary>
+    public async Task<OperationResult<Patient>> LinkMotherAsync(long infantId, LinkMotherRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateWrite, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var infant = await _patients.GetByIdAsync(infantId, ct);
+        if (infant is null)
+        {
+            return OperationResult<Patient>.Fail($"No patient {infantId}.");
+        }
+
+        var mrn = request.MotherMrn?.Trim() ?? string.Empty;
+        var mother = mrn.Length == 0 ? null : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == mrn, ct);
+        var check = MotherInfantLinkRule.Evaluate(infant.Id, infant.Status, infant.DateOfBirth, mother?.Id, mother?.Status, mother?.DateOfBirth, mother?.MotherPatientId);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(check.Message);
+        }
+
+        if (infant.MotherPatientId == mother!.Id)
+        {
+            return OperationResult<Patient>.Fail($"This chart is already linked to {mother.MedicalRecordNumber}.");
+        }
+
+        var previous = infant.MotherPatientId;
+        infant.MotherPatientId = mother.Id;
+        _patients.Update(infant);
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            infant.Id,
+            oldValue: new { MotherPatientId = previous },
+            newValue: new { MotherPatientId = mother.Id, MotherMrn = mother.MedicalRecordNumber },
+            reason: $"Mother linked: {mother.MedicalRecordNumber}.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Patient>.Ok(infant);
+    }
+
+    /// <summary>Removes the mother link with a reason (linked to the wrong chart); the earlier link stays in the audit trail.</summary>
+    public async Task<OperationResult<Patient>> UnlinkMotherAsync(long infantId, UnlinkMotherRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateWrite, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return OperationResult<Patient>.Fail("Give a reason to remove the mother link.");
+        }
+
+        var infant = await _patients.GetByIdAsync(infantId, ct);
+        if (infant?.MotherPatientId is not long motherId)
+        {
+            return OperationResult<Patient>.Fail("This chart has no mother linked.");
+        }
+
+        infant.MotherPatientId = null;
+        _patients.Update(infant);
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            infant.Id,
+            oldValue: new { MotherPatientId = motherId },
+            newValue: new { MotherPatientId = (long?)null },
+            reason: $"Mother link removed: {request.Reason.Trim()}");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Patient>.Ok(infant);
+    }
+
     /// <summary>Unidentified patients not yet merged into an identified chart, oldest first.</summary>
     public async Task<IReadOnlyList<PatientDto>> ListUnidentifiedAsync(CancellationToken ct = default) =>
         (await _patients.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct))

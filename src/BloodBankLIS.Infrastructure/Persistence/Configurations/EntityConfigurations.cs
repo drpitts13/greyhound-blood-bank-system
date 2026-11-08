@@ -24,6 +24,7 @@ public sealed class PatientConfiguration : IEntityTypeConfiguration<Patient>
         b.Property(p => p.Comment).HasMaxLength(2000);
 
         b.HasIndex(p => p.MedicalRecordNumber).IsUnique();
+        b.HasIndex(p => p.MotherPatientId);
         b.HasIndex(p => new { p.LastName, p.FirstName, p.DateOfBirth });
 
         b.HasMany(p => p.Specimens).WithOne(s => s.Patient!).HasForeignKey(s => s.PatientId).OnDelete(DeleteBehavior.Restrict);

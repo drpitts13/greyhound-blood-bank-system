@@ -49,6 +49,9 @@ public class Patient : BaseEntity
     /// </summary>
     public bool Unidentified { get; set; }
 
+    /// <summary>The mother's chart, for an infant (MotherInfantLinkRule); information only.</summary>
+    public long? MotherPatientId { get; set; }
+
     public ICollection<Specimen> Specimens { get; set; } = new List<Specimen>();
 
     public ICollection<Order> Orders { get; set; } = new List<Order>();
