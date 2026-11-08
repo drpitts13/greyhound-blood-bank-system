@@ -14,4 +14,15 @@ public static class OrderNeededByRule
             : RuleResult.Pass(Code);
 
     public static bool Passed(DateTime? neededByUtc, DateTime nowUtc) => neededByUtc is DateTime needed && needed <= nowUtc;
+
+    /// <summary>
+    /// Needed soon: the time is still ahead and no more than the facility's warning window away (OCD-075). A window of 0
+    /// or less is off; a time already passed is <see cref="Passed"/>, not soon.
+    /// </summary>
+    public static bool DueSoon(DateTime? neededByUtc, DateTime nowUtc, int warnMinutes) =>
+        warnMinutes > 0 && neededByUtc is DateTime needed && needed > nowUtc && needed <= nowUtc.AddMinutes(warnMinutes);
+
+    /// <summary>Whole minutes until the needed-by time, rounded up ("in 1 min" until it passes); null without a time.</summary>
+    public static int? MinutesUntil(DateTime? neededByUtc, DateTime nowUtc) =>
+        neededByUtc is DateTime needed ? (int)Math.Ceiling((needed - nowUtc).TotalMinutes) : null;
 }

@@ -41,6 +41,9 @@ public static class FacilityPolicyKeys
 
     /// <summary>Days a patient tube is kept after its expiration before it is due for discard (OCD-070). 0 = not set.</summary>
     public const string SpecimenRetentionDays = "Specimen.RetentionDays";
+
+    /// <summary>Minutes before a blood order's needed-by time that it is marked as needed soon (OCD-075). 0 = off.</summary>
+    public const string BloodOrderNeededBySoonMinutes = "BloodOrder.NeededBySoonMinutes";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";
 
     /// <summary>Facility must enable computer XM after AABB 5.16 validation (SoftBank/SafeTrace switch).</summary>

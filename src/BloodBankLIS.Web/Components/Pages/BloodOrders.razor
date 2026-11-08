@@ -60,7 +60,7 @@ else
                             <span class="sub nowrap">ordered @r.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                             @if (r.NeededByUtc is DateTime neededBy)
                             {
-                                <span class="@(r.NeededByPassed ? "badge badge-red" : "sub") nowrap" data-needed-by>needed by @neededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(r.NeededByPassed ? " (passed)" : "")</span>
+                                <span class="@(r.NeededByPassed ? "badge badge-red" : r.NeededBySoon ? "badge badge-amber" : "sub") nowrap" data-needed-by>needed by @neededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(r.NeededByPassed ? " (passed)" : r.NeededInMinutes is int inMinutes ? $" (in {inMinutes} min)" : "")</span>
                             }
                         </td>
                         <td>@r.Products</td>

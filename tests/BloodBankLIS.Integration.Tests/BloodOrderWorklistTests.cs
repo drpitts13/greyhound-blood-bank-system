@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Rules;
@@ -122,15 +123,31 @@ public class BloodOrderWorklistTests
         var withRequirements = await Service(c, factory).ListAsync();
         Assert.Equal(["Antigen-negative (K)", "Irradiated"], Assert.Single(withRequirements, r => r.OrderNumber == "BO-2").Requirements!);
         Assert.Empty(Assert.Single(withRequirements, r => r.OrderNumber == "BO-1").Requirements!);
+
+        // TEST-BB-648: with the facility's warning window (OCD-075) an order needed within it is marked needed soon with the
+        // minutes left; a passed time stays passed, not soon; with the window off (the seeded default) nothing is soon.
+        var stat2 = await c.Orders.SingleAsync(o => o.Id == statOrder.Id);
+        stat2.NeededByUtc = now.AddMinutes(30);
+        c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, Value = "60" });
+        await c.SaveChangesAsync();
+        var warned = await Service(c, factory, policy: true).ListAsync();
+        Assert.Equal((true, 30, false), (warned.Single(r => r.OrderNumber == "BO-2").NeededBySoon, warned.Single(r => r.OrderNumber == "BO-2").NeededInMinutes ?? 0, warned.Single(r => r.OrderNumber == "BO-2").NeededByPassed));
+        Assert.Equal((false, true), (warned.Single(r => r.OrderNumber == "BO-1").NeededBySoon, warned.Single(r => r.OrderNumber == "BO-1").NeededByPassed));
+        Assert.Contains("1 needed soon", BloodBankLIS.Application.Compliance.DashboardQueueCatalog.BloodOrdersNote(warned));
+        Assert.False((await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "BO-2").NeededBySoon);
+        (await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.BloodOrderNeededBySoonMinutes)).Value = "0";
+        await c.SaveChangesAsync();
+        Assert.All(await Service(c, factory, policy: true).ListAsync(), r => Assert.False(r.NeededBySoon));
     }
 
-    private static BloodOrderWorklistService Service(BloodBankDbContext c, SqliteContextFactory f) => new(
+    private static BloodOrderWorklistService Service(BloodBankDbContext c, SqliteContextFactory f, bool policy = false) => new(
         new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
         new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
         new EfRepository<AntibodyHistory>(c), f.Clock,
         new AntibodyScreenCompatLoader(new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c), new EfRepository<AntibodyHistory>(c),
             clock: f.Clock, specimens: new EfRepository<Specimen>(c), orders: new EfRepository<Order>(c)),
-        new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c));
+        new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
+        policy ? new FacilityPolicyService(new EfRepository<SystemSetting>(c)) : null);
 
     // TEST-BB-635: a recorded shift handoff counts the blood orders to prepare as the worklist lists them.
     [Fact]

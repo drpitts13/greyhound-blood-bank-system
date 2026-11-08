@@ -97,6 +97,10 @@ public sealed class FacilityPolicyService
     public Task<int> GetSpecimenRetentionDaysAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
 
+    /// <summary>Minutes before a blood order's needed-by time that it counts as needed soon (OCD-075); 0 = off.</summary>
+    public Task<int> GetBloodOrderNeededBySoonMinutesAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, 0, ct);
+
     public Task<bool> GetRequireSpecimenCollectorAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireSpecimenCollector, false, ct);
 

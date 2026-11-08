@@ -20,4 +20,23 @@ public class OrderNeededByRuleTests
         Assert.False(OrderNeededByRule.Passed(Ordered.AddMinutes(1), Ordered));
         Assert.False(OrderNeededByRule.Passed(null, Ordered));
     }
+
+    // TEST-BB-647: needed soon only with a warning window set, while the time is ahead and within it (its last minute
+    // included); a passed time is passed, not soon. Minutes until it are rounded up.
+    [Fact]
+    public void DueSoon_OnlyWithinTheWindow_AndAhead()
+    {
+        Assert.True(OrderNeededByRule.DueSoon(Ordered.AddMinutes(30), Ordered, 60));
+        Assert.True(OrderNeededByRule.DueSoon(Ordered.AddMinutes(60), Ordered, 60));
+        Assert.False(OrderNeededByRule.DueSoon(Ordered.AddMinutes(61), Ordered, 60));
+        Assert.False(OrderNeededByRule.DueSoon(Ordered, Ordered, 60));
+        Assert.False(OrderNeededByRule.DueSoon(Ordered.AddMinutes(-5), Ordered, 60));
+        Assert.False(OrderNeededByRule.DueSoon(Ordered.AddMinutes(30), Ordered, 0));
+        Assert.False(OrderNeededByRule.DueSoon(Ordered.AddMinutes(30), Ordered, -10));
+        Assert.False(OrderNeededByRule.DueSoon(null, Ordered, 60));
+
+        Assert.Equal(30, OrderNeededByRule.MinutesUntil(Ordered.AddMinutes(30), Ordered));
+        Assert.Equal(1, OrderNeededByRule.MinutesUntil(Ordered.AddSeconds(10), Ordered));
+        Assert.Null(OrderNeededByRule.MinutesUntil(null, Ordered));
+    }
 }

@@ -155,6 +155,7 @@ public static class DashboardQueueCatalog
         {
             AttentionNote(list.Count(r => r.Rush), "rush", "rush"),
             AttentionNote(list.Count(r => r.NeededByPassed), "past its needed-by time", "past their needed-by time"),
+            AttentionNote(list.Count(r => r.NeededBySoon), "needed soon", "needed soon"),
             AttentionNote(list.Count(r => !r.HasUsableSpecimen), "needs a specimen", "need a specimen")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);

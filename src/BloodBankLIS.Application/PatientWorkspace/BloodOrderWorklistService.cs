@@ -39,7 +39,10 @@ public sealed record BloodOrderToPrepareDto(
     DateTime? NeededByUtc = null,
     bool NeededByPassed = false,
     // The patient's clinically active special transfusion requirements (not informational ones): what the units must be.
-    IReadOnlyList<string>? Requirements = null);
+    IReadOnlyList<string>? Requirements = null,
+    // The needed-by time is within the facility's warning window (OCD-075; off by default), and how many minutes away.
+    bool NeededBySoon = false,
+    int? NeededInMinutes = null);
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -58,6 +61,7 @@ public sealed class BloodOrderWorklistService
     private readonly IClock _clock;
     private readonly BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? _typeAndScreen;
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
     private readonly IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? _requirementDefinitions;
 
     public BloodOrderWorklistService(
@@ -72,8 +76,10 @@ public sealed class BloodOrderWorklistService
         IClock clock,
         BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? typeAndScreen = null,
         IRepository<SpecialTransfusionRequirement>? requirements = null,
-        IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? requirementDefinitions = null)
+        IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? requirementDefinitions = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _requirements = requirements;
         _requirementDefinitions = requirementDefinitions;
         _typeAndScreen = typeAndScreen;
@@ -151,6 +157,7 @@ public sealed class BloodOrderWorklistService
         var types = (await _bloodTypes.ListAsync(t => patientIds.Contains(t.PatientId) && t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
         var antibodies = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
         var requirementText = await RequirementsAsync(patientIds, now, ct);
+        var warnMinutes = _policy is null ? 0 : await _policy.GetBloodOrderNeededBySoonMinutesAsync(ct);
 
         var rows = new List<BloodOrderToPrepareDto>();
         foreach (var group in productLines.Where(l => orders.ContainsKey(l.OrderId)).GroupBy(l => l.OrderId))
@@ -189,7 +196,9 @@ public sealed class BloodOrderWorklistService
                 hasSpecimen && !typeAndScreenComplete,
                 order.NeededByUtc,
                 OrderNeededByRule.Passed(order.NeededByUtc, now),
-                requirementText.GetValueOrDefault(order.PatientId) ?? []));
+                requirementText.GetValueOrDefault(order.PatientId) ?? [],
+                OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes),
+                OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes) ? OrderNeededByRule.MinutesUntil(order.NeededByUtc, now) : null));
         }
 
         // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.

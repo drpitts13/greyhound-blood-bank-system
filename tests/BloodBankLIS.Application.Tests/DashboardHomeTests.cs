@@ -223,5 +223,7 @@ public class DashboardHomeTests
             1, "O1", 1, "P", "M", null, [], OrderPriority.Routine, rush, DateTime.UtcNow, "1 × RBC", 1, 0, 0, 1, specimen, null, "x", "/");
         Assert.Equal("1 rush; 1 needs a specimen", BloodOrdersNote([Row(true, true), Row(false, false)]));
         Assert.Null(BloodOrdersNote([Row(false, true)]));
+        // TEST-BB-648 (note): orders inside the needed-by warning window are counted.
+        Assert.Equal("1 needed soon", BloodOrdersNote([Row(false, true) with { NeededBySoon = true, NeededInMinutes = 20 }]));
     }
 }

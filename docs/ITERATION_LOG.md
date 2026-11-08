@@ -17903,3 +17903,22 @@ Cycles 566–568 fixed every page found running past its card, but the fix relie
 ### Tests
 
 - TEST-BB-646: failed before the four tables were wrapped, passes after.
+
+## Iteration 570 — Blood orders needed soon (2026-11-08)
+
+### Capability matrix rescan (operations: worklists)
+
+Blood orders to prepare marked a needed-by time only once it had passed, when the surgery was already waiting. Nothing marked an order whose time was close, which is when the bench can still act. Workflow questions: memory (the list says which order is about to be late); next action (rush first, then by needed-by, unchanged); safety (a warning only; no check changes). How far ahead to warn is the facility's decision, so it is a setting recorded as OCD-075, off by default.
+
+### Design
+
+- Facility policy `BloodOrder.NeededBySoonMinutes` (0 = off); `OrderNeededByRule.DueSoon` and `MinutesUntil`; worklist row fields; amber "(in N min)"; home card "needed soon".
+
+### Requirements
+
+- URS-BB-625, FRS-BB-742, OCD-075. Help: Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-647: inside, at the edge of, and outside the window; passed; window 0 or negative; no time; minutes rounded up.
+- TEST-BB-648: with a 60-minute window an order 30 minutes away is needed soon (30 min) and a passed one is not; the card note counts it; without the policy, or with 0, nothing is soon.

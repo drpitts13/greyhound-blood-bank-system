@@ -630,3 +630,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-622 | Blood orders to prepare shows each patient's active special transfusion requirements, so the technologist knows what the units must be before opening the chart. | P2 | FRS-BB-739 |
 | URS-BB-623 | A patient's special transfusion requirement reads the same on every screen and printout, in plain words, with the antigen named. | P3 | FRS-BB-740 |
 | URS-BB-624 | No button, field, or table runs past the edge of its card at a normal window width; a table too wide for its card scrolls inside it. | P3 | FRS-BB-741 |
+| URS-BB-625 | When the facility sets a warning window, blood orders whose needed-by time is that close are marked as needed soon, with the minutes left, before the time passes. | P2 | FRS-BB-742 |
