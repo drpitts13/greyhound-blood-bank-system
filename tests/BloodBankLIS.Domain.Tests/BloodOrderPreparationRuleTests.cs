@@ -34,6 +34,20 @@ public class BloodOrderPreparationRuleTests
         Assert.Equal("/patients/7?tab=tests", BloodOrderPreparationRule.NextStepHref(7, 42, 9, typeAndScreenComplete: false));
     }
 
+    // TEST-BB-656: when the usable specimen expires before the order is needed, the next step is a new specimen (ahead of
+    // finishing the type and screen on it), on the patient's specimens; with no usable specimen it is the usual first
+    // collection; with nothing left to prepare there is no step.
+    [Fact]
+    public void SpecimenExpiresBeforeNeeded_CollectsANewOne()
+    {
+        Assert.Equal("Collect a new specimen", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: true, specimenExpiresBeforeNeeded: true));
+        Assert.Equal("Collect a new specimen", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: true, typeAndScreenComplete: false, specimenExpiresBeforeNeeded: true));
+        Assert.Equal("Collect a specimen", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: false, specimenExpiresBeforeNeeded: true));
+        Assert.Null(BloodOrderPreparationRule.NextStep(0, hasUsableSpecimen: true, specimenExpiresBeforeNeeded: true));
+        Assert.Equal("/patients/7?tab=specimens", BloodOrderPreparationRule.NextStepHref(7, 42, 9, specimenExpiresBeforeNeeded: true));
+        Assert.Equal("/patients/7?tab=products&reserveOrder=42&reserveSpecimen=9", BloodOrderPreparationRule.NextStepHref(7, 42, 9));
+    }
+
     // TEST-BB-636: the downtime sheet line names the order, priority, products, what is still needed, and by when.
     [Fact]
     public void DowntimeLine_SaysWhatAndByWhen()

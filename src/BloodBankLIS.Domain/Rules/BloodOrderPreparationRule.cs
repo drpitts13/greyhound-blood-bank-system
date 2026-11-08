@@ -26,26 +26,31 @@ public static class BloodOrderPreparationRule
         + (neededByUtc is DateTime needed ? $", needed by {needed:yyyy-MM-dd HH:mm} UTC" : string.Empty);
 
     /// <summary>
-    /// Where the next step opens on the patient's chart: the specimens to collect one, or the reserve form with the order
-    /// (and the usable specimen) already chosen.
+    /// Where the next step opens on the patient's chart: the specimens to collect one (also when the usable specimen
+    /// expires before the order is needed), or the reserve form with the order (and the usable specimen) already chosen.
     /// </summary>
-    public static string NextStepHref(long patientId, long orderId, long? usableSpecimenId, bool typeAndScreenComplete = true) =>
-        usableSpecimenId is not long specimenId
+    public static string NextStepHref(long patientId, long orderId, long? usableSpecimenId, bool typeAndScreenComplete = true,
+        bool specimenExpiresBeforeNeeded = false) =>
+        usableSpecimenId is not long specimenId || specimenExpiresBeforeNeeded
             ? $"/patients/{patientId}?tab=specimens"
             : typeAndScreenComplete
                 ? $"/patients/{patientId}?tab=products&reserveOrder={orderId}&reserveSpecimen={specimenId}"
                 : $"/patients/{patientId}?tab=tests";
 
     /// <summary>
-    /// "Collect a specimen", "Finish type and screen" (a usable specimen whose ABO/Rh and antibody screen are not both
-    /// verified yet: units are reserved on a specimen with a completed type and screen), "Reserve 2 units", or null when
-    /// nothing is left to prepare.
+    /// "Collect a specimen", "Collect a new specimen" (the usable one expires before the order is needed, so units
+    /// crossmatched on it could not be issued then), "Finish type and screen" (a usable specimen whose ABO/Rh and antibody
+    /// screen are not both verified yet: units are reserved on a specimen with a completed type and screen), "Reserve 2
+    /// units", or null when nothing is left to prepare. Guidance only: reserving stays possible from the chart.
     /// </summary>
-    public static string? NextStep(int remaining, bool hasUsableSpecimen, bool typeAndScreenComplete = true) =>
+    public static string? NextStep(int remaining, bool hasUsableSpecimen, bool typeAndScreenComplete = true,
+        bool specimenExpiresBeforeNeeded = false) =>
         remaining <= 0
             ? null
             : !hasUsableSpecimen
                 ? "Collect a specimen"
+                : specimenExpiresBeforeNeeded
+                    ? "Collect a new specimen"
                 : !typeAndScreenComplete
                     ? "Finish type and screen"
                     : $"Reserve {remaining} {(remaining == 1 ? "unit" : "units")}";

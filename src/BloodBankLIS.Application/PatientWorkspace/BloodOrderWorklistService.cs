@@ -181,6 +181,8 @@ public sealed class BloodOrderWorklistService
                 : candidates!.FirstOrDefault(s => completed.GetValueOrDefault(order.PatientId)?.Contains(s.Id) == true);
             var specimen = ready ?? (hasSpecimen ? candidates![0] : null);
             var typeAndScreenComplete = ready is not null;
+            // A new specimen is needed only when even the latest-expiring usable one ends before the order is needed.
+            var expiresBeforeNeeded = hasSpecimen && OrderNeededByRule.ExpiresBeforeNeeded(candidates![0].ExpiresUtc, order.NeededByUtc, now);
             var products = string.Join(", ", group
                 .GroupBy(l => l.LineName, StringComparer.OrdinalIgnoreCase)
                 .Select(g => $"{g.Count()} × {g.Key}"));
@@ -192,8 +194,8 @@ public sealed class BloodOrderWorklistService
                 PatientBloodBankFlags.ActiveAntibodies(antibodies[order.PatientId]),
                 order.Priority, TestWorklistView.IsRush(order.Priority), order.OrderedUtc, products,
                 requested, orderReserved, orderIssued, remaining, hasSpecimen, specimen?.ExpiresUtc,
-                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete)!,
-                BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete),
+                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete, expiresBeforeNeeded)!,
+                BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete, expiresBeforeNeeded),
                 specimen?.Id,
                 hasSpecimen && !typeAndScreenComplete,
                 order.NeededByUtc,
@@ -201,7 +203,7 @@ public sealed class BloodOrderWorklistService
                 requirementText.GetValueOrDefault(order.PatientId) ?? [],
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes),
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes) ? OrderNeededByRule.MinutesUntil(order.NeededByUtc, now) : null,
-                hasSpecimen && OrderNeededByRule.ExpiresBeforeNeeded(specimen?.ExpiresUtc, order.NeededByUtc, now)));
+                expiresBeforeNeeded));
         }
 
         // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.

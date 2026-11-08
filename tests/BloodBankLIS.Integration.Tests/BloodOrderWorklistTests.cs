@@ -147,10 +147,14 @@ public class BloodOrderWorklistTests
         await c.SaveChangesAsync();
         var later = (await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "BO-1");
         Assert.True(later.SpecimenExpiresBeforeNeeded);
+        // TEST-BB-657: and the row's next step is a new specimen, on the patient's specimens, not reserving on this one.
+        Assert.Equal(("Collect a new specimen", $"/patients/{routine.Id}?tab=specimens"), (later.NextStep, later.Href));
         Assert.Contains("1 specimen expires before it is needed", BloodBankLIS.Application.Compliance.DashboardQueueCatalog.BloodOrdersNote([later]));
         routine2.NeededByUtc = now.AddDays(1);
         await c.SaveChangesAsync();
-        Assert.False((await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "BO-1").SpecimenExpiresBeforeNeeded);
+        var inTime = (await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "BO-1");
+        Assert.False(inTime.SpecimenExpiresBeforeNeeded);
+        Assert.NotEqual("Collect a new specimen", inTime.NextStep);
     }
 
     private static BloodOrderWorklistService Service(BloodBankDbContext c, SqliteContextFactory f, bool policy = false) => new(

@@ -17980,3 +17980,22 @@ A crossmatch is good only while its specimen is valid. When a surgery is schedul
 - TEST-BB-653: before, at, and after the needed-by time; a passed time; unknown times; earliest end.
 - TEST-BB-654: an order needed in three days on a specimen valid for two is flagged and counted; needed in one day, or passed, it is not.
 - TEST-BB-655: a reserved unit whose order is needed in three days on a two-day specimen is flagged and counted on the card; units needed in 20 minutes or already late are not.
+
+## Iteration 574 — Next step: a new specimen for the needed-by time (2026-11-08)
+
+### Capability matrix rescan (operations: next-step guidance)
+
+Cycle 573 warned when a blood order's specimen expires before its needed-by time, but the row's button still said "Reserve n units" and opened the reserve form on that specimen, holding units that could not be issued when the surgery started. Workflow questions: next action (the button now matches the warning); memory (no reconciling the warning with the button); safety (guidance only; reserving is still possible from the chart and every check is unchanged).
+
+### Design
+
+- `NextStep`/`NextStepHref` gain `specimenExpiresBeforeNeeded` ("Collect a new specimen", Specimens tab, ahead of type and screen and reserve). The worklist sets it only when even the latest-expiring usable specimen ends before the needed-by time.
+
+### Requirements
+
+- URS-BB-629, FRS-BB-746. Help: Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-656: new specimen ahead of type and screen; none usable is the first collection; nothing left is no step; link to specimens; reserve link unchanged otherwise.
+- TEST-BB-657: on the worklist, an order needed after its specimen expires shows Collect a new specimen on the specimens tab; needed in time, it does not.
