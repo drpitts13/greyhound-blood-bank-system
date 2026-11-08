@@ -17296,3 +17296,21 @@ The Supervisor queue gathers what a technologist cannot finish alone (ABID revie
 ### Tests
 
 - TEST-BB-585: a ready evaluation is on a verifier's queue with its title, link, detail, and next action; not without result.verify; gone once completed.
+
+## Iteration 538 — Offer to store a finished tube (2026-11-07)
+
+### Capability matrix rescan (operations: next action)
+
+Store tubes (Cycles 533–536) works only if someone remembers to use it. The moment to store a tube is when its last test is done at the bench, and nothing said so. Workflow questions: next action (offered right after the save that finished the tube); clicks (one, with the tube carried over); memory (no need to remember which tubes are finished); safety (a tube put away is findable for a reaction workup).
+
+### Design
+
+- Worklist rows carry the tube's storage place; `TestWorklistView.TubeFinished`; worklist note with Store tube; Store tubes `?tube=` prefill.
+
+### Requirements
+
+- URS-BB-595, FRS-BB-712. Help: test worklist.
+
+### Tests
+
+- TEST-BB-586: offered when no line on the tube remains and it is not stored; not when a line remains (any case), when already stored, or without a saved line or accession.

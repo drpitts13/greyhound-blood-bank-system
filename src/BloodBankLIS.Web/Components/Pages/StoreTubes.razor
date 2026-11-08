@@ -108,10 +108,18 @@ else
     private List<TubeInPlaceDto>? _inPlace;
     private List<string> _places = new();
 
+    // From the worklist's "Store tube": the tube is waiting; scan or choose its place first.
+    [SupplyParameterFromQuery(Name = "tube")] public string? TubeQuery { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         var r = await Api.GetSpecimenStoragePlacesAsync();
         _places = r.Succeeded ? r.Value ?? new() : new();
+        if (!string.IsNullOrWhiteSpace(TubeQuery))
+        {
+            _tube = TubeQuery.Trim();
+            _fb = Feedback.Succeed($"Tube {_tube} is ready to store: scan or choose its place, then press Enter in Tube.");
+        }
     }
     private string _inPlaceFor = string.Empty;
 

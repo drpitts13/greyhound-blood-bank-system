@@ -327,6 +327,7 @@ public sealed class TestWorklistService
                 VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow),
                 specimen?.Barcode,
                 order.OrderType == OrderType.TransfusionReactionWorkup,
+                SpecimenStorageLocation: specimen?.StorageLocation,
                 ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue),
                 ReflexTriggerNotice: line.ReflexFromResultId is long triggerId
                     ? ReflexTriggerChangeRule.Notice(triggerId, line.ReflexFromTestCode, line.ReflexFromValue, line.TestCode, resultVersions)

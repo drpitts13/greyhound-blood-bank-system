@@ -57,7 +57,9 @@ public sealed record TestWorkItemDto(
     // A line added by a reflex rule: the verified result that added it ("ABSC Positive").
     string? ReflexFrom = null,
     // That result was later invalidated or corrected so it no longer matches: check whether the test is still needed.
-    string? ReflexTriggerNotice = null)
+    string? ReflexTriggerNotice = null,
+    // Where the tube is stored (Store tubes), or null when it has not been put away.
+    string? SpecimenStorageLocation = null)
 {
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";
@@ -180,6 +182,20 @@ public static class TestWorklistView
         string.IsNullOrWhiteSpace(fromTestCode)
             ? null
             : string.IsNullOrWhiteSpace(fromValue) ? fromTestCode.Trim() : $"{fromTestCode.Trim()} {fromValue.Trim()}";
+
+    /// <summary>
+    /// After a save: the tube of the line just saved when it now has no line left on the worklist and has not been put
+    /// away, so the bench can store it; null otherwise.
+    /// </summary>
+    public static string? TubeFinished(TestWorkItemDto? saved, IEnumerable<TestWorkItemDto> after)
+    {
+        if (saved is null || string.IsNullOrWhiteSpace(saved.AccessionNumber) || !string.IsNullOrWhiteSpace(saved.SpecimenStorageLocation))
+        {
+            return null;
+        }
+
+        return ForTube(after, saved.AccessionNumber).Count == 0 ? saved.AccessionNumber : null;
+    }
 
     /// <summary>Orders (not lines) at a rush priority that have no tube yet.</summary>
     public static int RushOrdersWithoutSpecimen(IEnumerable<TestWorkItemDto> items) =>

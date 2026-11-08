@@ -32,6 +32,14 @@
 </details>
 
 <Outcome Value="_fb" />
+@if (_finishedTube is not null)
+{
+    <div class="alert alert-info flex gap" style="align-items:center;" data-tube-finished>
+        <span>Every test on tube <span class="mono">@_finishedTube</span> is done. Put it away so it can be found for repeat testing.</span>
+        <a class="btn btn-primary btn-sm" href="@($"/specimens/store?tube={Uri.EscapeDataString(_finishedTube)}")">Store tube</a>
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _finishedTube = null">Dismiss</button>
+    </div>
+}
 @if (_reflexNote is not null)
 {
     <div class="alert alert-info flex gap" style="align-items:center;" data-reflex-added>
@@ -670,6 +678,7 @@
     }
 
     private bool _loadedOnce;
+    private string? _finishedTube;
     private string? _reflexNote;
 
     // Batch verification candidates, for verifiers only; every candidate starts selected.
@@ -879,6 +888,7 @@
     private async Task OnResultSaved()
     {
         var savedLineId = _expandedLineId;
+        var savedItem = _items.FirstOrDefault(i => i.OrderLineId == savedLineId);
         // Follow the rows as shown, so with a tube scanned the next test is on the same tube.
         var previousOrder = ShownItems.Select(i => i.OrderLineId).ToList();
         _expandedLineId = null;
@@ -894,6 +904,9 @@
                 .FirstOrDefault(i => i is { CanEnterResults: true, NeedsSpecimenLink: false })
             : null;
         _expandedLineId = next?.OrderLineId;
+
+        // The tube's last line is done and the tube was never put away: offer to store it.
+        _finishedTube = TestWorklistView.TubeFinished(savedItem, _items) ?? _finishedTube;
 
         // The row's own confirmation disappears when it collapses, so confirm at page level.
         if (_fb is null || _fb.Success)
