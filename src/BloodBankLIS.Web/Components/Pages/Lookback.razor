@@ -441,6 +441,12 @@ else
 
     private static string PatientLabel(LookbackNotificationDto note)
     {
+        // Shipped to another facility: no patient here; that facility is the one to notify.
+        if (!string.IsNullOrWhiteSpace(note.ShippedToFacility))
+        {
+            return $"Shipped to {note.ShippedToFacility}: notify that facility";
+        }
+
         if (!string.IsNullOrWhiteSpace(note.PatientName))
         {
             return string.IsNullOrWhiteSpace(note.MedicalRecordNumber)

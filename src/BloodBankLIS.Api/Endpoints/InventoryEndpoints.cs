@@ -207,6 +207,11 @@ public static class InventoryEndpoints
             ToHttpResult(await service.InspectDamagedAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
+        // Ship units to another facility by scan (receiving facility kept for recall and lookback).
+        group.MapPost("/units/ship-out-by-scan", async (ShipOutByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ShipOutByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         group.MapPost("/units/return-to-supplier-by-scan", async (ReturnToSupplierByScanRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.ReturnToSupplierByScanAsync(request, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);

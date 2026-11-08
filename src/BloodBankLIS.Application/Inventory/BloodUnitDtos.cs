@@ -61,7 +61,11 @@ public sealed record BloodUnitDto(
     string? CollectionFacility = null,
     DateTime? CollectionDateTime = null,
     string? ProcessingFacilityCode = null,
-    long? DeliveryId = null)
+    long? DeliveryId = null,
+    // Shipped to another facility: where, when, and the outbound shipment reference.
+    string? ShippedToFacility = null,
+    DateTime? ShippedUtc = null,
+    string? OutboundShipmentReference = null)
 {
     public long? BloodSupplierId { get; init; }
 
@@ -90,7 +94,8 @@ public sealed record BloodUnitDto(
         u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
         u.ExpectedArrivalDueUtc, u.QuarantineReasonCode,
         u.Volume, u.DivisionCode, u.CollectionTypeCode,
-        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId);
+        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId,
+        u.ShippedToFacility, u.ShippedUtc, u.OutboundShipmentReference);
 }
 
 public sealed record ExpectedInboundWorkItemDto(

@@ -1737,6 +1737,75 @@ public sealed class InventoryService
     }
 
     /// <summary>
+    /// Ships the unit in hand to another facility by its scan: the receiving facility (required) and the shipment reference
+    /// are kept on the unit so a recall or lookback notifies that facility. Only an unreserved, unexpired unit in stock
+    /// ships (<see cref="ShipOutRule"/>); a divided number matching several units ships none. Audited.
+    /// </summary>
+    public async Task<InventoryActionResult> ShipOutByScanAsync(ShipOutByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedReturnToSupplierAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Facility))
+        {
+            return InventoryActionResult.Fail("Name the facility the units are shipped to.");
+        }
+
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
+        {
+            return InventoryActionResult.Fail(error);
+        }
+
+        if (candidates.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {candidates.Count} units ({string.Join(", ", candidates.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Scan the division's own label.");
+        }
+
+        var unit = await _repository.GetUnitAsync(candidates[0].Id, ct);
+        if (unit is null)
+        {
+            return InventoryActionResult.Fail("Unit not found.");
+        }
+
+        var now = _clock.UtcNow;
+        var check = ShipOutRule.Evaluate(unit.Status, unit.ExpiresUtc, now, request.Facility, request.Reference);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Fail($"{unit.UnitNumber}: {check.Message}");
+        }
+
+        var facility = request.Facility.Trim();
+        var reference = string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference.Trim();
+        var reason = $"Shipped to {facility}" + (reference is null ? "" : $" ({reference})")
+            + (string.IsNullOrWhiteSpace(request.Note) ? "" : $": {request.Note.Trim()}");
+        var fromStatus = unit.Status;
+        unit.ShippedToFacility = facility;
+        unit.ShippedUtc = now;
+        unit.OutboundShipmentReference = reference;
+        var shipped = await ChangeStatusAsync(unit, UnitStatus.ShippedOut, reason, ct);
+        if (!shipped.Succeeded)
+        {
+            return shipped;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new { unit.UnitNumber, Status = UnitStatus.ShippedOut, Path = "ShipOut", ShippedToFacility = facility, OutboundShipmentReference = reference },
+            reason: reason);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return shipped;
+    }
+
+    /// <summary>
     /// SoftBank/SafeTrace consignee reject / unused-stock return to the supplier.
     /// Distinct from ward <see cref="UnitStatus.Returned"/> and from packing-list
     /// <see cref="UnitStatus.CancelledAssignment"/>. Terminal; not issuable.

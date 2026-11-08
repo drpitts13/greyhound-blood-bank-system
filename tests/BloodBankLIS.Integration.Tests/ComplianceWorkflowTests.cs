@@ -118,6 +118,44 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Transfused, (await verify.BloodUnits.FindAsync(transfusedId))!.Status);
     }
 
+    // TEST-BB-598: a recall of a DIN whose unit was shipped to another facility does not try to recall it here; it opens
+    // a notification naming that facility, once.
+    [Fact]
+    public async Task RecallByDin_ShippedUnit_NotifiesTheReceivingFacility()
+    {
+        const string din = "W000056565656";
+        long shippedId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType { ProductCode = "RBC-SHP", Name = "Shipped RBC", ComponentClass = ComponentClass.RedBloodCells };
+            c.ProductTypes.Add(productType);
+            await c.SaveChangesAsync();
+            var shipped = new BloodUnit
+            {
+                UnitNumber = "U-SHP-LB", ProductTypeId = productType.Id, Abo = AboGroup.O, RhD = RhType.Positive, Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.ShippedOut,
+                ShippedToFacility = "St. Mary's Hospital", ShippedUtc = _factory.Clock.UtcNow.AddDays(-1)
+            };
+            c.BloodUnits.Add(shipped);
+            await c.SaveChangesAsync();
+            shippedId = shipped.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(recalled.Succeeded, recalled.Error);
+            var note = Assert.Single(recalled.Value!.Notifications, n => n.BloodProductId == shippedId);
+            Assert.Equal("St. Mary's Hospital", note.ShippedToFacility);
+            Assert.Null(note.PatientId);
+            Assert.True((await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive")).Succeeded);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.ShippedOut, (await verify.BloodUnits.FindAsync(shippedId))!.Status);
+        Assert.Equal(1, await verify.LookbackNotifications.CountAsync(n => n.BloodProductId == shippedId));
+    }
+
     [Fact]
     public async Task RecallByDin_IssuedUnit_OpensOneNotification_AndSecondRecallDoesNotDuplicate()
     {

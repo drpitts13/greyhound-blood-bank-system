@@ -17408,3 +17408,23 @@ Unidentified patients are complete apart from OCD-071 (Cycles 541–542). Next g
 
 - TEST-BB-594: reservation ended and crossmatch-plus-specimen expired offered; crossmatch expired alone, requested, and current not; oldest first.
 - TEST-BB-595: no reason and no ids refused; duplicates collapsed; one released and audited with the trimmed reason, an unknown id reported; releasing again reported as not released.
+
+## Iteration 544 — Ship units to another facility (2026-11-08)
+
+### Capability matrix rescan (blood products: transfers)
+
+Units could move between locations here and go back to the supplier, but not to another hospital: stock balancing with a sister site and a patient transferred with blood had no path, so such units stayed in inventory or were mislabeled as returned to the supplier, and a recall would not say which facility to notify. Workflow questions: scanning (facility once, then each unit); memory (no paper shipping log); safety (only unreserved, unexpired stock ships; a shipped unit cannot be issued here; a recall names the receiving facility instead of failing to recall it); audit (each shipment with facility and reference); no clinical rule invented (shipment content and eligibility beyond the basics are OCD-072).
+
+### Design
+
+- `UnitStatus.ShippedOut`; `ShipOutRule`; unit fields and migration; `ShipOutByScanAsync` and endpoint; issue and scan gates; lookback notification with the facility; Ship units page and unit page line.
+
+### Requirements
+
+- URS-BB-601, FRS-BB-718, OCD-072. Help: Inventory.
+
+### Tests
+
+- TEST-BB-596: facility required and bounded, reference bounded, only Available or Received, not shipped twice, not expired; final status.
+- TEST-BB-597: no facility refused; shipped by lower-case scan with facility, reference, time, and audit; repeat, reserved, and expired refused.
+- TEST-BB-598: recall of a shipped unit leaves it shipped and opens one notification naming the facility, not duplicated on a second recall.

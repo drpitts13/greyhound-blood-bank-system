@@ -12,6 +12,7 @@ routes:
   - /inventory/count
   - /inventory/discard-expired
   - /inventory/return-to-supplier
+  - /inventory/ship-out
 ---
 
 ![Inventory](figures/inventory.png)
@@ -51,6 +52,8 @@ The system moves units that have reached their expiration date to Expired by its
 **Discard expired** lists the expired units still recorded on a shelf, oldest first, with where each one is. Pull each unit and scan it: the scan discards it with the reason EXPIRED. If your facility requires a second verifier for discards, choose them first; they stay chosen for the run. A unit that is not expired is refused; discard it from its unit page with its own reason. A stock count's Expired badge opens this page.
 
 **Return to supplier** packs a return shipment, such as a recall or short-dated stock. Give the reason once, then scan each unit; each scan returns that unit, recorded and audited as from the unit page. A reserved or issued unit is refused with its status: release the reservation first. **Print list** prints the units returned in this run to go with the shipment. A unit already returned, or already marked missing, cannot be returned or marked missing again, so the reason recorded the first time stays.
+
+**Ship to facility** packs an outbound shipment to another hospital (stock balancing, or a patient transferred with blood). Name the receiving facility and, if you have one, the shipment reference (packing list or courier number) once, then scan each unit. Each scan ships that unit: it leaves your inventory as **ShippedOut**, and the unit page says where, when, and the reference. Only an unreserved, unexpired unit in stock ships; a reserved, quarantined, held, expired, or already shipped unit is refused with the reason. **Print packing list** prints the units shipped in this run. If the donation is later recalled, Lookback does not try to recall a shipped unit here; it lists a notification naming the facility to notify. What else a shipment must record is your facility's to decide (OCD-072).
 
 ## Start the next task
 

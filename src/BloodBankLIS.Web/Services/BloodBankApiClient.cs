@@ -613,6 +613,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<InventoryCountDto>> ReconcileInventoryCountAsync(InventoryCountRequest req, CancellationToken ct = default) =>
         SendAsync<InventoryCountDto>(HttpMethod.Post, "api/inventory/counts", req, ct);
 
+    public Task<ApiResult<BloodUnitDto>> ShipOutByScanAsync(ShipOutByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/ship-out-by-scan", req, ct);
+
     public Task<ApiResult<BloodUnitDto>> ReturnToSupplierByScanAsync(ReturnToSupplierByScanRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/return-to-supplier-by-scan", req, ct);
 

@@ -89,7 +89,9 @@ public sealed record LookbackNotificationDto(
     string? Notes,
     string? UnitNumber = null,
     string? MedicalRecordNumber = null,
-    string? PatientName = null)
+    string? PatientName = null,
+    // A unit shipped to another facility: that facility is the one to notify.
+    string? ShippedToFacility = null)
 {
     public static LookbackNotificationDto From(LookbackNotification n) => new(
         n.Id, n.Din, n.BloodProductId, n.PatientId, n.IssueId, n.Status,
@@ -238,7 +240,8 @@ public sealed class LookbackService
                 await EnsureConsigneeNotificationAsync(normalized, unit, reason, ct);
             }
 
-            if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped)
+            // Transfused here, or shipped to another facility (that facility is notified, the unit is not in stock to recall).
+            if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped or UnitStatus.ShippedOut)
             {
                 continue;
             }
@@ -534,7 +537,8 @@ public sealed class LookbackService
         status is UnitStatus.Issued
             or UnitStatus.TransfusionStarted
             or UnitStatus.TransfusionStopped
-            or UnitStatus.Transfused;
+            or UnitStatus.Transfused
+            or UnitStatus.ShippedOut;
 
     private async Task EnsureConsigneeNotificationAsync(
         string din, BloodUnit unit, string reason, CancellationToken ct)
@@ -580,7 +584,8 @@ public sealed class LookbackService
             {
                 UnitNumber = unit?.UnitNumber,
                 MedicalRecordNumber = patient?.MedicalRecordNumber,
-                PatientName = FormatName(patient)
+                PatientName = FormatName(patient),
+                ShippedToFacility = unit?.Status == UnitStatus.ShippedOut ? unit.ShippedToFacility : null
             });
         }
 

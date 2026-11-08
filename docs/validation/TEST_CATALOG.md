@@ -604,5 +604,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-593 | I | `UnidentifiedPatientTests.Demo_HasOneUnidentifiedPatient` | URS-BB-599 / FRS-BB-716 |
 | TEST-BB-594 | U | `DashboardDueCountTests.ReleaseCandidates_LapsedOrExpiredCrossmatchAndSpecimen_NotRequested` | URS-BB-600 / FRS-BB-717 |
 | TEST-BB-595 | I | `Phase4IssuingTests.ReleaseBatch_ReleasesEach_AndReportsThoseItCannot` | URS-BB-600 / FRS-BB-717 |
+| TEST-BB-596 | U | `ShipOutRuleTests.Evaluate_NeedsAFacility_AndAnUnreservedUnexpiredUnitInStock` | URS-BB-601 / FRS-BB-718 |
+| TEST-BB-597 | I | `InventoryServiceTests.ShipOutByScan_ShipsAnUnreservedUnit_AndKeepsTheFacility` | URS-BB-601 / FRS-BB-718 |
+| TEST-BB-598 | I | `ComplianceWorkflowTests.RecallByDin_ShippedUnit_NotifiesTheReceivingFacility` | URS-BB-601 / FRS-BB-718 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

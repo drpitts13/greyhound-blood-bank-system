@@ -123,7 +123,7 @@ else
                 <div class="field"><label>Delivery</label><div class="mono">@if (_unit.DeliveryId is long deliveryId) { <a href="@($"/inventory/deliveries/{deliveryId}")">@deliveryId</a> } else { <span>—</span> }</div></div>
                 <div class="field"><label>Donation</label><div>@_unit.DonationRestriction@(_unit.ReservedPatientId is long pid ? $" — {RecipientLabel(pid)}" : "")</div></div>
             </div>
-            @if (!string.IsNullOrWhiteSpace(_unit.HoldReason) || _unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason) || !string.IsNullOrWhiteSpace(_unit.MissingReason) || !string.IsNullOrWhiteSpace(_unit.DamagedReason) || !string.IsNullOrWhiteSpace(_unit.SupplierReturnReason) || !string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes) || _unit.ReceiveAppearance != UnitAppearance.Acceptable || _unit.ReceiveTemperatureCelsius is not null || !string.IsNullOrWhiteSpace(_unit.DirectedConversionReason) || _unit.ExpectedArrivalDueUtc is not null)
+            @if (!string.IsNullOrWhiteSpace(_unit.HoldReason) || _unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason) || !string.IsNullOrWhiteSpace(_unit.MissingReason) || !string.IsNullOrWhiteSpace(_unit.DamagedReason) || !string.IsNullOrWhiteSpace(_unit.SupplierReturnReason) || !string.IsNullOrWhiteSpace(_unit.ShippedToFacility) || !string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes) || _unit.ReceiveAppearance != UnitAppearance.Acceptable || _unit.ReceiveTemperatureCelsius is not null || !string.IsNullOrWhiteSpace(_unit.DirectedConversionReason) || _unit.ExpectedArrivalDueUtc is not null)
             {
                 <p class="muted">
                     @if (_unit.ExpectedArrivalDueUtc is DateTime due)
@@ -149,6 +149,10 @@ else
                     @if (!string.IsNullOrWhiteSpace(_unit.SupplierReturnReason))
                     {
                         <span>Returned to supplier: @_unit.SupplierReturnReason</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_unit.ShippedToFacility))
+                    {
+                        <span data-unit-shipped>Shipped to @_unit.ShippedToFacility@(_unit.ShippedUtc is DateTime shippedUtc ? $" on {shippedUtc.ToLocalTime():yyyy-MM-dd HH:mm}" : "")@(_unit.OutboundShipmentReference is string shipRef ? $" ({shipRef})" : "")</span>
                     }
                     @if (!string.IsNullOrWhiteSpace(_unit.DirectedConversionReason))
                     {

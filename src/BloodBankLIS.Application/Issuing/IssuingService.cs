@@ -248,6 +248,8 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentDamaged}: Unit container is damaged.");
         if (unit.Status == UnitStatus.ReturnedToSupplier)
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentReturnedToSupplier}: Unit was returned to the supplier.");
+        if (unit.Status == UnitStatus.ShippedOut)
+            return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentShippedOut}: Unit was shipped to {unit.ShippedToFacility ?? "another facility"}.");
         if (unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted)
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentAlreadyIssued}: Unit already issued or transfused.");
 

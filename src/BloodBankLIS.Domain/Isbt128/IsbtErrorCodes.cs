@@ -28,6 +28,7 @@ public static class IsbtErrorCodes
     public const string ComponentMissing = "COMPONENT_MISSING";
     public const string ComponentDamaged = "COMPONENT_DAMAGED";
     public const string ComponentReturnedToSupplier = "COMPONENT_RETURNED_SUPPLIER";
+    public const string ComponentShippedOut = "COMPONENT_SHIPPED_OUT";
     public const string ComponentRecalled = "COMPONENT_RECALLED";
     public const string ComponentAlreadyIssued = "COMPONENT_ALREADY_ISSUED";
     public const string ComponentAlreadyTransfused = "COMPONENT_ALREADY_TRANSFUSED";

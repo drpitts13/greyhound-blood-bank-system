@@ -317,7 +317,12 @@ public enum UnitStatus
     /// <see cref="CancelledAssignment"/> (packing list cancelled; unit never arrived).
     /// Not issuable.
     /// </summary>
-    ReturnedToSupplier = 23
+    ReturnedToSupplier = 23,
+    /// <summary>
+    /// Terminal: shipped to another facility (stock balancing, a patient transferred with blood). The receiving facility
+    /// is kept on the unit so a recall or lookback notifies it. Not issuable here.
+    /// </summary>
+    ShippedOut = 24
 }
 
 /// <summary>

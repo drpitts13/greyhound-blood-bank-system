@@ -16,6 +16,7 @@ public static class Ui
         UnitStatus.Transfused => "badge badge-gray",
         UnitStatus.Quarantine or UnitStatus.Received or UnitStatus.OnHold or UnitStatus.Missing => "badge badge-amber",
         UnitStatus.Discarded or UnitStatus.Expired or UnitStatus.ReturnedToSupplier or UnitStatus.Damaged => "badge badge-red",
+        UnitStatus.ShippedOut => "badge badge-gray",
         UnitStatus.Returned => "badge badge-gray",
         _ => "badge badge-gray"
     };

@@ -684,6 +684,45 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("No unit has the number", (await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-NOPE-{key}", reason))).Error);
     }
 
+    // TEST-BB-597: a unit is shipped to another facility by scan; the facility, time, and reference stay on the unit, the
+    // status is final and audited; a unit reserved, expired, already shipped, or scanned without a facility is refused,
+    // and a shipped unit cannot be issued.
+    [Fact]
+    public async Task ShipOutByScan_ShipsAnUnreservedUnit_AndKeepsTheFacility()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix) =>
+            (await service.ReceiveUnitAsync(NewUnitRequest($"U-SHP{suffix}-{key}", productTypeId))).Unit!.Id;
+        var first = await Receive("A");
+        var reserved = await Receive("B");
+        var expired = await Receive("C");
+        // Received test units start in quarantine; released to stock they can ship.
+        (await context.BloodUnits.FindAsync(first))!.Status = UnitStatus.Available;
+        (await context.BloodUnits.FindAsync(reserved))!.Status = UnitStatus.Assigned;
+        var expiredUnit = (await context.BloodUnits.FindAsync(expired))!;
+        expiredUnit.Status = UnitStatus.Available;
+        expiredUnit.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        await context.SaveChangesAsync();
+
+        Assert.Contains("Name the facility", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPA-{key}", " "))).Error);
+        var shipped = await service.ShipOutByScanAsync(new ShipOutByScanRequest($"u-shpa-{key}", " St. Mary's Hospital ", " PL-2026-77 ", "Patient transfer"));
+        Assert.True(shipped.Succeeded, shipped.Error);
+        var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == first);
+        Assert.Equal((UnitStatus.ShippedOut, "St. Mary's Hospital", "PL-2026-77", (DateTime?)_factory.Clock.UtcNow),
+            (row.Status, row.ShippedToFacility, row.OutboundShipmentReference, row.ShippedUtc));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == first
+            && a.Reason == "Shipped to St. Mary's Hospital (PL-2026-77): Patient transfer"));
+
+        Assert.Contains("already shipped", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPA-{key}", "Other"))).Error);
+        Assert.Contains("is Assigned", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPB-{key}", "Other"))).Error);
+        Assert.Contains("expired", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPC-{key}", "Other"))).Error);
+        Assert.Equal(UnitStatus.Assigned, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == reserved)).Status);
+        Assert.False(InventoryStatusTransition.IsAllowed(UnitStatus.ShippedOut, UnitStatus.Available));
+    }
+
     // TEST-BB-472: expired units on a shelf (marked Expired, or past expiry before the sweep) are listed oldest first
     // and discarded by scan with the EXPIRED reason and the discard checks; a unit not expired, one already discarded,
     // and a scan without the discard permission are refused.

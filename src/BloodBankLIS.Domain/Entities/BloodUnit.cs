@@ -129,6 +129,14 @@ public class BloodUnit : BaseEntity
     /// <summary>Why the unit was returned to the supplier instead of entering (or remaining in) inventory.</summary>
     public string? SupplierReturnReason { get; set; }
 
+    /// <summary>The facility the unit was shipped to (<see cref="UnitStatus.ShippedOut"/>); a recall or lookback notifies it.</summary>
+    public string? ShippedToFacility { get; set; }
+
+    public DateTime? ShippedUtc { get; set; }
+
+    /// <summary>The outbound shipment's reference (packing list, courier number); <see cref="ShipmentId"/> is the inbound one.</summary>
+    public string? OutboundShipmentReference { get; set; }
+
     /// <summary>Allogeneic, autologous, or directed. Autologous/directed require <see cref="ReservedPatientId"/>.</summary>
     public DonationRestriction DonationRestriction { get; set; } = DonationRestriction.Allogeneic;
 
