@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Application.Search;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -102,6 +103,15 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(TimelineSeverity.Warning, givenEvent.Severity);
         Assert.Equal("1 vial given; 2 recommended.", givenEvent.Detail);
         Assert.Contains(rhigEvents, e => e.Title == "RhIG evaluation completed" && e.Detail == "Candidate, 2 vials recommended");
+
+        // TEST-BB-579: the top-bar lookup finds a scanned RhIG lot and opens its trace.
+        var lookup = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c), rhig: new EfRepository<RhigEvaluation>(c));
+        var found = await lookup.LookupAsync("lot-7");
+        var lotHit = Assert.Single(found.Hits);
+        Assert.Equal((LookupHitKind.RhigLot, "LOT-7", "/rhig?lot=LOT-7", "RhIG lot given to 1 patient"), (lotHit.Kind, lotHit.Identifier, lotHit.Href, lotHit.Title));
+        Assert.True(found.OpenDirectly);
+        Assert.Empty((await lookup.LookupAsync("LOT-77")).Hits);
 
         var audits = await c.AuditEvents.Where(a => a.EntityType == nameof(RhigEvaluation) && a.EntityId == saved.Value.Id).Select(a => a.Reason).ToListAsync();
         Assert.Contains("RhIG evaluation recorded.", audits);

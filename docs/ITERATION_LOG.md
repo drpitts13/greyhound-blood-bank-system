@@ -17170,3 +17170,21 @@ Cycles 525–529 built the RhIG evaluation, list, home card, given record, lot t
 ### Tests
 
 - TEST-BB-578: seeding twice adds the two mothers and three evaluations once; completed records pass the completion check; given only on completed candidates with a lot; one open, one to give, one given; both mothers O negative.
+
+## Iteration 531 — RhIG lot in the top-bar lookup (2026-11-07)
+
+### Capability matrix rescan (search everywhere)
+
+The top-bar lookup opens whatever identifier is scanned (unit, MRN, accession, order, visit), but an RhIG lot scanned there found nothing; the trace (Cycle 528) was only on the RhIG page. Workflow questions: scanning (the lot from the vial carton into the bar, from any page); clicks (one exact hit opens directly); consistency (the same bar for every identifier).
+
+### Design
+
+- `LookupHitKind.RhigLot`; exact lot match in `UniversalLookupService` (optional RhIG repository); `/rhig?lot=` runs the trace; bar label; no-match message.
+
+### Requirements
+
+- URS-BB-588, FRS-BB-705. Help: RhIG evaluations, finding records.
+
+### Tests
+
+- TEST-BB-579: a lower-case lot finds the one lot hit with its link and opens directly; a near miss finds nothing; the no-match message names RhIG lots.

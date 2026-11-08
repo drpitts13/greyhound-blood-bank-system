@@ -7,7 +7,9 @@ public enum LookupHitKind
     Patient = 0,
     Unit = 1,
     Specimen = 2,
-    Order = 3
+    Order = 3,
+    /// <summary>An RhIG lot recorded as given; opens the lot trace.</summary>
+    RhigLot = 4
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

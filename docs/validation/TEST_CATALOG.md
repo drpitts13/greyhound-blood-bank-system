@@ -587,5 +587,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-576 | I | `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (lot trace and timeline) | URS-BB-586 / FRS-BB-703 |
 | TEST-BB-577 | U, I | `ShiftHandoffItemsTests.RhigEvaluations_AreAHandoffItem_WithThoseToGive`; `ShiftHandoffServiceTests.Create_CountsRhigEvaluationsStillNeedingWork` | URS-BB-587 / FRS-BB-704 |
 | TEST-BB-578 | I | `DemoRhigSeedTests.RhigDemo_IsConsistent_AndAddedOnce` | URS-BB-583 / FRS-BB-700 (demo data) |
+| TEST-BB-579 | I | `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (lookup); `UniversalLookupTests.UnknownInput_SaysNothingMatches`; `LookupRecordTypeTests.EveryLookupKind_MapsToTheAuditEntityType`; `DeviationRecordTypesTests.EveryLookupKind_MapsToARecordType` | URS-BB-588 / FRS-BB-705 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

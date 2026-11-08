@@ -35,6 +35,8 @@ public sealed class UniversalLookupService
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<Encounter>? _encounters;
 
+    private readonly IRepository<RhigEvaluation>? _rhig;
+
     public UniversalLookupService(
         IRepository<Patient> patients,
         IRepository<PatientIdentifier> identifiers,
@@ -47,8 +49,10 @@ public sealed class UniversalLookupService
         IRepository<SpecialTransfusionRequirement>? requirements = null,
         IClock? clock = null,
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
-        IRepository<Encounter>? encounters = null)
+        IRepository<Encounter>? encounters = null,
+        IRepository<RhigEvaluation>? rhig = null)
     {
+        _rhig = rhig;
         _encounters = encounters;
         _requirementDefinitions = requirementDefinitions;
         _bloodTypes = bloodTypes;
@@ -95,6 +99,7 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactOrdersAsync(upper, ct));
             hits.AddRange(await ExactPatientsAsync(upper, ct));
             hits.AddRange(await ExactVisitsAsync(upper, ct));
+            hits.AddRange(await ExactRhigLotsAsync(upper, ct));
         }
 
         if (hits.Count > 0)
@@ -124,8 +129,38 @@ public sealed class UniversalLookupService
             truncated ? $"Showing the first {PartialLimit} of each kind. Type more of the name or number to narrow the list." : null);
     }
 
+    /// <summary>A scanned RhIG lot recorded as given: one hit that opens the lot trace (who received it).</summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactRhigLotsAsync(string upper, CancellationToken ct)
+    {
+        if (_rhig is null)
+        {
+            return [];
+        }
+
+        var given = await _rhig.ListAsync(e => e.GivenLot != null && e.GivenLot.ToUpper() == upper, ct);
+        if (given.Count == 0)
+        {
+            return [];
+        }
+
+        var lot = given[0].GivenLot!;
+        var patients = given.Select(e => e.PatientId).Distinct().Count();
+        var last = given.Max(e => e.GivenUtc) ?? DateTime.MinValue;
+        return
+        [
+            new LookupHitDto(
+                LookupHitKind.RhigLot,
+                given.Min(e => e.Id),
+                true,
+                lot,
+                $"RhIG lot given to {patients} patient{(patients == 1 ? "" : "s")}",
+                $"Last given {last:yyyy-MM-dd HH:mm} UTC",
+                $"/rhig?lot={Uri.EscapeDataString(lot)}")
+        ];
+    }
+
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, order, or visit matches \"{query}\".";
+        $"No patient, unit, specimen, order, visit, or RhIG lot matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {

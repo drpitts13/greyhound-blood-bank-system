@@ -12,6 +12,8 @@ public static class LookupRecordType
         LookupHitKind.Unit => "BloodUnit",
         LookupHitKind.Specimen => "Specimen",
         LookupHitKind.Order => "Order",
+        // The lot hit carries the first evaluation that recorded the lot given; its audit rows are RhigEvaluation.
+        LookupHitKind.RhigLot => "RhigEvaluation",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No record type for this lookup kind.")
     };
 }

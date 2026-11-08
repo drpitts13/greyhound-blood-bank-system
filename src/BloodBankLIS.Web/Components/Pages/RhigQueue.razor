@@ -91,6 +91,9 @@ else
 
 @code {
     private List<RhigQueueItemDto>? _items;
+
+    // A link (the top-bar lookup) may open the page on a lot's trace.
+    [SupplyParameterFromQuery(Name = "lot")] public string? LotQuery { get; set; }
     private string _lot = string.Empty;
     private string _searchedLot = string.Empty;
     private List<RhigLotRecipientDto>? _recipients;
@@ -122,6 +125,12 @@ else
         if (!r.Succeeded)
         {
             _fb = r.ToFeedback();
+        }
+
+        if (!string.IsNullOrWhiteSpace(LotQuery))
+        {
+            _lot = LotQuery.Trim();
+            await FindLotAsync();
         }
     }
 

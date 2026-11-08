@@ -399,7 +399,7 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, order, or visit matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, visit, or RhIG lot matches \"ZZZ-NOPE\".", result.Message);
     }
 
     private sealed record Fixture(Patient Patient, BloodUnit Unit, ProductType Product);

@@ -49,7 +49,7 @@
                         <a class="bb-lookup-hit @(index == _active ? "active" : "")" role="option"
                            aria-selected="@(index == _active ? "true" : "false")"
                            href="@hit.Href" @onclick="Close" @onmouseover="() => _active = index">
-                            <span class="badge @KindBadge(hit.Kind)">@hit.Kind</span>
+                            <span class="badge @KindBadge(hit.Kind)">@KindLabel(hit.Kind)</span>
                             <span class="bb-lookup-id">@hit.Identifier</span>
                             <span class="bb-lookup-title">@hit.Title</span>
                             @if (hit.Kind == LookupHitKind.Patient)
@@ -198,6 +198,8 @@
         Close();
         StateHasChanged();
     }
+
+    private static string KindLabel(LookupHitKind kind) => kind == LookupHitKind.RhigLot ? "RhIG lot" : kind.ToString();
 
     private static string KindBadge(LookupHitKind kind) => kind switch
     {
