@@ -17761,3 +17761,22 @@ From Blood orders to prepare the reserve form opens on the order (Cycle 556), bu
 
 - TEST-BB-638: units still needed, one unit, covered, none ordered.
 - TEST-BB-639: progress for a partly covered order, a covered order, and none for an unknown order.
+
+## Iteration 562 — Blood order turnaround report (2026-11-08)
+
+### Capability matrix rescan (operations: quality metrics)
+
+Test turnaround is reported (Cycle 436), but blood orders were not: a supervisor could not see how long orders waited for their first crossmatched unit, by priority, or how often a unit was not ready by the needed-by time recorded since Cycle 557. Workflow questions: memory (no counting from the audit trail); next action (compare with the facility target); safety (a measure only; no check depends on it).
+
+### Design
+
+- `BloodOrderTurnaroundRule` (first ready, ready by needed-by, minutes); report source, reader, and view `rpt_blood_order_turnaround` (migration); seeded detail and by-priority reports.
+
+### Requirements
+
+- URS-BB-619, FRS-BB-736. Help: reports.
+
+### Tests
+
+- TEST-BB-640: first ready, Yes/No/blank, minutes.
+- TEST-BB-641: rows for blood orders only (cancelled and test-only left out), released reservation counts, Yes and No, by-priority averages, SQL view values.

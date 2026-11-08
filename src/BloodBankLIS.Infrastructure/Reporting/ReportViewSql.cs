@@ -277,6 +277,34 @@ public static class ReportViewSql
             INNER JOIN Patients p ON p.Id = r.PatientId
             WHERE r.Status = {(int)ResultStatus.Verified} AND r.SupersededByResultId IS NULL AND r.VerifiedUtc IS NOT NULL
             """);
+
+        // Blood orders: first reservation and first issue per order; a unit is ready at the earlier of the two.
+        var orderedMonth = sqlServer ? "CONVERT(varchar(7), o.OrderedUtc, 126)" : "substr(o.OrderedUtc, 1, 7)";
+        var firstReady = "CASE WHEN fr.FirstReservedUtc IS NULL THEN fi.FirstIssuedUtc WHEN fi.FirstIssuedUtc IS NULL OR fr.FirstReservedUtc <= fi.FirstIssuedUtc THEN fr.FirstReservedUtc ELSE fi.FirstIssuedUtc END";
+        yield return (ReportViewCatalog.BloodOrderTurnaround, $"""
+            SELECT
+                o.OrderedUtc AS ordered_utc,
+                {orderedMonth} AS ordered_month,
+                {CaseEnum("o.Priority", typeof(OrderPriority))} AS priority,
+                o.OrderNumber AS order_number,
+                {CaseEnum("o.Status", typeof(OrderStatus))} AS status,
+                pl.UnitsOrdered AS units_ordered,
+                fr.FirstReservedUtc AS first_reserved_utc,
+                fi.FirstIssuedUtc AS first_issued_utc,
+                CASE WHEN fr.FirstReservedUtc IS NULL THEN NULL ELSE {Minutes("o.OrderedUtc", "fr.FirstReservedUtc")} END AS minutes_order_to_reserve,
+                CASE WHEN fi.FirstIssuedUtc IS NULL THEN NULL ELSE {Minutes("o.OrderedUtc", "fi.FirstIssuedUtc")} END AS minutes_order_to_issue,
+                o.NeededByUtc AS needed_by_utc,
+                CASE WHEN o.NeededByUtc IS NULL OR ({firstReady}) IS NULL THEN NULL
+                     WHEN ({firstReady}) <= o.NeededByUtc THEN '{BloodOrderTurnaroundRule.Met}' ELSE '{BloodOrderTurnaroundRule.Missed}' END AS ready_by_needed_by,
+                p.MedicalRecordNumber AS mrn,
+                {person} AS patient_name
+            FROM Orders o
+            INNER JOIN (SELECT OrderId, COUNT(*) AS UnitsOrdered FROM OrderLines WHERE IsActive = 1 AND LineCategory = {(int)OrderCategory.Product} GROUP BY OrderId) pl ON pl.OrderId = o.Id
+            INNER JOIN Patients p ON p.Id = o.PatientId
+            LEFT JOIN (SELECT OrderId, MIN(AllocatedUtc) AS FirstReservedUtc FROM Allocations WHERE OrderId IS NOT NULL GROUP BY OrderId) fr ON fr.OrderId = o.Id
+            LEFT JOIN (SELECT OrderId, MIN(IssuedUtc) AS FirstIssuedUtc FROM Issues WHERE OrderId IS NOT NULL GROUP BY OrderId) fi ON fi.OrderId = o.Id
+            WHERE o.Status NOT IN ({(int)OrderStatus.Cancelled}, {(int)OrderStatus.Discontinued})
+            """);
     }
 
     private static string TextType(bool sqlServer) => sqlServer ? "nvarchar(80)" : "text";

@@ -28,7 +28,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(13, list.Value!.Count);
+        Assert.Equal(15, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -305,6 +305,88 @@ public class ReportServiceTests : IDisposable
         Assert.True(sqlRun.Succeeded, sqlRun.Error);
         Assert.Equal(new[] { "40", "60", "90" }, sqlRun.Value!.Rows.Select(r => r[2] ?? "").ToArray());
         Assert.Equal(("Stat", "75"), (sqlRun.Value.Rows[2][1], sqlRun.Value.Rows[2][3]));
+    }
+
+    // TEST-BB-641: blood order turnaround has one row per blood order (cancelled ones left out) with the minutes from
+    // order to the first unit reserved (released reservations count) and the first issued, and whether a unit was ready
+    // by the needed-by time; the by-priority report averages them; the SQL view gives the same values.
+    [Fact]
+    public async Task BloodOrderTurnaround_MinutesToFirstUnit_ByPriority()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-BOT", LastName = "Order", FirstName = "Blood", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        var product = new ProductType { ProductCode = "RBC-BOT", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        var location = new OrderingLocation { Code = "LOC-BOT", Name = "OR", IsActive = true };
+        db.AddRange(patient, product, location);
+        await db.SaveChangesAsync();
+        var t0 = new DateTime(2026, 10, 21, 8, 0, 0, DateTimeKind.Utc);
+        var encounter = new Encounter { PatientId = patient.Id, VisitNumber = "VIS-BOT", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = t0.AddDays(-1) };
+        db.Encounters.Add(encounter);
+        await db.SaveChangesAsync();
+        Order NewOrder(string number, OrderPriority priority, DateTime? neededBy, OrderStatus status = OrderStatus.InProcess) => new()
+        {
+            OrderNumber = number, PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderCategory = OrderCategory.Product,
+            OrderName = "Red cells", OrderType = OrderType.Other, ProductTypeId = product.Id, Priority = priority, Status = status, Source = OrderSource.Manual,
+            OrderedUtc = t0, NeededByUtc = neededBy
+        };
+        var early = NewOrder("BOT-1", OrderPriority.Stat, t0.AddMinutes(60));
+        var late = NewOrder("BOT-2", OrderPriority.Stat, t0.AddMinutes(30));
+        var waiting = NewOrder("BOT-3", OrderPriority.Routine, null);
+        var cancelled = NewOrder("BOT-4", OrderPriority.Routine, null, OrderStatus.Cancelled);
+        var testOnly = NewOrder("BOT-5", OrderPriority.Routine, null);
+        db.Orders.AddRange(early, late, waiting, cancelled, testOnly);
+        await db.SaveChangesAsync();
+        foreach (var (order, n) in new[] { (early, 2), (late, 1), (waiting, 3), (cancelled, 1) })
+        {
+            for (var i = 1; i <= n; i++)
+            {
+                db.OrderLines.Add(new OrderLine { OrderId = order.Id, LineNumber = i, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = product.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered });
+            }
+        }
+
+        db.OrderLines.Add(new OrderLine { OrderId = testOnly.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "Type and Screen", TestCode = "ABORH", OrderType = OrderType.TypeAndScreen });
+        var units = Enumerable.Range(1, 4).Select(i => new BloodUnit { UnitNumber = $"W-BOT-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = t0.AddDays(20), Status = UnitStatus.Assigned }).ToList();
+        db.BloodUnits.AddRange(units);
+        await db.SaveChangesAsync();
+        db.Allocations.AddRange(
+            new Allocation { BloodProductId = units[0].Id, PatientId = patient.Id, OrderId = early.Id, Status = AllocationStatus.Released, AllocatedUtc = t0.AddMinutes(20) },
+            new Allocation { BloodProductId = units[1].Id, PatientId = patient.Id, OrderId = early.Id, Status = AllocationStatus.Reserved, AllocatedUtc = t0.AddMinutes(50) },
+            new Allocation { BloodProductId = units[2].Id, PatientId = patient.Id, OrderId = late.Id, Status = AllocationStatus.Reserved, AllocatedUtc = t0.AddMinutes(45) });
+        db.Issues.Add(new Issue { BloodProductId = units[1].Id, PatientId = patient.Id, OrderId = early.Id, IssuedUtc = t0.AddMinutes(80), IssuedBy = "tech" });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var detail = await service.RunAsync(list.Single(r => r.Code == "RPT-BLOOD-ORDER-TAT").Id, new Dictionary<string, string?>());
+        Assert.True(detail.Succeeded, detail.Error);
+        var columns = detail.Value!.Columns.ToList();
+        string? Cell(string order, string column) => detail.Value.Rows.Single(r => r[columns.IndexOf("order_number")] == order)[columns.IndexOf(column)];
+        Assert.Equal(new[] { "BOT-1", "BOT-2", "BOT-3" }, detail.Value.Rows.Select(r => r[columns.IndexOf("order_number")]).Order().ToArray());
+        Assert.Equal(("2", "20", "80", "Yes"), (Cell("BOT-1", "units_ordered"), Cell("BOT-1", "minutes_order_to_reserve"), Cell("BOT-1", "minutes_order_to_issue"), Cell("BOT-1", "ready_by_needed_by")));
+        Assert.Equal(("45", null, "No"), (Cell("BOT-2", "minutes_order_to_reserve"), Cell("BOT-2", "minutes_order_to_issue"), Cell("BOT-2", "ready_by_needed_by")));
+        Assert.Equal(("3", null, null), (Cell("BOT-3", "units_ordered"), Cell("BOT-3", "minutes_order_to_reserve"), Cell("BOT-3", "ready_by_needed_by")));
+
+        var byPriority = await service.RunAsync(list.Single(r => r.Code == "RPT-BLOOD-ORDER-TAT-BY-PRIORITY").Id, new Dictionary<string, string?>());
+        Assert.True(byPriority.Succeeded, byPriority.Error);
+        Assert.Contains(byPriority.Value!.Rows, r => r.Contains("Stat") && r.Contains("2") && r.Contains("32.5") && r.Contains("45") && r.Contains("80"));
+        Assert.Contains(byPriority.Value.Rows, r => r.Contains("Routine") && r.Contains("1"));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-BOT-SQL",
+            Name = "SQL blood order turnaround",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT order_number, units_ordered, minutes_order_to_reserve, minutes_order_to_issue, ready_by_needed_by, priority FROM rpt_blood_order_turnaround WHERE mrn = 'MRN-BOT' ORDER BY order_number"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "BOT-1", "BOT-2", "BOT-3" }, sqlRun.Value!.Rows.Select(r => r[0] ?? "").ToArray());
+        Assert.Equal(new[] { "2", "20", "80", "Yes", "Stat" }, sqlRun.Value.Rows[0].Skip(1).ToArray());
+        Assert.Equal(("45", "No"), (sqlRun.Value.Rows[1][2], sqlRun.Value.Rows[1][4]));
+        Assert.True(string.IsNullOrEmpty(sqlRun.Value.Rows[2][2]));
     }
 
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>

@@ -729,6 +729,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-616 / FRS-BB-733 | Blood orders on the shift handoff | `ShiftHandoffService`; `ShiftHandoffItems` | TEST-BB-634, TEST-BB-635 | U, I | |
 | URS-BB-617 / FRS-BB-734 | Blood orders on the downtime sheet | `BloodOrderPreparationRule.DowntimeLine`; `DowntimePatientSummaryService`; `DowntimePatients.razor` | TEST-BB-636, TEST-BB-637 | U, I | |
 | URS-BB-618 / FRS-BB-735 | Order progress on the reserve form | `BloodOrderPreparationRule.ReserveProgress`; `BloodOrderWorklistService.GetProgressAsync`; `PatientChartProductsTab.razor` | TEST-BB-638, TEST-BB-639 | U, I | |
+| URS-BB-619 / FRS-BB-736 | Blood order turnaround reports | `BloodOrderTurnaroundRule`; `ReportSourceCatalog.BloodOrderTurnaround`; `EfReportSourceReader`; `ReportViewSql` | TEST-BB-640, TEST-BB-641 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

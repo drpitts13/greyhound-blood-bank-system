@@ -19,6 +19,7 @@ public static class ReportSourceCatalog
     public const string LabResults = "lab_results";
     public const string SpecimenRejections = "specimen_rejections";
     public const string TestTurnaround = "test_turnaround";
+    public const string BloodOrderTurnaround = "blood_order_turnaround";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -140,6 +141,23 @@ public static class ReportSourceCatalog
             Field("accession_number", "Accession"),
             Field("minutes_order_to_verify", "Minutes, order to verified", ReportValueKind.Number),
             Field("minutes_receipt_to_verify", "Minutes, receipt to verified", ReportValueKind.Number),
+            Field("mrn", "MRN"),
+            Field("patient_name", "Patient")),
+        // One row per blood order (an order with product lines, not cancelled or discontinued): minutes from order to
+        // the first unit reserved and the first issued, and whether a unit was ready by the needed-by time.
+        Source(BloodOrderTurnaround, "Blood order turnaround", ReportViewCatalog.BloodOrderTurnaround,
+            Field("ordered_utc", "Ordered", ReportValueKind.Date),
+            Field("ordered_month", "Order month"),
+            Field("priority", "Priority"),
+            Field("order_number", "Order"),
+            Field("status", "Status"),
+            Field("units_ordered", "Units ordered", ReportValueKind.Number),
+            Field("first_reserved_utc", "First reserved", ReportValueKind.Date),
+            Field("first_issued_utc", "First issued", ReportValueKind.Date),
+            Field("minutes_order_to_reserve", "Minutes, order to first reserved", ReportValueKind.Number),
+            Field("minutes_order_to_issue", "Minutes, order to first issued", ReportValueKind.Number),
+            Field("needed_by_utc", "Needed by", ReportValueKind.Date),
+            Field("ready_by_needed_by", "Ready by needed-by"),
             Field("mrn", "MRN"),
             Field("patient_name", "Patient"))
     };

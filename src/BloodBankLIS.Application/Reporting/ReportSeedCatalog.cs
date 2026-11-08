@@ -96,6 +96,26 @@ public static class ReportSeedCatalog
                 new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "results" },
                 new ReportAggregate { Function = ReportAggregateFunction.Average, Field = "minutes_order_to_verify", Alias = "average minutes" },
                 new ReportAggregate { Function = ReportAggregateFunction.Max, Field = "minutes_order_to_verify", Alias = "longest minutes" }
+            ]),
+        Visual("RPT-BLOOD-ORDER-TAT", "Blood order turnaround",
+            "Blood orders with the minutes from order to the first unit reserved and issued, and whether a unit was ready by the needed-by time.",
+            ReportSourceCatalog.BloodOrderTurnaround,
+            ["ordered_utc", "priority", "order_number", "status", "units_ordered", "mrn", "patient_name", "minutes_order_to_reserve", "minutes_order_to_issue", "needed_by_utc", "ready_by_needed_by"],
+            filters: [DateRange("ordered-range", "ordered_utc")],
+            sorts: [Sort("ordered_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-BLOOD-ORDER-TAT-BY-PRIORITY", "Blood order turnaround by priority",
+            "Blood orders, average and longest minutes from order to the first unit reserved, and the average to first issue, by month and priority.",
+            ReportSourceCatalog.BloodOrderTurnaround,
+            ["ordered_month", "priority"],
+            filters: [DateRange("ordered-range", "ordered_utc")],
+            sorts: [Sort("ordered_month", ReportSortDirection.Descending), Sort("priority")],
+            groupBy: ["ordered_month", "priority"],
+            aggregates:
+            [
+                new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "orders" },
+                new ReportAggregate { Function = ReportAggregateFunction.Average, Field = "minutes_order_to_reserve", Alias = "average minutes to reserve" },
+                new ReportAggregate { Function = ReportAggregateFunction.Max, Field = "minutes_order_to_reserve", Alias = "longest minutes to reserve" },
+                new ReportAggregate { Function = ReportAggregateFunction.Average, Field = "minutes_order_to_issue", Alias = "average minutes to issue" }
             ])
     ];
 
