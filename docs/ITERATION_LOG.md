@@ -17922,3 +17922,22 @@ Blood orders to prepare marked a needed-by time only once it had passed, when th
 
 - TEST-BB-647: inside, at the edge of, and outside the window; passed; window 0 or negative; no time; minutes rounded up.
 - TEST-BB-648: with a 60-minute window an order 30 minutes away is needed soon (30 min) and a passed one is not; the card note counts it; without the policy, or with 0, nothing is soon.
+
+## Iteration 571 — Blood orders needed soon on the shift handoff (2026-11-08)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Cycle 570 marked blood orders needed soon on the worklist and home card, but the shift handoff still counted only those past their needed-by time, so an order due early in the next shift was handed over as routine. Workflow questions: memory (the outgoing shift does not have to mention it); safety (urgent before the time passes, not after); audit (the count is kept with the acknowledged handoff).
+
+### Design
+
+- `ShiftHandoff.BloodOrdersNeededSoon` and migration; counted when recorded; summary line and urgent handoff item.
+
+### Requirements
+
+- URS-BB-626, FRS-BB-743 (OCD-075 window). Help: shift handoff.
+
+### Tests
+
+- TEST-BB-649: needed soon makes the item urgent and is named in its detail and the summary, beside past needed-by.
+- TEST-BB-650: on demo data, 0 with the window off; with a 60-minute window the STAT order 30 minutes out is counted and stored with the handoff.

@@ -736,6 +736,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-623 / FRS-BB-740 | One wording for special requirements | `SpecialRequirementLabel`; `SpecialRequirementDto.From` | TEST-BB-645 | U | |
 | URS-BB-624 / FRS-BB-741 | Nothing runs past its card | `app.css` (`.table-scroll`, card container query); web components | TEST-BB-646 | U | |
 | URS-BB-625 / FRS-BB-742 | Blood orders needed soon | `OrderNeededByRule.DueSoon`; `BloodOrderWorklistService`; `DashboardQueueCatalog.BloodOrdersNote`; `BloodOrders.razor` | TEST-BB-647, TEST-BB-648 | U, I | OCD-075 |
+| URS-BB-626 / FRS-BB-743 | Blood orders needed soon on the shift handoff | `ShiftHandoffService`; `ShiftHandoffItems` | TEST-BB-649, TEST-BB-650 | U, I | OCD-075 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

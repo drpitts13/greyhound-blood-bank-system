@@ -169,6 +169,23 @@ public class BloodOrderWorklistTests
         Assert.True(handoff.Succeeded, handoff.Error);
         Assert.True(listed.Count >= 1);
         Assert.Equal((listed.Count, listed.Count(o => o.NeededByPassed)), (handoff.Value!.BloodOrdersToPrepare, handoff.Value.BloodOrdersPastNeededBy));
+        // The warning window is off by default (seeded 0): nothing is needed soon.
+        Assert.Equal(0, handoff.Value.BloodOrdersNeededSoon);
+
+        // TEST-BB-650: with a 60-minute window the demo STAT order, needed in 30 minutes, is counted as needed soon, and the
+        // count is kept with the recorded handoff.
+        var demo = await c.Orders.SingleAsync(o => o.OrderNumber == "ORD-PREP-DEMO");
+        demo.NeededByUtc = factory.Clock.UtcNow.AddMinutes(30);
+        (await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.BloodOrderNeededBySoonMinutes)).Value = "60";
+        await c.SaveChangesAsync();
+        var warned = await new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(c), c, factory.Clock, factory.CurrentUser,
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            bloodOrders: Service(c, factory, policy: true)).CreateAsync(new CreateShiftHandoffRequest("Needed soon"));
+        Assert.True(warned.Succeeded, warned.Error);
+        Assert.Equal(1, warned.Value!.BloodOrdersNeededSoon);
+        Assert.Equal(1, (await c.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == warned.Value.Id)).BloodOrdersNeededSoon);
+        Assert.Contains("1 needed soon", ShiftHandoffDto.From(warned.Value).QueueSummary);
     }
 
     // TEST-BB-637: the downtime sheet lists each patient's blood orders still to prepare, with what is needed and by when.

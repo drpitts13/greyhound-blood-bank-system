@@ -57,7 +57,8 @@ public sealed record ShiftHandoffDto(
     int UnidentifiedPatients = 0,
     int TubesDueForDiscard = 0,
     int BloodOrdersToPrepare = 0,
-    int BloodOrdersPastNeededBy = 0)
+    int BloodOrdersPastNeededBy = 0,
+    int BloodOrdersNeededSoon = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -104,6 +105,7 @@ public sealed record ShiftHandoffDto(
         (TubesDueForDiscard > 0 ? $"; tubes due for discard {TubesDueForDiscard}" : "") +
         (BloodOrdersToPrepare > 0
             ? $"; blood orders to prepare {BloodOrdersToPrepare}" + (BloodOrdersPastNeededBy > 0 ? $", {BloodOrdersPastNeededBy} PAST NEEDED-BY" : "")
+                + (BloodOrdersNeededSoon > 0 ? $", {BloodOrdersNeededSoon} needed soon" : "")
             : "");
 
     public static ShiftHandoffDto From(ShiftHandoff h) => new(
@@ -117,7 +119,7 @@ public sealed record ShiftHandoffDto(
         h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
-        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy);
+        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon);
 }
 
 /// <summary>
@@ -384,7 +386,8 @@ public sealed class ShiftHandoffService
                 : (await _patientCharts.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct)).Count,
             TubesDueForDiscard = _tubeStorage is null ? 0 : (await _tubeStorage.ListDueForDiscardAsync(ct)).Count,
             BloodOrdersToPrepare = bloodOrders.Count,
-            BloodOrdersPastNeededBy = bloodOrders.Count(o => o.NeededByPassed)
+            BloodOrdersPastNeededBy = bloodOrders.Count(o => o.NeededByPassed),
+            BloodOrdersNeededSoon = bloodOrders.Count(o => o.NeededBySoon)
         };
     }
 
@@ -464,7 +467,8 @@ public sealed class ShiftHandoffService
         UnidentifiedPatients = row.UnidentifiedPatients,
         TubesDueForDiscard = row.TubesDueForDiscard,
         BloodOrdersToPrepare = row.BloodOrdersToPrepare,
-        BloodOrdersPastNeededBy = row.BloodOrdersPastNeededBy
+        BloodOrdersPastNeededBy = row.BloodOrdersPastNeededBy,
+        BloodOrdersNeededSoon = row.BloodOrdersNeededSoon
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

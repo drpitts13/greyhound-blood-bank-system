@@ -115,6 +115,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Of those, orders whose needed-by time has passed.</summary>
     public int BloodOrdersPastNeededBy { get; set; }
 
+    /// <summary>Of those, orders needed within the facility's warning window (OCD-075; 0 while the window is off).</summary>
+    public int BloodOrdersNeededSoon { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

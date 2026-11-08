@@ -248,6 +248,7 @@ public static class DevelopmentSqliteBootstrap
         ("SpecimenStorageEvents", "Discarded", """ALTER TABLE "SpecimenStorageEvents" ADD COLUMN "Discarded" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "BloodOrdersToPrepare", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersToPrepare" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "BloodOrdersPastNeededBy", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersPastNeededBy" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "BloodOrdersNeededSoon", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersNeededSoon" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "UnidentifiedPatients", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "UnidentifiedPatients" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "TubesDueForDiscard", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TubesDueForDiscard" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RhigOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigOpen" INTEGER NOT NULL DEFAULT 0"""),

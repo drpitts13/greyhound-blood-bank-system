@@ -57,9 +57,11 @@ public static class ShiftHandoffItems
         // A chart still unidentified splits the patient's history until it is merged into the identified chart.
         Add(h.UnidentifiedPatients, "Unidentified patients", "/patients", urgent: true, detail: "to merge once identified");
         Add(h.TubesDueForDiscard, "Tubes due for discard", "/specimens/store");
-        // Blood the next shift must still crossmatch and reserve; a passed needed-by time is urgent.
+        // Blood the next shift must still crossmatch and reserve; urgent when a needed-by time has passed or is within the
+        // facility's warning window (OCD-075).
         Add(h.BloodOrdersToPrepare, "Blood orders to prepare", "/blood-orders",
-            urgent: h.BloodOrdersPastNeededBy > 0, detail: Note((h.BloodOrdersPastNeededBy, "past needed-by")));
+            urgent: h.BloodOrdersPastNeededBy > 0 || h.BloodOrdersNeededSoon > 0,
+            detail: Note((h.BloodOrdersPastNeededBy, "past needed-by"), (h.BloodOrdersNeededSoon, "needed soon")));
 
         return items.OrderBy(i => i.Urgent ? 0 : 1).ToList();
     }

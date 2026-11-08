@@ -657,5 +657,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-646 | U | `TableLayoutTests.Tables_scroll_inside_their_card` | URS-BB-624 / FRS-BB-741 |
 | TEST-BB-647 | U | `OrderNeededByRuleTests.DueSoon_OnlyWithinTheWindow_AndAhead` | URS-BB-625 / FRS-BB-742 |
 | TEST-BB-648 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (needed soon) | URS-BB-625 / FRS-BB-742 |
+| TEST-BB-649 | U | `ShiftHandoffItemsTests.BloodOrdersToPrepare_AreAHandoffItem_UrgentWhenPastNeededBy` (needed soon) | URS-BB-626 / FRS-BB-743 |
+| TEST-BB-650 | I | `BloodOrderWorklistTests.Handoff_CountsBloodOrdersToPrepare` (needed soon) | URS-BB-626 / FRS-BB-743 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

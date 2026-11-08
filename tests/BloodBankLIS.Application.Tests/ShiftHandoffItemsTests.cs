@@ -65,6 +65,14 @@ public class ShiftHandoffItemsTests
         var item = Assert.Single(ShiftHandoffItems.For(late));
         Assert.Equal(("1 past needed-by", true), (item.Detail, item.Urgent));
         Assert.Contains("blood orders to prepare 3, 1 PAST NEEDED-BY", late.QueueSummary);
+
+        // TEST-BB-649: orders needed soon (OCD-075 window) make the item urgent too, named beside those past their time.
+        var soon = Handoff() with { BloodOrdersToPrepare = 3, BloodOrdersNeededSoon = 2 };
+        var soonItem = Assert.Single(ShiftHandoffItems.For(soon));
+        Assert.Equal(("2 needed soon", true), (soonItem.Detail, soonItem.Urgent));
+        Assert.Contains("blood orders to prepare 3, 2 needed soon", soon.QueueSummary);
+        var both = Assert.Single(ShiftHandoffItems.For(late with { BloodOrdersNeededSoon = 2 }));
+        Assert.Equal("1 past needed-by, 2 needed soon", both.Detail);
     }
 
     [Fact]

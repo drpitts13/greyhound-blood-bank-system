@@ -631,3 +631,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-623 | A patient's special transfusion requirement reads the same on every screen and printout, in plain words, with the antigen named. | P3 | FRS-BB-740 |
 | URS-BB-624 | No button, field, or table runs past the edge of its card at a normal window width; a table too wide for its card scrolls inside it. | P3 | FRS-BB-741 |
 | URS-BB-625 | When the facility sets a warning window, blood orders whose needed-by time is that close are marked as needed soon, with the minutes left, before the time passes. | P2 | FRS-BB-742 |
+| URS-BB-626 | The shift handoff names the blood orders needed soon (within the facility's warning window), so the incoming shift sees them before their time passes. | P2 | FRS-BB-743 |
