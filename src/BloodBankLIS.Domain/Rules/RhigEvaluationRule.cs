@@ -100,6 +100,36 @@ public static class RhigEvaluationRule
             ? $"{g} vial{(g == 1 ? "" : "s")} given; {r} recommended."
             : null;
 
+    /// <summary>
+    /// An evaluation still needing work, for the downtime sheet: "Delivery 2026-11-07: candidate, 1 vial recommended;
+    /// RhIG not yet given" or "Delivery 2026-11-07: not yet decided". Null when nothing is outstanding.
+    /// </summary>
+    public static string? OutstandingLine(RhigContext context, DateTime eventUtc, RhigDecision decision, int? vials, bool completed, bool given)
+    {
+        var label = context switch
+        {
+            RhigContext.Antepartum => "Antepartum",
+            RhigContext.Postpartum => "Delivery",
+            _ => "Other exposure"
+        };
+        var head = $"{label} {eventUtc:yyyy-MM-dd}";
+        if (!completed)
+        {
+            return decision switch
+            {
+                RhigDecision.Candidate => $"{head}: candidate{Vials(vials)}; evaluation not completed",
+                RhigDecision.NotCandidate => $"{head}: not a candidate; evaluation not completed",
+                _ => $"{head}: not yet decided"
+            };
+        }
+
+        return decision == RhigDecision.Candidate && !given
+            ? $"{head}: candidate{Vials(vials)}; RhIG not yet given"
+            : null;
+
+        static string Vials(int? v) => v is int n ? $", {n} vial{(n == 1 ? "" : "s")} recommended" : string.Empty;
+    }
+
     public static RuleResult EvaluateValues(int? vials, decimal? fetalBleedPercent)
     {
         if (vials is < 0 or > 50)

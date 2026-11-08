@@ -24,6 +24,21 @@ public class RhigGivenRuleTests
         Assert.Contains("future", Given(hours: 2).Message);
     }
 
+    // TEST-BB-580: the downtime line says what is outstanding, and nothing once done.
+    [Fact]
+    public void OutstandingLine_SaysWhatIsLeft()
+    {
+        var at = new DateTime(2026, 11, 7, 3, 0, 0, DateTimeKind.Utc);
+        Assert.Equal("Delivery 2026-11-07: not yet decided",
+            RhigEvaluationRule.OutstandingLine(RhigContext.Postpartum, at, RhigDecision.Undetermined, null, false, false));
+        Assert.Equal("Delivery 2026-11-07: candidate, 1 vial recommended; RhIG not yet given",
+            RhigEvaluationRule.OutstandingLine(RhigContext.Postpartum, at, RhigDecision.Candidate, 1, true, false));
+        Assert.Equal("Antepartum 2026-11-07: candidate, 2 vials recommended; evaluation not completed",
+            RhigEvaluationRule.OutstandingLine(RhigContext.Antepartum, at, RhigDecision.Candidate, 2, false, false));
+        Assert.Null(RhigEvaluationRule.OutstandingLine(RhigContext.Postpartum, at, RhigDecision.Candidate, 1, true, true));
+        Assert.Null(RhigEvaluationRule.OutstandingLine(RhigContext.Postpartum, at, RhigDecision.NotCandidate, null, true, false));
+    }
+
     [Fact]
     public void Difference_IsNotedOnly_WhenTheVialsDiffer()
     {

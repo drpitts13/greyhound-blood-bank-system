@@ -17188,3 +17188,21 @@ The top-bar lookup opens whatever identifier is scanned (unit, MRN, accession, o
 ### Tests
 
 - TEST-BB-579: a lower-case lot finds the one lot hit with its link and opens directly; a near miss finds nothing; the no-match message names RhIG lots.
+
+## Iteration 532 — RhIG on the downtime sheet (2026-11-07)
+
+### Capability matrix rescan (downtime)
+
+RhIG work reaches the chart, the list, the home card, the handoff, the lookup, and the timeline (Cycles 525–531), but not the downtime patient sheet: a mother delivered before an outage with RhIG still to give was on the sheet only if she happened to have a live specimen or unit, and the sheet said nothing about RhIG. Workflow questions: memory (the paper says what is outstanding); safety (a dose falling due during the outage is visible without the system).
+
+### Design
+
+- `RhigEvaluationRule.OutstandingLine`; downtime selection and row include RhIG still needing work; printed "RhIG: …" lines.
+
+### Requirements
+
+- URS-BB-589, FRS-BB-706. Help: RhIG evaluations.
+
+### Tests
+
+- TEST-BB-580: lines for undecided, not completed, and to give; none once given or not a candidate; a waiting patient is on the full sheet with the line, a given one is not added for it.

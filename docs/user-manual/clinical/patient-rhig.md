@@ -26,3 +26,5 @@ Once a candidate evaluation is completed, **Record RhIG given** takes the RhIG l
 For a recall, scan the lot into the top-bar lookup (it opens the trace), or use **Who received an RhIG lot** on the RhIG list. Either finds every patient the lot was recorded as given to, with the time, vials, and who gave it. The patient **Timeline** shows each evaluation when it was recorded and completed, and the RhIG given with its lot; a dose that differed from the recommendation is marked.
 
 > Demo data. A development database includes two O-negative demo mothers: MRN0025 (an antepartum dose given from lot RHIG-DEMO-01, and a delivery completed as a candidate and waiting to be given) and MRN0026 (this morning's delivery, not yet decided). Their decisions and vials are demonstration entries, not a dosing rule.
+
+The downtime patient sheet lists patients whose RhIG evaluation still needs work, with what is outstanding (for example "RhIG: Delivery 2026-11-07: candidate, 1 vial recommended; RhIG not yet given").

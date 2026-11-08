@@ -32,7 +32,9 @@ public sealed record DowntimePatientRow(
     IReadOnlyList<string> SpecialRequirements,
     IReadOnlyList<string> Informational,
     IReadOnlyList<DowntimeSpecimenLine> Specimens,
-    IReadOnlyList<DowntimeUnitLine> Units);
+    IReadOnlyList<DowntimeUnitLine> Units,
+    // RhIG evaluations still needing work (not completed, or a candidate not yet given).
+    IReadOnlyList<string>? Rhig = null);
 
 public sealed record DowntimePatientSummary(DateTime GeneratedUtc, IReadOnlyList<DowntimePatientRow> Patients);
 
@@ -56,6 +58,7 @@ public sealed class DowntimePatientSummaryService
     private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IRepository<RhigEvaluation>? _rhig;
 
     public DowntimePatientSummaryService(
         IRepository<Patient> patients,
@@ -70,8 +73,10 @@ public sealed class DowntimePatientSummaryService
         IRepository<SpecialRequirementDefinition> requirementDefinitions,
         IAuditWriter audit,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IRepository<RhigEvaluation>? rhig = null)
     {
+        _rhig = rhig;
         _patients = patients;
         _specimens = specimens;
         _allocations = allocations;
@@ -106,12 +111,19 @@ public sealed class DowntimePatientSummaryService
             a => a.Status == AllocationStatus.Reserved && (patientId == null || a.PatientId == patientId), ct);
         var issued = await _issues.ListAsync(
             i => i.Status == IssueStatus.Issued && (patientId == null || i.PatientId == patientId), ct);
+        // An RhIG evaluation still needing work puts the patient on the sheet: the dose may fall due during the outage.
+        var rhigOpen = _rhig is null
+            ? []
+            : (await _rhig.ListAsync(
+                e => (e.CompletedUtc == null || (e.Decision == RhigDecision.Candidate && e.GivenUtc == null))
+                    && (patientId == null || e.PatientId == patientId), ct)).ToList();
 
         var patientIds = patientId is long one
             ? new HashSet<long> { one }
             : specimens.Select(s => s.PatientId)
                 .Concat(reserved.Select(a => a.PatientId))
                 .Concat(issued.Select(i => i.PatientId))
+                .Concat(rhigOpen.Select(e => e.PatientId))
                 .ToHashSet();
         if (patientIds.Count == 0)
         {
@@ -179,7 +191,13 @@ public sealed class DowntimePatientSummaryService
                         .OrderByDescending(s => s.CollectedUtc)
                         .Select(s => new DowntimeSpecimenLine(s.AccessionNumber, s.CollectedUtc, s.ExpiresUtc))
                         .ToList(),
-                    unitLines);
+                    unitLines,
+                    rhigOpen.Where(e => e.PatientId == p.Id)
+                        .OrderBy(e => e.EventUtc)
+                        .Select(e => RhigEvaluationRule.OutstandingLine(
+                            e.Context, e.EventUtc, e.Decision, e.VialsRecommended, e.CompletedUtc is not null, e.GivenUtc is not null))
+                        .OfType<string>()
+                        .ToList());
             })
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(r => r.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)

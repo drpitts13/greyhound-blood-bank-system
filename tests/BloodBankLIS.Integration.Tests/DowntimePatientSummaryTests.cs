@@ -29,7 +29,8 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
             new EfRepository<SpecialRequirementDefinition>(c),
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
             c,
-            _factory.Clock);
+            _factory.Clock,
+            new EfRepository<RhigEvaluation>(c));
 
     private Patient NewPatient(string key, string last) => new()
     {
@@ -234,6 +235,39 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
             .Where(e => e.EventType == AuditEventType.Print && e.EntityType == "DowntimePatientSummary" && e.EntityId == quiet.Id)
             .SingleAsync();
         Assert.Contains("one patient", printed.NewValueJson);
+    }
+
+    // TEST-BB-580: a patient with an RhIG evaluation still needing work is on the sheet with what is outstanding; one whose
+    // RhIG was given is not added for it.
+    [Fact]
+    public async Task Summary_CarriesRhigStillNeedingWork()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var waiting = NewPatient(key, "Rhwait");
+        var done = NewPatient(key, "Rhdone");
+        c.Patients.AddRange(waiting, done);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        c.RhigEvaluations.AddRange(
+            new RhigEvaluation
+            {
+                PatientId = waiting.Id, Context = RhigContext.Postpartum, EventUtc = now.AddHours(-8), Decision = RhigDecision.Candidate,
+                VialsRecommended = 1, RecordedBy = "tech", RecordedUtc = now, CompletedBy = "lead", CompletedUtc = now
+            },
+            new RhigEvaluation
+            {
+                PatientId = done.Id, Context = RhigContext.Postpartum, EventUtc = now.AddHours(-8), Decision = RhigDecision.Candidate,
+                VialsRecommended = 1, RecordedBy = "tech", RecordedUtc = now, CompletedBy = "lead", CompletedUtc = now,
+                GivenLot = "L1", GivenVials = 1, GivenUtc = now, GivenBy = "tech"
+            });
+        await c.SaveChangesAsync();
+
+        var sheet = await Service(c).GetAsync();
+        var row = Assert.Single(sheet.Patients, r => r.PatientId == waiting.Id);
+        Assert.Equal($"Delivery {now.AddHours(-8):yyyy-MM-dd}: candidate, 1 vial recommended; RhIG not yet given", Assert.Single(row.Rhig!));
+        Assert.DoesNotContain(sheet.Patients, r => r.PatientId == done.Id);
+        Assert.Empty(Assert.Single((await Service(c).GetAsync(done.Id)).Patients).Rhig!);
     }
 
     [Fact]
