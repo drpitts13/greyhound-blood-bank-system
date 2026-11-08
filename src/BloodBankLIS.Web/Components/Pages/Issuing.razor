@@ -177,6 +177,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -198,6 +199,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -226,6 +228,7 @@
                     else
                     {
                         <div class="muted">Untick any unit the patient still needs. Each ticked unit is released to stock with this reason and audited on its own.</div>
+                        <div class="table-scroll">
                         <table class="bb" style="margin:.4rem 0;">
                             <thead><tr><th></th><th>Unit</th><th>Patient</th><th>Why offered</th></tr></thead>
                             <tbody>
@@ -240,6 +243,7 @@
                                 }
                             </tbody>
                         </table>
+                        </div>
                         <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
                             <div class="field" style="flex:1;min-width:14rem;"><label>Reason</label><input @bind="_releaseBatchReason" @bind:event="oninput" placeholder="e.g. Reservations ended, transfusion not needed" data-release-reason /></div>
                             <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || _releaseChosen.Count == 0 || string.IsNullOrWhiteSpace(_releaseBatchReason))" @onclick="ReleaseChosenAsync" data-release-submit>Release @_releaseChosen.Count to stock</button>
@@ -248,6 +252,7 @@
                     }
                 </div>
             }
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -404,6 +409,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -419,6 +425,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -492,6 +499,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -507,6 +515,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -581,6 +590,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -600,6 +610,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -690,6 +701,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -709,6 +721,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Unit</th><th>Patient</th><th>Issued</th><th>Due</th></tr></thead>
                 <tbody>
@@ -723,6 +736,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -953,6 +967,7 @@
                 @if (_issuedThisRun.Count > 0)
                 {
                     <div><strong>Issued now (@_issuedThisRun.Count)</strong></div>
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Unit</th><th>Product</th><th>To</th><th>Cooler</th><th>Issued</th></tr></thead>
                         <tbody>
@@ -968,6 +983,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
                     @foreach (var cooler in _issuedThisRun.Select(d => d.CoolerId?.Trim()).Where(c => !string.IsNullOrEmpty(c)).Distinct(StringComparer.OrdinalIgnoreCase))
                     {
                         <a class="btn btn-ghost btn-sm" style="margin-top:.5rem;" href="@($"/issuing/cooler-check?cooler={Uri.EscapeDataString(cooler!)}")" data-cooler-check-run>Check cooler @cooler before it leaves</a>
@@ -1052,6 +1068,7 @@
                 <div class="bb-card-title"><h3>@ReceiptRunTitle</h3></div>
                 @if (_wardReceivedRun.Count > 0)
                 {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Unit</th><th>Product</th><th>Received by</th><th>Received</th></tr></thead>
                     <tbody>
@@ -1066,6 +1083,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 }
                 @if (NextToReceive.Count > 0)
                 {
@@ -1200,6 +1218,7 @@
                     <div class="bb-card-title"><h3>@ReturnRunTitle</h3></div>
                     @if (_returnRun.Count > 0)
                     {
+                        <div class="table-scroll">
                         <table class="bb">
                             <thead><tr><th>Unit</th><th>Product</th><th>Returned to</th><th>Returned</th></tr></thead>
                             <tbody>
@@ -1214,6 +1233,7 @@
                                 }
                             </tbody>
                         </table>
+                        </div>
                     }
                     @if (NextToReturn.Count > 0)
                     {
@@ -1371,6 +1391,7 @@
                     <div class="bb-card-title"><h3>This patient at the bedside</h3></div>
                     @if (_txRun.Count > 0)
                     {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Unit</th><th>Product</th><th>Done</th><th>At</th></tr></thead>
                         <tbody>
@@ -1385,6 +1406,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
                     }
                     @if (NextAtBedside.Count > 0)
                     {

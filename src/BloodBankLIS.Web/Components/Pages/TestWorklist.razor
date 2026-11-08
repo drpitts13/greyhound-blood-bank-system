@@ -108,6 +108,7 @@
             }
             @if (_batch.Candidates.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th><input type="checkbox" checked="@(_batchSelected.Count == _batch.Candidates.Count)" @onchange="ToggleAllBatch" aria-label="Select all" /></th><th>Patient / MRN</th><th>Test</th><th>Result</th><th>Accession</th><th>Entered by</th></tr></thead>
                     <tbody>
@@ -124,6 +125,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 <button type="button" class="btn btn-primary btn-sm" style="margin-top:.5rem;" disabled="@(_busy || _batchSelected.Count == 0)" @onclick="BatchVerifyAsync" data-batch-verify-button>Verify @_batchSelected.Count selected</button>
             }
         </div>
@@ -177,6 +179,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -292,6 +295,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 }
@@ -339,6 +343,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -425,6 +430,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 }
@@ -451,6 +457,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -498,6 +505,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 }

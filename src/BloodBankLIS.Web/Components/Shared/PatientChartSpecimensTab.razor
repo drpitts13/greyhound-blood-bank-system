@@ -130,10 +130,12 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Accession</th><th>Type</th><th>Visit</th><th>Collected</th><th>Expires</th><th>Status</th><th>Comment</th><th></th></tr></thead>
-            <tbody>
+            <thead><tr><th>Accession</th><th>Type</th><th>Visit</th><th>Collected</th><th>Expires</th><th>Status</th><th>Comment</th></tr></thead>
                 @foreach (var s in Specimens)
                 {
+                    @* One record per tbody: the facts, the row's actions on a line underneath (so a narrow chart never pushes
+                       them off the card), then any open form. *@
+                    <tbody class="record">
                     <tr>
                         <td class="mono">@s.AccessionNumber</td>
                         <td>@(s.SpecimenTypeDescription ?? s.SpecimenType)</td>
@@ -152,7 +154,10 @@
                             }
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(s.Comment) ? "—" : s.Comment)</td>
-                        <td class="right nowrap">
+                    </tr>
+                    <tr class="row-actions">
+                        <td colspan="7">
+                          <div class="row-actions-bar">
                             <button class="btn btn-ghost btn-sm" @onclick="() => OnSelect.InvokeAsync(s)">@(SelectedId == s.Id ? "Hide" : "Results")</button>
                             <button class="btn btn-ghost btn-sm" @onclick="() => ToggleHistory(s.Id)">@(_historyId == s.Id ? "Hide history" : "History")</button>
                             @if (Session.Has(PermissionCodes.PrintLabel))
@@ -188,6 +193,7 @@
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginReject.InvokeAsync(s)">Reject</button>
                             }
+                          </div>
                         </td>
                     </tr>
                     @if (EditId == s.Id)
@@ -314,8 +320,8 @@
                             }
                         </td></tr>
                     }
+                    </tbody>
                 }
-            </tbody>
         </table>
     }
 </div>

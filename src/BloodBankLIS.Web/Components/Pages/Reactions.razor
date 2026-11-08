@@ -39,6 +39,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -155,6 +156,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -251,6 +253,7 @@ else
                                     <span class="badge badge-gray" title="Reaction workup orders may use an expired pre-transfusion tube (OCD-058)">Expired: workup allowed</span>
                                 }
                             </div>
+                            <div class="table-scroll">
                             <table class="bb" style="margin-top:.35rem;">
                                 <thead><tr><th>Test</th><th>Result</th><th>Status</th></tr></thead>
                                 <tbody>
@@ -273,6 +276,7 @@ else
                                     }
                                 </tbody>
                             </table>
+                            </div>
                             @if (workup.Pending > 0)
                             {
                                 <a class="btn btn-secondary btn-sm" style="margin-top:.35rem;" href="@($"/test-worklist?accession={Uri.EscapeDataString(workup.AccessionNumber)}")" data-result-on-bench>Result on bench (@workup.Pending)</a>

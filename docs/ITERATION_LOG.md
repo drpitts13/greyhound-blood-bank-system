@@ -17852,3 +17852,19 @@ The same requirement was named differently by screen: "Antigen negative K" in th
 ### Tests
 
 - TEST-BB-645: type names, antigen in brackets, a name that already says the antigen, trimming. Timeline and worklist tests updated to the shared wording.
+
+## Iteration 567 — Nothing runs past its card (2026-11-08)
+
+### Capability matrix rescan (UX: layout at working window sizes)
+
+After the special requirements box was fixed on request (its End date button ran off the chart Overview), every chart tab and the main work pages were measured in the browser at the preview window's width (cards about 713 px): any button, field, cell, or badge whose right edge passed its card. Seven places overflowed: chart Specimens (772 px, the row buttons) and Products (753 px), Issuing Ready to issue (963) and Issued units (1251), Test worklist (1015), Inventory (918), and Reactions (1263). Workflow questions: clicks and memory (no hidden buttons to find by scrolling the whole page sideways); safety (a row's actions and status stay in view with the row).
+
+### Design
+
+- Chart Specimens: one record per row block with its buttons on a line underneath, as the Orders tab already does.
+- In a card narrower than 760 px a date-and-time cell may break between date and time (container query on `.bb-card`).
+- Wide board tables sit in a `.table-scroll` box that scrolls sideways inside the card. The card itself does not scroll, and tables containing a searchable dropdown are left unwrapped, because a scroll box would clip its menu.
+
+### Verification
+
+- Re-measured every page above: no element passes its card; the five boards scroll inside their cards. Specimens row buttons (Results, History, Print label, Edit, Relabel, Reject) still work. Full test suite run. No new requirement IDs: layout only, no behaviour change.

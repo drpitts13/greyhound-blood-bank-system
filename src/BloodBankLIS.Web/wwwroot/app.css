@@ -224,6 +224,13 @@ table.bb tbody.record td { border-bottom: 0; }
 table.bb tr.row-actions > td { padding-top: 0; }
 .row-actions-bar { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .35rem; }
 table.bb tr.row-actions:not(:has(.btn, .badge, .muted)) { display: none; }
+/* A wide board scrolls sideways inside its card, with a visible scrollbar, instead of running past the card edge.
+   (Not on the card itself: a scrolling card would clip the searchable dropdown menus some cards hold.) */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+.table-scroll > table.bb { margin-bottom: .25rem; }
+/* In a narrow card a date-and-time cell may break between the date and the time rather than widen the table. */
+.bb-card { container-type: inline-size; }
+@container (max-width: 760px) { table.bb td.nowrap { white-space: normal; } }
 /* Secondary line inside a cell, so related facts share one column. */
 .sub { display: block; font-size: .78rem; color: var(--bb-muted); }
 
