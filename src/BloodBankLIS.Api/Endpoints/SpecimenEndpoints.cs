@@ -60,6 +60,9 @@ public static class SpecimenEndpoints
 
         // Read-only history of one tube, same access as reading the specimen.
         // Put a tube away by scan; the earlier place is kept (SpecimenStorageEvent) and the move audited.
+        group.MapGet("/stored", async (string? location, SpecimenStorageService service, CancellationToken ct) =>
+            Results.Ok(await service.ListInPlaceAsync(location, ct)));
+
         group.MapPost("/store", async (StoreSpecimenRequest request, SpecimenStorageService service, CancellationToken ct) =>
             EndpointResults.From(await service.StoreAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.SpecimenAccession);

@@ -75,6 +75,12 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(timeline!.Events, e => e.Title == "Stored in Rack 3" && e.Detail == "A4");
         Assert.Contains(timeline.Events, e => e.Title == "Moved to Retention fridge 2" && e.Detail == "From Rack 3");
 
+        // TEST-BB-583: a place lists the tubes recorded in it now; a moved tube leaves its old place.
+        var inFridge = Assert.Single(await service.ListInPlaceAsync(" retention FRIDGE 2 "), t => t.SpecimenId == tube.Id);
+        Assert.Equal((tube.AccessionNumber, "Store, Tube", patient.MedicalRecordNumber), (inFridge.AccessionNumber, inFridge.PatientName, inFridge.Mrn));
+        Assert.DoesNotContain(await service.ListInPlaceAsync("Rack 3"), t => t.SpecimenId == tube.Id);
+        Assert.Empty(await service.ListInPlaceAsync(" "));
+
         // TEST-BB-582: scanning the tube into the top-bar lookup says where it is.
         var lookup = new UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c));

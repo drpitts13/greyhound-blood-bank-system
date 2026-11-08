@@ -17242,3 +17242,21 @@ Cycle 533 records where tubes are kept, but the place showed only on the chart a
 ### Tests
 
 - TEST-BB-582: the lookup hit names the stored place; the demo tube is stored with both places in order, added once.
+
+## Iteration 535 — What is in a rack (2026-11-07)
+
+### Capability matrix rescan (specimens: storage)
+
+Store tubes (Cycles 533–534) records where each tube goes, but a rack could not be looked at from the other side: which tubes should be in it. Checking a rack against the system, or finding one patient's tube among many, meant opening charts. Workflow questions: scanning (the rack scan already on the page now also lists it); memory (no rack log); next action (after each tube is stored the list refreshes).
+
+### Design
+
+- `ListInPlaceAsync`, `GET /api/specimens/stored`; Store tubes "In <place> now" list.
+
+### Requirements
+
+- URS-BB-592, FRS-BB-709. Help: Store tubes.
+
+### Tests
+
+- TEST-BB-583: a place in any case with spaces finds the tube with its patient; a moved tube is not listed in its old place; a blank place lists nothing.

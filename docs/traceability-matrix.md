@@ -702,6 +702,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-589 / FRS-BB-706 | RhIG outstanding on the downtime sheet | `RhigEvaluationRule.OutstandingLine`; `DowntimePatientSummaryService`; `DowntimePatients.razor` | TEST-BB-580 | U, I | |
 | URS-BB-590 / FRS-BB-707 | Tube storage by scan with history | `SpecimenStorageRule`; `SpecimenStorageService`; `StoreTubes.razor`; `SpecimenTimelineService` | TEST-BB-581 | U, I | OCD-070 |
 | URS-BB-591 / FRS-BB-708 | Tube storage shown on lookup and reaction workup | `UniversalLookupService`; `ReactionWorkupReader`; `Reactions.razor` | TEST-BB-582 | I | |
+| URS-BB-592 / FRS-BB-709 | Tubes recorded in a place | `SpecimenStorageService.ListInPlaceAsync`; `StoreTubes.razor` | TEST-BB-583 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -591,5 +591,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-580 | U, I | `RhigGivenRuleTests.OutstandingLine_SaysWhatIsLeft`; `DowntimePatientSummaryTests.Summary_CarriesRhigStillNeedingWork` | URS-BB-589 / FRS-BB-706 |
 | TEST-BB-581 | U, I | `SpecimenStorageTests.Tube_IsStoredByScan_AndAMoveKeepsWhereItWas`; `SpecimenStorageTests.Rule_BoundsThePlace` | URS-BB-590 / FRS-BB-707 |
 | TEST-BB-582 | I | `SpecimenStorageTests.Tube_IsStoredByScan_AndAMoveKeepsWhereItWas` (lookup); `SpecimenStorageTests.Demo_ReactionTube_IsStoredWithItsHistory` | URS-BB-591 / FRS-BB-708 |
+| TEST-BB-583 | I | `SpecimenStorageTests.Tube_IsStoredByScan_AndAMoveKeepsWhereItWas` (tubes in a place) | URS-BB-592 / FRS-BB-709 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

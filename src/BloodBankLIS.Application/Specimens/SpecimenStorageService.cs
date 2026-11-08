@@ -20,6 +20,19 @@ public sealed record StoredSpecimenDto(
     string? PreviousLocation,
     DateTime StoredUtc);
 
+/// <summary>A tube recorded in a storage place now.</summary>
+public sealed record TubeInPlaceDto(
+    long SpecimenId,
+    string AccessionNumber,
+    string SpecimenType,
+    SpecimenStatus Status,
+    long PatientId,
+    string PatientName,
+    string Mrn,
+    DateTime CollectedUtc,
+    DateTime? StoredUtc,
+    string? StoredBy);
+
 /// <summary>
 /// Puts tubes away by scan (specimen.accession). The tube's current place is on the specimen; every store or move is
 /// also kept as a <see cref="SpecimenStorageEvent"/> and audited, so the earlier place is never lost.
@@ -53,6 +66,40 @@ public sealed class SpecimenStorageService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+    }
+
+    /// <summary>
+    /// Tubes recorded in a place now (exact place, trimmed, case-insensitive), most recently stored first, so a rack can
+    /// be checked against the system or a tube found in it.
+    /// </summary>
+    public async Task<IReadOnlyList<TubeInPlaceDto>> ListInPlaceAsync(string? location, CancellationToken ct = default)
+    {
+        var place = location?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(place))
+        {
+            return [];
+        }
+
+        var tubes = await _specimens.ListAsync(s => s.StorageLocation != null && s.StorageLocation.ToUpper() == place, ct);
+        if (tubes.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = tubes.Select(t => t.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => ids.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return tubes
+            .OrderByDescending(t => t.StoredUtc)
+            .ThenBy(t => t.AccessionNumber, StringComparer.OrdinalIgnoreCase)
+            .Select(t =>
+            {
+                patients.TryGetValue(t.PatientId, out var patient);
+                return new TubeInPlaceDto(
+                    t.Id, t.AccessionNumber, t.SpecimenType, t.Status, t.PatientId,
+                    patient is null ? $"Patient {t.PatientId}" : $"{patient.LastName}, {patient.FirstName}",
+                    patient?.MedicalRecordNumber ?? "—", t.CollectedUtc, t.StoredUtc, t.StoredBy);
+            })
+            .ToList();
     }
 
     public async Task<OperationResult<StoredSpecimenDto>> StoreAsync(StoreSpecimenRequest request, CancellationToken ct = default)

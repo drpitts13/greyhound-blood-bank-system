@@ -1784,6 +1784,9 @@ public sealed class BloodBankApiClient
         }
     }
 
+    public Task<ApiResult<List<TubeInPlaceDto>>> GetTubesInPlaceAsync(string location, CancellationToken ct = default) =>
+        SendAsync<List<TubeInPlaceDto>>(HttpMethod.Get, $"api/specimens/stored?location={Uri.EscapeDataString(location)}", ct: ct);
+
     public Task<ApiResult<StoredSpecimenDto>> StoreSpecimenAsync(StoreSpecimenRequest req, CancellationToken ct = default) =>
         SendAsync<StoredSpecimenDto>(HttpMethod.Post, "api/specimens/store", req, ct);
 

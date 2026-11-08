@@ -597,3 +597,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-589 | The downtime patient sheet includes patients with an RhIG evaluation still needing work and says what is outstanding, so a dose due during an outage is not missed. | P2 | FRS-BB-706 |
 | URS-BB-590 | The blood bank records by scan where each tube is stored (rack, shelf, position), sees it on the chart, and keeps every earlier place when a tube is moved, so a tube can be found again for repeat testing or a reaction workup. | P2 | FRS-BB-707 |
 | URS-BB-591 | Where a tube is stored is shown where it is being looked for: on the top-bar lookup and on a transfusion reaction investigation's workup tubes. | P3 | FRS-BB-708 |
+| URS-BB-592 | Scanning a rack or shelf shows every tube recorded there now, so the place can be checked against the system and a tube found in it. | P3 | FRS-BB-709 |

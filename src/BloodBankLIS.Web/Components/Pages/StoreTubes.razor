@@ -39,6 +39,36 @@ else
         <Outcome Value="_fb" />
     </div>
 
+    @if (_inPlace is not null)
+    {
+        <div class="bb-card" data-tubes-in-place>
+            <div class="bb-card-title"><h3>In @_inPlaceFor now (@_inPlace.Count)</h3></div>
+            @if (_inPlace.Count == 0)
+            {
+                <div class="empty">No tube is recorded in @_inPlaceFor.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Tube</th><th>Patient</th><th>Type</th><th>Status</th><th>Collected</th><th>Stored</th></tr></thead>
+                    <tbody>
+                        @foreach (var t in _inPlace)
+                        {
+                            <tr>
+                                <td class="mono">@t.AccessionNumber</td>
+                                <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
+                                <td>@t.SpecimenType</td>
+                                <td>@t.Status</td>
+                                <td class="nowrap">@t.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="nowrap">@t.StoredUtc?.ToString("yyyy-MM-dd HH:mm") <span class="sub">@t.StoredBy</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
     @if (_stored.Count > 0)
     {
         <div class="bb-card">
@@ -69,12 +99,24 @@ else
     private Feedback? _fb;
     private readonly List<StoredSpecimenDto> _stored = new();
 
+    private List<TubeInPlaceDto>? _inPlace;
+    private string _inPlaceFor = string.Empty;
+
+    // Scanning the place shows what is recorded there, then waits for tubes.
     private async Task OnLocationKey(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_location))
         {
+            await LoadInPlaceAsync();
             await Js.FocusSelectAsync("store-tube", preventScroll: true);
         }
+    }
+
+    private async Task LoadInPlaceAsync()
+    {
+        _inPlaceFor = _location.Trim();
+        var r = await Api.GetTubesInPlaceAsync(_inPlaceFor);
+        _inPlace = r.Succeeded ? r.Value ?? new() : new();
     }
 
     // A scanner ends with Enter: store the tube, then wait for the next one in the same place.
@@ -92,6 +134,7 @@ else
             _fb = Feedback.Succeed(stored.PreviousLocation is null
                 ? $"{stored.AccessionNumber} stored in {stored.Location}."
                 : $"{stored.AccessionNumber} moved from {stored.PreviousLocation} to {stored.Location}.");
+            await LoadInPlaceAsync();
         }
         else
         {
