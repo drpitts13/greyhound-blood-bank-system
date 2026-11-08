@@ -40,6 +40,7 @@ public static partial class DatabaseSeeder
             Status = OrderStatus.New,
             FulfillmentStatus = FulfillmentStatus.Ordered,
             OrderedUtc = DateTime.UtcNow.AddMinutes(-30),
+            NeededByUtc = DateTime.UtcNow.AddHours(3),
             OrderingProvider = "Dr. Demo Surgeon",
             Comment = "Demo: STAT, two units for surgery; nothing reserved yet."
         };

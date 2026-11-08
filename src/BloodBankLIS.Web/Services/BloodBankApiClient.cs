@@ -279,6 +279,12 @@ public sealed class BloodBankApiClient
         CancellationToken ct = default) =>
         SendAsync<OrderLineDto>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}/lines/{lineId}/comment", req, ct);
 
+    public async Task<ApiResult<bool>> SetOrderNeededByAsync(long patientId, long orderId, SetOrderNeededByRequest req, CancellationToken ct = default)
+    {
+        var r = await SendAsync<System.Text.Json.JsonElement>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}/needed-by", req, ct);
+        return r.Succeeded ? ApiResult<bool>.Ok(true) : ApiResult<bool>.Fail(r.Error ?? "The needed-by time was not changed.", r.StatusCode);
+    }
+
     public Task<ApiResult<PatientOrderDto>> LinkPatientOrderSpecimenAsync(
         long patientId,
         long orderId,

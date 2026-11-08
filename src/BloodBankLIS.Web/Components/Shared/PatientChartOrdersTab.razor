@@ -270,6 +270,22 @@
                             {
                                 <span class="sub" data-order-needed-by-shown>needed by @orderNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                             }
+                            @if (o.IsActive && Session.Has(PermissionCodes.PatientWrite))
+                            {
+                                @if (_neededByEditId == o.Id)
+                                {
+                                    <span class="flex gap" style="display:inline-flex;align-items:center;">
+                                        <input type="datetime-local" @bind="_neededByEdit" data-order-needed-by-edit />
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => SaveNeededByAsync(o)">Save</button>
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _neededByEditId = null">Cancel</button>
+                                    </span>
+                                    <Outcome Value="_neededByFb" />
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginNeededBy(o)" data-order-needed-by-change>@(o.NeededByUtc is null ? "Set needed by" : "Change")</button>
+                                }
+                            }
                         </td>
                         <td>@o.OrderCategory<span class="sub">@o.Source</span></td>
                         <td>
@@ -585,6 +601,34 @@
     [Parameter] public EventCallback<long> NewOrderEncounterIdChanged { get; set; }
     [Parameter] public OrderPriority NewOrderPriority { get; set; } = OrderPriority.Routine;
     [Parameter] public DateTime? NewOrderNeededBy { get; set; }
+    // A needed-by change saved here: the chart reloads the orders.
+    [Parameter] public EventCallback OnNeededByChanged { get; set; }
+    [Inject] private BloodBankApiClient NeededByApi { get; set; } = default!;
+    private long? _neededByEditId;
+    private DateTime? _neededByEdit;
+    private Feedback? _neededByFb;
+
+    private void BeginNeededBy(PatientOrderDto order)
+    {
+        _neededByEditId = order.Id;
+        _neededByEdit = order.NeededByUtc?.ToLocalTime();
+        _neededByFb = null;
+    }
+
+    // Entered in local time; an empty field clears the time.
+    private async Task SaveNeededByAsync(PatientOrderDto order)
+    {
+        var utc = _neededByEdit is DateTime local ? DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime() : (DateTime?)null;
+        var r = await NeededByApi.SetOrderNeededByAsync(order.PatientId, order.Id, new SetOrderNeededByRequest(utc));
+        if (r.Succeeded)
+        {
+            _neededByEditId = null;
+            await OnNeededByChanged.InvokeAsync();
+            return;
+        }
+
+        _neededByFb = r.ToFeedback();
+    }
     [Parameter] public EventCallback<DateTime?> NewOrderNeededByChanged { get; set; }
     [Parameter] public EventCallback<OrderPriority> NewOrderPriorityChanged { get; set; }
     [Parameter] public long NewOrderLocationId { get; set; }

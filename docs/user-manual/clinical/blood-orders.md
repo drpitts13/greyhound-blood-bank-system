@@ -8,7 +8,7 @@ routes:
   - /blood-orders
 ---
 
-**Blood orders to prepare** (Transfusion) lists, across patients, every open blood (product) order whose units are not all reserved or issued yet. Rush orders (STAT, urgent, emergency, massive transfusion) come first, then by when they are **needed by** (a surgery start or scheduled transfusion, from the order), then the oldest. A needed-by time that has passed is marked, and the home card counts those. You need the allocate permission.
+**Blood orders to prepare** (Transfusion) lists, across patients, every open blood (product) order whose units are not all reserved or issued yet. Rush orders (STAT, urgent, emergency, massive transfusion) come first, then by when they are **needed by** (a surgery start or scheduled transfusion, from the order), then the oldest. A needed-by time that has passed is marked, and the home card counts those. When a surgery moves, change the time on the patient's Orders tab (**Set needed by** or **Change** on the order row; leave it empty to clear it); the earlier time stays in the audit trail. You need the allocate permission.
 
 Each row shows the patient with the current ABO/Rh and any active antibodies, the order number and priority, the products ordered (each product line is one unit), and how many units are **still needed** out of those ordered, counting units reserved on the order and units already issued on it. A reservation that was released, or a unit that came back, does not count.
 

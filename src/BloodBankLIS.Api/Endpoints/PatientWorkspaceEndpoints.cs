@@ -124,6 +124,20 @@ public static class PatientWorkspaceEndpoints
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
+        // Surgery moved: change or clear an open order's needed-by time (the earlier time stays in the audit trail).
+        group.MapPut("/orders/{orderId:long}/needed-by", async (
+            long patientId,
+            long orderId,
+            SetOrderNeededByRequest request,
+            OrderService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.SetNeededByAsync(patientId, orderId, request, ct);
+            return result.Succeeded
+                ? Results.Ok(new { result.Value!.Id, result.Value.NeededByUtc })
+                : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.PatientWrite);
+
         group.MapPut("/orders/{orderId:long}/lines/{lineId:long}/comment", async (
             long patientId,
             long orderId,

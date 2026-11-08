@@ -641,5 +641,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-630 | U | `Hl7MapperTests.OrmMapper_ReadsTheNeededByTime` | URS-BB-614 / FRS-BB-731 |
 | TEST-BB-631 | I | `NumericTiterResultTests.Numeric_IsChecked_Flagged_AndSentWithUnitsAndFlag` (setup: needed-by kept, earlier refused) | URS-BB-614 / FRS-BB-731 |
 | TEST-BB-632 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (needed-by) | URS-BB-614 / FRS-BB-731 |
+| TEST-BB-633 | I | `NumericTiterResultTests.NeededBy_IsChangedOrCleared_WithTheEarlierTimeKept` | URS-BB-615 / FRS-BB-732 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

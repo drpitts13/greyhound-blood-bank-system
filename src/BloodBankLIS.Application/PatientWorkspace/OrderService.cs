@@ -1278,6 +1278,55 @@ public sealed class OrderService
         return OperationResult<OrderLine>.Ok(line);
     }
 
+    /// <summary>
+    /// Changes (or clears) an open order's needed-by time, as when a surgery is moved; the earlier time stays in the audit
+    /// trail. A time before the order was placed is refused; a completed, cancelled, or discontinued order is not changed.
+    /// </summary>
+    public async Task<OperationResult<Order>> SetNeededByAsync(long patientId, long orderId, SetOrderNeededByRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var unauthorized = await RejectUnauthorizedAsync<Order>(OrderAuthorizationRule.EvaluateUpdate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
+        var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
+        if (order is null)
+        {
+            return OperationResult<Order>.Fail("Order not found.");
+        }
+
+        if (order.Status is OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued)
+        {
+            return OperationResult<Order>.Fail($"The order is {order.Status}; its needed-by time is not changed.");
+        }
+
+        var check = OrderNeededByRule.Evaluate(order.OrderedUtc, request.NeededByUtc);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Order>.Fail(check.Message);
+        }
+
+        var previous = order.NeededByUtc;
+        if (previous == request.NeededByUtc)
+        {
+            return OperationResult<Order>.Ok(order);
+        }
+
+        order.NeededByUtc = request.NeededByUtc;
+        _orders.Update(order);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(Order),
+            order.Id,
+            oldValue: new { NeededByUtc = previous },
+            newValue: new { order.OrderNumber, order.NeededByUtc },
+            reason: request.NeededByUtc is null ? "Needed-by time cleared." : "Needed-by time changed.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Order>.Ok(order);
+    }
+
     public async Task<OperationResult<OrderActionDto>> AddActionAsync(
         long patientId,
         long orderId,

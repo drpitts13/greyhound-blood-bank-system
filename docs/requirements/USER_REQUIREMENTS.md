@@ -620,3 +620,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-612 | The bench sees, across patients, every open blood order whose units are not all reserved, rush first, with what is still needed and the next step (collect a specimen or reserve units). | P1 | FRS-BB-729 |
 | URS-BB-613 | Reserve N units from Blood orders to prepare opens the patient's reserve form with the order and a usable specimen already chosen. | P2 | FRS-BB-730 |
 | URS-BB-614 | An order records when it is needed (surgery start, scheduled transfusion), entered on the chart or received from the EHR, and blood orders are prepared by it, with a passed time flagged. | P2 | FRS-BB-731 |
+| URS-BB-615 | An open order's needed-by time is changed or cleared from the chart when a surgery moves, with the earlier time kept in the audit trail. | P3 | FRS-BB-732 |

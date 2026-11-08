@@ -17686,3 +17686,21 @@ Blood for surgery and scheduled transfusions is ordered hours ahead; the bench p
 - TEST-BB-630: TQ1-7 maps to the needed-by time (UTC); absent stays null.
 - TEST-BB-631: kept on a created order and its list row; one before the order refused.
 - TEST-BB-632: the worklist carries the needed-by time and flags a passed one.
+
+## Iteration 558 — Change an order's needed-by time (2026-11-08)
+
+### Capability matrix rescan (orders: timing)
+
+Cycle 557 records a needed-by time at order entry, but surgeries move, and the only way to change an order was the full edit, which rebuilds every line. Workflow questions: clicks (change on the order row); history (the earlier time is in the audit trail, never silently overwritten); safety (open orders only; a time before the order refused; no check depends on it). The demo order now has a needed-by time so the worklist shows one.
+
+### Design
+
+- `SetOrderNeededByRequest`, `OrderService.SetNeededByAsync`, endpoint and client; order row control; demo time.
+
+### Requirements
+
+- URS-BB-615, FRS-BB-732. Help: Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-633: a time before the order refused; set and moved (each audited with the earlier time); cleared (audited); unknown order and cancelled order refused.

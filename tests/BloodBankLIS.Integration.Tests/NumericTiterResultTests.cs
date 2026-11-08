@@ -117,6 +117,40 @@ public class NumericTiterResultTests : IDisposable
 
     private static TiterReading[] Read(params string[] grades) => grades.Select((g, i) => new TiterReading(1 << i, g)).ToArray();
 
+    // TEST-BB-633: an open order's needed-by time is changed and cleared, each audited with the earlier time; a time before
+    // the order and a cancelled order are refused.
+    [Fact]
+    public async Task NeededBy_IsChangedOrCleared_WithTheEarlierTimeKept()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var orders = new OrderService(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
+            new EfRepository<Encounter>(c), new EfRepository<OrderingLocation>(c), new EfRepository<Patient>(c),
+            new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
+            new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), _factory.Clock, c,
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+        var now = _factory.Clock.UtcNow;
+
+        Assert.Contains("before the order was placed",
+            (await orders.SetNeededByAsync(f.Patient.Id, f.Order.Id, new SetOrderNeededByRequest(f.Order.OrderedUtc.AddHours(-3)))).Error);
+        Assert.True((await orders.SetNeededByAsync(f.Patient.Id, f.Order.Id, new SetOrderNeededByRequest(now.AddHours(2)))).Succeeded);
+        var moved = await orders.SetNeededByAsync(f.Patient.Id, f.Order.Id, new SetOrderNeededByRequest(now.AddHours(5)));
+        Assert.True(moved.Succeeded, moved.Error);
+        Assert.Equal(now.AddHours(5), (await c.Orders.AsNoTracking().SingleAsync(o => o.Id == f.Order.Id)).NeededByUtc);
+        var changes = await c.AuditEvents.Where(a => a.EntityType == nameof(Order) && a.EntityId == f.Order.Id && a.Reason == "Needed-by time changed.").ToListAsync();
+        Assert.Equal(2, changes.Count);
+
+        Assert.True((await orders.SetNeededByAsync(f.Patient.Id, f.Order.Id, new SetOrderNeededByRequest(null))).Succeeded);
+        Assert.Null((await c.Orders.AsNoTracking().SingleAsync(o => o.Id == f.Order.Id)).NeededByUtc);
+        Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityId == f.Order.Id && a.Reason == "Needed-by time cleared."));
+        Assert.Contains("not found", (await orders.SetNeededByAsync(f.Patient.Id, -1, new SetOrderNeededByRequest(null))).Error);
+
+        var row = await c.Orders.SingleAsync(o => o.Id == f.Order.Id);
+        row.Status = OrderStatus.Cancelled;
+        await c.SaveChangesAsync();
+        Assert.Contains("Cancelled", (await orders.SetNeededByAsync(f.Patient.Id, f.Order.Id, new SetOrderNeededByRequest(now.AddHours(1)))).Error);
+    }
+
     [Fact]
     public async Task Numeric_IsChecked_Flagged_AndSentWithUnitsAndFlag()
     {

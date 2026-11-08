@@ -102,6 +102,9 @@ public sealed record CreateOrderRequest(
 
 public sealed record CancelOrderRequest(string ReasonCode);
 
+/// <summary>A new needed-by time for an open order (surgery moved); null clears it.</summary>
+public sealed record SetOrderNeededByRequest(DateTime? NeededByUtc);
+
 public sealed record LinkOrderSpecimenRequest(long SpecimenId);
 
 public sealed record UpdateOrderRequest(

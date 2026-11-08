@@ -725,6 +725,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-612 / FRS-BB-729 | Blood orders to prepare | `BloodOrderPreparationRule`; `BloodOrderWorklistService`; `BloodOrders.razor`; `DashboardQueueCatalog` | TEST-BB-621, TEST-BB-622, TEST-BB-623, TEST-BB-624 | U, I | |
 | URS-BB-613 / FRS-BB-730 | Reserve form opened on the order from the worklist | `BloodOrderPreparationRule.NextStepHref`; `BloodOrderWorklistService`; `PatientDetail.razor` | TEST-BB-625, TEST-BB-626, TEST-BB-627, TEST-BB-628 | U, I | |
 | URS-BB-614 / FRS-BB-731 | Order needed-by time | `OrderNeededByRule`; `OrderService.CreateAsync`; `Hl7OrmMapper`; `BloodOrderWorklistService`; `PatientChartOrdersTab.razor` | TEST-BB-629, TEST-BB-630, TEST-BB-631, TEST-BB-632 | U, I | |
+| URS-BB-615 / FRS-BB-732 | Change an order's needed-by time | `OrderService.SetNeededByAsync`; `PatientChartOrdersTab.razor` | TEST-BB-633 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
