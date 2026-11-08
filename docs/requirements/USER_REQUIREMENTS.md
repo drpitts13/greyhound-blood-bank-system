@@ -629,3 +629,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-621 | An order number found in the find box, or chosen on Blood orders to prepare, opens that order's history on the chart without a further click. | P3 | FRS-BB-738 |
 | URS-BB-622 | Blood orders to prepare shows each patient's active special transfusion requirements, so the technologist knows what the units must be before opening the chart. | P2 | FRS-BB-739 |
 | URS-BB-623 | A patient's special transfusion requirement reads the same on every screen and printout, in plain words, with the antigen named. | P3 | FRS-BB-740 |
+| URS-BB-624 | No button, field, or table runs past the edge of its card at a normal window width; a table too wide for its card scrolls inside it. | P3 | FRS-BB-741 |

@@ -654,5 +654,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-643 | U | `OrderHistoryLinkRuleTests.HistoryToOpen_OnlyForTheOneExactMatch` | URS-BB-621 / FRS-BB-738 |
 | TEST-BB-644 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (requirements) | URS-BB-622 / FRS-BB-739 |
 | TEST-BB-645 | U | `SpecialRequirementDisplayTests.Display_OneWordingForEveryScreen` | URS-BB-623 / FRS-BB-740 |
+| TEST-BB-646 | U | `TableLayoutTests.Tables_scroll_inside_their_card` | URS-BB-624 / FRS-BB-741 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

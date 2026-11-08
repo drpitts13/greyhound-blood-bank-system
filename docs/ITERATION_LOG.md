@@ -17883,3 +17883,23 @@ Iteration 567 measured the chart and the main boards. This one measured every ot
 ### Verification
 
 - Re-measured all 109 pages: nothing passes its card; 21 tables scroll inside their cards at this width. Orders tab measured with the Edit form (and its provider dropdown) open and closed, on MRN0001, MRN0005, MRN0022, and MRN0023. Full test suite run. Layout only.
+
+## Iteration 569 — Keep tables inside their cards (2026-11-08)
+
+### Capability matrix rescan (QA: layout regressions)
+
+Cycles 566–568 fixed every page found running past its card, but the fix relied on a convention (each table in a `.table-scroll` box) that nothing enforced; the next new table would bring the problem back. Workflow questions: safety and clicks (a row action off the edge of the pane is missed); QA (a regression should fail the build, not wait for a user report).
+
+### Design
+
+- `TableLayoutTests`: every top-level `table.bb` in `src/BloodBankLIS.Web/Components` is directly inside `.table-scroll`, unless it holds a searchable dropdown (laid out to fit instead). Nested tables count as covered by their outer box.
+- The first run failed on four tables in `Components/TestResultEntryPanel.razor` (outside the folders Cycle 568 swept); they are now wrapped.
+- Checking that panel live showed the result entry form, opened under a Pending tests row, laid out across the whole 994 px board, so the Interpreted Rh(D) field sat about 300 px out of view (as it did before Cycle 567). The form (`.in-row-form`) now stays pinned to the visible part of the card and no wider than it; measured with the board unscrolled and scrolled fully right, every field and button is in view.
+
+### Requirements
+
+- URS-BB-624, FRS-BB-741 (covering Cycles 566–569).
+
+### Tests
+
+- TEST-BB-646: failed before the four tables were wrapped, passes after.

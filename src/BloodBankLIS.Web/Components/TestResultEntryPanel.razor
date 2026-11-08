@@ -5,7 +5,8 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<div class="stack">
+@* in-row-form: opened under a row of a wide board, the form stays in view instead of stretching across the board. *@
+<div class="stack in-row-form">
     <Outcome Value="_fb" />
 
     <div class="muted" style="margin-bottom:.5rem;">
@@ -105,6 +106,7 @@
 
             @if (ShowsPanelSubtests && _panelSubtests.Count > 0 && HasPhases)
             {
+                <div class="table-scroll">
                 <table class="bb" style="margin-top:.5rem;">
                     <thead>
                         <tr>
@@ -148,9 +150,11 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             else if (ShowsPanelSubtests && _panelSubtests.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb" style="margin-top:.5rem;">
                     <thead><tr><th>@(IsCrossmatchType ? "Cell reaction" : "Subtest")</th><th>Result</th><th></th></tr></thead>
                     <tbody>
@@ -189,6 +193,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
 
             @if (_interpretationNote is not null)
@@ -237,6 +242,7 @@
             else if (_definition.ResultValueType == ResultValueType.Titer && _definition.Titer is { } titer)
             {
                 @* One row per dilution, read until the first negative; endpoint and score follow the shared rule. *@
+                <div class="table-scroll">
                 <table class="bb" style="margin-top:.5rem;max-width:28rem;" data-titer-entry>
                     <thead><tr><th>Dilution</th><th>Reaction@(string.IsNullOrWhiteSpace(titer.PhaseCode) ? "" : $" ({titer.PhaseCode})")</th></tr></thead>
                     <tbody>
@@ -258,6 +264,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 @if (_titerGrades.Count > 0)
                 {
                     var titerCheck = TiterRule.Evaluate(titer, TiterReadings());
@@ -310,6 +317,7 @@
                         <input @bind="_unitNumber" placeholder="W0001230000001" />
                     </div>
                 }
+                <div class="table-scroll">
                 <table class="bb" style="margin-top:.5rem;">
                     <thead>
                         <tr>
@@ -349,6 +357,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
 
             @if (IsCrossmatchType)
