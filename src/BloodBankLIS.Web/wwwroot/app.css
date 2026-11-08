@@ -351,6 +351,12 @@ table.bb tr.row-actions:not(:has(.btn, .badge, .muted)) { display: none; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .gap { gap: .75rem; }
 .stack > * + * { margin-top: .6rem; }
+/* Special transfusion requirements on the chart Overview: one short block each, so a narrow card never scrolls sideways. */
+.sr-list { display: flex; flex-direction: column; }
+.sr-item { padding: .5rem 0; border-bottom: 1px solid var(--bb-border); min-width: 0; overflow-wrap: anywhere; }
+.sr-item:last-child { border-bottom: 0; }
+.sr-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
+.sr-item .btn { margin-top: .3rem; }
 .pre { white-space: pre-wrap; word-break: break-word; background: #0f141b; color: #d7e1ee; padding: .9rem; border-radius: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8rem; max-height: 360px; overflow: auto; }
 
 /* Login */

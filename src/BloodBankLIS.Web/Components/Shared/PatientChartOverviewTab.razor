@@ -160,29 +160,32 @@
         }
         else
         {
-            <table class="bb">
-                <thead><tr><th>Requirement</th><th>Type</th><th>Antigen</th><th>Reason</th><th>Start</th><th>End date</th><th>Active</th><th></th></tr></thead>
-                <tbody>
-                    @foreach (var r in SpecialRequirements)
-                    {
-                        <tr>
-                            <td>@SpecialRequirementLabel.Display(r.Name ?? r.Code, r.RequirementType, null)</td>
-                            <td>@(r.CategoryLabel is { Length: > 0 } category ? category : r.Level?.ToString())</td>
-                            <td class="mono">@r.AntigenCode</td>
-                            <td>@r.Reason@if (r.ReactionInvestigationId is long fromReaction) { <span class="sub"><a href="/reactions">From reaction investigation @fromReaction</a></span> }</td>
-                            <td class="nowrap">@LocalDate(r.EffectiveUtc)</td>
-                            <td class="nowrap">@(r.ExpiresUtc is { } endUtc ? LocalDate(endUtc) : "—")</td>
-                            <td>@(r.IsClinicallyActive ? "Yes" : "No")</td>
-                            <td class="right">
-                                @if (r.IsClinicallyActive && Session.Has(PermissionCodes.ImmunoOverride))
-                                {
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateSr.InvokeAsync(r)">End date</button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            @* This card is a narrow column on the Overview, so each requirement is a short block rather than a wide table row:
+               the name and antigen, then type and dates, then the reason, with End date on its own line underneath. *@
+            <div class="sr-list">
+                @foreach (var r in SpecialRequirements)
+                {
+                    <div class="sr-item" data-sr-item>
+                        <div class="sr-item-head">
+                            <strong>@SpecialRequirementLabel.Display(r.Name ?? r.Code, r.RequirementType, r.AntigenCode)</strong>
+                            <span class="badge @(r.IsClinicallyActive ? "badge-green" : "badge-gray")">@(r.IsClinicallyActive ? "Active" : "Not active")</span>
+                        </div>
+                        <span class="sub">
+                            @(r.CategoryLabel is { Length: > 0 } category ? category : r.Level?.ToString())
+                            · from @LocalDate(r.EffectiveUtc)@(r.ExpiresUtc is { } endUtc ? $" to {LocalDate(endUtc)}" : "")
+                        </span>
+                        <span class="sub">@r.Reason</span>
+                        @if (r.ReactionInvestigationId is long fromReaction)
+                        {
+                            <span class="sub"><a href="/reactions">From reaction investigation @fromReaction</a></span>
+                        }
+                        @if (r.IsClinicallyActive && Session.Has(PermissionCodes.ImmunoOverride))
+                        {
+                            <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateSr.InvokeAsync(r)" data-sr-end-date>End date</button>
+                        }
+                    </div>
+                }
+            </div>
         }
         @if (SrDeactivateId is not null)
         {
