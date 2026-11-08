@@ -344,6 +344,7 @@
                     <tr class="row-actions @OrderRowClass(o)">
                         <td colspan="8">
                             <div class="row-actions-bar">
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ToggleOrderHistory(o.Id)" data-order-history-toggle>@(_orderHistoryId == o.Id ? "Hide history" : "History")</button>
                                 @if (CanVerifyPostedOrderResult(o))
                                 {
                                     <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnVerify.InvokeAsync(o)">Verify</button>
@@ -364,6 +365,12 @@
                             </div>
                         </td>
                     </tr>
+                    @if (_orderHistoryId == o.Id && Patient is not null)
+                    {
+                        <tr><td colspan="8">
+                            <OrderTimelinePanel PatientId="Patient.Id" OrderId="o.Id" OrderNumber="@o.OrderNumber" OnClose="() => _orderHistoryId = null" />
+                        </td></tr>
+                    }
                     @if (LinkingOrderId == o.Id)
                     {
                         <tr>
@@ -605,6 +612,10 @@
     [Parameter] public EventCallback OnNeededByChanged { get; set; }
     [Inject] private BloodBankApiClient NeededByApi { get; set; } = default!;
     private long? _neededByEditId;
+    // The order whose history is open under its row (one at a time).
+    private long? _orderHistoryId;
+
+    private void ToggleOrderHistory(long orderId) => _orderHistoryId = _orderHistoryId == orderId ? null : orderId;
     private DateTime? _neededByEdit;
     private Feedback? _neededByFb;
 

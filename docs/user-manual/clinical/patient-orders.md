@@ -32,6 +32,10 @@ Cancel requires a reason from the cancellation catalog. Cancellation does not de
 
 > Hard stop. Verification is blocked while the order is on hold, the specimen is rejected, or the specimen is past its testing window.
 
+## Order history
+
+**History** on an order's row opens what happened to it, newest first: when it was placed (priority, source, provider, needed-by), each recorded change such as a moved needed-by time or a cancellation (who, at which workstation, what changed), its specimens' collection and receipt, its results, and for a product order each unit reserved, crossmatched, issued, returned, and transfused. While the order is open, a needed-by time that has passed is shown as a warning. **Warnings and critical only** narrows the list; **Full audit trail** (audit readers) opens every audited change to the order.
+
 ## From the order to the unit
 
 Product orders are what you allocate against on the Products tab and in Inventory. If the order is missing, allocation will not offer the patient. Place or release the order before you reserve a unit.

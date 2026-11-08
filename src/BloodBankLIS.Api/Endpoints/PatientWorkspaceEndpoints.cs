@@ -124,6 +124,12 @@ public static class PatientWorkspaceEndpoints
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
+        // One order's history: placed, changes, specimens, results, and its units from reservation to transfusion.
+        group.MapGet("/orders/{orderId:long}/timeline", async (long patientId, long orderId, OrderTimelineService service, CancellationToken ct) =>
+            await service.GetAsync(patientId, orderId, ct) is { } timeline
+                ? Results.Ok(timeline)
+                : Results.NotFound(new { error = $"No order {orderId} for this patient." }));
+
         // Surgery moved: change or clear an open order's needed-by time (the earlier time stays in the audit trail).
         group.MapPut("/orders/{orderId:long}/needed-by", async (
             long patientId,

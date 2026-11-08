@@ -1838,6 +1838,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<DiscardedSpecimenDto>> DiscardSpecimenAsync(DiscardSpecimenRequest req, CancellationToken ct = default) =>
         SendAsync<DiscardedSpecimenDto>(HttpMethod.Post, "api/specimens/discard", req, ct);
 
+    public Task<ApiResult<OrderTimelineDto>> GetOrderTimelineAsync(long patientId, long orderId, CancellationToken ct = default) =>
+        SendAsync<OrderTimelineDto>(HttpMethod.Get, $"api/patients/{patientId}/orders/{orderId}/timeline", ct: ct);
+
     public Task<ApiResult<SpecimenTimelineDto>> GetSpecimenTimelineAsync(long specimenId, CancellationToken ct = default) =>
         SendAsync<SpecimenTimelineDto>(HttpMethod.Get, $"api/specimens/{specimenId}/timeline", ct: ct);
 

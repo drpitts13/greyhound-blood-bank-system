@@ -625,3 +625,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-617 | The downtime patient sheet lists each patient's blood orders still to prepare, with what is needed and by when, and includes patients whose only open work is such an order. | P2 | FRS-BB-734 |
 | URS-BB-618 | The reserve form says how many more units the chosen order needs, updated after each reservation, and when it is covered (with the way back to the worklist when it came from there). | P3 | FRS-BB-735 |
 | URS-BB-619 | Supervisors can report blood order turnaround: minutes from order to the first unit reserved and issued, whether a unit was ready by the needed-by time, and averages by month and priority. | P3 | FRS-BB-736 |
+| URS-BB-620 | From an order on the chart, staff can open the order's history: placed, each audited change with who and where, a passed needed-by time while open, its specimens, results, and its units from reservation to transfusion. | P2 | FRS-BB-737 |

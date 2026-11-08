@@ -17780,3 +17780,21 @@ Test turnaround is reported (Cycle 436), but blood orders were not: a supervisor
 
 - TEST-BB-640: first ready, Yes/No/blank, minutes.
 - TEST-BB-641: rows for blood orders only (cancelled and test-only left out), released reservation counts, Yes and No, by-priority averages, SQL view values.
+
+## Iteration 563 — Order history (2026-11-08)
+
+### Capability matrix rescan (orders: timeline views)
+
+Patients and specimens have timelines (and units their history), but an order did not: to answer "what happened to the surgery order, and when?" the technologist pieced it together from the Orders, Specimens, Products, and audit pages. Workflow questions: clicks (one, on the order row); memory (no cross-referencing order, tube, and unit numbers); next action (each event links to the chart tab or unit); audit (who and which workstation for each recorded change, with the full audit trail one click away).
+
+### Design
+
+- `OrderTimelineService` (read-only, reusing the patient and specimen timeline event shapes); endpoint; `OrderTimelinePanel`; **History** on each Orders tab row.
+
+### Requirements
+
+- URS-BB-620, FRS-BB-737. Help: Orders.
+
+### Tests
+
+- TEST-BB-642: full sequence and order, audited change with user at workstation and changed field, released reservation reason, issue destination, transfusion volume, passed needed-by only while open; another patient's or an unknown order has no history.
