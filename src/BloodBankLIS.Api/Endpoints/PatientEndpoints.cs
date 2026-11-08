@@ -37,6 +37,19 @@ public static class PatientEndpoints
             EndpointResults.From(await patients.ListPossibleDuplicatesAsync(lastName, firstName, dateOfBirth, ct), d => d))
             .RequirePermission(PermissionCodes.PatientWrite);
 
+        // Unidentified emergency patients: register in one step, list those not yet identified, merge once identified.
+        group.MapGet("/unidentified", async (PatientService patients, CancellationToken ct) =>
+            Results.Ok(await patients.ListUnidentifiedAsync(ct)));
+
+        group.MapPost("/unidentified", async (CreateUnidentifiedPatientRequest request, PatientService patients, CancellationToken ct) =>
+            EndpointResults.Created(await patients.CreateUnidentifiedAsync(request, ct),
+                p => ($"/api/patients/{p.Id}", (object)PatientDto.From(p))))
+            .RequirePermission(PermissionCodes.PatientWrite);
+
+        group.MapPost("/{id:long}/identify", async (long id, IdentifyPatientRequest request, PatientMergeService merges, CancellationToken ct) =>
+            EndpointResults.From(await merges.IdentifyAsync(id, request, ct), p => PatientDto.From(p)))
+            .RequirePermission(PermissionCodes.PatientMerge);
+
         group.MapPost("/", async (CreatePatientRequest request, PatientService patients, CancellationToken ct) =>
             EndpointResults.Created(await patients.CreateAsync(request, ct),
                 p => ($"/api/patients/{p.Id}", (object)PatientDto.From(p))))

@@ -41,6 +41,7 @@ public sealed class PatientMergeService
     private readonly IRepository<PatientMerge>? _mergeLedger;
     private readonly IRepository<PatientMergeMove>? _mergeMoves;
     private readonly IClock? _clock;
+    private readonly IRepository<RhigEvaluation>? _rhig;
 
     public PatientMergeService(
         IRepository<Patient> patients,
@@ -70,8 +71,10 @@ public sealed class PatientMergeService
         IRepository<BloodComponentCompatibilityDecision>? decisions = null,
         IRepository<PatientMerge>? mergeLedger = null,
         IRepository<PatientMergeMove>? mergeMoves = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IRepository<RhigEvaluation>? rhig = null)
     {
+        _rhig = rhig;
         _patients = patients;
         _identifiers = identifiers;
         _antibodies = antibodies;
@@ -143,6 +146,41 @@ public sealed class PatientMergeService
         }
 
         return patient;
+    }
+
+    /// <summary>
+    /// An unidentified chart is now known to be the patient with this MRN: it is merged into theirs (the identified chart
+    /// survives), with the usual merge checks, ledger, and undo.
+    /// </summary>
+    public async Task<OperationResult<Patient>> IdentifyAsync(long unidentifiedId, IdentifyPatientRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return OperationResult<Patient>.Fail("A reason is required, for example how the patient was identified.");
+        }
+
+        var chart = await _patients.GetByIdAsync(unidentifiedId, ct);
+        if (chart is null)
+        {
+            return OperationResult<Patient>.Fail($"No patient {unidentifiedId}.");
+        }
+
+        var identified = await FindByMrnAsync(request.IdentifiedMrn, followMerge: false, ct);
+        var check = UnidentifiedPatientRule.EvaluateIdentify(
+            chart.Unidentified, chart.Status, chart.Id, identified?.Id, identified?.Unidentified ?? false, identified?.Status);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(check.Message);
+        }
+
+        return await MergeCoreAsync(identified!.Id, chart.Id, $"Unidentified patient {chart.MedicalRecordNumber} identified: {request.Reason.Trim()}", ct);
     }
 
     public async Task<OperationResult<Patient>> MergeAsync(
@@ -281,6 +319,11 @@ public sealed class PatientMergeService
                 d => d.PatientId = survivor.Id,
                 nameof(BloodComponentCompatibilityDecision),
                 ct));
+        }
+
+        if (_rhig is not null)
+        {
+            moves.AddRange(await ReassignAsync(_rhig, r => r.PatientId == duplicate.Id, r => r.PatientId = survivor.Id, nameof(RhigEvaluation), ct));
         }
 
         PatientMerge? ledger = null;
@@ -770,6 +813,7 @@ public sealed class PatientMergeService
             nameof(DatElutionWorkup) => _datElutions is null || await ChangedPatientAsync(_datElutions, move.EntityId, survivorId, mergedUtc, w => w.PatientId, ct),
             nameof(PtagIdentifier) => _ptags is null || await ChangedPatientAsync(_ptags, move.EntityId, survivorId, mergedUtc, p => p.PatientId, ct),
             nameof(BloodComponentCompatibilityDecision) => _decisions is null || await ChangedPatientAsync(_decisions, move.EntityId, survivorId, mergedUtc, d => d.PatientId, ct),
+            nameof(RhigEvaluation) => _rhig is null || await ChangedPatientAsync(_rhig, move.EntityId, survivorId, mergedUtc, r => r.PatientId, ct),
             _ => true
         };
     }
@@ -885,6 +929,12 @@ public sealed class PatientMergeService
                 if (_decisions is not null)
                 {
                     await AssignAsync(_decisions, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case nameof(RhigEvaluation):
+                if (_rhig is not null)
+                {
+                    await AssignAsync(_rhig, move.EntityId, row => row.PatientId = duplicateId, ct);
                 }
                 break;
         }

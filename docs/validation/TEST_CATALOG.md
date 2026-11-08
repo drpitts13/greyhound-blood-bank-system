@@ -598,5 +598,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-587 | U | `SpecimenDiscardRuleTests.Evaluate_KeepsANeededTube_AndAsksForAReasonWhenEarly`, `SpecimenDiscardRuleTests.KeepUntil_IsExpirationPlusRetentionDays_OrNotSet` | URS-BB-596 / FRS-BB-713 |
 | TEST-BB-588 | I | `SpecimenDiscardTests.Tube_IsDiscardedWhenDue_OrEarlyWithAReason_AndKeptWhileStillNeeded` | URS-BB-596 / FRS-BB-713 |
 | TEST-BB-589 | U | `DashboardHomeTests.TubesDueForDiscard_IsForTubeStorers_OnTheBench_AndRoutine` | URS-BB-597 / FRS-BB-714 |
+| TEST-BB-590 | U | `UnidentifiedPatientRuleTests.TemporaryIdentity_CarriesTheDateAndNumber`, `UnidentifiedPatientRuleTests.Evaluate_RequiresSexAndAge_AndIdentifyNeedsADifferentIdentifiedChart` | URS-BB-598 / FRS-BB-715 |
+| TEST-BB-591 | I | `UnidentifiedPatientTests.Unidentified_IsRegisteredInOneStep_AndMergedOnceIdentified` | URS-BB-598 / FRS-BB-715 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

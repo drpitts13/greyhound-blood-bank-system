@@ -45,7 +45,7 @@ public static class DashboardHome
     {
         [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, ReagentQc, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
         [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, ExpiredOnShelf, LowStock],
-        [WorkFocus.Supervisor] = [Supervisor, ToVerify, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock]
+        [WorkFocus.Supervisor] = [Supervisor, ToVerify, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock, Unidentified]
     };
 
     public static IReadOnlyList<WorkFocus> Choices { get; } =

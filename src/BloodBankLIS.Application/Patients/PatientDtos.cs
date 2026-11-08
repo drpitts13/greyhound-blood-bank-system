@@ -36,6 +36,12 @@ public sealed record UpdatePatientRequest(
 
 public sealed record MergePatientsRequest(string DuplicateMrn, string Reason);
 
+/// <summary>An unidentified emergency patient: sex (or Unknown) and an estimated age; a note such as where they arrived.</summary>
+public sealed record CreateUnidentifiedPatientRequest(Sex? Sex, int? EstimatedAgeYears, string? Note = null);
+
+/// <summary>The unidentified chart is now known to be the patient with this MRN: merge it into theirs.</summary>
+public sealed record IdentifyPatientRequest(string IdentifiedMrn, string Reason);
+
 public sealed record UnmergePatientRequest(string Reason);
 
 public sealed record PatientAliasDto(
@@ -89,12 +95,14 @@ public sealed record PatientDto(
     string? CurrentVisitWhere = null,
     int OtherOpenVisits = 0,
     string? Race = null,
-    string? Ethnicity = null)
+    string? Ethnicity = null,
+    // Registered without identification (temporary MRN, estimated age), until merged into the identified chart.
+    bool Unidentified = false)
 {
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,
-        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity);
+        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity, Unidentified: p.Unidentified);
 
     /// <summary>
     /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, where the patient is (the

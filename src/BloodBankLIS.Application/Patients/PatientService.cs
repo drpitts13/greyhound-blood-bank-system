@@ -208,7 +208,7 @@ public sealed class PatientService
             }
         }
 
-        var active = (await ListDtosAsync(ct)).Where(p => p.Status != PatientStatus.Merged).ToList();
+        var active = (await ListDtosAsync(ct)).Where(p => p.Status != PatientStatus.Merged && !p.Unidentified).ToList();
         var reasons = new Dictionary<(long, long), List<string>>();
         void AddPair(PatientDto a, PatientDto b, string reason)
         {
@@ -362,7 +362,8 @@ public sealed class PatientService
             return [];
         }
 
-        var sameBirthday = await _patients.ListAsync(p => p.DateOfBirth == dateOfBirth && p.Status != PatientStatus.Merged, ct);
+        // Unidentified charts share a placeholder name and an estimated birth date; they are never a name match.
+        var sameBirthday = await _patients.ListAsync(p => p.DateOfBirth == dateOfBirth && p.Status != PatientStatus.Merged && !p.Unidentified, ct);
         return sameBirthday
             .Where(p => PossibleDuplicatePatientRule.IsPossibleDuplicate(lastName, firstName, dateOfBirth, p.LastName, p.FirstName, p.DateOfBirth))
             .OrderBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
@@ -371,6 +372,73 @@ public sealed class PatientService
 
     private static string DescribeForMatch(Patient p) =>
         $"MRN {p.MedicalRecordNumber} ({p.LastName}, {p.FirstName}, born {p.DateOfBirth:yyyy-MM-dd})";
+
+    /// <summary>Unidentified patients not yet merged into an identified chart, oldest first.</summary>
+    public async Task<IReadOnlyList<PatientDto>> ListUnidentifiedAsync(CancellationToken ct = default) =>
+        (await _patients.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct))
+            .OrderBy(p => p.CreatedUtc)
+            .Select(p => PatientDto.From(p))
+            .ToList();
+
+    /// <summary>
+    /// Registers an unidentified emergency patient in one step: the temporary MRN and name come from the date and the
+    /// day's next number (UNK-20261108-01, UNIDENTIFIED, TRAUMA 20261108-01), the birth date from the estimated age.
+    /// No duplicate check: the chart is merged into the identified patient's once known.
+    /// </summary>
+    public async Task<OperationResult<Patient>> CreateUnidentifiedAsync(CreateUnidentifiedPatientRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var check = UnidentifiedPatientRule.Evaluate(request.Sex, request.EstimatedAgeYears);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(check.Message);
+        }
+
+        var now = _clock.UtcNow;
+        var prefix = UnidentifiedPatientRule.DayPrefix(now);
+        var taken = (await _patients.ListAsync(p => p.MedicalRecordNumber.StartsWith(prefix), ct))
+            .Select(p => p.MedicalRecordNumber)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var sequence = taken.Count + 1;
+        while (taken.Contains(UnidentifiedPatientRule.Mrn(now, sequence)))
+        {
+            sequence++;
+        }
+
+        var patient = new Patient
+        {
+            MedicalRecordNumber = UnidentifiedPatientRule.Mrn(now, sequence),
+            LastName = UnidentifiedPatientRule.LastName,
+            FirstName = UnidentifiedPatientRule.FirstName(now, sequence),
+            DateOfBirth = UnidentifiedPatientRule.EstimatedBirthDate(DateOnly.FromDateTime(now), request.EstimatedAgeYears!.Value),
+            Sex = request.Sex!.Value,
+            Unidentified = true,
+            Comment = NormalizeComment(string.IsNullOrWhiteSpace(request.Note)
+                ? $"Unidentified; estimated age {request.EstimatedAgeYears} years."
+                : $"Unidentified; estimated age {request.EstimatedAgeYears} years. {request.Note.Trim()}")
+        };
+        await _patients.AddAsync(patient, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit?.Record(
+            AuditEventType.PatientAccess,
+            nameof(Patient),
+            patient.Id,
+            newValue: new { patient.MedicalRecordNumber, patient.LastName, patient.FirstName, patient.DateOfBirth, patient.Sex, request.EstimatedAgeYears, Unidentified = true },
+            reason: $"Unidentified patient registered ({patient.MedicalRecordNumber}, estimated age {request.EstimatedAgeYears}).");
+        if (_audit is not null)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return OperationResult<Patient>.Ok(patient);
+    }
 
     public async Task<OperationResult<Patient>> CreateAsync(CreatePatientRequest request, CancellationToken ct = default)
     {

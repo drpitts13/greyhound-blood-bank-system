@@ -43,6 +43,12 @@ public class Patient : BaseEntity
     /// <summary>Free-text patient comment. Coded comments from the Patient catalog may be inserted.</summary>
     public string? Comment { get; set; }
 
+    /// <summary>
+    /// Registered without identification for emergency care (temporary UNK- MRN, estimated age); merged into the
+    /// identified patient's chart once known (UnidentifiedPatientRule).
+    /// </summary>
+    public bool Unidentified { get; set; }
+
     public ICollection<Specimen> Specimens { get; set; } = new List<Specimen>();
 
     public ICollection<Order> Orders { get; set; } = new List<Order>();

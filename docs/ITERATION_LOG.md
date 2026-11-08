@@ -17351,3 +17351,22 @@ Cycle 539 lists tubes due for discard on Store tubes, but only someone who opens
 ### Tests
 
 - TEST-BB-589: card for tube storers only, link and label, on the Bench view and not the issue desk, not under Needs attention on its own.
+
+## Iteration 541 — Unidentified emergency patients (2026-11-08)
+
+### Capability matrix rescan (patients: identity under emergency)
+
+Specimen storage is complete apart from OCD-070 (Cycles 533–540). Next gap: a trauma patient arriving without identification could not be registered without inventing an MRN, a name, and a birth date in the full form, which also stopped on possible duplicates when two unknown patients had the same placeholder name. Mature transfusion services register an unidentified patient in seconds and merge the chart once the patient is known. Workflow questions: clicks (one form, two fields); memory (no naming scheme to remember); inference (MRN, name, and birth date from the date and estimated age); safety (sex and age are required because the childbearing-potential product rules read them; unknown sex is not male; no look-alike names; merge keeps everything together, with undo); audit (registration and merge reasons). Inspecting the merge found that RhIG evaluations (Cycle 525) were not moved by a merge and would have stayed on the merged-away chart: fixed.
+
+### Design
+
+- `Patient.Unidentified`; `UnidentifiedPatientRule`; `CreateUnidentifiedAsync`, `ListUnidentifiedAsync`, `IdentifyAsync` and endpoints; duplicate matching skips unidentified charts; merge moves RhIG evaluations; Patients form and list, chart banner, home card.
+
+### Requirements
+
+- URS-BB-598, FRS-BB-715, OCD-071. Help: Patients, home screen.
+
+### Tests
+
+- TEST-BB-590: MRN, prefix, and name from the date and number; estimated birth date; sex and age required and bounded; identify checks.
+- TEST-BB-591: missing sex, missing or out-of-range age, and no permission refused; first and second of the day numbered, comment and audit; unidentified charts not possible duplicates; listed; identify refuses no reason, its own MRN, an unknown MRN, another unidentified chart, an identified chart as the source, and no merge permission; identify merges into the identified chart with its RhIG evaluation; a second identify refused; undo moves the RhIG evaluation back.

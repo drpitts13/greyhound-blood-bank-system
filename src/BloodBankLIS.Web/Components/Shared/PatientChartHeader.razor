@@ -1,5 +1,6 @@
 @inject UserSession Session
 @inject NavigationManager Nav
+@inject BloodBankApiClient Api
 
 <div class="flex-between" style="margin-bottom:1rem;flex-wrap:wrap;">
     <div>
@@ -22,6 +23,26 @@
                 <span> &middot; @Patient.Comment</span>
             }
         </div>
+        @if (Patient.Unidentified && Patient.Status != PatientStatus.Merged)
+        {
+            <div class="alert alert-warning" style="margin-top:.5rem;" data-unidentified-banner>
+                <strong>Unidentified patient.</strong> The name and MRN are temporary and the date of birth is estimated.
+                When the patient is identified, merge this chart into theirs so the type, antibodies, and units are in one chart.
+                @if (Session.Has(PermissionCodes.PatientMerge))
+                {
+                    <div class="form-row" style="margin-top:.4rem;align-items:flex-end;">
+                        <div class="field"><label>Identified patient's MRN</label><input @bind="_identifiedMrn" placeholder="Scan or type the MRN" data-identified-mrn /></div>
+                        <div class="field" style="flex:2;"><label>How identified</label><input @bind="_identifyReason" placeholder="For example: ID from family, matched to wristband" data-identify-reason /></div>
+                        <button class="btn btn-primary btn-sm" disabled="@_identifying" @onclick="IdentifyAsync" data-identify-submit>Merge into identified chart</button>
+                    </div>
+                    <Outcome Value="_identifyFb" />
+                }
+                else
+                {
+                    <span> Someone with the patient merge permission does this.</span>
+                }
+            </div>
+        }
         @if (VisitsLoaded)
         {
             var (visit, otherOpen) = CurrentVisit.For(Encounters);
@@ -270,6 +291,26 @@
 }
 
 @code {
+    private string _identifiedMrn = string.Empty;
+    private string _identifyReason = string.Empty;
+    private bool _identifying;
+    private Feedback? _identifyFb;
+
+    // The identified chart survives; open it, where everything from this chart now is.
+    private async Task IdentifyAsync()
+    {
+        _identifying = true;
+        var r = await Api.IdentifyPatientAsync(Patient.Id, new IdentifyPatientRequest(_identifiedMrn, _identifyReason));
+        _identifying = false;
+        if (r.Succeeded && r.Value is { } survivor)
+        {
+            Nav.NavigateTo($"/patients/{survivor.Id}", forceLoad: true);
+            return;
+        }
+
+        _identifyFb = r.ToFeedback();
+    }
+
     [Parameter, EditorRequired] public PatientDto Patient { get; set; } = default!;
     [Parameter] public BloodTypeDto? CurrentType { get; set; }
     [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];

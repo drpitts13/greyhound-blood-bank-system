@@ -41,6 +41,7 @@ public static class DashboardQueueCatalog
     public const string PossibleDuplicates = "possible-duplicates";
     public const string OpenRhig = "open-rhig";
     public const string TubesDueForDiscard = "tubes-due-discard";
+    public const string Unidentified = "unidentified-patients";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -86,6 +87,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.DeviationManage), Deviations, "Open deviations", "/deviations");
         // Charts that may be one person split the ABO/Rh and antibody history: whoever merges charts reviews them.
         Add(cards, has(PermissionCodes.PatientMerge), PossibleDuplicates, "Possible duplicates", "/patients/duplicates");
+        // Emergency charts registered without identification: merged into the identified chart once known.
+        Add(cards, has(PermissionCodes.PatientMerge), Unidentified, "Unidentified patients", "/patients");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
         return cards;
     }
