@@ -16,6 +16,7 @@ The **Supervisor queue** collects work that a technologist cannot finish alone:
 - Results waiting for verification when you are the verifier.
 - Quarantine releases that require the release permission and, when policy says so, a second verifier.
 - Missing units to locate and damaged units to inspect, with the reason recorded and where each was last recorded (release permission). A unit leaves the queue once it is located, inspected, or discarded.
+- RhIG evaluations the bench has filled in and that are ready to complete, when you verify results. The row opens the patient's RhIG tab, where you complete it.
 - Overrides waiting for review, when you hold the override approval permission (`override.approve`). The Supervisor role has it by default; your administrator can change that.
 
 A result that must be verified before its specimen expires is marked **Due before specimen expiry** in red. A row about a patient links to the patient's chart from its title. A link to `/supervisor?kind=OverrideReview` (or any other kind) opens the queue on that kind of work.

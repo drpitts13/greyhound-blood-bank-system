@@ -17278,3 +17278,21 @@ Safety rescan: Rh-positive products for childbearing-age Rh-negative recipients 
 ### Tests
 
 - TEST-BB-584: places match ignoring case, spaces, and punctuation but not different numbers; canonical spelling; "already stored" by key; a tube stored as "RACK-3" lands in "Rack 3" and lists under "rack3"; known places one spelling each, newest first.
+
+## Iteration 537 — RhIG on the Supervisor queue (2026-11-07)
+
+### Capability matrix rescan (operations: supervisor queues)
+
+The Supervisor queue gathers what a technologist cannot finish alone (ABID review, result verification, quarantine release, missing or damaged units, override review). RhIG evaluations also need a verifier to complete them (Cycle 525), but only the RhIG list and the home card showed them; a verifier working from the Supervisor queue did not see them. Workflow questions: next action (Complete, one click to the chart tab); memory (one queue for supervisor work); no clinical rule (readiness is the completion check).
+
+### Design
+
+- `KindRhigComplete`; queue items from `RhigEvaluationService.ListOpenAsync` for verifiers; `RhigEvaluationRule.Summary` shared with the downtime line; "RhIG" label.
+
+### Requirements
+
+- URS-BB-594, FRS-BB-711. Help: Supervisor queue.
+
+### Tests
+
+- TEST-BB-585: a ready evaluation is on a verifier's queue with its title, link, detail, and next action; not without result.verify; gone once completed.

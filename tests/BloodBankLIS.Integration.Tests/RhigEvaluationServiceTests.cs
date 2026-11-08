@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Search;
@@ -63,7 +64,22 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(edited.Succeeded, edited.Error);
 
         Assert.True(Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id).ReadyToComplete);
+        // TEST-BB-585: a verifier's Supervisor queue lists the evaluation ready to complete; without result.verify it is not there.
+        var queue = await new SupervisorQueueService(_factory.CurrentUser,
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify), rhig: Service(c)).ListAsync();
+        var rhigItem = Assert.Single(queue.Value!, i => i.Kind == SupervisorQueueRule.KindRhigComplete && i.ContextId == saved.Value.Id);
+        Assert.Equal(($"Complete RhIG evaluation — Mother, Ann ({patient.MedicalRecordNumber})", $"/patients/{patient.Id}?tab=rhig", "Complete"),
+            (rhigItem.Title, rhigItem.Href, rhigItem.NextAction));
+        Assert.StartsWith("Delivery ", rhigItem.Detail);
+        Assert.Contains(": candidate, 2 vials recommended. Recorded by", rhigItem.Detail);
+        var immunoOnly = await new SupervisorQueueService(_factory.CurrentUser,
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ImmunoOverride), rhig: Service(c)).ListAsync();
+        Assert.DoesNotContain(immunoOnly.Value!, i => i.Kind == SupervisorQueueRule.KindRhigComplete);
+
         var completed = await verifier.CompleteAsync(patient.Id, saved.Value.Id);
+        Assert.DoesNotContain((await new SupervisorQueueService(_factory.CurrentUser,
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify), rhig: Service(c)).ListAsync()).Value!,
+            i => i.Kind == SupervisorQueueRule.KindRhigComplete && i.ContextId == saved.Value.Id);
         Assert.True(completed.Succeeded, completed.Error);
         Assert.True(completed.Value!.IsCompleted);
         Assert.False((await recorder.SaveAsync(patient.Id, new SaveRhigEvaluationRequest(

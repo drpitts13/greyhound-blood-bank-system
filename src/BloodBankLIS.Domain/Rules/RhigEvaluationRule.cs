@@ -106,6 +106,21 @@ public static class RhigEvaluationRule
     /// </summary>
     public static string? OutstandingLine(RhigContext context, DateTime eventUtc, RhigDecision decision, int? vials, bool completed, bool given)
     {
+        if (!completed)
+        {
+            return decision == RhigDecision.Undetermined
+                ? Summary(context, eventUtc, decision, vials)
+                : $"{Summary(context, eventUtc, decision, vials)}; evaluation not completed";
+        }
+
+        return decision == RhigDecision.Candidate && !given
+            ? $"{Summary(context, eventUtc, decision, vials)}; RhIG not yet given"
+            : null;
+    }
+
+    /// <summary>"Delivery 2026-11-07: candidate, 1 vial recommended", "…: not a candidate", "…: not yet decided".</summary>
+    public static string Summary(RhigContext context, DateTime eventUtc, RhigDecision decision, int? vials)
+    {
         var label = context switch
         {
             RhigContext.Antepartum => "Antepartum",
@@ -113,21 +128,12 @@ public static class RhigEvaluationRule
             _ => "Other exposure"
         };
         var head = $"{label} {eventUtc:yyyy-MM-dd}";
-        if (!completed)
+        return decision switch
         {
-            return decision switch
-            {
-                RhigDecision.Candidate => $"{head}: candidate{Vials(vials)}; evaluation not completed",
-                RhigDecision.NotCandidate => $"{head}: not a candidate; evaluation not completed",
-                _ => $"{head}: not yet decided"
-            };
-        }
-
-        return decision == RhigDecision.Candidate && !given
-            ? $"{head}: candidate{Vials(vials)}; RhIG not yet given"
-            : null;
-
-        static string Vials(int? v) => v is int n ? $", {n} vial{(n == 1 ? "" : "s")} recommended" : string.Empty;
+            RhigDecision.Candidate => vials is int n ? $"{head}: candidate, {n} vial{(n == 1 ? "" : "s")} recommended" : $"{head}: candidate",
+            RhigDecision.NotCandidate => $"{head}: not a candidate",
+            _ => $"{head}: not yet decided"
+        };
     }
 
     public static RuleResult EvaluateValues(int? vials, decimal? fetalBleedPercent)

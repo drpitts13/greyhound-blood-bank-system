@@ -13,6 +13,8 @@ public static class SupervisorQueueRule
     public const string KindQuarantineRelease = "QuarantineRelease";
     public const string KindOverrideReview = "OverrideReview";
     public const string KindDiscrepancy = "InventoryDiscrepancy";
+    /// <summary>An RhIG evaluation filled in and waiting for a verifier to complete it (Cycle 537).</summary>
+    public const string KindRhigComplete = "RhigComplete";
 
     public static RuleResult EvaluateAccess(
         bool hasImmunoOverride,

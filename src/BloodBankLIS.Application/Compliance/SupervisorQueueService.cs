@@ -31,6 +31,7 @@ public sealed class SupervisorQueueService
     private readonly ICurrentUser _currentUser;
     private readonly IPermissionEvaluator? _permissions;
     private readonly OverrideReviewService? _overrides;
+    private readonly RhigEvaluationService? _rhig;
 
     public SupervisorQueueService(
         ICurrentUser currentUser,
@@ -38,8 +39,10 @@ public sealed class SupervisorQueueService
         TestWorklistService? tests = null,
         InventoryService? inventory = null,
         IPermissionEvaluator? permissions = null,
-        OverrideReviewService? overrides = null)
+        OverrideReviewService? overrides = null,
+        RhigEvaluationService? rhig = null)
     {
+        _rhig = rhig;
         _overrides = overrides;
         _currentUser = currentUser;
         _abid = abid;
@@ -102,6 +105,24 @@ public sealed class SupervisorQueueService
                     row.CurrentResultId,
                     row.Mrn,
                     DueSoon: row.VerificationDeadlineNotice is not null));
+            }
+        }
+
+        // RhIG evaluations the bench filled in: a verifier completes them (same completion check as the RhIG list).
+        if (SupervisorQueueRule.IncludeResultVerify(verify) && _rhig is not null)
+        {
+            foreach (var item in (await _rhig.ListOpenAsync(ct)).Where(i => i.ReadyToComplete))
+            {
+                var e = item.Evaluation;
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindRhigComplete,
+                    $"Complete RhIG evaluation — {item.PatientName} ({item.Mrn})",
+                    $"{RhigEvaluationRule.Summary(e.Context, e.EventUtc, e.Decision, e.VialsRecommended)}. Recorded by {e.RecordedBy}.",
+                    $"/patients/{e.PatientId}?tab=rhig",
+                    "Complete",
+                    e.PatientId,
+                    e.Id,
+                    item.Mrn));
             }
         }
 
