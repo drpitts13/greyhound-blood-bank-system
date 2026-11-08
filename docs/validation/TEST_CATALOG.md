@@ -625,5 +625,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-614 | I | `UniversalLookupTests.RecentPatients_AreTheUsersOwnLatestChartOpenings` | URS-BB-608 / FRS-BB-725 |
 | TEST-BB-615 | U | `ShiftHandoffItemsTests.UnidentifiedPatientsAndTubesDue_AreHandoffItems` | URS-BB-609 / FRS-BB-726 |
 | TEST-BB-616 | I | `ShiftHandoffServiceTests.Create_CountsUnidentifiedPatientsNotYetMerged` | URS-BB-609 / FRS-BB-726 |
+| TEST-BB-617 | U | `IssuedUnderEarlierIdentityRuleTests.Applies_AndWarning` | URS-BB-610 / FRS-BB-727 |
+| TEST-BB-618 | I | `UnidentifiedPatientTests.Unidentified_IsRegisteredInOneStep_AndMergedOnceIdentified` (units still out) | URS-BB-610 / FRS-BB-727 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

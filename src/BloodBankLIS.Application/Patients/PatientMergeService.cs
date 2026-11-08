@@ -152,6 +152,34 @@ public sealed class PatientMergeService
     }
 
     /// <summary>
+    /// Units still out (issued, not transfused or returned) on this chart that were issued under another MRN, oldest first
+    /// (<see cref="IssuedUnderEarlierIdentityRule"/>).
+    /// </summary>
+    public async Task<IReadOnlyList<IssuedUnderEarlierIdentityDto>> ListIssuedUnderEarlierIdentityAsync(long patientId, CancellationToken ct = default)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return [];
+        }
+
+        var issues = (await _issues.ListAsync(i => i.PatientId == patientId && i.Status == IssueStatus.Issued, ct))
+            .Where(i => IssuedUnderEarlierIdentityRule.Applies(i.PatientIdentifier1, patient.MedicalRecordNumber))
+            .OrderBy(i => i.IssuedUtc)
+            .ToList();
+        var rows = new List<IssuedUnderEarlierIdentityDto>();
+        foreach (var issue in issues)
+        {
+            var unit = await _units.GetByIdAsync(issue.BloodProductId, ct);
+            rows.Add(new IssuedUnderEarlierIdentityDto(
+                issue.Id, issue.BloodProductId, unit?.UnitNumber ?? $"Unit {issue.BloodProductId}",
+                issue.PatientIdentifier1!.Trim(), issue.IssuedUtc, issue.IssuedToLocation));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     /// An unidentified chart is now known to be the patient with this MRN: it is merged into theirs (the identified chart
     /// survives), with the usual merge checks, ledger, and undo.
     /// </summary>
@@ -183,7 +211,17 @@ public sealed class PatientMergeService
             return OperationResult<Patient>.Fail(check.Message);
         }
 
-        return await MergeCoreAsync(identified!.Id, chart.Id, $"Unidentified patient {chart.MedicalRecordNumber} identified: {request.Reason.Trim()}", ct);
+        var merged = await MergeCoreAsync(identified!.Id, chart.Id, $"Unidentified patient {chart.MedicalRecordNumber} identified: {request.Reason.Trim()}", ct);
+        if (!merged.Succeeded)
+        {
+            return merged;
+        }
+
+        // Units issued under the temporary identity and still out: the wristband and the chart now differ.
+        var stillOut = await ListIssuedUnderEarlierIdentityAsync(identified.Id, ct);
+        return stillOut.Count == 0
+            ? merged
+            : OperationResult<Patient>.Ok(merged.Value!, [IssuedUnderEarlierIdentityRule.Warning(stillOut.Count, stillOut.Select(s => s.IssuedUnder), identified.MedicalRecordNumber)]);
     }
 
     public async Task<OperationResult<Patient>> MergeAsync(

@@ -43,6 +43,20 @@
                 }
             </div>
         }
+        @if (_issuedUnderEarlier.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:.5rem;" data-issued-under-earlier>
+                <strong>@_issuedUnderEarlier.Count @(_issuedUnderEarlier.Count == 1 ? "unit is" : "units are") still out under @string.Join(", ", _issuedUnderEarlier.Select(i => i.IssuedUnder).Distinct(StringComparer.OrdinalIgnoreCase)).</strong>
+                The patient's wristband may still show that identity; the bedside check now uses MRN <span class="mono">@Patient.MedicalRecordNumber</span>.
+                Make sure the wristband and the unit tags agree before transfusing.
+                <div class="sub">
+                    @foreach (var i in _issuedUnderEarlier)
+                    {
+                        <span style="margin-right:.6rem;"><a class="mono" href="@($"/inventory/units/{i.BloodUnitId}")">@i.UnitNumber</a> issued @i.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? "" : $" to {i.IssuedToLocation}")</span>
+                    }
+                </div>
+            </div>
+        }
         @if (_family is { } family)
         {
             <div class="muted" style="margin-top:.25rem;" data-family>
@@ -390,10 +404,14 @@
         }
     }
 
+    private List<IssuedUnderEarlierIdentityDto> _issuedUnderEarlier = new();
+
     private async Task LoadFamilyAsync()
     {
         var r = await Api.GetPatientFamilyAsync(Patient.Id);
         _family = r.Succeeded ? r.Value : null;
+        var issued = await Api.GetIssuedUnderEarlierIdentityAsync(Patient.Id);
+        _issuedUnderEarlier = issued.Succeeded ? issued.Value ?? new() : new();
     }
 
     private async Task LinkMotherAsync()

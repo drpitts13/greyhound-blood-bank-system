@@ -615,3 +615,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-607 | A shipment reference scanned or typed into the top-bar lookup opens that shipment; a shipped unit's lookup line and an outside antibody's timeline entry say where they went or came from. | P3 | FRS-BB-724 |
 | URS-BB-608 | The top-bar lookup offers the user's recently opened charts as soon as it is focused, so returning to a patient needs no search. | P3 | FRS-BB-725 |
 | URS-BB-609 | The shift handoff names unidentified patients still to be merged (as urgent) and stored tubes due for discard. | P2 | FRS-BB-726 |
+| URS-BB-610 | When units issued under an earlier identity (an unidentified patient's temporary MRN) are still out after a merge, the chart and the identify step warn that the wristband may differ from the chart. | P1 | FRS-BB-727 |

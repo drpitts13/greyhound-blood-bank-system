@@ -76,9 +76,29 @@ public class UnidentifiedPatientTests
         Assert.False((await Merge(factory, c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
             .IdentifyAsync(a.Id, new IdentifyPatientRequest("MRN-UNK-REAL", "Family ID"))).Succeeded);
 
+        // TEST-BB-618: one unit issued under the temporary identity is still out (another was transfused).
+        var product = new ProductType { ProductCode = "RBC-UNK", Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var outUnit = new BloodUnit { UnitNumber = "W-UNK-OUT", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Issued };
+        var doneUnit = new BloodUnit { UnitNumber = "W-UNK-DONE", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Transfused };
+        c.BloodUnits.AddRange(outUnit, doneUnit);
+        await c.SaveChangesAsync();
+        c.Issues.AddRange(
+            new Issue { BloodProductId = outUnit.Id, PatientId = a.Id, IssuedUtc = factory.Clock.UtcNow, IssuedBy = "tech-test", IssueType = IssueType.EmergencyRelease, PatientIdentifier1 = a.MedicalRecordNumber, IssuedToLocation = "Trauma bay 2" },
+            new Issue { BloodProductId = doneUnit.Id, PatientId = a.Id, IssuedUtc = factory.Clock.UtcNow, IssuedBy = "tech-test", IssueType = IssueType.EmergencyRelease, PatientIdentifier1 = a.MedicalRecordNumber, Status = IssueStatus.Transfused });
+        await c.SaveChangesAsync();
+        Assert.Empty(await merge.ListIssuedUnderEarlierIdentityAsync(a.Id));
+
         var done = await merge.IdentifyAsync(a.Id, new IdentifyPatientRequest(" MRN-UNK-REAL ", "ID from family at bedside"));
         Assert.True(done.Succeeded, done.Error);
         Assert.Equal(identified.Id, done.Value!.Id);
+        var warning = Assert.Single(done.Warnings);
+        Assert.Equal(IssuedUnderEarlierIdentityRule.Code, warning.Code);
+        Assert.Contains("1 unit is still out under UNK-20260530-01", warning.Message);
+        Assert.Contains("uses MRN MRN-UNK-REAL", warning.Message);
+        var stillOut = Assert.Single(await merge.ListIssuedUnderEarlierIdentityAsync(identified.Id));
+        Assert.Equal(("W-UNK-OUT", "UNK-20260530-01", "Trauma bay 2"), (stillOut.UnitNumber, stillOut.IssuedUnder, stillOut.IssuedToLocation));
 
         var merged = await c.Patients.AsNoTracking().SingleAsync(p => p.Id == a.Id);
         Assert.Equal((PatientStatus.Merged, (long?)identified.Id), (merged.Status, merged.MergedIntoPatientId));

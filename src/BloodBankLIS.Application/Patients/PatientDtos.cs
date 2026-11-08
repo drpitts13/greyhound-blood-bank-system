@@ -60,6 +60,9 @@ public sealed record FamilyMemberDto(
 /// <summary>The patient's linked mother (null when none) and the infants linked to this patient.</summary>
 public sealed record PatientFamilyDto(FamilyMemberDto? Mother, IReadOnlyList<FamilyMemberDto> Infants);
 
+/// <summary>A unit still out that was issued under an MRN other than the chart's current one.</summary>
+public sealed record IssuedUnderEarlierIdentityDto(long IssueId, long BloodUnitId, string UnitNumber, string IssuedUnder, DateTime IssuedUtc, string? IssuedToLocation);
+
 /// <summary>The unidentified chart is now known to be the patient with this MRN: merge it into theirs.</summary>
 public sealed record IdentifyPatientRequest(string IdentifiedMrn, string Reason);
 

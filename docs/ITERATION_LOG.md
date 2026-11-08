@@ -17582,3 +17582,22 @@ The recent iterations added two kinds of open work that outlast a shift: unident
 
 - TEST-BB-615: unidentified patients first and urgent with link and note; tubes due routine with link; both in the summary.
 - TEST-BB-616: a recorded handoff counts unidentified patients not merged (a merged one not); tubes due 0 without storage.
+
+## Iteration 553 — Units still out under an earlier identity (2026-11-08)
+
+### Capability matrix rescan (patients: identity changes)
+
+Identifying an unidentified patient merges the temporary chart into the identified one (Cycle 541), moving its issues. A unit released under UNK-… may still be on the ward, with the patient wearing the trauma wristband, while the bedside check now compares with the identified MRN. Nothing warned the identifier or the ward. Workflow questions: memory (the chart names the units and the identity they went out under); safety (the bedside check is not loosened; whether it should accept the temporary identity is added to OCD-071); next action (match the wristband and unit tags before transfusing); general (any merge where issued units are still out).
+
+### Design
+
+- `IssuedUnderEarlierIdentityRule`; `ListIssuedUnderEarlierIdentityAsync` and endpoint; identify warning; chart header alert.
+
+### Requirements
+
+- URS-BB-610, FRS-BB-727. OCD-071 updated. Help: Patients.
+
+### Tests
+
+- TEST-BB-617: applies to another MRN only (case and spaces ignored, empty never); warning names identities once and the current MRN.
+- TEST-BB-618: identify with one unit still out and one transfused returns the warning for one unit; the list names the unit, the temporary MRN, and the destination.

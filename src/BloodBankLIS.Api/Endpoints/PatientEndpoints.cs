@@ -58,6 +58,10 @@ public static class PatientEndpoints
                 p => ($"/api/patients/{p.Id}", (object)PatientDto.From(p))))
             .RequirePermission(PermissionCodes.PatientWrite);
 
+        // Units still out that were issued under another MRN (after a merge): the wristband may differ from the chart.
+        group.MapGet("/{id:long}/issued-under-earlier-identity", async (long id, PatientMergeService merges, CancellationToken ct) =>
+            Results.Ok(await merges.ListIssuedUnderEarlierIdentityAsync(id, ct)));
+
         group.MapPost("/{id:long}/identify", async (long id, IdentifyPatientRequest request, PatientMergeService merges, CancellationToken ct) =>
             EndpointResults.From(await merges.IdentifyAsync(id, request, ct), p => PatientDto.From(p)))
             .RequirePermission(PermissionCodes.PatientMerge);
