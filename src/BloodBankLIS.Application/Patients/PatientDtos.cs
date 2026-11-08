@@ -53,7 +53,9 @@ public sealed record FamilyMemberDto(
     DateOnly DateOfBirth,
     Sex Sex,
     string? CurrentBloodType,
-    IReadOnlyList<string> ActiveAntibodies);
+    IReadOnlyList<string> ActiveAntibodies,
+    // The current type's Rh, for suggesting an infant's Rh on the mother's RhIG evaluation.
+    RhType? CurrentRh = null);
 
 /// <summary>The patient's linked mother (null when none) and the infants linked to this patient.</summary>
 public sealed record PatientFamilyDto(FamilyMemberDto? Mother, IReadOnlyList<FamilyMemberDto> Infants);

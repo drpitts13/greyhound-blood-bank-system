@@ -37,6 +37,13 @@
                         <option value="@RhType.Positive">Positive</option>
                         <option value="@RhType.Negative">Negative</option>
                     </select>
+                    @if (SuggestedInfantRh is RhType suggested && suggested != _form.InfantRh)
+                    {
+                        <div class="sub" data-rhig-infant-suggestion>
+                            Linked infant @SuggestedInfant!.Name (@SuggestedInfant.MedicalRecordNumber) is Rh @suggested.
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _form.InfantRh = suggested" data-rhig-use-infant>Use it</button>
+                        </div>
+                    }
                 </div>
             </div>
             <div class="form-row">
@@ -182,7 +189,22 @@
         public string? DecisionNote { get; set; }
     }
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    // The mother's linked infants (Cycle 547): a delivery evaluation can take the newborn's Rh from the chart.
+    private IReadOnlyList<FamilyMemberDto> _infants = [];
+
+    private FamilyMemberDto? SuggestedInfant => _form is null ? null : _infants
+        .Where(i => i.CurrentRh is RhType rh && rh != RhType.Unknown && Math.Abs(i.DateOfBirth.DayNumber - DateOnly.FromDateTime(_form.EventUtc).DayNumber) <= 2)
+        .Take(2).ToList() is { Count: 1 } one ? one[0] : null;
+
+    private RhType? SuggestedInfantRh => _form is null ? null : MotherInfantLinkRule.SuggestInfantRh(
+        _form.Context, _form.EventUtc, _infants.Select(i => (i.DateOfBirth, i.CurrentRh)));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+        var family = await Api.GetPatientFamilyAsync(PatientId);
+        _infants = family.Succeeded ? family.Value?.Infants ?? [] : [];
+    }
 
     private async Task LoadAsync()
     {

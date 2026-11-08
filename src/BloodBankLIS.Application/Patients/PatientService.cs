@@ -396,7 +396,8 @@ public sealed class PatientService
         FamilyMemberDto Member(Patient p) => new(
             p.Id, p.MedicalRecordNumber, $"{p.LastName}, {p.FirstName}", p.DateOfBirth, p.Sex,
             PatientBloodBankFlags.CurrentBloodType(types[p.Id]),
-            PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]));
+            PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
+            types[p.Id].Where(t => t.IsCurrent && t.InvalidatedUtc is null).OrderByDescending(t => t.Id).Select(t => (RhType?)t.RhD).FirstOrDefault());
 
         return new PatientFamilyDto(mother is null ? null : Member(mother), infants.Select(Member).ToList());
     }

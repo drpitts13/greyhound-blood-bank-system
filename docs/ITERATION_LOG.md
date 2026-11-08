@@ -17488,3 +17488,22 @@ Outside antibody reports are complete apart from OCD-073 (Cycle 546). Next gap: 
 - TEST-BB-605: merged infant, unknown, self, merged mother, the infant's own infant, and a mother not born first are refused.
 - TEST-BB-606: permission and rule refusals; link audited; repeat refused; family both ways with type and antibodies; merge moves the link to the surviving chart and unmerge moves it back; unlink needs a reason, audited; nothing to unlink refused.
 - TEST-BB-607: demo newborn linked to MRN0025, added once; seeder count 18 patients.
+
+## Iteration 548 — Infant Rh from the linked newborn (2026-11-08)
+
+### Capability matrix rescan (patients: relationships, RhIG)
+
+Cycle 547 links mother and infant charts, but the mother's RhIG evaluation still asked for the infant's Rh from memory or another screen, and Link mother appeared on every chart, adults included. Workflow questions: memory (the newborn's Rh is on its chart); inference (offered from the one linked newborn born near the delivery, never for twins or an untyped newborn, never filled alone); clicks (one); safety (the evaluation records what the user chose; the decision rules are unchanged); clutter (Link mother only on infants' charts).
+
+### Design
+
+- `MotherInfantLinkRule.SuggestInfantRh/OfferLink`; `FamilyMemberDto.CurrentRh`; RhIG tab suggestion with Use it; header condition.
+
+### Requirements
+
+- URS-BB-605, FRS-BB-722. Help: patient chart, RhIG.
+
+### Tests
+
+- TEST-BB-608: under one year offered, a year or older not; one infant born near a delivery suggested; another infant far away ignored; antepartum, twins, untyped, unknown Rh, far birth, and none not suggested.
+- TEST-BB-609: the family's mother carries her current Rh.

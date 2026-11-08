@@ -61,6 +61,8 @@ public class MotherInfantTests
         Assert.Equal(("MRN-MOM", "Rivera, Ana"), (infantSide.Mother!.MedicalRecordNumber, infantSide.Mother.Name));
         Assert.Equal(["anti-D"], infantSide.Mother.ActiveAntibodies);
         Assert.NotNull(infantSide.Mother.CurrentBloodType);
+        // TEST-BB-609: each family member carries the current type's Rh (for the RhIG infant Rh suggestion).
+        Assert.Equal(RhType.Negative, infantSide.Mother.CurrentRh);
         var motherSide = (await patients.GetFamilyAsync(mother.Id))!;
         Assert.Null(motherSide.Mother);
         Assert.Equal("MRN-BABY", Assert.Single(motherSide.Infants).MedicalRecordNumber);
