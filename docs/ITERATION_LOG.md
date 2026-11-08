@@ -18054,3 +18054,23 @@ The Cycle 573 defect ("Usable until … None usable" on every Blood orders to pr
 ### Tests
 
 - TEST-BB-660.
+
+## Iteration 578 — Rendered tests for the issue desk (2026-11-08)
+
+### Capability matrix rescan (QA: safety-relevant display)
+
+Ready to issue is the last screen before blood leaves the bank. Its rows carry the ward's request, the needed-by badge (passed, needed soon), and the expires-before-needed-by mark (Cycles 572–573), all tested only as data. With page rendering available (Cycle 577), the board itself is now tested.
+
+### Design
+
+- `CannedApi` test helper: the page's real API client answered by fixed responses per API path (404 for the rest), dev-mode session, loose JS interop; the Blood orders page test moved onto it.
+- Ready to issue page test: four reserved units (requested and needed soon, passed, crossmatch ending before needed-by, specimen-blocked).
+
+### Verification
+
+- The summary line counts three issuable and one needing attention; each badge is on its own row with the right colour and wording, and absent elsewhere.
+- Two deliberate markup faults were each caught: the needed-soon badge drawn grey ("badge-amber" not found), and the expires-before mark shown on every row (found on a row it does not apply to). The page was restored from git each time.
+
+### Tests
+
+- TEST-BB-661.

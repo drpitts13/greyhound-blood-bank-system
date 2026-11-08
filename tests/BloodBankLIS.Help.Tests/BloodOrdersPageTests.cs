@@ -1,12 +1,7 @@
-using System.Net;
-using System.Net.Http.Json;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Enums;
-using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Web.Components.Pages;
-using BloodBankLIS.Web.Services;
 using Bunit;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BloodBankLIS.Help.Tests;
 
@@ -28,10 +23,7 @@ public class BloodOrdersPageTests : BunitContext
 
     private IRenderedComponent<BloodOrders> RenderWith(params BloodOrderToPrepareDto[] rows)
     {
-        var http = new HttpClient(new CannedHandler(rows)) { BaseAddress = new Uri("http://api.test/") };
-        Services.AddSingleton(new BloodBankApiClient(http));
-        // Dev mode grants every permission, so the page loads its rows.
-        Services.AddSingleton(new UserSession(new DevModeState { Enabled = true }));
+        CannedApi.Register(this, new Dictionary<string, object> { ["/api/blood-orders/to-prepare"] = rows.ToList() });
         var page = Render<BloodOrders>();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("table.bb tbody tr")));
         return page;
@@ -70,14 +62,5 @@ public class BloodOrdersPageTests : BunitContext
 
         var button = page.FindAll("table.bb tbody tr").Single(r => r.TextContent.Contains("ORD-LATE-SPEC")).QuerySelector("td.right a")!;
         Assert.Equal(("Collect a new specimen", "/patients/1?tab=specimens"), (button.TextContent.Trim(), button.GetAttribute("href")));
-    }
-
-    /// <summary>Answers the page's one request with the given rows, serialized as the API does.</summary>
-    private sealed class CannedHandler(IReadOnlyList<BloodOrderToPrepareDto> rows) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/api/blood-orders/to-prepare", StringComparison.Ordinal)
-                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(rows, options: ClinicalJson.WebOptions) }
-                : new HttpResponseMessage(HttpStatusCode.NotFound));
     }
 }

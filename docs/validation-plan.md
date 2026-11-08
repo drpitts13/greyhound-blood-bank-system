@@ -11,7 +11,7 @@ Status: Living validation plan (not a Phase 0 draft). Highest-priority tests cov
 | HL7 | `BloodBankLIS.HL7.Tests` | Parse/serialize round-trip, ADT/ORM/ORU mapping, ACK/NAK building | None |
 | Integration | `BloodBankLIS.Integration.Tests` | EF Core migrations, constraints, indexes, append-only behavior, dedupe uniqueness | SQL Server (LocalDB / Testcontainers) |
 
-Framework: xUnit. Deterministic time via injected `IClock`. No test depends on wall-clock time. Pages are rendered with bUnit in `BloodBankLIS.Help.Tests` (the page's API client answered by a canned HTTP handler, dev-mode session for permissions), so what a user reads on a row is tested, not only the data behind it.
+Framework: xUnit. Deterministic time via injected `IClock`. No test depends on wall-clock time. Pages are rendered with bUnit in `BloodBankLIS.Help.Tests` (`CannedApi`: the page's API client answered by fixed responses per API path, dev-mode session for permissions; Blood orders to prepare and the issue desk's Ready to issue so far), so what a user reads on a row is tested, not only the data behind it.
 
 ## 2. Priority test cases (must exist before the related feature ships)
 

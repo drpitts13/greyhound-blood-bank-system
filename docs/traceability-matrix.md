@@ -737,7 +737,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-624 / FRS-BB-741 | Nothing runs past its card | `app.css` (`.table-scroll`, card container query); web components | TEST-BB-646 | U | |
 | URS-BB-625 / FRS-BB-742 | Blood orders needed soon | `OrderNeededByRule.DueSoon`; `BloodOrderWorklistService`; `DashboardQueueCatalog.BloodOrdersNote`; `BloodOrders.razor` | TEST-BB-647, TEST-BB-648 | U, I | OCD-075 |
 | URS-BB-626 / FRS-BB-743 | Blood orders needed soon on the shift handoff | `ShiftHandoffService`; `ShiftHandoffItems` | TEST-BB-649, TEST-BB-650 | U, I | OCD-075 |
-| URS-BB-627 / FRS-BB-744 | Needed-by on the issue desk | `IssuingService.ListReadyToIssueAllocationsAsync`; `ReadyToIssueAttentionRule.IssuableFirst`; `Issuing.razor` | TEST-BB-651, TEST-BB-652 | U, I | OCD-075 |
+| URS-BB-627 / FRS-BB-744 | Needed-by on the issue desk | `IssuingService.ListReadyToIssueAllocationsAsync`; `ReadyToIssueAttentionRule.IssuableFirst`; `Issuing.razor` | TEST-BB-651, TEST-BB-652, TEST-BB-661 | U, I | OCD-075 |
 | URS-BB-628 / FRS-BB-745 | Specimen or crossmatch ends before needed-by | `OrderNeededByRule.ExpiresBeforeNeeded`; `BloodOrderWorklistService`; `IssuingService`; `BloodOrders.razor`; `Issuing.razor` | TEST-BB-653, TEST-BB-654, TEST-BB-655, TEST-BB-660 | U, I | |
 | URS-BB-629 / FRS-BB-746 | Next step: a new specimen for the needed-by time | `BloodOrderPreparationRule.NextStep`; `BloodOrderWorklistService`; demo `ORD-SURG-DEMO` | TEST-BB-656, TEST-BB-657, TEST-BB-658 | U, I | |
 | URS-BB-630 / FRS-BB-747 | Find a cooler in transit by scan | `UniversalLookupService`; `LookupRecordType` | TEST-BB-659 | I | |
