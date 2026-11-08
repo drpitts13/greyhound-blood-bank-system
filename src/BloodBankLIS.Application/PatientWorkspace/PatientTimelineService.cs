@@ -167,7 +167,8 @@ public sealed class PatientTimelineService
         {
             events.Add(new(a.CreatedUtc, TimelineCategory.Alert, TimelineSeverity.Critical,
                 $"Antibody recorded: {a.AntibodySpecificity} ({a.Status})",
-                Join(a.Comment, a.IsActive ? null : $"Inactivated{(string.IsNullOrWhiteSpace(a.DeactivationReason) ? "" : $": {a.DeactivationReason}")}"),
+                Join(OutsideAntibodyReportRule.SourceLabel(a.ReportingFacility, a.IdentifiedOn), a.Comment,
+                    a.IsActive ? null : $"Inactivated{(string.IsNullOrWhiteSpace(a.DeactivationReason) ? "" : $": {a.DeactivationReason}")}"),
                 a.CreatedBy, chart, $"abs-{a.Id}"));
         }
 

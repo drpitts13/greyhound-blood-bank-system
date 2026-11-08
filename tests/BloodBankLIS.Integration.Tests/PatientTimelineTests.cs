@@ -190,6 +190,19 @@ public class PatientTimelineTests : IDisposable
     private static TimelineEventDto Event(IReadOnlyList<TimelineEventDto> events, string key) =>
         Assert.Single(events, e => e.SourceKey == key);
 
+    // TEST-BB-613: an antibody reported by another facility says so on the timeline.
+    [Fact]
+    public async Task OutsideAntibody_SaysWhereItWasReported()
+    {
+        await using var c = _factory.Create();
+        var patient = await AddPatientAsync(c, "MRN-TL-OUT");
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-Jka", IsActive = true, ReportingFacility = "St. Mary's Hospital", IdentifiedOn = new DateOnly(2019, 4, 2) });
+        await c.SaveChangesAsync();
+
+        var antibody = Assert.Single(await Timeline(c).GetAsync(patient.Id), e => e.Title.StartsWith("Antibody recorded"));
+        Assert.Equal("Reported by St. Mary's Hospital, identified 2019-04-02", antibody.Detail);
+    }
+
     private static async Task<Patient> AddPatientAsync(BloodBankDbContext c, string mrn)
     {
         var patient = new Patient { MedicalRecordNumber = mrn, LastName = "Timeline", FirstName = "Tess", DateOfBirth = new DateOnly(1965, 4, 4), Sex = Sex.Female };

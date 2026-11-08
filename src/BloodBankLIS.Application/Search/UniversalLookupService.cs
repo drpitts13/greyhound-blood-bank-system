@@ -6,6 +6,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Isbt128.Parsing;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Search;
 
@@ -100,6 +101,7 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactPatientsAsync(upper, ct));
             hits.AddRange(await ExactVisitsAsync(upper, ct));
             hits.AddRange(await ExactRhigLotsAsync(upper, ct));
+            hits.AddRange(await ExactShipmentsAsync(upper, ct));
         }
 
         if (hits.Count > 0)
@@ -159,8 +161,34 @@ public sealed class UniversalLookupService
         ];
     }
 
+    /// <summary>
+    /// A scanned outbound shipment reference (packing list or courier number): one hit per facility shipped to under it,
+    /// opening Ship units with that shipment's units.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactShipmentsAsync(string upper, CancellationToken ct)
+    {
+        var shipped = await _units.ListAsync(u => u.Status == UnitStatus.ShippedOut && u.OutboundShipmentReference != null
+            && u.OutboundShipmentReference.ToUpper().Replace(" ", "") == upper, ct);
+        return shipped
+            .GroupBy(u => ShipOutRule.ShipmentKey(u.ShippedToFacility, u.OutboundShipmentReference, u.ShippedUtc))
+            .Select(g =>
+            {
+                var first = g.OrderBy(u => u.ShippedUtc).ThenBy(u => u.Id).First();
+                var count = g.Count();
+                return new LookupHitDto(
+                    LookupHitKind.Shipment,
+                    first.Id,
+                    true,
+                    first.OutboundShipmentReference!,
+                    $"Shipment to {first.ShippedToFacility}: {count} unit{(count == 1 ? "" : "s")}",
+                    $"Shipped {first.ShippedUtc:yyyy-MM-dd HH:mm} UTC",
+                    $"/inventory/ship-out?shipment={Uri.EscapeDataString(first.OutboundShipmentReference!)}");
+            })
+            .ToList();
+    }
+
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, order, visit, or RhIG lot matches \"{query}\".";
+        $"No patient, unit, specimen, order, visit, RhIG lot, or shipment matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {
@@ -203,7 +231,8 @@ public sealed class UniversalLookupService
                     exact,
                     u.UnitNumber,
                     product,
-                    $"{AboRhLabel(u.Abo, u.RhD)} · {u.Status} · expires {u.ExpiresUtc:yyyy-MM-dd HH:mm} UTC",
+                    $"{AboRhLabel(u.Abo, u.RhD)} · {u.Status} · expires {u.ExpiresUtc:yyyy-MM-dd HH:mm} UTC"
+                        + (u.Status == UnitStatus.ShippedOut && !string.IsNullOrWhiteSpace(u.ShippedToFacility) ? $" · shipped to {u.ShippedToFacility}" : string.Empty),
                     $"/inventory/units/{u.Id}");
             })
             .ToList();

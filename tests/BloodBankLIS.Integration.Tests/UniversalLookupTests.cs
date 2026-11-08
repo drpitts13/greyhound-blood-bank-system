@@ -399,7 +399,30 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, order, visit, or RhIG lot matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, or shipment matches \"ZZZ-NOPE\".", result.Message);
+    }
+
+    // TEST-BB-612: a shipment reference (case and spaces ignored) finds the shipment, opening Ship units with it; a
+    // shipped unit's own hit says where it went.
+    [Fact]
+    public async Task ShipmentReference_FindsTheShipment()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var unit = (await c.BloodUnits.FindAsync(f.Unit.Id))!;
+        unit.Status = UnitStatus.ShippedOut;
+        unit.ShippedToFacility = "St. Mary's Hospital";
+        unit.ShippedUtc = _factory.Clock.UtcNow;
+        unit.OutboundShipmentReference = "PL-2026 77";
+        await c.SaveChangesAsync();
+
+        var result = await Lookup(c).LookupAsync(" pl-202677 ");
+        var hit = Assert.Single(result.Hits);
+        Assert.Equal((LookupHitKind.Shipment, f.Unit.Id, "Shipment to St. Mary's Hospital: 1 unit"), (hit.Kind, hit.Id, hit.Title));
+        Assert.Equal("/inventory/ship-out?shipment=PL-2026%2077", hit.Href);
+
+        var unitHit = Assert.Single((await Lookup(c).LookupAsync(f.Unit.UnitNumber)).Hits);
+        Assert.EndsWith("shipped to St. Mary's Hospital", unitHit.Detail);
     }
 
     private sealed record Fixture(Patient Patient, BloodUnit Unit, ProductType Product);

@@ -17526,3 +17526,22 @@ Mother and infant links (Cycles 547–548) were made by hand, but most newborns 
 
 - TEST-BB-610: PID-21 maps to the mother's MRN; absent stays null.
 - TEST-BB-611: a newborn ADT links to the registered mother (audited, ACK note); the same mother again is quiet; another mother is flagged and the link kept; an unregistered mother and a refused link only add notes; all accepted.
+
+## Iteration 550 — Shipments in the lookup; outside antibodies on the timeline (2026-11-08)
+
+### Capability matrix rescan (search everywhere)
+
+The newborn link from ADT completes the mother and infant work (Cycles 547–549). Next gaps from the recent work: the top-bar lookup found patients, units, specimens, orders, visits, and RhIG lots, but not the shipment reference on a packing list, so a call from a receiving hospital meant opening Ship units and scanning the list; a shipped unit's lookup line said only "ShippedOut"; and the patient timeline showed an outside antibody as if found here. Workflow questions: scanning (the packing list barcode opens the shipment); memory (where a unit went, where an antibody came from); no clinical rule.
+
+### Design
+
+- `LookupHitKind.Shipment`, `ExactShipmentsAsync`, unit detail suffix; Ship units `?shipment=`; timeline source label.
+
+### Requirements
+
+- URS-BB-607, FRS-BB-724. Help: Inventory.
+
+### Tests
+
+- TEST-BB-612: a reference typed in another case and spacing finds one shipment hit with its link; the shipped unit's hit says where it went. Lookup record types include Shipment; the no-match message names shipments.
+- TEST-BB-613: an outside antibody's timeline entry names the facility and date.

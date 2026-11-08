@@ -199,7 +199,11 @@
         StateHasChanged();
     }
 
-    private static string KindLabel(LookupHitKind kind) => kind == LookupHitKind.RhigLot ? "RhIG lot" : kind.ToString();
+    private static string KindLabel(LookupHitKind kind) => kind switch
+    {
+        LookupHitKind.RhigLot => "RhIG lot",
+        _ => kind.ToString()
+    };
 
     private static string KindBadge(LookupHitKind kind) => kind switch
     {

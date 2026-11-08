@@ -84,7 +84,7 @@ else
     </div>
 
     <div class="bb-card" data-recent-shipments>
-        <div class="bb-card-title"><h3>Recent shipments (30 days)</h3></div>
+        <div class="bb-card-title"><h3>Recent shipments (@(string.IsNullOrWhiteSpace(ShipmentQuery) ? "30 days" : "past year"))</h3></div>
         @if (_shipments.Count == 0)
         {
             <div class="empty">No units shipped to another facility in the last 30 days.</div>
@@ -139,13 +139,24 @@ else
     private List<OutboundShipmentDto> _shipments = new();
     private string? _openShipment;
 
-    protected override async Task OnInitializedAsync() => await LoadHistoryAsync();
+    // From the lookup: a shipment reference opens with that shipment's units shown (searched over a year).
+    [SupplyParameterFromQuery(Name = "shipment")] public string? ShipmentQuery { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistoryAsync();
+        if (!string.IsNullOrWhiteSpace(ShipmentQuery)
+            && _shipments.FirstOrDefault(s => string.Equals(s.Reference?.Trim(), ShipmentQuery.Trim(), StringComparison.OrdinalIgnoreCase)) is { } found)
+        {
+            _openShipment = ShipOutRule.ShipmentKey(found.Facility, found.Reference, found.FirstShippedUtc);
+        }
+    }
 
     private async Task LoadHistoryAsync()
     {
         var f = await Api.GetShipFacilitiesAsync();
         _facilities = f.Succeeded ? f.Value ?? new() : new();
-        var s = await Api.GetShipmentsAsync();
+        var s = await Api.GetShipmentsAsync(string.IsNullOrWhiteSpace(ShipmentQuery) ? 30 : 366);
         _shipments = s.Succeeded ? s.Value ?? new() : new();
     }
 

@@ -9,7 +9,9 @@ public enum LookupHitKind
     Specimen = 2,
     Order = 3,
     /// <summary>An RhIG lot recorded as given; opens the lot trace.</summary>
-    RhigLot = 4
+    RhigLot = 4,
+    /// <summary>An outbound shipment's reference (packing list); opens Ship units with that shipment.</summary>
+    Shipment = 5
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>
