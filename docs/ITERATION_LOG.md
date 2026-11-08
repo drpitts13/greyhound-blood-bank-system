@@ -17999,3 +17999,21 @@ Cycle 573 warned when a blood order's specimen expires before its needed-by time
 
 - TEST-BB-656: new specimen ahead of type and screen; none usable is the first collection; nothing left is no step; link to specimens; reserve link unchanged otherwise.
 - TEST-BB-657: on the worklist, an order needed after its specimen expires shows Collect a new specimen on the specimens tab; needed in time, it does not.
+
+## Iteration 575 — A scheduled-surgery demo order (2026-11-08)
+
+### Capability matrix rescan (sample data)
+
+Cycles 557–574 added needed-by times and what follows from them (passed, needed soon, specimen or crossmatch ending first, a new specimen as the next step), but the development database's only blood order demo was seeded before needed-by existed, so none of it could be seen without changing data by hand. Workflow questions: training and verification (the features can be seen on a fresh or existing development database).
+
+### Design
+
+- `EnsureSurgeryOrderDemoAsync`: ORD-SURG-DEMO, routine, one red cell unit for MRN0022, needed one day after that patient's latest usable specimen expires (computed when seeded; skipped if the patient has no usable specimen with an expiry). Added once, after the existing demo; existing rows untouched.
+
+### Tests
+
+- TEST-BB-658: seeded twice, one demo order; the worklist flags it and its next step is Collect a new specimen on the patient's specimens. Seeder order count 21 → 22.
+
+### Defect found and fixed
+
+- The live check on the development database showed ORD-PREP-DEMO's specimen cell reading "Usable until … None usable". Cycle 573 had placed the "Expires before needed-by" badge between the cell's `else if` and `else`, so the "None usable" `else` attached to the new badge and showed on every row without that flag. The badge now follows the complete if/else chain; both demo rows read correctly. Ready to issue (same cycle) was checked and is not affected.

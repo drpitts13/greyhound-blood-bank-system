@@ -80,6 +80,7 @@ public static partial class DatabaseSeeder
         await EnsureShipOutDemoAsync(context, ct);
         await EnsureMotherInfantDemoAsync(context, ct);
         await EnsureBloodOrderDemoAsync(context, ct);
+        await EnsureSurgeryOrderDemoAsync(context, ct);
     }
 
     /// <summary>

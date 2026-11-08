@@ -90,7 +90,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             var pack = await verify.MtpPackRecords.SingleAsync();
             Assert.Equal(4, await verify.Issues.CountAsync(i => i.MtpPackRecordId == pack.Id));
             Assert.Null((await verify.TransportContainers.SingleAsync()).MinTemperatureC);
-            Assert.Equal(21, await verify.Orders.CountAsync()); // 20 and the blood orders to prepare demo
+            Assert.Equal(22, await verify.Orders.CountAsync()); // 20, the blood orders to prepare demo, and the surgery demo
             // TEST-BB-465: a STAT type and screen with no tube, for the bench's No specimen view.
             var stat = await verify.Orders.SingleAsync(o => o.OrderNumber == "ORD0024");
             Assert.Equal(OrderPriority.Stat, stat.Priority);

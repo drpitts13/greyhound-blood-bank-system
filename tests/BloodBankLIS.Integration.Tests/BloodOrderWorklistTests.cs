@@ -205,6 +205,26 @@ public class BloodOrderWorklistTests
         Assert.Contains("1 needed soon", ShiftHandoffDto.From(warned.Value).QueueSummary);
     }
 
+    // TEST-BB-658: the seeded scheduled-surgery demo (MRN0022) is needed after its patient's latest usable specimen expires,
+    // so the worklist flags it and its next step is a new specimen; seeding again adds no second one.
+    [Fact]
+    public async Task SurgeryDemo_NeedsANewSpecimen()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var c = factory.Create();
+        var demo = await c.Orders.SingleAsync(o => o.OrderNumber == "ORD-SURG-DEMO");
+        Assert.Equal(("MRN0022", OrderPriority.Routine), ((await c.Patients.SingleAsync(p => p.Id == demo.PatientId)).MedicalRecordNumber, demo.Priority));
+        var row = (await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "ORD-SURG-DEMO");
+        Assert.True(row.SpecimenExpiresBeforeNeeded);
+        Assert.Equal(("Collect a new specimen", $"/patients/{demo.PatientId}?tab=specimens", 1), (row.NextStep, row.Href, row.Remaining));
+    }
+
     // TEST-BB-637: the downtime sheet lists each patient's blood orders still to prepare, with what is needed and by when.
     [Fact]
     public async Task DowntimeSheet_ListsBloodOrdersToPrepare()
