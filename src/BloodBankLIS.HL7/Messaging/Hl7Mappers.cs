@@ -28,7 +28,9 @@ public sealed record Hl7PatientData(
     string? Ethnicity = null,
     EncounterType? PatientClass = null,
     // PID-3 repetitions other than the MRN (enterprise id, other facilities' numbers), kept as alternate identifiers.
-    IReadOnlyList<Hl7PatientIdentifier>? OtherIdentifiers = null);
+    IReadOnlyList<Hl7PatientIdentifier>? OtherIdentifiers = null,
+    // PID-21 Mother's Identifier, for a newborn: the mother's MRN.
+    string? MotherMrn = null);
 
 /// <summary>Order details extracted from an inbound ORM/OML message (ORC/OBR/PV1).</summary>
 public sealed record Hl7OrderData(
@@ -93,7 +95,8 @@ public static class Hl7AdtMapper
             Race: MapLocal(map, message, InterfaceDataItemKeys.PatientRace, PatientDemographicCodes.NormalizeRace),
             Ethnicity: MapLocal(map, message, InterfaceDataItemKeys.PatientEthnicity, PatientDemographicCodes.NormalizeEthnicity),
             PatientClass: MapPatientClass(map, message),
-            OtherIdentifiers: Hl7PatientIdentifiers.Others(message, map));
+            OtherIdentifiers: Hl7PatientIdentifiers.Others(message, map),
+            MotherMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientMotherMrn)));
     }
 
     /// <summary>

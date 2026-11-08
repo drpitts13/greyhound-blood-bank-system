@@ -25,6 +25,16 @@ public class Hl7MapperTests
         Assert.Equal(Sex.Female, data.Sex);
     }
 
+    // TEST-BB-610: PID-21 (Mother's Identifier) maps to the mother's MRN; empty stays null.
+    [Fact]
+    public void AdtMapper_ReadsTheMothersIdentifier()
+    {
+        var pid = "PID|1||MRN900^^^HOSP^MR||Rivera^Baby Girl||20260529|F" + new string('|', 13) + "MRN-MOM^^^HOSP^MR";
+        var message = Hl7Parser.Parse("MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|C2|P|2.5\r" + pid);
+        Assert.Equal("MRN-MOM", Hl7AdtMapper.Map(message).MotherMrn);
+        Assert.Null(Hl7AdtMapper.Map(Hl7Parser.Parse("MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|C3|P|2.5\rPID|1||MRN901^^^HOSP^MR||Doe^Jo||19800101|M")).MotherMrn);
+    }
+
     [Theory]
     [InlineData("M", Sex.Male)]
     [InlineData("F", Sex.Female)]

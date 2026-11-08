@@ -434,6 +434,8 @@ public sealed class Hl7InboundProcessor
             }
         }
 
+        var motherNote = await LinkMotherFromAdtAsync(patient, data, ct);
+
         var visitNote = await _encounters.UpsertVisitFromHl7Async(
             patient.Id,
             data.VisitNumber ?? string.Empty,
@@ -450,7 +452,55 @@ public sealed class Hl7InboundProcessor
         var outcome = visitNote is not null
             ? (created ? $"Patient {data.Mrn} created. {visitNote}" : $"Patient {data.Mrn} updated. {visitNote}")
             : (created ? $"Patient {data.Mrn} created." : $"Patient {data.Mrn} updated.");
+        outcome = motherNote is null ? outcome : $"{outcome} {motherNote}";
         return duplicateNote is null ? outcome : $"{outcome} {duplicateNote}";
+    }
+
+    /// <summary>
+    /// PID-21 names the newborn's mother: link the infant's chart to hers when it has no mother yet and the link passes
+    /// <see cref="MotherInfantLinkRule"/>. A different existing link is never replaced; an unknown mother or a refused link
+    /// only adds a note to the message log. The message is never failed for it.
+    /// </summary>
+    private async Task<string?> LinkMotherFromAdtAsync(Patient infant, Hl7PatientData data, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(data.MotherMrn))
+        {
+            return null;
+        }
+
+        var motherMrn = data.MotherMrn.Trim();
+        var mother = _merges is not null
+            ? await _merges.FindByMrnAsync(motherMrn, followMerge: true, ct)
+            : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == motherMrn, ct);
+        if (infant.MotherPatientId is long linked)
+        {
+            return mother is not null && mother.Id == linked
+                ? null
+                : $"PID-21 names mother {motherMrn}, but the chart is linked to another mother; check the link on the chart.";
+        }
+
+        if (mother is null)
+        {
+            return $"Mother {motherMrn} (PID-21) is not registered here; link her from the infant's chart once she is.";
+        }
+
+        var check = MotherInfantLinkRule.Evaluate(infant.Id, infant.Status, infant.DateOfBirth, mother.Id, mother.Status, mother.DateOfBirth, mother.MotherPatientId);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return $"Mother {motherMrn} (PID-21) not linked: {check.Message}";
+        }
+
+        infant.MotherPatientId = mother.Id;
+        _patients.Update(infant);
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            infant.Id,
+            oldValue: new { MotherPatientId = (long?)null },
+            newValue: new { MotherPatientId = mother.Id, MotherMrn = mother.MedicalRecordNumber },
+            reason: $"Mother linked from ADT^{data.TriggerEvent} PID-21: {mother.MedicalRecordNumber}.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return $"Mother {mother.MedicalRecordNumber} linked.";
     }
 
     private async Task<string> HandleAdtMergeAsync(Hl7PatientData data, CancellationToken ct)

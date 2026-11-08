@@ -5,6 +5,7 @@ public static class InterfaceDataItemKeys
 {
     public const string PatientMrn = "Patient.MedicalRecordNumber";
     public const string PatientPriorMrn = "Patient.PriorMedicalRecordNumber";
+    public const string PatientMotherMrn = "Patient.MotherMedicalRecordNumber";
     public const string PatientLastName = "Patient.LastName";
     public const string PatientFirstName = "Patient.FirstName";
     public const string PatientMiddleName = "Patient.MiddleName";

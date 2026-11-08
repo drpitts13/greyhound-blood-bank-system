@@ -391,6 +391,46 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("CTRL-A1", ack.Get("MSA-2"));
     }
 
+    // TEST-BB-611: a newborn's ADT with PID-21 links the infant's chart to the registered mother (audited, noted in the
+    // ACK); an unregistered mother or a refused link only adds a note; a different existing link is never replaced.
+    [Fact]
+    public async Task InboundAdt_Pid21_LinksTheNewbornToTheMother()
+    {
+        static string Newborn(string control, string mrn, string motherMrn) =>
+            $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|{control}|P|2.5\r" +
+            $"PID|1||{mrn}^^^HOSP^MR||Rivera^Baby||20260529|F" + new string('|', 13) + $"{motherMrn}^^^HOSP^MR";
+
+        await using var context = _factory.Create();
+        var mother = new Patient { MedicalRecordNumber = "HL7-MOM-21", LastName = "Rivera", FirstName = "Ana", DateOfBirth = new DateOnly(1994, 3, 14), Sex = Sex.Female };
+        var other = new Patient { MedicalRecordNumber = "HL7-MOM-22", LastName = "Other", FirstName = "Mia", DateOfBirth = new DateOnly(1990, 1, 1), Sex = Sex.Female };
+        context.Patients.AddRange(mother, other);
+        await context.SaveChangesAsync();
+
+        var linked = await Processor(context).ProcessAsync(Newborn("CTRL-P21-1", "HL7-BABY-21", "HL7-MOM-21"));
+        Assert.True(linked.Accepted);
+        Assert.Contains("Mother HL7-MOM-21 linked.", linked.AckMessage);
+        var baby = await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-BABY-21");
+        Assert.Equal(mother.Id, baby.MotherPatientId);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityId == baby.Id && a.Reason == "Mother linked from ADT^A04 PID-21: HL7-MOM-21."));
+
+        // The same mother again is quiet; another mother is flagged and the link kept.
+        Assert.DoesNotContain("PID-21", (await Processor(context).ProcessAsync(Newborn("CTRL-P21-2", "HL7-BABY-21", "HL7-MOM-21"))).AckMessage);
+        var conflict = await Processor(context).ProcessAsync(Newborn("CTRL-P21-3", "HL7-BABY-21", "HL7-MOM-22"));
+        Assert.True(conflict.Accepted);
+        Assert.Contains("linked to another mother", conflict.AckMessage);
+        Assert.Equal(mother.Id, (await context.Patients.AsNoTracking().SingleAsync(p => p.Id == baby.Id)).MotherPatientId);
+
+        var unknown = await Processor(context).ProcessAsync(Newborn("CTRL-P21-4", "HL7-BABY-23", "HL7-MOM-NOPE"));
+        Assert.True(unknown.Accepted);
+        Assert.Contains("is not registered here", unknown.AckMessage);
+        Assert.Null((await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-BABY-23")).MotherPatientId);
+
+        // A "mother" born after the infant is refused, with a note; the message is still accepted.
+        var refused = await Processor(context).ProcessAsync(Newborn("CTRL-P21-5", "HL7-MOM-21", "HL7-BABY-23"));
+        Assert.True(refused.Accepted);
+        Assert.Contains("not linked", refused.AckMessage);
+    }
+
     [Fact]
     public async Task InboundAdt_WithPv1_CreatesVisitAndProvider()
     {

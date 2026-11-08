@@ -716,6 +716,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-603 / FRS-BB-720 | Outside antibody reports | `OutsideAntibodyReportRule`; `ImmunohematologyService.AddAntibodyAsync`; `PatientChartOverviewTab.razor`; `DowntimePatientSummaryService` | TEST-BB-602, TEST-BB-603, TEST-BB-604 | U, I | OCD-073 |
 | URS-BB-604 / FRS-BB-721 | Mother and infant charts linked | `MotherInfantLinkRule`; `PatientService.LinkMotherAsync/UnlinkMotherAsync/GetFamilyAsync`; `PatientMergeService`; `PatientChartHeader.razor`; `DatabaseSeeder.MotherInfant.cs` | TEST-BB-605, TEST-BB-606, TEST-BB-607 | U, I | OCD-074 |
 | URS-BB-605 / FRS-BB-722 | Infant Rh suggested on the mother's RhIG evaluation | `MotherInfantLinkRule.SuggestInfantRh/OfferLink`; `PatientChartRhigTab.razor`; `PatientChartHeader.razor` | TEST-BB-608, TEST-BB-609 | U, I | OCD-074 |
+| URS-BB-606 / FRS-BB-723 | Newborn linked to the mother from ADT PID-21 | `InterfaceDataItemCatalog`; `Hl7AdtMapper`; `Hl7InboundProcessor.LinkMotherFromAdtAsync` | TEST-BB-610, TEST-BB-611 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

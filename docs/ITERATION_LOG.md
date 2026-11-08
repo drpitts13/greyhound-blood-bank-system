@@ -17507,3 +17507,22 @@ Cycle 547 links mother and infant charts, but the mother's RhIG evaluation still
 
 - TEST-BB-608: under one year offered, a year or older not; one infant born near a delivery suggested; another infant far away ignored; antepartum, twins, untyped, unknown Rh, far birth, and none not suggested.
 - TEST-BB-609: the family's mother carries her current Rh.
+
+## Iteration 549 — Newborn linked to the mother from ADT (2026-11-08)
+
+### Capability matrix rescan (interoperability: ADT)
+
+Mother and infant links (Cycles 547–548) were made by hand, but most newborns are registered by the EHR, whose ADT usually carries the mother's identifier in PID-21. The LIS ignored it. Workflow questions: memory and clicks (none: the link is made on registration); inference (only to a registered mother, only when the chart has none, only when the link checks pass); safety (a staff link is never replaced; a different mother in PID-21 is flagged, not applied; information only); audit (the link names the message event); interface robustness (never fails the message).
+
+### Design
+
+- Data item `Patient.MotherMedicalRecordNumber` (PID-21-1); `Hl7PatientData.MotherMrn`; `LinkMotherFromAdtAsync` in the ADT path with ACK notes.
+
+### Requirements
+
+- URS-BB-606, FRS-BB-723. Help: HL7 setup, patient chart.
+
+### Tests
+
+- TEST-BB-610: PID-21 maps to the mother's MRN; absent stays null.
+- TEST-BB-611: a newborn ADT links to the registered mother (audited, ACK note); the same mother again is quiet; another mother is flagged and the link kept; an unregistered mother and a refused link only add notes; all accepted.

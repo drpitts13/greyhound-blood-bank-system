@@ -107,7 +107,8 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.EncounterPatientClass, "Patient class", "Visit type: inpatient, outpatient, emergency (HL7 table 0004).", "PV1-2", false),
         new(InterfaceDataItemKeys.EncounterAttendingProviderId, "Attending provider ID", "Attending provider identifier.", "PV1-7-1", false),
         new(InterfaceDataItemKeys.EncounterAttendingProviderName, "Attending provider name", "Attending provider name (XCN).", "PV1-7", false),
-        new(InterfaceDataItemKeys.PatientPriorMrn, "Prior medical record number", "MRG prior patient identifier for ADT merge (A18/A40).", "MRG-1-1", false)
+        new(InterfaceDataItemKeys.PatientPriorMrn, "Prior medical record number", "MRG prior patient identifier for ADT merge (A18/A40).", "MRG-1-1", false),
+        new(InterfaceDataItemKeys.PatientMotherMrn, "Mother's medical record number", "Mother's identifier for a newborn; links the infant's chart to the mother's.", "PID-21-1", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Orders =

@@ -618,5 +618,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-607 | I | `MotherInfantTests.Demo_NewbornIsLinkedToTheRhigMother` | URS-BB-604 / FRS-BB-721 |
 | TEST-BB-608 | U | `MotherInfantLinkRuleTests.OfferLink_AndSuggestInfantRh` | URS-BB-605 / FRS-BB-722 |
 | TEST-BB-609 | I | `MotherInfantTests.Infant_IsLinkedToTheMother_AndTheLinkFollowsAMerge` (current Rh) | URS-BB-605 / FRS-BB-722 |
+| TEST-BB-610 | U | `Hl7MapperTests.AdtMapper_ReadsTheMothersIdentifier` | URS-BB-606 / FRS-BB-723 |
+| TEST-BB-611 | I | `Phase5Hl7Tests.InboundAdt_Pid21_LinksTheNewbornToTheMother` | URS-BB-606 / FRS-BB-723 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
