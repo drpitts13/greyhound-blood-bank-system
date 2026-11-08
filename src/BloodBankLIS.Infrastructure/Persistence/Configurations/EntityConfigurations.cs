@@ -145,6 +145,8 @@ public sealed class SpecimenConfiguration : IEntityTypeConfiguration<Specimen>
     {
         b.ToTable("Specimens");
         b.HasKey(s => s.Id);
+        b.Property(s => s.StorageLocation).HasMaxLength(100);
+        b.Property(s => s.StoredBy).HasMaxLength(100);
         b.Property(s => s.AccessionNumber).HasMaxLength(50).IsRequired();
         b.Property(s => s.SpecimenType).HasMaxLength(100).IsRequired();
         b.Property(s => s.Barcode).HasMaxLength(100);
@@ -1975,6 +1977,22 @@ public sealed class MtpPackDefinitionConfiguration : IEntityTypeConfiguration<Mt
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => x.Code).IsUnique();
+    }
+}
+
+public sealed class SpecimenStorageEventConfiguration : IEntityTypeConfiguration<SpecimenStorageEvent>
+{
+    public void Configure(EntityTypeBuilder<SpecimenStorageEvent> b)
+    {
+        b.ToTable("SpecimenStorageEvents");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Location).HasMaxLength(100).IsRequired();
+        b.Property(x => x.PreviousLocation).HasMaxLength(100);
+        b.Property(x => x.StoredBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Note).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.SpecimenId);
     }
 }
 

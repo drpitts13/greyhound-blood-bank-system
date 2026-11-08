@@ -1784,6 +1784,9 @@ public sealed class BloodBankApiClient
         }
     }
 
+    public Task<ApiResult<StoredSpecimenDto>> StoreSpecimenAsync(StoreSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<StoredSpecimenDto>(HttpMethod.Post, "api/specimens/store", req, ct);
+
     public Task<ApiResult<SpecimenTimelineDto>> GetSpecimenTimelineAsync(long specimenId, CancellationToken ct = default) =>
         SendAsync<SpecimenTimelineDto>(HttpMethod.Get, $"api/specimens/{specimenId}/timeline", ct: ct);
 

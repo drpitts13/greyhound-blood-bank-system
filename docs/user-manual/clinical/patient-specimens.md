@@ -53,3 +53,5 @@ Scanning a tube's accession in the top-bar find box opens this history directly.
 Relabels and rejections are marked **Attention**. **Warnings and critical only** hides the rest. The panel only reads, and nothing in it can be edited.
 
 **After a rejection.** Rejecting a tube that open orders still use says which orders now need a new specimen. On the test worklist and the chart Tests tab their lines read **Recollect**, with the rejection reason; collect a new tube, accession it, and link it to the order (the line offers **Accession**). The lines can then be resulted.
+
+Under a tube's status, **Stored:** shows where it is kept (recorded on [Store tubes](store-tubes)); its history shows every time it was stored or moved.

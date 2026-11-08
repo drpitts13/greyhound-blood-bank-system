@@ -59,4 +59,11 @@ public class Specimen : BaseEntity
 
     /// <summary>Free-text specimen comment. Coded comments from the Specimen catalog may be inserted.</summary>
     public string? Comment { get; set; }
+
+    /// <summary>Where the tube is stored now (rack, shelf, position); earlier places are kept as SpecimenStorageEvent rows.</summary>
+    public string? StorageLocation { get; set; }
+
+    public DateTime? StoredUtc { get; set; }
+
+    public string? StoredBy { get; set; }
 }

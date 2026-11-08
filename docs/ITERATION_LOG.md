@@ -17206,3 +17206,21 @@ RhIG work reaches the chart, the list, the home card, the handoff, the lookup, a
 ### Tests
 
 - TEST-BB-580: lines for undecided, not completed, and to give; none once given or not a candidate; a waiting patient is on the full sheet with the line, a given one is not added for it.
+
+## Iteration 533 — Store tubes by scan (2026-11-07)
+
+### Capability matrix rescan (orders and specimens: historical specimens)
+
+RhIG is complete apart from OCD-069 (Cycles 525–532). Next gap: the system recorded every step of a tube's life up to testing but not where the tube is kept. Repeat testing, an added crossmatch on the same sample, and a transfusion reaction workup all need the original tube found quickly; benches kept that on paper rack logs. Workflow questions: scanning (rack once, then each tube); memory (no paper rack log); history (a move keeps the earlier place; the record is never overwritten); audit (each store); retention left to the facility (OCD-070).
+
+### Design
+
+- `SpecimenStorageEvent` table and current place on `Specimen`; `SpecimenStorageRule`; `SpecimenStorageService`; endpoint; Store tubes page; chart and timeline display.
+
+### Requirements
+
+- URS-BB-590, FRS-BB-707, OCD-070. Help: Store tubes, patient specimens.
+
+### Tests
+
+- TEST-BB-581: stored by barcode in any case with the place trimmed and a note; refused without permission, for the same place (naming the current one), an unknown scan, a cancelled tube, and a blank place; a move keeps both places in order, is audited, and appears on the timeline; a rejected tube may be stored; the place is bounded.

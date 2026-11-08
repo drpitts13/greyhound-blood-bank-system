@@ -700,6 +700,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-587 / FRS-BB-704 | Shift handoff counts RhIG evaluations | `ShiftHandoffService`; `ShiftHandoffItems` | TEST-BB-577 | U, I | |
 | URS-BB-588 / FRS-BB-705 | RhIG lot in the top-bar lookup | `UniversalLookupService.ExactRhigLotsAsync`; `GlobalLookupBar.razor`; `RhigQueue.razor` | TEST-BB-579 | I | |
 | URS-BB-589 / FRS-BB-706 | RhIG outstanding on the downtime sheet | `RhigEvaluationRule.OutstandingLine`; `DowntimePatientSummaryService`; `DowntimePatients.razor` | TEST-BB-580 | U, I | |
+| URS-BB-590 / FRS-BB-707 | Tube storage by scan with history | `SpecimenStorageRule`; `SpecimenStorageService`; `StoreTubes.razor`; `SpecimenTimelineService` | TEST-BB-581 | U, I | OCD-070 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

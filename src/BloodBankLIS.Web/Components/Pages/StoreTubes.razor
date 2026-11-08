@@ -1,0 +1,104 @@
+@page "/specimens/store"
+@using BloodBankLIS.Application.Specimens
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject IJSRuntime Js
+
+<PageTitle>Store tubes &middot; HemoCore</PageTitle>
+
+<h1>Store tubes</h1>
+<p class="muted">
+    Scan the rack or shelf once, then scan each tube you put there (its accession or label barcode). The chart shows where
+    each tube is; a tube moved to a new place keeps its earlier place on its timeline. How long tubes are kept is your
+    facility's policy (OCD-070).
+</p>
+
+@if (!Session.Has(PermissionCodes.SpecimenAccession))
+{
+    <div class="alert alert-warning">Storing tubes requires specimen accession permission.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row">
+            <div class="field">
+                <label>Storage place</label>
+                <input id="store-location" @bind="_location" @bind:event="oninput" @onkeydown="OnLocationKey"
+                       placeholder="Scan the rack or type the shelf" autocomplete="off" data-store-location />
+            </div>
+            <div class="field">
+                <label>Tube</label>
+                <input id="store-tube" @bind="_tube" @bind:event="oninput" @onkeydown="OnTubeKey" disabled="@string.IsNullOrWhiteSpace(_location)"
+                       placeholder="Scan the tube; Enter stores it" autocomplete="off" data-store-tube />
+            </div>
+            <div class="field">
+                <label>Note (optional)</label>
+                <input @bind="_note" placeholder="For example: position A4" />
+            </div>
+        </div>
+        <Outcome Value="_fb" />
+    </div>
+
+    @if (_stored.Count > 0)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Stored this session (@_stored.Count)</h3></div>
+            <table class="bb" data-stored-tubes>
+                <thead><tr><th>Tube</th><th>Patient</th><th>Stored in</th><th>Was in</th><th>When</th></tr></thead>
+                <tbody>
+                    @foreach (var s in _stored)
+                    {
+                        <tr>
+                            <td class="mono">@s.AccessionNumber</td>
+                            <td><a href="@($"/patients/{s.PatientId}?tab=specimens&specimen={s.SpecimenId}")">@s.PatientName</a> <span class="sub mono">@s.Mrn</span></td>
+                            <td>@s.Location</td>
+                            <td>@(s.PreviousLocation ?? "—")</td>
+                            <td class="nowrap">@s.StoredUtc.ToString("HH:mm:ss")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private string _location = string.Empty;
+    private string _tube = string.Empty;
+    private string? _note;
+    private Feedback? _fb;
+    private readonly List<StoredSpecimenDto> _stored = new();
+
+    private async Task OnLocationKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_location))
+        {
+            await Js.FocusSelectAsync("store-tube", preventScroll: true);
+        }
+    }
+
+    // A scanner ends with Enter: store the tube, then wait for the next one in the same place.
+    private async Task OnTubeKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_tube))
+        {
+            return;
+        }
+
+        var r = await Api.StoreSpecimenAsync(new StoreSpecimenRequest(_tube, _location, _note));
+        if (r.Succeeded && r.Value is { } stored)
+        {
+            _stored.Insert(0, stored);
+            _fb = Feedback.Succeed(stored.PreviousLocation is null
+                ? $"{stored.AccessionNumber} stored in {stored.Location}."
+                : $"{stored.AccessionNumber} moved from {stored.PreviousLocation} to {stored.Location}.");
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+
+        _tube = string.Empty;
+        await Js.FocusSelectAsync("store-tube", preventScroll: true);
+    }
+}

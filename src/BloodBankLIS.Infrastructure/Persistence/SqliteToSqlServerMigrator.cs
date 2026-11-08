@@ -140,6 +140,7 @@ public sealed class SqliteToSqlServerMigrator
         "PatientMerges",
         "PatientDuplicateDismissals",
         "RhigEvaluations",
+        "SpecimenStorageEvents",
         "PatientMergeMoves",
         "ShiftHandoffs",
         "ReactionInvestigations",

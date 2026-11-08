@@ -231,6 +231,9 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
         ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
         ("UnitModifications", "SupplyLot", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyLot" TEXT NULL"""),
+        ("Specimens", "StorageLocation", """ALTER TABLE "Specimens" ADD COLUMN "StorageLocation" TEXT NULL"""),
+        ("Specimens", "StoredUtc", """ALTER TABLE "Specimens" ADD COLUMN "StoredUtc" TEXT NULL"""),
+        ("Specimens", "StoredBy", """ALTER TABLE "Specimens" ADD COLUMN "StoredBy" TEXT NULL"""),
         ("ShiftHandoffs", "RhigOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigOpen" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RhigToGive", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigToGive" INTEGER NOT NULL DEFAULT 0"""),
         ("RhigEvaluations", "GivenLot", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenLot" TEXT NULL"""),
@@ -303,6 +306,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureInstrumentValueTranslationsTableAsync(context, cancellationToken);
         await EnsurePatientDuplicateDismissalsTableAsync(context, cancellationToken);
         await EnsureRhigEvaluationsTableAsync(context, cancellationToken);
+        await EnsureSpecimenStorageEventsTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -1305,6 +1309,35 @@ public static class DevelopmentSqliteBootstrap
         {
             await context.Database.ExecuteSqlRawAsync(Migrations.InstrumentValueTranslations.CopyTestMappingsSql, ct);
         }
+    }
+
+    private static async Task EnsureSpecimenStorageEventsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "SpecimenStorageEvents", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SpecimenStorageEvents" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SpecimenStorageEvents" PRIMARY KEY AUTOINCREMENT,
+                "SpecimenId" INTEGER NOT NULL,
+                "Location" TEXT NOT NULL,
+                "PreviousLocation" TEXT NULL,
+                "StoredUtc" TEXT NOT NULL,
+                "StoredBy" TEXT NOT NULL,
+                "Note" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_SpecimenStorageEvents_SpecimenId" ON "SpecimenStorageEvents" ("SpecimenId");
+            """, ct);
     }
 
     private static async Task EnsureRhigEvaluationsTableAsync(BloodBankDbContext context, CancellationToken ct)

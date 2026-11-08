@@ -31,6 +31,7 @@ public sealed class SpecimenTimelineService
     private readonly IRepository<Allocation> _allocations;
     private readonly IRepository<BloodUnit> _units;
     private readonly IRepository<Override> _overrides;
+    private readonly IRepository<SpecimenStorageEvent>? _storage;
     private readonly IAuditQuery _audit;
     private readonly IClock _clock;
 
@@ -44,8 +45,10 @@ public sealed class SpecimenTimelineService
         IRepository<BloodUnit> units,
         IRepository<Override> overrides,
         IAuditQuery audit,
-        IClock clock)
+        IClock clock,
+        IRepository<SpecimenStorageEvent>? storage = null)
     {
+        _storage = storage;
         _specimens = specimens;
         _results = results;
         _orderSpecimens = orderSpecimens;
@@ -164,6 +167,17 @@ public sealed class SpecimenTimelineService
                 PatientTimelineService.Join($"Now {a.Status}",
                     a.Status == AllocationStatus.Released && !string.IsNullOrWhiteSpace(a.ReleaseReason) ? $"Released: {a.ReleaseReason}" : null),
                 a.AllocatedBy, $"/inventory/units/{a.BloodProductId}", $"alc-{a.Id}"));
+        }
+
+        if (_storage is not null)
+        {
+            foreach (var s in await _storage.ListAsync(x => x.SpecimenId == specimen.Id, ct))
+            {
+                events.Add(new(s.StoredUtc, TimelineCategory.Specimen, TimelineSeverity.Info,
+                    s.PreviousLocation is null ? $"Stored in {s.Location}" : $"Moved to {s.Location}",
+                    PatientTimelineService.Join(s.PreviousLocation is null ? null : $"From {s.PreviousLocation}", s.Note),
+                    s.StoredBy, null, $"sto-{s.Id}"));
+            }
         }
 
         return new SpecimenTimelineDto(specimen.Id, specimen.PatientId, specimen.AccessionNumber, specimen.Status,

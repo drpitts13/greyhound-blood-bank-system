@@ -595,3 +595,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-587 | The shift handoff carries the RhIG evaluations still needing work, and how many are waiting to be given, linked to the RhIG list. | P2 | FRS-BB-704 |
 | URS-BB-588 | Scanning an RhIG lot into the top-bar lookup opens who received it, as scanning any other identifier opens its record. | P3 | FRS-BB-705 |
 | URS-BB-589 | The downtime patient sheet includes patients with an RhIG evaluation still needing work and says what is outstanding, so a dose due during an outage is not missed. | P2 | FRS-BB-706 |
+| URS-BB-590 | The blood bank records by scan where each tube is stored (rack, shelf, position), sees it on the chart, and keeps every earlier place when a tube is moved, so a tube can be found again for repeat testing or a reaction workup. | P2 | FRS-BB-707 |

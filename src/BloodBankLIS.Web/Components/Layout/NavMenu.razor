@@ -23,6 +23,10 @@
         {
             <NavLink href="rhig" ActiveClass="active">RhIG</NavLink>
         }
+        @if (Session.Has(PermissionCodes.SpecimenAccession))
+        {
+            <NavLink href="specimens/store" ActiveClass="active">Store tubes</NavLink>
+        }
     </details>
 
     <details class="nav-section" open="@SectionOpen(InventorySectionPaths)">
@@ -231,7 +235,7 @@
 </nav>
 
 @code {
-    private static readonly string[] PatientPaths = ["patients", "test-worklist", "reagents", "antibody-id", "rhig"];
+    private static readonly string[] PatientPaths = ["patients", "test-worklist", "reagents", "antibody-id", "rhig", "specimens"];
 
     private static readonly string[] InventorySectionPaths = ["inventory", "storage-temps"];
 
