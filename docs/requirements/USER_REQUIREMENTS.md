@@ -635,3 +635,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-627 | The issue desk shows when the order a reserved unit is for is needed, marks it passed or needed soon, and lists the most pressing first among units in the same state. | P2 | FRS-BB-744 |
 | URS-BB-628 | When a blood order's specimen, or the crossmatch on a reserved unit, stops being valid before the order's needed-by time, the worklist and the issue desk say so, so a new specimen is drawn in time. | P2 | FRS-BB-745 |
 | URS-BB-629 | When no usable specimen lasts until a blood order's needed-by time, the worklist's next step is to collect a new specimen rather than reserve units that could not be issued then. | P2 | FRS-BB-746 |
+| URS-BB-630 | Scanning a transport cooler's label in the find box finds the cooler while its units are in transit and opens the cooler check with it. | P3 | FRS-BB-747 |

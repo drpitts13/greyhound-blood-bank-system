@@ -11,7 +11,9 @@ public enum LookupHitKind
     /// <summary>An RhIG lot recorded as given; opens the lot trace.</summary>
     RhigLot = 4,
     /// <summary>An outbound shipment's reference (packing list); opens Ship units with that shipment.</summary>
-    Shipment = 5
+    Shipment = 5,
+    /// <summary>A transport cooler with issued units still in transit; opens Check a cooler with it.</summary>
+    Cooler = 6
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

@@ -18017,3 +18017,21 @@ Cycles 557–574 added needed-by times and what follows from them (passed, neede
 ### Defect found and fixed
 
 - The live check on the development database showed ORD-PREP-DEMO's specimen cell reading "Usable until … None usable". Cycle 573 had placed the "Expires before needed-by" badge between the cell's `else if` and `else`, so the "None usable" `else` attached to the new badge and showed on every row without that flag. The badge now follows the complete if/else chain; both demo rows read correctly. Ready to issue (same cycle) was checked and is not affected.
+
+## Iteration 576 — Find a cooler by scanning its label (2026-11-08)
+
+### Capability matrix rescan (UX: search everywhere, barcode first; patient-product: issue transport)
+
+The find box takes units, specimens, orders, patients, visits, RhIG lots, and shipments, but not transport coolers. A cooler that comes back from the OR or an MTP, or one being checked before it leaves, could be reconciled only by first opening Check a cooler and typing or choosing its id. Workflow questions: scanning replaces navigation (scan the cooler label anywhere); memory (the hit says how many units and where they went); safety (read-only; the cooler check's own scan reconciliation is unchanged). Inventory selection was also checked: the reserve form already offers the soonest-expiring unit first within each compatibility group, so no change there.
+
+### Design
+
+- `LookupHitKind.Cooler` (record type Issue); exact match, case and spaces ignored, on issues still in transit; one hit per cooler opening `/issuing/cooler-check?cooler=`; no-match message names coolers.
+
+### Requirements
+
+- URS-BB-630, FRS-BB-747. Help: Finding records (and its order-number line now says the order's history opens, as since Cycle 564).
+
+### Tests
+
+- TEST-BB-659: two units in transit in "CLR 12" (one already received, another cooler's unit) are found by " clr12 " with the destination and link; once all are received the cooler is not found.

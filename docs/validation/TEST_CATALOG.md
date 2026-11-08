@@ -667,5 +667,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-656 | U | `BloodOrderPreparationRuleTests.SpecimenExpiresBeforeNeeded_CollectsANewOne` | URS-BB-629 / FRS-BB-746 |
 | TEST-BB-657 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (new specimen next step) | URS-BB-629 / FRS-BB-746 |
 | TEST-BB-658 | I | `BloodOrderWorklistTests.SurgeryDemo_NeedsANewSpecimen` | URS-BB-629 / FRS-BB-746 |
+| TEST-BB-659 | I | `UniversalLookupTests.CoolerLabel_FindsTheCoolerInTransit` | URS-BB-630 / FRS-BB-747 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

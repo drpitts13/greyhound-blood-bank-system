@@ -16,6 +16,8 @@ public static class LookupRecordType
         LookupHitKind.RhigLot => "RhigEvaluation",
         // The shipment hit carries its first unit; the shipment is recorded on BloodUnit rows.
         LookupHitKind.Shipment => "BloodUnit",
+        // The cooler hit carries its first issue; the cooler is recorded on Issue rows.
+        LookupHitKind.Cooler => "Issue",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No record type for this lookup kind.")
     };
 }

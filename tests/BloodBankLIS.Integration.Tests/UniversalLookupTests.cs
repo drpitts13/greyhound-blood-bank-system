@@ -18,7 +18,7 @@ public class UniversalLookupTests : IDisposable
     private static UniversalLookupService Lookup(BloodBankDbContext c) =>
         new(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
-            encounters: new EfRepository<Encounter>(c));
+            encounters: new EfRepository<Encounter>(c), issues: new EfRepository<Issue>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -401,7 +401,7 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, or shipment matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, shipment, or cooler in transit matches \"ZZZ-NOPE\".", result.Message);
     }
 
     // TEST-BB-612: a shipment reference (case and spaces ignored) finds the shipment, opening Ship units with it; a
@@ -425,6 +425,49 @@ public class UniversalLookupTests : IDisposable
 
         var unitHit = Assert.Single((await Lookup(c).LookupAsync(f.Unit.UnitNumber)).Hits);
         Assert.EndsWith("shipped to St. Mary's Hospital", unitHit.Detail);
+    }
+
+    // TEST-BB-659: a scanned cooler label (case and spaces ignored) finds the cooler while units issued in it are in
+    // transit, counting only those not yet received on the ward and naming where they went, and opens Check a cooler with
+    // it; another cooler's units do not count; once everything in it is received the cooler is not found.
+    [Fact]
+    public async Task CoolerLabel_FindsTheCoolerInTransit()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var now = _factory.Clock.UtcNow;
+        // One issue per unit (a unit is on one issue at a time).
+        var units = Enumerable.Range(1, 4).Select(i => new BloodUnit
+        {
+            UnitNumber = $"W-CLR-{i}", ProductTypeId = f.Product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(20), Status = UnitStatus.Issued
+        }).ToList();
+        c.BloodUnits.AddRange(units);
+        await c.SaveChangesAsync();
+        var next = 0;
+        Issue InCooler(string cooler, int minutesAgo, string to) => new()
+        {
+            BloodProductId = units[next++].Id, PatientId = f.Patient.Id, IssuedUtc = now.AddMinutes(-minutesAgo), IssuedBy = "tech",
+            IssuedToLocation = to, CoolerId = cooler, Status = IssueStatus.Issued
+        };
+        var received = InCooler("CLR 12", 50, "OR 3");
+        received.WardReceivedUtc = now.AddMinutes(-40);
+        c.Issues.AddRange(InCooler("CLR 12", 30, "OR 3"), InCooler("CLR 12", 25, "OR 3"), received, InCooler("CLR 99", 20, "ICU 4"));
+        await c.SaveChangesAsync();
+
+        var hit = Assert.Single((await Lookup(c).LookupAsync(" clr12 ")).Hits);
+        Assert.Equal((LookupHitKind.Cooler, "CLR 12", "Cooler CLR 12: 2 units in transit"), (hit.Kind, hit.Identifier, hit.Title));
+        Assert.StartsWith("To OR 3 · issued ", hit.Detail);
+        Assert.Equal("/issuing/cooler-check?cooler=CLR%2012", hit.Href);
+        Assert.Equal("Issue", LookupRecordType.For(hit.Kind));
+
+        foreach (var issue in c.Issues.Where(i => i.CoolerId == "CLR 12"))
+        {
+            issue.WardReceivedUtc ??= now;
+        }
+
+        await c.SaveChangesAsync();
+        Assert.Empty((await Lookup(c).LookupAsync("CLR12")).Hits);
     }
 
     // TEST-BB-614: recent patients are the signed-in user's own chart openings, newest first, once each, at most eight; a

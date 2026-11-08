@@ -37,6 +37,7 @@ public sealed class UniversalLookupService
     private readonly IRepository<Encounter>? _encounters;
 
     private readonly IRepository<RhigEvaluation>? _rhig;
+    private readonly IRepository<Issue>? _issues;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -57,8 +58,10 @@ public sealed class UniversalLookupService
         IRepository<Encounter>? encounters = null,
         IRepository<RhigEvaluation>? rhig = null,
         IAuditQuery? auditQuery = null,
-        ICurrentUser? currentUser = null)
+        ICurrentUser? currentUser = null,
+        IRepository<Issue>? issues = null)
     {
+        _issues = issues;
         _auditQuery = auditQuery;
         _currentUser = currentUser;
         _rhig = rhig;
@@ -110,6 +113,7 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactVisitsAsync(upper, ct));
             hits.AddRange(await ExactRhigLotsAsync(upper, ct));
             hits.AddRange(await ExactShipmentsAsync(upper, ct));
+            hits.AddRange(await ExactCoolersAsync(upper, ct));
         }
 
         if (hits.Count > 0)
@@ -237,8 +241,45 @@ public sealed class UniversalLookupService
             .ToList();
     }
 
+    /// <summary>
+    /// A scanned transport cooler label: one hit when units issued in it are still in transit (not yet received on the
+    /// ward), naming how many and where they went, and opening Check a cooler with it. A cooler with nothing in transit is
+    /// not found. Read-only.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactCoolersAsync(string upper, CancellationToken ct)
+    {
+        if (_issues is null)
+        {
+            return [];
+        }
+
+        var inCooler = (await _issues.ListAsync(i => i.Status == IssueStatus.Issued && i.WardReceivedUtc == null && i.CoolerId != null, ct))
+            .Where(i => string.Equals(i.CoolerId!.Trim().Replace(" ", "").ToUpperInvariant(), upper, StringComparison.Ordinal))
+            .OrderBy(i => i.IssuedUtc).ThenBy(i => i.Id)
+            .ToList();
+        if (inCooler.Count == 0)
+        {
+            return [];
+        }
+
+        var first = inCooler[0];
+        var cooler = first.CoolerId!.Trim();
+        var destinations = inCooler.Select(i => i.IssuedToLocation?.Trim()).Where(l => !string.IsNullOrEmpty(l)).Distinct().ToList();
+        return
+        [
+            new LookupHitDto(
+                LookupHitKind.Cooler,
+                first.Id,
+                true,
+                cooler,
+                $"Cooler {cooler}: {inCooler.Count} unit{(inCooler.Count == 1 ? "" : "s")} in transit",
+                (destinations.Count > 0 ? $"To {string.Join(", ", destinations)} · " : "") + $"issued {first.IssuedUtc:yyyy-MM-dd HH:mm} UTC",
+                $"/issuing/cooler-check?cooler={Uri.EscapeDataString(cooler)}")
+        ];
+    }
+
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, order, visit, RhIG lot, or shipment matches \"{query}\".";
+        $"No patient, unit, specimen, order, visit, RhIG lot, shipment, or cooler in transit matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {

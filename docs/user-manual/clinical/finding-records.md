@@ -15,8 +15,9 @@ It takes:
 
 - **A unit number (DIN)**: scanned from the bag (`=` barcode) or typed, with or without spaces. Opens the unit.
 - **An RhIG lot** recorded as given: opens the RhIG list on who received it.
+- **A transport cooler label** while units issued in it are still in transit (not yet received on the ward): says how many and where they went, and opens **Check a cooler** with that cooler. Once everything in it is received, the cooler is not found.
 - **A specimen accession or tube barcode**: opens the patient chart on **Specimens** with that specimen's history open.
-- **An order number**: opens the patient chart on **Orders** with that order found.
+- **An order number**: opens the patient chart on **Orders** with that order's history open.
 - **An MRN**: opens the chart. A prior MRN opens the current chart and says it matched a prior MRN. An account number or other identifier recorded for the patient works the same way and says which it matched.
 - **A visit or account number** (from a requisition or wristband): opens the chart on that visit's orders. The row says the visit's type and location and whether it is still **open**, or when it was **discharged**, so an old requisition is not mistaken for the current visit.
 - **Part of a name or number**: lists the matches.
