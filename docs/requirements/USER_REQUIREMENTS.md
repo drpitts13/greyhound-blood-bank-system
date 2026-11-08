@@ -618,3 +618,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-610 | When units issued under an earlier identity (an unidentified patient's temporary MRN) are still out after a merge, the chart and the identify step warn that the wristband may differ from the chart. | P1 | FRS-BB-727 |
 | URS-BB-611 | A unit issued under an earlier MRN is marked on the In transit and Issued units boards and on the transfusion form, where the wristband is checked. | P1 | FRS-BB-728 |
 | URS-BB-612 | The bench sees, across patients, every open blood order whose units are not all reserved, rush first, with what is still needed and the next step (collect a specimen or reserve units). | P1 | FRS-BB-729 |
+| URS-BB-613 | Reserve N units from Blood orders to prepare opens the patient's reserve form with the order and a usable specimen already chosen. | P2 | FRS-BB-730 |

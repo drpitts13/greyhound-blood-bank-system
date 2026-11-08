@@ -17643,3 +17643,25 @@ Found while checking authorization for the new endpoint: `GET /api/lookup/recent
 - TEST-BB-622: a STAT order with an expired specimen leads, needing a specimen; a routine order with one reserved, one released, and one issued unit needs one more; covered and cancelled orders not listed; products summarized.
 - TEST-BB-623: card for allocators on the Bench view; note names rush and needing a specimen.
 - TEST-BB-624: the demo STAT order for two red cell units is listed with two still needed; added once (seeder count 21 orders).
+
+## Iteration 556 — Reserve straight from the order worklist (2026-11-08)
+
+### Capability matrix rescan (patient-product: reservation)
+
+Cycle 555 lists blood orders to prepare, but Reserve N units opened the patient's products with nothing chosen: the technologist had to open the reserve form, find the order in the picker, and choose a specimen, all of which the worklist already knew. The Orders tab's Allocate needs a specimen linked to the order, which an order placed before the tube was drawn does not have. Workflow questions: clicks (three fewer per order); memory (no order number or accession to carry over); inference (the order's own specimen first, else the usable one that expires last); safety (reserving runs every check, nothing reserved automatically).
+
+### Design
+
+- `NextStepHref`; `UsableSpecimenId`; chart `reserveOrder`/`reserveSpecimen` query opening the reserve panel.
+
+### Requirements
+
+- URS-BB-613, FRS-BB-730. Help: Blood orders to prepare.
+
+### Tests
+
+- TEST-BB-625: link to the reserve form with order and specimen, or to the specimens tab.
+- TEST-BB-626: the worklist row carries the usable specimen and the reserve link; none for a patient without a usable specimen.
+- Found in the live check: the reserve form offers only specimens with a completed type and screen, but the worklist picked the newest usable specimen, which had none, so the specimen was left blank. The worklist now uses the type-and-screen check the reserve form uses: a specimen with a completed type and screen is chosen; if none, the next step is Finish type and screen (chart tests).
+- TEST-BB-627: a usable specimen without a completed type and screen: Finish type and screen, linking to tests.
+- TEST-BB-628: with the check, the worklist says Finish type and screen for an unverified specimen; the demo order reserves on ACC0001.

@@ -15,7 +15,8 @@ Each row shows the patient with the current ABO/Rh and any active antibodies, th
 **Specimen** says whether the patient has a usable specimen (accepted or received, not expired, not discarded) and until when. The button on the row is the next step:
 
 - **Collect a specimen**: there is no usable specimen, so units cannot be crossmatched yet. It opens the patient's specimens.
-- **Reserve N units**: it opens the patient's products, where reserving runs the usual compatibility checks.
+- **Finish type and screen**: a usable specimen is on file but its ABO/Rh and antibody screen are not both verified yet (the row says **Type and screen not verified**). Units are reserved on a specimen with a completed type and screen, so it opens the patient's tests.
+- **Reserve N units**: it opens the patient's products with the reserve form open, the order chosen, and a specimen with a completed type and screen filled in (the order's own linked specimen if it has one). Pick a unit and reserve; the usual compatibility checks run.
 
 An order drops off the list once its units are all reserved or issued, or when it is completed or cancelled. The home screen's **Blood orders to prepare** card counts the orders and says how many are rush and how many need a specimen.
 

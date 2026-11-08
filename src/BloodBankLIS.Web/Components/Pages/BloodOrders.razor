@@ -57,7 +57,11 @@ else
                         <td>@r.Products</td>
                         <td><strong>@r.Remaining</strong> <span class="sub">of @r.Requested (@r.Reserved reserved, @r.Issued issued)</span></td>
                         <td>
-                            @if (r.HasUsableSpecimen)
+                            @if (r.HasUsableSpecimen && r.TypeAndScreenPending)
+                            {
+                                <span class="badge badge-amber" data-type-screen-pending>Type and screen not verified</span>
+                            }
+                            else if (r.HasUsableSpecimen)
                             {
                                 <span class="sub">Usable@(r.SpecimenExpiresUtc is DateTime until ? $" until {until.ToLocalTime():yyyy-MM-dd HH:mm}" : "")</span>
                             }

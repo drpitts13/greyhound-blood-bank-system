@@ -633,5 +633,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-622 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` | URS-BB-612 / FRS-BB-729 |
 | TEST-BB-623 | U | `DashboardHomeTests.BloodOrders_IsForAllocators_WithRushAndSpecimenNotes` | URS-BB-612 / FRS-BB-729 |
 | TEST-BB-624 | I | `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-625 | U | `BloodOrderPreparationRuleTests.NextStepHref_ReserveFormOrSpecimens` | URS-BB-613 / FRS-BB-730 |
+| TEST-BB-626 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (next-step link) | URS-BB-613 / FRS-BB-730 |
+| TEST-BB-627 | U | `BloodOrderPreparationRuleTests.TypeAndScreenPending_FinishesItFirst` | URS-BB-613 / FRS-BB-730 |
+| TEST-BB-628 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (type and screen pending), `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` (reserve on ACC0001) | URS-BB-613 / FRS-BB-730 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

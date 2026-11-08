@@ -27,7 +27,11 @@ public sealed record BloodOrderToPrepareDto(
     bool HasUsableSpecimen,
     DateTime? SpecimenExpiresUtc,
     string NextStep,
-    string Href);
+    string Href,
+    // The usable specimen the reserve form starts with (one with a completed type and screen when there is one), or null.
+    long? UsableSpecimenId = null,
+    // A usable specimen is on file but its ABO/Rh and antibody screen are not both verified yet.
+    bool TypeAndScreenPending = false);
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -44,6 +48,7 @@ public sealed class BloodOrderWorklistService
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
     private readonly IRepository<AntibodyHistory> _antibodies;
     private readonly IClock _clock;
+    private readonly BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? _typeAndScreen;
 
     public BloodOrderWorklistService(
         IRepository<Order> orders,
@@ -54,8 +59,10 @@ public sealed class BloodOrderWorklistService
         IRepository<Specimen> specimens,
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<AntibodyHistory> antibodies,
-        IClock clock)
+        IClock clock,
+        BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? typeAndScreen = null)
     {
+        _typeAndScreen = typeAndScreen;
         _orders = orders;
         _lines = lines;
         _allocations = allocations;
@@ -99,7 +106,16 @@ public sealed class BloodOrderWorklistService
                 && (s.Status == SpecimenStatus.Accepted || s.Status == SpecimenStatus.Received)
                 && s.DiscardedUtc == null && (s.ExpiresUtc == null || s.ExpiresUtc > now), ct))
             .GroupBy(s => s.PatientId)
-            .ToDictionary(g => g.Key, g => g.Max(s => s.ExpiresUtc));
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.ExpiresUtc ?? DateTime.MaxValue).ThenByDescending(s => s.Id).ToList());
+        // Units are reserved on a specimen with a completed type and screen (the reserve form offers only those).
+        var completed = new Dictionary<long, HashSet<long>>();
+        if (_typeAndScreen is not null)
+        {
+            foreach (var patientId in usable.Keys)
+            {
+                completed[patientId] = await _typeAndScreen.ListCompletedTypeAndScreenSpecimenIdsAsync(patientId, now, ct);
+            }
+        }
         var types = (await _bloodTypes.ListAsync(t => patientIds.Contains(t.PatientId) && t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
         var antibodies = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
 
@@ -117,7 +133,12 @@ public sealed class BloodOrderWorklistService
             }
 
             patients.TryGetValue(order.PatientId, out var patient);
-            var hasSpecimen = usable.TryGetValue(order.PatientId, out var specimenExpires);
+            var hasSpecimen = usable.TryGetValue(order.PatientId, out var candidates);
+            var ready = !hasSpecimen ? null
+                : _typeAndScreen is null ? candidates![0]
+                : candidates!.FirstOrDefault(s => completed.GetValueOrDefault(order.PatientId)?.Contains(s.Id) == true);
+            var specimen = ready ?? (hasSpecimen ? candidates![0] : null);
+            var typeAndScreenComplete = ready is not null;
             var products = string.Join(", ", group
                 .GroupBy(l => l.LineName, StringComparer.OrdinalIgnoreCase)
                 .Select(g => $"{g.Count()} × {g.Key}"));
@@ -128,9 +149,11 @@ public sealed class BloodOrderWorklistService
                 PatientBloodBankFlags.CurrentBloodType(types[order.PatientId]),
                 PatientBloodBankFlags.ActiveAntibodies(antibodies[order.PatientId]),
                 order.Priority, TestWorklistView.IsRush(order.Priority), order.OrderedUtc, products,
-                requested, orderReserved, orderIssued, remaining, hasSpecimen, hasSpecimen ? specimenExpires : null,
-                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen)!,
-                hasSpecimen ? $"/patients/{order.PatientId}?tab=products" : $"/patients/{order.PatientId}?tab=specimens"));
+                requested, orderReserved, orderIssued, remaining, hasSpecimen, specimen?.ExpiresUtc,
+                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete)!,
+                BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete),
+                specimen?.Id,
+                hasSpecimen && !typeAndScreenComplete));
         }
 
         return rows

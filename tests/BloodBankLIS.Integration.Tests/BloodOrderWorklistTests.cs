@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -81,7 +82,27 @@ public class BloodOrderWorklistTests
         var routineRow = rows[1];
         Assert.Equal((3, 1, 1, 1, true, "Reserve 1 unit", "3 × Red Blood Cells"),
             (routineRow.Requested, routineRow.Reserved, routineRow.Issued, routineRow.Remaining, routineRow.HasUsableSpecimen, routineRow.NextStep, routineRow.Products));
+        // TEST-BB-626: the next step opens the reserve form with the order and the usable specimen chosen.
+        var specimenId = c.Specimens.Single(x => x.AccessionNumber == "ACC-BO-1").Id;
+        Assert.Equal((specimenId, $"/patients/{routine.Id}?tab=products&reserveOrder={routineOrder.Id}&reserveSpecimen={specimenId}"),
+            (routineRow.UsableSpecimenId, routineRow.Href));
+        Assert.Null(statRow.UsableSpecimenId);
+
+        // TEST-BB-628: with the type-and-screen check, a usable specimen whose ABO/Rh and screen are not verified says so,
+        // and the next step is to finish the type and screen, not to reserve.
+        var checkedRows = await Service(c, factory).ListAsync();
+        var pending = Assert.Single(checkedRows, r => r.OrderNumber == "BO-1");
+        Assert.Equal((true, true, "Finish type and screen", $"/patients/{routine.Id}?tab=tests"),
+            (pending.HasUsableSpecimen, pending.TypeAndScreenPending, pending.NextStep, pending.Href));
+        Assert.False(Assert.Single(checkedRows, r => r.OrderNumber == "BO-2").TypeAndScreenPending);
     }
+
+    private static BloodOrderWorklistService Service(BloodBankDbContext c, SqliteContextFactory f) => new(
+        new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
+        new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
+        new EfRepository<AntibodyHistory>(c), f.Clock,
+        new AntibodyScreenCompatLoader(new EfRepository<TestResult>(c), new EfRepository<TestDefinition>(c), new EfRepository<AntibodyHistory>(c),
+            clock: f.Clock, specimens: new EfRepository<Specimen>(c), orders: new EfRepository<Order>(c)));
 
     // TEST-BB-624: the demo has one STAT order for two red cell units with nothing reserved, listed to prepare; added once.
     [Fact]
@@ -95,11 +116,11 @@ public class BloodOrderWorklistTests
         }
 
         await using var c = factory.Create();
-        var rows = await new BloodOrderWorklistService(
-            new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
-            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
-            new EfRepository<AntibodyHistory>(c), factory.Clock).ListAsync();
+        var rows = await Service(c, factory).ListAsync();
         var demo = Assert.Single(rows, r => r.OrderNumber == "ORD-PREP-DEMO");
         Assert.Equal((true, 2, 2, "MRN0001"), (demo.Rush, demo.Requested, demo.Remaining, demo.Mrn));
+        // The demo patient's type and screen is complete on ACC0001: the reserve form opens on that specimen.
+        var acc0001 = c.Specimens.Single(s => s.AccessionNumber == "ACC0001").Id;
+        Assert.Equal(("Reserve 2 units", (long?)acc0001, false), (demo.NextStep, demo.UsableSpecimenId, demo.TypeAndScreenPending));
     }
 }

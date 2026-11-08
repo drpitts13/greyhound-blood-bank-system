@@ -518,6 +518,10 @@ else
     [SupplyParameterFromQuery(Name = "specimen")] public long? SpecimenQuery { get; set; }
     // Links into Orders carry their context: an order number to search for, or the visit to filter by.
     [SupplyParameterFromQuery(Name = "order")] public string? OrderQuery { get; set; }
+    // From Blood orders to prepare: open the reserve form with this order (and specimen) already chosen.
+    [SupplyParameterFromQuery(Name = "reserveOrder")] public long? ReserveOrderQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "reserveSpecimen")] public long? ReserveSpecimenQuery { get; set; }
+    private bool _reserveQueryApplied;
     [SupplyParameterFromQuery(Name = "visit")] public long? VisitQuery { get; set; }
     // From a reaction investigation: the special requirement form starts naming it, and the requirement is linked to it.
     [SupplyParameterFromQuery(Name = "reaction")] public long? ReactionQuery { get; set; }
@@ -877,6 +881,12 @@ else
             _editingDemographics = false;
         }
 
+        if (!_reserveQueryApplied && ReserveOrderQuery is long reserveOrderId && Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            _reserveQueryApplied = true;
+            await OpenReserveForOrderAsync(reserveOrderId, ReserveSpecimenQuery);
+        }
+
         if (!_panelFromQueryApplied
             && string.Equals(PanelQuery, "accession", StringComparison.OrdinalIgnoreCase))
         {
@@ -1154,6 +1164,26 @@ else
                     o.AccessionNumber,
                     o.OrderedUtc)))
             .ToList();
+    }
+
+    // The reserve form opened on the chosen order; its own specimen first, else the one the worklist found usable.
+    private async Task OpenReserveForOrderAsync(long orderId, long? specimenId)
+    {
+        if (!_ordersLoaded)
+        {
+            await LoadOrdersAsync();
+        }
+
+        if (!_showAllocate)
+        {
+            await ToggleAllocatePanel();
+        }
+
+        await OnAllocOrderPicked(orderId);
+        if (_allocatingOrderId == orderId && _allocSpecimenId <= 0 && specimenId is long usable)
+        {
+            _allocSpecimenId = usable;
+        }
     }
 
     private Task OnAllocOrderPicked(long? orderId)
