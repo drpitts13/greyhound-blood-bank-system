@@ -1115,6 +1115,23 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         return issued.Value!.Id;
     }
 
+    // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)
+    // carries that MRN on the issued list; one issued under the current MRN does not.
+    [Fact]
+    public async Task IssuedList_NamesAnEarlierMrn_WhenTheChartChangedSinceIssue()
+    {
+        var s = await SeedAsync("TX-EARLIER-ID");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using var c = _factory.Create();
+        Assert.Null(Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId).IssuedUnderEarlierMrn);
+
+        var issue = (await c.Issues.FindAsync(issueId))!;
+        issue.PatientIdentifier1 = "UNK-20260530-01";
+        await c.SaveChangesAsync();
+        var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
+        Assert.Equal("UNK-20260530-01", row.IssuedUnderEarlierMrn);
+    }
+
     [Fact]
     public async Task StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord()
     {

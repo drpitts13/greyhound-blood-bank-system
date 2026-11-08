@@ -17601,3 +17601,22 @@ Identifying an unidentified patient merges the temporary chart into the identifi
 
 - TEST-BB-617: applies to another MRN only (case and spaces ignored, empty never); warning names identities once and the current MRN.
 - TEST-BB-618: identify with one unit still out and one transfused returns the warning for one unit; the list names the unit, the temporary MRN, and the destination.
+
+## Iteration 554 — Earlier identity on the ward and bedside boards (2026-11-08)
+
+### Capability matrix rescan (patient-product: bedside)
+
+Cycle 553 warns on the chart when units are still out under an earlier MRN, but ward receipt and bedside documentation are done from Issue & Transfuse, where the rows showed only the current MRN. Workflow questions: next action (the person at the bedside sees the earlier MRN where the check happens); memory (no need to have opened the chart); safety (checks unchanged; the bedside question stays OCD-071).
+
+### Design
+
+- `EarlierMrn`, `BedsideNotice`; `IssuedUnderEarlierMrn` on the in-transit and outstanding rows; board badges; transfusion form warning.
+
+### Requirements
+
+- URS-BB-611, FRS-BB-728. Help: Issuing.
+
+### Tests
+
+- TEST-BB-619: earlier MRN only when different (case and spaces ignored, no current MRN none); bedside note text.
+- TEST-BB-620: the issued list has no earlier MRN for a unit issued under the current MRN, and names it once the MRN at issue differs.

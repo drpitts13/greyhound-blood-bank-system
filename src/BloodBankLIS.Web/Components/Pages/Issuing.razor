@@ -526,7 +526,12 @@
                     @foreach (var row in _inTransitItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span>
+                                @if (row.IssuedUnderEarlierMrn is { } earlierMrn)
+                                {
+                                    <span class="badge badge-amber" data-issued-under-earlier title="The wristband or unit tag may still show the earlier MRN">Issued under @earlierMrn</span>
+                                }
+                            </td>
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
@@ -615,7 +620,12 @@
                     @foreach (var row in _outstandingItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span>
+                                @if (row.IssuedUnderEarlierMrn is { } earlierMrn)
+                                {
+                                    <span class="badge badge-amber" data-issued-under-earlier title="The wristband or unit tag may still show the earlier MRN">Issued under @earlierMrn</span>
+                                }
+                            </td>
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
@@ -1281,6 +1291,10 @@
             {
                 <FactList Facts="@(new string?[] { _txExpirationNotice, _txUnitTypeNotice, _txSpecimenNotice, _txCrossmatchNotice, _txIssuedToNotice, _txCoolerNotice, _txLocationNotice, _txIssuedByNotice, _txSecondVerifierNotice })">Documenting @if (!string.IsNullOrWhiteSpace(_txProductName)) { <strong>@_txProductName</strong> }</FactList>
             }
+            @if (!string.IsNullOrWhiteSpace(_txEarlierIdentityNotice))
+            {
+                <div class="alert alert-warning" data-tx-earlier-identity>@_txEarlierIdentityNotice</div>
+            }
             @if (!string.IsNullOrWhiteSpace(_txReleaseReason))
             {
                 <p class="muted">@_txReleaseReason</p>
@@ -1474,6 +1488,7 @@
     private string? _txIssuedByNotice;
     private string? _txSecondVerifierNotice;
     private string? _txReleaseReason;
+    private string? _txEarlierIdentityNotice;
     private string? _txReleaseAuthorizer;
     private string? _txIssueAppearance;
     private string? _txPtagNotice;
@@ -2272,6 +2287,7 @@
         _txIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(row.IssuedBy);
         _txSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(row.SecondVerifier);
         _txReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(row.EmergencyReleaseDetails);
+        _txEarlierIdentityNotice = IssuedUnderEarlierIdentityRule.BedsideNotice(row.IssuedUnderEarlierMrn, row.MedicalRecordNumber);
         _txReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(row.EmergencyReleaseAuthorizer);
         _txIssueAppearance = ReadyToIssueFormCue.IssueAppearanceNotice(row.IssueAppearance);
         _txPtagNotice = ReadyToIssueFormCue.PtagNotice(row.PtagCode);

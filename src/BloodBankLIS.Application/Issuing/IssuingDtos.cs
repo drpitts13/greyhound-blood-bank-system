@@ -179,6 +179,9 @@ public sealed record InTransitWorkItemDto(
     // OCD-054: custody was on paper, so the row asks for the receipt to be back-entered instead of showing overdue.
     bool DowntimeBackEntry = false)
 {
+    /// <summary>The MRN the unit was issued under when the chart has since changed MRN (a merge); null otherwise.</summary>
+    public string? IssuedUnderEarlierMrn { get; init; }
+
     public static InTransitWorkItemDto From(
         Issue i,
         DateTime now,
@@ -212,7 +215,10 @@ public sealed record InTransitWorkItemDto(
         i.IssueAppearance,
         string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
         i.CrossmatchStatus,
-        i.DowntimeBackEntry);
+        i.DowntimeBackEntry)
+    {
+        IssuedUnderEarlierMrn = IssuedUnderEarlierIdentityRule.EarlierMrn(i.PatientIdentifier1, mrn)
+    };
 }
 
 public sealed record OutstandingIssueWorkItemDto(
@@ -257,6 +263,9 @@ public sealed record OutstandingIssueWorkItemDto(
     // Started and still not completed after the facility completion reminder hours.
     bool TransfusionCompletionOverdue = false)
 {
+    /// <summary>The MRN the unit was issued under when the chart has since changed MRN (a merge); null otherwise.</summary>
+    public string? IssuedUnderEarlierMrn { get; init; }
+
     public static OutstandingIssueWorkItemDto From(
         Issue i,
         DateTime now,
@@ -293,7 +302,10 @@ public sealed record OutstandingIssueWorkItemDto(
         string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
         i.CrossmatchStatus,
         storageTimeOutGoverned,
-        storageTimeOutAcceptable);
+        storageTimeOutAcceptable)
+    {
+        IssuedUnderEarlierMrn = IssuedUnderEarlierIdentityRule.EarlierMrn(i.PatientIdentifier1, mrn)
+    };
 }
 
 public sealed record ReadyToIssueWorkItemDto(
