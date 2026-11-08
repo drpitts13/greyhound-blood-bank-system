@@ -42,4 +42,7 @@ public interface IInventoryRepository
 
     /// <summary>Units waiting for a product ABO/Rh retype (Received + product RequiresRetype).</summary>
     Task<IReadOnlyList<BloodUnit>> ListPendingRetypeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Units shipped to another facility, shipped on or after <paramref name="sinceUtc"/> (all when null).</summary>
+    Task<IReadOnlyList<BloodUnit>> ListShippedOutAsync(DateTime? sinceUtc, CancellationToken cancellationToken = default);
 }

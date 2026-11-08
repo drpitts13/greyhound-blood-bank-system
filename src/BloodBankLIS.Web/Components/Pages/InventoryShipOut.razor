@@ -28,7 +28,13 @@ else
         <div class="form-row" style="align-items:flex-end;">
             <div class="field" style="flex:2;">
                 <label>Shipped to (facility)</label>
-                <input @bind="_facility" @bind:event="oninput" maxlength="@ShipOutRule.MaxFacilityLength" placeholder="e.g. St. Mary's Hospital blood bank" data-ship-facility />
+                <input @bind="_facility" @bind:event="oninput" maxlength="@ShipOutRule.MaxFacilityLength" placeholder="e.g. St. Mary's Hospital blood bank" list="ship-facilities" data-ship-facility />
+                <datalist id="ship-facilities">
+                    @foreach (var f in _facilities)
+                    {
+                        <option value="@f"></option>
+                    }
+                </datalist>
             </div>
             <div class="field">
                 <label>Shipment reference (optional)</label>
@@ -76,9 +82,75 @@ else
             </table>
         }
     </div>
+
+    <div class="bb-card" data-recent-shipments>
+        <div class="bb-card-title"><h3>Recent shipments (30 days)</h3></div>
+        @if (_shipments.Count == 0)
+        {
+            <div class="empty">No units shipped to another facility in the last 30 days.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Facility</th><th>Reference</th><th>Shipped</th><th>Units</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var s in _shipments)
+                    {
+                        var key = ShipOutRule.ShipmentKey(s.Facility, s.Reference, s.FirstShippedUtc);
+                        <tr>
+                            <td>@s.Facility</td>
+                            <td class="mono">@(s.Reference ?? "—")</td>
+                            <td class="nowrap">@s.FirstShippedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@s.Units.Count</td>
+                            <td class="right"><button type="button" class="btn btn-ghost btn-sm" @onclick="() => ToggleShipment(key)">@(_openShipment == key ? "Hide" : "Units")</button></td>
+                        </tr>
+                        @if (_openShipment == key)
+                        {
+                            <tr>
+                                <td colspan="5">
+                                    <table class="bb" data-shipment-units>
+                                        <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>Expires</th><th>Shipped</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var u in s.Units)
+                                            {
+                                                <tr>
+                                                    <td><UnitLink Id="u.Id" Number="@u.UnitNumber" /></td>
+                                                    <td class="mono">@(u.Isbt128ProductCode ?? u.ProductCodeData ?? "—")</td>
+                                                    <td>@u.BloodType</td>
+                                                    <td class="nowrap">@u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                    <td class="nowrap">@u.ShippedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                    <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print packing list</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
 }
 
 @code {
+    private List<string> _facilities = new();
+    private List<OutboundShipmentDto> _shipments = new();
+    private string? _openShipment;
+
+    protected override async Task OnInitializedAsync() => await LoadHistoryAsync();
+
+    private async Task LoadHistoryAsync()
+    {
+        var f = await Api.GetShipFacilitiesAsync();
+        _facilities = f.Succeeded ? f.Value ?? new() : new();
+        var s = await Api.GetShipmentsAsync();
+        _shipments = s.Succeeded ? s.Value ?? new() : new();
+    }
+
+    private void ToggleShipment(string key) => _openShipment = _openShipment == key ? null : key;
+
     private string _facility = string.Empty;
     private string? _reference;
     private string? _note;
@@ -108,6 +180,7 @@ else
         {
             _run.Insert(0, new RunRow(scan, facility, r.Value, null));
             _fb = Feedback.Succeed($"Shipped {r.Value.UnitNumber} to {facility}. Scan the next unit.");
+            await LoadHistoryAsync();
         }
         else
         {

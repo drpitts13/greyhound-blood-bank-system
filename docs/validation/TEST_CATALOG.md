@@ -607,5 +607,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-596 | U | `ShipOutRuleTests.Evaluate_NeedsAFacility_AndAnUnreservedUnexpiredUnitInStock` | URS-BB-601 / FRS-BB-718 |
 | TEST-BB-597 | I | `InventoryServiceTests.ShipOutByScan_ShipsAnUnreservedUnit_AndKeepsTheFacility` | URS-BB-601 / FRS-BB-718 |
 | TEST-BB-598 | I | `ComplianceWorkflowTests.RecallByDin_ShippedUnit_NotifiesTheReceivingFacility` | URS-BB-601 / FRS-BB-718 |
+| TEST-BB-599 | U | `ShipOutRuleTests.ShipmentKey_FacilityAndReference_OrTheDay` | URS-BB-602 / FRS-BB-719 |
+| TEST-BB-600 | I | `InventoryServiceTests.Shipments_AreGroupedByFacilityAndReference_AndFacilitiesOfferedOnce` | URS-BB-602 / FRS-BB-719 |
+| TEST-BB-601 | I | `ShipOutDemoTests.Demo_HasOneShipmentOfTwoUnits` | URS-BB-602 / FRS-BB-719 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

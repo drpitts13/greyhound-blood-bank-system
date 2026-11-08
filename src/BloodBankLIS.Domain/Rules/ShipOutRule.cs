@@ -14,6 +14,19 @@ public static class ShipOutRule
     public const int MaxFacilityLength = 200;
     public const int MaxReferenceLength = 100;
 
+    /// <summary>
+    /// Which shipment a shipped unit belongs to: the facility (ignoring case and spaces) and the reference, or, without a
+    /// reference, the facility and the UTC day it was shipped.
+    /// </summary>
+    public static string ShipmentKey(string? facility, string? reference, DateTime? shippedUtc)
+    {
+        var place = string.Join(' ', (facility ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
+        var shipment = string.IsNullOrWhiteSpace(reference)
+            ? shippedUtc?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty
+            : reference.Trim().ToUpperInvariant();
+        return $"{place}|{shipment}";
+    }
+
     public static RuleResult Evaluate(UnitStatus status, DateTime expiresUtc, DateTime nowUtc, string? facility, string? reference)
     {
         var to = facility?.Trim() ?? string.Empty;

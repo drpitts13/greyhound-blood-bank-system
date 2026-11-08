@@ -150,4 +150,11 @@ public sealed class InventoryRepository : IInventoryRepository
             .Where(u => u.Status == UnitStatus.Received && u.ProductType!.RequiresRetype)
             .OrderBy(u => u.CreatedUtc)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<BloodUnit>> ListShippedOutAsync(DateTime? sinceUtc, CancellationToken cancellationToken = default) =>
+        await _context.BloodUnits
+            .AsNoTracking()
+            .Where(u => u.Status == UnitStatus.ShippedOut && u.ShippedToFacility != null
+                && (sinceUtc == null || (u.ShippedUtc != null && u.ShippedUtc >= sinceUtc)))
+            .ToListAsync(cancellationToken);
 }

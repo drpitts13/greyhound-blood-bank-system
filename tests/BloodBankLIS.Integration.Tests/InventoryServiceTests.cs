@@ -723,6 +723,41 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False(InventoryStatusTransition.IsAllowed(UnitStatus.ShippedOut, UnitStatus.Available));
     }
 
+    // TEST-BB-600: recent shipments group units by facility and reference (or day without one), newest first, and the
+    // facilities shipped to are offered once each.
+    [Fact]
+    public async Task Shipments_AreGroupedByFacilityAndReference_AndFacilitiesOfferedOnce()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<string> InStock(string suffix)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-SHG{suffix}-{key}", productTypeId))).Unit!.Id;
+            (await context.BloodUnits.FindAsync(id))!.Status = UnitStatus.Available;
+            await context.SaveChangesAsync();
+            return $"U-SHG{suffix}-{key}";
+        }
+
+        var facility = $"Hospital {key}";
+        foreach (var (suffix, to, reference) in new[] { ("A", facility, "PL-1"), ("B", facility.ToLowerInvariant(), "pl-1"), ("C", facility, null), ("D", $"Other {key}", "PL-1") })
+        {
+            var r = await service.ShipOutByScanAsync(new ShipOutByScanRequest(await InStock(suffix), to, reference));
+            Assert.True(r.Succeeded, r.Error);
+        }
+
+        var mine = (await service.ListShipmentsAsync()).Where(s => s.Facility.Contains(key, StringComparison.OrdinalIgnoreCase)).ToList();
+        Assert.Equal(3, mine.Count);
+        var pl1 = mine.Single(s => s.Facility == facility && s.Reference == "PL-1");
+        Assert.Equal([$"U-SHGA-{key}", $"U-SHGB-{key}"], pl1.Units.Select(u => u.UnitNumber).Order());
+        Assert.Single(mine.Single(s => s.Reference is null).Units);
+        Assert.Single(mine.Single(s => s.Facility == $"Other {key}").Units);
+
+        var facilities = (await service.KnownShipFacilitiesAsync()).Where(f => f.Contains(key, StringComparison.OrdinalIgnoreCase)).ToList();
+        Assert.Equal(2, facilities.Count);
+    }
+
     // TEST-BB-472: expired units on a shelf (marked Expired, or past expiry before the sweep) are listed oldest first
     // and discarded by scan with the EXPIRED reason and the discard checks; a unit not expired, one already discarded,
     // and a scan without the discard permission are refused.

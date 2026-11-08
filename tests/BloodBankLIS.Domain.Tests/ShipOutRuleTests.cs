@@ -24,4 +24,14 @@ public class ShipOutRuleTests
         Assert.True(InventoryStatusTransition.IsAllowed(UnitStatus.Available, UnitStatus.ShippedOut));
         Assert.False(InventoryStatusTransition.IsAllowed(UnitStatus.ShippedOut, UnitStatus.Available));
     }
+
+    // TEST-BB-599: a shipment is the facility (case and spaces ignored) and its reference, or the day without one.
+    [Fact]
+    public void ShipmentKey_FacilityAndReference_OrTheDay()
+    {
+        Assert.Equal(ShipOutRule.ShipmentKey("St. Mary's  Hospital", "pl-1", Now), ShipOutRule.ShipmentKey(" st. mary's hospital ", " PL-1 ", Now.AddDays(3)));
+        Assert.NotEqual(ShipOutRule.ShipmentKey("St. Mary's", "PL-1", Now), ShipOutRule.ShipmentKey("St. Mary's", "PL-2", Now));
+        Assert.Equal(ShipOutRule.ShipmentKey("St. Mary's", null, Now), ShipOutRule.ShipmentKey("St. Mary's", " ", Now.AddHours(-11)));
+        Assert.NotEqual(ShipOutRule.ShipmentKey("St. Mary's", null, Now), ShipOutRule.ShipmentKey("St. Mary's", null, Now.AddDays(1)));
+    }
 }

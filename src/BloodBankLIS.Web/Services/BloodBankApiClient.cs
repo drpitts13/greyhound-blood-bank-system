@@ -613,6 +613,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<InventoryCountDto>> ReconcileInventoryCountAsync(InventoryCountRequest req, CancellationToken ct = default) =>
         SendAsync<InventoryCountDto>(HttpMethod.Post, "api/inventory/counts", req, ct);
 
+    public Task<ApiResult<List<OutboundShipmentDto>>> GetShipmentsAsync(int days = 30, CancellationToken ct = default) =>
+        SendAsync<List<OutboundShipmentDto>>(HttpMethod.Get, $"api/inventory/shipments?days={days}", ct: ct);
+
+    public Task<ApiResult<List<string>>> GetShipFacilitiesAsync(CancellationToken ct = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, "api/inventory/ship-facilities", ct: ct);
+
     public Task<ApiResult<BloodUnitDto>> ShipOutByScanAsync(ShipOutByScanRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/ship-out-by-scan", req, ct);
 

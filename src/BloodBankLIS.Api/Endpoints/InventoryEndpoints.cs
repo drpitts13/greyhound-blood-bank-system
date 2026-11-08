@@ -207,6 +207,12 @@ public static class InventoryEndpoints
             ToHttpResult(await service.InspectDamagedAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
+        group.MapGet("/shipments", async (int? days, InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListShipmentsAsync(days ?? 30, ct)));
+
+        group.MapGet("/ship-facilities", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.KnownShipFacilitiesAsync(ct)));
+
         // Ship units to another facility by scan (receiving facility kept for recall and lookback).
         group.MapPost("/units/ship-out-by-scan", async (ShipOutByScanRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.ShipOutByScanAsync(request, ct)))

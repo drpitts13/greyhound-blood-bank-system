@@ -1737,6 +1737,42 @@ public sealed class InventoryService
     }
 
     /// <summary>
+    /// Shipments to other facilities in the last <paramref name="days"/> days, newest first, each with its units, so what
+    /// was sent where can be answered and its packing list printed again.
+    /// </summary>
+    public async Task<IReadOnlyList<OutboundShipmentDto>> ListShipmentsAsync(int days = 30, CancellationToken ct = default)
+    {
+        var since = _clock.UtcNow.AddDays(-Math.Clamp(days, 1, 366));
+        var shipped = await _repository.ListShippedOutAsync(since, ct);
+        return shipped
+            .GroupBy(u => ShipOutRule.ShipmentKey(u.ShippedToFacility, u.OutboundShipmentReference, u.ShippedUtc))
+            .Select(g =>
+            {
+                var ordered = g.OrderBy(u => u.ShippedUtc).ThenBy(u => u.UnitNumber, StringComparer.OrdinalIgnoreCase).ToList();
+                return new OutboundShipmentDto(
+                    ordered[0].ShippedToFacility ?? string.Empty,
+                    ordered[0].OutboundShipmentReference,
+                    ordered[0].ShippedUtc!.Value,
+                    ordered[^1].ShippedUtc!.Value,
+                    ordered.Select(BloodUnitDto.From).ToList());
+            })
+            .OrderByDescending(s => s.LastShippedUtc)
+            .ToList();
+    }
+
+    /// <summary>Facilities units have been shipped to, most recent first, one spelling each (for the facility field).</summary>
+    public async Task<IReadOnlyList<string>> KnownShipFacilitiesAsync(CancellationToken ct = default)
+    {
+        var shipped = await _repository.ListShippedOutAsync(null, ct);
+        return shipped
+            .OrderByDescending(u => u.ShippedUtc)
+            .Select(u => u.ShippedToFacility!.Trim())
+            .Where(f => f.Length > 0)
+            .DistinctBy(f => ShipOutRule.ShipmentKey(f, "x", null))
+            .ToList();
+    }
+
+    /// <summary>
     /// Ships the unit in hand to another facility by its scan: the receiving facility (required) and the shipment reference
     /// are kept on the unit so a recall or lookback notifies that facility. Only an unreserved, unexpired unit in stock
     /// ships (<see cref="ShipOutRule"/>); a divided number matching several units ships none. Audited.

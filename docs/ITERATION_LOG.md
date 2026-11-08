@@ -17428,3 +17428,23 @@ Units could move between locations here and go back to the supplier, but not to 
 - TEST-BB-596: facility required and bounded, reference bounded, only Available or Received, not shipped twice, not expired; final status.
 - TEST-BB-597: no facility refused; shipped by lower-case scan with facility, reference, time, and audit; repeat, reserved, and expired refused.
 - TEST-BB-598: recall of a shipped unit leaves it shipped and opens one notification naming the facility, not duplicated on a second recall.
+
+## Iteration 545 — Recent shipments (2026-11-08)
+
+### Capability matrix rescan (blood products: transfers)
+
+Cycle 544 ships units, but once the page was left nothing showed what was sent where: a receiving hospital asking about yesterday's shipment, or a packing list lost in transit, meant searching unit by unit. The facility name was also typed fresh each time, so one hospital could be spelled several ways and split its shipments. Workflow questions: memory (shipments listed with their units); typing (facilities offered); next action (print the packing list again); no clinical rule.
+
+### Design
+
+- `ShipmentKey`; `ListShippedOutAsync`; `ListShipmentsAsync`, `KnownShipFacilitiesAsync` and endpoints; Ship units suggestions and Recent shipments; demo shipment.
+
+### Requirements
+
+- URS-BB-602, FRS-BB-719. Help: Inventory.
+
+### Tests
+
+- TEST-BB-599: same facility (case, spaces) and reference is one shipment; another reference or another day without one is not.
+- TEST-BB-600: four units shipped (two under one reference with different case, one without a reference, one to another facility) make three shipments; two facilities offered.
+- TEST-BB-601: demo shipment of two units, added once; seeder count 70 units.

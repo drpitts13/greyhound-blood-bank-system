@@ -11,6 +11,14 @@ public sealed record ReturnToSupplierByScanRequest(string? Scan, string? Reason)
 /// <summary>A unit scanned into an outbound shipment to another facility; the facility and reference are given once per shipment.</summary>
 public sealed record ShipOutByScanRequest(string? Scan, string? Facility, string? Reference = null, string? Note = null);
 
+/// <summary>One outbound shipment: the units shipped to a facility under one reference (or on one day without one).</summary>
+public sealed record OutboundShipmentDto(
+    string Facility,
+    string? Reference,
+    DateTime FirstShippedUtc,
+    DateTime LastShippedUtc,
+    IReadOnlyList<BloodUnitDto> Units);
+
 /// <summary>An expired unit scanned for disposal; the second verifier when the facility requires one.</summary>
 public sealed record DiscardExpiredByScanRequest(string? Scan, string? SecondVerifier = null);
 
