@@ -683,6 +683,35 @@ public sealed class CompatibilityService
             SpecialRequirementLoader.Typing(unit, productType.ComponentClass, negativeTests));
     }
 
+    /// <summary>
+    /// Releases several reservations with one reason, each through <see cref="ReleaseAllocationAsync"/> (its own checks and
+    /// audit); one that fails is reported and does not stop the others.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<ReleaseAllocationOutcomeDto>>> ReleaseAllocationsAsync(
+        ReleaseAllocationsRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return OperationResult<IReadOnlyList<ReleaseAllocationOutcomeDto>>.Fail("A reason is required to release units to stock.");
+        }
+
+        var ids = (request.AllocationIds ?? []).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return OperationResult<IReadOnlyList<ReleaseAllocationOutcomeDto>>.Fail("Choose at least one unit to release.");
+        }
+
+        var outcomes = new List<ReleaseAllocationOutcomeDto>();
+        foreach (var id in ids)
+        {
+            var result = await ReleaseAllocationAsync(id, request.Reason.Trim(), ct);
+            outcomes.Add(new ReleaseAllocationOutcomeDto(id, result.Succeeded, result.Succeeded ? null : result.Error));
+        }
+
+        return OperationResult<IReadOnlyList<ReleaseAllocationOutcomeDto>>.Ok(outcomes);
+    }
+
     public async Task<EvaluationResult<Allocation>> ReleaseAllocationAsync(long allocationId, string reason, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))

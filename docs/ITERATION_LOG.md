@@ -17389,3 +17389,22 @@ Cycle 541 registers unidentified patients on Patients, but an emergency release 
 
 - TEST-BB-592: Standard becomes Emergency release; Emergency release and Massive transfusion stay.
 - TEST-BB-593: demo has exactly one unidentified patient (UNK- MRN, UNIDENTIFIED, TRAUMA name, male, active) after seeding twice. Seeder counts now 17 patients.
+
+## Iteration 543 — Release no-longer-needed reservations together (2026-11-08)
+
+### Capability matrix rescan (patient-product: reservation)
+
+Unidentified patients are complete apart from OCD-071 (Cycles 541–542). Next gap: Ready to issue counts reservations that have ended and crossmatches that have expired, but each unit had to be released one row at a time, and units whose crossmatch and specimen had both expired were not offered for release at all, so stock stayed held for patients who no longer needed it. Mature systems run a daily crossmatch release. Workflow questions: clicks (one review, one reason, one button instead of three clicks a unit); memory (the board lists them and why); inference (offered, never released alone: the bench unticks what the patient still needs); safety (ward-requested units never offered; every release keeps its checks and audit); override (none).
+
+### Design
+
+- `ReleaseReason`/`ReleaseCandidates`; `ReleaseAllocationsAsync` and `POST /api/allocations/release-batch`; Ready to issue review panel; row Release for the same rows.
+
+### Requirements
+
+- URS-BB-600, FRS-BB-717. Help: Issuing.
+
+### Tests
+
+- TEST-BB-594: reservation ended and crossmatch-plus-specimen expired offered; crossmatch expired alone, requested, and current not; oldest first.
+- TEST-BB-595: no reason and no ids refused; duplicates collapsed; one released and audited with the trimmed reason, an unknown id reported; releasing again reported as not released.

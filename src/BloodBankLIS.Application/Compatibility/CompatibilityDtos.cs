@@ -56,3 +56,9 @@ public sealed record AllocationDto(
         a.Id, a.BloodProductId, a.PatientId, a.SpecimenId, a.Status,
         a.AllocatedUtc, a.AllocatedBy, a.ExpiresUtc, a.ReleaseReason);
 }
+
+/// <summary>Several reservations released to stock with one reason (Ready to issue, Release to stock).</summary>
+public sealed record ReleaseAllocationsRequest(IReadOnlyList<long> AllocationIds, string Reason);
+
+/// <summary>One reservation in a batch release: released, or why not.</summary>
+public sealed record ReleaseAllocationOutcomeDto(long AllocationId, bool Released, string? Error);

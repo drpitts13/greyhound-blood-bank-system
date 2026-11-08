@@ -51,6 +51,11 @@ public static class CompatibilityEndpoints
         allocations.MapPost("/{id:long}/issue-request/cancel", async (long id, CancelIssueRequestRequest request, IssueRequestService service, CancellationToken ct) =>
             EndpointResults.From(await service.CancelAsync(id, request, ct), d => d));
 
+        // Several reservations back to stock with one reason; each is released and audited on its own.
+        allocations.MapPost("/release-batch", async (ReleaseAllocationsRequest request, CompatibilityService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ReleaseAllocationsAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.CompatibilityAllocate);
+
         allocations.MapPost("/{id:long}/release", async (long id, ReleaseAllocationRequest request, CompatibilityService service, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await service.ReleaseAllocationAsync(id, request.Reason, ct), a => AllocationDto.From(a)))
             .RequirePermission(PermissionCodes.CompatibilityAllocate);

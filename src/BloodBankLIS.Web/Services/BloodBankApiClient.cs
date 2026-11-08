@@ -669,6 +669,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<AllocationDto>> AllocateUnitAsync(AllocateUnitRequest req, CancellationToken ct = default) =>
         SendAsync<AllocationDto>(HttpMethod.Post, "api/allocations", req, ct);
 
+    public Task<ApiResult<List<ReleaseAllocationOutcomeDto>>> ReleaseAllocationsAsync(ReleaseAllocationsRequest req, CancellationToken ct = default) =>
+        SendAsync<List<ReleaseAllocationOutcomeDto>>(HttpMethod.Post, "api/allocations/release-batch", req, ct);
+
     public Task<ApiResult<AllocationDto>> ReleaseAllocationAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<AllocationDto>(HttpMethod.Post, $"api/allocations/{id}/release", new ReasonRequestVm(reason), ct);
 

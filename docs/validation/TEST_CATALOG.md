@@ -602,5 +602,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-591 | I | `UnidentifiedPatientTests.Unidentified_IsRegisteredInOneStep_AndMergedOnceIdentified` | URS-BB-598 / FRS-BB-715 |
 | TEST-BB-592 | U | `UnidentifiedPatientRuleTests.IssueTypeFor_UnidentifiedPatient_IsEmergencyUnlessMtp` | URS-BB-599 / FRS-BB-716 |
 | TEST-BB-593 | I | `UnidentifiedPatientTests.Demo_HasOneUnidentifiedPatient` | URS-BB-599 / FRS-BB-716 |
+| TEST-BB-594 | U | `DashboardDueCountTests.ReleaseCandidates_LapsedOrExpiredCrossmatchAndSpecimen_NotRequested` | URS-BB-600 / FRS-BB-717 |
+| TEST-BB-595 | I | `Phase4IssuingTests.ReleaseBatch_ReleasesEach_AndReportsThoseItCannot` | URS-BB-600 / FRS-BB-717 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

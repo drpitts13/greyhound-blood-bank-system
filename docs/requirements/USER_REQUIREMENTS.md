@@ -605,3 +605,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-597 | Whoever stores tubes sees on the home screen how many stored tubes are due for discard, one click from the list. | P3 | FRS-BB-714 |
 | URS-BB-598 | An unidentified emergency patient is registered in one step with a temporary identity, so testing and emergency release can start, and is merged into the identified patient's chart once known, with everything recorded on it. | P1 | FRS-BB-715 |
 | URS-BB-599 | During emergency release, an unidentified patient is registered from the issue form and chosen there, without leaving the issue. | P1 | FRS-BB-716 |
+| URS-BB-600 | Reserved units no longer needed (reservation ended, or crossmatch and specimen expired) are offered for release to stock together, reviewed and released with one reason, each audited. | P2 | FRS-BB-717 |

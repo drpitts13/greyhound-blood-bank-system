@@ -27,6 +27,34 @@ public static class ReadyToIssueAttentionRule
     public static int CountReservationLapsed(IEnumerable<ReadyToIssueWorkItemDto> rows, DateTime nowUtc) =>
         rows.Count(row => ReservationLapsed(row, nowUtc));
 
+    /// <summary>
+    /// Why a reserved unit is offered for release back to stock, or null: its reservation has ended, or its crossmatch
+    /// has expired and so has the specimen it was done on (a new crossmatch needs a new specimen). A unit the ward has
+    /// asked to issue is never offered. Offering is not releasing: someone chooses, with a reason.
+    /// </summary>
+    public static string? ReleaseReason(ReadyToIssueWorkItemDto row, DateTime nowUtc)
+    {
+        if (row.IssueRequestedUtc is not null)
+        {
+            return null;
+        }
+
+        if (ReservationLapsed(row, nowUtc))
+        {
+            return $"Reservation ended {row.ReservationExpiresUtc!.Value.ToLocalTime():yyyy-MM-dd HH:mm}";
+        }
+
+        return row.DisplayStatus == ProductAllocationDisplayStatus.CrossmatchExpired && row.SpecimenExpired
+            ? "Crossmatch and specimen expired"
+            : null;
+    }
+
+    /// <summary>The rows offered for release to stock, oldest reservation first.</summary>
+    public static IReadOnlyList<ReadyToIssueWorkItemDto> ReleaseCandidates(IEnumerable<ReadyToIssueWorkItemDto> rows, DateTime nowUtc) =>
+        rows.Where(row => ReleaseReason(row, nowUtc) is not null)
+            .OrderBy(row => row.AllocatedUtc)
+            .ToList();
+
     /// <summary>The Ready to issue card note: what needs a new crossmatch, what expires soon, and what is past its reservation.</summary>
     public static string? CardNote(IReadOnlyCollection<ReadyToIssueWorkItemDto> rows, DateTime? nowUtc = null)
     {

@@ -215,6 +215,39 @@
         {
             <p role="status"><strong>@ReadyToIssueAttentionRule.Summary(_readyItems)</strong></p>
             <Outcome Value="_releaseReadyFb" />
+            @if (Session.Has(PermissionCodes.CompatibilityAllocate) && ReadyToIssueAttentionRule.ReleaseCandidates(_readyItems, DateTime.UtcNow) is { Count: > 0 } candidates)
+            {
+                <div class="alert alert-info" data-release-review>
+                    @if (!_reviewingRelease)
+                    {
+                        <span>@candidates.Count reserved @(candidates.Count == 1 ? "unit is" : "units are") past @(candidates.Count == 1 ? "its" : "their") reservation, or @(candidates.Count == 1 ? "has" : "have") an expired crossmatch on an expired specimen.</span>
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => BeginReleaseReview(candidates)" data-release-review-open>Review and release to stock</button>
+                    }
+                    else
+                    {
+                        <div class="muted">Untick any unit the patient still needs. Each ticked unit is released to stock with this reason and audited on its own.</div>
+                        <table class="bb" style="margin:.4rem 0;">
+                            <thead><tr><th></th><th>Unit</th><th>Patient</th><th>Why offered</th></tr></thead>
+                            <tbody>
+                                @foreach (var c in candidates)
+                                {
+                                    <tr>
+                                        <td><input type="checkbox" checked="@_releaseChosen.Contains(c.AllocationId)" @onchange="e => ToggleReleaseChoice(c.AllocationId, e)" data-release-choice /></td>
+                                        <td class="mono">@c.UnitNumber <span class="sub">@c.ProductName</span></td>
+                                        <td>@(c.PatientDisplayName ?? "—") <span class="sub mono">@c.MedicalRecordNumber</span></td>
+                                        <td>@ReadyToIssueAttentionRule.ReleaseReason(c, DateTime.UtcNow)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
+                            <div class="field" style="flex:1;min-width:14rem;"><label>Reason</label><input @bind="_releaseBatchReason" @bind:event="oninput" placeholder="e.g. Reservations ended, transfusion not needed" data-release-reason /></div>
+                            <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || _releaseChosen.Count == 0 || string.IsNullOrWhiteSpace(_releaseBatchReason))" @onclick="ReleaseChosenAsync" data-release-submit>Release @_releaseChosen.Count to stock</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _reviewingRelease = false">Cancel</button>
+                        </div>
+                    }
+                </div>
+            }
             <table class="bb">
                 <thead>
                     <tr>
@@ -347,7 +380,7 @@
                                 {
                                     <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectReadyToIssue(row)">Issue</button>
                                 }
-                                @if (ReadyToIssueAttentionRule.ReservationLapsed(row, DateTime.UtcNow) && Session.Has(PermissionCodes.CompatibilityAllocate))
+                                @if (ReadyToIssueAttentionRule.ReleaseReason(row, DateTime.UtcNow) is not null && Session.Has(PermissionCodes.CompatibilityAllocate))
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginReleaseReady(row)">Release</button>
                                 }
@@ -358,7 +391,7 @@
                             <tr>
                                 <td colspan="10">
                                     <div class="alert alert-info" style="margin:.25rem 0;">
-                                        <div class="muted">Release <span class="mono">@row.UnitNumber</span> from @(row.PatientDisplayName ?? "this patient") back to stock. The reservation ended; if the patient still needs it, reserve it again from the chart.</div>
+                                        <div class="muted">Release <span class="mono">@row.UnitNumber</span> from @(row.PatientDisplayName ?? "this patient") back to stock (@ReadyToIssueAttentionRule.ReleaseReason(row, DateTime.UtcNow)). If the patient still needs it, reserve it again from the chart.</div>
                                         <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-top:.35rem;">
                                             <div class="field" style="flex:1;min-width:14rem;"><label>Reason</label><input @bind="_releaseReadyReason" @bind:event="oninput" placeholder="e.g. Reservation ended, transfusion not needed" /></div>
                                             <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReadyReason))" @onclick="() => ReleaseReadyAsync(row)">Release to stock</button>
@@ -1580,6 +1613,52 @@
     private long? _releasingReadyId;
     private string _releaseReadyReason = string.Empty;
     private Feedback? _releaseReadyFb;
+
+    // Release to stock review: the offered rows, all ticked; the bench unticks what the patient still needs.
+    private bool _reviewingRelease;
+    private readonly HashSet<long> _releaseChosen = new();
+    private string _releaseBatchReason = string.Empty;
+
+    private void BeginReleaseReview(IReadOnlyList<ReadyToIssueWorkItemDto> candidates)
+    {
+        _releaseChosen.Clear();
+        _releaseChosen.UnionWith(candidates.Select(c => c.AllocationId));
+        _releaseBatchReason = string.Empty;
+        _reviewingRelease = true;
+    }
+
+    private void ToggleReleaseChoice(long allocationId, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            _releaseChosen.Add(allocationId);
+        }
+        else
+        {
+            _releaseChosen.Remove(allocationId);
+        }
+    }
+
+    private async Task ReleaseChosenAsync()
+    {
+        _busy = true;
+        var r = await Api.ReleaseAllocationsAsync(new ReleaseAllocationsRequest(_releaseChosen.ToList(), _releaseBatchReason.Trim()));
+        _busy = false;
+        if (r.Succeeded && r.Value is { } outcomes)
+        {
+            var failed = outcomes.Where(o => !o.Released).ToList();
+            var released = outcomes.Count - failed.Count;
+            _releaseReadyFb = failed.Count == 0
+                ? Feedback.Succeed($"{released} {(released == 1 ? "unit" : "units")} released to stock.")
+                : Feedback.Fail($"{released} released; {failed.Count} not released: {string.Join("; ", failed.Select(f => f.Error))}");
+            _reviewingRelease = false;
+            await LoadWorklistsAsync();
+        }
+        else
+        {
+            _releaseReadyFb = r.ToFeedback();
+        }
+    }
 
     private void BeginReleaseReady(ReadyToIssueWorkItemDto row)
     {

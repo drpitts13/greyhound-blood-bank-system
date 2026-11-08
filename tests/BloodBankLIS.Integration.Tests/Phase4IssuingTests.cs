@@ -390,6 +390,36 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(AllocationStatus.Reserved, result.Value!.Status);
     }
 
+    // TEST-BB-595: several reservations released to stock with one reason; each is released and audited on its own, and
+    // one that cannot be released (unknown, already released) is reported without stopping the others.
+    [Fact]
+    public async Task ReleaseBatch_ReleasesEach_AndReportsThoseItCannot()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var s = await SeedAsync($"RELB-{suffix}");
+        await RecordCompatibleCrossmatchAsync(s);
+
+        await using var c = _factory.Create();
+        var reserved = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.True(reserved.Succeeded, reserved.Error);
+        var id = reserved.Value!.Id;
+
+        Assert.Contains("reason is required", (await Compatibility(c).ReleaseAllocationsAsync(new ReleaseAllocationsRequest([id], " "))).Error);
+        Assert.Contains("at least one", (await Compatibility(c).ReleaseAllocationsAsync(new ReleaseAllocationsRequest([], "Ended"))).Error);
+
+        var batch = await Compatibility(c).ReleaseAllocationsAsync(new ReleaseAllocationsRequest([id, id, -1], " Reservation ended "));
+        Assert.True(batch.Succeeded, batch.Error);
+        Assert.Equal(2, batch.Value!.Count);
+        Assert.True(batch.Value.Single(o => o.AllocationId == id).Released);
+        Assert.False(batch.Value.Single(o => o.AllocationId == -1).Released);
+        Assert.NotNull(batch.Value.Single(o => o.AllocationId == -1).Error);
+        Assert.Equal(AllocationStatus.Released, (await c.Allocations.AsNoTracking().SingleAsync(a => a.Id == id)).Status);
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Allocation) && e.EntityId == id && e.Reason == "Reservation ended"));
+
+        var again = await Compatibility(c).ReleaseAllocationsAsync(new ReleaseAllocationsRequest([id], "Again"));
+        Assert.False(Assert.Single(again.Value!).Released);
+    }
+
     [Fact]
     public async Task AllocateAndRelease_WriteAssignmentWithUnitIdentity()
     {

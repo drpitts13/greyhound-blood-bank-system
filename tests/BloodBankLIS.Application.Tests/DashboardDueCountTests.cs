@@ -150,6 +150,26 @@ public class DashboardDueCountTests
         Assert.Null(ReadyToIssueAttentionRule.CardNote([Ready(1)], at));
     }
 
+    // TEST-BB-594: a reserved unit is offered for release to stock when its reservation has ended, or when its crossmatch
+    // and the specimen it was done on have both expired; never when the ward asked to issue it; oldest reservation first.
+    [Fact]
+    public void ReleaseCandidates_LapsedOrExpiredCrossmatchAndSpecimen_NotRequested()
+    {
+        var now = new DateTime(2026, 11, 8, 12, 0, 0, DateTimeKind.Utc);
+        var lapsed = Ready(1) with { ReservationExpiresUtc = now.AddHours(-1), AllocatedUtc = now.AddDays(-2) };
+        var xmAndSpecimen = Ready(2) with { DisplayStatus = ProductAllocationDisplayStatus.CrossmatchExpired, SpecimenExpired = true, AllocatedUtc = now.AddDays(-3) };
+        var xmOnly = Ready(3) with { DisplayStatus = ProductAllocationDisplayStatus.CrossmatchExpired };
+        var requested = lapsed with { AllocationId = 4, IssueRequestedUtc = now };
+        var current = Ready(5) with { ReservationExpiresUtc = now.AddHours(1) };
+
+        Assert.StartsWith("Reservation ended", ReadyToIssueAttentionRule.ReleaseReason(lapsed, now));
+        Assert.Equal("Crossmatch and specimen expired", ReadyToIssueAttentionRule.ReleaseReason(xmAndSpecimen, now));
+        Assert.Null(ReadyToIssueAttentionRule.ReleaseReason(xmOnly, now));
+        Assert.Null(ReadyToIssueAttentionRule.ReleaseReason(requested, now));
+        Assert.Null(ReadyToIssueAttentionRule.ReleaseReason(current, now));
+        Assert.Equal([2L, 1L], ReadyToIssueAttentionRule.ReleaseCandidates([lapsed, xmAndSpecimen, xmOnly, requested, current], now).Select(r => r.AllocationId));
+    }
+
     private static ReadyToIssueWorkItemDto Ready(long id) => new(
         AllocationId: id, PatientId: 1, MedicalRecordNumber: "MRN", PatientDisplayName: "Patient", DateOfBirth: "1980-01-01",
         BloodUnitId: id, UnitNumber: "W0000", CurrentBloodType: "O+", HasAntibodyHistory: false, AntibodySummary: null,
