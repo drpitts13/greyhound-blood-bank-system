@@ -17,7 +17,10 @@ public sealed record AddAntibodyRequest(
     long? BloodAttributeDefinitionId,
     string? AntibodySpecificity,
     AntibodyStatus Status,
-    string? Comment = null);
+    string? Comment = null,
+    // Reported by another facility (antibody card, transfer letter): who, and when they identified it.
+    string? ReportingFacility = null,
+    DateOnly? IdentifiedOn = null);
 
 public sealed record SaveAntigenProfileRequest(
     long BloodAttributeDefinitionId,
@@ -78,11 +81,16 @@ public sealed record AntibodyDto(
     string? DeactivationReason,
     DateTime RecordedUtc,
     string RecordedBy,
-    bool PostedByCompletedWorkup = false)
+    bool PostedByCompletedWorkup = false,
+    string? ReportingFacility = null,
+    DateOnly? IdentifiedOn = null)
 {
+    /// <summary>"Reported by …, identified …" for an outside report; null when found here.</summary>
+    public string? SourceLabel => OutsideAntibodyReportRule.SourceLabel(ReportingFacility, IdentifiedOn);
+
     public static AntibodyDto From(AntibodyHistory a, bool postedByCompletedWorkup = false) => new(
         a.Id, a.PatientId, a.BloodAttributeDefinitionId, a.AntibodySpecificity, a.Status, a.IsActive, a.Comment,
-        a.DeactivationReason, a.CreatedUtc, a.CreatedBy, postedByCompletedWorkup);
+        a.DeactivationReason, a.CreatedUtc, a.CreatedBy, postedByCompletedWorkup, a.ReportingFacility, a.IdentifiedOn);
 }
 
 public sealed record AntigenProfileDto(

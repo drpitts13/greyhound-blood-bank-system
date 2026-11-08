@@ -68,6 +68,8 @@ public static class DevelopmentSqliteBootstrap
         ("TestDefinitions", "TiterEndpointMinGrade", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterEndpointMinGrade" TEXT NULL"""),
         ("TestDefinitions", "TiterScored", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterScored" INTEGER NOT NULL DEFAULT 0"""),
         ("Patients", "Race", """ALTER TABLE "Patients" ADD COLUMN "Race" TEXT NULL"""),
+        ("AntibodyHistory", "ReportingFacility", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ReportingFacility" TEXT NULL"""),
+        ("AntibodyHistory", "IdentifiedOn", """ALTER TABLE "AntibodyHistory" ADD COLUMN "IdentifiedOn" TEXT NULL"""),
         ("Patients", "Unidentified", """ALTER TABLE "Patients" ADD COLUMN "Unidentified" INTEGER NOT NULL DEFAULT 0"""),
         ("Patients", "Ethnicity", """ALTER TABLE "Patients" ADD COLUMN "Ethnicity" TEXT NULL"""),
         ("OrderLines", "GrouperCode", """ALTER TABLE "OrderLines" ADD COLUMN "GrouperCode" TEXT NULL"""),

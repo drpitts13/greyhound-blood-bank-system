@@ -18,7 +18,7 @@ Open a patient from **Patients**. The overview is the default tab. The ribbon ac
 The header shows the current name, MRN, date of birth, and sex, and the current visit: its number (open it for that visit's orders), patient type, location, and attending. When more than one visit is open it says so ("+1 more open"), so check which visit the work belongs to; "No open visit" means the patient has none. Below that, the overview summarizes the facts the rest of the system will enforce:
 
 - Current ABO and Rh, and whether history disagrees with it. A supervisor can record a type by hand with a reason. Say where it came from: **Previous blood bank system** or **Documented outside source** (name the record or report), or **Not documented**. Only a documented type counts as one of the two ABO/Rh determinations needed for red-cell issue; an undocumented one is recorded but does not count. The blood type history says where each type came from and who recorded it, crosses out a retired type (its result was invalidated or corrected) with the reason, and marks a type that does not count as a determination.
-- Antibody history, including antibodies that are no longer detectable. A deactivated antibody still counts as history.
+- Antibody history, including antibodies that are no longer detectable. A deactivated antibody still counts as history. The **Source** column says where each came from: **Outside report** with the facility and date for an antibody another hospital reported, or recorded or identified here. To record an outside report (an antibody card, a transfer letter), choose the antibody under **Add antibody**, fill **Reported by another facility** and, if known, **Identified there on**. It counts for product selection like any other antibody; whether it must be confirmed here is your medical director's decision (OCD-073).
 - Special requirements that are still active.
 - Whether electronic crossmatch can be considered. Eligibility is calculated. It is not a checkbox you tick.
 
@@ -26,7 +26,7 @@ Use the tabs for the detail: Visits, Orders, Specimens, Tests, Test History, DAT
 
 ## Antibody card
 
-**Antibody card** in the chart header shows a wallet-size card for the patient to carry: name, date of birth, MRN, blood type, the active antibodies, and the special requirements in effect, with the instruction to show it to the blood bank before any transfusion. **Print card** prints it; the print is recorded in the audit trail with what the card carried. A patient with no antibody and no special requirement on file has nothing to carry, so no card is printed. The card does not replace a pretransfusion sample.
+**Antibody card** in the chart header shows a wallet-size card for the patient to carry: name, date of birth, MRN, blood type, the active antibodies (one known only from another facility's report says "reported by" that facility), and the special requirements in effect, with the instruction to show it to the blood bank before any transfusion. **Print card** prints it; the print is recorded in the audit trail with what the card carried. A patient with no antibody and no special requirement on file has nothing to carry, so no card is printed. The card does not replace a pretransfusion sample.
 
 ## Changing identity
 

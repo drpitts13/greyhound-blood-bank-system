@@ -101,6 +101,8 @@ else
             @bind-AbCatalogId="_abCatalogId"
             @bind-AbStatus="_abStatus"
             @bind-AbComment="_abComment"
+            @bind-AbFacility="_abFacility"
+            @bind-AbIdentifiedOn="_abIdentifiedOn"
             @bind-AgCatalogId="_agCatalogId"
             @bind-AgResult="_agResult"
             OnRecordType="RecordTypeAsync"
@@ -668,6 +670,8 @@ else
     private long? _abCatalogId;
     private AntibodyStatus _abStatus = AntibodyStatus.Identified;
     private string? _abComment;
+    private string? _abFacility;
+    private DateOnly? _abIdentifiedOn;
     private Feedback? _antibodyFb;
     private List<AntigenProfileDto> _antigenProfiles = new();
     private long? _agCatalogId;
@@ -2325,10 +2329,11 @@ else
     {
         if (_abCatalogId is null || OpenAbidWorkups.Count > 0) return;
         _busy = true;
-        var r = await Api.AddAntibodyAsync(Id, new AddAntibodyRequest(_abCatalogId, null, _abStatus, string.IsNullOrWhiteSpace(_abComment) ? null : _abComment));
+        var r = await Api.AddAntibodyAsync(Id, new AddAntibodyRequest(_abCatalogId, null, _abStatus, string.IsNullOrWhiteSpace(_abComment) ? null : _abComment,
+            string.IsNullOrWhiteSpace(_abFacility) ? null : _abFacility, string.IsNullOrWhiteSpace(_abFacility) ? null : _abIdentifiedOn));
         _busy = false;
         _antibodyFb = r.ToFeedback("Antibody added.");
-        if (r.Succeeded) { _abCatalogId = null; _abComment = null; await LoadAsync(); }
+        if (r.Succeeded) { _abCatalogId = null; _abComment = null; _abFacility = null; _abIdentifiedOn = null; await LoadAsync(); }
     }
 
     private async Task SaveAntigenProfileAsync()

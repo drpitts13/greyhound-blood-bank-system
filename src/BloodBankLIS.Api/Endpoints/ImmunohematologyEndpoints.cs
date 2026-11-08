@@ -97,7 +97,7 @@ public static class ImmunohematologyEndpoints
         }).RequirePermission(PermissionCodes.ImmunoRecord);
 
         patients.MapPost("/{patientId:long}/antibodies", async (long patientId, AddAntibodyRequest request, ImmunohematologyService service, CancellationToken ct) =>
-            EndpointResults.Created(await service.AddAntibodyAsync(patientId, request.BloodAttributeDefinitionId, request.AntibodySpecificity, request.Status, request.Comment, ct),
+            EndpointResults.Created(await service.AddAntibodyAsync(patientId, request.BloodAttributeDefinitionId, request.AntibodySpecificity, request.Status, request.Comment, request.ReportingFacility, request.IdentifiedOn, ct),
                 a => ($"/api/patients/{patientId}/antibodies/{a.Id}", (object)AntibodyDto.From(a))))
             .RequirePermission(PermissionCodes.ImmunoRecord);
 

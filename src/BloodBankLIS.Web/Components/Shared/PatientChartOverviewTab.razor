@@ -319,13 +319,23 @@
         else
         {
             <table class="bb">
-                <thead><tr><th>Specificity</th><th>Status</th><th>Active</th><th></th></tr></thead>
+                <thead><tr><th>Specificity</th><th>Status</th><th>Source</th><th>Active</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var a in AntibodyHistory)
                     {
                         <tr>
                             <td><strong>@a.AntibodySpecificity</strong></td>
                             <td>@a.Status</td>
+                            <td>
+                                @if (a.SourceLabel is { } source)
+                                {
+                                    <span class="badge badge-blue" data-antibody-outside>Outside report</span> <span class="sub">@source</span>
+                                }
+                                else
+                                {
+                                    <span class="sub">@(a.PostedByCompletedWorkup ? "Antibody ID here" : "Recorded here")</span>
+                                }
+                            </td>
                             <td>@(a.IsActive ? "Yes" : "No")</td>
                             <td class="right">
                                 @if (a.IsActive && Session.Has(PermissionCodes.ImmunoOverride) && OpenAbidWorkups.Count == 0)
@@ -371,6 +381,15 @@
                 </div>
             </div>
             <div class="field"><label>Comment</label><input @bind="AbComment" @bind:after="() => AbCommentChanged.InvokeAsync(AbComment)" /></div>
+            <div class="form-row">
+                <div class="field" style="flex:2;"><label>Reported by another facility (optional)</label>
+                    <input @bind="AbFacility" @bind:after="() => AbFacilityChanged.InvokeAsync(AbFacility)" maxlength="@OutsideAntibodyReportRule.MaxFacilityLength"
+                           placeholder="e.g. St. Mary's Hospital, from the patient's antibody card" data-antibody-facility />
+                </div>
+                <div class="field"><label>Identified there on</label>
+                    <input type="date" @bind="AbIdentifiedOn" @bind:after="() => AbIdentifiedOnChanged.InvokeAsync(AbIdentifiedOn)" disabled="@string.IsNullOrWhiteSpace(AbFacility)" data-antibody-identified-on />
+                </div>
+            </div>
             @if (OpenAbidWorkups.Count > 0)
             {
                 <p>Complete or void the open workup before adding antibody history from this card.</p>
@@ -503,6 +522,10 @@
     [Parameter] public EventCallback<AntibodyStatus> AbStatusChanged { get; set; }
     [Parameter] public string? AbComment { get; set; }
     [Parameter] public EventCallback<string?> AbCommentChanged { get; set; }
+    [Parameter] public string? AbFacility { get; set; }
+    [Parameter] public EventCallback<string?> AbFacilityChanged { get; set; }
+    [Parameter] public DateOnly? AbIdentifiedOn { get; set; }
+    [Parameter] public EventCallback<DateOnly?> AbIdentifiedOnChanged { get; set; }
     [Parameter] public long? AgCatalogId { get; set; }
     [Parameter] public EventCallback<long?> AgCatalogIdChanged { get; set; }
     [Parameter] public AntigenResult AgResult { get; set; } = AntigenResult.Negative;

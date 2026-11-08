@@ -179,8 +179,12 @@ public sealed class DowntimePatientSummaryService
                     p.DateOfBirth,
                     current is null ? "Not on file" : AboRhText(current.Abo, current.RhD),
                     SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(history)),
-                    antibodies[p.Id].Select(a => a.AntibodySpecificity)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                    // An antibody known only from another facility's report says so; found here as well, it reads plain.
+                    antibodies[p.Id]
+                        .GroupBy(a => a.AntibodySpecificity, StringComparer.OrdinalIgnoreCase)
+                        .Select(g => g.All(a => !string.IsNullOrWhiteSpace(a.ReportingFacility))
+                            ? $"{g.Key} (reported by {g.First().ReportingFacility!.Trim()})"
+                            : g.Key)
                         .Order(StringComparer.OrdinalIgnoreCase)
                         .ToList(),
                     active.Where(r => !r.IsInformational).Select(RequirementText).Order(StringComparer.OrdinalIgnoreCase).ToList(),

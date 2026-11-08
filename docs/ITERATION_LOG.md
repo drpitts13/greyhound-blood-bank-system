@@ -17448,3 +17448,23 @@ Cycle 544 ships units, but once the page was left nothing showed what was sent w
 - TEST-BB-599: same facility (case, spaces) and reference is one shipment; another reference or another day without one is not.
 - TEST-BB-600: four units shipped (two under one reference with different case, one without a reference, one to another facility) make three shipments; two facilities offered.
 - TEST-BB-601: demo shipment of two units, added once; seeder count 70 units.
+
+## Iteration 546 — Outside antibody reports (2026-11-08)
+
+### Capability matrix rescan (antibody history: outside sources)
+
+Shipping is complete apart from OCD-072 (Cycles 544–545). Next gap: an antibody reported by another hospital (a patient's antibody card, a transfer letter) could be added only as a plain antibody with a free-text comment, so the chart could not tell it apart from one found here, and the antibody card carried it without its source. Mature systems keep outside antibody history with its source because it drives antigen-negative selection and may need confirming. Workflow questions: memory (the source stays with the record); safety (it counts for selection like any other antibody, the safer side; confirmation policy is OCD-073); audit (facility and date recorded); no clinical rule invented.
+
+### Design
+
+- `OutsideAntibodyReportRule`; `AntibodyHistory.ReportingFacility/IdentifiedOn` and migration; request, service, DTO; chart Source column and form fields; antibody card label.
+
+### Requirements
+
+- URS-BB-603, FRS-BB-720, OCD-073. Help: patient chart.
+
+### Tests
+
+- TEST-BB-602: facility length, future date, date without facility; source label.
+- TEST-BB-603: future date and date without facility refused; facility trimmed and date kept, audited, labelled; a local antibody has no source label.
+- TEST-BB-604: the antibody card marks an antibody known only from an outside report and reads plain when also found here.

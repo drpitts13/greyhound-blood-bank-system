@@ -1321,6 +1321,31 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.True(allowed.Succeeded, allowed.Error);
     }
 
+    // TEST-BB-603: an antibody reported by another facility keeps the facility and the date identified there, is audited
+    // with them, and reads as an outside report; a future date, or a date without a facility, is refused.
+    [Fact]
+    public async Task OutsideAntibody_KeepsTheReportingFacilityAndDate()
+    {
+        var patientId = await EnsurePatientAsync("MRN-AB-OUTSIDE");
+        await using var context = _factory.Create();
+        var immuno = Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord));
+        var today = DateOnly.FromDateTime(_factory.Clock.UtcNow);
+
+        Assert.Contains("future", (await immuno.AddAntibodyAsync(patientId, null, "anti-Jka", AntibodyStatus.Identified, null, "St. Mary's", today.AddDays(1))).Error);
+        Assert.Contains("Name the facility", (await immuno.AddAntibodyAsync(patientId, null, "anti-Jka", AntibodyStatus.Identified, null, " ", today)).Error);
+
+        var added = await immuno.AddAntibodyAsync(patientId, null, "anti-Jka", AntibodyStatus.HistoricalOnly, null, " St. Mary's Hospital ", new DateOnly(2019, 4, 2));
+        Assert.True(added.Succeeded, added.Error);
+        var row = await context.AntibodyHistory.AsNoTracking().SingleAsync(a => a.Id == added.Value!.Id);
+        Assert.Equal(("St. Mary's Hospital", (DateOnly?)new DateOnly(2019, 4, 2)), (row.ReportingFacility, row.IdentifiedOn));
+        Assert.Equal("Reported by St. Mary's Hospital, identified 2019-04-02", AntibodyDto.From(row).SourceLabel);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(AntibodyHistory) && a.EntityId == row.Id
+            && a.Reason == "Antibody recorded. Reported by St. Mary's Hospital, identified 2019-04-02."));
+
+        var local = await immuno.AddAntibodyAsync(patientId, null, "anti-K", AntibodyStatus.Identified, "Found on screen");
+        Assert.Null(AntibodyDto.From(local.Value!).SourceLabel);
+    }
+
     [Fact]
     public async Task AntibodyWrites_RequireImmunoPermissions()
     {

@@ -610,5 +610,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-599 | U | `ShipOutRuleTests.ShipmentKey_FacilityAndReference_OrTheDay` | URS-BB-602 / FRS-BB-719 |
 | TEST-BB-600 | I | `InventoryServiceTests.Shipments_AreGroupedByFacilityAndReference_AndFacilitiesOfferedOnce` | URS-BB-602 / FRS-BB-719 |
 | TEST-BB-601 | I | `ShipOutDemoTests.Demo_HasOneShipmentOfTwoUnits` | URS-BB-602 / FRS-BB-719 |
+| TEST-BB-602 | U | `OutsideAntibodyReportRuleTests.Evaluate_And_SourceLabel` | URS-BB-603 / FRS-BB-720 |
+| TEST-BB-603 | I | `Phase3ServicesTests.OutsideAntibody_KeepsTheReportingFacilityAndDate` | URS-BB-603 / FRS-BB-720 |
+| TEST-BB-604 | I | `DowntimePatientSummaryTests.AntibodyCard_MarksOutsideReports` | URS-BB-603 / FRS-BB-720 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

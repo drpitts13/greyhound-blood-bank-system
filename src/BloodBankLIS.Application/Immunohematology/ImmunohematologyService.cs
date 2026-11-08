@@ -288,8 +288,17 @@ public sealed class ImmunohematologyService
         return OperationResult<AntigenProfile>.Ok(existing, warnings);
     }
 
+    public Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
+        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment, CancellationToken ct = default) =>
+        AddAntibodyAsync(patientId, bloodAttributeDefinitionId, specificity, status, comment, null, null, ct);
+
+    /// <summary>
+    /// Adds an antibody to the patient's history; an outside report keeps the reporting facility and the date identified
+    /// there (<see cref="OutsideAntibodyReportRule"/>). Audited with both.
+    /// </summary>
     public async Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
-        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment, CancellationToken ct = default)
+        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment,
+        string? reportingFacility, DateOnly? identifiedOn, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync<AntibodyHistory>(
             PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateAntibodyAdd, ct);
@@ -309,6 +318,12 @@ public sealed class ImmunohematologyService
         if (openWorkupGate.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<AntibodyHistory>.Fail(openWorkupGate.Message);
+        }
+
+        var outside = OutsideAntibodyReportRule.Evaluate(reportingFacility, identifiedOn, DateOnly.FromDateTime(_clock.UtcNow));
+        if (outside.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<AntibodyHistory>.Fail(outside.Message);
         }
 
         string resolvedSpecificity;
@@ -340,7 +355,9 @@ public sealed class ImmunohematologyService
             AntibodySpecificity = resolvedSpecificity,
             Status = status,
             Comment = comment,
-            IsActive = true
+            IsActive = true,
+            ReportingFacility = string.IsNullOrWhiteSpace(reportingFacility) ? null : reportingFacility.Trim(),
+            IdentifiedOn = string.IsNullOrWhiteSpace(reportingFacility) ? null : identifiedOn
         };
 
         await _antibodies.AddAsync(antibody, ct);
@@ -355,9 +372,13 @@ public sealed class ImmunohematologyService
                 antibody.PatientId,
                 antibody.AntibodySpecificity,
                 antibody.Status,
-                antibody.BloodAttributeDefinitionId
+                antibody.BloodAttributeDefinitionId,
+                antibody.ReportingFacility,
+                antibody.IdentifiedOn
             },
-            reason: string.IsNullOrWhiteSpace(comment) ? "Antibody recorded." : comment.Trim());
+            reason: string.IsNullOrWhiteSpace(comment)
+                ? OutsideAntibodyReportRule.SourceLabel(antibody.ReportingFacility, antibody.IdentifiedOn) is { } source ? $"Antibody recorded. {source}." : "Antibody recorded."
+                : comment.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<AntibodyHistory>.Ok(antibody);

@@ -50,6 +50,26 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
         Status = status
     };
 
+    // TEST-BB-604: an antibody known only from another facility's report says so on the antibody card; the same antibody
+    // also found here reads plain.
+    [Fact]
+    public async Task AntibodyCard_MarksOutsideReports()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patient = NewPatient(key, "Outside");
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        c.AntibodyHistory.AddRange(
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-Jka", IsActive = true, ReportingFacility = "St. Mary's Hospital" },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-K", IsActive = true, ReportingFacility = "St. Mary's Hospital" },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-K", IsActive = true });
+        await c.SaveChangesAsync();
+
+        var card = await Service(c).GetAntibodyCardAsync(patient.Id);
+        Assert.Equal(["anti-Jka (reported by St. Mary's Hospital)", "anti-K"], card!.Antibodies);
+    }
+
     // TEST-BB-478: the antibody card carries the patient's type and active antibodies (not inactive ones), its print is
     // audited against the patient; a patient with nothing to carry gets no card, and an unknown patient none either.
     [Fact]

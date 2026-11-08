@@ -304,6 +304,7 @@ public sealed class AntibodyHistoryConfiguration : IEntityTypeConfiguration<Anti
         b.Property(a => a.AntibodySpecificity).HasMaxLength(100).IsRequired();
         b.Property(a => a.Comment).HasMaxLength(1000);
         b.Property(a => a.DeactivationReason).HasMaxLength(500);
+        b.Property(a => a.ReportingFacility).HasMaxLength(200);
         b.Property(a => a.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(a => a.ModifiedBy).HasMaxLength(100);
 

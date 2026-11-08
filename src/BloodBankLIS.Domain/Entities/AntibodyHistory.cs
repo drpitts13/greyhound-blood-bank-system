@@ -27,4 +27,10 @@ public class AntibodyHistory : BaseEntity
 
     /// <summary>Reason captured when the antibody record is deactivated.</summary>
     public string? DeactivationReason { get; set; }
+
+    /// <summary>Another facility reported this antibody (OutsideAntibodyReportRule); null when found here.</summary>
+    public string? ReportingFacility { get; set; }
+
+    /// <summary>When the reporting facility identified it, when known.</summary>
+    public DateOnly? IdentifiedOn { get; set; }
 }

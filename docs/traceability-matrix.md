@@ -713,6 +713,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-600 / FRS-BB-717 | Release no-longer-needed reservations to stock together | `ReadyToIssueAttentionRule.ReleaseCandidates`; `CompatibilityService.ReleaseAllocationsAsync`; `Issuing.razor` | TEST-BB-594, TEST-BB-595 | U, I | |
 | URS-BB-601 / FRS-BB-718 | Ship units to another facility; recall notifies it | `ShipOutRule`; `InventoryService.ShipOutByScanAsync`; `LookbackService.RecallByDinAsync`; `InventoryShipOut.razor` | TEST-BB-596, TEST-BB-597, TEST-BB-598 | U, I | OCD-072 |
 | URS-BB-602 / FRS-BB-719 | Recent shipments and facility suggestions; demo shipment | `ShipOutRule.ShipmentKey`; `InventoryService.ListShipmentsAsync/KnownShipFacilitiesAsync`; `InventoryShipOut.razor`; `DatabaseSeeder.ShipOut.cs` | TEST-BB-599, TEST-BB-600, TEST-BB-601 | U, I | OCD-072 |
+| URS-BB-603 / FRS-BB-720 | Outside antibody reports | `OutsideAntibodyReportRule`; `ImmunohematologyService.AddAntibodyAsync`; `PatientChartOverviewTab.razor`; `DowntimePatientSummaryService` | TEST-BB-602, TEST-BB-603, TEST-BB-604 | U, I | OCD-073 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
