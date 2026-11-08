@@ -17156,3 +17156,17 @@ Every open queue is in the shift handoff packet (Cycles 505–509) except the Rh
 ### Tests
 
 - TEST-BB-577: the item and summary name the count and those to give; the snapshot counts open and to-give evaluations (a given candidate and a non-candidate are not counted).
+
+## Iteration 530 — RhIG demo data (2026-11-07)
+
+### Capability matrix rescan
+
+Cycles 525–529 built the RhIG evaluation, list, home card, given record, lot trace, timeline, and handoff, but every live check ran against a development database with no RhIG data, so the screens could only be seen empty. Iteration step 7 (realistic sample data): two O-negative demo mothers covering each state, so trainers and testers can see the whole flow.
+
+### Design
+
+- `DatabaseSeeder.EnsureRhigDemoAsync` (once): MRN0025 with an antepartum evaluation given from lot RHIG-DEMO-01 and a delivery completed as a candidate, to give; MRN0026 with this morning's delivery undecided. Current type O negative on both. Demo decisions and vials are labelled as entries, not a rule (OCD-069).
+
+### Tests
+
+- TEST-BB-578: seeding twice adds the two mothers and three evaluations once; completed records pass the completion check; given only on completed candidates with a lot; one open, one to give, one given; both mothers O negative.

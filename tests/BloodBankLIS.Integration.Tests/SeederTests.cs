@@ -58,9 +58,9 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // The original demo patient, five clinical scenarios, plus alloimmunization,
             // autologous/directed FDA/AABB validation, HL7 data-load patients, and the
             // unit antigen typing patient, the massive transfusion demo patient, the multi-unit run patient,
-            // and the special-requirements patient.
-            Assert.Equal(14, await verify.Patients.CountAsync());
-            Assert.Equal(14, await verify.Encounters.CountAsync());
+            // the special-requirements patient, and the two RhIG demo mothers (Cycle 530).
+            Assert.Equal(16, await verify.Patients.CountAsync());
+            Assert.Equal(16, await verify.Encounters.CountAsync());
 
             // TEST-BB-439: special requirements demo: two enforced and one informational, in effect, typed twice O+.
             var special = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0023");
@@ -612,7 +612,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "CUSTOM"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "OR"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "ED"));
-            Assert.Equal(14, await verify.Patients.CountAsync());
+            Assert.Equal(16, await verify.Patients.CountAsync());
         }
     }
 
