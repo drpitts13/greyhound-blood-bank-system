@@ -80,5 +80,12 @@ public static class UnidentifiedPatientRule
             : RuleResult.Pass(Code);
     }
 
+    /// <summary>
+    /// The issue type when an unidentified patient is chosen on the issue form: no tested specimen exists yet, so
+    /// emergency release, unless massive transfusion was already chosen. Its own reason and authorizer are still required.
+    /// </summary>
+    public static IssueType IssueTypeFor(IssueType current) =>
+        current is IssueType.EmergencyRelease or IssueType.MassiveTransfusion ? current : IssueType.EmergencyRelease;
+
     private static string DatePart(DateTime utc) => utc.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture);
 }

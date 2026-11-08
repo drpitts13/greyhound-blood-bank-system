@@ -18,30 +18,7 @@
 
 @if (_showUnidentified)
 {
-    <div class="bb-card" data-unidentified-form>
-        <div class="bb-card-title"><h3>Register an unidentified patient</h3></div>
-        <p class="muted">
-            For emergency care before the patient is identified. The system gives a temporary MRN and name
-            (for example UNK-20261108-01, UNIDENTIFIED, TRAUMA 20261108-01) for the wristband and the first tube.
-            Sex and an estimated age are needed: product selection for patients of childbearing potential uses them.
-            When the patient is identified, merge this chart into theirs from the chart.
-        </p>
-        <Outcome Value="_unidentifiedFb" />
-        <div class="form-row">
-            <div class="field"><label>Sex</label>
-                <select @bind="_unkSex" data-unidentified-sex>
-                    <option value="">Choose…</option>
-                    @foreach (var s in Enum.GetValues<Sex>())
-                    {
-                        <option value="@s">@s</option>
-                    }
-                </select>
-            </div>
-            <div class="field"><label>Estimated age (years)</label><input type="number" min="0" max="@UnidentifiedPatientRule.MaxEstimatedAgeYears" @bind="_unkAge" data-unidentified-age /></div>
-            <div class="field" style="flex:2;"><label>Note (optional)</label><input @bind="_unkNote" placeholder="For example: trauma bay 2, arrived by EMS 14:05" /></div>
-        </div>
-        <button class="btn btn-primary" disabled="@_saving" @onclick="CreateUnidentifiedAsync" data-unidentified-submit>Register unidentified patient</button>
-    </div>
+    <UnidentifiedPatientRegister OnRegistered="OpenRegistered" />
 }
 
 @if (_unidentified.Count > 0)
@@ -223,32 +200,15 @@
     private NewPatient _new = new();
 
     private bool _showUnidentified;
-    private Feedback? _unidentifiedFb;
-    private Sex? _unkSex;
-    private int? _unkAge;
-    private string? _unkNote;
     private List<PatientDto> _unidentified = new();
 
     private void ToggleUnidentified()
     {
         _showUnidentified = !_showUnidentified;
         _showCreate = false;
-        _unidentifiedFb = null;
     }
 
-    private async Task CreateUnidentifiedAsync()
-    {
-        _saving = true;
-        var result = await Api.CreateUnidentifiedPatientAsync(new CreateUnidentifiedPatientRequest(_unkSex, _unkAge, _unkNote));
-        _saving = false;
-        if (result.Succeeded && result.Value is not null)
-        {
-            Nav.NavigateTo($"/patients/{result.Value.Id}");
-            return;
-        }
-
-        _unidentifiedFb = result.ToFeedback();
-    }
+    private void OpenRegistered(PatientDto patient) => Nav.NavigateTo($"/patients/{patient.Id}");
 
     private List<PatientDto> Filtered => string.IsNullOrWhiteSpace(_filter)
         ? _patients

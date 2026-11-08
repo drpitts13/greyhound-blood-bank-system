@@ -735,6 +735,11 @@
                     SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
                     Clearable="true"
                     Placeholder="Search MRN or name" />
+                @if (CanRegisterUnidentified && !_showUnidentified)
+                {
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showUnidentified = true" data-issue-unidentified
+                            title="Emergency patient without identification: register with a temporary MRN and choose them here">Unidentified patient…</button>
+                }
             </div>
             <div class="field"><label>Issued to (person)</label><input @bind="_issue.IssuedTo" /></div>
             <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" @bind:event="oninput" />
@@ -751,6 +756,10 @@
                 <select @bind="_issue.IssueType">@foreach (var t in AllowedIssueTypes) { <option value="@t">@t</option> }</select>
             </div>
         </div>
+        @if (_showUnidentified)
+        {
+            <UnidentifiedPatientRegister OnRegistered="UseUnidentifiedAsync" OnCancel="() => _showUnidentified = false" />
+        }
         <div class="form-row">
             <div class="field"><label>Patient ID 1 (MRN)</label>
                 <input @bind="_issue.PatientIdentifier1Value" @bind:event="oninput" autocomplete="off" placeholder="Scan wristband or type" data-enter-step />
@@ -1702,6 +1711,22 @@
         SelectReturnIssue(row);
         _returnReason = reason;
         _returnFb = null;
+    }
+
+    // An unidentified emergency patient can be registered without leaving the issue form (emergency release only).
+    private bool _showUnidentified;
+
+    private bool CanRegisterUnidentified =>
+        Session.Has(PermissionCodes.PatientWrite) && Session.Has(PermissionCodes.IssueEmergencyRelease);
+
+    private async Task UseUnidentifiedAsync(PatientDto patient)
+    {
+        _patients.Insert(0, patient);
+        _showUnidentified = false;
+        IssuePatientId = patient.Id;
+        _issue.IssueType = UnidentifiedPatientRule.IssueTypeFor(_issue.IssueType);
+
+        await OnIssuePatientChangedAsync();
     }
 
     private long? IssuePatientId

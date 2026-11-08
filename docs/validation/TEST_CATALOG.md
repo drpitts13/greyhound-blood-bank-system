@@ -600,5 +600,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-589 | U | `DashboardHomeTests.TubesDueForDiscard_IsForTubeStorers_OnTheBench_AndRoutine` | URS-BB-597 / FRS-BB-714 |
 | TEST-BB-590 | U | `UnidentifiedPatientRuleTests.TemporaryIdentity_CarriesTheDateAndNumber`, `UnidentifiedPatientRuleTests.Evaluate_RequiresSexAndAge_AndIdentifyNeedsADifferentIdentifiedChart` | URS-BB-598 / FRS-BB-715 |
 | TEST-BB-591 | I | `UnidentifiedPatientTests.Unidentified_IsRegisteredInOneStep_AndMergedOnceIdentified` | URS-BB-598 / FRS-BB-715 |
+| TEST-BB-592 | U | `UnidentifiedPatientRuleTests.IssueTypeFor_UnidentifiedPatient_IsEmergencyUnlessMtp` | URS-BB-599 / FRS-BB-716 |
+| TEST-BB-593 | I | `UnidentifiedPatientTests.Demo_HasOneUnidentifiedPatient` | URS-BB-599 / FRS-BB-716 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

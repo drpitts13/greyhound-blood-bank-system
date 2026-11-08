@@ -91,4 +91,22 @@ public class UnidentifiedPatientTests
         Assert.True(undo.Succeeded, undo.Error);
         Assert.True(await c.RhigEvaluations.AnyAsync(r => r.PatientId == a.Id));
     }
+
+    // TEST-BB-593: the demo has one unidentified trauma patient, added once.
+    [Fact]
+    public async Task Demo_HasOneUnidentifiedPatient()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var v = factory.Create();
+        var demo = await v.Patients.AsNoTracking().SingleAsync(p => p.Unidentified);
+        Assert.StartsWith(UnidentifiedPatientRule.MrnPrefix, demo.MedicalRecordNumber);
+        Assert.Equal((UnidentifiedPatientRule.LastName, Sex.Male, PatientStatus.Active), (demo.LastName, demo.Sex, demo.Status));
+        Assert.StartsWith("TRAUMA ", demo.FirstName);
+    }
 }

@@ -17370,3 +17370,22 @@ Specimen storage is complete apart from OCD-070 (Cycles 533–540). Next gap: a 
 
 - TEST-BB-590: MRN, prefix, and name from the date and number; estimated birth date; sex and age required and bounded; identify checks.
 - TEST-BB-591: missing sex, missing or out-of-range age, and no permission refused; first and second of the day numbered, comment and audit; unidentified charts not possible duplicates; listed; identify refuses no reason, its own MRN, an unknown MRN, another unidentified chart, an identified chart as the source, and no merge permission; identify merges into the identified chart with its RhIG evaluation; a second identify refused; undo moves the RhIG evaluation back.
+
+## Iteration 542 — Unidentified patient from the issue form (2026-11-08)
+
+### Capability matrix rescan (patient-product: emergency release)
+
+Cycle 541 registers unidentified patients on Patients, but an emergency release happens at the issue form: the bench had to leave the issue, register, come back, and find the new MRN in the picker. Workflow questions: clicks (one button and two fields, patient chosen); memory (no MRN to carry between pages); inference (issue type set to Emergency release, MTP kept); safety (the emergency reason and authorizer are still required; registration needs both patient write and emergency release); demo data so the workflow can be seen.
+
+### Design
+
+- Shared `UnidentifiedPatientRegister` component; Issuing button and handler; `UnidentifiedPatientRule.IssueTypeFor`; demo seed.
+
+### Requirements
+
+- URS-BB-599, FRS-BB-716. Help: Patients, Issuing.
+
+### Tests
+
+- TEST-BB-592: Standard becomes Emergency release; Emergency release and Massive transfusion stay.
+- TEST-BB-593: demo has exactly one unidentified patient (UNK- MRN, UNIDENTIFIED, TRAUMA name, male, active) after seeding twice. Seeder counts now 17 patients.

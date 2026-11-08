@@ -604,3 +604,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-596 | Stored tubes are discarded by scan, with a list of tubes past the facility's retention period; a tube still needed for an unfinished order or an open reaction investigation is kept, and an early discard needs a reason. | P2 | FRS-BB-713 |
 | URS-BB-597 | Whoever stores tubes sees on the home screen how many stored tubes are due for discard, one click from the list. | P3 | FRS-BB-714 |
 | URS-BB-598 | An unidentified emergency patient is registered in one step with a temporary identity, so testing and emergency release can start, and is merged into the identified patient's chart once known, with everything recorded on it. | P1 | FRS-BB-715 |
+| URS-BB-599 | During emergency release, an unidentified patient is registered from the issue form and chosen there, without leaving the issue. | P1 | FRS-BB-716 |

@@ -34,4 +34,12 @@ public class UnidentifiedPatientRuleTests
         Assert.Contains("another unidentified", UnidentifiedPatientRule.EvaluateIdentify(true, PatientStatus.Active, 1, 2, true, PatientStatus.Active).Message);
         Assert.Contains("merged into another", UnidentifiedPatientRule.EvaluateIdentify(true, PatientStatus.Active, 1, 2, false, PatientStatus.Merged).Message);
     }
+
+    // TEST-BB-592: choosing an unidentified patient on the issue form makes it an emergency release (MTP stays MTP).
+    [Theory]
+    [InlineData(IssueType.Standard, IssueType.EmergencyRelease)]
+    [InlineData(IssueType.EmergencyRelease, IssueType.EmergencyRelease)]
+    [InlineData(IssueType.MassiveTransfusion, IssueType.MassiveTransfusion)]
+    public void IssueTypeFor_UnidentifiedPatient_IsEmergencyUnlessMtp(IssueType current, IssueType expected) =>
+        Assert.Equal(expected, UnidentifiedPatientRule.IssueTypeFor(current));
 }

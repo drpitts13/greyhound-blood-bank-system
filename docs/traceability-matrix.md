@@ -709,6 +709,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-596 / FRS-BB-713 | Discard stored tubes, due-for-discard list | `SpecimenDiscardRule`; `SpecimenStorageService.DiscardAsync/ListDueForDiscardAsync`; `StoreTubes.razor` | TEST-BB-587, TEST-BB-588 | U, I | OCD-070 |
 | URS-BB-597 / FRS-BB-714 | Tubes due for discard home card | `DashboardQueueCatalog`; `DashboardHome`; `Home.razor` | TEST-BB-589 | U | OCD-070 |
 | URS-BB-598 / FRS-BB-715 | Unidentified emergency patients; merge moves RhIG evaluations | `UnidentifiedPatientRule`; `PatientService.CreateUnidentifiedAsync`; `PatientMergeService.IdentifyAsync`; `Patients.razor`; `PatientChartHeader.razor` | TEST-BB-590, TEST-BB-591 | U, I | OCD-071 |
+| URS-BB-599 / FRS-BB-716 | Register an unidentified patient from the issue form; demo | `UnidentifiedPatientRegister.razor`; `Issuing.razor`; `UnidentifiedPatientRule.IssueTypeFor`; `DatabaseSeeder.Unidentified.cs` | TEST-BB-592, TEST-BB-593 | U, I | OCD-071 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
