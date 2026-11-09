@@ -56,3 +56,46 @@ public partial class OptionValueTests
         throw new InvalidOperationException("Could not find the repository root.");
     }
 }
+
+/// <summary>
+/// The types bound to select boxes, through Blazor's own converter (Cycle 625): "" is unanswered and an option's
+/// rendered value converts to the answer. A bool is the one that does not (the binder casts a checkbox's true or false),
+/// which is why the bedside reaction question failed and binds through text.
+/// </summary>
+public class SelectBindingTests
+{
+    private static (bool Ok, T? Value) Convert<T>(string text) =>
+        Microsoft.AspNetCore.Components.BindConverter.TryConvertTo<T>(text, System.Globalization.CultureInfo.CurrentCulture, out var value)
+            ? (true, value)
+            : (false, default);
+
+    // TEST-BB-750: each nullable enum and id bound to a select takes "" as unanswered and its option value as the answer.
+    [Fact]
+    public void NullableSelectTypes_Bind()
+    {
+        Assert.Equal((true, (BloodBankLIS.Domain.Enums.AboGroup?)null), Convert<BloodBankLIS.Domain.Enums.AboGroup?>(""));
+        foreach (var a in Enum.GetValues<BloodBankLIS.Domain.Enums.AboGroup>())
+            Assert.Equal((true, (BloodBankLIS.Domain.Enums.AboGroup?)a), Convert<BloodBankLIS.Domain.Enums.AboGroup?>(a.ToString()));
+        foreach (var r in Enum.GetValues<BloodBankLIS.Domain.Enums.RhType>())
+            Assert.Equal((true, (BloodBankLIS.Domain.Enums.RhType?)r), Convert<BloodBankLIS.Domain.Enums.RhType?>(r.ToString()));
+        foreach (var x in Enum.GetValues<BloodBankLIS.Domain.Enums.CrossmatchResult>())
+            Assert.Equal((true, (BloodBankLIS.Domain.Enums.CrossmatchResult?)x), Convert<BloodBankLIS.Domain.Enums.CrossmatchResult?>(x.ToString()));
+        foreach (var d in Enum.GetValues<BloodBankLIS.Domain.Enums.TransfusionDisposition>())
+            Assert.Equal((true, (BloodBankLIS.Domain.Enums.TransfusionDisposition?)d), Convert<BloodBankLIS.Domain.Enums.TransfusionDisposition?>(d.ToString()));
+        foreach (var s in Enum.GetValues<BloodBankLIS.Domain.Enums.Sex>())
+            Assert.Equal((true, (BloodBankLIS.Domain.Enums.Sex?)s), Convert<BloodBankLIS.Domain.Enums.Sex?>(s.ToString()));
+        foreach (var u in Enum.GetValues<BloodBankLIS.Domain.Enums.UnitStatus>())
+            Assert.Equal((true, (BloodBankLIS.Domain.Enums.UnitStatus?)u), Convert<BloodBankLIS.Domain.Enums.UnitStatus?>(u.ToString()));
+        Assert.Equal((true, (long?)null), Convert<long?>(""));
+        Assert.Equal((true, (long?)42), Convert<long?>("42"));
+    }
+
+    // TEST-BB-751: the case that failed. A select's text cannot bind to a bool (the converter throws on the cast), and
+    // the bedside question's text form does.
+    [Fact]
+    public void BoolSelect_DoesNotBind_TextDoes()
+    {
+        Assert.Throws<InvalidCastException>(() => Convert<bool?>("false"));
+        Assert.Equal((true, "no"), Convert<string>("no"));
+    }
+}

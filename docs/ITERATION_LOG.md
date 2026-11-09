@@ -19275,3 +19275,27 @@ The planned item stood too: after Complete or Document, the finished unit stayed
 ### Next
 
 - Look for other forms whose required answer is only checked server-side and never exercised by a rendered test that fills it in: a value that cannot bind looks the same as one left blank.
+
+## Iteration 625 — Every required select proved to bind (2026-11-09)
+
+### Capability matrix rescan (answers that cannot bind)
+
+After Cycle 624 every select on every page was listed with the type of the field it binds. Forty-four bind a nullable field: blood groups and Rh (delivery receipt, chart typing, retype, result entry), crossmatch result, final disposition, unit status, sex, and nullable ids (lots, specimens, containers, packs). Each type was run through Blazor's own converter: "" is unanswered and every option's rendered value converts to its answer. A bool is the one that does not: the converter throws on the cast, which is what Cycle 624 fixed. Radio buttons on the worklist use explicit handlers. No other answer that cannot bind was found.
+
+### Verification
+
+- TEST-BB-750: AboGroup?, RhType?, CrossmatchResult?, TransfusionDisposition?, Sex?, UnitStatus?, and long? convert from "" and from every option value.
+- TEST-BB-751: bool? throws on a select's text; the text form binds.
+- The Cycle 624 source test already refuses a select bound to a bool and boolean literal option values.
+
+### Requirements
+
+- URS-BB-668 / FRS-BB-785 (verification only).
+
+### Tests
+
+- TEST-BB-750, TEST-BB-751.
+
+### Next
+
+- Walk Complete transfusion live end to end on a demo unit once the user agrees to a dev-data change, or seed a dedicated demo issue for it, so the bedside path is exercised live and not only rendered.
