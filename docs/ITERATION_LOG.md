@@ -18242,3 +18242,26 @@ Walking Blood orders to prepare → Reserve 2 units on the development database 
 
 - TEST-BB-675: two lines of one product are one entry; a mixed order is one per product; cancelled orders, test lines, and lines without a product are not offered.
 - TEST-BB-676: units for a red cell order, a mixed order, an order with none in stock, and no order chosen; the stock line for each.
+
+## Iteration 587 — A shared notice said once on the issue desk (2026-11-08)
+
+### Capability matrix rescan (UX: alert separation; walked live)
+
+Walking the issue desk on the development database, every Ready to issue row repeated "Electronic crossmatch is disabled in facility policy until AABB 5.16 validation is complete.", a facility setting rather than anything about the unit, pushing each row's own marks (the ward's request, reservation ended, the buttons) down. Workflow questions: separation of information from warnings (the row shows what is about this unit); memory (the facility fact is still in view once).
+
+### Design
+
+- `ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice`; the board shows a notice every row shares once as an information line and leaves it off the rows; differing notices stay on their rows. The issue form for the chosen unit is unchanged.
+
+### Verification
+
+- Live: the sentence appears once above the five rows (it appeared five times); screenshot taken.
+
+### Requirements
+
+- URS-BB-638, FRS-BB-755. Help: Issue and Transfuse.
+
+### Tests
+
+- TEST-BB-677: shared (trimmed) said once; differing, missing on one row, or a single row not shared.
+- TEST-BB-678 (rendered): once above the board and on no row; differing notices on their own rows.

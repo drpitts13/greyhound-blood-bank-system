@@ -643,3 +643,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-635 | The issue desk, the bench worklist, and the reaction investigation word a patient's antibodies as the chart does, naming an antibody known only from another facility's report. | P2 | FRS-BB-752 |
 | URS-BB-636 | When a special requirement stops a reservation or an issue, the message names the requirement as the chart does, not by its catalog code. | P2 | FRS-BB-753 |
 | URS-BB-637 | On the chart's reserve form, each order is offered once per product, and once an order is chosen only compatible units of that order's product are offered, with how many are in stock. | P2 | FRS-BB-754 |
+| URS-BB-638 | A notice that applies to every unit on the issue desk's board (a facility setting) is said once, not repeated on each row. | P3 | FRS-BB-755 |

@@ -28,6 +28,32 @@ public class ReadyToIssuePageTests : BunitContext
         return page;
     }
 
+    // TEST-BB-678: a notice every row shares is drawn once above the board and not on each row; when rows differ, each
+    // keeps its own.
+    [Fact]
+    public void SharedElectronicCrossmatchNotice_IsSaidOnce()
+    {
+        const string disabled = "Electronic crossmatch is disabled in facility policy until AABB 5.16 validation is complete.";
+        var page = RenderReady(
+            Unit(1, "W-EXM-A") with { ElectronicCrossmatchNotice = disabled },
+            Unit(2, "W-EXM-B") with { ElectronicCrossmatchNotice = disabled },
+            Unit(3, "W-EXM-C") with { ElectronicCrossmatchNotice = disabled });
+        Assert.Equal(disabled, page.Find("[data-ready-shared-exm]").TextContent.Trim());
+        Assert.Empty(page.FindAll("[data-ready-row-exm]"));
+        Assert.Equal(1, page.Markup.Split(disabled).Length - 1);
+    }
+
+    [Fact]
+    public void DifferingElectronicCrossmatchNotices_StayOnTheirRows()
+    {
+        var page = RenderReady(
+            Unit(1, "W-EXM-D") with { ElectronicCrossmatchNotice = "Not eligible: antibody history." },
+            Unit(2, "W-EXM-E") with { ElectronicCrossmatchNotice = "Eligible for electronic crossmatch." });
+        Assert.Empty(page.FindAll("[data-ready-shared-exm]"));
+        Assert.Equal("Not eligible: antibody history.", RowFor(page, "W-EXM-D").QuerySelector("[data-ready-row-exm]")!.TextContent.Trim());
+        Assert.Equal("Eligible for electronic crossmatch.", RowFor(page, "W-EXM-E").QuerySelector("[data-ready-row-exm]")!.TextContent.Trim());
+    }
+
     private static IElement RowFor(IRenderedComponent<Issuing> page, string unitNumber) =>
         page.FindAll("tr").First(r => r.QuerySelector("td") is not null && r.TextContent.Contains(unitNumber));
 

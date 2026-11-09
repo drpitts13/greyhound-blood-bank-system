@@ -156,6 +156,16 @@ public class DashboardDueCountTests
             Ready(8) with { NeededByUtc = at.AddHours(5), IssueRequestedUtc = at }
         };
         Assert.Equal(new long[] { 8, 7, 6, 5 }, ReadyToIssueAttentionRule.IssuableFirst(byNeed).Select(r => r.AllocationId).ToArray());
+
+        // TEST-BB-677: an electronic crossmatch notice every row shares is said once; rows that differ, a row without
+        // one, or a single row keep their own.
+        const string disabled = "Electronic crossmatch is disabled in facility policy until AABB 5.16 validation is complete.";
+        Assert.Equal(disabled, ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice(
+            [Ready(1) with { ElectronicCrossmatchNotice = disabled }, Ready(2) with { ElectronicCrossmatchNotice = disabled + " " }]));
+        Assert.Null(ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice(
+            [Ready(1) with { ElectronicCrossmatchNotice = disabled }, Ready(2) with { ElectronicCrossmatchNotice = "Not eligible: antibody history." }]));
+        Assert.Null(ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice([Ready(1) with { ElectronicCrossmatchNotice = disabled }, Ready(2)]));
+        Assert.Null(ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice([Ready(1) with { ElectronicCrossmatchNotice = disabled }]));
         Assert.StartsWith("2 requested by the ward", ReadyToIssueAttentionRule.CardNote(rows, at));
         Assert.Null(ReadyToIssueAttentionRule.CardNote([Ready(1)], at));
     }

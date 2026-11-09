@@ -748,6 +748,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-635 / FRS-BB-752 | One antibody wording at issue, bench, and reaction | `OutsideAntibodyReportRule.HistoryEntry`; `IssuingService`; `TestWorklistService`; `ReactionInvestigationService`; `PatientChartHeader.razor` | TEST-BB-670, TEST-BB-671, TEST-BB-672 | U, I | |
 | URS-BB-636 / FRS-BB-753 | Requirement hard stops named as on the chart | `SpecialRequirementCatalog`; `SpecialTransfusionRequirementRule` | TEST-BB-673, TEST-BB-674 | U | |
 | URS-BB-637 / FRS-BB-754 | Reserve form: one entry per order, units of the order's product | `ChartAllocatableOrders`; `PatientChartProductsTab.razor`; `PatientDetail.razor` | TEST-BB-675, TEST-BB-676 | U | |
+| URS-BB-638 / FRS-BB-755 | Shared notice said once on Ready to issue | `ReadyToIssueAttentionRule`; `Issuing.razor` | TEST-BB-677, TEST-BB-678 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

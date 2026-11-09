@@ -91,6 +91,22 @@ public static class ReadyToIssueAttentionRule
             .ThenBy(static row => row.NeededByUtc ?? DateTime.MaxValue)
             .ToList();
 
+    /// <summary>
+    /// The electronic crossmatch notice every row on the board shares (a facility setting, such as "disabled until
+    /// validation"), so the board can say it once instead of on each row; null when rows differ, one has none, or there
+    /// are fewer than two rows. A row whose notice differs keeps it.
+    /// </summary>
+    public static string? SharedElectronicCrossmatchNotice(IReadOnlyCollection<ReadyToIssueWorkItemDto> rows)
+    {
+        if (rows.Count < 2)
+        {
+            return null;
+        }
+
+        var notices = rows.Select(static r => r.ElectronicCrossmatchNotice?.Trim()).Distinct(StringComparer.Ordinal).ToList();
+        return notices.Count == 1 && !string.IsNullOrEmpty(notices[0]) ? notices[0] : null;
+    }
+
     public static int CountRequested(IEnumerable<ReadyToIssueWorkItemDto> rows) =>
         rows.Count(static row => row.IssueRequestedUtc is not null);
 

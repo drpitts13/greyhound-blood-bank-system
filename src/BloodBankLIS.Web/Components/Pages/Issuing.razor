@@ -216,6 +216,11 @@
         else
         {
             <p role="status"><strong>@ReadyToIssueAttentionRule.Summary(_readyItems)</strong></p>
+            @* A notice every row shares is a facility setting: said once here, not repeated on each row. *@
+            @if (ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice(_readyItems) is { } sharedExm)
+            {
+                <div class="alert alert-info" data-ready-shared-exm>@sharedExm</div>
+            }
             <Outcome Value="_releaseReadyFb" />
             @if (Session.Has(PermissionCodes.CompatibilityAllocate) && ReadyToIssueAttentionRule.ReleaseCandidates(_readyItems, DateTime.UtcNow) is { Count: > 0 } candidates)
             {
@@ -288,9 +293,10 @@
                                 {
                                     <div class="muted">@crossmatchExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                @if (!string.IsNullOrWhiteSpace(row.ElectronicCrossmatchNotice))
+                                @if (!string.IsNullOrWhiteSpace(row.ElectronicCrossmatchNotice)
+                                    && ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice(_readyItems) is null)
                                 {
-                                    <div class="muted">@row.ElectronicCrossmatchNotice</div>
+                                    <div class="muted" data-ready-row-exm>@row.ElectronicCrossmatchNotice</div>
                                 }
                             </td>
                             <td><span class="@Ui.Badge(row.DisplayStatus)">@Ui.StatusLabel(row.DisplayStatus)</span></td>
