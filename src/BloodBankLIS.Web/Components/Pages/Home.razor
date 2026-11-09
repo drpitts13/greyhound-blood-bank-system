@@ -478,7 +478,7 @@
                     return (card.Key, null, null);
                 }
 
-                var (open, note) = DashboardQueueCatalog.InstrumentFailuresCard(result.Value);
+                var (open, note) = DashboardQueueCatalog.InstrumentFailuresCard(result.Value, DateTime.UtcNow);
                 return (card.Key, open, note);
             }
             case DashboardQueueCatalog.Hl7Errors:

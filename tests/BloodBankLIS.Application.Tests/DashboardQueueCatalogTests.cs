@@ -178,6 +178,26 @@ public class DashboardQueueCatalogTests
         Assert.Equal((1, (string?)null), DashboardQueueCatalog.InstrumentFailuresCard([Message(3, "INST-CODE")]));
     }
 
+    // TEST-BB-736: given the time, the Instrument failures card also says how long the oldest open failure has waited;
+    // resolved and successful messages do not count, and no open failure gives no note.
+    [Fact]
+    public void InstrumentFailuresCard_NamesTheOldestWait()
+    {
+        var now = new DateTime(2026, 11, 9, 12, 0, 0, DateTimeKind.Utc);
+        InstrumentMessageSummaryDto Message(long id, DateTime received, InstrumentMessageStatus status = InstrumentMessageStatus.Failed,
+            string? error = "INST-CODE", DateTime? resolved = null) => new(
+            id, 1, Hl7Direction.Inbound, InstrumentMessageKind.Result, status, received, received, "ACC", "MRN", error, resolved);
+
+        Assert.Equal((2, "1 held for an instrument error code; oldest waiting 26 h"), DashboardQueueCatalog.InstrumentFailuresCard(
+        [
+            Message(1, now.AddHours(-26)),
+            Message(2, now.AddMinutes(-15), error: "held (INST-HOLD)"),
+            Message(3, now.AddDays(-5), resolved: now.AddDays(-4)),
+            Message(4, now.AddDays(-9), InstrumentMessageStatus.Processed, error: null)
+        ], now));
+        Assert.Equal((0, (string?)null), DashboardQueueCatalog.InstrumentFailuresCard([Message(3, now.AddDays(-5), resolved: now)], now));
+    }
+
     // TEST-BB-528: unmapped interface values are on the home screen for whoever keeps the translation table.
     [Fact]
     public void UnmappedValuesCard_FollowsTheInterfaceAdminPermission()

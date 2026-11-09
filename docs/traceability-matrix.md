@@ -772,6 +772,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-659 / FRS-BB-776 | Unidentified charts open past the reminder | `UnidentifiedPatientRule`; `PatientService.ListUnidentifiedAsync`; `DashboardQueueCatalog.cs`; `Home.razor`; `Patients.razor`; facility policy | TEST-BB-730, TEST-BB-731 | U, I | OCD-077 |
 | URS-BB-660 / FRS-BB-777 | Due-for-discard pull list by place | `TubePullList.cs`; `StoreTubes.razor`; `app.css` | TEST-BB-732, TEST-BB-733 | U | |
 | URS-BB-661 / FRS-BB-778 | HL7 errors say how long they have waited | `Hl7Endpoints.cs`; `ViewModels.cs`; `Hl7.razor`; `DashboardQueueCatalog.cs`; `Home.razor` | TEST-BB-734, TEST-BB-735 | U | |
+| URS-BB-662 / FRS-BB-779 | Instrument messages dated; open failures say how long they have waited | `Instruments.razor`; `DashboardQueueCatalog.cs`; `Home.razor` | TEST-BB-736, TEST-BB-737 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

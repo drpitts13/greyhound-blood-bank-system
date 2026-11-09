@@ -129,12 +129,18 @@ public static class DashboardQueueCatalog
 
     /// <summary>
     /// The Instrument failures card: open failures, and how many of them are results an instrument error code held,
-    /// which wait on a review (release or re-run) rather than a fix and replay.
+    /// which wait on a review (release or re-run) rather than a fix and replay. Given the time, it also says how long the
+    /// oldest open failure has waited: a result that did not file is a patient result not yet reported.
     /// </summary>
-    public static (int Count, string? Note) InstrumentFailuresCard(IEnumerable<InstrumentMessageSummaryDto> failures)
+    public static (int Count, string? Note) InstrumentFailuresCard(IEnumerable<InstrumentMessageSummaryDto> failures, DateTime? nowUtc = null)
     {
         var open = failures.Where(f => f.OpenFailure).ToList();
-        return (open.Count, AttentionNote(open.Count(f => f.Held), "held for an instrument error code", "held for instrument error codes"));
+        var parts = new[]
+        {
+            AttentionNote(open.Count(f => f.Held), "held for an instrument error code", "held for instrument error codes"),
+            nowUtc is { } now ? OldestWaitingNote(open.Select(f => (DateTime?)f.ReceivedUtc), now) : null
+        }.Where(p => p is not null).ToList();
+        return (open.Count, parts.Count == 0 ? null : string.Join("; ", parts));
     }
 
     /// <summary>

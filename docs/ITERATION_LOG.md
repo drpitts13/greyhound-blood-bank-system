@@ -19046,3 +19046,33 @@ The HL7 error queue listed control id, patient, message, error, and retries, but
 ### Next
 
 - Instrument failures: check whether the failures queue and card say how long each failure has waited; a result that did not file is a delayed patient result.
+
+## Iteration 617 — Instrument messages dated; open failures say how long they have waited (2026-11-09)
+
+### Capability matrix rescan (instrument interfaces)
+
+The Instrument failures card named held results but no age. On Instruments, the Messages list and the connection log showed **When** as the time of day only (HH:mm:ss), and older open failures are added to the list, so a failure from two days ago read as one from this morning: a defect, not only a missing feature.
+
+### Design
+
+- When: time alone for today (local), date and time for an earlier day, on Messages and the connection log.
+- An open failure adds "waiting {age}" from its received time.
+- `InstrumentFailuresCard(failures, now)` adds "oldest waiting {age}" over open failures after the held count; the optional time keeps the held-only form for callers without one. The card already leads under Needs attention when above zero.
+- Store tubes' time-only columns list this session's scans only, so they stay.
+
+### Verification
+
+- Unit: held count with the oldest wait; resolved and processed messages ignored; none open, no note. Rendered: a two-day-old failure shows its date and "waiting 2 d"; today's processed message shows the time alone.
+- Live (read-only): dev data has no instrument messages; the connection log shows the fix: of 50 entries, today's read "14:20:00" while the 20 from 2026-11-08 now read "2026-11-08 13:25" (before: "13:25:..." as if today). No server errors.
+
+### Requirements
+
+- URS-BB-662, FRS-BB-779.
+
+### Tests
+
+- TEST-BB-736, TEST-BB-737.
+
+### Next
+
+- Search other lists that may hold earlier days for time-only renderings (HH:mm without a date) and check each.
