@@ -1482,6 +1482,9 @@ public sealed class IssuingService
         return await ReturnUnitAsync(issue.Id, request, ct);
     }
 
+    /// <summary>The refusal when a transfusion is finished without saying whether a reaction is suspected.</summary>
+    public const string ReactionAnswerRequired = "Say whether a transfusion reaction is suspected (yes or no) before finishing the transfusion.";
+
     public async Task<EvaluationResult<TransfusionEvent>> DocumentTransfusionAsync(long issueId, DocumentTransfusionRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -1496,6 +1499,11 @@ public sealed class IssuingService
         if (request.FinalDisposition == TransfusionDisposition.Returned)
         {
             return EvaluationResult<TransfusionEvent>.Fail("Use the return workflow to return an unused unit to inventory.");
+        }
+
+        if (request.ReactionSuspected is null)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(ReactionAnswerRequired);
         }
 
         var issue = await _issues.GetByIdAsync(issueId, ct);
@@ -1554,7 +1562,7 @@ public sealed class IssuingService
             StopUtc = request.StopUtc,
             VolumeTransfused = request.VolumeTransfused,
             Transfusionist = request.Transfusionist,
-            ReactionSuspected = request.ReactionSuspected,
+            ReactionSuspected = request.ReactionSuspected.Value,
             FinalDisposition = request.FinalDisposition,
             DocumentedBy = _currentUser.UserName,
             SecondVerifier = request.SecondVerifier,
@@ -1589,7 +1597,7 @@ public sealed class IssuingService
 
         await _unitOfWork.SaveChangesAsync(ct);
 
-        if (request.ReactionSuspected)
+        if (request.ReactionSuspected == true)
         {
             await _reactions.OpenForTransfusionAsync(transfusion, ct);
             await _unitOfWork.SaveChangesAsync(ct);
@@ -1705,6 +1713,11 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Fail("A started transfusion cannot be returned to inventory. Record it as stopped or wasted.");
         }
 
+        if (request.ReactionSuspected is null)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(ReactionAnswerRequired);
+        }
+
         var issue = await _issues.GetByIdAsync(issueId, ct);
         if (issue is null)
         {
@@ -1729,7 +1742,7 @@ public sealed class IssuingService
         transfusion.StopUtc = stopUtc;
         transfusion.VolumeTransfused = request.VolumeTransfused;
         transfusion.FinalDisposition = request.FinalDisposition;
-        transfusion.ReactionSuspected = request.ReactionSuspected;
+        transfusion.ReactionSuspected = request.ReactionSuspected.Value;
         _transfusions.Update(transfusion);
 
         var terminal = request.FinalDisposition == TransfusionDisposition.Stopped
@@ -1746,7 +1759,7 @@ public sealed class IssuingService
             reason: "Transfusion completed.");
         await _unitOfWork.SaveChangesAsync(ct);
 
-        if (request.ReactionSuspected)
+        if (request.ReactionSuspected == true)
         {
             await _reactions.OpenForTransfusionAsync(transfusion, ct);
             await _unitOfWork.SaveChangesAsync(ct);

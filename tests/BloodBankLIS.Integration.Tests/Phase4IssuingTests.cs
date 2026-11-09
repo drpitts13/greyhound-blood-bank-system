@@ -1224,13 +1224,13 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var issueId = await IssuedAndReceivedAsync(s);
         var now = _factory.Clock.UtcNow;
         await using var c = _factory.Create();
-        var notStarted = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed));
+        var notStarted = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed, ReactionSuspected: false));
         Assert.False(notStarted.Succeeded);
         Assert.Contains("No started transfusion", notStarted.Error);
 
         Assert.True((await Issuing(c).StartTransfusionAsync(issueId, StartReq(s, now.AddMinutes(-10)))).Succeeded);
         var backwards = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(
-            TransfusionDisposition.Completed, StopUtc: now.AddMinutes(-30)));
+            TransfusionDisposition.Completed, StopUtc: now.AddMinutes(-30), ReactionSuspected: false));
         Assert.Contains(backwards.Evaluation!.HardStops, r => r.Code == TransfusionDocumentationRule.Code);
         Assert.Equal(UnitStatus.TransfusionStarted, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
@@ -1298,7 +1298,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var startOnly = new FixedPermissionEvaluator(1, PermissionCodes.TransfusionStart);
         await using var c = _factory.Create();
         Assert.True((await Issuing(c, startOnly).StartTransfusionAsync(issueId, StartReq(s))).Succeeded);
-        var complete = await Issuing(c, startOnly).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed));
+        var complete = await Issuing(c, startOnly).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed, ReactionSuspected: false));
         Assert.False(complete.Succeeded);
         Assert.Contains(complete.Evaluation!.HardStops, r => r.Message.Contains("transfusion.complete"));
     }
@@ -3256,6 +3256,33 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(issued.Succeeded, issued.Error);
     }
 
+    // TEST-BB-701: finishing a transfusion without saying whether a reaction is suspected is refused (documenting or
+    // completing), and nothing is recorded; "no reaction" is never assumed.
+    [Fact]
+    public async Task Transfusion_WithoutReactionAnswer_IsRefused()
+    {
+        var s = await SeedAsync("TX-NOANS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var documented = await Issuing(ctx).DocumentTransfusionAsync(issueId, TxReq(s) with { ReactionSuspected = null });
+        Assert.False(documented.Succeeded);
+        Assert.Equal(IssuingService.ReactionAnswerRequired, documented.Error);
+        var completed = await Issuing(ctx).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.False(completed.Succeeded);
+        Assert.Equal(IssuingService.ReactionAnswerRequired, completed.Error);
+        Assert.False(await ctx.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+        Assert.Equal(UnitStatus.Issued, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
     [Fact]
     public async Task Transfusion_ReactionSuspected_OpensInvestigation()
     {
@@ -4833,7 +4860,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using var ctx = _factory.Create();
         var missing = await Issuing(ctx).DocumentTransfusionAsync(
-            issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+            issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed, ReactionSuspected: false));
         Assert.False(missing.Succeeded);
         Assert.Contains(missing.Evaluation!.HardStops, r => r.Code == PatientIdentityMatchRule.Code);
         Assert.Equal(UnitStatus.Issued, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);

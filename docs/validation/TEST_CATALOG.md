@@ -709,5 +709,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-698 | I | `AntibodyIdentificationWorkupTests.UnchangedReactions_KeepTheReview_AndChangesAreAudited` (and `ReactionsAfterReview_RequireReinterpretation`, now with a changed grade) | URS-BB-644 / FRS-BB-761 |
 | TEST-BB-699 | I | `ElectronicCrossmatchEligibilityTests.Assess_NoCurrentScreen_IsNotEligible` | URS-BB-645 / FRS-BB-762 |
 | TEST-BB-700 | I | `Phase4IssuingTests.ElectronicCrossmatch_WithoutScreenOnTheSpecimen_IsBlocked` (eXM fixtures in nine tests now seed the current screen, `ExmScreenSeed`) | URS-BB-645 / FRS-BB-762 |
+| TEST-BB-701 | I | `Phase4IssuingTests.Transfusion_WithoutReactionAnswer_IsRefused` | URS-BB-646 / FRS-BB-763 |
+| TEST-BB-702 | U | `AttestationDefaultTests.Reaction_questions_are_not_unticked_checkboxes` | URS-BB-646 / FRS-BB-763 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

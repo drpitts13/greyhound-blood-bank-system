@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
@@ -160,6 +160,7 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
             .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(
                 TransfusionDisposition.Completed,
+                ReactionSuspected: false,
                 PatientIdentifier1Value: patient.MedicalRecordNumber,
                 PatientIdentifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd")));
         Assert.False(denied.Succeeded);
@@ -170,6 +171,7 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument))
             .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(
                 TransfusionDisposition.Completed,
+                ReactionSuspected: false,
                 PatientIdentifier1Value: patient.MedicalRecordNumber,
                 PatientIdentifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd")));
         Assert.True(allowed.Succeeded, allowed.Error);

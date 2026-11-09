@@ -50,6 +50,17 @@ public partial class AttestationDefaultTests
             "An ABO or Rh(D) starts at a type; start it unchosen:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
 
+    // TEST-BB-702: whether a transfusion reaction is suspected is asked, not a checkbox that reads "no" when left alone
+    // (Cycle 596).
+    [Fact]
+    public void Reaction_questions_are_not_unticked_checkboxes()
+    {
+        var problems = Scan(ReactionCheckbox(), skip: null);
+
+        Assert.True(problems.Count == 0,
+            "A reaction question is a checkbox; ask it as a required yes/no choice:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
     [Fact]
     public void Return_inspections_do_not_start_as_passed()
     {
@@ -113,6 +124,9 @@ public partial class AttestationDefaultTests
     // Assignments, fallbacks, or initializers that put Session.UserName into an *AuthorizedBy field.
     [GeneratedRegex(@"(?:AboGroup|RhType)\??\s+\w+\s*(?:\{\s*get;\s*set;\s*\}\s*)?=\s*(?:AboGroup|RhType)\.(?:O|A|B|AB|Positive|Negative)\s*;")]
     private static partial Regex TypeStartsFixed();
+
+    [GeneratedRegex(@"<input[^>]*type=""checkbox""[^>]*@bind=""_\w*[Rr]eaction\w*""")]
+    private static partial Regex ReactionCheckbox();
 
     [GeneratedRegex(@"(Grade)?Choices\.FirstOrDefault\(\)")]
     private static partial Regex ReadingFromFirstGrade();

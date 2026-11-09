@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Entities;
+﻿using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -85,7 +85,8 @@ public sealed record CompleteTransfusionRequest(
     TransfusionDisposition FinalDisposition,
     DateTime? StopUtc = null,
     decimal? VolumeTransfused = null,
-    bool ReactionSuspected = false);
+    // Asked at the end of every transfusion: null (not answered) is refused, never read as "no reaction".
+    bool? ReactionSuspected = null);
 
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition FinalDisposition,
@@ -93,7 +94,7 @@ public sealed record DocumentTransfusionRequest(
     DateTime? StopUtc = null,
     decimal? VolumeTransfused = null,
     string? Transfusionist = null,
-    bool ReactionSuspected = false,
+    bool? ReactionSuspected = null,
     ComponentScanVerificationRequest? BedsideScan = null,
     string? SecondVerifier = null,
     string? Location = null,

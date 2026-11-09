@@ -1,4 +1,4 @@
-@page "/issuing"
+﻿@page "/issuing"
 @using Microsoft.AspNetCore.Components
 @inject BloodBankApiClient Api
 @inject UserSession Session
@@ -1365,7 +1365,14 @@
                     <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@_txPatientIdentifier2" Patient="_txPatient" />
                 </div>
             </div>
-            <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
+            @* Asked, never assumed: an unticked box recorded "no reaction" without anyone answering (Cycle 596). *@
+            <div class="field" style="max-width:320px;"><label>Transfusion reaction suspected?</label>
+                <select @bind="_txReaction" data-tx-reaction>
+                    <option value="">— Answer when finishing —</option>
+                    <option value="@false">No reaction</option>
+                    <option value="@true">Yes, reaction suspected</option>
+                </select>
+            </div>
             <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with matching patient identifiers." />
             <PaperRecordDinField @bind-Value="_txBackEntryDin" />
             @if (_txStartedUtc is DateTime txStarted)
@@ -1536,7 +1543,7 @@
     private decimal? _txVolume;
     private string? _txTransfusionist;
     private string? _txSecondVerifier;
-    private bool _txReaction;
+    private bool? _txReaction;
 
     // Bedside actions for one patient since that patient's first unit here; finished units are not offered again.
     private sealed record BedsideInRun(long IssueId, string UnitNumber, string? ProductName, string Action, bool Finished, DateTime AtLocal);
@@ -1566,7 +1573,7 @@
         _txScan.Clear();
         _txSecondVerifier = null;
         _txVolume = null;
-        _txReaction = false;
+        _txReaction = null;
     }
 
     private void NextBedsideUnit(OutstandingIssueWorkItemDto row)
@@ -1600,6 +1607,7 @@
         || Session.Has(PermissionCodes.TransfusionStart)
         || Session.Has(PermissionCodes.TransfusionComplete);
     private long? _openedReactionId;
+    private const string ReactionAnswerRequired = IssuingService.ReactionAnswerRequired;
     private readonly UnitScanModel _issueScan = new();
     private string? _wardBackEntryDin;
     private DateTime? _wardBackEntryTime;
@@ -2312,6 +2320,8 @@
     {
         _desk = "transfuse";
         _txIssueId = row.IssueId;
+        // A reaction answer belongs to one unit.
+        _txReaction = null;
         _txStartedUtc = row.TransfusionStartedUtc;
         _txUnitLookup = row.UnitNumber ?? string.Empty;
         _txProductName = row.ProductName;
@@ -2745,13 +2755,19 @@
 
     private async Task CompleteTransfusionAsync()
     {
+        if (_txReaction is null)
+        {
+            _txFb = Feedback.Fail(ReactionAnswerRequired);
+            return;
+        }
+
         _busy = true;
         var r = await Api.CompleteTransfusionAsync(_txIssueId, new CompleteTransfusionRequest(
             _txDisposition, VolumeTransfused: _txVolume, ReactionSuspected: _txReaction));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion completed.");
         _openedReactionId = null;
-        var reactionReported = _txReaction;
+        var reactionReported = _txReaction == true;
         if (r.Succeeded && r.Value is not null)
         {
             AddToBedsideRun($"Completed ({_txDisposition})", finished: true);
@@ -2768,6 +2784,12 @@
 
     private async Task DocumentTransfusionAsync()
     {
+        if (_txReaction is null)
+        {
+            _txFb = Feedback.Fail(ReactionAnswerRequired);
+            return;
+        }
+
         _busy = true;
         var r = await Api.DocumentTransfusionAsync(_txIssueId, new DocumentTransfusionRequest(
             _txDisposition, VolumeTransfused: _txVolume,
@@ -2781,7 +2803,7 @@
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;
-        var reactionReported = _txReaction;
+        var reactionReported = _txReaction == true;
         if (r.Succeeded)
         {
             AddToBedsideRun($"Documented ({_txDisposition})", finished: true);

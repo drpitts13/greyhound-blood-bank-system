@@ -18482,3 +18482,30 @@ The bench crossmatch form's "Antibody screen negative" box started ticked (the C
 ### Next
 
 - Walk the issue desk with eXM-reserved units: show which specimen's screen the eXM rests on.
+
+## Iteration 596 — A transfusion reaction is asked, not assumed (2026-11-09)
+
+### Capability matrix rescan (bedside documentation)
+
+Cycle 595's planned next step (show the eXM specimen on the issue desk) was already met: rows show the crossmatch specimen's accession. Re-ranked by walking the bedside completion form for preset attestations: "Reaction suspected" was an unticked checkbox, so completing or documenting a transfusion without looking at it recorded "no reaction", and the API defaulted the field to false. An unrecorded reaction delays the investigation (and hemovigilance reporting).
+
+### Design
+
+- Request field nullable; the service refuses a missing answer before recording anything. The form asks a required No / Yes question per unit, cleared when the unit changes. HL7 BPAM is unchanged. Starting a transfusion does not ask.
+- Source guard against a reaction checkbox. No clinical rule changed.
+
+### Verification
+
+- Integration: documenting and completing without an answer are refused with nothing recorded and the unit still Issued; existing transfusion tests give an explicit answer. Live: the transfusion desk form shows the question unanswered (read-only).
+
+### Requirements
+
+- URS-BB-646, FRS-BB-763.
+
+### Tests
+
+- TEST-BB-701, TEST-BB-702.
+
+### Next
+
+- The final disposition still starts at Completed on the bedside form; consider asking it too. Return and ward-receipt forms: check for other preset answers.
