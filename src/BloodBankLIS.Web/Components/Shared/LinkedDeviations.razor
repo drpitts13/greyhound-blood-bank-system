@@ -25,7 +25,7 @@
                     <li>
                         <a href="@($"/deviations?id={d.Id}")">#@d.Id @d.Title</a>
                         <span class="badge @(d.Severity == DeviationSeverity.Critical ? "badge-red" : d.Severity == DeviationSeverity.Major ? "badge-amber" : "badge-gray")">@Ui.EnumText(d.Severity)</span>
-                        <span class="muted">@d.Status · reported @d.ReportedUtc.ToString("yyyy-MM-dd") by @d.ReportedBy</span>
+                        <span class="muted">@d.Status · reported @d.ReportedUtc.ToLocalTime().ToString("yyyy-MM-dd") by @d.ReportedBy</span>
                     </li>
                 }
             </ul>

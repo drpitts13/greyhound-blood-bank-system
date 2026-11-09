@@ -1,4 +1,4 @@
-@inject UserSession Session
+﻿@inject UserSession Session
 @inject NavigationManager Nav
 @inject BloodBankApiClient Api
 
@@ -493,7 +493,8 @@
     private CurrentSpecimenBanner.Cue SpecimenCue =>
         CurrentSpecimenBanner.Describe(
             Specimens.Select(s => new CurrentSpecimenBanner.Fact(s.AccessionNumber, s.Status, s.CollectedUtc, s.ExpiresUtc)),
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            t => t.ToLocalTime());
 
     private IReadOnlyList<SecondAboDeterminationRule.Determination> AboHistory =>
         BloodTypeDto.Determinations(TypeHistory);

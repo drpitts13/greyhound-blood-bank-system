@@ -723,5 +723,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-712 | I | `AlertWorkflowTests.Scanner_RaisesMtpStillOpen_WhenIdle_AndResolvesWhenAUnitIsIssued` | URS-BB-651 / FRS-BB-768 |
 | TEST-BB-713 | D | `MtpIdleRuleTests.IdleTime_RunsFromTheLastIssue_AndZeroIsOff` | URS-BB-651 / FRS-BB-768 |
 | TEST-BB-714 | I | `ShiftHandoffServiceTests.Create_CountsActiveMassiveTransfusionProtocols` (idle protocols counted and named) | URS-BB-651 / FRS-BB-768 |
+| TEST-BB-715 | U | `LocalTimeDisplayTests.Pages_ShowStoredTimesInLocalTime` | URS-BB-652 / FRS-BB-769 |
+| TEST-BB-716 | D | `CurrentSpecimenBannerTests.Times_AreShownThroughTheDisplayConversion` | URS-BB-652 / FRS-BB-769 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

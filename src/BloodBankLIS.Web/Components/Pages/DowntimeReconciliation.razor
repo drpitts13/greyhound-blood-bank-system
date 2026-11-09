@@ -36,7 +36,7 @@ else
 {
     <div class="bb-card">
         <div class="flex gap" style="margin-bottom:.75rem;">
-            <span class="muted">Generated @_snap.GeneratedUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+            <span class="muted">Generated @_snap.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
         </div>
         <div class="table-scroll">

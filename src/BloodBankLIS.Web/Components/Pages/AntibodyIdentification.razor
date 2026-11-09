@@ -45,7 +45,7 @@ else if (_workup is null)
                     @foreach (var w in _workups)
                     {
                         <tr>
-                            <td class="nowrap">@w.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@w.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(w.SpecimenAccession))
                                 {

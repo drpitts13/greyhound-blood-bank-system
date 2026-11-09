@@ -63,7 +63,7 @@
                     @foreach (var log in _logs.Take(50))
                     {
                         <tr>
-                            <td class="nowrap">@log.OccurredUtc.ToString("HH:mm:ss")</td>
+                            <td class="nowrap">@log.OccurredUtc.ToLocalTime().ToString("HH:mm:ss")</td>
                             <td>@Ui.EnumText(log.Level)</td>
                             <td class="mono">@log.EventType</td>
                             <td>@log.Message</td>
@@ -106,7 +106,7 @@
                     @foreach (var msg in VisibleMessages)
                     {
                         <tr class="@(_detail?.Message.Id == msg.Id ? "row-active" : null)">
-                            <td class="nowrap">@msg.ReceivedUtc.ToString("HH:mm:ss")</td>
+                            <td class="nowrap">@msg.ReceivedUtc.ToLocalTime().ToString("HH:mm:ss")</td>
                             <td>@msg.MessageKind</td>
                             <td>
                                 @msg.Status@(msg.ResolvedUtc is not null ? " · resolved" : "")

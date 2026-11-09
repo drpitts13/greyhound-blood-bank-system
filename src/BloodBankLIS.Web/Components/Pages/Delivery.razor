@@ -51,10 +51,10 @@ else
                 }
                 else
                 {
-                    <div>@_delivery.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</div>
+                    <div>@_delivery.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                 }
             </div>
-            <div class="field"><label>Received</label><div>@_delivery.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+            <div class="field"><label>Received</label><div>@_delivery.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
             @if (_order is not null)
             {
                 <div class="field"><label>Supplier order</label><div><a class="mono" href="@($"/inventory/orders?id={_order.Id}")">@_order.OrderNumber</a></div></div>

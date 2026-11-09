@@ -377,7 +377,7 @@
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Product</label><div class="mono">@SelectedUnit.ProductCode — @SelectedUnit.ProductName</div></div>
                     <div class="field"><label>ABO/Rh</label><div>@SelectedUnit.BloodType</div></div>
-                    <div class="field"><label>Expires</label><div class="nowrap">@SelectedUnit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+                    <div class="field"><label>Expires</label><div class="nowrap">@SelectedUnit.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
                     <div class="field"><label>Location</label><div>@(string.IsNullOrWhiteSpace(SelectedUnit.StorageLocationName) ? "—" : SelectedUnit.StorageLocationName)</div></div>
                     <div class="field"><label>Crossmatch</label>
                         <div class="nowrap">

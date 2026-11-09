@@ -100,7 +100,7 @@
                 @foreach (var e in _events)
                 {
                     <tr>
-                        <td class="nowrap">@e.OccurredUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="nowrap">@e.OccurredUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td><span class="badge badge-blue">@e.EventType</span></td>
                         <td>
                             @if (EntityHref(e) is { } href)

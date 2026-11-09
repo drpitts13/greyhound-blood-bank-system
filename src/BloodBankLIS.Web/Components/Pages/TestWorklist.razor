@@ -266,7 +266,7 @@
                             {
                                 @item.Priority
                             }
-                            <span class="sub nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</span>
+                            <span class="sub nowrap">@item.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
                         <td class="right nowrap">
@@ -365,9 +365,9 @@
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.AccessionNumber</td>
                         <td>@row.SpecimenType</td>
-                        <td class="nowrap">@row.CollectedUtc.ToString("yyyy-MM-dd HH:mm")@if (!string.IsNullOrWhiteSpace(row.TransitNote)) { <span class="sub">@row.TransitNote</span> }</td>
+                        <td class="nowrap">@row.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@if (!string.IsNullOrWhiteSpace(row.TransitNote)) { <span class="sub">@row.TransitNote</span> }</td>
                         <td class="nowrap">
-                            @(row.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            @(row.ExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")
                             @if (row.IsExpired)
                             {
                                 <span class="badge badge-red">Expired</span>
@@ -490,7 +490,7 @@
                             }
                         </td>
                         <td><strong>@Ui.BloodType(item.Abo, item.RhD)</strong></td>
-                        <td class="nowrap">@item.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@item.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
                             <span class="@Ui.Badge(item.Status)">@Ui.StatusLabel(item.Status)</span>
                             @if (item.Expired)

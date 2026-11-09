@@ -80,7 +80,7 @@
                 @foreach (var row in _review)
                 {
                     <tr>
-                        <td class="nowrap">@row.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@row.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="mono">@row.OrderNumber</td>
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.ProductCode</td>

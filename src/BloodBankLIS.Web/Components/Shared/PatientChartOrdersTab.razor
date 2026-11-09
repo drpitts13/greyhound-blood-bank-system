@@ -265,7 +265,7 @@
                     @* One record per tbody: the facts, the row's actions on a line underneath, then any open form. *@
                     <tbody class="record">
                     <tr class="@OrderRowClass(o)">
-                        <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span>
+                        <td class="nowrap">@o.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span>
                             @if (o.NeededByUtc is DateTime orderNeededBy)
                             {
                                 @* Worded and coloured as on the worklists: red once passed, amber inside the facility's warning window. *@
@@ -385,7 +385,7 @@
                                                 <option value="0">— Select —</option>
                                                 @foreach (var s in SpecimensFor(o))
                                                 {
-                                                    <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm"))</option>
+                                                    <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))</option>
                                                 }
                                             </select>
                                         </div>

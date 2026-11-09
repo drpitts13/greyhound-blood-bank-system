@@ -41,7 +41,7 @@
                         <td class="mono">@row.LocationCode</td>
                         <td class="text-error">@row.ReadingC °C (@StatusText(row.Status))</td>
                         <td>@RangeText(row.RangeMinC, row.RangeMaxC)</td>
-                        <td>@row.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@row.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@row.RecordedBy</td>
                         <td>@if (row.DeviationId is long id) { <a href="@($"/deviations?id={id}")">DEV-@id</a> }</td>
                     </tr>
@@ -72,7 +72,7 @@
                         <td class="@(loc.LastStatus is StorageTemperatureStatus s && StorageTemperatureRule.IsExcursion(s) ? "text-error" : null)">
                             @(loc.LastReadingC is decimal c ? $"{c} °C" : "None")
                         </td>
-                        <td>@loc.LastReadingUtc?.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@loc.LastReadingUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@loc.UnitsStored</td>
                         <td class="right nowrap">
                             @if (Session.Has(PermissionCodes.InventoryReceive))
@@ -131,7 +131,7 @@
                     @foreach (var row in _history)
                     {
                         <tr>
-                            <td>@row.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@row.ReadingC °C</td>
                             <td class="@(StorageTemperatureRule.IsExcursion(row.Status) ? "text-error" : null)">@StatusText(row.Status)</td>
                             <td>@RangeText(row.RangeMinC, row.RangeMaxC)</td>

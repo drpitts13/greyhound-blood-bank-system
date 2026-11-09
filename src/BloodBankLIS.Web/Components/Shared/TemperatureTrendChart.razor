@@ -26,7 +26,7 @@
     {
         var excursion = StorageTemperatureRule.IsExcursion(r.Status);
         <g>
-            <title>@r.ReadingUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) UTC · @r.ReadingC °C@(excursion ? " · out of range" : "")</title>
+            <title>@r.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) UTC · @r.ReadingC °C@(excursion ? " · out of range" : "")</title>
             <circle class="hit" cx="@F(X(r.ReadingUtc))" cy="@F(Y(r.ReadingC))" r="8" />
             <circle class="@(excursion ? "pt-out" : "pt")" cx="@F(X(r.ReadingUtc))" cy="@F(Y(r.ReadingC))" r="@(excursion ? "5" : (_ordered.Count > 150 ? "0" : "2.5"))" />
         </g>

@@ -197,7 +197,7 @@
                         <td class="mono">@(m.PatientMrn ?? "—")</td>
                         <td class="mono">@FormatContext(m.PlacerOrderNumber, m.TestCode, m.UnitNumber)</td>
                         <td class="mono">@m.MessageControlId</td>
-                        <td class="nowrap">@m.ReceivedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="nowrap">@m.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td><span class="@Ui.Badge(m.Status)">@Ui.EnumText(m.Status)</span></td>
                         <td class="mono">@m.AckCode</td>
                         <td class="right nowrap">

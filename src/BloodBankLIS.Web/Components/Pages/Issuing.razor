@@ -502,8 +502,8 @@
                             <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td class="nowrap">
-                                @row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")
-                                <span class="sub">Due @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
+                                @row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                <span class="sub">Due @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
@@ -589,8 +589,8 @@
                             </td>
                             <td>@(row.IssuedToLocation ?? "—")<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td class="nowrap">
-                                @row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")
-                                <span class="sub">Due @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
+                                @row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                <span class="sub">Due @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
@@ -693,7 +693,7 @@
                             </td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td>
-                                <span class="nowrap">@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</span>
+                                <span class="nowrap">@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                                 @if (row.TransfusionStartedUtc is DateTime transfusingSince)
                                 {
                                     <span class="badge @(row.TransfusionCompletionOverdue ? "badge-red" : "badge-amber")">Transfusing since @transfusingSince.ToLocalTime().ToString("HH:mm")@(row.TransfusionCompletionOverdue ? " · completion overdue" : "")</span>
@@ -750,8 +750,8 @@
                         <tr>
                             <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
                             <td>@row.PatientLabel</td>
-                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@row.DueUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.DueUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         </tr>
                     }
                 </tbody>
@@ -1150,7 +1150,7 @@
                 Issue <strong>@_wardIssue.Id</strong> · @_wardIssue.Status
                 @if (_wardIssue.WardReceivedUtc is not null)
                 {
-                    <span> · received @_wardIssue.WardReceivedUtc.Value.ToString("yyyy-MM-dd HH:mm") by @_wardIssue.WardReceivedBy · @_wardIssue.WardAppearance</span>
+                    <span> · received @_wardIssue.WardReceivedUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @_wardIssue.WardReceivedBy · @_wardIssue.WardAppearance</span>
                 }
                 else
                 {

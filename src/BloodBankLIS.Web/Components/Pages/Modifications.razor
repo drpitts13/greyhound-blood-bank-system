@@ -43,7 +43,7 @@
             <div class="field"><label>Location</label><div>@FormatUnitLocation(_unit.CurrentLocationId)</div></div>
             <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
             <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.EnumText(_unit.Status)</span></div></div>
-            <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+            <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
         </div>
 
         @if (_retiredOfferClosed)
@@ -92,7 +92,7 @@
             <div class="field"><label>Modification code</label><div class="mono">@_selectedRule.ModificationCode</div></div>
             <div class="field"><label>New product</label><div class="mono">@_selectedRule.TargetProductCode</div></div>
             <div class="field"><label>New expiration</label>
-                <div>@(_selectedRule.PreviewExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div>
+                <div>@(_selectedRule.PreviewExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</div>
                 <div class="muted">@_selectedRule.ExpirationOffsetCode from @RelativeLabel(_selectedRule.ExpirationRelativeTo), capped at source expiration</div>
             </div>
         </div>
@@ -301,7 +301,7 @@
                             }
                         </td>
                         <td>@location</td>
-                        <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
                             <a class="btn btn-secondary btn-sm" href="@InventoryUrls.Unit(u.Id)">Open unit</a>
                             @if (releaseHref is not null)
@@ -346,10 +346,10 @@
                         <td>@FormatSupply(h)</td>
                         <td>@(ModificationDeviceRule.Describe(h.DeviceId, h.IndicatorConfirmed) ?? "—")</td>
                         <td class="mono">@h.ExpirationOffsetCodeApplied</td>
-                        <td class="nowrap">@h.ResultExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@h.ResultExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@h.Reason</td>
                         <td>@h.PerformedBy</td>
-                        <td class="nowrap">@h.PerformedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@h.PerformedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                     </tr>
                 }
             </tbody>
@@ -550,7 +550,7 @@
         }
 
         var now = StorageLocationLabel.Format(unit.CurrentLocationId, unit.CurrentLocationName);
-        var when = unit.LocationLeftUtc?.ToString("yyyy-MM-dd HH:mm");
+        var when = unit.LocationLeftUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
         var why = string.IsNullOrWhiteSpace(unit.LocationLeftReason) ? null : unit.LocationLeftReason.Trim();
         var who = string.IsNullOrWhiteSpace(unit.LocationLeftBy) ? null : $"by {unit.LocationLeftBy.Trim()}";
         var details = new[] { when, why, who }.Where(part => part is not null).Cast<string>().ToList();

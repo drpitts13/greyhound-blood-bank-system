@@ -33,7 +33,7 @@
                 @foreach (var h in Shown)
                 {
                     <tr class="@(h.IsCurrent ? null : "row-muted")">
-                        <td class="nowrap">@h.VerifiedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@h.VerifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td><strong>@h.TestName</strong> <span class="mono muted">@h.TestCode</span></td>
                         <td>@h.Version</td>
                         <td>

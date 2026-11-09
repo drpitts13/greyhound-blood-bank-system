@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Enums;
+﻿using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Domain.Rules;
 
@@ -23,8 +23,11 @@ public static class CurrentSpecimenBanner
         bool BlocksIssue,
         bool ExpiresSoon);
 
-    public static Cue Describe(IEnumerable<Fact> specimens, DateTime nowUtc)
+    /// <param name="display">How a time is shown (the chart passes local time; Cycle 604). Defaults to the stored UTC.</param>
+    public static Cue Describe(IEnumerable<Fact> specimens, DateTime nowUtc, Func<DateTime, DateTime>? display = null)
     {
+        string Shown(DateTime? utc) => utc is DateTime t ? (display?.Invoke(t) ?? t).ToString("yyyy-MM-dd HH:mm") : string.Empty;
+
         var current = specimens
             .Where(s => s.Status == SpecimenStatus.Accepted)
             .OrderByDescending(s => s.CollectedUtc)
@@ -41,7 +44,7 @@ public static class CurrentSpecimenBanner
         {
             var message = current.ExpiresUtc is null
                 ? $"Specimen {accession} has no expiration."
-                : $"Specimen {accession} expired {current.ExpiresUtc:yyyy-MM-dd HH:mm}.";
+                : $"Specimen {accession} expired {Shown(current.ExpiresUtc)}.";
             return new Cue(accession, message, true, false);
         }
 
@@ -49,14 +52,14 @@ public static class CurrentSpecimenBanner
         {
             return new Cue(
                 accession,
-                $"Specimen {accession} expires soon, at {current.ExpiresUtc:yyyy-MM-dd HH:mm}.",
+                $"Specimen {accession} expires soon, at {Shown(current.ExpiresUtc)}.",
                 false,
                 true);
         }
 
         return new Cue(
             accession,
-            $"Specimen {accession} expires {current.ExpiresUtc:yyyy-MM-dd HH:mm}.",
+            $"Specimen {accession} expires {Shown(current.ExpiresUtc)}.",
             false,
             false);
     }

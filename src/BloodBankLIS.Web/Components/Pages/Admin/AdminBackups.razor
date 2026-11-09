@@ -48,7 +48,7 @@
                     @foreach (var b in status.Recent)
                     {
                         <tr>
-                            <td class="nowrap">@b.StartedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td class="nowrap">@b.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
                             <td>@b.Trigger &middot; @b.RequestedBy</td>
                             <td>
                                 <span class="mono">@b.FileName</span>

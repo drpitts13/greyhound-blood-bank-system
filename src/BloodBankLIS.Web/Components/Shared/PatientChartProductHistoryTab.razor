@@ -65,7 +65,7 @@
                     @* One record per tbody: the facts, any details, then the row's actions on a line underneath. *@
                     <tbody class="record">
                     <tr class="@HistoryRowClass(h)">
-                        <td class="nowrap">@h.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@h.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td><strong>@h.EventType</strong></td>
                         <td>
                             @if (h.UnitId is long historyUnitId)

@@ -237,7 +237,7 @@ else
                                     <span class="badge badge-amber">Reserved/issued units</span>
                                 }
                             </td>
-                            <td class="nowrap">@w.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@w.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">
                                 <a class="btn btn-ghost btn-sm" href="@($"/patients/{w.PatientId}")">Open Chart</a>
                                 @if (w.SpecimenId is not null)

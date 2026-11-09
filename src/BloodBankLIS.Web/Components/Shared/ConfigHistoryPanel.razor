@@ -28,7 +28,7 @@
                 @foreach (var h in DisplayRows)
                 {
                     <tr>
-                        <td class="nowrap">@h.ChangedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="nowrap">@h.ChangedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td>@h.Action</td>
                         <td class="mono">@h.EntityType</td>
                         <td class="mono">@(h.EntityId is null ? "—" : $"#{h.EntityId}")</td>

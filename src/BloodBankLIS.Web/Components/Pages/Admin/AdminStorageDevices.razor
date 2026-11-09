@@ -61,7 +61,7 @@
                         <td>@TypeText(d.LocationType)</td>
                         <td>@d.Department</td>
                         <td class="mono">@RangeText(d.StorageTempMinC, d.StorageTempMaxC)</td>
-                        <td>@(t?.LastReadingC is decimal c ? $"{c} °C · {t.LastReadingUtc:yyyy-MM-dd HH:mm}" : "—")</td>
+                        <td>@(t?.LastReadingC is decimal c ? $"{c} °C · {t.LastReadingUtc?.ToLocalTime():yyyy-MM-dd HH:mm}" : "—")</td>
                         <td>@(t?.UnitsStored ?? 0)</td>
                         <td>@if (d.IsActive) { <span>Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
                         <td class="right nowrap">

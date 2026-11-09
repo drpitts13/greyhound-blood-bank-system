@@ -107,7 +107,7 @@ else
                                     }
                                 </td>
                                 <td class="nowrap">
-                                    @d.ReportedUtc.ToString("yyyy-MM-dd HH:mm")
+                                    @d.ReportedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                                     <span class="sub">@d.ReportedBy@(d.Status == DeviationStatus.Closed ? "" : $" · open {AlertInboxView.OpenFor(d.ReportedUtc, DateTime.UtcNow)}")</span>
                                 </td>
                                 <td class="mono">

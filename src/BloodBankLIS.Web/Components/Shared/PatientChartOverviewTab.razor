@@ -78,7 +78,7 @@
                                 @if (t.Invalidated && !string.IsNullOrWhiteSpace(t.Reason)) { <span class="sub">@t.Reason</span> }
                                 @if (!t.CountsAsDetermination && !t.Invalidated) { <span class="sub">Does not count as an ABO/Rh determination</span> }
                             </td>
-                            <td>@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub">@t.RecordedBy</span></td>
+                            <td>@t.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub">@t.RecordedBy</span></td>
                         </tr>
                     }
                 </tbody>
@@ -426,7 +426,7 @@
                             <td class="mono">@p.AntigenCode</td>
                             <td>@p.Result</td>
                             <td>@(p.SourceResultId is null ? "Chart" : "Verified result")</td>
-                            <td class="nowrap">@(p.TestedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td class="nowrap">@(p.TestedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                         </tr>
                     }
                 </tbody>

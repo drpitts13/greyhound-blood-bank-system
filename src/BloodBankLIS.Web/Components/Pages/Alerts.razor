@@ -46,7 +46,7 @@
                             <div>@if (alert.Link is not null) { <a href="@alert.Link">@alert.Title</a> } else { @alert.Title }</div>
                             <div class="muted">@alert.Message</div>
                         </td>
-                        <td class="nowrap">@alert.RaisedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub" data-open-for>open @AlertInboxView.OpenFor(alert.RaisedUtc, DateTime.UtcNow)</span></td>
+                        <td class="nowrap">@alert.RaisedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub" data-open-for>open @AlertInboxView.OpenFor(alert.RaisedUtc, DateTime.UtcNow)</span></td>
                         @* Kept as typed, so Enter acknowledges with the note without leaving the field first. *@
                         <td><input placeholder="Optional; Enter acknowledges" value="@NoteFor(alert.Id)" @oninput="e => _notes[alert.Id] = e.Value?.ToString() ?? string.Empty" @onkeydown="e => OnNoteKey(e, alert.Id)" /></td>
                         <td><button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => AcknowledgeAsync(alert.Id)">Acknowledge</button></td>
@@ -75,7 +75,7 @@
                     <tr>
                         <td><span class="badge @SeverityClass(alert.Severity)">@Ui.EnumText(alert.Severity)</span></td>
                         <td>@alert.Title</td>
-                        <td class="nowrap">@alert.RaisedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@alert.RaisedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
                             @if (alert.AcknowledgedUtc is DateTime ack)
                             {

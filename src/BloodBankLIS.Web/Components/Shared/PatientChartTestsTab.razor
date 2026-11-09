@@ -103,7 +103,7 @@
                             {
                                 @item.Priority
                             }
-                            <span class="sub nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</span>
+                            <span class="sub nowrap">@item.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
                     </tr>

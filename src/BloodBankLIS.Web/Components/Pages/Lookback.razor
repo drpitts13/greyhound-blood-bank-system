@@ -48,7 +48,7 @@ else
                             <td>@PatientLabel(n)</td>
                             <td>@Ui.EnumText(n.Status)</td>
                             <td>@(n.PhysicianOfRecord ?? "—")</td>
-                            <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td class="nowrap">@(n.AttemptedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                             <td class="right nowrap">
                                 @if (n.PatientId is long openChartId)
                                 {
@@ -153,7 +153,7 @@ else
                                     <td>@(r.IssueId?.ToString() ?? "—")</td>
                                     <td>@(r.TransfusionEventId?.ToString() ?? "—")</td>
                                     <td>@r.IssuedToLocation</td>
-                                    <td class="nowrap">@(r.IssuedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    <td class="nowrap">@(r.IssuedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                                     <td class="right nowrap">
                                         @if (r.PatientId is long chartPatientId)
                                         {
@@ -202,7 +202,7 @@ else
                                     </td>
                                     <td>@Ui.EnumText(n.Status)</td>
                                     <td>@n.PhysicianOfRecord</td>
-                                    <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    <td class="nowrap">@(n.AttemptedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                                     <td class="right nowrap">
                                         @if (n.PatientId is long noteChartId)
                                         {
@@ -289,7 +289,7 @@ else
                                     <td><span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span></td>
                                     <td>@u.IssueType / @u.IssueStatus</td>
                                     <td>@(u.IssuedToLocation ?? "—")</td>
-                                    <td class="nowrap">@u.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="nowrap">@u.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                     <td>
                                         @if (u.TransfusionEventId is null)
                                         {
@@ -361,7 +361,7 @@ else
                                     <td class="mono">@r.MedicalRecordNumber</td>
                                     <td class="mono">@r.Din</td>
                                     <td class="mono">@r.UnitNumber</td>
-                                    <td class="nowrap">@r.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="nowrap">@r.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                     <td class="right nowrap">
                                         <a class="btn btn-ghost btn-sm" href="@($"/patients/{r.PatientId}")">Open chart</a>
                                         <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(r.BloodProductId)">Open Inventory</a>

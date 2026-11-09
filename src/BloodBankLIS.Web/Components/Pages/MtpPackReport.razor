@@ -32,10 +32,10 @@
         <table class="mtp-report-facts">
             <tbody>
                 <tr><th>Patient</th><td>@r.PatientName</td><th>MRN</th><td class="mono">@(r.MedicalRecordNumber ?? "—")</td></tr>
-                <tr><th>Date of birth</th><td>@(r.DateOfBirth?.ToString("yyyy-MM-dd") ?? "—")</td><th>Protocol activated</th><td>@((r.ActivatedLocal ?? r.ActivatedUtc).ToString("yyyy-MM-dd HH:mm"))</td></tr>
+                <tr><th>Date of birth</th><td>@(r.DateOfBirth?.ToString("yyyy-MM-dd") ?? "—")</td><th>Protocol activated</th><td>@((r.ActivatedLocal ?? r.ActivatedUtc.ToLocalTime()).ToString("yyyy-MM-dd HH:mm"))</td></tr>
                 <tr><th>Called by</th><td>@r.RequestedBy</td><th>Reason</th><td>@r.ActivationReason@(r.ActivationLocation is null ? "" : $" ({r.ActivationLocation})")</td></tr>
                 <tr><th>Pack</th><td>@(r.PackDefinitionCode is null ? "No pack definition" : $"{r.PackDefinitionName} ({r.PackDefinitionCode})")</td><th>Pack number</th><td>@r.PackNumber</td></tr>
-                <tr><th>Packed</th><td>@((r.PackedLocal ?? r.PackedUtc).ToString("yyyy-MM-dd HH:mm"))</td><th>Packed by</th><td>@r.PackedBy</td></tr>
+                <tr><th>Packed</th><td>@((r.PackedLocal ?? r.PackedUtc.ToLocalTime()).ToString("yyyy-MM-dd HH:mm"))</td><th>Packed by</th><td>@r.PackedBy</td></tr>
                 <tr><th>Container</th><td>@r.ContainerName (@r.ContainerCode)@(r.ContainerLabel is null ? "" : $" · {r.ContainerLabel}")</td><th>Temperature at packing</th><td>@r.TemperatureC.ToString("0.0") °C <span class="muted">(range: @r.ContainerRange)</span></td></tr>
                 @if (r.Comment is not null)
                 {
@@ -62,7 +62,7 @@
                         <td>@u.ProductName</td>
                         <td class="mono">@u.ProductCode@(u.IsbtProductCode is null || u.IsbtProductCode == u.ProductCode ? "" : $" / {u.IsbtProductCode}")</td>
                         <td>@u.BloodType</td>
-                        <td class="nowrap">@((u.ExpiresLocal ?? u.ExpiresUtc).ToString("yyyy-MM-dd HH:mm"))</td>
+                        <td class="nowrap">@((u.ExpiresLocal ?? u.ExpiresUtc.ToLocalTime()).ToString("yyyy-MM-dd HH:mm"))</td>
                         <td>@u.Crossmatch</td>
                         <td class="mtp-blank"></td>
                         <td class="mtp-blank mtp-blank-narrow"></td>

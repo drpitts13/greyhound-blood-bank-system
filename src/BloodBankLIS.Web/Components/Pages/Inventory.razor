@@ -90,9 +90,9 @@
                             <td>@ProductName(row.ProductTypeId)</td>
                             <td class="mono">@(row.ShipmentId ?? "—")</td>
                             <td>@(row.SupplierLabel ?? "—")</td>
-                            <td>@row.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
-                                @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                                @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")
                                 @if (row.IsOutdated)
                                 {
                                     <span class="badge badge-red" title="This unit is outdated and cannot be received. Return it to the supplier.">Outdated</span>
@@ -238,7 +238,7 @@
                                 }
                             </td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
-                            <td class="nowrap">@row.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@row.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 <span class="@Ui.Badge(row.Status)">@Ui.StatusLabel(row.Status)</span>
                                 @if (row.Expired)
@@ -318,7 +318,7 @@
                         <td>@row.LocationLabel</td>
                         <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
                         <td class="nowrap">
-                            @row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                            @row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                             <span class="badge badge-amber">Near expiry</span>
                             @if (row.IsReserved)
                             {
@@ -435,7 +435,7 @@
                             </td>
                             <td>@row.ReasonCode</td>
                             <td>@(row.Notes ?? "—")</td>
-                            <td class="nowrap">@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 @if (row.CanRelease)
                                 {
@@ -605,7 +605,7 @@
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td>@row.LocationLabel</td>
                             <td>@(row.HoldReason ?? "—")</td>
-                            <td>@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">
                                 @if (row.ExpiresUtc <= DateTime.UtcNow)
                                 {
@@ -671,8 +671,8 @@
                             <td class="mono"><a href="@($"/inventory/deliveries/{delivery.Id}")">@delivery.Id</a></td>
                             <td>@delivery.SupplierNameLabel</td>
                             <td class="mono">@(delivery.PackingListNumber ?? "—")</td>
-                            <td>@delivery.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@delivery.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@delivery.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@delivery.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@delivery.ExpectedQuantity</td>
                             <td>@delivery.ReceivedQuantity</td>
                             <td class="right"><a class="btn btn-primary btn-sm" href="@($"/inventory/deliveries/{delivery.Id}/receive")">Enter units</a></td>
@@ -736,7 +736,7 @@
                         <td>@ProductName(u.ProductTypeId)</td>
                         <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
                         <td class="nowrap">
-                            @u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                            @u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                             @if (u.ExpiresUtc < DateTime.UtcNow)
                             {
                                 <span class="badge badge-red">Expired</span>

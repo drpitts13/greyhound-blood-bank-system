@@ -18695,3 +18695,29 @@ Cycle 602's next step. The handoff already listed "Massive transfusion active" f
 ### Next
 
 - Walk the antigen typing (unit) entry for preset answers.
+
+## Iteration 604 — Times shown in local time (2026-11-09)
+
+### Capability matrix rescan (antigen typing, specimens)
+
+Unit antigen typing and the remaining forms have no preset answers (typing starts Not tested; ISBT receive's release is overridden for units needing a retype). Walking the chart Specimens tab at 07:46 local (12:46 UTC): ACC0001 read "expires 2026-11-09 12:49" with the banner saying "expires soon", so the stored UTC time was shown as if local; it expired three minutes later, not in five hours. Specimen expiry governs crossmatch and issue. A sweep found 96 such renderings across 41 pages and panels; others (63) already converted.
+
+### Design
+
+- Convert stored UTC times to local time where shown; keep date keys as stored (report range dates and file name, billing service date, recorded pregnancy date). The chart banner, composed in the domain, takes a display conversion. A source test guards new pages. Server-composed messages naming a time are left for a later cycle (many already say "UTC").
+
+### Verification
+
+- Source guard (catches the old forms, passes converted ones); banner display test; full suite including rendered page tests. Live at 07:53 local: MRN0001's Specimens tab shows ACC0001 expiring 2026-11-09 07:49 and Expired (before the fix: 12:49), and the banner says No current specimen (read-only).
+
+### Requirements
+
+- URS-BB-652, FRS-BB-769.
+
+### Tests
+
+- TEST-BB-715, TEST-BB-716.
+
+### Next
+
+- Server-composed messages that name a time without "UTC" (rule warnings, alerts): say UTC or local consistently.

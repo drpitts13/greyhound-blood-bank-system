@@ -94,7 +94,7 @@
         {
             <div class="bb-card" data-rhig-row="@e.Id">
                 <div class="flex-between">
-                    <strong>@ContextLabel(e.Context) · @e.EventUtc.ToString("yyyy-MM-dd HH:mm")</strong>
+                    <strong>@ContextLabel(e.Context) · @e.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong>
                     <span class="badge @(e.IsCompleted ? "badge-green" : "badge-amber")">@(e.IsCompleted ? $"Completed by {e.CompletedBy}" : "Open")</span>
                 </div>
                 <ul style="margin:.4rem 0;" data-rhig-facts>
@@ -110,12 +110,12 @@
                         <span class="muted"> — @e.DecisionNote</span>
                     }
                 </div>
-                <div class="sub">Recorded by @e.RecordedBy @e.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</div>
+                <div class="sub">Recorded by @e.RecordedBy @e.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                 @if (e.IsGiven)
                 {
                     <div style="margin-top:.3rem;" data-rhig-given>
                         <strong>Given:</strong> @e.GivenVials vial@(e.GivenVials == 1 ? "" : "s"), lot <span class="mono">@e.GivenLot</span>,
-                        @e.GivenUtc?.ToString("yyyy-MM-dd HH:mm") by @e.GivenBy
+                        @e.GivenUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @e.GivenBy
                         @if (e.GivenDifference is { } difference)
                         {
                             <span class="badge badge-amber" style="margin-left:.35rem;">@difference</span>

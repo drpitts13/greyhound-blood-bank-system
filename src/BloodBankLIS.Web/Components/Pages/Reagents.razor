@@ -140,7 +140,7 @@
                             <td class="mono">@lot.LotNumber</td>
                             <td>@lot.State</td>
                             <td>
-                                @lot.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                                @lot.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                                 @{ var now = DateTime.UtcNow; var expired = lot.ExpiresUtc <= now; }
                                 @if (lot.State != ReagentLotState.Closed)
                                 {
@@ -297,13 +297,13 @@
                     @foreach (var q in _recentQc)
                     {
                         <tr>
-                            <td class="nowrap">@q.PerformedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@q.PerformedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@(q.ReagentCode ?? "—") <span class="mono">@q.LotNumber</span></td>
                             <td>@q.ExpectedResult</td>
                             <td>@q.ObservedResult</td>
                             <td><span class="badge @(q.Passed ? "badge-green" : "badge-red")">@(q.Passed ? "Passed" : "Failed")</span></td>
                             <td>@q.PerformedBy</td>
-                            <td>@(q.ReviewedBy is null ? "Not reviewed" : $"{q.ReviewedBy} {q.ReviewedUtc:yyyy-MM-dd HH:mm}")</td>
+                            <td>@(q.ReviewedBy is null ? "Not reviewed" : $"{q.ReviewedBy} {q.ReviewedUtc?.ToLocalTime():yyyy-MM-dd HH:mm}")</td>
                         </tr>
                     }
                 </tbody>

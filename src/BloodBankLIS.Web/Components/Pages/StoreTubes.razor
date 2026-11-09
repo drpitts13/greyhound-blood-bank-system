@@ -130,8 +130,8 @@ else
                                 <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
                                 <td>@t.SpecimenType</td>
                                 <td>@Ui.EnumText(t.Status)</td>
-                                <td class="nowrap">@t.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                                <td class="nowrap">@t.StoredUtc?.ToString("yyyy-MM-dd HH:mm") <span class="sub">@t.StoredBy</span></td>
+                                <td class="nowrap">@t.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="nowrap">@t.StoredUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") <span class="sub">@t.StoredBy</span></td>
                                 <td class="nowrap">
                                     @if (t.KeepUntilUtc is DateTime keep)
                                     {
@@ -170,7 +170,7 @@ else
                             <td><a href="@($"/patients/{s.PatientId}?tab=specimens&specimen={s.SpecimenId}")">@s.PatientName</a> <span class="sub mono">@s.Mrn</span></td>
                             <td>@s.Location</td>
                             <td>@(s.PreviousLocation ?? "—")</td>
-                            <td class="nowrap">@s.StoredUtc.ToString("HH:mm:ss")</td>
+                            <td class="nowrap">@s.StoredUtc.ToLocalTime().ToString("HH:mm:ss")</td>
                         </tr>
                     }
                 </tbody>

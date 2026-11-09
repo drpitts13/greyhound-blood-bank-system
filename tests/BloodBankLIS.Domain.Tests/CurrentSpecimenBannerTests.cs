@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Enums;
+﻿using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Domain.Tests;
@@ -45,5 +45,17 @@ public class CurrentSpecimenBannerTests
         var cue = CurrentSpecimenBanner.Describe([soon], Now);
         Assert.False(cue.BlocksIssue);
         Assert.True(cue.ExpiresSoon);
+    }
+
+    // TEST-BB-716: the chart shows the specimen's times in the workstation's local time (it passes the conversion);
+    // the timing decision still uses UTC.
+    [Fact]
+    public void Times_AreShownThroughTheDisplayConversion()
+    {
+        var soon = new CurrentSpecimenBanner.Fact("ACC-SOON", SpecimenStatus.Accepted, Now.AddDays(-3), Now.AddMinutes(3));
+        var cue = CurrentSpecimenBanner.Describe([soon], Now, t => t.AddHours(-5));
+        Assert.True(cue.ExpiresSoon);
+        Assert.Equal("Specimen ACC-SOON expires soon, at 2026-09-29 17:03.", cue.Message);
+        Assert.Equal("Specimen ACC-SOON expires soon, at 2026-09-29 22:03.", CurrentSpecimenBanner.Describe([soon], Now).Message);
     }
 }

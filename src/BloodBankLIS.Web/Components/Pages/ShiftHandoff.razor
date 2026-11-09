@@ -25,7 +25,7 @@ else
         <div class="bb-card" style="margin-bottom:1.25rem;">
             <div class="bb-card-title"><h3>Awaiting acknowledgment</h3></div>
             <p style="margin:0 0 .75rem;">
-                From <span class="mono">@_open.FromUser</span> at @_open.RecordedUtc.ToString("yyyy-MM-dd HH:mm")
+                From <span class="mono">@_open.FromUser</span> at @_open.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                 @if (!string.IsNullOrWhiteSpace(_open.ToUser))
                 {
                     <span> → <span class="mono">@_open.ToUser</span></span>
@@ -110,7 +110,7 @@ else
                     @foreach (var row in _rows)
                     {
                         <tr>
-                            <td class="nowrap">@row.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@row.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="mono">@row.FromUser</td>
                             <td class="mono">@(row.ToUser ?? "—")</td>
                             <td class="muted" style="font-size:.85rem;">@QueueSummary(row)</td>
@@ -119,7 +119,7 @@ else
                                 @if (row.IsAcknowledged)
                                 {
                                     <span class="mono">@row.AcknowledgedBy</span>
-                                    <span class="muted">@row.AcknowledgedUtc?.ToString("yyyy-MM-dd HH:mm")</span>
+                                    <span class="muted">@row.AcknowledgedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                                 }
                                 else
                                 {

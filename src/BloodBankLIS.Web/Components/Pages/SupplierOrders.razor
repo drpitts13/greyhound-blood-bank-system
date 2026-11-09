@@ -64,11 +64,11 @@
                             }
                             @if (order.ArrivalOverdue)
                             {
-                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToString("yyyy-MM-dd HH:mm") UTC; chase the supplier" data-arrival-overdue>Arrival overdue</span>
+                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") UTC; chase the supplier" data-arrival-overdue>Arrival overdue</span>
                             }
                         </td>
                         <td class="right">@order.UnitsOrdered</td>
-                        <td>@order.CreatedUtc.ToString("yyyy-MM-dd HH:mm") &middot; @order.CreatedBy</td>
+                        <td>@order.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") &middot; @order.CreatedBy</td>
                         <td><button class="btn btn-ghost btn-sm" @onclick="() => Select(order)">Open</button></td>
                     </tr>
                 }
@@ -176,7 +176,7 @@
                         <option value="0">Select</option>
                         @foreach (var delivery in _deliveries.Where(d => d.BloodSupplierId == current.SupplierId))
                         {
-                            <option value="@delivery.Id">@(delivery.PackingListNumber ?? $"Delivery {delivery.Id}") &middot; @delivery.ReceivedUtc.ToString("yyyy-MM-dd")</option>
+                            <option value="@delivery.Id">@(delivery.PackingListNumber ?? $"Delivery {delivery.Id}") &middot; @delivery.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd")</option>
                         }
                     </select>
                 </div>

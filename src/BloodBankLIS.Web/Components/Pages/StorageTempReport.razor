@@ -99,7 +99,7 @@
                             <td class="right @(s.ExcursionEvents > 0 ? "text-error" : null)">@s.ExcursionEvents</td>
                             <td class="right @(s.ExcursionReadings > 0 ? "text-error" : null)">@s.ExcursionReadings</td>
                             <td class="right">@GapText(s.LongestGapHours)</td>
-                            <td>@s.LastReadingUtc?.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@s.LastReadingUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         </tr>
                     }
                 </tbody>
@@ -133,7 +133,7 @@
                     {
                         <tr>
                             <td class="mono">@r.LocationCode</td>
-                            <td class="nowrap">@r.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@r.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right">@r.ReadingC °C</td>
                             <td class="@(StorageTemperatureRule.IsExcursion(r.Status) ? "text-error" : null)">@StatusText(r.Status)</td>
                             <td>@RangeText(r.RangeMinC, r.RangeMaxC)</td>
@@ -244,7 +244,7 @@
         {
             r.LocationCode,
             names.GetValueOrDefault(r.LocationId),
-            r.ReadingUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+            r.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
             r.ReadingC.ToString(CultureInfo.InvariantCulture),
             StatusText(r.Status),
             r.RangeMinC?.ToString(CultureInfo.InvariantCulture),

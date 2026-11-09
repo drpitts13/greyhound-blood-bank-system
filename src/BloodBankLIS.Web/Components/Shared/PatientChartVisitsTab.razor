@@ -50,8 +50,8 @@
                             <a href="@PatientChartUrls.VisitOrders(PatientId, v.Id)" title="This visit's orders"><strong>@v.VisitNumber</strong></a>
                         </td>
                         <td>@Ui.EnumText(v.EncounterType)</td>
-                        <td class="nowrap">@(v.AdmitUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
-                        <td class="nowrap">@(v.DischargeUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td class="nowrap">@(v.AdmitUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td class="nowrap">@(v.DischargeUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                         <td>@(v.CurrentLocation ?? v.AdmissionLocation ?? "—")</td>
                         <td><span class="@(v.Status == EncounterStatus.Active ? "badge badge-green" : "badge")">@Ui.EnumText(v.Status)</span></td>
                         <td class="right nowrap">

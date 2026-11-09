@@ -111,7 +111,7 @@ else
                 <div class="field"><label>Product code</label><div class="mono">@ProductCode(_unit)</div></div>
                 <div class="field"><label>Product</label><div>@ProductName(_unit.ProductTypeId)</div></div>
                 <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
-                <div class="field"><label>Expires</label><div class="nowrap">@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+                <div class="field"><label>Expires</label><div class="nowrap">@_unit.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
                 <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.StatusLabel(_unit.Status)</span></div></div>
                 <div class="field"><label>Location</label><div>@LocationName(_unit.CurrentLocationId)</div></div>
                 <div class="field"><label>Volume</label><div>@(_unit.Volume is { } vol ? vol.ToString("0.###") : "—")</div></div>
@@ -466,7 +466,7 @@ else
                                 <td>@a.AntibodyName</td>
                                 <td>@a.Result</td>
                                 <td>@TypingSourceLabel(a.TypingSource)</td>
-                                <td class="nowrap">@a.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="nowrap">@a.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                 <td>@(string.IsNullOrWhiteSpace(a.CreatedBy) ? "—" : a.CreatedBy)</td>
                             </tr>
                         }
@@ -594,7 +594,7 @@ else
                         @foreach (var row in _activity)
                         {
                             <tr>
-                                <td class="nowrap">@row.WhenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="nowrap">@row.WhenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                 <td>@row.EventType</td>
                                 <td>@row.Summary</td>
                                 <td>@(row.ChangedBy ?? "—")</td>

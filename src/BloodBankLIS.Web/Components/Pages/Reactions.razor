@@ -146,7 +146,7 @@ else
                                         <span class="badge badge-amber" title="@r.FatalityFollowUpDetail">Follow-up due</span>
                                     }
                                 }
-                                <span class="sub nowrap">Report due @(r.WrittenReportDueUtc?.ToString("yyyy-MM-dd") ?? "—")</span>
+                                <span class="sub nowrap">Report due @(r.WrittenReportDueUtc?.ToLocalTime().ToString("yyyy-MM-dd") ?? "—")</span>
                             </td>
                             @* The patient name and unit number already open the chart and the unit. *@
                             <td class="right nowrap">

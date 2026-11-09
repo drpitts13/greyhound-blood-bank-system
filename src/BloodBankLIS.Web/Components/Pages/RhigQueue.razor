@@ -36,7 +36,7 @@
                     {
                         <tr>
                             <td><a href="@($"/patients/{r.PatientId}?tab=rhig")">@r.PatientName</a> <span class="sub mono">@r.Mrn</span></td>
-                            <td class="nowrap">@r.GivenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@r.GivenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@r.Vials</td>
                             <td>@r.GivenBy</td>
                         </tr>
@@ -68,9 +68,9 @@ else
                     var e = item.Evaluation;
                     <tr>
                         <td><a href="@($"/patients/{e.PatientId}?tab=rhig")">@item.PatientName</a> <span class="sub mono">@item.Mrn</span></td>
-                        <td class="nowrap">@Context(e.Context) @e.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@Context(e.Context) @e.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@Decision(e)</td>
-                        <td class="nowrap">@e.RecordedUtc.ToString("yyyy-MM-dd HH:mm") <span class="sub">@e.RecordedBy</span></td>
+                        <td class="nowrap">@e.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") <span class="sub">@e.RecordedBy</span></td>
                         <td>
                             @if (item.Evaluation.AwaitsGiving)
                             {
