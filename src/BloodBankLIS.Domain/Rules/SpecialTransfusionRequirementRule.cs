@@ -108,7 +108,7 @@ public static class SpecialTransfusionRequirementRule
                     var attr = requirement.ProductAttributeCode?.Trim();
                     if (string.IsNullOrEmpty(attr))
                     {
-                        results.Add(RuleResult.HardStop(Code, $"Special requirement {requirement.Code} is missing a product attribute code."));
+                        results.Add(RuleResult.HardStop(Code, $"Special requirement {requirement.Label} ({requirement.Code}) is missing a product attribute code."));
                         break;
                     }
 
@@ -177,7 +177,7 @@ public static class SpecialTransfusionRequirementRule
                     {
                         results.Add(RuleResult.HardStop(
                             Code,
-                            $"Active special requirement {requirement.Code} must be acknowledged at issue."));
+                            $"Active special requirement {requirement.Label} must be acknowledged at issue."));
                     }
 
                     break;

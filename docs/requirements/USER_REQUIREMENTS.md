@@ -641,3 +641,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-633 | The chart's antibody warning says which antibodies are known only from another facility's report, as the downtime sheet does. | P2 | FRS-BB-750 |
 | URS-BB-634 | Wherever a patient's antibodies are listed in brief (patient list, find box, Blood orders to prepare, downtime sheet), one known only from another facility's report names that facility. | P3 | FRS-BB-751 |
 | URS-BB-635 | The issue desk, the bench worklist, and the reaction investigation word a patient's antibodies as the chart does, naming an antibody known only from another facility's report. | P2 | FRS-BB-752 |
+| URS-BB-636 | When a special requirement stops a reservation or an issue, the message names the requirement as the chart does, not by its catalog code. | P2 | FRS-BB-753 |

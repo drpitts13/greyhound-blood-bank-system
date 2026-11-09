@@ -18199,3 +18199,23 @@ After Cycles 582–583 the chart and the brief lists named antibodies known only
 ### Tests
 
 - TEST-BB-670 (wording), TEST-BB-671 (issue desk summary), TEST-BB-672 (no copies).
+
+## Iteration 585 — Requirement hard stops named as on the chart (2026-11-08)
+
+### Capability matrix rescan (safety: hard-stop wording)
+
+After the antibody wording copies (Cycle 584), the special-requirement wording was searched the same way. Screens were clean (Cycle 566), but the hard stops behind reserve and issue were not: a requirement row with no catalog entry was named by its code ("Patient requires IRRAD: …"), and the issue acknowledgment stop always named the code ("Active special requirement CALL-TSMD must be acknowledged at issue."). Workflow questions: human-readable errors at the moment a unit is refused; consistent terminology with the chart.
+
+### Design
+
+- Legacy requirement references carry `SpecialRequirementLabel.TypeName`; the acknowledgment stop uses the requirement's name; the configuration error keeps the code in brackets beside the name.
+- A source test fails on a requirement type shown by its code name outside the FHIR mapper.
+
+### Requirements
+
+- URS-BB-636, FRS-BB-753.
+
+### Tests
+
+- TEST-BB-673: legacy Irradiated and Antigen-negative stops named by type; acknowledgment stop named, and gone once acknowledged; configuration error with name and code.
+- TEST-BB-674.
