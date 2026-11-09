@@ -56,7 +56,7 @@
     <div class="bb-card">
         <Outcome Value="_outputFb" />
         <div class="bb-card-title"><h3>Rendered output &middot; job #@_lastJob.Id</h3>
-            <span class="@Ui.Badge(_lastJob.Status)">@_lastJob.Status</span>
+            <span class="@Ui.Badge(_lastJob.Status)">@Ui.EnumText(_lastJob.Status)</span>
             <span class="muted">@_lastJob.DeliveryStatus</span>
         </div>
         @if (!string.IsNullOrEmpty(_lastJob.DeliveryError))
@@ -149,7 +149,7 @@
                                 @j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")
                             }
                         </td>
-                        <td><span class="@Ui.Badge(j.Status)">@j.Status</span></td>
+                        <td><span class="@Ui.Badge(j.Status)">@Ui.EnumText(j.Status)</span></td>
                         <td>@j.PrintedBy</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewJobAsync(j.Id)">View</button>

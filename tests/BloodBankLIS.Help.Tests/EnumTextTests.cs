@@ -55,8 +55,32 @@ public partial class EnumTextTests
         Assert.True(raw.Count == 0, "Option text shows the raw value; use @Ui.EnumText(...):" + Environment.NewLine + string.Join(Environment.NewLine, raw));
     }
 
+    // TEST-BB-681: a status badge, and a table cell showing a status, priority, source, category, or similar value, goes
+    // through Ui.EnumText too ("InProcess" was shown as is), and a unit status reads in words ("Shipped out").
+    [Fact]
+    public void BadgesAndStatusCells_DoNotShowCodeNames()
+    {
+        Assert.Equal("Shipped out", Ui.StatusLabel(UnitStatus.ShippedOut));
+        Assert.Equal("Returned to supplier", Ui.StatusLabel(UnitStatus.ReturnedToSupplier));
+        Assert.Equal("Pending Retype", Ui.StatusLabel(UnitStatus.Received));
+
+        var root = RepoRoot();
+        var raw = Directory.EnumerateFiles(Path.Combine(root, "src", "BloodBankLIS.Web", "Components"), "*.razor", SearchOption.AllDirectories)
+            .SelectMany(f => File.ReadAllLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
+            .Where(l => RawBadge().IsMatch(l.Text) || RawStatusCell().IsMatch(l.Text))
+            .Select(l => $"{Path.GetRelativePath(root, l.File)}:{l.Line}")
+            .ToList();
+        Assert.True(raw.Count == 0, "A badge or status cell shows the raw value; use @Ui.EnumText(...):" + Environment.NewLine + string.Join(Environment.NewLine, raw));
+    }
+
     [GeneratedRegex("<option value=\"@([A-Za-z_][A-Za-z0-9_]*)\"[^>]*>@\\1</option>")]
     private static partial Regex RawOption();
+
+    [GeneratedRegex("class=\"@Ui\\.Badge\\(([^()]*(?:\\([^()]*\\))?[^()]*)\\)\"[^>]*>@\\(?\\1\\)?</span>")]
+    private static partial Regex RawBadge();
+
+    [GeneratedRegex(">@[A-Za-z_][A-Za-z0-9_]*\\.(Status|Priority|Source|OrderCategory|IssueType|Category|Severity|Direction|Level|DisplayStatus|FinalDisposition|ResultStatus|FulfillmentStatus|EncounterType|LineCategory|Kind)<")]
+    private static partial Regex RawStatusCell();
 
     private static string RepoRoot()
     {

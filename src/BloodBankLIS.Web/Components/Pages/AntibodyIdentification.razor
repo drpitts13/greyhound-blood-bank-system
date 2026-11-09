@@ -292,7 +292,7 @@ else
                     {
                         <tr>
                             <td><strong>@a.AntibodySpecificity</strong></td>
-                            <td>@a.Status</td>
+                            <td>@Ui.EnumText(a.Status)</td>
                             <td>@(a.IsActive ? "Yes" : "No")</td>
                         </tr>
                     }
@@ -466,7 +466,7 @@ else
                         <tr>
                             <td><strong>@f.Specificity</strong></td>
                             <td>@f.Classification</td>
-                            <td>@f.Source</td>
+                            <td>@Ui.EnumText(f.Source)</td>
                             <td>@(f.PostedToHistory ? "Posted" : f.Source == AntibodyIdSource.Technologist && f.Classification == AntibodyIdClassification.Identified ? "Will post on complete" : "—")</td>
                             <td>@f.Rationale</td>
                         </tr>

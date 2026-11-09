@@ -188,7 +188,7 @@
             @if (_lastAllocation is not null)
             {
                 <div class="alert alert-info" style="margin-top:1rem;">
-                    Allocation <strong>#@_lastAllocation.Id</strong> for unit @_lastAllocation.BloodUnitId &mdash; <span class="@Ui.Badge(_lastAllocation.Status)">@_lastAllocation.Status</span>
+                    Allocation <strong>#@_lastAllocation.Id</strong> for unit @_lastAllocation.BloodUnitId &mdash; <span class="@Ui.Badge(_lastAllocation.Status)">@Ui.EnumText(_lastAllocation.Status)</span>
                     <div class="flex gap" style="margin-top:.5rem;">
                         <input @bind="_releaseReason" @bind:event="oninput" placeholder="Release reason" style="flex:1;" />
                         <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReason))" @onclick="() => ReleaseAsync(_lastAllocation.Id)">Release</button>

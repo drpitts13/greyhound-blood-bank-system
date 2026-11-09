@@ -46,7 +46,7 @@
                     {
                         <tr>
                             <td class="mono">@a.Path</td>
-                            <td>@a.Kind</td>
+                            <td>@Ui.EnumText(a.Kind)</td>
                             <td class="nowrap">@a.AvailableTo</td>
                             <td>@a.Description</td>
                             <td class="mono">@a.Example</td>
@@ -70,7 +70,7 @@
                 {
                     <tr>
                         <td class="mono">@(f.Name)(...)</td>
-                        <td>@f.Kind</td>
+                        <td>@Ui.EnumText(f.Kind)</td>
                         <td class="nowrap">@f.AvailableTo</td>
                         <td>@f.Description</td>
                         <td class="mono">@f.Example</td>

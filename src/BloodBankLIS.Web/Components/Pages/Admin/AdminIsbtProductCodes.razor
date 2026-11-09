@@ -59,7 +59,7 @@
                     <tbody>
                         @foreach (var item in ready.Problems)
                         {
-                            <tr><td>@item.Kind</td><td><a href="@item.Href">@item.Label</a></td><td>@item.Problem</td></tr>
+                            <tr><td>@Ui.EnumText(item.Kind)</td><td><a href="@item.Href">@item.Label</a></td><td>@item.Problem</td></tr>
                         }
                     </tbody>
                 </table>

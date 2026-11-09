@@ -64,7 +64,7 @@
                     {
                         <tr>
                             <td class="nowrap">@log.OccurredUtc.ToString("HH:mm:ss")</td>
-                            <td>@log.Level</td>
+                            <td>@Ui.EnumText(log.Level)</td>
                             <td class="mono">@log.EventType</td>
                             <td>@log.Message</td>
                         </tr>

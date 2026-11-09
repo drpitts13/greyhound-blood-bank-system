@@ -101,7 +101,7 @@ else
                                 <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
                                 <td>@(row.ProductName ?? "—")</td>
                                 <td>@row.BloodType</td>
-                                <td>@row.Status</td>
+                                <td>@Ui.EnumText(row.Status)</td>
                                 <td>@(row.RecordedLocation ?? "No location")</td>
                                 <td class="right">
                                     @if (!c.Recorded)

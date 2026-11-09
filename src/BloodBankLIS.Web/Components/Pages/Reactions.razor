@@ -136,7 +136,7 @@ else
                                     <span class="badge badge-red">Not held</span>
                                 }
                             </td>
-                            <td>@r.Severity<span class="sub">@r.Status</span></td>
+                            <td>@Ui.EnumText(r.Severity)<span class="sub">@Ui.EnumText(r.Status)</span></td>
                             <td>
                                 @if (r.IsFatality)
                                 {

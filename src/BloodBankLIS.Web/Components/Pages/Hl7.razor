@@ -182,7 +182,7 @@
                 {
                     <tr>
                         <td>@m.Id</td>
-                        <td>@m.Direction</td>
+                        <td>@Ui.EnumText(m.Direction)</td>
                         <td>@m.MessageType@(string.IsNullOrEmpty(m.TriggerEvent) ? "" : $"^{m.TriggerEvent}")</td>
                         <td>
                             @if (m.PatientId is long patientId)
@@ -198,7 +198,7 @@
                         <td class="mono">@FormatContext(m.PlacerOrderNumber, m.TestCode, m.UnitNumber)</td>
                         <td class="mono">@m.MessageControlId</td>
                         <td class="nowrap">@m.ReceivedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td><span class="@Ui.Badge(m.Status)">@m.Status</span></td>
+                        <td><span class="@Ui.Badge(m.Status)">@Ui.EnumText(m.Status)</span></td>
                         <td class="mono">@m.AckCode</td>
                         <td class="right nowrap">
                             @if (m.PatientId is long logChartId)

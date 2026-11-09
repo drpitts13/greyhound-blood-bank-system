@@ -18,7 +18,7 @@
             <h4>ABO retype</h4>
             <p>
                 <strong>@ProductRetypeEntryCopy.Format(Detail.Latest!.InterpretedAbo, Detail.Latest.InterpretedRh)</strong>
-                <span class="@Ui.Badge(Detail.Latest.Status)">@Detail.Latest.Status</span>
+                <span class="@Ui.Badge(Detail.Latest.Status)">@Ui.EnumText(Detail.Latest.Status)</span>
                 entered by @Detail.Latest.EnteredBy at @Detail.Latest.EnteredUtc.ToString("yyyy-MM-dd HH:mm")
                 @if (!string.IsNullOrWhiteSpace(Detail.Latest.VerifiedBy))
                 {

@@ -41,7 +41,7 @@
                 @foreach (var alert in ShownOpen)
                 {
                     <tr>
-                        <td><span class="badge @SeverityClass(alert.Severity)">@alert.Severity</span></td>
+                        <td><span class="badge @SeverityClass(alert.Severity)">@Ui.EnumText(alert.Severity)</span></td>
                         <td>
                             <div>@if (alert.Link is not null) { <a href="@alert.Link">@alert.Title</a> } else { @alert.Title }</div>
                             <div class="muted">@alert.Message</div>
@@ -73,7 +73,7 @@
                 @foreach (var alert in Closed)
                 {
                     <tr>
-                        <td><span class="badge @SeverityClass(alert.Severity)">@alert.Severity</span></td>
+                        <td><span class="badge @SeverityClass(alert.Severity)">@Ui.EnumText(alert.Severity)</span></td>
                         <td>@alert.Title</td>
                         <td class="nowrap">@alert.RaisedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>

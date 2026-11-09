@@ -98,7 +98,7 @@ else
                                         <span class="sub" data-corrective-action>Corrective action: @d.CorrectiveAction</span>
                                     }
                                 </td>
-                                <td><span class="badge @SeverityClass(d.Severity)">@d.Severity</span></td>
+                                <td><span class="badge @SeverityClass(d.Severity)">@Ui.EnumText(d.Severity)</span></td>
                                 <td>
                                     @d.Status
                                     @if (d.Status == DeviationStatus.Closed && d.ClosedUtc is DateTime closedAt)

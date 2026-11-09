@@ -689,5 +689,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-678 | U | `ReadyToIssuePageTests.SharedElectronicCrossmatchNotice_IsSaidOnce` (and `DifferingElectronicCrossmatchNotices_StayOnTheirRows`) | URS-BB-638 / FRS-BB-755 |
 | TEST-BB-679 | U | `EnumTextTests.EnumText_ReadsAsWords` (and `EnumText_KeepsAcronyms`) | URS-BB-639 / FRS-BB-756 |
 | TEST-BB-680 | U | `EnumTextTests.Dropdowns_DoNotShowCodeNames` | URS-BB-639 / FRS-BB-756 |
+| TEST-BB-681 | U | `EnumTextTests.BadgesAndStatusCells_DoNotShowCodeNames` | URS-BB-639 / FRS-BB-756 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

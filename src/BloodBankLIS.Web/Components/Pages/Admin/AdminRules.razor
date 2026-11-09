@@ -57,8 +57,8 @@
                     <tr>
                         <td class="mono">@r.Code</td>
                         <td>@r.Name</td>
-                        <td>@r.Level</td>
-                        <td>@r.Priority</td>
+                        <td>@Ui.EnumText(r.Level)</td>
+                        <td>@Ui.EnumText(r.Priority)</td>
                         <td class="mono">@r.ConditionExpression</td>
                         <td class="mono">@r.ActionExpression</td>
                         <td>@r.Version</td>

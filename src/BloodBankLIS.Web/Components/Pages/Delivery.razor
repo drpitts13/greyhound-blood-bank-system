@@ -69,7 +69,7 @@ else
                     <div class="mono">@(_delivery.PackingListNumber ?? "—")</div>
                 }
             </div>
-            <div class="field"><label>Status</label><div>@_delivery.Status</div></div>
+            <div class="field"><label>Status</label><div>@Ui.EnumText(_delivery.Status)</div></div>
         </div>
     </div>
 

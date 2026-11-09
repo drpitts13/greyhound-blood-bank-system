@@ -97,7 +97,7 @@
                         <td>
                             @if (IsRush(item.Priority))
                             {
-                                <span class="badge badge-red">@item.Priority</span>
+                                <span class="badge badge-red">@Ui.EnumText(item.Priority)</span>
                             }
                             else
                             {

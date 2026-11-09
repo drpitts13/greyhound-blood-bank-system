@@ -57,7 +57,7 @@
                         <td class="mono">@order.OrderNumber</td>
                         <td>@order.SupplierName</td>
                         <td>
-                            <span class="badge @StatusClass(order.Status)">@order.Status</span>
+                            <span class="badge @StatusClass(order.Status)">@Ui.EnumText(order.Status)</span>
                             @if (order.UnitsShort > 0)
                             {
                                 <span class="badge badge-amber" style="margin-left:.25rem;" data-order-short>Short @order.UnitsShort</span>

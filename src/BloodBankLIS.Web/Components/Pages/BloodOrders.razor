@@ -51,11 +51,11 @@ else
                             <a class="mono" href="@PatientChartUrls.Order(r.PatientId, r.OrderNumber)" title="Open this order's history on the chart" data-order-history-link>@r.OrderNumber</a>
                             @if (r.Rush)
                             {
-                                <span class="badge badge-red">@r.Priority</span>
+                                <span class="badge badge-red">@Ui.EnumText(r.Priority)</span>
                             }
                             else
                             {
-                                <span class="sub">@r.Priority</span>
+                                <span class="sub">@Ui.EnumText(r.Priority)</span>
                             }
                             <span class="sub nowrap">ordered @r.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                             @if (r.NeededByUtc is DateTime neededBy)

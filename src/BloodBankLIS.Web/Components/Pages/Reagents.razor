@@ -33,7 +33,7 @@
                 @foreach (var row in _work)
                 {
                     <tr>
-                        <td>@row.Kind</td>
+                        <td>@Ui.EnumText(row.Kind)</td>
                         <td class="mono">@row.LotNumber</td>
                         <td>@row.Message</td>
                         <td>

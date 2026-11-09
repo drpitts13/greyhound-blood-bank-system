@@ -147,7 +147,7 @@
                         <tr>
                             <td class="mono">@r.RuleCode</td>
                             <td>@r.ComponentClass</td>
-                            <td>@r.Severity</td>
+                            <td>@Ui.EnumText(r.Severity)</td>
                             <td>
                                 @if (r.AtIssue == CompatibilityTablePolicy.AtIssueRaises)
                                 {

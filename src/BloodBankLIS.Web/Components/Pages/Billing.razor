@@ -107,7 +107,7 @@
                             </td>
                             <td class="nowrap">@c.ServiceDateUtc.ToString("yyyy-MM-dd")</td>
                             <td class="right">@(c.Amount?.ToString("C") ?? "—")</td>
-                            <td><span class="@Ui.Badge(c.Status)">@c.Status</span></td>
+                            <td><span class="@Ui.Badge(c.Status)">@Ui.EnumText(c.Status)</span></td>
                             @* Patient, test / unit, and DFT cells link to their records, so this column holds only the charge actions. *@
                             <td class="right nowrap">
                                 @if (c.Status == BillingEventStatus.Pending)

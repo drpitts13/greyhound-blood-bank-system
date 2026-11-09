@@ -48,7 +48,7 @@
                         <td>@e.Name</td>
                         <td>@e.InterfaceType</td>
                         <td>@(string.IsNullOrWhiteSpace(e.VendorCode) ? "Custom" : e.VendorCode)</td>
-                        <td>@e.Direction</td>
+                        <td>@Ui.EnumText(e.Direction)</td>
                         <td class="mono">@(e.Host is null ? "—" : $"{e.Host}:{e.Port}")</td>
                         <td>
                             @if (e.IsEnabled) { <span class="badge badge-green">Enabled</span> }

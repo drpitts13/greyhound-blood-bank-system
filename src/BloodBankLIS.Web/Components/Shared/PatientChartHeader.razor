@@ -17,7 +17,7 @@
             {
                 <span data-patient-ethnicity> &middot; @ethnicity</span>
             }
-            &middot; <span class="badge @(Patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@Patient.Status</span>
+            &middot; <span class="badge @(Patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@Ui.EnumText(Patient.Status)</span>
             @if (!string.IsNullOrWhiteSpace(Patient.Comment))
             {
                 <span> &middot; @Patient.Comment</span>

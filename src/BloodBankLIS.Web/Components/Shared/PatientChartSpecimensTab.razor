@@ -144,7 +144,7 @@
                         <td class="nowrap">@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="nowrap">@(s.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                         <td>
-                            <span class="@Ui.Badge(s.Status)">@s.Status</span>
+                            <span class="@Ui.Badge(s.Status)">@Ui.EnumText(s.Status)</span>
                             @if (!string.IsNullOrWhiteSpace(s.StorageLocation))
                             {
                                 <div class="sub" data-specimen-stored>Stored: @s.StorageLocation</div>

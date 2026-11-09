@@ -18291,3 +18291,25 @@ Walking the issue form on the development database (Issue on a Ready to issue ro
 ### Still to do
 
 - Enum values shown as plain text outside dropdowns (for example an order status "InProcess" in a table cell) are not yet covered.
+
+## Iteration 589 — Status badges and columns in words (2026-11-09)
+
+### Capability matrix rescan (UX: consistent status terminology)
+
+Cycle 588 worded the dropdowns and left plain-text values for later. Badges showing their own value (`@Ui.Badge(x)">@x`) and table cells showing a status, priority, source, category, or similar value still read as code names ("InProcess", "OnHold", "ShippedOut"), and `Ui.StatusLabel` returned unit status names unchanged apart from Pending Retype.
+
+### Design
+
+- `Ui.EnumText` on 20 badges and 42 cells (any value: non-enums such as a numeric rule priority unchanged); `Ui.StatusLabel` words unit statuses. Source tests fail on a new raw badge or status cell.
+
+### Verification
+
+- Live: the chart's Orders tab shows "In process"; inventory shows "On hold", "Pending Retype"; every page still renders.
+
+### Requirements
+
+- URS-BB-639, FRS-BB-756 (extended).
+
+### Tests
+
+- TEST-BB-681.

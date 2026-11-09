@@ -3208,8 +3208,8 @@ else
                                     }
                                 </td>
                                 <td>@r.Version</td>
-                                <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
-                                <td>@r.Source</td>
+                                <td><span class="@Ui.Badge(r.Status)">@Ui.EnumText(r.Status)</span></td>
+                                <td>@Ui.EnumText(r.Source)</td>
                                 <td>@r.VerifiedBy</td>
                                 <td class="right">
                                     @if (CanSubmitForVerification(r))
@@ -3279,8 +3279,8 @@ else
                                                     <tr>
                                                         <td>@p.Version</td>
                                                         <td>@DisplayResultValue(p)</td>
-                                                        <td><span class="@Ui.Badge(p.Status)">@p.Status</span></td>
-                                                        <td>@p.Source</td>
+                                                        <td><span class="@Ui.Badge(p.Status)">@Ui.EnumText(p.Status)</span></td>
+                                                        <td>@Ui.EnumText(p.Source)</td>
                                                         <td>@VersionReason(p)</td>
                                                         <td>@(p.InvalidatedBy ?? p.VerifiedBy ?? p.EnteredBy)</td>
                                                         <td class="mono">@(p.InvalidatedUtc ?? p.VerifiedUtc ?? p.EnteredUtc)</td>

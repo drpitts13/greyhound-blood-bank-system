@@ -42,7 +42,7 @@
             <div class="field"><label>Volume</label><div>@FormatVolume(_unit.Volume)</div></div>
             <div class="field"><label>Location</label><div>@FormatUnitLocation(_unit.CurrentLocationId)</div></div>
             <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
-            <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@_unit.Status</span></div></div>
+            <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.EnumText(_unit.Status)</span></div></div>
             <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
         </div>
 
@@ -294,7 +294,7 @@
                         <td>@FormatVolume(u.Volume)</td>
                         <td>@Ui.BloodType(u.Abo, u.RhD)</td>
                         <td>
-                            <span class="@Ui.Badge(u.Status)">@u.Status</span>
+                            <span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span>
                             @if (releaseCue is not null)
                             {
                                 <div class="muted">@releaseCue</div>

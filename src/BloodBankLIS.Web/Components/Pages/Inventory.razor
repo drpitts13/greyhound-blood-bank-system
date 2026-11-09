@@ -316,7 +316,7 @@
                         <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                         <td>@ProductName(row.ProductTypeId)</td>
                         <td>@row.LocationLabel</td>
-                        <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                        <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
                         <td class="nowrap">
                             @row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
                             <span class="badge badge-amber">Near expiry</span>
@@ -534,7 +534,7 @@
                             <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
-                            <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                            <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
                             <td>@(row.Reason ?? "—")</td>
                             <td>@row.LocationLabel</td>
                             <td class="right nowrap">

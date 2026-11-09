@@ -15,7 +15,7 @@
                 <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
                 <td>@(row.ProductName ?? "—")</td>
                 <td>@row.BloodType</td>
-                <td>@row.Status</td>
+                <td>@Ui.EnumText(row.Status)</td>
                 @if (ShowIssue)
                 {
                     <td>@(row.PatientName ?? "—") <span class="sub mono">@row.MedicalRecordNumber</span></td>

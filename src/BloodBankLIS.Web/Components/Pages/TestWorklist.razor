@@ -260,7 +260,7 @@
                         <td>
                             @if (IsRush(item.Priority))
                             {
-                                <span class="badge badge-red">@item.Priority</span>
+                                <span class="badge badge-red">@Ui.EnumText(item.Priority)</span>
                             }
                             else
                             {
@@ -373,7 +373,7 @@
                                 <span class="badge badge-red">Expired</span>
                             }
                         </td>
-                        <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                        <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
                         <td class="right nowrap">
                             @if (row.IsExpired)
                             {

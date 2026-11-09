@@ -47,7 +47,7 @@
                                 <span class="sub" data-titer-trend>@h.Trend</span>
                             }
                         </td>
-                        <td><span class="@Ui.Badge(h.Status)">@h.Status</span>@(h.IsCurrent ? null : " prior")</td>
+                        <td><span class="@Ui.Badge(h.Status)">@Ui.EnumText(h.Status)</span>@(h.IsCurrent ? null : " prior")</td>
                         <td>@(h.Reason ?? "—")</td>
                         <td class="mono">
                             @if (!string.IsNullOrWhiteSpace(h.AccessionNumber))

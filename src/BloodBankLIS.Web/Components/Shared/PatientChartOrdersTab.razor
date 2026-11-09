@@ -299,7 +299,7 @@
                             {
                                 <div class="muted">
                                     Action: @action.ActionName
-                                    <span class="@Ui.Badge(action.Status)">@action.Status</span>
+                                    <span class="@Ui.Badge(action.Status)">@Ui.EnumText(action.Status)</span>
                                     @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive && action.Status == OrderActionStatus.Pending)
                                     {
                                         <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnRemoveAction.InvokeAsync((o.Id, action.Id))">Remove</button>
@@ -317,7 +317,7 @@
                                 </div>
                             }
                         </td>
-                        <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@o.Priority</span> } else { @o.Priority }</td>
+                        <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@Ui.EnumText(o.Priority)</span> } else { @o.Priority }</td>
                         <td>@o.OrderingLocationName<span class="sub">@(o.OrderingProvider ?? "—")</span></td>
                         <td class="mono">
                             @(o.AccessionNumber ?? "—")
@@ -329,7 +329,7 @@
                             }
                         </td>
                         <td>
-                            <span class="@Ui.Badge(o.Status)">@o.Status</span>
+                            <span class="@Ui.Badge(o.Status)">@Ui.EnumText(o.Status)</span>
                             @if (o.Status == OrderStatus.Cancelled && !string.IsNullOrWhiteSpace(o.CancellationReason))
                             {
                                 <div class="muted">@(string.IsNullOrWhiteSpace(o.CancellationReasonCode) ? o.CancellationReason : $"{o.CancellationReasonCode} — {o.CancellationReason}")</div>

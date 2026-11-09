@@ -24,7 +24,7 @@ else if (_report is { } r)
     <div class="mtp-report" data-reaction-report>
         <h1>Transfusion reaction investigation #@inv.Id</h1>
         <p class="mtp-report-sub">
-            Printed @r.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") (local time) &middot; Status: <strong>@inv.Status</strong>
+            Printed @r.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") (local time) &middot; Status: <strong>@Ui.EnumText(inv.Status)</strong>
         </p>
         @if (inv.Status != ReactionInvestigationStatus.Closed)
         {

@@ -333,7 +333,7 @@
                     {
                         <tr>
                             <td><strong>@a.AntibodySpecificity</strong></td>
-                            <td>@a.Status</td>
+                            <td>@Ui.EnumText(a.Status)</td>
                             <td>
                                 @if (a.SourceLabel is { } source)
                                 {

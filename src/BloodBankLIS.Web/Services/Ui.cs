@@ -22,7 +22,7 @@ public static class Ui
     };
 
     public static string StatusLabel(UnitStatus status) =>
-        status == UnitStatus.Received ? "Pending Retype" : status.ToString();
+        status == UnitStatus.Received ? "Pending Retype" : CodeNameText(status.ToString());
 
     /// <summary>
     /// How a choice reads in a dropdown: an enum in words ("EmergencyRelease" → "Emergency release", "CmvNegative" →

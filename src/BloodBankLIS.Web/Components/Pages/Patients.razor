@@ -176,7 +176,7 @@
                             }
                             </div>
                         </td>
-                        <td><span class="badge badge-gray">@p.Status</span></td>
+                        <td><span class="badge badge-gray">@Ui.EnumText(p.Status)</span></td>
                         @* The MRN and name already open the chart; only the extra destination gets a button. *@
                         <td class="right nowrap">
                             @if (Session.Has(PermissionCodes.LookbackManage))

@@ -129,7 +129,7 @@ else
                                 <td class="mono">@t.AccessionNumber</td>
                                 <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
                                 <td>@t.SpecimenType</td>
-                                <td>@t.Status</td>
+                                <td>@Ui.EnumText(t.Status)</td>
                                 <td class="nowrap">@t.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                                 <td class="nowrap">@t.StoredUtc?.ToString("yyyy-MM-dd HH:mm") <span class="sub">@t.StoredBy</span></td>
                                 <td class="nowrap">
