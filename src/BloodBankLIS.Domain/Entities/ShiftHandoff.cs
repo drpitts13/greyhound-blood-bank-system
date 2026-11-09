@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Common;
+﻿using BloodBankLIS.Domain.Common;
 
 namespace BloodBankLIS.Domain.Entities;
 
@@ -117,6 +117,9 @@ public class ShiftHandoff : BaseEntity
 
     /// <summary>Of those, orders needed within the facility's warning window (OCD-075; 0 while the window is off).</summary>
     public int BloodOrdersNeededSoon { get; set; }
+
+    /// <summary>Of the active protocols, those with no unit issued under them for the facility reminder minutes (OCD-076).</summary>
+    public int ActiveMtpIdle { get; set; }
 
     public string? AcknowledgedBy { get; set; }
 

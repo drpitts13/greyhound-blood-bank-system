@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
@@ -31,7 +31,8 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
             audit: new AuditWriter(context, _factory.Clock, user ?? _factory.CurrentUser),
             permissions: permissions,
             users: directory ? new EfRepository<User>(context) : null,
-            mtpActivations: directory ? new EfRepository<MtpActivation>(context) : null);
+            mtpActivations: directory ? new EfRepository<MtpActivation>(context) : null,
+            issues: directory ? new EfRepository<Issue>(context) : null);
 
     // TEST-BB-330: a read-only permission cannot accept responsibility for open bench work.
     [Fact]
@@ -89,15 +90,25 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         var activeBefore = await context.MtpActivations.CountAsync(a => a.Status == MtpActivationStatus.Active);
         context.MtpActivations.AddRange(
             new MtpActivation { PatientId = patient.Id, RequestedBy = "Dr. A", Reason = "Shock", ActivatedBy = "tech1", ActivatedUtc = _factory.Clock.UtcNow },
-            new MtpActivation { PatientId = patient.Id, RequestedBy = "Dr. A", Reason = "Earlier", ActivatedBy = "tech1", ActivatedUtc = _factory.Clock.UtcNow.AddDays(-1), Status = MtpActivationStatus.Closed });
+            new MtpActivation { PatientId = patient.Id, RequestedBy = "Dr. A", Reason = "Earlier", ActivatedBy = "tech1", ActivatedUtc = _factory.Clock.UtcNow.AddDays(-1), Status = MtpActivationStatus.Closed },
+            new MtpActivation { PatientId = patient.Id, RequestedBy = "Dr. A", Reason = "Left open", ActivatedBy = "tech1", ActivatedUtc = _factory.Clock.UtcNow.AddHours(-6) });
         await context.SaveChangesAsync();
 
         var created = await CreateService(context, permissions: new FixedPermissionEvaluator(1, PermissionCodes.ShiftHandoff), directory: true)
             .CreateAsync(new CreateShiftHandoffRequest($"MTP running in trauma bay {Guid.NewGuid():N}"));
 
         Assert.True(created.Succeeded, created.Error);
-        Assert.Equal(activeBefore + 1, created.Value!.ActiveMtp);
-        Assert.Equal(activeBefore + 1, ShiftHandoffDto.From(created.Value).ActiveMtp);
+        Assert.Equal(activeBefore + 2, created.Value!.ActiveMtp);
+        var dto = ShiftHandoffDto.From(created.Value);
+        Assert.Equal(activeBefore + 2, dto.ActiveMtp);
+        // TEST-BB-714: the one called six hours ago with nothing issued is counted as idle (default 240 minutes), kept with
+        // the handoff, and named on the item and the summary; the one called now is not.
+        Assert.True(created.Value.ActiveMtpIdle >= 1);
+        Assert.True(created.Value.ActiveMtpIdle < created.Value.ActiveMtp);
+        Assert.Equal(created.Value.ActiveMtpIdle, dto.ActiveMtpIdle);
+        Assert.Contains($"({dto.ActiveMtpIdle} idle, to close)", dto.QueueSummary);
+        var item = Assert.Single(ShiftHandoffItems.For(dto), i => i.Label == "Massive transfusion active");
+        Assert.Equal(($"{dto.ActiveMtpIdle} idle, to close", true), (item.Detail, item.Urgent));
     }
 
     // TEST-BB-460: the packet counts coolers still in transit and how many were not checked or had differences. The

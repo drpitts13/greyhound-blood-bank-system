@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 
@@ -249,6 +249,7 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "BloodOrdersToPrepare", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersToPrepare" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "BloodOrdersPastNeededBy", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersPastNeededBy" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "BloodOrdersNeededSoon", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersNeededSoon" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ActiveMtpIdle", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ActiveMtpIdle" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "UnidentifiedPatients", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "UnidentifiedPatients" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "TubesDueForDiscard", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TubesDueForDiscard" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RhigOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigOpen" INTEGER NOT NULL DEFAULT 0"""),

@@ -1,4 +1,4 @@
-namespace BloodBankLIS.Application.Compliance;
+﻿namespace BloodBankLIS.Application.Compliance;
 
 /// <summary>One queue in a shift handoff: what it is, how many, anything needing attention, and where to work it.</summary>
 public sealed record ShiftHandoffItem(string Label, int Count, string Href, bool Urgent, string? Detail = null);
@@ -27,7 +27,8 @@ public static class ShiftHandoffItems
             return text.Length == 0 ? null : text;
         }
 
-        Add(h.ActiveMtp, "Massive transfusion active", "/issuing", urgent: true);
+        // An idle protocol (nothing issued for the reminder minutes, OCD-076) is named so the next shift closes it if the bleeding is controlled.
+        Add(h.ActiveMtp, "Massive transfusion active", "/issuing", urgent: true, Note((h.ActiveMtpIdle, "idle, to close")));
         Add(h.RetrospectiveIncompatible, "Incompatible after release", "/issuing?desk=retro", urgent: true);
         Add(h.CriticalDeviations, "Critical deviation open", "/deviations", urgent: true);
         Add(h.ReagentLotsFailedQc, "Reagent QC failed", "/reagents", urgent: true,

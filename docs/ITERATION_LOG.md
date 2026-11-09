@@ -18669,3 +18669,29 @@ Walking the returns desk: the return form has no preset answers (inspections una
 ### Next
 
 - Shift handoff: count open MTPs (idle ones urgent).
+
+## Iteration 603 — The handoff names idle massive transfusion protocols (2026-11-09)
+
+### Capability matrix rescan (shift handoff)
+
+Cycle 602's next step. The handoff already listed "Massive transfusion active" first and urgent, but could not tell a running protocol from one forgotten for days, so the next shift had no prompt to close it.
+
+### Design
+
+- The handoff counts active protocols idle for the reminder minutes (the Cycle 602 rule and policy), stores the count with the handoff (migration, development bootstrap column), and shows "n idle, to close" on the item and in the summary line.
+
+### Verification
+
+- The handoff test now adds a protocol called six hours ago: counted idle, stored, named on the item and summary; the one called now is not. Live: the handoff preview (nothing recorded) reads "Massive transfusion active: 1 (1 idle, to close)", and the API applied the migration and bootstrap column at start.
+
+### Requirements
+
+- URS-BB-651, FRS-BB-768 (extended).
+
+### Tests
+
+- TEST-BB-714.
+
+### Next
+
+- Walk the antigen typing (unit) entry for preset answers.

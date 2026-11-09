@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
@@ -58,13 +58,14 @@ public sealed record ShiftHandoffDto(
     int TubesDueForDiscard = 0,
     int BloodOrdersToPrepare = 0,
     int BloodOrdersPastNeededBy = 0,
-    int BloodOrdersNeededSoon = 0)
+    int BloodOrdersNeededSoon = 0,
+    int ActiveMtpIdle = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
     /// <summary>One line for the handoff list: safety items first, then each queue with what needs attention.</summary>
     public string QueueSummary =>
-        (ActiveMtp > 0 ? $"MASSIVE TRANSFUSION ACTIVE: {ActiveMtp}; " : "") +
+        (ActiveMtp > 0 ? $"MASSIVE TRANSFUSION ACTIVE: {ActiveMtp}{(ActiveMtpIdle > 0 ? $" ({ActiveMtpIdle} idle, to close)" : "")}; " : "") +
         (RetrospectiveIncompatible > 0 ? $"INCOMPATIBLE AFTER RELEASE: {RetrospectiveIncompatible}; " : "") +
         (CriticalDeviations > 0 ? $"CRITICAL DEVIATION OPEN: {CriticalDeviations}; " : "") +
         (ReagentLotsFailedQc > 0
@@ -119,7 +120,7 @@ public sealed record ShiftHandoffDto(
         h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
-        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon);
+        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle);
 }
 
 /// <summary>
@@ -140,6 +141,8 @@ public sealed class ShiftHandoffService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<User>? _users;
     private readonly IRepository<MtpActivation>? _mtpActivations;
+    private readonly IRepository<Issue>? _issueRecords;
+    private readonly FacilityPolicyService? _policy;
     private readonly InventoryService? _inventory;
     private readonly CoolerCheckService? _coolers;
     // Read directly, like the other counts: whoever hands off sees open deviations without deviation.manage.
@@ -179,9 +182,13 @@ public sealed class ShiftHandoffService
         IRepository<RhigEvaluation>? rhig = null,
         IRepository<Patient>? patients = null,
         BloodBankLIS.Application.Specimens.SpecimenStorageService? tubeStorage = null,
-        BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null)
+        BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null,
+        IRepository<Issue>? issues = null,
+        FacilityPolicyService? policy = null)
     {
         _bloodOrders = bloodOrders;
+        _issueRecords = issues;
+        _policy = policy;
         _patientCharts = patients;
         _tubeStorage = tubeStorage;
         _hl7Errors = hl7Errors;
@@ -387,7 +394,8 @@ public sealed class ShiftHandoffService
             TubesDueForDiscard = _tubeStorage is null ? 0 : (await _tubeStorage.ListDueForDiscardAsync(ct)).Count,
             BloodOrdersToPrepare = bloodOrders.Count,
             BloodOrdersPastNeededBy = bloodOrders.Count(o => o.NeededByPassed),
-            BloodOrdersNeededSoon = bloodOrders.Count(o => o.NeededBySoon)
+            BloodOrdersNeededSoon = bloodOrders.Count(o => o.NeededBySoon),
+            ActiveMtpIdle = await CountIdleMtpAsync(now, ct)
         };
     }
 
@@ -468,7 +476,8 @@ public sealed class ShiftHandoffService
         TubesDueForDiscard = row.TubesDueForDiscard,
         BloodOrdersToPrepare = row.BloodOrdersToPrepare,
         BloodOrdersPastNeededBy = row.BloodOrdersPastNeededBy,
-        BloodOrdersNeededSoon = row.BloodOrdersNeededSoon
+        BloodOrdersNeededSoon = row.BloodOrdersNeededSoon,
+        ActiveMtpIdle = row.ActiveMtpIdle
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
@@ -484,5 +493,28 @@ public sealed class ShiftHandoffService
         return auth.Severity == RuleSeverity.HardStop
             ? OperationResult<ShiftHandoff>.Fail(auth.Message)
             : null;
+    }
+
+    /// <summary>Active protocols with no unit issued under them for the facility reminder minutes (OCD-076); 0 without the sources.</summary>
+    private async Task<int> CountIdleMtpAsync(DateTime now, CancellationToken ct)
+    {
+        if (_mtpActivations is null || _issueRecords is null)
+        {
+            return 0;
+        }
+
+        var minutes = _policy is null ? MtpIdleRule.DefaultReminderMinutes : await _policy.GetMtpIdleReminderMinutesAsync(ct);
+        var idle = 0;
+        foreach (var activation in await _mtpActivations.ListAsync(a => a.Status == MtpActivationStatus.Active, ct))
+        {
+            var issued = await _issueRecords.ListAsync(i => i.MtpActivationId == activation.Id, ct);
+            var last = MtpIdleRule.LastActivityUtc(activation.ActivatedUtc, issued.Count == 0 ? null : issued.Max(i => i.IssuedUtc));
+            if (MtpIdleRule.IsIdle(last, now, minutes))
+            {
+                idle++;
+            }
+        }
+
+        return idle;
     }
 }
