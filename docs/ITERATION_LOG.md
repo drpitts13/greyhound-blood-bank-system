@@ -18096,3 +18096,23 @@ Two pages had rendered tests (Cycles 577–578); the other pages had never been 
 ### Tests
 
 - TEST-BB-662 (99 cases).
+
+## Iteration 580 — Record pages and every chart tab render (2026-11-08)
+
+### Capability matrix rescan (QA: pages opened with a record id)
+
+Cycle 579 rendered the 99 pages without route parameters. The pages opened with a record id, above all the patient chart and its eleven tabs, were not covered, and a chart opened for a record the server cannot find only draws its "not found" view, so the tabs needed a patient to draw at all.
+
+### Design
+
+- Record pages (12 routes) rendered with route values bound as the router would, the record not found; every chart tab the same way.
+- Every chart tab rendered for a patient (one canned `/api/patients/1` response) with nothing else on file.
+- A check that every page with a route parameter has a render case, so a new one cannot be missed.
+
+### Verification
+
+- All pass (134 render cases with Cycle 579's). A deliberate null reference in the Orders tab failed only the orders tab with a patient; the not-found chart case passed, as expected, which is why the with-patient cases are needed. The tab was restored from git.
+
+### Tests
+
+- TEST-BB-663, TEST-BB-664.
