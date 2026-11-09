@@ -670,5 +670,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-659 | I | `UniversalLookupTests.CoolerLabel_FindsTheCoolerInTransit` | URS-BB-630 / FRS-BB-747 |
 | TEST-BB-660 | U | `BloodOrdersPageTests.SpecimenCell_SaysOneThing_WithTheNeededByWarningBeside` | URS-BB-628 / FRS-BB-745 |
 | TEST-BB-661 | U | `ReadyToIssuePageTests.ReadyRows_ShowRequestNeededByAndExpiry_OnTheRightRow` | URS-BB-627 / FRS-BB-744 |
+| TEST-BB-662 | U | `EveryPageRendersTests.Page_RendersWithAnEmptyApi` | URS-BB-631 / FRS-BB-748 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

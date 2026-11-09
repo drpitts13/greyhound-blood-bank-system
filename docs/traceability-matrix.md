@@ -741,6 +741,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-628 / FRS-BB-745 | Specimen or crossmatch ends before needed-by | `OrderNeededByRule.ExpiresBeforeNeeded`; `BloodOrderWorklistService`; `IssuingService`; `BloodOrders.razor`; `Issuing.razor` | TEST-BB-653, TEST-BB-654, TEST-BB-655, TEST-BB-660 | U, I | |
 | URS-BB-629 / FRS-BB-746 | Next step: a new specimen for the needed-by time | `BloodOrderPreparationRule.NextStep`; `BloodOrderWorklistService`; demo `ORD-SURG-DEMO` | TEST-BB-656, TEST-BB-657, TEST-BB-658 | U, I | |
 | URS-BB-630 / FRS-BB-747 | Find a cooler in transit by scan | `UniversalLookupService`; `LookupRecordType` | TEST-BB-659 | I | |
+| URS-BB-631 / FRS-BB-748 | Every page renders with an empty API | Web pages | TEST-BB-662 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

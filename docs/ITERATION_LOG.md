@@ -18074,3 +18074,25 @@ Ready to issue is the last screen before blood leaves the bank. Its rows carry t
 ### Tests
 
 - TEST-BB-661.
+
+## Iteration 579 — Every page renders (2026-11-08)
+
+### Capability matrix rescan (QA: every page)
+
+Two pages had rendered tests (Cycles 577–578); the other pages had never been drawn by a test, so a page that threw while drawing (a null value, a misplaced condition) would be found only by a user, typically when the server had nothing to return or could not be reached.
+
+### Design
+
+- `EveryPageRendersTests`: every routable page in the web assembly without route parameters (99) is rendered with `DynamicComponent` under bUnit; every API request answers 404 (`CannedApi`), dev-mode session; the page's other services (report download cache, help catalog, desktop host lifetime) are supplied. After its startup calls finish the page is drawn again so errors from that work surface.
+
+### Verification
+
+- All 99 render. A deliberate null reference while drawing and a deliberate exception after the startup call (on Blood orders to prepare) each failed only that route; the page was restored from git.
+
+### Requirements
+
+- URS-BB-631, FRS-BB-748.
+
+### Tests
+
+- TEST-BB-662 (99 cases).
