@@ -56,7 +56,8 @@ public sealed record Hl7ErrorVm(
     bool? ControlAlreadyApplied = null,
     string? ResolvedBy = null,
     DateTime? ResolvedUtc = null,
-    string? ResolutionNote = null);
+    string? ResolutionNote = null,
+    DateTime? QueuedUtc = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 

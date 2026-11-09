@@ -40,6 +40,7 @@
                     <th>Error</th>
                     <th>Detail</th>
                     <th>Retries</th>
+                    <th>Waiting</th>
                     <th></th>
                 </tr>
             </thead>
@@ -65,6 +66,7 @@
                         <td>@e.ErrorType</td>
                         <td>@e.ErrorDetail</td>
                         <td>@e.RetryCount</td>
+                        <td class="nowrap" data-error-waiting="@e.Id" title="@e.QueuedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")">@(e.QueuedUtc is { } queued ? AlertInboxView.OpenFor(queued, DateTime.UtcNow) : "—")</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
                             @if (e.Direction is null or Hl7Direction.Inbound)

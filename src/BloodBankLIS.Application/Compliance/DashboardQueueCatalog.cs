@@ -250,6 +250,16 @@ public static class DashboardQueueCatalog
     }
 
     /// <summary>
+    /// The HL7 errors card note: how long the oldest unresolved error has waited (an order, result, or admission that has
+    /// not reached its destination for that long). The card leads under Needs attention whenever it has errors.
+    /// </summary>
+    public static string? OldestWaitingNote(IEnumerable<DateTime?> queuedUtc, DateTime nowUtc)
+    {
+        var oldest = queuedUtc.Where(t => t is not null).Min();
+        return oldest is null ? null : $"oldest waiting {AlertInboxView.OpenFor(oldest.Value, nowUtc)}";
+    }
+
+    /// <summary>
     /// The Final disposition card note: how long the oldest unit has been past its window. Every unit on the board is
     /// already overdue, so the note brings the card under Needs attention and says how far behind it is.
     /// </summary>

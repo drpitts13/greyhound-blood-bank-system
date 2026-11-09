@@ -69,7 +69,9 @@ public sealed record Hl7ErrorDto(
     bool? ControlAlreadyApplied = null,
     string? ResolvedBy = null,
     DateTime? ResolvedUtc = null,
-    string? ResolutionNote = null)
+    string? ResolutionNote = null,
+    // When the error was queued, so the queue and the home card say how long it has waited.
+    DateTime? QueuedUtc = null)
 {
     public static Hl7ErrorDto From(
         InterfaceErrorQueueItem e,
@@ -84,7 +86,7 @@ public sealed record Hl7ErrorDto(
             identity.MedicalRecordNumber, identity.DisplayName,
             message?.Direction, identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
             patientId, message?.EndpointId, replayAllowed)
-            with { ResolvedBy = e.ResolvedBy, ResolvedUtc = e.ResolvedUtc, ResolutionNote = e.ResolutionNote };
+            with { ResolvedBy = e.ResolvedBy, ResolvedUtc = e.ResolvedUtc, ResolutionNote = e.ResolutionNote, QueuedUtc = e.CreatedUtc };
     }
 }
 

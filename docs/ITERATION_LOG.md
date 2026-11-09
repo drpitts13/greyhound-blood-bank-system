@@ -19017,3 +19017,32 @@ The Partial rows (ISBT codes, modifications, HL7) wait on outside items (the lic
 ### Next
 
 - HL7 errors card: say how long the oldest error has waited, since an order or result not delivered for hours is a missed transfusion or result.
+
+## Iteration 616 — HL7 errors say how long they have waited (2026-11-09)
+
+### Capability matrix rescan (interface error management)
+
+The HL7 error queue listed control id, patient, message, error, and retries, but no time: the error list did not carry when the error was queued at all. An order stuck for a minute looked the same as a result stuck since yesterday, on the queue and on the home card (count only).
+
+### Design
+
+- `Hl7ErrorDto.QueuedUtc` (the queue row's created time), mirrored on `Hl7ErrorVm`.
+- Error queue column **Waiting** ("{age}", the queued time on hover; "—" for a row without one). Server order unchanged.
+- Home card note "oldest waiting {age}" (`DashboardQueueCatalog.OldestWaitingNote`). The card already leads under Needs attention whenever it has errors, so its placement does not change.
+
+### Verification
+
+- Unit: note for none, no time, minutes, days. Rendered: an error with a queued time and one without. The API has no endpoint test harness; the mapping is a one-field assignment and the rendered test reads the field by its wire name.
+- Live (read-only): HL7 loads without server errors; dev data has no unresolved errors ("No unresolved errors"). No demo error was seeded, since one would keep the HL7 card under Needs attention on every dev home screen.
+
+### Requirements
+
+- URS-BB-661, FRS-BB-778.
+
+### Tests
+
+- TEST-BB-734, TEST-BB-735.
+
+### Next
+
+- Instrument failures: check whether the failures queue and card say how long each failure has waited; a result that did not file is a delayed patient result.

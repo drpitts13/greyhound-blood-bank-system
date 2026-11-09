@@ -413,6 +413,19 @@ public class DashboardQueueCatalogTests
             DashboardQueueCatalog.UnidentifiedNote([Chart(2, now.AddHours(-30), true), Chart(3, now.AddDays(-3), true)], now));
     }
 
+    // TEST-BB-734: the HL7 errors card says how long the oldest unresolved error has waited; no errors, or none with a
+    // queued time, gives no note.
+    [Fact]
+    public void OldestWaitingNote_NamesTheOldestError()
+    {
+        var now = new DateTime(2026, 11, 9, 12, 0, 0, DateTimeKind.Utc);
+
+        Assert.Null(DashboardQueueCatalog.OldestWaitingNote([], now));
+        Assert.Null(DashboardQueueCatalog.OldestWaitingNote([null], now));
+        Assert.Equal("oldest waiting 40 min", DashboardQueueCatalog.OldestWaitingNote([now.AddMinutes(-5), null, now.AddMinutes(-40)], now));
+        Assert.Equal("oldest waiting 2 d", DashboardQueueCatalog.OldestWaitingNote([now.AddHours(-3), now.AddDays(-2)], now));
+    }
+
     // TEST-BB-725: the Final disposition card names how far behind its oldest unit is, and an empty board has no note.
     [Fact]
     public void DispositionNote_NamesTheOldestPastDue()

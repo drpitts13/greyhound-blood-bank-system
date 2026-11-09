@@ -482,7 +482,15 @@
                 return (card.Key, open, note);
             }
             case DashboardQueueCatalog.Hl7Errors:
-                return await CountList(card.Key, Api.GetHl7ErrorsAsync());
+            {
+                var result = await Api.GetHl7ErrorsAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.OldestWaitingNote(result.Value.Select(e => e.QueuedUtc), DateTime.UtcNow));
+            }
             case DashboardQueueCatalog.OpenRhig:
             {
                 var result = await Api.GetOpenRhigEvaluationsAsync();

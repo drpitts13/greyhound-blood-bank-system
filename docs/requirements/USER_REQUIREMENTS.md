@@ -666,3 +666,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-658 | The second ABO/Rh board says for each patient whether an ABO/Rh is already ordered, or orders one, and the home card names patients with nothing ordered. | P2 | FRS-BB-775 |
 | URS-BB-659 | Unidentified patient charts left open past a facility reminder are named on the home screen with the oldest age, and each chart on Patients shows how long it has been open. | P3 | FRS-BB-776 |
 | URS-BB-660 | Tubes due for discard are listed by place, so each rack or shelf is visited once, with how long each tube is past its date. | P3 | FRS-BB-777 |
+| URS-BB-661 | The HL7 error queue and its home card say how long each error, and the oldest, has waited. | P2 | FRS-BB-778 |

@@ -742,5 +742,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-731 | U | `DashboardQueueCatalogTests.UnidentifiedNote_NamesChartsPastTheReminder` | URS-BB-659 / FRS-BB-776 |
 | TEST-BB-732 | U | `TubePullListTests.Group_PutsEachPlaceTogether_OldestPlaceFirst` | URS-BB-660 / FRS-BB-777 |
 | TEST-BB-733 | U | `TubePullListTests.StoreTubes_ShowsDueTubesByPlace` | URS-BB-660 / FRS-BB-777 |
+| TEST-BB-734 | U | `DashboardQueueCatalogTests.OldestWaitingNote_NamesTheOldestError` | URS-BB-661 / FRS-BB-778 |
+| TEST-BB-735 | U | `Hl7ErrorQueueTests.ErrorRows_SayHowLongTheyHaveWaited` | URS-BB-661 / FRS-BB-778 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
