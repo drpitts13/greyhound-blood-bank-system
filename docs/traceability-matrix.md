@@ -764,6 +764,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-651 / FRS-BB-768 | Idle MTP reminder (banner and alert) | `MtpIdleRule`; `AlertScanner`; `MtpActivationService`; `Issuing.razor`; facility policy | TEST-BB-712, TEST-BB-713 | D, I | OCD-076 |
 | URS-BB-652 / FRS-BB-769 | Times shown in local time | web components; `CurrentSpecimenBanner` | TEST-BB-715, TEST-BB-716 | D, U | |
 | URS-BB-653 / FRS-BB-770 | Inventory search lists stock by default; unit number finds any unit | `InventorySearchScope`; `Inventory.razor` | TEST-BB-719 | U | |
+| URS-BB-654 / FRS-BB-771 | Near expiry discard coded, verified, after use actions | `Inventory.razor` | TEST-BB-720 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -283,7 +283,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Near expiry</h3></div>
-        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
+        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Use them first: issue one reserved for a patient, or allocate it to an open order for its product. Discard only a unit that cannot be used, with a coded reason and a second verifier, as on the unit page.</p>
         @if (_nearExpiryItems.Count == 0)
         {
             <div class="muted">No units near expiry.</div>
@@ -326,12 +326,6 @@
                             }
                         </td>
                         <td class="right nowrap">
-                            @if (Session.Has(PermissionCodes.InventoryDiscard))
-                            {
-                                <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ToggleNearExpiryDiscard(row.UnitId)">
-                                    @(_discardingNearExpiryId == row.UnitId ? "Hide" : "Discard")
-                                </button>
-                            }
                             @{ var openOrders = _nearOpenOrdersByProduct.GetValueOrDefault(row.ProductTypeId); }
                             @switch (IssueRun.ForNearExpiry(row.IsReserved, _nearReady.FirstOrDefault(r => r.BloodUnitId == row.UnitId), openOrders))
                             {
@@ -343,6 +337,12 @@
                                     break;
                             }
                             <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
+                            @if (Session.Has(PermissionCodes.InventoryDiscard))
+                            {
+                                <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ToggleNearExpiryDiscard(row.UnitId)">
+                                    @(_discardingNearExpiryId == row.UnitId ? "Hide" : "Discard")
+                                </button>
+                            }
                         </td>
                     </tr>
                     @if (_discardingNearExpiryId == row.UnitId && Session.Has(PermissionCodes.InventoryDiscard))
@@ -355,9 +355,19 @@
                                     </p>
                                     <Outcome Value="_actionFb" />
                                     <div class="flex gap" style="flex-wrap:wrap;align-items:flex-end;">
-                                        <div class="field" style="flex:1;min-width:12rem;">
+                                        <div class="field" style="min-width:14rem;">
                                             <label>Discard reason</label>
-                                            <input @bind="_nearExpiryDiscardReason" @bind:event="oninput" />
+                                            <select @bind="_nearExpiryDiscardReason" data-near-discard-reason>
+                                                <option value="">Select</option>
+                                                @foreach (var reason in _discardReasons)
+                                                {
+                                                    <option value="@reason.Code">@reason.Code — @reason.Text</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="field" style="flex:1;min-width:12rem;">
+                                            <label>Comment@(NearExpiryCommentRequired ? " (required)" : "")</label>
+                                            <input @bind="_nearExpiryDiscardComment" @bind:event="oninput" />
                                         </div>
                                         <div class="field" style="min-width:16rem;">
                                             <label>Second verifier</label>
@@ -370,7 +380,7 @@
                                                 Clearable="true"
                                                 Placeholder="Different active user" />
                                         </div>
-                                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_nearExpiryDiscardReason))" @onclick="() => DiscardNearExpiryAsync(row.UnitId)">Discard unit</button>
+                                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_nearExpiryDiscardReason) || (NearExpiryCommentRequired && string.IsNullOrWhiteSpace(_nearExpiryDiscardComment)))" @onclick="() => DiscardNearExpiryAsync(row.UnitId)">Discard unit</button>
                                     </div>
                                 </div>
                             </td>
@@ -799,8 +809,15 @@
     private long? _confirmingExpectedId;
     private long? _releasingQuarantineId;
     private long? _discardingNearExpiryId;
+    // A coded reason from Admin › Discard reasons, a comment when the reason needs one, and a second verifier: the same
+    // discard as the unit page (Cycle 607; before, free text was sent as the reason code and the verifier as the comment).
     private string _nearExpiryDiscardReason = string.Empty;
+    private string _nearExpiryDiscardComment = string.Empty;
     private string? _nearExpiryDiscardVerifier;
+    private List<UnitDiscardReasonRefDto> _discardReasons = new();
+
+    private bool NearExpiryCommentRequired =>
+        _discardReasons.FirstOrDefault(r => r.Code == _nearExpiryDiscardReason)?.RequiresComment == true;
 
     private Feedback? _actionFb;
     private string? _releaseSecondVerifier;
@@ -1071,24 +1088,34 @@
         _actionFb = null;
     }
 
-    private void ToggleNearExpiryDiscard(long unitId)
+    private async Task ToggleNearExpiryDiscard(long unitId)
     {
         _discardingNearExpiryId = _discardingNearExpiryId == unitId ? null : unitId;
         _nearExpiryDiscardReason = string.Empty;
+        _nearExpiryDiscardComment = string.Empty;
         _nearExpiryDiscardVerifier = null;
         _actionFb = null;
+        if (_discardingNearExpiryId is not null && _discardReasons.Count == 0)
+        {
+            var reasons = await Api.GetDiscardReasonsAsync();
+            if (reasons.Succeeded) _discardReasons = reasons.Value ?? new();
+        }
     }
 
     private async Task DiscardNearExpiryAsync(long id)
     {
         _busy = true;
-        var r = await Api.DiscardUnitAsync(id, _nearExpiryDiscardReason, _nearExpiryDiscardVerifier);
+        var r = await Api.DiscardUnitAsync(
+            id, _nearExpiryDiscardReason,
+            string.IsNullOrWhiteSpace(_nearExpiryDiscardComment) ? null : _nearExpiryDiscardComment.Trim(),
+            _nearExpiryDiscardVerifier);
         _busy = false;
         _actionFb = r.ToFeedback("Unit discarded.");
         if (r.Succeeded)
         {
             _discardingNearExpiryId = null;
             _nearExpiryDiscardReason = string.Empty;
+            _nearExpiryDiscardComment = string.Empty;
             _nearExpiryDiscardVerifier = null;
             await LoadNearExpiryAsync();
             await SearchAsync();

@@ -18773,3 +18773,29 @@ Walking Inventory's Search: with "Show issued/transfused" off, the default list 
 ### Next
 
 - The product list shows two products with code E0701 (FFP, Thawed Plasma): check the seeded catalog and the product picker label.
+
+## Iteration 607 — The near-expiry discard works, and comes last (2026-11-09)
+
+### Capability matrix rescan (inventory boards)
+
+E0701 appearing twice (FFP and Thawed Plasma) is deliberate demo data, and no workflow looks a product up by code alone, so it is only a label (no ISBT code is invented here; OCD-004). Walking Near expiry: its discard sent the typed free text as the reason code and the second verifier as the comment, so the server (coded reasons, second verifier) refused it; the red Discard button came before Issue and the open-order link, and the board text led with discarding.
+
+### Design
+
+- The unit page's discard on the board: coded reason select, comment when required, second verifier, in the right arguments. Use-it actions first, Discard last; board text says to use units first.
+
+### Verification
+
+- Rendered test: Discard is last on the row and opens the coded reasons and a comment. Live: the board renders (no units in the 24-hour window on dev data; discarding would change data).
+
+### Requirements
+
+- URS-BB-654, FRS-BB-771.
+
+### Tests
+
+- TEST-BB-720.
+
+### Next
+
+- Look for other calls to the API client whose arguments are positional strings in the wrong order (a source test over call sites).

@@ -728,5 +728,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-717 | D | `ClinicalTimeTextTests.Times_AreLocalOnScreen_AndLabelledUtcWhenSaved` | URS-BB-652 / FRS-BB-769 |
 | TEST-BB-718 | U | `LocalTimeDisplayTests.ServerMessages_SayLocalOrUtc` | URS-BB-652 / FRS-BB-769 |
 | TEST-BB-719 | U | `InventorySearchScopeTests.DefaultSearch_ListsUnitsStillOnAShelf` | URS-BB-653 / FRS-BB-770 |
+| TEST-BB-720 | U | `NearExpiryBoardTests.Discard_OffersCodedReasons_AndComesLast` | URS-BB-654 / FRS-BB-771 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
