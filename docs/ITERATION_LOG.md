@@ -18747,3 +18747,29 @@ Cycle 604's next step. Eight server messages wrote a stored time without saying 
 ### Next
 
 - Back to operations: walk the Inventory page's filters and unit search for clicks and scanning.
+
+## Iteration 606 — Inventory search lists what is in stock (2026-11-09)
+
+### Capability matrix rescan (inventory)
+
+Walking Inventory's Search: with "Show issued/transfused" off, the default list still included discarded and modified units (sorted by expiry, so they led the list), and a scanned unit number for an issued unit found nothing unless the box was ticked. The product list also shows E0701 for both FFP and Thawed Plasma (catalog data; not changed here).
+
+### Design
+
+- Default scope = units still on a shelf (on hand plus expired to discard); the box becomes "Include units no longer in stock"; a typed or scanned unit number, or a chosen status, finds any unit. No server change (the API already takes a status list).
+
+### Verification
+
+- Scope test (default on-shelf, exclusions, unit number/status/box lift it). Live: the default list shows only stock (Available 35, Quarantine 3, Expired 3 to discard, and the reserved statuses; no Discarded or Modified); typing W000123000 with the box unticked finds Issued 9, Transfused, Discarded, and Modified units too (read-only).
+
+### Requirements
+
+- URS-BB-653, FRS-BB-770.
+
+### Tests
+
+- TEST-BB-719.
+
+### Next
+
+- The product list shows two products with code E0701 (FFP, Thawed Plasma): check the seeded catalog and the product picker label.

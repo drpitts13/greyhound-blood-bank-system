@@ -706,7 +706,7 @@
         <div class="field">
             <label class="checkbox-item" style="margin-top:1.6rem;">
                 <input type="checkbox" @bind="_showIssuedTransfused" @bind:after="SearchAsync" />
-                Show issued/transfused
+                Include units no longer in stock (issued, transfused, discarded, modified, shipped)
             </label>
         </div>
     </div>
@@ -956,7 +956,7 @@
         var criteria = new InventorySearchCriteria(
             string.IsNullOrWhiteSpace(_searchUnit) ? null : _searchUnit, _searchStatus, _searchAbo, _searchRh,
             ProductTypeId: _searchProductTypeId,
-            ExcludeIssuedAndTransfused: !_showIssuedTransfused && _searchStatus is null);
+            Statuses: InventorySearchScope.Statuses(_searchUnit, _searchStatus, _showIssuedTransfused));
         var r = await Api.SearchUnitsAsync(criteria);
         _loading = false;
         if (r.Succeeded) _units = r.Value!;
