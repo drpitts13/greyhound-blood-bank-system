@@ -26,13 +26,16 @@ public static class BloodOrderPreparationRule
         + (neededByUtc is DateTime needed ? $", needed by {needed:yyyy-MM-dd HH:mm} UTC" : string.Empty);
 
     /// <summary>
-    /// Where the next step opens on the patient's chart: the specimens to collect one (also when the usable specimen
-    /// expires before the order is needed), or the reserve form with the order (and the usable specimen) already chosen.
+    /// Where the next step opens on the patient's chart: the specimens with the accession form open to collect one (also
+    /// when the usable specimen expires before the order is needed), or the reserve form with the order (and the usable
+    /// specimen) already chosen.
     /// </summary>
+    public static string CollectSpecimenHref(long patientId) => $"/patients/{patientId}?tab=specimens&panel=specimen";
+
     public static string NextStepHref(long patientId, long orderId, long? usableSpecimenId, bool typeAndScreenComplete = true,
         bool specimenExpiresBeforeNeeded = false) =>
         usableSpecimenId is not long specimenId || specimenExpiresBeforeNeeded
-            ? $"/patients/{patientId}?tab=specimens"
+            ? CollectSpecimenHref(patientId)
             : typeAndScreenComplete
                 ? $"/patients/{patientId}?tab=products&reserveOrder={orderId}&reserveSpecimen={specimenId}"
                 : $"/patients/{patientId}?tab=tests";

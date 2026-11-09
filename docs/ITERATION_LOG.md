@@ -19110,3 +19110,32 @@ Every time-only format on a page was checked. Lists of what was done in this sit
 ### Next
 
 - Look again at Ready to issue from the issuing tech's seat: the row's badges and the issue form, for anything still remembered or retyped.
+
+## Iteration 619 — Collect-a-specimen steps open the accession form (2026-11-09)
+
+### Capability matrix rescan (Ready to issue, from the issuing tech's seat)
+
+Live walk of Ready to issue on dev data: five reserved units, all needing attention (reservations ended, crossmatches expired, no current specimen). The row's next steps are on it (Crossmatch, New specimen, Emergency, Release). **New specimen** opened the chart's Specimens tab with the accession form closed, so the tech clicked again and had to know that was the step; Retrospective's **Accession** and Blood orders to prepare's **Collect a (new) specimen** did the same. The accession form itself already links the new tube to the orders waiting for one.
+
+### Design
+
+- `BloodOrderPreparationRule.CollectSpecimenHref`: `/patients/{id}?tab=specimens&panel=specimen`.
+- The chart opens the accession form for `panel=specimen` (specimen.accession); without that permission the Specimens tab opens as before.
+- Used by all three steps.
+
+### Verification
+
+- Rendered: a specimen-blocked row's New specimen opens the accession form link; a ready row has none. The blood-order href tests (domain, rendered, integration) updated to the new link.
+- Live (read-only; nothing filled or saved): Demo-Multi, Riley's New specimen links to /patients/12?tab=specimens&panel=specimen, which opens the chart with the accession form open and the open visit (VIS-2026-022 · Inpatient · ICU 4) chosen. No server errors.
+
+### Requirements
+
+- URS-BB-664, FRS-BB-781.
+
+### Tests
+
+- TEST-BB-741; the existing blood-order href assertions updated.
+
+### Next
+
+- On the same walk, every Ready to issue unit had both an ended reservation and an expired crossmatch: check whether Review and release to stock makes clear which units can simply be re-crossmatched on a new specimen rather than released.

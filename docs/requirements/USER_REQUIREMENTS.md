@@ -669,3 +669,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-661 | The HL7 error queue and its home card say how long each error, and the oldest, has waited. | P2 | FRS-BB-778 |
 | URS-BB-662 | Instrument messages show their date when not from today, and open failures (and the home card) say how long they have waited. | P2 | FRS-BB-779 |
 | URS-BB-663 | A short time shown on a badge or status line names its day when it is not today. | P2 | FRS-BB-780 |
+| URS-BB-664 | Every "collect a specimen" next step opens the patient's accession form, not only the Specimens tab. | P3 | FRS-BB-781 |

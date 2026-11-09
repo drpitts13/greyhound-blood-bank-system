@@ -22,7 +22,7 @@ public class BloodOrderPreparationRuleTests
     public void NextStepHref_ReserveFormOrSpecimens()
     {
         Assert.Equal("/patients/7?tab=products&reserveOrder=42&reserveSpecimen=9", BloodOrderPreparationRule.NextStepHref(7, 42, 9));
-        Assert.Equal("/patients/7?tab=specimens", BloodOrderPreparationRule.NextStepHref(7, 42, null));
+        Assert.Equal("/patients/7?tab=specimens&panel=specimen", BloodOrderPreparationRule.NextStepHref(7, 42, null));
     }
 
     // TEST-BB-627: a usable specimen without a completed type and screen: finish it first, on the chart's tests.
@@ -44,7 +44,7 @@ public class BloodOrderPreparationRuleTests
         Assert.Equal("Collect a new specimen", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: true, typeAndScreenComplete: false, specimenExpiresBeforeNeeded: true));
         Assert.Equal("Collect a specimen", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: false, specimenExpiresBeforeNeeded: true));
         Assert.Null(BloodOrderPreparationRule.NextStep(0, hasUsableSpecimen: true, specimenExpiresBeforeNeeded: true));
-        Assert.Equal("/patients/7?tab=specimens", BloodOrderPreparationRule.NextStepHref(7, 42, 9, specimenExpiresBeforeNeeded: true));
+        Assert.Equal("/patients/7?tab=specimens&panel=specimen", BloodOrderPreparationRule.NextStepHref(7, 42, 9, specimenExpiresBeforeNeeded: true));
         Assert.Equal("/patients/7?tab=products&reserveOrder=42&reserveSpecimen=9", BloodOrderPreparationRule.NextStepHref(7, 42, 9));
     }
 

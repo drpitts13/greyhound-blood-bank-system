@@ -749,5 +749,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-738 | U | `ClockTextTests.Short_NamesTheDayWhenItIsNotToday` | URS-BB-663 / FRS-BB-780 |
 | TEST-BB-739 | U | `LocalTimeDisplayTests.Pages_DoNotShowATimeWithoutItsDay` | URS-BB-663 / FRS-BB-780 |
 | TEST-BB-740 | U | `ClockTextTests.VerificationDeadlineBadge_ShowsTheLocalExpiry` | URS-BB-663 / FRS-BB-780 |
+| TEST-BB-741 | U | `ReadyToIssuePageTests.SpecimenBlockedRow_NewSpecimenOpensTheAccessionForm` | URS-BB-664 / FRS-BB-781 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

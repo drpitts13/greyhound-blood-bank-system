@@ -94,4 +94,19 @@ public class ReadyToIssuePageTests : BunitContext
         Assert.Null(d.QuerySelector("[data-ready-needed-by]"));
         Assert.Null(d.QuerySelector("[data-ready-expires-before-needed]"));
     }
+
+    // TEST-BB-741: a unit blocked for want of a specimen offers New specimen, which opens the chart's accession form
+    // (it opened the Specimens tab with the form closed); a unit with a usable specimen offers none.
+    [Fact]
+    public void SpecimenBlockedRow_NewSpecimenOpensTheAccessionForm()
+    {
+        var page = RenderReady(
+            Unit(1, "W-RDY-OK"),
+            Unit(2, "W-RDY-NOSPEC") with { SpecimenBlocksIssue = true, SpecimenBlockReason = "No current specimen exists for this patient." });
+
+        var link = RowFor(page, "W-RDY-NOSPEC").QuerySelector("[data-ready-new-specimen]")!;
+        Assert.Equal("New specimen", link.TextContent.Trim());
+        Assert.EndsWith("?tab=specimens&panel=specimen", link.GetAttribute("href"));
+        Assert.Null(RowFor(page, "W-RDY-OK").QuerySelector("[data-ready-new-specimen]"));
+    }
 }

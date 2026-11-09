@@ -82,7 +82,7 @@ public class BloodOrderWorklistTests
 
         Assert.Equal(["BO-2", "BO-1"], rows.Select(r => r.OrderNumber));
         var statRow = rows[0];
-        Assert.Equal((true, 2, 2, false, "Collect a specimen", $"/patients/{stat.Id}?tab=specimens"),
+        Assert.Equal((true, 2, 2, false, "Collect a specimen", $"/patients/{stat.Id}?tab=specimens&panel=specimen"),
             (statRow.Rush, statRow.Requested, statRow.Remaining, statRow.HasUsableSpecimen, statRow.NextStep, statRow.Href));
         var routineRow = rows[1];
         // TEST-BB-706: a reservation ended by the unit's expiry is named on its order, and a released one is not.
@@ -152,7 +152,7 @@ public class BloodOrderWorklistTests
         var later = (await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "BO-1");
         Assert.True(later.SpecimenExpiresBeforeNeeded);
         // TEST-BB-657: and the row's next step is a new specimen, on the patient's specimens, not reserving on this one.
-        Assert.Equal(("Collect a new specimen", $"/patients/{routine.Id}?tab=specimens"), (later.NextStep, later.Href));
+        Assert.Equal(("Collect a new specimen", $"/patients/{routine.Id}?tab=specimens&panel=specimen"), (later.NextStep, later.Href));
         Assert.Contains("1 specimen expires before it is needed", BloodBankLIS.Application.Compliance.DashboardQueueCatalog.BloodOrdersNote([later]));
         routine2.NeededByUtc = now.AddDays(1);
         await c.SaveChangesAsync();
@@ -226,7 +226,7 @@ public class BloodOrderWorklistTests
         Assert.Equal(("MRN0022", OrderPriority.Routine), ((await c.Patients.SingleAsync(p => p.Id == demo.PatientId)).MedicalRecordNumber, demo.Priority));
         var row = (await Service(c, factory).ListAsync()).Single(r => r.OrderNumber == "ORD-SURG-DEMO");
         Assert.True(row.SpecimenExpiresBeforeNeeded);
-        Assert.Equal(("Collect a new specimen", $"/patients/{demo.PatientId}?tab=specimens", 1), (row.NextStep, row.Href, row.Remaining));
+        Assert.Equal(("Collect a new specimen", $"/patients/{demo.PatientId}?tab=specimens&panel=specimen", 1), (row.NextStep, row.Href, row.Remaining));
     }
 
     // TEST-BB-637: the downtime sheet lists each patient's blood orders still to prepare, with what is needed and by when.

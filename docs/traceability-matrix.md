@@ -774,6 +774,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-661 / FRS-BB-778 | HL7 errors say how long they have waited | `Hl7Endpoints.cs`; `ViewModels.cs`; `Hl7.razor`; `DashboardQueueCatalog.cs`; `Home.razor` | TEST-BB-734, TEST-BB-735 | U | |
 | URS-BB-662 / FRS-BB-779 | Instrument messages dated; open failures say how long they have waited | `Instruments.razor`; `DashboardQueueCatalog.cs`; `Home.razor` | TEST-BB-736, TEST-BB-737 | U | |
 | URS-BB-663 / FRS-BB-780 | Short times name their day | `ClockText.cs`; `Issuing.razor`; `UnitDetail.razor`; `CoolerCheck.razor`; `VerificationDeadlineBadge.razor`; `Instruments.razor` | TEST-BB-738, TEST-BB-739, TEST-BB-740 | U | |
+| URS-BB-664 / FRS-BB-781 | Collect-a-specimen steps open the accession form | `BloodOrderPreparationRule.cs`; `Issuing.razor`; `PatientDetail.razor` | TEST-BB-741 (and the updated blood-order href tests) | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

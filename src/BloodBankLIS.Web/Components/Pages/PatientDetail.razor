@@ -913,6 +913,20 @@ else
             await OpenAddOrderWithAccessionAsync();
         }
 
+        // From a "collect a specimen" next step (Ready to issue, Retrospective, Blood orders to prepare): the accession
+        // form open, with the waiting orders it will link. Without accession permission the Specimens tab opens as before.
+        if (!_panelFromQueryApplied
+            && string.Equals(PanelQuery, "specimen", StringComparison.OrdinalIgnoreCase)
+            && Session.Has(PermissionCodes.SpecimenAccession))
+        {
+            _panelFromQueryApplied = true;
+            await SelectTab("specimens");
+            if (!_showAccession)
+            {
+                ToggleAccession();
+            }
+        }
+
         // From Second ABO/Rh due: the add-order form with ABO/Rh ticked. The visit, location, and specimen stay the
         // user's; the board tells them it must come from a separate draw.
         if (!_panelFromQueryApplied

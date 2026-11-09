@@ -38,9 +38,9 @@ public class BloodOrdersPageTests : BunitContext
     {
         var page = RenderWith(
             Row("ORD-USABLE", usable: true),
-            Row("ORD-NONE", usable: false, nextStep: "Collect a specimen", href: "/patients/1?tab=specimens"),
+            Row("ORD-NONE", usable: false, nextStep: "Collect a specimen", href: "/patients/1?tab=specimens&panel=specimen"),
             Row("ORD-PENDING", usable: true, typeAndScreenPending: true, nextStep: "Finish type and screen", href: "/patients/1?tab=tests"),
-            Row("ORD-LATE-SPEC", usable: true, expiresBeforeNeeded: true, nextStep: "Collect a new specimen", href: "/patients/1?tab=specimens"));
+            Row("ORD-LATE-SPEC", usable: true, expiresBeforeNeeded: true, nextStep: "Collect a new specimen", href: "/patients/1?tab=specimens&panel=specimen"));
 
         var usable = SpecimenCell(page, "ORD-USABLE");
         Assert.Contains("Usable until", usable);
@@ -61,7 +61,7 @@ public class BloodOrdersPageTests : BunitContext
         Assert.DoesNotContain("None usable", lateSpecimen);
 
         var button = page.FindAll("table.bb tbody tr").Single(r => r.TextContent.Contains("ORD-LATE-SPEC")).QuerySelector("td.right a")!;
-        Assert.Equal(("Collect a new specimen", "/patients/1?tab=specimens"), (button.TextContent.Trim(), button.GetAttribute("href")));
+        Assert.Equal(("Collect a new specimen", "/patients/1?tab=specimens&panel=specimen"), (button.TextContent.Trim(), button.GetAttribute("href")));
     }
 
     // TEST-BB-708: an order that lost a reserved unit to expiry says so on its row, with the unit and when; others do not.
