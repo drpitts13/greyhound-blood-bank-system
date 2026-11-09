@@ -15,7 +15,7 @@ Open a workup from the [worklist](antibody-worklist) or from the patient chart. 
 
 ## What you record
 
-Select the specimen and the panel lot. Enter the graded reactions for each cell and phase. The phase list (immediate spin, 37°C, AHG, check cells, and any others your laboratory defined) comes from Administration.
+Select the specimen and the panel lot. Enter the graded reactions for each cell and phase. The phase list (immediate spin, 37°C, AHG, check cells, and any others your laboratory defined) comes from Administration. A cell starts at **Not tested** until you grade it. **Save reactions** saves only the cells you changed and says how many; with nothing changed it saves nothing. Changing a grade after the workup is interpreted or reviewed clears the interpretation and review for re-interpretation; saving unchanged grades does not. Each change is kept in the audit trail with the grade it replaced.
 
 **Assist** compares the pattern with the panel antigram and suggests specificities that fit. Assist does not identify the antibody. You still interpret. The identified specificity is posted to the patient's antibody history only when the workup is completed under your procedure, including supervisor review when policy requires it.
 

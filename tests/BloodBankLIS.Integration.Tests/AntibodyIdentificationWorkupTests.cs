@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
@@ -1567,6 +1567,60 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         }
     }
 
+    // TEST-BB-698: saving the panel again with the same grades changes nothing: the interpretation and review stand and
+    // no audit is written. A changed grade is audited with the grade it replaced.
+    [Fact]
+    public async Task UnchangedReactions_KeepTheReview_AndChangesAreAudited()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-SAME");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            var interpreted = await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.",
+                [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Pattern reviewed against assistance.")]));
+            Assert.True(interpreted.Succeeded, interpreted.Error);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var reviewed = await Svc(context, new TestCurrentUser("supervisor-abid", "WS-2"))
+                .ReviewAsync(workupId, AcceptReview("Agree."));
+            Assert.True(reviewed.Succeeded, reviewed.Error);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var auditsBefore = await context.AuditEvents.CountAsync(a => a.EntityType == nameof(AntibodyIdentificationWorkup) && a.EntityId == workupId);
+            var detail = await Svc(context).GetWorkupAsync(workupId);
+            var same = await Svc(context).RecordReactionsAsync(workupId, PanelAhg(detail!));
+            Assert.True(same.Succeeded, same.Error);
+            Assert.NotNull(same.Value!.InterpretedUtc);
+            Assert.NotNull(same.Value.ReviewedUtc);
+            Assert.Equal(auditsBefore, await context.AuditEvents.CountAsync(a => a.EntityType == nameof(AntibodyIdentificationWorkup) && a.EntityId == workupId));
+
+            var cell = PanelAhg(detail!).First();
+            var changed = await Svc(context).RecordReactionsAsync(workupId, [cell with { Strength = ReactionGrade.TwoPlus }]);
+            Assert.True(changed.Succeeded, changed.Error);
+            Assert.Null(changed.Value!.ReviewedUtc);
+            var audit = await context.AuditEvents
+                .Where(a => a.EntityType == nameof(AntibodyIdentificationWorkup) && a.EntityId == workupId
+                    && a.Reason != null && a.Reason.StartsWith("Panel reactions recorded"))
+                .OrderByDescending(a => a.Id)
+                .FirstAsync();
+            Assert.Contains("Negative", audit.OldValueJson);
+            Assert.Contains("TwoPlus", audit.NewValueJson);
+            Assert.Contains("interpretation and review were cleared", audit.Reason);
+        }
+    }
+
     [Fact]
     public async Task ReactionsAfterReview_RequireReinterpretation()
     {
@@ -1593,7 +1647,8 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
                 .ReviewAsync(workupId, AcceptReview("Agree."));
             Assert.True(reviewed.Succeeded, reviewed.Error);
             var detail = await Svc(context).GetWorkupAsync(workupId);
-            var recorded = await Svc(context).RecordReactionsAsync(workupId, PanelAhg(detail!));
+            var changed = PanelAhg(detail!).Take(1).Select(r => r with { Strength = ReactionGrade.OnePlus }).ToList();
+            var recorded = await Svc(context).RecordReactionsAsync(workupId, changed);
             Assert.True(recorded.Succeeded, recorded.Error);
             Assert.Null(recorded.Value!.InterpretedUtc);
             Assert.Null(recorded.Value.ReviewedUtc);

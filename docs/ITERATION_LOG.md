@@ -18424,3 +18424,30 @@ Cycle 592's remaining two forms: the chart's Record blood type (a documented or 
 ### Next
 
 - Typing forms are covered. Return to operations: walk the antibody identification panel entry for the same defaults (cell reactions, rule-outs).
+
+## Iteration 594 — Antibody identification reactions: changes audited, unchanged saves inert (2026-11-09)
+
+### Capability matrix rescan (antibody identification entry)
+
+Walking the antigram for Cycle 590-style defaults: cells start at Not tested, which assumes nothing. But saving reactions overwrote each reading in place with no audit, so a corrected grade lost what it replaced, and the page always sent the whole grid, so the server always saw changes: saving with nothing edited cleared the technologist interpretation and the supervisor review.
+
+### Design
+
+- Server: skip unchanged readings (and Not tested where none recorded); with no change return as is; otherwise invalidate only when a judgment existed and audit old and new grades by cell and phase.
+- Page: send only cells changed since load; say how many were saved or that nothing changed.
+
+### Verification
+
+- Integration: unchanged re-save keeps interpretation and review with no audit; a changed grade clears the review and is audited with Negative → TwoPlus; the existing re-interpretation test now changes a grade. Live: not exercised; the development database has no open workup and opening one would change dev data.
+
+### Requirements
+
+- URS-BB-644, FRS-BB-761.
+
+### Tests
+
+- TEST-BB-698.
+
+### Next
+
+- Look for other in-place overwrites without an audit of the old value (DAT context, crossmatch reactions on correction, antigen typing).

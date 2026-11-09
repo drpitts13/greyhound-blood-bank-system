@@ -754,6 +754,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-641 / FRS-BB-758 | Crossmatch result unchosen; positive reaction never Compatible | `CrossmatchReactionRule`; `ResultService`; `TestResultEntryPanel.razor`; `CrossmatchEntryDialog.razor`; `Compatibility.razor` | TEST-BB-686, TEST-BB-687, TEST-BB-688, TEST-BB-689 | D, I, U | |
 | URS-BB-642 / FRS-BB-759 | No pre-filled ABO/Rh or reaction on typing forms; check cells not counted | `TestResultEntryPanel.razor`; `PatientDetail.razor`; `ProductRetypeEntryPanel.razor`; `ReactionInterpretationSuggestion`; `CrossmatchReactionRule` | TEST-BB-690 to TEST-BB-695 | A, D, U | |
 | URS-BB-643 / FRS-BB-760 | Manual chart type and delivery unit type start unchosen, not carried | `PatientChartOverviewTab.razor`; `PatientDetail.razor`; `DeliveryReceive.razor` | TEST-BB-696, TEST-BB-697 | U | |
+| URS-BB-644 / FRS-BB-761 | ABID reaction changes audited; unchanged saves change nothing | `AntibodyIdentificationService.RecordReactionsAsync`; `AntibodyIdentification.razor` | TEST-BB-698 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

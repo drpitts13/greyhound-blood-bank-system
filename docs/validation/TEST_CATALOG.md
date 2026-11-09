@@ -706,5 +706,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-695 | U | `AttestationDefaultTests.Readings_do_not_start_at_a_grade` | URS-BB-642 / FRS-BB-759 |
 | TEST-BB-696 | U | `DeliveryReceivePageTests.UnitType_StartsUnchosen_AndIsRequired` | URS-BB-643 / FRS-BB-760 |
 | TEST-BB-697 | U | `AttestationDefaultTests.Blood_types_do_not_start_at_a_type` | URS-BB-643 / FRS-BB-760 |
+| TEST-BB-698 | I | `AntibodyIdentificationWorkupTests.UnchangedReactions_KeepTheReview_AndChangesAreAudited` (and `ReactionsAfterReview_RequireReinterpretation`, now with a changed grade) | URS-BB-644 / FRS-BB-761 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Results;
@@ -478,6 +478,9 @@ public sealed class AntibodyIdentificationService
             .GroupBy(r => (r.CellId, Phase: r.PhaseCode.ToUpperInvariant()))
             .ToDictionary(g => g.Key, g => g.Last());
 
+        // Only a reading that changes counts: an unchanged one (or Not tested where nothing was recorded) is skipped, so
+        // saving the grid again neither rewrites history nor clears the interpretation.
+        var changes = new List<ReactionChange>();
         foreach (var incoming in reactions)
         {
             if (!allowedCells.Contains(incoming.CellId))
@@ -493,11 +496,23 @@ public sealed class AntibodyIdentificationService
 
             if (existing.TryGetValue((incoming.CellId, phase.ToUpperInvariant()), out var row))
             {
+                if (row.Strength == incoming.Strength)
+                {
+                    continue;
+                }
+
+                changes.Add(new ReactionChange(incoming.CellId, phase, row.Strength.ToString(), incoming.Strength.ToString()));
                 row.Strength = incoming.Strength;
                 _reactions.Update(row);
             }
             else
             {
+                if (incoming.Strength == ReactionGrade.NotTested)
+                {
+                    continue;
+                }
+
+                changes.Add(new ReactionChange(incoming.CellId, phase, null, incoming.Strength.ToString()));
                 var created = new AntibodyIdentificationReaction
                 {
                     WorkupId = workupId,
@@ -510,7 +525,13 @@ public sealed class AntibodyIdentificationService
             }
         }
 
-        if (reactions.Count > 0 && (workup.InterpretedUtc is not null || workup.ReviewedUtc is not null))
+        if (changes.Count == 0)
+        {
+            return OperationResult<AntibodyIdWorkupDetailDto>.Ok(await MapDetailAsync(workup, ct));
+        }
+
+        var hadJudgment = workup.InterpretedUtc is not null || workup.ReviewedUtc is not null;
+        if (hadJudgment)
         {
             await InvalidateJudgmentAfterPanelChangeAsync(workup, ct);
         }
@@ -520,12 +541,20 @@ public sealed class AntibodyIdentificationService
             _workups.Update(workup);
         }
 
+        _audit.Record(
+            AuditEventType.Antibody,
+            nameof(AntibodyIdentificationWorkup),
+            workupId,
+            oldValue: changes.Any(c => c.From is not null)
+                ? new { Reactions = changes.Where(c => c.From is not null).Select(c => new { c.CellId, c.Phase, Strength = c.From }).ToList() }
+                : null,
+            newValue: new { Reactions = changes.Select(c => new { c.CellId, c.Phase, Strength = c.To }).ToList() },
+            reason: hadJudgment
+                ? "Panel reactions recorded; the interpretation and review were cleared for re-interpretation."
+                : "Panel reactions recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
-        if (reactions.Count > 0)
-        {
-            await RefreshAssistFindingsAsync(workup, ct);
-            await _unitOfWork.SaveChangesAsync(ct);
-        }
+        await RefreshAssistFindingsAsync(workup, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<AntibodyIdWorkupDetailDto>.Ok(await MapDetailAsync(workup, ct));
     }
@@ -1391,6 +1420,8 @@ public sealed class AntibodyIdentificationService
             JudgmentWithdrawnReason: AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
                 workup.Status, workup.TechnologistInterpretation, workup.InterpretedUtc));
     }
+
+    private sealed record ReactionChange(long CellId, string Phase, string? From, string To);
 
     private async Task InvalidateJudgmentAfterPanelChangeAsync(
         AntibodyIdentificationWorkup workup,

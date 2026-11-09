@@ -1,4 +1,4 @@
-@page "/patients/{PatientId:long}/antibody-id"
+﻿@page "/patients/{PatientId:long}/antibody-id"
 @page "/patients/{PatientId:long}/antibody-id/{WorkupId:long}"
 @inject BloodBankApiClient Api
 @inject UserSession Session
@@ -662,6 +662,8 @@ else
     private readonly List<AntibodyIdInterpretationItem> _interpItems = new();
     private string? _reviewComment;
     private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _grades = new();
+    // The grades as last loaded: Save reactions sends only the cells changed since.
+    private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _savedGrades = new();
 
     private bool JudgmentStale =>
         _workup is not null
@@ -1015,6 +1017,12 @@ else
                 _grades[(cell.CellId, phase)] = existing?.Strength ?? ReactionGrade.NotTested;
             }
         }
+
+        _savedGrades.Clear();
+        foreach (var kv in _grades)
+        {
+            _savedGrades[kv.Key] = kv.Value;
+        }
     }
 
 
@@ -1075,10 +1083,19 @@ else
     private async Task SaveReactionsAsync()
     {
         if (_workup is null) return;
+        var payload = _grades
+            .Where(kv => !_savedGrades.TryGetValue(kv.Key, out var saved) || saved != kv.Value)
+            .Select(kv => new RecordAntibodyIdReactionRequest(kv.Key.CellId, kv.Key.Phase, kv.Value))
+            .ToList();
+        if (payload.Count == 0)
+        {
+            _fb = Feedback.Succeed("No reactions changed; nothing to save.");
+            return;
+        }
+
         _busy = true;
-        var payload = _grades.Select(kv => new RecordAntibodyIdReactionRequest(kv.Key.CellId, kv.Key.Phase, kv.Value)).ToList();
         var r = await Api.RecordAntibodyIdReactionsAsync(_workup.Id, payload);
-        _fb = r.ToFeedback("Reactions saved.");
+        _fb = r.ToFeedback(payload.Count == 1 ? "1 reaction saved." : $"{payload.Count} reactions saved.");
         if (r.Succeeded && r.Value is not null) ApplyWorkup(r.Value);
         _busy = false;
     }
