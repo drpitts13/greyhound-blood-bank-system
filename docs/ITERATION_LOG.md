@@ -19076,3 +19076,37 @@ The Instrument failures card named held results but no age. On Instruments, the 
 ### Next
 
 - Search other lists that may hold earlier days for time-only renderings (HH:mm without a date) and check each.
+
+## Iteration 618 — Short times name their day (2026-11-09)
+
+### Capability matrix rescan (time display across pages)
+
+Every time-only format on a page was checked. Lists of what was done in this sitting (a run's issued, received, returned, documented, stored, and discarded items) and the day-headed timeline are safe. The others could show another day as if it were today:
+- Ready to issue "Needed 07:30" for a surgery tomorrow, and "Requested → ward 22:10".
+- Issued units "Transfusing since 22:10" for a transfusion started yesterday (exactly the overdue ones).
+- The unit page's next step.
+- Cooler check's last-checked time for a cooler out across days.
+- The Verify-before badge, which also formatted the stored UTC expiry without converting it to local time: at a UTC offset, the verification deadline read hours wrong. The Cycle 604 guard missed it because the variable was not named …Utc.
+
+### Design
+
+- `ClockText.Short`: "HH:mm" today, "yesterday HH:mm", "tomorrow HH:mm", the date otherwise (seconds on request), converting UTC to local.
+- Applied to all of the above and to Instruments (Cycle 617's helper now uses it).
+- Source test: no page formats a time without its day except the named same-sitting lists and the timeline.
+
+### Verification
+
+- Unit: today, yesterday, tomorrow, further either way, seconds, UTC conversion. Rendered: the Verify-before badge shows the local expiry. The guard caught one more on its first run (Ready to issue "Requested").
+- Live (read-only): Issued units shows the demo overdue transfusion as "Transfusing since 2026-11-06 09:34 · completion overdue" (before: "Transfusing since 09:34", read as this morning). No server errors.
+
+### Requirements
+
+- URS-BB-663, FRS-BB-780.
+
+### Tests
+
+- TEST-BB-738, TEST-BB-739, TEST-BB-740.
+
+### Next
+
+- Look again at Ready to issue from the issuing tech's seat: the row's badges and the issue form, for anything still remembered or retyped.

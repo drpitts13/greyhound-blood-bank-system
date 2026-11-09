@@ -141,7 +141,7 @@ else
                                     @if (o.LastCheckedUtc is DateTime checkedUtc)
                                     {
                                         <span class="badge @(o.LastCheckReady == true ? "badge-green" : "badge-amber")">@(o.LastCheckReady == true ? "All packed" : "Differences")</span>
-                                        <span class="sub">@checkedUtc.ToLocalTime().ToString("HH:mm")</span>
+                                        <span class="sub">@ClockText.Short(checkedUtc)</span>
                                     }
                                     else
                                     {

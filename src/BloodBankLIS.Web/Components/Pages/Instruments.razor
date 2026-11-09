@@ -262,12 +262,8 @@
         _ => _messages.Count
     };
 
-    // Today's messages by time alone; an earlier one with its date, so yesterday's failure is not read as today's (Cycle 617).
-    private static string When(DateTime utc)
-    {
-        var local = utc.ToLocalTime();
-        return local.Date == DateTime.Now.Date ? local.ToString("HH:mm:ss") : local.ToString("yyyy-MM-dd HH:mm");
-    }
+    // Today's messages by time alone; an earlier one with its day, so yesterday's failure is not read as today's (Cycle 617).
+    private static string When(DateTime utc) => ClockText.Short(utc, seconds: true);
 
     protected override void OnParametersSet()
     {

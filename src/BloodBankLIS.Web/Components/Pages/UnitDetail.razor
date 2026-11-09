@@ -648,8 +648,8 @@ else
     private static string IssuedStatusLine(OutstandingIssueWorkItemDto row) => IssueRun.NextStepForIssued(row) switch
     {
         IssuedNextStep.ReceiveOnWard => "In transit, not yet received on the ward.",
-        IssuedNextStep.StartTransfusion => $"Received on the ward {row.WardReceivedUtc!.Value.ToLocalTime():HH:mm}{(string.IsNullOrWhiteSpace(row.WardReceivedBy) ? "" : $" by {row.WardReceivedBy}")}; transfusion not started.",
-        _ => $"Transfusing since {row.TransfusionStartedUtc!.Value.ToLocalTime():HH:mm}{(row.TransfusionCompletionOverdue ? " (completion overdue)" : "")}."
+        IssuedNextStep.StartTransfusion => $"Received on the ward {ClockText.Short(row.WardReceivedUtc!.Value)}{(string.IsNullOrWhiteSpace(row.WardReceivedBy) ? "" : $" by {row.WardReceivedBy}")}; transfusion not started.",
+        _ => $"Transfusing since {ClockText.Short(row.TransfusionStartedUtc!.Value)}{(row.TransfusionCompletionOverdue ? " (completion overdue)" : "")}."
     };
     private long _loadedId;
     private string _tab = "overview";

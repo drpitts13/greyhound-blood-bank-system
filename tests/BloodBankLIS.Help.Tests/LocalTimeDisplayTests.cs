@@ -59,6 +59,39 @@ public partial class LocalTimeDisplayTests
     [GeneratedRegex(@"\{(?![^{}]*ToLocalTime)[^{}]*Utc[^{}:]*:yyyy-MM-dd HH:mm(:ss)?\}(?! UTC)")]
     private static partial Regex UnlabelledTime();
 
+    // Time-only renderings that are safe: lists of what was done in this sitting (a run's issued, received, returned,
+    // documented, stored, and discarded units and tubes), and the timeline, which heads each day with its date.
+    private static readonly string[] SameSittingTimes =
+    [
+        "done.IssuedLocal.ToString(\"HH:mm\")",
+        "done.ReceivedLocal.ToString(\"HH:mm\")",
+        "done.ReturnedLocal.ToString(\"HH:mm\")",
+        "done.AtLocal.ToString(\"HH:mm\")",
+        "d.DiscardedUtc.ToLocalTime().ToString(\"HH:mm:ss\")",
+        "s.StoredUtc.ToLocalTime().ToString(\"HH:mm:ss\")",
+        "e.AtUtc.ToLocalTime().ToString(\"HH:mm\")",
+    ];
+
+    // TEST-BB-739: no page shows a time without its day (Cycle 618): "Needed 07:30" for tomorrow, "Transfusing since
+    // 22:10" from yesterday, or a cooler checked days ago read as today. Use ClockText.Short; a list of this sitting's
+    // work, or a day-headed timeline, is named above.
+    [Fact]
+    public void Pages_DoNotShowATimeWithoutItsDay()
+    {
+        var root = RepoRoot();
+        var problems = Directory.EnumerateFiles(Path.Combine(root, "src", "BloodBankLIS.Web", "Components"), "*.razor", SearchOption.AllDirectories)
+            .SelectMany(f => File.ReadAllLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
+            .Where(l => TimeOnly().IsMatch(l.Text) && !SameSittingTimes.Any(k => l.Text.Contains(k, StringComparison.Ordinal)))
+            .Select(l => $"{Path.GetRelativePath(root, l.File)}:{l.Line}: {l.Text.Trim()}")
+            .ToList();
+
+        Assert.True(problems.Count == 0,
+            "A time is shown without its day (use ClockText.Short):" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
+    [GeneratedRegex(@"ToString\(""HH:mm(:ss)?""\)|:HH:mm(:ss)?\}")]
+    private static partial Regex TimeOnly();
+
     private static bool IsDateKey(string line, Match match) =>
         DateKeys.Any(k => line.IndexOf(k, StringComparison.Ordinal) is var at && at >= 0
             && match.Index >= at && match.Index < at + k.Length);

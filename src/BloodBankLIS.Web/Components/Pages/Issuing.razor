@@ -329,13 +329,13 @@
                             <td class="right nowrap">
                                 @if (row.IssueRequestedUtc is DateTime requestedAt)
                                 {
-                                    <span class="badge badge-blue" title="Requested @requestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @row.IssueRequestedBy" data-ready-requested>Requested → @row.IssueRequestedTo @requestedAt.ToLocalTime().ToString("HH:mm")</span>
+                                    <span class="badge badge-blue" title="Requested @requestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @row.IssueRequestedBy" data-ready-requested>Requested → @row.IssueRequestedTo @ClockText.Short(requestedAt)</span>
                                 }
                                 @if (row.NeededByUtc is DateTime readyNeededBy)
                                 {
                                     @* When the order this unit is reserved for is needed: red once passed, amber inside the facility's window. *@
                                     <span class="@(row.NeededByPassed ? "badge badge-red" : row.NeededBySoon ? "badge badge-amber" : "badge badge-gray")"
-                                          title="Needed by @readyNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm") for order @row.OrderNumber" data-ready-needed-by>Needed @readyNeededBy.ToLocalTime().ToString("HH:mm")@(row.NeededByPassed ? " (passed)" : row.NeededInMinutes is int readyIn ? $" (in {readyIn} min)" : "")</span>
+                                          title="Needed by @readyNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm") for order @row.OrderNumber" data-ready-needed-by>Needed @ClockText.Short(readyNeededBy)@(row.NeededByPassed ? " (passed)" : row.NeededInMinutes is int readyIn ? $" (in {readyIn} min)" : "")</span>
                                 }
                                 @if (row.ExpiresBeforeNeeded)
                                 {
@@ -711,7 +711,7 @@
                                 <span class="nowrap">@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                                 @if (row.TransfusionStartedUtc is DateTime transfusingSince)
                                 {
-                                    <span class="badge @(row.TransfusionCompletionOverdue ? "badge-red" : "badge-amber")">Transfusing since @transfusingSince.ToLocalTime().ToString("HH:mm")@(row.TransfusionCompletionOverdue ? " · completion overdue" : "")</span>
+                                    <span class="badge @(row.TransfusionCompletionOverdue ? "badge-red" : "badge-amber")">Transfusing since @ClockText.Short(transfusingSince)@(row.TransfusionCompletionOverdue ? " · completion overdue" : "")</span>
                                 }
                                 else
                                 {

@@ -668,3 +668,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-660 | Tubes due for discard are listed by place, so each rack or shelf is visited once, with how long each tube is past its date. | P3 | FRS-BB-777 |
 | URS-BB-661 | The HL7 error queue and its home card say how long each error, and the oldest, has waited. | P2 | FRS-BB-778 |
 | URS-BB-662 | Instrument messages show their date when not from today, and open failures (and the home card) say how long they have waited. | P2 | FRS-BB-779 |
+| URS-BB-663 | A short time shown on a badge or status line names its day when it is not today. | P2 | FRS-BB-780 |

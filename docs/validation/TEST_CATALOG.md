@@ -746,5 +746,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-735 | U | `Hl7ErrorQueueTests.ErrorRows_SayHowLongTheyHaveWaited` | URS-BB-661 / FRS-BB-778 |
 | TEST-BB-736 | U | `DashboardQueueCatalogTests.InstrumentFailuresCard_NamesTheOldestWait` | URS-BB-662 / FRS-BB-779 |
 | TEST-BB-737 | U | `InstrumentMessagesTests.Messages_ShowTheDate_AndHowLongAnOpenFailureHasWaited` | URS-BB-662 / FRS-BB-779 |
+| TEST-BB-738 | U | `ClockTextTests.Short_NamesTheDayWhenItIsNotToday` | URS-BB-663 / FRS-BB-780 |
+| TEST-BB-739 | U | `LocalTimeDisplayTests.Pages_DoNotShowATimeWithoutItsDay` | URS-BB-663 / FRS-BB-780 |
+| TEST-BB-740 | U | `ClockTextTests.VerificationDeadlineBadge_ShowsTheLocalExpiry` | URS-BB-663 / FRS-BB-780 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
