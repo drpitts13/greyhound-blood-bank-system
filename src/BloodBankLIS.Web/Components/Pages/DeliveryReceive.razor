@@ -1,4 +1,4 @@
-@page "/inventory/deliveries/{Id:long}/receive"
+﻿@page "/inventory/deliveries/{Id:long}/receive"
 @using BloodBankLIS.Application.Inventory
 @using BloodBankLIS.Application.Reference
 @using BloodBankLIS.Domain.Enums
@@ -95,8 +95,8 @@ else
                     }
                 </select>
             </div>
-            <div class="field"><label>ABO</label><select @bind="_rec.Abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
-            <div class="field"><label>Rh(D)</label><select @bind="_rec.RhD">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select></div>
+            <div class="field"><label>ABO</label><select @bind="_rec.Abo"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
+            <div class="field"><label>Rh(D)</label><select @bind="_rec.RhD"><option value="">— Select —</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select></div>
             <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_rec.ExpiresLocal" /></div>
             <div class="field"><label>Location</label>
                 <select @bind="_rec.LocationId">
@@ -244,6 +244,8 @@ else
         var missing = new List<string>();
         if (string.IsNullOrWhiteSpace(_rec.UnitNumber)) missing.Add("unit number");
         if (_rec.ProductTypeId <= 0) missing.Add("product");
+        if (_rec.Abo is null) missing.Add("ABO");
+        if (_rec.RhD is null) missing.Add("Rh(D)");
         if (string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode)) missing.Add("product description code");
         if (_requireTemperature && _rec.ReceiveTemperatureCelsius is null) missing.Add("receipt temperature");
         if (missing.Count > 0)
@@ -257,8 +259,8 @@ else
         var req = new ReceiveUnitRequest(
             _rec.UnitNumber.Trim(),
             _rec.ProductTypeId,
-            _rec.Abo,
-            _rec.RhD,
+            _rec.Abo!.Value,
+            _rec.RhD!.Value,
             DateTime.SpecifyKind(_rec.ExpiresLocal, DateTimeKind.Utc),
             _rec.LocationId == 0 ? null : _rec.LocationId,
             Isbt128ProductCode: string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim(),
@@ -277,13 +279,12 @@ else
             : $"Unit {req.UnitNumber} received.");
         if (r.Succeeded)
         {
-            // Keep shipment-level fields so the next unit from the same cooler is quick to enter.
+            // Keep shipment-level fields so the next unit from the same cooler is quick to enter. ABO/Rh is read from
+            // each unit's own label, never carried from the last one.
             var previous = _rec;
             _rec = new ReceiveModel
             {
                 ProductTypeId = previous.ProductTypeId,
-                Abo = previous.Abo,
-                RhD = previous.RhD,
                 ExpiresLocal = previous.ExpiresLocal,
                 LocationId = previous.LocationId,
                 ProductDescriptionCode = previous.ProductDescriptionCode,
@@ -332,8 +333,9 @@ else
     {
         public string UnitNumber { get; set; } = string.Empty;
         public long ProductTypeId { get; set; }
-        public AboGroup Abo { get; set; } = AboGroup.O;
-        public RhType RhD { get; set; } = RhType.Positive;
+        // Read from the unit's label: starts unchosen, never assumed O / Positive (Cycle 593).
+        public AboGroup? Abo { get; set; }
+        public RhType? RhD { get; set; }
         public DateTime ExpiresLocal { get; set; } = DateTime.UtcNow.AddDays(30);
         public long LocationId { get; set; }
         public string ProductDescriptionCode { get; set; } = string.Empty;

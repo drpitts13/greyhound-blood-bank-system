@@ -39,6 +39,17 @@ public partial class AttestationDefaultTests
             "A reaction reading starts at a grade; start it blank:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
 
+    // TEST-BB-697: an ABO or Rh(D) on an entry form never starts at a type (O / Positive): it is read and chosen
+    // (Cycles 592, 593).
+    [Fact]
+    public void Blood_types_do_not_start_at_a_type()
+    {
+        var problems = Scan(TypeStartsFixed(), skip: null);
+
+        Assert.True(problems.Count == 0,
+            "An ABO or Rh(D) starts at a type; start it unchosen:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
     [Fact]
     public void Return_inspections_do_not_start_as_passed()
     {
@@ -100,6 +111,9 @@ public partial class AttestationDefaultTests
     }
 
     // Assignments, fallbacks, or initializers that put Session.UserName into an *AuthorizedBy field.
+    [GeneratedRegex(@"(?:AboGroup|RhType)\??\s+\w+\s*(?:\{\s*get;\s*set;\s*\}\s*)?=\s*(?:AboGroup|RhType)\.(?:O|A|B|AB|Positive|Negative)\s*;")]
+    private static partial Regex TypeStartsFixed();
+
     [GeneratedRegex(@"(Grade)?Choices\.FirstOrDefault\(\)")]
     private static partial Regex ReadingFromFirstGrade();
 

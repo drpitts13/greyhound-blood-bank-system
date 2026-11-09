@@ -704,5 +704,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-693 | A | `ReactionInterpretationSuggestionTests.SuggestCrossmatch_IgnoresUncountedCheckCells` | URS-BB-642 / FRS-BB-759 |
 | TEST-BB-694 | D | `CrossmatchReactionRuleTests.CountsInInterpretation_LeavesOutCheckCells` | URS-BB-642 / FRS-BB-759 |
 | TEST-BB-695 | U | `AttestationDefaultTests.Readings_do_not_start_at_a_grade` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-696 | U | `DeliveryReceivePageTests.UnitType_StartsUnchosen_AndIsRequired` | URS-BB-643 / FRS-BB-760 |
+| TEST-BB-697 | U | `AttestationDefaultTests.Blood_types_do_not_start_at_a_type` | URS-BB-643 / FRS-BB-760 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

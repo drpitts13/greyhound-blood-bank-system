@@ -1,4 +1,4 @@
-@inject UserSession Session
+﻿@inject UserSession Session
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
@@ -109,10 +109,10 @@
             <Outcome Value="TypeFeedback" />
             <div class="form-row">
                 <div class="field"><label>ABO</label>
-                    <select @bind="TypeAbo" @bind:after="() => TypeAboChanged.InvokeAsync(TypeAbo)">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
+                    <select @bind="TypeAbo" @bind:after="() => TypeAboChanged.InvokeAsync(TypeAbo)"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
                 </div>
                 <div class="field"><label>Rh(D)</label>
-                    <select @bind="TypeRh" @bind:after="() => TypeRhChanged.InvokeAsync(TypeRh)">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
+                    <select @bind="TypeRh" @bind:after="() => TypeRhChanged.InvokeAsync(TypeRh)"><option value="">— Select —</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
                 </div>
                 @if (TypeAbo is AboGroup.A or AboGroup.AB)
                 {
@@ -493,10 +493,11 @@
     [Parameter] public Feedback? SrFeedback { get; set; }
     [Parameter] public Feedback? AntibodyFeedback { get; set; }
     [Parameter] public Feedback? AntigenFeedback { get; set; }
-    [Parameter] public AboGroup TypeAbo { get; set; } = AboGroup.O;
-    [Parameter] public EventCallback<AboGroup> TypeAboChanged { get; set; }
-    [Parameter] public RhType TypeRh { get; set; } = RhType.Positive;
-    [Parameter] public EventCallback<RhType> TypeRhChanged { get; set; }
+    // A recorded type starts unchosen: never assumed O / Positive (Cycle 593).
+    [Parameter] public AboGroup? TypeAbo { get; set; }
+    [Parameter] public EventCallback<AboGroup?> TypeAboChanged { get; set; }
+    [Parameter] public RhType? TypeRh { get; set; }
+    [Parameter] public EventCallback<RhType?> TypeRhChanged { get; set; }
     [Parameter] public AboSubgroup TypeSubgroup { get; set; } = AboSubgroup.Unknown;
     [Parameter] public EventCallback<AboSubgroup> TypeSubgroupChanged { get; set; }
     [Parameter] public string TypeReason { get; set; } = string.Empty;

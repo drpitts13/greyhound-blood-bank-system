@@ -679,8 +679,8 @@ else
         LinkableSpecimens.Where(s => s.HasCompletedTypeAndScreen);
 
     // manual blood type
-    private AboGroup _typeAbo = AboGroup.O;
-    private RhType _typeRh = RhType.Positive;
+    private AboGroup? _typeAbo;
+    private RhType? _typeRh;
     private AboSubgroup _typeSubgroup = AboSubgroup.Unknown;
     private string _typeReason = string.Empty;
     private ManualTypeDocumentation _typeDocumentation = ManualTypeDocumentation.NotDocumented;
@@ -2352,12 +2352,18 @@ else
 
     private async Task RecordTypeAsync()
     {
+        if (_typeAbo is not AboGroup abo || _typeRh is not RhType rh)
+        {
+            _typeFb = Feedback.Fail("Choose the ABO and Rh(D) to record.");
+            return;
+        }
+
         _busy = true;
-        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(_typeAbo, _typeRh, _typeReason, _typeSubgroup,
+        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(abo, rh, _typeReason, _typeSubgroup,
             _typeDocumentation, string.IsNullOrWhiteSpace(_typeDocumentationReference) ? null : _typeDocumentationReference));
         _busy = false;
         _typeFb = r.ToFeedback("Blood type recorded.");
-        if (r.Succeeded) { _typeReason = string.Empty; _typeDocumentation = ManualTypeDocumentation.NotDocumented; _typeDocumentationReference = string.Empty; await LoadAsync(); }
+        if (r.Succeeded) { _typeAbo = null; _typeRh = null; _typeReason = string.Empty; _typeDocumentation = ManualTypeDocumentation.NotDocumented; _typeDocumentationReference = string.Empty; await LoadAsync(); }
     }
 
     private static string AbidNextLabel(AntibodyIdWorkupListItemDto workup) =>

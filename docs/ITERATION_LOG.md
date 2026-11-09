@@ -18397,3 +18397,30 @@ Following Cycle 591's next steps, every ABO/Rh entry form was read. Bench entry 
 ### Next
 
 - Record blood type on the chart (documented outside type) and unit receipt at delivery still start at O / Positive; start them unchosen.
+
+## Iteration 593 — Recorded and received types start unchosen (2026-11-09)
+
+### Capability matrix rescan (manual type entry)
+
+Cycle 592's remaining two forms: the chart's Record blood type (a documented or legacy type) and Enter units on a delivery both started ABO/Rh at O / Positive. Delivery receipt also kept the previous unit's ABO/Rh for the next one, so in a mixed cooler a group O unit could be received as the previous unit's A without anyone choosing it.
+
+### Design
+
+- Both start "— Select —"; recording refuses without a type; receipt lists ABO and Rh(D) among missing fields. The unit's type is no longer carried; shipment fields still are.
+- Source test: no ABO or Rh(D) field in a web component is initialized to a type. No server or clinical rule changed (the server already required both).
+
+### Verification
+
+- Rendered test of delivery receipt (unchosen; refused naming ABO, Rh(D)); source guard. Live: the chart's Record blood type (MRN0001) opens unchosen (read-only). The development database has no open delivery, so Enter units was checked by the rendered test only.
+
+### Requirements
+
+- URS-BB-643, FRS-BB-760.
+
+### Tests
+
+- TEST-BB-696, TEST-BB-697.
+
+### Next
+
+- Typing forms are covered. Return to operations: walk the antibody identification panel entry for the same defaults (cell reactions, rule-outs).
