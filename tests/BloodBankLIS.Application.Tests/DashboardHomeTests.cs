@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Compliance;
+﻿using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -225,5 +225,7 @@ public class DashboardHomeTests
         Assert.Null(BloodOrdersNote([Row(false, true)]));
         // TEST-BB-648 (note): orders inside the needed-by warning window are counted.
         Assert.Equal("1 needed soon", BloodOrdersNote([Row(false, true) with { NeededBySoon = true, NeededInMinutes = 20 }]));
+        // TEST-BB-707 (note): orders that lost a reserved unit to expiry are counted.
+        Assert.Equal("1 lost a reserved unit to expiry", BloodOrdersNote([Row(false, true) with { ExpiredReservations = ["Unit W1 expired."] }]));
     }
 }

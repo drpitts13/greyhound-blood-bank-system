@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.PatientWorkspace;
+﻿using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Web.Components.Pages;
 using Bunit;
@@ -62,5 +62,20 @@ public class BloodOrdersPageTests : BunitContext
 
         var button = page.FindAll("table.bb tbody tr").Single(r => r.TextContent.Contains("ORD-LATE-SPEC")).QuerySelector("td.right a")!;
         Assert.Equal(("Collect a new specimen", "/patients/1?tab=specimens"), (button.TextContent.Trim(), button.GetAttribute("href")));
+    }
+
+    // TEST-BB-708: an order that lost a reserved unit to expiry says so on its row, with the unit and when; others do not.
+    [Fact]
+    public void ExpiredReservation_IsNamedOnItsRow()
+    {
+        var page = RenderWith(
+            Row("ORD-LOST", usable: true) with { ExpiredReservations = ["Unit W0001230000001 expired at 2026-11-08 10:00 UTC."] },
+            Row("ORD-PLAIN", usable: true));
+
+        var lost = page.FindAll("table.bb tbody tr").Single(r => r.TextContent.Contains("ORD-LOST"));
+        var note = lost.QuerySelector("[data-expired-reservations]")!.TextContent;
+        Assert.Contains("Reserved unit expired", note);
+        Assert.Contains("Unit W0001230000001 expired at 2026-11-08 10:00 UTC.", note);
+        Assert.Null(page.FindAll("table.bb tbody tr").Single(r => r.TextContent.Contains("ORD-PLAIN")).QuerySelector("[data-expired-reservations]"));
     }
 }

@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
@@ -44,7 +44,9 @@ public sealed record BloodOrderToPrepareDto(
     bool NeededBySoon = false,
     int? NeededInMinutes = null,
     // The usable specimen expires before the needed-by time: a new specimen is needed for the units to be issuable then.
-    bool SpecimenExpiresBeforeNeeded = false);
+    bool SpecimenExpiresBeforeNeeded = false,
+    // Reservations on this order that ended because their unit expired ("Unit W… expired at … UTC."): why it needs units again.
+    IReadOnlyList<string>? ExpiredReservations = null);
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -136,6 +138,10 @@ public sealed class BloodOrderWorklistService
         var openIds = orders.Keys.ToList();
         var reserved = (await _allocations.ListAsync(a => a.OrderId != null && openIds.Contains(a.OrderId.Value) && a.Status == AllocationStatus.Reserved, ct))
             .GroupBy(a => a.OrderId!.Value).ToDictionary(g => g.Key, g => g.Count());
+        var expiredReservations = (await _allocations.ListAsync(a => a.OrderId != null && openIds.Contains(a.OrderId.Value) && a.Status == AllocationStatus.Expired, ct))
+            .GroupBy(a => a.OrderId!.Value)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.OrderBy(a => a.Id)
+                .Select(a => a.ReleaseReason ?? $"A reserved unit expired (allocation {a.Id}).").ToList());
         var issued = (await _issues.ListAsync(i => i.OrderId != null && openIds.Contains(i.OrderId.Value) && i.Status != IssueStatus.Returned, ct))
             .GroupBy(i => i.OrderId!.Value).ToDictionary(g => g.Key, g => g.Count());
 
@@ -203,7 +209,8 @@ public sealed class BloodOrderWorklistService
                 requirementText.GetValueOrDefault(order.PatientId) ?? [],
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes),
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes) ? OrderNeededByRule.MinutesUntil(order.NeededByUtc, now) : null,
-                expiresBeforeNeeded));
+                expiresBeforeNeeded,
+                expiredReservations.GetValueOrDefault(order.Id) ?? []));
         }
 
         // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.

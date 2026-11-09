@@ -18561,3 +18561,29 @@ Ward receipt and issue had no preset answers left (appearance is attested and se
 ### Next
 
 - Blood orders to prepare: mark an order whose reserved unit expired, so the reason it needs units again is on the row.
+
+## Iteration 599 — Blood orders say when a reserved unit expired (2026-11-09)
+
+### Capability matrix rescan (blood orders to prepare)
+
+After Cycle 598 the alert names patients whose reserved units expired, but the worklist row it opens only showed the count rising again ("1 of 2 still needed") with no reason; an order that had looked covered reappeared unexplained.
+
+### Design
+
+- The row lists its allocations ended by expiry, using the release reason the sweep already writes (unit and time); the home card counts such orders. No schema change.
+
+### Verification
+
+- Integration (expired named, released not), note and rendered-row tests. Live: Blood orders to prepare renders; the dev data has no expired reservation, so the mark itself was checked by the rendered test.
+
+### Requirements
+
+- URS-BB-649, FRS-BB-766.
+
+### Tests
+
+- TEST-BB-706 to TEST-BB-708.
+
+### Next
+
+- Walk Issued units and returns for other unexplained state changes.

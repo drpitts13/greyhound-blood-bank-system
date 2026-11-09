@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Rules;
@@ -62,7 +62,7 @@ public class BloodOrderWorklistTests
         Lines(statOrder, 2);
         Lines(coveredOrder, 1);
         Lines(cancelledOrder, 2);
-        var units = Enumerable.Range(1, 4).Select(i => new BloodUnit { UnitNumber = $"W-BO-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(20), Status = UnitStatus.Assigned }).ToList();
+        var units = Enumerable.Range(1, 5).Select(i => new BloodUnit { UnitNumber = $"W-BO-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(20), Status = UnitStatus.Assigned }).ToList();
         c.BloodUnits.AddRange(units);
         c.Specimens.Add(new Specimen { PatientId = routine.Id, AccessionNumber = "ACC-BO-1", SpecimenType = "EDTA", Status = SpecimenStatus.Accepted, CollectedUtc = now.AddHours(-5), ExpiresUtc = now.AddDays(2) });
         c.Specimens.Add(new Specimen { PatientId = stat.Id, AccessionNumber = "ACC-BO-2", SpecimenType = "EDTA", Status = SpecimenStatus.Accepted, CollectedUtc = now.AddDays(-5), ExpiresUtc = now.AddHours(-1) });
@@ -70,7 +70,8 @@ public class BloodOrderWorklistTests
         c.Allocations.AddRange(
             new Allocation { BloodProductId = units[0].Id, PatientId = routine.Id, OrderId = routineOrder.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now },
             new Allocation { BloodProductId = units[1].Id, PatientId = routine.Id, OrderId = routineOrder.Id, Status = AllocationStatus.Released, AllocatedUtc = now },
-            new Allocation { BloodProductId = units[2].Id, PatientId = covered.Id, OrderId = coveredOrder.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now });
+            new Allocation { BloodProductId = units[2].Id, PatientId = covered.Id, OrderId = coveredOrder.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now },
+            new Allocation { BloodProductId = units[4].Id, PatientId = stat.Id, OrderId = statOrder.Id, Status = AllocationStatus.Expired, AllocatedUtc = now.AddDays(-1), ReleaseReason = "Unit W-BO-5 expired at 2026-05-30 11:00 UTC." });
         c.Issues.Add(new Issue { BloodProductId = units[3].Id, PatientId = routine.Id, OrderId = routineOrder.Id, IssuedUtc = now, IssuedBy = "tech" });
         await c.SaveChangesAsync();
 
@@ -84,6 +85,9 @@ public class BloodOrderWorklistTests
         Assert.Equal((true, 2, 2, false, "Collect a specimen", $"/patients/{stat.Id}?tab=specimens"),
             (statRow.Rush, statRow.Requested, statRow.Remaining, statRow.HasUsableSpecimen, statRow.NextStep, statRow.Href));
         var routineRow = rows[1];
+        // TEST-BB-706: a reservation ended by the unit's expiry is named on its order, and a released one is not.
+        Assert.Equal(["Unit W-BO-5 expired at 2026-05-30 11:00 UTC."], statRow.ExpiredReservations);
+        Assert.Empty(routineRow.ExpiredReservations!);
         Assert.Equal((3, 1, 1, 1, true, "Reserve 1 unit", "3 × Red Blood Cells"),
             (routineRow.Requested, routineRow.Reserved, routineRow.Issued, routineRow.Remaining, routineRow.HasUsableSpecimen, routineRow.NextStep, routineRow.Products));
         // TEST-BB-632: the needed-by time is carried, and one that has passed is flagged.

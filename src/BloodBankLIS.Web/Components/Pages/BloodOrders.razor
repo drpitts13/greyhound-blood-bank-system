@@ -1,4 +1,4 @@
-@page "/blood-orders"
+﻿@page "/blood-orders"
 @using BloodBankLIS.Application.PatientWorkspace
 @inject BloodBankApiClient Api
 @inject UserSession Session
@@ -64,7 +64,20 @@ else
                             }
                         </td>
                         <td>@r.Products</td>
-                        <td><strong>@r.Remaining</strong> <span class="sub">of @r.Requested (@r.Reserved reserved, @r.Issued issued)</span></td>
+                        <td>
+                            <strong>@r.Remaining</strong> <span class="sub">of @r.Requested (@r.Reserved reserved, @r.Issued issued)</span>
+                            @if (r.ExpiredReservations is { Count: > 0 } lost)
+                            {
+                                @* Why the order needs units again: its reserved unit expired and the sweep ended the reservation (Cycle 599). *@
+                                <div data-expired-reservations>
+                                    <span class="badge badge-amber">Reserved unit expired</span>
+                                    @foreach (var reason in lost)
+                                    {
+                                        <span class="sub">@reason</span>
+                                    }
+                                </div>
+                            }
+                        </td>
                         <td>
                             @if (r.HasUsableSpecimen && r.TypeAndScreenPending)
                             {

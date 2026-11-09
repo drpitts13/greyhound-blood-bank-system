@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Admin;
+﻿using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
@@ -157,7 +157,8 @@ public static class DashboardQueueCatalog
             AttentionNote(list.Count(r => r.NeededByPassed), "past its needed-by time", "past their needed-by time"),
             AttentionNote(list.Count(r => r.NeededBySoon), "needed soon", "needed soon"),
             AttentionNote(list.Count(r => r.SpecimenExpiresBeforeNeeded), "specimen expires before it is needed", "specimens expire before they are needed"),
-            AttentionNote(list.Count(r => !r.HasUsableSpecimen), "needs a specimen", "need a specimen")
+            AttentionNote(list.Count(r => !r.HasUsableSpecimen), "needs a specimen", "need a specimen"),
+            AttentionNote(list.Count(r => r.ExpiredReservations is { Count: > 0 }), "lost a reserved unit to expiry", "lost reserved units to expiry")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }
