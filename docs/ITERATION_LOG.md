@@ -18535,3 +18535,29 @@ Cycle 596's next steps. Return: time out of storage is computed from the issue t
 ### Next
 
 - Ward receipt and issue forms: check for preset answers; then return to operations queues.
+
+## Iteration 598 — Expired reservations named in the alert (2026-11-09)
+
+### Capability matrix rescan (ward receipt, issue, operations)
+
+Ward receipt and issue had no preset answers left (appearance is attested and server-checked; issue type defaults to Standard, emergency is a deliberate choice). On the home dashboard, Expired on shelf gave a bare count; a note for units still reserved was drafted and dropped, because the scheduled sweep (every 30–300 s) ends those reservations almost at once. Following that: the sweep ends a reservation and raises a "units expired" warning that only counted the reservations ended, so the person reading it had to find which patients lost their prepared units.
+
+### Design
+
+- The sweep returns each ended reservation as unit and MRN; the alert is critical when any ended, names them (five, then a count) and opens Blood orders to prepare, where those orders need units again.
+
+### Verification
+
+- Alert wording tests (names, limit, severity, link; unchanged without reservations); the sweep test asserts the unit and patient named. Live: not exercised (would need a unit to expire while reserved on dev data).
+
+### Requirements
+
+- URS-BB-648, FRS-BB-765.
+
+### Tests
+
+- TEST-BB-704, TEST-BB-705.
+
+### Next
+
+- Blood orders to prepare: mark an order whose reserved unit expired, so the reason it needs units again is on the row.

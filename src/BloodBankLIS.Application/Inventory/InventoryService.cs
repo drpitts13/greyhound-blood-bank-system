@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Isbt128;
@@ -2451,6 +2451,7 @@ public sealed class InventoryService
 
         var expired = 0;
         var reservationsEnded = 0;
+        var reservationsEndedFor = new List<string>();
         foreach (var unit in due)
         {
             if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Expired))
@@ -2489,19 +2490,24 @@ public sealed class InventoryService
             expired++;
 
             // An expired unit can no longer be issued, so its reservation must not keep showing as blood held for the patient.
-            reservationsEnded += await EndReservationsAsync(unit, now, ct);
+            var ended = await EndReservationsAsync(unit, now, ct);
+            reservationsEnded += ended.Count;
+            reservationsEndedFor.AddRange(ended);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return InventoryActionResult.OkSweep(expired, reservationsEnded);
+        return InventoryActionResult.OkSweep(expired, reservationsEnded, reservationsEndedFor);
     }
 
-    private async Task<int> EndReservationsAsync(BloodUnit unit, DateTime now, CancellationToken ct)
+    /// <summary>Ends the unit's reservations; returns each as "{unit} for {MRN}".</summary>
+    private async Task<IReadOnlyList<string>> EndReservationsAsync(BloodUnit unit, DateTime now, CancellationToken ct)
     {
         if (_allocations is null)
         {
-            return 0;
+            return [];
         }
+
+        var endedFor = new List<string>();
 
         var reserved = await _allocations.ListAsync(a => a.BloodProductId == unit.Id && a.Status == AllocationStatus.Reserved, ct);
         foreach (var row in reserved)
@@ -2517,9 +2523,11 @@ public sealed class InventoryService
                 oldValue: new { Status = AllocationStatus.Reserved },
                 newValue: new { Status = AllocationStatus.Expired, tracked.PatientId, unit.UnitNumber },
                 reason: tracked.ReleaseReason);
+            var patient = _patients is null ? null : await _patients.GetByIdAsync(tracked.PatientId, ct);
+            endedFor.Add($"{unit.UnitNumber} for {patient?.MedicalRecordNumber ?? $"patient {tracked.PatientId}"}");
         }
 
-        return reserved.Count;
+        return endedFor;
     }
 
     /// <summary>Available, or Received when the product requires a retype that is not yet confirmed.</summary>

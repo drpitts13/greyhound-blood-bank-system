@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -158,17 +158,33 @@ public sealed class AlertScanner
     }
 
     /// <summary>Event alert after the scheduled expiration sweep moved units to Expired.</summary>
-    public Task<bool> RaiseUnitsExpiredAsync(int count, DateTime sweptUtc, int reservationsEnded = 0, CancellationToken ct = default) =>
+    public Task<bool> RaiseUnitsExpiredAsync(
+        int count, DateTime sweptUtc, int reservationsEnded = 0, CancellationToken ct = default,
+        IReadOnlyList<string>? reservationsEndedFor = null) =>
         count <= 0
             ? Task.FromResult(false)
-            : _alerts.RaiseAsync(new AlertCandidate(
-                AlertRule.UnitsExpired,
-                $"EXPIRED:{sweptUtc:yyyyMMddHHmmss}",
-                AlertSeverity.Warning,
-                $"{count} unit(s) expired",
-                $"The scheduled sweep moved {count} unit(s) to Expired at {sweptUtc:yyyy-MM-dd HH:mm} UTC. Remove them from storage." +
-                (reservationsEnded > 0
-                    ? $" {reservationsEnded} of them were reserved for patients; those reservations have ended. Reserve replacement units."
-                    : string.Empty),
-                "/inventory?status=Expired"), ct);
+            : _alerts.RaiseAsync(UnitsExpiredAlert(count, sweptUtc, reservationsEnded, reservationsEndedFor), ct);
+
+    /// <summary>
+    /// The units-expired alert. When reservations ended, it names each unit and patient (the first five, then how many
+    /// more) and opens Blood orders to prepare, where those orders need units again; otherwise it opens the expired units.
+    /// </summary>
+    public static AlertCandidate UnitsExpiredAlert(
+        int count, DateTime sweptUtc, int reservationsEnded, IReadOnlyList<string>? reservationsEndedFor)
+    {
+        var named = reservationsEndedFor ?? [];
+        var who = named.Count == 0
+            ? string.Empty
+            : $" ({string.Join(", ", named.Take(5))}{(named.Count > 5 ? $", and {named.Count - 5} more" : string.Empty)})";
+        return new AlertCandidate(
+            AlertRule.UnitsExpired,
+            $"EXPIRED:{sweptUtc:yyyyMMddHHmmss}",
+            reservationsEnded > 0 ? AlertSeverity.Critical : AlertSeverity.Warning,
+            reservationsEnded > 0 ? $"{count} unit(s) expired, {reservationsEnded} reserved for patients" : $"{count} unit(s) expired",
+            $"The scheduled sweep moved {count} unit(s) to Expired at {sweptUtc:yyyy-MM-dd HH:mm} UTC. Remove them from storage." +
+            (reservationsEnded > 0
+                ? $" {reservationsEnded} of them were reserved for patients{who}; those reservations have ended. Reserve replacement units."
+                : string.Empty),
+            reservationsEnded > 0 ? "/blood-orders" : "/inventory?status=Expired");
+    }
 }

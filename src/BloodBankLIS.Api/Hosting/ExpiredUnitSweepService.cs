@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Compliance;
+﻿using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 
 namespace BloodBankLIS.Api.Hosting;
@@ -48,7 +48,7 @@ public sealed class ExpiredUnitSweepService : BackgroundService
                 {
                     _logger.LogInformation("Expired-unit sweep expired {Count} unit(s).", result.AffectedCount);
                     var alerts = scope.ServiceProvider.GetRequiredService<AlertScanner>();
-                    await alerts.RaiseUnitsExpiredAsync(result.AffectedCount, DateTime.UtcNow, result.ReservationsEnded, stoppingToken);
+                    await alerts.RaiseUnitsExpiredAsync(result.AffectedCount, DateTime.UtcNow, result.ReservationsEnded, stoppingToken, result.ReservationsEndedFor);
                 }
             }
             catch (OperationCanceledException)

@@ -653,3 +653,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-645 | An electronic crossmatch is recorded only against a specimen that is accepted, in date, and has its own verified negative antibody screen; eligibility shown on screens requires such a current specimen. The screen is read from results, never attested on a pre-ticked box. | P1 | FRS-BB-762 |
 | URS-BB-646 | Finishing a transfusion (complete or document) requires an explicit answer to whether a reaction is suspected; "no reaction" is never recorded by default. | P1 | FRS-BB-763 |
 | URS-BB-647 | Finishing a transfusion requires choosing how it ended (completed, stopped, or wasted); Completed is never recorded by default. | P2 | FRS-BB-764 |
+| URS-BB-648 | When units expire while reserved for patients, the alert names each unit and patient and opens the blood orders to prepare, so replacements are reserved without searching. | P2 | FRS-BB-765 |

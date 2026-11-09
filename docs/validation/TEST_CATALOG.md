@@ -712,5 +712,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-701 | I | `Phase4IssuingTests.Transfusion_WithoutReactionAnswer_IsRefused` | URS-BB-646 / FRS-BB-763 |
 | TEST-BB-702 | U | `AttestationDefaultTests.Reaction_questions_are_not_unticked_checkboxes` | URS-BB-646 / FRS-BB-763 |
 | TEST-BB-703 | I | `Phase4IssuingTests.Transfusion_WithoutDisposition_IsRefused` | URS-BB-647 / FRS-BB-764 |
+| TEST-BB-704 | I | `InventoryServiceTests.ExpireDueUnits_EndsTheReservationOnAnExpiredUnit_AndLeavesOthers` (names unit and patient) | URS-BB-648 / FRS-BB-765 |
+| TEST-BB-705 | A | `UnitsExpiredAlertTests.ReservationsEnded_NameUnitsAndPatients_AndOpenBloodOrders` | URS-BB-648 / FRS-BB-765 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

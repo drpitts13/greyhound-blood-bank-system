@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
@@ -4306,6 +4306,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             var swept = await CreateService(context).ExpireDueUnitsAsync();
             Assert.True(swept.Succeeded, swept.Error);
             Assert.True(swept.ReservationsEnded >= 1);
+            // TEST-BB-704: the sweep names the unit and the patient whose reservation ended, for the alert.
+            Assert.Contains("U-EXP-RES for MRN-EXP-RES", swept.ReservationsEndedFor);
         }
 
         await using var verify = _factory.Create();
