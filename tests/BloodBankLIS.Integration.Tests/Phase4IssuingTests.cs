@@ -1156,6 +1156,43 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null(Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId).OpenReactionInvestigationId);
     }
 
+    // TEST-BB-754: a reserved unit on Ready to issue carries its patient's open reaction investigation, so the bank is
+    // warned before the unit leaves; another patient's reserved unit does not.
+    [Fact]
+    public async Task ReadyList_CarriesThePatientsOpenReactionInvestigation()
+    {
+        var s = await SeedAsync("RDY-REACT-OPEN");
+        var other = await SeedAsync("RDY-REACT-NONE");
+        var issuedId = await IssuedAndReceivedAsync(s);
+        var second = await SeedAsync("RDY-REACT-OPEN-2");
+        await using (var move = _factory.Create())
+        {
+            // A second unit reserved for the same patient.
+            var unit = (await move.BloodUnits.FindAsync(second.UnitId))!;
+            await AllocateAsync(s with { UnitId = unit.Id });
+        }
+        await AllocateAsync(other);
+
+        await using var c = _factory.Create();
+        var earlier = new TransfusionEvent
+        {
+            IssueId = issuedId, BloodProductId = s.UnitId, PatientId = s.PatientId, StartUtc = _factory.Clock.UtcNow.AddMinutes(-40),
+            ReactionSuspected = true, DocumentedBy = "nurse"
+        };
+        c.TransfusionEvents.Add(earlier);
+        await c.SaveChangesAsync();
+        var investigation = new ReactionInvestigation
+        {
+            TransfusionEventId = earlier.Id, PatientId = s.PatientId, BloodProductId = s.UnitId, ReportedUtc = _factory.Clock.UtcNow, ReportedBy = "nurse"
+        };
+        c.ReactionInvestigations.Add(investigation);
+        await c.SaveChangesAsync();
+
+        var rows = await Issuing(c).ListReadyToIssueAllocationsAsync();
+        Assert.Equal(investigation.Id, Assert.Single(rows, r => r.PatientId == s.PatientId).OpenReactionInvestigationId);
+        Assert.Null(Assert.Single(rows, r => r.PatientId == other.PatientId).OpenReactionInvestigationId);
+    }
+
     // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)
     // carries that MRN on the issued list; one issued under the current MRN does not.
     [Fact]

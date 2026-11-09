@@ -371,7 +371,11 @@ public sealed record ReadyToIssueWorkItemDto(
     bool NeededBySoon = false,
     int? NeededInMinutes = null,
     // The crossmatch or specimen stops being valid before the order is needed: issue before then, or prepare again.
-    bool ExpiresBeforeNeeded = false);
+    bool ExpiresBeforeNeeded = false,
+    // The patient's latest transfusion reaction investigation still open or under review (Cycle 627): said before the
+    // unit leaves the bank (OCD-078; a warning, not a block).
+    long? OpenReactionInvestigationId = null,
+    DateTime? OpenReactionReportedUtc = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

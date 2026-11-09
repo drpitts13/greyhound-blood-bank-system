@@ -341,6 +341,10 @@
                                 {
                                     <span class="badge badge-blue" title="Requested @requestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @row.IssueRequestedBy" data-ready-requested>Requested → @row.IssueRequestedTo @ClockText.Short(requestedAt)</span>
                                 }
+                                @if (row.OpenReactionInvestigationId is long readyReaction)
+                                {
+                                    <span class="badge badge-red" title="A transfusion reaction is under investigation for this patient (#@readyReaction)" data-ready-reaction-open>Reaction under investigation</span>
+                                }
                                 @if (row.NeededByUtc is DateTime readyNeededBy)
                                 {
                                     @* When the order this unit is reserved for is needed: red once passed, amber inside the facility's window. *@
@@ -820,6 +824,15 @@
     else
     {
         <Outcome Value="_issueFb" RequiresSignature="true" />
+        @if (IssueOpenReaction is { } issueReaction)
+        {
+            @* OCD-078: a warning, not a block; whether another unit is given is the physician's decision. *@
+            <div class="alert alert-warning" data-issue-reaction-open>
+                <strong>A transfusion reaction is under investigation for this patient</strong>
+                (#@issueReaction.Id, reported @ClockText.Short(issueReaction.ReportedUtc)). Confirm the physician has decided to
+                continue before issuing another unit.
+            </div>
+        }
         @if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
         {
             @* OCD-054: an issue made on paper during downtime, judged as of the paper record's time. *@
@@ -1064,7 +1077,7 @@
                         @foreach (var next in NextInRun)
                         {
                             var row = next;
-                            <button type="button" class="btn @(row == NextInRun[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => IssueNextInRunAsync(row)">
+                            <button type="button" class="btn @(row == NextInRun[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => IssueNextInRun(row)">
                                 Issue next: <span class="mono">@row.UnitNumber</span> @row.ProductName
                             </button>
                         }
@@ -1624,6 +1637,14 @@
     private readonly List<BedsideInRun> _txRun = new();
     private long _txRunPatientId;
 
+    // The open reaction investigation for the patient on the issue form, from the reserved units (Cycle 627).
+    private (long Id, DateTime ReportedUtc)? IssueOpenReaction =>
+        _issue.PatientId is long issuePatient and > 0
+        && _readyItems.FirstOrDefault(r => r.PatientId == issuePatient && r.OpenReactionInvestigationId is not null) is
+            { OpenReactionInvestigationId: long reactionId, OpenReactionReportedUtc: DateTime reported }
+            ? (reactionId, reported)
+            : null;
+
     // The open reaction investigation for the patient at this bedside: the chosen unit's patient, or, once a finished
     // unit has left the form, the bedside run's patient (Cycle 626).
     private (long Id, DateTime ReportedUtc)? TxOpenReaction
@@ -1892,14 +1913,14 @@
         _issueScan.Clear();
     }
 
-    private async Task IssueNextInRunAsync(ReadyToIssueWorkItemDto row)
+    private void IssueNextInRun(ReadyToIssueWorkItemDto row)
     {
         if (row.PatientId != _issue.PatientId) return;
         _issue.BloodUnitId = row.BloodUnitId;
         _issue.Appearance = null;
         _prefilledRow = row;
         _issueFb = null;
-        await _issueForm.FocusAsync();
+        _focusIssueForm = true;
     }
 
     private ReadyToIssueWorkItemDto? ActivePrefill =>
@@ -2022,8 +2043,25 @@
     private ElementReference _txUnitInput;
     private string? _focusUnitFor;
 
+    // The issue form takes the focus once it has rendered: from a Ready to issue row the desk changes in the same click,
+    // so focusing at once reached a form not yet on the page and threw (Cycle 627).
+    private bool _focusIssueForm;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusIssueForm && _desk == "issue" && _issueForm.Context is not null)
+        {
+            _focusIssueForm = false;
+            try
+            {
+                await _issueForm.FocusAsync();
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+            {
+                // The circuit is going away: nothing to focus.
+            }
+        }
+
         if (_focusUnitFor is not { } desk || desk != _desk)
         {
             return;
@@ -2289,7 +2327,7 @@
         }
 
         await LoadIssueRequirementsAsync();
-        await _issueForm.FocusAsync();
+        _focusIssueForm = true;
     }
 
     private string? _issueUnitNotice;

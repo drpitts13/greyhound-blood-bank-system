@@ -130,4 +130,24 @@ public class ReadyToIssuePageTests : BunitContext
         Assert.Null(free.QuerySelector("[data-release-still-wanted]"));
         Assert.Contains("Release 1 to stock", page.Find("[data-release-submit]").TextContent);
     }
+
+    // TEST-BB-755: a reserved unit whose patient has a reaction under investigation is marked on Ready to issue, and
+    // the issue form it fills warns before the unit leaves; a unit for another patient carries neither. A warning only
+    // (OCD-078).
+    [Fact]
+    public void ReactionUnderInvestigation_IsSaidBeforeIssue()
+    {
+        var page = RenderReady(
+            Unit(1, "W-RDY-REACT") with { OpenReactionInvestigationId = 3, OpenReactionReportedUtc = Now.AddMinutes(-15) },
+            Unit(2, "W-RDY-OTHER") with { PatientId = 2, MedicalRecordNumber = "MRN0002" });
+
+        Assert.NotNull(RowFor(page, "W-RDY-REACT").QuerySelector("[data-ready-reaction-open]"));
+        Assert.Null(RowFor(page, "W-RDY-OTHER").QuerySelector("[data-ready-reaction-open]"));
+
+        RowFor(page, "W-RDY-REACT").QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Issue").Click();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-issue-reaction-open]")));
+        var warning = string.Join(" ", page.Find("[data-issue-reaction-open]").TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Contains("#3", warning);
+        Assert.Contains("Confirm the physician has decided to continue", warning);
+    }
 }

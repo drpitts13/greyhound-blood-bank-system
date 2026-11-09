@@ -19329,3 +19329,35 @@ With the reaction answer binding again (Cycle 624), the "Yes, reaction suspected
 ### Next
 
 - Check whether issuing a new unit to a patient with a reaction under investigation says so on Ready to issue and the issue form, before the unit leaves the bank.
+
+## Iteration 627 — Issue desk warned of a reaction under investigation (2026-11-09)
+
+### Capability matrix rescan (issue after a suspected reaction)
+
+Cycle 626 warned the bedside; the bank itself still issued the patient's next reserved unit with nothing said. Ready to issue and the Issue form now say so before the unit leaves.
+
+Writing the rendered test found a latent fault: Issue on a Ready to issue row switched to the Issue desk and focused its form in the same click. The form had not rendered yet, so the focus threw ("ElementReference has not been configured correctly"). It worked live only because the special-requirements request in between yielded and let the form render; any path that completed without yielding (a patient without an id, a cached answer) would have thrown in the click, which on Blazor Server ends the user's session.
+
+### Design
+
+- `ReadyToIssueWorkItemDto.OpenReactionInvestigationId` / `OpenReactionReportedUtc` from the Cycle 626 lookup.
+- Ready to issue: a red "Reaction under investigation" badge on the patient's reserved units.
+- Issue form: for its patient, an amber warning with the number and report time, "Confirm the physician has decided to continue before issuing another unit." Warning only (OCD-078).
+- The Issue form is focused after it renders (both from a row and from Issue next in a run).
+
+### Verification
+
+- Integration: the patient's reserved unit carries the investigation; another patient's does not. Rendered: the badge, the form warning after Issue on the row (and the click no longer throws), none for another patient.
+- Live (read-only): Ready to issue loads its 5 demo rows with no badge (no demo patient with a reserved unit has a reaction under investigation) and the Issue desk opens without an error; no demo row is issuable, so Issue on a row is shown by the rendered test. No server errors.
+
+### Requirements
+
+- URS-BB-670, FRS-BB-787.
+
+### Tests
+
+- TEST-BB-754, TEST-BB-755.
+
+### Next
+
+- Look for other element focuses called in the same handler that changes what is rendered (a desk, a tab, a panel opened in the click) and move them after the render.

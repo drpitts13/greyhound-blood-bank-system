@@ -939,6 +939,7 @@ public sealed class IssuingService
                     && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Discontinued, ct))
                 .ToDictionary(o => o.Id);
         var neededSoonMinutes = await _policy.GetBloodOrderNeededBySoonMinutesAsync(ct);
+        var openReactions = await _reactions.OpenByPatientAsync(reserved.Select(a => a.PatientId).Distinct().ToList(), ct);
         var antibodies = _antibodies is null
             ? []
             : await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
@@ -1115,7 +1116,9 @@ public sealed class IssuingService
                     OrderNeededByRule.EarliestEnd(
                         CrossmatchValidityRule.CurrentCompatibleExpiresUtc(unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)), now),
                         expires),
-                    forOrder?.NeededByUtc, now)
+                    forOrder?.NeededByUtc, now),
+                OpenReactionInvestigationId = openReactions.TryGetValue(allocation.PatientId, out var reaction) ? reaction.Id : null,
+                OpenReactionReportedUtc = openReactions.TryGetValue(allocation.PatientId, out var reported) ? reported.ReportedUtc : null
             });
         }
 
