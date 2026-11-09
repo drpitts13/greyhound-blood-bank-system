@@ -18341,3 +18341,31 @@ Walking result entry for an ABO/Rh on the development database showed every requ
 ### Next
 
 - Walk antibody screen and crossmatch entry the same way (phased cells).
+
+## Iteration 591 — A crossmatch is never assumed Compatible (2026-11-09)
+
+### Capability matrix rescan (crossmatch entry, walked live)
+
+Walking antibody screen and crossmatch entry after Cycle 590: the screen's cells now start blank. The crossmatch form's **Crossmatch result** started at Compatible with no blank choice, and when the reactions match no single interpretation (mixed field, for example) the suggestion leaves the choice alone, so it stayed Compatible. The Record crossmatch dialog and the Compatibility page started at Compatible too. The server checked a crossmatch's required reactions but not that a positive reaction contradicted a Compatible result.
+
+### Design
+
+- The result starts at "— Select —" on all three screens; the bench refuses a save without one (the dialog and page already refused Not performed for serologic).
+- `CrossmatchReactionRule` (Domain): the positive counted reactions, by grade polarity, check cells and non-interpretive phases left out; a Compatible result with any is a hard stop naming them. Applied in `ResultService` when a crossmatch is saved with reactions (bench, dialog, instrument). Same logic as the result suggestion, so no new clinical rule.
+- AHG reads "AHG" in the method list.
+
+### Verification
+
+- Domain, integration (refused and nothing recorded; positive check cells allowed; Incompatible saved) and rendered tests. Live: the bench crossmatch form opens with the result at "— Select —" (read-only; nothing saved).
+
+### Requirements
+
+- URS-BB-641, FRS-BB-758.
+
+### Tests
+
+- TEST-BB-686 to TEST-BB-689.
+
+### Next
+
+- The bench's crossmatch suggestion counts a performed check-cells reading as a reaction (suggests Incompatible); leave check cells out there too. ABO/Rh interpretation starts at O / Positive; consider starting unchosen.

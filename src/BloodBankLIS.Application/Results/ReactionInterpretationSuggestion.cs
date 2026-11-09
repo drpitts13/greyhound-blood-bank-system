@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Reference;
+﻿using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -62,32 +62,12 @@ public static class ReactionInterpretationSuggestion
     /// </summary>
     public static IReadOnlyList<string> MissingReadings(
         IEnumerable<ResolvedPanelSubtestDto> subtests,
-        IReadOnlyDictionary<string, string> values)
-    {
-        var missing = new List<string>();
-        foreach (var subtest in subtests)
-        {
-            if (subtest.Phases is { Count: > 0 })
-            {
-                missing.AddRange(subtest.Phases
-                    .Where(p => p.Required && IsBlank(values, PhaseResultKeys.Compose(subtest.SubtestCode, p.PhaseCode)))
-                    .Select(p => $"{subtest.Label} {p.Label}"));
-            }
-            else if (subtest.Required && IsBlank(values, subtest.SubtestCode))
-            {
-                missing.Add(subtest.Label);
-            }
-        }
-
-        return missing;
-    }
+        IReadOnlyDictionary<string, string> values) =>
+        CrossmatchReactionValidation.MissingRequired(subtests, values);
 
     /// <summary>The save refusal naming the readings still to enter, or null when every required reading is in.</summary>
     public static string? MissingReadingsMessage(IReadOnlyList<string> missing) =>
         missing.Count == 0 ? null : $"Enter a reading for {string.Join(", ", missing)} before saving.";
-
-    private static bool IsBlank(IReadOnlyDictionary<string, string> values, string key) =>
-        !values.TryGetValue(key, out var v) || string.IsNullOrWhiteSpace(v);
 
     /// <summary>
     /// Polarity of every graded reaction slot that counts toward interpretation. Check-cell

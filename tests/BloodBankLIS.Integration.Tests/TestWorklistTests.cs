@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Common;
+﻿using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Results;
@@ -39,7 +39,7 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
                 new EfRepository<AntibodyHistory>(c)),
             new BloodBankLIS.Application.Compliance.FacilityPolicyService(new EfRepository<SystemSetting>(c)));
 
-    private ResultService Results(BloodBankDbContext c, bool requireOrderSpecimen = false) =>
+    private ResultService Results(BloodBankDbContext c, bool requireOrderSpecimen = false, bool withPhases = false) =>
         new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
             c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             new EfRepository<TestDefinition>(c), new EfRepository<SubtestDefinition>(c), new EfRepository<Order>(c), new EfRepository<OrderLine>(c),
@@ -47,7 +47,8 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntigenProfile>(c), new EfRepository<BloodAttributeDefinition>(c),
             new EfRepository<UnitBloodAttribute>(c), new EfRepository<SpecimenTypeDefinition>(c),
             allocations: new EfRepository<Allocation>(c),
-            orderSpecimens: requireOrderSpecimen ? new EfRepository<OrderSpecimen>(c) : null);
+            orderSpecimens: requireOrderSpecimen ? new EfRepository<OrderSpecimen>(c) : null,
+            phaseDefinitions: withPhases ? new EfRepository<PhaseDefinition>(c) : null);
 
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
@@ -1008,6 +1009,75 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             AntibodyScreenNegative: true));
         Assert.True(saved.Succeeded, saved.Error);
         Assert.Contains("IS", saved.Value!.Value);
+    }
+
+    // TEST-BB-688: a crossmatch with a positive counted reaction cannot be saved as Compatible (nothing recorded); as
+    // Incompatible it saves, and a positive check cell does not count.
+    [Fact]
+    public async Task XmSave_CompatibleWithPositiveReaction_IsRefused()
+    {
+        await using var c = _factory.Create();
+        var code = $"XP{Guid.NewGuid():N}"[..10].ToUpperInvariant();
+        var seed = await SeedOrderWithTestAsync(c, testCode: code);
+        var definition = await c.TestDefinitions.FirstAsync(t => t.Code == code);
+        definition.Category = TestCategory.Crossmatch;
+        definition.ResultValueType = ResultValueType.Crossmatch;
+        definition.PanelSubtestsJson =
+            """[{"subtestCode":"IS","required":true,"sortOrder":1},{"subtestCode":"CC","required":false,"sortOrder":2}]""";
+        await c.SaveChangesAsync();
+
+        // The catalog as seeded: the readings and the check-cell phase (whose code the check-cells reading shares).
+        var now = DateTime.UtcNow;
+        if (!await c.SubtestDefinitions.AnyAsync(s => s.Code == "IS"))
+        {
+            c.SubtestDefinitions.Add(new SubtestDefinition { Code = "IS", Name = "Immediate spin", IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 });
+        }
+
+        if (!await c.SubtestDefinitions.AnyAsync(s => s.Code == "CC"))
+        {
+            c.SubtestDefinitions.Add(new SubtestDefinition { Code = "CC", Name = "Check cells", IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 });
+        }
+
+        if (!await c.PhaseDefinitions.AnyAsync(p => p.Code == "CC"))
+        {
+            c.PhaseDefinitions.Add(new PhaseDefinition
+            {
+                Code = "CC", Name = "Check cells", SortOrder = 4, IncludeInInterpretation = false, IsCheckCell = true,
+                ValidatesPhaseCode = "AHG", IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1
+            });
+        }
+
+        await c.SaveChangesAsync();
+
+        var unit = await AddCrossmatchUnitAsync(c, $"P{Guid.NewGuid():N}"[..12], $"U-{code}");
+        await ReserveAsync(c, unit, seed.patient.Id, AllocationStatus.Reserved);
+
+        async Task<EvaluationResult<TestResult>> Save(string isGrade, string? checkCells, CrossmatchResult result)
+        {
+            await using var each = _factory.Create();
+            var reactions = new Dictionary<string, string> { ["IS"] = isGrade };
+            if (checkCells is not null)
+            {
+                reactions["CC"] = checkCells;
+            }
+
+            return await Results(each, withPhases: true).SaveTestResultAsync(new SaveTestResultRequest(
+                seed.specimen!.Id, seed.order.Id, seed.line.Id, code, null, null, null, null, null, reactions,
+                MarkComplete: false, CorrectionReason: null, UnitNumber: unit.UnitNumber,
+                CrossmatchMethod: CrossmatchMethod.ImmediateSpin, CrossmatchResult: result,
+                AntibodyScreenNegative: true));
+        }
+
+        var refused = await Save("2+", null, CrossmatchResult.Compatible);
+        Assert.False(refused.Succeeded);
+        Assert.Contains("positive reaction (Immediate spin 2+)", refused.Error!);
+        Assert.Empty(await c.Crossmatches.Where(x => x.BloodProductId == unit.Id).ToListAsync());
+
+        var checkCellsPositive = await Save("0", "2+", CrossmatchResult.Compatible);
+        Assert.True(checkCellsPositive.Succeeded, checkCellsPositive.Error);
+
+        var incompatible = await Save("2+", null, CrossmatchResult.Incompatible);
+        Assert.True(incompatible.Succeeded, incompatible.Error);
     }
 
     private async Task<BloodUnit> AddCrossmatchUnitAsync(BloodBankDbContext c, string productCode, string unitNumber)

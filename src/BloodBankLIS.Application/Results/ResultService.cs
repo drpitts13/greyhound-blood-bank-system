@@ -1893,6 +1893,18 @@ public sealed class ResultService
                     $"Required cell reactions missing: {string.Join(", ", missing)}.");
             }
 
+            if (provided.Count > 0)
+            {
+                var positiveStop = CrossmatchReactionRule.Evaluate(
+                    request.CrossmatchResult.Value,
+                    CrossmatchReactionRule.PositiveReactions(
+                        provided, await LoadActiveSubtestCatalogAsync(ct), await LoadActivePhasesAsync(ct)));
+                if (positiveStop is not null)
+                {
+                    return OperationResult<(string, string?, string?)>.Fail(positiveStop.Message);
+                }
+            }
+
             string value;
             if (provided.Count > 0)
             {

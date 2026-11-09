@@ -694,5 +694,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-683 | A | `ReactionInterpretationSuggestionTests.SuggestAboRh_NoReadingsEntered_ReturnsNull` | URS-BB-640 / FRS-BB-757 |
 | TEST-BB-684 | U | `TestResultEntryPanelTests.RequiredReactions_StartBlank` | URS-BB-640 / FRS-BB-757 |
 | TEST-BB-685 | U | `TestResultEntryPanelTests.Save_WithReadingsMissing_IsRefusedNamingThem` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-686 | D | `CrossmatchReactionRuleTests.PositiveReactions_NamesCountedPositivesOnly` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-687 | D | `CrossmatchReactionRuleTests.Evaluate_StopsCompatibleWithPositiveReactions` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-688 | I | `TestWorklistTests.XmSave_CompatibleWithPositiveReaction_IsRefused` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-689 | U | `TestResultEntryPanelTests.CrossmatchResult_StartsUnchosen` | URS-BB-641 / FRS-BB-758 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

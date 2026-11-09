@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Admin;
+﻿using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
@@ -68,5 +68,22 @@ public class TestResultEntryPanelTests : BunitContext
         panel.FindAll("button").First(b => b.TextContent.Trim() == "Save incomplete").Click();
 
         panel.WaitForAssertion(() => Assert.Contains("Enter a reading for Anti-B, Anti-D before saving.", panel.Markup));
+    }
+
+    // TEST-BB-689: the crossmatch result starts unchosen ("— Select —"), never Compatible.
+    [Fact]
+    public void CrossmatchResult_StartsUnchosen()
+    {
+        var definition = new TestDefinitionForEntryDto(
+            "XM", "Crossmatch", ResultValueType.Crossmatch, null,
+            [new ResolvedPanelSubtestDto("IS", "Immediate spin", SubtestResultType.GradedReaction, Grades, true, 1)],
+            [], [], null, false);
+        CannedApi.Register(this, new Dictionary<string, object> { ["/api/reference/test-definitions/XM"] = definition });
+        var panel = Render<TestResultEntryPanel>(p => p.Add(x => x.WorkItem, WorkItem() with { TestCode = "XM", TestName = "Crossmatch" }));
+        panel.WaitForAssertion(() => Assert.Contains("Crossmatch result", panel.Markup));
+
+        var result = panel.FindAll("label").First(l => l.TextContent == "Crossmatch result").ParentElement!.QuerySelector("select")!;
+        Assert.True(string.IsNullOrEmpty(result.GetAttribute("value")));
+        Assert.Equal("— Select —", result.QuerySelector("option")!.TextContent);
     }
 }

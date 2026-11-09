@@ -1,4 +1,4 @@
-@page "/compatibility"
+﻿@page "/compatibility"
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
@@ -91,7 +91,7 @@
                     </div>
                 }
                 <div class="field"><label>Result</label>
-                    <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
+                    <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@(r == CrossmatchResult.NotPerformed ? "— Select —" : Ui.EnumText(r))</option> }</select>
                 </div>
                 <div class="field"><label>Antibody screen</label>
                     <select @bind="_xm.ScreenNegative"><option value="true">Negative</option><option value="false">Positive</option></select>
@@ -728,7 +728,8 @@
         public long PatientId { get; set; }
         public long SpecimenId { get; set; }
         public CrossmatchMethod Method { get; set; } = CrossmatchMethod.Serologic;
-        public CrossmatchResult Result { get; set; } = CrossmatchResult.Compatible;
+        // Starts unchosen; never assumed Compatible.
+        public CrossmatchResult Result { get; set; } = CrossmatchResult.NotPerformed;
         public bool ScreenNegative { get; set; } = true;
         public string? Comment { get; set; }
     }

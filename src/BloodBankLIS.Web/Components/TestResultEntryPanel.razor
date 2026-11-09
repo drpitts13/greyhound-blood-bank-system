@@ -396,6 +396,7 @@
                     </div>
                     <div class="field"><label>Crossmatch result</label>
                         <select @bind="_xmResult">
+                            <option value="">— Select —</option>
                             <option value="@CrossmatchResult.Compatible">Compatible</option>
                             <option value="@CrossmatchResult.Incompatible">Incompatible</option>
                         </select>
@@ -515,7 +516,8 @@
     private List<BloodAttributeListItemDto> _antibodyCatalog = new();
     private bool _unitsLoading;
     private CrossmatchMethod _xmMethod = CrossmatchMethod.Serologic;
-    private CrossmatchResult _xmResult = CrossmatchResult.Compatible;
+    // Starts unchosen: filled in from the reactions or chosen, never assumed Compatible.
+    private CrossmatchResult? _xmResult;
     private bool _antibodyScreenNegative = true;
     private string _correctionReason = string.Empty;
     private bool _showSavePrompt;
@@ -579,6 +581,7 @@
 
         ResetSubtestValues();
         ResetBloodAttrResults();
+        _xmResult = null;
         _unitNumber = string.Empty;
         _reservedUnits = new();
         PrefillFromCurrent();
@@ -969,11 +972,17 @@
             return;
         }
 
+
         var missingReadings = ReactionInterpretationSuggestion.MissingReadingsMessage(
             ReactionInterpretationSuggestion.MissingReadings(_panelSubtests, _subtestValues));
         if (ShowsPanelSubtests && missingReadings is not null)
         {
             _fb = Feedback.Fail(missingReadings);
+            return;
+        }
+        if (IsCrossmatchType && _xmResult is null)
+        {
+            _fb = Feedback.Fail("Choose the crossmatch result: Compatible or Incompatible.");
             return;
         }
 
@@ -1045,7 +1054,7 @@
             ? IsAboRhEntry
                 ? $"{ResultSourceEntryCopy.PanelEntered(r.Value.Source)} A different user must verify before it becomes the current type."
                 : IsCrossmatchType
-                    ? CrossmatchEntryCopy.WorklistSaved(r.Value.Source, _xmMethod, _xmResult, markComplete)
+                    ? CrossmatchEntryCopy.WorklistSaved(r.Value.Source, _xmMethod, _xmResult!.Value, markComplete)
                     : markComplete
                         ? $"{ResultSourceEntryCopy.Saved(r.Value.Source)} Verified."
                         : $"{ResultSourceEntryCopy.Saved(r.Value.Source)} Incomplete."

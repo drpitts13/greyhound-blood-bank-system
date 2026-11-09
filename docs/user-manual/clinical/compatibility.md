@@ -16,7 +16,7 @@ routes:
 
 Choose the unit and the method. The specimen must not have expired: a crossmatch on an expired specimen is refused with the specimen named, so collect a new specimen. The exception is the retrospective crossmatch after emergency release on the pre-transfusion specimen. When that specimen has expired, the form asks for the exception reason and who authorized it, records the crossmatch, and sends the exception to supervisor review. A specimen collected after the unit was issued is still refused. When a reserved unit's crossmatch has expired, its row on the Products tab reads **Crossmatch expired** and offers **Crossmatch** again.
 
-**Serologic** crossmatch asks for the crossmatch test and the reactions (the phases your test definition includes). Record what you saw. Incompatible is a result you can record. It does not become compatible because the patient is urgent.
+**Serologic** crossmatch asks for the crossmatch test and the reactions (the phases your test definition includes). Record what you saw. The result starts at **— Select —**, never Compatible, and a positive counted reaction (check cells aside) cannot be saved as Compatible. Incompatible is a result you can record. It does not become compatible because the patient is urgent.
 
 **Electronic** crossmatch is available only when all of the following are true:
 

@@ -40,7 +40,7 @@ public static class Ui
 
     private static readonly Dictionary<string, string> Acronyms = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Abo"] = "ABO", ["Astm"] = "ASTM", ["Cmv"] = "CMV", ["Csv"] = "CSV", ["Dat"] = "DAT", ["Ehr"] = "EHR",
+        ["Abo"] = "ABO", ["Ahg"] = "AHG", ["Astm"] = "ASTM", ["Cmv"] = "CMV", ["Csv"] = "CSV", ["Dat"] = "DAT", ["Ehr"] = "EHR",
         ["Ffp"] = "FFP", ["Fhir"] = "FHIR", ["Hl7"] = "HL7", ["Hla"] = "HLA", ["Http"] = "HTTP", ["Iat"] = "IAT",
         ["Id"] = "ID", ["Isbt"] = "ISBT", ["Lis"] = "LIS", ["Mfa"] = "MFA", ["Mllp"] = "MLLP", ["Mtp"] = "MTP",
         ["Pdf"] = "PDF", ["Plt"] = "PLT", ["Rbc"] = "RBC", ["Tcp"] = "TCP", ["Url"] = "URL", ["Xm"] = "XM"

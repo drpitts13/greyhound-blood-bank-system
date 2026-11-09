@@ -1,4 +1,4 @@
-@using BloodBankLIS.Domain.Entities.Configuration
+﻿@using BloodBankLIS.Domain.Entities.Configuration
 @inject BloodBankApiClient Api
 
 <div class="bb-dialog-backdrop">
@@ -37,6 +37,7 @@
                 <div class="field">
                     <label>Result</label>
                     <select @bind="_result">
+                        <option value="@CrossmatchResult.NotPerformed">— Select —</option>
                         <option value="@CrossmatchResult.Compatible">Compatible</option>
                         <option value="@CrossmatchResult.Incompatible">Incompatible</option>
                     </select>
@@ -68,7 +69,8 @@
     private bool _loading = true;
     private bool _locked;
     private string? _testCode;
-    private CrossmatchResult _result = CrossmatchResult.Compatible;
+    // Starts unchosen: filled in from the reactions or chosen, never assumed Compatible.
+    private CrossmatchResult _result = CrossmatchResult.NotPerformed;
     private Feedback? _feedback;
     private List<CrossmatchTestOptionDto> _tests = [];
     private TestDefinitionForEntryDto? _definition;
