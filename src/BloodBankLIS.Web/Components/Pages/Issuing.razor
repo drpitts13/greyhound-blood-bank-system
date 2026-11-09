@@ -1109,7 +1109,7 @@
     {
         <Outcome Value="_wardFb" />
         <div class="form-row">
-            <div class="field"><label>Unit number</label><input class="mono" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" placeholder="Type or scan, or Receive from a list" data-enter-step autocomplete="off" /></div>
+            <div class="field"><label>Unit number</label><input class="mono" @ref="_wardUnitInput" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" data-desk-unit="receipt" placeholder="Type or scan, or Receive from a list" data-enter-step autocomplete="off" /></div>
             <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" data-enter-step /></div>
             <AppearanceSelect Label="Appearance at receipt" @bind-Value="_wardAppearance" />
         </div>
@@ -1222,7 +1222,7 @@
         {
             <Outcome Value="_returnFb" />
             <div class="form-row">
-                <div class="field"><label>Unit number</label><input class="mono" @bind="_returnUnitLookup" @bind:after="LookUpReturnUnitAsync" placeholder="Type or scan, or Return from Issued units" /></div>
+                <div class="field"><label>Unit number</label><input class="mono" @ref="_returnUnitInput" @bind="_returnUnitLookup" @bind:after="LookUpReturnUnitAsync" data-desk-unit="return" placeholder="Type or scan, or Return from Issued units" /></div>
                 <div class="field"><label>Reason</label><input @bind="_returnReason" @bind:event="oninput" /></div>
                 <div class="field"><label>Destination</label>
                     <select @bind="_returnDestination">
@@ -1353,7 +1353,7 @@
         {
             <Outcome Value="_txFb" />
             <div class="form-row">
-                <div class="field"><label>Unit number</label><input class="mono" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" placeholder="Type or scan, or Document from Issued units" data-enter-step autocomplete="off" /></div>
+                <div class="field"><label>Unit number</label><input class="mono" @ref="_txUnitInput" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" data-desk-unit="transfuse" placeholder="Type or scan, or Document from Issued units" data-enter-step autocomplete="off" /></div>
                 <div class="field"><label>Disposition</label>
                     <select @bind="_txDisposition" data-tx-disposition><option value="">— Answer when finishing —</option>@foreach (var d in Enum.GetValues<TransfusionDisposition>().Where(d => d != TransfusionDisposition.Returned)) { <option value="@d">@Ui.EnumText(d)</option> }</select>
                 </div>
@@ -1940,7 +1940,49 @@
         builder.CloseElement();
     };
 
-    private void SelectDesk(string desk) => _desk = desk;
+    private void SelectDesk(string desk)
+    {
+        _desk = desk;
+        _focusUnitFor = desk;
+    }
+
+    // Ward receipt, Return, and Transfusion start from a scanned unit: opened from their desk button or a ?desk= link,
+    // the cursor waits in Unit number so the first scan lands there (Cycle 622). Opened from a row, the unit is already
+    // filled and the focus is left alone.
+    private ElementReference _wardUnitInput;
+    private ElementReference _returnUnitInput;
+    private ElementReference _txUnitInput;
+    private string? _focusUnitFor;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusUnitFor is not { } desk || desk != _desk)
+        {
+            return;
+        }
+
+        _focusUnitFor = null;
+        var (input, filled) = desk switch
+        {
+            "receipt" => (_wardUnitInput, !string.IsNullOrWhiteSpace(_wardUnitLookup)),
+            "return" => (_returnUnitInput, !string.IsNullOrWhiteSpace(_returnUnitLookup)),
+            "transfuse" => (_txUnitInput, !string.IsNullOrWhiteSpace(_txUnitLookup)),
+            _ => (default(ElementReference), true)
+        };
+        if (filled || input.Context is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await input.FocusAsync(preventScroll: true);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            // Not rendered (no permission for that desk) or the circuit is going away: nothing to focus.
+        }
+    }
 
     private List<MtpActivationDto> _activeMtp = new();
     private Feedback? _mtpFb;
@@ -2075,6 +2117,7 @@
                 || Session.Has(PermissionCodes.TransfusionDocument),
             QueryPatientId is not null || QueryBloodUnitId is not null,
             _desk);
+        _focusUnitFor = _desk;
 
         var prefill = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.PrefillPatientIdentifiers);
         _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;

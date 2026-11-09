@@ -19168,3 +19168,48 @@ Review and release to stock offers units past their reservation, or whose crossm
 ### Next
 
 - Look for other bulk actions that start with everything selected (bulk discard, bulk release on Compatibility, batch verify) and check what each pre-selects.
+
+## Iteration 621 — Pre-selection audit (2026-11-09)
+
+### Capability matrix rescan (bulk actions and preset answers)
+
+Every selection set and every yes/no field that starts true on a page was traced after Cycle 620's release fix:
+- Batch verify starts with every candidate selected. That is the decided behaviour (OCD-061): only plain negatives and ABO/Rh matching history are offered, each is listed, and each still passes the normal verification checks. Unchanged.
+- MTP pack units, issue acknowledgements, optional retype subtests, and ISBT code drops start empty and are filled only by the user.
+- Return's time-out flag is computed from the issue and the storage device, not a user answer, and the server checks it again; its destination starts at Available with all three inspections unanswered (Cycle 597).
+- ISBT receive "Release to Available" is a visible workflow option, ignored for products that need a retype.
+
+No defect found; no code change. The audit is recorded so it is not repeated.
+
+### Next
+
+- The Return desk walked during the audit takes a scan, but opening it leaves the cursor nowhere: see 622.
+
+## Iteration 622 — Scan desks take the first scan (2026-11-09)
+
+### Capability matrix rescan (Ward receipt, Return, Transfusion)
+
+All three start from a scanned unit (the Unit number field looks the issue up and fills the form), but opening any of them left the focus nowhere: the first scan went to the page, and the tech clicked into the field first.
+
+### Design
+
+- Opened from its desk button, or from a `?desk=` link on load, each desk focuses its Unit number field when it is empty (no scroll).
+- Opened from a row (Issued units, In transit, Final disposition), the unit is already filled and the focus is left alone.
+- A desk the user cannot open renders no field, and the focus quietly does nothing.
+
+### Verification
+
+- Rendered: each desk button focuses its own Unit number (and fails without the change: nothing took the focus); Return opened from an Issued units row fills the unit and takes no focus.
+- Live (read-only): loading /issuing?desk=return puts the cursor in Return's Unit number; the Ward receipt and Transfusion buttons each focus their own. No server errors.
+
+### Requirements
+
+- URS-BB-666, FRS-BB-783.
+
+### Tests
+
+- TEST-BB-744, TEST-BB-745.
+
+### Next
+
+- After a ward receipt or return is recorded by scan, check that the field clears and keeps the focus for the next unit in the cooler, as Store tubes and Retype do.

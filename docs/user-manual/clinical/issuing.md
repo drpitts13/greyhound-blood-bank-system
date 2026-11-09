@@ -15,6 +15,8 @@ routes:
 
 ## Ready to issue
 
+> Scan first. Opening **Ward receipt**, **Return**, or **Transfusion** from its button puts the cursor in **Unit number**, so scan the unit straight away. Opened from a row, the unit is already filled.
+
 > New specimen. A unit blocked for want of a usable specimen offers **New specimen**, and Retrospective offers **Accession** when a released unit's specimen is missing or expired. Both open the patient's accession form, which links the new tube to the orders waiting for one.
 
 > Times on badges. A short time is today's. Any other day is named: "Needed tomorrow 07:30", "Transfusing since yesterday 22:10", or the date for days further away.

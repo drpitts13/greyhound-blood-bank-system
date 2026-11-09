@@ -671,3 +671,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-663 | A short time shown on a badge or status line names its day when it is not today. | P2 | FRS-BB-780 |
 | URS-BB-664 | Every "collect a specimen" next step opens the patient's accession form, not only the Specimens tab. | P3 | FRS-BB-781 |
 | URS-BB-665 | Release to stock never pre-selects a unit reserved for an order that is still open. | P2 | FRS-BB-782 |
+| URS-BB-666 | Ward receipt, Return, and Transfusion take a scan as soon as they open. | P3 | FRS-BB-783 |

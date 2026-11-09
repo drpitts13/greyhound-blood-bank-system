@@ -752,5 +752,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-741 | U | `ReadyToIssuePageTests.SpecimenBlockedRow_NewSpecimenOpensTheAccessionForm` | URS-BB-664 / FRS-BB-781 |
 | TEST-BB-742 | U | `DashboardDueCountTests.StillWanted_NamesAnOpenOrder` | URS-BB-665 / FRS-BB-782 |
 | TEST-BB-743 | U | `ReadyToIssuePageTests.ReleaseReview_LeavesOpenOrderUnitsUnticked` | URS-BB-665 / FRS-BB-782 |
+| TEST-BB-744 | U | `ScanDeskFocusTests.DeskButton_FocusesUnitNumber` | URS-BB-666 / FRS-BB-783 |
+| TEST-BB-745 | U | `ScanDeskFocusTests.ReturnFromARow_LeavesTheFocusAlone` | URS-BB-666 / FRS-BB-783 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
