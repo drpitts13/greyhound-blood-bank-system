@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -46,6 +46,7 @@ public sealed class ElectronicCrossmatchEligibilityService
     private readonly AntibodyScreenCompatLoader _antibodyScreen;
     private readonly FacilityPolicyService _policy;
     private readonly CrossmatchSettingsReader? _crossmatchSettings;
+    private readonly IClock? _clock;
 
     public ElectronicCrossmatchEligibilityService(
         IRepository<Patient> patients,
@@ -54,7 +55,8 @@ public sealed class ElectronicCrossmatchEligibilityService
         IRepository<AntibodyIdentificationWorkup> workups,
         AntibodyScreenCompatLoader antibodyScreen,
         FacilityPolicyService policy,
-        CrossmatchSettingsReader? crossmatchSettings = null)
+        CrossmatchSettingsReader? crossmatchSettings = null,
+        IClock? clock = null)
     {
         _patients = patients;
         _bloodTypes = bloodTypes;
@@ -63,6 +65,7 @@ public sealed class ElectronicCrossmatchEligibilityService
         _antibodyScreen = antibodyScreen;
         _policy = policy;
         _crossmatchSettings = crossmatchSettings;
+        _clock = clock;
     }
 
     public async Task<ElectronicCrossmatchEligibilityDto?> AssessAsync(long patientId, CancellationToken ct = default)
@@ -79,7 +82,8 @@ public sealed class ElectronicCrossmatchEligibilityService
             SecondAboDeterminationRule.FromHistory(history));
         // Deactivated ("currently undetectable") antibodies still block computer XM.
         var hasAntibodyHistory = await _antibodies.AnyAsync(a => a.PatientId == patientId, ct);
-        var screenNegative = !await _antibodyScreen.HasPositiveAntibodyScreenAsync(patientId, ct);
+        var screenNegative = !await _antibodyScreen.HasPositiveAntibodyScreenAsync(patientId, ct)
+            && await _antibodyScreen.HasCurrentVerifiedNegativeScreenAsync(patientId, _clock?.UtcNow ?? DateTime.UtcNow, ct);
         var hasOpenWorkup = await _workups.AnyAsync(
             w => w.PatientId == patientId
                 && (w.Status == AntibodyWorkupStatus.InProgress

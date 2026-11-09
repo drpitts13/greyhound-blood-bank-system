@@ -37,7 +37,7 @@ Emergency and MTP do not skip identity, specimen, expiration, or appearance. The
 
 ## Electronic crossmatch
 
-Electronic crossmatch is off until Facility Policy turns it on. Even then it is refused when the patient has any antibody history, including deactivated rows, or an open identification workup. It is also refused when the patient does not meet the minimum negative antibody screens configured in Crossmatch Settings. Serologic crossmatch remains available.
+Electronic crossmatch is off until Facility Policy turns it on. Even then it is refused when the patient has any antibody history, including deactivated rows, or an open identification workup. It is also refused when the patient does not meet the minimum negative antibody screens configured in Crossmatch Settings, and when the specimen it is recorded against has no verified negative antibody screen of its own (a negative screen on an earlier specimen does not count). There is no box to tick for the screen: the verified result decides. Serologic crossmatch remains available.
 
 ## Signatures
 

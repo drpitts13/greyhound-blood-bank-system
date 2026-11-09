@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
@@ -195,7 +195,7 @@ public sealed class CompatibilityService
 
         if (request.Method == CrossmatchMethod.Electronic)
         {
-            var blocked = await EvaluateElectronicEligibilityAsync(request.PatientId, request.AntibodyScreenNegative, ct);
+            var blocked = await EvaluateElectronicEligibilityAsync(request.PatientId, request.SpecimenId, request.AntibodyScreenNegative, ct);
             if (blocked is not null)
             {
                 return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([blocked]));
@@ -226,7 +226,7 @@ public sealed class CompatibilityService
 
         if (request.Method == CrossmatchMethod.Electronic)
         {
-            var raced = await EvaluateElectronicEligibilityAsync(request.PatientId, request.AntibodyScreenNegative, ct);
+            var raced = await EvaluateElectronicEligibilityAsync(request.PatientId, request.SpecimenId, request.AntibodyScreenNegative, ct);
             if (raced is not null)
             {
                 return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([raced]));
@@ -804,6 +804,7 @@ public sealed class CompatibilityService
     /// </summary>
     private async Task<RuleResult?> EvaluateElectronicEligibilityAsync(
         long patientId,
+        long specimenId,
         bool requestAntibodyScreenNegative,
         CancellationToken ct)
     {
@@ -820,8 +821,10 @@ public sealed class CompatibilityService
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
             SecondAboDeterminationRule.FromHistory(history));
         var hasAntibodyHistory = await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct);
+        // The current screen is the one on the specimen crossmatched: verified and negative, not just "no positive on file".
         var screenNegative = requestAntibodyScreenNegative
-            && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct);
+            && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct)
+            && await _antibodyScreenCompat.HasVerifiedNegativeScreenOnSpecimenAsync(specimenId, _clock.UtcNow, ct);
         var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
             w => w.PatientId == patientId
                 && (w.Status == AntibodyWorkupStatus.InProgress

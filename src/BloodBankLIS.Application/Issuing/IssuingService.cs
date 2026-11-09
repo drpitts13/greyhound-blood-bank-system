@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
@@ -2045,7 +2045,8 @@ public sealed class IssuingService
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
             SecondAboDeterminationRule.FromHistory(history));
         var hasAntibodyHistory = await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct);
-        var screenNegative = !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct);
+        var screenNegative = !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct)
+            && await _antibodyScreenCompat.HasCurrentVerifiedNegativeScreenAsync(patientId, _clock.UtcNow, ct);
         var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
             w => w.PatientId == patientId
                 && (w.Status == AntibodyWorkupStatus.InProgress

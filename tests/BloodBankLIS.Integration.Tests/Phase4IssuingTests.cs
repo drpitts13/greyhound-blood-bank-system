@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compatibility;
@@ -106,7 +106,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 new EfRepository<AntibodyHistory>(c),
                 new EfRepository<AntibodyIdentificationWorkup>(c),
                 AntibodyScreenCompat(c),
-                new FacilityPolicyService(new EfRepository<SystemSetting>(c))));
+                new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
+                clock: _factory.Clock));
     }
 
     private UnitActivityService Activity(BloodBankDbContext c) =>
@@ -2714,6 +2715,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             c.AntibodyHistory.Add(new AntibodyHistory { PatientId = s.PatientId, AntibodySpecificity = "anti-K", IsActive = true });
             await c.SaveChangesAsync();
+            await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, s.PatientId, _factory.Clock.UtcNow, s.SpecimenId);
         }
 
         await using var ctx = _factory.Create();
@@ -2723,6 +2725,26 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.False(result.Succeeded);
         Assert.True(result.Evaluation!.IsHardStopped);
         Assert.Contains(result.Evaluation.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.HistoryCode);
+    }
+
+    // TEST-BB-700: an electronic crossmatch needs the verified negative screen on the specimen it is recorded against;
+    // a negative screen on another specimen does not stand in for it, and nothing is recorded.
+    [Fact]
+    public async Task ElectronicCrossmatch_WithoutScreenOnTheSpecimen_IsBlocked()
+    {
+        var s = await SeedAsync("EXM-NOSCR");
+        await using (var c = _factory.Create())
+        {
+            await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, s.PatientId, _factory.Clock.UtcNow);
+        }
+
+        await using var ctx = _factory.Create();
+        var result = await Compatibility(ctx).RecordCrossmatchAsync(
+            new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Electronic));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.ScreenCode);
+        Assert.False(await ctx.Crossmatches.AnyAsync(x => x.BloodProductId == s.UnitId && x.Method == CrossmatchMethod.Electronic));
     }
 
     [Fact]
@@ -3963,6 +3985,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 Category = "Issue"
             });
             await c.SaveChangesAsync();
+            await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, missingSecond.PatientId, _factory.Clock.UtcNow, missingSecond.SpecimenId);
+            await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, concordant.PatientId, _factory.Clock.UtcNow, concordant.SpecimenId);
         }
 
         try

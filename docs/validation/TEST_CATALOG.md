@@ -707,5 +707,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-696 | U | `DeliveryReceivePageTests.UnitType_StartsUnchosen_AndIsRequired` | URS-BB-643 / FRS-BB-760 |
 | TEST-BB-697 | U | `AttestationDefaultTests.Blood_types_do_not_start_at_a_type` | URS-BB-643 / FRS-BB-760 |
 | TEST-BB-698 | I | `AntibodyIdentificationWorkupTests.UnchangedReactions_KeepTheReview_AndChangesAreAudited` (and `ReactionsAfterReview_RequireReinterpretation`, now with a changed grade) | URS-BB-644 / FRS-BB-761 |
+| TEST-BB-699 | I | `ElectronicCrossmatchEligibilityTests.Assess_NoCurrentScreen_IsNotEligible` | URS-BB-645 / FRS-BB-762 |
+| TEST-BB-700 | I | `Phase4IssuingTests.ElectronicCrossmatch_WithoutScreenOnTheSpecimen_IsBlocked` (eXM fixtures in nine tests now seed the current screen, `ExmScreenSeed`) | URS-BB-645 / FRS-BB-762 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

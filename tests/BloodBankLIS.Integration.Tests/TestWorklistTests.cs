@@ -514,6 +514,7 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         };
         c.AntibodyIdentificationWorkups.Add(workup);
         await c.SaveChangesAsync();
+        await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, seed.patient.Id, _factory.Clock.UtcNow, seed.specimen!.Id);
 
         var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
         Assert.True(item.HasOpenAntibodyIdWorkup);

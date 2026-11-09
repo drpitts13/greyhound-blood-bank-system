@@ -93,9 +93,6 @@
                 <div class="field"><label>Result</label>
                     <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@(r == CrossmatchResult.NotPerformed ? "— Select —" : Ui.EnumText(r))</option> }</select>
                 </div>
-                <div class="field"><label>Antibody screen</label>
-                    <select @bind="_xm.ScreenNegative"><option value="true">Negative</option><option value="false">Positive</option></select>
-                </div>
             </div>
             @if (_xm.Method != CrossmatchMethod.Electronic && _xmDefinition is not null)
             {
@@ -573,7 +570,7 @@
         }
 
         _busy = true;
-        var req = new RecordCrossmatchRequest(_xm.BloodUnitId!.Value, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, _xm.ScreenNegative,
+        var req = new RecordCrossmatchRequest(_xm.BloodUnitId!.Value, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, AntibodyScreenNegative: true,
             string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment,
             OverrideReason: _showXmOverride && !string.IsNullOrWhiteSpace(_xmOverrideReason) ? _xmOverrideReason.Trim() : null,
             AuthorizedBy: _showXmOverride && !string.IsNullOrWhiteSpace(_xmAuthorizedBy) ? _xmAuthorizedBy.Trim() : null);
@@ -653,7 +650,7 @@
             UnitNumber: allocation.UnitNumber,
             CrossmatchMethod: _xm.Method,
             CrossmatchResult: _xm.Result,
-            AntibodyScreenNegative: _xm.ScreenNegative));
+            AntibodyScreenNegative: true));
         _busy = false;
         _xmFb = save.Succeeded
             ? Feedback.Succeed($"Crossmatch recorded for unit {allocation.UnitNumber}.")
@@ -730,7 +727,6 @@
         public CrossmatchMethod Method { get; set; } = CrossmatchMethod.Serologic;
         // Starts unchosen; never assumed Compatible.
         public CrossmatchResult Result { get; set; } = CrossmatchResult.NotPerformed;
-        public bool ScreenNegative { get; set; } = true;
         public string? Comment { get; set; }
     }
 

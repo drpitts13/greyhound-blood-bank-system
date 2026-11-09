@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Compatibility;
@@ -272,7 +272,8 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntibodyIdentificationWorkup>(c),
             screen,
             new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
-            settings);
+            settings,
+            _factory.Clock);
         return new CrossmatchAttachmentService(
             settings,
             eligibility,
@@ -437,7 +438,8 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntibodyIdentificationWorkup>(c),
             AntibodyScreen(c),
             new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
-            new CrossmatchSettingsReader(new EfRepository<CrossmatchSettings>(c)));
+            new CrossmatchSettingsReader(new EfRepository<CrossmatchSettings>(c)),
+            _factory.Clock);
 
     private async Task<Seed> SeedProductAndScreenAsync(
         BloodBankDbContext c,

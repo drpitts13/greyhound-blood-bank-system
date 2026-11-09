@@ -18429,7 +18429,7 @@ Cycle 592's remaining two forms: the chart's Record blood type (a documented or 
 
 ### Capability matrix rescan (antibody identification entry)
 
-Walking the antigram for Cycle 590-style defaults: cells start at Not tested, which assumes nothing. But saving reactions overwrote each reading in place with no audit, so a corrected grade lost what it replaced, and the page always sent the whole grid, so the server always saw changes: saving with nothing edited cleared the technologist interpretation and the supervisor review.
+Walking the antigram for Cycle 590-style defaults: cells start at Not tested, which assumes nothing. But the page always sent the whole grid and the server rewrote every reading row each time (captured only by the generic row-level entity audit; corrected in Cycle 595, which first said "no audit"), so the server always saw changes: saving with nothing edited cleared the technologist interpretation and the supervisor review.
 
 ### Design
 
@@ -18450,4 +18450,35 @@ Walking the antigram for Cycle 590-style defaults: cells start at Not tested, wh
 
 ### Next
 
-- Look for other in-place overwrites without an audit of the old value (DAT context, crossmatch reactions on correction, antigen typing).
+- (Superseded in Cycle 595: every entity change is already audited with old and new values by `BloodBankDbContext`, so there are no unaudited overwrites to hunt.)
+
+## Iteration 595 — Electronic crossmatch needs the current screen (2026-11-09)
+
+### Correction to Cycle 594
+
+`BloodBankDbContext` audits every entity change with old and new values. Cycle 594 said reaction overwrites had no audit; they were captured by that generic row audit. Its fixes stand (unchanged saves no longer rewrite rows or clear the interpretation and review; changes get a readable workup-level audit), and its docs are corrected. The planned hunt for unaudited overwrites was dropped.
+
+### Capability matrix rescan (electronic crossmatch)
+
+The bench crossmatch form's "Antibody screen negative" box started ticked (the Compatibility page's select at Negative). Following it: the eXM screen criterion, "Current antibody screen is negative", was computed as that box AND "no positive screen on file", in all three paths (recording, eligibility, issue). No path checked that a screen had been done: a patient never screened, or a specimen whose screen was still pending, passed. Nine test fixtures had eXM-eligible patients with no current screen.
+
+### Design
+
+- Recording (incl. automatic eXM at allocation): the crossmatch specimen must be accepted, in date, and carry a verified non-positive screen. Eligibility and issue: some current specimen must. Same criterion code; the refusal says what is needed. Not a new clinical rule: the criterion already stated a current negative screen.
+- The pre-set attestation controls are removed (the request field stays and can only restrict).
+
+### Verification
+
+- New: no current screen → not eligible; eXM on a specimen without its own screen is blocked though another specimen is screened, nothing recorded. Nine eXM fixtures now seed the current screen (`ExmScreenSeed`), and test-built eligibility services get the fixed clock. Live: not exercised; electronic crossmatch is off in the development facility policy.
+
+### Requirements
+
+- URS-BB-645, FRS-BB-762.
+
+### Tests
+
+- TEST-BB-699, TEST-BB-700.
+
+### Next
+
+- Walk the issue desk with eXM-reserved units: show which specimen's screen the eXM rests on.

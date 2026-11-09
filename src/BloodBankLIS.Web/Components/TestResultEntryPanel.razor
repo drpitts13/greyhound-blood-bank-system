@@ -403,9 +403,6 @@
                             <option value="@CrossmatchResult.Incompatible">Incompatible</option>
                         </select>
                     </div>
-                    <div class="field" style="align-self:end;">
-                        <label class="flex"><input type="checkbox" @bind="_antibodyScreenNegative" /> Antibody screen negative</label>
-                    </div>
                 </div>
             }
             else if (_definition.ResultValueType == ResultValueType.Subtest)
@@ -521,7 +518,6 @@
     private CrossmatchMethod _xmMethod = CrossmatchMethod.Serologic;
     // Starts unchosen: filled in from the reactions or chosen, never assumed Compatible.
     private CrossmatchResult? _xmResult;
-    private bool _antibodyScreenNegative = true;
     private string _correctionReason = string.Empty;
     private bool _showSavePrompt;
     private bool _showDeltaOverride;
@@ -1044,7 +1040,8 @@
             string.IsNullOrWhiteSpace(_unitNumber) ? null : _unitNumber.Trim(),
             IsCrossmatchType ? _xmMethod : null,
             IsCrossmatchType ? _xmResult : null,
-            _antibodyScreenNegative,
+            // The antibody screen is read from the specimen's verified results, not attested here.
+            null,
             includeOverride ? _overrideReason.Trim() : null,
             includeOverride ? _authorizedBy.Trim() : null,
             includeOverride ? _historyResolution : null,
