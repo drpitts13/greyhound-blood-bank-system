@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -55,7 +55,9 @@ public sealed record MtpActivationDto(
     int MinutesActive,
     IReadOnlyList<MtpComponentCountDto> Counts,
     IReadOnlyList<MtpIssuedUnitDto> Units,
-    MtpPackProgressDto? Pack = null);
+    MtpPackProgressDto? Pack = null,
+    // An open protocol with no unit issued under it for the facility reminder minutes (OCD-076): say so and suggest closing.
+    string? IdleNotice = null);
 
 /// <summary>
 /// Massive transfusion protocol activation: record who called it and why, track every unit issued under it, and
@@ -75,6 +77,7 @@ public sealed class MtpActivationService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<MtpPackDefinition>? _packs;
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
 
     public MtpActivationService(
         IRepository<MtpActivation> activations,
@@ -87,7 +90,8 @@ public sealed class MtpActivationService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IRepository<MtpPackDefinition>? packs = null)
+        IRepository<MtpPackDefinition>? packs = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
         _activations = activations;
         _patients = patients;
@@ -100,6 +104,7 @@ public sealed class MtpActivationService
         _audit = audit;
         _permissions = permissions;
         _packs = packs;
+        _policy = policy;
     }
 
     public async Task<EvaluationResult<MtpActivationDto>> ActivateAsync(long patientId, ActivateMtpRequest request, CancellationToken ct = default)
@@ -292,6 +297,19 @@ public sealed class MtpActivationService
         }
 
         var end = a.ClosedUtc ?? _clock.UtcNow;
+        string? idleNotice = null;
+        if (a.Status == MtpActivationStatus.Active)
+        {
+            var reminderMinutes = _policy is null
+                ? MtpIdleRule.DefaultReminderMinutes
+                : await _policy.GetMtpIdleReminderMinutesAsync(ct);
+            var last = MtpIdleRule.LastActivityUtc(a.ActivatedUtc, issued.Count == 0 ? null : issued.Max(u => u.IssuedUtc));
+            if (MtpIdleRule.IsIdle(last, _clock.UtcNow, reminderMinutes))
+            {
+                idleNotice = MtpIdleRule.Notice(last, _clock.UtcNow, issued.Count > 0);
+            }
+        }
+
         var name = patient is null
             ? $"Patient {a.PatientId}"
             : string.IsNullOrWhiteSpace(patient.FirstName) ? patient.LastName : $"{patient.LastName}, {patient.FirstName}";
@@ -300,7 +318,7 @@ public sealed class MtpActivationService
             a.Id, a.PatientId, patient?.MedicalRecordNumber, name, a.Status, a.RequestedBy, a.Reason, a.Location,
             a.ActivatedUtc, a.ActivatedBy, a.ClosedUtc, a.ClosedBy, a.CloseReason,
             (int)Math.Max(0, (end - a.ActivatedUtc).TotalMinutes),
-            counts, issued, pack);
+            counts, issued, pack, idleNotice);
     }
 
     private static string RhText(RhType rh) => rh switch

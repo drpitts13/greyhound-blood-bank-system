@@ -59,6 +59,10 @@
             <div style="margin-top:.5rem;">
                 <strong>@mtp.PatientName</strong> @(mtp.MedicalRecordNumber is null ? "" : $"({mtp.MedicalRecordNumber})")
                 &middot; MTP #@mtp.Id, @mtp.MinutesActive min &middot; called by @mtp.RequestedBy &middot; @mtp.Reason
+                @if (!string.IsNullOrWhiteSpace(mtp.IdleNotice))
+                {
+                    <div data-mtp-idle><span class="badge badge-amber">Still open</span> @mtp.IdleNotice</div>
+                }
                 <div class="muted">
                     @if (mtp.Counts.Count == 0)
                     {

@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Entities;
+﻿using BloodBankLIS.Domain.Entities;
 
 namespace BloodBankLIS.Domain.Rules;
 
@@ -34,6 +34,7 @@ public static class AlertRule
     public const string BackupFailed = "backup-failed";
     public const string BackupOverdue = "backup-overdue";
     public const string TransfusionNotCompleted = "transfusion-not-completed";
+    public const string MtpStillOpen = "mtp-still-open";
 
     /// <summary>
     /// The name the alerts help page uses for each source. A help test fails when a source has no name here
@@ -50,6 +51,7 @@ public static class AlertRule
         BackupFailed => "Backup failed",
         BackupOverdue => "Backup overdue",
         TransfusionNotCompleted => "Transfusion not completed",
+        MtpStillOpen => "Massive transfusion protocol still open",
         _ => null
     };
 

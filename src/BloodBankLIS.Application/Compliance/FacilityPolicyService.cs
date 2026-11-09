@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -98,6 +98,9 @@ public sealed class FacilityPolicyService
         GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
 
     /// <summary>Minutes before a blood order's needed-by time that it counts as needed soon (OCD-075); 0 = off.</summary>
+    public Task<int> GetMtpIdleReminderMinutesAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.MtpIdleReminderMinutes, MtpIdleRule.DefaultReminderMinutes, ct);
+
     public Task<int> GetBloodOrderNeededBySoonMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, 0, ct);
 

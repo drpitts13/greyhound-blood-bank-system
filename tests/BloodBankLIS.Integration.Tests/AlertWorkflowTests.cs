@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Compliance;
+﻿using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Domain.Entities;
@@ -41,7 +41,8 @@ public class AlertWorkflowTests : IDisposable
             new EfRepository<TestResultReagentLot>(c), new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<Patient>(c));
         return new AlertScanner(Alerts(c), minimumStock, inventory, reagents,
             new EfRepository<TransfusionEvent>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
-            new EfRepository<Patient>(c), new FacilityPolicyService(new EfRepository<SystemSetting>(c)), _factory.Clock);
+            new EfRepository<Patient>(c), new FacilityPolicyService(new EfRepository<SystemSetting>(c)), _factory.Clock,
+            new EfRepository<MtpActivation>(c));
     }
 
     // TEST-BB-546: a lot whose latest QC failed names the results tested with it since its last passed QC, on the
@@ -142,6 +143,54 @@ public class AlertWorkflowTests : IDisposable
         c.TransfusionEvents.Add(record);
         await c.SaveChangesAsync();
         return (issue.Id, record.Id);
+    }
+
+    // TEST-BB-712: an open massive transfusion protocol with nothing issued under it for the reminder minutes (default
+    // 240) raises a warning naming the patient that opens the issue desk; a unit issued under it clears the alert, and a
+    // protocol called recently raises none.
+    [Fact]
+    public async Task Scanner_RaisesMtpStillOpen_WhenIdle_AndResolvesWhenAUnitIsIssued()
+    {
+        var now = _factory.Clock.UtcNow;
+        long idleId;
+        long patientId;
+        await using (var c = _factory.Create())
+        {
+            var patient = new Patient { MedicalRecordNumber = "MRN-MTPIDLE", LastName = "Idle", FirstName = "Mtp", DateOfBirth = new DateOnly(1980, 1, 1) };
+            var recent = new Patient { MedicalRecordNumber = "MRN-MTPNEW", LastName = "Recent", FirstName = "Mtp", DateOfBirth = new DateOnly(1980, 1, 1) };
+            c.Patients.AddRange(patient, recent);
+            await c.SaveChangesAsync();
+            var idle = new MtpActivation { PatientId = patient.Id, RequestedBy = "Dr Trauma", Reason = "Hemorrhage", ActivatedUtc = now.AddHours(-5), ActivatedBy = "tech" };
+            c.MtpActivations.AddRange(idle,
+                new MtpActivation { PatientId = recent.Id, RequestedBy = "Dr Trauma", Reason = "Hemorrhage", ActivatedUtc = now.AddMinutes(-30), ActivatedBy = "tech" });
+            await c.SaveChangesAsync();
+            (idleId, patientId) = (idle.Id, patient.Id);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            await Scanner(c).ScanAsync();
+            var alert = Assert.Single(await c.Alerts.Where(a => a.Source == AlertRule.MtpStillOpen && a.ResolvedUtc == null).ToListAsync());
+            Assert.Equal($"MTPIDLE:{idleId}", alert.Key);
+            Assert.Equal(AlertSeverity.Warning, alert.Severity);
+            Assert.Contains("MRN-MTPIDLE", alert.Title);
+            Assert.Contains("No unit issued since it was called 5 h ago", alert.Message);
+            Assert.Equal("/issuing?desk=issue", alert.Link);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var product = new ProductType { ProductCode = $"MTPI-{Guid.NewGuid():N}"[..12], Name = "RBC", ComponentClass = ComponentClass.RedBloodCells };
+            c.ProductTypes.Add(product);
+            await c.SaveChangesAsync();
+            var unit = new BloodUnit { UnitNumber = "U-MTPIDLE", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = now.AddDays(10), Status = UnitStatus.Issued };
+            c.BloodUnits.Add(unit);
+            await c.SaveChangesAsync();
+            c.Issues.Add(new Issue { BloodProductId = unit.Id, PatientId = patientId, IssuedUtc = now.AddMinutes(-10), IssuedBy = "tech", MtpActivationId = idleId, IssueType = IssueType.MassiveTransfusion });
+            await c.SaveChangesAsync();
+            await Scanner(c).ScanAsync();
+            Assert.NotNull((await c.Alerts.SingleAsync(a => a.Source == AlertRule.MtpStillOpen)).ResolvedUtc);
+        }
     }
 
     [Fact]

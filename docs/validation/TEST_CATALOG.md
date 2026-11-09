@@ -720,5 +720,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-709 | A | `AllocationTimelineNoteTests.Outcome_ReadsInWords` (and the order timeline test's wording) | URS-BB-650 / FRS-BB-767 |
 | TEST-BB-710 | I | `SeederUnlinkedSpecimenTests.Reseed_AfterLinksWereUnlinked_DoesNotFail` | Demo data (startup) |
 | TEST-BB-711 | I | `InventoryServiceTests.UnitActivity_NamesThePatientOnAnAllocation` (reservation outcome and expiry reason) | URS-BB-650 / FRS-BB-767 |
+| TEST-BB-712 | I | `AlertWorkflowTests.Scanner_RaisesMtpStillOpen_WhenIdle_AndResolvesWhenAUnitIsIssued` | URS-BB-651 / FRS-BB-768 |
+| TEST-BB-713 | D | `MtpIdleRuleTests.IdleTime_RunsFromTheLastIssue_AndZeroIsOff` | URS-BB-651 / FRS-BB-768 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

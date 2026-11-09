@@ -59,7 +59,7 @@ Emergency and MTP are a different issue type. They are not an instruction to ign
 
 Before the first unit, **activate** the protocol: choose **MassiveTransfusion** as the issue type, pick the patient, and record who called it, why, and where. A unit cannot be issued under MTP until the protocol is active. Only people with the emergency-release permission can activate or close it.
 
-While it is active, a red banner on every Issue & Transfuse desk shows the patient, how long it has run, and how many units of each component have been issued, returned, and transfused. **Issue under this MTP** opens the issue form for that patient. **Use as override reason** fills the reason from the activation. Every unit still goes through every safety check and its own signature.
+While it is active, a red banner on every Issue & Transfuse desk shows the patient, how long it has run, and how many units of each component have been issued, returned, and transfused. When no unit has been issued under it for the facility reminder minutes (240 by default), the banner says **Still open** with how long, and an alert asks for it to be closed if the bleeding is controlled. **Issue under this MTP** opens the issue form for that patient. **Use as override reason** fills the reason from the activation. Every unit still goes through every safety check and its own signature.
 
 If your facility has defined packs (Admin › [MTP packs](mtp-packs)), you can choose one when you activate. The banner then shows the round and, for each component, how many units have gone in this round against the pack, for example "Red cells 2/4". Returned units do not count. The pack is guidance only: it never blocks a unit.
 

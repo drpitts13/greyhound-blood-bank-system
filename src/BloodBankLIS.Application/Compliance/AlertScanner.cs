@@ -22,6 +22,7 @@ public sealed class AlertScanner
     private readonly IRepository<Patient>? _patients;
     private readonly FacilityPolicyService? _policy;
     private readonly IClock? _clock;
+    private readonly IRepository<MtpActivation>? _mtpActivations;
 
     public AlertScanner(
         AlertService alerts,
@@ -33,7 +34,8 @@ public sealed class AlertScanner
         IRepository<BloodUnit>? units = null,
         IRepository<Patient>? patients = null,
         FacilityPolicyService? policy = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IRepository<MtpActivation>? mtpActivations = null)
     {
         _alerts = alerts;
         _minimumStock = minimumStock;
@@ -45,6 +47,7 @@ public sealed class AlertScanner
         _patients = patients;
         _policy = policy;
         _clock = clock;
+        _mtpActivations = mtpActivations;
     }
 
     /// <summary>"2 available against a minimum of 4 (short 2). 1 on order, 1 still to order."</summary>
@@ -114,6 +117,11 @@ public sealed class AlertScanner
             Add(await _alerts.SyncAsync(AlertRule.TransfusionNotCompleted, incomplete, ct));
         }
 
+        if (await MtpStillOpenAsync(ct) is { } idleMtp)
+        {
+            Add(await _alerts.SyncAsync(AlertRule.MtpStillOpen, idleMtp, ct));
+        }
+
         return (raised, resolved);
 
         void Add((int Raised, int Resolved) result)
@@ -121,6 +129,37 @@ public sealed class AlertScanner
             raised += result.Raised;
             resolved += result.Resolved;
         }
+    }
+
+    /// <summary>
+    /// Open massive transfusion protocols with no unit issued under them for the facility reminder minutes (OCD-076).
+    /// Null when the scanner was built without these sources.
+    /// </summary>
+    private async Task<List<AlertCandidate>?> MtpStillOpenAsync(CancellationToken ct)
+    {
+        if (_mtpActivations is null || _issues is null || _patients is null || _policy is null || _clock is null)
+        {
+            return null;
+        }
+
+        var minutes = await _policy.GetMtpIdleReminderMinutesAsync(ct);
+        var now = _clock.UtcNow;
+        var candidates = new List<AlertCandidate>();
+        foreach (var activation in await _mtpActivations.ListAsync(a => a.Status == MtpActivationStatus.Active, ct))
+        {
+            var issued = await _issues.ListAsync(i => i.MtpActivationId == activation.Id, ct);
+            DateTime? lastIssue = issued.Count == 0 ? null : issued.Max(i => i.IssuedUtc);
+            var last = MtpIdleRule.LastActivityUtc(activation.ActivatedUtc, lastIssue);
+            if (!MtpIdleRule.IsIdle(last, now, minutes))
+            {
+                continue;
+            }
+
+            var patient = await _patients.GetByIdAsync(activation.PatientId, ct);
+            candidates.Add(MtpIdleRule.Alert(activation.Id, patient?.MedicalRecordNumber, last, now, issued.Count > 0));
+        }
+
+        return candidates;
     }
 
     /// <summary>

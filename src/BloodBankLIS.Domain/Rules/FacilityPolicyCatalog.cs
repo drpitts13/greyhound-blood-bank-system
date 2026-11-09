@@ -1,4 +1,4 @@
-namespace BloodBankLIS.Domain.Rules;
+﻿namespace BloodBankLIS.Domain.Rules;
 
 public enum FacilityPolicyValueKind
 {
@@ -109,6 +109,9 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, "Order", "Warn before a blood order's needed-by time (minutes)",
             "Blood orders to prepare marks an order whose units are not all reserved as needed soon when its needed-by time (a surgery start or scheduled transfusion) is this many minutes away or less, and the home card counts them. A time that has passed is always marked. 0 means off. Changes no priority or check. Set by the medical director.",
             FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-075", 0, 1440),
+        new(FacilityPolicyKeys.MtpIdleReminderMinutes, "Issue", "Massive transfusion protocol open reminder (minutes)",
+            "Minutes with no unit issued under an open massive transfusion protocol after which an alert asks for it to be closed if the bleeding is controlled (while it is open, massive-transfusion issue stays available for the patient). A reminder: it closes nothing and stops no issue. 0 turns it off. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "240", "Medical director / OCD-076", 0, 1440),
         new(FacilityPolicyKeys.RetentionYears, "Records", "Record retention years",
             "Minimum product record retention. Automated purge is not performed.",
             FacilityPolicyValueKind.Integer, "10", "21 CFR 606.160(d) / CAP TRM.42120", 5, 30),

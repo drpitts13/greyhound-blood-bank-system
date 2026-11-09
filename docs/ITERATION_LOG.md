@@ -18643,3 +18643,29 @@ Cycle 600's next step: a unit's History listed each reservation as "{status} to 
 ### Next
 
 - The returns desk: walk a return for unexplained state changes and preset answers.
+
+## Iteration 602 — A massive transfusion protocol left open is flagged (2026-11-09)
+
+### Capability matrix rescan (returns desk, MTP)
+
+Walking the returns desk: the return form has no preset answers (inspections unanswered, Available gated). The desk's banner showed the demo massive transfusion protocol active for 4,180 minutes (about 70 hours). While a protocol is open, massive-transfusion issue stays available for the patient with no time limit, and nothing prompted anyone to close it.
+
+### Design
+
+- Facility policy for the reminder minutes (default 240, OCD-076 for the medical director); an alert source and a "Still open" banner notice when nothing has been issued under an open protocol that long. A reminder only: closes nothing, blocks nothing.
+
+### Verification
+
+- Domain rule test; scanner test (idle protocol alerted with MRN and age, recent protocol not, alert cleared by an issue under it); alert help coverage (the page now counts ten sources). Live: the issue desk banner shows "Still open · No unit issued under it for 69 h" for the demo MTP, and the alert "Massive transfusion protocol still open: MRN MRN0021" was raised by the background scan (read-only).
+
+### Requirements
+
+- URS-BB-651, FRS-BB-768, OCD-076.
+
+### Tests
+
+- TEST-BB-712, TEST-BB-713.
+
+### Next
+
+- Shift handoff: count open MTPs (idle ones urgent).
