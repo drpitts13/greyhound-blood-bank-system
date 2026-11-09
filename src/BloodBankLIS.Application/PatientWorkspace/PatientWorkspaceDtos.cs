@@ -198,7 +198,12 @@ public sealed record PatientOrderDto(
     string? CurrentResultTestCode = null,
     IReadOnlyList<OrderActionDto>? Actions = null,
     string? CancellationReasonCode = null,
-    DateTime? NeededByUtc = null)
+    DateTime? NeededByUtc = null,
+    // For an open order: its needed-by time has passed, or is within the facility's warning window (OCD-075) with the
+    // minutes left, worded as on the worklists.
+    bool NeededByPassed = false,
+    bool NeededBySoon = false,
+    int? NeededInMinutes = null)
 {
     public bool IsUrgentPriority =>
         Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease

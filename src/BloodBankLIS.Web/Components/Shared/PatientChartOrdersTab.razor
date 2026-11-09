@@ -268,7 +268,8 @@
                         <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span>
                             @if (o.NeededByUtc is DateTime orderNeededBy)
                             {
-                                <span class="sub" data-order-needed-by-shown>needed by @orderNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                @* Worded and coloured as on the worklists: red once passed, amber inside the facility's warning window. *@
+                                <span class="@(o.NeededByPassed ? "badge badge-red" : o.NeededBySoon ? "badge badge-amber" : "sub")" data-order-needed-by-shown>needed by @orderNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(o.NeededByPassed ? " (passed)" : o.NeededInMinutes is int orderIn ? $" (in {orderIn} min)" : "")</span>
                             }
                             @if (o.IsActive && Session.Has(PermissionCodes.PatientWrite))
                             {

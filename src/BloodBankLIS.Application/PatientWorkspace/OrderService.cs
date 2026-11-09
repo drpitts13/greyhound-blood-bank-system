@@ -26,6 +26,7 @@ public sealed class OrderService
     private readonly IRepository<TestDefinition> _testDefinitions;
     private readonly IRepository<TestGrouper> _testGroupers;
     private readonly IClock _clock;
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
     private readonly IUnitOfWork _unitOfWork;
     private readonly RuleEngineService? _ruleEngine;
     private readonly IAuditWriter? _audit;
@@ -69,7 +70,8 @@ public sealed class OrderService
         IRepository<ActionDefinition>? actionDefinitions = null,
         IRepository<OrderCancellationReason>? cancellationReasons = null,
         IRepository<Allocation>? allocations = null,
-        TransfusionIndicationService? indications = null)
+        TransfusionIndicationService? indications = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
         _ruleEngine = ruleEngine;
         _audit = audit;
@@ -97,6 +99,7 @@ public sealed class OrderService
         _testDefinitions = testDefinitions;
         _testGroupers = testGroupers;
         _clock = clock;
+        _policy = policy;
         _unitOfWork = unitOfWork;
     }
 
@@ -205,11 +208,16 @@ public sealed class OrderService
                     && specimens.GetValueOrDefault(sid)?.AccessionNumber.Contains(q, StringComparison.OrdinalIgnoreCase) == true));
         }
 
+        var now = _clock.UtcNow;
+        var warnMinutes = _policy is null ? 0 : await _policy.GetBloodOrderNeededBySoonMinutesAsync(ct);
         return query
             .OrderByDescending(o => o.OrderedUtc)
             .ThenByDescending(o => o.Priority)
             .Select(o =>
             {
+                // Only an order still open is due; a finished or cancelled one keeps its time as a record.
+                var open = o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued);
+                var soon = open && OrderNeededByRule.DueSoon(o.NeededByUtc, now, warnMinutes);
                 encounters.TryGetValue(o.EncounterId, out var enc);
                 locations.TryGetValue(o.OrderingLocationId, out var loc);
                 long? primarySpecimenId = primarySpecimenByOrder.GetValueOrDefault(o.Id);
@@ -233,7 +241,10 @@ public sealed class OrderService
                     current?.Id, current?.Value, current?.Source, current?.EnteredBy, current?.TestCode,
                     actionsByOrder.GetValueOrDefault(o.Id),
                     o.CancellationReasonCode,
-                    o.NeededByUtc);
+                    o.NeededByUtc,
+                    open && OrderNeededByRule.Passed(o.NeededByUtc, now),
+                    soon,
+                    soon ? OrderNeededByRule.MinutesUntil(o.NeededByUtc, now) : null);
             })
             .ToList();
     }

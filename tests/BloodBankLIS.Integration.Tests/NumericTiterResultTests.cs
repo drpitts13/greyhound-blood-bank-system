@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
@@ -149,6 +150,42 @@ public class NumericTiterResultTests : IDisposable
         row.Status = OrderStatus.Cancelled;
         await c.SaveChangesAsync();
         Assert.Contains("Cancelled", (await orders.SetNeededByAsync(f.Patient.Id, f.Order.Id, new SetOrderNeededByRequest(now.AddHours(1)))).Error);
+    }
+
+    // TEST-BB-665: the chart's order list marks an open order's needed-by time as needed soon (with the minutes left) only
+    // inside the facility's warning window, as passed once it has gone, and neither for a cancelled order.
+    [Fact]
+    public async Task ChartOrders_MarkNeededByPassedOrSoon()
+    {
+        await using var c = _factory.Create();
+        await SeedAsync(c);
+        var timed = await c.Orders.SingleAsync(o => o.OrderNumber == "ORD-NT-TIMED");
+        OrderService WithPolicy() => new(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
+            new EfRepository<Encounter>(c), new EfRepository<OrderingLocation>(c), new EfRepository<Patient>(c),
+            new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
+            new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), _factory.Clock, c,
+            policy: new FacilityPolicyService(new EfRepository<SystemSetting>(c)));
+        async Task<PatientOrderDto> RowAsync(OrderService service) =>
+            (await service.ListByPatientAsync(timed.PatientId)).Single(o => o.OrderNumber == "ORD-NT-TIMED");
+
+        // Three hours away, no window set: neither mark.
+        var plain = await RowAsync(WithPolicy());
+        Assert.Equal((false, false, (int?)null), (plain.NeededByPassed, plain.NeededBySoon, plain.NeededInMinutes));
+
+        c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, Value = "240" });
+        await c.SaveChangesAsync();
+        var soon = await RowAsync(WithPolicy());
+        Assert.Equal((false, true, (int?)180), (soon.NeededByPassed, soon.NeededBySoon, soon.NeededInMinutes));
+
+        timed.NeededByUtc = _factory.Clock.UtcNow.AddMinutes(-10);
+        await c.SaveChangesAsync();
+        var passed = await RowAsync(WithPolicy());
+        Assert.Equal((true, false), (passed.NeededByPassed, passed.NeededBySoon));
+
+        timed.Status = OrderStatus.Cancelled;
+        await c.SaveChangesAsync();
+        var cancelled = await RowAsync(WithPolicy());
+        Assert.Equal((false, false), (cancelled.NeededByPassed, cancelled.NeededBySoon));
     }
 
     [Fact]

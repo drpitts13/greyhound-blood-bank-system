@@ -32,6 +32,10 @@ Cancel requires a reason from the cancellation catalog. Cancellation does not de
 
 > Hard stop. Verification is blocked while the order is on hold, the specimen is rejected, or the specimen is past its testing window.
 
+## Needed-by time
+
+An open order's **needed by** time (a surgery start or scheduled transfusion) is shown under its date. It turns red with "(passed)" once the time has gone, and amber with the minutes left when it is inside your facility's warning window (Facility Policies; off until the medical director sets it), as on Blood orders to prepare and the issue desk. Use **Set needed by** or **Change** on the row when the surgery moves.
+
 ## Order history
 
 **History** on an order's row opens what happened to it, newest first: when it was placed (priority, source, provider, needed-by), each recorded change such as a moved needed-by time or a cancellation (who, at which workstation, what changed), its specimens' collection and receipt, its results, and for a product order each unit reserved, crossmatched, issued, returned, and transfused. While the order is open, a needed-by time that has passed is shown as a warning. **Warnings and critical only** narrows the list; **Full audit trail** (audit readers) opens every audited change to the order. Scanning or typing an order number in the find box, or choosing an order number on **Blood orders to prepare**, opens the chart with that order's history already open.

@@ -18116,3 +18116,22 @@ Cycle 579 rendered the 99 pages without route parameters. The pages opened with 
 ### Tests
 
 - TEST-BB-663, TEST-BB-664.
+
+## Iteration 581 — Needed-by marks on the chart's Orders tab (2026-11-08)
+
+### Capability matrix rescan (UX: consistent status terminology)
+
+Blood orders to prepare and the issue desk mark a needed-by time red once passed and amber when it is close (Cycles 557–572), but the chart's Orders tab, where the time is changed when a surgery moves, showed it as plain grey text either way. Workflow questions: memory (the same order reads the same everywhere); safety (display only; no check changes).
+
+### Design
+
+- `PatientOrderDto` passed/soon flags from `OrderService.ListByPatientAsync` (open orders; OCD-075 window); the Orders tab colours and words its needed-by line as the worklists do.
+
+### Requirements
+
+- URS-BB-632, FRS-BB-749. Help: Orders.
+
+### Tests
+
+- TEST-BB-665: three hours away with no window, then needed soon (180 min) with a four-hour window, passed once gone, neither once cancelled.
+- TEST-BB-666 (rendered): amber with the minutes, red with "(passed)", plain otherwise, nothing without a time.

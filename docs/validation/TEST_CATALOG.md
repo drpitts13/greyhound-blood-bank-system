@@ -673,5 +673,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-662 | U | `EveryPageRendersTests.Page_RendersWithAnEmptyApi` | URS-BB-631 / FRS-BB-748 |
 | TEST-BB-663 | U | `EveryPageRendersTests.RecordPage_RendersWhenTheRecordIsNotFound` (and `RecordRoutes_CoverEveryParameterizedPage`) | URS-BB-631 / FRS-BB-748 |
 | TEST-BB-664 | U | `EveryPageRendersTests.ChartTab_RendersForAPatientWithNothingOnFile` | URS-BB-631 / FRS-BB-748 |
+| TEST-BB-665 | I | `NumericTiterResultTests.ChartOrders_MarkNeededByPassedOrSoon` | URS-BB-632 / FRS-BB-749 |
+| TEST-BB-666 | U | `ChartOrdersTabTests.NeededBy_ReadsAsOnTheWorklists` | URS-BB-632 / FRS-BB-749 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
