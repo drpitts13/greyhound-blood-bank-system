@@ -18799,3 +18799,25 @@ E0701 appearing twice (FFP and Thawed Plasma) is deliberate demo data, and no wo
 ### Next
 
 - Look for other calls to the API client whose arguments are positional strings in the wrong order (a source test over call sites).
+
+## Iteration 608 — Positional arguments audited (2026-11-09)
+
+### Capability matrix rescan (web to API calls)
+
+Cycle 607's defect was a positional mismatch (free text in the reason-code slot, the verifier in the comment slot) that compiled because the verifier had a default. Audit: the seven API client methods with two or more text parameters (reject specimen, convert directed, discard, audit search, recall by DIN, the two translation checks) are called with their arguments in order; and every web construction of a request record that passes fewer positional arguments than the record has parameters (crossmatch, allocate, result entry, receive, ISBT manual entry, return, ward receipt, patient and order edits, accession, specimen edit, reaction investigation, post-transfusion specimen, antigen typing) was paired argument to parameter and read: all line up (named arguments hold the slots where order shifts).
+
+### Design
+
+- The two client methods whose second verifier had a default (discard, convert directed to allogeneic) take it with no default, so an omitted verifier fails to compile. No behaviour change.
+
+### Verification
+
+- Build (all callers pass the verifier); web tests pass.
+
+### Requirements
+
+- FRS-BB-771 (extended).
+
+### Next
+
+- Walk the Retype board live (clicks per unit, scanning).

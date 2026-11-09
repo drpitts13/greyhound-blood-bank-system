@@ -622,7 +622,7 @@ public sealed class BloodBankApiClient
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/return-to-supplier", new ReasonRequestVm(reason), ct);
 
     public Task<ApiResult<BloodUnitDto>> ConvertDirectedToAllogeneicAsync(
-        long id, string reason, string? secondVerifier = null, CancellationToken ct = default) =>
+        long id, string reason, string? secondVerifier, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/convert-directed", new DiscardUnitRequestVm(reason, secondVerifier), ct);
 
     public Task<ApiResult<List<InventoryCountHistoryDto>>> GetInventoryCountHistoryAsync(long? locationId = null, CancellationToken ct = default) =>
@@ -655,7 +655,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodUnitDto>> TransferUnitAsync(long id, long toLocationId, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/transfer", new TransferRequestVm(toLocationId, reason), ct);
 
-    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reasonCode, string? comment, string? secondVerifier = null, CancellationToken ct = default) =>
+    // The second verifier has no default (Cycle 608): a call that leaves it out must not compile, as the near-expiry
+    // board did when it passed the verifier in the comment slot (Cycle 607).
+    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reasonCode, string? comment, string? secondVerifier, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/discard", new DiscardCodedUnitRequestVm(reasonCode, comment, secondVerifier), ct);
 
     public Task<ApiResult<ExpireDueVm>> ExpireDueAsync(CancellationToken ct = default) =>
