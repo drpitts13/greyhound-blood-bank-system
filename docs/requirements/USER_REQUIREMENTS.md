@@ -674,3 +674,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-666 | Ward receipt, Return, and Transfusion take a scan as soon as they open. | P3 | FRS-BB-783 |
 | URS-BB-667 | After a ward receipt or return is recorded, the form is ready for the next unit's scan and cannot resend the last one. | P2 | FRS-BB-784 |
 | URS-BB-668 | The bedside reaction question takes the answer chosen, and after a transfusion is finished the form is ready for the patient's next unit. | P1 | FRS-BB-785 |
+| URS-BB-669 | The bedside is warned before starting another unit for a patient whose transfusion reaction is under investigation. | P1 | FRS-BB-786 |

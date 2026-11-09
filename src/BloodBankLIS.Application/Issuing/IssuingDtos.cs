@@ -263,7 +263,11 @@ public sealed record OutstandingIssueWorkItemDto(
     // Set when the transfusion was started at the bedside and is not yet completed.
     DateTime? TransfusionStartedUtc = null,
     // Started and still not completed after the facility completion reminder hours.
-    bool TransfusionCompletionOverdue = false)
+    bool TransfusionCompletionOverdue = false,
+    // The patient's latest transfusion reaction investigation still open or under review (Cycle 626): the bedside is
+    // warned before another unit is started (OCD-078; a warning, not a block).
+    long? OpenReactionInvestigationId = null,
+    DateTime? OpenReactionReportedUtc = null)
 {
     /// <summary>The MRN the unit was issued under when the chart has since changed MRN (a merge); null otherwise.</summary>
     public string? IssuedUnderEarlierMrn { get; init; }

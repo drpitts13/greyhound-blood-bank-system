@@ -17,6 +17,8 @@ routes:
 
 > Scan first. Opening **Ward receipt**, **Return**, or **Transfusion** from its button puts the cursor in **Unit number**, so scan the unit straight away. Opened from a row, the unit is already filled. After a receipt or a return is recorded, **Unit number** empties and takes the next scan; who received the cooler and the return reason stay for the rest of it. The button stays off until the next unit is chosen. On **Transfusion**, Start keeps the unit on the form for Complete; after Complete or Document the unit leaves the form and Unit number takes the next scan, keeping the patient identifiers and transfusionist entered at this bedside for the same patient.
 
+> Reaction under investigation. When a transfusion reaction investigation is open or under review for the patient, Issued units marks each of the patient's units **Reaction under investigation**, and the Transfusion desk says so above the form with the investigation number: do not start another unit unless the physician has decided to continue. It warns and does not block (OCD-078). After you answer **Yes, reaction suspected** and finish, the investigation opens and the warning stays for the patient's other units.
+
 > New specimen. A unit blocked for want of a usable specimen offers **New specimen**, and Retrospective offers **Accession** when a released unit's specimen is missing or expired. Both open the patient's accession form, which links the new tube to the orders waiting for one.
 
 > Times on badges. A short time is today's. Any other day is named: "Needed tomorrow 07:30", "Transfusing since yesterday 22:10", or the date for days further away.

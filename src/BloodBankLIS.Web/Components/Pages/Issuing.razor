@@ -727,6 +727,10 @@
                                 {
                                     <span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span>
                                 }
+                                @if (row.OpenReactionInvestigationId is long reactionOpen)
+                                {
+                                    <span class="badge badge-red" title="A transfusion reaction is under investigation for this patient (#@reactionOpen)" data-issued-reaction-open>Reaction under investigation</span>
+                                }
                             </td>
                             <td class="right nowrap">
                                 @if (IssueRun.NextStepForIssued(row) == IssuedNextStep.ReceiveOnWard && Session.Has(PermissionCodes.TransfusionDocument))
@@ -1352,6 +1356,19 @@
         else
         {
             <Outcome Value="_txFb" />
+            @if (TxOpenReaction is { } openReaction)
+            {
+                @* OCD-078: a warning, not a block; whether a further unit may be started is the physician's decision. *@
+                <div class="alert alert-warning" data-tx-reaction-open>
+                    <strong>A transfusion reaction is under investigation for this patient</strong>
+                    (#@openReaction.Id, reported @ClockText.Short(openReaction.ReportedUtc)). Do not start another unit unless the
+                    physician has decided to continue.
+                    @if (Session.Has(PermissionCodes.ReactionInvestigate))
+                    {
+                        <a href="@($"/reactions?id={openReaction.Id}")">Open investigation #@openReaction.Id</a>
+                    }
+                </div>
+            }
             <div class="form-row">
                 <div class="field"><label>Unit number</label><input class="mono" @ref="_txUnitInput" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" data-desk-unit="transfuse" placeholder="Type or scan, or Document from Issued units" data-enter-step autocomplete="off" /></div>
                 <div class="field"><label>Disposition</label>
@@ -1606,6 +1623,23 @@
     private sealed record BedsideInRun(long IssueId, string UnitNumber, string? ProductName, string Action, bool Finished, DateTime AtLocal);
     private readonly List<BedsideInRun> _txRun = new();
     private long _txRunPatientId;
+
+    // The open reaction investigation for the patient at this bedside: the chosen unit's patient, or, once a finished
+    // unit has left the form, the bedside run's patient (Cycle 626).
+    private (long Id, DateTime ReportedUtc)? TxOpenReaction
+    {
+        get
+        {
+            var patientId = _outstandingItems.FirstOrDefault(r => r.IssueId == _txIssueId)?.PatientId
+                ?? (_txRunPatientId != 0 ? _txRunPatientId : null);
+            var row = patientId is long id
+                ? _outstandingItems.FirstOrDefault(r => r.PatientId == id && r.OpenReactionInvestigationId is not null)
+                : null;
+            return row is { OpenReactionInvestigationId: long reactionId, OpenReactionReportedUtc: DateTime reported }
+                ? (reactionId, reported)
+                : null;
+        }
+    }
 
     // Before the first action, the unit on the form decides the patient, so the other units at the bedside show at once.
     private IReadOnlyList<OutstandingIssueWorkItemDto> NextAtBedside => _txRun.Count > 0

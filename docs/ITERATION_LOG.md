@@ -19299,3 +19299,33 @@ After Cycle 624 every select on every page was listed with the type of the field
 ### Next
 
 - Walk Complete transfusion live end to end on a demo unit once the user agrees to a dev-data change, or seed a dedicated demo issue for it, so the bedside path is exercised live and not only rendered.
+
+## Iteration 626 — Bedside warned of a reaction under investigation (2026-11-09)
+
+### Capability matrix rescan (after a suspected reaction)
+
+With the reaction answer binding again (Cycle 624), the "Yes, reaction suspected" path was walked. The server opens the investigation and the form links to it. But the Transfusion desk, after Cycle 624, empties the unit and waits for the next scan, and the bedside run offers Next for the same patient: nothing on the desk said that patient's reaction was still under investigation. The recorded-reaction banner is on the chart only, and the investigations list needs the reaction-investigate permission bedside staff may not hold. Practice is to stop and evaluate before transfusing again; whether the LIS should block that is a clinical decision, recorded as OCD-078, so this warns.
+
+### Design
+
+- `ReactionInvestigationService.OpenByPatientAsync`: per patient, the latest investigation open or under review.
+- The outstanding list carries it on each of the patient's units (`OpenReactionInvestigationId`, `OpenReactionReportedUtc`), readable by anyone who can see Issued units.
+- Issued units: a red "Reaction under investigation" badge on the patient's units.
+- Transfusion desk: an amber warning above the form for the chosen unit's patient, or the bedside run's patient once the finished unit has left the form, with the number and report time, "Do not start another unit unless the physician has decided to continue", and a link for those who can open investigations. Start and Document stay available.
+
+### Verification
+
+- Integration: open and under-review investigations are carried, a closed one and another patient's are not. Rendered: the badge on the patient's unit, the warning on the desk with the number, Start still enabled, and no warning for another patient's unit.
+- Live (read-only): Issued units loads without server errors; no demo patient with a unit out has a reaction under investigation, so no badge shows on dev data (the demo reaction case has no unit outstanding).
+
+### Requirements
+
+- URS-BB-669, FRS-BB-786, OCD-078.
+
+### Tests
+
+- TEST-BB-752, TEST-BB-753.
+
+### Next
+
+- Check whether issuing a new unit to a patient with a reaction under investigation says so on Ready to issue and the issue form, before the unit leaves the bank.

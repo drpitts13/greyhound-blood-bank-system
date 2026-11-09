@@ -192,4 +192,43 @@ public class ScanDeskFocusTests : BunitContext
         Assert.Equal("MRN0022", page.Find("input[placeholder='Scan wristband or type']").GetAttribute("value"));
         Assert.False(page.Find("[data-tx-start]").HasAttribute("disabled"));
     }
+
+    // TEST-BB-753: the Transfusion desk warns when the patient at this bedside has a reaction under investigation, naming
+    // it; another patient's unit shows no warning. A warning only (OCD-078): Start stays available.
+    [Fact]
+    public void TransfusionDesk_WarnsOfAnOpenReactionInvestigation()
+    {
+        var issued = DateTime.UtcNow.AddHours(-3);
+        var reported = DateTime.UtcNow.AddMinutes(-15);
+        OutstandingIssueWorkItemDto Unit(long issueId, long patientId, string unit, long? reaction) => new(
+            issueId, patientId, $"MRN{patientId}", "Demo, Pat", "1980-01-01", issueId + 100, unit, "O+", false, null,
+            null, false, issued, issued.AddMinutes(20), "nurse1", null, "4W", IssueStatus.Issued, ProductName: "Red Blood Cells")
+        { OpenReactionInvestigationId = reaction, OpenReactionReportedUtc = reaction is null ? null : reported };
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/issues/outstanding"] = new List<OutstandingIssueWorkItemDto>
+            {
+                Unit(42, 5, "W0001230009206", 3),
+                Unit(43, 6, "W0001230009207", null)
+            }
+        });
+
+        var page = Render<Issuing>();
+        page.FindAll("button").First(b => b.TextContent.StartsWith("Issued units")).Click();
+        AngleSharp.Dom.IElement RowButton(string unit, string text) => page.FindAll("table.bb tbody tr")
+            .First(r => r.TextContent.Contains(unit)).QuerySelectorAll("button").First(b => b.TextContent.Trim() == text);
+        page.WaitForAssertion(() => Assert.NotNull(RowButton("W0001230009206", "Start / document")));
+        Assert.Single(page.FindAll("[data-issued-reaction-open]"));
+
+        RowButton("W0001230009206", "Start / document").Click();
+        var warning = string.Join(" ", page.Find("[data-tx-reaction-open]").TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Assert.Contains("#3", warning);
+        Assert.Contains("Do not start another unit unless the physician has decided to continue", warning);
+        Assert.False(page.Find("[data-tx-start]").HasAttribute("disabled"));
+
+        page.FindAll("button").First(b => b.TextContent.StartsWith("Issued units")).Click();
+        page.WaitForAssertion(() => Assert.NotNull(RowButton("W0001230009207", "Start / document")));
+        RowButton("W0001230009207", "Start / document").Click();
+        Assert.Empty(page.FindAll("[data-tx-reaction-open]"));
+    }
 }

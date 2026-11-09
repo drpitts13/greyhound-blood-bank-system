@@ -282,6 +282,29 @@ public sealed class ReactionInvestigationService
             .ToList();
     }
 
+    /// <summary>
+    /// Per patient, the latest investigation not yet closed (open or under review), for the bedside warning before
+    /// another unit is started (Cycle 626). Read by issuing, so it needs no reaction-investigation permission.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<long, (long Id, DateTime ReportedUtc)>> OpenByPatientAsync(
+        IReadOnlyCollection<long> patientIds, CancellationToken ct = default)
+    {
+        if (patientIds.Count == 0)
+        {
+            return new Dictionary<long, (long, DateTime)>();
+        }
+
+        var rows = await _investigations.ListAsync(i => patientIds.Contains(i.PatientId)
+            && i.Status != ReactionInvestigationStatus.Closed, ct);
+        return rows
+            .GroupBy(i => i.PatientId)
+            .ToDictionary(g => g.Key, g =>
+            {
+                var latest = g.OrderByDescending(i => i.ReportedUtc).First();
+                return (latest.Id, latest.ReportedUtc);
+            });
+    }
+
     public async Task<ReactionInvestigationDto?> GetDtoAsync(long id, CancellationToken ct = default)
     {
         var row = await _investigations.GetByIdAsync(id, ct);

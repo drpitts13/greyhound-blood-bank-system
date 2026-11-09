@@ -760,5 +760,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-749 | U | `OptionValueTests.Options_DoNotUseBooleanLiteralValues` | URS-BB-668 / FRS-BB-785 |
 | TEST-BB-750 | U | `SelectBindingTests.NullableSelectTypes_Bind` | URS-BB-668 / FRS-BB-785 |
 | TEST-BB-751 | U | `SelectBindingTests.BoolSelect_DoesNotBind_TextDoes` | URS-BB-668 / FRS-BB-785 |
+| TEST-BB-752 | I | `Phase4IssuingTests.IssuedList_CarriesThePatientsOpenReactionInvestigation` | URS-BB-669 / FRS-BB-786 |
+| TEST-BB-753 | U | `ScanDeskFocusTests.TransfusionDesk_WarnsOfAnOpenReactionInvestigation` | URS-BB-669 / FRS-BB-786 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

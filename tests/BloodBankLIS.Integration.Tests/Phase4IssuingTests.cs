@@ -1117,6 +1117,45 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         return issued.Value!.Id;
     }
 
+    // TEST-BB-752: a unit still out carries its patient's reaction investigation while it is open or under review, for
+    // the bedside warning; a closed investigation, or another patient's, is not carried.
+    [Fact]
+    public async Task IssuedList_CarriesThePatientsOpenReactionInvestigation()
+    {
+        var s = await SeedAsync("TX-REACT-OPEN");
+        var other = await SeedAsync("TX-REACT-NONE");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var otherIssueId = await IssuedAndReceivedAsync(other);
+        await using var c = _factory.Create();
+        var earlier = new TransfusionEvent
+        {
+            IssueId = issueId, BloodProductId = s.UnitId, PatientId = s.PatientId, StartUtc = _factory.Clock.UtcNow.AddMinutes(-40),
+            ReactionSuspected = true, DocumentedBy = "nurse"
+        };
+        c.TransfusionEvents.Add(earlier);
+        await c.SaveChangesAsync();
+        var reported = _factory.Clock.UtcNow.AddMinutes(-10);
+        var investigation = new ReactionInvestigation
+        {
+            TransfusionEventId = earlier.Id, PatientId = s.PatientId, BloodProductId = s.UnitId, ReportedUtc = reported, ReportedBy = "nurse"
+        };
+        c.ReactionInvestigations.Add(investigation);
+        await c.SaveChangesAsync();
+
+        var rows = await Issuing(c).ListOutstandingIssuedAsync();
+        var row = Assert.Single(rows, r => r.IssueId == issueId);
+        Assert.Equal((investigation.Id, reported), (row.OpenReactionInvestigationId, row.OpenReactionReportedUtc));
+        Assert.Null(Assert.Single(rows, r => r.IssueId == otherIssueId).OpenReactionInvestigationId);
+
+        investigation.Status = ReactionInvestigationStatus.UnderReview;
+        await c.SaveChangesAsync();
+        Assert.Equal(investigation.Id, Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId).OpenReactionInvestigationId);
+
+        investigation.Status = ReactionInvestigationStatus.Closed;
+        await c.SaveChangesAsync();
+        Assert.Null(Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId).OpenReactionInvestigationId);
+    }
+
     // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)
     // carries that MRN on the issued list; one issued under the current MRN does not.
     [Fact]

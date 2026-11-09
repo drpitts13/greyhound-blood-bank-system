@@ -867,6 +867,7 @@ public sealed class IssuingService
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
         var reminderHours = await _policy.GetTransfusionCompletionReminderHoursAsync(ct);
+        var openReactions = await _reactions.OpenByPatientAsync(rows.Select(i => i.PatientId).Distinct().ToList(), ct);
         // An issue still Issued with a transfusion record was started at the bedside and is not yet completed.
         var outstandingIds = rows.Select(i => i.Id).ToList();
         var startedByIssue = outstandingIds.Count == 0
@@ -898,7 +899,9 @@ public sealed class IssuingService
                     governed, acceptable) with
                 {
                     TransfusionStartedUtc = startedByIssue.GetValueOrDefault(i.Id),
-                    TransfusionCompletionOverdue = TransfusionCompletionRule.IsOverdue(startedByIssue.GetValueOrDefault(i.Id), now, reminderHours)
+                    TransfusionCompletionOverdue = TransfusionCompletionRule.IsOverdue(startedByIssue.GetValueOrDefault(i.Id), now, reminderHours),
+                    OpenReactionInvestigationId = openReactions.TryGetValue(i.PatientId, out var reaction) ? reaction.Id : null,
+                    OpenReactionReportedUtc = openReactions.TryGetValue(i.PatientId, out var reported) ? reported.ReportedUtc : null
                 };
             })
             // Transfusions whose completion is overdue lead; the rest stay in issue order.
