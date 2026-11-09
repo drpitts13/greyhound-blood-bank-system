@@ -18587,3 +18587,33 @@ After Cycle 598 the alert names patients whose reserved units expired, but the w
 ### Next
 
 - Walk Issued units and returns for other unexplained state changes.
+
+## Iteration 600 — Timelines say what became of a reservation (2026-11-09)
+
+### Capability matrix rescan (timelines)
+
+Continuing the expired-reservation thread: the patient, order, and specimen timelines showed each reservation with "Now {status code}" ("Now Consumed", "Now Expired") and gave a reason only for a release, so a reservation ended by the unit's expiry showed no reason. The same expression was copied in three services.
+
+### Design
+
+- One helper words the outcome (still reserved, issued, released with reason, ended with the sweep's reason); the three services use it.
+
+### Verification
+
+- Outcome wording tests; the order timeline test now expects "Released: Unit damaged"; timeline integration tests pass. Live: MRN0001's timeline reads "Unit W0001230000001 reserved · Still reserved".
+
+### Found during the live check: the API would not start
+
+- Starting the API failed in the demo seeder: the multi-unit demo's tube had expired, the expired-specimen sweep had unlinked it from its order, and the seeder's existence check could not see unlinked rows (the order-specimen query filter), so it added the pair again and the unique (order, specimen) index stopped startup. The check now ignores the filter. A regression test unlinks every demo link and seeds again (it fails without the fix with the same error). The application's own linking paths were checked: only the expiry sweep unlinks, and an expired tube is not linked again.
+
+### Requirements
+
+- URS-BB-650, FRS-BB-767.
+
+### Tests
+
+- TEST-BB-709, TEST-BB-710.
+
+### Next
+
+- The unit timeline (Unit activity) for the same reservation outcome; then the returns desk.

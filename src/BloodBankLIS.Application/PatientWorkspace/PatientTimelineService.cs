@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -213,7 +213,7 @@ public sealed class PatientTimelineService
         {
             events.Add(new(a.AllocatedUtc, TimelineCategory.Product, TimelineSeverity.Info,
                 $"Unit {Unit(a.BloodProductId)} reserved",
-                Join($"Now {a.Status}", a.Status == AllocationStatus.Released && !string.IsNullOrWhiteSpace(a.ReleaseReason) ? $"Released: {a.ReleaseReason}" : null),
+                AllocationTimelineNote.Describe(a),
                 a.AllocatedBy, UnitHref(a.BloodProductId), $"alc-{a.Id}"));
         }
 

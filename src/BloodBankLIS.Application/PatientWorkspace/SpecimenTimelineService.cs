@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
@@ -164,8 +164,7 @@ public sealed class SpecimenTimelineService
         {
             events.Add(new(a.AllocatedUtc, TimelineCategory.Product, TimelineSeverity.Info,
                 $"Unit {Unit(a.BloodProductId)} reserved on this specimen",
-                PatientTimelineService.Join($"Now {a.Status}",
-                    a.Status == AllocationStatus.Released && !string.IsNullOrWhiteSpace(a.ReleaseReason) ? $"Released: {a.ReleaseReason}" : null),
+                AllocationTimelineNote.Describe(a),
                 a.AllocatedBy, $"/inventory/units/{a.BloodProductId}", $"alc-{a.Id}"));
         }
 

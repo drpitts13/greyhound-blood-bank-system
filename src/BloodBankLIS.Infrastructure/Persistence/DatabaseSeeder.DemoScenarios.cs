@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -3429,7 +3429,9 @@ public static partial class DatabaseSeeder
             return;
         }
 
-        if (!await context.OrderSpecimens.AnyAsync(os => os.OrderId == order.Id, ct))
+        // Unlinked rows count too (the query filter hides them): once the demo tube expires, the expired-specimen sweep
+        // unlinks it, and adding the pair again broke the API at startup on the unique (order, specimen) index.
+        if (!await context.OrderSpecimens.IgnoreQueryFilters().AnyAsync(os => os.OrderId == order.Id, ct))
         {
             context.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = specimen.Id, IsPrimary = true });
         }

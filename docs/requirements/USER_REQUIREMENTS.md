@@ -655,3 +655,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-647 | Finishing a transfusion requires choosing how it ended (completed, stopped, or wasted); Completed is never recorded by default. | P2 | FRS-BB-764 |
 | URS-BB-648 | When units expire while reserved for patients, the alert names each unit and patient and opens the blood orders to prepare, so replacements are reserved without searching. | P2 | FRS-BB-765 |
 | URS-BB-649 | An order that needs units again because its reserved unit expired says so on Blood orders to prepare, naming the unit. | P3 | FRS-BB-766 |
+| URS-BB-650 | Patient, order, and specimen timelines say in words what became of each reservation, including the reason when it was released or ended by the unit's expiry. | P3 | FRS-BB-767 |

@@ -78,7 +78,7 @@ public class OrderTimelineTests
         Assert.Equal(TimelineSeverity.Warning, ev["Needed-by time passed"].Severity);
         Assert.Equal("clerk at WS-7", ev["Needed-by time changed"].By);
         Assert.Contains("NeededByUtc: 2026-01-01T08:00:00Z → 2026-01-01T09:00:00Z", ev["Needed-by time changed"].Detail);
-        Assert.Equal("Now Released · Released: Unit damaged", ev["Unit W-OTL-2 reserved for this order"].Detail);
+        Assert.Equal("Released: Unit damaged", ev["Unit W-OTL-2 reserved for this order"].Detail);
         Assert.Contains("To OR 3", ev["Unit W-OTL-1 issued"].Detail);
         Assert.Equal("300 mL", ev["Unit W-OTL-1 transfused"].Detail);
         Assert.Contains("Stat", ev["Ordered: Red cells"].Detail);

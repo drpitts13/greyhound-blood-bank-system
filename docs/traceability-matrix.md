@@ -760,6 +760,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-647 / FRS-BB-764 | Transfusion disposition chosen explicitly | `IssuingService`; `IssuingDtos`; `Issuing.razor` | TEST-BB-703 | I | |
 | URS-BB-648 / FRS-BB-765 | Expiry alert names patients whose reserved units expired | `InventoryService`; `AlertScanner`; `ExpiredUnitSweepService` | TEST-BB-704, TEST-BB-705 | A, I | |
 | URS-BB-649 / FRS-BB-766 | Blood orders name a reserved unit lost to expiry | `BloodOrderWorklistService`; `DashboardQueueCatalog`; `BloodOrders.razor` | TEST-BB-706 to TEST-BB-708 | A, I, U | |
+| URS-BB-650 / FRS-BB-767 | Reservation outcomes in words on timelines | `AllocationTimelineNote`; timeline services | TEST-BB-709 | A, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
