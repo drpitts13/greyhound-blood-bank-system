@@ -186,6 +186,17 @@
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadRetypesAsync">Refresh</button>
         </div>
         <p class="muted">Received units need a front-type confirmation before they become Available. A match releases the unit; a mismatch quarantines it.</p>
+        @if (Session.HasAny(PermissionCodes.ResultEnter, PermissionCodes.ResultVerify) && _retypeItems.Count > 0)
+        {
+            <div class="field" style="max-width:24rem;">
+                <label>Scan a unit to retype</label>
+                <input @bind="_retypeScan" @bind:event="oninput" @onkeydown="OnRetypeScanKey" placeholder="Scan the unit label or type, then Enter" autocomplete="off" data-retype-scan />
+            </div>
+            @if (_retypeScanMessage is not null)
+            {
+                <p class="muted" data-retype-scan-message>@_retypeScanMessage</p>
+            }
+        }
         <details class="bb-help">
             <summary>About retypes</summary>
             <ul>
@@ -1048,6 +1059,25 @@
         var r = await Api.GetPendingRetypesAsync();
         _retypesLoading = false;
         if (r.Succeeded) _retypeItems = r.Value ?? new();
+    }
+
+    private string _retypeScan = string.Empty;
+    private string? _retypeScanMessage;
+
+    /// <summary>Enter on the board's scan opens that unit's retype entry (a unit already open stays open).</summary>
+    private async Task OnRetypeScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        var found = RetypeBoardScan.Find(_retypeScan, _retypeItems);
+        _retypeScanMessage = found.Message;
+        if (found.Row is { } row)
+        {
+            _retypeScan = string.Empty;
+            if (_expandedRetypeUnitId != row.UnitId)
+            {
+                await ToggleBoardRetype(row.UnitId);
+            }
+        }
     }
 
     private async Task ToggleBoardRetype(long unitId)

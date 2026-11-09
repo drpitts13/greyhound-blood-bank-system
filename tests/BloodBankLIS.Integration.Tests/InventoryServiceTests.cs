@@ -978,6 +978,18 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("matches 2 units", divided.Error);
         Assert.Equal(2, await context.BloodUnits.CountAsync(u => u.Din == $"D-SCAN-{key}" && u.CurrentLocationId == from.Id));
         Assert.Contains("Scan the unit number", (await service.TransferByScanAsync(new TransferByScanRequest(" ", to.Id))).Error);
+
+        // TEST-BB-722: a whole 14-character unit number typed for a unit entered without a DIN finds that unit, not a
+        // neighbour sharing its first 13 characters (it also parses as a DIN plus check character; the component-label
+        // lookup finds the whole number). Guards the Cycle 609 finding on the Retype board scan.
+        var stem = $"W000123{key[..6]}";
+        var first = await service.ReceiveUnitAsync(NewUnitRequest($"{stem}1", productTypeId) with { LocationId = from.Id });
+        var second = await service.ReceiveUnitAsync(NewUnitRequest($"{stem}2", productTypeId) with { LocationId = from.Id });
+        Assert.True(first.Succeeded && second.Succeeded);
+        var typed = await service.TransferByScanAsync(new TransferByScanRequest($"{stem}2", to.Id));
+        Assert.True(typed.Succeeded, typed.Error);
+        Assert.Equal(to.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == second.Unit!.Id)).CurrentLocationId);
+        Assert.Equal(from.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == first.Unit!.Id)).CurrentLocationId);
     }
 
     [Fact]

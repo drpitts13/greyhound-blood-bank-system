@@ -18821,3 +18821,29 @@ Cycle 607's defect was a positional mismatch (free text in the reason-code slot,
 ### Next
 
 - Walk the Retype board live (clicks per unit, scanning).
+
+## Iteration 609 — Scan a unit on the Retype board (2026-11-09)
+
+### Capability matrix rescan (retype)
+
+Walking the Retype board: pending units are rows with Enter; working a box of new units meant finding each unit's row by eye. No scan field, unlike Move units, Stock count, and the issue forms.
+
+### Design
+
+- A scan field on the board; Enter reads the scan as the other scan screens do and opens that unit's entry, or says why not (not pending, unreadable barcode, divided number). Matching is done on the rows already loaded (unit number, DIN, DIN plus check character). No server change.
+
+### Verification
+
+- Scan test (barcode, typed number, not pending, unreadable, divided). The live check found a fault in the first version: typing W000123RET0002 reported "names 2 pending units", because a typed 14-character number also parses as the DIN W000123RET000 plus a check character, which RET0001 shares. The exact typed number now wins over the DIN reading; the test covers it. The server scan resolver (Move units, Stock count) was checked for the same fault and finds the whole number through its component-label lookup; an integration test now guards that. Live after the fix: typing W000123RET0002 opens that unit's retype entry (read-only).
+
+### Requirements
+
+- URS-BB-655, FRS-BB-772.
+
+### Tests
+
+- TEST-BB-721.
+
+### Next
+
+- After a retype is recorded, keep the focus in the scan field for the next unit.
