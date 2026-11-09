@@ -1166,22 +1166,7 @@ else
 
     private void RefreshAllocatableOrdersFromChart()
     {
-        _allocatableOrders = _orders
-            .Where(o => o.IsActive)
-            .SelectMany(o => o.Lines
-                .Where(l => l.LineCategory == OrderCategory.Product && l.ProductTypeId is > 0)
-                .Select(l => new AllocatableOrderDto(
-                    o.Id,
-                    Id,
-                    string.Empty,
-                    string.Empty,
-                    o.OrderNumber,
-                    l.LineName,
-                    l.ProductTypeId!.Value,
-                    o.SpecimenId,
-                    o.AccessionNumber,
-                    o.OrderedUtc)))
-            .ToList();
+        _allocatableOrders = ChartAllocatableOrders.From(_orders, Id);
     }
 
     // The reserve form opened on the chosen order; its own specimen first, else the one the worklist found usable.

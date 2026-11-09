@@ -18219,3 +18219,26 @@ After the antibody wording copies (Cycle 584), the special-requirement wording w
 
 - TEST-BB-673: legacy Irradiated and Antigen-negative stops named by type; acknowledgment stop named, and gone once acknowledged; configuration error with name and code.
 - TEST-BB-674.
+
+## Iteration 586 — Reserve form: the order's product only (2026-11-08)
+
+### Capability matrix rescan (patient-product: selection; walked live)
+
+Walking Blood orders to prepare → Reserve 2 units on the development database (ORD-PREP-DEMO, two red cell units, MRN0001) showed two problems on the chart's reserve form: the Order list showed ORD-PREP-DEMO twice (one entry per product line), and with that red cell order chosen the unit picker offered all 18 compatible units, platelets and plasma first (they expire sooner), with the 2 red cell units among them. Workflow questions: memory (no picking the right product out of everything compatible); clicks (the first choices are the right ones); safety (guidance only; the reserve check against the order is unchanged).
+
+### Design
+
+- `ChartAllocatableOrders` (web): orders once per (order, product); units filtered to the chosen order's product(s); a line saying how many are in stock, or none.
+
+### Verification
+
+- Live: the Order list shows ORD-PREP-DEMO once; the picker offers the 2 RBC-LR units, soonest first; the line reads "2 compatible units of Red Blood Cells, Leukoreduced in stock." Nothing was reserved.
+
+### Requirements
+
+- URS-BB-637, FRS-BB-754. Help: Products.
+
+### Tests
+
+- TEST-BB-675: two lines of one product are one entry; a mixed order is one per product; cancelled orders, test lines, and lines without a product are not offered.
+- TEST-BB-676: units for a red cell order, a mixed order, an order with none in stock, and no order chosen; the stock line for each.

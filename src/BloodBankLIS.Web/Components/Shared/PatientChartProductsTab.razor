@@ -359,7 +359,7 @@
             <div class="field" style="margin-top:.75rem;">
                 <label>Unit number</label>
                 <FilterableComboBox TItem="CompatibleUnitDto" TValue="long?"
-                    Items="CompatibleUnits"
+                    Items="ChartAllocatableOrders.UnitsFor(CompatibleUnits, AllocatableOrders, AllocOrderId)"
                     Value="SelectedUnitId"
                     ValueChanged="OnAllocUnitChanged"
                     DisplayText="Ui.CompatibleUnitChoiceLabel"
@@ -367,6 +367,10 @@
                     SearchText="@(u => $"{u.UnitNumber} {u.ProductCode} {u.BloodType} {u.StorageLocationName} {u.BloodUnitId}")"
                     Clearable="true"
                     Placeholder="Type unit number" />
+                @if (ChartAllocatableOrders.OfferedLine(ChartAllocatableOrders.UnitsFor(CompatibleUnits, AllocatableOrders, AllocOrderId), AllocatableOrders, AllocOrderId) is { } offeredLine)
+                {
+                    <span class="sub" data-units-offered>@offeredLine</span>
+                }
             </div>
             @if (SelectedUnit is not null)
             {

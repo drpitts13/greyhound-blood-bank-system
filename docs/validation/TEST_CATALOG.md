@@ -683,5 +683,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-672 | U | `AntibodyWordingSourceTests.AntibodyListWording_LivesInOneRule` | URS-BB-635 / FRS-BB-752 |
 | TEST-BB-673 | U | `SpecialRequirementMessageNamesTests.HardStops_NameTheRequirement_NotItsCode` | URS-BB-636 / FRS-BB-753 |
 | TEST-BB-674 | U | `AntibodyWordingSourceTests.RequirementTypeCodeName_IsNotShown` | URS-BB-636 / FRS-BB-753 |
+| TEST-BB-675 | U | `ChartAllocatableOrdersTests.EachOrderOncePerProduct` | URS-BB-637 / FRS-BB-754 |
+| TEST-BB-676 | U | `ChartAllocatableOrdersTests.UnitsFor_TheChosenOrdersProduct_AndSaysHowMany` | URS-BB-637 / FRS-BB-754 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
