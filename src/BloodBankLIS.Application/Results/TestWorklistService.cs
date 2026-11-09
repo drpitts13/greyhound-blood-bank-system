@@ -438,10 +438,9 @@ public sealed class TestWorklistService
             return null;
         }
 
+        // One wording with the chart header: an antibody known only from another facility's report says so.
         return string.Join(", ", history.Select(a =>
-            a.IsActive
-                ? a.AntibodySpecificity
-                : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
+            OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn)));
     }
 
     private static string BuildResultKey(long orderId, string testCode, long specimenId) =>

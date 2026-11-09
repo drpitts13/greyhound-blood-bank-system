@@ -471,21 +471,8 @@
     /// "Anti-K", "Anti-E (historical / currently undetectable)", and for one known only from another facility's report
     /// "Anti-Jka (reported by St. Mary's, identified 2025-02-01)", as the downtime sheet and antibody card say it.
     /// </summary>
-    private static string AntibodyLabel(AntibodyDto a)
-    {
-        var notes = new List<string>();
-        if (!a.IsActive)
-        {
-            notes.Add("historical / currently undetectable");
-        }
-
-        if (a.SourceLabel is { } source)
-        {
-            notes.Add(char.ToLowerInvariant(source[0]) + source[1..]);
-        }
-
-        return notes.Count == 0 ? a.AntibodySpecificity : $"{a.AntibodySpecificity} ({string.Join("; ", notes)})";
-    }
+    private static string AntibodyLabel(AntibodyDto a) =>
+        OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn);
 
     private static string EnforcedLabel(SpecialRequirementDto r)
     {

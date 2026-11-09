@@ -18176,3 +18176,26 @@ Cycle 582 made the chart's antibody warning name antibodies known only from anot
 ### Tests
 
 - TEST-BB-669: in-house plain; outside-only names the facility (trimmed); found both ways reads plain; inactive ignored; case-only spellings merged. Existing list, lookup, worklist, mother-infant, FHIR, and downtime tests unchanged and passing.
+
+## Iteration 584 — One antibody wording at issue, bench, and reaction (2026-11-08)
+
+### Capability matrix rescan (safety: antibody history at issue)
+
+After Cycles 582–583 the chart and the brief lists named antibodies known only from another facility's report, but the issue desk, the last check before blood leaves, still did not: its antibody summary came from its own copy of the older wording. Searching for that wording found four hand-written copies in all (two in `IssuingService`, one each in `TestWorklistService` and `ReactionInvestigationService`), besides the header's.
+
+### Design
+
+- `OutsideAntibodyReportRule.HistoryEntry` (Domain) words one antibody; every list (chart header, issue desk, bench worklist, reaction investigation) calls it.
+- A source test fails when the wording is copied anywhere else, so the copies cannot drift apart again.
+
+### Verification
+
+- The first version of the issue desk test failed: it exposed the second copy in `IssuingService`, which was then replaced too. The source test, run against one restored old copy, named that file and line.
+
+### Requirements
+
+- URS-BB-635, FRS-BB-752.
+
+### Tests
+
+- TEST-BB-670 (wording), TEST-BB-671 (issue desk summary), TEST-BB-672 (no copies).

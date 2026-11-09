@@ -30,6 +30,27 @@ public static class OutsideAntibodyReportRule
     }
 
     /// <summary>How the source reads on the chart: "Reported by St. Mary's Hospital, identified 2019-04-02", or null when found here.</summary>
+    /// <summary>
+    /// One antibody in a patient's antibody history, as every warning words it (chart header, issue desk, reaction
+    /// investigation): "Anti-K", "Anti-E (historical / currently undetectable)", "Anti-Jka (reported by St. Mary's,
+    /// identified 2025-02-01)", both notes joined by "; " when both apply.
+    /// </summary>
+    public static string HistoryEntry(string specificity, bool isActive, string? reportingFacility, DateOnly? identifiedOn)
+    {
+        var notes = new List<string>();
+        if (!isActive)
+        {
+            notes.Add("historical / currently undetectable");
+        }
+
+        if (SourceLabel(reportingFacility, identifiedOn) is { } source)
+        {
+            notes.Add(char.ToLowerInvariant(source[0]) + source[1..]);
+        }
+
+        return notes.Count == 0 ? specificity : $"{specificity} ({string.Join("; ", notes)})";
+    }
+
     public static string? SourceLabel(string? reportingFacility, DateOnly? identifiedOn) =>
         string.IsNullOrWhiteSpace(reportingFacility)
             ? null

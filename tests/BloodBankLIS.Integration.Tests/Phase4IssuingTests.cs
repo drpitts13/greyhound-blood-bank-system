@@ -3615,6 +3615,28 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("1 crossmatch ends before it is needed", ReadyToIssueAttentionRule.CardNote(rows));
     }
 
+    // TEST-BB-671: the issue desk's antibody summary words each antibody as the chart does: one known only from another
+    // facility's report names it, one no longer detectable says so.
+    [Fact]
+    public async Task ListReadyToIssue_AntibodySummary_NamesOutsideReports()
+    {
+        var s = await SeedAsync("ABS-OUT");
+        await AllocateAsync(s);
+        await using (var c = _factory.Create())
+        {
+            c.AntibodyHistory.AddRange(
+                new AntibodyHistory { PatientId = s.PatientId, AntibodySpecificity = "Anti-Jka", IsActive = true, ReportingFacility = "St. Mary's Hospital", IdentifiedOn = new DateOnly(2025, 2, 1) },
+                new AntibodyHistory { PatientId = s.PatientId, AntibodySpecificity = "Anti-E", IsActive = false });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var row = (await Issuing(ctx).ListReadyToIssueAllocationsAsync()).Single(r => r.BloodUnitId == s.UnitId);
+        Assert.True(row.HasAntibodyHistory);
+        Assert.Contains("Anti-Jka (reported by St. Mary's Hospital, identified 2025-02-01)", row.AntibodySummary);
+        Assert.Contains("Anti-E (historical / currently undetectable)", row.AntibodySummary);
+    }
+
     [Fact]
     public async Task ListReadyToIssue_FlagsCellularUnitWhenSecondAboIsMissing()
     {

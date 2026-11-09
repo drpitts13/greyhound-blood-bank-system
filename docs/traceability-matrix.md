@@ -745,6 +745,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-632 / FRS-BB-749 | Needed-by marks on the chart's Orders tab | `OrderService`; `PatientChartOrdersTab.razor` | TEST-BB-665, TEST-BB-666 | U, I | OCD-075 |
 | URS-BB-633 / FRS-BB-750 | Outside antibody reports on the chart warning; safety banners rendered | `PatientChartHeader.razor`; `PatientRequirementsBanner.razor` | TEST-BB-667, TEST-BB-668 | U | |
 | URS-BB-634 / FRS-BB-751 | Outside reports named in brief antibody lists | `PatientBloodBankFlags.ActiveAntibodies`; `DowntimePatientSummaryService` | TEST-BB-669 | U | |
+| URS-BB-635 / FRS-BB-752 | One antibody wording at issue, bench, and reaction | `OutsideAntibodyReportRule.HistoryEntry`; `IssuingService`; `TestWorklistService`; `ReactionInvestigationService`; `PatientChartHeader.razor` | TEST-BB-670, TEST-BB-671, TEST-BB-672 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

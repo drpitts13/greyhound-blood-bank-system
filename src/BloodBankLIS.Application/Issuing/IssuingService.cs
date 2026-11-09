@@ -1163,10 +1163,9 @@ public sealed class IssuingService
             return null;
         }
 
+        // One wording with the chart header: an antibody known only from another facility's report says so.
         return string.Join(", ", history.Select(a =>
-            a.IsActive
-                ? a.AntibodySpecificity
-                : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
+            OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn)));
     }
 
     /// <summary>
@@ -2447,10 +2446,9 @@ public sealed class IssuingService
                 return null;
             }
 
+            // One wording with the chart header: an antibody known only from another facility's report says so.
             return string.Join(", ", history.Select(a =>
-                a.IsActive
-                    ? a.AntibodySpecificity
-                    : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
+                OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn)));
         }
     }
 }
