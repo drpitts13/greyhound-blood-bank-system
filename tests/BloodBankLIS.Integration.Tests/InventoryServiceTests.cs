@@ -1100,7 +1100,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
                 PatientId = missingPatientId,
                 Status = AllocationStatus.Expired,
                 AllocatedUtc = _factory.Clock.UtcNow.AddMinutes(-4),
-                AllocatedBy = "tech"
+                AllocatedBy = "tech",
+                ReleaseReason = "Unit W-ACT expired at 2026-05-30 11:00 UTC."
             },
             new Allocation
             {
@@ -1125,13 +1126,11 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<UnitModification>(context),
             new EfRepository<Patient>(context));
         var trail = await activity.ListAsync(received.Unit.Id);
-        var namedRow = Assert.Single(trail, row => row.Summary.StartsWith("Released to ", StringComparison.Ordinal));
-        var missingRow = Assert.Single(trail, row => row.Summary.StartsWith("Expired to ", StringComparison.Ordinal));
-        var blankRow = Assert.Single(trail, row => row.Summary.StartsWith("Consumed to ", StringComparison.Ordinal));
-
-        Assert.Equal($"Released to Doe, Jane ({named.MedicalRecordNumber})", namedRow.Summary);
-        Assert.Equal($"Expired to patient #{missingPatientId}", missingRow.Summary);
-        Assert.Equal($"Consumed to patient #{blank.Id} ({blank.MedicalRecordNumber})", blankRow.Summary);
+        // TEST-BB-711: each reservation names the patient and says what became of it, with the expiry reason.
+        var rows = trail.Where(r => r.EventType == "Allocation").Select(r => r.Summary).ToList();
+        Assert.Contains($"Reserved for Doe, Jane ({named.MedicalRecordNumber}) · Released", rows);
+        Assert.Contains($"Reserved for patient #{missingPatientId} · Ended: Unit W-ACT expired at 2026-05-30 11:00 UTC.", rows);
+        Assert.Contains($"Reserved for patient #{blank.Id} ({blank.MedicalRecordNumber}) · Issued", rows);
     }
 
     [Fact]

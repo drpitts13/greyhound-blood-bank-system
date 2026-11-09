@@ -18617,3 +18617,29 @@ Continuing the expired-reservation thread: the patient, order, and specimen time
 ### Next
 
 - The unit timeline (Unit activity) for the same reservation outcome; then the returns desk.
+
+## Iteration 601 — The unit history words its reservations too (2026-11-09)
+
+### Capability matrix rescan (unit history)
+
+Cycle 600's next step: a unit's History listed each reservation as "{status} to {patient}" ("Expired to Demo, Patricia"), without the reason an expiry or release recorded.
+
+### Design
+
+- "Reserved for {patient} · {outcome}" using the Cycle 600 wording helper, so the unit and patient views say the same thing.
+
+### Verification
+
+- The unit activity labels test now checks the three outcomes and the expiry reason. Live: a reserved unit's History reads "Reserved for … · Still reserved" (read-only).
+
+### Requirements
+
+- URS-BB-650, FRS-BB-767 (extended).
+
+### Tests
+
+- TEST-BB-711.
+
+### Next
+
+- The returns desk: walk a return for unexplained state changes and preset answers.

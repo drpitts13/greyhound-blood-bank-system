@@ -32,7 +32,7 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Unit tests** on the same tab records tests done on the unit after it arrived, such as CMV or HbS. Enter the test code and Negative or Positive. The latest result for each test is the unit's result. A patient requirement for CMV- or HbS-negative units is met by a Negative here or by the product code, so a later Positive takes the unit out of selection for that patient. Changing a recorded result keeps the earlier one, shown as Corrected, and asks for the reason. Recording the same result again is refused.
 
-**History** is the status log. It is append-only. You cannot delete a prior status to tidy the story.
+**History** is the status log. It is append-only. You cannot delete a prior status to tidy the story. Each reservation reads "Reserved for {patient} · {what became of it}": still reserved, issued, released with the reason, or ended when the unit expired.
 
 **Retype** records the front type. The form starts with nothing chosen: the interpreted ABO and Rh(D) are not copied from the label you are confirming, and every reading is blank until you choose the reaction you read. Recording with a reading or the type missing is refused and names what is missing. A mismatch quarantines the unit. Do not release a mismatch from this tab. Release, if your medical director allows it at all, is a quarantine-release on the supervisor queue with the second verifier.
 

@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -118,7 +118,8 @@ public sealed class UnitActivityService
             rows.Add(new UnitActivityDto(
                 a.AllocatedUtc,
                 "Allocation",
-                $"{a.Status} to {who}",
+                // What became of the reservation, worded as on the patient timelines (Cycle 601; before: "Expired to …").
+                $"Reserved for {who} · {BloodBankLIS.Application.PatientWorkspace.AllocationTimelineNote.Describe(a)}",
                 a.AllocatedBy,
                 nameof(Allocation),
                 a.Id));

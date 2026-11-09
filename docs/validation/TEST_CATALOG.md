@@ -719,5 +719,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-708 | U | `BloodOrdersPageTests.ExpiredReservation_IsNamedOnItsRow` | URS-BB-649 / FRS-BB-766 |
 | TEST-BB-709 | A | `AllocationTimelineNoteTests.Outcome_ReadsInWords` (and the order timeline test's wording) | URS-BB-650 / FRS-BB-767 |
 | TEST-BB-710 | I | `SeederUnlinkedSpecimenTests.Reseed_AfterLinksWereUnlinked_DoesNotFail` | Demo data (startup) |
+| TEST-BB-711 | I | `InventoryServiceTests.UnitActivity_NamesThePatientOnAnAllocation` (reservation outcome and expiry reason) | URS-BB-650 / FRS-BB-767 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
