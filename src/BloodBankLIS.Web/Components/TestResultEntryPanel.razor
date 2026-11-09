@@ -1,4 +1,4 @@
-@using BloodBankLIS.Application.Admin
+﻿@using BloodBankLIS.Application.Admin
 @using BloodBankLIS.Application.Reference
 @using BloodBankLIS.Domain.Rules
 @using BloodBankLIS.Domain.ValueObjects
@@ -129,9 +129,9 @@
                                         @if (assigned is not null)
                                         {
                                             <select value="@GetSubtestValue(PhaseKey(st.SubtestCode, phase.PhaseCode))" @onchange="e => SetSubtestValue(PhaseKey(st.SubtestCode, phase.PhaseCode), e)">
+                                                <option value="">—</option>
                                                 @if (!assigned.Required)
                                                 {
-                                                    <option value="">—</option>
                                                     <option value="NT">NT</option>
                                                 }
                                                 @foreach (var c in st.Choices)
@@ -175,6 +175,10 @@
                                             @if (optional)
                                             {
                                                 <option value="NT">NT</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="">—</option>
                                             }
                                             @foreach (var c in st.Choices)
                                             {
@@ -965,6 +969,14 @@
             return;
         }
 
+        var missingReadings = ReactionInterpretationSuggestion.MissingReadingsMessage(
+            ReactionInterpretationSuggestion.MissingReadings(_panelSubtests, _subtestValues));
+        if (ShowsPanelSubtests && missingReadings is not null)
+        {
+            _fb = Feedback.Fail(missingReadings);
+            return;
+        }
+
         if (includeOverride)
         {
             if (string.IsNullOrWhiteSpace(_overrideReason) || string.IsNullOrWhiteSpace(_signatureMeaning))
@@ -1088,10 +1100,7 @@
 
     private Dictionary<string, string>? BuildSubtests()
     {
-        if (_definition?.ResultValueType is not (ResultValueType.AboRh
-                or ResultValueType.Subtest
-                or ResultValueType.Crossmatch
-                or ResultValueType.ComplexCrossmatch))
+        if (!ShowsPanelSubtests)
         {
             return null;
         }
@@ -1186,16 +1195,8 @@
 
     private static string DefaultValueFor(ResolvedPanelSubtestDto st)
     {
-        if (!st.Required)
-        {
-            return "NT";
-        }
-
-        return st.ResultType switch
-        {
-            SubtestResultType.FreeText => string.Empty,
-            _ => st.Choices.FirstOrDefault()?.Code ?? "0"
-        };
+        // A required reading starts blank: a reaction nobody read must never be saved as the first grade ("0").
+        return st.Required ? string.Empty : "NT";
     }
 
     private string GetSubtestValue(string code) =>

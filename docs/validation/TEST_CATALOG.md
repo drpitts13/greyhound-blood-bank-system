@@ -690,5 +690,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-679 | U | `EnumTextTests.EnumText_ReadsAsWords` (and `EnumText_KeepsAcronyms`) | URS-BB-639 / FRS-BB-756 |
 | TEST-BB-680 | U | `EnumTextTests.Dropdowns_DoNotShowCodeNames` | URS-BB-639 / FRS-BB-756 |
 | TEST-BB-681 | U | `EnumTextTests.BadgesAndStatusCells_DoNotShowCodeNames` | URS-BB-639 / FRS-BB-756 |
+| TEST-BB-682 | A | `ReactionInterpretationSuggestionTests.MissingReadings_NamesRequiredReadingsNotEntered` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-683 | A | `ReactionInterpretationSuggestionTests.SuggestAboRh_NoReadingsEntered_ReturnsNull` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-684 | U | `TestResultEntryPanelTests.RequiredReactions_StartBlank` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-685 | U | `TestResultEntryPanelTests.Save_WithReadingsMissing_IsRefusedNamingThem` | URS-BB-640 / FRS-BB-757 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

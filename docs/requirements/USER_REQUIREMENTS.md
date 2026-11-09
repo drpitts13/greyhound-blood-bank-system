@@ -645,3 +645,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-637 | On the chart's reserve form, each order is offered once per product, and once an order is chosen only compatible units of that order's product are offered, with how many are in stock. | P2 | FRS-BB-754 |
 | URS-BB-638 | A notice that applies to every unit on the issue desk's board (a facility setting) is said once, not repeated on each row. | P3 | FRS-BB-755 |
 | URS-BB-639 | Dropdown choices, status badges, and status columns read as words ("Emergency release", "In process", "On hold"), never as code names. | P3 | FRS-BB-756 |
+| URS-BB-640 | At result entry, a required reaction starts blank, and a result cannot be saved until every required reaction has been entered; no reaction is recorded as negative unless the technologist chose it. | P1 | FRS-BB-757 |

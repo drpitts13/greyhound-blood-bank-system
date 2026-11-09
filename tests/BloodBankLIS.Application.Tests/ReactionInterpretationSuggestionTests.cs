@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Admin;
+﻿using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
@@ -87,6 +87,38 @@ public class ReactionInterpretationSuggestionTests
         Assert.Equal(CrossmatchResult.Compatible,
             ReactionInterpretationSuggestion.SuggestCrossmatch(panel, Values(("XM-IS", "0"), ("XM-AHG", "1+")), new HashSet<string>(["XM-AHG"])));
     }
+
+    // TEST-BB-682: a required reading not yet entered is named, by subtest and phase, so the save can refuse it; an
+    // optional reading, and a phase left optional, are never asked for.
+    [Fact]
+    public void MissingReadings_NamesRequiredReadingsNotEntered()
+    {
+        var panel = new List<ResolvedPanelSubtestDto>
+        {
+            new("ANTI-A", "Anti-A", SubtestResultType.GradedReaction, Grades, true, 1),
+            new("ANTI-D", "Anti-D", SubtestResultType.GradedReaction, Grades, true, 2),
+            new("CTL", "Control", SubtestResultType.GradedReaction, Grades, false, 3),
+            new("NOTE", "Note", SubtestResultType.FreeText, [], true, 4),
+            new("SC1", "Screen cell I", SubtestResultType.GradedReaction, Grades, true, 5,
+                [Phase("37C", required: false, sort: 1), Phase("AHG", required: true, sort: 2)])
+        };
+
+        Assert.Equal(["Anti-A", "Anti-D", "Note", "Screen cell I AHG"],
+            ReactionInterpretationSuggestion.MissingReadings(panel, Values(("CTL", "NT"))));
+        Assert.Equal(["Anti-D", "Screen cell I AHG"],
+            ReactionInterpretationSuggestion.MissingReadings(panel, Values(("ANTI-A", "0"), ("ANTI-D", "  "), ("NOTE", "ok"))));
+        Assert.Empty(ReactionInterpretationSuggestion.MissingReadings(panel, Values(
+            ("ANTI-A", "0"), ("ANTI-D", "3+"), ("NOTE", "ok"), (PhaseResultKeys.Compose("SC1", "AHG"), "0"))));
+
+        Assert.Equal("Enter a reading for Anti-A, Anti-D before saving.",
+            ReactionInterpretationSuggestion.MissingReadingsMessage(["Anti-A", "Anti-D"]));
+        Assert.Null(ReactionInterpretationSuggestion.MissingReadingsMessage([]));
+    }
+
+    // TEST-BB-683: a panel with no readings entered suggests no type, so nothing is filled in from reactions nobody read.
+    [Fact]
+    public void SuggestAboRh_NoReadingsEntered_ReturnsNull() =>
+        Assert.Null(ReactionInterpretationSuggestion.SuggestAboRh(AboRhOptions(), AboRhPanel(), Values()));
 
     private static IReadOnlyList<InterpretationOptionDto> AboRhOptions() =>
         InterpretationLogicDefinitions.DefaultAboRhLogic()

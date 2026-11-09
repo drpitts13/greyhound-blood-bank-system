@@ -32,6 +32,8 @@ For a **titer**, choose the reaction at each dilution, from the first, until the
 
 For patient ABO and Rh, the person who entered the result cannot verify it; for them the row says **Review**.
 
+Every required reaction starts blank (**—**): choose the reaction you read for each one. An optional reaction starts as **NT** (not tested) until you tick **Performed**. Saving with a required reaction still blank is refused, and the message names the ones to enter ("Enter a reading for Anti-B, Anti-D before saving."). A reaction is never recorded as negative unless you chose it.
+
 When you enter cell reactions for an ABO/Rh, a crossmatch, or a test made of subtests (such as the antibody screen), the interpretation fills in from the reactions as you go: the ABO and Rh(D) type, Compatible or Incompatible, or the panel interpretation. Check cells and phases left out of interpretation are not counted. A crossmatch is Incompatible as soon as any counted reaction is positive, and Compatible once every counted reaction is entered and negative. When the reactions are incomplete, mixed field, or match no single interpretation (an ABO discrepancy, for example), your current choice is left as it is and a note says so. Resolve a discrepancy before you save. Always check the interpretation before you save.
 
 > Hard stop. Verify is refused when the specimen is rejected or expired (a correction of an already verified result is the exception and can be verified after expiry, OCD-051), when the order is on hold, or when you are verifying your own patient ABO or Rh entry.

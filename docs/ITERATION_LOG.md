@@ -18313,3 +18313,31 @@ Cycle 588 worded the dropdowns and left plain-text values for later. Badges show
 ### Tests
 
 - TEST-BB-681.
+
+## Iteration 590 — Required reactions start blank (2026-11-09)
+
+### Capability matrix rescan (result entry, walked live)
+
+Walking result entry for an ABO/Rh on the development database showed every required reaction (Anti-A, Anti-B, Anti-D, A cells, B cells) already at "0", with no blank choice. The form stored the first grade as the value of every required graded subtest, so saving without touching a reaction recorded a negative reading nobody observed, and the server checks for required readings passed because a value was present. A transfusion safety risk (wrong ABO type or a "Compatible" crossmatch from unread reactions).
+
+### Design
+
+- A required subtest, and a required phase, start blank with a "—" choice; an optional one starts NT as before.
+- `ReactionInterpretationSuggestion.MissingReadings` names the required readings not entered (subtest, plus phase); the save is refused with "Enter a reading for … before saving." and nothing is sent.
+- The interpretation suggestion already ignores blank readings, so nothing fills in until the readings are entered. Server-side required-reading checks unchanged. No clinical rule changed (neonatal reverse typing remains OCD-074).
+
+### Verification
+
+- Rendered tests of the entry form (blank start; refusal naming Anti-B, Anti-D). Live: the ABO/Rh form opens with every required reaction blank (read-only; nothing saved).
+
+### Requirements
+
+- URS-BB-640, FRS-BB-757.
+
+### Tests
+
+- TEST-BB-682 to TEST-BB-685.
+
+### Next
+
+- Walk antibody screen and crossmatch entry the same way (phased cells).
