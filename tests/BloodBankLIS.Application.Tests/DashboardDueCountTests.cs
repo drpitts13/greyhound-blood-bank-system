@@ -190,6 +190,16 @@ public class DashboardDueCountTests
         Assert.Equal([2L, 1L], ReadyToIssueAttentionRule.ReleaseCandidates([lapsed, xmAndSpecimen, xmOnly, requested, current], now).Select(r => r.AllocationId));
     }
 
+    // TEST-BB-742: an offered unit reserved for an order still open is named as still wanted (it starts unticked in the
+    // release review); one with no open order is not.
+    [Fact]
+    public void StillWanted_NamesAnOpenOrder()
+    {
+        Assert.Equal("Open order ORD-77", ReadyToIssueAttentionRule.StillWanted(Ready(1) with { OrderNumber = " ORD-77 " }));
+        Assert.Null(ReadyToIssueAttentionRule.StillWanted(Ready(2)));
+        Assert.Null(ReadyToIssueAttentionRule.StillWanted(Ready(3) with { OrderNumber = "  " }));
+    }
+
     private static ReadyToIssueWorkItemDto Ready(long id) => new(
         AllocationId: id, PatientId: 1, MedicalRecordNumber: "MRN", PatientDisplayName: "Patient", DateOfBirth: "1980-01-01",
         BloodUnitId: id, UnitNumber: "W0000", CurrentBloodType: "O+", HasAntibodyHistory: false, AntibodySummary: null,

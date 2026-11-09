@@ -19139,3 +19139,32 @@ Live walk of Ready to issue on dev data: five reserved units, all needing attent
 ### Next
 
 - On the same walk, every Ready to issue unit had both an ended reservation and an expired crossmatch: check whether Review and release to stock makes clear which units can simply be re-crossmatched on a new specimen rather than released.
+
+## Iteration 620 — Release review leaves open-order units unticked (2026-11-09)
+
+### Capability matrix rescan (release to stock)
+
+Review and release to stock offers units past their reservation, or whose crossmatch and specimen have both expired, and a unit the ward asked for is never offered. The review opened with every offered unit ticked, asking the bench to untick what the patient still needs. A unit reserved for an order that is still open (a surgery's units whose reservation window ran out) was ticked like any other, with nothing on the review saying an order still wanted it: one click on Release put it back on the shelf and left the order short. Pre-ticked choices were already removed from attestations (Cycle 595).
+
+### Design
+
+- `ReadyToIssueAttentionRule.StillWanted`: "Open order {number}" for a unit reserved for an order not completed, cancelled, or discontinued (the board fills the order number only for those).
+- The review starts such units unticked, with the badge in a Still wanted? column; others start ticked as before. Releasing an open-order unit takes a deliberate tick.
+- Whether a unit should be re-crossmatched on a new specimen or released stays the bench's judgement; the open order is the fact the review was missing.
+
+### Verification
+
+- Unit: open order named; none or blank, nothing. Rendered: the open-order unit starts unticked with its badge, the other ticked, and the button counts one.
+- Live (read-only; the review was opened, nothing released): all four units offered on dev data are reserved for open orders (ORD0023, ORD0019 twice, ORD0003); all start unticked with their order named and the button reads "Release 0 to stock" (before: all four ticked). No server errors.
+
+### Requirements
+
+- URS-BB-665, FRS-BB-782.
+
+### Tests
+
+- TEST-BB-742, TEST-BB-743.
+
+### Next
+
+- Look for other bulk actions that start with everything selected (bulk discard, bulk release on Compatibility, batch verify) and check what each pre-selects.

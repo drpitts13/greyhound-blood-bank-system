@@ -109,4 +109,25 @@ public class ReadyToIssuePageTests : BunitContext
         Assert.EndsWith("?tab=specimens&panel=specimen", link.GetAttribute("href"));
         Assert.Null(RowFor(page, "W-RDY-OK").QuerySelector("[data-ready-new-specimen]"));
     }
+
+    // TEST-BB-743: in Review and release to stock, a unit reserved for an order still open starts unticked and says why;
+    // a unit with no open order starts ticked; the release button counts only the ticked ones.
+    [Fact]
+    public void ReleaseReview_LeavesOpenOrderUnitsUnticked()
+    {
+        var page = RenderReady(
+            Unit(1, "W-REL-FREE") with { ReservationExpiresUtc = Now.AddHours(-3) },
+            Unit(2, "W-REL-ORDER") with { ReservationExpiresUtc = Now.AddHours(-2), OrderNumber = "ORD-OPEN-9" });
+
+        page.Find("[data-release-review-open]").Click();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-release-row='W-REL-ORDER']")));
+
+        var free = page.Find("[data-release-row='W-REL-FREE']");
+        var ordered = page.Find("[data-release-row='W-REL-ORDER']");
+        Assert.True(free.QuerySelector("[data-release-choice]")!.HasAttribute("checked"));
+        Assert.False(ordered.QuerySelector("[data-release-choice]")!.HasAttribute("checked"));
+        Assert.Equal("Open order ORD-OPEN-9", ordered.QuerySelector("[data-release-still-wanted]")!.TextContent.Trim());
+        Assert.Null(free.QuerySelector("[data-release-still-wanted]"));
+        Assert.Contains("Release 1 to stock", page.Find("[data-release-submit]").TextContent);
+    }
 }

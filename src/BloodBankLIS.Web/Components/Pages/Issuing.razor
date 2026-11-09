@@ -251,18 +251,28 @@
                     }
                     else
                     {
-                        <div class="muted">Untick any unit the patient still needs. Each ticked unit is released to stock with this reason and audited on its own.</div>
+                        <div class="muted">Untick any unit the patient still needs. A unit reserved for an order still open starts unticked: tick it only once you know the order no longer needs it. Each ticked unit is released to stock with this reason and audited on its own.</div>
                         <div class="table-scroll">
                         <table class="bb" style="margin:.4rem 0;">
-                            <thead><tr><th></th><th>Unit</th><th>Patient</th><th>Why offered</th></tr></thead>
+                            <thead><tr><th></th><th>Unit</th><th>Patient</th><th>Why offered</th><th>Still wanted?</th></tr></thead>
                             <tbody>
                                 @foreach (var c in candidates)
                                 {
-                                    <tr>
+                                    <tr data-release-row="@c.UnitNumber">
                                         <td><input type="checkbox" checked="@_releaseChosen.Contains(c.AllocationId)" @onchange="e => ToggleReleaseChoice(c.AllocationId, e)" data-release-choice /></td>
                                         <td class="mono">@c.UnitNumber <span class="sub">@c.ProductName</span></td>
                                         <td>@(c.PatientDisplayName ?? "—") <span class="sub mono">@c.MedicalRecordNumber</span></td>
                                         <td>@ReadyToIssueAttentionRule.ReleaseReason(c, DateTime.UtcNow)</td>
+                                        <td>
+                                            @if (ReadyToIssueAttentionRule.StillWanted(c) is { } wanted)
+                                            {
+                                                <span class="badge badge-amber" data-release-still-wanted>@wanted</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="muted">—</span>
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -1715,7 +1725,8 @@
     private string _releaseReadyReason = string.Empty;
     private Feedback? _releaseReadyFb;
 
-    // Release to stock review: the offered rows, all ticked; the bench unticks what the patient still needs.
+    // Release to stock review: the offered rows ticked, except a unit reserved for an open order, which takes a deliberate
+    // tick (Cycle 620); the bench unticks anything else the patient still needs.
     private bool _reviewingRelease;
     private readonly HashSet<long> _releaseChosen = new();
     private string _releaseBatchReason = string.Empty;
@@ -1723,7 +1734,7 @@
     private void BeginReleaseReview(IReadOnlyList<ReadyToIssueWorkItemDto> candidates)
     {
         _releaseChosen.Clear();
-        _releaseChosen.UnionWith(candidates.Select(c => c.AllocationId));
+        _releaseChosen.UnionWith(candidates.Where(c => ReadyToIssueAttentionRule.StillWanted(c) is null).Select(c => c.AllocationId));
         _releaseBatchReason = string.Empty;
         _reviewingRelease = true;
     }

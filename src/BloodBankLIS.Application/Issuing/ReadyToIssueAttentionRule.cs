@@ -49,6 +49,15 @@ public static class ReadyToIssueAttentionRule
             : null;
     }
 
+    /// <summary>
+    /// Why an offered unit may still be wanted (Cycle 620): it is reserved for an order that is still open (the order
+    /// number is filled only for one not completed, cancelled, or discontinued). Such a unit starts unticked in the release
+    /// review, so releasing it takes a deliberate tick; null when nothing says the patient still wants it. A unit the ward
+    /// asked for is never offered at all (<see cref="ReleaseReason"/>).
+    /// </summary>
+    public static string? StillWanted(ReadyToIssueWorkItemDto row) =>
+        string.IsNullOrWhiteSpace(row.OrderNumber) ? null : $"Open order {row.OrderNumber.Trim()}";
+
     /// <summary>The rows offered for release to stock, oldest reservation first.</summary>
     public static IReadOnlyList<ReadyToIssueWorkItemDto> ReleaseCandidates(IEnumerable<ReadyToIssueWorkItemDto> rows, DateTime nowUtc) =>
         rows.Where(row => ReleaseReason(row, nowUtc) is not null)
