@@ -18847,3 +18847,29 @@ Walking the Retype board: pending units are rows with Enter; working a box of ne
 ### Next
 
 - After a retype is recorded, keep the focus in the scan field for the next unit.
+
+## Iteration 610 — Retype by scan, start to finish (2026-11-09)
+
+### Capability matrix rescan (retype)
+
+Cycle 609 opened a unit's retype from a scan; after recording it, the focus stayed where the form had been, so the next label needed a click back into the scan field.
+
+### Design
+
+- After a retype is recorded the scan field takes the focus (no scroll, so the outcome stays in view), the delivery-receive pattern.
+
+### Verification
+
+- Rendered flow test: scan, choose the type and readings, record, and a focus call follows; it fails with the focus turned off. Live: not exercised (recording a retype changes dev data).
+
+### Requirements
+
+- URS-BB-655, FRS-BB-772 (extended).
+
+### Tests
+
+- TEST-BB-723.
+
+### Next
+
+- Walk Store tubes and specimen discard for scan flow and focus.

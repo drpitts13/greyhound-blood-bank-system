@@ -190,7 +190,7 @@
         {
             <div class="field" style="max-width:24rem;">
                 <label>Scan a unit to retype</label>
-                <input @bind="_retypeScan" @bind:event="oninput" @onkeydown="OnRetypeScanKey" placeholder="Scan the unit label or type, then Enter" autocomplete="off" data-retype-scan />
+                <input @ref="_retypeScanInput" @bind="_retypeScan" @bind:event="oninput" @onkeydown="OnRetypeScanKey" placeholder="Scan the unit label or type, then Enter" autocomplete="off" data-retype-scan />
             </div>
             @if (_retypeScanMessage is not null)
             {
@@ -1063,6 +1063,23 @@
 
     private string _retypeScan = string.Empty;
     private string? _retypeScanMessage;
+    private ElementReference _retypeScanInput;
+    // After a retype is recorded the scan field takes the focus, ready for the next label (Cycle 610).
+    private bool _focusRetypeScan;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusRetypeScan || _retypeScanInput.Context is null) return;
+        _focusRetypeScan = false;
+        try
+        {
+            // Keep the recorded outcome in view rather than scrolling to the field.
+            await _retypeScanInput.FocusAsync(preventScroll: true);
+        }
+        catch (JSException)
+        {
+        }
+    }
 
     /// <summary>Enter on the board's scan opens that unit's retype entry (a unit already open stays open).</summary>
     private async Task OnRetypeScanKey(KeyboardEventArgs e)
@@ -1107,6 +1124,8 @@
         await Js.ScrollIntoViewAsync("inventory-top-outcome");
         _expandedRetypeUnitId = null;
         _boardRetypeDetail = null;
+        _retypeScanMessage = null;
+        _focusRetypeScan = true;
         await LoadRetypesAsync();
         await LoadQuarantineAsync();
         await SearchAsync();
