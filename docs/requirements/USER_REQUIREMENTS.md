@@ -638,3 +638,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-630 | Scanning a transport cooler's label in the find box finds the cooler while its units are in transit and opens the cooler check with it. | P3 | FRS-BB-747 |
 | URS-BB-631 | Every page opens and says there is nothing to show, rather than failing, when the server has no data for it or cannot answer. | P2 | FRS-BB-748 |
 | URS-BB-632 | On the patient's Orders tab an open order's needed-by time reads as on the worklists: marked once it has passed, and needed soon with the minutes left inside the facility's warning window. | P3 | FRS-BB-749 |
+| URS-BB-633 | The chart's antibody warning says which antibodies are known only from another facility's report, as the downtime sheet does. | P2 | FRS-BB-750 |

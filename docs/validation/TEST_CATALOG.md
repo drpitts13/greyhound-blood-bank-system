@@ -675,5 +675,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-664 | U | `EveryPageRendersTests.ChartTab_RendersForAPatientWithNothingOnFile` | URS-BB-631 / FRS-BB-748 |
 | TEST-BB-665 | I | `NumericTiterResultTests.ChartOrders_MarkNeededByPassedOrSoon` | URS-BB-632 / FRS-BB-749 |
 | TEST-BB-666 | U | `ChartOrdersTabTests.NeededBy_ReadsAsOnTheWorklists` | URS-BB-632 / FRS-BB-749 |
+| TEST-BB-667 | U | `PatientSafetyBannerTests.ChartHeader_NamesAntibodiesAndRequirements` (and `ChartHeader_NoBanners_WhenNothingToWarnAbout`) | URS-BB-633 / FRS-BB-750 |
+| TEST-BB-668 | U | `PatientSafetyBannerTests.RequirementsBanner_WarnsWhereUnitsArePicked` | URS-BB-633 / FRS-BB-750 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

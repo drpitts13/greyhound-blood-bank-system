@@ -18135,3 +18135,26 @@ Blood orders to prepare and the issue desk mark a needed-by time red once passed
 
 - TEST-BB-665: three hours away with no window, then needed soon (180 min) with a four-hour window, passed once gone, neither once cancelled.
 - TEST-BB-666 (rendered): amber with the minutes, red with "(passed)", plain otherwise, nothing without a time.
+
+## Iteration 582 — The chart's safety banners, rendered (2026-11-08)
+
+### Capability matrix rescan (antibody history; safety display)
+
+The gap analysis's remaining Partial rows wait on a licensed ICCBBA extract or medical-director decisions, so this cycle took the most safety-relevant display instead: the chart's antibody and special-requirement warnings, never tested as rendered. Reading them showed the antibody warning did not say when an antibody was known only from another facility's report, which the downtime sheet and antibody card do (Cycle 546); that provenance matters when deciding whether to rely on it or repeat testing.
+
+### Design
+
+- `PatientChartHeader`: each antibody with "(historical / currently undetectable)" and, from `AntibodyDto.SourceLabel`, "(reported by …, identified …)".
+- Rendered tests: the chart header (antibodies, enforced requirements in the Cycle 566 wording, informational notes, one no longer in effect left out, no banners when nothing applies) and the requirements banner where units are picked (loaded through the API; nothing drawn when the server cannot answer).
+
+### Verification
+
+- Against the previous header wording the test fails on the missing "(reported by St. Mary's Hospital, …)"; restored.
+
+### Requirements
+
+- URS-BB-633, FRS-BB-750. Help: patient chart.
+
+### Tests
+
+- TEST-BB-667, TEST-BB-668.

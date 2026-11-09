@@ -339,9 +339,9 @@
 
 @if (AntibodyHistory.Count > 0)
 {
-    <div class="alert alert-warning">
+    <div class="alert alert-warning" data-header-antibodies>
         <strong>Antibody history:</strong>
-        @string.Join(", ", AntibodyHistory.Select(a => a.IsActive ? a.AntibodySpecificity : $"{a.AntibodySpecificity} (historical / currently undetectable)"))
+        @string.Join(", ", AntibodyHistory.Select(AntibodyLabel))
     </div>
 }
 
@@ -354,7 +354,7 @@
 }
 @if (ActiveSpecialRequirements.Any(r => !r.IsInformational))
 {
-    <div class="alert alert-warning">
+    <div class="alert alert-warning" data-header-requirements>
         <strong>Special transfusion requirements:</strong>
         @string.Join(", ", ActiveSpecialRequirements.Where(r => !r.IsInformational).Select(EnforcedLabel))
     </div>
@@ -466,6 +466,26 @@
     [Parameter] public bool HasRecordedReaction { get; set; }
     [Parameter] public IReadOnlyList<AntibodyDto> AntibodyHistory { get; set; } = [];
     [Parameter] public IEnumerable<SpecialRequirementDto> ActiveSpecialRequirements { get; set; } = [];
+
+    /// <summary>
+    /// "Anti-K", "Anti-E (historical / currently undetectable)", and for one known only from another facility's report
+    /// "Anti-Jka (reported by St. Mary's, identified 2025-02-01)", as the downtime sheet and antibody card say it.
+    /// </summary>
+    private static string AntibodyLabel(AntibodyDto a)
+    {
+        var notes = new List<string>();
+        if (!a.IsActive)
+        {
+            notes.Add("historical / currently undetectable");
+        }
+
+        if (a.SourceLabel is { } source)
+        {
+            notes.Add(char.ToLowerInvariant(source[0]) + source[1..]);
+        }
+
+        return notes.Count == 0 ? a.AntibodySpecificity : $"{a.AntibodySpecificity} ({string.Join("; ", notes)})";
+    }
 
     private static string EnforcedLabel(SpecialRequirementDto r)
     {
