@@ -777,6 +777,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-664 / FRS-BB-781 | Collect-a-specimen steps open the accession form | `BloodOrderPreparationRule.cs`; `Issuing.razor`; `PatientDetail.razor` | TEST-BB-741 (and the updated blood-order href tests) | U, I | |
 | URS-BB-665 / FRS-BB-782 | Release review leaves open-order units unticked | `ReadyToIssueAttentionRule.cs`; `Issuing.razor` | TEST-BB-742, TEST-BB-743 | U | |
 | URS-BB-666 / FRS-BB-783 | Scan desks focus Unit number | `Issuing.razor` | TEST-BB-744, TEST-BB-745 | U | |
+| URS-BB-667 / FRS-BB-784 | Receipt and return ready for the next scan | `Issuing.razor` | TEST-BB-746, TEST-BB-747 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -19213,3 +19213,32 @@ All three start from a scanned unit (the Unit number field looks the issue up an
 ### Next
 
 - After a ward receipt or return is recorded by scan, check that the field clears and keeps the focus for the next unit in the cooler, as Store tubes and Retype do.
+
+## Iteration 623 — Receipt and return ready for the next scan (2026-11-09)
+
+### Capability matrix rescan (cooler of units coming back or arriving)
+
+After a ward receipt or return was recorded, Unit number still held the unit just done, its issue stayed selected, and nothing had the focus. Scanning the next unit in the cooler meant clicking the field and clearing it first. The submit button stayed live on the finished unit, so a second press sent it again (the server refused it, but the bench saw an error instead of a ready form). The ward form also kept the received unit's notices.
+
+### Design
+
+- Ward receipt success: the unit (issue id, Unit number, its notices) is cleared; Received by stays for the rest of the cooler; Unit number takes the focus (Cycle 622's focus mechanism).
+- Return success: issue id and Unit number cleared (the reason already stays while more of the shipment is out; each unit is inspected again); Unit number takes the focus.
+- Acknowledge receipt, Check status, and Return unit are disabled until a unit is chosen.
+
+### Verification
+
+- Rendered flows: a return and a ward receipt each leave Unit number empty, the button disabled, and the focus on Unit number (both fail without the change).
+- Live (read-only; no receipt or return recorded on dev data): Ward receipt and Return open with the cursor in Unit number and Acknowledge receipt / Return unit disabled until a unit is chosen. The after-save behaviour is shown by the rendered flows. No server errors. The focus check reads the page's own field reference: bUnit does not keep the reference attribute on every render, which first made the check look at nothing.
+
+### Requirements
+
+- URS-BB-667, FRS-BB-784.
+
+### Tests
+
+- TEST-BB-746, TEST-BB-747.
+
+### Next
+
+- Transfusion documentation runs per unit at the bedside: check the same after Start and Complete (what stays, what clears, where the focus goes).

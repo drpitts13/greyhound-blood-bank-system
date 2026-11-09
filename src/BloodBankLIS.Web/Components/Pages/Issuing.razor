@@ -1118,8 +1118,8 @@
             Help="Scan the unit label at the receiving location. Required for ISBT-labeled units (SoftBank remote-issue chain)." />
         <PaperRecordDinField @bind-Value="_wardBackEntryDin" TimeLabel="Received at (from paper record)" @bind-Time="_wardBackEntryTime" />
         <div class="flex gap" style="margin-top:.75rem;">
-            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RecordWardReceiptAsync">Acknowledge receipt</button>
-            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadIssueAsync">Check status</button>
+            <button class="btn btn-primary btn-sm" disabled="@(_busy || _wardIssueId == 0)" @onclick="RecordWardReceiptAsync" data-ward-submit>Acknowledge receipt</button>
+            <button class="btn btn-ghost btn-sm" disabled="@(_busy || _wardIssueId == 0)" @onclick="LoadIssueAsync">Check status</button>
         </div>
         @if (!string.IsNullOrWhiteSpace(_wardProductName) || !string.IsNullOrWhiteSpace(_wardExpirationNotice) || !string.IsNullOrWhiteSpace(_wardUnitTypeNotice) || !string.IsNullOrWhiteSpace(_wardSpecimenNotice) || !string.IsNullOrWhiteSpace(_wardCrossmatchNotice) || !string.IsNullOrWhiteSpace(_wardIssuedToNotice) || !string.IsNullOrWhiteSpace(_wardCoolerNotice) || !string.IsNullOrWhiteSpace(_wardLocationNotice) || !string.IsNullOrWhiteSpace(_wardIssuedByNotice) || !string.IsNullOrWhiteSpace(_wardSecondVerifierNotice))
         {
@@ -1274,7 +1274,7 @@
             {
                 <p class="muted">Answer all three inspections before the unit can go back to available stock. Choose Quarantine to return it without them.</p>
             }
-            <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_returnReason) || ReturnInspectionMissing)" @onclick="ReturnAsync">Return unit</button>
+            <button class="btn btn-secondary" disabled="@(_busy || _returnIssueId == 0 || string.IsNullOrWhiteSpace(_returnReason) || ReturnInspectionMissing)" @onclick="ReturnAsync" data-return-submit>Return unit</button>
             @if (_returnRun.Count > 0 || NextToReturn.Count > 0)
             {
                 @* A cooler coming back: the reason stays; each unit is still inspected on its own. *@
@@ -2759,8 +2759,33 @@
             _wardIssue = r.Value;
             _wardScan.Clear();
             _wardAppearance = null;
+            ClearWardUnit();
             await LoadWorklistsAsync();
+            // Ready for the next unit in the cooler: the field is empty and takes the scan (Cycle 623).
+            _focusUnitFor = "receipt";
         }
+    }
+
+    // The unit on the receipt form, cleared once it is received; who received it stays for the rest of the cooler.
+    private void ClearWardUnit()
+    {
+        _wardIssueId = 0;
+        _wardUnitLookup = string.Empty;
+        _wardProductName = null;
+        _wardExpirationNotice = null;
+        _wardUnitTypeNotice = null;
+        _wardSpecimenNotice = null;
+        _wardCrossmatchNotice = null;
+        _wardIssuedToNotice = null;
+        _wardCoolerNotice = null;
+        _wardLocationNotice = null;
+        _wardIssuedByNotice = null;
+        _wardSecondVerifierNotice = null;
+        _wardReleaseReason = null;
+        _wardReleaseAuthorizer = null;
+        _wardIssueAppearance = null;
+        _wardPtagNotice = null;
+        _wardCrossmatchStatusNotice = null;
     }
 
     private async Task ReturnAsync()
@@ -2821,9 +2846,13 @@
             _returnSealOk = InspectionStart;
             _returnVisualOk = InspectionStart;
             _returnDestination = UnitStatus.Available;
+            _returnIssueId = 0;
+            _returnUnitLookup = string.Empty;
             await LoadWorklistsAsync();
             // The reason stays while more of the shipment is out; each unit is inspected again.
             _returnReason = NextToReturn.Count > 0 ? keepReason : string.Empty;
+            // Ready for the next unit: the field is empty and takes the scan (Cycle 623).
+            _focusUnitFor = "return";
         }
         _busy = false;
     }
