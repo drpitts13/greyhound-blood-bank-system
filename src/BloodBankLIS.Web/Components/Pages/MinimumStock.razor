@@ -100,7 +100,7 @@
                     <option value="">Any</option>
                     @foreach (var abo in Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Unknown))
                     {
-                        <option value="@abo">@abo</option>
+                        <option value="@abo">@Ui.EnumText(abo)</option>
                     }
                 </select>
             </div>

@@ -93,12 +93,12 @@
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Interpreted ABO</label>
                         <select @bind="_abo">
-                            @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }
+                            @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }
                         </select>
                     </div>
                     <div class="field"><label>Interpreted Rh(D)</label>
                         <select @bind="_rh">
-                            @foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }
+                            @foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }
                         </select>
                     </div>
                 </div>
@@ -209,7 +209,7 @@
                         <option value="">— Select —</option>
                         @foreach (var v in AllowedValues)
                         {
-                            <option value="@v">@v</option>
+                            <option value="@v">@Ui.EnumText(v)</option>
                         }
                     </select>
                 </div>
@@ -256,7 +256,7 @@
                                         <option value="">—</option>
                                         @foreach (var grade in TiterRule.Grades)
                                         {
-                                            <option value="@grade">@grade</option>
+                                            <option value="@grade">@Ui.EnumText(grade)</option>
                                         }
                                     </select>
                                 </td>
@@ -350,7 +350,7 @@
                                 }
                                 <td>
                                     <select value="@GetBloodAttrResult(attr.Code)" @onchange="e => SetBloodAttrResult(attr.Code, e)">
-                                        @foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }
+                                        @foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@Ui.EnumText(r)</option> }
                                     </select>
                                 </td>
                             </tr>
@@ -387,7 +387,7 @@
                     </div>
                     <div class="field"><label>Method</label>
                         <select @bind="_xmMethod">
-                            @foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }
+                            @foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@Ui.EnumText(m)</option> }
                         </select>
                     </div>
                     <div class="field"><label>Crossmatch result</label>

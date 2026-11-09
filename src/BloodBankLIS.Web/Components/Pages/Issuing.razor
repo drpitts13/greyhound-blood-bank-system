@@ -826,7 +826,7 @@
             </div>
             <div class="field"><label>Cooler / transport id</label><input @bind="_issue.CoolerId" placeholder="Optional cooler checkout" /></div>
             <div class="field"><label>Issue type</label>
-                <select @bind="_issue.IssueType">@foreach (var t in AllowedIssueTypes) { <option value="@t">@t</option> }</select>
+                <select @bind="_issue.IssueType">@foreach (var t in AllowedIssueTypes) { <option value="@t">@Ui.EnumText(t)</option> }</select>
             </div>
         </div>
         @if (_showUnidentified)
@@ -1307,7 +1307,7 @@
             <div class="form-row">
                 <div class="field"><label>Unit number</label><input class="mono" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" placeholder="Type or scan, or Document from Issued units" data-enter-step autocomplete="off" /></div>
                 <div class="field"><label>Disposition</label>
-                    <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@d</option> }</select>
+                    <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@Ui.EnumText(d)</option> }</select>
                 </div>
                 <div class="field"><label>Volume transfused (mL)</label><input type="number" @bind="_txVolume" /></div>
                 <div class="field"><label>Transfusionist</label><input @bind="_txTransfusionist" /></div>

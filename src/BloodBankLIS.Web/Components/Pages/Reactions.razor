@@ -197,10 +197,10 @@ else
             <div class="form-row">
                 <div class="field"><label>Type</label><input @bind="_type" /></div>
                 <div class="field"><label>Severity</label>
-                    <select @bind="_severity" @bind:after="SyncFatalityFromSeverity">@foreach (var s in Enum.GetValues<ReactionSeverity>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="_severity" @bind:after="SyncFatalityFromSeverity">@foreach (var s in Enum.GetValues<ReactionSeverity>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                 </div>
                 <div class="field"><label>Status</label>
-                    <select @bind="_status">@foreach (var s in CloseableStatuses) { <option value="@s">@s</option> }</select>
+                    <select @bind="_status">@foreach (var s in CloseableStatuses) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                 </div>
                 <div class="field"><label>Disposition</label><input @bind="_disposition" /></div>
             </div>

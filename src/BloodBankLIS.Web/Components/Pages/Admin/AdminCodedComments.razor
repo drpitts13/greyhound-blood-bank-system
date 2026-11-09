@@ -25,7 +25,7 @@
             <option value="">All pages</option>
             @foreach (var commentPage in Enum.GetValues<CommentPage>())
             {
-                <option value="@commentPage">@commentPage</option>
+                <option value="@commentPage">@Ui.EnumText(commentPage)</option>
             }
         </select>
         <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
@@ -88,7 +88,7 @@
                 <select @bind="_draft.Page">
                     @foreach (var commentPage in Enum.GetValues<CommentPage>())
                     {
-                        <option value="@commentPage">@commentPage</option>
+                        <option value="@commentPage">@Ui.EnumText(commentPage)</option>
                     }
                 </select>
             </div>

@@ -133,12 +133,12 @@
     private RenderFragment EntryForm => @<div>
         <div class="form-row">
             <div class="field"><label>Interpreted ABO</label>
-                <select @bind="_abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+                <select @bind="_abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
             </div>
             @if (Detail.AntiDRequired)
             {
                 <div class="field"><label>Interpreted Rh(D)</label>
-                    <select @bind="_rh">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+                    <select @bind="_rh">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
                 </div>
             }
         </div>
@@ -157,7 +157,7 @@
                                 @if (optional) { <option value="NT">NT</option> }
                                 @foreach (var grade in Detail.GradeChoices)
                                 {
-                                    <option value="@grade">@grade</option>
+                                    <option value="@grade">@Ui.EnumText(grade)</option>
                                 }
                             </select>
                         </td>

@@ -24,6 +24,50 @@ public static class Ui
     public static string StatusLabel(UnitStatus status) =>
         status == UnitStatus.Received ? "Pending Retype" : status.ToString();
 
+    /// <summary>
+    /// How a choice reads in a dropdown: an enum in words ("EmergencyRelease" → "Emergency release", "CmvNegative" →
+    /// "CMV negative", "Hl7" → "HL7"), using the curated label where one exists (product classes, pending retype);
+    /// anything else as it is. The option's value stays the enum name, so binding and stored data do not change.
+    /// </summary>
+    public static string EnumText(object? value) => value switch
+    {
+        null => string.Empty,
+        ComponentClass componentClass => ComponentClassLabels.Label(componentClass),
+        UnitStatus.Received => StatusLabel(UnitStatus.Received),
+        Enum e => CodeNameText(e.ToString()),
+        _ => value.ToString() ?? string.Empty
+    };
+
+    private static readonly Dictionary<string, string> Acronyms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Abo"] = "ABO", ["Astm"] = "ASTM", ["Cmv"] = "CMV", ["Csv"] = "CSV", ["Dat"] = "DAT", ["Ehr"] = "EHR",
+        ["Ffp"] = "FFP", ["Fhir"] = "FHIR", ["Hl7"] = "HL7", ["Hla"] = "HLA", ["Http"] = "HTTP", ["Iat"] = "IAT",
+        ["Id"] = "ID", ["Isbt"] = "ISBT", ["Lis"] = "LIS", ["Mfa"] = "MFA", ["Mllp"] = "MLLP", ["Mtp"] = "MTP",
+        ["Pdf"] = "PDF", ["Plt"] = "PLT", ["Rbc"] = "RBC", ["Tcp"] = "TCP", ["Url"] = "URL", ["Xm"] = "XM"
+    };
+
+    /// <summary>A code name in words: split at case changes, acronyms kept, later words lower case.</summary>
+    public static string CodeNameText(string name)
+    {
+        // "RhD" is one word; keep it whole before splitting at case changes.
+        var tokens = System.Text.RegularExpressions.Regex
+            .Split(name.Replace("RhD", "Rh\u0001D", StringComparison.Ordinal), "(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+            .Where(t => t.Length > 0)
+            .Select(t => t.Replace("\u0001", string.Empty, StringComparison.Ordinal))
+            .ToList();
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            tokens[i] = Acronyms.TryGetValue(t, out var acronym) ? acronym
+                : t.Length > 1 && t.All(char.IsUpper) ? t
+                : t == "RhD" ? t
+                : i == 0 ? char.ToUpperInvariant(t[0]) + t[1..]
+                : t.ToLowerInvariant();
+        }
+
+        return string.Join(' ', tokens);
+    }
+
     public static string Badge(SpecimenStatus status) => status switch
     {
         SpecimenStatus.Accepted => "badge badge-green",

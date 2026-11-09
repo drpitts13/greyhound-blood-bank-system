@@ -475,7 +475,7 @@ else
         <div class="form-row">
             <div class="field"><label>Physician of record</label><input @bind="_physician" @bind:event="oninput" /></div>
             <div class="field"><label>Status</label>
-                <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
+                <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
             </div>
             <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" @bind:event="oninput" /></div>
         </div>

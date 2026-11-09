@@ -18265,3 +18265,29 @@ Walking the issue desk on the development database, every Ready to issue row rep
 
 - TEST-BB-677: shared (trimmed) said once; differing, missing on one row, or a single row not shared.
 - TEST-BB-678 (rendered): once above the board and on no row; differing notices on their own rows.
+
+## Iteration 588 — Dropdown choices in words (2026-11-08)
+
+### Capability matrix rescan (UX: consistent terminology; walked live)
+
+Walking the issue form on the development database (Issue on a Ready to issue row, not submitted): the identifier checks, scan verification, and unit notices were in place, but Issue type offered "EmergencyRelease", "MassiveTransfusion", "ElectronicIssue", "RemoteIssue", and Appearance at issue "LabelIllegible", "OtherDefect": code names on the most safety-relevant form. A search found the same in 74 dropdown options across the app.
+
+### Design
+
+- `Ui.EnumText` (any value: enums in words, curated labels where they exist, everything else unchanged) and `Ui.CodeNameText`; applied to all 74 options whose text was their own value, values unchanged. A source test fails on a new one.
+
+### Verification
+
+- Live: the issue form reads "Emergency release", "Massive transfusion", "Electronic issue", "Remote issue", "Label illegible", "Other defect", with the same option values. Every page still renders (Cycle 579 test).
+
+### Requirements
+
+- URS-BB-639, FRS-BB-756.
+
+### Tests
+
+- TEST-BB-679, TEST-BB-680.
+
+### Still to do
+
+- Enum values shown as plain text outside dropdowns (for example an order status "InProcess" in a table cell) are not yet covered.

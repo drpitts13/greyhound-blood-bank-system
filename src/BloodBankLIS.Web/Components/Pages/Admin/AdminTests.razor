@@ -87,7 +87,7 @@
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Category</label>
                 <select @bind="_editing.Category">
-                    @foreach (var c in Enum.GetValues<TestCategory>()) { <option value="@c">@c</option> }
+                    @foreach (var c in Enum.GetValues<TestCategory>()) { <option value="@c">@Ui.EnumText(c)</option> }
                 </select>
             </div>
             <div class="field"><label>Result value type</label>
@@ -137,7 +137,7 @@
                                 <option value="">Choose</option>
                                 @foreach (var grade in BloodBankLIS.Domain.Rules.TiterRule.Grades.Skip(1))
                                 {
-                                    <option value="@grade">@grade</option>
+                                    <option value="@grade">@Ui.EnumText(grade)</option>
                                 }
                             </select>
                         </div>
@@ -157,7 +157,7 @@
                 <div class="field">
                     <label>Scoped as</label>
                     <select @bind="_editing.BloodAttributeScopeKind">
-                        @foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }
+                        @foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@Ui.EnumText(k)</option> }
                     </select>
                 </div>
                 <div class="field" style="grid-column:1/-1;">
@@ -334,7 +334,7 @@
                                                 <select @bind="row.MatchMode">
                                                     @foreach (var mode in Enum.GetValues<InterpretationMatchMode>())
                                                     {
-                                                        <option value="@mode">@mode</option>
+                                                        <option value="@mode">@Ui.EnumText(mode)</option>
                                                     }
                                                 </select>
                                             </td>

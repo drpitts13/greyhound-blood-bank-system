@@ -62,7 +62,7 @@
                 <select @bind="_component">
                     @foreach (var cls in Enum.GetValues<ComponentClass>())
                     {
-                        <option value="@cls">@cls</option>
+                        <option value="@cls">@Ui.EnumText(cls)</option>
                     }
                 </select>
             </div>

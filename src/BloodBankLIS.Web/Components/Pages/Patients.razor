@@ -49,7 +49,7 @@
                     <InputSelect @bind-Value="_new.Sex">
                         @foreach (var s in Enum.GetValues<Sex>())
                         {
-                            <option value="@s">@s</option>
+                            <option value="@s">@Ui.EnumText(s)</option>
                         }
                     </InputSelect>
                 </div>

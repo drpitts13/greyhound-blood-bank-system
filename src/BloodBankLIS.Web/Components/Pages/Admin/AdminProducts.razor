@@ -98,7 +98,7 @@
             <div class="field"><label>Product code</label><input @bind="_editing.ProductCode" disabled="@(_editId is not null)" /></div>
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Component class</label>
-                <select value="@_editing.ComponentClass" @onchange="OnComponentClassChanged">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@c</option> }</select>
+                <select value="@_editing.ComponentClass" @onchange="OnComponentClassChanged">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@Ui.EnumText(c)</option> }</select>
             </div>
             <div class="field"><label>Category</label><input @bind="_editing.Category" /></div>
             <div class="field"><label>Shelf life (hours)</label><input type="number" @bind="_editing.DefaultShelfLifeHours" /></div>

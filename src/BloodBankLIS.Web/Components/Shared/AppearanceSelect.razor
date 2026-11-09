@@ -12,7 +12,7 @@
         }
         @foreach (var a in Enum.GetValues<UnitAppearance>())
         {
-            <option value="@a">@a</option>
+            <option value="@a">@Ui.EnumText(a)</option>
         }
     </select>
     @if (Value is null)

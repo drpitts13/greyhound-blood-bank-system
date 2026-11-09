@@ -77,7 +77,7 @@
             <div class="field"><label>Offset amount</label><input type="number" min="1" @bind="_editing.OffsetAmount" /></div>
             <div class="field"><label>Unit</label>
                 <select @bind="_editing.OffsetUnit">
-                    @foreach (var u in Enum.GetValues<ExpirationOffsetUnit>()) { <option value="@u">@u</option> }
+                    @foreach (var u in Enum.GetValues<ExpirationOffsetUnit>()) { <option value="@u">@Ui.EnumText(u)</option> }
                 </select>
             </div>
             <div class="field"><label>Relative to</label>

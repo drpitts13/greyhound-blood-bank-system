@@ -692,16 +692,16 @@
     <div class="form-row">
         <div class="field"><label>Unit number</label><input @bind="_searchUnit" @bind:event="oninput" @onkeydown="OnUnitSearchKey" placeholder="Type or scan, then Enter" /></div>
         <div class="field"><label>Status</label>
-            <select @bind="_searchStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<UnitStatus>()) { <option value="@s">@s</option> }</select>
+            <select @bind="_searchStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<UnitStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
         </div>
         <div class="field"><label>Product</label>
             <select @bind="_searchProductTypeId"><option value="">Any</option>@foreach (var p in _productTypes) { <option value="@p.Id">@p.ChoiceLabel</option> }</select>
         </div>
         <div class="field"><label>ABO</label>
-            <select @bind="_searchAbo"><option value="">Any</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+            <select @bind="_searchAbo"><option value="">Any</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
         </div>
         <div class="field"><label>Rh(D)</label>
-            <select @bind="_searchRh"><option value="">Any</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+            <select @bind="_searchRh"><option value="">Any</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
         </div>
         <div class="field">
             <label class="checkbox-item" style="margin-top:1.6rem;">

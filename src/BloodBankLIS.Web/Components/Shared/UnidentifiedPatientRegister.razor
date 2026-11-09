@@ -17,7 +17,7 @@
                 <option value="">Choose…</option>
                 @foreach (var s in Enum.GetValues<Sex>())
                 {
-                    <option value="@s">@s</option>
+                    <option value="@s">@Ui.EnumText(s)</option>
                 }
             </select>
         </div>

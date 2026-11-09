@@ -40,7 +40,7 @@
                         </select>
                     </div>
                     <div class="field"><label>Priority</label>
-                        <select @bind="NewOrderPriority" @bind:after="() => NewOrderPriorityChanged.InvokeAsync(NewOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                        <select @bind="NewOrderPriority" @bind:after="() => NewOrderPriorityChanged.InvokeAsync(NewOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@Ui.EnumText(p)</option> }</select>
                     </div>
                     <div class="field"><label>Needed by (optional)</label>
                         <input type="datetime-local" @bind="NewOrderNeededBy" @bind:after="() => NewOrderNeededByChanged.InvokeAsync(NewOrderNeededBy)" data-order-needed-by />
@@ -476,7 +476,7 @@
                                             </select>
                                         </div>
                                         <div class="field"><label>Priority</label>
-                                            <select @bind="EditOrderPriority" @bind:after="() => EditOrderPriorityChanged.InvokeAsync(EditOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                                            <select @bind="EditOrderPriority" @bind:after="() => EditOrderPriorityChanged.InvokeAsync(EditOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@Ui.EnumText(p)</option> }</select>
                                         </div>
                                         <div class="field"><label>Ordering location</label>
                                             <select @bind="EditOrderLocationId" @bind:after="() => EditOrderLocationIdChanged.InvokeAsync(EditOrderLocationId)">

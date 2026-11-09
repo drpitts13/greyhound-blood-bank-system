@@ -341,7 +341,7 @@ else
                 <select @bind="_dat" disabled="@(!CanEdit)">
                     @foreach (var d in Enum.GetValues<AntibodyIdDatResult>())
                     {
-                        <option value="@d">@d</option>
+                        <option value="@d">@Ui.EnumText(d)</option>
                     }
                 </select>
             </div>

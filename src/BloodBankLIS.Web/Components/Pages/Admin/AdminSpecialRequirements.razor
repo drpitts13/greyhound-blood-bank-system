@@ -156,7 +156,7 @@ else
             @if (_editing.Category == SpecialRequirementCategory.IssueProcedure)
             {
                 <div class="field"><label>Level</label>
-                    <select @bind="_editing.Level">@foreach (var l in Enum.GetValues<SpecialRequirementLevel>()) { <option value="@l">@l</option> }</select>
+                    <select @bind="_editing.Level">@foreach (var l in Enum.GetValues<SpecialRequirementLevel>()) { <option value="@l">@Ui.EnumText(l)</option> }</select>
                 </div>
                 <div class="field"><label>Enforcement</label>
                     <select @bind="_editing.EnforcementKind">

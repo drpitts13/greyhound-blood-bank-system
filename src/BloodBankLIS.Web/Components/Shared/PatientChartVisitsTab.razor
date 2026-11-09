@@ -13,10 +13,10 @@
             <div class="form-row">
                 <div class="field"><label>Visit number</label><input @bind="NewVisitNumber" @bind:after="() => NewVisitNumberChanged.InvokeAsync(NewVisitNumber)" class="mono" placeholder="VIS-2026-100" /></div>
                 <div class="field"><label>Type</label>
-                    <select @bind="NewVisitType" @bind:after="() => NewVisitTypeChanged.InvokeAsync(NewVisitType)">@foreach (var t in Enum.GetValues<EncounterType>()) { <option value="@t">@t</option> }</select>
+                    <select @bind="NewVisitType" @bind:after="() => NewVisitTypeChanged.InvokeAsync(NewVisitType)">@foreach (var t in Enum.GetValues<EncounterType>()) { <option value="@t">@Ui.EnumText(t)</option> }</select>
                 </div>
                 <div class="field"><label>Status</label>
-                    <select @bind="NewVisitStatus" @bind:after="() => NewVisitStatusChanged.InvokeAsync(NewVisitStatus)">@foreach (var s in Enum.GetValues<EncounterStatus>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="NewVisitStatus" @bind:after="() => NewVisitStatusChanged.InvokeAsync(NewVisitStatus)">@foreach (var s in Enum.GetValues<EncounterStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                 </div>
                 <div class="field"><label>Admit (local)</label><input type="datetime-local" @bind="NewVisitAdmit" @bind:after="() => NewVisitAdmitChanged.InvokeAsync(NewVisitAdmit)" /></div>
                 <div class="field"><label>Current location</label><input @bind="NewVisitLocation" @bind:after="() => NewVisitLocationChanged.InvokeAsync(NewVisitLocation)" /></div>

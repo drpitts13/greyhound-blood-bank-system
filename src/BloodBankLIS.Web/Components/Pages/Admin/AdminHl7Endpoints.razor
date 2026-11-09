@@ -86,14 +86,14 @@
                 <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
                 <div class="field"><label>Interface type</label>
                     <select value="@_editing.InterfaceType" @onchange="OnTypeChanged">
-                        @foreach (var t in Enum.GetValues<InterfaceType>()) { <option value="@t">@t</option> }
+                        @foreach (var t in Enum.GetValues<InterfaceType>()) { <option value="@t">@Ui.EnumText(t)</option> }
                     </select>
                 </div>
                 <div class="field"><label>Direction</label>
-                    <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@d</option> }</select>
+                    <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@Ui.EnumText(d)</option> }</select>
                 </div>
                 <div class="field"><label>Transport</label>
-                    <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@t</option> }</select>
+                    <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@Ui.EnumText(t)</option> }</select>
                 </div>
                 @if (_editing.Transport == InterfaceTransport.Mllp)
                 {

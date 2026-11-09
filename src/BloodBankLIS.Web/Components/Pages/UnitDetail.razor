@@ -348,7 +348,7 @@ else
                         <select @bind="_quarantineCode">
                             @foreach (var q in Enum.GetValues<UnitQuarantineReason>().Where(x => x != UnitQuarantineReason.Unspecified))
                             {
-                                <option value="@q">@q</option>
+                                <option value="@q">@Ui.EnumText(q)</option>
                             }
                         </select>
                         <input @bind="_quarantineNotes" @bind:event="oninput" placeholder="Notes (required when Other)" style="flex:1;min-width:12rem;" />
@@ -486,10 +486,10 @@ else
                                             Placeholder="Select" />
                     </div>
                     <div class="field"><label>Kind</label>
-                        <select @bind="_uaKind">@foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }</select>
+                        <select @bind="_uaKind">@foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@Ui.EnumText(k)</option> }</select>
                     </div>
                     <div class="field"><label>Result</label>
-                        <select @bind="_uaResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
+                        <select @bind="_uaResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
                     </div>
                     <div class="field"><label>Source</label>
                         <select @bind="_uaSource">

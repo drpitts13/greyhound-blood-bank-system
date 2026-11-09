@@ -28,7 +28,7 @@
             <select @bind="_assay">
                 @foreach (var assay in _assays)
                 {
-                    <option value="@assay">@assay</option>
+                    <option value="@assay">@Ui.EnumText(assay)</option>
                 }
             </select>
         </div>

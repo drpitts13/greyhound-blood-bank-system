@@ -3310,8 +3310,8 @@ else
                     {
                     <p class="muted">@ResultSourceEntryCopy.PanelHint</p>
                     <div class="form-row">
-                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
-                        <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh">@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }</select></div>
+                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
+                        <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh">@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }</select></div>
                     </div>
                     <div class="table-scroll">
                     <table class="bb" style="margin-top:.5rem;">

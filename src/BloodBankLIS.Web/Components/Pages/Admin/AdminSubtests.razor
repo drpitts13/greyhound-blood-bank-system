@@ -81,7 +81,7 @@
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Result type</label>
                 <select @bind="_editing.ResultType" @bind:after="OnResultTypeChanged">
-                    @foreach (var t in Enum.GetValues<SubtestResultType>()) { <option value="@t">@t</option> }
+                    @foreach (var t in Enum.GetValues<SubtestResultType>()) { <option value="@t">@Ui.EnumText(t)</option> }
                 </select>
             </div>
         </div>
@@ -120,7 +120,7 @@
                                 {
                                     <td>
                                         <select @bind="row.Polarity">
-                                            @foreach (var p in Enum.GetValues<ReactionPolarity>()) { <option value="@p">@p</option> }
+                                            @foreach (var p in Enum.GetValues<ReactionPolarity>()) { <option value="@p">@Ui.EnumText(p)</option> }
                                         </select>
                                     </td>
                                 }

@@ -114,7 +114,7 @@
                 </div>
                 <div class="field"><label>Donation</label>
                     <select @bind="_donationRestriction">
-                        @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@d</option> }
+                        @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@Ui.EnumText(d)</option> }
                     </select>
                 </div>
                 @if (_donationRestriction != DonationRestriction.Allogeneic)

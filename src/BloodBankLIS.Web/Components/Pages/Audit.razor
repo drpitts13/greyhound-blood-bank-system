@@ -18,7 +18,7 @@
                 <option value="">All events</option>
                 @foreach (var t in EventTypes)
                 {
-                    <option value="@t">@t</option>
+                    <option value="@t">@Ui.EnumText(t)</option>
                 }
             </select>
         </div>
@@ -28,7 +28,7 @@
                 <option value="">All users</option>
                 @foreach (var u in UserChoices)
                 {
-                    <option value="@u">@u</option>
+                    <option value="@u">@Ui.EnumText(u)</option>
                 }
             </select>
         </div>
@@ -38,7 +38,7 @@
                 <option value="">All types</option>
                 @foreach (var t in EntityTypeChoices)
                 {
-                    <option value="@t">@t</option>
+                    <option value="@t">@Ui.EnumText(t)</option>
                 }
             </select>
         </div>

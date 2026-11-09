@@ -97,7 +97,7 @@
                 <select @bind="_draft.TriggerType">
                     @foreach (var t in Enum.GetValues<BillingTriggerType>())
                     {
-                        <option value="@t">@t</option>
+                        <option value="@t">@Ui.EnumText(t)</option>
                     }
                 </select>
             </div>

@@ -22,7 +22,7 @@ else
             <div class="field"><label>Description</label><textarea rows="3" @bind="_description" @bind:event="oninput"></textarea></div>
             <div class="form-row">
                 <div class="field"><label>Severity</label>
-                    <select @bind="_severity">@foreach (var s in Enum.GetValues<DeviationSeverity>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="_severity">@foreach (var s in Enum.GetValues<DeviationSeverity>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                 </div>
             </div>
             <div class="field"><label>Related record: scan or type</label>
@@ -148,7 +148,7 @@ else
                     <strong>Update deviation #@_statusId: @_rows.FirstOrDefault(r => r.Id == _statusId)?.Title</strong>
                     <div class="muted">@_rows.FirstOrDefault(r => r.Id == _statusId)?.Description</div>
                     <div class="field" style="margin-top:.5rem;"><label>Status</label>
-                        <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@s</option> }</select>
+                        <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                     </div>
                     <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa" @bind:event="oninput" placeholder="What was done, or why no action is needed"></textarea></div>
                     @if (StatusCheck is { Severity: RuleSeverity.HardStop } blocked)

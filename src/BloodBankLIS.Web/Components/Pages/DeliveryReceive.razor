@@ -95,8 +95,8 @@ else
                     }
                 </select>
             </div>
-            <div class="field"><label>ABO</label><select @bind="_rec.Abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
-            <div class="field"><label>Rh(D)</label><select @bind="_rec.RhD">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select></div>
+            <div class="field"><label>ABO</label><select @bind="_rec.Abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
+            <div class="field"><label>Rh(D)</label><select @bind="_rec.RhD">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select></div>
             <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_rec.ExpiresLocal" /></div>
             <div class="field"><label>Location</label>
                 <select @bind="_rec.LocationId">
@@ -117,7 +117,7 @@ else
             </div>
             <div class="field"><label>Donation</label>
                 <select @bind="_rec.DonationRestriction">
-                    @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@d</option> }
+                    @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@Ui.EnumText(d)</option> }
                 </select>
             </div>
             @if (_rec.DonationRestriction != DonationRestriction.Allogeneic)

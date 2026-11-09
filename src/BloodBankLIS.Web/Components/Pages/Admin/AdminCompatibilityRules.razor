@@ -207,7 +207,7 @@
                 <select @bind="_ruleDraft.ComponentClass">
                     @foreach (var c in Enum.GetValues<ComponentClass>())
                     {
-                        <option value="@c">@c</option>
+                        <option value="@c">@Ui.EnumText(c)</option>
                     }
                 </select>
             </div>

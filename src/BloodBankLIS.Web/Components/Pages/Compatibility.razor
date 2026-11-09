@@ -76,7 +76,7 @@
                         Placeholder="Search accession" />
                 </div>
                 <div class="field"><label>Method</label>
-                    <select @bind="_xm.Method" @bind:after="OnXmMethodChanged">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }</select>
+                    <select @bind="_xm.Method" @bind:after="OnXmMethodChanged">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@Ui.EnumText(m)</option> }</select>
                 </div>
                 @if (_xm.Method != CrossmatchMethod.Electronic)
                 {
@@ -91,7 +91,7 @@
                     </div>
                 }
                 <div class="field"><label>Result</label>
-                    <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@r</option> }</select>
+                    <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
                 </div>
                 <div class="field"><label>Antibody screen</label>
                     <select @bind="_xm.ScreenNegative"><option value="true">Negative</option><option value="false">Positive</option></select>

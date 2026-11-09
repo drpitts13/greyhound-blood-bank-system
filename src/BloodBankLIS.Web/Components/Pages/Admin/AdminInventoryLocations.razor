@@ -128,7 +128,7 @@
                 <select @bind="_draft.LocationType">
                     @foreach (var t in Enum.GetValues<LocationType>())
                     {
-                        <option value="@t">@t</option>
+                        <option value="@t">@Ui.EnumText(t)</option>
                     }
                 </select>
             </div>

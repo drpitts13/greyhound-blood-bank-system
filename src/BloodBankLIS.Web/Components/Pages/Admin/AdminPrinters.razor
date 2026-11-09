@@ -90,7 +90,7 @@
                         <option value="">Choose…</option>
                         @foreach (var name in _installed)
                         {
-                            <option value="@name">@name</option>
+                            <option value="@name">@Ui.EnumText(name)</option>
                         }
                     </select>
                 </div>
@@ -190,7 +190,7 @@
                         <option value="">Choose…</option>
                         @foreach (var name in _installed)
                         {
-                            <option value="@name">@name</option>
+                            <option value="@name">@Ui.EnumText(name)</option>
                         }
                     </select>
                 </div>
@@ -204,12 +204,12 @@
                 <div class="field"><label>Data bits</label><input type="number" @bind="_zebraDraft.DataBits" /></div>
                 <div class="field"><label>Parity</label>
                     <select @bind="_zebraDraft.Parity">
-                        @foreach (var p in Enum.GetValues<ZebraParity>()) { <option value="@p">@p</option> }
+                        @foreach (var p in Enum.GetValues<ZebraParity>()) { <option value="@p">@Ui.EnumText(p)</option> }
                     </select>
                 </div>
                 <div class="field"><label>Stop bits</label>
                     <select @bind="_zebraDraft.StopBits">
-                        @foreach (var s in Enum.GetValues<ZebraStopBits>()) { <option value="@s">@s</option> }
+                        @foreach (var s in Enum.GetValues<ZebraStopBits>()) { <option value="@s">@Ui.EnumText(s)</option> }
                     </select>
                 </div>
             </div>

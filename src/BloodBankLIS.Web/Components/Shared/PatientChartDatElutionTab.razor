@@ -239,7 +239,7 @@
             </div>
             <div class="field"><label>DAT result</label>
                 <select @bind="f.DatResult">
-                    @foreach (var r in Enum.GetValues<DatWorkupResult>()) { <option value="@r">@r</option> }
+                    @foreach (var r in Enum.GetValues<DatWorkupResult>()) { <option value="@r">@Ui.EnumText(r)</option> }
                 </select>
             </div>
             <div class="field"><label>DAT method</label><input @bind="f.DatMethod" placeholder="e.g. polyspecific AHG" /></div>
