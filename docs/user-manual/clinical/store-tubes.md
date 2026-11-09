@@ -16,6 +16,8 @@ The patient's **Specimens** tab shows each tube's current place under its status
 
 **Discard tubes.** When you throw a tube away, scan it under **Discard tubes** and press Enter. The tube leaves its place (the place stays on its history), the chart shows when it was discarded, and it cannot be stored again. A tube is kept, whatever the reason, while an order on it is not finished or a transfusion reaction investigation on it is still open; the message names the order. Each tube is kept until its expiration plus your facility's **Specimen retention days** (Admin › Facility policy); the place list shows each tube's **Keep until** date and a **Due** badge once it has passed, and **Due for discard** lists every stored tube past that date, oldest first, with its place. The home screen's **Tubes due for discard** card shows how many there are. To discard a tube before its date, or when your facility has not set a retention period, type a **Reason** first; the reason is kept on the tube and in the audit trail.
 
+**Due for discard** lists stored tubes past their keep-until date as a pull list: grouped by place, so you visit each rack or shelf once, starting with the place that holds the oldest tube, oldest first within it. Each place shows how many tubes to pull from it, and each tube says how long it is past its date. A place typed two ways (for example "Rack 3" and "rack-3") is one place. The list shortens as you scan each tube under Discard tubes.
+
 How many days tubes are kept is set by your medical director (OCD-070). Until it is set, nothing is listed as due and each discard needs a reason.
 
 > Storing and discarding tubes need the specimen accession permission.

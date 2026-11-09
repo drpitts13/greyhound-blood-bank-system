@@ -18988,3 +18988,32 @@ The Unidentified patients card gave a count only and the Patients list gave each
 ### Next
 
 - Tubes due for discard card: name the oldest tube's days past its retention date.
+
+## Iteration 615 — Tubes due for discard as a pull list by place (2026-11-09)
+
+### Capability matrix rescan (specimen storage, remaining Partial rows)
+
+The Partial rows (ISBT codes, modifications, HL7) wait on outside items (the licensed ICCBBA extract, mapped codes). On the Tubes due for discard card, the planned age note was dropped: discarding tubes past retention is housekeeping, and a note would put it under Needs attention beside safety items, so the card stays count-only. The work is on Store tubes instead. Its Due for discard list was ordered by keep-until date alone with a Place column, so pulling tubes meant walking between racks and back.
+
+### Design
+
+- `TubePullList.Group`: due tubes grouped by place (matched as the storage rule matches places, so "Rack 3" and "rack-3" are one), named by the most common spelling; the place holding the oldest tube first, oldest first within it; "No place recorded" for a tube without one.
+- Each place heads its tubes with a count; each tube shows "{age} past" its date. A group header style that keeps the place as typed.
+- No server change.
+
+### Verification
+
+- Unit: grouping, order, spelling, no place, empty. Rendered: two places in order with counts and ages.
+- Live (read-only): Store tubes loads without errors; dev data lists nothing due because no retention period is set (OCD-070), and the policy was not changed for the check, so the grouped list is shown by the rendered test only.
+
+### Requirements
+
+- URS-BB-660, FRS-BB-777.
+
+### Tests
+
+- TEST-BB-732, TEST-BB-733.
+
+### Next
+
+- HL7 errors card: say how long the oldest error has waited, since an order or result not delivered for hours is a missed transfusion or result.

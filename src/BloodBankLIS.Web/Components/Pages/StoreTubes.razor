@@ -89,21 +89,30 @@ else
     {
         <div class="bb-card" data-due-for-discard>
             <div class="bb-card-title"><h3>Due for discard (@_due.Count)</h3></div>
-            <p class="muted">Stored tubes past their keep-until date, oldest first. Pull each from its place and scan it under Discard tubes.</p>
+            <p class="muted">Stored tubes past their keep-until date, grouped by place so each rack or shelf is visited once: the place with the oldest tube first, oldest first within it. Pull each from its place and scan it under Discard tubes; the list shortens as you go.</p>
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Tube</th><th>Patient</th><th>Place</th><th>Kept until</th></tr></thead>
-                <tbody>
-                    @foreach (var t in _due)
-                    {
-                        <tr>
-                            <td class="mono">@t.AccessionNumber</td>
-                            <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
-                            <td>@t.Location</td>
-                            <td class="nowrap">@t.KeepUntilUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                        </tr>
-                    }
-                </tbody>
+                <thead><tr><th>Tube</th><th>Patient</th><th>Kept until</th></tr></thead>
+                @foreach (var place in TubePullList.Group(_due))
+                {
+                    <tbody data-pull-place="@place.Name">
+                        <tr class="group-row"><th colspan="3">@place.Name <span class="sub">· @place.Tubes.Count @(place.Tubes.Count == 1 ? "tube" : "tubes")</span></th></tr>
+                        @foreach (var t in place.Tubes)
+                        {
+                            <tr data-pull-tube="@t.AccessionNumber">
+                                <td class="mono">@t.AccessionNumber</td>
+                                <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
+                                <td class="nowrap">
+                                    @t.KeepUntilUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                    @if (t.KeepUntilUtc is { } keepUntil)
+                                    {
+                                        <span class="muted">@AlertInboxView.OpenFor(keepUntil, DateTime.UtcNow) past</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                }
             </table>
             </div>
         </div>
