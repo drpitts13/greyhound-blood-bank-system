@@ -18928,3 +18928,32 @@ The Final disposition card gave a count only. Every unit on that board is past i
 ### Next
 
 - Walk another home card with a count but no note, and check whether its oldest item's age belongs on it.
+
+## Iteration 613 — Second ABO/Rh rows say what is ordered (2026-11-09)
+
+### Capability matrix rescan (count-only home cards)
+
+Count-only cards: Second ABO/Rh, Expired on shelf, Unidentified patients, Tubes due for discard, Temperature excursions, HL7 errors, Unmapped interface values. Expired on shelf, temperature excursions, and HL7 errors already lead under Needs attention whenever above zero. Second ABO/Rh ranked highest: every row is a patient with reserved units blocked from routine red-cell issue, yet the board had no next step and no way to tell whether a second ABO/Rh was already on its way, so staff opened each chart to find out, or ordered a duplicate.
+
+### Design
+
+- `SecondAboWorkItemDto.AboOrderNumber`: the oldest open ABO/Rh order (active `OrderType.AboRh` line not verified or corrected, order not completed, cancelled, or discontinued). Optional order-line repository on `IssuingService`, as its other optional repositories.
+- Board column **ABO/Rh order**: "Ordered {number}" linking to the order on the chart; otherwise **Order ABO/Rh** (patient.write) opening the chart's add-order form with ABO/Rh ticked (`?panel=abo-rh`); otherwise "Not ordered". The board text says the second type must come from a separate draw; the visit, location, and specimen stay the user's. The app does not judge whether the ordered specimen is a separate draw: that is the existing second-determination rule when the result is recorded.
+- Home card note "{n} with no ABO/Rh ordered", ranked after In transit under Needs attention.
+
+### Verification
+
+- Integration: open, verified, cancelled, and other-test orders. Unit: note and ranking. Rendered: both row states and links.
+- Live (read-only; the order form was opened, not submitted): Kline, Nora (MRN0010, O+, 2 reserved) offers Order ABO/Rh; the link opens her Orders tab with "ABO/Rh Type (ABORH)" ticked; the home card reads "1 with no ABO/Rh ordered". No server errors.
+
+### Requirements
+
+- URS-BB-658, FRS-BB-775.
+
+### Tests
+
+- TEST-BB-727, TEST-BB-728, TEST-BB-729.
+
+### Next
+
+- Unidentified patients card: name the oldest emergency chart's age, since an unidentified chart left open is a mislabel risk.

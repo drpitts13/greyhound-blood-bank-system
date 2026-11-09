@@ -174,7 +174,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Second ABO/Rh due</h3></div>
-        <p class="muted">Patients with reserved units who still need a concordant historical or second-sample type before routine red-cell issue (AABB 5.14 / CAP TRM.40650).</p>
+        <p class="muted">Patients with reserved units who still need a concordant historical or second-sample type before routine red-cell issue (AABB 5.14 / CAP TRM.40650). The second type must come from a separately collected specimen. Each row says whether an ABO/Rh is already ordered, or orders one.</p>
         @if (_secondAboItems.Count == 0)
         {
             <div class="muted">No reserved units waiting on a second ABO/Rh.</div>
@@ -189,6 +189,7 @@
                         <th>MRN</th>
                         <th>Current type</th>
                         <th>Reserved</th>
+                        <th>ABO/Rh order</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -199,6 +200,20 @@
                             <td class="mono">@row.MedicalRecordNumber</td>
                             <td class="mono">@row.CurrentAboRh</td>
                             <td>@row.ReservedUnitCount</td>
+                            <td class="nowrap" data-second-abo-next="@row.PatientId">
+                                @if (row.AboOrderNumber is { } aboOrder)
+                                {
+                                    <span class="muted">Ordered</span> <a class="mono" href="@PatientChartUrls.Order(row.PatientId, aboOrder)">@aboOrder</a>
+                                }
+                                else if (Session.Has(PermissionCodes.PatientWrite))
+                                {
+                                    <a class="btn btn-primary btn-sm" href="@PatientChartUrls.OrderAboRh(row.PatientId)">Order ABO/Rh</a>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-amber">Not ordered</span>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>

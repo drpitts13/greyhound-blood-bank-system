@@ -663,3 +663,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-655 | On the Retype board, scanning a unit label opens that unit's retype entry. | P3 | FRS-BB-772 |
 | URS-BB-656 | Each overdue final-disposition row offers the next step for that unit (document, complete, return, receive) without looking it up again. | P3 | FRS-BB-773 |
 | URS-BB-657 | The final-disposition home card and board say how long the oldest unit, and each unit, has been past its window. | P3 | FRS-BB-774 |
+| URS-BB-658 | The second ABO/Rh board says for each patient whether an ABO/Rh is already ordered, or orders one, and the home card names patients with nothing ordered. | P2 | FRS-BB-775 |

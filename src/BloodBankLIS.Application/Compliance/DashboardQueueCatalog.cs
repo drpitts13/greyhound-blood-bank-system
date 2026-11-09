@@ -227,6 +227,13 @@ public static class DashboardQueueCatalog
         AttentionNote(outstanding.Count(o => o.TransfusionCompletionOverdue), "transfusion completion overdue", "transfusion completions overdue");
 
     /// <summary>
+    /// The Second ABO/Rh card note: patients whose reserved units wait on a second type with no ABO/Rh ordered, so
+    /// nothing is in motion to release them. Patients with one ordered stay in the count only.
+    /// </summary>
+    public static string? SecondAboNote(IEnumerable<SecondAboWorkItemDto> items) =>
+        AttentionNote(items.Count(i => i.AboOrderNumber is null), "with no ABO/Rh ordered", "with no ABO/Rh ordered");
+
+    /// <summary>
     /// The Final disposition card note: how long the oldest unit has been past its window. Every unit on the board is
     /// already overdue, so the note brings the card under Needs attention and says how far behind it is.
     /// </summary>

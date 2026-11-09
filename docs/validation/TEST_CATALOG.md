@@ -735,5 +735,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-724 | U | `FinalDispositionBoardTests.OverdueRow_OffersTheNextStep` | URS-BB-656 / FRS-BB-773 |
 | TEST-BB-725 | U | `DashboardQueueCatalogTests.DispositionNote_NamesTheOldestPastDue` | URS-BB-657 / FRS-BB-774 |
 | TEST-BB-726 | U | `DashboardQueueCatalogTests.DispositionCard_WithOverdueUnits_NeedsAttention` | URS-BB-657 / FRS-BB-774 |
+| TEST-BB-727 | U | `DashboardQueueCatalogTests.SecondAboNote_NamesPatientsWithNothingOrdered` | URS-BB-658 / FRS-BB-775 |
+| TEST-BB-728 | I | `Phase4IssuingTests.SecondAboWorklist_NamesAnOpenAboRhOrder` | URS-BB-658 / FRS-BB-775 |
+| TEST-BB-729 | U | `SecondAboBoardTests.Rows_SayWhetherAnAboRhIsOrdered` | URS-BB-658 / FRS-BB-775 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

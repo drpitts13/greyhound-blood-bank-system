@@ -299,7 +299,15 @@
                 return (card.Key, result.Value.Count, ReadyToIssueAttentionRule.CardNote(result.Value, DateTime.UtcNow));
             }
             case DashboardQueueCatalog.SecondAbo:
-                return await CountList(card.Key, Api.GetPendingSecondAboAsync());
+            {
+                var result = await Api.GetPendingSecondAboAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.SecondAboNote(result.Value));
+            }
             case DashboardQueueCatalog.Retrospective:
             {
                 var result = await Api.GetPendingRetrospectiveCrossmatchesAsync();

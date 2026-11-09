@@ -768,6 +768,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-655 / FRS-BB-772 | Retype board scan | `RetypeBoardScan`; `Inventory.razor` | TEST-BB-721 | U | |
 | URS-BB-656 / FRS-BB-773 | Final disposition rows carry the next step | `Issuing.razor` | TEST-BB-724 | U | |
 | URS-BB-657 / FRS-BB-774 | Final disposition card and rows say how far past due | `DashboardQueueCatalog.cs`, `Home.razor`, `Issuing.razor` | TEST-BB-725, TEST-BB-726, TEST-BB-724 | U | |
+| URS-BB-658 / FRS-BB-775 | Second ABO/Rh rows say what is ordered | `IssuingService.cs`, `Issuing.razor`, `PatientDetail.razor`, `DashboardQueueCatalog.cs`, `DashboardHomeLayout.cs` | TEST-BB-727, TEST-BB-728, TEST-BB-729 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

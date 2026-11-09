@@ -43,7 +43,10 @@ Then complete appearance, location, and who is taking the unit.
 
 **Release to stock together.** When reservations have ended, or a unit's crossmatch has expired on a specimen that has also expired (a new crossmatch needs a new specimen), Ready to issue says how many and offers **Review and release to stock**. Every offered unit is listed, ticked, with why it is offered; untick any the patient still needs, give one reason, and choose **Release N to stock**. Each unit is released and audited on its own; one that cannot be released is named and the others still go. A unit the ward has asked to issue is never offered. You need the allocate permission.
 
-## Several units for one patient
+## Second ABO/Rh
+
+**Second ABO/Rh** lists patients with reserved units whose type is not yet confirmed by a second concordant ABO/Rh (from history or a separately collected specimen), so routine red-cell issue stays blocked. Each row says what is under way. **Ordered** names an open ABO/Rh order (not yet verified) and links to it on the chart. **Order ABO/Rh** opens the chart's add-order form with ABO/Rh ticked. You choose the visit, the location, and the specimen, which must come from a separate draw. Without permission to add orders the row reads **Not ordered**. On the home screen the card names patients with no ABO/Rh ordered, which puts it under Needs attention after In transit.
+
 
 After a unit is issued, the form keeps the patient, the two identifiers, the destination, who it was issued to, and the cooler. It clears the unit, its label scan, the appearance, and the P-tag, because those belong to one unit. **This patient's units** lists what has gone out in this run and offers **Issue next** for each other reserved unit of the patient that is ready for routine issue, oldest reservation first. Issue next only selects the unit: scan its label, record its appearance, and issue it as usual. Every unit still goes through the issue gate. Units that need attention first, such as a crossmatch or a second ABO/Rh, are counted but not offered; open them from Ready to issue. Choosing another patient starts a new list.
 

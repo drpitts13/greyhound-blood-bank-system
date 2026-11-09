@@ -37,9 +37,12 @@ public static class DashboardHome
     /// </summary>
     private static readonly string[] UrgentWhenNonZero = [TemperatureExcursions, Reactions, Handoff, InstrumentFailures, Hl7Errors, ExpiredOnShelf];
 
-    /// <summary>Most urgent first: storage safety, patient harm, then emergency follow-up and lost units.</summary>
+    /// <summary>
+    /// Most urgent first: storage safety, patient harm, then emergency follow-up and lost units, then reserved units
+    /// blocked from routine issue with no second ABO/Rh ordered.
+    /// </summary>
     private static readonly string[] UrgencyOrder =
-        [TemperatureExcursions, Reactions, Retrospective, InTransit, ReagentQc, InstrumentFailures, Hl7Errors, Handoff, Deviations, ExpiredOnShelf, LowStock, NearExpiry, Disposition, Supervisor];
+        [TemperatureExcursions, Reactions, Retrospective, InTransit, SecondAbo, ReagentQc, InstrumentFailures, Hl7Errors, Handoff, Deviations, ExpiredOnShelf, LowStock, NearExpiry, Disposition, Supervisor];
 
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {

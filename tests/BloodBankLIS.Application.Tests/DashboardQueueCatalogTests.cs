@@ -371,6 +371,30 @@ public class DashboardQueueCatalogTests
         Assert.Equal("1 lot to replace", DashboardQueueCatalog.ReagentQcNote([Work(ReagentQcWorklistRule.Replace)]));
     }
 
+    // TEST-BB-727: the Second ABO/Rh card names patients with no ABO/Rh ordered and leads under Needs attention after
+    // In transit; patients whose ABO/Rh is already ordered stay in the count only.
+    [Fact]
+    public void SecondAboNote_NamesPatientsWithNothingOrdered()
+    {
+        SecondAboWorkItemDto Item(string? order) => new(1, "MRN1", "Demo, Pat", "O Pos", 2, "reason", order);
+
+        Assert.Null(DashboardQueueCatalog.SecondAboNote([]));
+        Assert.Null(DashboardQueueCatalog.SecondAboNote([Item("ORD-9")]));
+        Assert.Equal("1 with no ABO/Rh ordered", DashboardQueueCatalog.SecondAboNote([Item("ORD-9"), Item(null)]));
+        Assert.Equal("2 with no ABO/Rh ordered", DashboardQueueCatalog.SecondAboNote([Item(null), Item(null)]));
+
+        var cards = DashboardQueueCatalog.Select(_ => true);
+        DashboardCardState State(string key, string? note) => new(cards.Single(c => c.Key == key), 1, note);
+        var layout = DashboardHome.Arrange(
+        [
+            State(DashboardQueueCatalog.SecondAbo, DashboardQueueCatalog.SecondAboNote([Item(null)])),
+            State(DashboardQueueCatalog.InTransit, "1 past the arrival window"),
+            State(DashboardQueueCatalog.ReagentQc, "1 overdue")
+        ], WorkFocus.Bench);
+        Assert.Equal([DashboardQueueCatalog.InTransit, DashboardQueueCatalog.SecondAbo, DashboardQueueCatalog.ReagentQc],
+            layout.Attention.Select(c => c.Card.Key));
+    }
+
     // TEST-BB-725: the Final disposition card names how far behind its oldest unit is, and an empty board has no note.
     [Fact]
     public void DispositionNote_NamesTheOldestPastDue()

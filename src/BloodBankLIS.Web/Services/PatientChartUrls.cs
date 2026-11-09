@@ -15,4 +15,9 @@ public static class PatientChartUrls
 
     public static string VisitOrders(long patientId, long visitId) =>
         $"/patients/{patientId}?tab=orders&visit={visitId}";
+
+    public const string AboRhTestCode = "ABORH";
+
+    /// <summary>The chart's add-order form with ABO/Rh ticked (Second ABO/Rh due: a separate draw for the second type).</summary>
+    public static string OrderAboRh(long patientId) => $"/patients/{patientId}?panel=abo-rh";
 }

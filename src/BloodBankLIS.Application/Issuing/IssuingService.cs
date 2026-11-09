@@ -41,6 +41,7 @@ public sealed class IssuingService
     private readonly IRepository<ProductAttribute> _productAttributes;
     private readonly IRepository<ProductAttributeAssignment> _productAttributeAssignments;
     private readonly IRepository<Order> _orders;
+    private readonly IRepository<OrderLine>? _orderLines;
     private readonly IRepository<User> _users;
     private readonly IRepository<InventoryLocation> _locations;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
@@ -115,8 +116,10 @@ public sealed class IssuingService
         IRepository<CompatibilityRule>? compatibilityRules = null,
         IRepository<BloodComponentSpecialTest>? unitSpecialTests = null,
         IProductDispensePublisher? dispensePublisher = null,
-        IRepository<Encounter>? encounters = null)
+        IRepository<Encounter>? encounters = null,
+        IRepository<OrderLine>? orderLines = null)
     {
+        _orderLines = orderLines;
         _encounters = encounters;
         _dispensePublisher = dispensePublisher;
         _inventory = inventory;
@@ -789,6 +792,7 @@ public sealed class IssuingService
         var history = await _bloodTypes.ListAsync(h => patientIds.Contains(h.PatientId), ct);
         var historyByPatient = history.GroupBy(h => h.PatientId).ToDictionary(g => g.Key, g => g.ToList());
         var reservedByPatient = reserved.GroupBy(a => a.PatientId).ToDictionary(g => g.Key, g => g.Count());
+        var aboOrders = await OpenAboRhOrdersAsync(patientIds, ct);
 
         var items = new List<SecondAboWorkItemDto>();
         foreach (var patient in patients.OrderBy(p => p.LastName).ThenBy(p => p.FirstName))
@@ -808,10 +812,44 @@ public sealed class IssuingService
                 $"{patient.LastName}, {patient.FirstName}",
                 current.BloodType.ToString(),
                 reservedByPatient.GetValueOrDefault(patient.Id),
-                "Second concordant ABO/Rh is required before non-emergency red-cell issue."));
+                "Second concordant ABO/Rh is required before non-emergency red-cell issue.",
+                aboOrders.GetValueOrDefault(patient.Id)));
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// The oldest open ABO/Rh order per patient: an active ABO/Rh line not yet verified (or retracted and awaiting a
+    /// new result) on an order that is not completed, cancelled, or discontinued.
+    /// </summary>
+    private async Task<Dictionary<long, string>> OpenAboRhOrdersAsync(List<long> patientIds, CancellationToken ct)
+    {
+        if (_orderLines is null)
+        {
+            return [];
+        }
+
+        var orders = await _orders.ListAsync(o => patientIds.Contains(o.PatientId)
+            && o.Status != OrderStatus.Completed
+            && o.Status != OrderStatus.Cancelled
+            && o.Status != OrderStatus.Discontinued, ct);
+        if (orders.Count == 0)
+        {
+            return [];
+        }
+
+        var orderIds = orders.Select(o => o.Id).ToList();
+        var lines = await _orderLines.ListAsync(l => orderIds.Contains(l.OrderId)
+            && l.IsActive
+            && l.OrderType == OrderType.AboRh
+            && l.ResultStatus != ResultStatus.Verified
+            && l.ResultStatus != ResultStatus.Corrected, ct);
+        var withLine = lines.Select(l => l.OrderId).ToHashSet();
+        return orders
+            .Where(o => withLine.Contains(o.Id))
+            .GroupBy(o => o.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(o => o.OrderedUtc).First().OrderNumber);
     }
 
     /// <summary>

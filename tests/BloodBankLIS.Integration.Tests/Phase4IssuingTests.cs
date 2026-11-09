@@ -100,6 +100,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             compatibilityRules: new EfRepository<CompatibilityRule>(c),
             unitSpecialTests: new EfRepository<BloodComponentSpecialTest>(c),
             dispensePublisher: dispense,
+            orderLines: new EfRepository<OrderLine>(c),
             electronicCrossmatch: new ElectronicCrossmatchEligibilityService(
                 new EfRepository<Patient>(c),
                 new EfRepository<PatientBloodTypeHistory>(c),
@@ -3619,6 +3620,61 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var items = await Issuing(c).ListPendingSecondAboAsync();
         Assert.Contains(items, i => i.PatientId == missing.PatientId);
         Assert.DoesNotContain(items, i => i.PatientId == ready.PatientId);
+    }
+
+    // TEST-BB-728: the Second ABO/Rh board names an open ABO/Rh order (line not yet verified, order not closed); a
+    // verified line, a cancelled order, or another test leaves the patient with nothing ordered.
+    [Fact]
+    public async Task SecondAboWorklist_NamesAnOpenAboRhOrder()
+    {
+        var open = await SeedAsync("WL-ABO-OPEN", includeHistoricalAbo: false);
+        var verified = await SeedAsync("WL-ABO-VER", includeHistoricalAbo: false);
+        var cancelled = await SeedAsync("WL-ABO-CANC", includeHistoricalAbo: false);
+        var other = await SeedAsync("WL-ABO-OTH", includeHistoricalAbo: false);
+        foreach (var s in new[] { open, verified, cancelled, other })
+        {
+            await AllocateAsync(s);
+        }
+
+        var now = _factory.Clock.UtcNow;
+        await using (var c = _factory.Create())
+        {
+            var location = new OrderingLocation { Code = "LOC-WL-ABO", Name = "ED", IsActive = true };
+            c.OrderingLocations.Add(location);
+            await c.SaveChangesAsync();
+            async Task OrderAsync(Scenario s, string number, OrderStatus status, OrderType lineType, ResultStatus? lineResult)
+            {
+                var encounter = new Encounter { PatientId = s.PatientId, VisitNumber = $"VIS-{number}", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddDays(-1) };
+                c.Encounters.Add(encounter);
+                await c.SaveChangesAsync();
+                var order = new Order
+                {
+                    OrderNumber = number, PatientId = s.PatientId, EncounterId = encounter.Id, OrderingLocationId = location.Id,
+                    OrderCategory = OrderCategory.Test, OrderName = "ABO/Rh", OrderType = OrderType.AboRh, Priority = OrderPriority.Routine,
+                    Status = status, Source = OrderSource.Manual, OrderedUtc = now.AddHours(-1)
+                };
+                c.Orders.Add(order);
+                await c.SaveChangesAsync();
+                c.Set<OrderLine>().Add(new OrderLine
+                {
+                    OrderId = order.Id, LineNumber = 1, LineName = "ABO/Rh", TestCode = lineType == OrderType.AboRh ? "ABORH" : "ABSC",
+                    OrderType = lineType, ResultStatus = lineResult
+                });
+                await c.SaveChangesAsync();
+            }
+
+            await OrderAsync(open, "ORD-WL-OPEN", OrderStatus.Received, OrderType.AboRh, ResultStatus.Entered);
+            await OrderAsync(verified, "ORD-WL-VER", OrderStatus.InProcess, OrderType.AboRh, ResultStatus.Verified);
+            await OrderAsync(cancelled, "ORD-WL-CANC", OrderStatus.Cancelled, OrderType.AboRh, null);
+            await OrderAsync(other, "ORD-WL-OTH", OrderStatus.New, OrderType.AntibodyScreen, null);
+        }
+
+        await using var read = _factory.Create();
+        var items = await Issuing(read).ListPendingSecondAboAsync();
+        Assert.Equal("ORD-WL-OPEN", items.Single(i => i.PatientId == open.PatientId).AboOrderNumber);
+        Assert.Null(items.Single(i => i.PatientId == verified.PatientId).AboOrderNumber);
+        Assert.Null(items.Single(i => i.PatientId == cancelled.PatientId).AboOrderNumber);
+        Assert.Null(items.Single(i => i.PatientId == other.PatientId).AboOrderNumber);
     }
 
     // TEST-BB-652: a reserved unit carries the needed-by time of the open order it is reserved for, marked passed or needed

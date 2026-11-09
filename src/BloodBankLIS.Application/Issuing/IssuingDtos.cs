@@ -375,7 +375,10 @@ public sealed record SecondAboWorkItemDto(
     string DisplayName,
     string CurrentAboRh,
     int ReservedUnitCount,
-    string Reason);
+    string Reason,
+    // An open ABO/Rh order for the patient (not yet verified), so the board says it is on its way instead of
+    // asking for another. Null: nothing ordered yet, the next step is to order one from a separate draw.
+    string? AboOrderNumber = null);
 
 public sealed record RetrospectiveCrossmatchWorkItemDto(
     long IssueId,

@@ -912,6 +912,16 @@ else
             _panelFromQueryApplied = true;
             await OpenAddOrderWithAccessionAsync();
         }
+
+        // From Second ABO/Rh due: the add-order form with ABO/Rh ticked. The visit, location, and specimen stay the
+        // user's; the board tells them it must come from a separate draw.
+        if (!_panelFromQueryApplied
+            && string.Equals(PanelQuery, "abo-rh", StringComparison.OrdinalIgnoreCase)
+            && Session.Has(PermissionCodes.PatientWrite))
+        {
+            _panelFromQueryApplied = true;
+            await OpenAddOrderForAboRhAsync();
+        }
     }
 
     private async Task LoadAsync()
@@ -1746,6 +1756,20 @@ else
         {
             _newOrderAccessionNow = true;
             OnNewOrderAccessionNowChanged();
+        }
+    }
+
+    private async Task OpenAddOrderForAboRhAsync()
+    {
+        await SelectTab("orders");
+        if (!_showAddOrder)
+        {
+            await ToggleAddOrder();
+        }
+
+        if (_testDefs.FirstOrDefault(t => t.Code.Equals(PatientChartUrls.AboRhTestCode, StringComparison.OrdinalIgnoreCase)) is { } abo)
+        {
+            _newOrderTestCodes.Add(abo.Code);
         }
     }
 
