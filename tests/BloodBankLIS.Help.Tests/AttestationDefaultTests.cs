@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace BloodBankLIS.Help.Tests;
 
@@ -26,6 +26,17 @@ public partial class AttestationDefaultTests
         var problems = Scan(PlainAuthorizedByInput(), skip: "AuthorizerField.razor");
 
         Assert.True(problems.Count == 0, "Use <AuthorizerField> for Authorized by:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
+    // TEST-BB-695: a reaction reading never starts at a grade (the first choice, "0"): a form saved untouched would
+    // record a negative nobody read (Cycles 590, 592).
+    [Fact]
+    public void Readings_do_not_start_at_a_grade()
+    {
+        var problems = Scan(ReadingFromFirstGrade(), skip: null);
+
+        Assert.True(problems.Count == 0,
+            "A reaction reading starts at a grade; start it blank:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
 
     [Fact]
@@ -89,6 +100,9 @@ public partial class AttestationDefaultTests
     }
 
     // Assignments, fallbacks, or initializers that put Session.UserName into an *AuthorizedBy field.
+    [GeneratedRegex(@"(Grade)?Choices\.FirstOrDefault\(\)")]
+    private static partial Regex ReadingFromFirstGrade();
+
     [GeneratedRegex(@"[Aa]uthorizedBy\w*\s*(?:=|\?\?)[^;\n]*Session\.UserName|IsNullOrWhiteSpace\(\s*_?\w*[Aa]uthorizedBy\w*\s*\)\s*\?\s*Session\.UserName")]
     private static partial Regex AuthorizerFromSession();
 

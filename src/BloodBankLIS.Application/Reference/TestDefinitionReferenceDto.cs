@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Admin;
+﻿using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -48,7 +48,9 @@ public sealed record ResolvedPanelSubtestDto(
     IReadOnlyList<SubtestChoiceDto> Choices,
     bool Required,
     int SortOrder,
-    IReadOnlyList<ResolvedPanelPhaseDto>? Phases = null);
+    IReadOnlyList<ResolvedPanelPhaseDto>? Phases = null,
+    // False for a check-cells reading entered as its own subtest: the suggestion does not count it.
+    bool CountsInInterpretation = true);
 
 public sealed record SubtestListItemDto(string Code, string Name, SubtestResultType ResultType);
 

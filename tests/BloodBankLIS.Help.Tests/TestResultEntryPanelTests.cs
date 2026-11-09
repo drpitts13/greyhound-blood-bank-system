@@ -86,4 +86,27 @@ public class TestResultEntryPanelTests : BunitContext
         Assert.True(string.IsNullOrEmpty(result.GetAttribute("value")));
         Assert.Equal("— Select —", result.QuerySelector("option")!.TextContent);
     }
+
+    // TEST-BB-692: the interpreted ABO and Rh(D) start unchosen (before: O / Positive); with every reading entered and
+    // no type chosen, the save is refused.
+    [Fact]
+    public void AboRhInterpretation_StartsUnchosen_AndIsRequired()
+    {
+        var panel = RenderAboRh();
+        foreach (var label in new[] { "Interpreted ABO", "Interpreted Rh(D)" })
+        {
+            var select = panel.FindAll("label").First(l => l.TextContent == label).ParentElement!.QuerySelector("select")!;
+            Assert.True(string.IsNullOrEmpty(select.GetAttribute("value")));
+            Assert.Equal("— Select —", select.QuerySelector("option")!.TextContent);
+        }
+
+        var readings = panel.FindAll("tbody select");
+        readings[0].Change("+/-");
+        panel.FindAll("tbody select")[1].Change("+/-");
+        panel.FindAll("tbody select")[2].Change("+/-");
+        panel.FindAll("button").First(b => b.TextContent.Trim() == "Save result").Click();
+        panel.FindAll("button").First(b => b.TextContent.Trim() == "Save incomplete").Click();
+
+        panel.WaitForAssertion(() => Assert.Contains("Choose the interpreted ABO and Rh(D).", panel.Markup));
+    }
 }

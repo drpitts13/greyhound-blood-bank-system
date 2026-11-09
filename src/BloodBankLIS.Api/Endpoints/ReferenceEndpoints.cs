@@ -1,4 +1,4 @@
-using BloodBankLIS.Api.Auth;
+﻿using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Reference;
@@ -302,7 +302,8 @@ public static class ReferenceEndpoints
                         .Select(p => new ResolvedPanelPhaseDto(
                             p.PhaseCode, p.Label, p.Required, p.IncludeInInterpretation,
                             p.IsCheckCell, p.ValidatesPhaseCode, p.SortOrder))
-                        .ToList())).ToList(),
+                        .ToList(),
+                    CrossmatchReactionRule.CountsInInterpretation(s.SubtestCode, phases))).ToList(),
                 interpretationOptions,
                 scopedBloodAttrs,
                 def.BloodAttributeScopeKind,

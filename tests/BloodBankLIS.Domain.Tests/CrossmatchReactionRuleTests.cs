@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Entities.Configuration;
+﻿using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -53,5 +53,14 @@ public class CrossmatchReactionRuleTests
 
         Assert.Null(CrossmatchReactionRule.Evaluate(CrossmatchResult.Incompatible, ["AHG 2+"]));
         Assert.Null(CrossmatchReactionRule.Evaluate(CrossmatchResult.Compatible, []));
+    }
+
+    // TEST-BB-694: a reading counts unless its code is a check-cell phase or a phase left out of interpretation.
+    [Fact]
+    public void CountsInInterpretation_LeavesOutCheckCells()
+    {
+        Assert.False(CrossmatchReactionRule.CountsInInterpretation("CC", Phases));
+        Assert.True(CrossmatchReactionRule.CountsInInterpretation("AHG", Phases));
+        Assert.True(CrossmatchReactionRule.CountsInInterpretation("ANTI-A", Phases));
     }
 }

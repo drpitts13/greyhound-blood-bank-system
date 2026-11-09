@@ -82,7 +82,7 @@ public static class ReactionInterpretationSuggestion
         var reactions = new Dictionary<string, ReactionPolarity?>(StringComparer.OrdinalIgnoreCase);
         foreach (var subtest in subtests)
         {
-            if (subtest.ResultType != SubtestResultType.GradedReaction)
+            if (subtest.ResultType != SubtestResultType.GradedReaction || !subtest.CountsInInterpretation)
             {
                 continue;
             }

@@ -120,6 +120,24 @@ public class ReactionInterpretationSuggestionTests
     public void SuggestAboRh_NoReadingsEntered_ReturnsNull() =>
         Assert.Null(ReactionInterpretationSuggestion.SuggestAboRh(AboRhOptions(), AboRhPanel(), Values()));
 
+    // TEST-BB-693: a check-cells reading entered as its own subtest is not counted, so a valid positive check cell
+    // never suggests Incompatible; a counted positive still does.
+    [Fact]
+    public void SuggestCrossmatch_IgnoresUncountedCheckCells()
+    {
+        var panel = new List<ResolvedPanelSubtestDto>
+        {
+            new("IS", "Immediate spin", SubtestResultType.GradedReaction, Grades, true, 1),
+            new("AHG", "AHG", SubtestResultType.GradedReaction, Grades, true, 2),
+            new("CC", "Check cells", SubtestResultType.GradedReaction, Grades, true, 3, CountsInInterpretation: false)
+        };
+
+        Assert.Equal(CrossmatchResult.Compatible,
+            ReactionInterpretationSuggestion.SuggestCrossmatch(panel, Values(("IS", "0"), ("AHG", "0"), ("CC", "2+"))));
+        Assert.Equal(CrossmatchResult.Incompatible,
+            ReactionInterpretationSuggestion.SuggestCrossmatch(panel, Values(("IS", "0"), ("AHG", "1+"), ("CC", "2+"))));
+    }
+
     private static IReadOnlyList<InterpretationOptionDto> AboRhOptions() =>
         InterpretationLogicDefinitions.DefaultAboRhLogic()
             .Select(r => new InterpretationOptionDto(r.InterpretationKey, r.Label, r.SubtestExpectations, r.MatchMode))

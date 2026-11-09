@@ -698,5 +698,11 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-687 | D | `CrossmatchReactionRuleTests.Evaluate_StopsCompatibleWithPositiveReactions` | URS-BB-641 / FRS-BB-758 |
 | TEST-BB-688 | I | `TestWorklistTests.XmSave_CompatibleWithPositiveReaction_IsRefused` | URS-BB-641 / FRS-BB-758 |
 | TEST-BB-689 | U | `TestResultEntryPanelTests.CrossmatchResult_StartsUnchosen` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-690 | U | `ProductRetypeEntryPanelTests.Retype_StartsUnchosen_NotFromTheLabel` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-691 | U | `ProductRetypeEntryPanelTests.Retype_WithReadingsOrTypeMissing_IsRefused` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-692 | U | `TestResultEntryPanelTests.AboRhInterpretation_StartsUnchosen_AndIsRequired` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-693 | A | `ReactionInterpretationSuggestionTests.SuggestCrossmatch_IgnoresUncountedCheckCells` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-694 | D | `CrossmatchReactionRuleTests.CountsInInterpretation_LeavesOutCheckCells` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-695 | U | `AttestationDefaultTests.Readings_do_not_start_at_a_grade` | URS-BB-642 / FRS-BB-759 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

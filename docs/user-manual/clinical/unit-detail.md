@@ -34,7 +34,7 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **History** is the status log. It is append-only. You cannot delete a prior status to tidy the story.
 
-**Retype** records the front type. A mismatch quarantines the unit. Do not release a mismatch from this tab. Release, if your medical director allows it at all, is a quarantine-release on the supervisor queue with the second verifier.
+**Retype** records the front type. The form starts with nothing chosen: the interpreted ABO and Rh(D) are not copied from the label you are confirming, and every reading is blank until you choose the reaction you read. Recording with a reading or the type missing is refused and names what is missing. A mismatch quarantines the unit. Do not release a mismatch from this tab. Release, if your medical director allows it at all, is a quarantine-release on the supervisor queue with the second verifier.
 
 ## Allocate
 

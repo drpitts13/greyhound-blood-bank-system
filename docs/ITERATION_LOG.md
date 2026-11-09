@@ -18369,3 +18369,31 @@ Walking antibody screen and crossmatch entry after Cycle 590: the screen's cells
 ### Next
 
 - The bench's crossmatch suggestion counts a performed check-cells reading as a reaction (suggests Incompatible); leave check cells out there too. ABO/Rh interpretation starts at O / Positive; consider starting unchosen.
+
+## Iteration 592 — No typing form assumes a type or a reaction (2026-11-09)
+
+### Capability matrix rescan (typing forms)
+
+Following Cycle 591's next steps, every ABO/Rh entry form was read. Bench entry started the interpretation at O / Positive. The chart's ABO/Rh panel started at O / Positive with every required reaction at the first grade ("0"), the same defect Cycle 590 fixed on the bench. The unit retype took its interpreted ABO/Rh from the unit's label and started every reading at "0": a retype saved untouched confirmed the label from nothing read, defeating the independent check. The bench suggestion counted a performed check-cells reading, suggesting Incompatible on a valid AHG check.
+
+### Design
+
+- All three forms start unchosen ("— Select —"), readings blank; saving names missing readings, then a missing type.
+- `ResolvedPanelSubtestDto.CountsInInterpretation`, set by the entry endpoint from the phase catalog, keeps check cells out of the suggestion (the Cycle 591 save check already did).
+- Source test: no reading defaults to the first grade. No clinical rule changed.
+
+### Verification
+
+- Rendered tests (bench ABO/Rh, retype), suggestion and domain tests; live: bench ABO/Rh and the unit retype form open unchosen (read-only; nothing saved).
+
+### Requirements
+
+- URS-BB-642, FRS-BB-759.
+
+### Tests
+
+- TEST-BB-690 to TEST-BB-695.
+
+### Next
+
+- Record blood type on the chart (documented outside type) and unit receipt at delivery still start at O / Positive; start them unchosen.

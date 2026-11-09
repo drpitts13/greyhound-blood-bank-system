@@ -1,4 +1,4 @@
-@page "/patients/{Id:long}"
+﻿@page "/patients/{Id:long}"
 @using BloodBankLIS.Application.Admin
 @using BloodBankLIS.Application.Immunohematology
 @using BloodBankLIS.Application.Issuing
@@ -729,8 +729,9 @@ else
     private List<ResolvedPanelSubtestDto> _panelSubtests = new();
     private Dictionary<string, string> _subtestValues = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, bool> _optionalSubtestPerformed = new(StringComparer.OrdinalIgnoreCase);
-    private AboGroup _resAbo = AboGroup.O;
-    private RhType _resRh = RhType.Positive;
+    // The chart's ABO/Rh panel starts unchosen, reactions blank: nothing is assumed (Cycle 592).
+    private AboGroup? _resAbo;
+    private RhType? _resRh;
     private string _resValue = string.Empty;
     private long? _correctId;
     private string _correctValue = string.Empty;
@@ -2871,7 +2872,7 @@ else
     {
         _subtestValues = _panelSubtests.ToDictionary(
             s => s.SubtestCode,
-            s => !s.Required ? "NT" : (s.Choices.FirstOrDefault()?.Code ?? "0"),
+            s => !s.Required ? "NT" : string.Empty,
             StringComparer.OrdinalIgnoreCase);
         _optionalSubtestPerformed = _panelSubtests
             .Where(s => !s.Required)
@@ -2894,9 +2895,23 @@ else
 
     private async Task EnterAboRhAsync(long specimenId)
     {
+        var missing = ReactionInterpretationSuggestion.MissingReadingsMessage(
+            ReactionInterpretationSuggestion.MissingReadings(_panelSubtests, _subtestValues));
+        if (missing is not null)
+        {
+            _resultFb = Feedback.Fail(missing);
+            return;
+        }
+
+        if (_resAbo is not AboGroup abo || _resRh is not RhType rh)
+        {
+            _resultFb = Feedback.Fail("Choose the interpreted ABO and Rh(D).");
+            return;
+        }
+
         _busy = true;
         var subtests = BuildAboRhSubtests();
-        var r = await Api.EnterAboRhAsync(new EnterAboRhRequest(specimenId, _resAbo, _resRh, subtests));
+        var r = await Api.EnterAboRhAsync(new EnterAboRhRequest(specimenId, abo, rh, subtests));
         _busy = false;
         _resultFb = r.Succeeded && r.Value is not null
             ? r.ToFeedback(ResultSourceEntryCopy.PanelEntered(r.Value.Source))
@@ -3310,8 +3325,8 @@ else
                     {
                     <p class="muted">@ResultSourceEntryCopy.PanelHint</p>
                     <div class="form-row">
-                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
-                        <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh">@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }</select></div>
+                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
+                        <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh"><option value="">— Select —</option>@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }</select></div>
                     </div>
                     <div class="table-scroll">
                     <table class="bb" style="margin-top:.5rem;">
@@ -3325,7 +3340,7 @@ else
                                     <td>@st.Label</td>
                                     <td>
                                         <select value="@GetSubtestValue(st.SubtestCode)" @onchange="e => SetSubtestValue(st.SubtestCode, e)" disabled="@(!performed)">
-                                            @if (optional) { <option value="NT">NT</option> }
+                                            @if (optional) { <option value="NT">NT</option> } else { <option value="">—</option> }
                                             @foreach (var c in st.Choices)
                                             {
                                                 <option value="@c.Code">@c.Label</option>

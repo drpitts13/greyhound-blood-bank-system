@@ -93,11 +93,13 @@
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Interpreted ABO</label>
                         <select @bind="_abo">
+                            <option value="">— Select —</option>
                             @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }
                         </select>
                     </div>
                     <div class="field"><label>Interpreted Rh(D)</label>
                         <select @bind="_rh">
+                            <option value="">— Select —</option>
                             @foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }
                         </select>
                     </div>
@@ -502,8 +504,9 @@
     // Blood-attribute codes are case-sensitive (Rh C vs c, E vs e).
     private Dictionary<string, AntigenResult> _bloodAttrResults = new(StringComparer.Ordinal);
     private Dictionary<string, bool> _optionalSubtestPerformed = new(StringComparer.OrdinalIgnoreCase);
-    private AboGroup _abo = AboGroup.O;
-    private RhType _rh = RhType.Positive;
+    // Start unchosen: filled in from the reactions or chosen, never assumed O / Positive.
+    private AboGroup? _abo;
+    private RhType? _rh;
     private string _value = string.Empty;
     // Titer tests: the grade read at each dilution (1:n).
     private Dictionary<int, string> _titerGrades = new();
@@ -582,6 +585,8 @@
         ResetSubtestValues();
         ResetBloodAttrResults();
         _xmResult = null;
+        _abo = null;
+        _rh = null;
         _unitNumber = string.Empty;
         _reservedUnits = new();
         PrefillFromCurrent();
@@ -980,6 +985,12 @@
             _fb = Feedback.Fail(missingReadings);
             return;
         }
+        if (_definition?.ResultValueType == ResultValueType.AboRh && (_abo is null || _rh is null))
+        {
+            _fb = Feedback.Fail("Choose the interpreted ABO and Rh(D).");
+            return;
+        }
+
         if (IsCrossmatchType && _xmResult is null)
         {
             _fb = Feedback.Fail("Choose the crossmatch result: Compatible or Incompatible.");

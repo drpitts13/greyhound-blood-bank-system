@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Entities.Configuration;
+﻿using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -51,8 +51,7 @@ public static class CrossmatchReactionRule
             else
             {
                 subtestCode = key;
-                // A check-cell reading entered as its own subtest (the crossmatch's "Check cells") is not counted either.
-                if (phasesByCode.TryGetValue(key, out var asPhase) && (asPhase.IsCheckCell || !asPhase.IncludeInInterpretation))
+                if (!CountsInInterpretation(key, phasesByCode))
                 {
                     continue;
                 }
@@ -78,6 +77,13 @@ public static class CrossmatchReactionRule
 
         return positive;
     }
+
+    /// <summary>
+    /// Whether a reading entered as its own subtest counts toward interpretation: not when its code is a check-cell
+    /// phase, or a phase left out of interpretation (the crossmatch's "Check cells").
+    /// </summary>
+    public static bool CountsInInterpretation(string subtestCode, IReadOnlyDictionary<string, PhaseDefinition> phasesByCode) =>
+        !phasesByCode.TryGetValue(subtestCode, out var asPhase) || (!asPhase.IsCheckCell && asPhase.IncludeInInterpretation);
 
     /// <summary>The hard stop for a Compatible result with positive reactions, or null when there is none to stop.</summary>
     public static RuleResult? Evaluate(CrossmatchResult result, IReadOnlyList<string> positiveReactions) =>
