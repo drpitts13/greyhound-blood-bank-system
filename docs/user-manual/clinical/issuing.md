@@ -103,7 +103,7 @@ On **In transit**, each unit in a cooler shows **Cooler checked**, **Cooler diff
 
 ## Final disposition
 
-**Final disposition** lists issued units that are past the facility window and still have no transfusion document, return, or discard. The window ships at 24 hours. Change it in Facility Policy if your procedure uses another operational interval. The board is a warning. It does not stop you from issuing another unit, documenting the transfusion, returning the unit, or discarding it. Each row has the next step, as on Issued units: **Document transfusion** (or **Complete** once started), **Return** while the transfusion has not started, or **Receive** when the ward has not received it; each opens that desk on the unit.
+**Final disposition** lists issued units that are past the facility window and still have no transfusion document, return, or discard. The window ships at 24 hours. Change it in Facility Policy if your procedure uses another operational interval. The board is a warning. It does not stop you from issuing another unit, documenting the transfusion, returning the unit, or discarding it. Each row has the next step, as on Issued units: **Document transfusion** (or **Complete** once started), **Return** while the transfusion has not started, or **Receive** when the ward has not received it; each opens that desk on the unit. The Due column also says how long the unit has been past its window (hours under two days, then days).
 
 > Warning. A unit on this board still needs a final fate. The list does not change the unit.
 

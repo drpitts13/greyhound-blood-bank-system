@@ -227,6 +227,16 @@ public static class DashboardQueueCatalog
         AttentionNote(outstanding.Count(o => o.TransfusionCompletionOverdue), "transfusion completion overdue", "transfusion completions overdue");
 
     /// <summary>
+    /// The Final disposition card note: how long the oldest unit has been past its window. Every unit on the board is
+    /// already overdue, so the note brings the card under Needs attention and says how far behind it is.
+    /// </summary>
+    public static string? DispositionNote(IEnumerable<OverdueDispositionWorkItemDto> overdue, DateTime nowUtc)
+    {
+        var oldest = overdue.Select(o => (DateTime?)o.DueUtc).Min();
+        return oldest is null ? null : $"oldest {AlertInboxView.OpenFor(oldest.Value, nowUtc)} past due";
+    }
+
+    /// <summary>
     /// The Supervisor queue card note: results that must be verified before their specimen expires, missing or damaged
     /// units, and overrides waiting for a second-person review. Antibody ID reviews and quarantine releases stay in the
     /// count only; they have no deadline of their own here.

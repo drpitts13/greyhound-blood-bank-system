@@ -370,4 +370,32 @@ public class DashboardQueueCatalogTests
             Work(ReagentQcWorklistRule.Overdue), Work(ReagentQcWorklistRule.Expired), Work(ReagentQcWorklistRule.Expired)]));
         Assert.Equal("1 lot to replace", DashboardQueueCatalog.ReagentQcNote([Work(ReagentQcWorklistRule.Replace)]));
     }
+
+    // TEST-BB-725: the Final disposition card names how far behind its oldest unit is, and an empty board has no note.
+    [Fact]
+    public void DispositionNote_NamesTheOldestPastDue()
+    {
+        var now = new DateTime(2026, 11, 9, 12, 0, 0, DateTimeKind.Utc);
+        OverdueDispositionWorkItemDto Due(DateTime due) => new(1, 2, "W0001230009205", "Demo, Pat (MRN1)", due.AddDays(-1), due);
+
+        Assert.Null(DashboardQueueCatalog.DispositionNote([], now));
+        Assert.Equal("oldest 3 d past due", DashboardQueueCatalog.DispositionNote([Due(now.AddHours(-5)), Due(now.AddDays(-3)), Due(now.AddHours(-30))], now));
+        Assert.Equal("oldest 5 h past due", DashboardQueueCatalog.DispositionNote([Due(now.AddHours(-5))], now));
+    }
+
+    // TEST-BB-726: every unit on the board is overdue, so a non-empty Final disposition card leads under Needs attention.
+    [Fact]
+    public void DispositionCard_WithOverdueUnits_NeedsAttention()
+    {
+        var card = DashboardQueueCatalog.Select(_ => true).Single(c => c.Key == DashboardQueueCatalog.Disposition);
+        var now = DateTime.UtcNow;
+        var note = DashboardQueueCatalog.DispositionNote([new(1, 2, "W1", "P", now.AddDays(-2), now.AddDays(-1))], now);
+
+        var busy = DashboardHome.Arrange([new DashboardCardState(card, 1, note)], WorkFocus.IssueDesk);
+        Assert.Single(busy.Attention);
+
+        var clear = DashboardHome.Arrange([new DashboardCardState(card, 0, DashboardQueueCatalog.DispositionNote([], now))], WorkFocus.IssueDesk);
+        Assert.Empty(clear.Attention);
+        Assert.Single(clear.Clear);
+    }
 }

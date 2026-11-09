@@ -35,6 +35,8 @@ public class FinalDispositionBoardTests : BunitContext
 
         var actions = page.Find("[data-disposition-row='41']").QuerySelectorAll("button").Select(b => b.TextContent.Trim()).ToList();
         Assert.Equal(["Return", "Document transfusion"], actions);
+        // The row says how far past its window the unit is, not only when it was due (Cycle 612).
+        Assert.Equal("2 d past due", page.Find("[data-disposition-row='41'] [data-past-due]").TextContent.Trim());
 
         page.Find("[data-disposition-row='41']").QuerySelectorAll("button").Last().Click();
         page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-tx-reaction]")));

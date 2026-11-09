@@ -18899,3 +18899,32 @@ Store tubes is already scan-first (location, tube, and discard fields each move 
 ### Next
 
 - The final disposition card on the home screen gives no age; consider naming the oldest.
+
+## Iteration 612 — The Final disposition card says how far behind it is (2026-11-09)
+
+### Capability matrix rescan (home cards)
+
+The Final disposition card gave a count only. Every unit on that board is past its window, yet with no note the card sat among the ordinary queues instead of under Needs attention, and nothing said whether the oldest was an hour or a week overdue. The board's rows showed the due time, which the reader had to subtract from now.
+
+### Design
+
+- `DashboardQueueCatalog.DispositionNote`: "oldest {age} past due" from the earliest due time, using the alert inbox's age text (minutes, hours under two days, then days). The note places a non-empty card under Needs attention, ranked where it already was (after near expiry, before the supervisor queue). No note when empty.
+- Each board row shows "{age} past due" beside the due time.
+- No server change; the board's list already carries the due time.
+
+### Verification
+
+- Unit tests for the note (oldest chosen, hours and days, empty) and for the card's placement; the rendered board test checks the row's age.
+- Live (read-only): the home card reads "Final disposition 9 · oldest 2 d past due" under Needs attention; the nine board rows each read "2 d past due". No server errors.
+
+### Requirements
+
+- URS-BB-657, FRS-BB-774.
+
+### Tests
+
+- TEST-BB-725, TEST-BB-726 (TEST-BB-724 extended).
+
+### Next
+
+- Walk another home card with a count but no note, and check whether its oldest item's age belongs on it.

@@ -733,5 +733,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-722 | I | `InventoryServiceTests.TransferByScan_MovesTheScannedUnit_AndRefusesWhatItCannotMove` (a typed 14-character number finds that unit, not a neighbour) | URS-BB-655 / FRS-BB-772 |
 | TEST-BB-723 | U | `RetypeBoardFlowTests.AfterARetypeIsRecorded_TheScanFieldTakesTheFocus` | URS-BB-655 / FRS-BB-772 |
 | TEST-BB-724 | U | `FinalDispositionBoardTests.OverdueRow_OffersTheNextStep` | URS-BB-656 / FRS-BB-773 |
+| TEST-BB-725 | U | `DashboardQueueCatalogTests.DispositionNote_NamesTheOldestPastDue` | URS-BB-657 / FRS-BB-774 |
+| TEST-BB-726 | U | `DashboardQueueCatalogTests.DispositionCard_WithOverdueUnits_NeedsAttention` | URS-BB-657 / FRS-BB-774 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

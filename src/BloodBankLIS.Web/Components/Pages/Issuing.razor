@@ -753,7 +753,7 @@
                             <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
                             <td>@row.PatientLabel</td>
                             <td>@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@row.DueUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.DueUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") <span class="muted" data-past-due>@AlertInboxView.OpenFor(row.DueUtc, DateTime.UtcNow) past due</span></td>
                             <td class="right nowrap">
                                 @if (issued is not null)
                                 {

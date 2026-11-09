@@ -334,7 +334,15 @@
                 return (card.Key, result.Value.Count, DashboardQueueCatalog.OutstandingNote(result.Value));
             }
             case DashboardQueueCatalog.Disposition:
-                return await CountList(card.Key, Api.GetOverdueDispositionAsync());
+            {
+                var result = await Api.GetOverdueDispositionAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.DispositionNote(result.Value, DateTime.UtcNow));
+            }
             case DashboardQueueCatalog.ToVerify:
             {
                 var result = await PendingTestsOnce();
