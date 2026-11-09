@@ -711,5 +711,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-700 | I | `Phase4IssuingTests.ElectronicCrossmatch_WithoutScreenOnTheSpecimen_IsBlocked` (eXM fixtures in nine tests now seed the current screen, `ExmScreenSeed`) | URS-BB-645 / FRS-BB-762 |
 | TEST-BB-701 | I | `Phase4IssuingTests.Transfusion_WithoutReactionAnswer_IsRefused` | URS-BB-646 / FRS-BB-763 |
 | TEST-BB-702 | U | `AttestationDefaultTests.Reaction_questions_are_not_unticked_checkboxes` | URS-BB-646 / FRS-BB-763 |
+| TEST-BB-703 | I | `Phase4IssuingTests.Transfusion_WithoutDisposition_IsRefused` | URS-BB-647 / FRS-BB-764 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

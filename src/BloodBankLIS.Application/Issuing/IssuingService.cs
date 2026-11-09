@@ -1485,6 +1485,9 @@ public sealed class IssuingService
     /// <summary>The refusal when a transfusion is finished without saying whether a reaction is suspected.</summary>
     public const string ReactionAnswerRequired = "Say whether a transfusion reaction is suspected (yes or no) before finishing the transfusion.";
 
+    /// <summary>The refusal when a transfusion is finished without saying how it ended.</summary>
+    public const string DispositionRequired = "Choose how the transfusion ended (completed, stopped, or wasted) before finishing it.";
+
     public async Task<EvaluationResult<TransfusionEvent>> DocumentTransfusionAsync(long issueId, DocumentTransfusionRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -1504,6 +1507,11 @@ public sealed class IssuingService
         if (request.ReactionSuspected is null)
         {
             return EvaluationResult<TransfusionEvent>.Fail(ReactionAnswerRequired);
+        }
+
+        if (request.FinalDisposition is not TransfusionDisposition disposition)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(DispositionRequired);
         }
 
         var issue = await _issues.GetByIdAsync(issueId, ct);
@@ -1563,7 +1571,7 @@ public sealed class IssuingService
             VolumeTransfused = request.VolumeTransfused,
             Transfusionist = request.Transfusionist,
             ReactionSuspected = request.ReactionSuspected.Value,
-            FinalDisposition = request.FinalDisposition,
+            FinalDisposition = disposition,
             DocumentedBy = _currentUser.UserName,
             SecondVerifier = request.SecondVerifier,
             Location = request.Location,
@@ -1580,19 +1588,19 @@ public sealed class IssuingService
         if (unit.Status == UnitStatus.Issued)
             AppendStatus(unit, UnitStatus.TransfusionStarted, "Transfusion started", now, nameof(TransfusionEvent), issue.Id);
 
-        var terminal = request.FinalDisposition == TransfusionDisposition.Stopped
+        var terminal = disposition == TransfusionDisposition.Stopped
             ? UnitStatus.TransfusionStopped
             : UnitStatus.Transfused;
 
         issue.Status = IssueStatus.Transfused;
-        AppendStatus(unit, terminal, $"Transfusion {request.FinalDisposition}", now, nameof(TransfusionEvent), issue.Id);
+        AppendStatus(unit, terminal, $"Transfusion {disposition}", now, nameof(TransfusionEvent), issue.Id);
 
         _audit.Record(
             AuditEventType.Transfusion,
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = terminal, request.FinalDisposition, request.ReactionSuspected },
+            newValue: new { Status = terminal, FinalDisposition = disposition, request.ReactionSuspected },
             reason: "Transfusion documented.");
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -1718,6 +1726,11 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Fail(ReactionAnswerRequired);
         }
 
+        if (request.FinalDisposition is not TransfusionDisposition disposition)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(DispositionRequired);
+        }
+
         var issue = await _issues.GetByIdAsync(issueId, ct);
         if (issue is null)
         {
@@ -1741,21 +1754,21 @@ public sealed class IssuingService
         var now = _clock.UtcNow;
         transfusion.StopUtc = stopUtc;
         transfusion.VolumeTransfused = request.VolumeTransfused;
-        transfusion.FinalDisposition = request.FinalDisposition;
+        transfusion.FinalDisposition = disposition;
         transfusion.ReactionSuspected = request.ReactionSuspected.Value;
         _transfusions.Update(transfusion);
 
-        var terminal = request.FinalDisposition == TransfusionDisposition.Stopped
+        var terminal = disposition == TransfusionDisposition.Stopped
             ? UnitStatus.TransfusionStopped
             : UnitStatus.Transfused;
         issue.Status = IssueStatus.Transfused;
-        AppendStatus(unit, terminal, $"Transfusion {request.FinalDisposition}", now, nameof(TransfusionEvent), issue.Id);
+        AppendStatus(unit, terminal, $"Transfusion {disposition}", now, nameof(TransfusionEvent), issue.Id);
         _audit.Record(
             AuditEventType.Transfusion,
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = UnitStatus.TransfusionStarted },
-            newValue: new { Status = terminal, request.FinalDisposition, request.ReactionSuspected, StopUtc = stopUtc, request.VolumeTransfused },
+            newValue: new { Status = terminal, FinalDisposition = disposition, request.ReactionSuspected, StopUtc = stopUtc, request.VolumeTransfused },
             reason: "Transfusion completed.");
         await _unitOfWork.SaveChangesAsync(ct);
 

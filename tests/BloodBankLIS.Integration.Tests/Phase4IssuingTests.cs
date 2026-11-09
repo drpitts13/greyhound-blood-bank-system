@@ -3283,6 +3283,33 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Issued, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    // TEST-BB-703: finishing a transfusion without saying how it ended is refused (documenting or completing), and
+    // nothing is recorded; Completed is never assumed.
+    [Fact]
+    public async Task Transfusion_WithoutDisposition_IsRefused()
+    {
+        var s = await SeedAsync("TX-NODISP");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var documented = await Issuing(ctx).DocumentTransfusionAsync(issueId, TxReq(s) with { FinalDisposition = null });
+        Assert.False(documented.Succeeded);
+        Assert.Equal(IssuingService.DispositionRequired, documented.Error);
+        var completed = await Issuing(ctx).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(null, ReactionSuspected: false));
+        Assert.False(completed.Succeeded);
+        Assert.Equal(IssuingService.DispositionRequired, completed.Error);
+        Assert.False(await ctx.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+        Assert.Equal(UnitStatus.Issued, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
     [Fact]
     public async Task Transfusion_ReactionSuspected_OpensInvestigation()
     {

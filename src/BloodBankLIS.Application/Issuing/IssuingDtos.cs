@@ -82,14 +82,15 @@ public sealed record StartTransfusionRequest(
 
 /// <summary>Completes a started transfusion: when it stopped, how much was given, and the outcome.</summary>
 public sealed record CompleteTransfusionRequest(
-    TransfusionDisposition FinalDisposition,
+    // Asked, like the reaction question: null (not chosen) is refused, never read as Completed.
+    TransfusionDisposition? FinalDisposition,
     DateTime? StopUtc = null,
     decimal? VolumeTransfused = null,
     // Asked at the end of every transfusion: null (not answered) is refused, never read as "no reaction".
     bool? ReactionSuspected = null);
 
 public sealed record DocumentTransfusionRequest(
-    TransfusionDisposition FinalDisposition,
+    TransfusionDisposition? FinalDisposition,
     DateTime? StartUtc = null,
     DateTime? StopUtc = null,
     decimal? VolumeTransfused = null,

@@ -18509,3 +18509,29 @@ Cycle 595's planned next step (show the eXM specimen on the issue desk) was alre
 ### Next
 
 - The final disposition still starts at Completed on the bedside form; consider asking it too. Return and ward-receipt forms: check for other preset answers.
+
+## Iteration 597 — How a transfusion ended is asked too (2026-11-09)
+
+### Capability matrix rescan (bedside and return forms)
+
+Cycle 596's next steps. Return: time out of storage is computed from the issue time (not attested), the inspections start unanswered (Cycle 296), and Available is offered only when those allow it (Cycle 332): no preset answer. Bedside: the disposition started at Completed, so a transfusion stopped early (for a reaction, say) was recorded as completed unless changed; the list also offered Returned, which the server always refuses.
+
+### Design
+
+- Request disposition nullable; refused when missing, before recording. Form: unanswered per unit, Returned not offered. No clinical rule changed.
+
+### Verification
+
+- Integration: documenting and completing without a disposition are refused, nothing recorded, unit still Issued. Live: the transfusion desk shows the disposition unanswered without Returned (read-only).
+
+### Requirements
+
+- URS-BB-647, FRS-BB-764.
+
+### Tests
+
+- TEST-BB-703.
+
+### Next
+
+- Ward receipt and issue forms: check for preset answers; then return to operations queues.

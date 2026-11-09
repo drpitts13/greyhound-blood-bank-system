@@ -1307,7 +1307,7 @@
             <div class="form-row">
                 <div class="field"><label>Unit number</label><input class="mono" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" placeholder="Type or scan, or Document from Issued units" data-enter-step autocomplete="off" /></div>
                 <div class="field"><label>Disposition</label>
-                    <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@Ui.EnumText(d)</option> }</select>
+                    <select @bind="_txDisposition" data-tx-disposition><option value="">— Answer when finishing —</option>@foreach (var d in Enum.GetValues<TransfusionDisposition>().Where(d => d != TransfusionDisposition.Returned)) { <option value="@d">@Ui.EnumText(d)</option> }</select>
                 </div>
                 <div class="field"><label>Volume transfused (mL)</label><input type="number" @bind="_txVolume" /></div>
                 <div class="field"><label>Transfusionist</label><input @bind="_txTransfusionist" /></div>
@@ -1539,7 +1539,8 @@
     private string? _txPtagNotice;
     private string? _txCrossmatchStatusNotice;
     private string? _txWardAppearance;
-    private TransfusionDisposition _txDisposition = TransfusionDisposition.Completed;
+    // How the transfusion ended is asked per unit, never assumed Completed (Cycle 597). Returned is the return workflow.
+    private TransfusionDisposition? _txDisposition;
     private decimal? _txVolume;
     private string? _txTransfusionist;
     private string? _txSecondVerifier;
@@ -1574,6 +1575,7 @@
         _txSecondVerifier = null;
         _txVolume = null;
         _txReaction = null;
+        _txDisposition = null;
     }
 
     private void NextBedsideUnit(OutstandingIssueWorkItemDto row)
@@ -2320,8 +2322,9 @@
     {
         _desk = "transfuse";
         _txIssueId = row.IssueId;
-        // A reaction answer belongs to one unit.
+        // The reaction answer and the disposition belong to one unit.
         _txReaction = null;
+        _txDisposition = null;
         _txStartedUtc = row.TransfusionStartedUtc;
         _txUnitLookup = row.UnitNumber ?? string.Empty;
         _txProductName = row.ProductName;
@@ -2761,6 +2764,12 @@
             return;
         }
 
+        if (_txDisposition is null)
+        {
+            _txFb = Feedback.Fail(IssuingService.DispositionRequired);
+            return;
+        }
+
         _busy = true;
         var r = await Api.CompleteTransfusionAsync(_txIssueId, new CompleteTransfusionRequest(
             _txDisposition, VolumeTransfused: _txVolume, ReactionSuspected: _txReaction));
@@ -2787,6 +2796,12 @@
         if (_txReaction is null)
         {
             _txFb = Feedback.Fail(ReactionAnswerRequired);
+            return;
+        }
+
+        if (_txDisposition is null)
+        {
+            _txFb = Feedback.Fail(IssuingService.DispositionRequired);
             return;
         }
 
