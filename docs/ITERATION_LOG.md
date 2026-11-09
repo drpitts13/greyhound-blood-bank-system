@@ -18873,3 +18873,29 @@ Cycle 609 opened a unit's retype from a scan; after recording it, the focus stay
 ### Next
 
 - Walk Store tubes and specimen discard for scan flow and focus.
+
+## Iteration 611 — Final disposition rows carry the next step (2026-11-09)
+
+### Capability matrix rescan (store tubes, final disposition)
+
+Store tubes is already scan-first (location, tube, and discard fields each move the focus on Enter). The Overdue final disposition board (9 units on dev data) listed unit, patient, issued, and due with no action: closing a unit out meant noting it and looking it up again on the Transfusion or Return desk.
+
+### Design
+
+- Each row carries the Issued units actions for that issue (Receive, Return, Document transfusion / Complete) with the same permission checks, opening that desk on the unit. No server change.
+
+### Verification
+
+- Rendered test: an overdue row offers Return and Document transfusion, and Document opens the Transfusion desk on the unit. Live: the nine demo units all carry actions: two received ones offer Return and Document transfusion, seven not yet received on the ward offer Receive and Return (read-only).
+
+### Requirements
+
+- URS-BB-656, FRS-BB-773.
+
+### Tests
+
+- TEST-BB-724.
+
+### Next
+
+- The final disposition card on the home screen gives no age; consider naming the oldest.

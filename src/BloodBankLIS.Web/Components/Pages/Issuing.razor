@@ -743,15 +743,34 @@
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Unit</th><th>Patient</th><th>Issued</th><th>Due</th></tr></thead>
+                <thead><tr><th>Unit</th><th>Patient</th><th>Issued</th><th>Due</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var row in _dispositionItems)
                     {
-                        <tr>
+                        @* The next step from the row, as on Issued units, so the unit is not looked up again (Cycle 611). *@
+                        var issued = _outstandingItems.FirstOrDefault(i => i.IssueId == row.IssueId);
+                        <tr data-disposition-row="@row.IssueId">
                             <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
                             <td>@row.PatientLabel</td>
                             <td>@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@row.DueUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right nowrap">
+                                @if (issued is not null)
+                                {
+                                    @if (IssueRun.NextStepForIssued(issued) == IssuedNextStep.ReceiveOnWard && Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(issued.IssueId, issued.ProductName, issued.UnitExpiresUtc, issued.UnitBloodType, issued.SpecimenAccession, issued.CrossmatchExpiresUtc, issued.LatestCrossmatchResult, issued.IssuedTo, issued.CoolerId, issued.IssuedToLocation, issued.IssuedBy, issued.EmergencyReleaseDetails, issued.SecondVerifier, issued.EmergencyReleaseAuthorizer, issued.IssueAppearance, issued.PtagCode, issued.CrossmatchStatus)">Receive</button>
+                                    }
+                                    @if (Session.Has(PermissionCodes.IssueReturn) && issued.TransfusionStartedUtc is null)
+                                    {
+                                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(issued)">Return</button>
+                                    }
+                                    @if (IssueRun.NextStepForIssued(issued) != IssuedNextStep.ReceiveOnWard && CanRecordTransfusion)
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(issued)">@(issued.TransfusionStartedUtc is null ? "Document transfusion" : "Complete")</button>
+                                    }
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>

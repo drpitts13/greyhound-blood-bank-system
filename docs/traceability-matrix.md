@@ -766,6 +766,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-653 / FRS-BB-770 | Inventory search lists stock by default; unit number finds any unit | `InventorySearchScope`; `Inventory.razor` | TEST-BB-719 | U | |
 | URS-BB-654 / FRS-BB-771 | Near expiry discard coded, verified, after use actions | `Inventory.razor` | TEST-BB-720 | U | |
 | URS-BB-655 / FRS-BB-772 | Retype board scan | `RetypeBoardScan`; `Inventory.razor` | TEST-BB-721 | U | |
+| URS-BB-656 / FRS-BB-773 | Final disposition rows carry the next step | `Issuing.razor` | TEST-BB-724 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
