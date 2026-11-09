@@ -1415,10 +1415,12 @@
             </div>
             @* Asked, never assumed: an unticked box recorded "no reaction" without anyone answering (Cycle 596). *@
             <div class="field" style="max-width:320px;"><label>Transfusion reaction suspected?</label>
-                <select @bind="_txReaction" data-tx-reaction>
+                @* Bound through text: a select cannot bind a yes/no answer directly (the binder expects a checkbox's true or
+                   false), so neither option ever took and every finish was refused (Cycle 624). *@
+                <select @bind="TxReactionChoice" data-tx-reaction>
                     <option value="">— Answer when finishing —</option>
-                    <option value="@false">No reaction</option>
-                    <option value="@true">Yes, reaction suspected</option>
+                    <option value="no">No reaction</option>
+                    <option value="yes">Yes, reaction suspected</option>
                 </select>
             </div>
             <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with matching patient identifiers." />
@@ -1430,15 +1432,15 @@
                     Set the disposition, volume, and any suspected reaction, then complete it when it ends.
                 </div>
                 <div style="margin-top:.75rem;">
-                    <button class="btn btn-primary" disabled="@_busy" @onclick="CompleteTransfusionAsync">Complete transfusion</button>
+                    <button class="btn btn-primary" disabled="@(_busy || _txIssueId == 0)" @onclick="CompleteTransfusionAsync" data-tx-complete>Complete transfusion</button>
                 </div>
             }
             else
             {
                 <p class="muted" style="margin-top:.75rem;">Start records the bedside check when the unit is spiked; complete it when it ends. Document records start and finish together, for a transfusion charted afterwards.</p>
                 <div class="flex gap" style="margin-top:.5rem;">
-                    <button class="btn btn-primary" disabled="@_busy" @onclick="StartTransfusionAsync">Start transfusion</button>
-                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document start and finish</button>
+                    <button class="btn btn-primary" disabled="@(_busy || _txIssueId == 0)" @onclick="StartTransfusionAsync" data-tx-start>Start transfusion</button>
+                    <button class="btn btn-secondary" disabled="@(_busy || _txIssueId == 0)" @onclick="DocumentTransfusionAsync" data-tx-document>Document start and finish</button>
                 </div>
             }
             @if (_lastTransfusion is not null)
@@ -1594,6 +1596,12 @@
     private string? _txSecondVerifier;
     private bool? _txReaction;
 
+    private string TxReactionChoice
+    {
+        get => _txReaction switch { true => "yes", false => "no", null => string.Empty };
+        set => _txReaction = value switch { "yes" => true, "no" => false, _ => null };
+    }
+
     // Bedside actions for one patient since that patient's first unit here; finished units are not offered again.
     private sealed record BedsideInRun(long IssueId, string UnitNumber, string? ProductName, string Action, bool Finished, DateTime AtLocal);
     private readonly List<BedsideInRun> _txRun = new();
@@ -1624,6 +1632,32 @@
         _txVolume = null;
         _txReaction = null;
         _txDisposition = null;
+    }
+
+    // A finished unit leaves the form (Cycle 624): the next scan or Next button chooses another; the patient, the
+    // transfusionist, and the identifiers entered at this bedside stay. Unit number takes the focus.
+    private void ClearTransfusionUnit()
+    {
+        _txIssueId = 0;
+        _txUnitLookup = string.Empty;
+        _txProductName = null;
+        _txExpirationNotice = null;
+        _txUnitTypeNotice = null;
+        _txSpecimenNotice = null;
+        _txCrossmatchNotice = null;
+        _txIssuedToNotice = null;
+        _txCoolerNotice = null;
+        _txLocationNotice = null;
+        _txIssuedByNotice = null;
+        _txSecondVerifierNotice = null;
+        _txReleaseReason = null;
+        _txEarlierIdentityNotice = null;
+        _txReleaseAuthorizer = null;
+        _txIssueAppearance = null;
+        _txPtagNotice = null;
+        _txCrossmatchStatusNotice = null;
+        _txWardAppearance = null;
+        _focusUnitFor = "transfuse";
     }
 
     private void NextBedsideUnit(OutstandingIssueWorkItemDto row)
@@ -2333,7 +2367,12 @@
     private async Task LookUpTransfusionUnitAsync()
     {
         if (await FindIssueForUnitAsync(_txUnitLookup, f => _txFb = f) is not long issueId) return;
-        if (_outstandingItems.FirstOrDefault(r => r.IssueId == issueId) is { } row) SelectTransfusionIssue(row);
+        // During a bedside run a scanned unit is the next one, as the run's Next button: the same patient's identifiers stay.
+        if (_outstandingItems.FirstOrDefault(r => r.IssueId == issueId) is { } row)
+        {
+            if (_txRun.Count > 0) NextBedsideUnit(row);
+            else SelectTransfusionIssue(row);
+        }
         else _txFb = Feedback.Fail($"Unit {_txUnitLookup.Trim()} is not currently issued, so there is no transfusion to document.");
     }
 
@@ -2903,6 +2942,7 @@
             AddToBedsideRun($"Completed ({_txDisposition})", finished: true);
             _lastTransfusion = r.Value;
             _txStartedUtc = null;
+            ClearTransfusionUnit();
             await LoadWorklistsAsync();
             if (reactionReported)
             {
@@ -2944,6 +2984,7 @@
         {
             AddToBedsideRun($"Documented ({_txDisposition})", finished: true);
             _lastTransfusion = r.Value;
+            ClearTransfusionUnit();
             await LoadWorklistsAsync();
         }
         if (reactionReported && r.Succeeded && r.Value is not null)

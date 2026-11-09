@@ -756,5 +756,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-745 | U | `ScanDeskFocusTests.ReturnFromARow_LeavesTheFocusAlone` | URS-BB-666 / FRS-BB-783 |
 | TEST-BB-746 | U | `ScanDeskFocusTests.AfterAReturn_UnitNumberIsClearAndFocused` | URS-BB-667 / FRS-BB-784 |
 | TEST-BB-747 | U | `ScanDeskFocusTests.AfterAWardReceipt_UnitNumberIsClearAndFocused` | URS-BB-667 / FRS-BB-784 |
+| TEST-BB-748 | U | `ScanDeskFocusTests.AfterCompletingATransfusion_TheNextScanKeepsTheBedside` | URS-BB-668 / FRS-BB-785 |
+| TEST-BB-749 | U | `OptionValueTests.Options_DoNotUseBooleanLiteralValues` | URS-BB-668 / FRS-BB-785 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

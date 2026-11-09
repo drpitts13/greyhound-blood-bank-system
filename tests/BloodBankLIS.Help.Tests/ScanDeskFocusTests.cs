@@ -139,4 +139,57 @@ public class ScanDeskFocusTests : BunitContext
         Assert.True(page.Find("[data-ward-submit]").HasAttribute("disabled"));
         page.WaitForAssertion(() => Assert.True(FocusesOnId(wardInputId) > before));
     }
+
+    // TEST-BB-748: the reaction answer binds (it could not, Cycle 624); after a transfusion is completed, the finished unit leaves the form (Unit number empty and focused,
+    // Start and Document disabled); scanning the patient's next unit opens it with the bedside identifiers kept.
+    [Fact]
+    public void AfterCompletingATransfusion_TheNextScanKeepsTheBedside()
+    {
+        var issued = DateTime.UtcNow.AddHours(-3);
+        OutstandingIssueWorkItemDto Unit(long issueId, string unit, DateTime? started) => new(
+            issueId, 5, "MRN0022", "Demo-Multi, Riley", "1980-01-01", issueId + 100, unit, "O+", false, null,
+            null, false, issued, issued.AddMinutes(20), "nurse1", null, "4W", IssueStatus.Issued, ProductName: "Red Blood Cells")
+        { TransfusionStartedUtc = started };
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/issues/outstanding"] = new List<OutstandingIssueWorkItemDto>
+            {
+                Unit(41, "W0001230009205", issued.AddMinutes(30)),
+                Unit(42, "W0001230009206", null)
+            },
+            ["/api/issues/41/transfusion/complete"] = new TransfusionEventDto(
+                7, 41, 141, 5, issued.AddMinutes(30), DateTime.UtcNow, 300m, "nurse1", false, TransfusionDisposition.Completed, "tech"),
+            ["/api/issues/latest-for-unit/W0001230009206"] = new IssueDto(
+                42, 3, 142, 5, "nurse1", "4W", issued, "tech", null, IssueType.Standard, null, IssueStatus.Issued, false)
+        });
+
+        var page = Render<Issuing>();
+        page.FindAll("button").First(b => b.TextContent.StartsWith("Issued units")).Click();
+        AngleSharp.Dom.IElement RowButton(string unit, string text) => page.FindAll("table.bb tbody tr")
+            .First(r => r.TextContent.Contains(unit)).QuerySelectorAll("button").First(b => b.TextContent.Trim() == text);
+        page.WaitForAssertion(() => Assert.NotNull(RowButton("W0001230009205", "Complete")));
+        RowButton("W0001230009205", "Complete").Click();
+
+        page.Find("input[placeholder='Scan wristband or type']").Input("MRN0022");
+        var noReaction = page.Find("[data-tx-reaction]").QuerySelectorAll("option").First(o => o.TextContent.Trim() == "No reaction").GetAttribute("value")!;
+        page.Find("[data-tx-reaction]").Change(noReaction);
+        var reaction = typeof(Issuing).GetField("_txReaction", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(page.Instance);
+        // The answer must bind: the options had no usable values, so every finish was refused (Cycle 624).
+        Assert.Equal(false, reaction);
+        page.Find("[data-tx-disposition]").Change(TransfusionDisposition.Completed.ToString());
+        var txInputId = InputId(page, "_txUnitInput");
+        var before = FocusesOnId(txInputId);
+        page.Find("[data-tx-complete]").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("Transfusion completed.", page.Markup));
+        Assert.Equal("", page.Find("[data-desk-unit='transfuse']").GetAttribute("value") ?? "");
+        Assert.True(page.Find("[data-tx-start]").HasAttribute("disabled"));
+        Assert.True(page.Find("[data-tx-document]").HasAttribute("disabled"));
+        page.WaitForAssertion(() => Assert.True(FocusesOnId(txInputId) > before));
+
+        page.Find("[data-desk-unit='transfuse']").Change("W0001230009206");
+        page.WaitForAssertion(() => Assert.Equal("W0001230009206", page.Find("[data-desk-unit='transfuse']").GetAttribute("value")));
+        Assert.Equal("MRN0022", page.Find("input[placeholder='Scan wristband or type']").GetAttribute("value"));
+        Assert.False(page.Find("[data-tx-start]").HasAttribute("disabled"));
+    }
 }

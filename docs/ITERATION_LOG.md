@@ -19242,3 +19242,36 @@ After a ward receipt or return was recorded, Unit number still held the unit jus
 ### Next
 
 - Transfusion documentation runs per unit at the bedside: check the same after Start and Complete (what stays, what clears, where the focus goes).
+
+## Iteration 624 — The bedside reaction answer binds; the finished unit leaves the form (2026-11-09)
+
+### Capability matrix rescan (Transfusion desk: Start, Complete, Document)
+
+Writing a rendered test for Complete found a defect far worse than the planned one: the "Transfusion reaction suspected?" select (Cycle 596) could never take an answer. It bound a `bool?` with options valued `@false` and `@true`. Blazor renders those as no value attribute (the browser then sends the option's text, "No reaction") and an empty one (sent as unanswered), and a select's binder for a bool casts the checkbox's true or false, so even correct text would not bind. Live: the options read "No reaction" (no value) and "" (Yes). Every Complete transfusion and Document start and finish on Issue & Transfuse was refused with "Say whether a transfusion reaction is suspected" since Cycle 596. Cycle 596's tests covered the server refusal and a source check against checkboxes, not the select taking an answer.
+
+The planned item stood too: after Complete or Document, the finished unit stayed on the form with its buttons live and nothing focused.
+
+### Design
+
+- The select binds through text: "no", "yes", or "" map to false, true, or unanswered. Same question and options.
+- After Complete or Document: the unit (issue id, Unit number, its notices) is cleared and Unit number takes the focus; the patient, the identifiers, and the transfusionist entered at this bedside stay. Start keeps the unit (Complete follows).
+- A unit scanned during a bedside run opens as the run's Next button does, so the same patient's identifiers stay.
+- Start, Document, and Complete are disabled with no unit.
+- Source test: no option value is a C# boolean literal, and no select is bound to a bool field (it catches the original code).
+
+### Verification
+
+- Rendered flow: the reaction answer binds; Complete succeeds; Unit number is empty and focused; Start and Document are disabled; scanning the patient's next unit opens it with the identifier kept. Fails on the original select.
+- Live (read-only; nothing completed): before the fix the options read value "" (Yes) and no value ("No reaction"); after it, "", "no", "yes", and "No reaction" stays chosen when another field re-renders the form. No server errors.
+
+### Requirements
+
+- URS-BB-668, FRS-BB-785.
+
+### Tests
+
+- TEST-BB-748, TEST-BB-749.
+
+### Next
+
+- Look for other forms whose required answer is only checked server-side and never exercised by a rendered test that fills it in: a value that cannot bind looks the same as one left blank.
