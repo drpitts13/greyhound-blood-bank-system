@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
@@ -19,6 +20,7 @@ public sealed class PatientService
     private const int NameMaxLength = 100;
 
     private readonly IRepository<Patient> _patients;
+    private readonly FacilityPolicyService? _policy;
     private readonly IRepository<PatientIdentifier>? _identifiers;
     private readonly PatientHistoricalAliasWriter? _aliasWriter;
     private readonly IUnitOfWork _unitOfWork;
@@ -50,8 +52,10 @@ public sealed class PatientService
         IRepository<SpecialTransfusionRequirement>? requirements = null,
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
         IRepository<Encounter>? encounters = null,
-        IRepository<PatientDuplicateDismissal>? dismissals = null)
+        IRepository<PatientDuplicateDismissal>? dismissals = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _dismissals = dismissals;
         _encounters = encounters;
         _requirementDefinitions = requirementDefinitions;
@@ -480,11 +484,20 @@ public sealed class PatientService
     }
 
     /// <summary>Unidentified patients not yet merged into an identified chart, oldest first.</summary>
-    public async Task<IReadOnlyList<PatientDto>> ListUnidentifiedAsync(CancellationToken ct = default) =>
-        (await _patients.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct))
+    public async Task<IReadOnlyList<PatientDto>> ListUnidentifiedAsync(CancellationToken ct = default)
+    {
+        var hours = _policy is null
+            ? UnidentifiedPatientRule.DefaultReminderHours
+            : await _policy.GetUnidentifiedReminderHoursAsync(ct);
+        var now = _clock.UtcNow;
+        return (await _patients.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct))
             .OrderBy(p => p.CreatedUtc)
-            .Select(p => PatientDto.From(p))
+            .Select(p => PatientDto.From(p) with
+            {
+                UnidentifiedPastReminder = UnidentifiedPatientRule.IsPastReminder(p.CreatedUtc, now, hours)
+            })
             .ToList();
+    }
 
     /// <summary>
     /// Registers an unidentified emergency patient in one step: the temporary MRN and name come from the date and the

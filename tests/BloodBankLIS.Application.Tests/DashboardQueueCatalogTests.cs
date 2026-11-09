@@ -395,6 +395,24 @@ public class DashboardQueueCatalogTests
             layout.Attention.Select(c => c.Card.Key));
     }
 
+    // TEST-BB-731: the Unidentified patients card names only charts open past the reminder, with the oldest's age; a
+    // chart within the window, or none at all, gives no note, so the card stays with the ordinary queues.
+    [Fact]
+    public void UnidentifiedNote_NamesChartsPastTheReminder()
+    {
+        var now = new DateTime(2026, 11, 9, 12, 0, 0, DateTimeKind.Utc);
+        PatientDto Chart(long id, DateTime registered, bool past) => new(
+            id, $"UNK-{id}", "UNIDENTIFIED", "TRAUMA", null, new DateOnly(1990, 1, 1), Sex.Unknown, PatientStatus.Active,
+            registered, "tech", Unidentified: true, UnidentifiedPastReminder: past);
+
+        Assert.Null(DashboardQueueCatalog.UnidentifiedNote([], now));
+        Assert.Null(DashboardQueueCatalog.UnidentifiedNote([Chart(1, now.AddHours(-2), false)], now));
+        Assert.Equal("1 not identified, oldest open 30 h",
+            DashboardQueueCatalog.UnidentifiedNote([Chart(1, now.AddHours(-2), false), Chart(2, now.AddHours(-30), true)], now));
+        Assert.Equal("2 not identified, oldest open 3 d",
+            DashboardQueueCatalog.UnidentifiedNote([Chart(2, now.AddHours(-30), true), Chart(3, now.AddDays(-3), true)], now));
+    }
+
     // TEST-BB-725: the Final disposition card names how far behind its oldest unit is, and an empty board has no note.
     [Fact]
     public void DispositionNote_NamesTheOldestPastDue()

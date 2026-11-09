@@ -18957,3 +18957,34 @@ Count-only cards: Second ABO/Rh, Expired on shelf, Unidentified patients, Tubes 
 ### Next
 
 - Unidentified patients card: name the oldest emergency chart's age, since an unidentified chart left open is a mislabel risk.
+
+## Iteration 614 — Unidentified charts left open are named (2026-11-09)
+
+### Capability matrix rescan (patient identity)
+
+The Unidentified patients card gave a count only and the Patients list gave each chart's registration time. An unidentified chart is expected during a trauma, but one left open after the patient is identified splits the type and antibody history across two charts and leaves wristbands and unit tags on a temporary identity. Nothing distinguished a chart registered an hour ago from one left for days. How long is too long is a facility decision, so it is a policy (OCD-077) rather than a rule invented here.
+
+### Design
+
+- Policy `Patient.UnidentifiedReminderHours`, default 24 (0 off), recorded as OCD-077. `UnidentifiedPatientRule.IsPastReminder`.
+- The unidentified list flags charts past the reminder (`PatientDto.UnidentifiedPastReminder`; optional policy service on `PatientService`, default when absent).
+- Home card note "{n} not identified, oldest open {age}", only for charts past the reminder, so the card moves under Needs attention then and not for a trauma registered minutes ago.
+- Patients: each unidentified chart reads "open {age}".
+- A reminder: blocks nothing, merges nothing.
+
+### Verification
+
+- Integration: a 30 h old chart flagged at the default, a new one not; 0 and 48 h flag none; 30 h flags it. Unit: the note for none, within, and past the reminder.
+- Live (read-only): the demo trauma chart UNK-20261108-01 reads "open 35 h" on Patients; the home card reads "1 not identified, oldest open 35 h". No server errors.
+
+### Requirements
+
+- URS-BB-659, FRS-BB-776, OCD-077.
+
+### Tests
+
+- TEST-BB-730, TEST-BB-731.
+
+### Next
+
+- Tubes due for discard card: name the oldest tube's days past its retention date.

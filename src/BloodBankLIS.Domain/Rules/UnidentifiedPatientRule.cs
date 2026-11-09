@@ -15,6 +15,16 @@ public static class UnidentifiedPatientRule
     public const string LastName = "UNIDENTIFIED";
     public const int MaxEstimatedAgeYears = 120;
 
+    /// <summary>
+    /// Hours an unidentified chart may stay open before the home screen asks for it to be identified and merged
+    /// (OCD-077; 0 turns the reminder off). Until it is merged, the patient's type and antibody history are split
+    /// across two charts. A reminder only: it blocks nothing.
+    /// </summary>
+    public const int DefaultReminderHours = 24;
+
+    public static bool IsPastReminder(DateTime registeredUtc, DateTime nowUtc, int reminderHours) =>
+        reminderHours > 0 && nowUtc - registeredUtc >= TimeSpan.FromHours(reminderHours);
+
     /// <summary>The temporary MRN for the n-th unidentified patient registered on that (UTC) day: UNK-20261108-01.</summary>
     public static string Mrn(DateTime utc, int sequence) => $"{MrnPrefix}{DatePart(utc)}-{sequence:D2}";
 

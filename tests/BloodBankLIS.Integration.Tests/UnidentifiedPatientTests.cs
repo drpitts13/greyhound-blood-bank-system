@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
@@ -110,6 +111,42 @@ public class UnidentifiedPatientTests
         var undo = await merge.UnmergeAsync(a.Id, "Wrong patient");
         Assert.True(undo.Succeeded, undo.Error);
         Assert.True(await c.RhigEvaluations.AnyAsync(r => r.PatientId == a.Id));
+    }
+
+    // TEST-BB-730: an unidentified chart open past the facility reminder hours (OCD-077, default 24) is flagged on the
+    // unidentified list; a newer chart is not; the reminder set to 0 flags none, and a longer reminder moves the line.
+    [Fact]
+    public async Task UnidentifiedList_FlagsChartsOpenPastTheReminder()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var writer = Patients(factory, c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite));
+        var old = (await writer.CreateUnidentifiedAsync(new CreateUnidentifiedPatientRequest(Sex.Male, 40))).Value!;
+        var recent = (await writer.CreateUnidentifiedAsync(new CreateUnidentifiedPatientRequest(Sex.Female, 25))).Value!;
+        var registered = factory.Clock.UtcNow.AddHours(-30);
+        await c.Patients.Where(p => p.Id == old.Id).ExecuteUpdateAsync(s => s.SetProperty(p => p.CreatedUtc, registered));
+        c.ChangeTracker.Clear();
+
+        async Task<Dictionary<long, bool>> FlagsAsync(string? hours)
+        {
+            if (hours is not null)
+            {
+                var row = await c.SystemSettings.FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.UnidentifiedReminderHours);
+                if (row is null) c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.UnidentifiedReminderHours, Value = hours });
+                else row.Value = hours;
+                await c.SaveChangesAsync();
+            }
+
+            var reader = new PatientService(new EfRepository<Patient>(c), c, factory.Clock,
+                new SpecimenService(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, factory.Clock, currentUser: factory.CurrentUser),
+                policy: new FacilityPolicyService(new EfRepository<SystemSetting>(c)));
+            return (await reader.ListUnidentifiedAsync()).ToDictionary(p => p.Id, p => p.UnidentifiedPastReminder);
+        }
+
+        Assert.Equal(new Dictionary<long, bool> { [old.Id] = true, [recent.Id] = false }, await FlagsAsync(null));
+        Assert.All((await FlagsAsync("0")).Values, Assert.False);
+        Assert.All((await FlagsAsync("48")).Values, Assert.False);
+        Assert.True((await FlagsAsync("30"))[old.Id]);
     }
 
     // TEST-BB-593: the demo has one unidentified trauma patient, added once.

@@ -234,6 +234,22 @@ public static class DashboardQueueCatalog
         AttentionNote(items.Count(i => i.AboOrderNumber is null), "with no ABO/Rh ordered", "with no ABO/Rh ordered");
 
     /// <summary>
+    /// The Unidentified patients card note: charts open past the facility reminder hours (OCD-077), naming the oldest's
+    /// age. Charts within the window stay in the count only, so a trauma registered an hour ago is not flagged.
+    /// </summary>
+    public static string? UnidentifiedNote(IEnumerable<PatientDto> unidentified, DateTime nowUtc)
+    {
+        var past = unidentified.Where(p => p.UnidentifiedPastReminder).ToList();
+        if (past.Count == 0)
+        {
+            return null;
+        }
+
+        var oldest = AlertInboxView.OpenFor(past.Min(p => p.CreatedUtc), nowUtc);
+        return $"{AttentionNote(past.Count, "not identified", "not identified")}, oldest open {oldest}";
+    }
+
+    /// <summary>
     /// The Final disposition card note: how long the oldest unit has been past its window. Every unit on the board is
     /// already overdue, so the note brings the card under Needs attention and says how far behind it is.
     /// </summary>

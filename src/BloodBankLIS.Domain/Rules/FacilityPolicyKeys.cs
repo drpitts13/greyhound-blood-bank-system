@@ -45,6 +45,8 @@ public static class FacilityPolicyKeys
     /// <summary>Minutes before a blood order's needed-by time that it is marked as needed soon (OCD-075). 0 = off.</summary>
     public const string BloodOrderNeededBySoonMinutes = "BloodOrder.NeededBySoonMinutes";
     public const string MtpIdleReminderMinutes = "Mtp.IdleReminderMinutes";
+    /// <summary>Hours an unidentified patient chart stays open before the home card asks to identify it (OCD-077). 0 = off.</summary>
+    public const string UnidentifiedReminderHours = "Patient.UnidentifiedReminderHours";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";
 
     /// <summary>Facility must enable computer XM after AABB 5.16 validation (SoftBank/SafeTrace switch).</summary>

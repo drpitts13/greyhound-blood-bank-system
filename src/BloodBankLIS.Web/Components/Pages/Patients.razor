@@ -28,7 +28,7 @@
         @foreach (var u in _unidentified)
         {
             <a class="mono" style="margin-left:.4rem;" href="@($"/patients/{u.Id}")">@u.MedicalRecordNumber</a>
-            <span class="sub">(@u.Sex, registered @u.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))</span>
+            <span class="sub" data-unidentified-age="@u.Id">(@u.Sex, registered @u.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"), open @AlertInboxView.OpenFor(u.CreatedUtc, DateTime.UtcNow))</span>
         }
     </div>
 }

@@ -121,7 +121,9 @@ public sealed record PatientDto(
     string? Race = null,
     string? Ethnicity = null,
     // Registered without identification (temporary MRN, estimated age), until merged into the identified chart.
-    bool Unidentified = false)
+    bool Unidentified = false,
+    // Unidentified and open past the facility reminder hours (OCD-077); filled by the unidentified list only.
+    bool UnidentifiedPastReminder = false)
 {
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,

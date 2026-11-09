@@ -101,6 +101,10 @@ public sealed class FacilityPolicyService
     public Task<int> GetMtpIdleReminderMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.MtpIdleReminderMinutes, MtpIdleRule.DefaultReminderMinutes, ct);
 
+    /// <summary>Hours an unidentified chart stays open before the home card names it (OCD-077); 0 = off.</summary>
+    public Task<int> GetUnidentifiedReminderHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.UnidentifiedReminderHours, UnidentifiedPatientRule.DefaultReminderHours, ct);
+
     public Task<int> GetBloodOrderNeededBySoonMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, 0, ct);
 
