@@ -34,6 +34,31 @@ public partial class LocalTimeDisplayTests
             "A stored UTC time is shown without .ToLocalTime():" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
 
+    // TEST-BB-718: server messages never write a stored time in the "u" format ("…12:49:00Z") or as an unlabelled
+    // date-time: on-screen text uses ClinicalTimeText.Local, saved text says UTC (Cycle 605).
+    [Fact]
+    public void ServerMessages_SayLocalOrUtc()
+    {
+        var root = RepoRoot();
+        var problems = new[] { "BloodBankLIS.Domain", "BloodBankLIS.Application" }
+            .SelectMany(project => Directory.EnumerateFiles(Path.Combine(root, "src", project), "*.cs", SearchOption.AllDirectories))
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .SelectMany(f => File.ReadAllLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
+            .Where(l => UFormat().IsMatch(l.Text) || UnlabelledTime().IsMatch(l.Text))
+            .Select(l => $"{Path.GetRelativePath(root, l.File)}:{l.Line}: {l.Text.Trim()}")
+            .ToList();
+
+        Assert.True(problems.Count == 0,
+            "A message writes a stored time without saying local or UTC:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
+    [GeneratedRegex(@"\{[^{}]*(Utc|utc|Now|now)[^{}:]*:u\}")]
+    private static partial Regex UFormat();
+
+    // An interpolated *Utc time as "yyyy-MM-dd HH:mm" not followed by " UTC" (and not converted with ToLocalTime first).
+    [GeneratedRegex(@"\{(?![^{}]*ToLocalTime)[^{}]*Utc[^{}:]*:yyyy-MM-dd HH:mm(:ss)?\}(?! UTC)")]
+    private static partial Regex UnlabelledTime();
+
     private static bool IsDateKey(string line, Match match) =>
         DateKeys.Any(k => line.IndexOf(k, StringComparison.Ordinal) is var at && at >= 0
             && match.Index >= at && match.Index < at + k.Length);

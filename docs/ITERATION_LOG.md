@@ -18721,3 +18721,29 @@ Unit antigen typing and the remaining forms have no preset answers (typing start
 ### Next
 
 - Server-composed messages that name a time without "UTC" (rule warnings, alerts): say UTC or local consistently.
+
+## Iteration 605 — Server messages say local or UTC (2026-11-09)
+
+### Capability matrix rescan (time in messages)
+
+Cycle 604's next step. Eight server messages wrote a stored time without saying which: six in the "u" format ("Unit expired at 2026-11-09 12:49:00Z", the issue and modification gates, the specimen checks, a unit's expiry status reason, the temperature excursion deviation) and two with no label (the RhIG timeline detail).
+
+### Design
+
+- `ClinicalTimeText.Local` for messages shown and not kept (the local time the pages show; the server is the facility's); `ClinicalTimeText.Utc` ("… UTC") for text saved with a record, so it stays true on any workstation. File names and keys are unchanged. A source test guards Domain and Application.
+
+### Verification
+
+- Helper test (local on screen, UTC when saved, unspecified kind treated as UTC); source guard (catches the old forms); full suite. Live: not separately exercised (message text only; covered by the tests).
+
+### Requirements
+
+- URS-BB-652, FRS-BB-769 (extended).
+
+### Tests
+
+- TEST-BB-717, TEST-BB-718.
+
+### Next
+
+- Back to operations: walk the Inventory page's filters and unit search for clicks and scanning.

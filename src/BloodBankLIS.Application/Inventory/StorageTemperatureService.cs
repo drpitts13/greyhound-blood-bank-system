@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
@@ -164,7 +164,7 @@ public sealed class StorageTemperatureService
             {
                 Title = $"Storage temperature excursion at {location.Code}",
                 Description =
-                    $"{location.Name} read {reading.ReadingC} °C at {readingUtc:u} against a range of {RangeText(location.StorageTempMinC, location.StorageTempMaxC)}. " +
+                    $"{location.Name} read {reading.ReadingC} °C at {ClinicalTimeText.Utc(readingUtc)} against a range of {RangeText(location.StorageTempMinC, location.StorageTempMaxC)}. " +
                     $"{stored} unit(s) were stored there. Review the units before release or issue.",
                 Severity = DeviationSeverity.Major,
                 Status = DeviationStatus.Open,

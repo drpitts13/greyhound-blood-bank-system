@@ -308,7 +308,7 @@ public sealed class PatientTimelineService
     {
         var href = $"/patients/{e.PatientId}?tab=rhig";
         yield return new(e.RecordedUtc, TimelineCategory.Rhig, TimelineSeverity.Info,
-            "RhIG evaluation recorded", $"Event {e.EventUtc:yyyy-MM-dd HH:mm}", e.RecordedBy, href, $"rhig-{e.Id}");
+            "RhIG evaluation recorded", $"Event {ClinicalTimeText.Local(e.EventUtc)}", e.RecordedBy, href, $"rhig-{e.Id}");
         if (e.CompletedUtc is DateTime completed)
         {
             var decision = e.Decision switch

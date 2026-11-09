@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Enums;
+﻿using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Domain.Rules;
 
@@ -72,7 +72,7 @@ public static class UnitModificationEligibilityRule
 
         if (unit.ExpiresUtc <= nowUtc)
         {
-            results.Add(RuleResult.HardStop(ExpiredCode, $"Unit expired at {unit.ExpiresUtc:u}."));
+            results.Add(RuleResult.HardStop(ExpiredCode, $"Unit expired at {ClinicalTimeText.Local(unit.ExpiresUtc)}."));
         }
 
         if (unit.ProductTypeId != ruleSourceProductTypeId)
