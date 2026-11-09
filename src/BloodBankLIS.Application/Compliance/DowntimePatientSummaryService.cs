@@ -191,13 +191,8 @@ public sealed class DowntimePatientSummaryService
                     current is null ? "Not on file" : AboRhText(current.Abo, current.RhD),
                     SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(history)),
                     // An antibody known only from another facility's report says so; found here as well, it reads plain.
-                    antibodies[p.Id]
-                        .GroupBy(a => a.AntibodySpecificity, StringComparer.OrdinalIgnoreCase)
-                        .Select(g => g.All(a => !string.IsNullOrWhiteSpace(a.ReportingFacility))
-                            ? $"{g.Key} (reported by {g.First().ReportingFacility!.Trim()})"
-                            : g.Key)
-                        .Order(StringComparer.OrdinalIgnoreCase)
-                        .ToList(),
+                    // The same wording as the patient list and find box (one definition).
+                    BloodBankLIS.Application.Patients.PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
                     active.Where(r => !r.IsInformational).Select(RequirementText).Order(StringComparer.OrdinalIgnoreCase).ToList(),
                     active.Where(r => r.IsInformational)
                         .Select(r => string.IsNullOrWhiteSpace(r.Instruction) ? r.Name ?? string.Empty : r.Instruction!)

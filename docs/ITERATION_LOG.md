@@ -18158,3 +18158,21 @@ The gap analysis's remaining Partial rows wait on a licensed ICCBBA extract or m
 ### Tests
 
 - TEST-BB-667, TEST-BB-668.
+
+## Iteration 583 — Outside reports in brief antibody lists (2026-11-08)
+
+### Capability matrix rescan (antibody history; consistent terminology)
+
+Cycle 582 made the chart's antibody warning name antibodies known only from another facility's report. The brief lists where a patient is chosen (patient list badge, find box, Blood orders to prepare, picker labels) still showed only the name, while the downtime sheet named the facility with its own copy of the wording. Workflow questions: memory (provenance visible before opening the chart); safety (display only).
+
+### Design
+
+- `PatientBloodBankFlags.ActiveAntibodies` words an outside-only antibody "{name} (reported by {facility})"; the downtime sheet now uses it instead of its own copy.
+
+### Requirements
+
+- URS-BB-634, FRS-BB-751.
+
+### Tests
+
+- TEST-BB-669: in-house plain; outside-only names the facility (trimmed); found both ways reads plain; inactive ignored; case-only spellings merged. Existing list, lookup, worklist, mother-infant, FHIR, and downtime tests unchanged and passing.

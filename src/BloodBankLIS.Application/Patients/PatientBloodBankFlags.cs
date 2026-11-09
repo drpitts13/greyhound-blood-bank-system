@@ -16,12 +16,18 @@ public static class PatientBloodBankFlags
             .Select(t => t.BloodType.ToString())
             .FirstOrDefault();
 
-    /// <summary>Active antibody specificities, each once, sorted.</summary>
+    /// <summary>
+    /// Active antibody specificities, each once, sorted. One known only from another facility's report (every active
+    /// record of it names a reporting facility) says so, as the downtime sheet does: "anti-Jka (reported by St. Mary's)".
+    /// Found here as well, it reads plain.
+    /// </summary>
     public static IReadOnlyList<string> ActiveAntibodies(IEnumerable<AntibodyHistory> rows) =>
         rows.Where(a => a.IsActive && !string.IsNullOrWhiteSpace(a.AntibodySpecificity))
-            .Select(a => a.AntibodySpecificity)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Order(StringComparer.OrdinalIgnoreCase)
+            .GroupBy(a => a.AntibodySpecificity.Trim(), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.All(a => !string.IsNullOrWhiteSpace(a.ReportingFacility))
+                ? $"{g.Key} (reported by {g.First().ReportingFacility!.Trim()})"
+                : g.Key)
             .ToList();
 
     /// <summary>

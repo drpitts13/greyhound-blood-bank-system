@@ -639,3 +639,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-631 | Every page opens and says there is nothing to show, rather than failing, when the server has no data for it or cannot answer. | P2 | FRS-BB-748 |
 | URS-BB-632 | On the patient's Orders tab an open order's needed-by time reads as on the worklists: marked once it has passed, and needed soon with the minutes left inside the facility's warning window. | P3 | FRS-BB-749 |
 | URS-BB-633 | The chart's antibody warning says which antibodies are known only from another facility's report, as the downtime sheet does. | P2 | FRS-BB-750 |
+| URS-BB-634 | Wherever a patient's antibodies are listed in brief (patient list, find box, Blood orders to prepare, downtime sheet), one known only from another facility's report names that facility. | P3 | FRS-BB-751 |
