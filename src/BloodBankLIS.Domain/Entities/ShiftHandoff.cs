@@ -121,6 +121,12 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Of the active protocols, those with no unit issued under them for the facility reminder minutes (OCD-076).</summary>
     public int ActiveMtpIdle { get; set; }
 
+    /// <summary>
+    /// Reaction investigations still open or under review whose patient has units issued or reserved: the next shift is
+    /// warned before another unit goes to that patient (Cycle 629, OCD-078).
+    /// </summary>
+    public int ReactionsWithUnitsOut { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

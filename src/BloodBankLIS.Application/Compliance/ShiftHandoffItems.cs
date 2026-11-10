@@ -44,8 +44,11 @@ public static class ShiftHandoffItems
         Add(h.PendingTests, "Pending tests", "/test-worklist",
             detail: Note((h.ResultsAwaitingVerification, "to verify"), (h.PendingTestsVerifyBeforeExpiry, "to verify before specimen expiry")));
         Add(h.PendingSpecimens, "Pending specimens", "/test-worklist?tab=specimens");
+        // A reaction under investigation while the patient still has units out or reserved: urgent, so the next shift
+        // checks with the physician before another unit goes (OCD-078).
         Add(h.OpenReactions, "Reaction investigations", "/reactions",
-            urgent: h.FatalityFollowUpDue > 0, detail: Note((h.FatalityFollowUpDue, "fatality follow-up")));
+            urgent: h.FatalityFollowUpDue > 0 || h.ReactionsWithUnitsOut > 0,
+            detail: Note((h.FatalityFollowUpDue, "fatality follow-up"), (h.ReactionsWithUnitsOut, "with units out or reserved")));
         Add(h.ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired", urgent: true, detail: "to discard");
         Add(h.NearExpiryUnits, "Near expiry", "/inventory?board=near", detail: Note((h.NearExpiryReserved, "reserved")));
         Add(h.ProductsBelowMinimum, "Below minimum stock", "/inventory/minimum-stock");

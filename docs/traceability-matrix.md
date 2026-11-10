@@ -782,6 +782,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-669 / FRS-BB-786 | Bedside warned of an open reaction investigation | `ReactionInvestigationService.cs`; `IssuingService.cs`; `IssuingDtos.cs`; `Issuing.razor` | TEST-BB-752, TEST-BB-753 | U, I | OCD-078 |
 | URS-BB-670 / FRS-BB-787 | Issue desk warned of a reaction under investigation | `IssuingService.cs`; `IssuingDtos.cs`; `Issuing.razor` | TEST-BB-754, TEST-BB-755 | U, I | OCD-078 |
 | URS-BB-671 / FRS-BB-788 | Focus after render | `Login.razor`; `Issuing.razor` | TEST-BB-756, TEST-BB-757 | U | |
+| URS-BB-672 / FRS-BB-789 | Handoff names reactions with units out | `ShiftHandoff.cs`; `ShiftHandoffService.cs`; `ShiftHandoffItems.cs`; migration; bootstrap | TEST-BB-758, TEST-BB-759 | U | OCD-078 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

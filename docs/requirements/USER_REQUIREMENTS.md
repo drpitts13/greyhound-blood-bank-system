@@ -677,3 +677,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-669 | The bedside is warned before starting another unit for a patient whose transfusion reaction is under investigation. | P1 | FRS-BB-786 |
 | URS-BB-670 | The issuing desk is warned, before a unit leaves the bank, that the patient has a transfusion reaction under investigation. | P1 | FRS-BB-787 |
 | URS-BB-671 | Moving the cursor to a field that a click has just revealed never fails the click. | P2 | FRS-BB-788 |
+| URS-BB-672 | The shift handoff tells the next shift about reactions under investigation for patients with units out or reserved. | P2 | FRS-BB-789 |

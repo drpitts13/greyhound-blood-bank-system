@@ -20,6 +20,8 @@ The counts are a snapshot, not a sign-out of each patient. Write the handoff not
 
 If you name the incoming technologist, pick them from the list; the name must be an active user other than you. Leave it blank to hand off to whoever is on the next shift. An active massive transfusion protocol is listed first on the packet (with how many are idle, to close: open with nothing issued for the facility reminder minutes), then any emergency release whose retrospective crossmatch came back incompatible, then transfusions still running at the bedside (and how many are overdue for completion).
 
+**Reaction investigations** turns urgent and says how many are *with units out or reserved* when a reaction is still under investigation for a patient who has units issued or waiting to issue, so the next shift checks with the physician before another unit goes (the same warning as on Issue & Transfuse, OCD-078).
+
 The next shift should read the note before relying on the dashboard alone. The note does not assign tasks inside the software. It is the record of what you said you left.
 
 The handoff also counts **RhIG evaluations** still needing work (not completed, or a candidate with no RhIG given recorded) and says how many are waiting to be given; the item opens the RhIG list. **Unidentified patients** not yet merged into an identified chart lead the list (their history is split until the merge) and open Patients; **Tubes due for discard** (once your facility sets a retention period) opens Store tubes. **Blood orders to prepare** counts open blood orders whose units are not all reserved yet and opens that list; it is urgent when an order's needed-by time has passed, or is within the warning window your facility sets on Facility Policies (named as needed soon).

@@ -19389,3 +19389,32 @@ Every element-reference focus was listed. Delivery receipt, the Inventory retype
 ### Next
 
 - With the reaction path and the scan desks settled, return to the capability matrix: review the shift handoff for the Cycle 626–627 reaction warnings (an open investigation with units still out or reserved belongs in the handoff).
+
+## Iteration 629 — The handoff names reactions with units out (2026-11-09)
+
+### Capability matrix rescan (shift handoff)
+
+The handoff counted open reaction investigations and fatality follow-ups. It did not say whether the patient of an open investigation still had units issued or waiting to issue, the case Cycles 626–627 warn about on Issue & Transfuse; the next shift saw an ordinary count.
+
+### Design
+
+- `ShiftHandoff.ReactionsWithUnitsOut`, stored with the handoff (migration and development bootstrap column, as Cycle 603's idle MTP count).
+- Counted from the outstanding and Ready to issue lists the handoff already loads, which carry the patient's open investigation (each counted once): `ShiftHandoffService.ReactionsWithUnitsOut`.
+- Reaction investigations becomes urgent with "n with units out or reserved"; the summary line says the same.
+
+### Verification
+
+- Unit: the item is ordinary without such investigations and urgent and named with one; the summary line; the count takes each investigation once across issued and reserved units, and ignores units without one.
+- Live (read-only; no handoff created): after the API restart added the column on the development database, Shift handoff shows "Reaction investigations: 1" with no note, as the demo case's patient has nothing out or reserved. No server errors.
+
+### Requirements
+
+- URS-BB-672, FRS-BB-789.
+
+### Tests
+
+- TEST-BB-758, TEST-BB-759.
+
+### Next
+
+- The home Reaction investigations card: name those whose patient still has units out or reserved, as the handoff now does.

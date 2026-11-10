@@ -59,7 +59,8 @@ public sealed record ShiftHandoffDto(
     int BloodOrdersToPrepare = 0,
     int BloodOrdersPastNeededBy = 0,
     int BloodOrdersNeededSoon = 0,
-    int ActiveMtpIdle = 0)
+    int ActiveMtpIdle = 0,
+    int ReactionsWithUnitsOut = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -89,7 +90,7 @@ public sealed record ShiftHandoffDto(
         (ResultsAwaitingVerification > 0 ? $", {ResultsAwaitingVerification} to verify" : "") +
         (PendingTestsVerifyBeforeExpiry > 0 ? $", {PendingTestsVerifyBeforeExpiry} to verify before specimen expiry" : "") +
         $"; specimens {PendingSpecimens}; reactions {OpenReactions}" +
-        (FatalityFollowUpDue > 0 ? $", {FatalityFollowUpDue} fatality follow-up" : "") +
+        (FatalityFollowUpDue > 0 ? $", {FatalityFollowUpDue} fatality follow-up" : "") + (ReactionsWithUnitsOut > 0 ? $", {ReactionsWithUnitsOut} with units out or reserved" : "") +
         (NearExpiryUnits > 0
             ? $"; near expiry {NearExpiryUnits}" + (NearExpiryReserved > 0 ? $", {NearExpiryReserved} reserved" : "")
             : "") +
@@ -120,7 +121,7 @@ public sealed record ShiftHandoffDto(
         h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
-        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle);
+        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut);
 }
 
 /// <summary>
@@ -395,7 +396,8 @@ public sealed class ShiftHandoffService
             BloodOrdersToPrepare = bloodOrders.Count,
             BloodOrdersPastNeededBy = bloodOrders.Count(o => o.NeededByPassed),
             BloodOrdersNeededSoon = bloodOrders.Count(o => o.NeededBySoon),
-            ActiveMtpIdle = await CountIdleMtpAsync(now, ct)
+            ActiveMtpIdle = await CountIdleMtpAsync(now, ct),
+            ReactionsWithUnitsOut = ReactionsWithUnitsOut(outstanding, ready)
         };
     }
 
@@ -477,7 +479,8 @@ public sealed class ShiftHandoffService
         BloodOrdersToPrepare = row.BloodOrdersToPrepare,
         BloodOrdersPastNeededBy = row.BloodOrdersPastNeededBy,
         BloodOrdersNeededSoon = row.BloodOrdersNeededSoon,
-        ActiveMtpIdle = row.ActiveMtpIdle
+        ActiveMtpIdle = row.ActiveMtpIdle,
+        ReactionsWithUnitsOut = row.ReactionsWithUnitsOut
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
@@ -494,6 +497,18 @@ public sealed class ShiftHandoffService
             ? OperationResult<ShiftHandoff>.Fail(auth.Message)
             : null;
     }
+
+    /// <summary>
+    /// Reaction investigations still open or under review whose patient has a unit issued or reserved: both lists carry
+    /// the patient's open investigation (Cycles 626–627), each counted once.
+    /// </summary>
+    public static int ReactionsWithUnitsOut(
+        IEnumerable<OutstandingIssueWorkItemDto> outstanding, IEnumerable<ReadyToIssueWorkItemDto> ready) =>
+        outstanding.Select(o => o.OpenReactionInvestigationId)
+            .Concat(ready.Select(r => r.OpenReactionInvestigationId))
+            .OfType<long>()
+            .Distinct()
+            .Count();
 
     /// <summary>Active protocols with no unit issued under them for the facility reminder minutes (OCD-076); 0 without the sources.</summary>
     private async Task<int> CountIdleMtpAsync(DateTime now, CancellationToken ct)

@@ -86,4 +86,38 @@ public class ShiftHandoffItemsTests
         Assert.Null(ShiftHandoffItems.For(Handoff(retro: 2)).Single().Detail);
         Assert.True(ShiftHandoffItems.For(Handoff(retro: 2, retroOverdue: 1)).Single().Urgent);
     }
+
+    // TEST-BB-758: a reaction investigation whose patient still has units out or reserved makes the Reaction
+    // investigations item urgent and named, on the item and the summary line; without one it stays an ordinary count.
+    [Fact]
+    public void ReactionsWithUnitsOut_MakeTheReactionItemUrgent()
+    {
+        var plain = Assert.Single(ShiftHandoffItems.For(Handoff() with { OpenReactions = 2 }));
+        Assert.Equal(("Reaction investigations", false, (string?)null), (plain.Label, plain.Urgent, plain.Detail));
+
+        var withUnits = Handoff() with { OpenReactions = 2, ReactionsWithUnitsOut = 1 };
+        var item = Assert.Single(ShiftHandoffItems.For(withUnits));
+        Assert.Equal((true, "1 with units out or reserved"), (item.Urgent, item.Detail));
+        Assert.Contains("reactions 2, 1 with units out or reserved", withUnits.QueueSummary);
+    }
+
+    // TEST-BB-759: the count takes each open investigation once, whether its patient has units issued, reserved, or both;
+    // units without one do not count.
+    [Fact]
+    public void ReactionsWithUnitsOut_CountsEachInvestigationOnce()
+    {
+        static Issuing.OutstandingIssueWorkItemDto Out(long? reaction) => new(
+            1, 5, "MRN", "P", "1980-01-01", 9, "W1", "O+", false, null, null, false, DateTime.UtcNow, null, "n", null, "4W",
+            BloodBankLIS.Domain.Enums.IssueStatus.Issued) { OpenReactionInvestigationId = reaction };
+        static Issuing.ReadyToIssueWorkItemDto Ready(long? reaction) => new(
+            AllocationId: 1, PatientId: 5, MedicalRecordNumber: "MRN", PatientDisplayName: "P", DateOfBirth: "1980-01-01",
+            BloodUnitId: 2, UnitNumber: "W2", CurrentBloodType: "O+", HasAntibodyHistory: false, AntibodySummary: null,
+            SpecimenExpiresUtc: null, SpecimenExpired: false, AllocatedUtc: DateTime.UtcNow,
+            DisplayStatus: BloodBankLIS.Domain.Enums.ProductAllocationDisplayStatus.ReadyForIssue,
+            LatestCrossmatchResult: BloodBankLIS.Domain.Enums.CrossmatchResult.Compatible) { OpenReactionInvestigationId = reaction };
+
+        Assert.Equal(0, ShiftHandoffService.ReactionsWithUnitsOut([Out(null)], [Ready(null)]));
+        Assert.Equal(1, ShiftHandoffService.ReactionsWithUnitsOut([Out(3), Out(3)], [Ready(3)]));
+        Assert.Equal(2, ShiftHandoffService.ReactionsWithUnitsOut([Out(3)], [Ready(4), Ready(null)]));
+    }
 }
