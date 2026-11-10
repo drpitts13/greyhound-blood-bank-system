@@ -10,7 +10,7 @@ namespace BloodBankLIS.Domain.Rules;
 /// specimen while it is still valid, stands for routine red-cell issue without a second determination. Electronic
 /// crossmatch is not affected: it still needs two determinations. Part three (Cycle 674): no crossmatch when the
 /// infant's antibody screen is negative, for group O red cells only (OCD-082: non-O units, which could meet passively
-/// acquired maternal anti-A or anti-B, still need a crossmatch until the medical director decides otherwise).
+/// acquired maternal anti-A or anti-B, need a crossmatch; decided 2026-11-11).
 /// </summary>
 public static class NeonatalTestingRule
 {

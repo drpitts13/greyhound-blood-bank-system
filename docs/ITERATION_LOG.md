@@ -20791,7 +20791,7 @@ The last part of OCD-074 option B: no crossmatch for an infant when the antibody
 ### Design
 
 - `NeonatalTestingRule.NoCrossmatchApplies`: the infant's type stands for the admission (part two), a current verified negative screen with no positive screen and no antibody history, red cells or whole blood, **group O**, routine issue (not emergency or MTP, which keep their own path).
-- Group O only: units of the infant's own non-O group could meet passively acquired maternal anti-A or anti-B, which the system does not test; whether they may go without a crossmatch is recorded as OCD-082 for the medical director, and they need a crossmatch meanwhile.
+- Group O only: units of another group need a crossmatch (OCD-082, decided 2026-11-11).
 - `IssueGateContext.NeonatalNoCrossmatch` lifts `ISS-XM-REQUIRED`; every other check (ABO/Rh compatibility, special requirements, antigen-negative, expiry) runs. The issue is marked `NeonatalNoCrossmatch` (migration `20270102000000_IssueNeonatalNoCrossmatch`, dev bootstrap) and in the issue audit; Ready to issue does not ask for a crossmatch for those units.
 
 ### Safety (question 6)
