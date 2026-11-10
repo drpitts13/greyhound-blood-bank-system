@@ -19447,3 +19447,28 @@ Issue & Transfuse (626–627) and the handoff (629) now say when a patient with 
 ### Next
 
 - Seed a demo case for this path (a patient with a reaction under investigation and a reserved unit) so the warnings of Cycles 626–630 can be seen on the development data without changing it by hand.
+
+## Iteration 631 — Demo data for the reaction warnings (2026-11-09)
+
+### Capability matrix rescan (sample data)
+
+The warnings of Cycles 626–630 could only be seen in tests: the one demo reaction (Marcus Febrile, MRN0006, under review) had no unit out or reserved, so every live check showed nothing.
+
+### Design
+
+- Once, on new and existing databases: while MRN0006's investigation is not closed, an open product order ORD-RXN-NEXT for another red cell unit, with its own A+ unit W000123RXN0001 reserved for it on the pre-transfusion specimen (24 h reservation, unit Assigned). A first version took a spare A+ unit from stock; the seeder test caught it taking the ISBT divide demo's unit, so the case now brings its own. A development API had already run the first version, reserving the divide unit W123425000002 for MRN0006; the seed repairs that once (releases the borrowed reservation, puts the unit back to Available, reserves the case's own unit) and touches nothing else.
+- The order number marks the seed as done: seeding again adds nothing, and a unit released later is not reserved again.
+- Example data, not clinical policy.
+
+### Verification
+
+- Integration: the order, the reservation, and the unit after seeding; after a release and a second seed, still one order and no reservation. The seeder test's demo counts move by one order and one unit. Repair: a database in the first version's state is put right on the next seed.
+- Live (read-only apart from the seed): Ready to issue marks Marcus Febrile's reserved W000123RXN0001 "Reaction under investigation"; the Reactions list shows "1 unit out or reserved"; the home card leads with Reaction investigations; the handoff reads "Reaction investigations: 1 (1 with units out or reserved)"; W123425000002 is Available again. No server errors.
+
+### Tests
+
+- TEST-BB-762, TEST-BB-763.
+
+### Next
+
+- The Issue form for MRN0006's reserved unit could not be opened live (the unit needs a crossmatch first, so the row offers no Issue); seed a compatible crossmatch on the demo unit so the Issue form warning can be seen too.

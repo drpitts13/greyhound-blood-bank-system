@@ -81,6 +81,7 @@ public static partial class DatabaseSeeder
         await EnsureMotherInfantDemoAsync(context, ct);
         await EnsureBloodOrderDemoAsync(context, ct);
         await EnsureSurgeryOrderDemoAsync(context, ct);
+        await EnsureReactionNextUnitDemoAsync(context, ct);
     }
 
     /// <summary>
@@ -1827,6 +1828,140 @@ public static partial class DatabaseSeeder
         });
         await context.SaveChangesAsync(ct);
         await EnsureReactionWorkupDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (Cycle 631): while MRN0006's reaction is still under review, another
+    /// red cell unit is ordered (ORD-RXN-NEXT) and an A+ unit (W000123RXN0001, its own) reserved for it, so the reaction warnings show on the
+    /// development data: Ready to issue and the Issue form, the Reactions list and home card, and the shift handoff.
+    /// The order number marks it as added; a later release does not bring the unit back.
+    /// </summary>
+    private static async Task EnsureReactionNextUnitDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string orderNumber = "ORD-RXN-NEXT";
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0006", ct);
+        var specimen = await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0014", ct);
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        if (patient is null || specimen is null || redCells is null || specimen.EncounterId is null)
+        {
+            return;
+        }
+
+        var existing = await context.Orders.IgnoreQueryFilters().FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, ct);
+        if (existing is not null)
+        {
+            await RepairReactionNextUnitAsync(context, existing, patient.Id, specimen, redCells.Id, ct);
+            return;
+        }
+
+        var investigation = await context.ReactionInvestigations.FirstOrDefaultAsync(
+            r => r.PatientId == patient.Id && r.Status != ReactionInvestigationStatus.Closed, ct);
+        var orderingLocation = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct);
+        if (investigation is null || orderingLocation is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var order = new Order
+        {
+            OrderNumber = orderNumber,
+            PatientId = patient.Id,
+            EncounterId = specimen.EncounterId.Value,
+            OrderingLocationId = orderingLocation.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Red Blood Cells",
+            OrderType = OrderType.Other,
+            ProductTypeId = redCells.Id,
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddMinutes(-30),
+            Comment = "Demo: another unit ordered while the reaction is under review."
+        };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.Add(new OrderLine
+        {
+            OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells",
+            ProductTypeId = redCells.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered
+        });
+        await ReserveReactionNextUnitAsync(context, order, patient.Id, specimen, redCells.Id, ct);
+    }
+
+    private const string ReactionNextUnitNumber = "W000123RXN0001";
+
+    // Its own unit, so no other demo loses the stock it expects.
+    private static async Task ReserveReactionNextUnitAsync(
+        BloodBankDbContext context, Order order, long patientId, Specimen specimen, long redCellsId, CancellationToken ct)
+    {
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        var now = DateTime.UtcNow;
+        var unit = new BloodUnit
+        {
+            UnitNumber = ReactionNextUnitNumber,
+            ProductTypeId = redCellsId,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(21),
+            CurrentLocationId = fridge?.Id,
+            Status = UnitStatus.Assigned,
+            CollectionFacility = "Regional Blood Center"
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync(ct);
+
+        context.Allocations.Add(new Allocation
+        {
+            BloodProductId = unit.Id,
+            PatientId = patientId,
+            EncounterId = specimen.EncounterId,
+            OrderId = order.Id,
+            SpecimenId = specimen.Id,
+            Status = AllocationStatus.Reserved,
+            AssignmentType = AssignmentType.Reservation,
+            AllocatedUtc = now.AddMinutes(-20),
+            AllocatedBy = "tech1",
+            ExpiresUtc = now.AddHours(24)
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// The first version of this demo reserved a spare A+ unit from stock, which on a development database could be
+    /// another demo's unit (the ISBT divide unit). That reservation is released and the unit put back, and the case gets
+    /// its own unit. Nothing else is touched; a unit the bench has released or issued is left as it is.
+    /// </summary>
+    private static async Task RepairReactionNextUnitAsync(
+        BloodBankDbContext context, Order order, long patientId, Specimen specimen, long redCellsId, CancellationToken ct)
+    {
+        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == ReactionNextUnitNumber, ct))
+        {
+            return;
+        }
+
+        var borrowed = await context.Allocations
+            .Where(a => a.OrderId == order.Id && a.Status == AllocationStatus.Reserved)
+            .ToListAsync(ct);
+        if (borrowed.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var allocation in borrowed)
+        {
+            allocation.Status = AllocationStatus.Released;
+            allocation.ReleaseReason = "Demo data corrected: the reaction demo now has its own unit.";
+            var unit = await context.BloodUnits.FirstOrDefaultAsync(u => u.Id == allocation.BloodProductId, ct);
+            if (unit is { Status: UnitStatus.Assigned })
+            {
+                unit.Status = UnitStatus.Available;
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+        await ReserveReactionNextUnitAsync(context, order, patientId, specimen, redCellsId, ct);
     }
 
     /// <summary>

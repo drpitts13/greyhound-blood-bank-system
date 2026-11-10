@@ -55,3 +55,5 @@ If the investigation implicates a donor unit, start or continue the [Lookback](l
 A closed investigation is signed, so it is read-only. The screen shows who closed it and when. To change it, enter the **Reason for reopening** and choose **Reopen…**. The case goes back to Under review, the reason and your name are recorded, and the earlier close stays in the audit trail. Make the changes, then close it again with your signature.
 
 Recording CBER notification and the written report for a fatality does not need a reopen.
+
+> Demo data. In a development database Marcus Febrile (MRN0006) has a febrile reaction under review, and another red cell unit has been ordered (ORD-RXN-NEXT) and reserved for him. It shows the reaction warnings: **Reaction under investigation** on Ready to issue and the Issue form, the unit count on this list, *with units out or reserved* on the home card and the shift handoff. Releasing the unit does not bring it back.

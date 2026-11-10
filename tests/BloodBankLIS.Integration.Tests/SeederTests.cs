@@ -90,7 +90,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             var pack = await verify.MtpPackRecords.SingleAsync();
             Assert.Equal(4, await verify.Issues.CountAsync(i => i.MtpPackRecordId == pack.Id));
             Assert.Null((await verify.TransportContainers.SingleAsync()).MinTemperatureC);
-            Assert.Equal(22, await verify.Orders.CountAsync()); // 20, the blood orders to prepare demo, and the surgery demo
+            Assert.Equal(23, await verify.Orders.CountAsync()); // 20, the blood orders to prepare demo, the surgery demo, and ORD-RXN-NEXT (Cycle 631)
             // TEST-BB-465: a STAT type and screen with no tube, for the bench's No specimen view.
             var stat = await verify.Orders.SingleAsync(o => o.OrderNumber == "ORD0024");
             Assert.Equal(OrderPriority.Stat, stat.Priority);
@@ -147,7 +147,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // autologous + directed, lookback sibling, missing + damaged,
             // and two expected inbound packing-list units, plus the Helen BPAM unit,
             // plus two units assigned for unit antigen typing, plus four issued under the demo MTP.
-            Assert.Equal(70, await verify.BloodUnits.CountAsync()); // 68 plus the two units in the ship-out demo
+            Assert.Equal(71, await verify.BloodUnits.CountAsync()); // 68, the two units in the ship-out demo, and the reaction next-unit demo (Cycle 631)
             // TEST-BB-469: a demo supplier order for five group O red cells, received against a delivery of three.
             var demoOrder = await verify.SupplierOrders.SingleAsync(o => o.OrderNumber == "SO-DEMO-001");
             Assert.Equal(SupplierOrderStatus.Received, demoOrder.Status);

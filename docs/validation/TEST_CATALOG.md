@@ -770,5 +770,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-759 | U | `ShiftHandoffItemsTests.ReactionsWithUnitsOut_CountsEachInvestigationOnce` | URS-BB-672 / FRS-BB-789 |
 | TEST-BB-760 | U | `DashboardDueCountTests.ReactionsNote_NamesCasesWithUnitsOut` | URS-BB-673 / FRS-BB-790 |
 | TEST-BB-761 | I | `Phase4IssuingTests.ReactionList_CountsThePatientsUnitsOutOrReserved` | URS-BB-673 / FRS-BB-790 |
+| TEST-BB-762 | I | `SeederReactionNextUnitTests.ReactionPatient_HasAnotherUnitReserved_Once` | URS-BB-673 / FRS-BB-790 |
+| TEST-BB-763 | I | `SeederReactionNextUnitTests.FirstVersionBorrowedUnit_IsGivenBack` | URS-BB-673 / FRS-BB-790 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
