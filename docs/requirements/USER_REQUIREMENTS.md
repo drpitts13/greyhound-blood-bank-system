@@ -679,3 +679,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-671 | Moving the cursor to a field that a click has just revealed never fails the click. | P2 | FRS-BB-788 |
 | URS-BB-672 | The shift handoff tells the next shift about reactions under investigation for patients with units out or reserved. | P2 | FRS-BB-789 |
 | URS-BB-673 | The reactions list and home card say when an open case's patient still has units issued or reserved. | P2 | FRS-BB-790 |
+| URS-BB-674 | The patient chart says, on every tab, when a transfusion reaction is under investigation for the patient. | P1 | FRS-BB-791 |

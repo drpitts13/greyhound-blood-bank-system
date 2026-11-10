@@ -34,6 +34,30 @@ public class PatientSafetyBannerTests : BunitContext
         Requirement(4, SpecialTransfusionRequirementType.Washed, "Washed", active: false)
     ];
 
+    // TEST-BB-764: a reaction still under investigation is said in the chart header, on every tab including the one units
+    // are issued from, with its number and the advice to check with the physician, instead of the recorded-reaction line;
+    // without one, a recorded reaction keeps its line.
+    [Fact]
+    public void ChartHeader_SaysAReactionIsUnderInvestigation()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>());
+        var open = Render<PatientChartHeader>(p => p
+            .Add(c => c.Patient, Patient)
+            .Add(c => c.HasRecordedReaction, true)
+            .Add(c => c.OpenReaction, new OpenReactionInvestigationDto(7, Now.AddMinutes(-30))));
+
+        var banner = Normalize(open.Find("[data-chart-reaction-open]").TextContent);
+        Assert.Contains("A transfusion reaction is under investigation for this patient (#7", banner);
+        Assert.Contains("Do not issue or start another unit unless the physician has decided to continue.", banner);
+        Assert.DoesNotContain(BloodBankLIS.Domain.Rules.ReactionHistoryBanner.RecordedReaction, open.Markup);
+
+        var closed = Render<PatientChartHeader>(p => p
+            .Add(c => c.Patient, Patient)
+            .Add(c => c.HasRecordedReaction, true));
+        Assert.Empty(closed.FindAll("[data-chart-reaction-open]"));
+        Assert.Contains(BloodBankLIS.Domain.Rules.ReactionHistoryBanner.RecordedReaction, closed.Markup);
+    }
+
     // TEST-BB-667
     [Fact]
     public void ChartHeader_NamesAntibodiesAndRequirements()

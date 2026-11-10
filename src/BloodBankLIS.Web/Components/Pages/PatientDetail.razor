@@ -46,6 +46,7 @@ else
         @bind-MergeReason="_mergeReason"
         @bind-UnmergeReason="_unmergeReason"
         HasRecordedReaction="_productHistory.Any(h => h.ReactionSuspected)"
+        OpenReaction="_openReaction"
         AntibodyHistory="_antibodyHistory"
         ActiveSpecialRequirements="ActiveSpecialRequirements"
         Specimens="_specimens"
@@ -612,6 +613,8 @@ else
     private List<EncounterDto> _encounters = new();
     private List<PatientOrderDto> _orders = new();
     private List<PatientProductHistoryRowDto> _productHistory = new();
+    // A reaction still under investigation (Cycle 632); null when none or not readable.
+    private OpenReactionInvestigationDto? _openReaction;
     private bool _visitsLoaded;
     private bool _ordersLoaded;
     private bool _historyLoaded;
@@ -950,6 +953,7 @@ else
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
         await LoadSecondAboPolicyAsync();
         _antibodyHistory = (await Api.GetAntibodyHistoryAsync(Id)).Value ?? new();
+        _openReaction = (await Api.GetReactionUnderInvestigationAsync(Id)).Value?.FirstOrDefault();
         if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
         {
             _abidWorkups = (await Api.GetAntibodyIdWorkupsAsync(Id)).Value ?? new();

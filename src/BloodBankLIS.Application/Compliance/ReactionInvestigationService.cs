@@ -202,6 +202,9 @@ public sealed record ReactionReportDto(
 /// <summary>A reaction noticed after the transfusion was documented without one: what was seen, and when it began.</summary>
 public sealed record ReportLateReactionRequest(long IssueId, string? Description, DateTime? OnsetUtc = null, string? ReactionType = null);
 
+/// <summary>A patient's transfusion reaction investigation still open or under review (Cycle 632): number and report time.</summary>
+public sealed record OpenReactionInvestigationDto(long Id, DateTime ReportedUtc);
+
 public sealed class ReactionInvestigationService
 {
     private readonly IRepository<ReactionInvestigation> _investigations;
@@ -346,6 +349,12 @@ public sealed class ReactionInvestigationService
 
         return counts;
     }
+
+    /// <summary>The patient's latest investigation not yet closed, as a list of none or one, for the chart banner.</summary>
+    public async Task<IReadOnlyList<OpenReactionInvestigationDto>> OpenForPatientAsync(long patientId, CancellationToken ct = default) =>
+        (await OpenByPatientAsync([patientId], ct)).TryGetValue(patientId, out var open)
+            ? [new OpenReactionInvestigationDto(open.Id, open.ReportedUtc)]
+            : [];
 
     public async Task<ReactionInvestigationDto?> GetDtoAsync(long id, CancellationToken ct = default)
     {

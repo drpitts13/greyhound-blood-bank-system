@@ -1,4 +1,5 @@
 using BloodBankLIS.Api.Auth;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Domain.Rules;
 
@@ -61,6 +62,11 @@ public static class PatientEndpoints
         // Units still out that were issued under another MRN (after a merge): the wristband may differ from the chart.
         group.MapGet("/{id:long}/issued-under-earlier-identity", async (long id, PatientMergeService merges, CancellationToken ct) =>
             Results.Ok(await merges.ListIssuedUnderEarlierIdentityAsync(id, ct)));
+
+        // A reaction still under investigation (Cycle 632): the chart warns before another unit is issued or started.
+        // Read with the chart, so it needs no reaction-investigation permission; it carries only the number and time.
+        group.MapGet("/{id:long}/reaction-under-investigation", async (long id, ReactionInvestigationService reactions, CancellationToken ct) =>
+            Results.Ok(await reactions.OpenForPatientAsync(id, ct)));
 
         group.MapPost("/{id:long}/identify", async (long id, IdentifyPatientRequest request, PatientMergeService merges, CancellationToken ct) =>
             EndpointResults.From(await merges.IdentifyAsync(id, request, ct), p => PatientDto.From(p)))

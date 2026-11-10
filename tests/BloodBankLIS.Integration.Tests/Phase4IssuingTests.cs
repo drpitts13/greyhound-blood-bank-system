@@ -1226,9 +1226,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         // The issued unit (received on the ward, still out) and the reserved one.
         Assert.Equal(2, (await Reactions().ListDtosAsync()).Single(r => r.Id == investigation.Id).PatientUnitsOutOrReserved);
 
+        // TEST-BB-765: the chart's lookup returns the open case with its number and report time, and nothing once closed.
+        var forChart = Assert.Single(await Reactions().OpenForPatientAsync(s.PatientId));
+        Assert.Equal((investigation.Id, investigation.ReportedUtc), (forChart.Id, forChart.ReportedUtc));
+
         investigation.Status = ReactionInvestigationStatus.Closed;
         await c.SaveChangesAsync();
         Assert.Equal(0, (await Reactions().ListDtosAsync()).Single(r => r.Id == investigation.Id).PatientUnitsOutOrReserved);
+        Assert.Empty(await Reactions().OpenForPatientAsync(s.PatientId));
     }
 
     // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)

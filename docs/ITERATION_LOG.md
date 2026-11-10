@@ -19472,3 +19472,32 @@ The warnings of Cycles 626–630 could only be seen in tests: the one demo react
 ### Next
 
 - The Issue form for MRN0006's reserved unit could not be opened live (the unit needs a crossmatch first, so the row offers no Issue); seed a compatible crossmatch on the demo unit so the Issue form warning can be seen too.
+
+## Iteration 632 — The chart says a reaction is under investigation (2026-11-09)
+
+### Capability matrix rescan (every path that issues a unit)
+
+Before seeding a crossmatch to show the Issue form warning, the other issue paths were checked. Units are issued from Issue & Transfuse and from the patient chart (its own issue panel). Cycles 626–627 warned on Issue & Transfuse only. The chart header carried "This patient has a recorded transfusion reaction" for any reaction ever suspected, open or long closed, so nothing on the chart told a reaction under investigation now from one years ago, and its issue panel said nothing. The chart cannot read the investigations list without the reaction-investigation permission.
+
+### Design
+
+- `GET /api/patients/{id}/reaction-under-investigation`: none or one open investigation (number and report time only), read with the chart.
+- Chart header, every tab: a red banner with the number, the report time, and "Do not issue or start another unit unless the physician has decided to continue." in place of the recorded-reaction line while one is open. Warning only (OCD-078).
+- The crossmatch seed stays a next step; this closes the path a seed would not have shown.
+
+### Verification
+
+- Rendered: the banner with an open case and no recorded-reaction line; without one, the recorded-reaction line. Integration: the lookup returns the open case and nothing once closed.
+- Live (read-only): Marcus Febrile's chart (MRN0006), Products tab, shows the red banner "A transfusion reaction is under investigation for this patient (#1, reported 2026-11-06 07:50). Do not issue or start another unit unless the physician has decided to continue." and no recorded-reaction line. No server errors.
+
+### Requirements
+
+- URS-BB-674, FRS-BB-791.
+
+### Tests
+
+- TEST-BB-764, TEST-BB-765.
+
+### Next
+
+- Seed a compatible crossmatch on the MRN0006 demo unit (and a current specimen) so the Issue form warning can be seen live.

@@ -329,7 +329,15 @@
     </div>
 }
 
-@if (ReactionNotice is not null)
+@if (OpenReaction is { } underInvestigation)
+{
+    <div class="alert alert-danger" data-chart-reaction-open>
+        <strong>A transfusion reaction is under investigation for this patient</strong>
+        (#@underInvestigation.Id, reported @ClockText.Short(underInvestigation.ReportedUtc)). @ReactionHistoryBanner.UnderInvestigationAdvice
+        <a href="@($"/patients/{Patient.Id}?tab=history")">Product history</a>
+    </div>
+}
+else if (ReactionNotice is not null)
 {
     <div class="alert alert-warning">
         <strong>@ReactionNotice</strong>
@@ -464,6 +472,7 @@
     [Parameter] public string UnmergeReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> UnmergeReasonChanged { get; set; }
     [Parameter] public bool HasRecordedReaction { get; set; }
+    [Parameter] public BloodBankLIS.Application.Compliance.OpenReactionInvestigationDto? OpenReaction { get; set; }
     [Parameter] public IReadOnlyList<AntibodyDto> AntibodyHistory { get; set; } = [];
     [Parameter] public IEnumerable<SpecialRequirementDto> ActiveSpecialRequirements { get; set; } = [];
 

@@ -112,6 +112,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<IssuedUnderEarlierIdentityDto>>> GetIssuedUnderEarlierIdentityAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<IssuedUnderEarlierIdentityDto>>(HttpMethod.Get, $"api/patients/{patientId}/issued-under-earlier-identity", ct: ct);
 
+    public Task<ApiResult<List<OpenReactionInvestigationDto>>> GetReactionUnderInvestigationAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<OpenReactionInvestigationDto>>(HttpMethod.Get, $"api/patients/{patientId}/reaction-under-investigation", ct: ct);
+
     public Task<ApiResult<PatientDto>> IdentifyPatientAsync(long unidentifiedId, IdentifyPatientRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{unidentifiedId}/identify", req, ct);
 
