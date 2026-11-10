@@ -694,3 +694,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-686 | Supervisor review of an antibody workup is offered only when there is an interpretation to review, and tells the technologist who recorded it that another supervisor must accept it. | P2 | FRS-BB-803 |
 | URS-BB-687 | Completing an antibody workup is offered only when it can complete; otherwise the card says whether it waits for the interpretation, for supervisor review, or for a new interpretation after a rejection. | P2 | FRS-BB-804 |
 | URS-BB-688 | The shift handoff tells the next shift how many antibody workups are still open and how many wait for supervisor review. | P2 | FRS-BB-805 |
+| URS-BB-689 | The home screen shows open antibody workups to those who record or review them, and names the workups that need more than their next routine step. | P2 | FRS-BB-806 |

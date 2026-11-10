@@ -498,6 +498,13 @@
                     ? (card.Key, result.Value.Count, DashboardQueueCatalog.RhigQueueNote(result.Value))
                     : (card.Key, null, null);
             }
+            case DashboardQueueCatalog.AntibodyWorkups:
+            {
+                var result = await Api.GetOpenAntibodyIdSummaryAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.OpenCount, DashboardQueueCatalog.AntibodyWorkupsNote(result.Value))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.PossibleDuplicates:
             {
                 var result = await Api.GetPossibleDuplicatePairsAsync();

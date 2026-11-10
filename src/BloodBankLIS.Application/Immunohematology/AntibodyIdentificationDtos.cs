@@ -155,7 +155,9 @@ public sealed record AntibodyIdOpenWorklistSummaryDto(
     int NotReadySpecimenCount = 0,
     int WithdrawnJudgmentCount = 0,
     int PendingTypeCorrectionCount = 0,
-    int ReservedOrIssuedUnitCount = 0);
+    int ReservedOrIssuedUnitCount = 0,
+    int LotAttentionCount = 0,
+    int SpecimenAttentionCount = 0);
 
 public sealed record AntibodyIdCellDto(
     long CellId,

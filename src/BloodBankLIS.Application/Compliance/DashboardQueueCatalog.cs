@@ -43,6 +43,7 @@ public static class DashboardQueueCatalog
     public const string TubesDueForDiscard = "tubes-due-discard";
     public const string Unidentified = "unidentified-patients";
     public const string BloodOrders = "blood-orders";
+    public const string AntibodyWorkups = "antibody-workups";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -71,6 +72,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.ReactionInvestigate), Reactions, "Reaction investigations", "/reactions");
         // RhIG evaluations not yet completed: recorded by the bench, completed by a verifier (OCD-069).
         Add(cards, has(PermissionCodes.ResultVerify) || has(PermissionCodes.ImmunoRecord), OpenRhig, "Open RhIG evaluations", "/rhig");
+        // Antibody workups not completed: read by the bench (immuno.record), reviewed by a supervisor (immuno.override).
+        Add(cards, has(PermissionCodes.ImmunoRecord) || has(PermissionCodes.ImmunoOverride), AntibodyWorkups, "Antibody workups", "/antibody-id");
         Add(cards, has(PermissionCodes.ImmunoOverride)
             || has(PermissionCodes.ResultVerify)
             || has(PermissionCodes.InventoryRelease) || has(PermissionCodes.OverrideApprove), Supervisor, "Supervisor queue", "/supervisor");
@@ -177,6 +180,26 @@ public static class DashboardQueueCatalog
         {
             AttentionNote(list.Count(i => i.ReadyToComplete), "ready to complete", "ready to complete"),
             AttentionNote(list.Count(i => i.Evaluation.AwaitsGiving), "to give", "to give")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
+    /// <summary>
+    /// The Antibody workups card note: open workups that need more than their next routine step. Units reserved or
+    /// issued for the patient, an interpretation withdrawn by a later change, a pending ABO/Rh or antigen correction, a
+    /// rejected, cancelled or expired specimen, or a withdrawn or expired lot. Any of these brings the card under Needs
+    /// attention; reactions, interpretation and review to do stay in the count (reviews are on the Supervisor queue).
+    /// </summary>
+    public static string? AntibodyWorkupsNote(BloodBankLIS.Application.Immunohematology.AntibodyIdOpenWorklistSummaryDto summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        var parts = new[]
+        {
+            AttentionNote(summary.ReservedOrIssuedUnitCount, "with units reserved or issued", "with units reserved or issued"),
+            AttentionNote(summary.WithdrawnJudgmentCount, "to re-interpret", "to re-interpret"),
+            AttentionNote(summary.PendingTypeCorrectionCount, "with a pending type correction", "with a pending type correction"),
+            AttentionNote(summary.SpecimenAttentionCount, "on a rejected, cancelled or expired specimen", "on a rejected, cancelled or expired specimen"),
+            AttentionNote(summary.LotAttentionCount, "on a withdrawn or expired lot", "on a withdrawn or expired lot")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }

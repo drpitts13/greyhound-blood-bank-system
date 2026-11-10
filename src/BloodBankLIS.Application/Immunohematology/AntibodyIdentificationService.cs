@@ -141,7 +141,10 @@ public sealed class AntibodyIdentificationService
             items.Count(w => w.HasNotReadySpecimen),
             items.Count(w => w.HasWithdrawnJudgment),
             items.Count(w => w.HasPendingTypeCorrection),
-            items.Count(w => w.HasReservedOrIssuedUnits));
+            items.Count(w => w.HasReservedOrIssuedUnits),
+            // Each workup once, however many of its lots or specimen conditions apply.
+            items.Count(w => w.HasInactiveLot || w.HasExpiredLot),
+            items.Count(w => w.HasUnusableSpecimen || w.HasExpiredSpecimen));
     }
 
     public async Task<AntibodyIdWorkupDetailDto?> GetWorkupAsync(long workupId, CancellationToken ct = default)

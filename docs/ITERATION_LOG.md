@@ -19911,3 +19911,33 @@ The supervisor queue already lists antibody workups waiting for review (immuno.o
 ### Next
 
 - Home screen: whether the antibody ID card says how many workups wait for review, as the handoff now does.
+
+## Iteration 647 — A home card for antibody workups (2026-11-10)
+
+### Capability matrix rescan (operations: role-based home)
+
+The home screen had cards for pending tests, RhIG evaluations, reactions and the rest, but none for antibody workups: the bench reached them only from the menu, and a workup whose patient already has units reserved, or whose specimen or lot went bad, did not surface anywhere on the home screen. The worklist already computes all of this (`/api/antibody-id/summary`).
+
+### Design
+
+- Card "Antibody workups" for immuno.record or immuno.override, linked to the worklist, on the Bench and Supervisor desks. Count: open workups.
+- Note, which puts the card under Needs attention: units reserved or issued for the patient; interpretation withdrawn by a later change; pending ABO/Rh or antigen correction; a rejected, cancelled or expired specimen; a withdrawn or expired lot. Reactions, interpretation and review still to do add no note; reviews are already on the Supervisor queue card.
+- The summary gains `LotAttentionCount` and `SpecimenAttentionCount`, each workup counted once, so the note does not double-count a workup with two conditions.
+
+### Verification
+
+- Unit: the card for each permission and not without; desks; the note in order, and none for routine steps.
+- Integration: the summary's two new counts match the worklist rows.
+- Live (read-only): the home screen on development data shows "Antibody workups 1" (the demo workup) under Queues with work, with no note. No server errors.
+
+### Requirements
+
+- URS-BB-689, FRS-BB-806.
+
+### Tests
+
+- TEST-BB-795, TEST-BB-796.
+
+### Next
+
+- Back to the capability matrix: product modifications (divisions, pooling, irradiation) are still Partial in the gap analysis; walk one for remembered or retyped information.

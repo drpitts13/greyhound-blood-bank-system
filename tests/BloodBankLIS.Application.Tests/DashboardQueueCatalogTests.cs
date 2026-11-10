@@ -318,6 +318,43 @@ public class DashboardQueueCatalogTests
             SpecimenStatus.Accepted, DateTime.UtcNow.AddDays(2), false, "O+", false, null, resultId, status, "Negative", null,
             ResultSource.Manual, true, null, CurrentResultEnteredBy: enteredBy, VerificationDeadlineNotice: deadline);
 
+    // TEST-BB-795: the Antibody workups card is shown to immuno.record or immuno.override, linked to the antibody ID
+    // worklist, and not to a user with neither; it sits on the Bench and Supervisor desks.
+    [Fact]
+    public void Select_AntibodyWorkups_ForImmunoRecordOrOverride()
+    {
+        foreach (var code in new[] { PermissionCodes.ImmunoRecord, PermissionCodes.ImmunoOverride })
+        {
+            Assert.Contains(DashboardQueueCatalog.Select(Has(code)),
+                card => card.Key == DashboardQueueCatalog.AntibodyWorkups && card.Href == "/antibody-id" && card.Label == "Antibody workups");
+        }
+
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate, PermissionCodes.ResultVerify)),
+            card => card.Key == DashboardQueueCatalog.AntibodyWorkups);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.AntibodyWorkups, WorkFocus.Bench));
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.AntibodyWorkups, WorkFocus.Supervisor));
+        Assert.False(DashboardHome.InFocus(DashboardQueueCatalog.AntibodyWorkups, WorkFocus.IssueDesk));
+    }
+
+    // TEST-BB-796: the card note names workups with units reserved or issued, to re-interpret, with a pending type
+    // correction, on a bad specimen, or on a bad lot; routine steps (reactions, interpretation, review) add no note, so
+    // such a card stays a plain count.
+    [Fact]
+    public void AntibodyWorkupsNote_NamesOnlyWhatNeedsAttention()
+    {
+        var routine = new AntibodyIdOpenWorklistSummaryDto(4, 1, 1, 2, 0, 0);
+        Assert.Null(DashboardQueueCatalog.AntibodyWorkupsNote(routine));
+
+        var attention = routine with
+        {
+            ReservedOrIssuedUnitCount = 1, WithdrawnJudgmentCount = 2, PendingTypeCorrectionCount = 1,
+            SpecimenAttentionCount = 1, LotAttentionCount = 2
+        };
+        Assert.Equal(
+            "1 with units reserved or issued; 2 to re-interpret; 1 with a pending type correction; 1 on a rejected, cancelled or expired specimen; 2 on a withdrawn or expired lot",
+            DashboardQueueCatalog.AntibodyWorkupsNote(attention));
+    }
+
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
 

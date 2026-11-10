@@ -310,6 +310,9 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         Assert.Equal(listed.Count(w => w.HasWithdrawnJudgment), summary.WithdrawnJudgmentCount);
         Assert.Equal(listed.Count(w => w.HasPendingTypeCorrection), summary.PendingTypeCorrectionCount);
         Assert.Equal(listed.Count(w => w.HasReservedOrIssuedUnits), summary.ReservedOrIssuedUnitCount);
+        // TEST-BB-796: the home card's lot and specimen attention count each workup once (Cycle 647).
+        Assert.Equal(listed.Count(w => w.HasInactiveLot || w.HasExpiredLot), summary.LotAttentionCount);
+        Assert.Equal(listed.Count(w => w.HasUnusableSpecimen || w.HasExpiredSpecimen), summary.SpecimenAttentionCount);
         Assert.True(summary.RecordReactionsCount >= 1);
         Assert.True(summary.InterpretCount >= 1);
         Assert.True(summary.ReviewCount >= 1);
