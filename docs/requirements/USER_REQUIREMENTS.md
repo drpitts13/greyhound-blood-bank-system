@@ -685,3 +685,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-677 | A reaction investigation lists the units issued to the patient while it was open. | P2 | FRS-BB-794 |
 | URS-BB-678 | The reaction report states the units issued while the investigation was open, or that there were none. | P3 | FRS-BB-795 |
 | URS-BB-679 | Pending specimens takes a tube scan as soon as it opens and after the scan mode changes. | P3 | FRS-BB-796 |
+| URS-BB-680 | Rejecting a tube offers the step to collect a new one for the patient. | P2 | FRS-BB-797 |

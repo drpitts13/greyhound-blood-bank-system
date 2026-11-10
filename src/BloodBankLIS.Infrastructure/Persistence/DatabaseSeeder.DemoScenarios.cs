@@ -82,6 +82,47 @@ public static partial class DatabaseSeeder
         await EnsureBloodOrderDemoAsync(context, ct);
         await EnsureSurgeryOrderDemoAsync(context, ct);
         await EnsureReactionNextUnitDemoAsync(context, ct);
+        await EnsureTubeAwaitingReceiptDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (Cycle 638): a tube collected on the ward for Demo-Multi, Riley
+    /// (MRN0022, who needs a new specimen) and not yet received, so Pending specimens has a tube to scan, receive, or
+    /// reject on the development data. It ages like any tube: once past its expiry it can only be rejected.
+    /// </summary>
+    private static async Task EnsureTubeAwaitingReceiptDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string accession = "ACC-DEMO-RCV1";
+        if (await context.Specimens.IgnoreQueryFilters().AnyAsync(s => s.AccessionNumber == accession, ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0022", ct);
+        var visit = patient is null
+            ? null
+            : await context.Encounters.FirstOrDefaultAsync(e => e.PatientId == patient.Id && e.Status == EncounterStatus.Active, ct);
+        if (patient is null || visit is null)
+        {
+            return;
+        }
+
+        var collected = DateTime.UtcNow.AddMinutes(-25);
+        context.Specimens.Add(new Specimen
+        {
+            AccessionNumber = accession,
+            PatientId = patient.Id,
+            EncounterId = visit.Id,
+            SpecimenType = "EDTA",
+            Barcode = "SPC-" + accession,
+            CollectedUtc = collected,
+            ExpiresUtc = collected.AddDays(3),
+            DrawLocation = "ICU 4",
+            Collector = "RN Demo",
+            Status = SpecimenStatus.Collected,
+            Comment = "Demo: drawn on the ward, on its way to the blood bank."
+        });
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>

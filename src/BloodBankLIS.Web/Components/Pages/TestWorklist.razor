@@ -319,6 +319,15 @@
         </div>
     </div>
 
+    @if (_rejectedTube is { } rejected)
+    {
+        @* Cycle 638: a rejected tube means the patient needs a new one; the step opens the accession form (Cycle 619). *@
+        <div class="alert alert-warning flex gap" style="align-items:center;flex-wrap:wrap;" data-rejected-next>
+            <span>Tube <span class="mono">@rejected.AccessionNumber</span> rejected. @rejected.PatientName (<span class="mono">@rejected.Mrn</span>) needs a new specimen.</span>
+            <a class="btn btn-primary btn-sm" href="@BloodOrderPreparationRule.CollectSpecimenHref(rejected.PatientId)">Collect a new specimen</a>
+        </div>
+    }
+
     @if (_acceptedTube is { Length: > 0 } accepted)
     {
         var waiting = TestWorklistView.ForTube(_items, accepted).Count;
@@ -577,6 +586,8 @@
     // What a scan does on the pending list: receive (default) or accept. Accepting is a deliberate mode.
     private bool _scanAccepts;
     private long? _rejectingSpecimenId;
+    // The tube just rejected, offered with the step to collect a new one (Cycle 638).
+    private PendingSpecimenWorkItemDto? _rejectedTube;
     private string _rejectReason = string.Empty;
     private string _rejectComment = string.Empty;
 
@@ -817,6 +828,7 @@
         _fb = r.ToFeedback(r.Value is null ? $"{verb}." : $"{verb} {r.Value.AccessionNumber}. Scan the next tube.");
         if (r.Succeeded)
         {
+            _rejectedTube = null;
             _specimenScan = string.Empty;
             await LoadPendingSpecimensAsync();
             if (_scanAccepts)
@@ -861,11 +873,13 @@
     private async Task RejectPendingAsync(long specimenId)
     {
         _busy = true;
+        var rejecting = _pendingSpecimens.FirstOrDefault(p => p.SpecimenId == specimenId);
         var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason, _rejectComment);
         _busy = false;
         _fb = r.ToFeedback("Specimen rejected.");
         if (r.Succeeded)
         {
+            _rejectedTube = rejecting;
             _rejectingSpecimenId = null;
             _rejectReason = string.Empty;
             _rejectComment = string.Empty;

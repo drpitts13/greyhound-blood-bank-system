@@ -19648,3 +19648,31 @@ Pending specimens is scan-first ("Scan a tube to receive it: the scan picks the 
 ### Next
 
 - Seed one collected tube waiting for receipt so Pending specimens shows something on the development data, then walk rejection from it.
+
+## Iteration 638 — A rejected tube offers a new specimen; a demo tube to receive (2026-11-10)
+
+### Capability matrix rescan (specimen receipt and rejection, live)
+
+Seeded a tube waiting for receipt and walked it: the row shows the draw and wait time, expiry, and Receive, Reject, Chart. Reject opens a coded reason (unchosen), an optional comment, and Confirm. After a reject the page said only "Specimen rejected.": the patient still needs a tube, and finding the next step (the patient's accession form) was left to the bench.
+
+### Design
+
+- After a reject succeeds: "Tube {accession} rejected. {patient} ({MRN}) needs a new specimen." with **Collect a new specimen**, opening the accession form (Cycle 619's link). Cleared by the next successful scan.
+- Demo: ACC-DEMO-RCV1, a collected EDTA tube for Demo-Multi, Riley (MRN0022, who needs a new specimen) on the open ICU visit, once by accession; it ages like any tube.
+
+### Verification
+
+- Rendered: Reject, choose a reason, Confirm, and the step appears with the accession-form link; nothing before the reject is confirmed. Integration: the demo tube is seeded once and not again after it is received.
+- Live (read-only; nothing received or rejected): Pending specimens lists ACC-DEMO-RCV1, "waiting 25 min since draw", with Receive, Reject, Chart; Reject shows the coded reasons.
+
+### Requirements
+
+- URS-BB-680, FRS-BB-797.
+
+### Tests
+
+- TEST-BB-774, TEST-BB-775.
+
+### Next
+
+- The reject reason picker does not take the focus when Reject is chosen; consider it, and check whether the ward is told a tube was rejected (an HL7 or alert path).

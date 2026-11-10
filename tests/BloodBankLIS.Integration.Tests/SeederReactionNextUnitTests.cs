@@ -93,4 +93,35 @@ public class SeederReactionNextUnitTests : IClassFixture<SqliteContextFactory>
         var dedicated = await verify.BloodUnits.SingleAsync(u => u.UnitNumber == "W000123RXN0001");
         Assert.Equal(AllocationStatus.Reserved, allocations.Single(a => a.BloodProductId == dedicated.Id).Status);
     }
+
+    // TEST-BB-774: the seed adds one collected tube waiting for receipt (ACC-DEMO-RCV1, MRN0022, ICU visit); once it has
+    // been received, seeding again does not add another.
+    [Fact]
+    public async Task TubeAwaitingReceipt_IsSeededOnce()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var context = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using (var context = factory.Create())
+        {
+            var tube = await context.Specimens.SingleAsync(s => s.AccessionNumber == "ACC-DEMO-RCV1");
+            var patient = await context.Patients.SingleAsync(p => p.Id == tube.PatientId);
+            Assert.Equal(("MRN0022", SpecimenStatus.Collected), (patient.MedicalRecordNumber, tube.Status));
+            Assert.True(tube.ExpiresUtc > DateTime.UtcNow);
+            tube.Status = SpecimenStatus.Received;
+            tube.ReceivedUtc = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = factory.Create();
+        Assert.Equal(1, await verify.Specimens.CountAsync(s => s.AccessionNumber == "ACC-DEMO-RCV1"));
+    }
 }
