@@ -584,6 +584,19 @@ else
     {
         <div class="bb-card" id="abid-review">
             <div class="bb-card-title"><h3>Supervisor review</h3></div>
+            @if (string.IsNullOrWhiteSpace(_workup.TechnologistInterpretation))
+            {
+                <p class="muted" data-review-waiting>Waiting for the technologist interpretation. Review opens once it is recorded.</p>
+            }
+            else
+            {
+            @if (OwnInterpretationBlocksAccept)
+            {
+                <div class="alert alert-warning" data-review-self>
+                    You recorded this interpretation, so another supervisor must accept it (facility policy: block antibody ID self-review).
+                    You can still reject it.
+                </div>
+            }
             @if (IncompleteBlocksComplete)
             {
                 <div class="alert alert-warning">Identified antibodies cannot be accepted while panel or selected cells are missing interpretive-phase reactions.</div>
@@ -598,9 +611,10 @@ else
             }
             <div class="field"><label>Review comment</label><input @bind="_reviewComment" /></div>
             <div class="flex gap">
-                <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive || ReviewAckBlocksAccept)" @onclick="() => ReviewAsync(true)">Accept</button>
+                <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive || ReviewAckBlocksAccept || OwnInterpretationBlocksAccept)" @onclick="() => ReviewAsync(true)">Accept</button>
                 <button class="btn btn-danger" disabled="@_busy" @onclick="() => ReviewAsync(false)">Reject</button>
             </div>
+            }
         </div>
     }
 
@@ -891,6 +905,15 @@ else
 
     private bool AckBlocksComplete => NeedsCompleteAck && string.IsNullOrWhiteSpace(_completeAck);
 
+    // The service refuses an accept by the interpreting technologist while review is required and self-review is
+    // blocked; the page says so before Accept rather than after.
+    private bool _selfReviewBlockedByPolicy;
+
+    private bool OwnInterpretationBlocksAccept =>
+        _selfReviewBlockedByPolicy
+        && !string.IsNullOrWhiteSpace(_workup?.TechnologistUser)
+        && string.Equals(_workup.TechnologistUser, Session.UserName, StringComparison.OrdinalIgnoreCase);
+
     private bool ReviewAckBlocksAccept => NeedsCompleteAck && string.IsNullOrWhiteSpace(_reviewAck);
 
     private bool AutocontrolLooksPositive =>
@@ -1008,6 +1031,7 @@ else
             }
 
             ApplyWorkup(r.Value);
+            await LoadSelfReviewPolicyAsync();
             return;
         }
 
@@ -1035,6 +1059,19 @@ else
 
         _newLotId = lots.Count == 1 ? lots[0].Id : null;
         _lotDefaulted = _newLotId is not null;
+    }
+
+    private async Task LoadSelfReviewPolicyAsync()
+    {
+        if (!Session.Has(PermissionCodes.ImmunoOverride))
+        {
+            return;
+        }
+
+        var required = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AntibodyIdRequireSupervisorReview);
+        var blockSelf = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AntibodyIdBlockSelfReview);
+        // Unreadable reads as blocked, the shipped default; the service decides either way.
+        _selfReviewBlockedByPolicy = (required.Value?.Enabled ?? true) && (blockSelf.Value?.Enabled ?? true);
     }
 
     private void ApplySpecimenPrefill()

@@ -796,6 +796,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-683 / FRS-BB-800 | Rest 0 per panel phase, outlined until saved | `AntibodyIdentification.razor` | TEST-BB-780, TEST-BB-781, TEST-BB-782 | U | OCD-079 |
 | URS-BB-684 / FRS-BB-801 | Demo workup in progress | `DatabaseSeeder.DemoScenarios.cs` | TEST-BB-783, TEST-BB-784 | I | |
 | URS-BB-685 / FRS-BB-802 | Typed specificity shown as it will post | `AntibodyIdentification.razor`; `AntibodyIdentificationCatalogResolver.cs` | TEST-BB-785, TEST-BB-786 | U | |
+| URS-BB-686 / FRS-BB-803 | Review waits for an interpretation; self-accept said before the click | `AntibodyIdentification.razor`; `ReferenceEndpoints.cs` | TEST-BB-787, TEST-BB-788, TEST-BB-789 | U | OCD-021 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -28,7 +28,10 @@ public static class ReferenceEndpoints
         // The test worklist shows the reagent QC result block before anything is keyed.
         FacilityPolicyKeys.BlockResultsWhenReagentQcOpen,
         // The chart's accession form marks the collector required to accept (OCD-064).
-        FacilityPolicyKeys.RequireSpecimenCollector
+        FacilityPolicyKeys.RequireSpecimenCollector,
+        // Antibody identification says before Accept that the interpreting technologist cannot review their own workup.
+        FacilityPolicyKeys.AntibodyIdRequireSupervisorReview,
+        FacilityPolicyKeys.AntibodyIdBlockSelfReview
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)

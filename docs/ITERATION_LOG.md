@@ -19823,3 +19823,32 @@ An identified antibody that the technologist believes is not in the catalog coul
 ### Next
 
 - Supervisor review of an antibody workup: what the reviewer must look up elsewhere before accepting.
+
+## Iteration 644 — Supervisor review says who may accept, before the click (2026-11-10)
+
+### Capability matrix rescan (antibody identification, supervisor review)
+
+Walked supervisor review on the demo workup (in progress, no interpretation). The review card offered Accept and Reject although nothing had been interpreted; the service refuses that (ABID interpretation not recorded). And the technologist who recorded an interpretation, holding the override permission, saw Accept enabled; the service refuses that too when review is required and self-review is blocked (OCD-021). Both were found only after the click.
+
+### Design
+
+- With no technologist interpretation, the review card says "Waiting for the technologist interpretation" and offers neither button.
+- The page reads Require supervisor review and Block self-review through the existing read-only policy endpoint, whose allowlist now includes both keys. When both are on and the signed-in user is the interpreting technologist (case-insensitive, as the service compares), the card says another supervisor must accept and disables Accept. Reject stays available, as the service allows it. An unreadable policy counts as on, the shipped default.
+- The service checks are unchanged; the page only says beforehand what the service would refuse.
+
+### Verification
+
+- Rendered: no interpretation waits with no buttons; the interpreting technologist (any case) sees the note with Accept disabled and Reject enabled; another supervisor, or the technologist with self-review allowed, may accept.
+- Live (read-only): the demo workup's review card waits; the policy endpoint returns both keys.
+
+### Requirements
+
+- URS-BB-686, FRS-BB-803 (OCD-021).
+
+### Tests
+
+- TEST-BB-787, TEST-BB-788, TEST-BB-789.
+
+### Next
+
+- Completing an accepted antibody workup: what the completing user must check or retype.
