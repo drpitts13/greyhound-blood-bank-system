@@ -133,6 +133,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Of those, workups interpreted and waiting for supervisor review.</summary>
     public int AntibodyWorkupsToReview { get; set; }
 
+    /// <summary>Outbound HL7 results and charges queued longer than the stuck window and not yet sent (Cycle 661).</summary>
+    public int Hl7OutboundNotSent { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

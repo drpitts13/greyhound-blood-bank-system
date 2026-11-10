@@ -56,6 +56,8 @@ public static class ShiftHandoffItems
         Add(h.InstrumentFailuresOpen, "Instrument failures", "/instruments?show=open",
             detail: Note((h.InstrumentResultsHeld, "held for review")));
         Add(h.Hl7ErrorsOpen, "HL7 errors", "/hl7");
+        // Results and charges that have not gone to the EHR or billing and will not by themselves (Cycle 661).
+        Add(h.Hl7OutboundNotSent, "HL7 outbound not sent", "/hl7");
         Add(h.UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
         Add(h.RhigOpen, "RhIG evaluations", "/rhig", detail: Note((h.RhigToGive, "to give")));
         Add(h.AntibodyWorkupsOpen, "Antibody workups", "/antibody-id", detail: Note((h.AntibodyWorkupsToReview, "to review")));

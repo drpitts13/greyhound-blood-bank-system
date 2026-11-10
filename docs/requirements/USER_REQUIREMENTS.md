@@ -709,3 +709,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-701 | An administrator can test print a specimen label design as it stands, saved or not, on screen or on a printer, without a real specimen and without a label that could pass for a patient. | P2 | FRS-BB-819 |
 | URS-BB-702 | The label designer says when elements would overlap or text would run off the label when printed, and shows which ones. | P3 | FRS-BB-820 |
 | URS-BB-703 | Results and charges that have not gone out to the EHR or billing are visible with why, and the home screen says when any have waited too long. | P2 | FRS-BB-821 |
+| URS-BB-704 | The shift handoff tells the next shift how many outbound results and charges have not gone out. | P3 | FRS-BB-822 |

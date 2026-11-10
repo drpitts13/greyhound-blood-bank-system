@@ -815,6 +815,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-701 / FRS-BB-819 | Test print from the label designer | `SpecimenLabelTestPrintService.cs`; `AdminEndpoints.cs`; `AdminSpecimenLabels.razor` | TEST-BB-832, TEST-BB-833, TEST-BB-834 | I, U | |
 | URS-BB-702 / FRS-BB-820 | Overlap and right-edge warnings in the label designer | `SpecimenLabelDesignRules.cs`; `LabelCanvasEditor.razor` | TEST-BB-835, TEST-BB-836 | U | |
 | URS-BB-703 / FRS-BB-821 | Outbound messages not sent, with why | `OutboundMessageWaitRule.cs`; `Hl7OutboundSender.cs`; `Hl7Endpoints.cs`; `Hl7.razor`; `DashboardQueueCatalog.cs`; `Home.razor` | TEST-BB-837 to TEST-BB-840 | I, U | |
+| URS-BB-704 / FRS-BB-822 | Handoff counts outbound HL7 not sent | `ShiftHandoff.cs`; `ShiftHandoffService.cs`; `ShiftHandoffItems.cs`; migration; bootstrap | TEST-BB-841, TEST-BB-842 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

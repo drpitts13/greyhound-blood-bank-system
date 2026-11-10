@@ -53,6 +53,18 @@ public class ShiftHandoffItemsTests
         Assert.DoesNotContain("antibody workups", Handoff().QueueSummary);
     }
 
+    // TEST-BB-841: outbound HL7 messages not sent are a handoff item linked to the HL7 page and in the summary line;
+    // none, no item.
+    [Fact]
+    public void Hl7OutboundNotSent_IsAHandoffItem()
+    {
+        var handoff = Handoff() with { Hl7OutboundNotSent = 7 };
+        var item = Assert.Single(ShiftHandoffItems.For(handoff));
+        Assert.Equal(("HL7 outbound not sent", 7, "/hl7"), (item.Label, item.Count, item.Href));
+        Assert.Contains("HL7 outbound not sent 7", handoff.QueueSummary);
+        Assert.DoesNotContain("outbound", Handoff().QueueSummary);
+    }
+
     // TEST-BB-615: unidentified patients still unmerged lead the handoff (urgent, linked to Patients); tubes due for discard
     // are a routine item linked to Store tubes; both are in the summary line.
     [Fact]

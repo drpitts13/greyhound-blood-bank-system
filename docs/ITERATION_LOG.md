@@ -20346,3 +20346,32 @@ The HL7 error queue was empty, but the message log held seven outbound DFT charg
 ### Next
 
 - Count stuck outbound messages on the shift handoff, as the error queue is.
+
+## Iteration 661 — The handoff counts outbound messages not sent (2026-11-10)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Cycle 660 made outbound results and charges that have not gone visible on the HL7 page and the home screen. The shift handoff counted HL7 errors but not these, so a night's results not reaching the EHR were not handed over.
+
+### Design
+
+- `ShiftHandoff.Hl7OutboundNotSent`, counted when the handoff is written and kept on it (migration `20261224000000_ShiftHandoffHl7OutboundNotSent`, dev bootstrap column): outbound messages queued or failed past the 15-minute stuck window (`OutboundMessageWaitRule`), excluding a charge withheld because it was cancelled. The service counts from the message log (the application layer does not reach the HL7 sender); the reasons stay on the HL7 page.
+- Handoff item "HL7 outbound not sent" linked to the HL7 page; summary "HL7 outbound not sent N".
+
+### Verification
+
+- Unit: the item, its link, the summary; none without.
+- Integration: stuck queued and failed outbound counted; fresh, acknowledged, inbound and withheld not; the saved handoff keeps the count.
+- Live (read-only; nothing recorded): the handoff preview lists "HL7 outbound not sent: 7" linked to the HL7 page; the dev database took the column on start. No server errors.
+
+### Requirements
+
+- URS-BB-704, FRS-BB-822.
+
+### Tests
+
+- TEST-BB-841, TEST-BB-842.
+
+### Next
+
+- Back to the capability matrix: downtime workflows (the downtime snapshot and recovery) for remembered or retyped information.

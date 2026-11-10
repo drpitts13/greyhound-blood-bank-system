@@ -849,5 +849,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-838 | I | `Hl7OutboundWaitingTests.WithAnInterface_SaysWhyEachWaits` | URS-BB-703 / FRS-BB-821 |
 | TEST-BB-839 | U | `DashboardQueueCatalogTests.Hl7OutboundWaiting_CardAndNote` | URS-BB-703 / FRS-BB-821 |
 | TEST-BB-840 | U | `Hl7OutboundWaitingPageTests.WaitingMessages_AreListedWithWhy` | URS-BB-703 / FRS-BB-821 |
+| TEST-BB-841 | U | `ShiftHandoffItemsTests.Hl7OutboundNotSent_IsAHandoffItem` | URS-BB-704 / FRS-BB-822 |
+| TEST-BB-842 | I | `ShiftHandoffServiceTests.Create_CountsOutboundMessagesNotSent` | URS-BB-704 / FRS-BB-822 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

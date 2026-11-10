@@ -418,6 +418,46 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal((expectedOpen, expectedReview), (saved.AntibodyWorkupsOpen, saved.AntibodyWorkupsToReview));
     }
 
+    // TEST-BB-842: a handoff counts outbound messages queued or failed past the stuck window; a fresh one, an
+    // acknowledged one, an inbound one, and a charge withheld because it was cancelled are not counted; the saved
+    // handoff keeps the count.
+    [Fact]
+    public async Task Create_CountsOutboundMessagesNotSent()
+    {
+        await using var context = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var key = Guid.NewGuid().ToString("N")[..6];
+        Hl7MessageLog Msg(string control, Hl7Direction direction, Hl7MessageStatus status, TimeSpan age, string? detail = null) => new()
+        {
+            Direction = direction, MessageType = "DFT", MessageControlId = $"{control}-{key}", RawMessage = "MSH|",
+            Status = status, ReceivedUtc = now - age, ErrorDetail = detail
+        };
+        context.Hl7Messages.AddRange(
+            Msg("OLD", Hl7Direction.Outbound, Hl7MessageStatus.Received, TimeSpan.FromDays(2)),
+            Msg("FAILED", Hl7Direction.Outbound, Hl7MessageStatus.Errored, TimeSpan.FromHours(1)),
+            Msg("FRESH", Hl7Direction.Outbound, Hl7MessageStatus.Received, TimeSpan.FromMinutes(3)),
+            Msg("ACKED", Hl7Direction.Outbound, Hl7MessageStatus.Acked, TimeSpan.FromDays(1)),
+            Msg("INBOUND", Hl7Direction.Inbound, Hl7MessageStatus.Received, TimeSpan.FromDays(1)),
+            Msg("WITHHELD", Hl7Direction.Outbound, Hl7MessageStatus.Received, TimeSpan.FromDays(1), BloodBankLIS.Application.Billing.BillingService.UnsentDftWithheldDetail));
+        await context.SaveChangesAsync();
+        var expected = (await context.Hl7Messages.ToListAsync()).Count(m => m.Direction == Hl7Direction.Outbound
+            && (m.Status == Hl7MessageStatus.Received || m.Status == Hl7MessageStatus.Errored)
+            && m.ErrorDetail != BloodBankLIS.Application.Billing.BillingService.UnsentDftWithheldDetail
+            && OutboundMessageWaitRule.IsStuck(m.ReceivedUtc, now));
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            hl7Messages: new EfRepository<Hl7MessageLog>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Outbound"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Equal(expected, created.Value!.Hl7OutboundNotSent);
+        Assert.True(expected >= 2);
+        Assert.Equal(expected, (await context.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == created.Value.Id)).Hl7OutboundNotSent);
+    }
+
     // TEST-BB-616: a handoff counts unidentified patients not yet merged (a merged one is not counted).
     [Fact]
     public async Task Create_CountsUnidentifiedPatientsNotYetMerged()

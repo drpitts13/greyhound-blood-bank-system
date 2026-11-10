@@ -62,7 +62,8 @@ public sealed record ShiftHandoffDto(
     int ActiveMtpIdle = 0,
     int ReactionsWithUnitsOut = 0,
     int AntibodyWorkupsOpen = 0,
-    int AntibodyWorkupsToReview = 0)
+    int AntibodyWorkupsToReview = 0,
+    int Hl7OutboundNotSent = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -103,6 +104,7 @@ public sealed record ShiftHandoffDto(
             ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
             : "") +
         (Hl7ErrorsOpen > 0 ? $"; HL7 errors {Hl7ErrorsOpen}" : "") +
+        (Hl7OutboundNotSent > 0 ? $"; HL7 outbound not sent {Hl7OutboundNotSent}" : "") +
         (UnmappedInterfaceValues > 0 ? $"; unmapped interface values {UnmappedInterfaceValues}" : "") +
         (RhigOpen > 0 ? $"; RhIG evaluations {RhigOpen}" + (RhigToGive > 0 ? $", {RhigToGive} to give" : "") : "") +
         (AntibodyWorkupsOpen > 0
@@ -127,7 +129,7 @@ public sealed record ShiftHandoffDto(
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
         h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
-        h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview);
+        h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent);
 }
 
 /// <summary>
@@ -159,6 +161,7 @@ public sealed class ShiftHandoffService
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
     private readonly ReagentQcService? _reagentQc;
     private readonly IRepository<InterfaceErrorQueueItem>? _hl7Errors;
+    private readonly IRepository<Hl7MessageLog>? _hl7Messages;
     private readonly IRepository<InterfaceUnmappedValue>? _unmapped;
     private readonly IRepository<RhigEvaluation>? _rhig;
     private readonly IRepository<Patient>? _patientCharts;
@@ -193,8 +196,10 @@ public sealed class ShiftHandoffService
         BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null,
         IRepository<Issue>? issues = null,
         FacilityPolicyService? policy = null,
-        IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null)
+        IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
+        IRepository<Hl7MessageLog>? hl7Messages = null)
     {
+        _hl7Messages = hl7Messages;
         _antibodyWorkups = antibodyWorkups;
         _bloodOrders = bloodOrders;
         _issueRecords = issues;
@@ -400,6 +405,7 @@ public sealed class ShiftHandoffService
             ReagentLotsFailedQc = failedLots.Count,
             ReagentResultsToReview = failedLots.Sum(l => l.ResultsToReview),
             Hl7ErrorsOpen = _hl7Errors is null ? 0 : (await _hl7Errors.ListAsync(e => !e.Resolved, ct)).Count,
+            Hl7OutboundNotSent = await CountOutboundNotSentAsync(now, ct),
             UnmappedInterfaceValues = _unmapped is null ? 0 : (await _unmapped.ListAsync(v => v.ResolvedUtc == null, ct)).Count,
             RhigOpen = rhigOpen.Count,
             RhigToGive = rhigOpen.Count(e => e.CompletedUtc != null),
@@ -498,8 +504,26 @@ public sealed class ShiftHandoffService
         ActiveMtpIdle = row.ActiveMtpIdle,
         ReactionsWithUnitsOut = row.ReactionsWithUnitsOut,
         AntibodyWorkupsOpen = row.AntibodyWorkupsOpen,
-        AntibodyWorkupsToReview = row.AntibodyWorkupsToReview
+        AntibodyWorkupsToReview = row.AntibodyWorkupsToReview,
+        Hl7OutboundNotSent = row.Hl7OutboundNotSent
     };
+
+    /// <summary>
+    /// Outbound messages queued or failed past the stuck window, as the HL7 page lists them (a charge withheld because it
+    /// was cancelled is not waiting); 0 without the message log.
+    /// </summary>
+    private async Task<int> CountOutboundNotSentAsync(DateTime now, CancellationToken ct)
+    {
+        if (_hl7Messages is null)
+        {
+            return 0;
+        }
+
+        var waiting = await _hl7Messages.ListAsync(m => m.Direction == Hl7Direction.Outbound
+            && (m.Status == Hl7MessageStatus.Received || m.Status == Hl7MessageStatus.Errored), ct);
+        return waiting.Count(m => m.ErrorDetail != BloodBankLIS.Application.Billing.BillingService.UnsentDftWithheldDetail
+            && OutboundMessageWaitRule.IsStuck(m.ReceivedUtc, now));
+    }
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
     {
