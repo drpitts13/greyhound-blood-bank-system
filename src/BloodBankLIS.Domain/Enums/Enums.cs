@@ -510,6 +510,16 @@ public enum TransfusionDisposition
     Returned = 3
 }
 
+/// <summary>OCD-073: how an antibody reported by another facility is documented here.</summary>
+public enum OutsideReportKind
+{
+    /// <summary>A copy of the report (antibody card, transfer letter) is kept.</summary>
+    Copy = 1,
+
+    /// <summary>The report was given by phone; who called is recorded, and who took it is the user recording it.</summary>
+    Phone = 2
+}
+
 public enum OverrideAction
 {
     WarningOverride = 0,

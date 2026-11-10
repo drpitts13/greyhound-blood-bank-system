@@ -97,9 +97,15 @@ public static class ImmunohematologyEndpoints
         }).RequirePermission(PermissionCodes.ImmunoRecord);
 
         patients.MapPost("/{patientId:long}/antibodies", async (long patientId, AddAntibodyRequest request, ImmunohematologyService service, CancellationToken ct) =>
-            EndpointResults.Created(await service.AddAntibodyAsync(patientId, request.BloodAttributeDefinitionId, request.AntibodySpecificity, request.Status, request.Comment, request.ReportingFacility, request.IdentifiedOn, ct),
+            EndpointResults.Created(await service.AddAntibodyAsync(patientId, request.BloodAttributeDefinitionId, request.AntibodySpecificity, request.Status, request.Comment, request.ReportingFacility, request.IdentifiedOn, request.ReportKind, request.ReportDocumentation, ct),
                 a => ($"/api/patients/{patientId}/antibodies/{a.Id}", (object)AntibodyDto.From(a))))
             .RequirePermission(PermissionCodes.ImmunoRecord);
+
+        // OCD-073: this laboratory confirms an antibody reported by another facility.
+        app.MapPost("/api/antibodies/{id:long}/confirm-outside", async (long id, ConfirmOutsideAntibodyRequest request, ImmunohematologyService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ConfirmOutsideAntibodyAsync(id, request.Note, ct), a => AntibodyDto.From(a)))
+            .RequirePermission(PermissionCodes.ImmunoRecord)
+            .WithTags("Immunohematology");
 
         app.MapPost("/api/antibodies/{id:long}/deactivate", async (long id, DeactivateAntibodyRequest request, ImmunohematologyService service, CancellationToken ct) =>
             EndpointResults.From(await service.DeactivateAntibodyAsync(id, request.Reason, ct), a => AntibodyDto.From(a)))

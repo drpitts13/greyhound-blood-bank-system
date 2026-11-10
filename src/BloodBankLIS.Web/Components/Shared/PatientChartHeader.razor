@@ -489,7 +489,7 @@ else if (ReactionNotice is not null)
     /// "Anti-Jka (reported by St. Mary's, identified 2025-02-01)", as the downtime sheet and antibody card say it.
     /// </summary>
     private static string AntibodyLabel(AntibodyDto a) =>
-        OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn);
+        OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn, a.ConfirmedUtc is not null);
 
     private static string EnforcedLabel(SpecialRequirementDto r)
     {

@@ -1,4 +1,5 @@
 ﻿@inject UserSession Session
+@inject BloodBankApiClient Api
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
@@ -338,6 +339,23 @@
                                 @if (a.SourceLabel is { } source)
                                 {
                                     <span class="badge badge-blue" data-antibody-outside>Outside report</span> <span class="sub">@source</span>
+                                    @if (a.ReportDocumentation is { } documented)
+                                    {
+                                        <span class="sub" data-antibody-documented>@(a.ReportKind == OutsideReportKind.Phone ? $"Phone report from {documented}, taken by {a.RecordedBy}" : $"Copy kept: {documented}")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="sub">Report not documented</span>
+                                    }
+                                    @* OCD-073: counts for selection now; this laboratory confirms it by its own testing. *@
+                                    @if (a.ConfirmedUtc is { } confirmed)
+                                    {
+                                        <span class="sub" data-antibody-confirmed>Confirmed here @confirmed.ToLocalTime().ToString("yyyy-MM-dd") by @a.ConfirmedBy: @a.ConfirmationNote</span>
+                                    }
+                                    else if (a.NeedsConfirmation)
+                                    {
+                                        <span class="badge badge-amber" data-antibody-unconfirmed>Not yet confirmed here</span>
+                                    }
                                 }
                                 else
                                 {
@@ -346,6 +364,10 @@
                             </td>
                             <td>@(a.IsActive ? "Yes" : "No")</td>
                             <td class="right">
+                                @if (a.NeedsConfirmation && Session.Has(PermissionCodes.ImmunoRecord))
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginConfirm(a.Id)" data-antibody-confirm="@a.Id">Confirm</button>
+                                }
                                 @if (a.IsActive && Session.Has(PermissionCodes.ImmunoOverride) && OpenAbidWorkups.Count == 0)
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateAb.InvokeAsync(a)">Deactivate</button>
@@ -355,6 +377,18 @@
                     }
                 </tbody>
             </table>
+            </div>
+        }
+
+        @if (_confirmId is long confirmId)
+        {
+            <div class="alert alert-info" data-antibody-confirm-form>
+                <div class="field"><label>Testing here that confirmed it</label>
+                    <input @bind="_confirmNote" @bind:event="oninput" maxlength="@OutsideAntibodyReportRule.MaxDocumentationLength" placeholder="e.g. Panel 2026-11-10, antibody ID workup #12" data-antibody-confirm-note />
+                </div>
+                <Outcome Value="_confirmFb" />
+                <button class="btn btn-primary btn-sm" disabled="@(Busy || _confirming || string.IsNullOrWhiteSpace(_confirmNote))" @onclick="() => ConfirmAsync(confirmId)" data-antibody-confirm-save>Confirm here</button>
+                <button class="btn btn-secondary btn-sm" @onclick="() => _confirmId = null">Cancel</button>
             </div>
         }
 
@@ -399,6 +433,23 @@
                     <input type="date" @bind="AbIdentifiedOn" @bind:after="() => AbIdentifiedOnChanged.InvokeAsync(AbIdentifiedOn)" disabled="@string.IsNullOrWhiteSpace(AbFacility)" data-antibody-identified-on />
                 </div>
             </div>
+            @if (!string.IsNullOrWhiteSpace(AbFacility))
+            {
+                @* OCD-073: every outside report is documented. *@
+                <div class="form-row" data-antibody-report>
+                    <div class="field"><label>Documented by</label>
+                        <select @bind="AbReportKind" @bind:after="() => AbReportKindChanged.InvokeAsync(AbReportKind)" data-antibody-report-kind>
+                            <option value="">Choose…</option>
+                            <option value="@OutsideReportKind.Copy">A copy kept (card, letter)</option>
+                            <option value="@OutsideReportKind.Phone">A phone report</option>
+                        </select>
+                    </div>
+                    <div class="field" style="flex:2;"><label>@(AbReportKind == OutsideReportKind.Phone ? "Who called (name, role, number)" : "What the copy is and where it is kept")</label>
+                        <input @bind="AbReportDocumentation" @bind:after="() => AbReportDocumentationChanged.InvokeAsync(AbReportDocumentation)" maxlength="@OutsideAntibodyReportRule.MaxDocumentationLength" data-antibody-report-detail />
+                    </div>
+                </div>
+                <p class="muted">An outside report counts for product selection at once and shows as not yet confirmed here until this laboratory confirms it.</p>
+            }
             @if (OpenAbidWorkups.Count > 0)
             {
                 <p>Complete or void the open workup before adding antibody history from this card.</p>
@@ -534,6 +585,41 @@
     [Parameter] public EventCallback<AntibodyStatus> AbStatusChanged { get; set; }
     [Parameter] public string? AbComment { get; set; }
     [Parameter] public EventCallback<string?> AbCommentChanged { get; set; }
+    [Parameter] public OutsideReportKind? AbReportKind { get; set; }
+    [Parameter] public EventCallback<OutsideReportKind?> AbReportKindChanged { get; set; }
+    [Parameter] public string? AbReportDocumentation { get; set; }
+    [Parameter] public EventCallback<string?> AbReportDocumentationChanged { get; set; }
+    /// <summary>Raised after an outside report is confirmed, so the page reloads the antibody history.</summary>
+    [Parameter] public EventCallback OnAntibodyConfirmed { get; set; }
+
+    private long? _confirmId;
+    private string? _confirmNote;
+    private bool _confirming;
+    private Feedback? _confirmFb;
+
+    private void BeginConfirm(long id)
+    {
+        _confirmId = id;
+        _confirmNote = null;
+        _confirmFb = null;
+    }
+
+    private async Task ConfirmAsync(long id)
+    {
+        _confirming = true;
+        var r = await Api.ConfirmOutsideAntibodyAsync(id, _confirmNote?.Trim() ?? string.Empty);
+        _confirming = false;
+        if (r.Succeeded)
+        {
+            _confirmId = null;
+            await OnAntibodyConfirmed.InvokeAsync();
+        }
+        else
+        {
+            _confirmFb = r.ToFeedback();
+        }
+    }
+
     [Parameter] public string? AbFacility { get; set; }
     [Parameter] public EventCallback<string?> AbFacilityChanged { get; set; }
     [Parameter] public DateOnly? AbIdentifiedOn { get; set; }

@@ -4061,7 +4061,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var ctx = _factory.Create();
         var row = (await Issuing(ctx).ListReadyToIssueAllocationsAsync()).Single(r => r.BloodUnitId == s.UnitId);
         Assert.True(row.HasAntibodyHistory);
-        Assert.Contains("Anti-Jka (reported by St. Mary's Hospital, identified 2025-02-01)", row.AntibodySummary);
+        Assert.Contains("Anti-Jka (reported by St. Mary's Hospital, identified 2025-02-01, not yet confirmed here)", row.AntibodySummary);
         Assert.Contains("Anti-E (historical / currently undetectable)", row.AntibodySummary);
     }
 

@@ -102,7 +102,7 @@ public class PatientSafetyBannerTests : BunitContext
             .Add(c => c.ActiveSpecialRequirements, Requirements.Where(r => r.IsClinicallyActive).ToList()));
 
         Assert.Equal(
-            "Antibody history: Anti-K, Anti-E (historical / currently undetectable), Anti-Jka (reported by St. Mary's Hospital, identified 2025-02-01)",
+            "Antibody history: Anti-K, Anti-E (historical / currently undetectable), Anti-Jka (reported by St. Mary's Hospital, identified 2025-02-01, not yet confirmed here)",
             Normalize(header.Find("[data-header-antibodies]").TextContent));
         Assert.Equal("Special transfusion requirements: Irradiated red cells, Antigen-negative (K)",
             Normalize(header.Find("[data-header-requirements]").TextContent));

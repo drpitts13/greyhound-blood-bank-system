@@ -870,5 +870,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-859 | I | `InventoryServiceTests.ShipOutByScan_RecordsThePackingDetails` | URS-BB-711 / FRS-BB-829 |
 | TEST-BB-860 | U | `ShipOutDetailsRuleTests.EvaluateDetails_NamesWhatIsMissing` | URS-BB-711 / FRS-BB-829 |
 | TEST-BB-861 | U | `ShipOutDetailsPageTests.ScanWaitsForThePackingDetails` | URS-BB-711 / FRS-BB-829 |
+| TEST-BB-862 | I | `Phase3ServicesTests.OutsideAntibody_IsDocumented_ThenConfirmedHere` | URS-BB-712 / FRS-BB-830 |
+| TEST-BB-863 | U | `OutsideAntibodyReportRuleTests.Documentation_And_Confirmation` | URS-BB-712 / FRS-BB-830 |
+| TEST-BB-864 | U | `OutsideAntibodyChartTests.OutsideReports_ShowDocumentationAndConfirmation` | URS-BB-712 / FRS-BB-830 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

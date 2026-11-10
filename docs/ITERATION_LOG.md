@@ -20608,3 +20608,40 @@ OCD-072 was decided on 2026-11-10 (option B). Shipping units to another facility
 ### Next
 
 - OCD-073 option C: antibodies reported by another facility are flagged unconfirmed with a confirmation task, and the report must be documented.
+
+## Iteration 669 — Outside antibody reports documented and confirmed here (OCD-073 decided) (2026-11-10)
+
+### Capability matrix rescan (antibody history; safety)
+
+OCD-073 was decided on 2026-11-10 (option C). An antibody reported by another facility was recorded with the facility and date, and counted for selection, but nothing said how the report reached the bank, and nothing distinguished one this laboratory had confirmed from one taken on report.
+
+### Design
+
+- `AntibodyHistory.ReportKind` (a copy kept, a phone report), `ReportDocumentation`, `ConfirmedUtc`, `ConfirmedBy`, `ConfirmationNote` (migration `20261230000000_OutsideAntibodyConfirmation`, dev bootstrap).
+- Recording an outside report requires how it is documented and the detail (what copy and where; who called). The user recording it is who took a phone report.
+- It still counts for selection at once (the safer side). Every antibody warning (chart header, issue desk, test worklist, reaction investigation) says "not yet confirmed here" or "confirmed here".
+- **Confirm** on the chart row (immuno.record) records the testing here that confirmed it; audited; refused for a local antibody, a blank note, an inactive record, or twice.
+- Older outside reports read "Report not documented" and unconfirmed.
+
+### Safety (question 6)
+
+Nothing about selection changes: an unconfirmed outside antibody still drives antigen-negative selection. What changes is that everyone sees it has not been confirmed, and the report behind it is on record.
+
+### Verification
+
+- Unit: documentation required only with a facility, after the facility and date checks; confirm refusals; wording.
+- Integration: refusals add nothing; recorded with documentation and unconfirmed; confirmed with note and audit; second confirm refused.
+- Rendered: documentation, unconfirmed badge, Confirm with its note, confirmed line, documentation fields on Add antibody.
+- Live (read-only; nothing saved): the API added the columns on start; on a chart, typing a reporting facility under Add antibody shows "Documented by" (a copy kept, a phone report) and the detail field. No demo patient has an outside report (seeding one would change selection for a demo patient), so the badge and Confirm were exercised by the rendered and integration tests. No server errors.
+
+### Requirements
+
+- URS-BB-712, FRS-BB-830; OCD-073 decided (the confirmation list is next).
+
+### Tests
+
+- TEST-BB-862, TEST-BB-863, TEST-BB-864; TEST-BB-670 and two others updated for the wording.
+
+### Next
+
+- OCD-073 continued: a worklist and home card of outside reports to confirm.

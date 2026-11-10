@@ -1197,7 +1197,7 @@ public sealed class ReactionInvestigationService
 
             // One wording with the chart header: an antibody known only from another facility's report says so.
             return string.Join(", ", history.Select(a =>
-                OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn)));
+                OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn, a.ConfirmedUtc is not null)));
         }
     }
 }

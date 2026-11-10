@@ -20,7 +20,13 @@ public sealed record AddAntibodyRequest(
     string? Comment = null,
     // Reported by another facility (antibody card, transfer letter): who, and when they identified it.
     string? ReportingFacility = null,
-    DateOnly? IdentifiedOn = null);
+    DateOnly? IdentifiedOn = null,
+    // OCD-073: how the outside report is documented; both required with a reporting facility.
+    OutsideReportKind? ReportKind = null,
+    string? ReportDocumentation = null);
+
+/// <summary>OCD-073: the testing here that confirmed an outside report.</summary>
+public sealed record ConfirmOutsideAntibodyRequest(string? Note);
 
 public sealed record SaveAntigenProfileRequest(
     long BloodAttributeDefinitionId,
@@ -83,14 +89,23 @@ public sealed record AntibodyDto(
     string RecordedBy,
     bool PostedByCompletedWorkup = false,
     string? ReportingFacility = null,
-    DateOnly? IdentifiedOn = null)
+    DateOnly? IdentifiedOn = null,
+    OutsideReportKind? ReportKind = null,
+    string? ReportDocumentation = null,
+    DateTime? ConfirmedUtc = null,
+    string? ConfirmedBy = null,
+    string? ConfirmationNote = null)
 {
     /// <summary>"Reported by …, identified …" for an outside report; null when found here.</summary>
     public string? SourceLabel => OutsideAntibodyReportRule.SourceLabel(ReportingFacility, IdentifiedOn);
 
+    /// <summary>OCD-073: an active outside report this laboratory has not yet confirmed.</summary>
+    public bool NeedsConfirmation => OutsideAntibodyReportRule.NeedsConfirmation(ReportingFacility, ConfirmedUtc, IsActive);
+
     public static AntibodyDto From(AntibodyHistory a, bool postedByCompletedWorkup = false) => new(
         a.Id, a.PatientId, a.BloodAttributeDefinitionId, a.AntibodySpecificity, a.Status, a.IsActive, a.Comment,
-        a.DeactivationReason, a.CreatedUtc, a.CreatedBy, postedByCompletedWorkup, a.ReportingFacility, a.IdentifiedOn);
+        a.DeactivationReason, a.CreatedUtc, a.CreatedBy, postedByCompletedWorkup, a.ReportingFacility, a.IdentifiedOn,
+        a.ReportKind, a.ReportDocumentation, a.ConfirmedUtc, a.ConfirmedBy, a.ConfirmationNote);
 }
 
 public sealed record AntigenProfileDto(

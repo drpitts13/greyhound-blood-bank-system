@@ -1334,7 +1334,8 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("future", (await immuno.AddAntibodyAsync(patientId, null, "anti-Jka", AntibodyStatus.Identified, null, "St. Mary's", today.AddDays(1))).Error);
         Assert.Contains("Name the facility", (await immuno.AddAntibodyAsync(patientId, null, "anti-Jka", AntibodyStatus.Identified, null, " ", today)).Error);
 
-        var added = await immuno.AddAntibodyAsync(patientId, null, "anti-Jka", AntibodyStatus.HistoricalOnly, null, " St. Mary's Hospital ", new DateOnly(2019, 4, 2));
+        var added = await immuno.AddAntibodyAsync(patientId, null, "anti-Jka", AntibodyStatus.HistoricalOnly, null, " St. Mary's Hospital ", new DateOnly(2019, 4, 2),
+            OutsideReportKind.Copy, "Antibody card, scanned to the chart");
         Assert.True(added.Succeeded, added.Error);
         var row = await context.AntibodyHistory.AsNoTracking().SingleAsync(a => a.Id == added.Value!.Id);
         Assert.Equal(("St. Mary's Hospital", (DateOnly?)new DateOnly(2019, 4, 2)), (row.ReportingFacility, row.IdentifiedOn));
@@ -1344,6 +1345,45 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         var local = await immuno.AddAntibodyAsync(patientId, null, "anti-K", AntibodyStatus.Identified, "Found on screen");
         Assert.Null(AntibodyDto.From(local.Value!).SourceLabel);
+    }
+
+    // TEST-BB-862 (OCD-073, decided 2026-11-10): an outside report must say how it is documented and give the detail
+    // (what copy and where, or who called); recorded, it counts for selection at once and reads "not yet confirmed here".
+    // Confirming needs the testing here that confirmed it, is audited, and reads "confirmed here"; a local antibody,
+    // a blank note, or a second confirmation is refused.
+    [Fact]
+    public async Task OutsideAntibody_IsDocumented_ThenConfirmedHere()
+    {
+        var patientId = await EnsurePatientAsync("MRN-AB-CONFIRM");
+        await using var context = _factory.Create();
+        var immuno = Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord));
+
+        Assert.Contains("how the report is documented", (await immuno.AddAntibodyAsync(patientId, null, "anti-Fya", AntibodyStatus.Identified, null, "County General", null, null, "card")).Error);
+        Assert.Contains("who called", (await immuno.AddAntibodyAsync(patientId, null, "anti-Fya", AntibodyStatus.Identified, null, "County General", null, OutsideReportKind.Phone, " ")).Error);
+        Assert.Contains("where it is kept", (await immuno.AddAntibodyAsync(patientId, null, "anti-Fya", AntibodyStatus.Identified, null, "County General", null, OutsideReportKind.Copy, null)).Error);
+        Assert.False(await context.AntibodyHistory.AnyAsync(a => a.PatientId == patientId));
+
+        var added = await immuno.AddAntibodyAsync(patientId, null, "anti-Fya", AntibodyStatus.Identified, null, "County General", null,
+            OutsideReportKind.Phone, " Dr. Lee, County General blood bank, 555-0199 ");
+        Assert.True(added.Succeeded, added.Error);
+        var dto = AntibodyDto.From(added.Value!);
+        Assert.Equal((OutsideReportKind.Phone, "Dr. Lee, County General blood bank, 555-0199", true),
+            (dto.ReportKind, dto.ReportDocumentation, dto.NeedsConfirmation));
+        Assert.Contains("not yet confirmed here", OutsideAntibodyReportRule.HistoryEntry(dto.AntibodySpecificity, dto.IsActive, dto.ReportingFacility, dto.IdentifiedOn, dto.ConfirmedUtc is not null));
+
+        var local = await immuno.AddAntibodyAsync(patientId, null, "anti-K", AntibodyStatus.Identified, "Found here");
+        Assert.Contains("Only an antibody reported by another facility", (await immuno.ConfirmOutsideAntibodyAsync(local.Value!.Id, "Panel")).Error);
+        Assert.Contains("Name the testing", (await immuno.ConfirmOutsideAntibodyAsync(added.Value!.Id, " ")).Error);
+
+        var confirmed = await immuno.ConfirmOutsideAntibodyAsync(added.Value.Id, " Panel 2026-11-10, workup #12 ");
+        Assert.True(confirmed.Succeeded, confirmed.Error);
+        var row = await context.AntibodyHistory.AsNoTracking().SingleAsync(a => a.Id == added.Value.Id);
+        Assert.Equal(("Panel 2026-11-10, workup #12", (DateTime?)_factory.Clock.UtcNow), (row.ConfirmationNote, row.ConfirmedUtc));
+        Assert.False(AntibodyDto.From(row).NeedsConfirmation);
+        Assert.Contains("confirmed here", OutsideAntibodyReportRule.HistoryEntry(row.AntibodySpecificity, row.IsActive, row.ReportingFacility, row.IdentifiedOn, row.ConfirmedUtc is not null));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(AntibodyHistory) && a.EntityId == row.Id
+            && a.Reason == "Outside report confirmed here: Panel 2026-11-10, workup #12"));
+        Assert.Contains("already confirmed", (await immuno.ConfirmOutsideAntibodyAsync(added.Value.Id, "Again")).Error);
     }
 
     [Fact]
