@@ -20472,3 +20472,38 @@ The product owner decided the open clinical questions OCD-067 to OCD-081 (2026-1
 ### Next
 
 - OCD-081 option B: a back-entry outside every recorded outage needs an override reason.
+
+## Iteration 665 — A back-entry outside every outage needs a reason (OCD-081 decided) (2026-11-10)
+
+### Capability matrix rescan (interoperability: downtime; safety: overrides)
+
+OCD-081 was decided on 2026-11-10 (option B). Cycle 662 only warned, on the page, when a paper issue time fell outside every recorded outage; the server took the entry with nothing recorded about it.
+
+### Design
+
+- `DowntimeEpisodeRule.CheckPaperTime` now takes the reason: outside every recorded outage it is a hard stop (`DT-EPISODE-OUTSIDE`) until a reason is given (at most 500 characters). No outage recorded, or a time inside one, needs nothing (option D not chosen).
+- `IssuingService` applies it to every back-entry; the reason is kept on the issue (`Issue.OutsideOutageReason`, migration `20261227000000_IssueOutsideOutageReason`, dev bootstrap column) and in the issue audit with the other back-entry facts. Nothing is issued while refused.
+- The Issue desk's outside warning now carries a required reason field, sent with the issue.
+
+### Safety (question 7)
+
+The reason is the control the product owner chose: a time outside the recorded outage is either a misread paper record (caught by the warning) or an outage nobody recorded (explained and kept). Every other issue check runs as before.
+
+### Verification
+
+- Unit: blank reason stops, a reason passes, over-long refused, no outages passes.
+- Integration: a back-entry outside the only recorded outage is refused with nothing issued; with a reason it is issued, the reason on the issue and in the audit; the existing back-entry tests (no outage list) are unchanged.
+- Rendered: the outside warning shows the reason field.
+- Live (read-only): the API added the Issues column on start and the Issue desk loads with back-entry offered. The dev data has no recorded outage, so the outside path was exercised by the tests only. No server errors.
+
+### Requirements
+
+- URS-BB-708, FRS-BB-826; OCD-081 decided.
+
+### Tests
+
+- TEST-BB-854; TEST-BB-843 and TEST-BB-848 updated.
+
+### Next
+
+- OCD-078 option C: issuing or starting a unit while a reaction investigation is open needs an override with a reason and an authorizer.

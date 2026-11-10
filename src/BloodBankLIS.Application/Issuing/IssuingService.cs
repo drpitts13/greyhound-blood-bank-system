@@ -42,6 +42,7 @@ public sealed class IssuingService
     private readonly IRepository<ProductAttributeAssignment> _productAttributeAssignments;
     private readonly IRepository<Order> _orders;
     private readonly IRepository<OrderLine>? _orderLines;
+    private readonly IRepository<DowntimeEpisode>? _outages;
     private readonly IRepository<User> _users;
     private readonly IRepository<InventoryLocation> _locations;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
@@ -117,9 +118,11 @@ public sealed class IssuingService
         IRepository<BloodComponentSpecialTest>? unitSpecialTests = null,
         IProductDispensePublisher? dispensePublisher = null,
         IRepository<Encounter>? encounters = null,
-        IRepository<OrderLine>? orderLines = null)
+        IRepository<OrderLine>? orderLines = null,
+        IRepository<DowntimeEpisode>? outages = null)
     {
         _orderLines = orderLines;
+        _outages = outages;
         _encounters = encounters;
         _dispensePublisher = dispensePublisher;
         _inventory = inventory;
@@ -207,6 +210,20 @@ public sealed class IssuingService
         if (backEntryCheck.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<Issue>.Blocked(new RuleEvaluation([backEntryCheck]));
+        }
+
+        // OCD-081: a paper time outside every recorded outage is explained, and the reason kept on the issue.
+        string? outsideOutageReason = null;
+        if (backEntry && _outages is not null)
+        {
+            var outages = await _outages.ListAsync(ct);
+            var paperTime = DowntimeEpisodeRule.CheckPaperTime(outages, requestedIssuedUtc, request.OutsideOutageReason);
+            if (paperTime.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Issue>.Blocked(new RuleEvaluation([paperTime]));
+            }
+
+            outsideOutageReason = DowntimeEpisodeRule.IsOutside(outages, requestedIssuedUtc) ? request.OutsideOutageReason!.Trim() : null;
         }
 
         var emergencyAuth = IssueAuthorizationRule.EvaluateEmergency(
@@ -573,6 +590,7 @@ public sealed class IssuingService
             MtpActivationId = mtpActivationId,
             LateEntryReason = lateEntryReason,
             DowntimeBackEntry = backEntry,
+            OutsideOutageReason = outsideOutageReason,
             AcknowledgedSpecialRequirementCodes = JoinAcknowledgedCodes(request.AcknowledgedSpecialRequirementCodes),
             PtagCode = matchedPtag.Identifier?.Code
         };
@@ -629,6 +647,7 @@ public sealed class IssuingService
                 EnteredUtc = now,
                 LateEntryReason = lateEntryReason,
                 DowntimeBackEntry = backEntry,
+                OutsideOutageReason = outsideOutageReason,
                 BackEntryDin = backEntry ? request.BackEntryDin?.Trim() : null
             },
             reason: authorizedOverride?.Reason);

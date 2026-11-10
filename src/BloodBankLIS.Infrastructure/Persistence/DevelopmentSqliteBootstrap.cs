@@ -23,6 +23,7 @@ public static class DevelopmentSqliteBootstrap
         ("Issues", "MtpPackRecordId", """ALTER TABLE "Issues" ADD COLUMN "MtpPackRecordId" INTEGER NULL"""),
         ("Issues", "LateEntryReason", """ALTER TABLE "Issues" ADD COLUMN "LateEntryReason" TEXT NULL"""),
         ("Issues", "DowntimeBackEntry", """ALTER TABLE "Issues" ADD COLUMN "DowntimeBackEntry" INTEGER NOT NULL DEFAULT 0"""),
+        ("Issues", "OutsideOutageReason", """ALTER TABLE "Issues" ADD COLUMN "OutsideOutageReason" TEXT NULL"""),
         ("Issues", "ReactionInvestigationOpenAtIssueId", """ALTER TABLE "Issues" ADD COLUMN "ReactionInvestigationOpenAtIssueId" INTEGER NULL"""),
         ("InterfaceErrorQueue", "ResolutionNote", """ALTER TABLE "InterfaceErrorQueue" ADD COLUMN "ResolutionNote" TEXT NULL"""),
         ("InstrumentMessages", "ResolvedUtc", """ALTER TABLE "InstrumentMessages" ADD COLUMN "ResolvedUtc" TEXT NULL"""),

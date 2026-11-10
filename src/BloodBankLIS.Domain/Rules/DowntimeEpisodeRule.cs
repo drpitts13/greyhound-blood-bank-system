@@ -4,8 +4,8 @@ namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Recorded outages (Cycle 662). An outage is a record of fact, not a clinical rule: it starts in the past, ends after it
-/// starts and not in the future, and does not overlap another. A paper back-entry whose time falls outside every recorded
-/// outage is only a warning to check the paper record (OCD-081 asks whether it should be refused).
+/// starts and not in the future, and does not overlap another. OCD-081 (decided 2026-11-10): a paper back-entry whose
+/// time falls outside every recorded outage needs a reason, recorded on the issue; with no outage recorded it is allowed.
 /// </summary>
 public static class DowntimeEpisodeRule
 {
@@ -66,12 +66,34 @@ public static class DowntimeEpisodeRule
             .OrderByDescending(e => e.StartedUtc)
             .FirstOrDefault();
 
-    /// <summary>A paper record's time outside every recorded outage warns; with no outage recorded there is nothing to check.</summary>
-    public static RuleResult CheckPaperTime(IReadOnlyCollection<DowntimeEpisode> episodes, DateTime paperUtc) =>
-        episodes.Count == 0 || Covering(episodes, paperUtc) is not null
-            ? RuleResult.Pass(OutsideCode)
-            : RuleResult.Warning(OutsideCode,
-                "The time on the paper record is outside every recorded outage. Check the record's date and time (OCD-081).");
+    public const int OutsideReasonMaxLength = 500;
+
+    /// <summary>True when outages are recorded and the paper time falls in none of them.</summary>
+    public static bool IsOutside(IReadOnlyCollection<DowntimeEpisode> episodes, DateTime paperUtc) =>
+        episodes.Count > 0 && Covering(episodes, paperUtc) is null;
+
+    /// <summary>
+    /// A paper record's time outside every recorded outage stops the back-entry until a reason is given (OCD-081); with
+    /// no outage recorded, or a time inside one, there is nothing to explain.
+    /// </summary>
+    public static RuleResult CheckPaperTime(IReadOnlyCollection<DowntimeEpisode> episodes, DateTime paperUtc, string? outsideReason)
+    {
+        if (!IsOutside(episodes, paperUtc))
+        {
+            return RuleResult.Pass(OutsideCode);
+        }
+
+        var reason = outsideReason?.Trim() ?? string.Empty;
+        if (reason.Length == 0)
+        {
+            return RuleResult.HardStop(OutsideCode,
+                "The time on the paper record is outside every recorded outage. Check the record's date and time; if it is right, give the reason (OCD-081).");
+        }
+
+        return reason.Length > OutsideReasonMaxLength
+            ? RuleResult.HardStop(OutsideCode, $"Keep the reason to {OutsideReasonMaxLength} characters.")
+            : RuleResult.Pass(OutsideCode);
+    }
 
     /// <summary>The late-entry reason a back-entry carries when its paper time falls in a recorded outage.</summary>
     public static string BackEntryReason(DowntimeEpisode episode) =>

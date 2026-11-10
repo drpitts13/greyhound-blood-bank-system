@@ -53,7 +53,7 @@ public class DowntimeOutagePageTests : BunitContext
     }
 
     // TEST-BB-848: ticking back-entry offers the open outage and fills the reason from it; a paper time in the earlier
-    // outage switches to that outage's reason, and a time outside both warns to check the record.
+    // outage switches to that outage's reason, and a time outside both warns and asks for the reason (OCD-081).
     [Fact]
     public void BackEntry_UsesTheRecordedOutage()
     {
@@ -76,5 +76,6 @@ public class DowntimeOutagePageTests : BunitContext
 
         page.Find("[data-backentry-time]").Change(Now.AddDays(-1).ToLocalTime().ToString("yyyy-MM-ddTHH:mm:00"));
         Assert.Contains("outside every recorded outage", page.Find("[data-backentry-outside]").TextContent);
+        Assert.NotNull(page.Find("[data-backentry-outside-reason]"));
     }
 }

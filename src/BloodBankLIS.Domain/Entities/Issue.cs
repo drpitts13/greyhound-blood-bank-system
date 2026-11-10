@@ -119,6 +119,12 @@ public class Issue : BaseEntity
     public bool DowntimeBackEntry { get; set; }
 
     /// <summary>
+    /// OCD-081: why a downtime back-entry's paper time falls outside every recorded outage. Null when it falls inside one,
+    /// when no outage was recorded, and for every other issue.
+    /// </summary>
+    public string? OutsideOutageReason { get; set; }
+
+    /// <summary>
     /// The patient's transfusion reaction investigation still open or under review when this unit was issued (Cycle 634),
     /// recorded so a review or lookback finds units given while a reaction was being investigated (OCD-078).
     /// </summary>

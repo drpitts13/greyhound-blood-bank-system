@@ -38,7 +38,9 @@ public sealed record IssueUnitRequest(
     /// <summary>OCD-054: a paper issue record entered after downtime; needs issue.downtime-backentry.</summary>
     bool DowntimeBackEntry = false,
     /// <summary>The unit number typed from the paper record, in place of the fresh scan, for a downtime back-entry.</summary>
-    string? BackEntryDin = null);
+    string? BackEntryDin = null,
+    /// <summary>OCD-081: required when a back-entry's paper time is outside every recorded outage.</summary>
+    string? OutsideOutageReason = null);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,

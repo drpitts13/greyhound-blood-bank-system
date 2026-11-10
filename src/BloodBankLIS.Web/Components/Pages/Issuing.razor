@@ -856,7 +856,12 @@
                 }
                 @if (_backEntryOutsideWarning is not null)
                 {
-                    <div class="alert alert-warning" data-backentry-outside>@_backEntryOutsideWarning</div>
+                    <div class="alert alert-warning" data-backentry-outside>
+                        @_backEntryOutsideWarning
+                        <div class="field" style="margin-top:.5rem;"><label>Reason the time is outside the outage (required)</label>
+                            <input @bind="_issue.OutsideOutageReason" @bind:event="oninput" maxlength="500" placeholder="e.g. Paper record from the network outage before this one was recorded" data-backentry-outside-reason />
+                        </div>
+                    </div>
                 }
                 <div class="form-row">
                     <div class="field"><label>Issued at (from paper record)</label>
@@ -2745,7 +2750,10 @@
             : null,
         LateEntryReason: _issue.DowntimeBackEntry && !string.IsNullOrWhiteSpace(_issue.LateEntryReason) ? _issue.LateEntryReason.Trim() : null,
         DowntimeBackEntry: _issue.DowntimeBackEntry,
-        BackEntryDin: _issue.DowntimeBackEntry ? _issue.BackEntryDin : null);
+        BackEntryDin: _issue.DowntimeBackEntry ? _issue.BackEntryDin : null,
+        OutsideOutageReason: _issue.DowntimeBackEntry && _backEntryOutsideWarning is not null && !string.IsNullOrWhiteSpace(_issue.OutsideOutageReason)
+            ? _issue.OutsideOutageReason.Trim()
+            : null);
 
     private async Task OnBackEntryToggledAsync()
     {
@@ -2754,6 +2762,7 @@
         _issue.BackEntryLocalTime = null;
         _issue.BackEntryDin = null;
         _issue.LateEntryReason = null;
+        _issue.OutsideOutageReason = null;
         _backEntryOutsideWarning = null;
         _backEntryOutage = null;
         if (!_issue.DowntimeBackEntry)
@@ -2770,7 +2779,8 @@
 
     /// <summary>
     /// The paper time picks the outage it falls in and that outage's reason (unless the reason was typed); outside every
-    /// recorded outage it warns to check the record (OCD-081). With no outage recorded there is nothing to check.
+    /// recorded outage it asks for the reason, which the server requires (OCD-081). With no outage recorded there is
+    /// nothing to check.
     /// </summary>
     private void OnBackEntryTimeChanged()
     {
@@ -2789,7 +2799,7 @@
             || _downtimeEpisodes.Any(e => e.BackEntryReason == _issue.LateEntryReason);
         if (covering is null)
         {
-            _backEntryOutsideWarning = "The time on the paper record is outside every recorded outage. Check the record's date and time.";
+            _backEntryOutsideWarning = "The time on the paper record is outside every recorded outage. Check the record's date and time; if it is right, say why.";
             return;
         }
 
@@ -3150,5 +3160,6 @@
         public DateTime? BackEntryLocalTime { get; set; }
         public string? BackEntryDin { get; set; }
         public string? LateEntryReason { get; set; }
+        public string? OutsideOutageReason { get; set; }
     }
 }

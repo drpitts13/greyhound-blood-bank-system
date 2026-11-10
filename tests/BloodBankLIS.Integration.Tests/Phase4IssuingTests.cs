@@ -64,7 +64,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 new AuditWriter(c, _factory.Clock, _factory.CurrentUser)),
             deviations: new EfRepository<Deviation>(c));
 
-    private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null, IProductDispensePublisher? dispense = null)
+    private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null, IProductDispensePublisher? dispense = null, bool outages = false)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
         return new IssuingService(
@@ -101,6 +101,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             unitSpecialTests: new EfRepository<BloodComponentSpecialTest>(c),
             dispensePublisher: dispense,
             orderLines: new EfRepository<OrderLine>(c),
+            outages: outages ? new EfRepository<DowntimeEpisode>(c) : null,
             electronicCrossmatch: new ElectronicCrossmatchEligibilityService(
                 new EfRepository<Patient>(c),
                 new EfRepository<PatientBloodTypeHistory>(c),
@@ -960,6 +961,74 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             && a.NewValueJson!.Contains("\"DowntimeBackEntry\":true")).SingleAsync();
         Assert.Contains("Issued on paper during LIS downtime", audit.NewValueJson);
         Assert.True(await verify.InventoryStatusHistory.AnyAsync(h => h.BloodProductId == s.UnitId && h.Reason!.StartsWith("Downtime back-entry")));
+    }
+
+    // TEST-BB-854 (OCD-081, decided 2026-11-10): with outages recorded, a back-entry whose paper time falls outside every
+    // one is refused until a reason is given; the reason is kept on the issue and in the audit. Nothing is issued while
+    // it is refused.
+    [Fact]
+    public async Task DowntimeBackEntry_OutsideEveryRecordedOutage_NeedsAReason()
+    {
+        var s = await SeedAsync("DOWNTIME-OUT");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        var now = _factory.Clock.UtcNow;
+        var paperTime = now.AddHours(-3);
+        await using (var c = _factory.Create())
+        {
+            c.DowntimeEpisodes.Add(new DowntimeEpisode
+            {
+                StartedUtc = now.AddHours(-30), EndedUtc = now.AddHours(-28), Description = "Earlier network outage",
+                CreatedBy = "tech-test", CreatedUtc = now
+            });
+
+            // The specimen, crossmatch and reservation were in place before the paper issue.
+            var specimen = await c.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
+            specimen.CollectedUtc = now.AddHours(-6);
+            foreach (var xm in await c.Crossmatches.Where(x => x.BloodProductId == s.UnitId).ToListAsync())
+            {
+                xm.PerformedUtc = now.AddHours(-5);
+            }
+
+            (await c.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId)).AllocatedUtc = now.AddHours(-5);
+            await c.SaveChangesAsync();
+        }
+
+        IssueUnitRequest BackEntry(string? outsideReason = null) => IssueReq(s) with
+        {
+            IssuedUtc = paperTime,
+            LateEntryReason = "Issued on paper during LIS downtime",
+            DowntimeBackEntry = true,
+            BackEntryDin = s.UnitNumber,
+            OutsideOutageReason = outsideReason
+        };
+
+        await using (var c = _factory.Create())
+        {
+            var refused = await Issuing(c, outages: true).IssueUnitAsync(BackEntry("   "));
+            Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == DowntimeEpisodeRule.OutsideCode);
+            Assert.False(await c.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var entered = await Issuing(c, outages: true).IssueUnitAsync(BackEntry("Paper log from the unplanned outage, not yet recorded"));
+            if (entered.RequiresOverride)
+            {
+                entered = await Issuing(c, outages: true).IssueUnitAsync(BackEntry("Paper log from the unplanned outage, not yet recorded") with
+                {
+                    OverrideReason = "Issued on paper during downtime", AuthorizedBy = "dr-authorizer"
+                });
+            }
+
+            Assert.True(entered.Succeeded, entered.Error ?? string.Join("; ", entered.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            Assert.Equal("Paper log from the unplanned outage, not yet recorded", entered.Value!.OutsideOutageReason);
+        }
+
+        await using var verify = _factory.Create();
+        var audit = await verify.AuditEvents.Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains("\"DowntimeBackEntry\":true")).SingleAsync();
+        Assert.Contains("Paper log from the unplanned outage", audit.NewValueJson);
     }
 
     [Fact]

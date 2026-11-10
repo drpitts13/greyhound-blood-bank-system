@@ -14,7 +14,8 @@ public class DowntimeEpisodeRuleTests
     };
 
     // TEST-BB-843: a time inside an ended outage, or after the start of the open one, is covered; outside every outage
-    // it warns (OCD-081); with no outage recorded nothing warns; the open outage is offered first, then the latest ended.
+    // it needs a reason (OCD-081, decided 2026-11-10), at most 500 characters; with no outage recorded nothing is asked;
+    // the open outage is offered first, then the latest ended.
     [Fact]
     public void PaperTime_IsCheckedAgainstRecordedOutages()
     {
@@ -23,11 +24,14 @@ public class DowntimeEpisodeRuleTests
         Assert.Equal(2, DowntimeEpisodeRule.Covering(episodes, Now.AddHours(-1))!.Id);
         Assert.Null(DowntimeEpisodeRule.Covering(episodes, Now.AddHours(-10)));
 
-        Assert.Equal(RuleSeverity.Pass, DowntimeEpisodeRule.CheckPaperTime(episodes, Now.AddHours(-46)).Severity);
-        var outside = DowntimeEpisodeRule.CheckPaperTime(episodes, Now.AddHours(-10));
-        Assert.Equal((RuleSeverity.Warning, DowntimeEpisodeRule.OutsideCode), (outside.Severity, outside.Code));
+        Assert.Equal(RuleSeverity.Pass, DowntimeEpisodeRule.CheckPaperTime(episodes, Now.AddHours(-46), null).Severity);
+        var outside = DowntimeEpisodeRule.CheckPaperTime(episodes, Now.AddHours(-10), "  ");
+        Assert.Equal((RuleSeverity.HardStop, DowntimeEpisodeRule.OutsideCode), (outside.Severity, outside.Code));
         Assert.Contains("OCD-081", outside.Message);
-        Assert.Equal(RuleSeverity.Pass, DowntimeEpisodeRule.CheckPaperTime([], Now.AddHours(-10)).Severity);
+        Assert.Equal(RuleSeverity.Pass, DowntimeEpisodeRule.CheckPaperTime(episodes, Now.AddHours(-10), "Paper from the earlier outage").Severity);
+        Assert.Equal(RuleSeverity.HardStop, DowntimeEpisodeRule.CheckPaperTime(episodes, Now.AddHours(-10), new string('x', 501)).Severity);
+        Assert.True(DowntimeEpisodeRule.IsOutside(episodes, Now.AddHours(-10)));
+        Assert.Equal(RuleSeverity.Pass, DowntimeEpisodeRule.CheckPaperTime([], Now.AddHours(-10), null).Severity);
 
         Assert.Equal(2, DowntimeEpisodeRule.Current(episodes)!.Id);
         Assert.Equal(3, DowntimeEpisodeRule.Current([Ep(1, -48, -44), Ep(3, -10, -8)])!.Id);
