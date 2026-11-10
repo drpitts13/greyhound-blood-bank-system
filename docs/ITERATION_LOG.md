@@ -19536,3 +19536,32 @@ Writing the new guard showed Cycle 624's guard silently broken (and the new one,
 ### Next
 
 - Record on each issue the patient's reaction investigation open at the time, and show it in Product History.
+
+## Iteration 634 — An issue records the reaction under investigation (2026-11-09)
+
+### Capability matrix rescan (traceability)
+
+Cycles 626–632 warn before a unit goes to a patient whose reaction is under investigation; they do not block (OCD-078). When a unit is issued anyway (the physician decided to continue), nothing on the issue said so: a review or lookback would have to rebuild the timeline of the investigation against the issue time.
+
+### Design
+
+- `Issue.ReactionInvestigationOpenAtIssueId`, set at issue from the patient's investigation open or under review; null otherwise. Migration and development bootstrap column. The entity audit records it with the issue.
+- Product History carries it on the issue, return, and transfusion rows; the main row (not only under all columns) shows "Issued during reaction #n".
+- A record, not a block.
+
+### Verification
+
+- Integration: the first issue, before the reaction, records none; a second unit issued while the investigation is open records it and is issued. Rendered: the badge on the right row, none on another.
+- Live (read-only): after the API restart added the column on the development database, Marcus Febrile's Product History loads its 8 rows with no badge (nothing issued to him during the investigation). No server errors.
+
+### Requirements
+
+- URS-BB-676, FRS-BB-793.
+
+### Tests
+
+- TEST-BB-768, TEST-BB-769.
+
+### Next
+
+- The reaction investigation itself could list units issued to the patient while it was open (from this record), so the investigator sees them without opening the chart.

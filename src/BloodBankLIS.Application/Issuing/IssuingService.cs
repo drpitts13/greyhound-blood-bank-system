@@ -528,8 +528,13 @@ public sealed class IssuingService
             ? issuedUtc.AddHours(await _policy.GetRetrospectiveCrossmatchDueHoursAsync(ct))
             : (DateTime?)null;
 
+        // A reaction still under investigation for the patient is recorded with the issue (Cycle 634): it warns, it does
+        // not block (OCD-078), and a later review can find the units given meanwhile.
+        var openReaction = (await _reactions.OpenByPatientAsync([request.PatientId], ct))
+            .TryGetValue(request.PatientId, out var reactionOpen) ? reactionOpen.Id : (long?)null;
         var issue = new Issue
         {
+            ReactionInvestigationOpenAtIssueId = openReaction,
             AllocationId = allocation?.Id,
             BloodProductId = unit.Id,
             PatientId = request.PatientId,

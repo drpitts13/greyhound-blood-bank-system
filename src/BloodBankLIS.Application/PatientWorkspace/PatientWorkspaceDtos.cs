@@ -259,7 +259,9 @@ public sealed record PatientProductHistoryRowDto(
     string? IssueAppearance = null,
     string? WardAppearance = null,
     string? PtagCode = null,
-    string? IssueCrossmatchStatus = null);
+    string? IssueCrossmatchStatus = null,
+    // The patient's reaction investigation open when the unit was issued (Cycle 634).
+    long? ReactionInvestigationOpenAtIssueId = null);
 
 public sealed record PatientTestHistoryRowDto(
     long ResultId,

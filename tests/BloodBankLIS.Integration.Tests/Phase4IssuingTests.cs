@@ -1236,6 +1236,40 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Empty(await Reactions().OpenForPatientAsync(s.PatientId));
     }
 
+    // TEST-BB-768: an issue records the patient's reaction investigation open at the time; an issue made before any
+    // reaction records none. It is a record, not a block: the second unit is issued.
+    [Fact]
+    public async Task Issue_RecordsTheReactionUnderInvestigation()
+    {
+        var s = await SeedAsync("ISS-RXN-OPEN");
+        var firstIssueId = await IssuedAndReceivedAsync(s);
+        var second = await SeedAsync("ISS-RXN-OPEN-2");
+
+        long investigationId;
+        await using (var c = _factory.Create())
+        {
+            Assert.Null((await c.Issues.SingleAsync(i => i.Id == firstIssueId)).ReactionInvestigationOpenAtIssueId);
+            var earlier = new TransfusionEvent
+            {
+                IssueId = firstIssueId, BloodProductId = s.UnitId, PatientId = s.PatientId, StartUtc = _factory.Clock.UtcNow.AddMinutes(-40),
+                ReactionSuspected = true, DocumentedBy = "nurse"
+            };
+            c.TransfusionEvents.Add(earlier);
+            await c.SaveChangesAsync();
+            var investigation = new ReactionInvestigation
+            {
+                TransfusionEventId = earlier.Id, PatientId = s.PatientId, BloodProductId = s.UnitId, ReportedUtc = _factory.Clock.UtcNow, ReportedBy = "nurse"
+            };
+            c.ReactionInvestigations.Add(investigation);
+            await c.SaveChangesAsync();
+            investigationId = investigation.Id;
+        }
+
+        var secondIssueId = await IssuedAndReceivedAsync(s with { UnitId = second.UnitId });
+        await using var verify = _factory.Create();
+        Assert.Equal(investigationId, (await verify.Issues.SingleAsync(i => i.Id == secondIssueId)).ReactionInvestigationOpenAtIssueId);
+    }
+
     // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)
     // carries that MRN on the issued list; one issued under the current MRN does not.
     [Fact]

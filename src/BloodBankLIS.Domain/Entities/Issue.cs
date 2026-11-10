@@ -117,4 +117,10 @@ public class Issue : BaseEntity
     /// typed from the paper record in place of a fresh scan.
     /// </summary>
     public bool DowntimeBackEntry { get; set; }
+
+    /// <summary>
+    /// The patient's transfusion reaction investigation still open or under review when this unit was issued (Cycle 634),
+    /// recorded so a review or lookback finds units given while a reaction was being investigated (OCD-078).
+    /// </summary>
+    public long? ReactionInvestigationOpenAtIssueId { get; set; }
 }

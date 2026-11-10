@@ -82,7 +82,11 @@
                         <td>@(h.IssuedToLocation ?? "—")</td>
                         <td>@(string.IsNullOrWhiteSpace(h.PerformedBy) ? "—" : h.PerformedBy)</td>
                         <td>@(h.CompatibilityStatus ?? "—")</td>
-                        <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }</td>
+                        <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }@if (h.ReactionInvestigationOpenAtIssueId is long reactionAtIssue)
+                            {
+                                @* Cycle 634: recorded at issue, so a review finds units given while a reaction was being investigated. *@
+                                <span class="badge badge-amber" title="Issued while reaction investigation #@reactionAtIssue was open or under review" data-history-reaction-at-issue>Issued during reaction #@reactionAtIssue</span>
+                            }</td>
                     </tr>
                     @if (_showAllColumns)
                     {
