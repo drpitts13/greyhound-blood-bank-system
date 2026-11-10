@@ -52,6 +52,24 @@ else if (_report is { } r)
             </tbody>
         </table>
 
+        @* Cycle 636: from the issue record (Cycle 634), stated even when none, as the signed record. *@
+        <h2>Units issued while the investigation was open</h2>
+        @if (inv.IssuedWhileOpen is { Count: > 0 } issuedMeanwhile)
+        {
+            <table class="mtp-report-facts" data-report-issued-while-open>
+                <tbody>
+                    @foreach (var issued in issuedMeanwhile)
+                    {
+                        <tr><th class="mono">@(issued.UnitNumber ?? $"#{issued.UnitId}")</th><td>Issued @When(issued.IssuedUtc) · @Ui.EnumText(issued.Status)</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="muted" data-report-issued-while-open>None.</p>
+        }
+
         <h2>Workup</h2>
         <table class="mtp-report-facts">
             <tbody>

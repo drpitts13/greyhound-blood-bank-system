@@ -683,3 +683,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-675 | A unit's expiration, and every other stored time, is shown in the workstation's local time unless labelled UTC; every yes/no choice takes the answer chosen. | P1 | FRS-BB-792 |
 | URS-BB-676 | An issue records whether the patient's transfusion reaction was under investigation at the time, and the patient's product history shows it. | P2 | FRS-BB-793 |
 | URS-BB-677 | A reaction investigation lists the units issued to the patient while it was open. | P2 | FRS-BB-794 |
+| URS-BB-678 | The reaction report states the units issued while the investigation was open, or that there were none. | P3 | FRS-BB-795 |

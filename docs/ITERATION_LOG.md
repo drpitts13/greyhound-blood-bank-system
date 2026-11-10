@@ -19593,3 +19593,31 @@ Cycle 634 records on each issue the investigation open at the time; the investig
 ### Next
 
 - The reaction report (Reactions › Report) could carry the same list, as the record the medical director signs.
+
+## Iteration 636 — The reaction report states units issued while it was open (2026-11-09)
+
+### Capability matrix rescan (reaction report)
+
+The printed reaction report, the record the medical director reviews and signs, did not carry Cycle 635's list.
+
+### Design
+
+- A report section "Units issued while the investigation was open": each unit with its issue time (local) and status; "None." when there were none, so the signed record says so rather than leaving it out.
+- No server change: the report's investigation already carries the list.
+
+### Verification
+
+- Rendered: the report with a unit lists it with its status; without, it says None.
+- Live (read-only): the report for investigation #1 shows the section with "None." No server errors.
+
+### Requirements
+
+- URS-BB-678, FRS-BB-795.
+
+### Tests
+
+- TEST-BB-772.
+
+### Next
+
+- The reaction thread (Cycles 626–636) is complete for now. Return to the capability matrix and walk a different desk: specimen receipt and rejection on the Test worklist's Pending specimens, looking for remembered or retyped information.
