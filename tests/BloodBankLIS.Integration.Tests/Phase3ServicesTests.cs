@@ -1413,6 +1413,29 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(("MRN-AB-TOCONFIRM", waiting.Value!.Id), (mine[1].MedicalRecordNumber, mine[1].AntibodyId));
     }
 
+    // TEST-BB-880 (OCD-069 option B): a weak D or partial D is recorded on the patient with a reason (refused without
+    // one, or when already recorded), audited with the old and new value, and cleared the same way.
+    [Fact]
+    public async Task RhDVariant_IsRecordedWithAReason_AndAudited()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RHD-VARIANT");
+        await using var context = _factory.Create();
+        var immuno = Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord));
+
+        Assert.Contains("reason", (await immuno.SetRhDVariantAsync(patientId, RhDVariant.WeakD, " ")).Error);
+        var set = await immuno.SetRhDVariantAsync(patientId, RhDVariant.WeakD, "Weak D on IAT");
+        Assert.True(set.Succeeded, set.Error);
+        Assert.Equal(RhDVariant.WeakD, (await context.Patients.AsNoTracking().SingleAsync(p => p.Id == patientId)).RhDVariant);
+        Assert.Contains("already", (await immuno.SetRhDVariantAsync(patientId, RhDVariant.WeakD, "Again")).Error);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(Patient) && a.EntityId == patientId
+            && a.Reason == "Weak D on IAT" && a.NewValueJson!.Contains("RhDVariant")));
+
+        Assert.True((await immuno.SetRhDVariantAsync(patientId, RhDVariant.None, "Entered on the wrong chart")).Succeeded);
+        Assert.Equal(RhDVariant.None, (await context.Patients.AsNoTracking().SingleAsync(p => p.Id == patientId)).RhDVariant);
+        Assert.False((await Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .SetRhDVariantAsync(patientId, RhDVariant.PartialD, "No permission")).Succeeded);
+    }
+
     [Fact]
     public async Task AntibodyWrites_RequireImmunoPermissions()
     {

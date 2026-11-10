@@ -510,6 +510,14 @@ public enum TransfusionDisposition
     Returned = 3
 }
 
+/// <summary>A D antigen variant recorded for the patient (OCD-069): treated as Rh negative for RhIG.</summary>
+public enum RhDVariant
+{
+    None = 0,
+    WeakD = 1,
+    PartialD = 2
+}
+
 /// <summary>OCD-073: how an antibody reported by another facility is documented here.</summary>
 public enum OutsideReportKind
 {

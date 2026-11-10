@@ -101,6 +101,12 @@ public static class ImmunohematologyEndpoints
                 a => ($"/api/patients/{patientId}/antibodies/{a.Id}", (object)AntibodyDto.From(a))))
             .RequirePermission(PermissionCodes.ImmunoRecord);
 
+        // OCD-069: a weak D or partial D recorded for the patient (treated as Rh negative for RhIG).
+        app.MapPost("/api/patients/{patientId:long}/rhd-variant", async (long patientId, SetRhDVariantRequest request, ImmunohematologyService service, CancellationToken ct) =>
+            EndpointResults.From(await service.SetRhDVariantAsync(patientId, request.Variant, request.Reason, ct), p => BloodBankLIS.Application.Patients.PatientDto.From(p)))
+            .RequirePermission(PermissionCodes.ImmunoRecord)
+            .WithTags("Immunohematology");
+
         // OCD-073: outside reports waiting for this laboratory to confirm them.
         app.MapGet("/api/antibodies/outside-to-confirm", async (ImmunohematologyService service, CancellationToken ct) =>
             Results.Ok(await service.ListOutsideToConfirmAsync(ct)))

@@ -6,7 +6,7 @@ namespace BloodBankLIS.Domain.Rules;
 /// OCD-069 (decided 2026-11-10, option C): the application suggests RhIG candidacy from the facts on file and calculates
 /// the vials from the fetal bleed quantitation with the facility's settings; the reviewer confirms both by recording the
 /// decision and vials. The settings ship unset, so nothing is calculated until the medical director enters them. Weak D
-/// and partial D are not distinguished in the patient's Rh type, so the suggestion does not handle them.
+/// and partial D are recorded on the patient and treated as Rh negative (decided 2026-11-10, option B).
 /// </summary>
 public static class RhigDoseRule
 {
@@ -62,7 +62,26 @@ public static class RhigDoseRule
     /// The suggested decision from the facts on file, with the reason; null when the facts do not settle it (no Rh type,
     /// or anti-D on history, which may be passive from earlier RhIG or immune: the reviewer decides).
     /// </summary>
-    public static (RhigDecision? Suggested, string Reason) Suggest(RhType? patientRh, bool antiDOnHistory, RhType infantRh)
+    public static (RhigDecision? Suggested, string Reason) Suggest(RhType? patientRh, bool antiDOnHistory, RhType infantRh,
+        RhDVariant variant = RhDVariant.None)
+    {
+        // OCD-069 (decided 2026-11-10, option B): any weak D or partial D is treated as Rh negative for RhIG.
+        var variantNote = variant switch
+        {
+            RhDVariant.WeakD => " (weak D, treated as Rh negative for RhIG)",
+            RhDVariant.PartialD => " (partial D, treated as Rh negative for RhIG)",
+            _ => string.Empty
+        };
+        if (variant != RhDVariant.None)
+        {
+            patientRh = RhType.Negative;
+        }
+
+        var (suggested, reason) = SuggestFor(patientRh, antiDOnHistory, infantRh);
+        return (suggested, variantNote.Length == 0 ? reason : reason.Replace("the patient is Rh negative", "the patient is Rh negative" + variantNote));
+    }
+
+    private static (RhigDecision? Suggested, string Reason) SuggestFor(RhType? patientRh, bool antiDOnHistory, RhType infantRh)
     {
         if (patientRh is null or RhType.Unknown)
         {

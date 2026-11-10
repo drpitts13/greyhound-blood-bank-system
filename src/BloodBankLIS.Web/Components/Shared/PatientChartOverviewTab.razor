@@ -87,6 +87,36 @@
             </div>
         }
 
+        @* OCD-069: a weak D or partial D is a trait of the patient, kept across new typings; Rh negative for RhIG. *@
+        <div class="sub" style="margin-top:.5rem;" data-rhd-variant-line>
+            D variant: @VariantLabel(RhDVariant)
+            @if (Session.Has(PermissionCodes.ImmunoRecord) && !_editingVariant)
+            {
+                <button class="btn btn-ghost btn-sm" @onclick="() => { _editingVariant = true; _variant = RhDVariant; _variantReason = null; _variantFb = null; }" data-rhd-variant-change>Change</button>
+            }
+        </div>
+        @if (_editingVariant)
+        {
+            <div class="form-row" data-rhd-variant-form>
+                <div class="field"><label>D variant</label>
+                    <select @bind="_variant" data-rhd-variant-select>
+                        <option value="@RhDVariant.None">None</option>
+                        <option value="@RhDVariant.WeakD">Weak D</option>
+                        <option value="@RhDVariant.PartialD">Partial D</option>
+                    </select>
+                </div>
+                <div class="field" style="flex:2;"><label>Reason</label>
+                    <input @bind="_variantReason" @bind:event="oninput" maxlength="500" placeholder="e.g. Weak D on IAT, tube 2026-11-10" data-rhd-variant-reason />
+                </div>
+                <div class="field" style="align-self:end;">
+                    <button class="btn btn-primary btn-sm" disabled="@(Busy || _variant == RhDVariant || string.IsNullOrWhiteSpace(_variantReason))" @onclick="SaveVariantAsync" data-rhd-variant-save>Save</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="() => _editingVariant = false">Cancel</button>
+                </div>
+            </div>
+            <Outcome Value="_variantFb" />
+            <p class="muted">Weak D and partial D are treated as Rh negative when the RhIG evaluation suggests a decision (OCD-069).</p>
+        }
+
         @if (Session.Has(PermissionCodes.ImmunoOverride))
         {
             <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
@@ -591,6 +621,35 @@
     [Parameter] public EventCallback<string?> AbReportDocumentationChanged { get; set; }
     /// <summary>Raised after an outside report is confirmed, so the page reloads the antibody history.</summary>
     [Parameter] public EventCallback OnAntibodyConfirmed { get; set; }
+
+    /// <summary>The weak D or partial D recorded for the patient (OCD-069).</summary>
+    [Parameter] public RhDVariant RhDVariant { get; set; }
+
+    private bool _editingVariant;
+    private RhDVariant _variant;
+    private string? _variantReason;
+    private Feedback? _variantFb;
+
+    private static string VariantLabel(RhDVariant v) => v switch
+    {
+        RhDVariant.WeakD => "weak D (treated as Rh negative for RhIG)",
+        RhDVariant.PartialD => "partial D (treated as Rh negative for RhIG)",
+        _ => "none recorded"
+    };
+
+    private async Task SaveVariantAsync()
+    {
+        var r = await Api.SetRhDVariantAsync(PatientId, _variant, _variantReason?.Trim() ?? string.Empty);
+        if (r.Succeeded)
+        {
+            _editingVariant = false;
+            await OnAntibodyConfirmed.InvokeAsync();
+        }
+        else
+        {
+            _variantFb = r.ToFeedback();
+        }
+    }
 
     private long? _confirmId;
     private string? _confirmNote;

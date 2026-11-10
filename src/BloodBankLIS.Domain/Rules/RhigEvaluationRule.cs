@@ -12,7 +12,8 @@ public static class RhigEvaluationRule
     public const string CompleteCode = "RHIG-COMPLETE";
 
     /// <summary>Facts the reviewer weighs, as plain statements; no conclusion is drawn.</summary>
-    public static IReadOnlyList<string> Facts(RhType? motherRh, bool antiDOnHistory, RhType infantRh, FetalBleedScreen screen, decimal? fetalBleedPercent)
+    public static IReadOnlyList<string> Facts(RhType? motherRh, bool antiDOnHistory, RhType infantRh, FetalBleedScreen screen, decimal? fetalBleedPercent,
+        RhDVariant variant = RhDVariant.None)
     {
         var facts = new List<string>
         {
@@ -23,6 +24,13 @@ public static class RhigEvaluationRule
                 _ => "No current Rh type on file for the patient."
             }
         };
+        if (variant != RhDVariant.None)
+        {
+            facts.Add(variant == RhDVariant.WeakD
+                ? "Weak D is recorded for the patient: treated as Rh negative for RhIG."
+                : "Partial D is recorded for the patient: treated as Rh negative for RhIG.");
+        }
+
         if (antiDOnHistory)
         {
             facts.Add("Anti-D is on the patient's antibody history.");

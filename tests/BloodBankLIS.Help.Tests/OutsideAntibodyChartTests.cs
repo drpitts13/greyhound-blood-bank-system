@@ -35,6 +35,14 @@ public class OutsideAntibodyChartTests : BunitContext
         tab.Find("[data-antibody-confirm-note]").Input("Panel 2026-11-10, workup #12");
         Assert.False(tab.Find("[data-antibody-confirm-save]").HasAttribute("disabled"));
 
+        // TEST-BB-881 (OCD-069 option B): the chart shows the D variant and lets it be changed with a reason.
+        Assert.Contains("none recorded", tab.Find("[data-rhd-variant-line]").TextContent);
+        tab.Find("[data-rhd-variant-change]").Click();
+        tab.Find("[data-rhd-variant-select]").Change(RhDVariant.WeakD.ToString());
+        Assert.True(tab.Find("[data-rhd-variant-save]").HasAttribute("disabled"));
+        tab.Find("[data-rhd-variant-reason]").Input("Weak D on IAT");
+        Assert.False(tab.Find("[data-rhd-variant-save]").HasAttribute("disabled"));
+
         Assert.Empty(tab.FindAll("[data-antibody-report]"));
         tab.Render(p => p.Add(x => x.AbFacility, "County General"));
         Assert.NotNull(tab.Find("[data-antibody-report-kind]"));

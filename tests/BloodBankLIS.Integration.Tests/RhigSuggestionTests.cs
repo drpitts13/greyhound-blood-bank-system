@@ -35,6 +35,27 @@ public class RhigSuggestionTests : IDisposable
         }
     }
 
+    // TEST-BB-879 (OCD-069 option B): an Rh-positive patient with weak D recorded is suggested a candidate, with the
+    // weak D named in the reason and the facts.
+    [Fact]
+    public async Task WeakD_Patient_IsSuggestedACandidate()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient { MedicalRecordNumber = "MRN-RHIG-WEAKD", LastName = "Mother", FirstName = "Dee", DateOfBirth = new DateOnly(1991, 3, 4), RhDVariant = RhDVariant.WeakD };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, IsCurrent = true });
+        await c.SaveChangesAsync();
+
+        var saved = await Service(c).SaveAsync(patient.Id, new SaveRhigEvaluationRequest(
+            null, RhigContext.Postpartum, _factory.Clock.UtcNow.AddHours(-2), RhType.Positive, FetalBleedScreen.Negative, null,
+            RhigDecision.Undetermined, null, null));
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.Equal(RhigDecision.Candidate, saved.Value!.SuggestedDecision);
+        Assert.Contains("weak D", saved.Value.SuggestionReason);
+        Assert.Contains("Weak D is recorded for the patient: treated as Rh negative for RhIG.", saved.Value.Facts);
+    }
+
     // TEST-BB-869: with the dose settings unset an open evaluation suggests a decision but calculates nothing and says
     // why; once set it shows the calculated vials and the working. Completing keeps what was suggested and calculated then,
     // so a later settings change does not alter the completed record; a recorded dose differing from it is flagged.

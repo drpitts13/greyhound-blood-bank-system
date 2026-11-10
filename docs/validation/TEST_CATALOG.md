@@ -886,5 +886,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-875 | U | `NeonatalTypeHeaderTests.InfantAdmissionType_HasNoSecondTypeNotice` | URS-BB-716 / FRS-BB-834 |
 | TEST-BB-876 | U | `NeonatalTestingRuleTests.NoCrossmatch_OnlyForGroupORedCellsWithANegativeScreen` | URS-BB-717 / FRS-BB-835 |
 | TEST-BB-877 | I | `Phase4IssuingTests.Infant_NegativeScreen_GroupO_IssuedWithoutCrossmatch` | URS-BB-717 / FRS-BB-835 |
+| TEST-BB-878 | U | `RhigDoseRuleTests.Suggest_TreatsWeakAndPartialDAsRhNegative` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-879 | I | `RhigSuggestionTests.WeakD_Patient_IsSuggestedACandidate` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-880 | I | `Phase3ServicesTests.RhDVariant_IsRecordedWithAReason_AndAudited` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-881 | U | `OutsideAntibodyChartTests.OutsideReports_ShowDocumentationAndConfirmation` | URS-BB-718 / FRS-BB-836 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

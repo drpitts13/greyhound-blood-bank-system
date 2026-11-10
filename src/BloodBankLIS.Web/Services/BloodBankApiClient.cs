@@ -428,6 +428,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<AntibodyDto>> AddAntibodyAsync(long patientId, AddAntibodyRequest req, CancellationToken ct = default) =>
         SendAsync<AntibodyDto>(HttpMethod.Post, $"api/patients/{patientId}/antibodies", req, ct);
 
+    public Task<ApiResult<PatientDto>> SetRhDVariantAsync(long patientId, RhDVariant variant, string reason, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{patientId}/rhd-variant", new SetRhDVariantRequest(variant, reason), ct);
+
     public Task<ApiResult<List<OutsideAntibodyToConfirmDto>>> GetOutsideAntibodiesToConfirmAsync(CancellationToken ct = default) =>
         SendAsync<List<OutsideAntibodyToConfirmDto>>(HttpMethod.Get, "api/antibodies/outside-to-confirm", ct: ct);
 

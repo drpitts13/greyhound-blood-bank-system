@@ -39,6 +39,9 @@ public sealed record OutsideAntibodyToConfirmDto(
     // Recorded before documentation was required (Cycle 669): the report behind it is not on record.
     bool Documented);
 
+/// <summary>OCD-069: a weak D or partial D recorded for the patient (None clears it), with the reason.</summary>
+public sealed record SetRhDVariantRequest(RhDVariant Variant, string? Reason);
+
 /// <summary>OCD-073: the testing here that confirmed an outside report.</summary>
 public sealed record ConfirmOutsideAntibodyRequest(string? Note);
 

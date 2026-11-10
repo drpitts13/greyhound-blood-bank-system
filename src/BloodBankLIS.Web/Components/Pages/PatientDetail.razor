@@ -107,6 +107,7 @@ else
             @bind-AbReportKind="_abReportKind"
             @bind-AbReportDocumentation="_abReportDocumentation"
             OnAntibodyConfirmed="LoadAsync"
+            RhDVariant="@(_patient?.RhDVariant ?? RhDVariant.None)"
             @bind-AgCatalogId="_agCatalogId"
             @bind-AgResult="_agResult"
             OnRecordType="RecordTypeAsync"

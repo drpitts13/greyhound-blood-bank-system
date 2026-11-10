@@ -20815,3 +20815,37 @@ Off unless the neonatal rules are on; tied to the admission specimen; group O on
 ### Next
 
 - All fifteen 2026-11-10 decisions are built or kept. Back to the capability matrix for the next operations or UX gap.
+
+## Iteration 675 — Weak D and partial D for RhIG; neonatal validation script (2026-11-10)
+
+### Decisions (product owner, 2026-11-10)
+
+- OCD-082: non-group-O red cells given to an infant need a crossmatch (as built, Cycle 674).
+- OCD-069 weak D / partial D: option B, treated as Rh negative for RhIG.
+- OCD-070 retention: option B, 10 or 14 days after expiry; entered on Facility Policies (no code).
+- OCD-074 turning the neonatal rules on: option C, a validation script run in a test environment first.
+
+### Design
+
+- `Patient.RhDVariant` (None, weak D, partial D; migration `20270103000000_PatientRhDVariant`, dev bootstrap): a trait of the patient, kept across new typings, recorded on the chart's Overview (D variant › Change; immuno.record; reason required; audited old and new; refused when unchanged or on a merged chart).
+- `RhigDoseRule.Suggest` treats a variant as Rh negative and names it in the reason; the RhIG facts list it; the chart header shows it beside the type. Product selection is not changed (not decided).
+- Validation script S-14 (`docs/validation-scripts.md`): the neonatal rules end to end through the application (admission specimen and discharge, no repeat ABO/Rh, no crossmatch with a negative screen for group O only, antibody on file, emergency path, rules off), with the evidence to keep before turning the rules on.
+
+### Verification
+
+- Unit: variant suggestions and facts.
+- Integration: a weak D, Rh-positive patient is suggested a candidate; recording needs a reason, is audited, refuses no change, clears, and needs immuno.record.
+- Rendered: the D variant line and Change form.
+- Live (read-only; nothing recorded): the API added the Patients column on start; the demo RhIG patient's chart (MRN0026) shows "D variant: none recorded" with Change. No server errors.
+
+### Requirements
+
+- URS-BB-718, FRS-BB-836.
+
+### Tests
+
+- TEST-BB-878 to TEST-BB-881.
+
+### Next
+
+- Back to the capability matrix for the next operations or UX gap.

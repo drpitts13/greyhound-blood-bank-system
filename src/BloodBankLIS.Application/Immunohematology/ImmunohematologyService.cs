@@ -396,6 +396,50 @@ public sealed class ImmunohematologyService
     }
 
     /// <summary>
+    /// OCD-069: records (or clears, with None) a weak D or partial D for the patient, with a reason; audited with the old
+    /// and new value. The RhIG evaluation treats it as Rh negative.
+    /// </summary>
+    public async Task<OperationResult<Patient>> SetRhDVariantAsync(long patientId, RhDVariant variant, string? reason, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync<Patient>(
+            PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateAntibodyAdd, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var patientGate = await RejectMergedOrMissingPatientAsync<Patient>(patientId, ct);
+        if (patientGate is not null)
+        {
+            return patientGate;
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<Patient>.Fail("Give the reason, for example the test that found it.");
+        }
+
+        if (!Enum.IsDefined(variant))
+        {
+            return OperationResult<Patient>.Fail("Choose weak D, partial D, or none.");
+        }
+
+        var patient = (await _patients.GetByIdAsync(patientId, ct))!;
+        if (patient.RhDVariant == variant)
+        {
+            return OperationResult<Patient>.Fail("That is already recorded.");
+        }
+
+        var old = patient.RhDVariant;
+        patient.RhDVariant = variant;
+        _patients.Update(patient);
+        _audit.Record(AuditEventType.Update, nameof(Patient), patient.Id,
+            oldValue: new { RhDVariant = old }, newValue: new { patient.RhDVariant }, reason: reason.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Patient>.Ok(patient);
+    }
+
+    /// <summary>
     /// OCD-073: active outside antibody reports this laboratory has not yet confirmed, oldest first, for the bench that
     /// confirms them. Merged-away charts are left out (their history moved to the surviving chart).
     /// </summary>

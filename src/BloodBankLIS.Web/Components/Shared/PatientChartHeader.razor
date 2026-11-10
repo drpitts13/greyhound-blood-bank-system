@@ -158,6 +158,10 @@
         <div class="stat" style="text-align:center;padding:.6rem 1rem;">
             <div class="label">Blood type</div>
             <div class="value" style="font-size:1.4rem;">@(CurrentType is null ? "—" : Ui.BloodType(CurrentType.Abo, CurrentType.RhD))</div>
+            @if (Patient?.RhDVariant is RhDVariant.WeakD or RhDVariant.PartialD)
+            {
+                <div class="muted" style="font-size:.8rem;" data-rhd-variant>@(Patient.RhDVariant == RhDVariant.WeakD ? "Weak D" : "Partial D")</div>
+            }
             @if (RequireSecondAbo && SecondAboOnFile)
             {
                 <div class="muted" style="font-size:.8rem;">Second ABO on file</div>

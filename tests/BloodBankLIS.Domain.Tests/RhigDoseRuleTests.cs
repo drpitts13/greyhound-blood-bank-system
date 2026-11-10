@@ -52,4 +52,21 @@ public class RhigDoseRuleTests
         Assert.Null(RhigDoseRule.Suggest(null, false, RhType.Positive).Suggested);
         Assert.Null(RhigDoseRule.Suggest(RhType.Unknown, false, RhType.Positive).Suggested);
     }
+
+    // TEST-BB-878 (OCD-069, decided 2026-11-10, option B): a weak D or partial D recorded for the patient is treated as
+    // Rh negative for RhIG, even when the type on file reads Rh positive, and the facts say so; anti-D still means no
+    // suggestion.
+    [Fact]
+    public void Suggest_TreatsWeakAndPartialDAsRhNegative()
+    {
+        var weak = RhigDoseRule.Suggest(RhType.Positive, false, RhType.Positive, RhDVariant.WeakD);
+        Assert.Equal(RhigDecision.Candidate, weak.Suggested);
+        Assert.Contains("weak D, treated as Rh negative for RhIG", weak.Reason);
+        Assert.Equal(RhigDecision.NotCandidate, RhigDoseRule.Suggest(RhType.Positive, false, RhType.Negative, RhDVariant.PartialD).Suggested);
+        Assert.Null(RhigDoseRule.Suggest(RhType.Positive, true, RhType.Positive, RhDVariant.WeakD).Suggested);
+        Assert.Equal(RhigDecision.NotCandidate, RhigDoseRule.Suggest(RhType.Positive, false, RhType.Positive, RhDVariant.None).Suggested);
+
+        Assert.Contains("Partial D is recorded for the patient: treated as Rh negative for RhIG.",
+            RhigEvaluationRule.Facts(RhType.Positive, false, RhType.Positive, FetalBleedScreen.NotDone, null, RhDVariant.PartialD));
+    }
 }

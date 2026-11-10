@@ -19,7 +19,7 @@ Each record lists the facts on file next to what you entered: the patient's curr
   - Rh positive on file, or an Rh-negative infant: suggested not a candidate.
   - Rh negative with no anti-D, and the infant Rh positive or not known: suggested candidate.
   - No Rh type on file, or anti-D on the antibody history: no suggestion. Anti-D may be passive (from earlier RhIG) or immune, and the reviewer decides which.
-  - Weak D and partial D are not recorded separately in the patient's Rh type, so the suggestion does not consider them.
+  - Weak D and partial D are treated as Rh negative (OCD-069). Record either on the chart's Overview, under the blood type: **D variant** › **Change**, with the reason (for example the test that found it). It is kept on the patient across new typings, shown beside the blood type in the chart header, and audited. It affects the RhIG suggestion only, not product selection.
 - **Calculated dose.** From a positive screen's quantitation: fetal whole blood = % fetal cells × maternal blood volume, divided by the mL one vial covers, then rounded. The three **RhIG dose** settings on Facility Policies (mL per vial, maternal blood volume, rounding) ship unset. Until your medical director enters them, the evaluation says no dose was calculated and why. Once they are set, it shows the working, for example "0.9% × 5000 mL = 45 mL fetal blood; ÷ 30 mL per vial = 1.5; rounded to the nearest and one added: 3 vials".
 - **Use the suggestion** opens the evaluation with the suggested decision and, for a candidate, the calculated vials filled in. Check them and save.
 

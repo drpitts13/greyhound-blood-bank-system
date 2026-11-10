@@ -117,12 +117,12 @@ public sealed class RhigEvaluationService
     public async Task<IReadOnlyList<RhigEvaluationDto>> ListAsync(long patientId, CancellationToken ct = default)
     {
         var rows = await _evaluations.ListAsync(e => e.PatientId == patientId, ct);
-        var (motherRh, antiD) = await PatientFactsAsync(patientId, ct);
+        var (motherRh, antiD, variant) = await PatientFactsAsync(patientId, ct);
         var dose = await DoseSettingsAsync(ct);
         return rows
             .OrderByDescending(e => e.EventUtc)
             .ThenByDescending(e => e.Id)
-            .Select(e => ToDto(e, motherRh, antiD, dose))
+            .Select(e => ToDto(e, motherRh, antiD, variant, dose))
             .ToList();
     }
 
@@ -150,13 +150,13 @@ public sealed class RhigEvaluationService
                 continue;
             }
 
-            var (motherRh, antiD) = await PatientFactsAsync(e.PatientId, ct);
+            var (motherRh, antiD, variant) = await PatientFactsAsync(e.PatientId, ct);
             var dose = await DoseSettingsAsync(ct);
             var ready = e.CompletedUtc is null
                 && RhigEvaluationRule.EvaluateComplete(e.Decision, e.VialsRecommended, e.DecisionNote, e.FetalBleedScreen, e.FetalBleedPercent)
                     .Severity != RuleSeverity.HardStop;
             items.Add(new RhigQueueItemDto(
-                ToDto(e, motherRh, antiD, dose),
+                ToDto(e, motherRh, antiD, variant, dose),
                 patient is null ? $"Patient {e.PatientId}" : $"{patient.LastName}, {patient.FirstName}",
                 patient?.MedicalRecordNumber ?? "—",
                 ready));
@@ -271,8 +271,8 @@ public sealed class RhigEvaluationService
         }
 
         // OCD-069: what the application suggested and calculated is kept with the decision the reviewer completed.
-        var (patientRh, antiDOnHistory) = await PatientFactsAsync(row.PatientId, ct);
-        row.SuggestedDecision = RhigDoseRule.Suggest(patientRh, antiDOnHistory, row.InfantRh).Suggested;
+        var (patientRh, antiDOnHistory, patientVariant) = await PatientFactsAsync(row.PatientId, ct);
+        row.SuggestedDecision = RhigDoseRule.Suggest(patientRh, antiDOnHistory, row.InfantRh, patientVariant).Suggested;
         row.VialsCalculated = RhigDoseRule.Calculate(row.FetalBleedScreen, row.FetalBleedPercent, await DoseSettingsAsync(ct)).Vials;
         row.CompletedBy = _currentUser.UserName;
         row.CompletedUtc = _clock.UtcNow;
@@ -381,28 +381,29 @@ public sealed class RhigEvaluationService
 
     private async Task<OperationResult<RhigEvaluationDto>> ResultAsync(RhigEvaluation row, CancellationToken ct)
     {
-        var (motherRh, antiD) = await PatientFactsAsync(row.PatientId, ct);
-        return OperationResult<RhigEvaluationDto>.Ok(ToDto(row, motherRh, antiD, await DoseSettingsAsync(ct)));
+        var (motherRh, antiD, variant) = await PatientFactsAsync(row.PatientId, ct);
+        return OperationResult<RhigEvaluationDto>.Ok(ToDto(row, motherRh, antiD, variant, await DoseSettingsAsync(ct)));
     }
 
     private async Task<RhigDoseRule.Settings> DoseSettingsAsync(CancellationToken ct) =>
         _policy is null ? new RhigDoseRule.Settings(0, 0, RhigDoseRule.Rounding.NotSet) : await _policy.GetRhigDoseSettingsAsync(ct);
 
-    private async Task<(RhType? MotherRh, bool AntiD)> PatientFactsAsync(long patientId, CancellationToken ct)
+    private async Task<(RhType? MotherRh, bool AntiD, RhDVariant Variant)> PatientFactsAsync(long patientId, CancellationToken ct)
     {
         var current = await _bloodTypes.FirstOrDefaultAsync(b => b.PatientId == patientId && b.IsCurrent, ct);
         var antibodies = await _antibodies.ListAsync(a => a.PatientId == patientId, ct);
         var antiD = antibodies.Any(a => string.Equals(a.AntibodySpecificity?.Trim(), "anti-D", StringComparison.OrdinalIgnoreCase));
-        return (current?.RhD, antiD);
+        var variant = (await _patients.GetByIdAsync(patientId, ct))?.RhDVariant ?? RhDVariant.None;
+        return (current?.RhD, antiD, variant);
     }
 
     /// <summary>
     /// An open evaluation shows what the facts suggest now; a completed one shows what was suggested and calculated when
     /// it was completed, so the record does not change when the settings or chart later do.
     /// </summary>
-    private static RhigEvaluationDto ToDto(RhigEvaluation e, RhType? motherRh, bool antiD, RhigDoseRule.Settings dose)
+    private static RhigEvaluationDto ToDto(RhigEvaluation e, RhType? motherRh, bool antiD, RhDVariant variant, RhigDoseRule.Settings dose)
     {
-        var (suggested, reason) = RhigDoseRule.Suggest(motherRh, antiD, e.InfantRh);
+        var (suggested, reason) = RhigDoseRule.Suggest(motherRh, antiD, e.InfantRh, variant);
         var (vials, explanation) = RhigDoseRule.Calculate(e.FetalBleedScreen, e.FetalBleedPercent, dose);
         if (e.CompletedUtc is not null)
         {
@@ -412,7 +413,7 @@ public sealed class RhigEvaluationService
 
         return new(e.Id, e.PatientId, e.Context, e.EventUtc, e.InfantRh, e.FetalBleedScreen, e.FetalBleedPercent, e.Decision,
             e.VialsRecommended, e.DecisionNote, e.RecordedBy, e.RecordedUtc, e.CompletedBy, e.CompletedUtc,
-            RhigEvaluationRule.Facts(motherRh, antiD, e.InfantRh, e.FetalBleedScreen, e.FetalBleedPercent),
+            RhigEvaluationRule.Facts(motherRh, antiD, e.InfantRh, e.FetalBleedScreen, e.FetalBleedPercent, variant),
             e.GivenLot, e.GivenVials, e.GivenUtc, e.GivenBy, e.GivenNote,
             suggested, e.CompletedUtc is null ? reason : null, vials, e.CompletedUtc is null ? explanation : null);
     }

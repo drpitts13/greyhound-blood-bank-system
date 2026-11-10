@@ -40,6 +40,12 @@ public class Patient : BaseEntity
     /// <summary>Documented pregnancy (or pregnancy in lookback) used for specimen validity.</summary>
     public DateTime? RecentPregnancyUtc { get; set; }
 
+    /// <summary>
+    /// A weak D or partial D recorded for the patient (a trait, kept across new typings). OCD-069 (decided 2026-11-10,
+    /// option B): treated as Rh negative for RhIG. Recorded with a reason and audited.
+    /// </summary>
+    public RhDVariant RhDVariant { get; set; } = RhDVariant.None;
+
     /// <summary>Free-text patient comment. Coded comments from the Patient catalog may be inserted.</summary>
     public string? Comment { get; set; }
 

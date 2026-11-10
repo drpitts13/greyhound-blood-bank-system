@@ -123,12 +123,14 @@ public sealed record PatientDto(
     // Registered without identification (temporary MRN, estimated age), until merged into the identified chart.
     bool Unidentified = false,
     // Unidentified and open past the facility reminder hours (OCD-077); filled by the unidentified list only.
-    bool UnidentifiedPastReminder = false)
+    bool UnidentifiedPastReminder = false,
+    // A weak D or partial D recorded for the patient (OCD-069).
+    RhDVariant RhDVariant = RhDVariant.None)
 {
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,
-        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity, Unidentified: p.Unidentified);
+        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity, Unidentified: p.Unidentified, RhDVariant: p.RhDVariant);
 
     /// <summary>
     /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, where the patient is (the
