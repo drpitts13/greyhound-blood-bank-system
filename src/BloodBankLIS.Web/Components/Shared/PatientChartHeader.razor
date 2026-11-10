@@ -326,6 +326,13 @@
     <div class="alert @(SpecimenCue.BlocksIssue ? "alert-danger" : "alert-warning")">
         <strong>@SpecimenCue.Message</strong>
         The issue gate reads this specimen.
+        @if (SpecimenCue.AwaitingNote is { } awaitingNote)
+        {
+            <div data-chart-tube-awaiting>
+                @awaitingNote
+                <a href="@BloodOrderPreparationRule.ReceiveTubeHref">Pending specimens</a>
+            </div>
+        }
     </div>
 }
 

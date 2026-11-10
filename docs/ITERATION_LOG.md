@@ -20026,3 +20026,31 @@ Walked Blood orders to prepare on development data. Both demo orders said "None 
 ### Next
 
 - The chart: whether the patient's Products and Specimens tabs also ask for a new draw while a tube is on its way.
+
+## Iteration 651 — The chart names the tube on its way (2026-11-10)
+
+### Capability matrix rescan (orders and specimens: the chart while a tube is in transit)
+
+Followed Cycle 650 onto the chart. For Demo-Multi, Riley (MRN0022) the header said in red "No current specimen. The issue gate reads this specimen." with nothing about ACC-DEMO-RCV1, drawn and on its way. Someone working from the chart had to remember to look at Pending specimens or would order another draw.
+
+### Design
+
+- `CurrentSpecimenBanner.Describe` keeps choosing the current specimen as before (latest accepted) and still blocks issue without one. When there is none, or it has expired, the cue also names the newest in-date tube drawn after it that is Collected ("drawn … and is not yet received: receive it rather than drawing again") or Received ("received and not yet accepted: accept it rather than drawing again").
+- The chart header shows that note under the red warning with a link to Pending specimens. An expired tube, or one drawn before the current specimen, is not named; an in-date current specimen shows no note.
+
+### Verification
+
+- Unit: drawn and received tubes named with their wording; an expired tube not named; with an expired current specimen only a newer tube is named; nothing named while the current specimen is in date.
+- Live (read-only): Riley's chart header reads "No current specimen. The issue gate reads this specimen. Tube ACC-DEMO-RCV1 was drawn 2026-11-09 23:52 and is not yet received: receive it rather than drawing again." with a link to Pending specimens. No server errors.
+
+### Requirements
+
+- URS-BB-693, FRS-BB-810.
+
+### Tests
+
+- TEST-BB-804, TEST-BB-805.
+
+### Next
+
+- The chart Orders tab's "Accession a specimen first" message: whether it also should point at a tube on its way.

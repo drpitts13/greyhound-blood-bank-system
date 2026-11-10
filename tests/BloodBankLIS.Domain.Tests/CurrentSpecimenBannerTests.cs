@@ -16,6 +16,42 @@ public class CurrentSpecimenBannerTests
         Assert.Equal("No current specimen.", cue.Message);
     }
 
+    // TEST-BB-804: with no current specimen, a tube drawn and not yet received, or received and not yet accepted, is
+    // named so the bench receives or accepts it instead of drawing again; it is not the current specimen and the banner
+    // still blocks issue. An expired tube is not named.
+    [Fact]
+    public void NoCurrentSpecimen_NamesTheTubeOnItsWay()
+    {
+        var drawn = new CurrentSpecimenBanner.Fact("ACC-D", SpecimenStatus.Collected, Now.AddMinutes(-30), Now.AddDays(3));
+        var cue = CurrentSpecimenBanner.Describe([drawn], Now);
+        Assert.Equal((null, "No current specimen.", true, "ACC-D"), (cue.AccessionNumber, cue.Message, cue.BlocksIssue, cue.AwaitingAccession));
+        Assert.Equal("Tube ACC-D was drawn 2026-09-29 21:30 and is not yet received: receive it rather than drawing again.", cue.AwaitingNote);
+
+        var received = new CurrentSpecimenBanner.Fact("ACC-R", SpecimenStatus.Received, Now.AddMinutes(-10), Now.AddDays(3));
+        Assert.Equal("Tube ACC-R is received and not yet accepted: accept it rather than drawing again.",
+            CurrentSpecimenBanner.Describe([drawn, received], Now).AwaitingNote);
+
+        var stale = new CurrentSpecimenBanner.Fact("ACC-S", SpecimenStatus.Collected, Now.AddDays(-4), Now.AddHours(-1));
+        var none = CurrentSpecimenBanner.Describe([stale], Now);
+        Assert.Equal(((string?)null, (string?)null), (none.AwaitingAccession, none.AwaitingNote));
+    }
+
+    // TEST-BB-805: an expired current specimen names a newer tube on its way; a tube drawn before it, or any tube while
+    // the current specimen is in date, is not named.
+    [Fact]
+    public void ExpiredCurrent_NamesOnlyANewerTube()
+    {
+        var expired = new CurrentSpecimenBanner.Fact("ACC-EXP", SpecimenStatus.Accepted, Now.AddDays(-3), Now.AddMinutes(-5));
+        var older = new CurrentSpecimenBanner.Fact("ACC-OLDER", SpecimenStatus.Collected, Now.AddDays(-4), Now.AddDays(1));
+        var newer = new CurrentSpecimenBanner.Fact("ACC-NEWER", SpecimenStatus.Collected, Now.AddMinutes(-20), Now.AddDays(3));
+        Assert.Null(CurrentSpecimenBanner.Describe([expired, older], Now).AwaitingAccession);
+        var cue = CurrentSpecimenBanner.Describe([expired, older, newer], Now);
+        Assert.Equal(("ACC-EXP", true, "ACC-NEWER"), (cue.AccessionNumber, cue.BlocksIssue, cue.AwaitingAccession));
+
+        var inDate = new CurrentSpecimenBanner.Fact("ACC-OK", SpecimenStatus.Accepted, Now.AddDays(-1), Now.AddDays(2));
+        Assert.Null(CurrentSpecimenBanner.Describe([inDate, newer], Now).AwaitingAccession);
+    }
+
     [Fact]
     public void LatestAcceptedSpecimen_IsTheOneTheIssueGateReads()
     {
