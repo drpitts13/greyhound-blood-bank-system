@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Bunit;
 
 namespace BloodBankLIS.Help.Tests;
 
@@ -34,7 +35,7 @@ public partial class OptionValueTests
             "An option value is a C# boolean literal (write value=\"true\" or value=\"false\"):" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
 
-    [GeneratedRegex(@"bool\??\s+(_?[A-Za-z]\w*)\s*(;|=|\{)")]
+    [GeneratedRegex(@"\bbool\??\s+(_?[A-Za-z]\w*)\s*(;|=|\{)")]
     private static partial Regex BoolField();
 
     [GeneratedRegex(@"value=""@\(?(true|false)\)?""")]
@@ -96,6 +97,30 @@ public class SelectBindingTests
     public void BoolSelect_DoesNotBind_TextDoes()
     {
         Assert.Throws<InvalidCastException>(() => Convert<bool?>("false"));
+        // A plain bool fails the same way (Cycle 633: three more selects bound one).
+        Assert.Throws<InvalidCastException>(() => Convert<bool>("true"));
         Assert.Equal((true, "no"), Convert<string>("no"));
+    }
+}
+
+/// <summary>The yes/no selects fixed in Cycle 633 take the choice made.</summary>
+public class YesNoSelectTests : Bunit.BunitContext
+{
+    private static T Field<T>(object page, string name) =>
+        (T)page.GetType().GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(page)!;
+
+    // TEST-BB-767: Storage temperatures' "Excursions only" is taken when chosen and dropped when changed back (it stayed
+    // All readings, as a select cannot bind a bool).
+    [Fact]
+    public void StorageTemperatures_ExcursionsOnly_IsTaken()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>());
+        Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton(Services, new BloodBankLIS.Web.Services.ReportDownloadCache(new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions())));
+        var page = Render<BloodBankLIS.Web.Components.Pages.StorageTempReport>();
+
+        page.Find("[data-excursions-only]").Change("true");
+        Assert.True(Field<bool>(page.Instance, "_excursionsOnly"));
+        page.Find("[data-excursions-only]").Change("false");
+        Assert.False(Field<bool>(page.Instance, "_excursionsOnly"));
     }
 }

@@ -42,7 +42,7 @@
         <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
         <div class="field">
             <label>Readings</label>
-            <select @bind="_excursionsOnly">
+            <select @bind="ExcursionsOnlyChoice" data-excursions-only>
                 <option value="false">All readings</option>
                 <option value="true">Excursions only</option>
             </select>
@@ -160,6 +160,13 @@
     private bool _busy;
     private long _deviceId;
     private bool _excursionsOnly;
+
+    // A select cannot bind a bool (the binder casts a checkbox's true or false), so the choice stayed All readings (Cycle 633).
+    private string ExcursionsOnlyChoice
+    {
+        get => _excursionsOnly ? "true" : "false";
+        set => _excursionsOnly = value == "true";
+    }
     private bool _reportExcursionsOnly;
     private DateTime _to = DateTime.UtcNow.Date;
     private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);

@@ -19501,3 +19501,38 @@ Before seeding a crossmatch to show the Issue form warning, the other issue path
 ### Next
 
 - Seed a compatible crossmatch on the MRN0006 demo unit (and a current specimen) so the Issue form warning can be seen live.
+
+## Iteration 633 — Unit expiry in local time; yes/no selects that could not be chosen (2026-11-09)
+
+### Capability matrix rescan (time display and choices, again)
+
+Planned: record on the issue that the patient's reaction was under investigation. Reading the product history for it found Expires formatted from `UnitExpiresUtc is DateTime unitExpires` without conversion. The sweep found eight such: unit expiration on Ready to issue, Retrospective, In transit, Issued units, the chart's Products and Product History (at UTC−5 a unit expiring 14:00 local read 19:00, five hours later than it does), a specimen's expiry on Compatibility, and Test History's entered time. The Cycle 604 guard looks for members named …Utc and missed a value renamed by the pattern match.
+
+Writing the new guard showed Cycle 624's guard silently broken (and the new one, as first written): a "\b" written through a script became a backspace character, so Cycle 624's "no select bound to a bool" pattern matched nothing. Repaired, it found three more selects bound to a plain bool, which, like Cycle 624's, can never take a choice (the binder casts a checkbox's true or false):
+- Storage temperatures "Excursions only": the filter could not be turned on.
+- HL7 Translations import "Replace the rows below": an import meant to replace the table added to it.
+- HL7 Translations "Test a value" Outbound: outbound could not be checked.
+
+### Design
+
+- The eight renderings convert to local time; values the text labels UTC (backups, reaction closed and reopened) stay.
+- The three selects bind through text, as the bedside reaction question.
+- Source test: a `…Utc` value matched into a variable is not formatted without `.ToLocalTime()` or `ClockText` unless labelled UTC. Both guards were checked against reintroduced faults (they fail) and the whole tree scanned for control characters (none left).
+- The issue-record traceability moves to the next iteration.
+
+### Verification
+
+- Guards fail on the old code (unit expiry, select bound to the reaction bool) and pass now. Converter: a plain bool also throws on a select's text. Rendered: Excursions only is taken and dropped.
+- Live (read-only; workstation America/New_York): Ready to issue shows W000123RXN0001 expiring 2026-11-30 21:05, as its unit page does (before: the stored UTC, 02:05 the next day). Temperature history keeps "Excursions only" across a re-render. No server errors.
+
+### Requirements
+
+- URS-BB-675, FRS-BB-792.
+
+### Tests
+
+- TEST-BB-766, TEST-BB-767 (TEST-BB-749 repaired, TEST-BB-751 extended).
+
+### Next
+
+- Record on each issue the patient's reaction investigation open at the time, and show it in Product History.

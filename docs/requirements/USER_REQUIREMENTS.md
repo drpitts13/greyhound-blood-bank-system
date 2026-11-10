@@ -680,3 +680,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-672 | The shift handoff tells the next shift about reactions under investigation for patients with units out or reserved. | P2 | FRS-BB-789 |
 | URS-BB-673 | The reactions list and home card say when an open case's patient still has units issued or reserved. | P2 | FRS-BB-790 |
 | URS-BB-674 | The patient chart says, on every tab, when a transfusion reaction is under investigation for the patient. | P1 | FRS-BB-791 |
+| URS-BB-675 | A unit's expiration, and every other stored time, is shown in the workstation's local time unless labelled UTC; every yes/no choice takes the answer chosen. | P1 | FRS-BB-792 |

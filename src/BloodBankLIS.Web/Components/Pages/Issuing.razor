@@ -310,7 +310,7 @@
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
                             </td>
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
                             <td>@(string.IsNullOrWhiteSpace(row.StorageLocationName) ? "—" : row.StorageLocationName)</td>
@@ -498,7 +498,7 @@
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
@@ -593,7 +593,7 @@
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
@@ -689,7 +689,7 @@
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>

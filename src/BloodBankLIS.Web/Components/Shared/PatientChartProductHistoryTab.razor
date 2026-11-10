@@ -98,7 +98,7 @@
                                     <li>Ward appearance: @(string.IsNullOrWhiteSpace(h.WardAppearance) ? "—" : h.WardAppearance)</li>
                                     <li>P-tag: <span class="mono">@(string.IsNullOrWhiteSpace(h.PtagCode) ? "—" : h.PtagCode)</span></li>
                                     <li>XM at issue: @(string.IsNullOrWhiteSpace(h.IssueCrossmatchStatus) ? "—" : h.IssueCrossmatchStatus)</li>
-                                    <li>Expires: @(h.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</li>
+                                    <li>Expires: @(h.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</li>
                                     <li>Visit: <span class="mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</span></li>
                                     <li>Order: <span class="mono">@(h.OrderNumber ?? "—")</span></li>
                                     <li>Specimen: <span class="mono">@(h.AccessionNumber ?? "—")</span></li>

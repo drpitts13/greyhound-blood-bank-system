@@ -536,7 +536,7 @@
 
     private static string FormatSpecimen(SpecimenDto s)
     {
-        var expires = s.ExpiresUtc is DateTime exp ? $" expires {exp:yyyy-MM-dd HH:mm}" : "";
+        var expires = s.ExpiresUtc is DateTime exp ? $" expires {exp.ToLocalTime():yyyy-MM-dd HH:mm}" : "";
         return $"{s.AccessionNumber} — {s.SpecimenType} ({s.Status}{expires})";
     }
 

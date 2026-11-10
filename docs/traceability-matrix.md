@@ -785,6 +785,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-672 / FRS-BB-789 | Handoff names reactions with units out | `ShiftHandoff.cs`; `ShiftHandoffService.cs`; `ShiftHandoffItems.cs`; migration; bootstrap | TEST-BB-758, TEST-BB-759 | U | OCD-078 |
 | URS-BB-673 / FRS-BB-790 | Reactions list and card name units out | `ReactionInvestigationService.cs`; `DashboardQueueCatalog.cs`; `Reactions.razor` | TEST-BB-760, TEST-BB-761, TEST-BB-762, TEST-BB-763 | U, I | OCD-078 |
 | URS-BB-674 / FRS-BB-791 | Chart says a reaction is under investigation | `PatientEndpoints.cs`; `ReactionInvestigationService.cs`; `PatientChartHeader.razor`; `PatientDetail.razor` | TEST-BB-764, TEST-BB-765 | U, I | OCD-078 |
+| URS-BB-675 / FRS-BB-792 | Local unit expiry; yes/no selects bind | `Issuing.razor`; `PatientChartProductsTab.razor`; `PatientChartProductHistoryTab.razor`; `Compatibility.razor`; `PatientChartTestHistoryTab.razor`; `StorageTempReport.razor`; `AdminHl7Translations.razor` | TEST-BB-766, TEST-BB-767, TEST-BB-749, TEST-BB-751 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

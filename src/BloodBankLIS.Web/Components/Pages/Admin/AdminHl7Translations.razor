@@ -118,7 +118,7 @@
                                       placeholder="@("TNS\tLAB10117\tBoth")" data-xl-import-text></textarea>
                             <div class="flex gap" style="margin-top:.5rem;align-items:center;flex-wrap:wrap;">
                                 <InputFile OnChange="OnImportFileAsync" accept=".csv,.tsv,.txt" />
-                                <select @bind="_importReplace">
+                                <select @bind="ImportReplaceChoice" data-xl-import-mode>
                                     <option value="false">Add to the rows below</option>
                                     <option value="true">Replace the rows below</option>
                                 </select>
@@ -224,7 +224,7 @@
                         <p class="muted">See what the interface would do with a value, using the saved translations (not unsaved edits).</p>
                         <div class="form-row">
                             <div class="field"><label>Direction</label>
-                                <select @bind="_checkInbound">
+                                <select @bind="CheckInboundChoice" data-xl-check-direction>
                                     <option value="true">Inbound (external → LIS)</option>
                                     <option value="false">Outbound (LIS → external)</option>
                                 </select>
@@ -355,6 +355,20 @@ else
     private Feedback? _feedback;
 
     private bool _checkInbound = true;
+
+    // A select cannot bind a bool (the binder casts a checkbox's true or false): Replace and Outbound could never be
+    // chosen, so an import meant to replace the table added to it instead (Cycle 633).
+    private string ImportReplaceChoice
+    {
+        get => _importReplace ? "true" : "false";
+        set => _importReplace = value == "true";
+    }
+
+    private string CheckInboundChoice
+    {
+        get => _checkInbound ? "true" : "false";
+        set => _checkInbound = value == "true";
+    }
     private string _checkValue = string.Empty;
     private InterfaceTranslationCheckDto? _check;
 

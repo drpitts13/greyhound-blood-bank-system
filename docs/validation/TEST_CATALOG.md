@@ -774,5 +774,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-763 | I | `SeederReactionNextUnitTests.FirstVersionBorrowedUnit_IsGivenBack` | URS-BB-673 / FRS-BB-790 |
 | TEST-BB-764 | U | `PatientSafetyBannerTests.ChartHeader_SaysAReactionIsUnderInvestigation` | URS-BB-674 / FRS-BB-791 |
 | TEST-BB-765 | I | `Phase4IssuingTests.ReactionList_CountsThePatientsUnitsOutOrReserved` | URS-BB-674 / FRS-BB-791 |
+| TEST-BB-766 | U | `LocalTimeDisplayTests.Pages_ConvertUtcMatchedIntoAVariable` | URS-BB-675 / FRS-BB-792 |
+| TEST-BB-767 | U | `YesNoSelectTests.StorageTemperatures_ExcursionsOnly_IsTaken` | URS-BB-675 / FRS-BB-792 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -70,7 +70,7 @@
                             }
                         </td>
                         <td data-entered-verified>
-                            <span title="@(h.EnteredUtc is DateTime enteredAt ? $"Entered {enteredAt:yyyy-MM-dd HH:mm}" : null)">@(h.EnteredBy ?? "—")</span> <span class="badge badge-gray">@PatientTestHistoryView.SourceLabel(h.Source)</span>
+                            <span title="@(h.EnteredUtc is DateTime enteredAt ? $"Entered {enteredAt.ToLocalTime():yyyy-MM-dd HH:mm}" : null)">@(h.EnteredBy ?? "—")</span> <span class="badge badge-gray">@PatientTestHistoryView.SourceLabel(h.Source)</span>
                             <span class="sub">Verified by @(h.VerifiedBy ?? "—")</span>
                             @if (h.Status == ResultStatus.Invalidated && !string.IsNullOrWhiteSpace(h.InvalidatedBy))
                             {

@@ -39,7 +39,7 @@
                             <span class="sub">@(string.IsNullOrWhiteSpace(a.ProductName) ? "—" : a.ProductName)</span>
                             <span class="sub mono">@a.ProductCode</span>
                         </td>
-                        <td class="nowrap">@(a.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                        <td class="nowrap">@(a.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</td>
                         <td><strong>@(string.IsNullOrWhiteSpace(a.UnitBloodType) ? "—" : a.UnitBloodType)</strong></td>
                         <td>@(string.IsNullOrWhiteSpace(a.StorageLocationName) ? "—" : a.StorageLocationName)</td>
                         <td class="nowrap">
