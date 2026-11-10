@@ -19703,3 +19703,30 @@ Traced a specimen rejection: it already sends the EHR an ORU^R01 per open test o
 ### Next
 
 - Back to the capability matrix: walk antibody identification (the panel workup page) for remembered or retyped information.
+
+## Iteration 640 — The only in-date panel lot is selected (2026-11-10)
+
+### Capability matrix rescan (antibody identification)
+
+Walked how a workup is started. A positive screen already offers Start ABID on the test worklist, the chart's Tests tab and the result panel, and the workup page prefills the specimen from it. The remaining friction was on the New workup form: the technologist had to pick the panel lot even when only one active, in-date lot existed, and with none the Open workup button was disabled without saying why.
+
+### Design
+
+- `AntibodyIdentification` New workup: when exactly one active, in-date, non-selected-cell panel lot exists it is selected, with "The only in-date panel lot is selected."; with several, none is selected; with none, a warning says a workup cannot be opened and links to Antibody panel lots. A lot the technologist chose is kept while it is still offered. Choosing the lot is not a clinical rule; the server checks are unchanged.
+
+### Verification
+
+- Rendered: one lot is selected and Open workup is ready; expired, inactive and selected-cell lots do not count; two lots leave the choice; none explains and links.
+- Live (read-only): the New workup form on a demo patient shows the lot state. Nothing opened.
+
+### Requirements
+
+- URS-BB-682, FRS-BB-799.
+
+### Tests
+
+- TEST-BB-777, TEST-BB-778, TEST-BB-779.
+
+### Next
+
+- Continue antibody identification: the workup page after it opens (reaction entry and interpretation) for remembered or retyped information.

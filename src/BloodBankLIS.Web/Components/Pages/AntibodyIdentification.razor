@@ -125,7 +125,7 @@ else if (_workup is null)
                 <div class="field"><label>Panel lot</label>
                     <select @bind="_newLotId">
                         <option value="">Select an in-date lot</option>
-                        @foreach (var lot in _lots.Where(l => !l.IsExpired && l.IsActive && !l.IsSelectedCellLot))
+                        @foreach (var lot in NewWorkupPanelLots)
                         {
                             <option value="@lot.Id">@LotOptionLabel(lot)</option>
                         }
@@ -157,6 +157,17 @@ else if (_workup is null)
                         or pick another accession. This does not identify antibodies.
                     </div>
                 }
+            }
+            @if (NewWorkupPanelLots.Count == 0)
+            {
+                <div class="alert alert-warning" data-no-panel-lot>
+                    No in-date active panel lot, so a workup cannot be opened.
+                    Add or reactivate one on <a href="/admin/antibody-panel-lots">Antibody panel lots</a>.
+                </div>
+            }
+            else if (_lotDefaulted && _newLotId == NewWorkupPanelLots[0].Id)
+            {
+                <p class="muted" data-lot-defaulted>The only in-date panel lot is selected.</p>
             }
             @if (_newSpecimenId is null)
             {
@@ -639,6 +650,8 @@ else
     private List<AntibodyPanelLotListItemDto> _lots = new();
     private AntibodyIdWorkupDetailDto? _workup;
     private long? _newLotId;
+    // Set when the page chose the panel lot because it was the only in-date one.
+    private bool _lotDefaulted;
     private long? _selectedLotId;
     private long? _attachLotId;
     private long? _newSpecimenId;
@@ -697,6 +710,9 @@ else
             return list;
         }
     }
+
+    private IReadOnlyList<AntibodyPanelLotListItemDto> NewWorkupPanelLots =>
+        _lots.Where(l => !l.IsExpired && l.IsActive && !l.IsSelectedCellLot).ToList();
 
     private bool NewSpecimenUsable =>
         _newSpecimenId is not > 0 || LinkableSpecimens.Any(s => s.Id == _newSpecimenId);
@@ -955,6 +971,7 @@ else
     {
         _patient = (await Api.GetPatientAsync(PatientId)).Value;
         _lots = (await Api.GetAntibodyIdLotsAsync(true)).Value ?? new();
+        ApplyLotDefault();
         _workups = (await Api.GetAntibodyIdWorkupsAsync(PatientId)).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(PatientId)).Value ?? new();
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
@@ -986,6 +1003,19 @@ else
                 Nav.NavigateTo($"/patients/{PatientId}/antibody-id/{open.Id}", replace: true);
             }
         }
+    }
+
+    // One in-date panel lot is the only choice, so it is selected; with several the technologist picks.
+    private void ApplyLotDefault()
+    {
+        var lots = NewWorkupPanelLots;
+        if (_newLotId is long chosen && lots.Any(l => l.Id == chosen))
+        {
+            return;
+        }
+
+        _newLotId = lots.Count == 1 ? lots[0].Id : null;
+        _lotDefaulted = _newLotId is not null;
     }
 
     private void ApplySpecimenPrefill()

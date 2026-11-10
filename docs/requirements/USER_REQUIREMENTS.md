@@ -687,3 +687,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-679 | Pending specimens takes a tube scan as soon as it opens and after the scan mode changes. | P3 | FRS-BB-796 |
 | URS-BB-680 | Rejecting a tube offers the step to collect a new one for the patient. | P2 | FRS-BB-797 |
 | URS-BB-681 | Choosing to reject a tube puts the cursor on the rejection reason. | P3 | FRS-BB-798 |
+| URS-BB-682 | Opening an antibody workup does not ask for a panel lot when only one is in date, and says why it cannot open one when none is. | P3 | FRS-BB-799 |

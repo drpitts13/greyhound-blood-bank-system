@@ -785,5 +785,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-774 | I | `SeederReactionNextUnitTests.TubeAwaitingReceipt_IsSeededOnce` | URS-BB-680 / FRS-BB-797 |
 | TEST-BB-775 | U | `PendingSpecimenScanFocusTests.RejectingATube_OffersANewSpecimen` | URS-BB-680 / FRS-BB-797 |
 | TEST-BB-776 | U | `PendingSpecimenScanFocusTests.RejectReason_TakesTheFocus` | URS-BB-681 / FRS-BB-798 |
+| TEST-BB-777 | U | `AntibodyIdLotDefaultTests.OnlyInDatePanelLot_IsSelected` | URS-BB-682 / FRS-BB-799 |
+| TEST-BB-778 | U | `AntibodyIdLotDefaultTests.SeveralPanelLots_LeaveTheChoice` | URS-BB-682 / FRS-BB-799 |
+| TEST-BB-779 | U | `AntibodyIdLotDefaultTests.NoPanelLot_SaysWhyAndWhere` | URS-BB-682 / FRS-BB-799 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
