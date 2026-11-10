@@ -19881,3 +19881,33 @@ The Complete workup card showed on the demo workup, which has no interpretation,
 ### Next
 
 - Leave antibody identification: back to the capability matrix for the next operational gap (shift handoff or supervisor queue coverage of antibody workups waiting for review).
+
+## Iteration 646 — The shift handoff counts antibody workups (2026-11-10)
+
+### Capability matrix rescan (operations: shift handoff, supervisor queue)
+
+The supervisor queue already lists antibody workups waiting for review (immuno.override). The shift handoff counted reaction investigations, RhIG evaluations, blood orders and the rest, but not antibody workups: a panel half read or an interpretation waiting for review at shift change was not passed on, and a patient with an open workup may need antigen-negative units the next shift has to find.
+
+### Design
+
+- `ShiftHandoff` gains `AntibodyWorkupsOpen` (not Completed or Voided) and `AntibodyWorkupsToReview` (of those, interpreted with no supervisor review), counted when the handoff is written and kept on it (migration `20261222000000_ShiftHandoffAntibodyWorkups`, dev bootstrap columns).
+- The handoff list shows "Antibody workups" (routine, not urgent) linked to the antibody ID worklist, with "N to review"; the summary line reads "antibody workups N, M to review". Nothing shows when there are none.
+- `ShiftHandoffService` takes the workup repository as an optional dependency, as its other sources; DI resolves it (open generic repository).
+
+### Verification
+
+- Unit: the item, its link, detail and summary text; none without workups.
+- Integration: in-progress, interpreted, accepted, completed and voided workups count as open 3, to review 1; the saved handoff keeps the counts.
+- Live (read-only): the handoff preview on development data lists "Antibody workups: 1" (the demo workup) linked to the worklist; the dev database took the two columns on start. Nothing recorded. No server errors.
+
+### Requirements
+
+- URS-BB-688, FRS-BB-805.
+
+### Tests
+
+- TEST-BB-793, TEST-BB-794.
+
+### Next
+
+- Home screen: whether the antibody ID card says how many workups wait for review, as the handoff now does.

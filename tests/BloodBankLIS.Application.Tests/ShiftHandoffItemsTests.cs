@@ -40,6 +40,19 @@ public class ShiftHandoffItemsTests
         Assert.Contains("RhIG evaluations 3, 1 to give", (Handoff() with { RhigOpen = 3, RhigToGive = 1 }).QueueSummary);
     }
 
+    // TEST-BB-793: open antibody workups are a routine handoff item linked to the antibody ID worklist, naming those to
+    // review, and are in the summary line; with none there is no item.
+    [Fact]
+    public void AntibodyWorkups_AreAHandoffItem_WithThoseToReview()
+    {
+        var handoff = Handoff() with { AntibodyWorkupsOpen = 2, AntibodyWorkupsToReview = 1 };
+        var item = Assert.Single(ShiftHandoffItems.For(handoff));
+        Assert.Equal(("Antibody workups", 2, "/antibody-id", "1 to review", false), (item.Label, item.Count, item.Href, item.Detail, item.Urgent));
+        Assert.Contains("antibody workups 2, 1 to review", handoff.QueueSummary);
+        Assert.Empty(ShiftHandoffItems.For(Handoff()));
+        Assert.DoesNotContain("antibody workups", Handoff().QueueSummary);
+    }
+
     // TEST-BB-615: unidentified patients still unmerged lead the handoff (urgent, linked to Patients); tubes due for discard
     // are a routine item linked to Store tubes; both are in the summary line.
     [Fact]

@@ -377,6 +377,47 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(expectedOpen >= 2 && expectedToGive >= 1);
     }
 
+    // TEST-BB-794: a handoff counts antibody workups not completed or voided, and of those the ones interpreted and not
+    // yet reviewed; a completed or voided workup is not counted, and the counts are kept on the saved handoff.
+    [Fact]
+    public async Task Create_CountsOpenAntibodyWorkupsAndThoseToReview()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var patient = new Patient { MedicalRecordNumber = $"ABID-HO-{key}", LastName = "Handoff", FirstName = "Abid", DateOfBirth = new DateOnly(1980, 1, 1) };
+        var manufacturer = new BloodBankLIS.Domain.Entities.Configuration.AntibodyPanelManufacturer { Code = $"HO{key}", Name = "Handoff panels", IsActive = true, IsDraft = false, EffectiveUtc = _factory.Clock.UtcNow, Version = 1 };
+        context.Patients.Add(patient);
+        context.AntibodyPanelManufacturers.Add(manufacturer);
+        await context.SaveChangesAsync();
+        var lot = new AntibodyPanelLot { ManufacturerId = manufacturer.Id, LotNumber = $"HO-{key}", ExpiresOn = new DateOnly(2030, 1, 1), PanelName = "Panel", IsActive = true };
+        context.AntibodyPanelLots.Add(lot);
+        await context.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        context.AntibodyIdentificationWorkups.AddRange(
+            new AntibodyIdentificationWorkup { PatientId = patient.Id, PrimaryLotId = lot.Id, Status = AntibodyWorkupStatus.InProgress },
+            new AntibodyIdentificationWorkup { PatientId = patient.Id, PrimaryLotId = lot.Id, Status = AntibodyWorkupStatus.PendingSupervisorReview, TechnologistInterpretation = "anti-K", InterpretedUtc = now },
+            new AntibodyIdentificationWorkup { PatientId = patient.Id, PrimaryLotId = lot.Id, Status = AntibodyWorkupStatus.PendingSupervisorReview, TechnologistInterpretation = "anti-E", InterpretedUtc = now, ReviewedUtc = now, SupervisorAccepted = true },
+            new AntibodyIdentificationWorkup { PatientId = patient.Id, PrimaryLotId = lot.Id, Status = AntibodyWorkupStatus.Completed, InterpretedUtc = now, ReviewedUtc = now },
+            new AntibodyIdentificationWorkup { PatientId = patient.Id, PrimaryLotId = lot.Id, Status = AntibodyWorkupStatus.Voided, VoidReason = "Wrong patient" });
+        await context.SaveChangesAsync();
+        var open = context.AntibodyIdentificationWorkups.Where(w => w.Status != AntibodyWorkupStatus.Completed && w.Status != AntibodyWorkupStatus.Voided);
+        var expectedOpen = await open.CountAsync();
+        var expectedReview = await open.CountAsync(w => w.InterpretedUtc != null && w.ReviewedUtc == null);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            antibodyWorkups: new EfRepository<AntibodyIdentificationWorkup>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Antibody workups"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Equal((expectedOpen, expectedReview), (created.Value!.AntibodyWorkupsOpen, created.Value.AntibodyWorkupsToReview));
+        Assert.True(expectedOpen >= 3 && expectedReview >= 1);
+        var saved = await context.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == created.Value.Id);
+        Assert.Equal((expectedOpen, expectedReview), (saved.AntibodyWorkupsOpen, saved.AntibodyWorkupsToReview));
+    }
+
     // TEST-BB-616: a handoff counts unidentified patients not yet merged (a merged one is not counted).
     [Fact]
     public async Task Create_CountsUnidentifiedPatientsNotYetMerged()

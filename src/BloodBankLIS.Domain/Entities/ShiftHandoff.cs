@@ -127,6 +127,12 @@ public class ShiftHandoff : BaseEntity
     /// </summary>
     public int ReactionsWithUnitsOut { get; set; }
 
+    /// <summary>Antibody-identification workups not completed or voided (Cycle 646).</summary>
+    public int AntibodyWorkupsOpen { get; set; }
+
+    /// <summary>Of those, workups interpreted and waiting for supervisor review.</summary>
+    public int AntibodyWorkupsToReview { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

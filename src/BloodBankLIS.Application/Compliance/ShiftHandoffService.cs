@@ -60,7 +60,9 @@ public sealed record ShiftHandoffDto(
     int BloodOrdersPastNeededBy = 0,
     int BloodOrdersNeededSoon = 0,
     int ActiveMtpIdle = 0,
-    int ReactionsWithUnitsOut = 0)
+    int ReactionsWithUnitsOut = 0,
+    int AntibodyWorkupsOpen = 0,
+    int AntibodyWorkupsToReview = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -103,6 +105,9 @@ public sealed record ShiftHandoffDto(
         (Hl7ErrorsOpen > 0 ? $"; HL7 errors {Hl7ErrorsOpen}" : "") +
         (UnmappedInterfaceValues > 0 ? $"; unmapped interface values {UnmappedInterfaceValues}" : "") +
         (RhigOpen > 0 ? $"; RhIG evaluations {RhigOpen}" + (RhigToGive > 0 ? $", {RhigToGive} to give" : "") : "") +
+        (AntibodyWorkupsOpen > 0
+            ? $"; antibody workups {AntibodyWorkupsOpen}" + (AntibodyWorkupsToReview > 0 ? $", {AntibodyWorkupsToReview} to review" : "")
+            : "") +
         (UnidentifiedPatients > 0 ? $"; UNIDENTIFIED PATIENTS {UnidentifiedPatients}, to merge once identified" : "") +
         (TubesDueForDiscard > 0 ? $"; tubes due for discard {TubesDueForDiscard}" : "") +
         (BloodOrdersToPrepare > 0
@@ -121,7 +126,8 @@ public sealed record ShiftHandoffDto(
         h.ExpiredOnShelf, h.OpenDeviations, h.CriticalDeviations, h.ProductsBelowMinimum,
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
-        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut);
+        h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
+        h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview);
 }
 
 /// <summary>
@@ -158,6 +164,7 @@ public sealed class ShiftHandoffService
     private readonly IRepository<Patient>? _patientCharts;
     private readonly BloodBankLIS.Application.Specimens.SpecimenStorageService? _tubeStorage;
     private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -185,8 +192,10 @@ public sealed class ShiftHandoffService
         BloodBankLIS.Application.Specimens.SpecimenStorageService? tubeStorage = null,
         BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null,
         IRepository<Issue>? issues = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null)
     {
+        _antibodyWorkups = antibodyWorkups;
         _bloodOrders = bloodOrders;
         _issueRecords = issues;
         _policy = policy;
@@ -349,6 +358,11 @@ public sealed class ShiftHandoffService
         var rhigOpen = _rhig is null
             ? []
             : (await _rhig.ListAsync(e => e.CompletedUtc == null || (e.Decision == RhigDecision.Candidate && e.GivenUtc == null), ct)).ToList();
+        // A workup half done at shift change: the next shift reads the panel, interprets, or reviews it.
+        var antibodyWorkups = _antibodyWorkups is null
+            ? []
+            : await _antibodyWorkups.ListAsync(
+                w => w.Status != AntibodyWorkupStatus.Completed && w.Status != AntibodyWorkupStatus.Voided, ct);
 
         return new ShiftHandoff
         {
@@ -397,7 +411,9 @@ public sealed class ShiftHandoffService
             BloodOrdersPastNeededBy = bloodOrders.Count(o => o.NeededByPassed),
             BloodOrdersNeededSoon = bloodOrders.Count(o => o.NeededBySoon),
             ActiveMtpIdle = await CountIdleMtpAsync(now, ct),
-            ReactionsWithUnitsOut = ReactionsWithUnitsOut(outstanding, ready)
+            ReactionsWithUnitsOut = ReactionsWithUnitsOut(outstanding, ready),
+            AntibodyWorkupsOpen = antibodyWorkups.Count,
+            AntibodyWorkupsToReview = antibodyWorkups.Count(w => w.InterpretedUtc != null && w.ReviewedUtc == null)
         };
     }
 
@@ -480,7 +496,9 @@ public sealed class ShiftHandoffService
         BloodOrdersPastNeededBy = row.BloodOrdersPastNeededBy,
         BloodOrdersNeededSoon = row.BloodOrdersNeededSoon,
         ActiveMtpIdle = row.ActiveMtpIdle,
-        ReactionsWithUnitsOut = row.ReactionsWithUnitsOut
+        ReactionsWithUnitsOut = row.ReactionsWithUnitsOut,
+        AntibodyWorkupsOpen = row.AntibodyWorkupsOpen,
+        AntibodyWorkupsToReview = row.AntibodyWorkupsToReview
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

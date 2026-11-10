@@ -801,5 +801,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-790 | U | `AntibodyIdCompleteGateTests.NoInterpretation_WaitsForInterpretation` | URS-BB-687 / FRS-BB-804 |
 | TEST-BB-791 | U | `AntibodyIdCompleteGateTests.Interpreted_WaitsForReview`, `AntibodyIdCompleteGateTests.Rejected_AsksForANewInterpretation` | URS-BB-687 / FRS-BB-804 |
 | TEST-BB-792 | U | `AntibodyIdCompleteGateTests.Accepted_OffersComplete`, `AntibodyIdCompleteGateTests.ReviewNotRequired_OffersCompleteAfterInterpretation` | URS-BB-687 / FRS-BB-804 |
+| TEST-BB-793 | U | `ShiftHandoffItemsTests.AntibodyWorkups_AreAHandoffItem_WithThoseToReview` | URS-BB-688 / FRS-BB-805 |
+| TEST-BB-794 | I | `ShiftHandoffServiceTests.Create_CountsOpenAntibodyWorkupsAndThoseToReview` | URS-BB-688 / FRS-BB-805 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
