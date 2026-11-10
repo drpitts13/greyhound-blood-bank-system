@@ -35,6 +35,7 @@ public static class AlertRule
     public const string BackupOverdue = "backup-overdue";
     public const string TransfusionNotCompleted = "transfusion-not-completed";
     public const string MtpStillOpen = "mtp-still-open";
+    public const string DuplicateEhrOrder = "duplicate-ehr-order";
 
     /// <summary>
     /// The name the alerts help page uses for each source. A help test fails when a source has no name here
@@ -52,6 +53,7 @@ public static class AlertRule
         BackupOverdue => "Backup overdue",
         TransfusionNotCompleted => "Transfusion not completed",
         MtpStillOpen => "Massive transfusion protocol still open",
+        DuplicateEhrOrder => "Duplicate test ordered by the EHR",
         _ => null
     };
 

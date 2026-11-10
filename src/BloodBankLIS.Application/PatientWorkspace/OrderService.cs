@@ -27,6 +27,7 @@ public sealed class OrderService
     private readonly IRepository<TestGrouper> _testGroupers;
     private readonly IClock _clock;
     private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
+    private readonly BloodBankLIS.Application.Compliance.AlertService? _alerts;
     private readonly IUnitOfWork _unitOfWork;
     private readonly RuleEngineService? _ruleEngine;
     private readonly IAuditWriter? _audit;
@@ -71,8 +72,10 @@ public sealed class OrderService
         IRepository<OrderCancellationReason>? cancellationReasons = null,
         IRepository<Allocation>? allocations = null,
         TransfusionIndicationService? indications = null,
-        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null,
+        BloodBankLIS.Application.Compliance.AlertService? alerts = null)
     {
+        _alerts = alerts;
         _ruleEngine = ruleEngine;
         _audit = audit;
         _permissions = permissions;
@@ -263,9 +266,22 @@ public sealed class OrderService
     /// <summary>
     /// Inbound ORM. The interface identity is not a directory user with patient.write.
     /// </summary>
-    public Task<OperationResult<Order>> CreateFromHl7Async(
-        long patientId, CreateOrderRequest request, CancellationToken ct = default) =>
-        CreateCoreAsync(patientId, request, ct);
+    public async Task<OperationResult<Order>> CreateFromHl7Async(
+        long patientId, CreateOrderRequest request, CancellationToken ct = default)
+    {
+        var created = await CreateCoreAsync(patientId, request, ct);
+        // No one is at a screen for an EHR order: a repeat of an open test is raised as an alert for the bench.
+        if (created.Succeeded && _alerts is not null
+            && created.Warnings.FirstOrDefault(w => w.Code == DuplicateTestOrderRule.Code) is { } duplicate)
+        {
+            var patient = await _patients.GetByIdAsync(patientId, ct);
+            await _alerts.RaiseAsync(DuplicateTestOrderRule.Alert(
+                patientId, created.Value!.OrderNumber, patient?.MedicalRecordNumber,
+                patient is null ? null : $"{patient.LastName}, {patient.FirstName}", duplicate.Message), ct);
+        }
+
+        return created;
+    }
 
     /// <summary>
     /// Crossmatch order created as a side effect of an already-authorized allocation.

@@ -20115,3 +20115,33 @@ Electronic crossmatch eligibility is explained well: the Overview lists every cr
 ### Next
 
 - Other facility-wide conditions shown as per-patient warnings (look for alerts whose text never depends on the patient).
+
+## Iteration 654 — A duplicate EHR order reaches the bench (2026-11-10)
+
+### Capability matrix rescan (safety rules: duplicate testing; operations: alerts)
+
+Surveyed alerts whose text never depends on the patient: chart headers on four patients now show only patient-specific alerts (Cycle 653 removed the facility-wide electronic crossmatch one); the issue desk's electronic crossmatch note is informational and relevant there. Then walked duplicate testing. A test ordered at the bench that the patient already has open warns (`ORD-DUP-TEST`). An order from the EHR goes through the same check, but the HL7 handler kept only "Order … created.": the warning was computed and dropped, and no one is at a screen for an interface order. A type and screen ordered twice in the EHR reached the bench as two open orders with nothing said.
+
+### Design
+
+- `OrderService.CreateFromHl7Async` raises a Warning alert when the new order carries `ORD-DUP-TEST`: source `duplicate-ehr-order` ("Duplicate test ordered by the EHR"), one per order, naming the order, the patient as recorded, and the open order(s), linked to the order on the chart.
+- The acknowledgment returned to the EHR carries the same warning text.
+- Nothing is blocked or cancelled: a repeat can be intended, and the rule has always only warned. The alerts help page describes the new source (its coverage guard requires it).
+
+### Verification
+
+- Integration: the first EHR order raises nothing; a second for the same open test is filed and raises one alert with the title, message, link, and severity above, and its acknowledgment says so; an order for another test raises nothing.
+- Unit: the alert names the patient as recorded and invents nothing.
+- Live (read-only): the API starts and resolves the order service with the alert service; the Alerts page and a chart's Orders tab load; no server errors. Sending an EHR order was not exercised (it would create orders on development data).
+
+### Requirements
+
+- URS-BB-696, FRS-BB-813.
+
+### Tests
+
+- TEST-BB-810, TEST-BB-811.
+
+### Next
+
+- Duplicate product orders from the EHR (a second red cell order while one is open): whether they need the same treatment.

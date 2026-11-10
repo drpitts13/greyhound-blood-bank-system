@@ -748,7 +748,11 @@ public sealed class Hl7InboundProcessor
             throw new Hl7MappingException(createResult.Error ?? "Failed to create HL7 order.");
         }
 
-        return $"Order {data.PlacerOrderId} created.";
+        // A repeat of an open test is said in the acknowledgment to the EHR too (the bench gets an alert, Cycle 654).
+        var duplicate = createResult.Warnings.FirstOrDefault(w => w.Code == DuplicateTestOrderRule.Code);
+        return duplicate is null
+            ? $"Order {data.PlacerOrderId} created."
+            : $"Order {data.PlacerOrderId} created. {duplicate.Message}";
     }
 
     private async Task<string> HandleOruAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)

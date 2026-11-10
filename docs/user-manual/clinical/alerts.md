@@ -10,7 +10,7 @@ routes:
 
 **Alerts** collects conditions that need someone to look. The **Alerts** button in the top bar shows how many are open. It turns red when there is at least one and refreshes when you move between pages and every minute.
 
-Alerts come from ten places:
+Alerts come from eleven places:
 
 - **Temperature excursion**: a storage reading outside the location range. Critical.
 - **Incompatible after release**: a retrospective crossmatch for a unit released as an emergency or under MTP came back incompatible. Critical. Tell the clinical team at once; the unit may already be transfusing. A critical deviation is opened for it too, and the alert gives its number.
@@ -20,6 +20,7 @@ Alerts come from ten places:
 - **Reagent QC**: QC is overdue, failed (critical), or waiting for review.
 - **Transfusion not completed**: a transfusion was started at the bedside and not finished within the facility reminder hours. Warning. Ask the ward to document the stop.
 - **Massive transfusion protocol still open**: a protocol is open with no unit issued under it for the facility reminder minutes (Facility Policies › *Massive transfusion protocol open reminder*, 240 by default, OCD-076). While it is open, massive-transfusion issue stays available for the patient: close it from the banner if the bleeding is controlled. The alert clears when it is closed or another unit is issued under it. A reminder only: nothing is closed for you.
+- **Duplicate test ordered by the EHR**: an order received from the EHR repeats a test the patient already has open on another order. Warning. Nothing is blocked or cancelled, because a repeat can be intended (a second ABO/Rh, a new specimen after a rejection); open the order from the alert and cancel it if it was a mistake, since one result can serve the open order. The acknowledgment sent back to the EHR says the same.
 - **Backup failed** and **Backup overdue**: the database backup did not succeed, or has not run within its schedule. Critical. Tell your system administrator.
 
 Below minimum stock, near expiry, reagent QC, transfusion not completed, and backup overdue alerts close on their own once the condition clears. While the condition holds, the alert keeps saying what is true now: a below minimum stock alert names what is on order, and drops from a warning to information when orders that are still on time cover the shortage; it becomes a warning again if such an order is late. It stays one alert with its first raised time, and an acknowledgement stands, unless the condition becomes more severe: an alert you acknowledged as information comes back open as a warning (a new alert, raised now), and the one you acknowledged is closed with your acknowledgement kept. The system checks every five minutes by default. Temperature excursion, incompatible after release, expired-unit, and backup failed alerts stay open until someone acknowledges them.

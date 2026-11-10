@@ -30,4 +30,26 @@ public static class DuplicateTestOrderRule
         return RuleResult.Warning(Code,
             $"Already ordered and still open: {string.Join("; ", duplicates)}. If this order repeats it by mistake, cancel it; one result can serve the open order.");
     }
+
+    /// <summary>
+    /// An order from the EHR has no one at the screen to see the warning, so the bench is told by alert, linked to the
+    /// new order on the patient's chart. One per order; it never blocks or cancels anything.
+    /// </summary>
+    public static AlertCandidate Alert(long patientId, string orderNumber, string? mrn, string? patientName, string warning)
+    {
+        var who = (string.IsNullOrWhiteSpace(patientName), string.IsNullOrWhiteSpace(mrn)) switch
+        {
+            (false, false) => $"{patientName!.Trim()} (MRN {mrn!.Trim()})",
+            (true, false) => $"MRN {mrn!.Trim()}",
+            (false, true) => patientName!.Trim(),
+            _ => $"patient {patientId}"
+        };
+        return new AlertCandidate(
+            AlertRule.DuplicateEhrOrder,
+            $"DUPORDER:{orderNumber.Trim()}",
+            AlertSeverity.Warning,
+            $"EHR order {orderNumber.Trim()} repeats an open test",
+            $"Order {orderNumber.Trim()} for {who} came from the EHR. {warning}",
+            $"/patients/{patientId}?tab=orders&order={Uri.EscapeDataString(orderNumber.Trim())}");
+    }
 }
