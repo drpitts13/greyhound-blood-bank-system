@@ -159,6 +159,10 @@ public sealed record DatabaseBackupStatusVm(
 public sealed record DiscardCodedUnitRequestVm(string ReasonCode, string? Comment = null, string? SecondVerifier = null);
 public sealed record PrintRequestVm(LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
 
+public sealed record SpecimenLabelTestPrintVm(BloodBankLIS.Application.Printing.LabelLayoutDocument Document, LabelFormat Format = LabelFormat.Pdf, long? PdfPrinterId = null, long? ZebraPrinterId = null);
+
+public sealed record SpecimenLabelTestPrintResultVm(LabelFormat Format, string? Zpl, string? PdfBase64, string? SentTo);
+
 public sealed record PrintAliquotLabelsVm(int Count, LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
 
 public sealed record PtagIdRequiredVm(bool Required);

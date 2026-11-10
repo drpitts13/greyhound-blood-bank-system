@@ -1585,6 +1585,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecimenLabelDesignDto>> SetSpecimenLabelDesignActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<SpecimenLabelDesignDto>(HttpMethod.Post, $"api/admin/specimen-label-designs/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
+    public Task<ApiResult<SpecimenLabelTestPrintResultVm>> TestPrintSpecimenLabelDesignAsync(long id, SpecimenLabelTestPrintVm req, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelTestPrintResultVm>(HttpMethod.Post, $"api/admin/specimen-label-designs/{id}/test-print", req, ct);
+
     public Task<ApiResult<List<SpecimenLabelDesignListItemDto>>> GetPrintableSpecimenLabelDesignsAsync(CancellationToken ct = default) =>
         SendAsync<List<SpecimenLabelDesignListItemDto>>(HttpMethod.Get, "api/print/specimen-label-designs", ct: ct);
 

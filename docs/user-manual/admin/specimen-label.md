@@ -41,4 +41,10 @@ In the list, **Make default** makes a design the default for its purpose; the pr
 
 On [Printing](printing), the specimen label card offers the active designs, the default tube design first. Choose an aliquot design and enter how many aliquots: one label prints for each ("Aliquot 1 of 3", "Aliquot 2 of 3", ...), each its own audited print job. An aliquot label's barcode is the parent specimen ID, so scanning an aliquot finds its specimen. A reprint uses the design the label was printed with.
 
-Print a test label on the printer you will use before relying on a new design. A layout that fits on screen can still be hard to scan on a worn printhead or a small label. This page does not choose the printer; printers are on [Printers](printers).
+## Test print
+
+Under the canvas, **Test print** prints the layout as it stands, saved or not, so you can try a change before saving it. Choose where it goes: a PDF shown on the page, the ZPL shown on the page, or one of the active Zebra or PDF printers from [Printers](printers). A Zebra printer gets the label scaled to its dots per inch.
+
+The test label carries sample data that cannot pass for a patient: the name reads "TEST LABEL, NOT FOR USE", the patient ID "TEST-ONLY", and the barcode is TESTLABEL01, which matches no specimen. An aliquot design prints "Aliquot 1 of 2". No print job is created; a test label sent to a printer is recorded in the audit trail against the design, with the printer and the design's version. Test print is unavailable while the design has an error.
+
+Print a test label on the printer you will use before relying on a new design, and scan it. A layout that fits on screen can still be hard to scan on a worn printhead or a small label.

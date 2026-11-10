@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Printing;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Web.Components.Pages;
 using BloodBankLIS.Web.Components.Pages.Admin;
+using BloodBankLIS.Web.Services;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -124,6 +125,39 @@ public class SpecimenLabelDesignerTests : BunitContext
         Assert.False(page.Find("[data-save-design]").HasAttribute("disabled"));
         Assert.DoesNotContain("Place the specimen ID as a barcode", page.Find("[data-design-check]").TextContent);
         Assert.Contains("OCD-080", page.Find("[data-design-check]").TextContent);
+    }
+
+    // TEST-BB-834: the designer offers a test print of the layout on the canvas: shown as a PDF here by default, or as
+    // the ZPL; it is unavailable while the design has errors.
+    [Fact]
+    public void TestPrint_ShowsTheLabel()
+    {
+        var design = Design(SpecimenLabelPurpose.Aliquot,
+        [
+            new() { Key = LabelFields.Accession, X = 6, Y = 42, FontHeight = 40, Barcode = true, ModuleWidth = 1, BarcodeText = false },
+            new() { Key = LabelFields.PatientName, X = 6, Y = 2, FontHeight = 17 },
+            new() { Key = LabelFields.Mrn, X = 6, Y = 21, FontHeight = 17 },
+            new() { Key = LabelFields.AliquotNumber, X = 150, Y = 21, FontHeight = 17 }
+        ]);
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/admin/specimen-label-designs/7"] = design,
+            ["/api/admin/specimen-label-designs/7/test-print"] = new SpecimenLabelTestPrintResultVm(LabelFormat.Pdf, null, "JVBERi0xLjQK", null)
+        });
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/admin/specimen-labels?id=7");
+        var page = Render<AdminSpecimenLabels>();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-test-print]")));
+        Assert.Contains("TESTLABEL01", page.Find("[data-test-print]").TextContent);
+
+        page.Find("[data-test-print-button]").Click();
+        page.WaitForAssertion(() => Assert.Equal("data:application/pdf;base64,JVBERi0xLjQK", page.Find("[data-test-pdf]").GetAttribute("src")));
+        Assert.Contains("Test label rendered.", page.Markup);
+
+        // Without the specimen ID barcode the design has an error, and there is nothing to test.
+        page.Find("[data-placed='Accession']").PointerDown(new Microsoft.AspNetCore.Components.Web.PointerEventArgs());
+        page.Find("[data-label-canvas]").PointerUp();
+        page.Find("[data-selected-barcode]").Change(false);
+        Assert.True(page.Find("[data-test-print-button]").HasAttribute("disabled"));
     }
 
     // TEST-BB-831: the Printing page offers the active designs, the default tube design first chosen; choosing an aliquot

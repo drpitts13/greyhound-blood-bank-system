@@ -840,5 +840,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-829 | U | `SpecimenLabelDesignerTests.Keyboard_MovesAndRemovesTheSelectedElement` | URS-BB-699 / FRS-BB-817 |
 | TEST-BB-830 | U | `SpecimenLabelDesignerTests.Design_IsCheckedAsItIsLaidOut` | URS-BB-699 / FRS-BB-817 |
 | TEST-BB-831 | U | `SpecimenLabelDesignerTests.Printing_OffersDesignsAndAliquotCount` | URS-BB-700 / FRS-BB-818 |
+| TEST-BB-832 | I | `SpecimenLabelTestPrintTests.TestPrint_RendersTheLayoutWithSampleData` | URS-BB-701 / FRS-BB-819 |
+| TEST-BB-833 | I | `SpecimenLabelTestPrintTests.TestPrint_ToAPrinter_IsAuditedAndChecked` | URS-BB-701 / FRS-BB-819 |
+| TEST-BB-834 | U | `SpecimenLabelDesignerTests.TestPrint_ShowsTheLabel` | URS-BB-701 / FRS-BB-819 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

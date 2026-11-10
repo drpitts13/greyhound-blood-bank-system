@@ -916,6 +916,11 @@ public static class AdminEndpoints
         group.MapPut("/{id:long}", async (long id, SaveSpecimenLabelDesignRequest req, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SaveAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
+        // A test label of the layout on the designer, saved or not: shown, or sent to a printer (audited).
+        group.MapPost("/{id:long}/test-print", async (long id, BloodBankLIS.Printing.Delivery.SpecimenLabelTestPrintRequest req,
+                BloodBankLIS.Printing.Delivery.SpecimenLabelTestPrintService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.TestPrintAsync(id, req, ct), r => r))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
         group.MapPost("/{id:long}/default", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.MakeDefaultAsync(id, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);

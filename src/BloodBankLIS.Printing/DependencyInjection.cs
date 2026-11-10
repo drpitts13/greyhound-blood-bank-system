@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddSingleton<IReportDocumentRenderer, TabularReportRenderer>();
         services.AddScoped<PrintService>();
         services.AddScoped<PrintDeliveryService>();
+        services.AddScoped<SpecimenLabelTestPrintService>();
         return services;
     }
 }

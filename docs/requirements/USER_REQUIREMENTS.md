@@ -706,3 +706,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-698 | Many alerts of one kind raised together read as one item in the inbox and can be acknowledged together, without hiding the alerts that stand alone. | P3 | FRS-BB-815 |
 | URS-BB-699 | An administrator can design specimen labels for tubes and for aliquots, each its own label size, placing the barcode and patient and specimen data on a canvas that represents the label, and keep several designs with one default per purpose. | P2 | FRS-BB-816, FRS-BB-817 |
 | URS-BB-700 | The print desk can print a specimen label on any active design, and print one label per aliquot on an aliquot design. | P2 | FRS-BB-818 |
+| URS-BB-701 | An administrator can test print a specimen label design as it stands, saved or not, on screen or on a printer, without a real specimen and without a label that could pass for a patient. | P2 | FRS-BB-819 |

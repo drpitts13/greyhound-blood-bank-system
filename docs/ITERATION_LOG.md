@@ -20249,3 +20249,37 @@ A label that cannot be scanned, or that identifies the wrong specimen, is a tran
 ### Next
 
 - A test print from the designer (a sample label on a chosen printer without a real specimen).
+
+## Iteration 658 — Test print from the label designer (2026-11-10)
+
+### Capability matrix rescan (administration: label design)
+
+Cycle 657's designer showed a label at scale, but the only way to see one printed was the Printing page, with a real specimen and a print job recorded against that patient, and only after saving the design. A layout that looks right on screen can still be unscannable on a worn printhead or small stock.
+
+### Design
+
+- **Test print** under the canvas, for the layout as it stands (saved or not), rendered at the design's size: a PDF or the ZPL shown on the page, or sent to an active Zebra (scaled to its dpi) or PDF printer.
+- The sample data cannot pass for a patient if a test label ends up on a tube: "TEST LABEL, NOT FOR USE", patient ID "TEST-ONLY", barcode "TESTLABEL01" (no specimen has it); an aliquot design prints "Aliquot 1 of 2".
+- No print job is created (there is no patient). A test label sent to a printer is audited against the design with the printer and version; shown on screen, nothing is recorded. Refused: an unknown design, an inactive printer, two printers at once, a user without admin.config.edit. Unavailable while the design has errors.
+
+### Safety (question 6)
+
+A test label stuck on a tube by mistake would identify no patient and scan to no specimen; nothing about it can be mistaken for a real label.
+
+### Verification
+
+- Integration: the unsaved layout (an element off the edge kept on the label) renders with the sample data as ZPL and PDF, with no print job and nothing audited; sent to a 300-dpi Zebra the ZPL is scaled and the send audited; a PDF printer gets the PDF; refusals.
+- Rendered: the panel offers the targets, shows the PDF, and is unavailable while the design has an error.
+- Live (nothing sent to a printer, nothing recorded): on ALIQ-STD the panel offers a PDF or the ZPL on the page (no printers are configured on development data); the PDF renders, and the ZPL reads `^XA^PW305^LL102 … TEST LABEL, NOT FOR USE … MRN: TEST-ONLY … ^BY1^BCN,40,N … TESTLABEL01 … Aliquot 1 of 2 … ^XZ`. No server errors.
+
+### Requirements
+
+- URS-BB-701, FRS-BB-819.
+
+### Tests
+
+- TEST-BB-832, TEST-BB-833, TEST-BB-834.
+
+### Next
+
+- Warn on overlapping elements in the designer (text width estimated from font size), seen in Cycle 657's walk.

@@ -153,6 +153,40 @@ else
                 }
             </div>
         }
+        @if (CanEdit)
+        {
+            @* A test label of the layout as it stands, saved or not, with sample data that is plainly not a patient (Cycle 658). *@
+            <div class="bb-card" style="margin-top:1rem;" data-test-print>
+                <div class="bb-card-title"><h3>Test print</h3></div>
+                <p class="muted">Prints the layout on the canvas, saved or not, for patient "TEST LABEL, NOT FOR USE" with barcode <span class="mono">TESTLABEL01</span>, which matches no specimen. Nothing is recorded against a patient; a test label sent to a printer is recorded against this design.</p>
+                <div class="form-row">
+                    <div class="field"><label>Send to</label>
+                        <select @bind="_testTarget" data-test-target>
+                            <option value="">Show a PDF here (no printer)</option>
+                            <option value="zpl">Show the ZPL here (no printer)</option>
+                            @foreach (var p in _zebraPrinters)
+                            {
+                                <option value="@($"z{p.Id}")">Zebra: @p.Name</option>
+                            }
+                            @foreach (var p in _pdfPrinters)
+                            {
+                                <option value="@($"p{p.Id}")">PDF printer: @p.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary" data-test-print-button disabled="@(_busy || _check.Errors.Count > 0)" @onclick="TestPrintAsync">Test print</button>
+                <Outcome Value="_testFb" />
+                @if (_testPdf is not null)
+                {
+                    <iframe title="Test label PDF" src="@_testPdf" data-test-pdf style="width:100%;height:260px;border:1px solid var(--bb-border);background:#fff;margin-top:.5rem;"></iframe>
+                }
+                @if (_testZpl is not null)
+                {
+                    <pre class="mono" data-test-zpl style="white-space:pre-wrap;word-break:break-all;margin-top:.5rem;">@_testZpl</pre>
+                }
+            </div>
+        }
         <ConfigHistoryPanel EntityType="SpecimenLabelDesign" EntityId="@_editing.Id" />
     </div>
 }
@@ -176,6 +210,12 @@ else
     private decimal _customHeight = 1m;
     private string _copyFromText = string.Empty;
     private string _editName = string.Empty;
+    private List<ZebraPrinterDto> _zebraPrinters = new();
+    private List<PdfPrinterDto> _pdfPrinters = new();
+    private string _testTarget = string.Empty;
+    private Feedback? _testFb;
+    private string? _testPdf;
+    private string? _testZpl;
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
 
@@ -210,6 +250,7 @@ else
             if (result.Succeeded && result.Value is not null)
             {
                 Open(result.Value);
+                await LoadPrintersAsync();
                 return;
             }
 
@@ -233,8 +274,47 @@ else
         }
     }
 
+    private async Task LoadPrintersAsync()
+    {
+        if (!CanEdit || _zebraPrinters.Count > 0 || _pdfPrinters.Count > 0)
+        {
+            return;
+        }
+
+        var zebra = await Api.GetAdminZebraPrintersAsync(includeInactive: false);
+        _zebraPrinters = zebra.Value ?? new();
+        var pdf = await Api.GetAdminPdfPrintersAsync(includeInactive: false);
+        _pdfPrinters = pdf.Value ?? new();
+    }
+
+    private async Task TestPrintAsync()
+    {
+        if (_editing is null)
+        {
+            return;
+        }
+
+        long? zebraId = _testTarget.StartsWith('z') && long.TryParse(_testTarget[1..], out var z) ? z : null;
+        long? pdfId = _testTarget.StartsWith('p') && long.TryParse(_testTarget[1..], out var p) ? p : null;
+        var format = _testTarget == "zpl" || zebraId is not null ? LabelFormat.Zpl : LabelFormat.Pdf;
+        _busy = true;
+        var result = await Api.TestPrintSpecimenLabelDesignAsync(_editing.Id, new SpecimenLabelTestPrintVm(_editing.Document, format, pdfId, zebraId));
+        _busy = false;
+        _testPdf = null;
+        _testZpl = null;
+        _testFb = result.ToFeedback(result.Value?.SentTo is { } sent ? $"Test label sent to {sent}." : "Test label rendered.");
+        if (result.Succeeded && result.Value is { } done)
+        {
+            _testPdf = done.PdfBase64 is null ? null : "data:application/pdf;base64," + done.PdfBase64;
+            _testZpl = done.Zpl;
+        }
+    }
+
     private void Open(SpecimenLabelDesignDto design)
     {
+        _testFb = null;
+        _testPdf = null;
+        _testZpl = null;
         _editing = design;
         _editName = design.Name;
         _canvas?.ClearSelection();
