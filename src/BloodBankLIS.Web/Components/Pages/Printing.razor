@@ -21,7 +21,25 @@
                 <select @bind="_specFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
         </div>
-        <button class="btn btn-primary" disabled="@(_busy || !CanPrint)" @onclick="PrintSpecimenAsync">Print</button>
+        @if (_specDesigns.Count > 0)
+        {
+            @* The label designs from Administration › Specimen labels; an aliquot design prints one label per aliquot. *@
+            <div class="form-row">
+                <div class="field"><label>Label design</label>
+                    <select @bind="_specDesignCode" data-spec-design>
+                        @foreach (var d in _specDesigns)
+                        {
+                            <option value="@d.Code">@d.Name@(d.Purpose == SpecimenLabelPurpose.Aliquot ? " (aliquot)" : "")@(d.IsDefault ? " · default" : "")</option>
+                        }
+                    </select>
+                </div>
+                @if (SpecDesignIsAliquot)
+                {
+                    <div class="field"><label>Aliquots</label><input type="number" min="1" max="50" data-aliquot-count @bind="_aliquotCount" /></div>
+                }
+            </div>
+        }
+        <button class="btn btn-primary" disabled="@(_busy || !CanPrint)" @onclick="PrintSpecimenAsync">@(SpecDesignIsAliquot ? $"Print {_aliquotCount} aliquot label{(_aliquotCount == 1 ? "" : "s")}" : "Print")</button>
     </div>
 
     <div class="bb-card">
@@ -179,6 +197,12 @@
 @code {
     private string _specimenAccession = string.Empty;
     private LabelFormat _specFormat = LabelFormat.Pdf;
+    private List<SpecimenLabelDesignListItemDto> _specDesigns = new();
+    private string? _specDesignCode;
+    private int _aliquotCount = 2;
+
+    private bool SpecDesignIsAliquot =>
+        _specDesigns.FirstOrDefault(d => d.Code == _specDesignCode)?.Purpose == SpecimenLabelPurpose.Aliquot;
     private Feedback? _specFb;
     private Feedback? _outputFb;
     private bool CanPrint => Session.Has(PermissionCodes.PrintLabel);
@@ -236,6 +260,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var designs = await Api.GetPrintableSpecimenLabelDesignsAsync();
+        if (designs.Succeeded && designs.Value is not null)
+        {
+            _specDesigns = designs.Value;
+            _specDesignCode = _specDesigns.FirstOrDefault(d => d.IsDefault && d.Purpose == SpecimenLabelPurpose.Tube)?.Code
+                ?? _specDesigns.FirstOrDefault()?.Code;
+        }
+
         if (IssueId is long issueId)
         {
             // Links from an issue pass its id; show the unit number on the bag and keep printing that exact issue.
@@ -319,7 +351,16 @@
             return;
         }
 
-        var r = await Api.PrintSpecimenLabelAsync(specimen.Value.Id, new PrintRequestVm(_specFormat));
+        if (SpecDesignIsAliquot)
+        {
+            var aliquots = await Api.PrintSpecimenAliquotLabelsAsync(specimen.Value.Id, new PrintAliquotLabelsVm(_aliquotCount, _specFormat, _specDesignCode));
+            _busy = false;
+            _specFb = aliquots.ToFeedback($"{aliquots.Value?.Count ?? _aliquotCount} aliquot labels queued, one print job each.");
+            if (aliquots.Succeeded) { await ShowJobAsync(aliquots.Value?.LastOrDefault()); await LoadJobsAsync(); }
+            return;
+        }
+
+        var r = await Api.PrintSpecimenLabelAsync(specimen.Value.Id, new PrintRequestVm(_specFormat, _specDesignCode));
         _busy = false;
         _specFb = r.ToFeedback("Specimen label queued.");
         if (r.Succeeded) { await ShowJobAsync(r.Value); await LoadJobsAsync(); }

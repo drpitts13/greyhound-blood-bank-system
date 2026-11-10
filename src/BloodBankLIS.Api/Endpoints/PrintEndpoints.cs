@@ -28,6 +28,18 @@ public static class PrintEndpoints
                 j => ($"/api/print/jobs/{j.Id}", (object)PrintJobDto.Full(j))))
             .RequirePermission(PermissionCodes.PrintLabel);
 
+        // The active specimen label designs the print desk can choose from (tube and aliquot, defaults first).
+        group.MapGet("/specimen-label-designs", async (SpecimenLabelDesignAdminService designs, CancellationToken ct) =>
+            Results.Ok(await designs.ListAsync(activeOnly: true, ct)))
+            .RequirePermission(PermissionCodes.PrintLabel);
+
+        group.MapPost("/specimen-labels/{specimenId:long}/aliquots", async (long specimenId, PrintAliquotLabelsRequest request, PrintService service, CancellationToken ct) =>
+            EndpointResults.From(
+                await service.PrintSpecimenAliquotLabelsAsync(specimenId, request.Count,
+                    new PrintRequest(request.Format, request.TemplateCode, request.TargetPrinter), ct),
+                jobs => jobs.Select(PrintJobDto.Full).ToList()))
+            .RequirePermission(PermissionCodes.PrintLabel);
+
         group.MapGet("/ptag-id-required", async (LabelLayoutAdminService layouts, CancellationToken ct) =>
             Results.Ok(new { required = await layouts.RequiresPtagIdAsync(ct) }))
             // Issuers must scan the P-tag ID even when someone else prints the tag.

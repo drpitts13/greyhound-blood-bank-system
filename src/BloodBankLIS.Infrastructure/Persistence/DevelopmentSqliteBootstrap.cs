@@ -313,6 +313,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureReactionCatalogEntriesTableAsync(context, cancellationToken);
         await EnsureReactionWorkupSettingsTableAsync(context, cancellationToken);
         await EnsureAlertsTableAsync(context, cancellationToken);
+        await EnsureSpecimenLabelDesignsTableAsync(context, cancellationToken);
         await EnsureSupplierOrderTablesAsync(context, cancellationToken);
         await EnsureDatabaseBackupsTableAsync(context, cancellationToken);
         await EnsureTransfusionIndicationCriteriaTableAsync(context, cancellationToken);
@@ -1524,6 +1525,41 @@ public static class DevelopmentSqliteBootstrap
             """CREATE UNIQUE INDEX "IX_UnitDiscardReasons_Code" ON "UnitDiscardReasons" ("Code")""", ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE INDEX "IX_UnitDiscardReasons_IsActive_SortOrder" ON "UnitDiscardReasons" ("IsActive", "SortOrder")""", ct);
+    }
+
+    private static async Task EnsureSpecimenLabelDesignsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "SpecimenLabelDesigns", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SpecimenLabelDesigns" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SpecimenLabelDesigns" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "Purpose" INTEGER NOT NULL,
+                "WidthDots" INTEGER NOT NULL,
+                "HeightDots" INTEGER NOT NULL,
+                "DocumentJson" TEXT NOT NULL,
+                "IsDefault" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "Version" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_SpecimenLabelDesigns_Code" ON "SpecimenLabelDesigns" ("Code")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_SpecimenLabelDesigns_Purpose_IsActive" ON "SpecimenLabelDesigns" ("Purpose", "IsActive")""", ct);
     }
 
     private static async Task EnsureStorageTemperatureTableAsync(BloodBankDbContext context, CancellationToken ct)

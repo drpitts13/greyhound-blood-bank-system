@@ -102,6 +102,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<InterfaceErrorQueueItem> InterfaceErrorQueue => Set<InterfaceErrorQueueItem>();
     public DbSet<PrintJob> PrintJobs => Set<PrintJob>();
     public DbSet<LabelLayout> LabelLayouts => Set<LabelLayout>();
+    public DbSet<SpecimenLabelDesign> SpecimenLabelDesigns => Set<SpecimenLabelDesign>();
     public DbSet<PtagIdentifier> PtagIdentifiers => Set<PtagIdentifier>();
     public DbSet<PdfPrinter> PdfPrinters => Set<PdfPrinter>();
     public DbSet<ZebraPrinter> ZebraPrinters => Set<ZebraPrinter>();

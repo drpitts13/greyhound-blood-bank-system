@@ -202,7 +202,7 @@ public sealed class PdfLabelRenderer : ILabelRenderer
             Options = new EncodingOptions
             {
                 Height = Math.Max(barcode.Height, 20),
-                Width = Math.Max(80, barcode.Data.Length * 16),
+                Width = Math.Max(40 * barcode.ModuleWidth, barcode.Data.Length * 8 * barcode.ModuleWidth),
                 Margin = 0,
                 PureBarcode = true
             }

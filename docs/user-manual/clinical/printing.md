@@ -10,7 +10,7 @@ routes:
 
 ![Printing](figures/printing.png)
 
-**Printing** produces specimen labels, component labels, and compatibility tags (P-tags). You can also open it from a specimen, a unit, or an issue, with that record already selected.
+**Printing** produces specimen labels, component labels, and compatibility tags (P-tags). You can also open it from a specimen, a unit, or an issue, with that record already selected. For a specimen label, choose the **Label design** (the default tube design is chosen for you; designs are made under Administration › [Specimen labels](specimen-label)). Choose an aliquot design and enter how many aliquots to print one "Aliquot n of N" label for each; each is its own print job, and each aliquot's barcode is the parent specimen ID.
 
 ## What you are printing
 

@@ -56,6 +56,7 @@ public static class AdminEndpoints
         MapInstruments(app);
         MapPrinters(app);
         MapLabelLayouts(app);
+        MapSpecimenLabelDesigns(app);
         MapUsersAndRoles(app);
         MapHistory(app);
     }
@@ -897,6 +898,32 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigView);
         group.MapPut("/ptag", async (LabelLayoutDocument document, LabelLayoutAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SaveAsync(LabelLayoutKind.Ptag, document, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+    }
+
+    private static void MapSpecimenLabelDesigns(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/specimen-label-designs").WithTags("Admin: Specimen label designs").RequireAuthenticatedUser();
+        group.MapGet("", async (SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(ct: ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        group.MapGet("/{id:long}", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            await svc.GetAsync(id, ct) is { } design ? Results.Ok(design) : Results.NotFound(new { error = "Label design not found." }))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        group.MapPost("", async (CreateSpecimenLabelDesignRequest req, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.CreatedEvaluation(await svc.CreateAsync(req, ct), d => ($"/api/admin/specimen-label-designs/{d.Id}", (object)d)))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPut("/{id:long}", async (long id, SaveSpecimenLabelDesignRequest req, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SaveAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPost("/{id:long}/default", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.MakeDefaultAsync(id, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPost("/{id:long}/activate", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPost("/{id:long}/deactivate", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
     }
 

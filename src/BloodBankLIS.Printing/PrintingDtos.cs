@@ -9,6 +9,13 @@ public sealed record PrintRequest(
     string? TemplateCode = null,
     string? TargetPrinter = null);
 
+/// <summary>Labels for aliquots split from a specimen: how many, on which aliquot design (the default when none).</summary>
+public sealed record PrintAliquotLabelsRequest(
+    int Count,
+    LabelFormat Format = LabelFormat.Zpl,
+    string? TemplateCode = null,
+    string? TargetPrinter = null);
+
 /// <summary>Read model for a print job (rendered output included on single-job reads).</summary>
 public sealed record PrintJobDto(
     long Id,

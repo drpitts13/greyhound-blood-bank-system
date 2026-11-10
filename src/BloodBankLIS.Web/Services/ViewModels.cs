@@ -159,6 +159,8 @@ public sealed record DatabaseBackupStatusVm(
 public sealed record DiscardCodedUnitRequestVm(string ReasonCode, string? Comment = null, string? SecondVerifier = null);
 public sealed record PrintRequestVm(LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
 
+public sealed record PrintAliquotLabelsVm(int Count, LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
+
 public sealed record PtagIdRequiredVm(bool Required);
 
 public sealed record PrepareCompatibilityTagVm(long UnitId, long PatientId, IssueType IssueType, LabelFormat Format);

@@ -176,6 +176,7 @@ public static class DependencyInjection
         services.AddScoped<BloodSupplierAdminService>();
         services.AddScoped<PrinterCatalogAdminService>();
         services.AddScoped<LabelLayoutAdminService>();
+        services.AddScoped<SpecimenLabelDesignAdminService>();
         services.TryAddSingleton<IInstalledPrinterCatalog, Printing.EmptyInstalledPrinterCatalog>();
         services.AddScoped<InventoryLocationAdminService>();
         services.AddScoped<FacilityPolicyAdminService>();

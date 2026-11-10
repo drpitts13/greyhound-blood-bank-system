@@ -17,6 +17,12 @@ public sealed class PlacedLabelField
 
     public bool Barcode { get; set; }
 
+    /// <summary>Narrow bar width of a barcode, in dots (1–4). Wider bars scan more easily and take more room.</summary>
+    public int ModuleWidth { get; set; } = 2;
+
+    /// <summary>Print the barcode's digits under it. Small labels may turn this off and place the ID as text.</summary>
+    public bool BarcodeText { get; set; } = true;
+
     public string? StaticText { get; set; }
 }
 
@@ -50,6 +56,9 @@ public static class LabelFields
     public const string SpecimenType = "SpecimenType";
     public const string Collected = "Collected";
     public const string DrawLocation = "DrawLocation";
+    public const string Collector = "Collector";
+    public const string Sex = "Sex";
+    public const string AliquotNumber = "AliquotNumber";
     public const string StaticText = "StaticText";
     public const string PatientAbo = "PatientAbo";
     public const string UnitNumber = "UnitNumber";
@@ -82,6 +91,41 @@ public static class LabelFields
         new(DrawLocation, "Draw location", false),
         new(StaticText, "Static text", false)
     ];
+
+    /// <summary>
+    /// The elements a specimen label design can place: the legacy palette plus the collector and sex, and for an
+    /// aliquot design "Aliquot 2 of 3".
+    /// </summary>
+    public static IReadOnlyList<LabelFieldOption> SpecimenDesignPalette(bool aliquot)
+    {
+        var fields = SpecimenPalette().Where(f => f.Key != StaticText).ToList();
+        fields.Add(new(Sex, "Sex", false));
+        fields.Add(new(Collector, "Collected by", false));
+        if (aliquot)
+        {
+            fields.Add(new(AliquotNumber, "Aliquot number", false));
+        }
+
+        fields.Add(new(StaticText, "Static text", false));
+        return fields;
+    }
+
+    /// <summary>What a placed element shows on the designer canvas: sample data the size of the real thing.</summary>
+    public static string Sample(PlacedLabelField field) => field.Key switch
+    {
+        Accession => "ACC0012345",
+        PatientName => "DOE, JANE",
+        Mrn => "MRN: MRN0001234",
+        DateOfBirth => "DOB: 1970-01-31",
+        SpecimenType => "EDTA",
+        Collected => "Coll: 2026-11-10 08:15",
+        DrawLocation => "ICU 4",
+        Collector => "By: RN Smith",
+        Sex => "F",
+        AliquotNumber => "Aliquot 2 of 3",
+        StaticText => string.IsNullOrWhiteSpace(field.StaticText) ? "Text" : field.StaticText!,
+        _ => Caption(field.Key)
+    };
 
     public static IReadOnlyList<LabelFieldOption> PtagPalette(int page)
     {
@@ -121,7 +165,7 @@ public static class LabelFields
     }
 
     public static bool IsKnown(string key) =>
-        SpecimenPalette().Any(f => f.Key == key)
+        SpecimenDesignPalette(aliquot: true).Any(f => f.Key == key)
         || key is PatientAbo or UnitNumber or UnitAbo or Product or Crossmatch or Expires or Issued
             or EmergencyBanner or IncompleteBanner or PtagId or Attestation or SignatureLine or DateLine;
 
@@ -134,6 +178,9 @@ public static class LabelFields
         SpecimenType => "Specimen type",
         Collected => "Collection time",
         DrawLocation => "Draw location",
+        Collector => "Collected by",
+        Sex => "Sex",
+        AliquotNumber => "Aliquot number",
         PatientAbo => "Patient ABO/Rh",
         UnitNumber => "Unit number",
         UnitAbo => "Unit ABO/Rh",

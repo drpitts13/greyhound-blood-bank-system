@@ -11,7 +11,11 @@ public sealed record SpecimenLabelModel(
     DateOnly DateOfBirth,
     string SpecimenType,
     DateTime CollectedUtc,
-    string? DrawLocation);
+    string? DrawLocation,
+    string? Collector = null,
+    string? Sex = null,
+    int? AliquotNumber = null,
+    int? AliquotCount = null);
 
 /// <summary>
 /// P-tag / compatibility tag data contract (docs A.4). Generated from the issue record

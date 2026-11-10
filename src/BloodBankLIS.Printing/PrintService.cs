@@ -34,6 +34,7 @@ public sealed class PrintService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<LabelLayout>? _layouts;
     private readonly IRepository<PtagIdentifier>? _ptagIdentifiers;
+    private readonly IRepository<SpecimenLabelDesign>? _designs;
     private readonly IReadOnlyDictionary<LabelFormat, ILabelRenderer> _renderers;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
@@ -54,8 +55,10 @@ public sealed class PrintService
         IEnumerable<ILabelRenderer> renderers,
         IPermissionEvaluator? permissions = null,
         IRepository<LabelLayout>? layouts = null,
-        IRepository<PtagIdentifier>? ptagIdentifiers = null)
+        IRepository<PtagIdentifier>? ptagIdentifiers = null,
+        IRepository<SpecimenLabelDesign>? designs = null)
     {
+        _designs = designs;
         _printJobs = printJobs;
         _specimens = specimens;
         _patients = patients;
@@ -88,14 +91,31 @@ public sealed class PrintService
             return OperationResult<PrintJob>.Fail($"Patient {specimen.PatientId} not found.");
         }
 
-        var model = new SpecimenLabelModel(
-            specimen.AccessionNumber,
-            PatientName(patient),
-            patient.MedicalRecordNumber,
-            patient.DateOfBirth,
-            specimen.SpecimenType,
-            specimen.CollectedUtc,
-            specimen.DrawLocation);
+        var model = SpecimenModel(specimen, patient);
+
+        // A design named on the request, or the default tube design (Cycle 657); without designs, the single layout.
+        var design = _designs is null ? null : await ResolveDesignAsync(request.TemplateCode, SpecimenLabelPurpose.Tube, ct);
+        if (design is not null)
+        {
+            if (design.Purpose != SpecimenLabelPurpose.Tube)
+            {
+                return OperationResult<PrintJob>.Fail($"{design.Name} is an aliquot label design. Print aliquot labels with the number of aliquots.");
+            }
+
+            if (SpecimenLabelDesignAdminServiceRead(design) is not { } designed)
+            {
+                return OperationResult<PrintJob>.Fail($"Label design {design.Code} could not be read.");
+            }
+
+            return await CreateJobAsync(PrintJobType.SpecimenLabel, design.Code, request, model,
+                LabelLayoutComposer.ComposeSpecimen(designed, model), nameof(Specimen), specimen.Id, ct);
+        }
+
+        if (_designs is not null && !string.IsNullOrWhiteSpace(request.TemplateCode)
+            && !string.Equals(request.TemplateCode, SpecimenLabelTemplate.TemplateCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return OperationResult<PrintJob>.Fail($"No active specimen label design has code {request.TemplateCode}.");
+        }
 
         var templateCode = request.TemplateCode ?? SpecimenLabelTemplate.TemplateCode;
         var layout = await LoadLayoutAsync(LabelLayoutKind.Specimen, ct);
@@ -106,6 +126,105 @@ public sealed class PrintService
         return await CreateJobAsync(PrintJobType.SpecimenLabel, templateCode, request, model, document,
             nameof(Specimen), specimen.Id, ct);
     }
+
+    public const int MaxAliquotLabels = 50;
+
+    /// <summary>
+    /// One label per aliquot split from a specimen, each "Aliquot n of N" on an aliquot design (the one named, or the
+    /// default). Each label is its own print job, audited like any other. The barcode carries the parent specimen ID,
+    /// so scanning an aliquot finds its specimen.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<PrintJob>>> PrintSpecimenAliquotLabelsAsync(
+        long specimenId, int count, PrintRequest request, CancellationToken ct = default)
+    {
+        if (count < 1 || count > MaxAliquotLabels)
+        {
+            return OperationResult<IReadOnlyList<PrintJob>>.Fail($"Enter between 1 and {MaxAliquotLabels} aliquots.");
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null)
+        {
+            return OperationResult<IReadOnlyList<PrintJob>>.Fail($"Specimen {specimenId} not found.");
+        }
+
+        var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
+        if (patient is null)
+        {
+            return OperationResult<IReadOnlyList<PrintJob>>.Fail($"Patient {specimen.PatientId} not found.");
+        }
+
+        var design = _designs is null ? null : await ResolveDesignAsync(request.TemplateCode, SpecimenLabelPurpose.Aliquot, ct);
+        if (design is null)
+        {
+            return OperationResult<IReadOnlyList<PrintJob>>.Fail(string.IsNullOrWhiteSpace(request.TemplateCode)
+                ? "No default aliquot label design is set. Create one under Administration › Specimen labels."
+                : $"No active specimen label design has code {request.TemplateCode}.");
+        }
+
+        if (design.Purpose != SpecimenLabelPurpose.Aliquot)
+        {
+            return OperationResult<IReadOnlyList<PrintJob>>.Fail($"{design.Name} is a tube label design, not an aliquot design.");
+        }
+
+        if (SpecimenLabelDesignAdminServiceRead(design) is not { } layout)
+        {
+            return OperationResult<IReadOnlyList<PrintJob>>.Fail($"Label design {design.Code} could not be read.");
+        }
+
+        var jobs = new List<PrintJob>();
+        for (var n = 1; n <= count; n++)
+        {
+            var model = SpecimenModel(specimen, patient) with { AliquotNumber = n, AliquotCount = count };
+            var job = await CreateJobAsync(PrintJobType.SpecimenLabel, design.Code, request, model,
+                LabelLayoutComposer.ComposeSpecimen(layout, model), nameof(Specimen), specimen.Id, ct);
+            if (!job.Succeeded)
+            {
+                return OperationResult<IReadOnlyList<PrintJob>>.Fail(job.Error ?? "The aliquot labels could not be printed.");
+            }
+
+            jobs.Add(job.Value!);
+        }
+
+        return OperationResult<IReadOnlyList<PrintJob>>.Ok(jobs);
+    }
+
+    private static SpecimenLabelModel SpecimenModel(Specimen specimen, Patient patient) => new(
+        specimen.AccessionNumber,
+        PatientName(patient),
+        patient.MedicalRecordNumber,
+        patient.DateOfBirth,
+        specimen.SpecimenType,
+        specimen.CollectedUtc,
+        specimen.DrawLocation,
+        specimen.Collector,
+        patient.Sex switch { Sex.Female => "F", Sex.Male => "M", _ => "U" });
+
+    private async Task<SpecimenLabelDesign?> ResolveDesignAsync(string? code, SpecimenLabelPurpose purpose, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(code))
+        {
+            return await FindDesignAsync(code, activeOnly: true, ct);
+        }
+
+        var defaults = await _designs!.ListAsync(d => d.IsActive && d.IsDefault && d.Purpose == purpose, ct);
+        return defaults.FirstOrDefault();
+    }
+
+    private async Task<SpecimenLabelDesign?> FindDesignAsync(string? code, bool activeOnly, CancellationToken ct)
+    {
+        if (_designs is null || string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var wanted = code.Trim().ToUpperInvariant();
+        var matches = await _designs.ListAsync(d => d.Code == wanted, ct);
+        return matches.FirstOrDefault(d => !activeOnly || d.IsActive);
+    }
+
+    private static LabelLayoutDocument? SpecimenLabelDesignAdminServiceRead(SpecimenLabelDesign design) =>
+        BloodBankLIS.Application.Admin.SpecimenLabelDesignAdminService.Read(design);
 
     public async Task<OperationResult<PrintJob>> PrintCompatibilityTagAsync(long issueId, PrintRequest request, CancellationToken ct = default)
     {
@@ -400,6 +519,13 @@ public sealed class PrintService
             case PrintJobType.SpecimenLabel:
             {
                 var model = JsonSerializer.Deserialize<SpecimenLabelModel>(job.PayloadJson, JsonOptions)!;
+                // A reprint uses the design the label was printed with, even if it has since been deactivated.
+                if (await FindDesignAsync(job.TemplateCode, activeOnly: false, ct) is { } printedWith
+                    && SpecimenLabelDesignAdminServiceRead(printedWith) is { } printedLayout)
+                {
+                    return LabelLayoutComposer.ComposeSpecimen(printedLayout, model);
+                }
+
                 var layout = await LoadLayoutAsync(LabelLayoutKind.Specimen, ct);
                 return layout is null
                     ? SpecimenLabelTemplate.Build(model)

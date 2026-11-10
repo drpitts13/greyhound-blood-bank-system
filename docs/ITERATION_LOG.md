@@ -20208,3 +20208,44 @@ The development inbox had 20 open alerts and about six things to do: seven "Reag
 ### Next
 
 - Back to the capability matrix: interface retry/error management (the HL7 error queue) for remembered or retyped information.
+
+## Iteration 657 — Specimen label designer (2026-11-10)
+
+### Request
+
+Add a specimen label designer in Administration so users can design custom specimen labels, including aliquot labels, placing the barcode and data elements on a canvas that represents the label.
+
+### What existed
+
+One specimen label layout, fixed at 2 × 1 in, on a three-panel designer shared with the P-tag (fields dragged onto a canvas, the specimen ID as a barcode, audited saves). Every specimen label printed on it. No other sizes, no second design, nothing for aliquots, and the canvas showed field captions in a fixed font rather than what would print.
+
+### Design
+
+- **Designs.** `SpecimenLabelDesign`: code, name, purpose (Tube or Aliquot), size in dots at 203 dpi, the layout, default, active, version. Several per purpose; one active default each. Created from size presets (2 × 1, 2.25 × 1.25, 3 × 1, 2 × 0.75, 1.5 × 0.5, 1 × 0.5 in) or a custom size (0.5–4 by 0.25–3 in), as a starter fitted to the size or a copy of another design. Make default moves the default; the default cannot be deactivated until another takes its place. Every change is audited with a configuration-history snapshot (admin.config.edit).
+- **Rules** (`SpecimenLabelDesignRules`). Required: the specimen ID as a barcode, so the tube scans (a hard stop on save and in the designer). Refused: an empty design, blank static text, the aliquot number on a tube design. Warned: fewer than two patient identifiers (OCD-080, the laboratory's decision), an aliquot design without the aliquot number, a barcode estimated (Code 128, 12-character ID, its bar width) to run off the side or bottom.
+- **Canvas** (`LabelCanvasEditor`, now shared with the P-tag designer, which keeps its behaviour). Elements are drawn at scale with sample data at printed size; a barcode as a box of its estimated printed width. The selected element's X/Y (dots), font or bar height, bold, barcode, bar width (1–4) and digits under the barcode; arrow keys nudge (Shift 10 dots), Delete removes. The design is re-checked as it changes, with Save disabled while it has errors. New elements: sex, collected by, and on aliquot designs "Aliquot n of N".
+- **Printing.** A specimen label prints on the design named, or the default tube design, and the job records the design code; an aliquot design, or an unknown or inactive code, is refused rather than printed on another design. Aliquot labels: 1–50 on the named or default aliquot design, one audited job each, "Aliquot n of N", the barcode the parent specimen ID (no separate aliquot identifier exists; OCD-080 asks whether one is needed). A reprint uses the design the label was printed with. The Printing page offers the active designs and, for an aliquot design, the count.
+- **Migration of what exists.** The seed adds, once, TUBE-STD from the layout already saved on the old designer (so labels print as before) and ALIQ-STD (1.5 × 0.5 in), both defaults. `/admin/specimen-label` redirects to `/admin/specimen-labels`. The 40-dot barcode floor is unchanged.
+
+### Safety (question 6)
+
+A label that cannot be scanned, or that identifies the wrong specimen, is a transfusion risk: the specimen ID barcode is required on every design, an aliquot carries its parent's ID, and printing on a design that does not exist or is inactive is refused rather than falling back to another layout. Whether two patient identifiers must be enforced is recorded as OCD-080 rather than invented.
+
+### Verification
+
+- Unit: rules (refusals, warnings, sizes, barcode width, starters fit, normalising).
+- Integration: create, copy, refusals, audit and history; save checks, warnings, version; default and active; permission; printing on the default and a named design, refusals; aliquot labels one job each with the bar width and parent ID, bounds, reprint on the printed design; the seed once.
+- Rendered: the list and its actions; a design on its canvas (scale, sample data, barcode width, aliquot element); keyboard nudge, X/Y bounds, Delete; the live check and Save; the Printing page's design and aliquot count.
+- Live (nothing saved or printed): the seed added TUBE-STD (2 × 1 in, 7 elements, from the saved layout) and ALIQ-STD (1.5 × 0.5 in, 5 elements), both default; `/admin/specimen-label` redirects to the list. The aliquot design opens with sample data at 1.84× and no warnings; clicking "Collected by" adds and selects it; ArrowRight moves it 16→17 and Shift+ArrowDown 82→92; the canvas shows it overlapping the specimen ID text where it was placed. In a narrow window the designer stacks its columns. The P-tag designer on the shared canvas is unchanged (609 × 456, 12 fields, 14 palette entries). No server errors. Found and fixed while walking: sizes read "1.50 × 0.50" beside "2 × 1"; the canvas pushed the settings off a narrow card.
+
+### Requirements
+
+- URS-BB-699, URS-BB-700; FRS-BB-816, FRS-BB-817, FRS-BB-818; OCD-080.
+
+### Tests
+
+- TEST-BB-816 to TEST-BB-831.
+
+### Next
+
+- A test print from the designer (a sample label on a chosen printer without a real specimen).

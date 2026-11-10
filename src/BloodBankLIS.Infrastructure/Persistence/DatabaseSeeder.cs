@@ -59,6 +59,7 @@ public static partial class DatabaseSeeder
         await SeedSpecialRequirementDefinitionsAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
         await SeedAntibodyIdentificationPanelsAsync(context, cancellationToken);
+        await EnsureSpecimenLabelDesignsAsync(context, cancellationToken);
         await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
         await SeedSubtestDefinitionsAsync(context, cancellationToken);
         await SeedPhaseDefinitionsAsync(context, cancellationToken);

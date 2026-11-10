@@ -577,6 +577,13 @@ public enum LabelLayoutKind
     Ptag = 1
 }
 
+/// <summary>What a specimen label design is printed for: the collected tube, or a tube split from it.</summary>
+public enum SpecimenLabelPurpose
+{
+    Tube = 0,
+    Aliquot = 1
+}
+
 public enum PrintJobStatus
 {
     Queued = 0,

@@ -928,6 +928,22 @@ public sealed class LabelLayoutConfiguration : IEntityTypeConfiguration<LabelLay
     }
 }
 
+public sealed class SpecimenLabelDesignConfiguration : IEntityTypeConfiguration<SpecimenLabelDesign>
+{
+    public void Configure(EntityTypeBuilder<SpecimenLabelDesign> b)
+    {
+        b.ToTable("SpecimenLabelDesigns");
+        b.HasKey(d => d.Id);
+        b.Property(d => d.Code).HasMaxLength(30).IsRequired();
+        b.Property(d => d.Name).HasMaxLength(100).IsRequired();
+        b.Property(d => d.DocumentJson).IsRequired();
+        b.Property(d => d.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(d => d.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(d => d.Code).IsUnique();
+        b.HasIndex(d => new { d.Purpose, d.IsActive });
+    }
+}
+
 public sealed class PtagIdentifierConfiguration : IEntityTypeConfiguration<PtagIdentifier>
 {
     public void Configure(EntityTypeBuilder<PtagIdentifier> b)

@@ -809,6 +809,9 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-696 / FRS-BB-813 | Duplicate EHR test order raised as an alert | `DuplicateTestOrderRule.cs`; `AlertRule.cs`; `OrderService.cs`; `Hl7InboundProcessor.cs`; alerts.md | TEST-BB-810, TEST-BB-811 | I, U | |
 | URS-BB-697 / FRS-BB-814 | Matched UTC times shown in local time | `TestWorklist.razor`; `TestResultEntryPanel.razor`; `PatientChartTestsTab.razor`; `Issuing.razor`; `PatientChartProductsTab.razor`; `Reactions.razor`; `Alerts.razor`; `Deviations.razor` | TEST-BB-812 | U | |
 | URS-BB-698 / FRS-BB-815 | Same-kind alerts grouped, acknowledged together | `AlertInboxView.cs`; `Alerts.razor` | TEST-BB-813, TEST-BB-814, TEST-BB-815 | U | |
+| URS-BB-699 / FRS-BB-816 | Specimen label designs: model, rules, admin service, seed | `SpecimenLabelDesign.cs`; `SpecimenLabelDesignRules.cs`; `SpecimenLabelDesignAdminService.cs`; migration; bootstrap; `DatabaseSeeder.LabelDesigns.cs` | TEST-BB-816 to TEST-BB-823, TEST-BB-826 | U, I | OCD-080 |
+| URS-BB-699 / FRS-BB-817 | Specimen label designer page and shared canvas | `AdminSpecimenLabels.razor`; `LabelCanvasEditor.razor`; `LabelLayoutDesigner.razor`; `LabelLayoutModel.cs` | TEST-BB-827 to TEST-BB-830 | U | OCD-080 |
+| URS-BB-700 / FRS-BB-818 | Printing on a design; aliquot labels | `PrintService.cs`; `LabelLayoutComposer.cs`; `ZplLabelRenderer.cs`; `PdfLabelRenderer.cs`; `PrintEndpoints.cs`; `Printing.razor` | TEST-BB-824, TEST-BB-825, TEST-BB-831 | I, U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

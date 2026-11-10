@@ -834,6 +834,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PrintJobVm>> PrintSpecimenLabelAsync(long specimenId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/specimen-labels/{specimenId}", req, ct);
 
+    public Task<ApiResult<List<PrintJobVm>>> PrintSpecimenAliquotLabelsAsync(long specimenId, PrintAliquotLabelsVm req, CancellationToken ct = default) =>
+        SendAsync<List<PrintJobVm>>(HttpMethod.Post, $"api/print/specimen-labels/{specimenId}/aliquots", req, ct);
+
     public Task<ApiResult<PrintJobVm>> PrintCompatibilityTagAsync(long issueId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/compatibility-tags/{issueId}", req, ct);
 
@@ -1563,6 +1566,27 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<LabelLayoutView>> SaveSpecimenLabelLayoutAsync(LabelLayoutDocument document, CancellationToken ct = default) =>
         SendAsync<LabelLayoutView>(HttpMethod.Put, "api/admin/label-layouts/specimen", document, ct);
+
+    public Task<ApiResult<List<SpecimenLabelDesignListItemDto>>> GetSpecimenLabelDesignsAsync(CancellationToken ct = default) =>
+        SendAsync<List<SpecimenLabelDesignListItemDto>>(HttpMethod.Get, "api/admin/specimen-label-designs", ct: ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> GetSpecimenLabelDesignAsync(long id, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Get, $"api/admin/specimen-label-designs/{id}", ct: ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> CreateSpecimenLabelDesignAsync(CreateSpecimenLabelDesignRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Post, "api/admin/specimen-label-designs", req, ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> SaveSpecimenLabelDesignAsync(long id, SaveSpecimenLabelDesignRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Put, $"api/admin/specimen-label-designs/{id}", req, ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> MakeSpecimenLabelDesignDefaultAsync(long id, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Post, $"api/admin/specimen-label-designs/{id}/default", ct: ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> SetSpecimenLabelDesignActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Post, $"api/admin/specimen-label-designs/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<List<SpecimenLabelDesignListItemDto>>> GetPrintableSpecimenLabelDesignsAsync(CancellationToken ct = default) =>
+        SendAsync<List<SpecimenLabelDesignListItemDto>>(HttpMethod.Get, "api/print/specimen-label-designs", ct: ct);
 
     public Task<ApiResult<LabelLayoutView>> GetPtagLabelLayoutAsync(CancellationToken ct = default) =>
         SendAsync<LabelLayoutView>(HttpMethod.Get, "api/admin/label-layouts/ptag", ct: ct);

@@ -704,3 +704,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-696 | A test ordered from the EHR that repeats one the patient already has open is brought to the blood bank's attention, as it is for orders entered at the bench. | P2 | FRS-BB-813 |
 | URS-BB-697 | Specimen and crossmatch expiry, ward receipt, reaction reporting, alert, and deviation times read in local time everywhere they are shown, as every other time does. | P1 | FRS-BB-814 |
 | URS-BB-698 | Many alerts of one kind raised together read as one item in the inbox and can be acknowledged together, without hiding the alerts that stand alone. | P3 | FRS-BB-815 |
+| URS-BB-699 | An administrator can design specimen labels for tubes and for aliquots, each its own label size, placing the barcode and patient and specimen data on a canvas that represents the label, and keep several designs with one default per purpose. | P2 | FRS-BB-816, FRS-BB-817 |
+| URS-BB-700 | The print desk can print a specimen label on any active design, and print one label per aliquot on an aliquot design. | P2 | FRS-BB-818 |

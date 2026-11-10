@@ -824,5 +824,21 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-813 | U | `AlertInboxViewTests.Rows_GroupAlertsOfOneKindRaisedTogether` | URS-BB-698 / FRS-BB-815 |
 | TEST-BB-814 | U | `AlertGroupRowTests.LotsRaisedTogether_AreOneRow` | URS-BB-698 / FRS-BB-815 |
 | TEST-BB-815 | U | `AlertGroupRowTests.AcknowledgeAll_AcknowledgesEach_AndSaysWhichFailed` | URS-BB-698 / FRS-BB-815 |
+| TEST-BB-816 | U | `SpecimenLabelDesignRulesTests.Check_RefusesWhatCannotPrintOrScan` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-817 | U | `SpecimenLabelDesignRulesTests.Check_WarnsAboutIdentifiersAliquotNumberAndBarcodeFit` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-818 | U | `SpecimenLabelDesignRulesTests.Sizes_AndBarcodeWidth` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-819 | U | `SpecimenLabelDesignRulesTests.Starters_FitTheirLabels` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-820 | U | `SpecimenLabelDesignRulesTests.Normalize_KeepsElementsOnTheLabel` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-821 | I | `SpecimenLabelDesignTests.Create_StartersCopiesAndRefusals` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-822 | I | `SpecimenLabelDesignTests.Save_ChecksTheDesignAndRecordsTheChange` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-823 | I | `SpecimenLabelDesignTests.Default_AndActive_AndPermission` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-824 | I | `SpecimenLabelDesignTests.TubeLabel_PrintsOnTheChosenDesign` | URS-BB-700 / FRS-BB-818 |
+| TEST-BB-825 | I | `SpecimenLabelDesignTests.AliquotLabels_OnePerAliquot` | URS-BB-700 / FRS-BB-818 |
+| TEST-BB-826 | I | `SpecimenLabelDesignTests.Seed_AddsTheStartingDesignsOnce` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-827 | U | `SpecimenLabelDesignerTests.List_ShowsDesignsAndTheirActions` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-828 | U | `SpecimenLabelDesignerTests.Design_OpensOnItsCanvas` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-829 | U | `SpecimenLabelDesignerTests.Keyboard_MovesAndRemovesTheSelectedElement` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-830 | U | `SpecimenLabelDesignerTests.Design_IsCheckedAsItIsLaidOut` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-831 | U | `SpecimenLabelDesignerTests.Printing_OffersDesignsAndAliquotCount` | URS-BB-700 / FRS-BB-818 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
