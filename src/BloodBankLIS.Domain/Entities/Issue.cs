@@ -124,6 +124,9 @@ public class Issue : BaseEntity
     /// </summary>
     public string? OutsideOutageReason { get; set; }
 
+    /// <summary>OCD-074: issued to an infant under the neonatal rules without a crossmatch (negative screen, group O).</summary>
+    public bool NeonatalNoCrossmatch { get; set; }
+
     /// <summary>
     /// The patient's transfusion reaction investigation still open or under review when this unit was issued (Cycle 634),
     /// recorded so a review or lookback finds units given while a reaction was being investigated (OCD-078).

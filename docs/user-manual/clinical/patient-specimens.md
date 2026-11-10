@@ -47,6 +47,10 @@ Relabeling changes the barcode. It requires a reason. Use it when the printed la
   - Ready to issue does not flag the infant's units.
   - Electronic crossmatch still needs two determinations.
   - After discharge or the age limit, the usual rule returns.
+- No crossmatch is needed when the infant's antibody screen is negative. This covers routine issue of **group O** red cells to an infant whose ABO/Rh stands for the admission, with a current verified negative screen and no antibody history.
+  - The issue is recorded as made without a crossmatch under the neonatal rules, and Ready to issue does not ask for a crossmatch for those units.
+  - Units of another group still need a crossmatch, because maternal anti-A or anti-B passed to the infant is not tested here (OCD-082).
+  - Emergency release keeps its own rules.
 
 The accession number is what you will select when you record a crossmatch. At issue, the system checks that a current specimen exists for this patient and that it has not expired. A missing or expired specimen is not offered for routine issue.
 

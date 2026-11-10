@@ -3887,6 +3887,54 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-877 (OCD-074 part three): an infant whose type stands for the admission, with a current verified negative
+    // screen, is issued group O red cells without a crossmatch, and the issue is marked; the same infant needs a
+    // crossmatch for a group A unit (OCD-082), and an infant on an ordinary specimen still needs one.
+    [Fact]
+    public async Task Infant_NegativeScreen_GroupO_IssuedWithoutCrossmatch()
+    {
+        var newborn = DateOnly.FromDateTime(_factory.Clock.UtcNow).AddDays(-10);
+        var groupO = await SeedAsync("NEO-XM-O", patientAbo: AboGroup.A, includeHistoricalAbo: false, dateOfBirth: newborn);
+        var groupA = await SeedAsync("NEO-XM-A", patientAbo: AboGroup.A, unitAbo: AboGroup.A, includeHistoricalAbo: false, dateOfBirth: newborn);
+        var ordinary = await SeedAsync("NEO-XM-ORD", patientAbo: AboGroup.A, includeHistoricalAbo: false, dateOfBirth: newborn);
+        await using (var c = _factory.Create())
+        {
+            foreach (var (scenario, admission) in new[] { (groupO, true), (groupA, true), (ordinary, false) })
+            {
+                var specimen = await c.Specimens.SingleAsync(x => x.Id == scenario.SpecimenId);
+                if (admission)
+                {
+                    specimen.NeonatalStandardExpiresUtc = specimen.ExpiresUtc;
+                    specimen.ExpiresUtc = _factory.Clock.UtcNow.AddDays(30);
+                }
+
+                (await c.PatientBloodTypeHistory.SingleAsync(h => h.PatientId == scenario.PatientId && h.IsCurrent)).SpecimenId = specimen.Id;
+                await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, scenario.PatientId, _factory.Clock.UtcNow, scenario.SpecimenId);
+            }
+
+            await c.SaveChangesAsync();
+        }
+
+        foreach (var scenario in new[] { groupO, groupA, ordinary })
+        {
+            await AllocateAsync(scenario);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(groupO));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.Results.Where(r => r.Severity != RuleSeverity.Pass).Select(r => r.Message) ?? []));
+            Assert.True(issued.Value!.NeonatalNoCrossmatch);
+            Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == groupO.UnitId
+                && a.NewValueJson!.Contains("\"NeonatalNoCrossmatch\":true")));
+
+            var nonO = await Issuing(c).IssueUnitAsync(IssueReq(groupA));
+            Assert.Contains(nonO.Evaluation!.HardStops, r => r.Code == CrossmatchValidityRule.Code);
+            var notAdmission = await Issuing(c).IssueUnitAsync(IssueReq(ordinary));
+            Assert.Contains(notAdmission.Evaluation!.HardStops, r => r.Code == CrossmatchValidityRule.Code);
+        }
+    }
+
     [Fact]
     public async Task EmergencyRelease_WithoutSecondAbo_RequiresOverride()
     {

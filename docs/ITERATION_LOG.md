@@ -20781,3 +20781,37 @@ Off unless the facility has turned on the neonatal rules (part one); tied to a s
 ### Next
 
 - OCD-074 part three: no crossmatch for an infant when the antibody screen is negative.
+
+## Iteration 674 — Infant group O red cells without a crossmatch (OCD-074, part three) (2026-11-10)
+
+### Capability matrix rescan (safety rules: crossmatch; patient-product workflows)
+
+The last part of OCD-074 option B: no crossmatch for an infant when the antibody screen is negative. Issue still demanded a compatible crossmatch for every red-cell unit to an infant.
+
+### Design
+
+- `NeonatalTestingRule.NoCrossmatchApplies`: the infant's type stands for the admission (part two), a current verified negative screen with no positive screen and no antibody history, red cells or whole blood, **group O**, routine issue (not emergency or MTP, which keep their own path).
+- Group O only: units of the infant's own non-O group could meet passively acquired maternal anti-A or anti-B, which the system does not test; whether they may go without a crossmatch is recorded as OCD-082 for the medical director, and they need a crossmatch meanwhile.
+- `IssueGateContext.NeonatalNoCrossmatch` lifts `ISS-XM-REQUIRED`; every other check (ABO/Rh compatibility, special requirements, antigen-negative, expiry) runs. The issue is marked `NeonatalNoCrossmatch` (migration `20270102000000_IssueNeonatalNoCrossmatch`, dev bootstrap) and in the issue audit; Ready to issue does not ask for a crossmatch for those units.
+
+### Safety (question 6)
+
+Off unless the neonatal rules are on; tied to the admission specimen; group O only; any antibody, positive screen, or emergency path keeps the crossmatch requirement. A new open decision (OCD-082) records what was not decided.
+
+### Verification
+
+- Unit: each condition.
+- Integration: group O to an infant with a negative screen issued without a crossmatch and marked in the issue and audit; group A to the same kind of infant refused; an infant on an ordinary specimen refused.
+- Live (read-only; neonatal rules off in dev): the API added the Issues column on start; Ready to issue lists its six reserved units as before. No server errors.
+
+### Requirements
+
+- URS-BB-717, FRS-BB-835; OCD-074 complete; OCD-082 opened.
+
+### Tests
+
+- TEST-BB-876, TEST-BB-877.
+
+### Next
+
+- All fifteen 2026-11-10 decisions are built or kept. Back to the capability matrix for the next operations or UX gap.

@@ -1,3 +1,4 @@
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Domain.Tests;
@@ -43,5 +44,19 @@ public class NeonatalTestingRuleTests
         Assert.False(NeonatalTestingRule.AdmissionTypeStands(true, Now.AddMinutes(-1), Now));
         Assert.False(NeonatalTestingRule.AdmissionTypeStands(true, null, Now));
         Assert.False(NeonatalTestingRule.AdmissionTypeStands(false, Now.AddDays(1), Now));
+    }
+
+    // TEST-BB-876 (part three): no crossmatch only when the admission type stands, the screen is negative with no
+    // antibody history, the unit is group O red cells, and the issue is not an emergency.
+    [Fact]
+    public void NoCrossmatch_OnlyForGroupORedCellsWithANegativeScreen()
+    {
+        Assert.True(NeonatalTestingRule.NoCrossmatchApplies(true, true, false, true, AboGroup.O, false));
+        Assert.False(NeonatalTestingRule.NoCrossmatchApplies(false, true, false, true, AboGroup.O, false));
+        Assert.False(NeonatalTestingRule.NoCrossmatchApplies(true, false, false, true, AboGroup.O, false));
+        Assert.False(NeonatalTestingRule.NoCrossmatchApplies(true, true, true, true, AboGroup.O, false));
+        Assert.False(NeonatalTestingRule.NoCrossmatchApplies(true, true, false, false, AboGroup.O, false));
+        Assert.False(NeonatalTestingRule.NoCrossmatchApplies(true, true, false, true, AboGroup.A, false));
+        Assert.False(NeonatalTestingRule.NoCrossmatchApplies(true, true, false, true, AboGroup.O, true));
     }
 }

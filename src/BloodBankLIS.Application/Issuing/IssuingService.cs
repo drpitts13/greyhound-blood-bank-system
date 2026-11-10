@@ -360,9 +360,15 @@ public sealed class IssuingService
         var childbearingAge = await _policy.GetChildbearingAgeYearsAsync(ct);
         var typeHistory = await _bloodTypes.ListAsync(h => h.PatientId == request.PatientId, ct);
         // OCD-074: an infant's type from this admission's specimen stands for routine issue without a second determination.
+        var neonatalTypeStands = await NeonatalAdmissionTypeStandsAsync(typeHistory, ct);
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
                 SecondAboDeterminationRule.FromHistory(typeHistory))
-            || await NeonatalAdmissionTypeStandsAsync(typeHistory, ct);
+            || neonatalTypeStands;
+        // OCD-074 part three: group O red cells for an infant with a negative screen need no crossmatch (routine issue).
+        var neonatalNoCrossmatch = neonatalTypeStands
+            && !hasValidCrossmatch
+            && request.IssueType is not (IssueType.EmergencyRelease or IssueType.MassiveTransfusion)
+            && await NeonatalNoCrossmatchAsync(request.PatientId, productType?.ComponentClass, unit.Abo, ct);
         var exmEligible = facilityAllowsExm && await IsElectronicCrossmatchEligibleAsync(request.PatientId, ct);
         var issueType = ResolveIssueType(request.IssueType, location, exmEligible, hasValidCrossmatch);
         var retypeConfirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypes, productType, unit.Id, ct);
@@ -392,6 +398,7 @@ public sealed class IssuingService
             RequiresCrossmatch = productType?.RequiresCrossmatch ?? false,
             HasValidCrossmatch = hasValidCrossmatch,
             HasIncompatibleCrossmatch = hasIncompatibleCrossmatch,
+            NeonatalNoCrossmatch = neonatalNoCrossmatch,
             IsEmergencyRelease = issueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion,
             ProductTypeMatchesOrder = productMatches,
             PatientSignificantAntibodies = bloodAttrs.PatientSignificantAntibodies,
@@ -601,6 +608,7 @@ public sealed class IssuingService
             LateEntryReason = lateEntryReason,
             DowntimeBackEntry = backEntry,
             OutsideOutageReason = outsideOutageReason,
+            NeonatalNoCrossmatch = neonatalNoCrossmatch,
             AcknowledgedSpecialRequirementCodes = JoinAcknowledgedCodes(request.AcknowledgedSpecialRequirementCodes),
             PtagCode = matchedPtag.Identifier?.Code
         };
@@ -658,6 +666,7 @@ public sealed class IssuingService
                 LateEntryReason = lateEntryReason,
                 DowntimeBackEntry = backEntry,
                 OutsideOutageReason = outsideOutageReason,
+                NeonatalNoCrossmatch = neonatalNoCrossmatch,
                 BackEntryDin = backEntry ? request.BackEntryDin?.Trim() : null
             },
             reason: authorizedOverride?.Reason);
@@ -1011,11 +1020,12 @@ public sealed class IssuingService
             antibodiesByPatient.TryGetValue(allocation.PatientId, out var history);
             var unit = await _inventory.GetUnitAsync(allocation.BloodProductId, ct);
             var cellular = unit?.ProductType?.ComponentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+            var readyTypeStands = await NeonatalAdmissionTypeStandsAsync(typeRows, ct);
             var needsSecondAbo = requireSecondAbo
                 && cellular
                 && !SecondAboDeterminationRule.HasSecondConcordant(
                     SecondAboDeterminationRule.FromHistory(typeRows))
-                && !await NeonatalAdmissionTypeStandsAsync(typeRows, ct);
+                && !readyTypeStands;
             var unitCrossmatches = xms
                 .Where(x => x.PatientId == allocation.PatientId && x.BloodProductId == allocation.BloodProductId)
                 .ToList();
@@ -1030,6 +1040,12 @@ public sealed class IssuingService
             var requiresXm = unit?.ProductType is { } productType
                 ? CrossmatchApplicability.RequiresCrossmatch(productType.ComponentClass, productType.RequiresCrossmatch)
                 : true;
+            // OCD-074 part three: the same waiver issue applies, so the row does not ask for a crossmatch it will not need.
+            if (requiresXm && readyTypeStands && unit is not null
+                && await NeonatalNoCrossmatchAsync(allocation.PatientId, unit.ProductType?.ComponentClass, unit.Abo, ct))
+            {
+                requiresXm = false;
+            }
             var crossmatchCue = CrossmatchValidityRule.DescribeReadyToIssue(
                 requiresXm, hasValidCrossmatch, hasIncompatibleCrossmatch);
             var discrepancyCue = IssueGate.DescribeAboRhDiscrepancy(
@@ -2213,6 +2229,21 @@ public sealed class IssuingService
         var specimen = await _specimens.GetByIdAsync(specimenId, ct);
         return NeonatalTestingRule.AdmissionTypeStands(
             specimen?.NeonatalStandardExpiresUtc is not null, specimen?.ExpiresUtc, _clock.UtcNow);
+    }
+
+    /// <summary>OCD-074 part three, beyond the admission type: a current negative screen, no antibody history, group O red cells.</summary>
+    private async Task<bool> NeonatalNoCrossmatchAsync(long patientId, ComponentClass? componentClass, AboGroup unitAbo, CancellationToken ct)
+    {
+        var cellular = componentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+        if (!cellular || unitAbo != AboGroup.O)
+        {
+            return false;
+        }
+
+        var screenNegative = !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct)
+            && await _antibodyScreenCompat.HasCurrentVerifiedNegativeScreenAsync(patientId, _clock.UtcNow, ct);
+        return NeonatalTestingRule.NoCrossmatchApplies(true, screenNegative,
+            await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct), cellular, unitAbo, emergency: false);
     }
 
     private async Task<bool> IsElectronicCrossmatchEligibleAsync(long patientId, CancellationToken ct)

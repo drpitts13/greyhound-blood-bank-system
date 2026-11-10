@@ -95,6 +95,9 @@ public sealed record IssueGateContext
     /// <summary>AABB 5.16 computer-crossmatch preconditions hold for this patient.</summary>
     public bool ElectronicCrossmatchEligible { get; init; }
 
+    /// <summary>OCD-074 part three: an infant under the neonatal rules needs no crossmatch for this unit.</summary>
+    public bool NeonatalNoCrossmatch { get; init; }
+
     /// <summary>Facility requires two concordant ABO/Rh determinations for RBC/WB issue.</summary>
     public bool RequireSecondAboForCellularIssue { get; init; } = true;
 
@@ -242,7 +245,7 @@ public static class IssueGate
                 : RuleResult.Pass(UnitRetypeMismatchCode),
 
             CrossmatchValidityRule.Evaluate(
-                RequiresCrossmatchEffective(c),
+                RequiresCrossmatchEffective(c) && !c.NeonatalNoCrossmatch,
                 c.HasValidCrossmatch,
                 c.IsEmergencyRelease,
                 c.ElectronicCrossmatchEligible && (c.IsElectronicIssue || c.IsRemoteIssue),

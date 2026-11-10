@@ -722,3 +722,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-714 | An RhIG evaluation suggests the candidacy from the facts on file and calculates the vials from the fetal bleed quantitation with the facility's settings; the reviewer confirms both (OCD-069). | P2 | FRS-BB-832 |
 | URS-BB-715 | When the facility turns on the neonatal rules, an infant's specimen collected during a visit is valid for the admission (OCD-074). | P2 | FRS-BB-833 |
 | URS-BB-716 | During an infant's admission under the neonatal rules, the ABO/Rh tested on the admission specimen is not repeated for routine red-cell issue (OCD-074). | P2 | FRS-BB-834 |
+| URS-BB-717 | During an infant's admission under the neonatal rules, group O red cells are issued without a crossmatch when the infant's antibody screen is negative (OCD-074). | P2 | FRS-BB-835 |
