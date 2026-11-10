@@ -19941,3 +19941,31 @@ The home screen had cards for pending tests, RhIG evaluations, reactions and the
 ### Next
 
 - Back to the capability matrix: product modifications (divisions, pooling, irradiation) are still Partial in the gap analysis; walk one for remembered or retyped information.
+
+## Iteration 648 — Modify Products takes the first scan (2026-11-10)
+
+### Capability matrix rescan (blood products: modifications)
+
+Walked Modify Products from the menu. Divide, pool, irradiate and the rest start by scanning the source unit, and the unit picker already commits a scan on Enter (Cycle 381), but opening the page left the cursor nowhere, so the first scan was lost: the same friction fixed for receipt (Cycle 622) and pending specimens (Cycle 637). Opened from a unit's page or the chart, the unit is already chosen and needs no focus.
+
+### Design
+
+- `FilterableComboBox` gains `Autofocus`: the input is focused once after the first render (the Cycle 628 pattern). The focus event that follows would open the suggestion list over the page, so one arriving within 500 ms of the autofocus is ignored. A first version ignored the next focus however late; live, the autofocus's own event never arrived (a background tab) and the user's first click then did not open the list. The time bound fixes that, and a test keeps it fixed.
+- `UnitPickerComboBox` passes `Autofocus` through; Modify Products sets it when opened without `unitId`.
+
+### Verification
+
+- Rendered: opened without a unit, the picker is focused once with the list closed and not again on re-render; a focus after the window opens the list; opened on a unit, nothing is focused.
+- Live (read-only): on /inventory/modify the active element is the unit field and the list is closed; a later click opens the list. Nothing modified.
+
+### Requirements
+
+- URS-BB-690, FRS-BB-807.
+
+### Tests
+
+- TEST-BB-797, TEST-BB-798, TEST-BB-799.
+
+### Next
+
+- Other scan-first pages using the unit picker (Compatibility crossmatch and allocate, Printing): whether they too should take the first scan.

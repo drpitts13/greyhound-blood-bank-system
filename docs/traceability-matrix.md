@@ -800,6 +800,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-687 / FRS-BB-804 | Complete says what it waits for | `AntibodyIdentification.razor` | TEST-BB-790, TEST-BB-791, TEST-BB-792 | U | OCD-021 |
 | URS-BB-688 / FRS-BB-805 | Handoff counts antibody workups | `ShiftHandoff.cs`; `ShiftHandoffService.cs`; `ShiftHandoffItems.cs`; migration; bootstrap | TEST-BB-793, TEST-BB-794 | U, I | |
 | URS-BB-689 / FRS-BB-806 | Home card for antibody workups | `DashboardQueueCatalog.cs`; `DashboardHomeLayout.cs`; `Home.razor`; `AntibodyIdentificationService.cs`; `AntibodyIdentificationDtos.cs` | TEST-BB-795, TEST-BB-796 | U, I | |
+| URS-BB-690 / FRS-BB-807 | Modify Products takes the first scan | `FilterableComboBox.razor`; `UnitPickerComboBox.razor`; `Modifications.razor` | TEST-BB-797, TEST-BB-798, TEST-BB-799 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

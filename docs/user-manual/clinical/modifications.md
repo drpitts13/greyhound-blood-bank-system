@@ -10,7 +10,7 @@ routes:
 
 ![Modify products](figures/modifications.png)
 
-**Modify Products** performs component processing. Each modification is defined by an administrator rule: which source products are allowed, what the resulting product code is, and how the expiration changes. You pick the modification and the source unit. You do not invent a new product code at the bench.
+**Modify Products** performs component processing. Each modification is defined by an administrator rule: which source products are allowed, what the resulting product code is, and how the expiration changes. You pick the modification and the source unit. You do not invent a new product code at the bench. Opened from the menu, the cursor is already in **Unit number**, so you can scan the source unit straight away; opened on a unit from its page or the patient chart, the unit is already chosen.
 
 ## What happens to the units
 

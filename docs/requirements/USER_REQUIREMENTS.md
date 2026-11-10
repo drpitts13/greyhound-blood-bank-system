@@ -695,3 +695,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-687 | Completing an antibody workup is offered only when it can complete; otherwise the card says whether it waits for the interpretation, for supervisor review, or for a new interpretation after a rejection. | P2 | FRS-BB-804 |
 | URS-BB-688 | The shift handoff tells the next shift how many antibody workups are still open and how many wait for supervisor review. | P2 | FRS-BB-805 |
 | URS-BB-689 | The home screen shows open antibody workups to those who record or review them, and names the workups that need more than their next routine step. | P2 | FRS-BB-806 |
+| URS-BB-690 | Opening Modify Products from the menu puts the cursor in the source unit field so the first scan lands, without covering the page with the unit list. | P3 | FRS-BB-807 |

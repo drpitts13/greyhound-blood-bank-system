@@ -9,7 +9,8 @@
     SearchText="FormatSearch"
     Clearable="Clearable"
     UnresolvedText="UnresolvedUnit"
-    Placeholder="@(Placeholder ?? "Type unit number")" />
+    Placeholder="@(Placeholder ?? "Type unit number")"
+    Autofocus="Autofocus" />
 
 @code {
     [Parameter] public long? Value { get; set; }
@@ -22,6 +23,7 @@
     [Parameter] public IReadOnlySet<long>? OnlyIds { get; set; }
     [Parameter] public bool Clearable { get; set; } = true;
     [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Autofocus { get; set; }
 
     private List<BloodUnitDto> _loaded = new();
     private bool _loadStarted;

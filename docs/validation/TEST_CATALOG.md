@@ -805,5 +805,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-794 | I | `ShiftHandoffServiceTests.Create_CountsOpenAntibodyWorkupsAndThoseToReview` | URS-BB-688 / FRS-BB-805 |
 | TEST-BB-795 | U | `DashboardQueueCatalogTests.Select_AntibodyWorkups_ForImmunoRecordOrOverride` | URS-BB-689 / FRS-BB-806 |
 | TEST-BB-796 | U, I | `DashboardQueueCatalogTests.AntibodyWorkupsNote_NamesOnlyWhatNeedsAttention`, `AntibodyIdentificationWorkupTests.ListOpenWorkups_ShowsNextActionAndSummary` | URS-BB-689 / FRS-BB-806 |
+| TEST-BB-797 | U | `ModifyScanFocusTests.OpenedWithoutAUnit_SourcePickerTakesTheCursor` | URS-BB-690 / FRS-BB-807 |
+| TEST-BB-798 | U | `ModifyScanFocusTests.OpenedOnAUnit_PickerDoesNotTakeTheCursor` | URS-BB-690 / FRS-BB-807 |
+| TEST-BB-799 | U | `ModifyScanFocusTests.LaterFocus_OpensTheList` | URS-BB-690 / FRS-BB-807 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

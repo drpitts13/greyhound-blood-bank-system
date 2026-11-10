@@ -3,6 +3,7 @@
 
 <div class="bb-combobox @( _open ? "open" : null)" @onfocusout="OnFocusOutAsync">
     <input type="text"
+           @ref="_input"
            class="bb-combobox-input"
            value="@_inputText"
            placeholder="@Placeholder"
@@ -45,9 +46,16 @@
     [Parameter] public string ClearLabel { get; set; } = "—";
     [Parameter] public string? Placeholder { get; set; }
     [Parameter] public int MaxSuggestions { get; set; } = 40;
+    // Scan-first pages put the cursor here once, after the first render, without opening the list.
+    [Parameter] public bool Autofocus { get; set; }
 
     private string _inputText = string.Empty;
     private bool _open;
+    private ElementReference _input;
+    private bool _autofocused;
+    // The focus event from the autofocus may arrive late or not at all (a background tab), so only one arriving
+    // within this window is ignored; a later click or tab into the field opens the list as usual.
+    private DateTime? _autofocusedUtc;
     private bool _suppressSync;
     private TValue? _lastSyncedValue;
     private bool _resolved = true;
@@ -93,7 +101,38 @@
         (SearchText?.Invoke(item) ?? DisplayText(item))
             .Contains(term, StringComparison.OrdinalIgnoreCase);
 
-    private void Open() => _open = true;
+    private void Open()
+    {
+        if (_autofocusedUtc is DateTime at)
+        {
+            _autofocusedUtc = null;
+            if (DateTime.UtcNow - at < TimeSpan.FromMilliseconds(500))
+            {
+                return;
+            }
+        }
+
+        _open = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!Autofocus || _autofocused || _input.Context is null)
+        {
+            return;
+        }
+
+        _autofocused = true;
+        _autofocusedUtc = DateTime.UtcNow;
+        try
+        {
+            await _input.FocusAsync();
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            _autofocusedUtc = null;
+        }
+    }
 
     private void OnInput(ChangeEventArgs e)
     {
