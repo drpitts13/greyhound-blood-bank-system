@@ -19361,3 +19361,31 @@ Writing the rendered test found a latent fault: Issue on a Ready to issue row sw
 ### Next
 
 - Look for other element focuses called in the same handler that changes what is rendered (a desk, a tab, a panel opened in the click) and move them after the render.
+
+## Iteration 628 — Focus after the render (2026-11-09)
+
+### Capability matrix rescan (focus timing)
+
+Every element-reference focus was listed. Delivery receipt, the Inventory retype scan, the scan desks, sign-in's first field, and Patients' search already focus in `OnAfterRenderAsync` with a check that the element is on the page. Sign-in's Password is always rendered. One more relied on timing, like Cycle 627's Issue form: when the password is accepted with an authenticator challenge, sign-in showed the code field and focused it in the same handler (`StateHasChanged()` then `FocusAsync`). The catch covered only a JavaScript error, not the unset reference. It works when the render happens before the focus; a rendered test that completes the request without yielding throws "ElementReference has not been configured correctly", which on the sign-in screen would end the session for anyone using an authenticator.
+
+### Design
+
+- Sign-in sets a flag; the code field is focused in `OnAfterRenderAsync` once it is on the page.
+- Source test: an element-reference `FocusAsync` outside `OnAfterRenderAsync` must be on a short list of elements always on their page (sign-in's Password). It fails on the old sign-in code and would have caught Cycle 627's Issue form.
+
+### Verification
+
+- Rendered: the password accepted with a challenge shows the code field and focuses it; the old code throws in the same test.
+- Live (read-only; no password entered): sign-in renders with the cursor in Username and no error. The code-field step is shown by the rendered test. No server errors.
+
+### Requirements
+
+- URS-BB-671, FRS-BB-788.
+
+### Tests
+
+- TEST-BB-756, TEST-BB-757.
+
+### Next
+
+- With the reaction path and the scan desks settled, return to the capability matrix: review the shift handoff for the Cycle 626–627 reaction warnings (an open investigation with units still out or reserved belongs in the handoff).

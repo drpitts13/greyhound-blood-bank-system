@@ -764,5 +764,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-753 | U | `ScanDeskFocusTests.TransfusionDesk_WarnsOfAnOpenReactionInvestigation` | URS-BB-669 / FRS-BB-786 |
 | TEST-BB-754 | I | `Phase4IssuingTests.ReadyList_CarriesThePatientsOpenReactionInvestigation` | URS-BB-670 / FRS-BB-787 |
 | TEST-BB-755 | U | `ReadyToIssuePageTests.ReactionUnderInvestigation_IsSaidBeforeIssue` | URS-BB-670 / FRS-BB-787 |
+| TEST-BB-756 | U | `FocusTimingTests.ElementFocus_HappensAfterTheRender` | URS-BB-671 / FRS-BB-788 |
+| TEST-BB-757 | U | `SignInCodeFocusTests.PasswordAccepted_CodeFieldTakesTheFocus` | URS-BB-671 / FRS-BB-788 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
