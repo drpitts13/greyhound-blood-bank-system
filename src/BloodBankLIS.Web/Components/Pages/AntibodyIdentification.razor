@@ -571,7 +571,7 @@ else
                 <ul>
                     @foreach (var item in _interpItems)
                     {
-                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(free-text; will not drive antigen-negative unless resolved)" : "(catalog)")@(string.IsNullOrWhiteSpace(item.Rationale) ? "" : $" — {item.Rationale}")
+                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(not in the catalog; will not drive antigen-negative selection)" : "(catalog)")@(string.IsNullOrWhiteSpace(item.Rationale) ? "" : $" — {item.Rationale}")
                             <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _interpItems.Remove(item)">Remove</button></li>
                     }
                 </ul>
@@ -1177,9 +1177,16 @@ else
         }
 
         if (string.IsNullOrWhiteSpace(_interpSpec)) return;
-        _interpItems.Add(new AntibodyIdInterpretationItem(null, _interpSpec.Trim(), _interpClass, InterpRationaleOrDefault()));
+        // Typed text is matched to the catalog as the server will match it, so the list shows what will post.
+        var resolution = AntibodyIdentificationCatalogResolver.Resolve(null, _interpSpec, AntibodyCatalog);
+        _interpItems.Add(resolution.CatalogMatched
+            ? new AntibodyIdInterpretationItem(resolution.DefinitionId, resolution.Specificity, _interpClass, InterpRationaleOrDefault())
+            : new AntibodyIdInterpretationItem(null, _interpSpec.Trim(), _interpClass, InterpRationaleOrDefault()));
         _interpSpec = "";
     }
+
+    private IReadOnlyList<AntibodyCatalogItem> AntibodyCatalog =>
+        _bloodAttributeCatalog.Select(a => new AntibodyCatalogItem(a.Id, a.Code, a.Name, a.AntibodyName)).ToList();
 
     private string? InterpRationaleOrDefault() =>
         AntibodyIdentificationInterpretationRule.HasDocumentedRationale(_interpRationale)

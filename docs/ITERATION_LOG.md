@@ -19791,3 +19791,35 @@ Cycles 640 and 641 changed the workup page, but the development data had no work
 ### Next
 
 - Walk the interpretation step on the demo workup: what the technologist retypes from assistance into the interpretation.
+
+## Iteration 643 — A typed specificity shows as it will post (2026-11-10)
+
+### Capability matrix rescan (antibody identification, interpretation)
+
+Checked the worklist's "yyyy-MM-dd HH:mm" times first: 58 tables use that form, and the guard requires only that a time carry its day, so it is not a defect. Then walked the interpretation. The technologist picks each antibody from the catalog or types it. Typed text was always listed as "free-text; will not drive antigen-negative unless resolved", but on save the server resolves it against the catalog (`AntibodyIdentificationCatalogResolver`) and posts "anti-k" as the catalog anti-K. The page said one thing and the record another; a technologist could also re-pick an antibody believing the typed one would not drive selection.
+
+### Design
+
+- Add specificity resolves typed text with the same domain resolver and the active catalog the page already loads. One match is queued as that catalog antibody and marked "(catalog)"; no match, or text naming more than one antibody, stays as typed and is marked "(not in the catalog; will not drive antigen-negative selection)".
+- No server change: the server resolves the same way on save, so what is listed is what posts.
+
+### Safety (question 6)
+
+An identified antibody that the technologist believes is not in the catalog could be re-entered or left unresolved; one that is truly outside the catalog will not drive antigen-negative selection, and the label now says so without the hedge. The server's ABID-INTERP-UNMATCHED warning for an unmatched identified antibody is unchanged.
+
+### Verification
+
+- Rendered: "anti-k" is listed as "anti-K — Identified (catalog)"; "anti-Vel" and "anti-K anti-E" stay as typed and are marked as outside the catalog.
+- Live (read-only): on the demo workup (MRN0004), typing "anti-k" and Add specificity lists "anti-K — Identified (catalog)"; reloaded without recording, nothing saved. No server errors.
+
+### Requirements
+
+- URS-BB-685, FRS-BB-802.
+
+### Tests
+
+- TEST-BB-785, TEST-BB-786.
+
+### Next
+
+- Supervisor review of an antibody workup: what the reviewer must look up elsewhere before accepting.
