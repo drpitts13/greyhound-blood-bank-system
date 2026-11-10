@@ -136,7 +136,14 @@ else
                                     <span class="badge badge-red">Not held</span>
                                 }
                             </td>
-                            <td>@Ui.EnumText(r.Severity)<span class="sub">@Ui.EnumText(r.Status)</span></td>
+                            <td>
+                                @Ui.EnumText(r.Severity)<span class="sub">@Ui.EnumText(r.Status)</span>
+                                @if (r.PatientUnitsOutOrReserved > 0)
+                                {
+                                    @* OCD-078: another unit may be on its way to this patient; Issue & Transfuse warns too. *@
+                                    <span class="badge badge-red" title="The patient has units issued or reserved: check with the physician before another is given" data-reaction-units-out>@r.PatientUnitsOutOrReserved @(r.PatientUnitsOutOrReserved == 1 ? "unit" : "units") out or reserved</span>
+                                }
+                            </td>
                             <td>
                                 @if (r.IsFatality)
                                 {

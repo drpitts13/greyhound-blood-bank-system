@@ -97,7 +97,10 @@ public sealed record ReactionInvestigationDto(
     string? TreatmentTexts = null,
     // The specimen workup: each specimen with its Test Group results (null until that specimen is chosen).
     ReactionWorkupSpecimenDto? PreWorkup = null,
-    ReactionWorkupSpecimenDto? PostWorkup = null)
+    ReactionWorkupSpecimenDto? PostWorkup = null,
+    // While not closed: the patient's units issued (not yet returned or transfused) and reserved (Cycle 630), so the
+    // reactions list and home card can say another unit may be on its way to this patient (OCD-078).
+    int PatientUnitsOutOrReserved = 0)
 {
     /// <summary>The specimen workup as the close gate sees it, from the results on this DTO.</summary>
     public ReactionWorkupCompletenessRule.WorkupState SpecimenWorkupState => new(
@@ -221,6 +224,7 @@ public sealed class ReactionInvestigationService
     private readonly IRepository<Order>? _orders;
     private readonly IRepository<OrderLine>? _orderLines;
     private readonly IRepository<TestResult>? _testResults;
+    private readonly IRepository<Allocation>? _allocations;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -242,8 +246,10 @@ public sealed class ReactionInvestigationService
         IRepository<Specimen>? specimens = null,
         IRepository<Order>? orders = null,
         IRepository<OrderLine>? orderLines = null,
-        IRepository<TestResult>? testResults = null)
+        IRepository<TestResult>? testResults = null,
+        IRepository<Allocation>? allocations = null)
     {
+        _allocations = allocations;
         _catalog = catalog;
         _specimens = specimens;
         _orders = orders;
@@ -276,9 +282,17 @@ public sealed class ReactionInvestigationService
     {
         var rows = await _investigations.ListAsync(ct);
         var context = await LoadDisplayContextAsync(rows, ct);
+        var unitsOut = await UnitsOutOrReservedByPatientAsync(
+            rows.Where(r => r.Status != ReactionInvestigationStatus.Closed).Select(r => r.PatientId).Distinct().ToList(), ct);
         return rows
             .OrderByDescending(r => r.ReportedUtc)
-            .Select(r => context.ToDto(r))
+            .Select(r =>
+            {
+                var dto = context.ToDto(r);
+                return r.Status == ReactionInvestigationStatus.Closed
+                    ? dto
+                    : dto with { PatientUnitsOutOrReserved = unitsOut.GetValueOrDefault(r.PatientId) };
+            })
             .ToList();
     }
 
@@ -303,6 +317,34 @@ public sealed class ReactionInvestigationService
                 var latest = g.OrderByDescending(i => i.ReportedUtc).First();
                 return (latest.Id, latest.ReportedUtc);
             });
+    }
+
+    /// <summary>Per patient, units issued and not yet returned or transfused, plus units reserved; 0 without the sources.</summary>
+    private async Task<Dictionary<long, int>> UnitsOutOrReservedByPatientAsync(List<long> patientIds, CancellationToken ct)
+    {
+        var counts = new Dictionary<long, int>();
+        if (patientIds.Count == 0)
+        {
+            return counts;
+        }
+
+        if (_issues is not null)
+        {
+            foreach (var issue in await _issues.ListAsync(i => patientIds.Contains(i.PatientId) && i.Status == IssueStatus.Issued, ct))
+            {
+                counts[issue.PatientId] = counts.GetValueOrDefault(issue.PatientId) + 1;
+            }
+        }
+
+        if (_allocations is not null)
+        {
+            foreach (var allocation in await _allocations.ListAsync(a => patientIds.Contains(a.PatientId) && a.Status == AllocationStatus.Reserved, ct))
+            {
+                counts[allocation.PatientId] = counts.GetValueOrDefault(allocation.PatientId) + 1;
+            }
+        }
+
+        return counts;
     }
 
     public async Task<ReactionInvestigationDto?> GetDtoAsync(long id, CancellationToken ct = default)

@@ -1193,6 +1193,44 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null(Assert.Single(rows, r => r.PatientId == other.PatientId).OpenReactionInvestigationId);
     }
 
+    // TEST-BB-761: the reaction list counts, for a case not closed, the patient's units issued and reserved; a closed
+    // case counts none.
+    [Fact]
+    public async Task ReactionList_CountsThePatientsUnitsOutOrReserved()
+    {
+        var s = await SeedAsync("RXN-UNITS-OUT");
+        var issuedId = await IssuedAndReceivedAsync(s);
+        var second = await SeedAsync("RXN-UNITS-OUT-2");
+        await AllocateAsync(s with { UnitId = second.UnitId });
+
+        await using var c = _factory.Create();
+        var earlier = new TransfusionEvent
+        {
+            IssueId = issuedId, BloodProductId = s.UnitId, PatientId = s.PatientId, StartUtc = _factory.Clock.UtcNow.AddMinutes(-40),
+            ReactionSuspected = true, DocumentedBy = "nurse"
+        };
+        c.TransfusionEvents.Add(earlier);
+        await c.SaveChangesAsync();
+        var investigation = new ReactionInvestigation
+        {
+            TransfusionEventId = earlier.Id, PatientId = s.PatientId, BloodProductId = s.UnitId, ReportedUtc = _factory.Clock.UtcNow, ReportedBy = "nurse"
+        };
+        c.ReactionInvestigations.Add(investigation);
+        await c.SaveChangesAsync();
+
+        ReactionInvestigationService Reactions() => new(
+            new EfRepository<ReactionInvestigation>(c), new EfRepository<TransfusionEvent>(c), new InventoryRepository(c),
+            c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            issues: new EfRepository<Issue>(c), allocations: new EfRepository<Allocation>(c));
+
+        // The issued unit (received on the ward, still out) and the reserved one.
+        Assert.Equal(2, (await Reactions().ListDtosAsync()).Single(r => r.Id == investigation.Id).PatientUnitsOutOrReserved);
+
+        investigation.Status = ReactionInvestigationStatus.Closed;
+        await c.SaveChangesAsync();
+        Assert.Equal(0, (await Reactions().ListDtosAsync()).Single(r => r.Id == investigation.Id).PatientUnitsOutOrReserved);
+    }
+
     // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)
     // carries that MRN on the issued list; one issued under the current MRN does not.
     [Fact]

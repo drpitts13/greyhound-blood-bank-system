@@ -240,6 +240,27 @@ public class DashboardDueCountTests
             DashboardQueueCatalog.ReactionsNote([noPost, toVerify, done, closed]));
     }
 
+    // TEST-BB-760: the Reactions card names open cases whose patient still has units out or reserved, after fatality
+    // follow-ups; a case with none, or a closed one, is not named for it.
+    [Fact]
+    public void ReactionsNote_NamesCasesWithUnitsOut()
+    {
+        static ReactionWorkupSpecimenDto Side(string role) => new(
+            role, 1, "ACC1", DateTime.UtcNow, null, false, 1, "RXN-1",
+            [new ReactionWorkupLineDto(1, "DAT", "DAT", ResultStatus.Verified, "Negative", true)]);
+        ReactionInvestigationDto Done(ReactionInvestigationStatus status, int unitsOut) => Reaction(status, followUpDue: false) with
+        {
+            PreWorkup = Side(ReactionWorkupSpecimenDto.PreRole),
+            PostWorkup = Side(ReactionWorkupSpecimenDto.PostRole),
+            PatientUnitsOutOrReserved = unitsOut
+        };
+
+        Assert.Null(DashboardQueueCatalog.ReactionsNote([Done(ReactionInvestigationStatus.Open, 0)]));
+        Assert.Null(DashboardQueueCatalog.ReactionsNote([Done(ReactionInvestigationStatus.Closed, 2)]));
+        Assert.Equal("1 with units out or reserved",
+            DashboardQueueCatalog.ReactionsNote([Done(ReactionInvestigationStatus.UnderReview, 2), Done(ReactionInvestigationStatus.Open, 0)]));
+    }
+
     private static ReactionInvestigationDto Reaction(ReactionInvestigationStatus status, bool followUpDue) => new(
         Id: 1, TransfusionEventId: 1, PatientId: 1, BloodProductId: 1, ReportedUtc: DateTime.UtcNow,
         ReportedBy: "tech", ReactionType: null, Severity: ReactionSeverity.Mild, Findings: null,

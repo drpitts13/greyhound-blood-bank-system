@@ -19418,3 +19418,32 @@ The handoff counted open reaction investigations and fatality follow-ups. It did
 ### Next
 
 - The home Reaction investigations card: name those whose patient still has units out or reserved, as the handoff now does.
+
+## Iteration 630 — Reactions list and card name units out (2026-11-09)
+
+### Capability matrix rescan (reaction investigations, from the investigator's seat)
+
+Issue & Transfuse (626–627) and the handoff (629) now say when a patient with a reaction under investigation still has units out or reserved. The investigator's own views did not: the Reactions list and its home card named fatality follow-ups and workup gaps only.
+
+### Design
+
+- `ReactionInvestigationDto.PatientUnitsOutOrReserved`: for a case not closed, the patient's issues still Issued plus reserved allocations (an optional allocation repository on the reaction service, as its other optional sources); 0 once closed.
+- Reactions list: a red badge "n units out or reserved" on the case.
+- Home card: "n with units out or reserved" after fatality follow-ups, which puts the card under Needs attention.
+
+### Verification
+
+- Unit: the note for none, a closed case, and an under-review case with units. Integration: an issued and a reserved unit count 2 on the open case and 0 once closed.
+- Live (read-only): the Reactions list shows its one demo case with no badge (its patient has nothing out or reserved). No server errors.
+
+### Requirements
+
+- URS-BB-673, FRS-BB-790.
+
+### Tests
+
+- TEST-BB-760, TEST-BB-761.
+
+### Next
+
+- Seed a demo case for this path (a patient with a reaction under investigation and a reserved unit) so the warnings of Cycles 626–630 can be seen on the development data without changing it by hand.

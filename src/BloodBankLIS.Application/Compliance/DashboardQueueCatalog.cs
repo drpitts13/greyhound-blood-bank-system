@@ -219,6 +219,8 @@ public static class DashboardQueueCatalog
         var parts = new[]
         {
             AttentionNote(OpenReactionInvestigationRule.CountFatalityFollowUpDue(all), "fatality follow-up", "fatality follow-ups"),
+            // The patient still has units issued or reserved: check with the physician before another goes (OCD-078).
+            AttentionNote(open.Count(r => r.PatientUnitsOutOrReserved > 0), "with units out or reserved", "with units out or reserved"),
             AttentionNote(open.Count(r => r.PostWorkup is null), "waiting for the post-transfusion specimen", "waiting for the post-transfusion specimen"),
             AttentionNote(open.Count(r => (r.PreWorkup?.Pending ?? 0) + (r.PostWorkup?.Pending ?? 0) > 0), "with workup tests to verify", "with workup tests to verify")
         }.Where(p => p is not null).ToList();
