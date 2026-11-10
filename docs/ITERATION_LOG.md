@@ -19730,3 +19730,36 @@ Walked how a workup is started. A positive screen already offers Start ABID on t
 ### Next
 
 - Continue antibody identification: the workup page after it opens (reaction entry and interpretation) for remembered or retyped information.
+
+## Iteration 641 — Rest 0 per panel phase (2026-11-10)
+
+### Capability matrix rescan (antibody identification, reaction entry)
+
+Walked the antigram. Each cell and phase is its own grade list (typeable: 0, 1, 2, m, H), so an 11-cell panel read at IS, 37C and AHG is 33 picks, most of them 0. A panel is read one phase at a time. Nothing let the technologist record "the rest of this phase was negative" once the reacting cells were graded.
+
+### Design
+
+- Each interpretive phase heading offers **Rest 0** while that phase has cells at NT and the workup is editable. It sets only those cells to 0 in the form; graded cells and other phases are untouched.
+- Cells set that way are outlined, with a note giving the count and asking the technologist to check each against its tube. Changing a cell by hand removes its outline; Save reactions saves and audits them like any grade and clears the outlines.
+- Whether this aid is allowed, and for which phases or roles, is a laboratory decision: OCD-079. Completed or voided workups offer none. There is no check-cell column on the antigram (phases are IS, 37C, AHG), so a check cell cannot be set negative this way.
+
+### Safety (question 6)
+
+A cell set to 0 without reading its tube could rule out an antibody. The aid fills only cells still NT, outlines every cell it set until saved, and says to check each; nothing is saved without Save reactions; the audit is unchanged.
+
+### Verification
+
+- Rendered: Rest 0 at IS fills two NT cells and leaves the 2+ cell and the 37C and AHG phases alone; a hand change removes one outline; saving clears them; a completed workup offers none.
+- Live (read-only): no open workup exists on development data, and opening one would change it, so the antigram was checked in rendered tests only.
+
+### Requirements
+
+- URS-BB-683, FRS-BB-800, OCD-079.
+
+### Tests
+
+- TEST-BB-780, TEST-BB-781, TEST-BB-782.
+
+### Next
+
+- Continue antibody identification: the interpretation step, and whether a demo workup with reactions in progress should be seeded so the antigram can be walked live.

@@ -688,3 +688,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-680 | Rejecting a tube offers the step to collect a new one for the patient. | P2 | FRS-BB-797 |
 | URS-BB-681 | Choosing to reject a tube puts the cursor on the rejection reason. | P3 | FRS-BB-798 |
 | URS-BB-682 | Opening an antibody workup does not ask for a panel lot when only one is in date, and says why it cannot open one when none is. | P3 | FRS-BB-799 |
+| URS-BB-683 | A technologist reading a panel phase can set the cells left negative in one step, and sees which were set that way before saving. | P3 | FRS-BB-800 |

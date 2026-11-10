@@ -793,6 +793,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-680 / FRS-BB-797 | Reject offers a new specimen; demo pending tube | `TestWorklist.razor`; `DatabaseSeeder.DemoScenarios.cs` | TEST-BB-774, TEST-BB-775 | U, I | |
 | URS-BB-681 / FRS-BB-798 | Rejection reason takes the focus | `SpecimenRejectReasonPicker.razor` | TEST-BB-776 | U | |
 | URS-BB-682 / FRS-BB-799 | Sole in-date panel lot selected; none explained | `AntibodyIdentification.razor` | TEST-BB-777, TEST-BB-778, TEST-BB-779 | U | |
+| URS-BB-683 / FRS-BB-800 | Rest 0 per panel phase, outlined until saved | `AntibodyIdentification.razor` | TEST-BB-780, TEST-BB-781, TEST-BB-782 | U | OCD-079 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

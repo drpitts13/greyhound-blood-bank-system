@@ -381,7 +381,15 @@ else
                         }
                         @foreach (var phase in _workup.InterpretivePhases)
                         {
-                            <th>@phase</th>
+                            <th>
+                                @phase
+                                @if (CanEdit && UntestedCount(phase) > 0)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" data-fill-negative="@phase"
+                                            title="Set the cells still NT at @phase to 0. Not saved until Save reactions."
+                                            @onclick="() => FillNegative(phase)">Rest 0</button>
+                                }
+                            </th>
                         }
                     </tr>
                 </thead>
@@ -406,6 +414,8 @@ else
                                     @if (CanEdit)
                                     {
                                         <select value="@CurrentGrade(cell, phase)"
+                                                data-bulk-filled="@(_bulkFilled.Contains((cell.CellId, phase)) ? "true" : null)"
+                                                style="@(_bulkFilled.Contains((cell.CellId, phase)) ? "outline:2px dashed var(--bb-warn);" : null)"
                                                 @onchange="e => SetGrade(cell.CellId, phase, e.Value?.ToString())">
                                             @foreach (var g in Enum.GetValues<ReactionGrade>())
                                             {
@@ -425,6 +435,13 @@ else
             </table>
             </div>
         </div>
+        @if (CanEdit && _bulkFilled.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:0.75rem;" data-bulk-filled-note>
+                @(_bulkFilled.Count == 1 ? "1 cell" : $"{_bulkFilled.Count} cells") set to 0 with Rest 0 (outlined).
+                Check each against its tube before Save reactions; change any that reacted.
+            </div>
+        }
         @if (CanEdit)
         {
             <div class="flex gap" style="margin-top:0.75rem;">
@@ -677,6 +694,8 @@ else
     private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _grades = new();
     // The grades as last loaded: Save reactions sends only the cells changed since.
     private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _savedGrades = new();
+    // Cells Rest 0 set to negative and not yet saved or changed by hand: outlined so each is checked against its tube.
+    private readonly HashSet<(long CellId, string Phase)> _bulkFilled = new();
 
     private bool JudgmentStale =>
         _workup is not null
@@ -1048,6 +1067,7 @@ else
             }
         }
 
+        _bulkFilled.Clear();
         _savedGrades.Clear();
         foreach (var kv in _grades)
         {
@@ -1279,6 +1299,21 @@ else
         if (Enum.TryParse<ReactionGrade>(value, out var grade))
         {
             _grades[(cellId, phase)] = grade;
+            _bulkFilled.Remove((cellId, phase));
+        }
+    }
+
+    private int UntestedCount(string phase) =>
+        _workup?.Cells.Count(c => CurrentGrade(c, phase) == ReactionGrade.NotTested) ?? 0;
+
+    // Only cells still NT in this phase are set; graded cells and other phases are left as they are (OCD-079).
+    private void FillNegative(string phase)
+    {
+        if (_workup is null) return;
+        foreach (var cell in _workup.Cells.Where(c => CurrentGrade(c, phase) == ReactionGrade.NotTested))
+        {
+            _grades[(cell.CellId, phase)] = ReactionGrade.Negative;
+            _bulkFilled.Add((cell.CellId, phase));
         }
     }
 

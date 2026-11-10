@@ -788,5 +788,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-777 | U | `AntibodyIdLotDefaultTests.OnlyInDatePanelLot_IsSelected` | URS-BB-682 / FRS-BB-799 |
 | TEST-BB-778 | U | `AntibodyIdLotDefaultTests.SeveralPanelLots_LeaveTheChoice` | URS-BB-682 / FRS-BB-799 |
 | TEST-BB-779 | U | `AntibodyIdLotDefaultTests.NoPanelLot_SaysWhyAndWhere` | URS-BB-682 / FRS-BB-799 |
+| TEST-BB-780 | U | `AntibodyIdRestNegativeTests.RestNegative_FillsOnlyUntestedCellsInThePhase` | URS-BB-683 / FRS-BB-800 |
+| TEST-BB-781 | U | `AntibodyIdRestNegativeTests.Saving_ClearsTheOutlines` | URS-BB-683 / FRS-BB-800 |
+| TEST-BB-782 | U | `AntibodyIdRestNegativeTests.CompletedWorkup_OffersNoRestNegative` | URS-BB-683 / FRS-BB-800 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
