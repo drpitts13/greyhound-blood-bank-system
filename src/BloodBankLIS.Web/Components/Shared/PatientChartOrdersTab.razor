@@ -400,8 +400,16 @@
                                         <p class="muted" style="margin:.5rem 0 0;">
                                             @(o.Lines.Any(l => l.LineCategory == OrderCategory.Product)
                                                 ? "No active specimens with a completed type and screen are available."
-                                                : "No accepted, non-expired specimens are available. Accession a specimen first.")
+                                                : TubeOnItsWay is null ? "No accepted, non-expired specimens are available. Accession a specimen first." : "No accepted, non-expired specimens are available.")
                                         </p>
+                                        @if (TubeOnItsWay is { } tube)
+                                        {
+                                            @* A tube already drawn or received: link it once accepted, rather than drawing again (Cycle 652). *@
+                                            <p class="muted" style="margin:.25rem 0 0;" data-link-tube-awaiting>
+                                                @CurrentSpecimenBanner.OnItsWayText(tube, t => t.ToLocalTime()) @(o.Lines.Any(l => l.LineCategory == OrderCategory.Product) ? "Then complete its type and screen and link it here." : "Then link it here.")
+                                                <a href="@BloodOrderPreparationRule.ReceiveTubeHref">Pending specimens</a>
+                                            </p>
+                                        }
                                     }
                                 </div>
                             </td>
@@ -588,6 +596,12 @@
     [Parameter] public IReadOnlyList<ProductTypeDto> ProductTypes { get; set; } = [];
     [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
     [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
+    // Every specimen on the chart, to name a tube drawn or received and not yet accepted when none can be linked.
+    [Parameter] public IEnumerable<SpecimenDto> AllSpecimens { get; set; } = [];
+
+    private CurrentSpecimenBanner.Fact? TubeOnItsWay => CurrentSpecimenBanner.TubeOnItsWay(
+        AllSpecimens.Where(s => s.DiscardedUtc is null).Select(s => new CurrentSpecimenBanner.Fact(s.AccessionNumber, s.Status, s.CollectedUtc, s.ExpiresUtc)),
+        DateTime.UtcNow);
     [Parameter] public IReadOnlyList<PatientAllocationRowDto> Allocations { get; set; } = [];
     [Parameter] public IReadOnlyList<CompatibleUnitDto> CompatibleUnits { get; set; } = [];
     [Parameter] public long? AllocatingOrderId { get; set; }

@@ -25,7 +25,7 @@ public class CurrentSpecimenBannerTests
         var drawn = new CurrentSpecimenBanner.Fact("ACC-D", SpecimenStatus.Collected, Now.AddMinutes(-30), Now.AddDays(3));
         var cue = CurrentSpecimenBanner.Describe([drawn], Now);
         Assert.Equal((null, "No current specimen.", true, "ACC-D"), (cue.AccessionNumber, cue.Message, cue.BlocksIssue, cue.AwaitingAccession));
-        Assert.Equal("Tube ACC-D was drawn 2026-09-29 21:30 and is not yet received: receive it rather than drawing again.", cue.AwaitingNote);
+        Assert.Equal("Tube ACC-D was drawn 2026-09-29 21:30 UTC and is not yet received: receive it rather than drawing again.", cue.AwaitingNote);
 
         var received = new CurrentSpecimenBanner.Fact("ACC-R", SpecimenStatus.Received, Now.AddMinutes(-10), Now.AddDays(3));
         Assert.Equal("Tube ACC-R is received and not yet accepted: accept it rather than drawing again.",
@@ -34,6 +34,20 @@ public class CurrentSpecimenBannerTests
         var stale = new CurrentSpecimenBanner.Fact("ACC-S", SpecimenStatus.Collected, Now.AddDays(-4), Now.AddHours(-1));
         var none = CurrentSpecimenBanner.Describe([stale], Now);
         Assert.Equal(((string?)null, (string?)null), (none.AwaitingAccession, none.AwaitingNote));
+    }
+
+    // TEST-BB-807: the shared helper picks the newest in-date tube drawn or received (not an accepted or expired one), and
+    // only one drawn after a given time when asked.
+    [Fact]
+    public void TubeOnItsWay_PicksTheNewestInDateTube()
+    {
+        var accepted = new CurrentSpecimenBanner.Fact("ACC-A", SpecimenStatus.Accepted, Now.AddMinutes(-5), Now.AddDays(3));
+        var older = new CurrentSpecimenBanner.Fact("ACC-1", SpecimenStatus.Received, Now.AddHours(-3), Now.AddDays(3));
+        var newer = new CurrentSpecimenBanner.Fact("ACC-2", SpecimenStatus.Collected, Now.AddHours(-1), Now.AddDays(3));
+        var expired = new CurrentSpecimenBanner.Fact("ACC-X", SpecimenStatus.Collected, Now.AddMinutes(-2), Now.AddMinutes(-1));
+        Assert.Equal("ACC-2", CurrentSpecimenBanner.TubeOnItsWay([accepted, older, newer, expired], Now)!.AccessionNumber);
+        Assert.Null(CurrentSpecimenBanner.TubeOnItsWay([accepted, older, newer], Now, drawnAfterUtc: Now.AddMinutes(-30)));
+        Assert.Null(CurrentSpecimenBanner.TubeOnItsWay([accepted, expired], Now));
     }
 
     // TEST-BB-805: an expired current specimen names a newer tube on its way; a tube drawn before it, or any tube while

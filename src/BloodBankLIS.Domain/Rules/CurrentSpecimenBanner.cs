@@ -29,6 +29,34 @@ public static class CurrentSpecimenBanner
         string? AwaitingAccession = null,
         string? AwaitingNote = null);
 
+    /// <summary>
+    /// The newest in-date tube on its way: drawn and not yet received, or received and not yet accepted, and drawn after
+    /// <paramref name="drawnAfterUtc"/> when given. Null when there is none.
+    /// </summary>
+    public static Fact? TubeOnItsWay(IEnumerable<Fact> specimens, DateTime nowUtc, DateTime? drawnAfterUtc = null) =>
+        specimens
+            .Where(s => s.Status is SpecimenStatus.Collected or SpecimenStatus.Received
+                && (s.ExpiresUtc is null || s.ExpiresUtc > nowUtc)
+                && (drawnAfterUtc is null || s.CollectedUtc > drawnAfterUtc))
+            .OrderByDescending(s => s.CollectedUtc)
+            .ThenBy(s => s.AccessionNumber, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    /// <summary>"Tube X was drawn … and is not yet received: receive it rather than drawing again." (or received, accept it).</summary>
+    /// <param name="display">The chart passes local time; without it the stored time is labelled UTC.</param>
+    public static string OnItsWayText(Fact tube, Func<DateTime, DateTime>? display = null)
+    {
+        if (tube.Status != SpecimenStatus.Collected)
+        {
+            return $"Tube {tube.AccessionNumber} is received and not yet accepted: accept it rather than drawing again.";
+        }
+
+        var drawn = display is null
+            ? $"{tube.CollectedUtc:yyyy-MM-dd HH:mm} UTC"
+            : display(tube.CollectedUtc).ToString("yyyy-MM-dd HH:mm");
+        return $"Tube {tube.AccessionNumber} was drawn {drawn} and is not yet received: receive it rather than drawing again.";
+    }
+
     /// <param name="display">How a time is shown (the chart passes local time; Cycle 604). Defaults to the stored UTC.</param>
     public static Cue Describe(IEnumerable<Fact> specimens, DateTime nowUtc, Func<DateTime, DateTime>? display = null)
     {
@@ -39,19 +67,8 @@ public static class CurrentSpecimenBanner
             .OrderByDescending(s => s.CollectedUtc)
             .ThenBy(s => s.AccessionNumber, StringComparer.Ordinal)
             .FirstOrDefault();
-        // The newest in-date tube on its way (drawn, or received and not yet accepted), drawn after the current one.
-        var awaiting = specimens
-            .Where(s => s.Status is SpecimenStatus.Collected or SpecimenStatus.Received
-                && (s.ExpiresUtc is null || s.ExpiresUtc > nowUtc)
-                && (current is null || s.CollectedUtc > current.CollectedUtc))
-            .OrderByDescending(s => s.CollectedUtc)
-            .ThenBy(s => s.AccessionNumber, StringComparer.Ordinal)
-            .FirstOrDefault();
-        string? AwaitingNote() => awaiting is null
-            ? null
-            : awaiting.Status == SpecimenStatus.Collected
-                ? $"Tube {awaiting.AccessionNumber} was drawn {Shown(awaiting.CollectedUtc)} and is not yet received: receive it rather than drawing again."
-                : $"Tube {awaiting.AccessionNumber} is received and not yet accepted: accept it rather than drawing again.";
+        var awaiting = TubeOnItsWay(specimens, nowUtc, current?.CollectedUtc);
+        string? AwaitingNote() => awaiting is null ? null : OnItsWayText(awaiting, display);
 
         if (current is null)
         {

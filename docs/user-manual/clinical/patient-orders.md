@@ -22,7 +22,7 @@ Product orders can carry modification actions: irradiate, wash, thaw, volume red
 
 ## Link a specimen
 
-An order that needs a specimen stays incomplete until a specimen is linked. From the order you can open accessioning and collect the identifiers, collection time, and specimen type. See [Specimens](patient-specimens).
+An order that needs a specimen stays incomplete until a specimen is linked. From the order you can open accessioning and collect the identifiers, collection time, and specimen type. See [Specimens](patient-specimens). When no accepted specimen can be linked but a tube for the patient has already been drawn (or received and not yet accepted), **Link specimen** names that tube and links to Pending specimens: receive and accept it, then link it to the order (for a blood product order, after its type and screen is complete), rather than drawing again.
 
 ## Hold and cancel
 

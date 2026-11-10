@@ -20054,3 +20054,34 @@ Followed Cycle 650 onto the chart. For Demo-Multi, Riley (MRN0022) the header sa
 ### Next
 
 - The chart Orders tab's "Accession a specimen first" message: whether it also should point at a tube on its way.
+
+## Iteration 652 — Link specimen names the tube on its way (2026-11-10)
+
+### Capability matrix rescan (orders and specimens: linking a specimen to an order)
+
+Last of the places that ask for a draw while a tube is on its way. On the chart's Orders tab, Link specimen on a test order with nothing linkable said "No accepted, non-expired specimens are available. Accession a specimen first." For Riley, ACC-DEMO-RCV1 is drawn and waiting to be received.
+
+### Design
+
+- The tube-on-its-way choice and wording move from the Cycle 651 banner into shared helpers on `CurrentSpecimenBanner` (`TubeOnItsWay`, `OnItsWayText`); the banner uses them unchanged.
+- The Orders tab receives the chart's specimens (`AllSpecimens`). When nothing can be linked, the panel names the newest in-date tube drawn or received (not discarded) with "Then link it here." and a link to Pending specimens; "Accession a specimen first" is said only when there is no such tube.
+- The time-display guard (Cycle 605) caught the first draft: without a display conversion the helper wrote a stored time unlabelled. It now says UTC in that case; the chart passes local time. That also corrects the Cycle 651 note when called without a conversion.
+- Product orders keep their message (they need a completed type and screen) and name the tube too, saying to complete its type and screen before linking it.
+
+### Verification
+
+- Rendered: a drawn tube is named with the link and no "Accession" text; with no tube, an expired one, or a discarded one, the panel says to accession as before.
+- Unit: the helper picks the newest in-date drawn or received tube, respects drawn-after, ignores accepted and expired tubes.
+- Live (read-only): Riley's Orders tab, Link on product order ORD-SURG-DEMO. Nothing linked.
+
+### Requirements
+
+- URS-BB-694, FRS-BB-811.
+
+### Tests
+
+- TEST-BB-806, TEST-BB-807.
+
+### Next
+
+- Back to the capability matrix: the reaction investigation workflow's printed and signed record is covered; next look at the electronic crossmatch eligibility explanation on the chart.
