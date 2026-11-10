@@ -19996,3 +19996,33 @@ Checked the other pages built on the unit picker. Printing has three independent
 ### Next
 
 - Walk Blood orders to prepare: the path from an order to a crossmatched, reserved unit, counting clicks.
+
+## Iteration 650 — Receive the drawn tube, do not draw again (2026-11-10)
+
+### Capability matrix rescan (patient-product workflows: preparing blood orders)
+
+Walked Blood orders to prepare on development data. Both demo orders said "None usable · Collect a specimen". But Demo-Multi, Riley (MRN0022) has ACC-DEMO-RCV1 drawn on the ward and waiting to be received (Cycle 638): the worklist counted only received or accepted tubes, so it sent the bench to the accession form to draw again. An unneeded second draw for a patient who may be bleeding, and a duplicate tube to reconcile.
+
+### Design
+
+- `BloodOrderPreparationRule.ReceiveInstead`: with no usable specimen, or one that expires before the order is needed, and a tube drawn and not yet received, the next step is "Receive tube {accession}", linked to Pending specimens where the tube is scanned.
+- The worklist looks for Collected tubes for the patient, not discarded and in date, and takes the latest-expiring one that does not expire before the needed-by time. The row carries its accession; the specimen column says "Tube … drawn, not yet received".
+- A tube that has expired, or would expire before the order is needed, does not count. Nothing about reserving changes: units are still reserved on a received and accepted specimen with a completed type and screen.
+
+### Verification
+
+- Unit: receive with no usable specimen or one expiring early; a lasting usable specimen still reserves; blank accession is no tube; nothing left, no step; the link.
+- Integration: an in-date drawn tube gives "Receive tube ACC-TR-1" to Pending specimens; an expired tube, or one expiring before needed-by, leaves "Collect a specimen".
+- Live (read-only): Riley's ORD-SURG-DEMO says "Receive tube ACC-DEMO-RCV1"; Patricia's order, with no tube, still says collect.
+
+### Requirements
+
+- URS-BB-692, FRS-BB-809.
+
+### Tests
+
+- TEST-BB-802, TEST-BB-803.
+
+### Next
+
+- The chart: whether the patient's Products and Specimens tabs also ask for a new draw while a tube is on its way.

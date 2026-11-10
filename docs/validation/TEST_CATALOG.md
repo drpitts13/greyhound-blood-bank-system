@@ -810,5 +810,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-799 | U | `ModifyScanFocusTests.LaterFocus_OpensTheList` | URS-BB-690 / FRS-BB-807 |
 | TEST-BB-800 | U | `CompatibilityScanFocusTests.OpenedForAPatient_CrossmatchUnitTakesTheCursor` | URS-BB-691 / FRS-BB-808 |
 | TEST-BB-801 | U | `CompatibilityScanFocusTests.OpenedBareOrWithAUnit_NothingTakesTheCursor` | URS-BB-691 / FRS-BB-808 |
+| TEST-BB-802 | U | `BloodOrderPreparationRuleTests.TubeAwaitingReceipt_IsReceivedInsteadOfDrawingAgain` | URS-BB-692 / FRS-BB-809 |
+| TEST-BB-803 | I | `BloodOrderWorklistTests.TubeAwaitingReceipt_IsOfferedInsteadOfANewDraw` | URS-BB-692 / FRS-BB-809 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

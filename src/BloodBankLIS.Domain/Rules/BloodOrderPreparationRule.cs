@@ -32,9 +32,22 @@ public static class BloodOrderPreparationRule
     /// </summary>
     public static string CollectSpecimenHref(long patientId) => $"/patients/{patientId}?tab=specimens&panel=specimen";
 
+    /// <summary>Pending specimens, where a drawn tube is scanned to receive it.</summary>
+    public const string ReceiveTubeHref = "/test-worklist?tab=specimens";
+
+    /// <summary>
+    /// A tube already drawn and on its way stands in for collecting one: when the patient has no usable specimen, or the
+    /// usable one expires before the order is needed, and a collected tube (not yet received, still in date, lasting to
+    /// the needed-by time) exists, the next step is to receive it rather than draw again.
+    /// </summary>
+    public static bool ReceiveInstead(bool hasUsableSpecimen, bool specimenExpiresBeforeNeeded, string? tubeAwaitingReceipt) =>
+        !string.IsNullOrWhiteSpace(tubeAwaitingReceipt) && (!hasUsableSpecimen || specimenExpiresBeforeNeeded);
+
     public static string NextStepHref(long patientId, long orderId, long? usableSpecimenId, bool typeAndScreenComplete = true,
-        bool specimenExpiresBeforeNeeded = false) =>
-        usableSpecimenId is not long specimenId || specimenExpiresBeforeNeeded
+        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null) =>
+        ReceiveInstead(usableSpecimenId is not null, specimenExpiresBeforeNeeded, tubeAwaitingReceipt)
+            ? ReceiveTubeHref
+            : usableSpecimenId is not long specimenId || specimenExpiresBeforeNeeded
             ? CollectSpecimenHref(patientId)
             : typeAndScreenComplete
                 ? $"/patients/{patientId}?tab=products&reserveOrder={orderId}&reserveSpecimen={specimenId}"
@@ -47,9 +60,11 @@ public static class BloodOrderPreparationRule
     /// units", or null when nothing is left to prepare. Guidance only: reserving stays possible from the chart.
     /// </summary>
     public static string? NextStep(int remaining, bool hasUsableSpecimen, bool typeAndScreenComplete = true,
-        bool specimenExpiresBeforeNeeded = false) =>
+        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null) =>
         remaining <= 0
             ? null
+            : ReceiveInstead(hasUsableSpecimen, specimenExpiresBeforeNeeded, tubeAwaitingReceipt)
+                ? $"Receive tube {tubeAwaitingReceipt!.Trim()}"
             : !hasUsableSpecimen
                 ? "Collect a specimen"
                 : specimenExpiresBeforeNeeded

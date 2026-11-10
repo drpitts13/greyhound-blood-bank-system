@@ -34,6 +34,21 @@ public class BloodOrderPreparationRuleTests
         Assert.Equal("/patients/7?tab=tests", BloodOrderPreparationRule.NextStepHref(7, 42, 9, typeAndScreenComplete: false));
     }
 
+    // TEST-BB-802: a tube drawn and not yet received stands in for collecting one: with no usable specimen, or one that
+    // expires before the order is needed, the step is to receive it on Pending specimens. With a usable specimen that
+    // lasts, the tube changes nothing; a blank accession is no tube; nothing left to prepare has no step.
+    [Fact]
+    public void TubeAwaitingReceipt_IsReceivedInsteadOfDrawingAgain()
+    {
+        Assert.Equal("Receive tube ACC-9", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: false, tubeAwaitingReceipt: "ACC-9"));
+        Assert.Equal("Receive tube ACC-9", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: true, specimenExpiresBeforeNeeded: true, tubeAwaitingReceipt: "ACC-9"));
+        Assert.Equal("Reserve 2 units", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: true, tubeAwaitingReceipt: "ACC-9"));
+        Assert.Equal("Collect a specimen", BloodOrderPreparationRule.NextStep(2, hasUsableSpecimen: false, tubeAwaitingReceipt: " "));
+        Assert.Null(BloodOrderPreparationRule.NextStep(0, hasUsableSpecimen: false, tubeAwaitingReceipt: "ACC-9"));
+        Assert.Equal("/test-worklist?tab=specimens", BloodOrderPreparationRule.NextStepHref(7, 42, null, tubeAwaitingReceipt: "ACC-9"));
+        Assert.Equal("/patients/7?tab=products&reserveOrder=42&reserveSpecimen=9", BloodOrderPreparationRule.NextStepHref(7, 42, 9, tubeAwaitingReceipt: "ACC-9"));
+    }
+
     // TEST-BB-656: when the usable specimen expires before the order is needed, the next step is a new specimen (ahead of
     // finishing the type and screen on it), on the patient's specimens; with no usable specimen it is the usual first
     // collection; with nothing left to prepare there is no step.

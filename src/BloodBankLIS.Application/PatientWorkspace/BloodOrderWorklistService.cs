@@ -46,7 +46,10 @@ public sealed record BloodOrderToPrepareDto(
     // The usable specimen expires before the needed-by time: a new specimen is needed for the units to be issuable then.
     bool SpecimenExpiresBeforeNeeded = false,
     // Reservations on this order that ended because their unit expired ("Unit W… expired at … UTC."): why it needs units again.
-    IReadOnlyList<string>? ExpiredReservations = null);
+    IReadOnlyList<string>? ExpiredReservations = null,
+    // A tube drawn for the patient and not yet received (still in date, lasting to the needed-by time): receive it
+    // instead of drawing again.
+    string? TubeAwaitingReceipt = null);
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -153,6 +156,12 @@ public sealed class BloodOrderWorklistService
                 && s.DiscardedUtc == null && (s.ExpiresUtc == null || s.ExpiresUtc > now), ct))
             .GroupBy(s => s.PatientId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.ExpiresUtc ?? DateTime.MaxValue).ThenByDescending(s => s.Id).ToList());
+        // Tubes drawn and on their way: the bench receives one instead of asking for another draw.
+        var inTransit = (await _specimens.ListAsync(s => patientIds.Contains(s.PatientId)
+                && s.Status == SpecimenStatus.Collected
+                && s.DiscardedUtc == null && (s.ExpiresUtc == null || s.ExpiresUtc > now), ct))
+            .GroupBy(s => s.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.ExpiresUtc ?? DateTime.MaxValue).ThenByDescending(s => s.Id).ToList());
         // Units are reserved on a specimen with a completed type and screen (the reserve form offers only those).
         var completed = new Dictionary<long, HashSet<long>>();
         if (_typeAndScreen is not null)
@@ -189,6 +198,8 @@ public sealed class BloodOrderWorklistService
             var typeAndScreenComplete = ready is not null;
             // A new specimen is needed only when even the latest-expiring usable one ends before the order is needed.
             var expiresBeforeNeeded = hasSpecimen && OrderNeededByRule.ExpiresBeforeNeeded(candidates![0].ExpiresUtc, order.NeededByUtc, now);
+            var tube = inTransit.GetValueOrDefault(order.PatientId)?
+                .FirstOrDefault(s => !OrderNeededByRule.ExpiresBeforeNeeded(s.ExpiresUtc, order.NeededByUtc, now))?.AccessionNumber;
             var products = string.Join(", ", group
                 .GroupBy(l => l.LineName, StringComparer.OrdinalIgnoreCase)
                 .Select(g => $"{g.Count()} × {g.Key}"));
@@ -200,8 +211,8 @@ public sealed class BloodOrderWorklistService
                 PatientBloodBankFlags.ActiveAntibodies(antibodies[order.PatientId]),
                 order.Priority, TestWorklistView.IsRush(order.Priority), order.OrderedUtc, products,
                 requested, orderReserved, orderIssued, remaining, hasSpecimen, specimen?.ExpiresUtc,
-                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete, expiresBeforeNeeded)!,
-                BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete, expiresBeforeNeeded),
+                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete, expiresBeforeNeeded, tube)!,
+                BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete, expiresBeforeNeeded, tube),
                 specimen?.Id,
                 hasSpecimen && !typeAndScreenComplete,
                 order.NeededByUtc,
@@ -210,7 +221,8 @@ public sealed class BloodOrderWorklistService
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes),
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes) ? OrderNeededByRule.MinutesUntil(order.NeededByUtc, now) : null,
                 expiresBeforeNeeded,
-                expiredReservations.GetValueOrDefault(order.Id) ?? []));
+                expiredReservations.GetValueOrDefault(order.Id) ?? [],
+                BloodOrderPreparationRule.ReceiveInstead(hasSpecimen, expiresBeforeNeeded, tube) ? tube : null));
         }
 
         // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.

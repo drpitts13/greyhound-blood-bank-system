@@ -15,6 +15,65 @@ namespace BloodBankLIS.Integration.Tests;
 // usable specimen is on file; covered, cancelled, and completed orders are not listed.
 public class BloodOrderWorklistTests
 {
+    // TEST-BB-803: a patient with no usable specimen but a tube drawn and not yet received is told to receive that tube
+    // (linked to Pending specimens), not to draw again; an expired drawn tube, or one that expires before the order is
+    // needed, does not count, so those orders still say collect a specimen.
+    [Fact]
+    public async Task TubeAwaitingReceipt_IsOfferedInsteadOfANewDraw()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var now = factory.Clock.UtcNow;
+        var product = new ProductType { ProductCode = "RBC-TR", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        var location = new OrderingLocation { Code = "LOC-TR", Name = "OR", IsActive = true };
+        c.ProductTypes.Add(product);
+        c.OrderingLocations.Add(location);
+        Patient Pat(string mrn) => new() { MedicalRecordNumber = mrn, LastName = mrn, FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1) };
+        var waiting = Pat("MRN-TR-1");
+        var stale = Pat("MRN-TR-2");
+        var tooShort = Pat("MRN-TR-3");
+        c.Patients.AddRange(waiting, stale, tooShort);
+        await c.SaveChangesAsync();
+        var orders = new List<Order>();
+        foreach (var (p, number, neededBy) in new[] { (waiting, "TR-1", (DateTime?)null), (stale, "TR-2", null), (tooShort, "TR-3", now.AddDays(2)) })
+        {
+            var visit = new Encounter { PatientId = p.Id, VisitNumber = $"VIS-{p.MedicalRecordNumber}", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddHours(-5) };
+            c.Encounters.Add(visit);
+            await c.SaveChangesAsync();
+            var order = new Order
+            {
+                OrderNumber = number, PatientId = p.Id, EncounterId = visit.Id, OrderingLocationId = location.Id,
+                OrderCategory = OrderCategory.Product, OrderName = "Red cells", OrderType = OrderType.Other, ProductTypeId = product.Id,
+                Priority = OrderPriority.Routine, Status = OrderStatus.InProcess, OrderedUtc = now.AddHours(-1), NeededByUtc = neededBy
+            };
+            c.Orders.Add(order);
+            await c.SaveChangesAsync();
+            c.OrderLines.Add(new OrderLine { OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = product.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered });
+            orders.Add(order);
+        }
+
+        c.Specimens.AddRange(
+            new Specimen { PatientId = waiting.Id, AccessionNumber = "ACC-TR-1", SpecimenType = "EDTA", Status = SpecimenStatus.Collected, CollectedUtc = now.AddMinutes(-20), ExpiresUtc = now.AddDays(3) },
+            new Specimen { PatientId = stale.Id, AccessionNumber = "ACC-TR-2", SpecimenType = "EDTA", Status = SpecimenStatus.Collected, CollectedUtc = now.AddDays(-4), ExpiresUtc = now.AddHours(-1) },
+            new Specimen { PatientId = tooShort.Id, AccessionNumber = "ACC-TR-3", SpecimenType = "EDTA", Status = SpecimenStatus.Collected, CollectedUtc = now.AddMinutes(-20), ExpiresUtc = now.AddDays(1) });
+        await c.SaveChangesAsync();
+
+        var rows = await new BloodOrderWorklistService(
+            new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c), factory.Clock).ListAsync();
+
+        var receive = Assert.Single(rows, r => r.OrderNumber == "TR-1");
+        Assert.Equal(("Receive tube ACC-TR-1", "/test-worklist?tab=specimens", "ACC-TR-1", false),
+            (receive.NextStep, receive.Href, receive.TubeAwaitingReceipt, receive.HasUsableSpecimen));
+        foreach (var (number, patient) in new[] { ("TR-2", stale), ("TR-3", tooShort) })
+        {
+            var row = Assert.Single(rows, r => r.OrderNumber == number);
+            Assert.Equal(("Collect a specimen", $"/patients/{patient.Id}?tab=specimens&panel=specimen", (string?)null),
+                (row.NextStep, row.Href, row.TubeAwaitingReceipt));
+        }
+    }
+
     [Fact]
     public async Task OrdersToPrepare_AreListedWithWhatIsStillNeeded()
     {

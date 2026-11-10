@@ -91,7 +91,12 @@ else
                             {
                                 <span class="badge badge-amber">None usable</span>
                             }
-                            @if (r.SpecimenExpiresBeforeNeeded)
+                            @if (r.TubeAwaitingReceipt is { } tube)
+                            {
+                                @* Drawn and on its way: receive it rather than draw again (Cycle 650). *@
+                                <span class="badge badge-blue" data-tube-awaiting>Tube <span class="mono">@tube</span> drawn, not yet received</span>
+                            }
+                            else if (r.SpecimenExpiresBeforeNeeded)
                             {
                                 <span class="badge badge-amber" title="Units crossmatched on this specimen cannot be issued after it expires" data-specimen-before-needed>Expires before needed-by: draw a new specimen</span>
                             }
