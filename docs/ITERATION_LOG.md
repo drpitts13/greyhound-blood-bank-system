@@ -20441,3 +20441,34 @@ Cycle 662 recorded outages. An outage that nobody ended after recovery stays ope
 ### Next
 
 - Record the owner's decisions on OCD-067 to OCD-081 (2026-11-10) and build those that need code, one per iteration.
+
+## Iteration 664 — Two patient identifiers on tube labels (OCD-080 decided) (2026-11-10)
+
+### Capability matrix rescan (administration: label design; safety: specimen identification)
+
+The product owner decided the open clinical questions OCD-067 to OCD-081 (2026-11-10), recorded in OPEN_CLINICAL_DECISIONS. Ranked by safety impact and size, the first to build is OCD-080 option B: a tube label with fewer than two patient identifiers could be saved and printed with only a warning, so a tube could leave the bench identified by one.
+
+### Design
+
+- `SpecimenLabelDesignRules.Check`: fewer than two of name, patient ID and date of birth is an error on a tube design (the designer's Save is unavailable; the API refuses the save) and stays a warning on an aliquot design, whose barcode is the parent specimen ID.
+- Printing: a tube design saved before the decision with fewer than two identifiers does not print new labels; the message names the design and where to fix it, and no job is created. Reprints rebuild the label already printed, unchanged.
+- The seeded designs (TUBE-STD, ALIQ-STD) already carry two identifiers, so labeling is unaffected.
+
+### Verification
+
+- Unit: tube with one identifier refused; name and date of birth enough; aliquot with one warns.
+- Integration: save refused with one identifier; a legacy one-identifier default design refuses to print with nothing queued and lists the error.
+- Rendered: the designer clears the barcode error and still shows the identifier error with Save unavailable.
+- Live (read-only): the seeded TUBE-STD design opens in the designer with name, patient ID and date of birth placed, no check messages, and Save available. No server errors.
+
+### Requirements
+
+- URS-BB-707, FRS-BB-825; OCD-080 decided.
+
+### Tests
+
+- TEST-BB-852, TEST-BB-853; TEST-BB-822 and TEST-BB-830 updated.
+
+### Next
+
+- OCD-081 option B: a back-entry outside every recorded outage needs an override reason.

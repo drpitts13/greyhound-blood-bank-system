@@ -82,8 +82,9 @@ public class SpecimenLabelDesignTests : IDisposable
         Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityType == "SpecimenLabelDesign" && h.EntityId == tube.Value.Id));
     }
 
-    // TEST-BB-822: saving refuses a design without the specimen ID barcode, saves one with warnings (returned, not
-    // blocking), keeps elements on the label, bumps the version, and records the before and after.
+    // TEST-BB-822: saving refuses a design without the specimen ID barcode, or a tube design with fewer than two patient
+    // identifiers (OCD-080), saves one with warnings (returned, not blocking), keeps elements on the label, bumps the
+    // version, and records the before and after.
     [Fact]
     public async Task Save_ChecksTheDesignAndRecordsTheChange()
     {
@@ -96,10 +97,14 @@ public class SpecimenLabelDesignTests : IDisposable
         Assert.False(refused.Succeeded);
         Assert.Contains(refused.Evaluation!.HardStops, h => h.Message.Contains("specimen ID as a barcode"));
 
-        var thin = new LabelLayoutDocument { Page1 = [new() { Key = LabelFields.Accession, Barcode = true, X = 2000, Y = 20 }, new() { Key = LabelFields.PatientName }] };
+        var oneId = new LabelLayoutDocument { Page1 = [new() { Key = LabelFields.Accession, Barcode = true, Y = 100 }, new() { Key = LabelFields.PatientName }] };
+        var refusedOneId = await admin.SaveAsync(design.Id, new SaveSpecimenLabelDesignRequest("Save", oneId));
+        Assert.Contains(refusedOneId.Evaluation!.HardStops, h => h.Message == SpecimenLabelDesignRules.TwoIdentifiersError);
+
+        var thin = new LabelLayoutDocument { Page1 = [new() { Key = LabelFields.Accession, Barcode = true, X = 2000, Y = 20 }, new() { Key = LabelFields.PatientName }, new() { Key = LabelFields.Mrn }] };
         var saved = await admin.SaveAsync(design.Id, new SaveSpecimenLabelDesignRequest("Renamed", thin));
         Assert.True(saved.Succeeded, saved.Error);
-        Assert.Contains(saved.Evaluation!.Warnings, w => w.Message.Contains("OCD-080"));
+        Assert.NotEmpty(saved.Evaluation!.Warnings);
         Assert.Equal(("Renamed", 2), (saved.Value!.Name, saved.Value.Version));
         Assert.Equal(398, saved.Value.Document.Page1[0].X);
         Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == "SpecimenLabelDesign" && a.EntityId == design.Id && a.EventType == AuditEventType.Update && a.OldValueJson != null));
@@ -154,6 +159,35 @@ public class SpecimenLabelDesignTests : IDisposable
         await admin.SetActiveAsync(wide.Id, false);
         Assert.False((await Printing(c).PrintSpecimenLabelAsync(specimenId, new PrintRequest(TemplateCode: "T-WIDE"))).Succeeded);
         Assert.Equal("T-STD", tube.Code);
+    }
+
+    // TEST-BB-852: a tube design saved before two identifiers were required (OCD-080) does not print new tube labels and
+    // says how to fix it; nothing is queued. The designer lists the error on it.
+    [Fact]
+    public async Task TubeLabel_RefusedOnADesignWithOneIdentifier()
+    {
+        await using var c = _factory.Create();
+        var specimenId = await SpecimenAsync(c);
+        var oneId = new LabelLayoutDocument
+        {
+            WidthDots = 406, HeightDots = 203,
+            Page1 = [new() { Key = LabelFields.Accession, Barcode = true, X = 10, Y = 100 }, new() { Key = LabelFields.PatientName, X = 10, Y = 10 }]
+        };
+        c.SpecimenLabelDesigns.Add(new SpecimenLabelDesign
+        {
+            Code = "OLD-ONE", Name = "Old one identifier", Purpose = SpecimenLabelPurpose.Tube, WidthDots = 406, HeightDots = 203,
+            DocumentJson = System.Text.Json.JsonSerializer.Serialize(oneId, LabelFields.JsonOptions),
+            IsDefault = true, IsActive = true, Version = 1, CreatedBy = "tech-test", CreatedUtc = _factory.Clock.UtcNow
+        });
+        await c.SaveChangesAsync();
+
+        var printed = await Printing(c).PrintSpecimenLabelAsync(specimenId, new PrintRequest());
+        Assert.False(printed.Succeeded);
+        Assert.Contains("fewer than two patient identifiers", printed.Error);
+        Assert.Contains("Admin › Specimen labels", printed.Error);
+        Assert.False(await c.PrintJobs.AnyAsync());
+        var designId = (await Admin(c).ListAsync()).Single(d => d.Code == "OLD-ONE").Id;
+        Assert.Contains(SpecimenLabelDesignRules.TwoIdentifiersError, (await Admin(c).GetAsync(designId))!.Warnings);
     }
 
     // TEST-BB-825: aliquot labels print one job per aliquot, each "Aliquot n of N" with the parent specimen ID as its

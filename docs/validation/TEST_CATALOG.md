@@ -860,5 +860,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-849 | U | `DashboardQueueCatalogTests.OutageOpen_CardAndNote` | URS-BB-706 / FRS-BB-824 |
 | TEST-BB-850 | U | `ShiftHandoffItemsTests.OutageOpen_IsAnUrgentHandoffItem` | URS-BB-706 / FRS-BB-824 |
 | TEST-BB-851 | I | `ShiftHandoffServiceTests.Create_CountsOutagesStillOpen` | URS-BB-706 / FRS-BB-824 |
+| TEST-BB-852 | I | `SpecimenLabelDesignTests.TubeLabel_RefusedOnADesignWithOneIdentifier` | URS-BB-707 / FRS-BB-825 |
+| TEST-BB-853 | U | `SpecimenLabelDesignRulesTests.Check_TubeNeedsTwoIdentifiers` | URS-BB-707 / FRS-BB-825 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

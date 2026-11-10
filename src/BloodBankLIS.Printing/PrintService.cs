@@ -107,6 +107,14 @@ public sealed class PrintService
                 return OperationResult<PrintJob>.Fail($"Label design {design.Code} could not be read.");
             }
 
+            // OCD-080: a tube design saved before two identifiers were required does not print new labels.
+            if (SpecimenLabelDesignRules.Check(design.Purpose, design.WidthDots, design.HeightDots, designed.Page1).Errors
+                .Contains(SpecimenLabelDesignRules.TwoIdentifiersError))
+            {
+                return OperationResult<PrintJob>.Fail(
+                    $"Label design {design.Code} has fewer than two patient identifiers, so it cannot print tube labels. Add one on Admin › Specimen labels.");
+            }
+
             return await CreateJobAsync(PrintJobType.SpecimenLabel, design.Code, request, model,
                 LabelLayoutComposer.ComposeSpecimen(designed, model), nameof(Specimen), specimen.Id, ct);
         }

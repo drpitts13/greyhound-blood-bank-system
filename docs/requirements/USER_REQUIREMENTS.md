@@ -712,3 +712,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-704 | The shift handoff tells the next shift how many outbound results and charges have not gone out. | P3 | FRS-BB-822 |
 | URS-BB-705 | The blood bank records each outage worked on paper (start, end, what was down), so back-entry after recovery does not depend on anyone remembering the window, and paper times outside it are questioned. | P2 | FRS-BB-823 |
 | URS-BB-706 | An outage left open after the system returns is surfaced on the home screen and the shift handoff until someone ends it. | P2 | FRS-BB-824 |
+| URS-BB-707 | A specimen tube label always carries at least two patient identifiers; a design that does not cannot be saved or print new tube labels (OCD-080). | P1 | FRS-BB-825 |

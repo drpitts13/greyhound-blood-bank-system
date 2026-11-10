@@ -110,7 +110,8 @@ public class SpecimenLabelDesignerTests : BunitContext
     }
 
     // TEST-BB-830: the design is checked as it is laid out: without the specimen ID barcode Save is disabled and the error
-    // shown; turning the barcode on enables Save and leaves the identifier warning (OCD-080) showing.
+    // shown; turning the barcode on clears that error, but a tube label with one patient identifier still cannot be saved
+    // (OCD-080, decided 2026-11-10).
     [Fact]
     public void Design_IsCheckedAsItIsLaidOut()
     {
@@ -122,9 +123,9 @@ public class SpecimenLabelDesignerTests : BunitContext
         page.Find("[data-placed='Accession']").PointerDown(new Microsoft.AspNetCore.Components.Web.PointerEventArgs());
         page.Find("[data-label-canvas]").PointerUp();
         page.Find("[data-selected-barcode]").Change(true);
-        Assert.False(page.Find("[data-save-design]").HasAttribute("disabled"));
         Assert.DoesNotContain("Place the specimen ID as a barcode", page.Find("[data-design-check]").TextContent);
-        Assert.Contains("OCD-080", page.Find("[data-design-check]").TextContent);
+        Assert.Contains(SpecimenLabelDesignRules.TwoIdentifiersError, page.Find("[data-design-check]").TextContent);
+        Assert.True(page.Find("[data-save-design]").HasAttribute("disabled"));
     }
 
     // TEST-BB-834: the designer offers a test print of the layout on the canvas: shown as a PDF here by default, or as

@@ -29,7 +29,8 @@ The middle of the page is the label at scale, with sample data at the size it wi
 The design is checked as you work:
 
 - The specimen ID must be on the label as a barcode, so the tube can be scanned. Without it **Save** stays unavailable.
-- Fewer than two patient identifiers (name, patient ID, date of birth) is a warning. Check it against your laboratory's labeling policy (OCD-080).
+- A tube label must carry at least two patient identifiers: any two of name, patient ID and date of birth. With fewer, **Save** stays unavailable. On an aliquot label, which is often too small, fewer than two is only a warning; add a second if it fits (OCD-080).
+- A tube design saved before two identifiers were required does not print new tube labels: printing says the design has fewer than two patient identifiers and to add one here. Reprints of labels already printed still use the design they were printed with.
 - An aliquot design without the aliquot number warns, because aliquots of one specimen would look alike.
 - A barcode that may run off the edge or the bottom of the label warns.
 - Elements that overlap when printed warn, naming both, and are outlined in red on the canvas until one is moved clear. Text that may run off the right edge warns. These use the sample data shown, so a long patient name can still crowd a line: leave room.

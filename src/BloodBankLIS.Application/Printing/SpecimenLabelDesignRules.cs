@@ -18,10 +18,14 @@ public sealed record SpecimenLabelDesignCheck(IReadOnlyList<string> Errors, IRea
 
 /// <summary>
 /// Rules for specimen label designs (Cycle 657). Layout only: what a design must hold to print and scan, and what to
-/// warn about. Whether a label must carry two patient identifiers is the laboratory's decision (OCD-080), so it warns.
+/// warn about. OCD-080 (decided 2026-11-10): a tube label must carry at least two patient identifiers; an aliquot label,
+/// often too small, only warns, since its barcode is the parent specimen ID.
 /// </summary>
 public static class SpecimenLabelDesignRules
 {
+    public const string TwoIdentifiersError =
+        "Place at least two patient identifiers (name, patient ID, date of birth) on a tube label (OCD-080).";
+
     public const int Dpi = 203;
     public const decimal MinWidthInches = 0.5m;
     public const decimal MaxWidthInches = 4m;
@@ -106,9 +110,13 @@ public static class SpecimenLabelDesignRules
             .Where(k => k is LabelFields.PatientName or LabelFields.Mrn or LabelFields.DateOfBirth)
             .Distinct()
             .Count();
-        if (identifiers < 2)
+        if (identifiers < 2 && purpose == SpecimenLabelPurpose.Tube)
         {
-            warnings.Add("Fewer than two patient identifiers (name, patient ID, date of birth) are on the label. Check this against your laboratory's labeling policy (OCD-080).");
+            errors.Add(TwoIdentifiersError);
+        }
+        else if (identifiers < 2)
+        {
+            warnings.Add("Fewer than two patient identifiers (name, patient ID, date of birth) are on this aliquot label. Add a second if it fits (OCD-080).");
         }
 
         if (purpose == SpecimenLabelPurpose.Aliquot && fields.All(f => f.Key != LabelFields.AliquotNumber))

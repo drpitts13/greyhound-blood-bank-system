@@ -27,7 +27,27 @@ public class SpecimenLabelDesignRulesTests
         Assert.False(bad.Ok);
     }
 
-    // TEST-BB-817: fewer than two patient identifiers warns (OCD-080), as do an aliquot design without the aliquot number
+    // TEST-BB-853: OCD-080 (decided 2026-11-10): fewer than two patient identifiers is an error on a tube design and a
+    // warning on an aliquot design; any two of name, patient ID and date of birth will do.
+    [Fact]
+    public void Check_TubeNeedsTwoIdentifiers()
+    {
+        var tube = SpecimenLabelDesignRules.Check(SpecimenLabelPurpose.Tube, 406, 203,
+            [F(LabelFields.Accession, y: 100, barcode: true, font: 40), F(LabelFields.PatientName)]);
+        Assert.Contains(SpecimenLabelDesignRules.TwoIdentifiersError, tube.Errors);
+        Assert.False(tube.Ok);
+
+        var nameAndDob = SpecimenLabelDesignRules.Check(SpecimenLabelPurpose.Tube, 406, 203,
+            [F(LabelFields.Accession, y: 100, barcode: true, font: 40), F(LabelFields.PatientName), F(LabelFields.DateOfBirth, y: 50)]);
+        Assert.DoesNotContain(SpecimenLabelDesignRules.TwoIdentifiersError, nameAndDob.Errors);
+
+        var aliquot = SpecimenLabelDesignRules.Check(SpecimenLabelPurpose.Aliquot, 305, 102,
+            [F(LabelFields.Accession, x: 6, y: 40, barcode: true, font: 40, module: 1), F(LabelFields.PatientName), F(LabelFields.AliquotNumber, x: 200)]);
+        Assert.True(aliquot.Ok);
+        Assert.Contains(aliquot.Warnings, w => w.Contains("Fewer than two patient identifiers") && w.Contains("aliquot"));
+    }
+
+    // TEST-BB-817: fewer than two patient identifiers warns on an aliquot design (OCD-080), as do an aliquot design without the aliquot number
     // and a barcode that will not fit across or down the label; a complete design has neither errors nor warnings.
     [Fact]
     public void Check_WarnsAboutIdentifiersAliquotNumberAndBarcodeFit()
