@@ -230,6 +230,10 @@ public static class Hl7Endpoints
             EndpointResults.Created(await service.QueueResultMessageAsync(resultId, ct),
                 m => ($"/api/hl7/messages/{m.Id}", (object)Hl7MessageDto.From(m))));
 
+        // Outbound results and charges still waiting to go, with why (Cycle 660).
+        group.MapGet("/outbound/waiting", async (Hl7OutboundSender sender, CancellationToken ct) =>
+            Results.Ok(await sender.ListWaitingAsync(ct)));
+
         group.MapPost("/messages/{id:long}/send", async (long id, Hl7OutboundSender sender, CancellationToken ct) =>
             EndpointResults.From(await sender.SendOneAsync(id, ct), m => Hl7MessageDto.From(m)));
 

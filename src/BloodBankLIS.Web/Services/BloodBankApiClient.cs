@@ -809,6 +809,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<Hl7ReplayVm>> ReplayHl7Async(long id, CancellationToken ct = default) =>
         SendAsync<Hl7ReplayVm>(HttpMethod.Post, $"api/hl7/messages/{id}/replay", ct: ct);
 
+    public Task<ApiResult<List<Hl7OutboundWaitingVm>>> GetHl7OutboundWaitingAsync(CancellationToken ct = default) =>
+        SendAsync<List<Hl7OutboundWaitingVm>>(HttpMethod.Get, "api/hl7/outbound/waiting", ct: ct);
+
     public Task<ApiResult<List<Hl7ErrorVm>>> GetHl7ErrorsAsync(CancellationToken ct = default) =>
         SendAsync<List<Hl7ErrorVm>>(HttpMethod.Get, "api/hl7/errors", ct: ct);
 

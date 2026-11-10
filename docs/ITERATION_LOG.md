@@ -20314,3 +20314,35 @@ Walking the designer in Cycle 657, an added "Collected by" sat on top of the spe
 ### Next
 
 - Back to the capability matrix: the HL7 interface error queue (retry and resolve) for remembered or retyped information.
+
+## Iteration 660 — Outbound messages that have not gone (2026-11-10)
+
+### Capability matrix rescan (interoperability: retry and error management)
+
+The HL7 error queue was empty, but the message log held seven outbound DFT charges from Nov 3–6 still "Received", unacknowledged, each with a Send button. The sender polls every 15 seconds; with no enabled outbound interface (or with retries spent) a message waits forever, and since nothing errored it never reached the error queue, the home card, or the handoff. In production that is results the EHR never got or charges billing never saw, with no one told. "Received" was also the wrong word for something waiting to go out.
+
+### Design
+
+- `OutboundMessageWaitRule`: why a message waits (no enabled interface that can send; retries spent; last send failed, retried; queued) and stuck after 15 minutes.
+- `Hl7OutboundSender.ListWaitingAsync` (`GET /api/hl7/outbound/waiting`): outbound messages Received or Errored, oldest first, with reason and stuck flag; a charge withheld because it was cancelled is excluded, as the sender skips it.
+- HL7 page: **Waiting to send** card (reason, age marked when stuck, Send, View); the log reads **Queued** for an outbound message not yet sent.
+- Home card **HL7 outbound not sent** (hl7.manage, Supervisor desk): count stuck, note the oldest and how many wait for an interface or have spent retries; always under Needs attention when non-zero.
+
+### Verification
+
+- Integration: without an interface, queued and failed messages wait for one, oldest first, stuck past 15 minutes; acknowledged, inbound and withheld messages excluded; with an interface each reason is right; a disabled interface counts as none.
+- Unit: the card's permission, desk and note.
+- Rendered: the waiting card with reasons and the stuck mark; Queued in the log for outbound, Received for inbound.
+- Live (read-only; nothing sent): the HL7 page shows "Waiting to send (7)", the seven DFT charges aged 3–7 days, each "No enabled outbound interface is set up to send it."; the log reads Queued for all seven; the home screen shows "HL7 outbound not sent 7 · oldest 7 d; 7 with no interface set up" under Needs attention. No server errors.
+
+### Requirements
+
+- URS-BB-703, FRS-BB-821.
+
+### Tests
+
+- TEST-BB-837 to TEST-BB-840.
+
+### Next
+
+- Count stuck outbound messages on the shift handoff, as the error queue is.

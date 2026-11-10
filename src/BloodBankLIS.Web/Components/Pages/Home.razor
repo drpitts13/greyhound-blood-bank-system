@@ -491,6 +491,17 @@
 
                 return (card.Key, result.Value.Count, DashboardQueueCatalog.OldestWaitingNote(result.Value.Select(e => e.QueuedUtc), DateTime.UtcNow));
             }
+            case DashboardQueueCatalog.Hl7OutboundWaiting:
+            {
+                var result = await Api.GetHl7OutboundWaitingAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var stuck = result.Value.Where(w => w.Stuck).Select(w => (w.QueuedUtc, w.Reason)).ToList();
+                return (card.Key, stuck.Count, DashboardQueueCatalog.OutboundWaitingNote(stuck, DateTime.UtcNow));
+            }
             case DashboardQueueCatalog.OpenRhig:
             {
                 var result = await Api.GetOpenRhigEvaluationsAsync();

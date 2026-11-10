@@ -355,6 +355,24 @@ public class DashboardQueueCatalogTests
             DashboardQueueCatalog.AntibodyWorkupsNote(attention));
     }
 
+    // TEST-BB-839: the HL7 outbound card is for HL7 managers, on the Supervisor desk; its note names the oldest stuck
+    // message's wait and how many wait for an interface or have spent their retries; nothing stuck, no note.
+    [Fact]
+    public void Hl7OutboundWaiting_CardAndNote()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.Hl7Manage)),
+            c => c.Key == DashboardQueueCatalog.Hl7OutboundWaiting && c.Href == "/hl7" && c.Label == "HL7 outbound not sent");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultVerify)), c => c.Key == DashboardQueueCatalog.Hl7OutboundWaiting);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.Hl7OutboundWaiting, WorkFocus.Supervisor));
+
+        var now = new DateTime(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc);
+        var spent = OutboundMessageWaitRule.Reason(true, true, 5, 5);
+        Assert.Equal("oldest 3 d; 2 with no interface set up; 1 with retries spent",
+            DashboardQueueCatalog.OutboundWaitingNote(
+                [(now.AddDays(-3), OutboundMessageWaitRule.NoInterface), (now.AddHours(-1), OutboundMessageWaitRule.NoInterface), (now.AddHours(-2), spent)], now));
+        Assert.Null(DashboardQueueCatalog.OutboundWaitingNote([], now));
+    }
+
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
 

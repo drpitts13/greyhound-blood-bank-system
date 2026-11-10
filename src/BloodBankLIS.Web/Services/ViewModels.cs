@@ -6,6 +6,17 @@ namespace BloodBankLIS.Web.Services;
 // View models for API responses whose source records live in the Api/Printing projects
 // (not referenced by the UI). Shapes mirror the JSON the API emits.
 
+/// <summary>An outbound message not yet acknowledged, with why it has not gone (Cycle 660).</summary>
+public sealed record Hl7OutboundWaitingVm(
+    long Id,
+    string MessageType,
+    string ControlId,
+    DateTime QueuedUtc,
+    int RetryCount,
+    int MaxRetries,
+    string Reason,
+    bool Stuck);
+
 public sealed record Hl7MessageVm(
     long Id,
     Hl7Direction Direction,

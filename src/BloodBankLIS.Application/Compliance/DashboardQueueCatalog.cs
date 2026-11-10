@@ -44,6 +44,7 @@ public static class DashboardQueueCatalog
     public const string Unidentified = "unidentified-patients";
     public const string BloodOrders = "blood-orders";
     public const string AntibodyWorkups = "antibody-workups";
+    public const string Hl7OutboundWaiting = "hl7-outbound";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -88,6 +89,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.InventoryDiscard), ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired");
         Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments?show=open");
         Add(cards, has(PermissionCodes.Hl7Manage), Hl7Errors, "HL7 errors", "/hl7");
+        // Results and charges that have not gone out and will not by themselves (Cycle 660): never an error, so not above.
+        Add(cards, has(PermissionCodes.Hl7Manage), Hl7OutboundWaiting, "HL7 outbound not sent", "/hl7");
         // Values an interface sent or received that no translation covered: whoever keeps the translation table fixes them.
         Add(cards, has(PermissionCodes.AdminHl7Manage) || has(PermissionCodes.AdminInstrumentsManage), UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
         Add(cards, has(PermissionCodes.DeviationManage), Deviations, "Open deviations", "/deviations");
@@ -202,6 +205,27 @@ public static class DashboardQueueCatalog
             AttentionNote(summary.LotAttentionCount, "on a withdrawn or expired lot", "on a withdrawn or expired lot")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
+    /// <summary>
+    /// The HL7 outbound card note: how long the oldest stuck message has waited, and how many wait for an interface or
+    /// have spent their retries. Any stuck message is worth attention: a result or charge is not reaching its system.
+    /// </summary>
+    public static string? OutboundWaitingNote(IReadOnlyCollection<(DateTime QueuedUtc, string Reason)> stuck, DateTime nowUtc)
+    {
+        if (stuck.Count == 0)
+        {
+            return null;
+        }
+
+        var oldest = $"oldest {AlertInboxView.OpenFor(stuck.Min(s => s.QueuedUtc), nowUtc)}";
+        var parts = new[]
+        {
+            oldest,
+            AttentionNote(stuck.Count(s => s.Reason == OutboundMessageWaitRule.NoInterface), "with no interface set up", "with no interface set up"),
+            AttentionNote(stuck.Count(s => s.Reason.Contains(OutboundMessageWaitRule.RetriesSpent, StringComparison.Ordinal)), "with retries spent", "with retries spent")
+        }.Where(p => p is not null).ToList();
+        return string.Join("; ", parts);
     }
 
     public static string? AttentionNote(int count, string singular, string plural)

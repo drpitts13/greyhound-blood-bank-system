@@ -138,6 +138,44 @@
     }
 </div>
 
+@* Results and charges that have not gone out: none of them is an error, so they never reached the error queue (Cycle 660). *@
+@if (_waiting.Count > 0)
+{
+    <div class="bb-card" data-outbound-waiting>
+        <div class="bb-card-title"><h3>Waiting to send (@_waiting.Count)</h3></div>
+        <p class="muted">Outbound messages not yet acknowledged. Those waiting longer than @((int)OutboundMessageWaitRule.StuckAfter.TotalMinutes) minutes will not go by themselves.</p>
+        <div class="table-scroll">
+        <table class="bb">
+            <thead><tr><th>Message</th><th>Control id</th><th>Waiting</th><th>Why</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var w in _waiting)
+                {
+                    <tr data-waiting="@w.Id">
+                        <td>@w.MessageType</td>
+                        <td class="mono">@w.ControlId</td>
+                        <td class="nowrap" title="@w.QueuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")">
+                            @if (w.Stuck)
+                            {
+                                <span class="badge badge-amber">@AlertInboxView.OpenFor(w.QueuedUtc, DateTime.UtcNow)</span>
+                            }
+                            else
+                            {
+                                @AlertInboxView.OpenFor(w.QueuedUtc, DateTime.UtcNow)
+                            }
+                        </td>
+                        <td>@w.Reason</td>
+                        <td class="right">
+                            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(w.Id)">Send</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(w.Id)">View</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </div>
+}
+
 <div class="bb-card">
     <div class="bb-card-title"><h3>Submit inbound message</h3></div>
     @if (_ackFb is not null)
@@ -200,7 +238,8 @@
                         <td class="mono">@FormatContext(m.PlacerOrderNumber, m.TestCode, m.UnitNumber)</td>
                         <td class="mono">@m.MessageControlId</td>
                         <td class="nowrap">@m.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td><span class="@Ui.Badge(m.Status)">@Ui.EnumText(m.Status)</span></td>
+                        @* An outbound message the LIS has written but not yet sent is queued, not received. *@
+                        <td><span class="@Ui.Badge(m.Status)">@(m.Direction == Hl7Direction.Outbound && m.Status == Hl7MessageStatus.Received ? "Queued" : Ui.EnumText(m.Status))</span></td>
                         <td class="mono">@m.AckCode</td>
                         <td class="right nowrap">
                             @if (m.PatientId is long logChartId)
@@ -309,6 +348,8 @@
         var errors = await Api.GetHl7ErrorsAsync();
         _messages = messages.Value ?? new();
         _errors = errors.Value ?? new();
+        var waiting = await Api.GetHl7OutboundWaitingAsync();
+        _waiting = waiting.Value ?? new();
         var resolved = await Api.GetResolvedHl7ErrorsAsync();
         _resolvedErrors = resolved.Value ?? new();
         // A refused or failed load must not look like an empty log.
@@ -387,6 +428,8 @@
         var text = string.Join(" · ", parts);
         return string.IsNullOrEmpty(text) ? "—" : text;
     }
+
+    private List<Hl7OutboundWaitingVm> _waiting = new();
 
     private async Task SendAsync(long id)
     {
