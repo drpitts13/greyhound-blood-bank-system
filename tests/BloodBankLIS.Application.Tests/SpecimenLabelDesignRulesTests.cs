@@ -95,4 +95,37 @@ public class SpecimenLabelDesignRulesTests
         Assert.Equal((297, 0, false, 120, 4), (fields[0].X, fields[0].Y, fields[0].Barcode, fields[0].FontHeight, fields[0].ModuleWidth));
         Assert.Equal("Keep cold", fields[1].StaticText);
     }
+
+    // TEST-BB-835: elements whose estimated printed boxes overlap warn, naming both (the barcode by name, static text by
+    // its words); text that may run off the right edge with typical data warns; elements side by side, or touching
+    // within the tolerance, do not.
+    [Fact]
+    public void Check_WarnsAboutOverlapsAndTextOffTheEdge()
+    {
+        var clash = SpecimenLabelDesignRules.Check(SpecimenLabelPurpose.Tube, 406, 203,
+        [
+            F(LabelFields.Accession, x: 10, y: 112, barcode: true, font: 40),
+            F(LabelFields.PatientName, x: 10, y: 10, font: 28),
+            F(LabelFields.Mrn, x: 20, y: 20, font: 28),
+            F(LabelFields.StaticText, x: 30, y: 130, font: 20, text: "KEEP COLD")
+        ]);
+        Assert.Contains("Patient name and Patient ID overlap. Move one of them.", clash.Warnings);
+        Assert.Contains("The Specimen ID barcode and \"KEEP COLD\" overlap. Move one of them.", clash.Warnings);
+        Assert.Equal([(0, 3), (1, 2)], SpecimenLabelDesignRules.Overlaps(
+        [
+            F(LabelFields.Accession, x: 10, y: 112, barcode: true, font: 40),
+            F(LabelFields.PatientName, x: 10, y: 10, font: 28),
+            F(LabelFields.Mrn, x: 20, y: 20, font: 28),
+            F(LabelFields.StaticText, x: 30, y: 130, font: 20, text: "KEEP COLD")
+        ]).OrderBy(p => p.A).ToArray());
+
+        var offEdge = SpecimenLabelDesignRules.Check(SpecimenLabelPurpose.Tube, 406, 203,
+            [F(LabelFields.Accession, barcode: true, y: 100, font: 40), F(LabelFields.Collected, x: 300, y: 10), F(LabelFields.PatientName, y: 40), F(LabelFields.Mrn, y: 70)]);
+        Assert.Contains("Collection time may run off the right edge with typical data. Move it left or use a smaller font.", offEdge.Warnings);
+
+        // Side by side on one line, and one under the other touching within the tolerance: no warning.
+        Assert.Empty(SpecimenLabelDesignRules.Overlaps([F(LabelFields.Mrn, x: 10, y: 48, font: 28), F(LabelFields.DateOfBirth, x: 220, y: 48, font: 28)]));
+        Assert.Empty(SpecimenLabelDesignRules.Overlaps([F(LabelFields.PatientName, x: 10, y: 10, font: 30), F(LabelFields.Mrn, x: 10, y: 34, font: 28)]));
+    }
+
 }

@@ -813,6 +813,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-699 / FRS-BB-817 | Specimen label designer page and shared canvas | `AdminSpecimenLabels.razor`; `LabelCanvasEditor.razor`; `LabelLayoutDesigner.razor`; `LabelLayoutModel.cs` | TEST-BB-827 to TEST-BB-830 | U | OCD-080 |
 | URS-BB-700 / FRS-BB-818 | Printing on a design; aliquot labels | `PrintService.cs`; `LabelLayoutComposer.cs`; `ZplLabelRenderer.cs`; `PdfLabelRenderer.cs`; `PrintEndpoints.cs`; `Printing.razor` | TEST-BB-824, TEST-BB-825, TEST-BB-831 | I, U | |
 | URS-BB-701 / FRS-BB-819 | Test print from the label designer | `SpecimenLabelTestPrintService.cs`; `AdminEndpoints.cs`; `AdminSpecimenLabels.razor` | TEST-BB-832, TEST-BB-833, TEST-BB-834 | I, U | |
+| URS-BB-702 / FRS-BB-820 | Overlap and right-edge warnings in the label designer | `SpecimenLabelDesignRules.cs`; `LabelCanvasEditor.razor` | TEST-BB-835, TEST-BB-836 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

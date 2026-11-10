@@ -160,6 +160,28 @@ public class SpecimenLabelDesignerTests : BunitContext
         Assert.True(page.Find("[data-test-print-button]").HasAttribute("disabled"));
     }
 
+    // TEST-BB-836: overlapping elements are outlined on the canvas and named in the check; moving one clear removes both.
+    [Fact]
+    public void Overlap_IsOutlinedUntilMovedClear()
+    {
+        var page = OpenDesign(Design(SpecimenLabelPurpose.Tube,
+        [
+            new() { Key = LabelFields.Accession, X = 6, Y = 50, FontHeight = 40, Barcode = true, ModuleWidth = 1, BarcodeText = false },
+            new() { Key = LabelFields.PatientName, X = 6, Y = 2, FontHeight = 17 },
+            new() { Key = LabelFields.Mrn, X = 10, Y = 6, FontHeight = 17 }
+        ]));
+        Assert.Contains("overlap", page.Find("[data-placed='PatientName']").ClassName);
+        Assert.Contains("overlap", page.Find("[data-placed='Mrn']").ClassName);
+        Assert.DoesNotContain("overlap", page.Find("[data-placed='Accession']").ClassName);
+        Assert.Contains("Patient name and Patient ID overlap", page.Find("[data-design-check]").TextContent);
+
+        page.Find("[data-placed='Mrn']").PointerDown(new Microsoft.AspNetCore.Components.Web.PointerEventArgs());
+        page.Find("[data-label-canvas]").PointerUp();
+        page.Find("[data-selected-y]").Change("24");
+        Assert.DoesNotContain("overlap", page.Find("[data-placed='Mrn']").ClassName);
+        Assert.DoesNotContain("overlap", page.FindAll("[data-design-check]").FirstOrDefault()?.TextContent ?? string.Empty);
+    }
+
     // TEST-BB-831: the Printing page offers the active designs, the default tube design first chosen; choosing an aliquot
     // design asks how many and says so on the button.
     [Fact]

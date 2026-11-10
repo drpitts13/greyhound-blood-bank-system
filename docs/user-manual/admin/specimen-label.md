@@ -32,6 +32,7 @@ The design is checked as you work:
 - Fewer than two patient identifiers (name, patient ID, date of birth) is a warning. Check it against your laboratory's labeling policy (OCD-080).
 - An aliquot design without the aliquot number warns, because aliquots of one specimen would look alike.
 - A barcode that may run off the edge or the bottom of the label warns.
+- Elements that overlap when printed warn, naming both, and are outlined in red on the canvas until one is moved clear. Text that may run off the right edge warns. These use the sample data shown, so a long patient name can still crowd a line: leave room.
 
 **Save** records a new version. Each save, default change, activation, and deactivation is audited with the before and after, and the design's history is listed below the canvas.
 

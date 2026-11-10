@@ -20283,3 +20283,34 @@ A test label stuck on a tube by mistake would identify no patient and scan to no
 ### Next
 
 - Warn on overlapping elements in the designer (text width estimated from font size), seen in Cycle 657's walk.
+
+## Iteration 659 — The label designer warns about overlaps (2026-11-10)
+
+### Capability matrix rescan (administration: label design)
+
+Walking the designer in Cycle 657, an added "Collected by" sat on top of the specimen ID text. The canvas showed it, but nothing said so, and on a 0.5 in label two lines a few dots apart are easy to miss on screen and unreadable on the label.
+
+### Design
+
+- `SpecimenLabelDesignRules.Box` estimates what each element takes when printed: a barcode by its Code 128 width and its height (plus digits); text by its sample length × font height × 0.45 (ZPL font 0 is condensed).
+- `Overlaps` lists pairs overlapping by more than 8 dots both ways. The check warns "{a} and {b} overlap. Move one of them." (a barcode by name, static text by its words) and "{element} may run off the right edge with typical data."
+- The canvas outlines overlapping elements in red until one is moved clear.
+- Warnings only: the estimate uses sample data, and real names vary. The built-in tube layout and the starters stay free of warnings.
+
+### Verification
+
+- Unit: overlaps named both ways, the barcode and static text described, the right-edge warning; side-by-side and touching-within-tolerance elements do not warn; defaults and starters unchanged (existing tests).
+- Rendered: two overlapping lines outlined and named; moving one clear removes the outline and the warning.
+- Live (nothing saved): ALIQ-STD opens with no overlaps and no warnings; adding "Collected by" (placed at y 82) outlines it and the specimen ID text in red and says "Specimen ID and Collected by overlap. Move one of them."; moving it to x 152 clears both. No server errors.
+
+### Requirements
+
+- URS-BB-702, FRS-BB-820.
+
+### Tests
+
+- TEST-BB-835, TEST-BB-836.
+
+### Next
+
+- Back to the capability matrix: the HL7 interface error queue (retry and resolve) for remembered or retyped information.

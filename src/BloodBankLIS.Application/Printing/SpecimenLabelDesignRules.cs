@@ -130,8 +130,65 @@ public static class SpecimenLabelDesignRules
             }
         }
 
+        // Text estimated from sample data: real names and locations vary, so these warn and never stop a save.
+        foreach (var text in fields.Where(f => !f.Barcode))
+        {
+            var box = Box(text);
+            if (box.X + box.Width - Tolerance > widthDots)
+            {
+                warnings.Add($"{LabelFields.Caption(text.Key)} may run off the right edge with typical data. Move it left or use a smaller font.");
+            }
+        }
+
+        foreach (var (a, b) in Overlaps(fields))
+        {
+            warnings.Add($"{Describe(fields[a])} and {Describe(fields[b])} overlap. Move one of them.");
+        }
+
         return new SpecimenLabelDesignCheck(errors.Distinct().ToList(), warnings.Distinct().ToList());
     }
+
+    /// <summary>Overlaps and edges smaller than this many dots are ignored: the estimates are not that exact.</summary>
+    public const int Tolerance = 8;
+
+    /// <summary>
+    /// Average character width of the label font as a share of its height: ZPL font 0 is a condensed face, about 0.45.
+    /// </summary>
+    public const double CharWidthRatio = 0.45;
+
+    /// <summary>The space an element is estimated to take when printed, in dots.</summary>
+    public readonly record struct ElementBox(int X, int Y, int Width, int Height);
+
+    public static ElementBox Box(PlacedLabelField field) => field.Barcode
+        ? new ElementBox(field.X, field.Y, EstimateBarcodeWidth(SampleBarcodeLength, field.ModuleWidth),
+            Math.Max(field.FontHeight, MinBarcodeHeight) + (field.BarcodeText ? BarcodeTextHeight : 0))
+        : new ElementBox(field.X, field.Y, (int)Math.Ceiling(LabelFields.Sample(field).Length * field.FontHeight * CharWidthRatio), field.FontHeight);
+
+    /// <summary>Pairs of elements (by index) whose estimated boxes overlap by more than the tolerance both ways.</summary>
+    public static IReadOnlyList<(int A, int B)> Overlaps(IReadOnlyList<PlacedLabelField> fields)
+    {
+        var boxes = fields.Select(Box).ToList();
+        var pairs = new List<(int, int)>();
+        for (var a = 0; a < boxes.Count; a++)
+        {
+            for (var b = a + 1; b < boxes.Count; b++)
+            {
+                var across = Math.Min(boxes[a].X + boxes[a].Width, boxes[b].X + boxes[b].Width) - Math.Max(boxes[a].X, boxes[b].X);
+                var down = Math.Min(boxes[a].Y + boxes[a].Height, boxes[b].Y + boxes[b].Height) - Math.Max(boxes[a].Y, boxes[b].Y);
+                if (across > Tolerance && down > Tolerance)
+                {
+                    pairs.Add((a, b));
+                }
+            }
+        }
+
+        return pairs;
+    }
+
+    private static string Describe(PlacedLabelField field) =>
+        field.Barcode ? $"The {LabelFields.Caption(field.Key)} barcode"
+            : field.Key == LabelFields.StaticText ? $"\"{LabelFields.Sample(field)}\""
+            : LabelFields.Caption(field.Key);
 
     /// <summary>Keeps every element on the label and within the printable ranges.</summary>
     public static void Normalize(int widthDots, int heightDots, List<PlacedLabelField> fields)

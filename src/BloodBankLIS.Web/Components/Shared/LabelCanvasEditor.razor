@@ -26,13 +26,15 @@
              @onkeydown="OnKey"
              @ondragover:preventDefault
              @ondrop="Drop">
+            @{ var overlapping = Overlapping; }
             @for (var i = 0; i < Fields.Count; i++)
             {
                 var field = Fields[i];
                 var index = i;
+                var clash = overlapping.Contains(index) ? "overlap" : null;
                 if (SampleData && field.Barcode)
                 {
-                    <button type="button" class="placed barcode @(index == _selected ? "selected" : null)" data-placed="@field.Key"
+                    <button type="button" class="placed barcode @(index == _selected ? "selected" : null) @clash" data-placed="@field.Key"
                             title="@LabelFields.Caption(field.Key) barcode, about @SpecimenLabelDesignRules.InchesText(BarcodeWidth(field)) in wide"
                             style="left:@Px(field.X)px;top:@Px(field.Y)px;width:@Px(BarcodeWidth(field))px;height:@Px(BarcodeHeight(field))px;"
                             @onpointerdown="e => BeginMove(index, e)"
@@ -46,7 +48,7 @@
                 }
                 else
                 {
-                    <button type="button" class="placed @(index == _selected ? "selected" : null)" data-placed="@field.Key"
+                    <button type="button" class="placed @(index == _selected ? "selected" : null) @clash" data-placed="@field.Key"
                             style="left:@Px(field.X)px;top:@Px(field.Y)px;font-weight:@(field.Bold ? "700" : "500");@(SampleData ? $"font-size:{Math.Max(6, field.FontHeight * Scale * 0.8):0.#}px;" : null)"
                             @onpointerdown="e => BeginMove(index, e)"
                             @onpointerdown:stopPropagation>
@@ -136,6 +138,11 @@
     private double _startClientY;
     private int _startX;
     private int _startY;
+
+    // Elements whose estimated printed boxes overlap another's (the specimen designer only), outlined in red.
+    private HashSet<int> Overlapping => SampleData
+        ? SpecimenLabelDesignRules.Overlaps(Fields).SelectMany(p => new[] { p.A, p.B }).ToHashSet()
+        : [];
 
     private PlacedLabelField? Selected =>
         _selected is int i && i >= 0 && i < Fields.Count ? Fields[i] : null;
@@ -300,6 +307,7 @@
     .canvas-wrap:focus-visible { box-shadow: 0 0 0 3px rgba(29, 78, 137, .35); }
     .placed { position: absolute; background: rgba(255,255,255,.92); border: 1px dashed #8aa; padding: 0 3px; font-size: 12px; line-height: 1.05; cursor: grab; max-width: 98%; white-space: nowrap; overflow: hidden; }
     .placed.selected { border: 2px solid #1d4e89; background: #f3f7fb; }
+    .placed.overlap { border: 2px solid var(--bb-stop); }
     .placed.barcode { display: flex; flex-direction: column; padding: 0; max-width: none; background: #fff; }
     .placed.barcode .bars { flex: 1; background: repeating-linear-gradient(90deg, #111 0 2px, #fff 2px 3px, #111 3px 4px, #fff 4px 6px); }
     .placed.barcode .digits { font-size: 10px; text-align: center; }
