@@ -20575,3 +20575,36 @@ OCD-068 was decided on 2026-11-10 (option C). A product thawed in place got its 
 ### Next
 
 - OCD-072 option B: a shipment to another facility records the container, packing temperature, packer and receiving contact.
+
+## Iteration 668 — Shipment packing details (OCD-072 decided) (2026-11-10)
+
+### Capability matrix rescan (blood products: transfers)
+
+OCD-072 was decided on 2026-11-10 (option B). Shipping units to another facility recorded the facility and an optional reference, but not how the blood travelled or who to call: the container, the temperature at packing, who packed it and the receiving contact.
+
+### Design
+
+- `ShipOutRule.EvaluateDetails` (`INV-SHIP-DETAILS`): all four required; the message names every one missing in one sentence; a temperature outside -50 to 50 °C is a typing slip; length limits.
+- Kept on each shipped unit (`ShipContainer`, `ShipPackingTemperatureC`, `ShipPackedBy`, `ShipReceivingContact`; migration `20261229000000_ShipmentPackingDetails`, dev bootstrap) and in the ship-out audit; Recent shipments shows them per shipment (*Not recorded* for older ones).
+- Ship units page: entered once per shipment and kept across scans (question 2); the packer starts as the user and the container offers the active transport containers (question 3); the scan field waits until all are filled, so no unit is refused mid-run for a missing detail.
+- Demo shipment SHIP-DEMO-01 carries the details (filled once on an existing dev database).
+- Which units may ship and who may ship are unchanged (options C and D not chosen).
+
+### Verification
+
+- Unit: all present passes; each missing one named; implausible temperature and over-long text refused.
+- Integration: nothing ships without the details (unit stays Available); recorded on the unit, the audit and the listed shipment.
+- Rendered: the scan field waits for all five shipment fields.
+- Live (read-only; nothing shipped): the API added the columns and filled the demo shipment once; Ship units shows SHIP-DEMO-01 as "COOLER-12, 4.0 °C, packed by tech1, Receiving: St. Mary's blood bank, 555-0142"; Packed by starts as the signed-in user, the container list offers DEMO-COOLER, and the scan field waits for the shipment details. No server errors.
+
+### Requirements
+
+- URS-BB-711, FRS-BB-829; OCD-072 decided.
+
+### Tests
+
+- TEST-BB-859, TEST-BB-860, TEST-BB-861.
+
+### Next
+
+- OCD-073 option C: antibodies reported by another facility are flagged unconfirmed with a confirmation task, and the report must be documented.

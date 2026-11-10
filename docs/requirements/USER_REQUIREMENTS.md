@@ -716,3 +716,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-708 | A downtime back-entry dated outside every recorded outage is entered only with a reason, kept with the issue (OCD-081). | P2 | FRS-BB-826 |
 | URS-BB-709 | Issuing or starting another unit while the patient's transfusion reaction is under investigation needs an override with the reason and who authorized it, reviewed later (OCD-078). | P1 | FRS-BB-827 |
 | URS-BB-710 | A product thawed in an open system, or a pooled product, expires by its own thawed shelf life, and is not thawed until that shelf life is set (OCD-068). | P1 | FRS-BB-828 |
+| URS-BB-711 | A shipment of units to another facility records the container, the packing temperature, who packed it and who receives it (OCD-072). | P2 | FRS-BB-829 |

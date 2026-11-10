@@ -12,8 +12,8 @@
     </div>
 </div>
 <p class="muted">
-    Pack an outbound shipment (stock balancing, a patient transferred with blood): name the receiving facility and the
-    shipment reference once, then scan each unit. Each scan ships that unit at once and leaves your inventory; the unit keeps
+    Pack an outbound shipment (stock balancing, a patient transferred with blood): name the receiving facility, the
+    container, the packing temperature, who packed it and the receiving contact once, then scan each unit. Each scan ships that unit at once and leaves your inventory; the unit keeps
     the facility, so a recall or lookback names who to notify. Only an unreserved, unexpired unit in stock ships; anything
     else is refused with its reason. <strong>Print packing list</strong> prints the units shipped in this run.
 </p>
@@ -40,10 +40,37 @@ else
                 <label>Shipment reference (optional)</label>
                 <input @bind="_reference" maxlength="@ShipOutRule.MaxReferenceLength" placeholder="Packing list or courier number" data-ship-reference />
             </div>
+        </div>
+        @* OCD-072 (decided 2026-11-10): recorded once for the shipment, kept on every unit scanned into it. *@
+        <div class="form-row" style="align-items:flex-end;" data-ship-details>
+            <div class="field">
+                <label>Container</label>
+                <input @bind="_container" @bind:event="oninput" maxlength="@ShipOutRule.MaxContainerLength" list="ship-containers" placeholder="Cooler or box ID" data-ship-container />
+                <datalist id="ship-containers">
+                    @foreach (var c in _containers)
+                    {
+                        <option value="@c"></option>
+                    }
+                </datalist>
+            </div>
+            <div class="field">
+                <label>Packing temperature (°C)</label>
+                <input type="number" step="0.1" min="@ShipOutRule.MinTemperatureC" max="@ShipOutRule.MaxTemperatureC" @bind="_temperatureC" @bind:event="oninput" style="width:7rem;" data-ship-temperature />
+            </div>
+            <div class="field">
+                <label>Packed by</label>
+                <input @bind="_packedBy" @bind:event="oninput" maxlength="@ShipOutRule.MaxPackedByLength" data-ship-packed-by />
+            </div>
+            <div class="field" style="flex:2;">
+                <label>Receiving contact</label>
+                <input @bind="_receivingContact" @bind:event="oninput" maxlength="@ShipOutRule.MaxContactLength" placeholder="Name and phone at the receiving blood bank" data-ship-contact />
+            </div>
+        </div>
+        <div class="form-row" style="align-items:flex-end;">
             <div class="field">
                 <label>Scan unit number</label>
-                <input @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" disabled="@string.IsNullOrWhiteSpace(_facility)"
-                       placeholder="@(string.IsNullOrWhiteSpace(_facility) ? "Name the facility first" : "Scan, then the next")" autocomplete="off" data-ship-scan />
+                <input @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" disabled="@(!ReadyToScan)"
+                       placeholder="@(ReadyToScan ? "Scan, then the next" : "Fill in the shipment above first")" autocomplete="off" data-ship-scan />
             </div>
         </div>
         <div class="field">
@@ -95,7 +122,7 @@ else
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Facility</th><th>Reference</th><th>Shipped</th><th>Units</th><th></th></tr></thead>
+                <thead><tr><th>Facility</th><th>Reference</th><th>Shipped</th><th>Packing</th><th>Units</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var s in _shipments)
                     {
@@ -104,13 +131,24 @@ else
                             <td>@s.Facility</td>
                             <td class="mono">@(s.Reference ?? "—")</td>
                             <td class="nowrap">@s.FirstShippedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td data-shipment-packing>
+                                @if (s.Container is not null)
+                                {
+                                    @($"{s.Container}, {s.PackingTemperatureC} °C, packed by {s.PackedBy}")
+                                    <span class="sub">Receiving: @s.ReceivingContact</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">Not recorded</span>
+                                }
+                            </td>
                             <td>@s.Units.Count</td>
                             <td class="right"><button type="button" class="btn btn-ghost btn-sm" @onclick="() => ToggleShipment(key)">@(_openShipment == key ? "Hide" : "Units")</button></td>
                         </tr>
                         @if (_openShipment == key)
                         {
                             <tr>
-                                <td colspan="5">
+                                <td colspan="6">
                                     <table class="bb" data-shipment-units>
                                         <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>Expires</th><th>Shipped</th></tr></thead>
                                         <tbody>
@@ -148,6 +186,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Whoever is shipping usually packed it; change it if someone else did.
+        _packedBy = Session.UserName ?? string.Empty;
+        var containers = await Api.GetActiveTransportContainersAsync();
+        _containers = containers.Value?.Select(c => c.Code).ToList() ?? new();
         await LoadHistoryAsync();
         if (!string.IsNullOrWhiteSpace(ShipmentQuery)
             && _shipments.FirstOrDefault(s => string.Equals(s.Reference?.Trim(), ShipmentQuery.Trim(), StringComparison.OrdinalIgnoreCase)) is { } found)
@@ -167,6 +209,14 @@ else
     private void ToggleShipment(string key) => _openShipment = _openShipment == key ? null : key;
 
     private string _facility = string.Empty;
+    private string _container = string.Empty;
+    private decimal? _temperatureC;
+    private string _packedBy = string.Empty;
+    private string _receivingContact = string.Empty;
+    private List<string> _containers = new();
+
+    private bool ReadyToScan => !string.IsNullOrWhiteSpace(_facility) && !string.IsNullOrWhiteSpace(_container)
+        && _temperatureC is not null && !string.IsNullOrWhiteSpace(_packedBy) && !string.IsNullOrWhiteSpace(_receivingContact);
     private string? _reference;
     private string? _note;
     private string _scan = string.Empty;
@@ -180,7 +230,7 @@ else
     // A scanner ends with Enter: ship the scanned unit, record the outcome, clear for the next scan.
     private async Task OnScanKeyAsync(KeyboardEventArgs e)
     {
-        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || string.IsNullOrWhiteSpace(_facility) || _busy)
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || !ReadyToScan || _busy)
         {
             return;
         }
@@ -188,7 +238,8 @@ else
         _busy = true;
         var scan = _scan.Trim();
         var facility = _facility.Trim();
-        var r = await Api.ShipOutByScanAsync(new ShipOutByScanRequest(scan, facility, _reference, _note));
+        var r = await Api.ShipOutByScanAsync(new ShipOutByScanRequest(scan, facility, _reference, _note,
+            _container.Trim(), _temperatureC, _packedBy.Trim(), _receivingContact.Trim()));
         _busy = false;
         _scan = string.Empty;
         if (r.Succeeded && r.Value is not null)

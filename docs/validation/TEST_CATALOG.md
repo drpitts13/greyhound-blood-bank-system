@@ -867,5 +867,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-856 | I | `Phase4IssuingTests.ReactionUnderInvestigation_IssueAndBedsideStart_NeedAnOverride` | URS-BB-709 / FRS-BB-827 |
 | TEST-BB-857 | U | `ThawedShelfLifeForTests.ShelfLifeFor_PicksTheApplicableSetting` | URS-BB-710 / FRS-BB-828 |
 | TEST-BB-858 | I | `AutoThawServiceTests.Thaw_OpenSystemAndPooledShelfLives` | URS-BB-710 / FRS-BB-828 |
+| TEST-BB-859 | I | `InventoryServiceTests.ShipOutByScan_RecordsThePackingDetails` | URS-BB-711 / FRS-BB-829 |
+| TEST-BB-860 | U | `ShipOutDetailsRuleTests.EvaluateDetails_NamesWhatIsMissing` | URS-BB-711 / FRS-BB-829 |
+| TEST-BB-861 | U | `ShipOutDetailsPageTests.ScanWaitsForThePackingDetails` | URS-BB-711 / FRS-BB-829 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

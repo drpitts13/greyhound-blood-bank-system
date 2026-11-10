@@ -9,7 +9,16 @@ public sealed record TransferByScanRequest(string? Scan, long ToLocationId, stri
 public sealed record ReturnToSupplierByScanRequest(string? Scan, string? Reason);
 
 /// <summary>A unit scanned into an outbound shipment to another facility; the facility and reference are given once per shipment.</summary>
-public sealed record ShipOutByScanRequest(string? Scan, string? Facility, string? Reference = null, string? Note = null);
+/// <summary>OCD-072: Container, PackingTemperatureC, PackedBy and ReceivingContact are required for every shipment.</summary>
+public sealed record ShipOutByScanRequest(
+    string? Scan,
+    string? Facility,
+    string? Reference = null,
+    string? Note = null,
+    string? Container = null,
+    decimal? PackingTemperatureC = null,
+    string? PackedBy = null,
+    string? ReceivingContact = null);
 
 /// <summary>One outbound shipment: the units shipped to a facility under one reference (or on one day without one).</summary>
 public sealed record OutboundShipmentDto(
@@ -17,7 +26,12 @@ public sealed record OutboundShipmentDto(
     string? Reference,
     DateTime FirstShippedUtc,
     DateTime LastShippedUtc,
-    IReadOnlyList<BloodUnitDto> Units);
+    IReadOnlyList<BloodUnitDto> Units,
+    // OCD-072, as recorded on the shipment's first unit; null for shipments recorded before it was required.
+    string? Container = null,
+    decimal? PackingTemperatureC = null,
+    string? PackedBy = null,
+    string? ReceivingContact = null);
 
 /// <summary>An expired unit scanned for disposal; the second verifier when the facility requires one.</summary>
 public sealed record DiscardExpiredByScanRequest(string? Scan, string? SecondVerifier = null);

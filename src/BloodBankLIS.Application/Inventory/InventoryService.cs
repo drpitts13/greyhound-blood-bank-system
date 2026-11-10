@@ -1754,7 +1754,11 @@ public sealed class InventoryService
                     ordered[0].OutboundShipmentReference,
                     ordered[0].ShippedUtc!.Value,
                     ordered[^1].ShippedUtc!.Value,
-                    ordered.Select(BloodUnitDto.From).ToList());
+                    ordered.Select(BloodUnitDto.From).ToList(),
+                    ordered[0].ShipContainer,
+                    ordered[0].ShipPackingTemperatureC,
+                    ordered[0].ShipPackedBy,
+                    ordered[0].ShipReceivingContact);
             })
             .OrderByDescending(s => s.LastShippedUtc)
             .ToList();
@@ -1791,6 +1795,12 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Name the facility the units are shipped to.");
         }
 
+        var details = ShipOutRule.EvaluateDetails(request.Container, request.PackingTemperatureC, request.PackedBy, request.ReceivingContact);
+        if (details.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Fail(details.Message);
+        }
+
         var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
         if (error is not null)
         {
@@ -1824,6 +1834,10 @@ public sealed class InventoryService
         unit.ShippedToFacility = facility;
         unit.ShippedUtc = now;
         unit.OutboundShipmentReference = reference;
+        unit.ShipContainer = request.Container!.Trim();
+        unit.ShipPackingTemperatureC = request.PackingTemperatureC;
+        unit.ShipPackedBy = request.PackedBy!.Trim();
+        unit.ShipReceivingContact = request.ReceivingContact!.Trim();
         var shipped = await ChangeStatusAsync(unit, UnitStatus.ShippedOut, reason, ct);
         if (!shipped.Succeeded)
         {
@@ -1835,7 +1849,11 @@ public sealed class InventoryService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = fromStatus },
-            newValue: new { unit.UnitNumber, Status = UnitStatus.ShippedOut, Path = "ShipOut", ShippedToFacility = facility, OutboundShipmentReference = reference },
+            newValue: new
+            {
+                unit.UnitNumber, Status = UnitStatus.ShippedOut, Path = "ShipOut", ShippedToFacility = facility, OutboundShipmentReference = reference,
+                unit.ShipContainer, unit.ShipPackingTemperatureC, unit.ShipPackedBy, unit.ShipReceivingContact
+            },
             reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return shipped;

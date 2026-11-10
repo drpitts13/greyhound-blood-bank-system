@@ -137,6 +137,18 @@ public class BloodUnit : BaseEntity
     /// <summary>The outbound shipment's reference (packing list, courier number); <see cref="ShipmentId"/> is the inbound one.</summary>
     public string? OutboundShipmentReference { get; set; }
 
+    /// <summary>OCD-072: the container the unit was shipped in.</summary>
+    public string? ShipContainer { get; set; }
+
+    /// <summary>OCD-072: the temperature (°C) read when the shipment was packed.</summary>
+    public decimal? ShipPackingTemperatureC { get; set; }
+
+    /// <summary>OCD-072: who packed the shipment.</summary>
+    public string? ShipPackedBy { get; set; }
+
+    /// <summary>OCD-072: who receives the shipment at the other facility (name, and phone if given).</summary>
+    public string? ShipReceivingContact { get; set; }
+
     /// <summary>Allogeneic, autologous, or directed. Autologous/directed require <see cref="ReservedPatientId"/>.</summary>
     public DonationRestriction DonationRestriction { get; set; } = DonationRestriction.Allogeneic;
 

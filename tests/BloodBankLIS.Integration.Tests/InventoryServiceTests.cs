@@ -707,8 +707,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         expiredUnit.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
         await context.SaveChangesAsync();
 
-        Assert.Contains("Name the facility", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPA-{key}", " "))).Error);
-        var shipped = await service.ShipOutByScanAsync(new ShipOutByScanRequest($"u-shpa-{key}", " St. Mary's Hospital ", " PL-2026-77 ", "Patient transfer"));
+        Assert.Contains("Name the facility", (await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHPA-{key}", " ")))).Error);
+        var shipped = await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"u-shpa-{key}", " St. Mary's Hospital ", " PL-2026-77 ", "Patient transfer")));
         Assert.True(shipped.Succeeded, shipped.Error);
         var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == first);
         Assert.Equal((UnitStatus.ShippedOut, "St. Mary's Hospital", "PL-2026-77", (DateTime?)_factory.Clock.UtcNow),
@@ -716,11 +716,51 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == first
             && a.Reason == "Shipped to St. Mary's Hospital (PL-2026-77): Patient transfer"));
 
-        Assert.Contains("already shipped", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPA-{key}", "Other"))).Error);
-        Assert.Contains("is Assigned", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPB-{key}", "Other"))).Error);
-        Assert.Contains("expired", (await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPC-{key}", "Other"))).Error);
+        Assert.Contains("already shipped", (await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHPA-{key}", "Other")))).Error);
+        Assert.Contains("is Assigned", (await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHPB-{key}", "Other")))).Error);
+        Assert.Contains("expired", (await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHPC-{key}", "Other")))).Error);
         Assert.Equal(UnitStatus.Assigned, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == reserved)).Status);
         Assert.False(InventoryStatusTransition.IsAllowed(UnitStatus.ShippedOut, UnitStatus.Available));
+    }
+
+    // OCD-072: the packing details every shipment records; the tests that are not about them use these.
+    private static ShipOutByScanRequest Packed(ShipOutByScanRequest request) => request with
+    {
+        Container = "COOLER-7", PackingTemperatureC = 4.0m, PackedBy = "tech-test", ReceivingContact = "J. Ruiz, 555-0142"
+    };
+
+    // TEST-BB-859 (OCD-072, decided 2026-11-10): a shipment needs the container, packing temperature, packer and receiving
+    // contact; every one missing is named and nothing ships; an implausible temperature is refused; recorded, they are
+    // kept on the unit, in the audit and on the shipment listed.
+    [Fact]
+    public async Task ShipOutByScan_RecordsThePackingDetails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-SHPK-{key}", productTypeId))).Unit!.Id;
+        (await context.BloodUnits.FindAsync(id))!.Status = UnitStatus.Available;
+        await context.SaveChangesAsync();
+        var facility = $"Packing Hospital {key}";
+
+        var none = await service.ShipOutByScanAsync(new ShipOutByScanRequest($"U-SHPK-{key}", facility));
+        Assert.Equal("Record the container, the packing temperature, who packed it and the receiving contact for the shipment (OCD-072).", none.Error);
+        var noContact = await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHPK-{key}", facility)) with { ReceivingContact = " " });
+        Assert.Equal("Record the receiving contact for the shipment (OCD-072).", noContact.Error);
+        Assert.Contains("is not a reading", (await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHPK-{key}", facility)) with { PackingTemperatureC = 400m })).Error);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == id)).Status);
+
+        var shipped = await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHPK-{key}", facility, "PL-K")) with { PackingTemperatureC = 3.5m });
+        Assert.True(shipped.Succeeded, shipped.Error);
+        var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == id);
+        Assert.Equal(("COOLER-7", (decimal?)3.5m, "tech-test", "J. Ruiz, 555-0142"),
+            (row.ShipContainer, row.ShipPackingTemperatureC, row.ShipPackedBy, row.ShipReceivingContact));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == id
+            && a.NewValueJson!.Contains("COOLER-7") && a.NewValueJson.Contains("J. Ruiz")));
+        var listed = (await service.ListShipmentsAsync()).Single(s => s.Facility == facility);
+        Assert.Equal(("COOLER-7", (decimal?)3.5m, "tech-test", "J. Ruiz, 555-0142"),
+            (listed.Container, listed.PackingTemperatureC, listed.PackedBy, listed.ReceivingContact));
     }
 
     // TEST-BB-600: recent shipments group units by facility and reference (or day without one), newest first, and the
@@ -743,7 +783,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var facility = $"Hospital {key}";
         foreach (var (suffix, to, reference) in new[] { ("A", facility, "PL-1"), ("B", facility.ToLowerInvariant(), "pl-1"), ("C", facility, null), ("D", $"Other {key}", "PL-1") })
         {
-            var r = await service.ShipOutByScanAsync(new ShipOutByScanRequest(await InStock(suffix), to, reference));
+            var r = await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest(await InStock(suffix), to, reference)));
             Assert.True(r.Succeeded, r.Error);
         }
 

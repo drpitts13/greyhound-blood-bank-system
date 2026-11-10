@@ -467,6 +467,10 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
         b.Property(u => u.SupplierReturnReason).HasMaxLength(500);
         b.Property(u => u.ShippedToFacility).HasMaxLength(200);
         b.Property(u => u.OutboundShipmentReference).HasMaxLength(100);
+        b.Property(u => u.ShipContainer).HasMaxLength(100);
+        b.Property(u => u.ShipPackingTemperatureC).HasPrecision(5, 1);
+        b.Property(u => u.ShipPackedBy).HasMaxLength(100);
+        b.Property(u => u.ShipReceivingContact).HasMaxLength(200);
         b.Property(u => u.DonationRestriction);
         b.Property(u => u.ReservedPatientId);
         b.HasIndex(u => u.ReservedPatientId);
