@@ -274,7 +274,7 @@ public static class PatientWorkspaceEndpoints
             PrintService printing,
             CancellationToken ct) =>
         {
-            var thawed = await service.ApplyAsync(patientId, allocationId, request.ThawUtc, ct);
+            var thawed = await service.ApplyAsync(patientId, allocationId, request.ThawUtc, request.OpenSystem, ct);
             if (!thawed.Succeeded || thawed.Value is null)
             {
                 return Results.BadRequest(new { error = thawed.Error });

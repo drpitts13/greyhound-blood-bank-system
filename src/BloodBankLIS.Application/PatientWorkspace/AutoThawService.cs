@@ -31,6 +31,8 @@ public sealed class AutoThawService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
 
+    private readonly IRepository<UnitModification>? _modifications;
+
     public AutoThawService(
         IRepository<AutoThawProduct> products,
         IRepository<AutoThawRequest> requests,
@@ -45,8 +47,10 @@ public sealed class AutoThawService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<UnitModification>? modifications = null)
     {
+        _modifications = modifications;
         _products = products;
         _requests = requests;
         _allocations = allocations;
@@ -195,6 +199,17 @@ public sealed class AutoThawService
         long patientId,
         long allocationId,
         DateTime thawUtc,
+        CancellationToken ct = default) => await ApplyAsync(patientId, allocationId, thawUtc, openSystem: false, ct);
+
+    /// <summary>
+    /// Thaws in place. The shelf life is the code's closed-system time, or (OCD-068) its open-system time when the
+    /// thaw was in an open system and its pooled time when the unit is a pool, the shorter when both apply.
+    /// </summary>
+    public async Task<OperationResult<AutoThawResultDto>> ApplyAsync(
+        long patientId,
+        long allocationId,
+        DateTime thawUtc,
+        bool openSystem,
         CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(ct);
@@ -268,8 +283,18 @@ public sealed class AutoThawService
             return OperationResult<AutoThawResultDto>.Fail("Thaw billing is not configured.");
         }
 
+        // A pool is the result of a pooling modification: inferred, not asked.
+        var pooled = unit.DerivedFromModificationId is long modificationId && _modifications is not null
+            && (await _modifications.GetByIdAsync(modificationId, ct))?.ModificationType == ModificationType.Pool;
+        var (shelfLifeHours, shelfLife) = ThawedExpirationRule.ShelfLifeFor(
+            matched.ProductCode, matched.ThawedShelfLifeHours, matched.OpenSystemShelfLifeHours, matched.PooledShelfLifeHours, openSystem, pooled);
+        if (shelfLifeHours is not int hours)
+        {
+            return OperationResult<AutoThawResultDto>.Fail(shelfLife.Message);
+        }
+
         var previousExpires = unit.ExpiresUtc;
-        var newExpires = ThawedExpirationRule.Compute(thaw, matched.ThawedShelfLifeHours, previousExpires);
+        var newExpires = ThawedExpirationRule.Compute(thaw, hours, previousExpires);
         var productTypeId = unit.ProductTypeId;
         var unitNumber = unit.UnitNumber;
 
@@ -302,6 +327,9 @@ public sealed class AutoThawService
         offer.NewExpiresUtc = newExpires;
         offer.CompletedUtc = _clock.UtcNow;
         offer.CompletedBy = _currentUser.UserName;
+        offer.OpenSystem = openSystem;
+        offer.Pooled = pooled;
+        offer.ShelfLifeHoursApplied = hours;
         if (offerIsNew)
         {
             await _requests.AddAsync(offer, ct);
@@ -316,7 +344,7 @@ public sealed class AutoThawService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { ExpiresUtc = previousExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber },
-            newValue: new { ExpiresUtc = newExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber, ThawUtc = thaw, matched.ThawedShelfLifeHours },
+            newValue: new { ExpiresUtc = newExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber, ThawUtc = thaw, ShelfLifeHours = hours, OpenSystem = openSystem, Pooled = pooled },
             reason: "Auto-thaw");
 
         await _unitOfWork.SaveChangesAsync(ct);

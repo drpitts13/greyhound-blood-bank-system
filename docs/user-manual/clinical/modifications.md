@@ -16,7 +16,7 @@ routes:
 
 The source unit is consumed or reduced according to the rule. Resulting units are new stock. They start in quarantine until they are released, so a just-irradiated or just-pooled unit is not immediately available for issue. Release them from Inventory or the unit chart when the modification has been checked. Scan the unit number printed on the new label. The scan has to match that result. A blank or different number is a hard stop. A quarantine release that is not a modification result does not ask for this scan.
 
-Thaw of a plasma product that your facility marked for auto-thaw can also happen at allocation. Those units expire after the thawed shelf life set for their product code (Admin › Auto thaw products), or at the frozen expiration if that is sooner; the thaw prompt says how long. The product row shows the new expiration. Do not issue on the old frozen expiration.
+Thaw of a plasma product that your facility marked for auto-thaw can also happen at allocation. Those units expire after the thawed shelf life set for their product code (Admin › Auto thaw products), or at the frozen expiration if that is sooner. If the bag was entered, tick **Thawed in an open system** in the thaw prompt: the code's open-system shelf life applies, and a pooled unit uses its pooled shelf life (the shorter if both). Either one not yet set refuses the thaw; the thaw prompt says how long. The product row shows the new expiration. Do not issue on the old frozen expiration.
 
 Pooling, irradiation, and similar changes may apply an expiration-modification code. The new date is calculated. If the date looks wrong, stop and check the modification rule and the expiration code with a supervisor. Do not overwrite the expiration by hand.
 

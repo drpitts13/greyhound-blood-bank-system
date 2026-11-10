@@ -457,6 +457,8 @@ else
                     <label>Thaw date/time</label>
                     <input type="datetime-local" @bind="_autoThawLocal" />
                 </div>
+                <label class="flex" style="margin-top:.5rem;"><input type="checkbox" @bind="_autoThawOpenSystem" data-auto-thaw-open />&nbsp;Thawed in an open system (the bag was entered)</label>
+                <p class="muted" style="margin:.25rem 0 0;">An open-system thaw, and a pooled unit, use their own shelf life from Admin › Auto thaw products; if it is not set there, the thaw is refused.</p>
                 <div class="flex gap" style="margin-top:.75rem;">
                     @if (_autoThawAsk)
                     {
@@ -779,6 +781,7 @@ else
     private PatientAllocationRowDto? _crossmatchRow;
     private bool _autoThawAsk;
     private DateTime _autoThawLocal;
+    private bool _autoThawOpenSystem;
     private List<CompatibleUnitDto> _compatibleUnits = new();
     private List<AllocatableOrderDto> _allocatableOrders = new();
     private bool _compatUnitsLoading;
@@ -1607,7 +1610,11 @@ else
         _autoThawLocal = LocalMinuteNow();
     }
 
-    private void CancelAutoThaw() => _autoThawRow = null;
+    private void CancelAutoThaw()
+    {
+        _autoThawRow = null;
+        _autoThawOpenSystem = false;
+    }
 
     private async Task ConfirmAutoThawAsync()
     {
@@ -1618,7 +1625,7 @@ else
 
         var thawUtc = DateTime.SpecifyKind(_autoThawLocal, DateTimeKind.Local).ToUniversalTime();
         _busy = true;
-        var result = await Api.ApplyAutoThawAsync(Id, _autoThawRow.AllocationId, thawUtc);
+        var result = await Api.ApplyAutoThawAsync(Id, _autoThawRow.AllocationId, thawUtc, openSystem: _autoThawOpenSystem);
         _busy = false;
         if (!result.Succeeded || result.Value is null)
         {
@@ -1627,6 +1634,7 @@ else
         }
 
         _autoThawRow = null;
+        _autoThawOpenSystem = false;
         await LoadAllocationsAsync();
         _allocFb = result.Value.PrintSucceeded
             ? Feedback.Succeed($"Auto thawed. Product ID tag sent to the printer. Expiration is {result.Value.ExpiresUtc.ToLocalTime():yyyy-MM-dd HH:mm}.")

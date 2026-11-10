@@ -213,11 +213,12 @@ public sealed class BloodBankApiClient
         long patientId,
         long allocationId,
         DateTime thawUtc,
-        CancellationToken ct = default) =>
+        CancellationToken ct = default,
+        bool openSystem = false) =>
         SendAsync<AutoThawResultDto>(
             HttpMethod.Post,
             $"api/patients/{patientId}/allocations/{allocationId}/auto-thaw",
-            new ApplyAutoThawRequest(thawUtc),
+            new ApplyAutoThawRequest(thawUtc, openSystem),
             ct);
 
     public Task<ApiResult<ManualCrossmatchLineDto>> EnsureManualCrossmatchLineAsync(

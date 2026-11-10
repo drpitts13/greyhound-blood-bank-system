@@ -92,6 +92,8 @@ else
                     <label>Thaw date/time</label>
                     <input type="datetime-local" @bind="_autoThawLocal" />
                 </div>
+                <label class="flex" style="margin-top:.5rem;"><input type="checkbox" @bind="_autoThawOpenSystem" data-auto-thaw-open />&nbsp;Thawed in an open system (the bag was entered)</label>
+                <p class="muted" style="margin:.25rem 0 0;">An open-system thaw, and a pooled unit, use their own shelf life from Admin › Auto thaw products; if it is not set there, the thaw is refused.</p>
                 <div class="flex gap" style="margin-top:.75rem;">
                     <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="() => ConfirmUnitAutoThawAsync(thawAllocationId)">Yes</button>
                     <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => DeclineUnitAutoThawAsync(thawAllocationId)">No</button>
@@ -679,6 +681,7 @@ else
     private string _autoThawProductCode = string.Empty;
     private int _autoThawShelfLifeHours = ThawedExpirationRule.DefaultHours;
     private DateTime _autoThawLocal;
+    private bool _autoThawOpenSystem;
     private List<EligibleModificationDto> _eligibleMods = new();
     private ProductRetypeDetailDto? _retypeDetail;
 
@@ -992,9 +995,10 @@ else
     {
         var thawUtc = DateTime.SpecifyKind(_autoThawLocal, DateTimeKind.Local).ToUniversalTime();
         _busy = true;
-        var result = await Api.ApplyAutoThawAsync(_autoThawPatientId, allocationId, thawUtc);
+        var result = await Api.ApplyAutoThawAsync(_autoThawPatientId, allocationId, thawUtc, openSystem: _autoThawOpenSystem);
         _busy = false;
         _autoThawAllocationId = null;
+        _autoThawOpenSystem = false;
         if (!result.Succeeded || result.Value is null)
         {
             _actionFb = result.ToFeedback();

@@ -20543,3 +20543,35 @@ The decision to continue is the physician's; the system now records it each time
 ### Next
 
 - OCD-068 option C: thawed shelf life for an open system and for a pooled unit.
+
+## Iteration 667 — Open-system and pooled thawed shelf lives (OCD-068 decided) (2026-11-10)
+
+### Capability matrix rescan (blood products: thawing, expiration calculations)
+
+OCD-068 was decided on 2026-11-10 (option C). A product thawed in place got its code's one thawed shelf life whatever happened to the bag, so a unit entered during thawing, or a pool, could carry the longer closed-system dating.
+
+### Design
+
+- `AutoThawProduct.OpenSystemShelfLifeHours` and `PooledShelfLifeHours`, null until the facility sets them, edited with the closed time on Admin › Auto thaw products (reason required, configuration history); the table says *Not set (thaw refused)*.
+- The thaw prompt (chart and unit page) asks **Thawed in an open system**; a pool is inferred from the unit's pooling modification, not asked (question 3).
+- `ThawedExpirationRule.ShelfLifeFor`: the closed time for a closed single unit, otherwise the open-system and/or pooled time, the shorter when both apply. A needed time that is not set refuses the thaw, never falling back to the longer closed time (question 6).
+- The thaw records open system, pooled, and the hours applied (`AutoThawRequest`, migration `20261228000000_AutoThawOpenSystemAndPooled`, dev bootstrap columns) and in the audit.
+- No hours shipped: the facility enters them from its SOP and the circular of information.
+
+### Verification
+
+- Unit: each combination, the minimum, refusals when not set, optional range.
+- Integration: open-system thaw refused until set, then 4 hours applied and recorded; an out-of-range setting refused; a pooled unit refused until set, then the shorter time applied when also open.
+- Live (read-only): the API added the new columns on start; Admin › Auto thaw products loads, but the dev data has no auto-thaw codes, so the new columns and the thaw checkbox were exercised by the tests only. No server errors.
+
+### Requirements
+
+- URS-BB-710, FRS-BB-828; OCD-068 decided.
+
+### Tests
+
+- TEST-BB-857, TEST-BB-858.
+
+### Next
+
+- OCD-072 option B: a shipment to another facility records the container, packing temperature, packer and receiving contact.

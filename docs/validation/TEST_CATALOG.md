@@ -865,5 +865,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-854 | I | `Phase4IssuingTests.DowntimeBackEntry_OutsideEveryRecordedOutage_NeedsAReason` | URS-BB-708 / FRS-BB-826 |
 | TEST-BB-855 | U | `ReactionUnderInvestigationRuleTests.Warns_OnlyAfterTheReactionWasReported` | URS-BB-709 / FRS-BB-827 |
 | TEST-BB-856 | I | `Phase4IssuingTests.ReactionUnderInvestigation_IssueAndBedsideStart_NeedAnOverride` | URS-BB-709 / FRS-BB-827 |
+| TEST-BB-857 | U | `ThawedShelfLifeForTests.ShelfLifeFor_PicksTheApplicableSetting` | URS-BB-710 / FRS-BB-828 |
+| TEST-BB-858 | I | `AutoThawServiceTests.Thaw_OpenSystemAndPooledShelfLives` | URS-BB-710 / FRS-BB-828 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

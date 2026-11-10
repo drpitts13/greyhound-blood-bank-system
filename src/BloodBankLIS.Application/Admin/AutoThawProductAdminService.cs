@@ -163,15 +163,22 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
             return EvaluationResult<AutoThawProductDto>.Fail("Enter the reason for changing the thawed shelf life.");
         }
 
-        var shelfLife = ThawedExpirationRule.EvaluateShelfLife(request.ThawedShelfLifeHours);
-        if (shelfLife.Severity == RuleSeverity.HardStop)
+        var checks = new[]
         {
-            return EvaluationResult<AutoThawProductDto>.Blocked(new RuleEvaluation([shelfLife]));
+            ThawedExpirationRule.EvaluateShelfLife(request.ThawedShelfLifeHours),
+            ThawedExpirationRule.EvaluateOptionalShelfLife(request.OpenSystemShelfLifeHours, "open-system"),
+            ThawedExpirationRule.EvaluateOptionalShelfLife(request.PooledShelfLifeHours, "pooled")
+        }.Where(r => r.Severity == RuleSeverity.HardStop).ToList();
+        if (checks.Count > 0)
+        {
+            return EvaluationResult<AutoThawProductDto>.Blocked(new RuleEvaluation(checks));
         }
 
         var catalog = await FindCatalogAsync(entity.ProductCode, ct);
         var old = AutoThawProductDto.From(entity, catalog?.Description);
         entity.ThawedShelfLifeHours = request.ThawedShelfLifeHours;
+        entity.OpenSystemShelfLifeHours = request.OpenSystemShelfLifeHours;
+        entity.PooledShelfLifeHours = request.PooledShelfLifeHours;
         _rows.Update(entity);
         var dto = AutoThawProductDto.From(entity, catalog?.Description);
         RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, request.Reason.Trim());

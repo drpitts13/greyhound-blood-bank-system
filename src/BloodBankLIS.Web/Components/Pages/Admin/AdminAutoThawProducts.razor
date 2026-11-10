@@ -29,7 +29,7 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Product code</th><th>Description</th><th>Thawed shelf life</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Product code</th><th>Description</th><th>Thawed shelf life</th><th>Open system</th><th>Pooled</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var row in VisibleRows)
                 {
@@ -40,7 +40,9 @@
                             @if (_editingId == row.Id)
                             {
                                 <div class="flex gap" style="align-items:center;flex-wrap:wrap;">
-                                    <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" style="width:6rem;" @bind="_editHours" /> hours
+                                    <label>Closed <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" style="width:6rem;" @bind="_editHours" data-edit-closed /> hours</label>
+                                    <label>Open system <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" style="width:6rem;" @bind="_editOpenHours" placeholder="not set" data-edit-open /> hours</label>
+                                    <label>Pooled <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" style="width:6rem;" @bind="_editPooledHours" placeholder="not set" data-edit-pooled /> hours</label>
                                     <input placeholder="Reason for the change" @bind="_editReason" @bind:event="oninput" style="min-width:14rem;" />
                                     <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_editReason))" @onclick="() => SaveShelfLifeAsync(row.Id)">Save</button>
                                     <button class="btn btn-ghost btn-sm" @onclick="() => _editingId = null">Cancel</button>
@@ -55,6 +57,8 @@
                                 }
                             }
                         </td>
+                        <td data-thaw-open="@row.ProductCode">@ShelfLifeText(row.OpenSystemShelfLifeHours)</td>
+                        <td data-thaw-pooled="@row.ProductCode">@ShelfLifeText(row.PooledShelfLifeHours)</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
                         <td class="right nowrap">
                             @if (row.IsActive && CanActivate)
@@ -154,19 +158,27 @@
     private int _newHours = ThawedExpirationRule.DefaultHours;
     private long? _editingId;
     private int _editHours;
+    private int? _editOpenHours;
+    private int? _editPooledHours;
     private string _editReason = string.Empty;
+
+    // OCD-068: not set means a thaw that needs it is refused, so say so rather than show a blank.
+    private static string ShelfLifeText(int? hours) =>
+        hours is int h ? ThawedExpirationRule.Describe(h) : "Not set (thaw refused)";
 
     private void BeginEdit(AutoThawProductDto row)
     {
         _editingId = row.Id;
         _editHours = row.ThawedShelfLifeHours;
+        _editOpenHours = row.OpenSystemShelfLifeHours;
+        _editPooledHours = row.PooledShelfLifeHours;
         _editReason = string.Empty;
     }
 
     private async Task SaveShelfLifeAsync(long id)
     {
         _busy = true;
-        var r = await Api.SetAdminAutoThawShelfLifeAsync(id, new SetAutoThawShelfLifeRequest(_editHours, _editReason));
+        var r = await Api.SetAdminAutoThawShelfLifeAsync(id, new SetAutoThawShelfLifeRequest(_editHours, _editReason, _editOpenHours, _editPooledHours));
         _busy = false;
         _feedback = r.Succeeded ? r.ToFeedback("Thawed shelf life changed.") : r.ToFeedback();
         if (r.Succeeded)

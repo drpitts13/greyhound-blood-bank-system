@@ -821,6 +821,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-707 / FRS-BB-825 | Two identifiers required on tube labels | `SpecimenLabelDesignRules.cs`; `PrintService.cs`; `AdminSpecimenLabels.razor` | TEST-BB-822, TEST-BB-830, TEST-BB-852, TEST-BB-853 | U, I | OCD-080 |
 | URS-BB-708 / FRS-BB-826 | Reason for a back-entry outside every outage | `DowntimeEpisodeRule.cs`; `IssuingService.cs`; `Issue.cs`; `Issuing.razor` | TEST-BB-843, TEST-BB-848, TEST-BB-854 | U, I | OCD-081 |
 | URS-BB-709 / FRS-BB-827 | Override to continue during a reaction investigation | `ReactionUnderInvestigationRule.cs`; `IssuingService.cs`; `IssuingDtos.cs`; `Issuing.razor` | TEST-BB-753, TEST-BB-755, TEST-BB-855, TEST-BB-856 | U, I | OCD-078 |
+| URS-BB-710 / FRS-BB-828 | Open-system and pooled thawed shelf lives | `ThawedExpirationRule.cs`; `AutoThawService.cs`; `AutoThawProductAdminService.cs`; `AdminAutoThawProducts.razor`; `PatientDetail.razor`; `UnitDetail.razor` | TEST-BB-857, TEST-BB-858 | U, I | OCD-068 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
