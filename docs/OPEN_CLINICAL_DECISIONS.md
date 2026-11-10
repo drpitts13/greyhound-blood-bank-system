@@ -136,8 +136,8 @@ the history.
 | OCD-080 | Patient identifiers on specimen labels. Decided 2026-11-10: option B, a tube label design with fewer than two patient identifiers cannot be saved; aliquot designs keep the warning. | Implemented Cycle 664: fewer than two of name, patient ID and date of birth is an error on a tube design (Save unavailable; the API refuses it) and a warning on an aliquot design; aliquots keep the parent specimen ID and "Aliquot n of N". A tube design saved before the decision with fewer than two does not print new labels (reprints unchanged). TEST-BB-852, TEST-BB-853. |
 | OCD-081 | Back-entry outside a recorded outage. Decided 2026-11-10: option B, a paper issue time outside every recorded outage needs an override with a reason. | Implemented Cycle 665: with outages recorded, a back-entry whose paper time is outside every one is refused (`DT-EPISODE-OUTSIDE`) until a reason is given (500 characters at most), kept on the issue (`OutsideOutageReason`) and in the issue audit; with no outage recorded, back-entry stays allowed (option D not chosen). TEST-BB-843, TEST-BB-848, TEST-BB-854. |
 
-## Decided 2026-11-11 (product owner, in conversation)
+## Decided 2026-11-10, later (product owner, in conversation)
 
 | ID | Decision | Software behavior |
 |---|---|---|
-| OCD-082 | Neonatal issue of non-group-O red cells. Decided 2026-11-11: red cells of a group other than O need a crossmatch if they are given to an infant under the neonatal rules. | Kept as built (Cycle 674): only group O red cells are issued without a crossmatch under the neonatal rules (OCD-074); units of any other group need a compatible crossmatch as usual. TEST-BB-877. |
+| OCD-082 | Neonatal issue of non-group-O red cells. Decided 2026-11-10: red cells of a group other than O need a crossmatch if they are given to an infant under the neonatal rules. | Kept as built (Cycle 674): only group O red cells are issued without a crossmatch under the neonatal rules (OCD-074); units of any other group need a compatible crossmatch as usual. TEST-BB-877. |
