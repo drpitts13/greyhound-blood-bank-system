@@ -115,4 +115,10 @@ public static class FacilityPolicyKeys
 
     /// <summary>OCD-069: how the calculated vials are rounded (1 up, 2 nearest plus one, 3 up plus one); 0 = not set.</summary>
     public const string RhigDoseRounding = "Rhig.DoseRounding";
+
+    /// <summary>OCD-074: turns on the neonatal pretransfusion testing rules. Default off.</summary>
+    public const string NeonatalRulesEnabled = "Neonatal.RulesEnabled";
+
+    /// <summary>OCD-074: the age (days) under which the neonatal rules apply.</summary>
+    public const string NeonatalAgeLimitDays = "Neonatal.AgeLimitDays";
 }

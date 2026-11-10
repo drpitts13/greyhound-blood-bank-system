@@ -20711,3 +20711,38 @@ Nothing is decided by the application: the decision and vials are still what the
 ### Next
 
 - OCD-074 option B: neonatal pretransfusion testing (one specimen per admission, no repeat ABO/Rh, no crossmatch with a negative screen) from facility settings, shipped off.
+
+## Iteration 672 — An infant's specimen valid for the admission (OCD-074, part one) (2026-11-10)
+
+### Capability matrix rescan (orders and specimens: specimen expiration)
+
+OCD-074 was decided on 2026-11-10 (option B): for infants under four months, one specimen covers the admission, ABO/Rh is not repeated, and no crossmatch is needed when the antibody screen is negative, enforced from facility settings. Specimens for infants expired like everyone else's, so a neonate needed a new tube every three days. The three parts touch different checks, so they are built one at a time; this is the first.
+
+### Design
+
+- Facility Policies *Neonatal pretransfusion testing rules* (`Neonatal.RulesEnabled`, off) and *Neonatal age limit (days)* (`Neonatal.AgeLimitDays`, 120). Off by default until the medical director confirms the rules against the current AABB Standards.
+- `NeonatalTestingRule`: an infant younger than the limit at collection, on a visit not yet discharged, gets a specimen valid until discharge or the age limit, whichever is first, never earlier than its usual expiration. Not applied with explicit validity hours or without a visit.
+- The usual expiration is kept (`Specimen.NeonatalStandardExpiresUtc`, migration `20270101000000_NeonatalAdmissionSpecimen`, dev bootstrap) so discharge (on the chart or by ADT) ends the specimen at discharge but not before the usual time, audited. The alloimmunization recompute leaves these specimens alone.
+- The chart's Expires column says *For the admission (infant)*.
+
+### Safety (question 6)
+
+Off until the medical director turns it on. Any infant specimen extended stays tied to its visit and ends at discharge or the age limit; past the limit the usual rules apply.
+
+### Verification
+
+- Unit: under the limit until the day it is reached; dating to discharge or the limit, never below the usual; nothing without the rules, a visit, or an open visit; discharge.
+- Integration: off keeps the usual expiration; on extends to the age limit with the usual kept and audited; an infant past the limit keeps the usual; discharge ends it at discharge, audited; another specimen is unchanged.
+- Live (read-only; the rules left off): the API added the Specimens column on start; Facility Policies lists *Neonatal pretransfusion testing rules* (false) and *Neonatal age limit (days)* (120); a chart's Specimens tab loads. No server errors.
+
+### Requirements
+
+- URS-BB-715, FRS-BB-833; OCD-074 part one.
+
+### Tests
+
+- TEST-BB-871, TEST-BB-872.
+
+### Next
+
+- OCD-074 part two: no repeat ABO/Rh during the admission (the second determination for an infant under the neonatal rules).

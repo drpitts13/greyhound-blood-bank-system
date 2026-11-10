@@ -142,7 +142,14 @@
                         <td>@(s.SpecimenTypeDescription ?? s.SpecimenType)</td>
                         <td class="mono nowrap" data-specimen-visit>@(Encounters.FirstOrDefault(v => v.Id == s.EncounterId)?.VisitNumber ?? "—")</td>
                         <td class="nowrap">@s.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                        <td class="nowrap">@(s.ExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td class="nowrap">
+                            @(s.ExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            @if (s.NeonatalAdmission)
+                            {
+                                @* OCD-074: an infant's specimen valid for the admission (until discharge or the age limit). *@
+                                <span class="sub" data-specimen-neonatal title="Infant under the neonatal age limit: this specimen covers the admission, ending at discharge or the age limit.">For the admission (infant)</span>
+                            }
+                        </td>
                         <td>
                             <span class="@Ui.Badge(s.Status)">@Ui.EnumText(s.Status)</span>
                             @if (!string.IsNullOrWhiteSpace(s.StorageLocation))

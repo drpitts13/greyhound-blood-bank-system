@@ -29,6 +29,7 @@ public static class DevelopmentSqliteBootstrap
         ("AutoThawRequests", "OpenSystem", """ALTER TABLE "AutoThawRequests" ADD COLUMN "OpenSystem" INTEGER NOT NULL DEFAULT 0"""),
         ("AutoThawRequests", "Pooled", """ALTER TABLE "AutoThawRequests" ADD COLUMN "Pooled" INTEGER NOT NULL DEFAULT 0"""),
         ("AutoThawRequests", "ShelfLifeHoursApplied", """ALTER TABLE "AutoThawRequests" ADD COLUMN "ShelfLifeHoursApplied" INTEGER NULL"""),
+        ("Specimens", "NeonatalStandardExpiresUtc", """ALTER TABLE "Specimens" ADD COLUMN "NeonatalStandardExpiresUtc" TEXT NULL"""),
         ("RhigEvaluations", "SuggestedDecision", """ALTER TABLE "RhigEvaluations" ADD COLUMN "SuggestedDecision" INTEGER NULL"""),
         ("RhigEvaluations", "VialsCalculated", """ALTER TABLE "RhigEvaluations" ADD COLUMN "VialsCalculated" INTEGER NULL"""),
         ("AntibodyHistory", "ReportKind", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ReportKind" INTEGER NULL"""),

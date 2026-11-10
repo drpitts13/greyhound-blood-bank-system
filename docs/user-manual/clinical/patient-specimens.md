@@ -36,6 +36,12 @@ Relabeling changes the barcode. It requires a reason. Use it when the printed la
 
 ## Identity at the bench
 
+**Infants (OCD-074).** When your facility turns on the neonatal rules (Facility Policies › *Neonatal pretransfusion testing rules*, off by default), a specimen collected from an infant during a visit stays valid for the admission. The infant must be younger than the neonatal age limit, which is 120 days by default.
+- The specimen runs until the visit is discharged or the infant reaches the age limit, whichever comes first. It never ends earlier than the usual rules would make it.
+- The Expires column says **For the admission (infant)**.
+- When the visit is discharged (on the chart or by an ADT message), the specimen ends at discharge, or at its usual expiration if that is later. The change is recorded in the audit trail.
+- A specimen with no visit, or with its own validity hours, keeps the usual rules.
+
 The accession number is what you will select when you record a crossmatch. At issue, the system checks that a current specimen exists for this patient and that it has not expired. A missing or expired specimen is not offered for routine issue.
 
 ## Specimen history

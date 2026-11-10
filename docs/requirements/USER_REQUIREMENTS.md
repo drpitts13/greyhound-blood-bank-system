@@ -720,3 +720,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-712 | An antibody reported by another facility is recorded with how the report was documented, is used for selection at once, and is shown as not yet confirmed until this laboratory confirms it (OCD-073). | P1 | FRS-BB-830 |
 | URS-BB-713 | The bench sees which outside antibody reports are waiting for this laboratory to confirm them, from the home screen (OCD-073). | P2 | FRS-BB-831 |
 | URS-BB-714 | An RhIG evaluation suggests the candidacy from the facts on file and calculates the vials from the fetal bleed quantitation with the facility's settings; the reviewer confirms both (OCD-069). | P2 | FRS-BB-832 |
+| URS-BB-715 | When the facility turns on the neonatal rules, an infant's specimen collected during a visit is valid for the admission (OCD-074). | P2 | FRS-BB-833 |

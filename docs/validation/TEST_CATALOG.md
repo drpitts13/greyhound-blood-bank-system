@@ -879,5 +879,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-868 | U | `RhigDoseRuleTests.Calculate_UsesTheFacilitySettings`, `RhigDoseRuleTests.Suggest_FromTheFactsOnFile` | URS-BB-714 / FRS-BB-832 |
 | TEST-BB-869 | I | `RhigSuggestionTests.Evaluation_SuggestsAndCalculates_AndCompletionKeepsThem` | URS-BB-714 / FRS-BB-832 |
 | TEST-BB-870 | U | `RhigSuggestionTabTests.Tab_ShowsSuggestionAndDose` | URS-BB-714 / FRS-BB-832 |
+| TEST-BB-871 | I | `NeonatalSpecimenTests.InfantSpecimen_IsValidForTheAdmission_UntilDischarge` | URS-BB-715 / FRS-BB-833 |
+| TEST-BB-872 | U | `NeonatalTestingRuleTests.AdmissionDating` | URS-BB-715 / FRS-BB-833 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

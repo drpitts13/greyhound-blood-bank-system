@@ -94,6 +94,11 @@ public sealed class FacilityPolicyService
     public Task<bool> GetAllowBatchVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowBatchVerify, false, ct);
 
+    /// <summary>OCD-074: whether the neonatal rules are on, and the age limit in days.</summary>
+    public async Task<(bool Enabled, int AgeLimitDays)> GetNeonatalSettingsAsync(CancellationToken ct = default) =>
+        (await GetBoolAsync(FacilityPolicyKeys.NeonatalRulesEnabled, false, ct),
+            Math.Clamp(await GetIntAsync(FacilityPolicyKeys.NeonatalAgeLimitDays, NeonatalTestingRule.DefaultAgeLimitDays, ct), 1, 365));
+
     /// <summary>OCD-069: the RhIG dose settings; each 0 until the medical director sets it.</summary>
     public async Task<RhigDoseRule.Settings> GetRhigDoseSettingsAsync(CancellationToken ct = default) => new(
         await GetIntAsync(FacilityPolicyKeys.RhigMlPerVial, 0, ct),

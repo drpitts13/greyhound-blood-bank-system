@@ -220,6 +220,14 @@ public sealed class SpecimenService
 
         var expiresUtc = await ComputeExpiresUtcAsync(
             request.CollectedUtc, typeDef, patient, request.ValidityHours, ct);
+        // OCD-074: an infant's specimen collected during a visit stays valid for the admission.
+        DateTime? neonatalStandard = null;
+        if (request.ValidityHours is not > 0 && await NeonatalAdmissionExpiresAsync(patient, visitId, request.CollectedUtc, expiresUtc, ct) is { } admission)
+        {
+            neonatalStandard = expiresUtc;
+            expiresUtc = admission;
+        }
+
         var acceptNow = request.AcceptImmediately;
         if (acceptNow)
         {
@@ -240,6 +248,7 @@ public sealed class SpecimenService
             CollectedUtc = request.CollectedUtc,
             ReceivedUtc = acceptNow ? _clock.UtcNow : null,
             ExpiresUtc = expiresUtc,
+            NeonatalStandardExpiresUtc = neonatalStandard,
             DrawLocation = request.DrawLocation,
             Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim(),
             Identifier1Type = id1Type,
@@ -256,8 +265,9 @@ public sealed class SpecimenService
             AuditEventType.Specimen,
             nameof(Specimen),
             specimen.Id,
-            newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status, specimen.Collector, specimen.DrawLocation },
-            reason: acceptNow ? "Specimen accessioned." : "Specimen collected; awaiting receipt.");
+            newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status, specimen.Collector, specimen.DrawLocation, specimen.NeonatalStandardExpiresUtc },
+            reason: (acceptNow ? "Specimen accessioned." : "Specimen collected; awaiting receipt.")
+                + (neonatalStandard is null ? string.Empty : " Infant: valid for the admission (OCD-074)."));
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
@@ -931,7 +941,8 @@ public sealed class SpecimenService
 
         foreach (var specimen in specimens)
         {
-            if (overriddenIds.Contains(specimen.Id))
+            // An infant's admission-long specimen keeps its admission dating (OCD-074).
+            if (overriddenIds.Contains(specimen.Id) || specimen.NeonatalStandardExpiresUtc is not null)
             {
                 continue;
             }
@@ -1001,6 +1012,25 @@ public sealed class SpecimenService
             ct);
         warnings.Add(open);
         return warnings;
+    }
+
+    private async Task<DateTime?> NeonatalAdmissionExpiresAsync(
+        Patient patient, long? visitId, DateTime collectedUtc, DateTime standardExpiresUtc, CancellationToken ct)
+    {
+        if (_policy is null || _encounters is null || visitId is not long id)
+        {
+            return null;
+        }
+
+        var (enabled, ageLimitDays) = await _policy.GetNeonatalSettingsAsync(ct);
+        if (!enabled)
+        {
+            return null;
+        }
+
+        var visit = await _encounters.GetByIdAsync(id, ct);
+        return NeonatalTestingRule.AdmissionExpiresUtc(enabled, ageLimitDays, patient.DateOfBirth,
+            DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc), visit is not null, visit?.DischargeUtc, standardExpiresUtc);
     }
 
     private async Task<DateTime> ComputeExpiresUtcAsync(

@@ -18,6 +18,12 @@ public class Specimen : BaseEntity
 
     public long? EncounterId { get; set; }
 
+    /// <summary>
+    /// OCD-074: set when an infant's specimen was made valid for the admission; the expiration the usual rules gave it,
+    /// which discharge never goes below. Null for every other specimen.
+    /// </summary>
+    public DateTime? NeonatalStandardExpiresUtc { get; set; }
+
     public Encounter? Encounter { get; set; }
 
     public string SpecimenType { get; set; } = string.Empty;

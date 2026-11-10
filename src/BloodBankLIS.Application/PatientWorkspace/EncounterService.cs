@@ -19,6 +19,8 @@ public sealed class EncounterService
     private readonly ICurrentUser? _currentUser;
     private readonly IAuditWriter? _audit;
 
+    private readonly IRepository<Specimen>? _specimens;
+
     public EncounterService(
         IRepository<Encounter> encounters,
         IRepository<Patient> patients,
@@ -28,8 +30,10 @@ public sealed class EncounterService
         IClock clock,
         IPermissionEvaluator? permissions = null,
         ICurrentUser? currentUser = null,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        IRepository<Specimen>? specimens = null)
     {
+        _specimens = specimens;
         _encounters = encounters;
         _patients = patients;
         _providers = providers;
@@ -142,6 +146,7 @@ public sealed class EncounterService
         encounter.Status = request.Status;
         encounter.AdmitUtc = request.AdmitUtc;
         encounter.DischargeUtc = request.DischargeUtc;
+        await EndNeonatalAdmissionSpecimensAsync(encounter, ct);
         encounter.AccountNumber = request.AccountNumber;
         encounter.AttendingProviderId = providerId;
         encounter.AttendingProvider = providerName;
@@ -251,7 +256,11 @@ public sealed class EncounterService
         encounter.PatientId = patientId;
         if (accountNumber is not null) encounter.AccountNumber = accountNumber;
         if (admitUtc is not null) encounter.AdmitUtc = admitUtc;
-        if (dischargeUtc is not null) encounter.DischargeUtc = dischargeUtc;
+        if (dischargeUtc is not null)
+        {
+            encounter.DischargeUtc = dischargeUtc;
+            await EndNeonatalAdmissionSpecimensAsync(encounter, ct);
+        }
         if (currentLocation is not null) encounter.CurrentLocation = currentLocation;
         if (patientType is not null) encounter.EncounterType = patientType.Value;
         if (attending is not null)
@@ -402,5 +411,34 @@ public sealed class EncounterService
         return auth.Severity == RuleSeverity.HardStop
             ? OperationResult<Encounter>.Fail(auth.Message)
             : null;
+    }
+
+    /// <summary>
+    /// OCD-074: an infant's admission-long specimens on a discharged visit end at discharge (never before their usual
+    /// expiration). Audited; saved with the visit.
+    /// </summary>
+    private async Task EndNeonatalAdmissionSpecimensAsync(Encounter encounter, CancellationToken ct)
+    {
+        if (_specimens is null || encounter.DischargeUtc is not DateTime discharged || encounter.Id == 0)
+        {
+            return;
+        }
+
+        var listed = await _specimens.ListAsync(s => s.EncounterId == encounter.Id && s.NeonatalStandardExpiresUtc != null, ct);
+        foreach (var id in listed.Select(s => s.Id))
+        {
+            // The tracked row (the list may be untracked copies), changed in place and saved with the visit.
+            if (await _specimens.GetByIdAsync(id, ct) is not { } specimen
+                || specimen.ExpiresUtc is not DateTime current
+                || NeonatalTestingRule.OnDischarge(current, specimen.NeonatalStandardExpiresUtc!.Value, discharged) is not { } next)
+            {
+                continue;
+            }
+
+            specimen.ExpiresUtc = next;
+            _audit?.Record(AuditEventType.Specimen, nameof(Specimen), specimen.Id,
+                oldValue: new { ExpiresUtc = current }, newValue: new { ExpiresUtc = next },
+                reason: $"Visit {encounter.VisitNumber} discharged: the infant's admission specimen ends (OCD-074).");
+        }
     }
 }
