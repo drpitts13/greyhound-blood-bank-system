@@ -39,8 +39,10 @@
             <PatientRequirementsBanner PatientId="_xm.PatientId" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label>
+                    @* Opened for a patient with no unit (the chart's link), scanning the unit is the next step. *@
                     <UnitPickerComboBox Scope="UnitPickerScope.Crossmatch" @bind-Value="_xm.BloodUnitId"
-                        OnlyIds="@(_xmShowAll ? null : _xmOffer?.Ids)" />
+                        OnlyIds="@(_xmShowAll ? null : _xmOffer?.Ids)"
+                        Autofocus="@(PatientId is not null && BloodUnitId is null)" />
                     @if (_xmOffer is { } offer)
                     {
                         <div class="sub" data-xm-offer>

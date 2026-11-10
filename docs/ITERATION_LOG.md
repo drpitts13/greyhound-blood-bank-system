@@ -19969,3 +19969,30 @@ Walked Modify Products from the menu. Divide, pool, irradiate and the rest start
 ### Next
 
 - Other scan-first pages using the unit picker (Compatibility crossmatch and allocate, Printing): whether they too should take the first scan.
+
+## Iteration 649 — The crossmatch unit takes the first scan (2026-11-10)
+
+### Capability matrix rescan (scan-first pages using the unit picker)
+
+Checked the other pages built on the unit picker. Printing has three independent cards (specimen label, compatibility tag, component label), so no one field is the obvious first; left alone. The two Partial product rows (ISBT codes, modifications) wait on the licensed ICCBBA extract (OCD-004). Compatibility, opened from the chart with the patient chosen, has the crossmatch Unit number as its next step, but the cursor was not there. Opened from a return or a retrospective follow-up, the unit is already chosen.
+
+### Design
+
+- The crossmatch Unit number picker sets `Autofocus` (Cycle 648) when the page is opened with a patient and no unit. Bare, or with a unit, nothing is focused.
+
+### Verification
+
+- Rendered: with a patient only, the crossmatch unit is focused once and not again on re-render; bare, or with patient and unit, nothing is focused.
+- Live (read-only): /compatibility?patientId=4 (the chart's link for MRN0004) puts the cursor in Record crossmatch › Unit number with the list closed. Nothing recorded. No server errors.
+
+### Requirements
+
+- URS-BB-691, FRS-BB-808.
+
+### Tests
+
+- TEST-BB-800, TEST-BB-801.
+
+### Next
+
+- Walk Blood orders to prepare: the path from an order to a crossmatched, reserved unit, counting clicks.

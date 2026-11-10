@@ -808,5 +808,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-797 | U | `ModifyScanFocusTests.OpenedWithoutAUnit_SourcePickerTakesTheCursor` | URS-BB-690 / FRS-BB-807 |
 | TEST-BB-798 | U | `ModifyScanFocusTests.OpenedOnAUnit_PickerDoesNotTakeTheCursor` | URS-BB-690 / FRS-BB-807 |
 | TEST-BB-799 | U | `ModifyScanFocusTests.LaterFocus_OpensTheList` | URS-BB-690 / FRS-BB-807 |
+| TEST-BB-800 | U | `CompatibilityScanFocusTests.OpenedForAPatient_CrossmatchUnitTakesTheCursor` | URS-BB-691 / FRS-BB-808 |
+| TEST-BB-801 | U | `CompatibilityScanFocusTests.OpenedBareOrWithAUnit_NothingTakesTheCursor` | URS-BB-691 / FRS-BB-808 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
