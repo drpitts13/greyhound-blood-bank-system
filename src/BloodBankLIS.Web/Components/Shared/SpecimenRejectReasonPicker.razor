@@ -1,7 +1,7 @@
 @inject BloodBankApiClient Api
 
 @* Coded reason (reported by cause) plus a comment, which the code may require. *@
-<select @bind="Code" @bind:after="() => CodeChanged.InvokeAsync(Code)" style="min-width:14rem;" aria-label="Rejection reason">
+<select @ref="_reasonSelect" @bind="Code" @bind:after="() => CodeChanged.InvokeAsync(Code)" style="min-width:14rem;" aria-label="Rejection reason">
     <option value="">Choose a rejection reason…</option>
     @foreach (var r in _reasons)
     {
@@ -17,7 +17,29 @@
     [Parameter] public string Comment { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> CommentChanged { get; set; }
 
+    // The picker appears when Reject is chosen, so the reason takes the focus as it appears (Cycle 639).
+    [Parameter] public bool Autofocus { get; set; } = true;
+
     private List<SpecimenRejectionReasonRefDto> _reasons = new();
+    private ElementReference _reasonSelect;
+    private bool _focused;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!Autofocus || _focused || _reasonSelect.Context is null)
+        {
+            return;
+        }
+
+        _focused = true;
+        try
+        {
+            await _reasonSelect.FocusAsync();
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+        }
+    }
 
     private bool RequiresComment => _reasons.FirstOrDefault(r => r.Code == Code)?.RequiresComment == true;
 

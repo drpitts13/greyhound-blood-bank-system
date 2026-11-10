@@ -784,5 +784,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-773 | U | `PendingSpecimenScanFocusTests.ScanField_TakesTheFocus_OnOpenAndModeChange` | URS-BB-679 / FRS-BB-796 |
 | TEST-BB-774 | I | `SeederReactionNextUnitTests.TubeAwaitingReceipt_IsSeededOnce` | URS-BB-680 / FRS-BB-797 |
 | TEST-BB-775 | U | `PendingSpecimenScanFocusTests.RejectingATube_OffersANewSpecimen` | URS-BB-680 / FRS-BB-797 |
+| TEST-BB-776 | U | `PendingSpecimenScanFocusTests.RejectReason_TakesTheFocus` | URS-BB-681 / FRS-BB-798 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

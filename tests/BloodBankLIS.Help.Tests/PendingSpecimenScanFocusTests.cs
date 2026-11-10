@@ -68,4 +68,20 @@ public class PendingSpecimenScanFocusTests : BunitContext
         Assert.Contains("needs a new specimen", next.TextContent);
         Assert.Equal("/patients/12?tab=specimens&panel=specimen", next.QuerySelector("a")!.GetAttribute("href"));
     }
+
+    // TEST-BB-776: the rejection reason takes the focus when the picker appears (it stayed on the Reject button).
+    [Fact]
+    public void RejectReason_TakesTheFocus()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>());
+        var picker = Render<BloodBankLIS.Web.Components.Shared.SpecimenRejectReasonPicker>();
+        var id = ((ElementReference)typeof(BloodBankLIS.Web.Components.Shared.SpecimenRejectReasonPicker)
+            .GetField("_reasonSelect", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(picker.Instance)!).Id;
+        picker.WaitForAssertion(() => Assert.Equal(1, Focuses(id)));
+
+        // Re-renders (choosing a reason) do not pull the focus back.
+        picker.Find("select").Change("");
+        Assert.Equal(1, Focuses(id));
+    }
 }

@@ -19676,3 +19676,30 @@ Seeded a tube waiting for receipt and walked it: the row shows the draw and wait
 ### Next
 
 - The reject reason picker does not take the focus when Reject is chosen; consider it, and check whether the ward is told a tube was rejected (an HL7 or alert path).
+
+## Iteration 639 — Rejection traced end to end; the reason takes the focus (2026-11-10)
+
+### Capability matrix rescan (what a rejection tells others)
+
+Traced a specimen rejection: it already sends the EHR an ORU^R01 per open test on the tube saying it will have no result and asking for a recollect (OCD-062), warns when that message could not be built, names orders still waiting on the tube, and names reservations made on the specimen; the warnings come back with the reject and the page shows them. No gap there. The remaining friction: choosing Reject left the cursor on the button, so the coded reason needed a click.
+
+### Design
+
+- `SpecimenRejectReasonPicker` focuses its reason when it first appears (`Autofocus`, default true), after the render; re-renders leave the focus alone. It appears only when Reject is chosen, on the worklist and on the chart.
+
+### Verification
+
+- Rendered: the reason takes the focus once on appearing and not again when a reason is chosen. The Cycle 628 focus guard passes.
+- Live (read-only; cancelled, nothing rejected): Reject on ACC-DEMO-RCV1 puts the cursor on "Rejection reason". No server errors.
+
+### Requirements
+
+- URS-BB-681, FRS-BB-798.
+
+### Tests
+
+- TEST-BB-776.
+
+### Next
+
+- Back to the capability matrix: walk antibody identification (the panel workup page) for remembered or retyped information.
