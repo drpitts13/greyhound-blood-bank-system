@@ -643,6 +643,12 @@ else
                     }
                 </ul>
             }
+            @if (CompleteWaitingFor is { } waiting)
+            {
+                <p class="muted" data-complete-waiting>@waiting</p>
+            }
+            else
+            {
             @if (NeedsCompleteAck)
             {
                 <div class="field">
@@ -652,6 +658,7 @@ else
                 <p class="muted">Required when completion warnings are present. Acknowledgment does not identify antibodies.</p>
             }
             <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || AckBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive)" @onclick="CompleteAsync">Complete workup</button>
+            }
             <p class="muted">Posts only the technologist-Identified specificities listed above, after supervisor acceptance. Assistance is never posted.</p>
         </div>
         <div class="bb-card">
@@ -905,6 +912,35 @@ else
 
     private bool AckBlocksComplete => NeedsCompleteAck && string.IsNullOrWhiteSpace(_completeAck);
 
+    // The service refuses to complete without a current interpretation and, when review is required, a supervisor's
+    // acceptance; the card says which is outstanding instead of offering Complete.
+    private bool _reviewRequiredByPolicy = true;
+
+    private string? CompleteWaitingFor
+    {
+        get
+        {
+            if (_workup is null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(_workup.TechnologistInterpretation) || _workup.InterpretedUtc is null)
+            {
+                return "Waiting for the technologist interpretation, then supervisor review. Complete opens after that.";
+            }
+
+            if (!_reviewRequiredByPolicy || (_workup.ReviewedUtc is not null && _workup.SupervisorAccepted))
+            {
+                return null;
+            }
+
+            return _workup.ReviewedUtc is not null
+                ? $"The supervisor rejected this interpretation{(string.IsNullOrWhiteSpace(_workup.SupervisorUser) ? "" : $" ({_workup.SupervisorUser})")}. Record a new interpretation for review; Complete opens after a supervisor accepts it."
+                : "Waiting for supervisor review. Complete opens once a supervisor accepts the interpretation.";
+        }
+    }
+
     // The service refuses an accept by the interpreting technologist while review is required and self-review is
     // blocked; the page says so before Accept rather than after.
     private bool _selfReviewBlockedByPolicy;
@@ -1063,15 +1099,16 @@ else
 
     private async Task LoadSelfReviewPolicyAsync()
     {
+        // Unreadable reads as on, the shipped default; the service decides either way.
+        var required = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AntibodyIdRequireSupervisorReview);
+        _reviewRequiredByPolicy = required.Value?.Enabled ?? true;
         if (!Session.Has(PermissionCodes.ImmunoOverride))
         {
             return;
         }
 
-        var required = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AntibodyIdRequireSupervisorReview);
         var blockSelf = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AntibodyIdBlockSelfReview);
-        // Unreadable reads as blocked, the shipped default; the service decides either way.
-        _selfReviewBlockedByPolicy = (required.Value?.Enabled ?? true) && (blockSelf.Value?.Enabled ?? true);
+        _selfReviewBlockedByPolicy = _reviewRequiredByPolicy && (blockSelf.Value?.Enabled ?? true);
     }
 
     private void ApplySpecimenPrefill()

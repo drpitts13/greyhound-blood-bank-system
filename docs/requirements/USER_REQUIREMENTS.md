@@ -692,3 +692,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-684 | The development data has an antibody identification in progress, so the workup can be walked without opening one. | P3 | FRS-BB-801 |
 | URS-BB-685 | A specificity typed into the interpretation is shown as it will post: the catalog antibody when the text names one, or plainly marked as outside the catalog. | P2 | FRS-BB-802 |
 | URS-BB-686 | Supervisor review of an antibody workup is offered only when there is an interpretation to review, and tells the technologist who recorded it that another supervisor must accept it. | P2 | FRS-BB-803 |
+| URS-BB-687 | Completing an antibody workup is offered only when it can complete; otherwise the card says whether it waits for the interpretation, for supervisor review, or for a new interpretation after a rejection. | P2 | FRS-BB-804 |

@@ -19852,3 +19852,32 @@ Walked supervisor review on the demo workup (in progress, no interpretation). Th
 ### Next
 
 - Completing an accepted antibody workup: what the completing user must check or retype.
+
+## Iteration 645 — Complete says what it waits for (2026-11-10)
+
+### Capability matrix rescan (antibody identification, completion)
+
+The Complete workup card showed on the demo workup, which has no interpretation, with the acknowledgment and the Complete button. The service refuses to complete without a current interpretation and, when review is required (OCD-021), without a supervisor's acceptance. The technologist learned that only after the click, and after a rejection nothing on the card said a new interpretation was needed.
+
+### Design
+
+- The card computes what is outstanding: no current interpretation; review required and not yet reviewed; or reviewed and rejected (naming the supervisor). In those cases it says so and shows neither the acknowledgment nor the button. The "will post" list stays, so the technologist sees what completion will do.
+- Require supervisor review is read through the policy endpoint (Cycle 644), now for every user who can open the page; unreadable counts as on. Recording a new interpretation already clears the earlier review on the service, so the rejection note clears with it.
+- Service checks unchanged.
+
+### Verification
+
+- Rendered: no interpretation, interpreted-not-reviewed and rejected each say what is outstanding and offer no Complete; accepted, or review not required, offer it.
+- Live (read-only): the demo workup's Complete card says it waits for the interpretation and review.
+
+### Requirements
+
+- URS-BB-687, FRS-BB-804 (OCD-021).
+
+### Tests
+
+- TEST-BB-790, TEST-BB-791, TEST-BB-792.
+
+### Next
+
+- Leave antibody identification: back to the capability matrix for the next operational gap (shift handoff or supervisor queue coverage of antibody workups waiting for review).
