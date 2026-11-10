@@ -394,6 +394,27 @@ public class DashboardQueueCatalogTests
         Assert.Null(DashboardQueueCatalog.OutageOpenNote(null, now));
     }
 
+    // TEST-BB-865 (OCD-073): outside antibodies to confirm is a card for those who record antibody results, on the Bench
+    // and Supervisor desks, opening the worklist's outside-reports section; its note gives the oldest wait and how many have
+    // no documented report; none waiting, no note.
+    [Fact]
+    public void OutsideAntibodies_CardAndNote()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ImmunoRecord)),
+            c => c.Key == DashboardQueueCatalog.OutsideAntibodies && c.Href == "/antibody-id#outside-reports" && c.Label == "Outside antibodies to confirm");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)), c => c.Key == DashboardQueueCatalog.OutsideAntibodies);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.OutsideAntibodies, WorkFocus.Bench));
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.OutsideAntibodies, WorkFocus.Supervisor));
+
+        var now = new DateTime(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc);
+        OutsideAntibodyToConfirmDto Row(long id, int daysAgo, bool documented) => new(
+            id, 1, "MRN1", "Doe, J", "Anti-Jka", "St. Mary's", null, now.AddDays(-daysAgo), "tech", documented);
+        Assert.Equal("oldest 3 d; 1 report not documented",
+            DashboardQueueCatalog.OutsideAntibodiesNote([Row(1, 3, false), Row(2, 2, true)], now));
+        Assert.Equal("oldest 2 d", DashboardQueueCatalog.OutsideAntibodiesNote([Row(2, 2, true)], now));
+        Assert.Null(DashboardQueueCatalog.OutsideAntibodiesNote([], now));
+    }
+
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
 

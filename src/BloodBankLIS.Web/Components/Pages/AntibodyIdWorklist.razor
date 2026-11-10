@@ -253,9 +253,50 @@ else
             </div>
         }
     </div>
+
+    @* OCD-073: antibodies reported by another facility, used for selection now, waiting for this laboratory to confirm. *@
+    @if (Session.Has(PermissionCodes.ImmunoRecord))
+    {
+        <div class="bb-card" id="outside-reports" data-outside-to-confirm>
+            <div class="bb-card-title"><h3>Outside reports to confirm (@_outside.Count)</h3></div>
+            @if (_outside.Count == 0)
+            {
+                <div class="empty">No outside antibody report is waiting to be confirmed.</div>
+            }
+            else
+            {
+                <p class="muted">Each counts for product selection now. Confirm it on the patient's chart once your own testing confirms it.</p>
+                <div class="table-scroll">
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>Antibody</th><th>Reported by</th><th>Recorded</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var o in _outside)
+                        {
+                            <tr data-outside-antibody="@o.AntibodyId">
+                                <td>@o.PatientName <span class="sub mono">@o.MedicalRecordNumber</span></td>
+                                <td><strong>@o.AntibodySpecificity</strong></td>
+                                <td>
+                                    @o.ReportingFacility@(o.IdentifiedOn is { } on ? $", identified {on:yyyy-MM-dd}" : "")
+                                    @if (!o.Documented)
+                                    {
+                                        <span class="sub">Report not documented</span>
+                                    }
+                                </td>
+                                <td class="nowrap">@o.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd") <span class="sub">@o.RecordedBy</span></td>
+                                <td class="right"><a class="btn btn-ghost btn-sm" href="@($"/patients/{o.PatientId}")">Open chart</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+            }
+        </div>
+    }
 }
 
 @code {
+    private List<OutsideAntibodyToConfirmDto> _outside = new();
+
     [SupplyParameterFromQuery]
     public string? Lot { get; set; }
 
@@ -404,6 +445,13 @@ else
         {
             _fb = r.ToFeedback();
         }
+
+        if (Session.Has(PermissionCodes.ImmunoRecord))
+        {
+            var outside = await Api.GetOutsideAntibodiesToConfirmAsync();
+            _outside = outside.Value ?? new();
+        }
+
         _loading = false;
     }
 

@@ -2,6 +2,7 @@
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
+using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -46,6 +47,7 @@ public static class DashboardQueueCatalog
     public const string AntibodyWorkups = "antibody-workups";
     public const string Hl7OutboundWaiting = "hl7-outbound";
     public const string OutageOpen = "outage-open";
+    public const string OutsideAntibodies = "outside-antibodies";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -76,6 +78,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.ResultVerify) || has(PermissionCodes.ImmunoRecord), OpenRhig, "Open RhIG evaluations", "/rhig");
         // Antibody workups not completed: read by the bench (immuno.record), reviewed by a supervisor (immuno.override).
         Add(cards, has(PermissionCodes.ImmunoRecord) || has(PermissionCodes.ImmunoOverride), AntibodyWorkups, "Antibody workups", "/antibody-id");
+        // Antibodies reported by another facility, used for selection, not yet confirmed here (OCD-073): the bench confirms.
+        Add(cards, has(PermissionCodes.ImmunoRecord), OutsideAntibodies, "Outside antibodies to confirm", "/antibody-id#outside-reports");
         Add(cards, has(PermissionCodes.ImmunoOverride)
             || has(PermissionCodes.ResultVerify)
             || has(PermissionCodes.InventoryRelease) || has(PermissionCodes.OverrideApprove), Supervisor, "Supervisor queue", "/supervisor");
@@ -243,6 +247,25 @@ public static class DashboardQueueCatalog
             AttentionNote(open.BackEntries, "paper issue back-entered", "paper issues back-entered"),
             "end it when the system is back"
         }.Where(p => p is not null));
+
+    /// <summary>
+    /// The outside-antibodies card note: how long the oldest has waited, and how many have no documented report (recorded
+    /// before documentation was required). Waiting is not overdue, so the note informs without urgency.
+    /// </summary>
+    public static string? OutsideAntibodiesNote(IReadOnlyCollection<OutsideAntibodyToConfirmDto> waiting, DateTime nowUtc)
+    {
+        if (waiting.Count == 0)
+        {
+            return null;
+        }
+
+        var parts = new[]
+        {
+            $"oldest {AlertInboxView.OpenFor(waiting.Min(w => w.RecordedUtc), nowUtc)}",
+            AttentionNote(waiting.Count(w => !w.Documented), "report not documented", "reports not documented")
+        }.Where(p => p is not null);
+        return string.Join("; ", parts);
+    }
 
     public static string? AttentionNote(int count, string singular, string plural)
     {

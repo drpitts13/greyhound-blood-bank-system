@@ -20645,3 +20645,34 @@ Nothing about selection changes: an unconfirmed outside antibody still drives an
 ### Next
 
 - OCD-073 continued: a worklist and home card of outside reports to confirm.
+
+## Iteration 670 — Outside antibody reports to confirm (OCD-073 completed) (2026-11-10)
+
+### Capability matrix rescan (operations: worklists; antibody history)
+
+Cycle 669 marked outside reports "not yet confirmed here" on each chart, but nothing gathered them: confirming one depended on someone opening that chart. OCD-073 option C asked for a confirmation task.
+
+### Design
+
+- `ListOutsideToConfirmAsync` (`GET /api/antibodies/outside-to-confirm`, immuno.record): active outside reports with no confirmation, oldest first, merged-away charts left out, each with the patient and whether the report was documented.
+- Antibody ID: **Outside reports to confirm** below the open workups, each row opening the chart where **Confirm** is.
+- Home card **Outside antibodies to confirm** (immuno.record; Bench and Supervisor desks): the count, the oldest wait, and how many have no documented report. Not urgent: the antibody already counts for selection (question 6).
+
+### Verification
+
+- Unit: the card's permission, desks, link and note.
+- Integration: only active, unconfirmed outside reports listed, oldest first, documentation flagged; confirmed, inactive and local antibodies left out.
+- Rendered: the worklist section with the facility and date, the undocumented note, and the chart link.
+- Live (read-only): Antibody ID shows "Outside reports to confirm (0)" with its empty message, and the home card "Outside antibodies to confirm" is listed under Clear, linked to the section; the dev data has no outside report. No server errors.
+
+### Requirements
+
+- URS-BB-713, FRS-BB-831; OCD-073 complete.
+
+### Tests
+
+- TEST-BB-865, TEST-BB-866, TEST-BB-867.
+
+### Next
+
+- OCD-069 option C: RhIG candidacy suggested from the facts on file, and the vial count calculated from the fetal bleed quantitation with facility settings (shipped unset).

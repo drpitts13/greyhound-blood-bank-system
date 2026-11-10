@@ -25,6 +25,20 @@ public sealed record AddAntibodyRequest(
     OutsideReportKind? ReportKind = null,
     string? ReportDocumentation = null);
 
+/// <summary>OCD-073: an active outside antibody report this laboratory has not yet confirmed, for the to-confirm list.</summary>
+public sealed record OutsideAntibodyToConfirmDto(
+    long AntibodyId,
+    long PatientId,
+    string MedicalRecordNumber,
+    string PatientName,
+    string AntibodySpecificity,
+    string ReportingFacility,
+    DateOnly? IdentifiedOn,
+    DateTime RecordedUtc,
+    string RecordedBy,
+    // Recorded before documentation was required (Cycle 669): the report behind it is not on record.
+    bool Documented);
+
 /// <summary>OCD-073: the testing here that confirmed an outside report.</summary>
 public sealed record ConfirmOutsideAntibodyRequest(string? Note);
 

@@ -718,3 +718,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-710 | A product thawed in an open system, or a pooled product, expires by its own thawed shelf life, and is not thawed until that shelf life is set (OCD-068). | P1 | FRS-BB-828 |
 | URS-BB-711 | A shipment of units to another facility records the container, the packing temperature, who packed it and who receives it (OCD-072). | P2 | FRS-BB-829 |
 | URS-BB-712 | An antibody reported by another facility is recorded with how the report was documented, is used for selection at once, and is shown as not yet confirmed until this laboratory confirms it (OCD-073). | P1 | FRS-BB-830 |
+| URS-BB-713 | The bench sees which outside antibody reports are waiting for this laboratory to confirm them, from the home screen (OCD-073). | P2 | FRS-BB-831 |

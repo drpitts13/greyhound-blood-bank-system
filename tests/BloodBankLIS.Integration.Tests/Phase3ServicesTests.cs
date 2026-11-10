@@ -1386,6 +1386,33 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("already confirmed", (await immuno.ConfirmOutsideAntibodyAsync(added.Value.Id, "Again")).Error);
     }
 
+    // TEST-BB-866 (OCD-073): the to-confirm list holds active, unconfirmed outside reports, oldest first, with the patient,
+    // and says which were recorded without documentation; a confirmed, an inactive, or a local antibody is not listed.
+    [Fact]
+    public async Task OutsideAntibodiesToConfirm_ListsOnlyUnconfirmedOutsideReports()
+    {
+        var patientId = await EnsurePatientAsync("MRN-AB-TOCONFIRM");
+        await using var context = _factory.Create();
+        var immuno = Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord, PermissionCodes.ImmunoOverride));
+        var waiting = await immuno.AddAntibodyAsync(patientId, null, "anti-Jkb", AntibodyStatus.Identified, null, "County General", null, OutsideReportKind.Copy, "Card, in the chart");
+        var confirmed = await immuno.AddAntibodyAsync(patientId, null, "anti-S", AntibodyStatus.Identified, null, "County General", null, OutsideReportKind.Copy, "Letter");
+        Assert.True((await immuno.ConfirmOutsideAntibodyAsync(confirmed.Value!.Id, "Panel")).Succeeded);
+        var inactive = await immuno.AddAntibodyAsync(patientId, null, "anti-M", AntibodyStatus.Identified, null, "County General", null, OutsideReportKind.Copy, "Letter");
+        Assert.True((await immuno.DeactivateAntibodyAsync(inactive.Value!.Id, "Entered on the wrong chart")).Succeeded);
+        await immuno.AddAntibodyAsync(patientId, null, "anti-C", AntibodyStatus.Identified, "Found here");
+        // Recorded before documentation was required.
+        var legacy = new AntibodyHistory { PatientId = patientId, AntibodySpecificity = "anti-Fyb", IsActive = true, ReportingFacility = "St. Mary's" };
+        context.AntibodyHistory.Add(legacy);
+        await context.SaveChangesAsync();
+        legacy.CreatedUtc = _factory.Clock.UtcNow.AddDays(-30);
+        await context.SaveChangesAsync();
+
+        var mine = (await immuno.ListOutsideToConfirmAsync()).Where(o => o.PatientId == patientId).ToList();
+        Assert.Equal(["anti-Fyb", "anti-Jkb"], mine.Select(o => o.AntibodySpecificity));
+        Assert.Equal((false, true), (mine[0].Documented, mine[1].Documented));
+        Assert.Equal(("MRN-AB-TOCONFIRM", waiting.Value!.Id), (mine[1].MedicalRecordNumber, mine[1].AntibodyId));
+    }
+
     [Fact]
     public async Task AntibodyWrites_RequireImmunoPermissions()
     {

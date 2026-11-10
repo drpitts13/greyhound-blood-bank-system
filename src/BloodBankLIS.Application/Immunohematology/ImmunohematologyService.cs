@@ -396,6 +396,33 @@ public sealed class ImmunohematologyService
     }
 
     /// <summary>
+    /// OCD-073: active outside antibody reports this laboratory has not yet confirmed, oldest first, for the bench that
+    /// confirms them. Merged-away charts are left out (their history moved to the surviving chart).
+    /// </summary>
+    public async Task<IReadOnlyList<OutsideAntibodyToConfirmDto>> ListOutsideToConfirmAsync(CancellationToken ct = default)
+    {
+        var rows = await _antibodies.ListAsync(a => a.IsActive && a.ReportingFacility != null && a.ConfirmedUtc == null, ct);
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var patientIds = rows.Select(a => a.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return rows
+            .Where(a => patients.TryGetValue(a.PatientId, out var p) && p.Status != PatientStatus.Merged)
+            .OrderBy(a => a.CreatedUtc)
+            .Select(a =>
+            {
+                var p = patients[a.PatientId];
+                return new OutsideAntibodyToConfirmDto(a.Id, a.PatientId, p.MedicalRecordNumber, $"{p.LastName}, {p.FirstName}",
+                    a.AntibodySpecificity, a.ReportingFacility!, a.IdentifiedOn, a.CreatedUtc, a.CreatedBy,
+                    !string.IsNullOrWhiteSpace(a.ReportDocumentation));
+            })
+            .ToList();
+    }
+
+    /// <summary>
     /// OCD-073: this laboratory confirms an antibody reported by another facility, naming the testing here that did;
     /// the chart then reads "confirmed here". Audited. The antibody counted for selection before and after.
     /// </summary>

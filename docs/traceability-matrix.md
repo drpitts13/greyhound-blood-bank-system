@@ -824,6 +824,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-710 / FRS-BB-828 | Open-system and pooled thawed shelf lives | `ThawedExpirationRule.cs`; `AutoThawService.cs`; `AutoThawProductAdminService.cs`; `AdminAutoThawProducts.razor`; `PatientDetail.razor`; `UnitDetail.razor` | TEST-BB-857, TEST-BB-858 | U, I | OCD-068 |
 | URS-BB-711 / FRS-BB-829 | Shipment packing details | `ShipOutRule.cs`; `InventoryService.cs`; `InventoryShipOut.razor`; `DatabaseSeeder.ShipOut.cs` | TEST-BB-859, TEST-BB-860, TEST-BB-861 | U, I | OCD-072 |
 | URS-BB-712 / FRS-BB-830 | Outside antibody reports documented and confirmed here | `OutsideAntibodyReportRule.cs`; `ImmunohematologyService.cs`; `ImmunohematologyEndpoints.cs`; `PatientChartOverviewTab.razor` | TEST-BB-670, TEST-BB-862, TEST-BB-863, TEST-BB-864 | U, I | OCD-073 |
+| URS-BB-713 / FRS-BB-831 | Outside antibody reports to confirm | `ImmunohematologyService.cs`; `ImmunohematologyEndpoints.cs`; `DashboardQueueCatalog.cs`; `AntibodyIdWorklist.razor`; `Home.razor` | TEST-BB-865, TEST-BB-866, TEST-BB-867 | U, I | OCD-073 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

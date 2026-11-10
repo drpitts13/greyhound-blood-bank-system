@@ -527,6 +527,13 @@
                     ? (card.Key, result.Value.OpenCount, DashboardQueueCatalog.AntibodyWorkupsNote(result.Value))
                     : (card.Key, null, null);
             }
+            case DashboardQueueCatalog.OutsideAntibodies:
+            {
+                var result = await Api.GetOutsideAntibodiesToConfirmAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.OutsideAntibodiesNote(result.Value, DateTime.UtcNow))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.PossibleDuplicates:
             {
                 var result = await Api.GetPossibleDuplicatePairsAsync();

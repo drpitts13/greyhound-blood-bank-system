@@ -873,5 +873,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-862 | I | `Phase3ServicesTests.OutsideAntibody_IsDocumented_ThenConfirmedHere` | URS-BB-712 / FRS-BB-830 |
 | TEST-BB-863 | U | `OutsideAntibodyReportRuleTests.Documentation_And_Confirmation` | URS-BB-712 / FRS-BB-830 |
 | TEST-BB-864 | U | `OutsideAntibodyChartTests.OutsideReports_ShowDocumentationAndConfirmation` | URS-BB-712 / FRS-BB-830 |
+| TEST-BB-865 | U | `DashboardQueueCatalogTests.OutsideAntibodies_CardAndNote` | URS-BB-713 / FRS-BB-831 |
+| TEST-BB-866 | I | `Phase3ServicesTests.OutsideAntibodiesToConfirm_ListsOnlyUnconfirmedOutsideReports` | URS-BB-713 / FRS-BB-831 |
+| TEST-BB-867 | U | `OutsideAntibodyWorklistTests.OutsideReports_AreListedToConfirm` | URS-BB-713 / FRS-BB-831 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

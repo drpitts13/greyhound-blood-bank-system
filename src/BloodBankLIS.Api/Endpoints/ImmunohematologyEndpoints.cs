@@ -101,6 +101,12 @@ public static class ImmunohematologyEndpoints
                 a => ($"/api/patients/{patientId}/antibodies/{a.Id}", (object)AntibodyDto.From(a))))
             .RequirePermission(PermissionCodes.ImmunoRecord);
 
+        // OCD-073: outside reports waiting for this laboratory to confirm them.
+        app.MapGet("/api/antibodies/outside-to-confirm", async (ImmunohematologyService service, CancellationToken ct) =>
+            Results.Ok(await service.ListOutsideToConfirmAsync(ct)))
+            .RequirePermission(PermissionCodes.ImmunoRecord)
+            .WithTags("Immunohematology");
+
         // OCD-073: this laboratory confirms an antibody reported by another facility.
         app.MapPost("/api/antibodies/{id:long}/confirm-outside", async (long id, ConfirmOutsideAntibodyRequest request, ImmunohematologyService service, CancellationToken ct) =>
             EndpointResults.From(await service.ConfirmOutsideAntibodyAsync(id, request.Note, ct), a => AntibodyDto.From(a)))

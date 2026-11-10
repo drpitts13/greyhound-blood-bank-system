@@ -46,9 +46,9 @@ public static class DashboardHome
 
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
-        [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, BloodOrders, AntibodyWorkups, ReagentQc, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
+        [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, BloodOrders, AntibodyWorkups, OutsideAntibodies, ReagentQc, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
         [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, ExpiredOnShelf, LowStock, OutageOpen],
-        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock, Unidentified, OutageOpen]
+        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, OutsideAntibodies, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock, Unidentified, OutageOpen]
     };
 
     public static IReadOnlyList<WorkFocus> Choices { get; } =
