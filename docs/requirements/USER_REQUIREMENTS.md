@@ -710,3 +710,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-702 | The label designer says when elements would overlap or text would run off the label when printed, and shows which ones. | P3 | FRS-BB-820 |
 | URS-BB-703 | Results and charges that have not gone out to the EHR or billing are visible with why, and the home screen says when any have waited too long. | P2 | FRS-BB-821 |
 | URS-BB-704 | The shift handoff tells the next shift how many outbound results and charges have not gone out. | P3 | FRS-BB-822 |
+| URS-BB-705 | The blood bank records each outage worked on paper (start, end, what was down), so back-entry after recovery does not depend on anyone remembering the window, and paper times outside it are questioned. | P2 | FRS-BB-823 |

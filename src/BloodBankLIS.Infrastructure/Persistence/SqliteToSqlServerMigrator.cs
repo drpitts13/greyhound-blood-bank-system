@@ -154,6 +154,7 @@ public sealed class SqliteToSqlServerMigrator
         "ZebraPrinters",
         "LabelLayouts",
         "SpecimenLabelDesigns",
+        "DowntimeEpisodes",
         "PtagIdentifiers",
         "PrintJobs",
         "BillingEvents",

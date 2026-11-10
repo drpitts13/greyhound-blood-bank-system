@@ -105,6 +105,7 @@ public static class DependencyInjection
         services.AddScoped<SpecimenStorageService>();
         services.AddScoped<DowntimeReconciliationService>();
         services.AddScoped<DowntimePatientSummaryService>();
+        services.AddScoped<DowntimeEpisodeService>();
         services.AddScoped<IsbtLookupCatalog>();
         services.AddScoped<IsbtParsingService>();
         services.AddScoped<ScanSessionService>();

@@ -944,6 +944,20 @@ public sealed class SpecimenLabelDesignConfiguration : IEntityTypeConfiguration<
     }
 }
 
+public sealed class DowntimeEpisodeConfiguration : IEntityTypeConfiguration<DowntimeEpisode>
+{
+    public void Configure(EntityTypeBuilder<DowntimeEpisode> b)
+    {
+        b.ToTable("DowntimeEpisodes");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.Description).HasMaxLength(200).IsRequired();
+        b.Property(e => e.EndedBy).HasMaxLength(100);
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => e.StartedUtc);
+    }
+}
+
 public sealed class PtagIdentifierConfiguration : IEntityTypeConfiguration<PtagIdentifier>
 {
     public void Configure(EntityTypeBuilder<PtagIdentifier> b)

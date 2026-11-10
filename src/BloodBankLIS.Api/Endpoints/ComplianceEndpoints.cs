@@ -215,6 +215,26 @@ public static class ComplianceEndpoints
             .WithTags("Compliance")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.IssueCreate);
+
+        // Recorded outages (Cycle 662): read by anyone who issues; recorded and ended by those who back-enter paper issues.
+        app.MapGet("/api/compliance/downtime-episodes", async (
+                DowntimeEpisodeService service, CancellationToken ct) =>
+                Results.Ok(await service.ListAsync(ct)))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueCreate);
+        app.MapPost("/api/compliance/downtime-episodes", async (
+                RecordDowntimeEpisodeRequest request, DowntimeEpisodeService service, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await service.RecordAsync(request, ct), d => d))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueDowntimeBackEntry);
+        app.MapPost("/api/compliance/downtime-episodes/{id:long}/end", async (
+                long id, EndDowntimeEpisodeRequest request, DowntimeEpisodeService service, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await service.EndAsync(id, request, ct), d => d))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueDowntimeBackEntry);
     }
 }
 

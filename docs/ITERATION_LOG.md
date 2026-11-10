@@ -20375,3 +20375,40 @@ Cycle 660 made outbound results and charges that have not gone visible on the HL
 ### Next
 
 - Back to the capability matrix: downtime workflows (the downtime snapshot and recovery) for remembered or retyped information.
+
+## Iteration 662 — Recorded outages for downtime recovery (2026-11-10)
+
+### Capability matrix rescan (interoperability: downtime workflows)
+
+Downtime has a patient summary to print before an outage, a reconciliation snapshot after it, and back-entry of paper issues. Nothing recorded the outage itself. After recovery, the person back-entering had to remember when the system was down, retype the same reason on every paper issue, and nothing questioned a paper time that fell outside the outage (a mistyped date). Question 2 (what must the user remember?) and question 3 (can the application infer it?) both pointed here.
+
+### Design
+
+- **`DowntimeEpisode`**: start, end (null while open), what was down, recorded and ended by. Never deleted; ending is its own audited action. Migration `20261225000000_DowntimeEpisodes`, dev bootstrap table, migrator order.
+- **`DowntimeEpisodeRule`**: a description is required; no start or end in the future; the end after the start; no overlap, so only one outage is open at a time. `Covering` finds the outage a time falls in; `CheckPaperTime` warns outside every outage, and stays silent when none is recorded; `BackEntryReason` is "Issued on paper during downtime #n: description".
+- **`DowntimeEpisodeService`**: list (newest 20, each with the paper back-entries whose issue time falls inside and those still Issued), record and end (issue.downtime-backentry; audited). Endpoints under `/api/compliance/downtime-episodes`; reading needs issue.create.
+- **Downtime Snapshot**: an Outages card. The open outage stands out with End outage (the time defaulting to now). The table shows the window, what was down, the back-entries (still-open ones linked to Issued units) and who recorded and ended it. Record an outage is open when none is recorded.
+- **Issue desk back-entry**: shows the open or latest outage and fills the reason from it; a paper time inside another outage switches to that one (unless the reason was typed); outside every outage it warns to check the record. With none recorded, it links to record one.
+
+### Safety (questions 6 and 7)
+
+The outside-outage check is a warning, not a stop: whether a back-entry outside a recorded outage should be refused, or need an override, is a clinical and quality decision (OCD-081). Every issue check runs as before; the outage changes only the offered reason and the warning.
+
+### Verification
+
+- Unit: covering outage, open outage to now, the warning and its absence with no outage, the current outage offered, adjacent outages allowed, overlaps and long descriptions refused.
+- Integration: record open, end, audited; ending again and an unknown outage refused; future start or end, end before start, overlap, a second open outage and an end across another outage refused with nothing saved; back-entries counted per outage (normal issues and those outside excluded; still Issued counted).
+- Rendered: the downtime card (open outage, End outage with the time filled, the table, the record form enabling); back-entry filling the reason, switching outage by paper time, warning outside.
+- Live (read-only; nothing recorded): the dev database took the table on start; Downtime Snapshot shows the Outages card with "No outage recorded" and the record form open; ticking back-entry on the Issue desk shows "No outage is recorded" linked to /downtime, the reason left blank. No server errors. The snapshot's "Generated" time was a local time labelled UTC; the label is removed.
+
+### Requirements
+
+- URS-BB-705, FRS-BB-823; OCD-081.
+
+### Tests
+
+- TEST-BB-843 to TEST-BB-848.
+
+### Next
+
+- Show an open outage on the home screen for issuing roles, and add it to the shift handoff, so an outage left open is not forgotten.

@@ -851,5 +851,11 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-840 | U | `Hl7OutboundWaitingPageTests.WaitingMessages_AreListedWithWhy` | URS-BB-703 / FRS-BB-821 |
 | TEST-BB-841 | U | `ShiftHandoffItemsTests.Hl7OutboundNotSent_IsAHandoffItem` | URS-BB-704 / FRS-BB-822 |
 | TEST-BB-842 | I | `ShiftHandoffServiceTests.Create_CountsOutboundMessagesNotSent` | URS-BB-704 / FRS-BB-822 |
+| TEST-BB-843 | U | `DowntimeEpisodeRuleTests.PaperTime_IsCheckedAgainstRecordedOutages`, `DowntimeEpisodeRuleTests.Validate_AllowsAdjacentOutages` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-844 | I | `DowntimeEpisodeTests.Record_ThenEnd_IsAudited` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-845 | I | `DowntimeEpisodeTests.Record_RefusesWhatCannotBeTrue` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-846 | I | `DowntimeEpisodeTests.List_CountsBackEntriesInsideEachOutage` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-847 | U | `DowntimeOutagePageTests.DowntimePage_ShowsAndRecordsOutages` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-848 | U | `DowntimeOutagePageTests.BackEntry_UsesTheRecordedOutage` | URS-BB-705 / FRS-BB-823 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

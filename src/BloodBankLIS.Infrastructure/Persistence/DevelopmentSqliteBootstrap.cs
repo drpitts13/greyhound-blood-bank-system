@@ -315,6 +315,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureReactionWorkupSettingsTableAsync(context, cancellationToken);
         await EnsureAlertsTableAsync(context, cancellationToken);
         await EnsureSpecimenLabelDesignsTableAsync(context, cancellationToken);
+        await EnsureDowntimeEpisodesTableAsync(context, cancellationToken);
         await EnsureSupplierOrderTablesAsync(context, cancellationToken);
         await EnsureDatabaseBackupsTableAsync(context, cancellationToken);
         await EnsureTransfusionIndicationCriteriaTableAsync(context, cancellationToken);
@@ -1561,6 +1562,34 @@ public static class DevelopmentSqliteBootstrap
             """CREATE UNIQUE INDEX "IX_SpecimenLabelDesigns_Code" ON "SpecimenLabelDesigns" ("Code")""", ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE INDEX "IX_SpecimenLabelDesigns_Purpose_IsActive" ON "SpecimenLabelDesigns" ("Purpose", "IsActive")""", ct);
+    }
+
+    private static async Task EnsureDowntimeEpisodesTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "DowntimeEpisodes", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "DowntimeEpisodes" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_DowntimeEpisodes" PRIMARY KEY AUTOINCREMENT,
+                "StartedUtc" TEXT NOT NULL,
+                "EndedUtc" TEXT NULL,
+                "Description" TEXT NOT NULL,
+                "EndedBy" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_DowntimeEpisodes_StartedUtc" ON "DowntimeEpisodes" ("StartedUtc")""", ct);
     }
 
     private static async Task EnsureStorageTemperatureTableAsync(BloodBankDbContext context, CancellationToken ct)

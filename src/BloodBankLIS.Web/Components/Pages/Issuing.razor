@@ -836,21 +836,37 @@
         @if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
         {
             @* OCD-054: an issue made on paper during downtime, judged as of the paper record's time. *@
-            <label class="flex" style="margin-bottom:.5rem;"><input type="checkbox" @bind="_issue.DowntimeBackEntry" @bind:after="OnBackEntryToggled" />&nbsp;Downtime back-entry from a paper issue record</label>
+            <label class="flex" style="margin-bottom:.5rem;"><input type="checkbox" @bind="_issue.DowntimeBackEntry" @bind:after="OnBackEntryToggledAsync" />&nbsp;Downtime back-entry from a paper issue record</label>
             @if (_issue.DowntimeBackEntry)
             {
                 <div class="alert alert-info">
                     Expiration is checked as of the time on the paper record, so a unit or specimen that has expired since can be entered. Every other check still applies. Type the unit number from the paper record in place of a scan.
                 </div>
+                @* Cycle 662: the recorded outage, so the window and the reason need not be remembered or retyped. *@
+                @if (_backEntryOutage is { } outage)
+                {
+                    <div class="muted" data-backentry-outage="@outage.Id">
+                        Outage #@outage.Id: @outage.Description, @outage.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") to
+                        @(outage.EndedUtc is { } end ? end.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "now (still down)").
+                    </div>
+                }
+                else if (_downtimeEpisodes.Count == 0)
+                {
+                    <div class="muted" data-backentry-no-outage>No outage is recorded. <a href="/downtime">Record it</a> so the paper times can be checked against it.</div>
+                }
+                @if (_backEntryOutsideWarning is not null)
+                {
+                    <div class="alert alert-warning" data-backentry-outside>@_backEntryOutsideWarning</div>
+                }
                 <div class="form-row">
                     <div class="field"><label>Issued at (from paper record)</label>
-                        <input type="datetime-local" @bind="_issue.BackEntryLocalTime" />
+                        <input type="datetime-local" @bind="_issue.BackEntryLocalTime" @bind:after="OnBackEntryTimeChanged" data-backentry-time />
                     </div>
                     <div class="field"><label>Unit number on the paper record</label>
                         <input @bind="_issue.BackEntryDin" autocomplete="off" placeholder="DIN as written on the record" />
                     </div>
                     <div class="field"><label>Reason</label>
-                        <input @bind="_issue.LateEntryReason" placeholder="e.g. Issued on paper during LIS downtime" />
+                        <input @bind="_issue.LateEntryReason" placeholder="e.g. Issued on paper during LIS downtime" data-backentry-reason />
                     </div>
                 </div>
             }
@@ -2731,14 +2747,62 @@
         DowntimeBackEntry: _issue.DowntimeBackEntry,
         BackEntryDin: _issue.DowntimeBackEntry ? _issue.BackEntryDin : null);
 
-    private void OnBackEntryToggled()
+    private async Task OnBackEntryToggledAsync()
     {
         // The two pickers list different units, so a unit picked under one is not carried to the other.
         _issue.BloodUnitId = null;
         _issue.BackEntryLocalTime = null;
         _issue.BackEntryDin = null;
         _issue.LateEntryReason = null;
+        _backEntryOutsideWarning = null;
+        _backEntryOutage = null;
+        if (!_issue.DowntimeBackEntry)
+        {
+            return;
+        }
+
+        // Cycle 662: offer the open outage, else the latest, and carry it as the reason.
+        var r = await Api.GetDowntimeEpisodesAsync();
+        _downtimeEpisodes = r.Value ?? new();
+        _backEntryOutage = _downtimeEpisodes.OrderBy(e => e.EndedUtc is null ? 0 : 1).ThenByDescending(e => e.StartedUtc).FirstOrDefault();
+        _issue.LateEntryReason = _backEntryOutage?.BackEntryReason;
     }
+
+    /// <summary>
+    /// The paper time picks the outage it falls in and that outage's reason (unless the reason was typed); outside every
+    /// recorded outage it warns to check the record (OCD-081). With no outage recorded there is nothing to check.
+    /// </summary>
+    private void OnBackEntryTimeChanged()
+    {
+        _backEntryOutsideWarning = null;
+        if (_issue.BackEntryLocalTime is not { } local || _downtimeEpisodes.Count == 0)
+        {
+            return;
+        }
+
+        var paper = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
+        var covering = _downtimeEpisodes
+            .Where(e => e.StartedUtc <= paper && (e.EndedUtc is null || paper <= e.EndedUtc))
+            .OrderByDescending(e => e.StartedUtc)
+            .FirstOrDefault();
+        var reasonWasOffered = string.IsNullOrWhiteSpace(_issue.LateEntryReason)
+            || _downtimeEpisodes.Any(e => e.BackEntryReason == _issue.LateEntryReason);
+        if (covering is null)
+        {
+            _backEntryOutsideWarning = "The time on the paper record is outside every recorded outage. Check the record's date and time.";
+            return;
+        }
+
+        _backEntryOutage = covering;
+        if (reasonWasOffered)
+        {
+            _issue.LateEntryReason = covering.BackEntryReason;
+        }
+    }
+
+    private List<DowntimeEpisodeDto> _downtimeEpisodes = new();
+    private DowntimeEpisodeDto? _backEntryOutage;
+    private string? _backEntryOutsideWarning;
 
     private async Task IssueAsync()
     {
