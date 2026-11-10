@@ -826,11 +826,11 @@
         <Outcome Value="_issueFb" RequiresSignature="true" />
         @if (IssueOpenReaction is { } issueReaction)
         {
-            @* OCD-078: a warning, not a block; whether another unit is given is the physician's decision. *@
+            @* OCD-078 (decided): issuing another unit is an override with the reason and who authorized it, reviewed later. *@
             <div class="alert alert-warning" data-issue-reaction-open>
                 <strong>A transfusion reaction is under investigation for this patient</strong>
-                (#@issueReaction.Id, reported @ClockText.Short(issueReaction.ReportedUtc)). Confirm the physician has decided to
-                continue before issuing another unit.
+                (#@issueReaction.Id, reported @ClockText.Short(issueReaction.ReportedUtc)). Issue another unit only if the
+                physician has decided to continue: the issue asks for an override with the reason and who authorized it.
             </div>
         }
         @if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
@@ -1392,15 +1392,23 @@
             <Outcome Value="_txFb" />
             @if (TxOpenReaction is { } openReaction)
             {
-                @* OCD-078: a warning, not a block; whether a further unit may be started is the physician's decision. *@
+                @* OCD-078 (decided): starting another unit needs the reason and who authorized it; reviewed by a supervisor. *@
                 <div class="alert alert-warning" data-tx-reaction-open>
                     <strong>A transfusion reaction is under investigation for this patient</strong>
-                    (#@openReaction.Id, reported @ClockText.Short(openReaction.ReportedUtc)). Do not start another unit unless the
-                    physician has decided to continue.
+                    (#@openReaction.Id, reported @ClockText.Short(openReaction.ReportedUtc)). Start another unit only if the
+                    physician has decided to continue, and record why and who decided.
                     @if (Session.Has(PermissionCodes.ReactionInvestigate))
                     {
                         <a href="@($"/reactions?id={openReaction.Id}")">Open investigation #@openReaction.Id</a>
                     }
+                    <div class="form-row" style="margin-top:.5rem;">
+                        <div class="field"><label>Reason to continue (required)</label>
+                            <input @bind="_txOverrideReason" @bind:event="oninput" maxlength="500" placeholder="e.g. Physician reviewed; mild febrile reaction, continue" data-tx-reaction-reason />
+                        </div>
+                        <div class="field"><label>Authorized by (required)</label>
+                            <input @bind="_txAuthorizedBy" @bind:event="oninput" maxlength="100" placeholder="Physician who decided" data-tx-reaction-authorizer />
+                        </div>
+                    </div>
                 </div>
             }
             <div class="form-row">
@@ -1715,6 +1723,9 @@
     private void ClearTransfusionUnit()
     {
         _txIssueId = 0;
+        // Each unit is its own decision to continue (OCD-078).
+        _txOverrideReason = null;
+        _txAuthorizedBy = null;
         _txUnitLookup = string.Empty;
         _txProductName = null;
         _txExpirationNotice = null;
@@ -3042,6 +3053,15 @@
         _busy = false;
     }
 
+    private string? _txOverrideReason;
+    private string? _txAuthorizedBy;
+
+    /// <summary>The OCD-078 override, sent only while a reaction is under investigation for the patient.</summary>
+    private (string? Reason, string? AuthorizedBy) TxOverride => TxOpenReaction is null
+        ? (null, null)
+        : (string.IsNullOrWhiteSpace(_txOverrideReason) ? null : _txOverrideReason.Trim(),
+            string.IsNullOrWhiteSpace(_txAuthorizedBy) ? null : _txAuthorizedBy.Trim());
+
     private async Task StartTransfusionAsync()
     {
         _busy = true;
@@ -3051,7 +3071,9 @@
             SecondVerifier: _txSecondVerifier,
             PatientIdentifier1Value: _txPatientIdentifier1,
             PatientIdentifier2Value: _txPatientIdentifier2,
-            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim()));
+            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim(),
+            OverrideReason: TxOverride.Reason,
+            AuthorizedBy: TxOverride.AuthorizedBy));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion started. Complete it here when it ends.");
         if (r.Succeeded && r.Value is not null)
@@ -3121,7 +3143,9 @@
             SecondVerifier: _txSecondVerifier,
             PatientIdentifier1Value: _txPatientIdentifier1,
             PatientIdentifier2Value: _txPatientIdentifier2,
-            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim()));
+            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim(),
+            OverrideReason: TxOverride.Reason,
+            AuthorizedBy: TxOverride.AuthorizedBy));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;

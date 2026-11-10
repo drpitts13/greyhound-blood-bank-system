@@ -453,6 +453,15 @@ public sealed class IssuingService
             evaluation = new RuleEvaluation(evaluation.Results.Append(directory).ToList());
         }
 
+        // OCD-078: another unit while a reaction is under investigation is the physician's decision, overridden and reviewed.
+        var openReactionAtGate = (await _reactions.OpenByPatientAsync([request.PatientId], ct))
+            .TryGetValue(request.PatientId, out var reactionAtGate) ? reactionAtGate : ((long Id, DateTime ReportedUtc)?)null;
+        var reactionOpen = ReactionUnderInvestigationRule.Evaluate(openReactionAtGate?.Id, openReactionAtGate?.ReportedUtc, requestedIssuedUtc);
+        if (reactionOpen.Severity != RuleSeverity.Pass)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(reactionOpen).ToList());
+        }
+
         if (evaluation.IsHardStopped)
         {
             // Document the blocked attempt; never silently drop it.
@@ -547,8 +556,7 @@ public sealed class IssuingService
 
         // A reaction still under investigation for the patient is recorded with the issue (Cycle 634): it warns, it does
         // not block (OCD-078), and a later review can find the units given meanwhile.
-        var openReaction = (await _reactions.OpenByPatientAsync([request.PatientId], ct))
-            .TryGetValue(request.PatientId, out var reactionOpen) ? reactionOpen.Id : (long?)null;
+        var openReaction = openReactionAtGate?.Id;
         var issue = new Issue
         {
             ReactionInvestigationOpenAtIssueId = openReaction,
@@ -1627,6 +1635,13 @@ public sealed class IssuingService
             return bedside.Blocked;
         }
 
+        var reactionCheck = await OverrideReactionAtBedsideAsync(issue, unit, request.StartUtc ?? _clock.UtcNow,
+            request.OverrideReason, request.AuthorizedBy, ct);
+        if (reactionCheck is not null)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(reactionCheck);
+        }
+
         var now = _clock.UtcNow;
 
         var transfusion = new TransfusionEvent
@@ -1683,6 +1698,47 @@ public sealed class IssuingService
     }
 
     /// <summary>
+    /// OCD-078: a unit started at the bedside after a reaction was reported for the patient, while it is still under
+    /// investigation, needs the reason and who authorized it. Returns the evaluation to block with, or null to go on;
+    /// an override given is added (recorded and audited with the transfusion's save) for supervisor review.
+    /// </summary>
+    private async Task<RuleEvaluation?> OverrideReactionAtBedsideAsync(
+        Issue issue, BloodUnit unit, DateTime startUtc, string? reason, string? authorizedBy, CancellationToken ct)
+    {
+        var open = (await _reactions.OpenByPatientAsync([issue.PatientId], ct))
+            .TryGetValue(issue.PatientId, out var found) ? found : ((long Id, DateTime ReportedUtc)?)null;
+        var warning = ReactionUnderInvestigationRule.Evaluate(open?.Id, open?.ReportedUtc, startUtc);
+        if (warning.Severity == RuleSeverity.Pass)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(reason) || string.IsNullOrWhiteSpace(authorizedBy))
+        {
+            return OverrideFieldsRule.WithMissing(new RuleEvaluation([warning]), reason, authorizedBy);
+        }
+
+        var recorded = new Override
+        {
+            Action = OverrideAction.WarningOverride,
+            ContextType = nameof(Issue),
+            ContextId = unit.Id,
+            RuleCode = ReactionUnderInvestigationRule.Code,
+            Reason = reason.Trim(),
+            AuthorizedBy = authorizedBy.Trim(),
+            OverriddenUtc = _clock.UtcNow
+        };
+        await _overrides.AddAsync(recorded, ct);
+        _audit.Record(
+            AuditEventType.Override,
+            nameof(Issue),
+            unit.Id,
+            newValue: new { RuleCode = ReactionUnderInvestigationRule.Code, ReactionInvestigationId = open!.Value.Id, IssueId = issue.Id, AuthorizedBy = recorded.AuthorizedBy },
+            reason: recorded.Reason);
+        return null;
+    }
+
+    /// <summary>
     /// Records the start of a transfusion at the bedside, when the unit is spiked: the same identity, unit scan,
     /// ward receipt, second-verifier, and unit-life checks as one-step documentation. The unit shows as
     /// Transfusion started until <see cref="CompleteTransfusionAsync"/> records the stop and outcome.
@@ -1736,6 +1792,12 @@ public sealed class IssuingService
         if (bedside.Blocked is not null)
         {
             return bedside.Blocked;
+        }
+
+        var reactionCheck = await OverrideReactionAtBedsideAsync(issue, unit, startUtc, request.OverrideReason, request.AuthorizedBy, ct);
+        if (reactionCheck is not null)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(reactionCheck);
         }
 
         var now = _clock.UtcNow;

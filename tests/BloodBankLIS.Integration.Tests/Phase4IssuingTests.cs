@@ -1348,6 +1348,71 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Single((await reactions.ListDtosAsync()).Single(r => r.Id == investigationId).IssuedWhileOpen!);
     }
 
+    // TEST-BB-856 (OCD-078, decided 2026-11-10): while a reaction is under investigation, issuing another unit to the
+    // patient, and starting it at the bedside, each need an override with the reason and who authorized it; each is
+    // recorded as an override for supervisor review; a start missing the authorizer is refused with nothing recorded.
+    [Fact]
+    public async Task ReactionUnderInvestigation_IssueAndBedsideStart_NeedAnOverride()
+    {
+        var s = await SeedAsync("RXN-OVR");
+        var firstIssueId = await IssuedAndReceivedAsync(s);
+        var second = await SeedAsync("RXN-OVR-2");
+        var now = _factory.Clock.UtcNow;
+        await using (var c = _factory.Create())
+        {
+            var earlier = new TransfusionEvent
+            {
+                IssueId = firstIssueId, BloodProductId = s.UnitId, PatientId = s.PatientId, StartUtc = now.AddMinutes(-50),
+                ReactionSuspected = true, DocumentedBy = "nurse"
+            };
+            c.TransfusionEvents.Add(earlier);
+            await c.SaveChangesAsync();
+            c.ReactionInvestigations.Add(new ReactionInvestigation
+            {
+                TransfusionEventId = earlier.Id, PatientId = s.PatientId, BloodProductId = s.UnitId, ReportedUtc = now.AddMinutes(-30), ReportedBy = "nurse"
+            });
+            await c.SaveChangesAsync();
+        }
+
+        var next = s with { UnitId = second.UnitId };
+        await RecordCompatibleCrossmatchAsync(next);
+        await AllocateAsync(next);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var asked = await Issuing(c).IssueUnitAsync(IssueReq(next));
+            Assert.True(asked.RequiresOverride);
+            Assert.Contains(asked.Evaluation!.Warnings, w => w.Code == ReactionUnderInvestigationRule.Code);
+
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(next) with
+            {
+                OverrideReason = "Physician reviewed the febrile reaction; continue", AuthorizedBy = "dr-authorizer"
+            });
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = issued.Value!.Id;
+            Assert.True(await c.Overrides.AnyAsync(o => o.ContextId == second.UnitId && o.RuleCode.Contains(ReactionUnderInvestigationRule.Code)));
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var noAuthorizer = await Issuing(c).StartTransfusionAsync(issueId, StartReq(next) with { OverrideReason = "Physician said continue" });
+            Assert.False(noAuthorizer.Succeeded);
+            Assert.Contains(noAuthorizer.Evaluation!.Warnings, w => w.Code == ReactionUnderInvestigationRule.Code);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+
+            var started = await Issuing(c).StartTransfusionAsync(issueId, StartReq(next) with
+            {
+                OverrideReason = "Physician said continue", AuthorizedBy = "dr-authorizer"
+            });
+            Assert.True(started.Succeeded, started.Error);
+            var bedside = await c.Overrides.SingleAsync(o => o.ContextId == second.UnitId && o.RuleCode == ReactionUnderInvestigationRule.Code && o.Reason == "Physician said continue");
+            Assert.Equal(("Physician said continue", "dr-authorizer"), (bedside.Reason, bedside.AuthorizedBy));
+            Assert.True(await c.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Override && a.EntityId == second.UnitId
+                && a.NewValueJson!.Contains(ReactionUnderInvestigationRule.Code)));
+        }
+    }
+
     // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)
     // carries that MRN on the issued list; one issued under the current MRN does not.
     [Fact]

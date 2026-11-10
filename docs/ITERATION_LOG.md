@@ -20507,3 +20507,39 @@ The reason is the control the product owner chose: a time outside the recorded o
 ### Next
 
 - OCD-078 option C: issuing or starting a unit while a reaction investigation is open needs an override with a reason and an authorizer.
+
+## Iteration 666 — An override to continue during a reaction investigation (OCD-078 decided) (2026-11-10)
+
+### Capability matrix rescan (patient-product workflows; safety: overrides)
+
+OCD-078 was decided on 2026-11-10 (option C). Issue and the Transfusion desk only warned on screen that a reaction was under investigation; another unit could be issued and started with nothing recorded about the decision to continue.
+
+### Design
+
+- `ReactionUnderInvestigationRule` (`ISS-REACTION-OPEN`): a warning when the patient's investigation is open or under review and was reported at or before the stated issue or start time. A unit issued or started earlier (a late entry or a start documented afterwards) is not asked about.
+- Issue: the warning joins the issue gate, so the usual issue override applies (issue.override, reason, authorizer), recorded and sent to supervisor review.
+- Bedside start and one-step documentation: `OverrideReason` and `AuthorizedBy` on the requests; missing either refuses (nothing recorded); both record an override (context the unit, rule `ISS-REACTION-OPEN`) and an Override audit naming the investigation and issue. No extra permission at the bedside: the authorizer is the physician who decided.
+- Transfusion desk: the reason and authorizer fields sit under the warning, cleared for each unit.
+
+### Safety (questions 6 and 7)
+
+The decision to continue is the physician's; the system now records it each time, with who decided, and puts it in front of a supervisor.
+
+### Verification
+
+- Unit: warns after the report, not before or without an investigation.
+- Integration: an issue after the report needs the override and records it; bedside start without the authorizer is refused with no transfusion; with both it starts, the override and audit recorded. TEST-BB-768 (a late entry before the report) still issues without one.
+- Rendered: the Issue form and Transfusion desk wording; the desk shows the two fields.
+- Live (read-only): Issued units loads; no unit in the dev data belongs to a patient with an open reaction, so the override path was exercised by the tests only. No server errors.
+
+### Requirements
+
+- URS-BB-709, FRS-BB-827; OCD-078 decided.
+
+### Tests
+
+- TEST-BB-855, TEST-BB-856; TEST-BB-753 and TEST-BB-755 updated.
+
+### Next
+
+- OCD-068 option C: thawed shelf life for an open system and for a pooled unit.

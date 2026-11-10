@@ -24,7 +24,7 @@ The header shows the current name, MRN, date of birth, and sex, and the current 
 
 Use the tabs for the detail: Visits, Orders, Specimens, Tests, Test History, DAT / Elution, Products, and Product History. Each tab has its own topic in this guide. On Tests, a result waiting for verification whose specimen expires soon shows **Verify before** and the time, as on the test worklist.
 
-> Reaction under investigation. While a transfusion reaction investigation for the patient is open or under review, the chart header says so in red on every tab, including the one units are issued from, with the investigation number and when it was reported: do not issue or start another unit unless the physician has decided to continue (OCD-078). Once it is closed the header says only that the patient has a recorded transfusion reaction.
+> Reaction under investigation. While a transfusion reaction investigation for the patient is open or under review, the chart header says so in red on every tab, including the one units are issued from, with the investigation number and when it was reported: issuing or starting another unit needs an override with the reason and who authorized it, reviewed by a supervisor (OCD-078). Once it is closed the header says only that the patient has a recorded transfusion reaction.
 
 > No current specimen. When the patient has no accepted specimen, or the current one has expired, the header says so in red: the issue gate reads that specimen. If a newer tube has already been drawn and is on its way, or received and waiting to be accepted, the warning names it and links to Pending specimens: receive or accept that tube rather than drawing again. It becomes the current specimen once it is accepted.
 

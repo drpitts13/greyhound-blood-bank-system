@@ -80,7 +80,10 @@ public sealed record StartTransfusionRequest(
     IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
     string? PatientIdentifier2Value = null,
     /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the bedside scan.</summary>
-    string? BackEntryDin = null);
+    string? BackEntryDin = null,
+    /// <summary>OCD-078: required, with AuthorizedBy, when a reaction is under investigation for the patient.</summary>
+    string? OverrideReason = null,
+    string? AuthorizedBy = null);
 
 /// <summary>Completes a started transfusion: when it stopped, how much was given, and the outcome.</summary>
 public sealed record CompleteTransfusionRequest(
@@ -108,7 +111,10 @@ public sealed record DocumentTransfusionRequest(
     IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
     string? PatientIdentifier2Value = null,
     /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the bedside scan.</summary>
-    string? BackEntryDin = null);
+    string? BackEntryDin = null,
+    /// <summary>OCD-078: required, with AuthorizedBy, when a reaction is under investigation for the patient.</summary>
+    string? OverrideReason = null,
+    string? AuthorizedBy = null);
 
 public sealed record IssueDto(
     long Id,

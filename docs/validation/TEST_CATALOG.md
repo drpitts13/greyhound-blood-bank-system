@@ -863,5 +863,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-852 | I | `SpecimenLabelDesignTests.TubeLabel_RefusedOnADesignWithOneIdentifier` | URS-BB-707 / FRS-BB-825 |
 | TEST-BB-853 | U | `SpecimenLabelDesignRulesTests.Check_TubeNeedsTwoIdentifiers` | URS-BB-707 / FRS-BB-825 |
 | TEST-BB-854 | I | `Phase4IssuingTests.DowntimeBackEntry_OutsideEveryRecordedOutage_NeedsAReason` | URS-BB-708 / FRS-BB-826 |
+| TEST-BB-855 | U | `ReactionUnderInvestigationRuleTests.Warns_OnlyAfterTheReactionWasReported` | URS-BB-709 / FRS-BB-827 |
+| TEST-BB-856 | I | `Phase4IssuingTests.ReactionUnderInvestigation_IssueAndBedsideStart_NeedAnOverride` | URS-BB-709 / FRS-BB-827 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

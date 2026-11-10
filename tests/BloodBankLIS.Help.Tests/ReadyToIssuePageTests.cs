@@ -132,8 +132,8 @@ public class ReadyToIssuePageTests : BunitContext
     }
 
     // TEST-BB-755: a reserved unit whose patient has a reaction under investigation is marked on Ready to issue, and
-    // the issue form it fills warns before the unit leaves; a unit for another patient carries neither. A warning only
-    // (OCD-078).
+    // the issue form it fills warns before the unit leaves that an override is needed; a unit for another patient
+    // carries neither (OCD-078, decided 2026-11-10).
     [Fact]
     public void ReactionUnderInvestigation_IsSaidBeforeIssue()
     {
@@ -148,6 +148,7 @@ public class ReadyToIssuePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-issue-reaction-open]")));
         var warning = string.Join(" ", page.Find("[data-issue-reaction-open]").TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         Assert.Contains("#3", warning);
-        Assert.Contains("Confirm the physician has decided to continue", warning);
+        Assert.Contains("only if the physician has decided to continue", warning);
+        Assert.Contains("override", warning);
     }
 }

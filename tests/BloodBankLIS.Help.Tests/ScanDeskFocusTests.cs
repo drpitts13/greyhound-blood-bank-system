@@ -194,7 +194,8 @@ public class ScanDeskFocusTests : BunitContext
     }
 
     // TEST-BB-753: the Transfusion desk warns when the patient at this bedside has a reaction under investigation, naming
-    // it; another patient's unit shows no warning. A warning only (OCD-078): Start stays available.
+    // it and asking for the reason and who authorized continuing (OCD-078, decided 2026-11-10); another patient's unit
+    // shows neither. Start stays available: the server asks for the override if the fields are left empty.
     [Fact]
     public void TransfusionDesk_WarnsOfAnOpenReactionInvestigation()
     {
@@ -223,7 +224,9 @@ public class ScanDeskFocusTests : BunitContext
         RowButton("W0001230009206", "Start / document").Click();
         var warning = string.Join(" ", page.Find("[data-tx-reaction-open]").TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         Assert.Contains("#3", warning);
-        Assert.Contains("Do not start another unit unless the physician has decided to continue", warning);
+        Assert.Contains("only if the physician has decided to continue", warning);
+        Assert.NotNull(page.Find("[data-tx-reaction-reason]"));
+        Assert.NotNull(page.Find("[data-tx-reaction-authorizer]"));
         Assert.False(page.Find("[data-tx-start]").HasAttribute("disabled"));
 
         page.FindAll("button").First(b => b.TextContent.StartsWith("Issued units")).Click();
