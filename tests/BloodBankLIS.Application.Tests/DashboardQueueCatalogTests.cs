@@ -373,6 +373,27 @@ public class DashboardQueueCatalogTests
         Assert.Null(DashboardQueueCatalog.OutboundWaitingNote([], now));
     }
 
+    // TEST-BB-849: an outage still open is a card for those who issue, on the Issue desk and Supervisor desks, under Needs
+    // attention whenever one is open; its note names what was down, how long it has been open, the paper issues
+    // back-entered in it, and to end it when the system is back; none open, no note.
+    [Fact]
+    public void OutageOpen_CardAndNote()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)),
+            c => c.Key == DashboardQueueCatalog.OutageOpen && c.Href == "/downtime" && c.Label == "Outage still open");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter)), c => c.Key == DashboardQueueCatalog.OutageOpen);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.OutageOpen, WorkFocus.IssueDesk));
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.OutageOpen, WorkFocus.Supervisor));
+
+        var now = new DateTime(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc);
+        var open = new DowntimeEpisodeDto(3, now.AddHours(-5), null, "LIS upgrade", "tech1", null, 2, 1, "reason");
+        Assert.Equal("LIS upgrade, open 5 h; 2 paper issues back-entered; end it when the system is back",
+            DashboardQueueCatalog.OutageOpenNote(open, now));
+        Assert.Equal("LIS upgrade, open 5 h; end it when the system is back",
+            DashboardQueueCatalog.OutageOpenNote(open with { BackEntries = 0 }, now));
+        Assert.Null(DashboardQueueCatalog.OutageOpenNote(null, now));
+    }
+
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
 

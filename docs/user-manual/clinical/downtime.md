@@ -19,6 +19,7 @@ routes:
 
 - **Record an outage** takes the time it started, the time it ended (leave it blank while the system is still down), and what was down, for example "LIS upgrade" or "Network outage". You can record it as it starts, or afterwards from the paper log.
 - While an outage is open it stands out at the top of the card. When the system is back, **End outage** closes it; the time defaults to now and you can change it.
+- An outage left open shows as **Outage still open** on the home screen of everyone who issues and on the shift handoff, until someone ends it.
 - An outage cannot start or end in the future, must end after it starts, and cannot overlap another outage. Only one can be open at a time.
 - Each outage lists the paper issues back-entered with an issue time inside it, and how many of those still have their transfusion to enter (linked to **Issued units**).
 

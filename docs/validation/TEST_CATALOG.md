@@ -857,5 +857,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-846 | I | `DowntimeEpisodeTests.List_CountsBackEntriesInsideEachOutage` | URS-BB-705 / FRS-BB-823 |
 | TEST-BB-847 | U | `DowntimeOutagePageTests.DowntimePage_ShowsAndRecordsOutages` | URS-BB-705 / FRS-BB-823 |
 | TEST-BB-848 | U | `DowntimeOutagePageTests.BackEntry_UsesTheRecordedOutage` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-849 | U | `DashboardQueueCatalogTests.OutageOpen_CardAndNote` | URS-BB-706 / FRS-BB-824 |
+| TEST-BB-850 | U | `ShiftHandoffItemsTests.OutageOpen_IsAnUrgentHandoffItem` | URS-BB-706 / FRS-BB-824 |
+| TEST-BB-851 | I | `ShiftHandoffServiceTests.Create_CountsOutagesStillOpen` | URS-BB-706 / FRS-BB-824 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

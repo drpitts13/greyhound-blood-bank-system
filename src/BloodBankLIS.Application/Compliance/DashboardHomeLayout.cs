@@ -35,7 +35,7 @@ public static class DashboardHome
     /// Interface failures count too: a failed instrument message is a patient result that did not file, and an HL7
     /// error is an order, result, or admission that did not reach its destination.
     /// </summary>
-    private static readonly string[] UrgentWhenNonZero = [TemperatureExcursions, Reactions, Handoff, InstrumentFailures, Hl7Errors, ExpiredOnShelf];
+    private static readonly string[] UrgentWhenNonZero = [TemperatureExcursions, Reactions, Handoff, InstrumentFailures, Hl7Errors, ExpiredOnShelf, OutageOpen];
 
     /// <summary>
     /// Most urgent first: storage safety, patient harm, then emergency follow-up and lost units, then reserved units
@@ -47,8 +47,8 @@ public static class DashboardHome
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
         [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, BloodOrders, AntibodyWorkups, ReagentQc, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
-        [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, ExpiredOnShelf, LowStock],
-        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock, Unidentified]
+        [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, ExpiredOnShelf, LowStock, OutageOpen],
+        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock, Unidentified, OutageOpen]
     };
 
     public static IReadOnlyList<WorkFocus> Choices { get; } =

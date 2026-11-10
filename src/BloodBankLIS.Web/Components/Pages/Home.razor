@@ -502,6 +502,17 @@
                 var stuck = result.Value.Where(w => w.Stuck).Select(w => (w.QueuedUtc, w.Reason)).ToList();
                 return (card.Key, stuck.Count, DashboardQueueCatalog.OutboundWaitingNote(stuck, DateTime.UtcNow));
             }
+            case DashboardQueueCatalog.OutageOpen:
+            {
+                var result = await Api.GetDowntimeEpisodesAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var open = result.Value.Where(e => e.EndedUtc is null).ToList();
+                return (card.Key, open.Count, DashboardQueueCatalog.OutageOpenNote(open.FirstOrDefault(), DateTime.UtcNow));
+            }
             case DashboardQueueCatalog.OpenRhig:
             {
                 var result = await Api.GetOpenRhigEvaluationsAsync();

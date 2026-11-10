@@ -136,6 +136,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Outbound HL7 results and charges queued longer than the stuck window and not yet sent (Cycle 661).</summary>
     public int Hl7OutboundNotSent { get; set; }
 
+    /// <summary>Recorded outages not yet ended when the handoff was written (Cycle 663).</summary>
+    public int OutagesOpen { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

@@ -20412,3 +20412,32 @@ The outside-outage check is a warning, not a stop: whether a back-entry outside 
 ### Next
 
 - Show an open outage on the home screen for issuing roles, and add it to the shift handoff, so an outage left open is not forgotten.
+
+## Iteration 663 — An outage left open is surfaced (2026-11-10)
+
+### Capability matrix rescan (interoperability: downtime; operations: home screen, handoff)
+
+Cycle 662 recorded outages. An outage that nobody ended after recovery stays open, and an open outage runs to now, so every later paper time counts as inside it and the back-entry check can no longer catch a wrong date. Nothing reminded anyone to end it.
+
+### Design
+
+- Home card "Outage still open" (issue.create; Issue desk and Supervisor desks; always under Needs attention when non-zero): the count of outages not ended, the note naming what was down, how long it has been open, the paper issues back-entered and "end it when the system is back"; opens Downtime Snapshot.
+- `ShiftHandoff.OutagesOpen` (migration `20261226000000_ShiftHandoffOutagesOpen`, dev bootstrap column), counted when the handoff is written and kept; urgent item "Outage still open" linked to Downtime Snapshot; summary "OUTAGE STILL OPEN".
+
+### Verification
+
+- Unit: the card's permission, desks and note; the handoff item, its urgency and summary; none without.
+- Integration: an open outage counted, an ended one not; the saved handoff keeps the count.
+- Live (read-only): the dev database took the handoff column on start; with no outage recorded, the home screen lists Outage still open under Clear, linked to Downtime Snapshot; the handoff page loads. No server errors.
+
+### Requirements
+
+- URS-BB-706, FRS-BB-824.
+
+### Tests
+
+- TEST-BB-849, TEST-BB-850, TEST-BB-851.
+
+### Next
+
+- Record the owner's decisions on OCD-067 to OCD-081 (2026-11-10) and build those that need code, one per iteration.

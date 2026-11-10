@@ -65,6 +65,18 @@ public class ShiftHandoffItemsTests
         Assert.DoesNotContain("outbound", Handoff().QueueSummary);
     }
 
+    // TEST-BB-850: an outage still open is an urgent handoff item linked to Downtime Snapshot and in the summary line;
+    // none, no item.
+    [Fact]
+    public void OutageOpen_IsAnUrgentHandoffItem()
+    {
+        var handoff = Handoff() with { OutagesOpen = 1 };
+        var item = Assert.Single(ShiftHandoffItems.For(handoff));
+        Assert.Equal(("Outage still open", 1, "/downtime", "end it when the system is back", true), (item.Label, item.Count, item.Href, item.Detail, item.Urgent));
+        Assert.Contains("OUTAGE STILL OPEN", handoff.QueueSummary);
+        Assert.DoesNotContain("OUTAGE", Handoff().QueueSummary);
+    }
+
     // TEST-BB-615: unidentified patients still unmerged lead the handoff (urgent, linked to Patients); tubes due for discard
     // are a routine item linked to Store tubes; both are in the summary line.
     [Fact]

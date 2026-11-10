@@ -458,6 +458,31 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(expected, (await context.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == created.Value.Id)).Hl7OutboundNotSent);
     }
 
+    // TEST-BB-851: a handoff counts recorded outages not yet ended (an ended one is not counted) and keeps the count.
+    [Fact]
+    public async Task Create_CountsOutagesStillOpen()
+    {
+        await using var context = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        context.DowntimeEpisodes.AddRange(
+            new DowntimeEpisode { StartedUtc = now.AddDays(-3), EndedUtc = now.AddDays(-3).AddHours(2), Description = "Ended", CreatedBy = "tech-test", CreatedUtc = now },
+            new DowntimeEpisode { StartedUtc = now.AddHours(-4), Description = "Left open", CreatedBy = "tech-test", CreatedUtc = now });
+        await context.SaveChangesAsync();
+        var expected = await context.DowntimeEpisodes.CountAsync(e => e.EndedUtc == null);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            outages: new EfRepository<DowntimeEpisode>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Outage"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.True(expected >= 1);
+        Assert.Equal(expected, created.Value!.OutagesOpen);
+        Assert.Equal(expected, (await context.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == created.Value.Id)).OutagesOpen);
+    }
+
     // TEST-BB-616: a handoff counts unidentified patients not yet merged (a merged one is not counted).
     [Fact]
     public async Task Create_CountsUnidentifiedPatientsNotYetMerged()

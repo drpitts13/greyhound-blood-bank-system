@@ -63,7 +63,8 @@ public sealed record ShiftHandoffDto(
     int ReactionsWithUnitsOut = 0,
     int AntibodyWorkupsOpen = 0,
     int AntibodyWorkupsToReview = 0,
-    int Hl7OutboundNotSent = 0)
+    int Hl7OutboundNotSent = 0,
+    int OutagesOpen = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -105,6 +106,7 @@ public sealed record ShiftHandoffDto(
             : "") +
         (Hl7ErrorsOpen > 0 ? $"; HL7 errors {Hl7ErrorsOpen}" : "") +
         (Hl7OutboundNotSent > 0 ? $"; HL7 outbound not sent {Hl7OutboundNotSent}" : "") +
+        (OutagesOpen > 0 ? $"; OUTAGE STILL OPEN, end it when the system is back" : "") +
         (UnmappedInterfaceValues > 0 ? $"; unmapped interface values {UnmappedInterfaceValues}" : "") +
         (RhigOpen > 0 ? $"; RhIG evaluations {RhigOpen}" + (RhigToGive > 0 ? $", {RhigToGive} to give" : "") : "") +
         (AntibodyWorkupsOpen > 0
@@ -129,7 +131,7 @@ public sealed record ShiftHandoffDto(
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
         h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
-        h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent);
+        h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen);
 }
 
 /// <summary>
@@ -162,6 +164,7 @@ public sealed class ShiftHandoffService
     private readonly ReagentQcService? _reagentQc;
     private readonly IRepository<InterfaceErrorQueueItem>? _hl7Errors;
     private readonly IRepository<Hl7MessageLog>? _hl7Messages;
+    private readonly IRepository<DowntimeEpisode>? _outages;
     private readonly IRepository<InterfaceUnmappedValue>? _unmapped;
     private readonly IRepository<RhigEvaluation>? _rhig;
     private readonly IRepository<Patient>? _patientCharts;
@@ -197,9 +200,11 @@ public sealed class ShiftHandoffService
         IRepository<Issue>? issues = null,
         FacilityPolicyService? policy = null,
         IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
-        IRepository<Hl7MessageLog>? hl7Messages = null)
+        IRepository<Hl7MessageLog>? hl7Messages = null,
+        IRepository<DowntimeEpisode>? outages = null)
     {
         _hl7Messages = hl7Messages;
+        _outages = outages;
         _antibodyWorkups = antibodyWorkups;
         _bloodOrders = bloodOrders;
         _issueRecords = issues;
@@ -406,6 +411,7 @@ public sealed class ShiftHandoffService
             ReagentResultsToReview = failedLots.Sum(l => l.ResultsToReview),
             Hl7ErrorsOpen = _hl7Errors is null ? 0 : (await _hl7Errors.ListAsync(e => !e.Resolved, ct)).Count,
             Hl7OutboundNotSent = await CountOutboundNotSentAsync(now, ct),
+            OutagesOpen = _outages is null ? 0 : (await _outages.ListAsync(o => o.EndedUtc == null, ct)).Count,
             UnmappedInterfaceValues = _unmapped is null ? 0 : (await _unmapped.ListAsync(v => v.ResolvedUtc == null, ct)).Count,
             RhigOpen = rhigOpen.Count,
             RhigToGive = rhigOpen.Count(e => e.CompletedUtc != null),
@@ -505,7 +511,8 @@ public sealed class ShiftHandoffService
         ReactionsWithUnitsOut = row.ReactionsWithUnitsOut,
         AntibodyWorkupsOpen = row.AntibodyWorkupsOpen,
         AntibodyWorkupsToReview = row.AntibodyWorkupsToReview,
-        Hl7OutboundNotSent = row.Hl7OutboundNotSent
+        Hl7OutboundNotSent = row.Hl7OutboundNotSent,
+        OutagesOpen = row.OutagesOpen
     };
 
     /// <summary>

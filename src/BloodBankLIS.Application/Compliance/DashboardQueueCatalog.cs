@@ -45,6 +45,7 @@ public static class DashboardQueueCatalog
     public const string BloodOrders = "blood-orders";
     public const string AntibodyWorkups = "antibody-workups";
     public const string Hl7OutboundWaiting = "hl7-outbound";
+    public const string OutageOpen = "outage-open";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -99,6 +100,8 @@ public static class DashboardQueueCatalog
         // Emergency charts registered without identification: merged into the identified chart once known.
         Add(cards, has(PermissionCodes.PatientMerge), Unidentified, "Unidentified patients", "/patients");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
+        // A recorded outage not yet ended (Cycle 663): while open, every later paper time counts as inside it.
+        Add(cards, canIssue, OutageOpen, "Outage still open", "/downtime");
         return cards;
     }
 
@@ -227,6 +230,19 @@ public static class DashboardQueueCatalog
         }.Where(p => p is not null).ToList();
         return string.Join("; ", parts);
     }
+
+    /// <summary>
+    /// The open-outage card note: how long it has been open and the paper issues back-entered in it, and that it ends
+    /// on Downtime Snapshot once the system is back.
+    /// </summary>
+    public static string? OutageOpenNote(DowntimeEpisodeDto? open, DateTime nowUtc) => open is null
+        ? null
+        : string.Join("; ", new[]
+        {
+            $"{open.Description}, open {AlertInboxView.OpenFor(open.StartedUtc, nowUtc)}",
+            AttentionNote(open.BackEntries, "paper issue back-entered", "paper issues back-entered"),
+            "end it when the system is back"
+        }.Where(p => p is not null));
 
     public static string? AttentionNote(int count, string singular, string plural)
     {
