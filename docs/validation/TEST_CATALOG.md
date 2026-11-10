@@ -781,5 +781,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-770 | U | `ReactionIssuedWhileOpenTests.SelectedCase_ListsUnitsIssuedWhileOpen` | URS-BB-677 / FRS-BB-794 |
 | TEST-BB-771 | I | `Phase4IssuingTests.Issue_RecordsTheReactionUnderInvestigation` | URS-BB-677 / FRS-BB-794 |
 | TEST-BB-772 | U | `ReactionIssuedWhileOpenTests.Report_ListsUnitsIssuedWhileOpen` | URS-BB-678 / FRS-BB-795 |
+| TEST-BB-773 | U | `PendingSpecimenScanFocusTests.ScanField_TakesTheFocus_OnOpenAndModeChange` | URS-BB-679 / FRS-BB-796 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

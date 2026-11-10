@@ -684,3 +684,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-676 | An issue records whether the patient's transfusion reaction was under investigation at the time, and the patient's product history shows it. | P2 | FRS-BB-793 |
 | URS-BB-677 | A reaction investigation lists the units issued to the patient while it was open. | P2 | FRS-BB-794 |
 | URS-BB-678 | The reaction report states the units issued while the investigation was open, or that there were none. | P3 | FRS-BB-795 |
+| URS-BB-679 | Pending specimens takes a tube scan as soon as it opens and after the scan mode changes. | P3 | FRS-BB-796 |

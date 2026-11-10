@@ -19621,3 +19621,30 @@ The printed reaction report, the record the medical director reviews and signs, 
 ### Next
 
 - The reaction thread (Cycles 626–636) is complete for now. Return to the capability matrix and walk a different desk: specimen receipt and rejection on the Test worklist's Pending specimens, looking for remembered or retyped information.
+
+## Iteration 637 — Pending specimens takes the first scan (2026-11-09)
+
+### Capability matrix rescan (specimen receipt, live)
+
+Pending specimens is scan-first ("Scan a tube to receive it: the scan picks the specimen"), and after a scan the field clears and keeps the focus. But opening the tab, or arriving from the home card's link, left the focus on the page heading, and changing Receive/Accept left it on the radio button: the first scan, and the first after a mode change, went nowhere. Nothing was pending on the development data.
+
+### Design
+
+- The scan field takes the focus after the render when Specimens opens (tab button or `?tab=specimens`) and when Receive or Accept is chosen, as the scan desks do (Cycle 622); in `OnAfterRenderAsync`, so the Cycle 628 focus guard is satisfied.
+
+### Verification
+
+- Rendered: opening Specimens focuses the scan field; choosing Accept focuses it again and the label reads "Scan tube to accept".
+- Live (read-only): loading /test-worklist?tab=specimens puts the cursor in the scan field; clicking Accept returns it there and the label reads "Scan tube to accept". No server errors.
+
+### Requirements
+
+- URS-BB-679, FRS-BB-796.
+
+### Tests
+
+- TEST-BB-773.
+
+### Next
+
+- Seed one collected tube waiting for receipt so Pending specimens shows something on the development data, then walk rejection from it.

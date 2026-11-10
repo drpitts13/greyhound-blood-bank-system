@@ -311,11 +311,11 @@
     <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem;">
         <div class="field" style="max-width:20rem;margin:0;">
             <label>Scan tube to @(_scanAccepts ? "accept" : "receive")</label>
-            <input @bind="_specimenScan" @bind:event="oninput" @onkeydown="OnSpecimenScanKeyAsync" placeholder="Scan accession or label barcode" autocomplete="off" />
+            <input @ref="_specimenScanInput" @bind="_specimenScan" @bind:event="oninput" @onkeydown="OnSpecimenScanKeyAsync" placeholder="Scan accession or label barcode" autocomplete="off" data-specimen-scan />
         </div>
         <div role="radiogroup" aria-label="What a scan does" class="flex gap" style="align-items:center;">
-            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@(!_scanAccepts)" @onchange="() => _scanAccepts = false" /> Receive</label>
-            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@_scanAccepts" @onchange="() => _scanAccepts = true" /> Accept</label>
+            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@(!_scanAccepts)" @onchange="() => SetScanMode(false)" data-scan-mode="receive" /> Receive</label>
+            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@_scanAccepts" @onchange="() => SetScanMode(true)" data-scan-mode="accept" /> Accept</label>
         </div>
     </div>
 
@@ -624,6 +624,7 @@
         else if (string.Equals(TabQuery, "specimens", StringComparison.OrdinalIgnoreCase))
         {
             _tab = "specimens";
+            _focusSpecimenScan = true;
             await LoadPendingSpecimensAsync();
         }
 
@@ -646,9 +647,38 @@
         _qcBlock = work.Succeeded && work.Value is not null ? ReagentQcResultBlock.For(true, work.Value) : null;
     }
 
+    // Pending specimens works by scanning: opened (from its tab or the home card) or with the scan mode changed, the scan
+    // field takes the focus, so the next tube is not scanned into the page or a radio button (Cycle 637).
+    private ElementReference _specimenScanInput;
+    private bool _focusSpecimenScan;
+
+    private void SetScanMode(bool accepts)
+    {
+        _scanAccepts = accepts;
+        _focusSpecimenScan = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusSpecimenScan || _tab != "specimens" || _specimenScanInput.Context is null)
+        {
+            return;
+        }
+
+        _focusSpecimenScan = false;
+        try
+        {
+            await _specimenScanInput.FocusAsync(preventScroll: true);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+        }
+    }
+
     private async Task SelectTab(string tab)
     {
         _tab = tab;
+        _focusSpecimenScan = tab == "specimens";
         if (tab == "retype" && !_retypesLoaded)
         {
             await LoadRetypesAsync();

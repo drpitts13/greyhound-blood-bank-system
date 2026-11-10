@@ -789,6 +789,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-676 / FRS-BB-793 | Issue records the reaction under investigation | `Issue.cs`; migration; bootstrap; `IssuingService.cs`; `PatientProductHistoryService.cs`; `PatientChartProductHistoryTab.razor` | TEST-BB-768, TEST-BB-769 | U, I | OCD-078 |
 | URS-BB-677 / FRS-BB-794 | Investigation lists units issued while open | `ReactionInvestigationService.cs`; `Reactions.razor` | TEST-BB-770, TEST-BB-771 | U, I | OCD-078 |
 | URS-BB-678 / FRS-BB-795 | Report states units issued while open | `ReactionReport.razor` | TEST-BB-772 | U | |
+| URS-BB-679 / FRS-BB-796 | Specimen scan field takes the focus | `TestWorklist.razor` | TEST-BB-773 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
