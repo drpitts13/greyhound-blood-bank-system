@@ -702,3 +702,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-694 | Linking a specimen to an order, with nothing yet linkable, names a tube already drawn or received for the patient instead of only saying to accession one. | P3 | FRS-BB-811 |
 | URS-BB-695 | The chart header warns about electronic crossmatch only when it concerns this patient; a facility-wide switch-off is shown quietly, not as a warning on every chart. | P3 | FRS-BB-812 |
 | URS-BB-696 | A test ordered from the EHR that repeats one the patient already has open is brought to the blood bank's attention, as it is for orders entered at the bench. | P2 | FRS-BB-813 |
+| URS-BB-697 | Specimen and crossmatch expiry, ward receipt, reaction reporting, alert, and deviation times read in local time everywhere they are shown, as every other time does. | P1 | FRS-BB-814 |

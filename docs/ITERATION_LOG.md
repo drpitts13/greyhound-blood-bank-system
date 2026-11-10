@@ -20145,3 +20145,36 @@ Surveyed alerts whose text never depends on the patient: chart headers on four p
 ### Next
 
 - Duplicate product orders from the EHR (a second red cell order while one is open): whether they need the same treatment.
+
+## Iteration 655 — Expiry and record times shown in local time (2026-11-10)
+
+### Capability matrix rescan (EHR product orders, alerts inbox, time display)
+
+EHR orders arrive as test orders only (the ORM handler builds one test line), so duplicate EHR product orders do not arise; nothing to do there. Walked the Alerts inbox: 20 open, with seven reagent QC lots and eight near-expiry units listed one per row (grouping noted for next). The page headed its times "Raised (UTC)" but showed local times, and its acknowledged and cleared times were stored UTC shown unconverted and unlabelled. The local-time guard (TEST-BB-766) checks a stored time matched into a variable (`x.FooUtc is DateTime t`) only on the same line; here the variable is used inside the @if block on the next line.
+
+### Design
+
+- The guard looks at the matched line and the four after it, and accepts `t.ToString("…") UTC` as labelled. It then found 20 places: 16 were real and are converted with `.ToLocalTime()`; the rest already say UTC.
+- Real ones, all five hours off on this workstation: specimen expiry on the test worklist, the result entry panel, the chart's Tests tab, and the four issue-desk boards; crossmatch expiry on Ready to issue, Retrospective, In transit, Issued units, and the chart's Products row and selected unit; ward receipt on Issued units; CBER and written-report recorded times on Reactions; alert acknowledged and cleared times; deviation closed date.
+- The Alerts columns read "Raised".
+
+### Safety (question 6)
+
+A specimen or crossmatch expiry shown in UTC as if local reads hours later than it is here: a crossmatch could look valid when it has expired. Issue is judged on the stored time and was never affected; the display now matches it.
+
+### Verification
+
+- Guard: failed on the 20 places, passes after; full web suite passes.
+- Live (read-only): the Alerts page heads "Raised"; a near-expiry alert cleared at 14:50 UTC (stored) now reads "Condition cleared 2026-11-08 09:50" in New York time, matching its Raised column (14:52 UTC, 09:52 local); before, it read 14:50. The development data had no in-date crossmatch or specimen expiry on a worklist row to compare. No server errors.
+
+### Requirements
+
+- URS-BB-697, FRS-BB-814.
+
+### Tests
+
+- TEST-BB-812.
+
+### Next
+
+- Group same-kind alerts raised together (reagent QC by lot, near expiry by unit) into one row with acknowledge-all.

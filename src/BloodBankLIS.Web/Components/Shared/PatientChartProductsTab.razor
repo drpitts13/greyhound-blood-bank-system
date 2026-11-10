@@ -46,7 +46,7 @@
                             @(a.CrossmatchResult is CrossmatchResult chartXm ? chartXm.ToString() : "—")
                             @if (a.CrossmatchExpiresUtc is DateTime chartXmExpires)
                             {
-                                <div class="muted">@chartXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                <div class="muted">@chartXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                             }
                         </td>
                         <td><span class="@Ui.Badge(a.DisplayStatus)">@DisplayAllocationStatus(a.DisplayStatus)</span></td>
@@ -384,7 +384,7 @@
                             @(SelectedUnit.LatestCrossmatchResult is CrossmatchResult selectedXm ? selectedXm.ToString() : "—")
                             @if (SelectedUnit.CrossmatchExpiresUtc is DateTime selectedXmExpires)
                             {
-                                <div class="muted">@selectedXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                <div class="muted">@selectedXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                             }
                         </div>
                     </div>

@@ -92,7 +92,7 @@ public partial class LocalTimeDisplayTests
     [GeneratedRegex(@"ToString\(""HH:mm(:ss)?""\)|:HH:mm(:ss)?\}")]
     private static partial Regex TimeOnly();
 
-    // TEST-BB-766: a stored UTC time matched into a variable (x.FooUtc is DateTime t) is not formatted without
+    // TEST-BB-766, TEST-BB-812: a stored UTC time matched into a variable (x.FooUtc is DateTime t) is not formatted without
     // conversion either (Cycle 633): six unit-expiry displays (Ready to issue, Retrospective, In transit, Issued units,
     // the chart's Products and Product History) and two more showed the stored UTC as local, out of reach of the guard
     // above because the variable's name did not end in Utc. A value the text labels "UTC" is fine.
@@ -109,12 +109,15 @@ public partial class LocalTimeDisplayTests
                 foreach (Match m in UtcMatchedVariable().Matches(lines[i]))
                 {
                     var variable = m.Groups[1].Value;
-                    var rest = lines[i][(m.Index + m.Length)..];
+                    // The variable is often used inside the @if block that matched it, on the next lines (Cycle 655:
+                    // the Alerts page's acknowledged and cleared times), so the rest of the line and a few after count.
+                    var rest = lines[i][(m.Index + m.Length)..] + " " + string.Join(" ", lines.Skip(i + 1).Take(BlockLines));
                     var formatted = rest.Contains(variable + ".ToString(", StringComparison.Ordinal)
                         || rest.Contains("{" + variable + ":", StringComparison.Ordinal);
                     var converted = rest.Contains(variable + ".ToLocalTime()", StringComparison.Ordinal)
                         || Regex.IsMatch(rest, @"ClockText\.\w+\(" + Regex.Escape(variable) + @"\b");
-                    var labelledUtc = Regex.IsMatch(rest, @"\{" + Regex.Escape(variable) + @":[^}]*\} UTC");
+                    var labelledUtc = Regex.IsMatch(rest, @"\{" + Regex.Escape(variable) + @":[^}]*\} UTC")
+                        || Regex.IsMatch(rest, Regex.Escape(variable) + @"\.ToString\(""[^""]*""\) UTC");
                     if (formatted && !converted && !labelledUtc)
                     {
                         problems.Add($"{Path.GetRelativePath(root, file)}:{i + 1}: {lines[i].Trim()}");
@@ -126,6 +129,8 @@ public partial class LocalTimeDisplayTests
         Assert.True(problems.Count == 0,
             "A stored UTC time matched into a variable is shown without .ToLocalTime():" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
+
+    private const int BlockLines = 4;
 
     [GeneratedRegex(@"Utc(?:\?\.Value|\.Value)? is (?:DateTime|\{ \}) (\w+)")]
     private static partial Regex UtcMatchedVariable();

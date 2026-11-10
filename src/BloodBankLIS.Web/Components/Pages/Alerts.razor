@@ -36,7 +36,7 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Severity</th><th>Alert</th><th>Raised (UTC)</th><th>Note</th><th></th></tr></thead>
+            <thead><tr><th>Severity</th><th>Alert</th><th>Raised</th><th>Note</th><th></th></tr></thead>
             <tbody>
                 @foreach (var alert in ShownOpen)
                 {
@@ -68,7 +68,7 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Severity</th><th>Alert</th><th>Raised (UTC)</th><th>Closed</th></tr></thead>
+            <thead><tr><th>Severity</th><th>Alert</th><th>Raised</th><th>Closed</th></tr></thead>
             <tbody>
                 @foreach (var alert in Closed)
                 {
@@ -79,11 +79,11 @@
                         <td>
                             @if (alert.AcknowledgedUtc is DateTime ack)
                             {
-                                <span>Acknowledged by @alert.AcknowledgedBy @ack.ToString("yyyy-MM-dd HH:mm")@(alert.AcknowledgeNote is null ? "" : $": {alert.AcknowledgeNote}")</span>
+                                <span>Acknowledged by @alert.AcknowledgedBy @ack.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(alert.AcknowledgeNote is null ? "" : $": {alert.AcknowledgeNote}")</span>
                             }
                             else if (alert.ResolvedUtc is DateTime resolved)
                             {
-                                <span>Condition cleared @resolved.ToString("yyyy-MM-dd HH:mm")</span>
+                                <span>Condition cleared @resolved.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                             }
                         </td>
                     </tr>

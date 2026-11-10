@@ -103,7 +103,7 @@ else
                                     @d.Status
                                     @if (d.Status == DeviationStatus.Closed && d.ClosedUtc is DateTime closedAt)
                                     {
-                                        <span class="sub">by @d.ClosedBy @closedAt.ToString("yyyy-MM-dd")</span>
+                                        <span class="sub">by @d.ClosedBy @closedAt.ToLocalTime().ToString("yyyy-MM-dd")</span>
                                     }
                                 </td>
                                 <td class="nowrap">

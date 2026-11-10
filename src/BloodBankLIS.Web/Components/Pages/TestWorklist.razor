@@ -217,7 +217,7 @@
                             <span class="sub mono">@(item.AccessionNumber ?? "—")</span>
                             @if (item.SpecimenExpiresUtc is DateTime expires)
                             {
-                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                                 <VerificationDeadlineBadge Item="item" />
                             }
                             else

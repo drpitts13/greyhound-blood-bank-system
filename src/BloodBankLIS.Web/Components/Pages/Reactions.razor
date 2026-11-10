@@ -402,7 +402,7 @@ else
                     }
                     @if (_selected.CberNotifiedUtc is DateTime cberAt)
                     {
-                        <span class="muted">CBER recorded @cberAt.ToString("yyyy-MM-dd HH:mm")</span>
+                        <span class="muted">CBER recorded @cberAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                     }
                     else
                     {
@@ -410,7 +410,7 @@ else
                     }
                     @if (_selected.WrittenReportSubmittedUtc is DateTime writtenAt)
                     {
-                        <span class="muted">Written report recorded @writtenAt.ToString("yyyy-MM-dd HH:mm")</span>
+                        <span class="muted">Written report recorded @writtenAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                     }
                     else
                     {

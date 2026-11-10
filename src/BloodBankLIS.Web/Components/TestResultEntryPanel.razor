@@ -14,7 +14,7 @@
         · Antibodies @(WorkItem.HasAntibodyHistory ? WorkItem.AntibodySummary : "none")
         @if (WorkItem.SpecimenExpiresUtc is DateTime expires)
         {
-            <span> · Specimen expires <span class="@(WorkItem.SpecimenExpired ? "badge badge-red" : "mono")">@expires.ToString("yyyy-MM-dd HH:mm")</span></span>
+            <span> · Specimen expires <span class="@(WorkItem.SpecimenExpired ? "badge badge-red" : "mono")">@expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span></span>
         }
         · eXM @(WorkItem.ElectronicXmEligible ? "eligible" : (WorkItem.ElectronicXmClinicalBlockReason ?? WorkItem.ElectronicXmBlockReason ?? "not eligible"))
         @if (WorkItem.OffersAntibodyIdHandoff)

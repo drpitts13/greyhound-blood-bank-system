@@ -320,7 +320,7 @@
                                 @(row.LatestCrossmatchResult is CrossmatchResult readyXm ? readyXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime crossmatchExpires)
                                 {
-                                    <div class="muted">@crossmatchExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@crossmatchExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(row.ElectronicCrossmatchNotice)
                                     && ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice(_readyItems) is null)
@@ -516,7 +516,7 @@
                                 @(row.LatestCrossmatchResult is CrossmatchResult retroXm ? retroXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime retroXmExpires)
                                 {
-                                    <div class="muted">@retroXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@retroXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
                                 @if (row.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible)
                                 {
@@ -608,7 +608,7 @@
                                 @(row.LatestCrossmatchResult is CrossmatchResult transitXm ? transitXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime transitXmExpires)
                                 {
-                                    <div class="muted">@transitXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@transitXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
                                 <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
@@ -704,7 +704,7 @@
                                 @(row.LatestCrossmatchResult is CrossmatchResult issuedXm ? issuedXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime issuedXmExpires)
                                 {
-                                    <div class="muted">@issuedXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@issuedXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
                                 <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
@@ -712,7 +712,7 @@
                             <td>
                                 @if (row.WardReceivedUtc is DateTime received)
                                 {
-                                    <span>@received.ToString("yyyy-MM-dd HH:mm") @(row.WardReceivedBy ?? "")</span>
+                                    <span>@received.ToLocalTime().ToString("yyyy-MM-dd HH:mm") @(row.WardReceivedBy ?? "")</span>
                                 }
                                 else
                                 {
@@ -2633,7 +2633,7 @@
         {
             builder.OpenElement(0, "span");
             builder.AddAttribute(1, "class", expired ? "badge badge-red" : "muted");
-            builder.AddContent(2, expires.ToString("yyyy-MM-dd HH:mm"));
+            builder.AddContent(2, expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm"));
             builder.CloseElement();
         }
         else
