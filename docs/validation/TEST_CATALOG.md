@@ -778,5 +778,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-767 | U | `YesNoSelectTests.StorageTemperatures_ExcursionsOnly_IsTaken` | URS-BB-675 / FRS-BB-792 |
 | TEST-BB-768 | I | `Phase4IssuingTests.Issue_RecordsTheReactionUnderInvestigation` | URS-BB-676 / FRS-BB-793 |
 | TEST-BB-769 | U | `ProductHistoryReactionTests.IssuedDuringAReaction_IsMarkedOnTheRow` | URS-BB-676 / FRS-BB-793 |
+| TEST-BB-770 | U | `ReactionIssuedWhileOpenTests.SelectedCase_ListsUnitsIssuedWhileOpen` | URS-BB-677 / FRS-BB-794 |
+| TEST-BB-771 | I | `Phase4IssuingTests.Issue_RecordsTheReactionUnderInvestigation` | URS-BB-677 / FRS-BB-794 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

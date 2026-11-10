@@ -19565,3 +19565,31 @@ Cycles 626–632 warn before a unit goes to a patient whose reaction is under in
 ### Next
 
 - The reaction investigation itself could list units issued to the patient while it was open (from this record), so the investigator sees them without opening the chart.
+
+## Iteration 635 — The investigation lists units issued while it was open (2026-11-09)
+
+### Capability matrix rescan (reaction investigation)
+
+Cycle 634 records on each issue the investigation open at the time; the investigation itself did not show those units, so the investigator opened the chart's Product History to find them.
+
+### Design
+
+- `ReactionInvestigationDto.IssuedWhileOpen`: the issues recorded against the case, oldest first, with unit, issue time, and status; on the list and on a single case.
+- Reactions: the selected case shows them above the workup, each unit linked.
+
+### Verification
+
+- Integration: the unit issued during the investigation is listed on the case (single and list), the earlier one is not. Rendered: the panel and its link with one unit; nothing with none.
+- Live (read-only): investigation #1 (MRN0006) opens with no panel, nothing having been issued to the patient during it. No server errors.
+
+### Requirements
+
+- URS-BB-677, FRS-BB-794.
+
+### Tests
+
+- TEST-BB-770, TEST-BB-771.
+
+### Next
+
+- The reaction report (Reactions › Report) could carry the same list, as the record the medical director signs.

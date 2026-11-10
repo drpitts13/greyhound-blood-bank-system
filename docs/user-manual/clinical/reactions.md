@@ -50,6 +50,8 @@ If the investigation implicates a donor unit, start or continue the [Lookback](l
 
 **Report** on the investigation opens the whole case on one sheet for the medical director's review and the record: the patient, unit, issue, and the bedside transfusion record (start and stop, volume, what was seen and done), the workup checklist, each workup specimen with its tests and results, the conclusion, and the close. A case that is not closed is marked **Draft**. **Print** records who printed it, and whether it was a draft, in the audit trail before the print dialog opens. The sheet ends with lines for the medical director's review signature.
 
+> Units issued meanwhile. An investigation lists the units issued to the patient while it was open or under review, with when they were issued and where each unit is now, so you see them without opening the chart.
+
 ## After closing
 
 A closed investigation is signed, so it is read-only. The screen shows who closed it and when. To change it, enter the **Reason for reopening** and choose **Reopen…**. The case goes back to Under review, the reason and your name are recorded, and the earlier close stays in the audit trail. Make the changes, then close it again with your signature.

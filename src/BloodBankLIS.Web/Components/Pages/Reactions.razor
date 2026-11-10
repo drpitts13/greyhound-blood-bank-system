@@ -200,6 +200,17 @@ else
                     Reopened by @_selected.ReopenedBy@(_selected.ReopenedUtc is DateTime reopenedAt ? $" on {reopenedAt:yyyy-MM-dd HH:mm} UTC" : ""): @_selected.ReopenReason. Close it again with a new signature when the changes are done.
                 </div>
             }
+            @if (_selected.IssuedWhileOpen is { Count: > 0 } issuedMeanwhile)
+            {
+                @* Cycle 635: from the issue record (Cycle 634); the investigator sees them without opening the chart. *@
+                <div class="alert alert-warning" data-reaction-issued-while-open>
+                    <strong>@issuedMeanwhile.Count @(issuedMeanwhile.Count == 1 ? "unit was" : "units were") issued to this patient while this investigation was open:</strong>
+                    @foreach (var issued in issuedMeanwhile)
+                    {
+                        <span style="margin-left:.4rem;"><a class="mono" href="@InventoryUrls.Unit(issued.UnitId)">@(issued.UnitNumber ?? $"#{issued.UnitId}")</a> <span class="sub">@ClockText.Short(issued.IssuedUtc), @Ui.EnumText(issued.Status)</span></span>
+                    }
+                </div>
+            }
             <fieldset disabled="@AlreadyClosed" style="border:0;padding:0;margin:0;min-width:0;">
             <div class="form-row">
                 <div class="field"><label>Type</label><input @bind="_type" /></div>

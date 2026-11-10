@@ -1268,6 +1268,15 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var secondIssueId = await IssuedAndReceivedAsync(s with { UnitId = second.UnitId });
         await using var verify = _factory.Create();
         Assert.Equal(investigationId, (await verify.Issues.SingleAsync(i => i.Id == secondIssueId)).ReactionInvestigationOpenAtIssueId);
+
+        // TEST-BB-771: the investigation lists that unit as issued while it was open, and not the first one.
+        var reactions = new ReactionInvestigationService(
+            new EfRepository<ReactionInvestigation>(verify), new EfRepository<TransfusionEvent>(verify), new InventoryRepository(verify),
+            verify, _factory.Clock, _factory.CurrentUser, new AuditWriter(verify, _factory.Clock, _factory.CurrentUser),
+            issues: new EfRepository<Issue>(verify));
+        var listed = Assert.Single((await reactions.GetDtoAsync(investigationId))!.IssuedWhileOpen!);
+        Assert.Equal((secondIssueId, second.UnitId), (listed.IssueId, listed.UnitId));
+        Assert.Single((await reactions.ListDtosAsync()).Single(r => r.Id == investigationId).IssuedWhileOpen!);
     }
 
     // TEST-BB-620: a unit still out that was issued under another MRN (the chart's MRN changed since, as after a merge)

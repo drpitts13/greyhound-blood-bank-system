@@ -787,6 +787,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-674 / FRS-BB-791 | Chart says a reaction is under investigation | `PatientEndpoints.cs`; `ReactionInvestigationService.cs`; `PatientChartHeader.razor`; `PatientDetail.razor` | TEST-BB-764, TEST-BB-765 | U, I | OCD-078 |
 | URS-BB-675 / FRS-BB-792 | Local unit expiry; yes/no selects bind | `Issuing.razor`; `PatientChartProductsTab.razor`; `PatientChartProductHistoryTab.razor`; `Compatibility.razor`; `PatientChartTestHistoryTab.razor`; `StorageTempReport.razor`; `AdminHl7Translations.razor` | TEST-BB-766, TEST-BB-767, TEST-BB-749, TEST-BB-751 | U | |
 | URS-BB-676 / FRS-BB-793 | Issue records the reaction under investigation | `Issue.cs`; migration; bootstrap; `IssuingService.cs`; `PatientProductHistoryService.cs`; `PatientChartProductHistoryTab.razor` | TEST-BB-768, TEST-BB-769 | U, I | OCD-078 |
+| URS-BB-677 / FRS-BB-794 | Investigation lists units issued while open | `ReactionInvestigationService.cs`; `Reactions.razor` | TEST-BB-770, TEST-BB-771 | U, I | OCD-078 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

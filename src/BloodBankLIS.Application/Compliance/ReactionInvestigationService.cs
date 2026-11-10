@@ -100,7 +100,9 @@ public sealed record ReactionInvestigationDto(
     ReactionWorkupSpecimenDto? PostWorkup = null,
     // While not closed: the patient's units issued (not yet returned or transfused) and reserved (Cycle 630), so the
     // reactions list and home card can say another unit may be on its way to this patient (OCD-078).
-    int PatientUnitsOutOrReserved = 0)
+    int PatientUnitsOutOrReserved = 0,
+    // Units issued to the patient while this investigation was open or under review (Cycle 635), from the issue record.
+    IReadOnlyList<ReactionIssuedWhileOpenDto>? IssuedWhileOpen = null)
 {
     /// <summary>The specimen workup as the close gate sees it, from the results on this DTO.</summary>
     public ReactionWorkupCompletenessRule.WorkupState SpecimenWorkupState => new(
@@ -202,6 +204,9 @@ public sealed record ReactionReportDto(
 /// <summary>A reaction noticed after the transfusion was documented without one: what was seen, and when it began.</summary>
 public sealed record ReportLateReactionRequest(long IssueId, string? Description, DateTime? OnsetUtc = null, string? ReactionType = null);
 
+/// <summary>A unit issued to the patient while the investigation was open (Cycle 635).</summary>
+public sealed record ReactionIssuedWhileOpenDto(long IssueId, long UnitId, string? UnitNumber, DateTime IssuedUtc, IssueStatus Status);
+
 /// <summary>A patient's transfusion reaction investigation still open or under review (Cycle 632): number and report time.</summary>
 public sealed record OpenReactionInvestigationDto(long Id, DateTime ReportedUtc);
 
@@ -287,11 +292,12 @@ public sealed class ReactionInvestigationService
         var context = await LoadDisplayContextAsync(rows, ct);
         var unitsOut = await UnitsOutOrReservedByPatientAsync(
             rows.Where(r => r.Status != ReactionInvestigationStatus.Closed).Select(r => r.PatientId).Distinct().ToList(), ct);
+        var issuedWhileOpen = await IssuedWhileOpenAsync(rows.Select(r => r.Id).ToList(), ct);
         return rows
             .OrderByDescending(r => r.ReportedUtc)
             .Select(r =>
             {
-                var dto = context.ToDto(r);
+                var dto = context.ToDto(r) with { IssuedWhileOpen = issuedWhileOpen.GetValueOrDefault(r.Id) ?? [] };
                 return r.Status == ReactionInvestigationStatus.Closed
                     ? dto
                     : dto with { PatientUnitsOutOrReserved = unitsOut.GetValueOrDefault(r.PatientId) };
@@ -365,7 +371,34 @@ public sealed class ReactionInvestigationService
         }
 
         var context = await LoadDisplayContextAsync([row], ct);
-        return context.ToDto(row);
+        var issuedWhileOpen = await IssuedWhileOpenAsync([row.Id], ct);
+        return context.ToDto(row) with { IssuedWhileOpen = issuedWhileOpen.GetValueOrDefault(row.Id) ?? [] };
+    }
+
+    /// <summary>Per investigation, the issues recorded as made while it was open (Cycle 634's record), oldest first.</summary>
+    private async Task<Dictionary<long, IReadOnlyList<ReactionIssuedWhileOpenDto>>> IssuedWhileOpenAsync(List<long> investigationIds, CancellationToken ct)
+    {
+        var result = new Dictionary<long, IReadOnlyList<ReactionIssuedWhileOpenDto>>();
+        if (_issues is null || investigationIds.Count == 0)
+        {
+            return result;
+        }
+
+        var issues = await _issues.ListAsync(i => i.ReactionInvestigationOpenAtIssueId != null
+            && investigationIds.Contains(i.ReactionInvestigationOpenAtIssueId.Value), ct);
+        foreach (var group in issues.GroupBy(i => i.ReactionInvestigationOpenAtIssueId!.Value))
+        {
+            var list = new List<ReactionIssuedWhileOpenDto>();
+            foreach (var issue in group.OrderBy(i => i.IssuedUtc))
+            {
+                var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
+                list.Add(new ReactionIssuedWhileOpenDto(issue.Id, issue.BloodProductId, unit?.UnitNumber, issue.IssuedUtc, issue.Status));
+            }
+
+            result[group.Key] = list;
+        }
+
+        return result;
     }
 
     public async Task<ReactionInvestigation> OpenForTransfusionAsync(TransfusionEvent transfusion, CancellationToken ct = default)
