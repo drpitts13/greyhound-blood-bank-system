@@ -527,6 +527,17 @@
                     ? (card.Key, result.Value.OpenCount, DashboardQueueCatalog.AntibodyWorkupsNote(result.Value))
                     : (card.Key, null, null);
             }
+            case DashboardQueueCatalog.SettingsToEnter:
+            {
+                var result = await Api.GetAdminFacilityPoliciesAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var waiting = result.Value.Where(p => p.AwaitsEntry).Select(p => p.DisplayName).ToList();
+                return (card.Key, waiting.Count, DashboardQueueCatalog.SettingsToEnterNote(waiting));
+            }
             case DashboardQueueCatalog.OutsideAntibodies:
             {
                 var result = await Api.GetOutsideAntibodiesToConfirmAsync();

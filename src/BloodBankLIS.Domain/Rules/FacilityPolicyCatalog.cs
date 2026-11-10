@@ -15,7 +15,9 @@ public sealed record FacilityPolicyDefinition(
     string DefaultValue,
     string Citation,
     int? MinInclusive = null,
-    int? MaxInclusive = null);
+    int? MaxInclusive = null,
+    // Decided to be used, but the value is the facility's to enter (Cycle 677): still at the default, it is "to enter".
+    bool AwaitingEntryAtDefault = false);
 
 /// <summary>
 /// SoftBank / SafeTrace facility-parameter catalog. Values live in <c>SystemSettings</c>;
@@ -23,6 +25,14 @@ public sealed record FacilityPolicyDefinition(
 /// </summary>
 public static class FacilityPolicyCatalog
 {
+    /// <summary>
+    /// A setting decided to be used whose value the facility has not entered yet: still at its "not set" default
+    /// (Cycle 677). Listed on Facility Policies and counted on the administrator's home card until entered.
+    /// </summary>
+    public static bool AwaitsEntry(FacilityPolicyDefinition definition, string? value) =>
+        definition.AwaitingEntryAtDefault
+        && string.Equals((value ?? definition.DefaultValue).Trim(), definition.DefaultValue, StringComparison.OrdinalIgnoreCase);
+
     public static IReadOnlyList<FacilityPolicyDefinition> All { get; } =
     [
         new(FacilityPolicyKeys.SpecimenAlloimmunizationHours, "Specimen", "Alloimmunization specimen hours",
@@ -105,7 +115,7 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-064"),
         new(FacilityPolicyKeys.SpecimenRetentionDays, "Specimen", "Specimen retention days",
             "Days a stored patient tube is kept after its expiration before Store tubes lists it as due for discard. A tube on an unfinished order or an open reaction investigation is never discarded. 0 means no period is set: nothing is listed and each discard needs a reason. Set by the medical director.",
-            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-070", 0, 3650),
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-070", 0, 3650, AwaitingEntryAtDefault: true),
         new(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, "Order", "Warn before a blood order's needed-by time (minutes)",
             "Blood orders to prepare marks an order whose units are not all reserved as needed soon when its needed-by time (a surgery start or scheduled transfusion) is this many minutes away or less, and the home card counts them. A time that has passed is always marked. 0 means off. Changes no priority or check. Set by the medical director.",
             FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-075", 0, 1440),
@@ -117,13 +127,13 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Integer, "24", "Medical director / OCD-077", 0, 720),
         new(FacilityPolicyKeys.RhigMlPerVial, "RhIG", "RhIG dose: mL of fetal whole blood per vial",
             "The fetal whole blood (mL) one RhIG vial covers, from the product insert and your procedure. With the RhIG dose maternal blood volume and rounding settings, the RhIG evaluation calculates the vials from a fetal bleed quantitation; the reviewer confirms them. 0 means not set: no dose is calculated. Set by the medical director.",
-            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 100),
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 100, AwaitingEntryAtDefault: true),
         new(FacilityPolicyKeys.RhigMaternalBloodVolumeMl, "RhIG", "RhIG dose: maternal blood volume (mL)",
             "The maternal blood volume (mL) the fetal bleed is calculated against: fetal whole blood = % fetal cells × this volume. 0 means not set: no dose is calculated. Set by the medical director.",
-            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 10000),
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 10000, AwaitingEntryAtDefault: true),
         new(FacilityPolicyKeys.RhigDoseRounding, "RhIG", "RhIG dose: rounding",
             "How the calculated vials are rounded: 1 = round up; 2 = round to the nearest, then add one vial; 3 = round up, then add one vial. 0 means not set: no dose is calculated. Set by the medical director.",
-            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 3),
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 3, AwaitingEntryAtDefault: true),
         new(FacilityPolicyKeys.NeonatalRulesEnabled, "Neonatal", "Neonatal pretransfusion testing rules",
             "When true, an infant under the neonatal age limit is tested under the neonatal rules: a specimen collected during a visit stays valid for the admission (until discharge or the age limit). Default off: the medical director confirms the rules against the current AABB Standards before turning them on.",
             FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-074"),

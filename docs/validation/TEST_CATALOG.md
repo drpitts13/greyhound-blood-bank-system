@@ -893,5 +893,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-882 | U | `IssueEntryNotesTests.Notes_SayHowTheIssueWasEntered` | URS-BB-719 / FRS-BB-837 |
 | TEST-BB-883 | I | `Phase4IssuingTests.Infant_NegativeScreen_GroupO_IssuedWithoutCrossmatch` | URS-BB-719 / FRS-BB-837 |
 | TEST-BB-884 | U | `ProductHistoryReactionTests.EntryNotes_AreShownOnTheIssueRow` | URS-BB-719 / FRS-BB-837 |
+| TEST-BB-885 | U | `FacilityPolicyAwaitsEntryTests.AwaitsEntry_OnlyForDecidedSettingsStillAtTheirDefault` | URS-BB-720 / FRS-BB-838 |
+| TEST-BB-886 | U | `DashboardQueueCatalogTests.SettingsToEnter_CardAndNote` | URS-BB-720 / FRS-BB-838 |
+| TEST-BB-887 | U | `SettingsToEnterPageTests.SettingsToEnter_AreNamedMarkedAndFiltered` | URS-BB-720 / FRS-BB-838 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

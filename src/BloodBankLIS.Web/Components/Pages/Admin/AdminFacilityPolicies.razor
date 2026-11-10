@@ -16,8 +16,26 @@
 
 <Outcome Value="_feedback" />
 
+@* Cycle 677: settings decided to be used whose values are not entered yet. *@
+@if (_list.Count(p => p.AwaitsEntry) is var waitingCount && waitingCount > 0)
+{
+    <div class="alert alert-warning" data-settings-to-enter>
+        <strong>@waitingCount @(waitingCount == 1 ? "setting is" : "settings are") decided but not entered yet:</strong>
+        @string.Join("; ", _list.Where(p => p.AwaitsEntry).Select(p => p.DisplayName)).
+        Until a value is entered, what depends on it does not happen (for example, no RhIG dose is calculated).
+        @if (!_toEnterOnly)
+        {
+            <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = true" data-settings-to-enter-show>Show only these</button>
+        }
+    </div>
+}
+
 <div class="flex gap" style="margin:1rem 0;flex-wrap:wrap;">
     <input style="flex:1;min-width:16rem;" placeholder="Filter by name, key, or citation" @bind="_filter" @bind:event="oninput" />
+    @if (_toEnterOnly)
+    {
+        <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = false" data-settings-show-all>Show all settings</button>
+    }
 </div>
 
 @if (_loading)
@@ -71,6 +89,10 @@ else
                                 else
                                 {
                                     @p.Value
+                                    @if (p.AwaitsEntry)
+                                    {
+                                        <span class="badge badge-amber" data-setting-to-enter title="Decided to be used; the value is waiting to be entered.">Not set</span>
+                                    }
                                     @if (p.LegalHold)
                                     {
                                         <span class="badge badge-amber">Legal hold</span>
@@ -117,14 +139,20 @@ else
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
 
+    // From the home card: only the settings waiting to be entered.
+    [SupplyParameterFromQuery(Name = "show")] public string? Show { get; set; }
+
+    private bool _toEnterOnly;
+
+    protected override void OnParametersSet() => _toEnterOnly = string.Equals(Show, "to-enter", StringComparison.OrdinalIgnoreCase);
+
     private IEnumerable<FacilityPolicyDto> Filtered =>
-        string.IsNullOrWhiteSpace(_filter)
-            ? _list
-            : _list.Where(p =>
-                p.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || p.Key.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || p.Citation.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || p.Description.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+        (_toEnterOnly ? _list.Where(p => p.AwaitsEntry) : _list).Where(p =>
+            string.IsNullOrWhiteSpace(_filter)
+            || p.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.Key.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.Citation.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.Description.Contains(_filter, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

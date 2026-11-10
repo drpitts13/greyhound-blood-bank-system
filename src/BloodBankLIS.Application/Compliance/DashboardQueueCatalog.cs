@@ -48,6 +48,7 @@ public static class DashboardQueueCatalog
     public const string Hl7OutboundWaiting = "hl7-outbound";
     public const string OutageOpen = "outage-open";
     public const string OutsideAntibodies = "outside-antibodies";
+    public const string SettingsToEnter = "settings-to-enter";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -104,6 +105,8 @@ public static class DashboardQueueCatalog
         // Emergency charts registered without identification: merged into the identified chart once known.
         Add(cards, has(PermissionCodes.PatientMerge), Unidentified, "Unidentified patients", "/patients");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
+        // Settings the medical director decided to use whose values are not entered yet (Cycle 677).
+        Add(cards, has(PermissionCodes.AdminConfigEdit), SettingsToEnter, "Facility settings to enter", "/admin/facility-policies?show=to-enter");
         // A recorded outage not yet ended (Cycle 663): while open, every later paper time counts as inside it.
         Add(cards, canIssue, OutageOpen, "Outage still open", "/downtime");
         return cards;
@@ -265,6 +268,18 @@ public static class DashboardQueueCatalog
             AttentionNote(waiting.Count(w => !w.Documented), "report not documented", "reports not documented")
         }.Where(p => p is not null);
         return string.Join("; ", parts);
+    }
+
+    /// <summary>The settings-to-enter card note: the names, the first three and how many more.</summary>
+    public static string? SettingsToEnterNote(IReadOnlyList<string> displayNames)
+    {
+        if (displayNames.Count == 0)
+        {
+            return null;
+        }
+
+        var named = string.Join("; ", displayNames.Take(3));
+        return displayNames.Count > 3 ? $"{named}; and {displayNames.Count - 3} more" : named;
     }
 
     public static string? AttentionNote(int count, string singular, string plural)

@@ -16,6 +16,12 @@ Each row shows the current value and the citation the parameter was written agai
 
 > Facility policy. Electronic crossmatch stays off until you set the policy that allows it. Turning it on does not by itself make any patient eligible. Antibody history, open workups, and the minimums in Crossmatch Settings still apply.
 
+**Settings to enter.** Some settings have been decided as policy, but their value is your facility's to enter:
+- the three *RhIG dose* settings;
+- *Specimen retention days*.
+
+While such a setting is still at its "not set" value, its row is marked **Not set**. A note at the top of the page names all of them, with **Show only these** to list just them. The home card **Facility settings to enter**, for those who can edit configuration, counts them and opens this page filtered to them. Until a value is entered, what depends on it does not happen; for example, no RhIG dose is calculated. Settings that are off by choice, such as the neonatal rules, are not counted.
+
 A parameter marked legal hold should not be edited to satisfy a convenience. The badge is there so you see the hold before you save.
 
 Links on this page open [Crossmatch settings](crossmatch-settings) and [Compatibility tables](compatibility-rules). Those are separate catalogs. A change here does not edit the ABO table.

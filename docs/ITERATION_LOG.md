@@ -20879,3 +20879,34 @@ Recent cycles recorded new facts on an issue: a reason for a back-entry outside 
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 677 — Facility settings to enter (2026-11-10)
+
+### Capability matrix rescan (administration; operations: queues)
+
+The decisions of 2026-11-10 left four settings decided as policy but with their values still to be entered by the facility (the three RhIG dose settings and the specimen retention days). Each sits at its "not set" default and the feature behind it stays quiet: no RhIG dose is calculated, no tube is listed for discard. Nothing showed they were waiting: it depended on someone remembering (question 2).
+
+### Design
+
+- `FacilityPolicyDefinition.AwaitingEntryAtDefault` marks a setting decided to be used whose value is the facility's; `FacilityPolicyCatalog.AwaitsEntry` is true while it is still at its default. Settings that are off by choice (the neonatal rules, the needed-soon warning) are not marked.
+- Facility Policies: a note naming the settings to enter, with Show only these; a Not set badge on each; `?show=to-enter` from the home card.
+- Home card "Facility settings to enter" (admin.config.edit; Supervisor desk), naming the first three. Not urgent.
+
+### Verification
+
+- Unit: which settings are marked; at default (stored, padded, or absent) versus entered; off-by-choice settings never awaiting.
+- Unit: the card's permission, link, desk, note.
+- Rendered: the note, badges, and the filter both ways.
+- Live (read-only): the home card reads "Facility settings to enter 4: RhIG dose: maternal blood volume (mL); RhIG dose: mL of fetal whole blood per vial; RhIG dose: rounding; and 1 more"; from it, Facility Policies lists only the four with Not set badges and the note naming them. No server errors.
+
+### Requirements
+
+- URS-BB-720, FRS-BB-838.
+
+### Tests
+
+- TEST-BB-885, TEST-BB-886, TEST-BB-887.
+
+### Next
+
+- Back to the capability matrix.

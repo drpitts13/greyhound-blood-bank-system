@@ -415,6 +415,21 @@ public class DashboardQueueCatalogTests
         Assert.Null(DashboardQueueCatalog.OutsideAntibodiesNote([], now));
     }
 
+    // TEST-BB-886 (Cycle 677): settings to enter is a card for those who edit configuration, on the Supervisor desk,
+    // opening Facility Policies filtered to them; its note names the first three and how many more.
+    [Fact]
+    public void SettingsToEnter_CardAndNote()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.AdminConfigEdit)),
+            c => c.Key == DashboardQueueCatalog.SettingsToEnter && c.Href == "/admin/facility-policies?show=to-enter" && c.Label == "Facility settings to enter");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)), c => c.Key == DashboardQueueCatalog.SettingsToEnter);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.SettingsToEnter, WorkFocus.Supervisor));
+
+        Assert.Equal("A; B; C; and 1 more", DashboardQueueCatalog.SettingsToEnterNote(["A", "B", "C", "D"]));
+        Assert.Equal("A", DashboardQueueCatalog.SettingsToEnterNote(["A"]));
+        Assert.Null(DashboardQueueCatalog.SettingsToEnterNote([]));
+    }
+
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
 
