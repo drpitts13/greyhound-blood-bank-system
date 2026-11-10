@@ -827,6 +827,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-713 / FRS-BB-831 | Outside antibody reports to confirm | `ImmunohematologyService.cs`; `ImmunohematologyEndpoints.cs`; `DashboardQueueCatalog.cs`; `AntibodyIdWorklist.razor`; `Home.razor` | TEST-BB-865, TEST-BB-866, TEST-BB-867 | U, I | OCD-073 |
 | URS-BB-714 / FRS-BB-832 | RhIG suggested candidacy and calculated dose | `RhigDoseRule.cs`; `FacilityPolicyCatalog.cs`; `FacilityPolicyService.cs`; `RhigEvaluationService.cs`; `PatientChartRhigTab.razor` | TEST-BB-868, TEST-BB-869, TEST-BB-870 | U, I | OCD-069 |
 | URS-BB-715 / FRS-BB-833 | Infant specimen valid for the admission | `NeonatalTestingRule.cs`; `FacilityPolicyCatalog.cs`; `SpecimenService.cs`; `EncounterService.cs`; `PatientChartSpecimensTab.razor` | TEST-BB-871, TEST-BB-872 | U, I | OCD-074 |
+| URS-BB-716 / FRS-BB-834 | Infant ABO/Rh not repeated during the admission | `NeonatalTestingRule.cs`; `IssuingService.cs`; `PatientChartHeader.razor` | TEST-BB-873, TEST-BB-874, TEST-BB-875 | U, I | OCD-074 |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

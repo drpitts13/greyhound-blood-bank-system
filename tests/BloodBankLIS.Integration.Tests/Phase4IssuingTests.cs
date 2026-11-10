@@ -3838,6 +3838,55 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == SecondAboDeterminationRule.IssueCode);
     }
 
+    // TEST-BB-874 (OCD-074 part two): an infant whose only ABO/Rh was tested on this admission's specimen (one made valid
+    // for the admission under the neonatal rules) is issued red cells without a second determination, and is not on the
+    // Second ABO/Rh desk; the same type on an ordinary specimen still needs the second determination.
+    [Fact]
+    public async Task Infant_AdmissionType_StandsWithoutASecondDetermination()
+    {
+        var newborn = DateOnly.FromDateTime(_factory.Clock.UtcNow).AddDays(-10);
+        var infant = await SeedAsync("NEO-ABO", includeHistoricalAbo: false, dateOfBirth: newborn);
+        var ordinary = await SeedAsync("NEO-ABO-ORD", includeHistoricalAbo: false, dateOfBirth: newborn);
+        await using (var c = _factory.Create())
+        {
+            foreach (var (scenario, admission) in new[] { (infant, true), (ordinary, false) })
+            {
+                var specimen = await c.Specimens.SingleAsync(x => x.Id == scenario.SpecimenId);
+                if (admission)
+                {
+                    specimen.NeonatalStandardExpiresUtc = specimen.ExpiresUtc;
+                    specimen.ExpiresUtc = _factory.Clock.UtcNow.AddDays(30);
+                }
+
+                (await c.PatientBloodTypeHistory.SingleAsync(h => h.PatientId == scenario.PatientId && h.IsCurrent)).SpecimenId = specimen.Id;
+            }
+
+            await c.SaveChangesAsync();
+        }
+
+        foreach (var scenario in new[] { infant, ordinary })
+        {
+            await RecordCompatibleCrossmatchAsync(scenario);
+            await AllocateAsync(scenario);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var desk = await Issuing(c).ListPendingSecondAboAsync();
+            Assert.DoesNotContain(desk, d => d.PatientId == infant.PatientId);
+            Assert.Contains(desk, d => d.PatientId == ordinary.PatientId);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(infant));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.Results.Where(r => r.Severity != RuleSeverity.Pass).Select(r => r.Message) ?? []));
+
+            var refused = await Issuing(c).IssueUnitAsync(IssueReq(ordinary));
+            Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == SecondAboDeterminationRule.IssueCode);
+        }
+    }
+
     [Fact]
     public async Task EmergencyRelease_WithoutSecondAbo_RequiresOverride()
     {

@@ -162,6 +162,10 @@
             {
                 <div class="muted" style="font-size:.8rem;">Second ABO on file</div>
             }
+            else if (RequireSecondAbo && NeonatalTypeStands)
+            {
+                <div class="muted" style="font-size:.8rem;" data-neonatal-type title="@NeonatalTestingRule.AdmissionTypeMessage">Infant: stands for the admission</div>
+            }
         </div>
         <div class="stat" style="text-align:center;padding:.6rem 1rem;">
             <div class="label">Current specimen</div>
@@ -518,7 +522,13 @@ else if (ReactionNotice is not null)
 
     private bool SecondAboOnFile => SecondAboDeterminationRule.HasSecondConcordant(AboHistory);
 
-    private string? SecondAboNotice => SecondAboDeterminationRule.MissingCellularIssueNotice(RequireSecondAbo, AboHistory);
+    // OCD-074: an infant's type from this admission's specimen stands, as issue treats it.
+    private bool NeonatalTypeStands =>
+        TypeHistory.FirstOrDefault(t => t.IsCurrent && !t.Invalidated) is { SpecimenId: long specimenId }
+        && Specimens.FirstOrDefault(s => s.Id == specimenId) is { } specimen
+        && NeonatalTestingRule.AdmissionTypeStands(specimen.NeonatalAdmission, specimen.ExpiresUtc, DateTime.UtcNow);
+
+    private string? SecondAboNotice => NeonatalTypeStands ? null : SecondAboDeterminationRule.MissingCellularIssueNotice(RequireSecondAbo, AboHistory);
 
     private string? AboDiscrepancyNotice =>
         IssueGate.PatientBannerNotice(BloodTypeDto.DiscrepancyInput(TypeHistory));

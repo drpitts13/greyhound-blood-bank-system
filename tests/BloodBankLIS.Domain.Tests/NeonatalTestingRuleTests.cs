@@ -34,4 +34,14 @@ public class NeonatalTestingRuleTests
         Assert.Equal(usual, NeonatalTestingRule.OnDischarge(limit, usual, Now.AddDays(1)));
         Assert.Null(NeonatalTestingRule.OnDischarge(Now.AddDays(5), usual, Now.AddDays(10)));
     }
+
+    // TEST-BB-873 (part two): the type stands only when tested on an admission specimen that is still valid.
+    [Fact]
+    public void AdmissionTypeStands_WhileTheAdmissionSpecimenIsValid()
+    {
+        Assert.True(NeonatalTestingRule.AdmissionTypeStands(true, Now.AddDays(1), Now));
+        Assert.False(NeonatalTestingRule.AdmissionTypeStands(true, Now.AddMinutes(-1), Now));
+        Assert.False(NeonatalTestingRule.AdmissionTypeStands(true, null, Now));
+        Assert.False(NeonatalTestingRule.AdmissionTypeStands(false, Now.AddDays(1), Now));
+    }
 }

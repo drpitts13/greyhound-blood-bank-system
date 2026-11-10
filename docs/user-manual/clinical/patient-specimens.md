@@ -41,6 +41,12 @@ Relabeling changes the barcode. It requires a reason. Use it when the printed la
 - The Expires column says **For the admission (infant)**.
 - When the visit is discharged (on the chart or by an ADT message), the specimen ends at discharge, or at its usual expiration if that is later. The change is recorded in the audit trail.
 - A specimen with no visit, or with its own validity hours, keeps the usual rules.
+- ABO/Rh is not repeated during the admission. When the infant's current ABO/Rh was tested on that admission specimen, it stands for routine red cell issue without a second determination while the specimen is valid.
+  - The chart header says **Infant: stands for the admission** in place of the second-ABO/Rh notice.
+  - The infant does not appear on the Second ABO/Rh desk.
+  - Ready to issue does not flag the infant's units.
+  - Electronic crossmatch still needs two determinations.
+  - After discharge or the age limit, the usual rule returns.
 
 The accession number is what you will select when you record a crossmatch. At issue, the system checks that a current specimen exists for this patient and that it has not expired. A missing or expired specimen is not offered for routine issue.
 

@@ -359,8 +359,10 @@ public sealed class IssuingService
         var uncrossmatchedONeg = await _policy.GetUncrossmatchedONegForChildbearingAsync(ct);
         var childbearingAge = await _policy.GetChildbearingAgeYearsAsync(ct);
         var typeHistory = await _bloodTypes.ListAsync(h => h.PatientId == request.PatientId, ct);
+        // OCD-074: an infant's type from this admission's specimen stands for routine issue without a second determination.
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
-            SecondAboDeterminationRule.FromHistory(typeHistory));
+                SecondAboDeterminationRule.FromHistory(typeHistory))
+            || await NeonatalAdmissionTypeStandsAsync(typeHistory, ct);
         var exmEligible = facilityAllowsExm && await IsElectronicCrossmatchEligibleAsync(request.PatientId, ct);
         var issueType = ResolveIssueType(request.IssueType, location, exmEligible, hasValidCrossmatch);
         var retypeConfirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypes, productType, unit.Id, ct);
@@ -832,7 +834,8 @@ public sealed class IssuingService
             var rows = historyByPatient.GetValueOrDefault(patient.Id) ?? [];
             var current = rows.FirstOrDefault(h => h.IsCurrent);
             var second = SecondAboDeterminationRule.HasSecondConcordant(
-                SecondAboDeterminationRule.FromHistory(rows));
+                    SecondAboDeterminationRule.FromHistory(rows))
+                || await NeonatalAdmissionTypeStandsAsync(rows, ct);
             if (second || current is null || !current.BloodType.IsKnown)
             {
                 continue;
@@ -1011,7 +1014,8 @@ public sealed class IssuingService
             var needsSecondAbo = requireSecondAbo
                 && cellular
                 && !SecondAboDeterminationRule.HasSecondConcordant(
-                    SecondAboDeterminationRule.FromHistory(typeRows));
+                    SecondAboDeterminationRule.FromHistory(typeRows))
+                && !await NeonatalAdmissionTypeStandsAsync(typeRows, ct);
             var unitCrossmatches = xms
                 .Where(x => x.PatientId == allocation.PatientId && x.BloodProductId == allocation.BloodProductId)
                 .ToList();
@@ -2192,6 +2196,23 @@ public sealed class IssuingService
         }
 
         return order.ProductTypeId == unitProductTypeId;
+    }
+
+    /// <summary>
+    /// OCD-074 part two: the current ABO/Rh was tested on an infant's admission specimen that is still valid. The
+    /// specimen says the neonatal rules applied when it was collected (<see cref="Specimen.NeonatalStandardExpiresUtc"/>).
+    /// </summary>
+    private async Task<bool> NeonatalAdmissionTypeStandsAsync(IReadOnlyCollection<PatientBloodTypeHistory> typeRows, CancellationToken ct)
+    {
+        var current = typeRows.FirstOrDefault(h => h.IsCurrent && h.InvalidatedUtc == null && h.SpecimenId != null);
+        if (current?.SpecimenId is not long specimenId)
+        {
+            return false;
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        return NeonatalTestingRule.AdmissionTypeStands(
+            specimen?.NeonatalStandardExpiresUtc is not null, specimen?.ExpiresUtc, _clock.UtcNow);
     }
 
     private async Task<bool> IsElectronicCrossmatchEligibleAsync(long patientId, CancellationToken ct)

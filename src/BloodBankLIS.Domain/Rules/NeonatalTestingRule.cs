@@ -6,6 +6,9 @@ namespace BloodBankLIS.Domain.Rules;
 /// off until the medical director confirms the details against the current AABB Standards). This part: one specimen
 /// covers the admission. A specimen collected from an infant during a visit stays valid until the visit is discharged or
 /// the infant reaches the age limit, whichever is first, and never ends earlier than the usual rules would make it.
+/// Part two (Cycle 673): ABO/Rh is not repeated during the admission. The infant's current type, tested on that admission
+/// specimen while it is still valid, stands for routine red-cell issue without a second determination. Electronic
+/// crossmatch is not affected: it still needs two determinations.
 /// </summary>
 public static class NeonatalTestingRule
 {
@@ -41,6 +44,16 @@ public static class NeonatalTestingRule
         var end = dischargeUtc is { } d && d < limit ? d : limit;
         return end > standardExpiresUtc ? end : null;
     }
+
+    /// <summary>
+    /// The infant's current ABO/Rh stands without a second determination: it was tested on an admission specimen
+    /// (one made valid for the admission under the neonatal rules) that has not expired, so the admission is still running.
+    /// </summary>
+    public static bool AdmissionTypeStands(bool typedOnAdmissionSpecimen, DateTime? specimenExpiresUtc, DateTime nowUtc) =>
+        typedOnAdmissionSpecimen && specimenExpiresUtc is { } expires && expires > nowUtc;
+
+    public const string AdmissionTypeMessage =
+        "Infant: the ABO/Rh tested on this admission's specimen stands without a second determination (OCD-074).";
 
     /// <summary>
     /// When the visit is discharged, an admission-long specimen ends at discharge, but not before its usual expiration.

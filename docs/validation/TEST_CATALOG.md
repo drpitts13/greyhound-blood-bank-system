@@ -881,5 +881,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-870 | U | `RhigSuggestionTabTests.Tab_ShowsSuggestionAndDose` | URS-BB-714 / FRS-BB-832 |
 | TEST-BB-871 | I | `NeonatalSpecimenTests.InfantSpecimen_IsValidForTheAdmission_UntilDischarge` | URS-BB-715 / FRS-BB-833 |
 | TEST-BB-872 | U | `NeonatalTestingRuleTests.AdmissionDating` | URS-BB-715 / FRS-BB-833 |
+| TEST-BB-873 | U | `NeonatalTestingRuleTests.AdmissionTypeStands_WhileTheAdmissionSpecimenIsValid` | URS-BB-716 / FRS-BB-834 |
+| TEST-BB-874 | I | `Phase4IssuingTests.Infant_AdmissionType_StandsWithoutASecondDetermination` | URS-BB-716 / FRS-BB-834 |
+| TEST-BB-875 | U | `NeonatalTypeHeaderTests.InfantAdmissionType_HasNoSecondTypeNotice` | URS-BB-716 / FRS-BB-834 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

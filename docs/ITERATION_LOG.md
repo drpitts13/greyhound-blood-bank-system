@@ -20746,3 +20746,38 @@ Off until the medical director turns it on. Any infant specimen extended stays t
 ### Next
 
 - OCD-074 part two: no repeat ABO/Rh during the admission (the second determination for an infant under the neonatal rules).
+
+## Iteration 673 — An infant's ABO/Rh not repeated during the admission (OCD-074, part two) (2026-11-10)
+
+### Capability matrix rescan (safety rules: duplicate testing; patient-product workflows)
+
+Part two of OCD-074 option B. With part one an infant's specimen covered the admission, but routine red-cell issue still demanded a second concordant ABO/Rh from a separate specimen, so the infant needed a second tube anyway: the neonatal rules said not to repeat ABO/Rh.
+
+### Design
+
+- `NeonatalTestingRule.AdmissionTypeStands`: the infant's current type was tested on an admission specimen (one made valid for the admission under the neonatal rules, Cycle 672) that is still valid. The specimen already records that the rules applied when it was collected, so the server and the chart decide the same way without another setting lookup.
+- Where it counts: the cellular issue check (`ISS-SECOND-ABO`), the Second ABO/Rh desk (the infant is not listed), Ready to issue (not flagged), and the chart header ("Infant: stands for the admission", no missing-second-type notice).
+- Where it does not: electronic crossmatch still needs two determinations; after discharge or the age limit the specimen expires and the usual rule returns.
+
+### Safety (question 6)
+
+Off unless the facility has turned on the neonatal rules (part one); tied to a specimen of this admission, still valid, so it cannot carry over to a later visit. Electronic crossmatch is left strict.
+
+### Verification
+
+- Unit: stands only on an admission specimen still valid.
+- Integration: the infant is issued red cells with one type from the admission specimen and is off the Second ABO/Rh desk; the same type on an ordinary specimen is still refused and listed.
+- Rendered: header note in place of the notice; the notice returns on an ordinary or expired specimen.
+- Live (read-only; neonatal rules off in dev): the Second ABO/Rh desk lists its one patient as before and a chart header loads. No server errors.
+
+### Requirements
+
+- URS-BB-716, FRS-BB-834; OCD-074 part two.
+
+### Tests
+
+- TEST-BB-873, TEST-BB-874, TEST-BB-875.
+
+### Next
+
+- OCD-074 part three: no crossmatch for an infant when the antibody screen is negative.
