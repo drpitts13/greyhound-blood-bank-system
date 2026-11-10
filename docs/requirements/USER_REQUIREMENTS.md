@@ -700,3 +700,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-692 | Blood orders to prepare do not ask for a new draw while a tube for the patient is already drawn and on its way; they ask for it to be received. | P2 | FRS-BB-809 |
 | URS-BB-693 | The chart header's no-current-specimen warning names a tube already drawn or received for the patient, so staff receive or accept it rather than drawing again. | P2 | FRS-BB-810 |
 | URS-BB-694 | Linking a specimen to an order, with nothing yet linkable, names a tube already drawn or received for the patient instead of only saying to accession one. | P3 | FRS-BB-811 |
+| URS-BB-695 | The chart header warns about electronic crossmatch only when it concerns this patient; a facility-wide switch-off is shown quietly, not as a warning on every chart. | P3 | FRS-BB-812 |

@@ -20085,3 +20085,33 @@ Last of the places that ask for a draw while a tube is on its way. On the chart'
 ### Next
 
 - Back to the capability matrix: the reaction investigation workflow's printed and signed record is covered; next look at the electronic crossmatch eligibility explanation on the chart.
+
+## Iteration 653 — The header warns about electronic XM only for the patient (2026-11-10)
+
+### Capability matrix rescan (safety rules: electronic crossmatch eligibility, alert separation)
+
+Electronic crossmatch eligibility is explained well: the Overview lists every criterion with its detail. But on development data, where facility policy has electronic crossmatch off pending validation (OCD-001/006), every chart header showed an amber "Not eligible" badge and an amber warning "Electronic crossmatch is disabled in facility policy…". A warning that is the same on every chart says nothing about the patient and teaches staff to skip the warnings that do.
+
+### Design
+
+- Header badge: "Off at this facility" in gray, with the reason on hover, when the facility policy is off; "Eligible" or "Not eligible" as before when it is on.
+- Header warning: none when the facility policy is off; otherwise the patient's blocking reason as before.
+- Eligibility, the Overview's criteria list, and the issue checks are unchanged.
+
+### Verification
+
+- Rendered: facility off shows the gray badge with the reason as title and no warning; facility on and not eligible shows the warning with the reason; eligible shows neither.
+- Unit: header notice and badge text for the three cases.
+- Live (read-only): MRN0022's chart header shows a gray "Off at this facility" badge titled with the policy reason, and no electronic crossmatch warning. No server errors.
+
+### Requirements
+
+- URS-BB-695, FRS-BB-812.
+
+### Tests
+
+- TEST-BB-808, TEST-BB-809.
+
+### Next
+
+- Other facility-wide conditions shown as per-patient warnings (look for alerts whose text never depends on the patient).

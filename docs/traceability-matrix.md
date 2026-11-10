@@ -805,6 +805,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-692 / FRS-BB-809 | Receive the drawn tube instead of drawing again | `BloodOrderPreparationRule.cs`; `BloodOrderWorklistService.cs`; `BloodOrders.razor` | TEST-BB-802, TEST-BB-803 | U, I | |
 | URS-BB-693 / FRS-BB-810 | Chart header names the tube on its way | `CurrentSpecimenBanner.cs`; `PatientChartHeader.razor` | TEST-BB-804, TEST-BB-805 | U | |
 | URS-BB-694 / FRS-BB-811 | Link specimen names the tube on its way | `CurrentSpecimenBanner.cs`; `PatientChartOrdersTab.razor`; `PatientDetail.razor` | TEST-BB-806, TEST-BB-807 | U | |
+| URS-BB-695 / FRS-BB-812 | Electronic XM header warns only about the patient | `ElectronicCrossmatchBanner.cs`; `PatientChartHeader.razor` | TEST-BB-808, TEST-BB-809 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

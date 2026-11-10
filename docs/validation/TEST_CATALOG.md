@@ -816,5 +816,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-805 | U | `CurrentSpecimenBannerTests.ExpiredCurrent_NamesOnlyANewerTube` | URS-BB-693 / FRS-BB-810 |
 | TEST-BB-806 | U | `ChartOrdersTabTests.LinkPanel_NamesTheTubeOnItsWay`, `ChartOrdersTabTests.LinkPanel_WithoutATubeOnItsWay_SaysToAccession`, `ChartOrdersTabTests.LinkPanel_ProductOrder_NamesTheTubeAndTheTypeAndScreen` | URS-BB-694 / FRS-BB-811 |
 | TEST-BB-807 | U | `CurrentSpecimenBannerTests.TubeOnItsWay_PicksTheNewestInDateTube` | URS-BB-694 / FRS-BB-811 |
+| TEST-BB-808 | U | `PatientSafetyBannerTests.ChartHeader_ElectronicCrossmatch_WarnsOnlyAboutThisPatient` | URS-BB-695 / FRS-BB-812 |
+| TEST-BB-809 | U | `ElectronicCrossmatchBannerTests.HeaderNotice_AndBadge_SeparateFacilityOffFromThisPatient` | URS-BB-695 / FRS-BB-812 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

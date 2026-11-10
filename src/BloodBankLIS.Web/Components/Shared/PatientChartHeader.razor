@@ -172,7 +172,8 @@
             <div class="stat" style="text-align:center;padding:.6rem 1rem;">
                 <div class="label">Electronic XM</div>
                 <div class="value" style="font-size:1rem;">
-                    <span class="badge @(Exm.Eligible ? "badge-green" : "badge-amber")">@(Exm.Eligible ? "Eligible" : "Not eligible")</span>
+                    <span class="badge @(!Exm.FacilityAllowsElectronicCrossmatch ? "badge-gray" : Exm.Eligible ? "badge-green" : "badge-amber")"
+                          title="@(Exm.FacilityAllowsElectronicCrossmatch ? null : Exm.BlockingReason)" data-exm-badge>@ElectronicCrossmatchBanner.BadgeText(Exm.Eligible, Exm.FacilityAllowsElectronicCrossmatch)</span>
                 </div>
             </div>
         }
@@ -526,7 +527,7 @@ else if (ReactionNotice is not null)
 
     private string? ExmNotice => Exm is null
         ? null
-        : ElectronicCrossmatchBanner.Notice(Exm.Eligible, Exm.BlockingReason);
+        : ElectronicCrossmatchBanner.HeaderNotice(Exm.Eligible, Exm.FacilityAllowsElectronicCrossmatch, Exm.BlockingReason);
 
     private string RecipientTraceHref =>
         $"/lookback?mrn={Uri.EscapeDataString(Patient.MedicalRecordNumber)}";

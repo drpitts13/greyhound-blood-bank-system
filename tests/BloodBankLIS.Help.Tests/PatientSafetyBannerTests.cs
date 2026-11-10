@@ -58,6 +58,34 @@ public class PatientSafetyBannerTests : BunitContext
         Assert.Contains(BloodBankLIS.Domain.Rules.ReactionHistoryBanner.RecordedReaction, closed.Markup);
     }
 
+    // TEST-BB-808: with electronic crossmatch switched off facility-wide, the header badge says "Off at this facility" (the
+    // reason on hover) and no warning is drawn on the chart; with it allowed, a patient who is not eligible still gets the
+    // warning with the reason, and an eligible one gets neither.
+    [Fact]
+    public void ChartHeader_ElectronicCrossmatch_WarnsOnlyAboutThisPatient()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>());
+        const string policy = "Electronic crossmatch is disabled in facility policy until AABB 5.16 validation is complete.";
+        const string screen = "Electronic crossmatch requires a verified negative antibody screen on a current specimen, and no positive screen on file.";
+        IRenderedComponent<PatientChartHeader> Header(bool eligible, bool facility, string? reason) => Render<PatientChartHeader>(p => p
+            .Add(c => c.Patient, Patient)
+            .Add(c => c.Exm, new BloodBankLIS.Application.Compatibility.ElectronicCrossmatchEligibilityDto(1, eligible, facility, [], reason)));
+
+        var off = Header(false, false, policy);
+        var badge = off.Find("[data-exm-badge]");
+        Assert.Equal(("Off at this facility", policy), (badge.TextContent.Trim(), badge.GetAttribute("title")));
+        Assert.Contains("badge-gray", badge.ClassName);
+        Assert.DoesNotContain(policy, off.FindAll(".alert").Select(a => a.TextContent));
+
+        var blocked = Header(false, true, screen);
+        Assert.Equal("Not eligible", blocked.Find("[data-exm-badge]").TextContent.Trim());
+        Assert.Contains(blocked.FindAll(".alert"), a => a.TextContent.Contains(screen));
+
+        var eligible = Header(true, true, null);
+        Assert.Equal("Eligible", eligible.Find("[data-exm-badge]").TextContent.Trim());
+        Assert.DoesNotContain(eligible.FindAll(".alert"), a => a.TextContent.Contains("Electronic crossmatch"));
+    }
+
     // TEST-BB-667
     [Fact]
     public void ChartHeader_NamesAntibodiesAndRequirements()
