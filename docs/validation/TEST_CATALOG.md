@@ -791,5 +791,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-780 | U | `AntibodyIdRestNegativeTests.RestNegative_FillsOnlyUntestedCellsInThePhase` | URS-BB-683 / FRS-BB-800 |
 | TEST-BB-781 | U | `AntibodyIdRestNegativeTests.Saving_ClearsTheOutlines` | URS-BB-683 / FRS-BB-800 |
 | TEST-BB-782 | U | `AntibodyIdRestNegativeTests.CompletedWorkup_OffersNoRestNegative` | URS-BB-683 / FRS-BB-800 |
+| TEST-BB-783 | I | `SeederAntibodyWorkupDemoTests.KellermanHasAWorkupInProgress` | URS-BB-684 / FRS-BB-801 |
+| TEST-BB-784 | I | `SeederAntibodyWorkupDemoTests.SeedingAgain_AddsNothing` | URS-BB-684 / FRS-BB-801 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

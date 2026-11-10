@@ -11,7 +11,7 @@ routes:
 
 ![Antibody identification](figures/antibody-identification.png)
 
-Open a workup from the [worklist](antibody-worklist) or from the patient chart. The screen shows the panel, the phases, and the reactions you enter. The lot must be an active antibody-panel lot. A withdrawn lot cannot be accepted or completed.
+Open a workup from the [worklist](antibody-worklist) or from the patient chart. On the training data, Kellerman, Diane (MRN0004) has a workup in progress on tube ACC-DEMO-ABID1: IS is read, AHG is part read, and 37C is not read. The screen shows the panel, the phases, and the reactions you enter. The lot must be an active antibody-panel lot. A withdrawn lot cannot be accepted or completed.
 
 ## What you record
 

@@ -83,6 +83,98 @@ public static partial class DatabaseSeeder
         await EnsureSurgeryOrderDemoAsync(context, ct);
         await EnsureReactionNextUnitDemoAsync(context, ct);
         await EnsureTubeAwaitingReceiptDemoAsync(context, ct);
+        await EnsureAntibodyWorkupInProgressDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (Cycle 642): a fresh accepted tube for Kellerman, Diane (MRN0004,
+    /// known anti-K) with an antibody-identification workup in progress on the teaching panel. IS is read negative on
+    /// every cell, AHG has the two K+ cells (2 and 5) at 2+ and the rest not yet read, and 37C is not read, so the
+    /// antigram, Rest 0 and assistance can be walked. Teaching reactions only; nothing is interpreted. Audited as the
+    /// service would audit opening it.
+    /// </summary>
+    private static async Task EnsureAntibodyWorkupInProgressDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string accession = "ACC-DEMO-ABID1";
+        if (await context.Specimens.IgnoreQueryFilters().AnyAsync(s => s.AccessionNumber == accession, ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0004", ct);
+        var visit = patient is null
+            ? null
+            : await context.Encounters.FirstOrDefaultAsync(e => e.PatientId == patient.Id && e.Status == EncounterStatus.Active, ct);
+        var lot = await context.AntibodyPanelLots.FirstOrDefaultAsync(l => l.LotNumber == "GHP-ABID-2026A" && l.IsActive, ct);
+        if (patient is null || visit is null || lot is null)
+        {
+            return;
+        }
+
+        var cells = await context.AntibodyPanelCells.Where(c => c.LotId == lot.Id).OrderBy(c => c.SortOrder).ToListAsync(ct);
+        if (cells.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var specimen = new Specimen
+        {
+            AccessionNumber = accession,
+            PatientId = patient.Id,
+            EncounterId = visit.Id,
+            SpecimenType = "EDTA",
+            Barcode = "SPC-" + accession,
+            CollectedUtc = now.AddHours(-2),
+            ReceivedUtc = now.AddMinutes(-90),
+            ExpiresUtc = now.AddHours(-2).AddDays(3),
+            DrawLocation = "6E Oncology",
+            Collector = "RN Demo",
+            Status = SpecimenStatus.Accepted,
+            Comment = "Demo: tube for an antibody identification in progress."
+        };
+        context.Specimens.Add(specimen);
+        await context.SaveChangesAsync(ct);
+
+        var workup = new AntibodyIdentificationWorkup
+        {
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            PrimaryLotId = lot.Id,
+            Status = AntibodyWorkupStatus.InProgress,
+            Comment = "Demo: IS read, AHG part read, 37C not read."
+        };
+        context.AntibodyIdentificationWorkups.Add(workup);
+        await context.SaveChangesAsync(ct);
+
+        context.AntibodyIdentificationWorkupLots.Add(new AntibodyIdentificationWorkupLot { WorkupId = workup.Id, LotId = lot.Id, IsPrimary = true });
+        foreach (var cell in cells)
+        {
+            context.AntibodyIdentificationReactions.Add(new AntibodyIdentificationReaction
+            {
+                WorkupId = workup.Id, CellId = cell.Id, PhaseCode = "IS", Strength = ReactionGrade.Negative
+            });
+            if (cell.CellNumber is "2" or "5")
+            {
+                context.AntibodyIdentificationReactions.Add(new AntibodyIdentificationReaction
+                {
+                    WorkupId = workup.Id, CellId = cell.Id, PhaseCode = "AHG", Strength = ReactionGrade.TwoPlus
+                });
+            }
+        }
+
+        context.AuditEvents.Add(new AuditEvent
+        {
+            EventType = AuditEventType.Antibody,
+            EntityType = nameof(AntibodyIdentificationWorkup),
+            EntityId = workup.Id,
+            UserName = "tech1",
+            Workstation = "DEMO-SEED",
+            OccurredUtc = now.AddMinutes(-60),
+            NewValueJson = JsonSerializer.Serialize(new { workup.PatientId, workup.PrimaryLotId, workup.SpecimenId, DemoData = true }),
+            Reason = "Antibody-identification workup opened."
+        });
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>

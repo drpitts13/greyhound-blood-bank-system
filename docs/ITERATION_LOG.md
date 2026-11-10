@@ -19763,3 +19763,31 @@ A cell set to 0 without reading its tube could rule out an antibody. The aid fil
 ### Next
 
 - Continue antibody identification: the interpretation step, and whether a demo workup with reactions in progress should be seeded so the antigram can be walked live.
+
+## Iteration 642 — A demo antibody workup in progress (2026-11-10)
+
+### Capability matrix rescan (antibody identification, demo data)
+
+Cycles 640 and 641 changed the workup page, but the development data had no workup, so the antigram could only be checked in rendered tests, and opening one live would change the data. The teaching panel lot (GHP-ABID-2026A, eight cells and an autocontrol) and the anti-K patient (Kellerman, Diane, MRN0004) were already seeded.
+
+### Design
+
+- `EnsureAntibodyWorkupInProgressDemoAsync`, once (keyed by accession ACC-DEMO-ABID1): a fresh accepted EDTA tube for MRN0004 and a workup in progress on the teaching lot. IS is negative on every cell, AHG is 2+ on cells 2 and 5 (the K+ cells) with the rest not read, and 37C is not read. Nothing is interpreted. The opening is audited as the service would audit it.
+- Teaching reactions only, consistent with the patient's known anti-K. The tube ages like any tube; a workup the bench has since changed is never reset.
+
+### Verification
+
+- Integration: the seed adds the tube and workup with those reactions, audited; seeding again adds nothing and leaves a completed workup alone.
+- Live (read-only): the workup opens on the development data with the reactions above; Rest 0 shows on 37C and AHG and not on IS; Rest 0 at AHG set and outlined the 7 unread cells with the note, leaving the two 2+ cells; reloading discarded it. Nothing saved. The worklist lists the workup at "Record reactions".
+
+### Requirements
+
+- URS-BB-684, FRS-BB-801.
+
+### Tests
+
+- TEST-BB-783, TEST-BB-784.
+
+### Next
+
+- Walk the interpretation step on the demo workup: what the technologist retypes from assistance into the interpretation.
