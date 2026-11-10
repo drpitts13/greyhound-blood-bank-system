@@ -830,6 +830,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-716 / FRS-BB-834 | Infant ABO/Rh not repeated during the admission | `NeonatalTestingRule.cs`; `IssuingService.cs`; `PatientChartHeader.razor` | TEST-BB-873, TEST-BB-874, TEST-BB-875 | U, I | OCD-074 |
 | URS-BB-717 / FRS-BB-835 | Infant group O red cells without a crossmatch (negative screen) | `NeonatalTestingRule.cs`; `IssueGate.cs`; `IssuingService.cs`; `Issue.cs` | TEST-BB-876, TEST-BB-877 | U, I | OCD-074, OCD-082 |
 | URS-BB-718 / FRS-BB-836 | Weak D / partial D treated as Rh negative for RhIG | `Patient.cs`; `RhigDoseRule.cs`; `RhigEvaluationRule.cs`; `ImmunohematologyService.cs`; `PatientChartOverviewTab.razor`; `PatientChartHeader.razor` | TEST-BB-878 to TEST-BB-881 | U, I | OCD-069 |
+| URS-BB-719 / FRS-BB-837 | How each issue was entered, on the product history | `IssueEntryNotes.cs`; `PatientProductHistoryService.cs`; `PatientChartProductHistoryTab.razor` | TEST-BB-882, TEST-BB-883, TEST-BB-884 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

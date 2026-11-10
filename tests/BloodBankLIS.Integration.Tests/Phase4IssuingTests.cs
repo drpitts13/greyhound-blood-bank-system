@@ -3925,6 +3925,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var issued = await Issuing(c).IssueUnitAsync(IssueReq(groupO));
             Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.Results.Where(r => r.Severity != RuleSeverity.Pass).Select(r => r.Message) ?? []));
             Assert.True(issued.Value!.NeonatalNoCrossmatch);
+            // TEST-BB-883: the patient's product history says so on the issue row.
+            var history = await new PatientProductHistoryService(
+                new EfRepository<Allocation>(c), new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c), new EfRepository<Return>(c),
+                new EfRepository<TransfusionEvent>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c),
+                new EfRepository<Encounter>(c), new EfRepository<Order>(c), new EfRepository<Specimen>(c),
+                new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<Override>(c)).ListByPatientAsync(groupO.PatientId);
+            var issuedRow = Assert.Single(history, r => r.EventType == PatientProductHistoryEventType.Issued);
+            Assert.Contains("Infant, negative screen: group O issued without a crossmatch (neonatal rules)", issuedRow.EntryNotes!);
             Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == groupO.UnitId
                 && a.NewValueJson!.Contains("\"NeonatalNoCrossmatch\":true")));
 

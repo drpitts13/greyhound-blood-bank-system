@@ -724,3 +724,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-716 | During an infant's admission under the neonatal rules, the ABO/Rh tested on the admission specimen is not repeated for routine red-cell issue (OCD-074). | P2 | FRS-BB-834 |
 | URS-BB-717 | During an infant's admission under the neonatal rules, group O red cells are issued without a crossmatch when the infant's antibody screen is negative (OCD-074). | P2 | FRS-BB-835 |
 | URS-BB-718 | A weak D or partial D can be recorded for a patient and is treated as Rh negative when RhIG candidacy is suggested (OCD-069). | P2 | FRS-BB-836 |
+| URS-BB-719 | The patient's product history says how each issue was entered: late, from a downtime paper record, outside every recorded outage, or to an infant without a crossmatch. | P3 | FRS-BB-837 |

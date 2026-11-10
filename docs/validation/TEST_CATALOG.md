@@ -890,5 +890,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-879 | I | `RhigSuggestionTests.WeakD_Patient_IsSuggestedACandidate` | URS-BB-718 / FRS-BB-836 |
 | TEST-BB-880 | I | `Phase3ServicesTests.RhDVariant_IsRecordedWithAReason_AndAudited` | URS-BB-718 / FRS-BB-836 |
 | TEST-BB-881 | U | `OutsideAntibodyChartTests.OutsideReports_ShowDocumentationAndConfirmation` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-882 | U | `IssueEntryNotesTests.Notes_SayHowTheIssueWasEntered` | URS-BB-719 / FRS-BB-837 |
+| TEST-BB-883 | I | `Phase4IssuingTests.Infant_NegativeScreen_GroupO_IssuedWithoutCrossmatch` | URS-BB-719 / FRS-BB-837 |
+| TEST-BB-884 | U | `ProductHistoryReactionTests.EntryNotes_AreShownOnTheIssueRow` | URS-BB-719 / FRS-BB-837 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

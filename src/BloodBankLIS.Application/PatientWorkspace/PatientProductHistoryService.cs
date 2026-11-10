@@ -139,7 +139,8 @@ public sealed class PatientProductHistoryService
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(i, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(i.IssuedBy), IssueDestinationCue.Format(i.IssuedToLocation, issuePlaces),
                 null, null, null, null, i.Status.ToString(), false, missing, isOpen,
-                UnitId: unit?.Id, IssueId: i.Id, UnitExpiresUtc: unit?.ExpiresUtc, IssuedTo: Person(i.IssuedTo), CoolerId: Person(i.CoolerId), IssueType: i.IssueType.ToString(), EmergencyReleaseReason: Person(i.EmergencyReleaseDetails), SecondVerifier: Person(i.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(i, authorizers), IssueAppearance: i.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(i), PtagCode: Person(i.PtagCode), IssueCrossmatchStatus: i.CrossmatchStatus.ToString(), ReactionInvestigationOpenAtIssueId: i.ReactionInvestigationOpenAtIssueId));
+                UnitId: unit?.Id, IssueId: i.Id, UnitExpiresUtc: unit?.ExpiresUtc, IssuedTo: Person(i.IssuedTo), CoolerId: Person(i.CoolerId), IssueType: i.IssueType.ToString(), EmergencyReleaseReason: Person(i.EmergencyReleaseDetails), SecondVerifier: Person(i.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(i, authorizers), IssueAppearance: i.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(i), PtagCode: Person(i.PtagCode), IssueCrossmatchStatus: i.CrossmatchStatus.ToString(), ReactionInvestigationOpenAtIssueId: i.ReactionInvestigationOpenAtIssueId,
+                EntryNotes: IssueEntryNotes.For(i.LateEntryReason, i.DowntimeBackEntry, i.OutsideOutageReason, i.NeonatalNoCrossmatch)));
         }
 
         foreach (var r in await _returns.ListAsync(ct))

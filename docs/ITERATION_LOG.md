@@ -20849,3 +20849,33 @@ Off unless the neonatal rules are on; tied to the admission specimen; group O on
 ### Next
 
 - Back to the capability matrix for the next operations or UX gap.
+
+## Iteration 676 — How each issue was entered, on the product history (2026-11-10)
+
+### Capability matrix rescan (audit and traceability; timeline views)
+
+Recent cycles recorded new facts on an issue: a reason for a back-entry outside every outage (665) and an infant issued group O without a crossmatch (674), next to the older late entry and downtime back-entry. The issue desk showed some at entry, but the patient's product history, where a review or lookback reads what was given, showed none of them; they were only in the audit trail.
+
+### Design
+
+- `IssueEntryNotes.For`: plain notes from what the issue holds: late entry and its reason; entered from a paper record after downtime, and its reason; outside every recorded outage and the reason; infant, negative screen, group O without a crossmatch.
+- `PatientProductHistoryRowDto.EntryNotes` for issue rows; Product History shows each note under the disposition on the issue's row, next to the existing reaction marker.
+
+### Verification
+
+- Unit: each note and their order; none for an ordinary issue.
+- Integration: the neonatal issue's history row carries its note.
+- Rendered: notes on their issue's row; none on another.
+- Live (read-only): a chart's Product History loads its issue records with no notes (no demo issue was entered late, from paper, or under the neonatal rules). No server errors.
+
+### Requirements
+
+- URS-BB-719, FRS-BB-837.
+
+### Tests
+
+- TEST-BB-882, TEST-BB-883, TEST-BB-884.
+
+### Next
+
+- Back to the capability matrix.

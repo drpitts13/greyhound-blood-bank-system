@@ -19,3 +19,11 @@ A transfused row without a reaction has **Report reaction** for a reaction notic
 Each line keeps the unit number, product, patient identifiers used at issue, and the disposition. This is also the record you will compare during a lookback or a reaction investigation. Do not delete a historical line. If something was documented in error, correct it with the appropriate return, reaction, or deviation workflow so the original entry stays visible.
 
 > Issued during a reaction. A unit issued while the patient's transfusion reaction investigation was open or under review is marked **Issued during reaction #n** on its row. The issue records it at the time, so a later review finds the units given while a reaction was being investigated (OCD-078).
+
+> How it was issued. An issue row also says how the issue was entered, when that was not at the issue desk at the time:
+> - **Late entry**, with the reason given.
+> - **Entered from a paper issue record after downtime**, with its reason.
+> - **Outside every recorded outage**, with the reason given.
+> - **Infant, negative screen: group O issued without a crossmatch** under the neonatal rules.
+>
+> These were recorded with the issue and in the audit trail; the row repeats them so a review does not need the audit trail to find them.

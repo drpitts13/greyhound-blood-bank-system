@@ -27,4 +27,22 @@ public class ProductHistoryReactionTests : BunitContext
         Assert.Equal("Issued during reaction #1", badge.TextContent.Trim());
         Assert.Contains("W000123RXN0001", badge.Closest("tr")!.TextContent);
     }
+
+    // TEST-BB-884: how an issue was entered is said on its row (each note on its own line); a row with none says nothing.
+    [Fact]
+    public void EntryNotes_AreShownOnTheIssueRow()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>());
+        var tab = Render<PatientChartProductHistoryTab>(p => p
+            .Add(c => c.PatientId, 6)
+            .Add(c => c.Rows, new List<PatientProductHistoryRowDto>
+            {
+                Issued(1, "W000123PAPR001", null) with { EntryNotes = ["Entered from a paper issue record after downtime", "Outside every recorded outage: Unrecorded outage"] },
+                Issued(2, "W0001230000099", null) with { EntryNotes = [] }
+            }));
+
+        var notes = tab.FindAll("[data-history-entry-note]").Select(n => n.TextContent.Trim()).ToList();
+        Assert.Equal(["Entered from a paper issue record after downtime", "Outside every recorded outage: Unrecorded outage"], notes);
+        Assert.Contains("W000123PAPR001", tab.FindAll("[data-history-entry-note]")[0].Closest("tr")!.TextContent);
+    }
 }

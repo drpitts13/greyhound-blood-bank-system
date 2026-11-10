@@ -86,6 +86,11 @@
                             {
                                 @* Cycle 634: recorded at issue, so a review finds units given while a reaction was being investigated. *@
                                 <span class="badge badge-amber" title="Issued while reaction investigation #@reactionAtIssue was open or under review" data-history-reaction-at-issue>Issued during reaction #@reactionAtIssue</span>
+                            }
+                            @* Cycle 676: how the issue was entered, kept on the issue and in the audit, said on the record. *@
+                            @foreach (var note in h.EntryNotes ?? [])
+                            {
+                                <span class="sub" data-history-entry-note>@note</span>
                             }</td>
                     </tr>
                     @if (_showAllColumns)
