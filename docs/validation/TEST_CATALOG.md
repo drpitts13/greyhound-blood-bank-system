@@ -821,5 +821,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-810 | I | `DuplicateEhrOrderAlertTests.EhrOrderRepeatingAnOpenTest_RaisesAnAlert` | URS-BB-696 / FRS-BB-813 |
 | TEST-BB-811 | U | `DuplicateEhrOrderAlertTests.Alert_NamesThePatientAsRecorded` | URS-BB-696 / FRS-BB-813 |
 | TEST-BB-812 | U | `LocalTimeDisplayTests.Pages_ConvertUtcMatchedIntoAVariable` (extended: the matched variable used on the next lines) | URS-BB-697 / FRS-BB-814 |
+| TEST-BB-813 | U | `AlertInboxViewTests.Rows_GroupAlertsOfOneKindRaisedTogether` | URS-BB-698 / FRS-BB-815 |
+| TEST-BB-814 | U | `AlertGroupRowTests.LotsRaisedTogether_AreOneRow` | URS-BB-698 / FRS-BB-815 |
+| TEST-BB-815 | U | `AlertGroupRowTests.AcknowledgeAll_AcknowledgesEach_AndSaysWhichFailed` | URS-BB-698 / FRS-BB-815 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

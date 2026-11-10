@@ -38,4 +38,37 @@ public class AlertInboxViewTests
         Assert.Equal("47 h", AlertInboxView.OpenFor(Now.AddHours(-47), Now));
         Assert.Equal("3 d", AlertInboxView.OpenFor(Now.AddDays(-3).AddHours(-2), Now));
     }
+
+    private static AlertDto Titled(long id, string source, AlertSeverity severity, string title, int minutesAgo, string? link = null) =>
+        new(id, source, severity, title, "m", link, Now.AddMinutes(-minutesAgo), null, null, null, null);
+
+    // TEST-BB-813: three or more alerts of one kind and severity raised together, sharing the title before ": ", are one
+    // row naming each item, placed where the first was; two stay apart, as do the same kind raised hours apart, another
+    // severity, and critical alerts.
+    [Fact]
+    public void Rows_GroupAlertsOfOneKindRaisedTogether()
+    {
+        var rows = AlertInboxView.Rows([
+            Titled(1, AlertRule.MtpStillOpen, AlertSeverity.Warning, "Massive transfusion protocol still open: MRN MRN0021", 300),
+            Titled(2, AlertRule.ReagentQc, AlertSeverity.Warning, "Reagent QC overdue: lot A1", 60, "/reagents?lot=A1"),
+            Titled(3, AlertRule.ReagentQc, AlertSeverity.Warning, "Reagent QC overdue: lot B2", 60),
+            Titled(4, AlertRule.ReagentQc, AlertSeverity.Warning, "Reagent QC overdue: lot C3", 58),
+            Titled(5, AlertRule.ReagentQc, AlertSeverity.Warning, "Reagent QC overdue: lot D4", 600),
+            Titled(6, AlertRule.NearExpiry, AlertSeverity.Info, "Near expiry: W1", 30),
+            Titled(7, AlertRule.NearExpiry, AlertSeverity.Info, "Near expiry: W2", 30),
+            Titled(8, AlertRule.TemperatureExcursion, AlertSeverity.Critical, "Temperature excursion: Fridge 1", 10),
+            Titled(9, AlertRule.TemperatureExcursion, AlertSeverity.Critical, "Temperature excursion: Fridge 2", 10),
+            Titled(10, AlertRule.TemperatureExcursion, AlertSeverity.Critical, "Temperature excursion: Fridge 3", 10)
+        ]);
+
+        Assert.Equal(
+            ["Massive transfusion protocol still open: MRN MRN0021", "Reagent QC overdue (3)", "Reagent QC overdue: lot D4",
+             "Near expiry: W1", "Near expiry: W2", "Temperature excursion: Fridge 1", "Temperature excursion: Fridge 2", "Temperature excursion: Fridge 3"],
+            rows.Select(r => r.IsGroup ? $"{r.Heading} ({r.Alerts.Count})" : r.Heading));
+        var group = rows[1];
+        Assert.Equal(["lot A1", "lot B2", "lot C3"], group.Items.Select(i => i.Label));
+        Assert.Equal(("/reagents?lot=A1", Now.AddMinutes(-60), AlertSeverity.Warning), (group.Items[0].Alert.Link, group.RaisedUtc, group.Severity));
+        Assert.Empty(AlertInboxView.Rows([]));
+    }
+
 }

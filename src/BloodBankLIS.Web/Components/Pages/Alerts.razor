@@ -12,6 +12,7 @@
         <li>Below minimum stock, near expiry, reagent QC, transfusion not completed, and backup overdue alerts close on their own once the condition clears. The system checks every five minutes by default.</li>
         <li>Temperature excursion, incompatible after release, units expired, and backup failed alerts stay open until someone acknowledges them.</li>
         <li>Acknowledging records your name and note. It does not change a unit, deviation, or QC row. Open the link to act.</li>
+        <li>Three or more alerts of one kind raised together (reagent lots overdue for QC, units near expiry) are one row naming each; Acknowledge all records each alert with the note, and Show each lists them.</li>
     </ul>
 </details>
 <Outcome Value="_feedback" />
@@ -38,19 +39,41 @@
         <table class="bb">
             <thead><tr><th>Severity</th><th>Alert</th><th>Raised</th><th>Note</th><th></th></tr></thead>
             <tbody>
-                @foreach (var alert in ShownOpen)
+                @foreach (var row in AlertInboxView.Rows(ShownOpen))
                 {
-                    <tr>
-                        <td><span class="badge @SeverityClass(alert.Severity)">@Ui.EnumText(alert.Severity)</span></td>
+                    if (!row.IsGroup)
+                    {
+                        @AlertRow(row.Alerts[0])
+                        continue;
+                    }
+
+                    var key = GroupKey(row);
+                    @* Several of one kind raised by one scan: one row naming each, acknowledged together (Cycle 656). *@
+                    <tr data-alert-group>
+                        <td><span class="badge @SeverityClass(row.Severity)">@Ui.EnumText(row.Severity)</span></td>
                         <td>
-                            <div>@if (alert.Link is not null) { <a href="@alert.Link">@alert.Title</a> } else { @alert.Title }</div>
-                            <div class="muted">@alert.Message</div>
+                            <div><strong>@row.Heading</strong> <span class="muted">(@row.Alerts.Count)</span></div>
+                            <div class="muted" data-alert-group-items>
+                                @for (var i = 0; i < row.Items.Count; i++)
+                                {
+                                    var item = row.Items[i];
+                                    if (i > 0) { <span>, </span> }
+                                    if (item.Alert.Link is not null) { <a href="@item.Alert.Link">@item.Label</a> } else { <span>@item.Label</span> }
+                                }
+                            </div>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ToggleGroup(key)">@(_expanded.Contains(key) ? "Hide each" : "Show each")</button>
                         </td>
-                        <td class="nowrap">@alert.RaisedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub" data-open-for>open @AlertInboxView.OpenFor(alert.RaisedUtc, DateTime.UtcNow)</span></td>
-                        @* Kept as typed, so Enter acknowledges with the note without leaving the field first. *@
-                        <td><input placeholder="Optional; Enter acknowledges" value="@NoteFor(alert.Id)" @oninput="e => _notes[alert.Id] = e.Value?.ToString() ?? string.Empty" @onkeydown="e => OnNoteKey(e, alert.Id)" /></td>
-                        <td><button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => AcknowledgeAsync(alert.Id)">Acknowledge</button></td>
+                        <td class="nowrap">@row.RaisedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub" data-open-for>open @AlertInboxView.OpenFor(row.RaisedUtc, DateTime.UtcNow)</span></td>
+                        <td><input placeholder="Optional; applies to each" value="@NoteFor(key)" @oninput="e => _notes[key] = e.Value?.ToString() ?? string.Empty" /></td>
+                        <td><button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => AcknowledgeAllAsync(row)">Acknowledge all (@row.Alerts.Count)</button></td>
                     </tr>
+                    if (_expanded.Contains(key))
+                    {
+                        foreach (var alert in row.Alerts)
+                        {
+                            @AlertRow(alert)
+                        }
+                    }
                 }
             </tbody>
         </table>
@@ -122,6 +145,68 @@
     }
 
     private string NoteFor(long id) => _notes.TryGetValue(id, out var note) ? note : string.Empty;
+
+    private readonly HashSet<long> _expanded = new();
+
+    // A group is keyed by its first alert's id, negated so it never meets an alert's own note.
+    private static long GroupKey(AlertInboxView.Row row) => -row.Alerts.Min(a => a.Id);
+
+    private void ToggleGroup(long key)
+    {
+        if (!_expanded.Remove(key))
+        {
+            _expanded.Add(key);
+        }
+    }
+
+    private RenderFragment AlertRow(AlertDto alert) => __builder =>
+    {
+        <tr>
+            <td><span class="badge @SeverityClass(alert.Severity)">@Ui.EnumText(alert.Severity)</span></td>
+            <td>
+                <div>@if (alert.Link is not null) { <a href="@alert.Link">@alert.Title</a> } else { @alert.Title }</div>
+                <div class="muted">@alert.Message</div>
+            </td>
+            <td class="nowrap">@alert.RaisedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub" data-open-for>open @AlertInboxView.OpenFor(alert.RaisedUtc, DateTime.UtcNow)</span></td>
+            @* Kept as typed, so Enter acknowledges with the note without leaving the field first. *@
+            <td><input placeholder="Optional; Enter acknowledges" value="@NoteFor(alert.Id)" @oninput="e => _notes[alert.Id] = e.Value?.ToString() ?? string.Empty" @onkeydown="e => OnNoteKey(e, alert.Id)" /></td>
+            <td><button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => AcknowledgeAsync(alert.Id)">Acknowledge</button></td>
+        </tr>
+    };
+
+    // Each alert is acknowledged on its own (name, note, audit), with the group's note; one that fails is reported and
+    // the rest still go.
+    private async Task AcknowledgeAllAsync(AlertInboxView.Row row)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var key = GroupKey(row);
+            var note = NoteFor(key);
+            var failed = new List<string>();
+            foreach (var alert in row.Alerts)
+            {
+                var result = await Api.AcknowledgeAlertAsync(alert.Id, string.IsNullOrWhiteSpace(note) ? null : note);
+                if (!result.Succeeded)
+                {
+                    failed.Add(alert.Title);
+                }
+            }
+
+            _feedback = failed.Count == 0
+                ? Feedback.Succeed($"{row.Alerts.Count} alerts acknowledged.")
+                : Feedback.Fail($"{row.Alerts.Count - failed.Count} of {row.Alerts.Count} acknowledged; not acknowledged: {string.Join("; ", failed)}.");
+            _notes.Remove(key);
+            _expanded.Remove(key);
+            await LoadAsync();
+            AlertBadge.NotifyChanged();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
 
     private async Task OnNoteKey(KeyboardEventArgs e, long id)
     {

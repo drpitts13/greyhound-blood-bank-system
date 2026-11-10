@@ -20178,3 +20178,33 @@ A specimen or crossmatch expiry shown in UTC as if local reads hours later than 
 ### Next
 
 - Group same-kind alerts raised together (reagent QC by lot, near expiry by unit) into one row with acknowledge-all.
+
+## Iteration 656 — Alerts of one kind raised together are one row (2026-11-10)
+
+### Capability matrix rescan (operations: alerts inbox)
+
+The development inbox had 20 open alerts and about six things to do: seven "Reagent QC overdue: lot …" raised by one scan, eight "Near expiry: W…" raised by another, one massive transfusion protocol still open, a transfusion not completed, two units-expired sweeps, and a stock shortage. The protocol and the unfinished transfusion sat among fifteen near-identical rows, each acknowledged one at a time.
+
+### Design
+
+- `AlertInboxView.Rows`: three or more open alerts with the same source and severity whose titles share the text before ": ", raised within five minutes of each other, are one row: the shared heading with a count, each item (lot, unit) linked to its own target, the earliest raised time, one note, **Acknowledge all (n)**, and **Show each** to list them. The row sits where its first alert was, so most severe first still holds.
+- Critical alerts are never grouped; two of a kind, or the same kind raised hours apart, stay separate.
+- Acknowledge all acknowledges each alert through the existing call with the shared note, so each is recorded with the user and note as before; if one fails, the page says how many were acknowledged and names the rest.
+
+### Verification
+
+- Unit: grouping of three lots raised together; a fourth lot raised hours later, two near-expiry alerts, and three critical excursions stay separate; order kept; items, link, raised time, severity.
+- Rendered: the grouped row names and links each lot, Show each and Hide each, the lone alert stays; Acknowledge all reports success, and a failure names the alert not acknowledged.
+- Live (read-only): the 20 open alerts read as 7 rows: the protocol still open, two units-expired sweeps, "Reagent QC overdue (7)", the transfusion not completed, the stock shortage, and "Near expiry (8)". Nothing acknowledged. No server errors.
+
+### Requirements
+
+- URS-BB-698, FRS-BB-815.
+
+### Tests
+
+- TEST-BB-813, TEST-BB-814, TEST-BB-815.
+
+### Next
+
+- Back to the capability matrix: interface retry/error management (the HL7 error queue) for remembered or retyped information.
