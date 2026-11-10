@@ -6,8 +6,8 @@ namespace BloodBankLIS.Domain.Entities;
 /// <summary>
 /// An Rh immune globulin (RhIG) evaluation for a patient after a pregnancy event: the facts the blood bank gathered
 /// (infant Rh, fetal bleed screen and quantitation) and the decision and dose the reviewer recorded. The application
-/// shows the facts on file and checks the record is complete; it does not decide candidacy or calculate a dose
-/// (OCD-069).
+/// shows the facts on file, suggests a decision and calculates a dose from the facility's settings (OCD-069), and checks
+/// the record is complete; the reviewer decides.
 /// </summary>
 public class RhigEvaluation : BaseEntity
 {
@@ -46,6 +46,12 @@ public class RhigEvaluation : BaseEntity
     public string? GivenLot { get; set; }
 
     public int? GivenVials { get; set; }
+
+    /// <summary>OCD-069: the decision the application suggested when the evaluation was completed (null: none).</summary>
+    public RhigDecision? SuggestedDecision { get; set; }
+
+    /// <summary>OCD-069: the vials calculated from the quantitation when the evaluation was completed (null: none).</summary>
+    public int? VialsCalculated { get; set; }
 
     public DateTime? GivenUtc { get; set; }
 

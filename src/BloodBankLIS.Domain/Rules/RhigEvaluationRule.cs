@@ -3,8 +3,9 @@ using BloodBankLIS.Domain.Enums;
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
-/// RhIG evaluation support. Candidacy and dosing are facility decisions not yet confirmed (OCD-069): this rule lists the
-/// facts on file without concluding from them, and checks only that a completed record says what was decided.
+/// RhIG evaluation support: this rule lists the facts on file and checks that a completed record says what was decided.
+/// The suggested decision and calculated dose (OCD-069, decided 2026-11-10) are <see cref="RhigDoseRule"/>; the reviewer
+/// confirms both by recording them.
 /// </summary>
 public static class RhigEvaluationRule
 {

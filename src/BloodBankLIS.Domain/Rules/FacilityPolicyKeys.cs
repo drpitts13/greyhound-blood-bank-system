@@ -106,4 +106,13 @@ public static class FacilityPolicyKeys
 
     /// <summary>When true, unit inspections (return, appearance at issue and receipt) start as acceptable. Default off (OCD-040).</summary>
     public const string InspectionDefaultAcceptable = "Inspection.DefaultAcceptable";
+
+    /// <summary>OCD-069: mL of fetal whole blood one RhIG vial covers; 0 = not set (no dose is calculated).</summary>
+    public const string RhigMlPerVial = "Rhig.MlFetalBloodPerVial";
+
+    /// <summary>OCD-069: the maternal blood volume (mL) the fetal bleed is calculated against; 0 = not set.</summary>
+    public const string RhigMaternalBloodVolumeMl = "Rhig.MaternalBloodVolumeMl";
+
+    /// <summary>OCD-069: how the calculated vials are rounded (1 up, 2 nearest plus one, 3 up plus one); 0 = not set.</summary>
+    public const string RhigDoseRounding = "Rhig.DoseRounding";
 }

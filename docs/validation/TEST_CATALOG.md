@@ -876,5 +876,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-865 | U | `DashboardQueueCatalogTests.OutsideAntibodies_CardAndNote` | URS-BB-713 / FRS-BB-831 |
 | TEST-BB-866 | I | `Phase3ServicesTests.OutsideAntibodiesToConfirm_ListsOnlyUnconfirmedOutsideReports` | URS-BB-713 / FRS-BB-831 |
 | TEST-BB-867 | U | `OutsideAntibodyWorklistTests.OutsideReports_AreListedToConfirm` | URS-BB-713 / FRS-BB-831 |
+| TEST-BB-868 | U | `RhigDoseRuleTests.Calculate_UsesTheFacilitySettings`, `RhigDoseRuleTests.Suggest_FromTheFactsOnFile` | URS-BB-714 / FRS-BB-832 |
+| TEST-BB-869 | I | `RhigSuggestionTests.Evaluation_SuggestsAndCalculates_AndCompletionKeepsThem` | URS-BB-714 / FRS-BB-832 |
+| TEST-BB-870 | U | `RhigSuggestionTabTests.Tab_ShowsSuggestionAndDose` | URS-BB-714 / FRS-BB-832 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

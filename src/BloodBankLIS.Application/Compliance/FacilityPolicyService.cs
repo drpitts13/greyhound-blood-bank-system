@@ -94,6 +94,12 @@ public sealed class FacilityPolicyService
     public Task<bool> GetAllowBatchVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowBatchVerify, false, ct);
 
+    /// <summary>OCD-069: the RhIG dose settings; each 0 until the medical director sets it.</summary>
+    public async Task<RhigDoseRule.Settings> GetRhigDoseSettingsAsync(CancellationToken ct = default) => new(
+        await GetIntAsync(FacilityPolicyKeys.RhigMlPerVial, 0, ct),
+        await GetIntAsync(FacilityPolicyKeys.RhigMaternalBloodVolumeMl, 0, ct),
+        (RhigDoseRule.Rounding)Math.Clamp(await GetIntAsync(FacilityPolicyKeys.RhigDoseRounding, 0, ct), 0, 3));
+
     public Task<int> GetSpecimenRetentionDaysAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
 

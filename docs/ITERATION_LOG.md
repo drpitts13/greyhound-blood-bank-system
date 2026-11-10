@@ -20676,3 +20676,38 @@ Cycle 669 marked outside reports "not yet confirmed here" on each chart, but not
 ### Next
 
 - OCD-069 option C: RhIG candidacy suggested from the facts on file, and the vial count calculated from the fetal bleed quantitation with facility settings (shipped unset).
+
+## Iteration 671 — RhIG suggested candidacy and calculated dose (OCD-069 decided) (2026-11-10)
+
+### Capability matrix rescan (antibody/antigen history: RhIG)
+
+OCD-069 was decided on 2026-11-10 (option C). The RhIG evaluation listed the facts and left both the candidacy and the vial count to be worked out by hand from the procedure, every time.
+
+### Design
+
+- `RhigDoseRule.Suggest`: Rh positive or an Rh-negative infant suggests not a candidate; Rh negative with no anti-D and an infant Rh positive or not known suggests a candidate; no Rh type on file, or anti-D on history (passive or immune is the reviewer's call), suggests nothing. Weak D and partial D are not recorded in the patient's Rh type, so they are not treated (left to the medical director).
+- `RhigDoseRule.Calculate`: % fetal cells × maternal blood volume ÷ mL per vial, rounded up, to the nearest plus one, or up plus one; the working is shown. Facility Policies *RhIG dose* settings (mL per vial, maternal blood volume, rounding) ship 0: nothing is calculated, and the evaluation says why.
+- The reviewer confirms: **Use the suggestion** fills the decision and vials for the reviewer to save. Completion keeps the suggestion and the calculated vials on the record (migration `20261231000000_RhigSuggestionAndDose`, dev bootstrap), audited, so later setting changes do not rewrite it; a recorded dose or decision differing from them is marked.
+
+### Safety (question 6)
+
+Nothing is decided by the application: the decision and vials are still what the reviewer records, and completion still needs result verification. The calculation only appears once the medical director has entered the settings.
+
+### Verification
+
+- Unit: each rounding, the minimum of one vial when rounding up, nothing without quantitation or settings, the explanation; each suggestion case.
+- Integration: open evaluation suggests without a dose until set; with settings, 3 vials and the working; completion stores and audits them; a later rounding change leaves the completed record's values.
+- Rendered: suggestion and working on an open evaluation, the completed record's line and differs badge, Use the suggestion filling the vials.
+- Live (read-only): the demo open evaluation (MRN0026) reads "Suggested candidate: the patient is Rh negative with no anti-D, and the infant is Rh positive" with no dose (no quantitation); Facility Policies lists the three RhIG dose settings at 0. Demo evaluations completed before this change read "No suggestion or calculated dose was kept when this evaluation was completed" (first shown as "none", which read as a finding; reworded). No server errors.
+
+### Requirements
+
+- URS-BB-714, FRS-BB-832; OCD-069 decided (settings and weak/partial D policy remain with the medical director).
+
+### Tests
+
+- TEST-BB-868, TEST-BB-869, TEST-BB-870.
+
+### Next
+
+- OCD-074 option B: neonatal pretransfusion testing (one specimen per admission, no repeat ABO/Rh, no crossmatch with a negative screen) from facility settings, shipped off.

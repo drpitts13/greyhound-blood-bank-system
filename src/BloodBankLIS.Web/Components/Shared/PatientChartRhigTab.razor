@@ -110,6 +110,27 @@
                         <span class="muted"> — @e.DecisionNote</span>
                     }
                 </div>
+                @* OCD-069 (decided): the application suggests; the reviewer decides and records the decision and vials. *@
+                <div class="sub" data-rhig-suggestion>
+                    @if (e.IsCompleted && e.SuggestedDecision is null && e.VialsCalculated is null)
+                    {
+                        @("No suggestion or calculated dose was kept when this evaluation was completed.")
+                    }
+                    else if (e.IsCompleted)
+                    {
+                        @($"Suggested when completed: {SuggestionLabel(e.SuggestedDecision)}; calculated: {(e.VialsCalculated is int c ? $"{c} vial{(c == 1 ? "" : "s")}" : "none")}.")
+                        @if (e.DecisionDiffersFromSuggestion || e.VialsDifferFromCalculated)
+                        {
+                            <span class="badge badge-amber" data-rhig-differs>Differs from the suggestion</span>
+                        }
+                    }
+                    else
+                    {
+                        @e.SuggestionReason
+                        <br />
+                        <span data-rhig-dose>@e.DoseExplanation</span>
+                    }
+                </div>
                 <div class="sub">Recorded by @e.RecordedBy @e.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                 @if (e.IsGiven)
                 {
@@ -156,6 +177,10 @@
                         @if (Session.Has(PermissionCodes.ImmunoRecord))
                         {
                             <button class="btn btn-secondary btn-sm" @onclick="() => Edit(e)">Edit</button>
+                            @if (e.SuggestedDecision is not null && (e.Decision != e.SuggestedDecision || (e.VialsCalculated is int calc && e.VialsRecommended != calc)))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => UseSuggestion(e)" data-rhig-use-suggestion>Use the suggestion</button>
+                            }
                         }
                         @if (Session.Has(PermissionCodes.ResultVerify))
                         {
@@ -246,6 +271,24 @@
     }
 
     private void New() => _form = new RhigForm();
+
+    /// <summary>Opens the evaluation with the suggested decision and, for a candidate, the calculated vials; saving is the reviewer's.</summary>
+    private void UseSuggestion(RhigEvaluationDto e)
+    {
+        Edit(e);
+        _form!.Decision = e.SuggestedDecision ?? e.Decision;
+        if (_form.Decision == RhigDecision.Candidate && e.VialsCalculated is int vials)
+        {
+            _form.VialsRecommended = vials;
+        }
+    }
+
+    private static string SuggestionLabel(RhigDecision? suggested) => suggested switch
+    {
+        RhigDecision.Candidate => "candidate",
+        RhigDecision.NotCandidate => "not a candidate",
+        _ => "none"
+    };
 
     private void Edit(RhigEvaluationDto e) => _form = new RhigForm
     {

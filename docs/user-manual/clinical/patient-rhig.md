@@ -13,7 +13,17 @@ The **RhIG** tab holds Rh immune globulin evaluations for this patient: one per 
 
 **New evaluation** records the event and its time, the infant's Rh (or Not known), the fetal bleed screen (Not done, Negative, Positive) and, when it is positive, the fetal cells percentage from quantitation. Then record the decision your procedure reached: **Candidate** with the vials recommended, or **Not a candidate** with the reason. You can save a record before the decision is made and come back to it.
 
-Each record lists the facts on file next to what you entered: the patient's current Rh type, whether anti-D is on the antibody history, the infant Rh, and the screen and quantitation. The application does not decide candidacy or calculate a dose; those follow your facility's RhIG procedure (OCD-069).
+Each record lists the facts on file next to what you entered: the patient's current Rh type, whether anti-D is on the antibody history, the infant Rh, and the screen and quantitation. Under the facts, an open evaluation shows a **suggestion** and a **calculated dose** (OCD-069). You decide: the suggestion and the dose are only recorded when you enter them.
+
+- **Suggestion.**
+  - Rh positive on file, or an Rh-negative infant: suggested not a candidate.
+  - Rh negative with no anti-D, and the infant Rh positive or not known: suggested candidate.
+  - No Rh type on file, or anti-D on the antibody history: no suggestion. Anti-D may be passive (from earlier RhIG) or immune, and the reviewer decides which.
+  - Weak D and partial D are not recorded separately in the patient's Rh type, so the suggestion does not consider them.
+- **Calculated dose.** From a positive screen's quantitation: fetal whole blood = % fetal cells × maternal blood volume, divided by the mL one vial covers, then rounded. The three **RhIG dose** settings on Facility Policies (mL per vial, maternal blood volume, rounding) ship unset. Until your medical director enters them, the evaluation says no dose was calculated and why. Once they are set, it shows the working, for example "0.9% × 5000 mL = 45 mL fetal blood; ÷ 30 mL per vial = 1.5; rounded to the nearest and one added: 3 vials".
+- **Use the suggestion** opens the evaluation with the suggested decision and, for a candidate, the calculated vials filled in. Check them and save.
+
+Completing an evaluation keeps what was suggested and calculated at that moment, so the record does not change if the settings change later. A completed record whose decision or vials differ from them is marked **Differs from the suggestion**.
 
 A supervisor with result verification uses **Complete**. Completion is refused until the record says what was decided: a candidate needs the vials recommended, and after a positive screen the quantitation the dose was based on; a non-candidate needs the reason. A completed record cannot be changed; record a new evaluation if something was wrong. Recording, edits, and completion are in the audit trail.
 
