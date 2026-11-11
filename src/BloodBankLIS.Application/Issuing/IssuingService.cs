@@ -1457,6 +1457,19 @@ public sealed class IssuingService
             return await ReturnRecalledAsync(issue, unit, request.Reason, ct);
         }
 
+        // Cycle 693: a unit already quarantined while it was out (for example pulled for a recall) stays in quarantine
+        // when its issue is returned; the inspection cannot send it to stock.
+        if (unit.Status == UnitStatus.Quarantine)
+        {
+            if (request.Destination == UnitStatus.Available)
+            {
+                return EvaluationResult<Return>.Fail(
+                    $"{IsbtErrorCodes.ComponentQuarantined}: {unit.UnitNumber} is in quarantine ({unit.QuarantineReason ?? unit.QuarantineReasonCode.ToString()}); it stays there, not in stock.");
+            }
+
+            return await ReturnQuarantinedAsync(issue, unit, request.Reason, ct);
+        }
+
         var now = _clock.UtcNow;
         var unitUnexpired = unit.ExpiresUtc > now;
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
@@ -2497,6 +2510,42 @@ public sealed class IssuingService
                 IssueId = issue.Id,
                 unit.RecallReason
             },
+            reason: note);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<Return>.Ok(returnRecord);
+    }
+
+    /// <summary>
+    /// Cycle 693: the return of a unit quarantined while its issue was open. The issue is closed as returned and the unit
+    /// stays in quarantine with the reason it already has; a status row records the return, and it is audited.
+    /// </summary>
+    private async Task<EvaluationResult<Return>> ReturnQuarantinedAsync(Issue issue, BloodUnit unit, string reason, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+        var why = reason.Trim();
+        var returnRecord = new Return
+        {
+            IssueId = issue.Id,
+            Issue = issue,
+            BloodProductId = unit.Id,
+            ReturnedUtc = now,
+            ReturnedBy = _currentUser.UserName,
+            Reason = why,
+            ReissueEligible = false,
+            ReissueEvaluationJson = JsonSerializer.Serialize(new { AlreadyQuarantined = true, unit.QuarantineReasonCode, Destination = UnitStatus.Quarantine })
+        };
+        await _returns.AddAsync(returnRecord, ct);
+        issue.Status = IssueStatus.Returned;
+
+        var held = unit.QuarantineReason ?? unit.QuarantineReasonCode.ToString();
+        var note = $"Returned while in quarantine ({held}): {why}";
+        AppendStatus(unit, UnitStatus.Quarantine, note, now, nameof(Return), issue.Id);
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.Quarantine, IssueStatus = IssueStatus.Issued },
+            newValue: new { unit.UnitNumber, Status = UnitStatus.Quarantine, Path = "ReturnQuarantined", unit.QuarantineReasonCode, IssueId = issue.Id },
             reason: note);
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<Return>.Ok(returnRecord);

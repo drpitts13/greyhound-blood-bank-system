@@ -1483,6 +1483,46 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(await Issuing(verify).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
     }
 
+    // TEST-BB-927 (Cycle 693): a unit quarantined while its issue is open (for example pulled for a recall from its unit
+    // page) stays in quarantine with its reason when the issue is returned, even with every inspection passed; a return to
+    // Available is refused.
+    [Fact]
+    public async Task QuarantinedWhileIssued_StaysInQuarantine_OnReturn()
+    {
+        var s = await SeedAsync("TX-QUAR-OUT");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using (var c = _factory.Create())
+        {
+            var unit = (await c.BloodUnits.FindAsync(s.UnitId))!;
+            unit.Status = UnitStatus.Quarantine;
+            unit.QuarantineReasonCode = UnitQuarantineReason.LookbackRecall;
+            unit.QuarantineReason = "Pulled after recall: donor reactive";
+            await c.SaveChangesAsync();
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var toStock = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Brought back", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true,
+                Destination: UnitStatus.Available));
+            Assert.False(toStock.Succeeded);
+            Assert.Contains("is in quarantine (Pulled after recall: donor reactive); it stays there", toStock.Error);
+
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Brought back", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            Assert.False(returned.Value!.ReissueEligible);
+        }
+
+        await using var verify = _factory.Create();
+        var back = (await verify.BloodUnits.FindAsync(s.UnitId))!;
+        Assert.Equal((UnitStatus.Quarantine, UnitQuarantineReason.LookbackRecall, "Pulled after recall: donor reactive"),
+            (back.Status, back.QuarantineReasonCode, back.QuarantineReason));
+        Assert.Equal(IssueStatus.Returned, (await verify.Issues.FindAsync(issueId))!.Status);
+        var last = await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).OrderByDescending(h => h.Id).FirstAsync();
+        Assert.Equal("Returned while in quarantine (Pulled after recall: donor reactive): Brought back", last.Reason);
+    }
+
     // TEST-BB-924 (Cycle 692): a unit recalled on its way to the ward is flagged on In transit with the reason and is not
     // received there (the refusal names the recall); it stays in transit to be returned. Another unit in transit is not flagged.
     [Fact]

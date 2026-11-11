@@ -715,6 +715,12 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Issued, Assert.Single(list, r => r.UnitId == issued).WasStatus);
         Assert.DoesNotContain(list, r => r.UnitId == untouched);
 
+        // TEST-BB-926 (Cycle 693): the board's scan does not quarantine a unit recalled while issued (its issue is open);
+        // it says to return it on Issue & Transfuse.
+        var onWard = await service.PullRecalledByScanAsync(new PullRecalledByScanRequest($"U-RCLB-{key}"));
+        Assert.Contains("was issued when it was recalled. Return it on Issue & Transfuse", onWard.Error);
+        Assert.Equal(UnitStatus.Recalled, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == issued)).Status);
+
         // TEST-BB-918 (Cycle 689): the shift handoff counts them and keeps the count.
         var handoff = await new ShiftHandoffService(
                 new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser, inventory: service)

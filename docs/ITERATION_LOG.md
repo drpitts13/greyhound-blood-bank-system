@@ -21376,3 +21376,33 @@ Cycle 691 covered a recalled unit already on the ward (issued list, bedside star
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 693 — Quarantined while out stays quarantined (2026-11-11)
+
+### Capability matrix rescan (patient-product workflows: return; safety)
+
+Checking how Cycles 690 and 691 meet: the Recalled board's scan quarantined any recalled unit, including one recalled while issued, whose issue stayed open. When that issue was later returned, the return saw a Quarantine unit, not a Recalled one, took the ordinary path, and with every inspection passed sent it to Available: the recall undone again. The same held for any unit quarantined from its unit page while its issue was open.
+
+### Design
+
+- `ReturnUnitAsync`: a unit in quarantine when its issue is returned stays in quarantine with the reason it has (`ReturnQuarantinedAsync`: issue Returned, Return not reissue eligible, a status row "Returned while in quarantine (<reason>): <return reason>", audited); a request for Available is refused naming the quarantine reason.
+- `PullRecalledByScanAsync`: a unit whose recall came from Issued or TransfusionStarted (its recall status row) is refused: "Return it on Issue & Transfuse; the return quarantines it for the recall", so the issue is closed by the return (Cycle 691).
+- The Recalled board links such a unit to Issued units.
+
+### Verification
+
+- Integration: an issued, received unit quarantined for a recall: a return to Available is refused; a return with every inspection passed keeps it in quarantine with its code and reason, closes the issue, and records the return in its history. The board's scan refuses the unit recalled while issued and leaves it Recalled.
+- Rendered: the on-ward unit's link to Issued units; the shelf unit has none.
+- Live (read-only): the Recalled board shows the demo unit (recalled from the shelf) with no return link, and the new guidance. No server errors.
+
+### Requirements
+
+- URS-BB-736, FRS-BB-854.
+
+### Tests
+
+- TEST-BB-926, TEST-BB-927.
+
+### Next
+
+- Back to the capability matrix.

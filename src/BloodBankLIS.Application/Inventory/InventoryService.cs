@@ -1800,6 +1800,18 @@ public sealed class InventoryService
         }
 
         var found = recalled[0];
+        // Cycle 693: a unit recalled while it was issued is on the ward with its issue open; it is returned on Issue &
+        // Transfuse, which closes the issue and quarantines it, rather than quarantined here behind an open issue.
+        var recallRow = (await _repository.GetHistoryAsync(found.Id, ct))
+            .Where(h => h.ToStatus == UnitStatus.Recalled)
+            .OrderByDescending(h => h.ChangedUtc).ThenByDescending(h => h.Id)
+            .FirstOrDefault();
+        if (recallRow?.FromStatus is UnitStatus.Issued or UnitStatus.TransfusionStarted)
+        {
+            return InventoryActionResult.Fail(
+                $"{found.UnitNumber} was issued when it was recalled. Return it on Issue & Transfuse; the return quarantines it for the recall.");
+        }
+
         var note = string.IsNullOrWhiteSpace(found.RecallReason)
             ? "Pulled after recall"
             : $"Pulled after recall: {found.RecallReason.Trim()}";

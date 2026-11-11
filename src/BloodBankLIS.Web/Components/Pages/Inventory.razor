@@ -666,7 +666,7 @@
 {
     <div class="bb-card" data-recalled-board>
         <div class="bb-card-title"><h3>Recalled, not yet pulled</h3></div>
-        <p class="muted">Units recalled (from Lookback or a unit page) that are still recorded as Recalled. They cannot be issued. Find each one and scan it here: it is quarantined for the recall and leaves the list. Discard it, or return it to the supplier, from quarantine. A unit that was issued when it was recalled is on the ward: get it back first.</p>
+        <p class="muted">Units recalled (from Lookback or a unit page) that are still recorded as Recalled. They cannot be issued. Find each one and scan it here: it is quarantined for the recall and leaves the list. Discard it, or return it to the supplier, from quarantine. A unit that was issued when it was recalled is on the ward: get it back and return it on Issue &amp; Transfuse, which closes its issue and quarantines it.</p>
         @if (Session.Has(PermissionCodes.InventoryRelease) && _recalledItems.Count > 0)
         {
             <div class="field" style="max-width:24rem;">
@@ -696,6 +696,7 @@
                                 @if (row.WasStatus is UnitStatus.Issued or UnitStatus.TransfusionStarted)
                                 {
                                     <span class="badge badge-red" data-recalled-on-ward>Was issued: on the ward</span>
+                                    <a class="sub" href="/issuing?desk=issued" data-recalled-return-link>Return it on Issue &amp; Transfuse</a>
                                 }
                             </td>
                             <td>@(row.RecallReason ?? "—")</td>

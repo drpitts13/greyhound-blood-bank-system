@@ -741,3 +741,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-733 | A recalled unit found is scanned on the Recalled board to quarantine it for the recall, without opening its unit page. | P2 | FRS-BB-851 |
 | URS-BB-734 | A unit recalled after it was issued is flagged on the issued list, refused at the bedside with the recall named, and returns to quarantine for the recall, never to stock. | P1 | FRS-BB-852 |
 | URS-BB-735 | A unit recalled on its way to the ward is flagged on In transit and its ward receipt is refused with the recall named. | P1 | FRS-BB-853 |
+| URS-BB-736 | A recalled unit on the ward is returned through Issue & Transfuse, not quarantined behind its open issue, and a unit quarantined while out stays in quarantine when its issue is returned. | P1 | FRS-BB-854 |

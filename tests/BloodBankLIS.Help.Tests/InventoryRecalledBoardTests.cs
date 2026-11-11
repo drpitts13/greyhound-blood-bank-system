@@ -38,6 +38,9 @@ public class InventoryRecalledBoardTests : BunitContext
             Assert.Contains("by tech1", shelf);
             Assert.Empty(page.Find("[data-recalled-row='1']").QuerySelectorAll("[data-recalled-on-ward]"));
             Assert.NotNull(page.Find("[data-recalled-row='2'] [data-recalled-on-ward]"));
+            // Cycle 693: the unit on the ward is returned on Issue & Transfuse, not scanned here.
+            Assert.Equal("/issuing?desk=issued", page.Find("[data-recalled-row='2'] [data-recalled-return-link]").GetAttribute("href"));
+            Assert.Empty(page.Find("[data-recalled-row='1']").QuerySelectorAll("[data-recalled-return-link]"));
         }
         else
         {
