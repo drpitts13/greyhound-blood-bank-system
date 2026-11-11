@@ -273,6 +273,26 @@ public static class DashboardQueueCatalog
         return string.Join("; ", parts);
     }
 
+    /// <summary>
+    /// Cycle 698: the Recalled units to pull card note: how long the oldest recall has waited, and how many were issued
+    /// when recalled (on the ward, returned through Issue &amp; Transfuse rather than scanned on the board).
+    /// </summary>
+    public static string? RecalledToPullNote(IReadOnlyCollection<BloodBankLIS.Application.Inventory.RecalledWorkItemDto> recalled, DateTime nowUtc)
+    {
+        if (recalled.Count == 0)
+        {
+            return null;
+        }
+
+        var oldest = recalled.Select(r => r.RecalledUtc).Where(t => t is not null).Min();
+        var parts = new[]
+        {
+            oldest is DateTime t ? $"oldest {AlertInboxView.OpenFor(t, nowUtc)}" : null,
+            AttentionNote(recalled.Count(r => r.WasStatus is UnitStatus.Issued or UnitStatus.TransfusionStarted), "on the ward", "on the ward")
+        }.Where(p => p is not null);
+        return string.Join("; ", parts) is { Length: > 0 } note ? note : null;
+    }
+
     /// <summary>The settings-to-enter card note: the names, the first three and how many more.</summary>
     public static string? SettingsToEnterNote(IReadOnlyList<string> displayNames)
     {

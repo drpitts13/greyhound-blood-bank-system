@@ -21556,3 +21556,32 @@ Continuing the status audit of Cycles 694-695, I checked whether the issue gate 
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 698 — The recalled card says how old and where (2026-11-11)
+
+### Capability matrix rescan (operations: role-based home)
+
+The home cards that need attention carry a note (oldest waiting, what kind). Recalled units to pull (Cycle 688) showed only a count. The two things that change what the issue desk does first, how long a recall has gone unpulled and whether a unit is on the ward (returned through Issue & Transfuse, Cycles 691-693), needed the board opened.
+
+### Design
+
+- `DashboardQueueCatalog.RecalledToPullNote`: "oldest <age>" from the earliest recall time, and "<n> on the ward" for units recalled while issued or transfusing; no note when there are none.
+- Home uses the recalled list it already fetches for the count.
+- Read-only.
+
+### Verification
+
+- Unit: both parts; the age alone; the ward count alone (no recall time); none.
+- Live (read-only): the home card reads "Recalled units to pull 1 · oldest 6 h" for the demo unit (recalled from the shelf, so no ward count). No server errors.
+
+### Requirements
+
+- URS-BB-741, FRS-BB-859.
+
+### Tests
+
+- TEST-BB-934.
+
+### Next
+
+- Back to the capability matrix.

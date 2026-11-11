@@ -186,6 +186,22 @@ public class DashboardHomeTests
         Assert.DoesNotContain(DashboardHome.Arrange([State(RecalledToPull, 0)], WorkFocus.IssueDesk).Attention, c => c.Card.Key == RecalledToPull);
     }
 
+    // TEST-BB-934 (Cycle 698): the Recalled units to pull note says how long the oldest recall has waited and how many
+    // are on the ward; none, no note; a unit with no recall time still counts for the ward.
+    [Fact]
+    public void RecalledToPullNote_SaysOldestAndOnTheWard()
+    {
+        var now = new DateTime(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
+        RecalledWorkItemDto Row(long id, DateTime? recalled, UnitStatus? was) => new(
+            id, $"W{id}", AboGroup.O, RhType.Positive, now.AddDays(5), "RBC", null, null, "Recall", recalled, "tech1", was);
+
+        Assert.Null(RecalledToPullNote([], now));
+        Assert.Equal("oldest 3 h; 1 on the ward",
+            RecalledToPullNote([Row(1, now.AddHours(-3), UnitStatus.Available), Row(2, now.AddMinutes(-20), UnitStatus.Issued)], now));
+        Assert.Equal("oldest 20 min", RecalledToPullNote([Row(1, now.AddMinutes(-20), UnitStatus.Available)], now));
+        Assert.Equal("2 on the ward", RecalledToPullNote([Row(1, null, UnitStatus.Issued), Row(2, null, UnitStatus.TransfusionStarted)], now));
+    }
+
     // TEST-BB-507: Below minimum stock is for whoever keeps or issues stock, belongs to the issue desk and supervisor
     // views, names the largest shortfalls with what is on hand, and needs attention whenever a product is short.
     [Fact]

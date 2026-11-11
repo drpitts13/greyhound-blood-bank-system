@@ -439,7 +439,12 @@
             case DashboardQueueCatalog.ExpiredOnShelf:
                 return await CountList(card.Key, Api.GetExpiredOnShelfAsync());
             case DashboardQueueCatalog.RecalledToPull:
-                return await CountList(card.Key, Api.GetRecalledUnitsAsync());
+            {
+                var result = await Api.GetRecalledUnitsAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.RecalledToPullNote(result.Value, DateTime.UtcNow))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.BloodOrders:
             {
                 var result = await Api.GetBloodOrdersToPrepareAsync();

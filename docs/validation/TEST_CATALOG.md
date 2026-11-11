@@ -942,5 +942,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-931 | I | `UniversalLookupTests.RecalledUnit_HitNamesTheRecall` | URS-BB-739 / FRS-BB-857 |
 | TEST-BB-932 | I | `Phase4IssuingTests.IssueGate_RefusesAStatusThatCannotBeIssued` | URS-BB-740 / FRS-BB-858 |
 | TEST-BB-933 | U | `IssueGateTests.NotIssuableMessage_SaysWhatToDo`, `IssueGateTests.NotIssuableMessage_OtherStatus_EndsAtTheStatus` | URS-BB-740 / FRS-BB-858 |
+| TEST-BB-934 | U | `DashboardHomeTests.RecalledToPullNote_SaysOldestAndOnTheWard` | URS-BB-741 / FRS-BB-859 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
