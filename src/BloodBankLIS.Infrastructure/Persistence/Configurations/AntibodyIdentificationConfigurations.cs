@@ -46,7 +46,7 @@ public sealed class AntibodyPanelCellConfiguration : IEntityTypeConfiguration<An
         b.Property(x => x.CellNumber).HasMaxLength(20).IsRequired();
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
-        b.HasIndex(x => new { x.LotId, x.CellNumber }).IsUnique();
+        b.HasIndex(x => new { x.LotId, x.CellNumber }).IsUnique().HasFilter("[SupersededUtc] IS NULL");
         b.HasIndex(x => x.LotId);
     }
 }

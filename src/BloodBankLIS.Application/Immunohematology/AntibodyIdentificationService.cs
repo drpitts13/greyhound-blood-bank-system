@@ -1298,7 +1298,7 @@ public sealed class AntibodyIdentificationService
     {
         var lotLinks = await _workupLots.ListAsync(l => l.WorkupId == workup.Id, ct);
         var lotIds = lotLinks.Select(l => l.LotId).Distinct().ToList();
-        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId), ct))
+        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId) && c.SupersededUtc == null, ct))
             .OrderBy(c => c.SortOrder)
             .ToList();
         var cellIds = cells.Select(c => c.Id).ToHashSet();
@@ -1372,7 +1372,7 @@ public sealed class AntibodyIdentificationService
 
         var lotIds = lotLinks.Select(l => l.LotId).ToHashSet();
         var selectedLotIds = lots.Values.Where(l => lotIds.Contains(l.Id) && l.IsSelectedCellLot).Select(l => l.Id).ToHashSet();
-        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId), ct))
+        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId) && c.SupersededUtc == null, ct))
             .OrderBy(c => selectedLotIds.Contains(c.LotId) ? 1 : 0)
             .ThenBy(c => c.SortOrder)
             .ToList();
@@ -1517,7 +1517,7 @@ public sealed class AntibodyIdentificationService
             .Select(l => l.LotId)
             .ToList();
         var acCells = await _cells.ListAsync(
-            c => lotIds.Contains(c.LotId) && c.Role == PanelCellRole.Autocontrol, ct);
+            c => lotIds.Contains(c.LotId) && c.Role == PanelCellRole.Autocontrol && c.SupersededUtc == null, ct);
         if (acCells.Count == 0)
         {
             return false;
@@ -1987,7 +1987,7 @@ public sealed class AntibodyIdentificationService
     private async Task<HashSet<long>> AllowedCellIdsAsync(long workupId, CancellationToken ct)
     {
         var lotIds = (await _workupLots.ListAsync(l => l.WorkupId == workupId, ct)).Select(l => l.LotId).ToHashSet();
-        return (await _cells.ListAsync(c => lotIds.Contains(c.LotId), ct)).Select(c => c.Id).ToHashSet();
+        return (await _cells.ListAsync(c => lotIds.Contains(c.LotId) && c.SupersededUtc == null, ct)).Select(c => c.Id).ToHashSet();
     }
 
     private async Task<OperationResult<AntibodyIdentificationWorkup>> RequireEditableAsync(long workupId, CancellationToken ct)

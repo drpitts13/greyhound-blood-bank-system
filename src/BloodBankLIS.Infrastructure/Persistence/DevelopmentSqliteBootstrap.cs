@@ -195,6 +195,7 @@ public static class DevelopmentSqliteBootstrap
         ("TransfusionEvents", "ReportReviewedBy", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ReportReviewedBy" TEXT NULL"""),
         ("TransfusionEvents", "ReportReviewNote", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ReportReviewNote" TEXT NULL"""),
         ("BloodProducts", "TransfusionReportedUtc", """ALTER TABLE "BloodProducts" ADD COLUMN "TransfusionReportedUtc" TEXT NULL"""),
+        ("AntibodyPanelCells", "SupersededUtc", """ALTER TABLE "AntibodyPanelCells" ADD COLUMN "SupersededUtc" TEXT NULL"""),
         ("TransfusionEvents", "Location", """ALTER TABLE "TransfusionEvents" ADD COLUMN "Location" TEXT NULL"""),
         ("TransfusionEvents", "PreTransfusionVitalsJson", """ALTER TABLE "TransfusionEvents" ADD COLUMN "PreTransfusionVitalsJson" TEXT NULL"""),
         ("TransfusionEvents", "PostTransfusionObservations", """ALTER TABLE "TransfusionEvents" ADD COLUMN "PostTransfusionObservations" TEXT NULL"""),
@@ -808,6 +809,23 @@ public static class DevelopmentSqliteBootstrap
         await ReplaceModificationRuleCodeIndexAsync(context, logger, ct);
         await BackfillInventoryLocationPolicyAsync(context, ct);
         await ApplyAdditiveIndexesAsync(context, logger, ct);
+        await FilterPanelCellNumberIndexAsync(context, ct);
+    }
+
+    // A corrected antigram supersedes a lot's cells (Cycle 706), so a cell number is unique among current cells only.
+    private static async Task FilterPanelCellNumberIndexAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "AntibodyPanelCells", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            DROP INDEX IF EXISTS "IX_AntibodyPanelCells_LotId_CellNumber";
+            CREATE UNIQUE INDEX "IX_AntibodyPanelCells_LotId_CellNumber" ON "AntibodyPanelCells" ("LotId", "CellNumber") WHERE "SupersededUtc" IS NULL;
+            """,
+            ct);
     }
 
     private static readonly (string Name, string Sql)[] AdditiveIndexes =

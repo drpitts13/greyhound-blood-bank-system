@@ -966,5 +966,10 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-955 | U | `AntigramImportPageTests.Template_OpensADownload` | URS-BB-748 / FRS-BB-866 |
 | TEST-BB-956 | I | `AntibodyPanelLotAdminTests.Create_FromAnImportedAntigram_RecordsTheFile` | URS-BB-748 / FRS-BB-866 |
 | TEST-BB-957 | U | `AntigramImportPageTests.LotAntigram_Downloads` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-958 | U | `AntibodyPanelLotAdminRuleTests.CorrectDraft_InUse_NoReason_OrBadCells_IsHardStop` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-959 | I | `AntibodyPanelLotAdminTests.CorrectAntigram_BeforeAnyWorkup_ReplacesTheCells` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-960 | I | `AntibodyPanelLotAdminTests.CorrectAntigram_InUse_NoReason_OrNoPermission_IsRefused` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-961 | U | `AntigramImportPageTests.CorrectAntigram_PrefillsAndSaves` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-962 | U | `AntigramImportPageTests.LotInUse_CannotBeCorrected` | URS-BB-749 / FRS-BB-867 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

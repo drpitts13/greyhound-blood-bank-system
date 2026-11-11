@@ -352,6 +352,10 @@
                 {
                     <button class="btn btn-ghost btn-sm" type="button" @onclick="DownloadAntigramAsync" data-antigram-download>Download antigram (CSV)</button>
                 }
+                @if (CanEdit && !InUse(_detail) && !_creating)
+                {
+                    <button class="btn btn-secondary btn-sm" type="button" @onclick="BeginCorrectAsync" data-antigram-correct>Correct antigram</button>
+                }
                 <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseDetail">Close</button>
             </div>
         </div>
@@ -361,6 +365,13 @@
             · exp @_detail.Lot.ExpiresOn.ToString("yyyy-MM-dd")
             · @(_detail.Lot.IsSelectedCellLot ? "Selected cells" : "Panel")
         </p>
+        @if (CanEdit && InUse(_detail))
+        {
+            <p class="muted" data-antigram-locked>
+                Workups have used this lot, so its antigram cannot be corrected here: their reactions were read against these cells.
+                If the antigram is wrong, deactivate the lot with the reason, create a corrected lot, and review the workups listed below.
+            </p>
+        }
         @if (_detail.Cells.Count == 0)
         {
             <div class="empty">This lot has no cells.</div>
@@ -455,6 +466,17 @@
 @if (_creating && CanEdit)
 {
     <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        @if (_correcting is not null)
+        {
+            <h2>Correct antigram — @_correcting.Lot.PanelName lot @_correcting.Lot.LotNumber</h2>
+            <p class="muted" data-antigram-correct-form>
+                No workup has used this lot yet, so its cells can be corrected. The cells below replace the current ones (which are kept
+                on record, not deleted); the audit entry keeps the antigram before and after, with your reason. Check them against the
+                manufacturer's sheet before saving.
+            </p>
+        }
+        else
+        {
         <h2>New antibody panel lot</h2>
         <p class="muted">Teaching or reagent panels only. This does not identify antibodies.</p>
         <div class="form-row">
@@ -474,6 +496,7 @@
         <label class="flex" style="gap:.35rem;margin:.6rem 0;">
             <input type="checkbox" @bind="_createSelected" @bind:after="OnSelectedLotChanged" /> Selected-cell lot
         </label>
+        }
         <h3>Cells</h3>
         @* Import an antigram downloaded from the manufacturer and saved in this layout; it fills the cells below. *@
         <div class="bb-card" style="margin:.5rem 0;" data-antigram-import>
@@ -545,6 +568,7 @@
                                         <select @bind="ag.Expression">
                                             <option value="@AntigenExpression.Absent">Absent</option>
                                             <option value="@AntigenExpression.Present">Present</option>
+                                            <option value="@AntigenExpression.Weak">Weak</option>
                                             <option value="@AntigenExpression.Heterozygous">Heterozygous</option>
                                             <option value="@AntigenExpression.Homozygous">Homozygous</option>
                                         </select>
@@ -566,13 +590,31 @@
                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => RemoveCell(cell)">Remove cell</button>
             </div>
         }
+        @if (_correcting is not null)
+        {
+            <div class="field" style="margin-top:.6rem;">
+                <label>Reason for the correction</label>
+                <input @bind="_correctReason" @bind:event="oninput" placeholder="e.g. Cell 4 Jka entered wrongly; manufacturer's corrected sheet" data-antigram-correct-reason />
+            </div>
+        }
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-secondary btn-sm" type="button" @onclick="AddCell">Add cell</button>
-            <button class="btn btn-primary" disabled="@(_busy || _createManufacturerId is null)" @onclick="CreateAsync">Create lot</button>
+            @if (_correcting is not null)
+            {
+                <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_correctReason))" @onclick="SaveCorrectionAsync" data-antigram-correct-save>Save corrected antigram</button>
+            }
+            else
+            {
+                <button class="btn btn-primary" disabled="@(_busy || _createManufacturerId is null)" @onclick="CreateAsync">Create lot</button>
+            }
             <button class="btn btn-ghost" type="button" @onclick="CancelCreate">Cancel</button>
-            @if (_createManufacturerId is null)
+            @if (_correcting is null && _createManufacturerId is null)
             {
                 <span class="muted">Choose a manufacturer to create the lot.</span>
+            }
+            else if (_correcting is not null && string.IsNullOrWhiteSpace(_correctReason))
+            {
+                <span class="muted">Give a reason to save the correction.</span>
             }
         </div>
         <div style="margin-top:.6rem;"><Outcome Value="_feedback" /></div>
@@ -834,6 +876,7 @@
 
     private async Task BeginCreate()
     {
+        CancelCreate();
         _creating = true;
         _createManufacturerId = null;
         _createLotNumber = "";
@@ -860,6 +903,8 @@
     private void CancelCreate()
     {
         _creating = false;
+        _correcting = null;
+        _correctReason = null;
         _createCells.Clear();
         _importSummary = null;
         _importProblems = new();
@@ -927,7 +972,7 @@
 
         _importedFrom = e.File.Name;
         _importProblems = new();
-        _importSummary = $"{result.Cells.Count} cell{(result.Cells.Count == 1 ? "" : "s")} and {result.AntigenIds.Count} antigen{(result.AntigenIds.Count == 1 ? "" : "s")} imported from {e.File.Name}. Check them, fill in the manufacturer, lot, name and expiry, then Create.{ignored}";
+        _importSummary = $"{result.Cells.Count} cell{(result.Cells.Count == 1 ? "" : "s")} and {result.AntigenIds.Count} antigen{(result.AntigenIds.Count == 1 ? "" : "s")} imported from {e.File.Name}. {(_correcting is null ? "Check them, fill in the manufacturer, lot, name and expiry, then Create." : "Check them against the current cells, give a reason, then Save corrected antigram.")}{ignored}";
     }
 
     private async Task DownloadTemplateAsync()
@@ -1034,17 +1079,7 @@
         }
 
         _busy = true;
-        var cells = _createCells
-            .Select(c => new CreateAntibodyPanelLotCellRequest(
-                c.CellNumber,
-                c.Role,
-                c.SortOrder,
-                c.Role == PanelCellRole.Autocontrol
-                    ? []
-                    : c.Antigens
-                        .Select(a => new CreateAntibodyPanelLotAntigenRequest(a.BloodAttributeDefinitionId, a.Expression))
-                        .ToList()))
-            .ToList();
+        var cells = CellRequests();
         var r = await Api.CreateAntibodyPanelLotAsync(new CreateAntibodyPanelLotRequest(
             _createManufacturerId.Value,
             _createLotNumber,
@@ -1063,6 +1098,83 @@
             {
                 await ViewLotAsync(r.Value.Id);
             }
+        }
+    }
+
+    private List<CreateAntibodyPanelLotCellRequest> CellRequests() =>
+        _createCells
+            .Select(c => new CreateAntibodyPanelLotCellRequest(
+                c.CellNumber,
+                c.Role,
+                c.SortOrder,
+                c.Role == PanelCellRole.Autocontrol
+                    ? []
+                    : c.Antigens
+                        .Select(a => new CreateAntibodyPanelLotAntigenRequest(a.BloodAttributeDefinitionId, a.Expression))
+                        .ToList()))
+            .ToList();
+
+    // Correcting an antigram (Cycle 706): only before any workup uses the lot; the server refuses it otherwise.
+    private AntibodyPanelLotDetailDto? _correcting;
+    private string? _correctReason;
+
+    private static bool InUse(AntibodyPanelLotDetailDto detail) =>
+        detail.OpenWorkups.Count > 0 || detail.CompletedWorkups.Count > 0
+        || detail.Lot.OpenWorkupCount > 0 || detail.Lot.CompletedWorkupCount > 0;
+
+    private async Task BeginCorrectAsync()
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        var lot = _detail;
+        CancelCreate();
+        if (_attributes.Count == 0)
+        {
+            var attrs = await Api.GetAdminBloodAttributesAsync(false);
+            _attributes = (attrs.Value ?? new()).Where(a => a.IsActive).OrderBy(a => a.SortOrder).ToList();
+        }
+
+        _correcting = lot;
+        _creating = true;
+        _createSelected = lot.Lot.IsSelectedCellLot;
+        foreach (var cell in lot.Cells.OrderBy(c => c.SortOrder))
+        {
+            var draft = new LotCellDraft { CellNumber = cell.CellNumber, Role = cell.Role, SortOrder = cell.SortOrder };
+            foreach (var antigen in cell.Antigens)
+            {
+                draft.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = antigen.BloodAttributeDefinitionId, Expression = antigen.Expression });
+            }
+
+            _createCells.Add(draft);
+        }
+    }
+
+    private async Task SaveCorrectionAsync()
+    {
+        if (_correcting is null)
+        {
+            return;
+        }
+
+        if (_createCells.Any(c => c.Role != PanelCellRole.Autocontrol && c.Antigens.Any(a => a.BloodAttributeDefinitionId <= 0)))
+        {
+            _feedback = Feedback.Fail("Choose an antigen for every antigen row, or remove the empty rows.");
+            return;
+        }
+
+        _busy = true;
+        var lotId = _correcting.Lot.Id;
+        var r = await Api.CorrectAntibodyPanelLotAntigramAsync(lotId,
+            new CorrectAntibodyPanelLotAntigramRequest(CellRequests(), _correctReason, _importedFrom));
+        _feedback = r.ToFeedback("Antigram corrected. The previous cells are kept on record and the change is audited.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            CancelCreate();
+            _detail = r.Value;
         }
     }
 

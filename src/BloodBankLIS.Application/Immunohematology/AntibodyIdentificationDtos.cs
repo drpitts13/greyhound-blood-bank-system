@@ -79,6 +79,12 @@ public sealed record CreateAntibodyPanelLotRequest(
     // The antigram file the cells were imported from, if any; recorded in the lot's audit entry.
     string? ImportedFrom = null);
 
+// Correct a lot's antigram before any workup uses it: the cells are replaced (the old ones superseded, not deleted).
+public sealed record CorrectAntibodyPanelLotAntigramRequest(
+    IReadOnlyList<CreateAntibodyPanelLotCellRequest> Cells,
+    string? Reason,
+    string? ImportedFrom = null);
+
 public sealed record AntibodyPanelLotAntigenDetailDto(
     long BloodAttributeDefinitionId,
     string AntigenCode,

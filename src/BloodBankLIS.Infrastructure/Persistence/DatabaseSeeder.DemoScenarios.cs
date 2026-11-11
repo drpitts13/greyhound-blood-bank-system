@@ -113,7 +113,7 @@ public static partial class DatabaseSeeder
             return;
         }
 
-        var cells = await context.AntibodyPanelCells.Where(c => c.LotId == lot.Id).OrderBy(c => c.SortOrder).ToListAsync(ct);
+        var cells = await context.AntibodyPanelCells.Where(c => c.LotId == lot.Id && c.SupersededUtc == null).OrderBy(c => c.SortOrder).ToListAsync(ct);
         if (cells.Count == 0)
         {
             return;

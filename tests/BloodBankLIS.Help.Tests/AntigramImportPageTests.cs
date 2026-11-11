@@ -124,6 +124,68 @@ public class AntigramImportPageTests : BunitContext
         // The '+ is the CSV guard against spreadsheet formulas; the import reads it back as present (TEST-BB-951).
     }
 
+    private static readonly AntibodyPanelLotListItemDto Lot =
+        new(9, 1, "Panel Maker", "L-77", new DateOnly(2027, 1, 31), "Panel A", false, true, false);
+
+    private static AntibodyPanelLotDetailDto Detail(AntibodyPanelLotListItemDto lot, params string[] cells) =>
+        new(lot, cells.Select((n, i) => new AntibodyPanelLotCellDetailDto(i + 1, n, BloodBankLIS.Domain.Enums.PanelCellRole.Panel, i + 1,
+            [new(1, "C", "anti-C", BloodBankLIS.Domain.Enums.AntigenExpression.Present)])).ToList(), [], []);
+
+    private IRenderedComponent<AdminAntibodyPanelLots> ViewLot(AntibodyPanelLotListItemDto lot, AntibodyPanelLotDetailDto? corrected = null)
+    {
+        var responses = new Dictionary<string, object>
+        {
+            ["/api/admin/antibody-panel-lots"] = new List<AntibodyPanelLotListItemDto> { lot },
+            ["/api/admin/antibody-panel-lots/manufacturers"] = new List<AntibodyPanelManufacturerListItemDto> { new(1, "MFR", "Panel Maker", true) },
+            ["/api/admin/blood-attributes"] = new List<BloodAttributeDefinitionDto> { Antigen(1, "C", 1) },
+            ["/api/admin/antibody-panel-lots/9"] = Detail(lot, "1", "2")
+        };
+        if (corrected is not null)
+        {
+            responses["/api/admin/antibody-panel-lots/9/antigram"] = corrected;
+        }
+
+        CannedApi.Register(this, responses);
+        Services.AddSingleton(new ReportDownloadCache(new MemoryCache(new MemoryCacheOptions())));
+        var page = Render<AdminAntibodyPanelLots>();
+        page.WaitForAssertion(() => Assert.NotNull(page.FindAll("button").FirstOrDefault(b => b.TextContent.Trim() == "View cells")));
+        page.FindAll("button").First(b => b.TextContent.Trim() == "View cells").Click();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-antigram-download]")));
+        return page;
+    }
+
+    // TEST-BB-961: on a lot no workup has used, Correct antigram opens the cell editor filled with the lot's cells; saving
+    // needs a reason, and the lot then shows the corrected cells.
+    [Fact]
+    public void CorrectAntigram_PrefillsAndSaves()
+    {
+        var page = ViewLot(Lot, Detail(Lot, "1", "2", "3"));
+        page.Find("[data-antigram-correct]").Click();
+
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-antigram-correct-form]")));
+        Assert.Equal(["1", "2"], CellNumbers(page));
+        Assert.DoesNotContain(page.FindAll("select"), x => x.InnerHtml.Contains("Select manufacturer"));
+        Assert.True(page.Find("[data-antigram-correct-save]").HasAttribute("disabled"));
+
+        page.Find("[data-antigram-correct-reason]").Input("Cell 2 C entered wrongly");
+        Assert.False(page.Find("[data-antigram-correct-save]").HasAttribute("disabled"));
+        page.Find("[data-antigram-correct-save]").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("Antigram corrected", page.Markup));
+        Assert.Empty(page.FindAll("[data-antigram-correct-form]"));
+        Assert.Equal(3, page.FindAll("td.mono").Count(td => td.TextContent is "1" or "2" or "3"));
+    }
+
+    // TEST-BB-962: once a workup has used the lot there is no Correct antigram; the page says to withdraw the lot and
+    // create a corrected one.
+    [Fact]
+    public void LotInUse_CannotBeCorrected()
+    {
+        var page = ViewLot(Lot with { CompletedWorkupCount = 1 });
+        Assert.Empty(page.FindAll("[data-antigram-correct]"));
+        Assert.Contains("create a corrected lot", page.Find("[data-antigram-locked]").TextContent);
+    }
+
     // TEST-BB-955: the blank template opens as a download.
     [Fact]
     public void Template_OpensADownload()

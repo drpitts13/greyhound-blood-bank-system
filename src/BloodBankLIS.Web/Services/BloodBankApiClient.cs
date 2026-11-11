@@ -1232,6 +1232,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<AntibodyPanelLotListItemDto>> ActivateAntibodyPanelLotAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<AntibodyPanelLotListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/activate", new ReasonOnlyRequest(reason), ct);
 
+    public Task<ApiResult<AntibodyPanelLotDetailDto>> CorrectAntibodyPanelLotAntigramAsync(long id, CorrectAntibodyPanelLotAntigramRequest request, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelLotDetailDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/antigram", request, ct);
+
     public Task<ApiResult<AntibodyPanelLotListItemDto>> DeactivateAntibodyPanelLotAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<AntibodyPanelLotListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
 

@@ -14,7 +14,7 @@ routes:
 
 Withdrawing a lot does not identify antibodies and does not close workups that were already completed on that lot. Open workups on a withdrawn lot have to move to a valid lot or be closed without using the withdrawn one.
 
-The lot's antigram is what **Assist** compares. A wrong antigram produces wrong suggestions. Assist still does not identify the antibody. Correct the antigram before the bench uses the lot, and record why.
+The lot's antigram is what **Assist** compares. A wrong antigram produces wrong suggestions. Assist still does not identify the antibody. Correct the antigram before the bench uses the lot, and record why (see **Correct an antigram** below).
 
 ## Enter, import or download an antigram
 
@@ -30,5 +30,11 @@ The lot's antigram is what **Assist** compares. A wrong antigram produces wrong 
 The import replaces the cells in the form and says how many cells and antigens it read. A column that names no catalog antigen (a donor number, a special-type note) is listed and left out: check that no antigen you need is among them. If any value cannot be read, a cell number repeats, or a role is unknown, the file is not used and each problem is listed by line; correct the file and import again. Nothing is saved until you fill in the manufacturer, lot number, name and expiry and choose **Create**, with the usual checks; the lot's audit entry names the file it was imported from. Always compare the cells with the manufacturer's printed antigram before you create the lot.
 
 **Download.** **Download blank template** (in the New lot form) gives the layout with every active antigen as a column. On a lot, **Download antigram (CSV)** gives its cells in the same layout, so it can be checked, kept, or imported for a new lot. A spreadsheet may show a present value as *'+*: the apostrophe stops it being read as a formula, and the import reads it as present.
+
+## Correct an antigram
+
+Until a workup uses the lot, **View cells** › **Correct antigram** opens the cell editor filled with the lot's cells. Change a typing, add or remove a cell, or import the manufacturer's corrected sheet, give a **reason**, and choose **Save corrected antigram**. The corrected cells pass the same checks as a new lot's. The cells they replace are kept on record (not deleted) and the audit entry holds the antigram before and after, with the reason and any file imported.
+
+Once any workup (open, completed or voided) uses the lot, the antigram cannot be changed: that workup's reactions were read against the cells as they stood. **Correct antigram** is not offered and the server refuses it. If the antigram is wrong, deactivate the lot with the reason, create a corrected lot (the manufacturer's lot number with a suffix, since a lot number cannot repeat), and review the workups listed on the lot.
 
 The system does not fetch antigrams from manufacturers' sites itself: they sit behind each manufacturer's customer login.

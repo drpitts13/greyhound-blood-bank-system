@@ -93,7 +93,7 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
 
         var manufacturer = await _manufacturers.GetByIdAsync(lot.ManufacturerId, ct);
         var today = DateOnly.FromDateTime(Clock.UtcNow);
-        var cells = (await _cells.ListAsync(c => c.LotId == id, ct))
+        var cells = (await _cells.ListAsync(c => c.LotId == id && c.SupersededUtc == null, ct))
             .OrderBy(c => c.SortOrder)
             .ThenBy(c => c.CellNumber)
             .ToList();
@@ -348,11 +348,117 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
         await _lots.AddAsync(lot, ct);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        foreach (var incoming in request.Cells)
+        await AddCellsAsync(lot.Id, request.Cells, ct);
+        await UnitOfWork.SaveChangesAsync(ct);
+        var dto = ToDto(lot, manufacturer?.Name ?? "", today);
+        var importedFrom = request.ImportedFrom?.Trim();
+        if (importedFrom is { Length: > 200 })
+        {
+            importedFrom = importedFrom[..200];
+        }
+
+        RecordChange(EntityType, lot.Id, 1, ConfigChangeAction.Create, AuditEventType.TestChange,
+            oldValue: null, newValue: dto,
+            reason: string.IsNullOrWhiteSpace(importedFrom)
+                ? "Create antibody panel lot. Does not identify antibodies."
+                : $"Create antibody panel lot; antigram imported from {importedFrom}. Does not identify antibodies.");
+        await UnitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<AntibodyPanelLotListItemDto>.Ok(dto);
+    }
+
+    /// <summary>
+    /// Correct a lot's antigram before any workup uses it (a typing entered wrongly, or the manufacturer's corrected
+    /// sheet). The current cells are superseded, not deleted, and the corrected cells added; the audit entry carries the
+    /// antigram before and after and the reason. Once a workup uses the lot this is refused: withdraw it and create a
+    /// corrected lot instead.
+    /// </summary>
+    public async Task<EvaluationResult<AntibodyPanelLotDetailDto>> CorrectAntigramAsync(
+        long id,
+        CorrectAntibodyPanelLotAntigramRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedEvalAsync<AntibodyPanelLotDetailDto>(
+            PermissionCodes.AdminConfigEdit, AntibodyPanelLotAdminRule.EvaluateCorrect, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var lot = await _lots.GetByIdAsync(id, ct);
+        if (lot is null)
+        {
+            return EvaluationResult<AntibodyPanelLotDetailDto>.Fail("Antibody panel lot was not found.");
+        }
+
+        var workupsUsingLot = (await _workupLots.ListAsync(l => l.LotId == id, ct))
+            .Select(l => l.WorkupId)
+            .Distinct()
+            .Count();
+        var activeAttributeIds = (await _attributes.ListAsync(a => a.IsActive, ct))
+            .Select(a => a.Id)
+            .ToHashSet();
+        var incoming = request.Cells ?? [];
+        var cellDrafts = incoming
+            .Select(c => new AntibodyPanelLotCreateCellDraft(
+                c.CellNumber,
+                c.Role,
+                (c.Antigens ?? [])
+                    .Select(a => new AntibodyPanelLotCreateAntigenDraft(a.BloodAttributeDefinitionId, a.Expression))
+                    .ToList()))
+            .ToList();
+        var stops = AntibodyPanelLotAdminRule.EvaluateCorrectDraft(
+            workupsUsingLot, request.Reason, lot.IsSelectedCellLot, cellDrafts, activeAttributeIds);
+        if (stops.Count > 0)
+        {
+            return EvaluationResult<AntibodyPanelLotDetailDto>.Blocked(new RuleEvaluation(stops));
+        }
+
+        var before = await GetAsync(id, ct);
+        var now = Clock.UtcNow;
+        var current = await _cells.ListAsync(c => c.LotId == id && c.SupersededUtc == null, ct);
+        foreach (var old in current)
+        {
+            var tracked = await _cells.GetByIdAsync(old.Id, ct);
+            if (tracked is null)
+            {
+                continue;
+            }
+
+            tracked.SupersededUtc = now;
+            _cells.Update(tracked);
+        }
+
+        // The superseded cells leave the unique cell-number index before the corrected ones arrive.
+        await UnitOfWork.SaveChangesAsync(ct);
+        await AddCellsAsync(lot.Id, incoming, ct);
+        await UnitOfWork.SaveChangesAsync(ct);
+
+        var after = await GetAsync(id, ct);
+        var importedFrom = request.ImportedFrom?.Trim();
+        if (importedFrom is { Length: > 200 })
+        {
+            importedFrom = importedFrom[..200];
+        }
+
+        var reason = request.Reason!.Trim();
+        RecordChange(EntityType, lot.Id, 1, ConfigChangeAction.Update, AuditEventType.TestChange,
+            oldValue: before?.Cells, newValue: after?.Cells,
+            reason: string.IsNullOrWhiteSpace(importedFrom)
+                ? $"Correct antigram before any workup used the lot: {reason}"
+                : $"Correct antigram before any workup used the lot (imported from {importedFrom}): {reason}");
+        await UnitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<AntibodyPanelLotDetailDto>.Ok(after!);
+    }
+
+    private async Task AddCellsAsync(long lotId, IReadOnlyList<CreateAntibodyPanelLotCellRequest> incomingCells, CancellationToken ct)
+    {
+        foreach (var incoming in incomingCells)
         {
             var cell = new AntibodyPanelCell
             {
-                LotId = lot.Id,
+                LotId = lotId,
                 CellNumber = incoming.CellNumber.Trim(),
                 Role = incoming.Role,
                 SortOrder = incoming.SortOrder
@@ -380,22 +486,6 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
                 }, ct);
             }
         }
-
-        await UnitOfWork.SaveChangesAsync(ct);
-        var dto = ToDto(lot, manufacturer?.Name ?? "", today);
-        var importedFrom = request.ImportedFrom?.Trim();
-        if (importedFrom is { Length: > 200 })
-        {
-            importedFrom = importedFrom[..200];
-        }
-
-        RecordChange(EntityType, lot.Id, 1, ConfigChangeAction.Create, AuditEventType.TestChange,
-            oldValue: null, newValue: dto,
-            reason: string.IsNullOrWhiteSpace(importedFrom)
-                ? "Create antibody panel lot. Does not identify antibodies."
-                : $"Create antibody panel lot; antigram imported from {importedFrom}. Does not identify antibodies.");
-        await UnitOfWork.SaveChangesAsync(ct);
-        return EvaluationResult<AntibodyPanelLotListItemDto>.Ok(dto);
     }
 
     public async Task<EvaluationResult<AntibodyPanelLotListItemDto>> ActivateAsync(

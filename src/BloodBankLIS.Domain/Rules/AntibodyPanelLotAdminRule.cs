@@ -18,6 +18,49 @@ public static class AntibodyPanelLotAdminRule
     public const string DuplicateCode = "ABID-LOT-CREATE-DUP";
     public const string CellsCode = "ABID-LOT-CREATE-CELLS";
     public const string AntigenCode = "ABID-LOT-CREATE-AG";
+    public const string CorrectPermCode = "ABID-LOT-CORRECT-PERM";
+    public const string CorrectInUseCode = "ABID-LOT-CORRECT-INUSE";
+    public const string CorrectReasonCode = "ABID-LOT-CORRECT-REASON";
+
+    public static RuleResult EvaluateCorrect(bool hasAdminConfigEdit) =>
+        hasAdminConfigEdit
+            ? RuleResult.Pass(CorrectPermCode)
+            : RuleResult.HardStop(
+                CorrectPermCode,
+                "Correcting an antibody panel lot's antigram requires the admin.config.edit permission.");
+
+    /// <summary>
+    /// A lot's antigram may be corrected only before any workup uses the lot: a workup's reactions were read against
+    /// the cells as they stood, so once one does, the lot is withdrawn and a corrected lot created instead. A reason is
+    /// required, and the corrected cells pass the same checks as a new lot's.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> EvaluateCorrectDraft(
+        int workupsUsingLot,
+        string? reason,
+        bool isSelectedCellLot,
+        IReadOnlyList<AntibodyPanelLotCreateCellDraft> cells,
+        IReadOnlySet<long> activeAttributeIds)
+    {
+        var stops = new List<RuleResult>();
+        if (workupsUsingLot > 0)
+        {
+            stops.Add(RuleResult.HardStop(
+                CorrectInUseCode,
+                $"{workupsUsingLot} workup{(workupsUsingLot == 1 ? " uses" : "s use")} this lot, so its antigram cannot be changed: " +
+                "withdraw the lot and create a corrected one (a new lot number or a suffix), then review the workups that used it."));
+            return stops;
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            stops.Add(RuleResult.HardStop(
+                CorrectReasonCode,
+                "Correcting a lot's antigram requires a reason (for example, the manufacturer's corrected sheet, or a typing entered wrongly)."));
+        }
+
+        AddCellStops(cells, isSelectedCellLot, activeAttributeIds, stops, "A corrected antigram");
+        return stops;
+    }
 
     public static RuleResult EvaluateCreate(bool hasAdminConfigEdit) =>
         hasAdminConfigEdit
@@ -80,13 +123,24 @@ public static class AntibodyPanelLotAdminRule
                 "That manufacturer already has this lot number."));
         }
 
-        var cells = draft.Cells ?? [];
+        AddCellStops(draft.Cells, draft.IsSelectedCellLot, draft.ActiveAttributeIds, stops, "A new lot");
+        return stops;
+    }
+
+    private static void AddCellStops(
+        IReadOnlyList<AntibodyPanelLotCreateCellDraft>? cellDrafts,
+        bool isSelectedCellLot,
+        IReadOnlySet<long> activeAttributeIds,
+        List<RuleResult> stops,
+        string subject)
+    {
+        var cells = cellDrafts ?? [];
         if (cells.Count == 0)
         {
             stops.Add(RuleResult.HardStop(
                 CellsCode,
-                "A new lot requires at least one cell. A blank panel cannot be used for antibody identification."));
-            return stops;
+                $"{subject} requires at least one cell. A blank panel cannot be used for antibody identification."));
+            return;
         }
 
         var numbers = new HashSet<string>(StringComparer.Ordinal);
@@ -110,12 +164,12 @@ public static class AntibodyPanelLotAdminRule
 
             var expectedRole = cell.Role == PanelCellRole.Autocontrol
                 ? PanelCellRole.Autocontrol
-                : draft.IsSelectedCellLot ? PanelCellRole.Selected : PanelCellRole.Panel;
+                : isSelectedCellLot ? PanelCellRole.Selected : PanelCellRole.Panel;
             if (cell.Role != expectedRole)
             {
                 stops.Add(RuleResult.HardStop(
                     CellsCode,
-                    draft.IsSelectedCellLot
+                    isSelectedCellLot
                         ? "Selected-cell lots may include selected cells and an autocontrol only."
                         : "Primary panels may include panel cells and an autocontrol only."));
             }
@@ -137,7 +191,7 @@ public static class AntibodyPanelLotAdminRule
             var hasTyped = false;
             foreach (var antigen in antigens)
             {
-                if (!draft.ActiveAttributeIds.Contains(antigen.BloodAttributeDefinitionId))
+                if (!activeAttributeIds.Contains(antigen.BloodAttributeDefinitionId))
                 {
                     stops.Add(RuleResult.HardStop(
                         AntigenCode,
@@ -165,8 +219,6 @@ public static class AntibodyPanelLotAdminRule
                     $"Cell {number} needs at least one typed antigen (not Not tested). Creating a lot does not identify antibodies."));
             }
         }
-
-        return stops;
     }
 }
 

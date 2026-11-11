@@ -198,6 +198,11 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.CreateAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
+        // Correct a lot's antigram before any workup uses it (Cycle 706).
+        group.MapPost("/{id:long}/antigram", async (long id, CorrectAntibodyPanelLotAntigramRequest request, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CorrectAntigramAsync(id, request, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
         group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.ActivateAsync(id, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);

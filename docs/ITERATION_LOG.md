@@ -21849,3 +21849,35 @@ Admin › Antibody panel lots already let a lot's antigram be entered by hand (N
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 706 — Correct an antigram before the lot is used (2026-11-11)
+
+### Capability matrix rescan (testing: antibody identification; administration: panel lots)
+
+After Cycle 705 a lot's antigram could be entered, imported and downloaded, and the help said to correct it before the bench uses the lot. Nothing could correct it: a mistyped cell or a manufacturer's corrected sheet meant deactivating the lot, and its lot number could not be used again.
+
+### Design
+
+- **When:** only while no workup (open, completed or voided) is linked to the lot. A workup's reactions were read against the cells as they stood, so once one exists the correction is refused (ABID-LOT-CORRECT-INUSE) and the page says to withdraw the lot, create a corrected one and review the workups.
+- **Checks:** the edit permission, a reason (ABID-LOT-CORRECT-REASON), and the New lot cell checks (shared `AddCellStops`).
+- **Nothing deleted:** the current cells get `SupersededUtc` and the corrected cells are added. The (LotId, CellNumber) unique index is filtered to current cells, so the same cell number can return. Every cell reader (the lot detail, the workup antigram, Assist, the autocontrol check, the reaction cell check, the demo seeder) leaves superseded cells out.
+- **Audit:** the configuration change carries the cells before and after, the reason, and the file when imported.
+- **UI:** **Correct antigram** on the lot (with no workups) opens the New lot cell editor filled with its cells, with the import and a reason; the identity fields are hidden. The expression list gains Weak, which an import could already produce.
+
+### Verification
+
+- Unit: the rule refuses a lot in use, a missing reason, and bad cells; passes a good correction.
+- Integration: a correction supersedes the old cell, reuses its number, shows the new cells and audits before and after; a lot in use, no reason or no permission leaves the cells unchanged.
+- Rendered: Correct antigram prefills the cells, needs a reason, and shows the corrected cells; a lot in use offers no correction and says why.
+
+### Requirements
+
+- URS-BB-749, FRS-BB-867.
+
+### Tests
+
+- TEST-BB-958 to TEST-BB-962.
+
+### Next
+
+- Back to the capability matrix.

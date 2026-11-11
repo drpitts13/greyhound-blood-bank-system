@@ -754,3 +754,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-746 | A unit the EHR reported transfused over its status cannot be released, located, inspected, discarded or expired back into another status, and is not on the Quarantine or Discrepancy boards. | P1 | FRS-BB-864 |
 | URS-BB-747 | The unit's Status history says when its transfusion was reported over its status, and the review. | P3 | FRS-BB-865 |
 | URS-BB-748 | An antibody panel lot's antigram can be imported from a CSV or Excel file in a documented layout (filling the New lot form, nothing saved until Create), entered by hand, and downloaded as CSV with a blank template. | P2 | FRS-BB-866 |
+| URS-BB-749 | An antibody panel lot's antigram can be corrected, with a reason, only before any workup uses the lot; the replaced cells are kept and the change audited before and after. Once a workup uses the lot the correction is refused and the lot is withdrawn and recreated instead. | P2 | FRS-BB-867 |

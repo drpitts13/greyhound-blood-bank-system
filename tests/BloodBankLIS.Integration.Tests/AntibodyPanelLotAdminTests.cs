@@ -143,6 +143,88 @@ public class AntibodyPanelLotAdminTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain("imported", manualAudit.Reason);
     }
 
+    // TEST-BB-959: before any workup uses a lot, its antigram is corrected: the old cells are superseded (kept, not
+    // deleted), the corrected cells (the same cell number again, and a new one) are what the lot shows, and the audit
+    // entry carries the antigram before and after and the reason.
+    [Fact]
+    public async Task CorrectAntigram_BeforeAnyWorkup_ReplacesTheCells()
+    {
+        var (manufacturerId, attrId) = await SeedManufacturerAndKellAsync("GHP-CORRECT");
+        await using var c = _factory.Create();
+        var svc = Admin(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigEdit));
+        var created = await svc.CreateAsync(ValidCreate(manufacturerId, attrId, "GHP-CORRECT-LOT"));
+        Assert.True(created.Succeeded, created.Error);
+        var lotId = created.Value!.Id;
+
+        var corrected = await svc.CorrectAntigramAsync(lotId, new CorrectAntibodyPanelLotAntigramRequest(
+        [
+            new CreateAntibodyPanelLotCellRequest("1", PanelCellRole.Panel, 1, [new CreateAntibodyPanelLotAntigenRequest(attrId, AntigenExpression.Absent)]),
+            new CreateAntibodyPanelLotCellRequest("2", PanelCellRole.Panel, 2, [new CreateAntibodyPanelLotAntigenRequest(attrId, AntigenExpression.Heterozygous)])
+        ], "Cell 1 K entered as present; manufacturer sheet says absent", "corrected.csv"));
+
+        Assert.True(corrected.Succeeded, corrected.Error);
+        Assert.Equal(["1", "2"], corrected.Value!.Cells.Select(x => x.CellNumber));
+        Assert.Equal(AntigenExpression.Absent, corrected.Value.Cells[0].Antigens.Single().Expression);
+        var detail = await svc.GetAsync(lotId);
+        Assert.Equal(2, detail!.Cells.Count);
+
+        var allCells = await c.AntibodyPanelCells.Where(x => x.LotId == lotId).ToListAsync();
+        Assert.Equal(3, allCells.Count);
+        Assert.Single(allCells, x => x.SupersededUtc != null && x.CellNumber == "1");
+
+        var audit = await c.AuditEvents.Where(e => e.EntityType == nameof(AntibodyPanelLot) && e.EntityId == lotId)
+            .OrderByDescending(e => e.Id).FirstAsync();
+        Assert.Contains("Correct antigram before any workup used the lot (imported from corrected.csv): Cell 1 K entered as present", audit.Reason);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(audit.OldValueJson!, "CellNumber"));
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(audit.NewValueJson!, "CellNumber").Count);
+    }
+
+    // TEST-BB-960: once a workup uses the lot, or without a reason or the edit permission, the antigram is not changed.
+    [Fact]
+    public async Task CorrectAntigram_InUse_NoReason_OrNoPermission_IsRefused()
+    {
+        var (manufacturerId, attrId) = await SeedManufacturerAndKellAsync("GHP-CORRECT-NO");
+        await using var c = _factory.Create();
+        var svc = Admin(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigEdit));
+        var created = await svc.CreateAsync(ValidCreate(manufacturerId, attrId, "GHP-CORRECT-NO-LOT"));
+        Assert.True(created.Succeeded, created.Error);
+        var lotId = created.Value!.Id;
+        var request = new CorrectAntibodyPanelLotAntigramRequest(
+            [new CreateAntibodyPanelLotCellRequest("1", PanelCellRole.Panel, 1, [new CreateAntibodyPanelLotAntigenRequest(attrId, AntigenExpression.Absent)])],
+            "typo");
+
+        var noReason = await svc.CorrectAntigramAsync(lotId, request with { Reason = "" });
+        Assert.False(noReason.Succeeded);
+        Assert.Contains(noReason.Evaluation!.Results, r => r.Code == AntibodyPanelLotAdminRule.CorrectReasonCode);
+        var noPermission = await Admin(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigView)).CorrectAntigramAsync(lotId, request);
+        Assert.False(noPermission.Succeeded);
+
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-ABID-LOT-CORRECT",
+            LastName = "Lot",
+            FirstName = "Correct",
+            DateOfBirth = new DateOnly(1980, 1, 1),
+            Sex = Sex.Unknown
+        };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var workup = new AntibodyIdentificationWorkup { PatientId = patient.Id, PrimaryLotId = lotId, Status = AntibodyWorkupStatus.InProgress };
+        c.AntibodyIdentificationWorkups.Add(workup);
+        await c.SaveChangesAsync();
+        c.AntibodyIdentificationWorkupLots.Add(new AntibodyIdentificationWorkupLot { WorkupId = workup.Id, LotId = lotId, IsPrimary = true });
+        await c.SaveChangesAsync();
+
+        var inUse = await svc.CorrectAntigramAsync(lotId, request);
+        Assert.False(inUse.Succeeded);
+        Assert.Contains(inUse.Evaluation!.Results, r => r.Code == AntibodyPanelLotAdminRule.CorrectInUseCode);
+
+        var cells = await c.AntibodyPanelCells.Where(x => x.LotId == lotId).ToListAsync();
+        var cell = Assert.Single(cells);
+        Assert.Null(cell.SupersededUtc);
+        Assert.Equal(AntigenExpression.Present, (await c.AntibodyPanelCellAntigens.SingleAsync(a => a.CellId == cell.Id)).Expression);
+    }
+
     [Fact]
     public async Task Get_AfterCreate_ReturnsCellsAndAntigens()
     {
