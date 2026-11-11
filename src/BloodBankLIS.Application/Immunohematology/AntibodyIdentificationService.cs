@@ -1243,6 +1243,23 @@ public sealed class AntibodyIdentificationService
             || string.Equals(a.AntibodySpecificity, finding.Specificity, StringComparison.Ordinal));
         if (existing is not null)
         {
+            // Cycle 678: an outside report this workup identifies is now confirmed here (OCD-073), naming the workup.
+            if (OutsideAntibodyReportRule.NeedsConfirmation(existing.ReportingFacility, existing.ConfirmedUtc, existing.IsActive)
+                && await _antibodies.GetByIdAsync(existing.Id, ct) is { } outside)
+            {
+                outside.ConfirmedUtc = _clock.UtcNow;
+                outside.ConfirmedBy = _currentUser.UserName;
+                outside.ConfirmationNote = OutsideAntibodyReportRule.WorkupConfirmationNote(workup.Id);
+                _audit.Record(
+                    AuditEventType.Antibody,
+                    nameof(AntibodyHistory),
+                    outside.Id,
+                    oldValue: new { ConfirmedUtc = (DateTime?)null },
+                    newValue: new { outside.PatientId, outside.AntibodySpecificity, outside.ReportingFacility, outside.ConfirmedUtc, WorkupId = workup.Id },
+                    reason: $"Outside report confirmed here: {outside.ConfirmationNote}");
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+
             return;
         }
 

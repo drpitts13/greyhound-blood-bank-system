@@ -998,6 +998,60 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
             e.EntityType == nameof(AntibodyHistory) && e.EventType == AuditEventType.Antibody && e.EntityId == history.Id));
     }
 
+    // TEST-BB-888 (Cycle 678, OCD-073): an outside report of an antibody this laboratory's accepted workup identifies is
+    // confirmed by that workup, naming it, with no second history row; an outside report of another antibody stays
+    // unconfirmed. Audited.
+    [Fact]
+    public async Task CompletedWorkup_ConfirmsTheMatchingOutsideReport()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-OUTSIDE");
+        long workupId;
+        await using (var context = _factory.Create())
+        {
+            context.AntibodyHistory.AddRange(
+                new AntibodyHistory
+                {
+                    PatientId = patientId, BloodAttributeDefinitionId = attrId, AntibodySpecificity = "anti-K", IsActive = true,
+                    ReportingFacility = "St. Mary's Hospital", ReportKind = OutsideReportKind.Copy, ReportDocumentation = "Antibody card"
+                },
+                new AntibodyHistory
+                {
+                    PatientId = patientId, AntibodySpecificity = "anti-Fya", IsActive = true,
+                    ReportingFacility = "St. Mary's Hospital", ReportKind = OutsideReportKind.Copy, ReportDocumentation = "Antibody card"
+                });
+            await context.SaveChangesAsync();
+
+            var created = await Svc(context).CreateWorkupAsync(patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            Assert.True((await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.", [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Technologist identification")]))).Succeeded);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Svc(context, new TestCurrentUser("supervisor-abid", "WS-2")).ReviewAsync(workupId, AcceptReview("Agree with anti-K."))).Succeeded);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var completed = await Svc(context).CompleteAsync(workupId, ReviewedWarnings());
+            Assert.True(completed.Succeeded, completed.Error);
+        }
+
+        await using var check = _factory.Create();
+        var rows = await check.AntibodyHistory.AsNoTracking().Where(a => a.PatientId == patientId && a.IsActive).ToListAsync();
+        Assert.Equal(2, rows.Count);
+        var antiK = rows.Single(a => a.AntibodySpecificity == "anti-K");
+        Assert.NotNull(antiK.ConfirmedUtc);
+        Assert.Equal(OutsideAntibodyReportRule.WorkupConfirmationNote(workupId), antiK.ConfirmationNote);
+        Assert.Null(rows.Single(a => a.AntibodySpecificity == "anti-Fya").ConfirmedUtc);
+        Assert.True(await check.AuditEvents.AnyAsync(e => e.EntityType == nameof(AntibodyHistory) && e.EntityId == antiK.Id
+            && e.Reason!.StartsWith("Outside report confirmed here: Identified on antibody-identification workup")));
+    }
+
     [Fact]
     public async Task Complete_WritesAntibodyWithHistoryId()
     {

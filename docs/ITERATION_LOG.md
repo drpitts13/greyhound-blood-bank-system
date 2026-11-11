@@ -20910,3 +20910,31 @@ The decisions of 2026-11-10 left four settings decided as policy but with their 
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 678 — An antibody ID workup confirms the outside report (2026-11-10)
+
+### Capability matrix rescan (antibody history; question 5, the next action)
+
+Cycle 669 asked for outside antibody reports to be confirmed by this laboratory's testing, and 670 listed those waiting. The most common confirming test is an antibody identification workup here; when its reviewed result posted the same antibody, posting found the antibody already active and stopped, leaving the outside report "not yet confirmed" until someone opened the chart and typed the confirmation the workup had just made.
+
+### Design
+
+- `AntibodyIdentificationService.PostHistoryAsync`: when the identified antibody is already active as an unconfirmed outside report, the report is confirmed (when, by the user completing the workup, and the note "Identified on antibody-identification workup #n, accepted on review"), audited; no second history row, as before.
+- Other outside reports for the patient are untouched; a local antibody is unchanged.
+
+### Verification
+
+- Integration: a completed, reviewed workup identifying anti-K confirms the outside anti-K with the workup's note and audit; the outside anti-Fya stays unconfirmed; still two active rows.
+- Live: not exercised (no demo patient has an outside report); the integration test is the evidence.
+
+### Requirements
+
+- URS-BB-721, FRS-BB-839.
+
+### Tests
+
+- TEST-BB-888.
+
+### Next
+
+- Back to the capability matrix.

@@ -93,6 +93,10 @@ public static class OutsideAntibodyReportRule
     public static bool NeedsConfirmation(string? reportingFacility, DateTime? confirmedUtc, bool isActive) =>
         isActive && !string.IsNullOrWhiteSpace(reportingFacility) && confirmedUtc is null;
 
+    /// <summary>The confirmation note when an accepted antibody-identification workup here identifies the same antibody (Cycle 678).</summary>
+    public static string WorkupConfirmationNote(long workupId) =>
+        $"Identified on antibody-identification workup #{workupId}, accepted on review";
+
     /// <summary>Confirming needs an outside report not already confirmed, and the testing here that confirmed it.</summary>
     public static RuleResult EvaluateConfirm(string? reportingFacility, DateTime? confirmedUtc, bool isActive, string? note)
     {

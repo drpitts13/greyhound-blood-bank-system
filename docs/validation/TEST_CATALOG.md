@@ -896,5 +896,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-885 | U | `FacilityPolicyAwaitsEntryTests.AwaitsEntry_OnlyForDecidedSettingsStillAtTheirDefault` | URS-BB-720 / FRS-BB-838 |
 | TEST-BB-886 | U | `DashboardQueueCatalogTests.SettingsToEnter_CardAndNote` | URS-BB-720 / FRS-BB-838 |
 | TEST-BB-887 | U | `SettingsToEnterPageTests.SettingsToEnter_AreNamedMarkedAndFiltered` | URS-BB-720 / FRS-BB-838 |
+| TEST-BB-888 | I | `AntibodyIdentificationWorkupTests.CompletedWorkup_ConfirmsTheMatchingOutsideReport` | URS-BB-721 / FRS-BB-839 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
