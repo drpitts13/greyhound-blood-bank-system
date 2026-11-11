@@ -900,5 +900,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-889 | U | `ShiftHandoffItemsTests.DispositionOverdue_AndOutsideAntibodies_AreHandoffItems` | URS-BB-722 / FRS-BB-840 |
 | TEST-BB-890 | I | `ShiftHandoffServiceTests.Create_CountsOutsideAntibodiesToConfirm` | URS-BB-722 / FRS-BB-840 |
 | TEST-BB-891 | I | `PatientTimelineTests.Confirmation_InfantSpecimen_AndIssueEntry_AreOnTheTimeline` | URS-BB-723 / FRS-BB-841 |
+| TEST-BB-892 | U | `RhigQueueSuggestionTests.Queue_ShowsTheSuggestion` | URS-BB-724 / FRS-BB-842 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

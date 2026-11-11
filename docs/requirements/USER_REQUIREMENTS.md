@@ -729,3 +729,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-721 | An outside antibody report is confirmed without retyping when this laboratory's reviewed antibody identification identifies the same antibody (OCD-073). | P3 | FRS-BB-839 |
 | URS-BB-722 | The shift handoff tells the next shift how many units are overdue for a final disposition and how many outside antibody reports wait to be confirmed. | P3 | FRS-BB-840 |
 | URS-BB-723 | The patient timeline shows an outside antibody's confirmation here, an infant's admission specimen, and how each issue was entered. | P3 | FRS-BB-841 |
+| URS-BB-724 | The open RhIG list shows each evaluation's suggested decision and calculated dose beside what was recorded. | P3 | FRS-BB-842 |

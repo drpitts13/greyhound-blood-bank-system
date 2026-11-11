@@ -20996,3 +20996,30 @@ Recent cycles recorded new facts that the patient timeline did not show: when th
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 681 — The open RhIG list shows the suggestion (2026-11-10)
+
+### Capability matrix rescan (antibody/antigen history: RhIG; operations: worklists)
+
+Cycle 671 suggested each evaluation's decision and dose on the chart, but the open RhIG list (where a verifier picks what to complete) showed only what was recorded, so checking a record against the suggestion meant opening every chart (question 1).
+
+### Design
+
+- The RhIG queue gains a Suggested column: "Candidate, n vials", "Candidate (no dose calculated)", "Not a candidate", or a dash when the facts suggest nothing; Differs marks a recorded decision or dose that is not the suggestion. The intro text now says the application suggests and the reviewer decides.
+
+### Verification
+
+- Rendered: each case of the column and the Differs marker.
+- Live (read-only): the RhIG list shows "Candidate (no dose calculated)" for the demo open evaluation (no quantitation, settings unset) and a dash for the demo candidate completed before suggestions were kept. No server errors.
+
+### Requirements
+
+- URS-BB-724, FRS-BB-842.
+
+### Tests
+
+- TEST-BB-892.
+
+### Next
+
+- Back to the capability matrix.
