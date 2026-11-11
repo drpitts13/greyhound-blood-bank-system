@@ -413,6 +413,8 @@ public static class DashboardQueueCatalog
         {
             AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindResultVerify && i.DueSoon), "to verify before its specimen expires", "to verify before their specimens expire"),
             AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindDiscrepancy), "missing or damaged unit", "missing or damaged units"),
+            // Cycle 701 (OCD-083): transfusions the EHR reported over a unit's status, waiting for review.
+            AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindTransfusionReported), "reported transfusion to review", "reported transfusions to review"),
             AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindOverrideReview), "override to review", "overrides to review")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);

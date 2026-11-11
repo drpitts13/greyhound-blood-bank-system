@@ -285,11 +285,16 @@ public sealed class PatientTimelineService
                 continue;
             }
 
-            events.Add(new(at, TimelineCategory.Transfusion, t.ReactionSuspected ? TimelineSeverity.Critical : TimelineSeverity.Info,
+            // OCD-083: a transfusion reported over the unit's status is a warning until a supervisor has reviewed it.
+            var reportNote = TransfusionReportNote.For(t.UnitStatusAtReport, t.ReportReviewedBy, t.ReportReviewNote);
+            events.Add(new(at, TimelineCategory.Transfusion,
+                t.ReactionSuspected ? TimelineSeverity.Critical
+                    : t.UnitStatusAtReport is not null && t.ReportReviewedUtc is null ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"Unit {Unit(t.BloodProductId)} transfused",
                 Join(t.StopUtc is DateTime stop && t.StartUtc is not null ? $"stopped {stop:yyyy-MM-dd HH:mm} UTC" : null,
                     t.VolumeTransfused is decimal v ? $"{v:0.#} mL" : null,
-                    t.ReactionSuspected ? "Reaction suspected" : null),
+                    t.ReactionSuspected ? "Reaction suspected" : null,
+                    reportNote),
                 t.Transfusionist ?? t.DocumentedBy, UnitHref(t.BloodProductId), $"trf-{t.Id}"));
         }
 

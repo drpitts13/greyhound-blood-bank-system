@@ -21661,3 +21661,35 @@ OCD-083 was decided on 2026-11-11: option B. A transfusion the EHR reports for a
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 701 — A reported transfusion reads so on the patient's record (2026-11-11)
+
+### Capability matrix rescan (timeline views; supervisor queues)
+
+Cycle 700 records a transfusion the EHR reported over a unit's status and puts it on the supervisor queue. The patient's own record did not say so: Product History and the timeline showed an ordinary transfusion. The home Supervisor queue card did not name these items, so they did not bring the card under Needs attention.
+
+### Design
+
+- `TransfusionReportNote.For(status, reviewedBy, note)`: "Reported by the EHR while the unit was <status> in the blood bank; review pending on the supervisor queue", or "...; reviewed by <who>: <what was found>".
+- Product History: the transfusion row carries it as an entry note.
+- Timeline: the transfusion event's detail adds it, and the event is a warning until the review is done.
+- `SupervisorNote`: "n reported transfusion(s) to review".
+- Read-only.
+
+### Verification
+
+- Unit: the note for no report, pending, reviewed with and without a note; the supervisor card note.
+- Integration: the timeline event is a warning with the pending note, then Info with the review; the reported transfusion's product history row carries the note.
+- Live (read-only): MRN0001's timeline loads with no reported transfusion (the demo has none). No server errors. The new note itself is covered by the tests.
+
+### Requirements
+
+- URS-BB-744, FRS-BB-862.
+
+### Tests
+
+- TEST-BB-941, TEST-BB-942, TEST-BB-943, TEST-BB-944.
+
+### Next
+
+- Back to the capability matrix.

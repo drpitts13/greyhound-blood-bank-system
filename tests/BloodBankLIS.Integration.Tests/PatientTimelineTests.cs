@@ -243,6 +243,43 @@ public class PatientTimelineTests : IDisposable
         Assert.Contains("Outside every recorded outage: Outage never recorded", issued);
     }
 
+    // TEST-BB-942 (Cycle 701, OCD-083): a transfusion the EHR reported over a recalled unit reads so on the timeline, as a
+    // warning until a supervisor reviews it, then with the review.
+    [Fact]
+    public async Task ReportedTransfusion_ReadsSoOnTheTimeline()
+    {
+        await using var c = _factory.Create();
+        var patient = await AddPatientAsync(c, "MRN-TL-701");
+        var product = new ProductType { ProductCode = "RBC-TL701", Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+        c.Add(product);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "U-TL-701", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = T(600), Status = UnitStatus.Recalled };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var issue = new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = T(20), IssuedBy = "tech1", Status = IssueStatus.Transfused };
+        c.Issues.Add(issue);
+        await c.SaveChangesAsync();
+        var tx = new TransfusionEvent
+        {
+            IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, StartUtc = T(30), StopUtc = T(60),
+            DocumentedBy = "hl7", FinalDisposition = TransfusionDisposition.Completed, UnitStatusAtReport = UnitStatus.Recalled
+        };
+        c.TransfusionEvents.Add(tx);
+        await c.SaveChangesAsync();
+
+        var pending = Event(await Timeline(c).GetAsync(patient.Id), $"trf-{tx.Id}");
+        Assert.Equal(TimelineSeverity.Warning, pending.Severity);
+        Assert.Contains("Reported by the EHR while the unit was Recalled in the blood bank; review pending on the supervisor queue", pending.Detail);
+
+        tx.ReportReviewedUtc = T(90);
+        tx.ReportReviewedBy = "sup1";
+        tx.ReportReviewNote = "Physician informed";
+        await c.SaveChangesAsync();
+        var reviewed = Event(await Timeline(c).GetAsync(patient.Id), $"trf-{tx.Id}");
+        Assert.Equal(TimelineSeverity.Info, reviewed.Severity);
+        Assert.Contains("reviewed by sup1: Physician informed", reviewed.Detail);
+    }
+
     private static async Task<Patient> AddPatientAsync(BloodBankDbContext c, string mrn)
     {
         var patient = new Patient { MedicalRecordNumber = mrn, LastName = "Timeline", FirstName = "Tess", DateOfBirth = new DateOnly(1965, 4, 4), Sex = Sex.Female };

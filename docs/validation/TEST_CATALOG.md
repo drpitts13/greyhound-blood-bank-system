@@ -949,5 +949,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-938 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-743 / FRS-BB-861 |
 | TEST-BB-939 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-743 / FRS-BB-861 |
 | TEST-BB-940 | U | `TransfusionReportReviewPageTests.ReportedTransfusion_IsReviewedInPlace` | URS-BB-743 / FRS-BB-861 |
+| TEST-BB-941 | U | `DashboardQueueCatalogTests.SupervisorNote_NamesTheItemsWithADeadlineOrAReview` | URS-BB-744 / FRS-BB-862 |
+| TEST-BB-942 | I | `PatientTimelineTests.ReportedTransfusion_ReadsSoOnTheTimeline` | URS-BB-744 / FRS-BB-862 |
+| TEST-BB-943 | U | `TransfusionReportNoteTests.For_ReadsTheReportAndItsReview` | URS-BB-744 / FRS-BB-862 |
+| TEST-BB-944 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-744 / FRS-BB-862 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

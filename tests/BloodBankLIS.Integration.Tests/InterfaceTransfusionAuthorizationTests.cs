@@ -178,6 +178,16 @@ public class InterfaceTransfusionAuthorizationTests : IClassFixture<SqliteContex
                 c, _factory.Clock, _factory.CurrentUser, audit, permissions);
             var transfusionId = (await c.TransfusionEvents.SingleAsync(t => t.IssueId == issueId)).Id;
 
+            // TEST-BB-944 (Cycle 701): the patient's product history says so on the transfusion row.
+            var patientId = (await c.Issues.FindAsync(issueId))!.PatientId;
+            var history = await new BloodBankLIS.Application.PatientWorkspace.PatientProductHistoryService(
+                new EfRepository<Allocation>(c), new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c), new EfRepository<Return>(c),
+                new EfRepository<TransfusionEvent>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c),
+                new EfRepository<Encounter>(c), new EfRepository<Order>(c), new EfRepository<Specimen>(c),
+                new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<Override>(c)).ListByPatientAsync(patientId);
+            var txRow = Assert.Single(history, r => r.EventType == PatientProductHistoryEventType.Transfused);
+            Assert.Contains("Reported by the EHR while the unit was Recalled in the blood bank; review pending on the supervisor queue", txRow.EntryNotes!);
+
             var queue = await new SupervisorQueueService(_factory.CurrentUser, reported: Review()).ListAsync();
             var item = Assert.Single(queue.Value!, i => i.Kind == SupervisorQueueRule.KindTransfusionReported && i.ContextId == transfusionId);
             Assert.Contains($"Transfused while Recalled — U-{key}", item.Title);

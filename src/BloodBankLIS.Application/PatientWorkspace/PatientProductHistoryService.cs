@@ -197,7 +197,8 @@ public sealed class PatientProductHistoryService
                 IssueDestinationCue.Format(t.Location ?? issue.IssuedToLocation, issuePlaces),
                 null, t.StartUtc, t.StopUtc, t.VolumeTransfused, inProgress ? "In progress" : t.FinalDisposition.ToString(),
                 t.ReactionSuspected, missing, inProgress, t.PatientIdentificationMethod,
-                t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString(), ReactionInvestigationOpenAtIssueId: issue.ReactionInvestigationOpenAtIssueId));
+                t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString(), ReactionInvestigationOpenAtIssueId: issue.ReactionInvestigationOpenAtIssueId,
+                EntryNotes: TransfusionReportNote.For(t.UnitStatusAtReport, t.ReportReviewedBy, t.ReportReviewNote) is string reportNote ? [reportNote] : null));
         }
 
         return rows.OrderByDescending(r => r.EventUtc).ToList();
