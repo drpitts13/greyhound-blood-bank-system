@@ -21346,3 +21346,33 @@ A recall moves an issued unit to Recalled (the status rules allow Issued to Reca
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 692 — A unit recalled on its way (2026-11-11)
+
+### Capability matrix rescan (patient-product workflows: in transit, ward receipt; safety)
+
+Cycle 691 covered a recalled unit already on the ward (issued list, bedside start, return). The step before was not covered. A unit recalled while it was in a cooler on its way was not marked on **In transit**. The ward could record its receipt as for any other unit, which accepts it onto the ward for transfusion: the bedside then refused it, but only after it had been received.
+
+### Design
+
+- `RecordWardReceiptAsync`: a Recalled unit is refused with `ComponentRecalled`, the recall reason and "Do not accept it on the ward; return it to the blood bank.", after the visual-inspection refusal, as that one is. The issue stays in transit to be returned (Cycle 691's return sends it to quarantine).
+- `ListInTransitAsync` marks `UnitRecalled` with the reason, through `RecalledOutAsync`, now shared with the issued list.
+- In transit shows **Recalled: do not accept, return it** (hover for the reason).
+
+### Verification
+
+- Integration: two units issued and in transit, one recalled: only it is marked, with the reason; its receipt is refused naming the recall; it has no receipt time and stays in transit.
+- Rendered: the In transit badge with the reason.
+- Live (read-only): In transit lists the 8 demo units in transit with no recalled badge (none is recalled); the list loads with the recall lookup. No server errors.
+
+### Requirements
+
+- URS-BB-735, FRS-BB-853.
+
+### Tests
+
+- TEST-BB-924, TEST-BB-925.
+
+### Next
+
+- Back to the capability matrix.

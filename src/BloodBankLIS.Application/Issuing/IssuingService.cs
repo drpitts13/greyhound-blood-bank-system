@@ -798,6 +798,7 @@ public sealed class IssuingService
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
+        var recalledOut = await RecalledOutAsync(rows, ct);
         return rows
             .OrderBy(i => i.InTransitDueUtc ?? i.IssuedUtc)
             .Select(i =>
@@ -807,7 +808,11 @@ public sealed class IssuingService
                 return InTransitWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
-                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces);
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces) with
+                {
+                    UnitRecalled = recalledOut.ContainsKey(i.BloodProductId),
+                    RecallReason = recalledOut.GetValueOrDefault(i.BloodProductId)
+                };
             })
             .ToList();
     }
@@ -923,13 +928,7 @@ public sealed class IssuingService
         var locations = locationIds.Count == 0
             ? new Dictionary<long, InventoryLocation>()
             : (await _locations.ListAsync(l => locationIds.Contains(l.Id), ct)).ToDictionary(l => l.Id);
-        // Cycle 691: units recalled while they are out, by unit, with the recall's reason.
-        var issuedUnitIds = rows.Select(i => i.BloodProductId).ToHashSet();
-        var recalledOut = rows.Count == 0
-            ? new Dictionary<long, string?>()
-            : (await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Recalled), ct))
-                .Where(u => issuedUnitIds.Contains(u.Id))
-                .ToDictionary(u => u.Id, u => u.RecallReason);
+        var recalledOut = await RecalledOutAsync(rows, ct);
         return rows
             .OrderBy(i => i.IssuedUtc)
             .Select(i =>
@@ -1333,6 +1332,15 @@ public sealed class IssuingService
         if (unit is null)
         {
             return EvaluationResult<Issue>.Fail("Unit not found.");
+        }
+
+        // Cycle 692: a unit recalled on its way is not accepted on the ward; it goes back as it came.
+        if (unit.Status == UnitStatus.Recalled)
+        {
+            return EvaluationResult<Issue>.Fail(
+                $"{IsbtErrorCodes.ComponentRecalled}: {unit.UnitNumber} was recalled after it was issued"
+                + (string.IsNullOrWhiteSpace(unit.RecallReason) ? "" : $" ({unit.RecallReason.Trim()})")
+                + ". Do not accept it on the ward; return it to the blood bank.");
         }
 
         var wardPaperDin = !string.IsNullOrWhiteSpace(request.BackEntryDin);
@@ -2492,6 +2500,20 @@ public sealed class IssuingService
             reason: note);
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<Return>.Ok(returnRecord);
+    }
+
+    /// <summary>Cycle 691: the units of these issues recalled while they are out, with the recall's reason.</summary>
+    private async Task<Dictionary<long, string?>> RecalledOutAsync(IReadOnlyCollection<Issue> issues, CancellationToken ct)
+    {
+        if (issues.Count == 0)
+        {
+            return new Dictionary<long, string?>();
+        }
+
+        var unitIds = issues.Select(i => i.BloodProductId).ToHashSet();
+        return (await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Recalled), ct))
+            .Where(u => unitIds.Contains(u.Id))
+            .ToDictionary(u => u.Id, u => u.RecallReason);
     }
 
     private void AppendStatus(BloodUnit unit, UnitStatus toStatus, string reason, DateTime whenUtc, string relatedType, long relatedId)

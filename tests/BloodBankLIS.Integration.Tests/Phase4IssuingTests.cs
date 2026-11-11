@@ -1483,6 +1483,50 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(await Issuing(verify).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
     }
 
+    // TEST-BB-924 (Cycle 692): a unit recalled on its way to the ward is flagged on In transit with the reason and is not
+    // received there (the refusal names the recall); it stays in transit to be returned. Another unit in transit is not flagged.
+    [Fact]
+    public async Task RecalledInTransit_IsFlagged_AndNotReceived()
+    {
+        var s = await SeedAsync("TX-RECALL-TRANSIT");
+        var other = await SeedAsync("TX-TRANSIT-OK");
+        async Task<long> IssueOnly(Scenario scenario)
+        {
+            await RecordCompatibleCrossmatchAsync(scenario);
+            await AllocateAsync(scenario);
+            await using var c = _factory.Create();
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(scenario));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            return issued.Value!.Id;
+        }
+
+        var issueId = await IssueOnly(s);
+        var otherIssueId = await IssueOnly(other);
+        await using (var c = _factory.Create())
+        {
+            var unit = (await c.BloodUnits.FindAsync(s.UnitId))!;
+            unit.Status = UnitStatus.Recalled;
+            unit.RecallReason = "Donor subsequently reactive";
+            await c.SaveChangesAsync();
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var transit = await Issuing(c).ListInTransitAsync();
+            var row = Assert.Single(transit, r => r.IssueId == issueId);
+            Assert.Equal((true, "Donor subsequently reactive"), (row.UnitRecalled, row.RecallReason));
+            Assert.False(Assert.Single(transit, r => r.IssueId == otherIssueId).UnitRecalled);
+
+            var received = await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
+            Assert.False(received.Succeeded);
+            Assert.Contains("was recalled after it was issued (Donor subsequently reactive). Do not accept it on the ward", received.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Null((await verify.Issues.FindAsync(issueId))!.WardReceivedUtc);
+        Assert.Contains(await Issuing(verify).ListInTransitAsync(), r => r.IssueId == issueId);
+    }
+
     [Fact]
     public async Task StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord()
     {

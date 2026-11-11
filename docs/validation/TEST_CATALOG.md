@@ -932,5 +932,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-921 | I | `ShipOutDemoTests.Demo_HasOneRecalledUnitToPull` | URS-BB-733 / FRS-BB-851 |
 | TEST-BB-922 | I | `Phase4IssuingTests.RecalledWhileIssued_IsNotTransfused_AndReturnsToQuarantine` | URS-BB-734 / FRS-BB-852 |
 | TEST-BB-923 | U | `IssuedRecalledBadgeTests.IssuedUnits_FlagARecalledUnit` | URS-BB-734 / FRS-BB-852 |
+| TEST-BB-924 | I | `Phase4IssuingTests.RecalledInTransit_IsFlagged_AndNotReceived` | URS-BB-735 / FRS-BB-853 |
+| TEST-BB-925 | U | `IssuedRecalledBadgeTests.InTransit_FlagsARecalledUnit` | URS-BB-735 / FRS-BB-853 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

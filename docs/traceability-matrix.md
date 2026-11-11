@@ -846,6 +846,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-732 / FRS-BB-850 | Handoff counts recalled units to pull | `ShiftHandoff.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, migration, `DevelopmentSqliteBootstrap.cs` | TEST-BB-917, TEST-BB-918 | U, I | |
 | URS-BB-733 / FRS-BB-851 | Pull a recalled unit by scan | `InventoryService.cs`, `InventoryEndpoints.cs`, `Inventory.razor`, `DatabaseSeeder.Recalled.cs` | TEST-BB-919, TEST-BB-920, TEST-BB-921 | U, I | |
 | URS-BB-734 / FRS-BB-852 | Recalled while issued: not transfused, returned to quarantine | `IssuingService.cs`, `IssuingDtos.cs`, `Issuing.razor` | TEST-BB-922, TEST-BB-923 | U, I | |
+| URS-BB-735 / FRS-BB-853 | Recalled in transit: flagged, not received | `IssuingService.cs`, `IssuingDtos.cs`, `Issuing.razor` | TEST-BB-924, TEST-BB-925 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

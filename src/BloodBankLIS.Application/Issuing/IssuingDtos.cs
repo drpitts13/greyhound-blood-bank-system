@@ -192,6 +192,11 @@ public sealed record InTransitWorkItemDto(
     /// <summary>The MRN the unit was issued under when the chart has since changed MRN (a merge); null otherwise.</summary>
     public string? IssuedUnderEarlierMrn { get; init; }
 
+    /// <summary>Cycle 692: the unit was recalled on its way: do not accept it on the ward; return it.</summary>
+    public bool UnitRecalled { get; init; }
+
+    public string? RecallReason { get; init; }
+
     public static InTransitWorkItemDto From(
         Issue i,
         DateTime now,

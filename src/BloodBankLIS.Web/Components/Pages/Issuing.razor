@@ -594,6 +594,10 @@
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
                                 <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                @if (row.UnitRecalled)
+                                {
+                                    <span class="badge badge-red" title="@(row.RecallReason ?? "Recalled")" data-transit-recalled>Recalled: do not accept, return it</span>
+                                }
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
