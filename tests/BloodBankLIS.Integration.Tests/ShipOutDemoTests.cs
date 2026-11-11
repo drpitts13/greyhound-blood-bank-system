@@ -23,6 +23,24 @@ public class ShipOutDemoTests
         Assert.All(shipped, u => Assert.Equal(("St. Mary's Hospital", "SHIP-DEMO-01"), (u.ShippedToFacility, u.OutboundShipmentReference)));
     }
 
+    // TEST-BB-921: the demo has one recalled unit to pull, with the status row a recall writes, added once.
+    [Fact]
+    public async Task Demo_HasOneRecalledUnitToPull()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var v = factory.Create();
+        var recalled = Assert.Single(await v.BloodUnits.AsNoTracking().Where(u => u.Status == UnitStatus.Recalled).ToListAsync());
+        Assert.Equal("W000123RCL0001", recalled.UnitNumber);
+        Assert.Contains("R-DEMO-02", recalled.RecallReason);
+        Assert.Equal(1, await v.InventoryStatusHistory.CountAsync(h => h.BloodProductId == recalled.Id && h.ToStatus == UnitStatus.Recalled));
+    }
+
     // TEST-BB-910: the demo has one return of two units for recall R-DEMO-01, each with the status row a return writes,
     // added once.
     [Fact]

@@ -21279,3 +21279,35 @@ Cycle 688 put recalled units not yet pulled on an Inventory board and a home car
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 690 — Pull a recalled unit by scan (2026-11-11)
+
+### Capability matrix rescan (operations: worklists; barcode-first)
+
+The Recalled board (688) listed units to pull with only an Open link: each needed its unit page, the quarantine action, a reason picked and typed. Question 1: four steps per unit during a recall. Question 4: the unit is in hand, so a scan can do it, and the scan also shows it was found. The demo had no recalled unit, so the board, its card and the handoff item (689) could not be seen.
+
+### Design
+
+- `InventoryService.PullRecalledByScanAsync`: the scan is resolved as the other by-scan actions are; only a Recalled unit is pulled, quarantined with the existing coded reason **Lookback recall** and "Pulled after recall: <recall reason>" through `QuarantineAsync` (same permission, checks and audit). A unit in any other status is refused with it; several recalled matches for a divided number pull none.
+- `POST /api/inventory/units/pull-recalled-by-scan` (inventory.release).
+- The Recalled board: **Scan a recalled unit you have found**, Enter quarantines and reloads the board and Quarantine; the guidance says to discard or return from quarantine.
+- Demo: W000123RCL0001 (B Pos red cells, Fridge 1) recalled this morning for "Supplier recall R-DEMO-02", with its status row, added once.
+
+### Verification
+
+- Integration: a recalled unit scanned (in lower case) is quarantined with the coded reason, the note and an audit entry and leaves the list; scanning it again, an available unit, and an unknown number change nothing. The demo unit is added once.
+- Rendered: the scan quarantines and says so; a refused scan does not, and clears the field.
+- Seeder: 74 demo units.
+- Live: the API added the demo recalled unit; the board button reads "Recalled (1)" and the row shows W000123RCL0001, B+, Main Blood Bank Refrigerator, the R-DEMO-02 reason, recalled by tech1, with the scan field. The demo unit was not scanned, so it stays for demonstration; the scan itself is covered by the tests. No server errors.
+
+### Requirements
+
+- URS-BB-733, FRS-BB-851.
+
+### Tests
+
+- TEST-BB-919, TEST-BB-920, TEST-BB-921.
+
+### Next
+
+- Back to the capability matrix.

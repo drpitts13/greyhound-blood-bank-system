@@ -1772,6 +1772,41 @@ public sealed class InventoryService
     }
 
     /// <summary>
+    /// Cycle 690: a recalled unit found and scanned is quarantined for the recall (coded Lookback recall, noting the
+    /// recall's reason), with the same checks and audit as <see cref="QuarantineAsync(long, UnitQuarantineReason, string?, CancellationToken)"/>.
+    /// The scan is the proof it was found. A unit that is not Recalled is refused with its status; a divided number
+    /// matching several recalled units pulls none.
+    /// </summary>
+    public async Task<InventoryActionResult> PullRecalledByScanAsync(PullRecalledByScanRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var (key, candidates, error) = await ResolveScanAsync(request.Scan, ct);
+        if (error is not null)
+        {
+            return InventoryActionResult.Fail(error);
+        }
+
+        var recalled = candidates.Where(u => u.Status == UnitStatus.Recalled).ToList();
+        if (recalled.Count == 0)
+        {
+            var unit = candidates[0];
+            return InventoryActionResult.Fail($"{unit.UnitNumber} is {unit.Status}, not a recalled unit waiting to be pulled.");
+        }
+
+        if (recalled.Count > 1)
+        {
+            return InventoryActionResult.Fail(
+                $"{key} matches {recalled.Count} recalled units ({string.Join(", ", recalled.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Quarantine each from its unit page.");
+        }
+
+        var found = recalled[0];
+        var note = string.IsNullOrWhiteSpace(found.RecallReason)
+            ? "Pulled after recall"
+            : $"Pulled after recall: {found.RecallReason.Trim()}";
+        return await QuarantineAsync(found.Id, UnitQuarantineReason.LookbackRecall, note, ct);
+    }
+
+    /// <summary>
     /// Shipments to other facilities in the last <paramref name="days"/> days, newest first, each with its units, so what
     /// was sent where can be answered and its packing list printed again.
     /// </summary>

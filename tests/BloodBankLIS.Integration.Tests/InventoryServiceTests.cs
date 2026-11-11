@@ -727,6 +727,42 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(await service.ListRecalledAsync(), r => r.UnitId == shelf);
     }
 
+    // TEST-BB-919: a recalled unit found and scanned is quarantined for the recall (Lookback recall, noting the recall's
+    // reason, audited) and leaves the recalled list; a scan of a unit that is not Recalled, a repeat scan, and an unknown
+    // scan quarantine nothing.
+    [Fact]
+    public async Task PullRecalledByScan_QuarantinesTheFoundUnit()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-PUL{suffix}-{key}", productTypeId))).Unit!.Id;
+            (await context.BloodUnits.FindAsync(id))!.Status = UnitStatus.Available;
+            await context.SaveChangesAsync();
+            return id;
+        }
+
+        var recalled = await Receive("A");
+        var onShelf = await Receive("B");
+        Assert.True((await service.RecallForLookbackAsync(recalled, $"Donor reactive {key}")).Succeeded);
+
+        var pulled = await service.PullRecalledByScanAsync(new PullRecalledByScanRequest($"u-pula-{key}"));
+        Assert.True(pulled.Succeeded, pulled.Error);
+        var row = await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == recalled);
+        Assert.Equal((UnitStatus.Quarantine, UnitQuarantineReason.LookbackRecall, $"Pulled after recall: Donor reactive {key}"),
+            (row.Status, row.QuarantineReasonCode, row.QuarantineReason));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == recalled && a.NewValueJson != null && a.NewValueJson.Contains("LookbackRecall")));
+        Assert.DoesNotContain(await service.ListRecalledAsync(), r => r.UnitId == recalled);
+
+        Assert.Contains("is Quarantine, not a recalled unit", (await service.PullRecalledByScanAsync(new PullRecalledByScanRequest($"U-PULA-{key}"))).Error);
+        Assert.Contains("is Available, not a recalled unit", (await service.PullRecalledByScanAsync(new PullRecalledByScanRequest($"U-PULB-{key}"))).Error);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == onShelf)).Status);
+        Assert.False((await service.PullRecalledByScanAsync(new PullRecalledByScanRequest($"U-NOPE-{key}"))).Succeeded);
+    }
+
     // TEST-BB-906: recent returns group the units returned for one reason on one day, with who returned them and the
     // suppliers; another reason is another return; a return older than the window is left out, and a longer window
     // finds it.

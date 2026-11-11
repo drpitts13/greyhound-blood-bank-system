@@ -42,6 +42,51 @@ public class InventoryRecalledBoardTests : BunitContext
         else
         {
             Assert.Contains("No recalled units waiting to be pulled", page.Find("[data-recalled-board]").TextContent);
+            Assert.Empty(page.FindAll("[data-recalled-scan]"));
         }
+    }
+
+    // TEST-BB-920 (Cycle 690): scanning a found recalled unit and pressing Enter quarantines it and says so; a scan the
+    // server refuses shows its reason.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void RecalledBoard_ScanQuarantinesTheFoundUnit(bool accepted)
+    {
+        var now = DateTime.UtcNow;
+        var responses = new Dictionary<string, object>
+        {
+            ["/api/inventory/units/recalled"] = new List<RecalledWorkItemDto>
+            {
+                new(1, "W000000000011", AboGroup.O, RhType.Positive, now.AddDays(10), "RBC-LR", null, "Fridge 1", "Donor reactive", now.AddHours(-2), "tech1", UnitStatus.Available)
+            }
+        };
+        if (accepted)
+        {
+            responses["/api/inventory/units/pull-recalled-by-scan"] = BloodUnitDto.From(new BloodBankLIS.Domain.Entities.BloodUnit
+            {
+                Id = 1, UnitNumber = "W000000000011", Status = UnitStatus.Quarantine
+            });
+        }
+
+        CannedApi.Register(this, responses);
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/inventory?board=recalled");
+        var page = Render<Inventory>();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-recalled-scan]")));
+
+        page.Find("[data-recalled-scan]").Input("W000000000011");
+        page.Find("[data-recalled-scan]").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" });
+
+        if (accepted)
+        {
+            page.WaitForAssertion(() => Assert.Contains("W000000000011 quarantined for the recall", page.Markup));
+        }
+        else
+        {
+            page.WaitForAssertion(() => Assert.DoesNotContain("W000000000011 quarantined", page.Markup));
+            Assert.NotNull(page.Find("[data-recalled-row='1']"));
+        }
+
+        Assert.Equal(string.Empty, page.Find("[data-recalled-scan]").GetAttribute("value") ?? string.Empty);
     }
 }

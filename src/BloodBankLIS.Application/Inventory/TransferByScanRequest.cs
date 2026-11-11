@@ -8,6 +8,9 @@ public sealed record TransferByScanRequest(string? Scan, long ToLocationId, stri
 /// <summary>A unit scanned into a return shipment to its supplier, with the reason for the whole shipment.</summary>
 public sealed record ReturnToSupplierByScanRequest(string? Scan, string? Reason);
 
+/// <summary>Cycle 690: a recalled unit found and scanned, to quarantine it for the recall.</summary>
+public sealed record PullRecalledByScanRequest(string? Scan);
+
 /// <summary>A unit scanned into an outbound shipment to another facility; the facility and reference are given once per shipment.</summary>
 /// <summary>OCD-072: Container, PackingTemperatureC, PackedBy and ReceivingContact are required for every shipment.</summary>
 public sealed record ShipOutByScanRequest(

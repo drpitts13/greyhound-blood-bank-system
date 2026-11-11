@@ -226,6 +226,11 @@ public static class InventoryEndpoints
             ToHttpResult(await service.ShipOutByScanAsync(request, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
+        // Cycle 690: a recalled unit found and scanned is quarantined for the recall.
+        group.MapPost("/units/pull-recalled-by-scan", async (PullRecalledByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.PullRecalledByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryRelease);
+
         group.MapPost("/units/return-to-supplier-by-scan", async (ReturnToSupplierByScanRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.ReturnToSupplierByScanAsync(request, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);

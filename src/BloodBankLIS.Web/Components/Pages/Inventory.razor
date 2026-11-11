@@ -666,7 +666,15 @@
 {
     <div class="bb-card" data-recalled-board>
         <div class="bb-card-title"><h3>Recalled, not yet pulled</h3></div>
-        <p class="muted">Units recalled (from Lookback or a unit page) that are still recorded as Recalled. They cannot be issued. Find each one, then quarantine or discard it from its unit page; a unit going back to the supplier is quarantined first, then returned. A unit that was issued when it was recalled is on the ward: get it back first.</p>
+        <p class="muted">Units recalled (from Lookback or a unit page) that are still recorded as Recalled. They cannot be issued. Find each one and scan it here: it is quarantined for the recall and leaves the list. Discard it, or return it to the supplier, from quarantine. A unit that was issued when it was recalled is on the ward: get it back first.</p>
+        @if (Session.Has(PermissionCodes.InventoryRelease) && _recalledItems.Count > 0)
+        {
+            <div class="field" style="max-width:24rem;">
+                <label>Scan a recalled unit you have found</label>
+                <input @bind="_recalledScan" @bind:event="oninput" @onkeydown="OnRecalledScanKeyAsync" placeholder="Scan, then the next" autocomplete="off" data-recalled-scan />
+            </div>
+            <Outcome Value="_recalledFb" />
+        }
         @if (_recalledItems.Count == 0)
         {
             <div class="muted">No recalled units waiting to be pulled.</div>
@@ -1084,6 +1092,32 @@
 
         var r = await Api.GetDiscrepancyUnitsAsync();
         if (r.Succeeded) _discrepancyItems = r.Value ?? new();
+    }
+
+    private string _recalledScan = string.Empty;
+    private Feedback? _recalledFb;
+
+    // Cycle 690: Enter on the scan quarantines the scanned recalled unit for the recall; the board reloads.
+    private async Task OnRecalledScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_recalledScan) || _busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var scan = _recalledScan.Trim();
+        var r = await Api.PullRecalledByScanAsync(new PullRecalledByScanRequest(scan));
+        _busy = false;
+        _recalledScan = string.Empty;
+        _recalledFb = r.Succeeded && r.Value is not null
+            ? Feedback.Succeed($"{r.Value.UnitNumber} quarantined for the recall. Scan the next.")
+            : r.ToFeedback();
+        if (r.Succeeded)
+        {
+            await LoadRecalledAsync();
+            await LoadQuarantineAsync();
+        }
     }
 
     private async Task LoadRecalledAsync()

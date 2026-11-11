@@ -603,6 +603,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<RecalledWorkItemDto>>> GetRecalledUnitsAsync(CancellationToken ct = default) =>
         SendAsync<List<RecalledWorkItemDto>>(HttpMethod.Get, "api/inventory/units/recalled", ct: ct);
 
+    public Task<ApiResult<BloodUnitDto>> PullRecalledByScanAsync(PullRecalledByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/pull-recalled-by-scan", req, ct);
+
     public Task<ApiResult<BloodUnitDto>> ReceiveExpectedUnitAsync(long id, ReceiveExpectedUnitRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/receive-expected", req, ct);
 

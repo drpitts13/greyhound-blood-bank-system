@@ -738,3 +738,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-730 | A recall by DIN recalls every component still here even when another component of the donation cannot be recalled (returned to the supplier, modified, expired), and names those with why. | P1 | FRS-BB-848 |
 | URS-BB-731 | Recalled units not yet pulled are listed on an Inventory board and counted on a home card, with the recall reason, when and by whom, and whether the unit was issued. | P1 | FRS-BB-849 |
 | URS-BB-732 | The shift handoff counts recalled units not yet pulled, urgent, opening the Recalled board, and keeps the count. | P2 | FRS-BB-850 |
+| URS-BB-733 | A recalled unit found is scanned on the Recalled board to quarantine it for the recall, without opening its unit page. | P2 | FRS-BB-851 |
