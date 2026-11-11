@@ -438,6 +438,8 @@
             }
             case DashboardQueueCatalog.ExpiredOnShelf:
                 return await CountList(card.Key, Api.GetExpiredOnShelfAsync());
+            case DashboardQueueCatalog.RecalledToPull:
+                return await CountList(card.Key, Api.GetRecalledUnitsAsync());
             case DashboardQueueCatalog.BloodOrders:
             {
                 var result = await Api.GetBloodOrdersToPrepareAsync();

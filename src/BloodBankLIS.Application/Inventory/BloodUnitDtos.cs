@@ -265,3 +265,24 @@ public sealed record OnHoldWorkItemDto(
         u.CurrentLocationId,
         string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }
+
+/// <summary>
+/// Cycle 688: a unit recalled and not yet pulled: still in Recalled status, waiting to be quarantined or discarded (a
+/// return to the supplier goes through quarantine). <see cref="WasStatus"/> is what it was when recalled (Issued means it is on the ward, not on a shelf).
+/// </summary>
+public sealed record RecalledWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    AboGroup Abo,
+    RhType RhD,
+    DateTime ExpiresUtc,
+    string? ProductCode,
+    long? CurrentLocationId,
+    string? CurrentLocationName,
+    string? RecallReason,
+    DateTime? RecalledUtc,
+    string? RecalledBy,
+    UnitStatus? WasStatus)
+{
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+}

@@ -166,6 +166,26 @@ public class DashboardHomeTests
         Assert.DoesNotContain(DashboardHome.Arrange([State(ExpiredOnShelf, 0)], WorkFocus.IssueDesk).Attention, c => c.Card.Key == ExpiredOnShelf);
     }
 
+    // TEST-BB-914: Recalled units to pull is for whoever discards or releases stock, opens the Recalled board, belongs to
+    // the issue desk and supervisor views, and needs attention whenever above zero, before expired on shelf.
+    [Fact]
+    public void RecalledToPull_IsForStockKeepers_AndNeedsAttentionAboveZero()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == PermissionCodes.InventoryDiscard),
+            card => card.Key == DashboardQueueCatalog.RecalledToPull && card.Href == "/inventory?board=recalled");
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == PermissionCodes.InventoryRelease),
+            card => card.Key == DashboardQueueCatalog.RecalledToPull);
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == PermissionCodes.ResultEnter),
+            card => card.Key == DashboardQueueCatalog.RecalledToPull);
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.RecalledToPull, WorkFocus.IssueDesk));
+        Assert.True(DashboardHome.InFocus(DashboardQueueCatalog.RecalledToPull, WorkFocus.Supervisor));
+        Assert.False(DashboardHome.InFocus(DashboardQueueCatalog.RecalledToPull, WorkFocus.Bench));
+
+        var layout = DashboardHome.Arrange([State(ExpiredOnShelf, 2), State(RecalledToPull, 1)], WorkFocus.IssueDesk);
+        Assert.Equal([RecalledToPull, ExpiredOnShelf], layout.Attention.Select(c => c.Card.Key));
+        Assert.DoesNotContain(DashboardHome.Arrange([State(RecalledToPull, 0)], WorkFocus.IssueDesk).Attention, c => c.Card.Key == RecalledToPull);
+    }
+
     // TEST-BB-507: Below minimum stock is for whoever keeps or issues stock, belongs to the issue desk and supervisor
     // views, names the largest shortfalls with what is on hand, and needs attention whenever a product is short.
     [Fact]

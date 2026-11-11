@@ -736,3 +736,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-728 | The thaw prompt states the shelf life that will apply for an open-system thaw and a pool, and refuses before confirming when that time is not set. | P2 | FRS-BB-846 |
 | URS-BB-729 | Return to supplier lists recent returns and prints a return list for one return (reason, who and when, suppliers, units, spaces for the courier or supplier), not a print of the page. | P2 | FRS-BB-847 |
 | URS-BB-730 | A recall by DIN recalls every component still here even when another component of the donation cannot be recalled (returned to the supplier, modified, expired), and names those with why. | P1 | FRS-BB-848 |
+| URS-BB-731 | Recalled units not yet pulled are listed on an Inventory board and counted on a home card, with the recall reason, when and by whom, and whether the unit was issued. | P1 | FRS-BB-849 |

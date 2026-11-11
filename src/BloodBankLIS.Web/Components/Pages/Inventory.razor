@@ -44,6 +44,7 @@
     <button type="button" class="btn @BoardClass("quarantine")" @onclick='() => SelectBoard("quarantine")'>Quarantine</button>
     <button type="button" class="btn @BoardClass("discrepancy")" @onclick='() => SelectBoard("discrepancy")'>Discrepancy</button>
     <button type="button" class="btn @BoardClass("hold")" @onclick='() => SelectBoard("hold")'>Operational hold</button>
+    <button type="button" class="btn @BoardClass("recalled")" @onclick='() => SelectBoard("recalled")' data-board-recalled>Recalled@(_recalledItems.Count > 0 ? $" ({_recalledItems.Count})" : "")</button>
     <button type="button" class="btn @BoardClass("deliveries")" @onclick='() => SelectBoard("deliveries")'>Open deliveries</button>
 </div>
 
@@ -660,6 +661,48 @@
     </div>
 }
 
+@* Cycle 688: recalled units not yet pulled; each is quarantined, discarded or returned from its unit page. *@
+@if (_board == "recalled")
+{
+    <div class="bb-card" data-recalled-board>
+        <div class="bb-card-title"><h3>Recalled, not yet pulled</h3></div>
+        <p class="muted">Units recalled (from Lookback or a unit page) that are still recorded as Recalled. They cannot be issued. Find each one, then quarantine or discard it from its unit page; a unit going back to the supplier is quarantined first, then returned. A unit that was issued when it was recalled is on the ward: get it back first.</p>
+        @if (_recalledItems.Count == 0)
+        {
+            <div class="muted">No recalled units waiting to be pulled.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Unit</th><th>ABO/Rh</th><th>Product</th><th>Location</th><th>Recall reason</th><th>Recalled</th><th>Expires</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var row in _recalledItems)
+                    {
+                        <tr data-recalled-row="@row.UnitId">
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
+                            <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td>@(row.ProductCode ?? "—")</td>
+                            <td>
+                                @row.LocationLabel
+                                @if (row.WasStatus is UnitStatus.Issued or UnitStatus.TransfusionStarted)
+                                {
+                                    <span class="badge badge-red" data-recalled-on-ward>Was issued: on the ward</span>
+                                }
+                            </td>
+                            <td>@(row.RecallReason ?? "—")</td>
+                            <td class="nowrap">@(row.RecalledUtc is DateTime recalledUtc ? $"{recalledUtc.ToLocalTime():yyyy-MM-dd HH:mm}{(row.RecalledBy is null ? "" : $" by {row.RecalledBy}")}" : "—")</td>
+                            <td class="nowrap">@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right"><a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+}
+
 @if (_board == "deliveries" && Session.Has(PermissionCodes.InventoryReceive))
 {
     <div class="bb-card">
@@ -793,6 +836,7 @@
     private List<QuarantineWorkItemDto> _quarantineItems = new();
     private List<DiscrepancyWorkItemDto> _discrepancyItems = new();
     private List<OnHoldWorkItemDto> _onHoldItems = new();
+    private List<RecalledWorkItemDto> _recalledItems = new();
     private List<ProductRetypeWorkItemDto> _retypeItems = new();
     private bool _retypesLoading;
     private long? _expandedRetypeUnitId;
@@ -845,7 +889,7 @@
 
     private string BoardClass(string board) => _board == board ? "btn-primary" : "btn-secondary";
 
-    private static readonly string[] Boards = ["search", "expected", "retype", "near", "quarantine", "discrepancy", "hold", "deliveries"];
+    private static readonly string[] Boards = ["search", "expected", "retype", "near", "quarantine", "discrepancy", "hold", "recalled", "deliveries"];
 
     private void SelectBoard(string board) => _board = board;
 
@@ -878,6 +922,7 @@
         await LoadQuarantineAsync();
         await LoadDiscrepancyAsync();
         await LoadOnHoldAsync();
+        await LoadRecalledAsync();
         await LoadRetypesAsync();
         await ApplyBoardQueryAsync();
     }
@@ -1039,6 +1084,12 @@
 
         var r = await Api.GetDiscrepancyUnitsAsync();
         if (r.Succeeded) _discrepancyItems = r.Value ?? new();
+    }
+
+    private async Task LoadRecalledAsync()
+    {
+        var r = await Api.GetRecalledUnitsAsync();
+        _recalledItems = r.Succeeded ? r.Value ?? new() : new();
     }
 
     private async Task LoadOnHoldAsync()

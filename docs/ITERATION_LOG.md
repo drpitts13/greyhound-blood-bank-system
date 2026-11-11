@@ -21217,3 +21217,35 @@ While looking at returns after Cycle 686: a recall by DIN tried to recall every 
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 688 — Recalled units to pull (2026-11-11)
+
+### Capability matrix rescan (operations: worklists; recall)
+
+After Cycle 687 a recall reaches every component it can. A recalled unit then sits in Recalled status (it cannot be issued) until someone finds it and quarantines or discards it (a return to the supplier goes through quarantine), but nothing listed those units: no board, no home card. Only a status search on Inventory found them. Question 5: the next step after a recall was not surfaced. Question 6: a recalled unit that was issued (a recall moves Issued to Recalled) is on the ward and has to be brought back.
+
+### Design
+
+- `InventoryService.ListRecalledAsync`: units in Recalled status, oldest recall first, each with the recall's reason, time and who, and what the unit was before (from the status row the recall wrote). `GET /api/inventory/units/recalled`.
+- Inventory board **Recalled** (`board=recalled`): unit, ABO/Rh, product, location, recall reason, recalled when and by whom, expiry, Open. A unit that was issued is marked *Was issued: on the ward*. The board button shows the count.
+- Home card **Recalled units to pull** (inventory.discard or inventory.release; Issue desk and Supervisor desk): urgent above zero, ordered before Expired on shelf.
+- Read-only: the disposition stays on the unit page (quarantine or discard; the status rules send a return to the supplier through quarantine), with its existing checks and audit.
+
+### Verification
+
+- Unit: who sees the card, its link and desks, and its order before Expired on shelf.
+- Integration: a recalled shelf unit and a recalled issued unit are listed with reason, time, who and what they were; a unit never recalled is not; a quarantined one leaves the list.
+- Rendered: the board from the card's link with both rows and the on-ward mark; the empty board says so.
+- Live (read-only): the dev data has no recalled units; the home page shows the Recalled units to pull card, and Inventory opened from it shows the Recalled board, empty, with its guidance. The guidance first said to return a recalled unit from its unit page, which the status rules do not allow (Recalled goes to quarantine or discard); it now says a return goes through quarantine. No server errors.
+
+### Requirements
+
+- URS-BB-731, FRS-BB-849.
+
+### Tests
+
+- TEST-BB-914, TEST-BB-915, TEST-BB-916.
+
+### Next
+
+- The shift handoff does not count recalled units waiting to be pulled (it would need a stored column, like the other handoff counts).

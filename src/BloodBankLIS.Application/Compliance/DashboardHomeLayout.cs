@@ -35,20 +35,20 @@ public static class DashboardHome
     /// Interface failures count too: a failed instrument message is a patient result that did not file, and an HL7
     /// error is an order, result, or admission that did not reach its destination.
     /// </summary>
-    private static readonly string[] UrgentWhenNonZero = [TemperatureExcursions, Reactions, Handoff, InstrumentFailures, Hl7Errors, ExpiredOnShelf, OutageOpen];
+    private static readonly string[] UrgentWhenNonZero = [TemperatureExcursions, Reactions, Handoff, InstrumentFailures, Hl7Errors, ExpiredOnShelf, RecalledToPull, OutageOpen];
 
     /// <summary>
     /// Most urgent first: storage safety, patient harm, then emergency follow-up and lost units, then reserved units
     /// blocked from routine issue with no second ABO/Rh ordered.
     /// </summary>
     private static readonly string[] UrgencyOrder =
-        [TemperatureExcursions, Reactions, Retrospective, InTransit, SecondAbo, ReagentQc, InstrumentFailures, Hl7Errors, Handoff, Deviations, ExpiredOnShelf, LowStock, NearExpiry, Disposition, Supervisor];
+        [TemperatureExcursions, Reactions, Retrospective, InTransit, SecondAbo, ReagentQc, InstrumentFailures, Hl7Errors, Handoff, Deviations, RecalledToPull, ExpiredOnShelf, LowStock, NearExpiry, Disposition, Supervisor];
 
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
         [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, BloodOrders, AntibodyWorkups, OutsideAntibodies, ReagentQc, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
-        [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, ExpiredOnShelf, LowStock, OutageOpen],
-        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, OutsideAntibodies, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, ExpiredOnShelf, LowStock, Unidentified, OutageOpen, SettingsToEnter]
+        [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, OutageOpen],
+        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, OutsideAntibodies, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, Unidentified, OutageOpen, SettingsToEnter]
     };
 
     public static IReadOnlyList<WorkFocus> Choices { get; } =

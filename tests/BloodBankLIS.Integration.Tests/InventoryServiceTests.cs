@@ -684,6 +684,41 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("No unit has the number", (await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-NOPE-{key}", reason))).Error);
     }
 
+    // TEST-BB-915: the recalled board lists units still Recalled with the recall's reason, time, who and what the unit
+    // was (an issued unit is on the ward); once quarantined it leaves the list; a unit never recalled is not on it.
+    [Fact]
+    public async Task Recalled_ListsUnitsNotYetPulled()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix, UnitStatus status)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-RCL{suffix}-{key}", productTypeId))).Unit!.Id;
+            (await context.BloodUnits.FindAsync(id))!.Status = status;
+            await context.SaveChangesAsync();
+            return id;
+        }
+
+        var shelf = await Receive("A", UnitStatus.Available);
+        var issued = await Receive("B", UnitStatus.Issued);
+        var untouched = await Receive("C", UnitStatus.Available);
+        Assert.True((await service.RecallForLookbackAsync(shelf, $"Donor reactive {key}")).Succeeded);
+        Assert.True((await service.RecallForLookbackAsync(issued, $"Donor reactive {key}")).Succeeded);
+
+        var list = await service.ListRecalledAsync();
+        var shelfRow = Assert.Single(list, r => r.UnitId == shelf);
+        Assert.Equal(($"Donor reactive {key}", (DateTime?)_factory.Clock.UtcNow, (UnitStatus?)UnitStatus.Available),
+            (shelfRow.RecallReason, shelfRow.RecalledUtc, shelfRow.WasStatus));
+        Assert.False(string.IsNullOrWhiteSpace(shelfRow.RecalledBy));
+        Assert.Equal(UnitStatus.Issued, Assert.Single(list, r => r.UnitId == issued).WasStatus);
+        Assert.DoesNotContain(list, r => r.UnitId == untouched);
+
+        Assert.True((await service.QuarantineAsync(shelf, UnitQuarantineReason.Other, "Recalled; held for the supplier")).Succeeded);
+        Assert.DoesNotContain(await service.ListRecalledAsync(), r => r.UnitId == shelf);
+    }
+
     // TEST-BB-906: recent returns group the units returned for one reason on one day, with who returned them and the
     // suppliers; another reason is another return; a return older than the window is left out, and a longer window
     // finds it.

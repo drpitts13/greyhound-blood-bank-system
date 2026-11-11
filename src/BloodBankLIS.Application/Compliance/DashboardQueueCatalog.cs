@@ -35,6 +35,7 @@ public static class DashboardQueueCatalog
     public const string InstrumentFailures = "instrument-failures";
     public const string NearExpiry = "near-expiry";
     public const string ExpiredOnShelf = "expired-on-shelf";
+    public const string RecalledToPull = "recalled-to-pull";
     public const string Deviations = "deviations";
     public const string ReagentQc = "reagent-qc";
     public const string LowStock = "low-stock";
@@ -93,6 +94,8 @@ public static class DashboardQueueCatalog
             || canIssue || has(PermissionCodes.CompatibilityAllocate), LowStock, "Below minimum stock", "/inventory/minimum-stock");
         // Expired units still recorded on a shelf: pull and discard them (inventory.discard).
         Add(cards, has(PermissionCodes.InventoryDiscard), ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired");
+        // Recalled units not yet pulled (Cycle 688): quarantine or discard them.
+        Add(cards, has(PermissionCodes.InventoryDiscard) || has(PermissionCodes.InventoryRelease), RecalledToPull, "Recalled units to pull", "/inventory?board=recalled");
         Add(cards, has(PermissionCodes.InstrumentManage), InstrumentFailures, "Instrument failures", "/instruments?show=open");
         Add(cards, has(PermissionCodes.Hl7Manage), Hl7Errors, "HL7 errors", "/hl7");
         // Results and charges that have not gone out and will not by themselves (Cycle 660): never an error, so not above.

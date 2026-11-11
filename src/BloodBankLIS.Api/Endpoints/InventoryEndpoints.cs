@@ -61,6 +61,10 @@ public static class InventoryEndpoints
             Results.Ok(await service.ListOnHoldAsync(ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
+        // Cycle 688: recalled units not yet pulled.
+        group.MapGet("/units/recalled", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListRecalledAsync(ct)));
+
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
             var unit = await service.GetChartAsync(id, ct);

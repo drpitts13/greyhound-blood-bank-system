@@ -922,5 +922,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-911 | I | `ComplianceWorkflowTests.RecallByDin_RecallsTheShelf_WhenAnotherComponentCannotBeRecalled` | URS-BB-730 / FRS-BB-848 |
 | TEST-BB-912 | U | `LookbackRecallRuleTests.WhyNotRecalled_NamesWhatCannotBeRecalled` | URS-BB-730 / FRS-BB-848 |
 | TEST-BB-913 | U | `LookbackNotRecalledTests.Recall_NamesTheComponentsNotRecalled` | URS-BB-730 / FRS-BB-848 |
+| TEST-BB-914 | U | `DashboardHomeTests.RecalledToPull_IsForStockKeepers_AndNeedsAttentionAboveZero` | URS-BB-731 / FRS-BB-849 |
+| TEST-BB-915 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-731 / FRS-BB-849 |
+| TEST-BB-916 | U | `InventoryRecalledBoardTests.RecalledBoard_ListsUnitsToPull` | URS-BB-731 / FRS-BB-849 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

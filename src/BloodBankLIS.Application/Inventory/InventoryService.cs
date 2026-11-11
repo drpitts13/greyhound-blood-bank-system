@@ -355,6 +355,41 @@ public sealed class InventoryService
             .ToList();
     }
 
+    /// <summary>
+    /// Cycle 688: recalled units not yet pulled (still Recalled), oldest recall first, with the recall's time, who and
+    /// what the unit was before it, from the status row the recall wrote.
+    /// </summary>
+    public async Task<IReadOnlyList<RecalledWorkItemDto>> ListRecalledAsync(CancellationToken ct = default)
+    {
+        var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Recalled), ct);
+        var products = await LoadProductsAsync(rows, ct);
+        var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
+        var items = new List<RecalledWorkItemDto>(rows.Count);
+        foreach (var u in rows)
+        {
+            var recall = (await _repository.GetHistoryAsync(u.Id, ct))
+                .Where(h => h.ToStatus == UnitStatus.Recalled)
+                .OrderByDescending(h => h.ChangedUtc).ThenByDescending(h => h.Id)
+                .FirstOrDefault();
+            products.TryGetValue(u.ProductTypeId, out var product);
+            string? locationName = null;
+            if (u.CurrentLocationId is long locationId)
+            {
+                locationNames.TryGetValue(locationId, out locationName);
+            }
+
+            items.Add(new RecalledWorkItemDto(
+                u.Id, u.UnitNumber, u.Abo, u.RhD, u.ExpiresUtc, product?.ProductCode, u.CurrentLocationId,
+                string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim(),
+                u.RecallReason ?? recall?.Reason, recall?.ChangedUtc, recall?.ChangedBy, recall?.FromStatus));
+        }
+
+        return items
+            .OrderBy(i => i.RecalledUtc ?? DateTime.MinValue)
+            .ThenBy(i => i.UnitNumber, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private async Task<Dictionary<long, ProductType>> LoadProductsAsync(
         IReadOnlyCollection<BloodUnit> rows,
         CancellationToken ct)
