@@ -937,5 +937,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-926 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-736 / FRS-BB-854 |
 | TEST-BB-927 | I | `Phase4IssuingTests.QuarantinedWhileIssued_StaysInQuarantine_OnReturn` | URS-BB-736 / FRS-BB-854 |
 | TEST-BB-928 | I | `Phase4IssuingTests.ReportedWhileIssued_DoesNotReturnToStock` | URS-BB-737 / FRS-BB-855 |
+| TEST-BB-929 | I | `InterfaceTransfusionAuthorizationTests.Document_UnitNoLongerIssued_IsHeldForReview` | URS-BB-738 / FRS-BB-856 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

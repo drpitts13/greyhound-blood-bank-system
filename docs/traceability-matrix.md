@@ -849,6 +849,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-735 / FRS-BB-853 | Recalled in transit: flagged, not received | `IssuingService.cs`, `IssuingDtos.cs`, `Issuing.razor` | TEST-BB-924, TEST-BB-925 | U, I | |
 | URS-BB-736 / FRS-BB-854 | Recalled on the ward returned through issuing; quarantined while out stays quarantined | `InventoryService.cs`, `IssuingService.cs`, `Inventory.razor` | TEST-BB-926, TEST-BB-927 | I | |
 | URS-BB-737 / FRS-BB-855 | Damaged or missing while issued; issuing status steps follow the rules | `IssuingService.cs` | TEST-BB-928 | I | |
+| URS-BB-738 / FRS-BB-856 | EHR transfusion for a unit no longer issued is held | `InterfaceTransfusionService.cs` | TEST-BB-929 | I | OCD-083 open |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

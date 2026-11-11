@@ -21442,3 +21442,47 @@ Cycles 691 to 693 each found a unit that a return sent to Available from a statu
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 695 — An EHR transfusion for a unit no longer issued (2026-11-11)
+
+### Capability matrix rescan (interoperability: BPAM inbound; safety architecture)
+
+Following Cycle 694, every direct status write in the application was checked against the status rules:
+
+- **Checked already:** allocation, release, discard, the expiry sweep, retype, the storage-excursion quarantine and modification.
+- **Own allowed list:** the reaction remainder hold.
+- **Not checked:** the inbound transfusion message (BPAM) from the EHR. If the EHR reported a unit transfused that the blood bank had since recalled, quarantined, or recorded as damaged or missing, it was moved to Transfused without a word. A recalled unit transfused that way left no sign beyond its status.
+
+### Decision needed (OCD-083)
+
+How such a transfusion should be recorded is a clinical decision, not invented here. OCD-083 offers four ways:
+
+- **A:** record it, unit Transfused.
+- **B:** record the event, keep the status, flag it.
+- **C:** a supervisor documents it from the error queue.
+- **D:** refuse it, and document it within the recall or investigation.
+
+Until then the safe, reversible behavior is to hold the message.
+
+### Design
+
+- `InterfaceTransfusionService`: a unit not Issued or TransfusionStarted is refused, saying its status, the recall reason if recalled, "held for review and not recorded (OCD-083)". The HL7 processor turns that into a mapping error, so the message is in the error queue for review and replay. Nothing is recorded, and the unit and issue keep their status.
+- Its own status writer refuses a step the rules do not allow, as the issuing paths do since Cycle 694.
+
+### Verification
+
+- Integration: for a unit recalled, quarantined or damaged after issue, the message fails with the status (and the recall), and no transfusion is recorded; unit and issue are unchanged. For a unit still issued, the same message records the transfusion and sets Transfused as before.
+- The existing authorization test counted all transfusion events in its shared database; it now compares before and after.
+- Live (read-only; no message sent): the API and the HL7 Interface page load as before. No server errors.
+
+### Requirements
+
+- URS-BB-738, FRS-BB-856; OCD-083 opened.
+
+### Tests
+
+- TEST-BB-929.
+
+### Next
+
+- OCD-083 needs an answer before the held messages can be recorded.

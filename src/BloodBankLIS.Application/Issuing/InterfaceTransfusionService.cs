@@ -165,6 +165,16 @@ public sealed class InterfaceTransfusionService
         var trackedUnit = await _inventory.GetUnitAsync(unit.Id, ct)
             ?? throw new InvalidOperationException("Unit not found.");
 
+        // Cycle 695: a unit the blood bank no longer has as issued (recalled, quarantined, reported damaged or missing
+        // after it was issued) is not silently recorded as transfused; the message is held for review (OCD-083 open).
+        if (trackedUnit.Status is not (UnitStatus.Issued or UnitStatus.TransfusionStarted))
+        {
+            throw new InvalidOperationException(
+                $"Unit {unitKey} is {trackedUnit.Status} in the blood bank"
+                + (trackedUnit.Status == UnitStatus.Recalled && !string.IsNullOrWhiteSpace(trackedUnit.RecallReason) ? $" (recalled: {trackedUnit.RecallReason.Trim()})" : "")
+                + "; the transfusion message is held for review and not recorded (OCD-083).");
+        }
+
         var transfusion = new TransfusionEvent
         {
             IssueId = issue.Id,
@@ -248,6 +258,13 @@ public sealed class InterfaceTransfusionService
     private void AppendStatus(BloodUnit unit, UnitStatus toStatus, string reason, DateTime whenUtc, string relatedType, long relatedId)
     {
         var fromStatus = unit.Status;
+        // Cycle 695: as on the issuing paths (Cycle 694), a step the status rules do not allow stops the message.
+        if (!InventoryStatusTransition.IsAllowed(fromStatus, toStatus))
+        {
+            throw new InvalidOperationException(
+                $"Status change from {fromStatus} to {toStatus} is not allowed for {unit.UnitNumber} ({relatedType} {relatedId}).");
+        }
+
         unit.Status = toStatus;
         _inventory.AddStatusHistory(new InventoryStatusHistory
         {

@@ -743,3 +743,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-735 | A unit recalled on its way to the ward is flagged on In transit and its ward receipt is refused with the recall named. | P1 | FRS-BB-853 |
 | URS-BB-736 | A recalled unit on the ward is returned through Issue & Transfuse, not quarantined behind its open issue, and a unit quarantined while out stays in quarantine when its issue is returned. | P1 | FRS-BB-854 |
 | URS-BB-737 | A unit reported damaged or missing while issued does not return to stock; no issuing step writes a status change the status rules do not allow. | P1 | FRS-BB-855 |
+| URS-BB-738 | An EHR transfusion message for a unit no longer issued in the blood bank is held for review, not recorded over its status. | P1 | FRS-BB-856 |
