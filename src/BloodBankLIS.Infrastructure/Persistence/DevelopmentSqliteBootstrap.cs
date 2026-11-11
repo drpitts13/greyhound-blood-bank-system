@@ -276,6 +276,7 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "OutagesOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "OutagesOpen" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "DispositionOverdue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "DispositionOverdue" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "OutsideAntibodiesToConfirm", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "OutsideAntibodiesToConfirm" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RecalledToPull", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RecalledToPull" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "AntibodyWorkupsOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "AntibodyWorkupsOpen" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "AntibodyWorkupsToReview", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "AntibodyWorkupsToReview" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "UnidentifiedPatients", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "UnidentifiedPatients" INTEGER NOT NULL DEFAULT 0"""),

@@ -715,6 +715,14 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Issued, Assert.Single(list, r => r.UnitId == issued).WasStatus);
         Assert.DoesNotContain(list, r => r.UnitId == untouched);
 
+        // TEST-BB-918 (Cycle 689): the shift handoff counts them and keeps the count.
+        var handoff = await new ShiftHandoffService(
+                new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser, inventory: service)
+            .CreateAsync(new CreateShiftHandoffRequest("Recalled units to pull"));
+        Assert.True(handoff.Succeeded, handoff.Error);
+        Assert.Equal(list.Count, handoff.Value!.RecalledToPull);
+        Assert.Equal(list.Count, (await context.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == handoff.Value.Id)).RecalledToPull);
+
         Assert.True((await service.QuarantineAsync(shelf, UnitQuarantineReason.Other, "Recalled; held for the supplier")).Succeeded);
         Assert.DoesNotContain(await service.ListRecalledAsync(), r => r.UnitId == shelf);
     }

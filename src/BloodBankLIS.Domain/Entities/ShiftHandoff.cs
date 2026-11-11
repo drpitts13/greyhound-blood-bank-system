@@ -145,6 +145,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Outside antibody reports not yet confirmed by this laboratory (Cycle 679, OCD-073).</summary>
     public int OutsideAntibodiesToConfirm { get; set; }
 
+    /// <summary>Recalled units still recorded as Recalled, not yet quarantined or discarded (Cycle 689).</summary>
+    public int RecalledToPull { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

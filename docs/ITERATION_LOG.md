@@ -21249,3 +21249,33 @@ After Cycle 687 a recall reaches every component it can. A recalled unit then si
 ### Next
 
 - The shift handoff does not count recalled units waiting to be pulled (it would need a stored column, like the other handoff counts).
+
+## Iteration 689 — The handoff counts recalled units to pull (2026-11-11)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Cycle 688 put recalled units not yet pulled on an Inventory board and a home card, and named the handoff as the place still missing them: a recall late in a shift left units to find that the next shift was not told about.
+
+### Design
+
+- `ShiftHandoff.RecalledToPull`, counted from `InventoryService.ListRecalledAsync` when the handoff is written and kept on it (migration `20270105000000_ShiftHandoffRecalledToPull`, dev bootstrap column), as the other handoff counts are.
+- An urgent item, **Recalled, not yet pulled** ("quarantine or discard"), opening the Recalled board, placed before Expired on shelf; the summary says "RECALLED NOT YET PULLED n".
+- The handoff page, its preview and the home card show the item through the shared item list; no page change.
+
+### Verification
+
+- Unit: the urgent item, its link and order before Expired on shelf, the summary; nothing when none.
+- Integration: a handoff written with recalled units waiting counts them and keeps the count (extending the recalled-board test).
+- Live (read-only; no handoff written): the API added the RecalledToPull column on start and the handoff queries read it; Shift handoff loads, with no recalled item since the dev data has no recalled units. No server errors.
+
+### Requirements
+
+- URS-BB-732, FRS-BB-850.
+
+### Tests
+
+- TEST-BB-917, TEST-BB-918.
+
+### Next
+
+- Back to the capability matrix.

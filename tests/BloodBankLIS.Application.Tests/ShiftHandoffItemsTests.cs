@@ -93,6 +93,21 @@ public class ShiftHandoffItemsTests
         Assert.Empty(ShiftHandoffItems.For(Handoff()));
     }
 
+    // TEST-BB-917 (Cycle 689): recalled units not yet pulled are an urgent item opening the Recalled board, ahead of
+    // expired on shelf, and in the summary; none, no item.
+    [Fact]
+    public void RecalledToPull_IsAnUrgentHandoffItem()
+    {
+        var handoff = Handoff() with { RecalledToPull = 3, ExpiredOnShelf = 1 };
+        var items = ShiftHandoffItems.For(handoff);
+        var recalled = items.Single(i => i.Label == "Recalled, not yet pulled");
+        Assert.Equal((3, "/inventory?board=recalled", true, "quarantine or discard"), (recalled.Count, recalled.Href, recalled.Urgent, recalled.Detail));
+        Assert.True(items.ToList().IndexOf(recalled) < items.ToList().FindIndex(i => i.Label == "Expired on shelf"));
+        Assert.Contains("RECALLED NOT YET PULLED 3", handoff.QueueSummary);
+        Assert.DoesNotContain(ShiftHandoffItems.For(Handoff()), i => i.Label == "Recalled, not yet pulled");
+        Assert.DoesNotContain("RECALLED", Handoff().QueueSummary);
+    }
+
     // TEST-BB-615: unidentified patients still unmerged lead the handoff (urgent, linked to Patients); tubes due for discard
     // are a routine item linked to Store tubes; both are in the summary line.
     [Fact]

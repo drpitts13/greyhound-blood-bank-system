@@ -66,7 +66,8 @@ public sealed record ShiftHandoffDto(
     int Hl7OutboundNotSent = 0,
     int OutagesOpen = 0,
     int DispositionOverdue = 0,
-    int OutsideAntibodiesToConfirm = 0)
+    int OutsideAntibodiesToConfirm = 0,
+    int RecalledToPull = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -100,6 +101,7 @@ public sealed record ShiftHandoffDto(
         (NearExpiryUnits > 0
             ? $"; near expiry {NearExpiryUnits}" + (NearExpiryReserved > 0 ? $", {NearExpiryReserved} reserved" : "")
             : "") +
+        (RecalledToPull > 0 ? $"; RECALLED NOT YET PULLED {RecalledToPull}" : "") +
         (ExpiredOnShelf > 0 ? $"; EXPIRED ON SHELF {ExpiredOnShelf}, to discard" : "") +
         (ProductsBelowMinimum > 0 ? $"; BELOW MINIMUM STOCK {ProductsBelowMinimum} {(ProductsBelowMinimum == 1 ? "product" : "products")}" : "") +
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "") +
@@ -136,7 +138,7 @@ public sealed record ShiftHandoffDto(
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
         h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
         h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen,
-        h.DispositionOverdue, h.OutsideAntibodiesToConfirm);
+        h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull);
 }
 
 /// <summary>
@@ -413,6 +415,7 @@ public sealed class ShiftHandoffService
             CoolersNotChecked = coolers.Count(c => c.LastCheckedUtc is null),
             CoolersWithDifferences = coolers.Count(c => c.LastCheckedUtc is not null && c.LastCheckReady != true),
             ExpiredOnShelf = _inventory is null ? 0 : await _inventory.CountExpiredOnShelfAsync(ct),
+            RecalledToPull = _inventory is null ? 0 : (await _inventory.ListRecalledAsync(ct)).Count,
             OpenDeviations = openDeviations.Count,
             CriticalDeviations = openDeviations.Count(d => d.Severity == DeviationSeverity.Critical),
             ProductsBelowMinimum = _minimumStock is null ? 0 : (await _minimumStock.ListAsync(ct)).Count(r => r.Shortfall > 0),
@@ -528,7 +531,8 @@ public sealed class ShiftHandoffService
         Hl7OutboundNotSent = row.Hl7OutboundNotSent,
         OutagesOpen = row.OutagesOpen,
         DispositionOverdue = row.DispositionOverdue,
-        OutsideAntibodiesToConfirm = row.OutsideAntibodiesToConfirm
+        OutsideAntibodiesToConfirm = row.OutsideAntibodiesToConfirm,
+        RecalledToPull = row.RecalledToPull
     };
 
     /// <summary>

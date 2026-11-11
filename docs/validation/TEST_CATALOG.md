@@ -925,5 +925,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-914 | U | `DashboardHomeTests.RecalledToPull_IsForStockKeepers_AndNeedsAttentionAboveZero` | URS-BB-731 / FRS-BB-849 |
 | TEST-BB-915 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-731 / FRS-BB-849 |
 | TEST-BB-916 | U | `InventoryRecalledBoardTests.RecalledBoard_ListsUnitsToPull` | URS-BB-731 / FRS-BB-849 |
+| TEST-BB-917 | U | `ShiftHandoffItemsTests.RecalledToPull_IsAnUrgentHandoffItem` | URS-BB-732 / FRS-BB-850 |
+| TEST-BB-918 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-732 / FRS-BB-850 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -49,6 +49,8 @@ public static class ShiftHandoffItems
         Add(h.OpenReactions, "Reaction investigations", "/reactions",
             urgent: h.FatalityFollowUpDue > 0 || h.ReactionsWithUnitsOut > 0,
             detail: Note((h.FatalityFollowUpDue, "fatality follow-up"), (h.ReactionsWithUnitsOut, "with units out or reserved")));
+        // Cycle 689: a recalled unit still in the building (or on the ward) has to be found before the next shift issues around it.
+        Add(h.RecalledToPull, "Recalled, not yet pulled", "/inventory?board=recalled", urgent: true, detail: "quarantine or discard");
         Add(h.ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired", urgent: true, detail: "to discard");
         Add(h.NearExpiryUnits, "Near expiry", "/inventory?board=near", detail: Note((h.NearExpiryReserved, "reserved")));
         Add(h.ProductsBelowMinimum, "Below minimum stock", "/inventory/minimum-stock");
