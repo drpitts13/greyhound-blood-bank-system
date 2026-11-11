@@ -7,7 +7,14 @@
 <div class="flex-between">
     <h1>Ship units to another facility</h1>
     <div class="flex gap">
-        <button type="button" class="btn btn-ghost" onclick="window.print()" disabled="@(_run.Count(r => r.Unit is not null) == 0)">Print packing list</button>
+        @if (RunShipmentKey is string runKey)
+        {
+            <a class="btn btn-ghost" href="@PackingListHref(runKey)" target="_blank" data-ship-run-packing-list>Print packing list</a>
+        }
+        else
+        {
+            <button type="button" class="btn btn-ghost" disabled>Print packing list</button>
+        }
         <a class="btn btn-ghost" href="/inventory">Inventory</a>
     </div>
 </div>
@@ -15,7 +22,8 @@
     Pack an outbound shipment (stock balancing, a patient transferred with blood): name the receiving facility, the
     container, the packing temperature, who packed it and the receiving contact once, then scan each unit. Each scan ships that unit at once and leaves your inventory; the unit keeps
     the facility, so a recall or lookback names who to notify. Only an unreserved, unexpired unit in stock ships; anything
-    else is refused with its reason. <strong>Print packing list</strong> prints the units shipped in this run.
+    else is refused with its reason. <strong>Print packing list</strong> opens the sheet that travels with the shipment: its
+    facility, reference, packing details and units, with spaces for the receiving blood bank.
 </p>
 
 @if (!Session.Has(PermissionCodes.InventoryReceive))
@@ -164,7 +172,7 @@ else
                                             }
                                         </tbody>
                                     </table>
-                                    <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">Print packing list</button>
+                                    <a class="btn btn-ghost btn-sm" href="@PackingListHref(key)" target="_blank" data-shipment-packing-list>Print packing list</a>
                                 </td>
                             </tr>
                         }
@@ -207,6 +215,13 @@ else
     }
 
     private void ToggleShipment(string key) => _openShipment = _openShipment == key ? null : key;
+
+    // The shipment the latest unit of this run went into (a changed reference starts another shipment).
+    private string? RunShipmentKey => _run.FirstOrDefault(r => r.Unit is not null)?.Unit is { } u
+        ? ShipOutRule.ShipmentKey(u.ShippedToFacility, u.OutboundShipmentReference, u.ShippedUtc)
+        : null;
+
+    private static string PackingListHref(string key) => $"/inventory/ship-out/packing-list?key={Uri.EscapeDataString(key)}";
 
     private string _facility = string.Empty;
     private string _container = string.Empty;

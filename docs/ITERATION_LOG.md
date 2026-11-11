@@ -21053,3 +21053,35 @@ Cycle 668 kept each shipment's container, packing temperature, packer and receiv
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 683 — A packing list of its own (2026-11-10)
+
+### Capability matrix rescan (blood products: transfers)
+
+Ship units had two Print packing list buttons, and both ran the browser's print on the whole page: the shipment form, the run table and every recent shipment, with no packing details and nowhere for the receiving blood bank to sign. The sheet that travels in the container is what the other facility checks the units against.
+
+### Design
+
+- New page `/inventory/ship-out/packing-list?key=` (`ShipmentPackingList`), named by the existing shipment key (facility and reference, or facility and day): it finds the shipment in the past year's shipments, so no new API.
+- The sheet: shipped to, reference, shipped time, packed by, container, packing temperature, receiving contact; each unit with number, product code, ABO/Rh, expiry and a column for the receiver's initials; a Received block (received by, date/time, temperature on arrival, signature) left blank for handwriting. Reuses the MTP pack report's print styles.
+- A shipment from before packing details were kept shows a warning to write them by hand; an unknown key says no shipment was found and offers no Print; no key says to open it from Ship units.
+- Ship units: the top button links the shipment the last scanned unit went into; each recent shipment's button links its own; both open a new tab so scanning is not interrupted.
+- Read-only: nothing is recorded by opening or printing it.
+
+### Verification
+
+- Rendered: the named shipment only (another shipment's units are not on it), with its details, units and the Received block; an older shipment warns; unknown and missing keys show no sheet; the recent shipment's link carries its key and nothing on Ship units calls the page print any more.
+- Help: the new route is listed on the Inventory help topic (the every-route test found it missing).
+- Live (read-only; nothing shipped): Ship units links SHIP-DEMO-01 to its packing list; the sheet shows St. Mary's Hospital, SHIP-DEMO-01, COOLER-12, 4.0 °C, tech1, the receiving contact, the two units and the Received block. No server errors.
+
+### Requirements
+
+- URS-BB-726, FRS-BB-844.
+
+### Tests
+
+- TEST-BB-895, TEST-BB-896, TEST-BB-897.
+
+### Next
+
+- Back to the capability matrix.

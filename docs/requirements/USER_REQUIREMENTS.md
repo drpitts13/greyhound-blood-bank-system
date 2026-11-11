@@ -731,3 +731,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-723 | The patient timeline shows an outside antibody's confirmation here, an infant's admission specimen, and how each issue was entered. | P3 | FRS-BB-841 |
 | URS-BB-724 | The open RhIG list shows each evaluation's suggested decision and calculated dose beside what was recorded. | P3 | FRS-BB-842 |
 | URS-BB-725 | A shipped unit's page shows how it was packed and the receiving contact, and a recall notification for a shipped unit names that contact. | P3 | FRS-BB-843 |
+| URS-BB-726 | Print packing list gives a sheet for the one shipment (its facility, reference, packing details, receiving contact and units, with spaces for the receiver), not a print of the Ship units page. | P2 | FRS-BB-844 |

@@ -903,5 +903,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-892 | U | `RhigQueueSuggestionTests.Queue_ShowsTheSuggestion` | URS-BB-724 / FRS-BB-842 |
 | TEST-BB-893 | U | `UnitShipPackingTests.ShippedUnit_ShowsPackingAndReceivingContact` | URS-BB-725 / FRS-BB-843 |
 | TEST-BB-894 | I | `ComplianceWorkflowTests.RecallByDin_ShippedUnit_NotifiesTheReceivingFacility` | URS-BB-725 / FRS-BB-843 |
+| TEST-BB-895 | U | `ShipmentPackingListTests.PackingList_ShowsTheNamedShipment` | URS-BB-726 / FRS-BB-844 |
+| TEST-BB-896 | U | `ShipmentPackingListTests.PackingList_OlderShipment_AndNoMatch` | URS-BB-726 / FRS-BB-844 |
+| TEST-BB-897 | U | `ShipmentPackingListTests.ShipUnits_RecentShipment_LinksToItsPackingList` | URS-BB-726 / FRS-BB-844 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
