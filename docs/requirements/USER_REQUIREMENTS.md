@@ -748,3 +748,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-740 | The issue gate's refusal for a unit status that cannot be issued says why and what to do next. | P3 | FRS-BB-858 |
 | URS-BB-741 | The Recalled units to pull card says how long the oldest recall has waited and how many units are on the ward. | P3 | FRS-BB-859 |
 | URS-BB-742 | The patient chart says when the patient received a unit from a recalled donation whose recipient notification is still open (for those who work lookback). | P2 | FRS-BB-860 |
+| URS-BB-743 | OCD-083 option B: an EHR transfusion for a unit recalled, quarantined, damaged or missing is recorded, the unit keeps its status, and a supervisor reviews it from the supervisor queue. | P1 | FRS-BB-861 |

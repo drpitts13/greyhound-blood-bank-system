@@ -849,11 +849,12 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-735 / FRS-BB-853 | Recalled in transit: flagged, not received | `IssuingService.cs`, `IssuingDtos.cs`, `Issuing.razor` | TEST-BB-924, TEST-BB-925 | U, I | |
 | URS-BB-736 / FRS-BB-854 | Recalled on the ward returned through issuing; quarantined while out stays quarantined | `InventoryService.cs`, `IssuingService.cs`, `Inventory.razor` | TEST-BB-926, TEST-BB-927 | I | |
 | URS-BB-737 / FRS-BB-855 | Damaged or missing while issued; issuing status steps follow the rules | `IssuingService.cs` | TEST-BB-928 | I | |
-| URS-BB-738 / FRS-BB-856 | EHR transfusion for a unit no longer issued is held | `InterfaceTransfusionService.cs` | TEST-BB-929 | I | OCD-083 open |
+| URS-BB-738 / FRS-BB-856 | EHR transfusion for a unit no longer issued is held (superseded for recalled, quarantined, damaged and missing units by URS-BB-743) | `InterfaceTransfusionService.cs` | TEST-BB-937 | I | OCD-083 decided |
 | URS-BB-739 / FRS-BB-857 | Lookup says why a unit is out of use | `UnitStatusNote.cs`, `UniversalLookupService.cs` | TEST-BB-930, TEST-BB-931 | U, I | |
 | URS-BB-740 / FRS-BB-858 | Issue gate refusal says what to do | `IssueGate.cs` | TEST-BB-932, TEST-BB-933 | U, I | |
 | URS-BB-741 / FRS-BB-859 | Recalled card note | `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-934 | U | |
 | URS-BB-742 / FRS-BB-860 | Chart shows an open lookback notification | `PatientChartHeader.razor` | TEST-BB-935, TEST-BB-936 | U | |
+| URS-BB-743 / FRS-BB-861 | OCD-083 B: reported transfusion recorded and reviewed | `InterfaceTransfusionService.cs`, `TransfusionReportReviewService.cs`, `SupervisorQueueService.cs`, `SupervisorQueue.razor`, `InventoryService.cs`, `UnitDetail.razor`, migration | TEST-BB-929, TEST-BB-937..940 | U, I | OCD-083 decided |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -772,6 +772,8 @@ public sealed class TransfusionEventConfiguration : IEntityTypeConfiguration<Tra
     {
         b.ToTable("TransfusionEvents");
         b.HasKey(t => t.Id);
+        b.Property(t => t.ReportReviewedBy).HasMaxLength(100);
+        b.Property(t => t.ReportReviewNote).HasMaxLength(500);
         b.Property(t => t.Transfusionist).HasMaxLength(150);
         b.Property(t => t.DocumentedBy).HasMaxLength(100).IsRequired();
         b.Property(t => t.VolumeTransfused).HasPrecision(18, 3);

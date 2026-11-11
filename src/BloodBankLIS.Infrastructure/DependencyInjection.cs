@@ -99,6 +99,7 @@ public static class DependencyInjection
         services.AddScoped<DeviationService>();
         services.AddScoped<ShiftHandoffService>();
         services.AddScoped<SupervisorQueueService>();
+        services.AddScoped<BloodBankLIS.Application.Issuing.TransfusionReportReviewService>();
         services.AddScoped<OverrideReviewService>();
         services.AddScoped<DatElutionWorkupService>();
         services.AddScoped<RhigEvaluationService>();

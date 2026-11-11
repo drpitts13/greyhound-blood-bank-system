@@ -25,6 +25,10 @@ Open the row, read the underlying record, and complete the review on that record
 
 You see the sections your permissions allow. A supervisor who cannot release inventory will not see release rows. If a technologist says an item is "in the queue" and you do not see it, confirm you are signed in as yourself and that the item was actually submitted.
 
+## Reported transfusion
+
+When the EHR reports a unit transfused that the blood bank had recalled, quarantined, or recorded as damaged or missing after it was issued, the transfusion is recorded and the unit keeps its status (OCD-083). The row says which unit, which patient, when, and the unit's status and reason. Open the unit, find out what happened (for a recall, the recipient notification on Lookback is the next step), then **Review**: say what the review found and choose **Reviewed**. The review is recorded with your name and audited, and the row leaves the queue. You need inventory release or override approval permission.
+
 ## Override review
 
 Every override (an emergency release, a massive-transfusion release, or an issue or result that went ahead despite a warning) waits here for a second person. The title says which kind it was. The row shows what was overridden, the rule, the reason, who authorized it, who performed it, and when. **Open** goes to the unit when the override was on an issue.

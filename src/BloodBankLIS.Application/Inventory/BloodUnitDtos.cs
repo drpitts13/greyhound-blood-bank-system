@@ -70,7 +70,9 @@ public sealed record BloodUnitDto(
     string? ShipContainer = null,
     decimal? ShipPackingTemperatureC = null,
     string? ShipPackedBy = null,
-    string? ShipReceivingContact = null)
+    string? ShipReceivingContact = null,
+    // OCD-083: when the EHR reported this unit transfused while it was recalled, quarantined, damaged or missing.
+    DateTime? TransfusionReportedUtc = null)
 {
     public long? BloodSupplierId { get; init; }
 
@@ -101,7 +103,7 @@ public sealed record BloodUnitDto(
         u.Volume, u.DivisionCode, u.CollectionTypeCode,
         u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId,
         u.ShippedToFacility, u.ShippedUtc, u.OutboundShipmentReference,
-        u.ShipContainer, u.ShipPackingTemperatureC, u.ShipPackedBy, u.ShipReceivingContact);
+        u.ShipContainer, u.ShipPackingTemperatureC, u.ShipPackedBy, u.ShipReceivingContact, u.TransfusionReportedUtc);
 }
 
 public sealed record ExpectedInboundWorkItemDto(

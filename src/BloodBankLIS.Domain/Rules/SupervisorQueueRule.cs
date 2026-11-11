@@ -15,6 +15,11 @@ public static class SupervisorQueueRule
     public const string KindDiscrepancy = "InventoryDiscrepancy";
     /// <summary>An RhIG evaluation filled in and waiting for a verifier to complete it (Cycle 537).</summary>
     public const string KindRhigComplete = "RhigComplete";
+    /// <summary>OCD-083: a transfusion the EHR reported for a unit recalled, quarantined, damaged or missing (Cycle 700).</summary>
+    public const string KindTransfusionReported = "TransfusionReported";
+
+    /// <summary>A reported transfusion waits on whoever releases stock or reviews overrides.</summary>
+    public static bool IncludeTransfusionReported(bool hasInventoryRelease, bool hasOverrideApprove) => hasInventoryRelease || hasOverrideApprove;
 
     public static RuleResult EvaluateAccess(
         bool hasImmunoOverride,
@@ -39,7 +44,7 @@ public static class SupervisorQueueRule
     public static bool IncludeDiscrepancy(bool hasInventoryRelease) => hasInventoryRelease;
 
     public static readonly IReadOnlyList<string> Kinds =
-        [KindAntibodyReview, KindResultVerify, KindQuarantineRelease, KindDiscrepancy, KindOverrideReview];
+        [KindAntibodyReview, KindResultVerify, KindQuarantineRelease, KindDiscrepancy, KindTransfusionReported, KindOverrideReview];
 
     /// <summary>The queue kind a link names (<c>?kind=</c>), matched without regard to case; null when it names none.</summary>
     public static string? KindFromQuery(string? value) =>
@@ -51,7 +56,8 @@ public static class SupervisorQueueRule
         KindResultVerify => 1,
         KindQuarantineRelease => 2,
         KindDiscrepancy => 3,
-        KindOverrideReview => 4,
+        KindTransfusionReported => 4,
+        KindOverrideReview => 5,
         _ => 99
     };
 }

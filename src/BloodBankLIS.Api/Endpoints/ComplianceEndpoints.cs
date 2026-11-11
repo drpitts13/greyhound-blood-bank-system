@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -173,6 +174,13 @@ public static class ComplianceEndpoints
             .WithTags("Supervisor")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.OverrideApprove);
+
+        // OCD-083 option B: review a transfusion the EHR reported over a unit's status (the service checks the permission).
+        app.MapPost("/api/transfusions/{id:long}/report-review", async (long id, ReviewTransfusionReportRequest request, TransfusionReportReviewService service, CancellationToken ct) =>
+                EndpointResults.From(await service.ReviewAsync(id, request, ct), d => d))
+            .WithTags("Supervisor")
+            .RequireAuthenticatedUser()
+            .RequireAnyPermission(PermissionCodes.InventoryRelease, PermissionCodes.OverrideApprove);
 
         app.MapGet("/api/supervisor-queue", async (SupervisorQueueService service, CancellationToken ct) =>
                 EndpointResults.From(await service.ListAsync(ct), items => items))

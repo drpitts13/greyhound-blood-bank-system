@@ -937,7 +937,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-926 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-736 / FRS-BB-854 |
 | TEST-BB-927 | I | `Phase4IssuingTests.QuarantinedWhileIssued_StaysInQuarantine_OnReturn` | URS-BB-736 / FRS-BB-854 |
 | TEST-BB-928 | I | `Phase4IssuingTests.ReportedWhileIssued_DoesNotReturnToStock` | URS-BB-737 / FRS-BB-855 |
-| TEST-BB-929 | I | `InterfaceTransfusionAuthorizationTests.Document_UnitNoLongerIssued_IsHeldForReview` | URS-BB-738 / FRS-BB-856 |
+| TEST-BB-929 | I | `InterfaceTransfusionAuthorizationTests.Document_UnitNoLongerIssued_IsRecordedAndFlagged` | URS-BB-743 / FRS-BB-861 |
 | TEST-BB-930 | U | `UnitStatusNoteTests.For_NamesTheReason`, `UnitStatusNoteTests.For_NoReason_OrALongOne` | URS-BB-739 / FRS-BB-857 |
 | TEST-BB-931 | I | `UniversalLookupTests.RecalledUnit_HitNamesTheRecall` | URS-BB-739 / FRS-BB-857 |
 | TEST-BB-932 | I | `Phase4IssuingTests.IssueGate_RefusesAStatusThatCannotBeIssued` | URS-BB-740 / FRS-BB-858 |
@@ -945,5 +945,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-934 | U | `DashboardHomeTests.RecalledToPullNote_SaysOldestAndOnTheWard` | URS-BB-741 / FRS-BB-859 |
 | TEST-BB-935 | U | `ChartLookbackBannerTests.OpenNotification_ShowsOnTheChart` | URS-BB-742 / FRS-BB-860 |
 | TEST-BB-936 | U | `ChartLookbackBannerTests.NoNotification_NoBanner` | URS-BB-742 / FRS-BB-860 |
+| TEST-BB-937 | I | `InterfaceTransfusionAuthorizationTests.Document_DiscardedUnit_IsStillRefused` | URS-BB-738 / FRS-BB-856 |
+| TEST-BB-938 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-743 / FRS-BB-861 |
+| TEST-BB-939 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-743 / FRS-BB-861 |
+| TEST-BB-940 | U | `TransfusionReportReviewPageTests.ReportedTransfusion_IsReviewedInPlace` | URS-BB-743 / FRS-BB-861 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

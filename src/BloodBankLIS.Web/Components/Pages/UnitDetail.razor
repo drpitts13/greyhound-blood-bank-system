@@ -138,6 +138,10 @@ else
                     {
                         <span>Returned to supplier: @_unit.SupplierReturnReason</span>
                     }
+                    @if (_unit.TransfusionReportedUtc is DateTime reportedUtc)
+                    {
+                        <span class="text-error" data-unit-transfusion-reported>Reported transfused by the EHR on @reportedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") while @_unit.Status; reviewed on the supervisor queue (OCD-083).</span>
+                    }
                     @if (!string.IsNullOrWhiteSpace(_unit.ShippedToFacility))
                     {
                         <span data-unit-shipped>Shipped to @_unit.ShippedToFacility@(_unit.ShippedUtc is DateTime shippedUtc ? $" on {shippedUtc.ToLocalTime():yyyy-MM-dd HH:mm}" : "")@(_unit.OutboundShipmentReference is string shipRef ? $" ({shipRef})" : "")</span>

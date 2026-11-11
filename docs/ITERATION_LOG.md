@@ -21614,3 +21614,50 @@ A recall opens a recipient notification for each patient who received a componen
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 700 — A reported transfusion recorded and reviewed (OCD-083 decided) (2026-11-11)
+
+### Capability matrix rescan (interoperability: BPAM inbound; supervisor queue)
+
+OCD-083 was decided on 2026-11-11: option B. A transfusion the EHR reports for a unit that the blood bank had recalled, quarantined, or recorded as damaged or missing after it was issued is recorded (it happened, and lookback and the patient's record need it). The unit keeps that status, and the transfusion is flagged for review. Cycle 695 had held these messages in the error queue.
+
+### Design
+
+- `InterfaceTransfusionService` records the transfusion as usual and sets the issue Transfused, but:
+  - the event keeps the unit's status (`TransfusionEvent.UnitStatusAtReport`);
+  - the unit keeps its status and is marked `TransfusionReportedUtc`;
+  - it is audited (Path TransfusedOverStatus);
+  - the acknowledgment says the unit's status and that it is flagged for review;
+  - a suspected reaction still opens an investigation, and billing is captured as for any transfusion.
+- Any other status that is not issued (discarded, expired, returned...) is still held in the error queue.
+- `TransfusionReportReviewService`: the unreviewed ones, and a review recorded once:
+  - a note is required;
+  - it needs inventory.release or override.approve;
+  - the reviewer and time are recorded and audited;
+  - unit and issue are not changed.
+  `POST /api/transfusions/{id}/report-review`.
+- Supervisor queue: kind **Reported transfusion**, before override review. The row names the unit, the patient's MRN, when, and the status with its reason. It offers Open unit and an in-place Review (note, Reviewed).
+- The Recalled board, its home card and the handoff no longer count such a unit as one to pull, and the board's scan refuses it. The unit page says it was reported transfused, and when.
+- Migration `20270106000000_TransfusionReportedOverStatus`, dev bootstrap columns.
+
+### Verification
+
+- Integration:
+  - Recalled, quarantined, damaged and missing units are recorded with the status kept on the unit and the event, the issue transfused, the unit marked and the audit written. An issued unit is recorded as before, and a discarded unit is still refused.
+  - On the queue, the reported transfusion is listed with the recall reason. A review without permission or without a note is refused; a review is recorded and audited and cannot be repeated; the row leaves the queue.
+  - Such a recalled unit leaves the Recalled board and its scan is refused.
+- Rendered: review in place on the supervisor queue; Reviewed waits for a note; the row leaves.
+- Domain: the supervisor-queue kind count test now expects six kinds and checks the new kind is linkable.
+- Live (read-only; no message sent): the API added the new columns and the supervisor queue reads them; the queue loads its 6 demo items with no reported transfusion; the Recalled board still shows the demo unit (not reported transfused). No server errors.
+
+### Requirements
+
+- URS-BB-743, FRS-BB-861; OCD-083 decided.
+
+### Tests
+
+- TEST-BB-929 (changed), TEST-BB-937, TEST-BB-938, TEST-BB-939, TEST-BB-940.
+
+### Next
+
+- Back to the capability matrix.

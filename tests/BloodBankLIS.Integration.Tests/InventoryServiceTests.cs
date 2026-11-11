@@ -731,6 +731,14 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         Assert.True((await service.QuarantineAsync(shelf, UnitQuarantineReason.Other, "Recalled; held for the supplier")).Succeeded);
         Assert.DoesNotContain(await service.ListRecalledAsync(), r => r.UnitId == shelf);
+
+        // TEST-BB-939 (Cycle 700, OCD-083): a recalled unit the EHR reported transfused is no longer on the board, and the
+        // board's scan refuses it; it keeps its Recalled status.
+        (await context.BloodUnits.FindAsync(issued))!.TransfusionReportedUtc = _factory.Clock.UtcNow;
+        await context.SaveChangesAsync();
+        Assert.DoesNotContain(await service.ListRecalledAsync(), r => r.UnitId == issued);
+        Assert.Contains("reported transfused by the EHR", (await service.PullRecalledByScanAsync(new PullRecalledByScanRequest($"U-RCLB-{key}"))).Error);
+        Assert.Equal(UnitStatus.Recalled, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == issued)).Status);
     }
 
     // TEST-BB-919: a recalled unit found and scanned is quarantined for the recall (Lookback recall, noting the recall's

@@ -32,6 +32,7 @@ public sealed class SupervisorQueueService
     private readonly IPermissionEvaluator? _permissions;
     private readonly OverrideReviewService? _overrides;
     private readonly RhigEvaluationService? _rhig;
+    private readonly BloodBankLIS.Application.Issuing.TransfusionReportReviewService? _reported;
 
     public SupervisorQueueService(
         ICurrentUser currentUser,
@@ -40,8 +41,10 @@ public sealed class SupervisorQueueService
         InventoryService? inventory = null,
         IPermissionEvaluator? permissions = null,
         OverrideReviewService? overrides = null,
-        RhigEvaluationService? rhig = null)
+        RhigEvaluationService? rhig = null,
+        BloodBankLIS.Application.Issuing.TransfusionReportReviewService? reported = null)
     {
+        _reported = reported;
         _rhig = rhig;
         _overrides = overrides;
         _currentUser = currentUser;
@@ -159,6 +162,25 @@ public sealed class SupervisorQueueService
                     $"/inventory/units/{u.UnitId}",
                     missing ? "Locate" : "Inspect",
                     ContextId: u.UnitId));
+            }
+        }
+
+        // OCD-083 option B: each transfusion the EHR reported over a unit's status until a supervisor reviews it.
+        if (SupervisorQueueRule.IncludeTransfusionReported(release, approve) && _reported is not null)
+        {
+            foreach (var r in await _reported.ListToReviewAsync(ct))
+            {
+                var why = string.IsNullOrWhiteSpace(r.UnitReason) ? "" : $" ({r.UnitReason.Trim().TrimEnd('.')})";
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindTransfusionReported,
+                    $"Transfused while {r.UnitStatusAtReport} — {r.UnitNumber}",
+                    $"The EHR reported {r.UnitNumber} transfused to MRN {r.MedicalRecordNumber ?? r.PatientId.ToString()} {(r.StartUtc is DateTime started ? $" (started {started:yyyy-MM-dd HH:mm} UTC)" : "")} while the blood bank had it {r.UnitStatusAtReport}{why}. Recorded; the unit keeps its status.",
+                    $"/inventory/units/{r.BloodUnitId}",
+                    "Review",
+                    PatientId: r.PatientId,
+                    ContextId: r.TransfusionId,
+                    Mrn: r.MedicalRecordNumber,
+                    DueSoon: true));
             }
         }
 

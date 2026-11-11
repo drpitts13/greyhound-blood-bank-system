@@ -149,6 +149,12 @@ public class BloodUnit : BaseEntity
     /// <summary>OCD-072: who receives the shipment at the other facility (name, and phone if given).</summary>
     public string? ShipReceivingContact { get; set; }
 
+    /// <summary>
+    /// OCD-083 (option B): when the EHR reported this unit transfused while the blood bank had it recalled, quarantined,
+    /// damaged or missing. The status is kept; this says the unit is no longer here to pull.
+    /// </summary>
+    public DateTime? TransfusionReportedUtc { get; set; }
+
     /// <summary>Allogeneic, autologous, or directed. Autologous/directed require <see cref="ReservedPatientId"/>.</summary>
     public DonationRestriction DonationRestriction { get; set; } = DonationRestriction.Allogeneic;
 

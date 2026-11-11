@@ -361,7 +361,10 @@ public sealed class InventoryService
     /// </summary>
     public async Task<IReadOnlyList<RecalledWorkItemDto>> ListRecalledAsync(CancellationToken ct = default)
     {
-        var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Recalled), ct);
+        // OCD-083: a recalled unit the EHR reported transfused is not here to pull; it is reviewed on the supervisor queue.
+        var rows = (await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Recalled), ct))
+            .Where(u => u.TransfusionReportedUtc is null)
+            .ToList();
         var products = await LoadProductsAsync(rows, ct);
         var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
         var items = new List<RecalledWorkItemDto>(rows.Count);
@@ -1800,6 +1803,12 @@ public sealed class InventoryService
         }
 
         var found = recalled[0];
+        if (found.TransfusionReportedUtc is not null)
+        {
+            return InventoryActionResult.Fail(
+                $"{found.UnitNumber} was reported transfused by the EHR after it was recalled; it is reviewed on the supervisor queue, not pulled.");
+        }
+
         // Cycle 693: a unit recalled while it was issued is on the ward with its issue open; it is returned on Issue &
         // Transfuse, which closes the issue and quarantines it, rather than quarantined here behind an open issue.
         var recallRow = (await _repository.GetHistoryAsync(found.Id, ct))
