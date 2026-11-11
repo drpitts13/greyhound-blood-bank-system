@@ -458,7 +458,9 @@ else
         // Shipped to another facility: no patient here; that facility is the one to notify.
         if (!string.IsNullOrWhiteSpace(note.ShippedToFacility))
         {
-            return $"Shipped to {note.ShippedToFacility}: notify that facility";
+            return string.IsNullOrWhiteSpace(note.ShippedReceivingContact)
+                ? $"Shipped to {note.ShippedToFacility}: notify that facility"
+                : $"Shipped to {note.ShippedToFacility}: notify that facility (received by {note.ShippedReceivingContact})";
         }
 
         if (!string.IsNullOrWhiteSpace(note.PatientName))

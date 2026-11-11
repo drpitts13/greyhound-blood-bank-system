@@ -836,6 +836,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-722 / FRS-BB-840 | Handoff: overdue dispositions, outside antibodies to confirm | `ShiftHandoff.cs`; `ShiftHandoffService.cs`; `ShiftHandoffItems.cs` | TEST-BB-889, TEST-BB-890 | U, I | |
 | URS-BB-723 / FRS-BB-841 | Timeline: confirmation, infant specimen, issue entry | `PatientTimelineService.cs` | TEST-BB-891 | I | |
 | URS-BB-724 / FRS-BB-842 | RhIG queue shows the suggestion | `RhigQueue.razor` | TEST-BB-892 | U | OCD-069 |
+| URS-BB-725 / FRS-BB-843 | Shipped unit: packing and receiving contact on the unit page and the recall | `BloodUnitDtos.cs`, `UnitDetail.razor`, `LookbackService.cs`, `Lookback.razor` | TEST-BB-893, TEST-BB-894 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

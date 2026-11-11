@@ -65,7 +65,12 @@ public sealed record BloodUnitDto(
     // Shipped to another facility: where, when, and the outbound shipment reference.
     string? ShippedToFacility = null,
     DateTime? ShippedUtc = null,
-    string? OutboundShipmentReference = null)
+    string? OutboundShipmentReference = null,
+    // OCD-072: how the shipment was packed and who receives it (null for shipments before Cycle 668).
+    string? ShipContainer = null,
+    decimal? ShipPackingTemperatureC = null,
+    string? ShipPackedBy = null,
+    string? ShipReceivingContact = null)
 {
     public long? BloodSupplierId { get; init; }
 
@@ -95,7 +100,8 @@ public sealed record BloodUnitDto(
         u.ExpectedArrivalDueUtc, u.QuarantineReasonCode,
         u.Volume, u.DivisionCode, u.CollectionTypeCode,
         u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId,
-        u.ShippedToFacility, u.ShippedUtc, u.OutboundShipmentReference);
+        u.ShippedToFacility, u.ShippedUtc, u.OutboundShipmentReference,
+        u.ShipContainer, u.ShipPackingTemperatureC, u.ShipPackedBy, u.ShipReceivingContact);
 }
 
 public sealed record ExpectedInboundWorkItemDto(

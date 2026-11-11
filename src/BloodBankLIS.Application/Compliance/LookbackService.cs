@@ -90,8 +90,9 @@ public sealed record LookbackNotificationDto(
     string? UnitNumber = null,
     string? MedicalRecordNumber = null,
     string? PatientName = null,
-    // A unit shipped to another facility: that facility is the one to notify.
-    string? ShippedToFacility = null)
+    // A unit shipped to another facility: that facility is the one to notify, and who received the shipment there.
+    string? ShippedToFacility = null,
+    string? ShippedReceivingContact = null)
 {
     public static LookbackNotificationDto From(LookbackNotification n) => new(
         n.Id, n.Din, n.BloodProductId, n.PatientId, n.IssueId, n.Status,
@@ -585,7 +586,8 @@ public sealed class LookbackService
                 UnitNumber = unit?.UnitNumber,
                 MedicalRecordNumber = patient?.MedicalRecordNumber,
                 PatientName = FormatName(patient),
-                ShippedToFacility = unit?.Status == UnitStatus.ShippedOut ? unit.ShippedToFacility : null
+                ShippedToFacility = unit?.Status == UnitStatus.ShippedOut ? unit.ShippedToFacility : null,
+                ShippedReceivingContact = unit?.Status == UnitStatus.ShippedOut ? unit.ShipReceivingContact : null
             });
         }
 

@@ -134,7 +134,8 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
             {
                 UnitNumber = "U-SHP-LB", ProductTypeId = productType.Id, Abo = AboGroup.O, RhD = RhType.Positive, Din = din,
                 ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.ShippedOut,
-                ShippedToFacility = "St. Mary's Hospital", ShippedUtc = _factory.Clock.UtcNow.AddDays(-1)
+                ShippedToFacility = "St. Mary's Hospital", ShippedUtc = _factory.Clock.UtcNow.AddDays(-1),
+                ShipReceivingContact = "St. Mary's blood bank, 555-0142"
             };
             c.BloodUnits.Add(shipped);
             await c.SaveChangesAsync();
@@ -147,6 +148,8 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
             Assert.True(recalled.Succeeded, recalled.Error);
             var note = Assert.Single(recalled.Value!.Notifications, n => n.BloodProductId == shippedId);
             Assert.Equal("St. Mary's Hospital", note.ShippedToFacility);
+            // TEST-BB-894: the notification names who received the shipment, so the recall knows whom to call.
+            Assert.Equal("St. Mary's blood bank, 555-0142", note.ShippedReceivingContact);
             Assert.Null(note.PatientId);
             Assert.True((await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive")).Succeeded);
         }

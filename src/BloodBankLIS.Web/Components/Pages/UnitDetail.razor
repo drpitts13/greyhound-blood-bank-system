@@ -155,6 +155,7 @@ else
                     @if (!string.IsNullOrWhiteSpace(_unit.ShippedToFacility))
                     {
                         <span data-unit-shipped>Shipped to @_unit.ShippedToFacility@(_unit.ShippedUtc is DateTime shippedUtc ? $" on {shippedUtc.ToLocalTime():yyyy-MM-dd HH:mm}" : "")@(_unit.OutboundShipmentReference is string shipRef ? $" ({shipRef})" : "")</span>
+                        <span data-unit-ship-packing>@ShipPackingText(_unit)</span>
                     }
                     @if (!string.IsNullOrWhiteSpace(_unit.DirectedConversionReason))
                     {
@@ -889,6 +890,11 @@ else
         var p = _patients.FirstOrDefault(x => x.Id == patientId);
         return p is null ? $"patient #{patientId}" : $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})";
     }
+
+    // OCD-072: how a shipped unit was packed and who receives it; shipments before Cycle 668 kept none of it.
+    public static string ShipPackingText(BloodUnitDto unit) => unit.ShipContainer is null
+        ? "Packing details: not recorded"
+        : $"Packed in {unit.ShipContainer} at {unit.ShipPackingTemperatureC} °C by {unit.ShipPackedBy} · Receiving contact: {unit.ShipReceivingContact}";
 
     private static string TypingSourceLabel(UnitAttributeTypingSource source) => source switch
     {

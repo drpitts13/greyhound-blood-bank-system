@@ -21023,3 +21023,33 @@ Cycle 671 suggested each evaluation's decision and dose on the chart, but the op
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 682 — A shipped unit says how it went and who received it (2026-11-10)
+
+### Capability matrix rescan (blood products: transfers; lookback)
+
+Cycle 668 kept each shipment's container, packing temperature, packer and receiving contact, but only Recent shipments on the Ship units page showed them. The unit page, where a recalled or questioned unit is looked up, said only where and when it was shipped. A recall of a shipped unit listed "notify that facility" without saying whom to call.
+
+### Design
+
+- `BloodUnitDto` carries the four packing fields. The unit page adds a line under "Shipped to": "Packed in COOLER-12 at 4.0 °C by tech1 · Receiving contact: …", or "Packing details: not recorded" for a shipment made before they were kept.
+- `LookbackNotificationDto.ShippedReceivingContact`, set while the unit is still ShippedOut; the notification reads "Shipped to X: notify that facility (received by …)".
+- Read-only: no schema change, no new audit.
+
+### Verification
+
+- Unit: the DTO carries the fields; the line reads as one sentence; an older shipment says not recorded.
+- Integration: the recall notification for a shipped unit names the receiving contact (the existing recall test, extended).
+- Live (read-only; nothing shipped or recalled): the demo shipped unit W000123SHP0001 reads "Shipped to St. Mary's Hospital on 2026-11-07 02:52 (SHIP-DEMO-01)" and below it "Packed in COOLER-12 at 4.0 °C by tech1 · Receiving contact: St. Mary's blood bank, 555-0142". The recall notification was not exercised live (it would write); the integration test covers it. No server errors.
+
+### Requirements
+
+- URS-BB-725, FRS-BB-843.
+
+### Tests
+
+- TEST-BB-893, TEST-BB-894.
+
+### Next
+
+- Back to the capability matrix.
