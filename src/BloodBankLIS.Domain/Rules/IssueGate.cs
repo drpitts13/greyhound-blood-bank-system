@@ -228,7 +228,7 @@ public static class IssueGate
 
             UnitStatusAllowsIssue(c)
                 ? RuleResult.Pass(UnitStatusCode)
-                : RuleResult.HardStop(UnitStatusCode, $"Unit status {c.UnitStatus} is not issuable."),
+                : RuleResult.HardStop(UnitStatusCode, NotIssuableMessage(c.UnitStatus)),
 
             BloodUnitExpirationRule.Evaluate(c.UnitExpiresUtc, c.NowUtc, c.UnitNearExpiryWindow),
 
@@ -343,6 +343,28 @@ public static class IssueGate
     /// Emergency or MTP issue may release a unit that is still Received because retype
     /// has not been confirmed. Every other issue stays on the normal issuable statuses.
     /// </summary>
+    /// <summary>
+    /// Cycle 697: the refusal for a status that cannot be issued says why and what to do next, after the status itself
+    /// (the wording "Unit status X is not issuable" is kept at the start).
+    /// </summary>
+    public static string NotIssuableMessage(UnitStatus status) =>
+        $"Unit status {status} is not issuable" + status switch
+        {
+            UnitStatus.Expected => ": the unit has not been received yet. Receive it first.",
+            UnitStatus.Received => ": the unit is received but not released to stock. Release it (and retype it if required) first.",
+            UnitStatus.Discarded => ": the unit was discarded. Choose another unit.",
+            UnitStatus.Modified => ": the unit was modified into other units. Issue one of those instead.",
+            UnitStatus.Expired => ": the unit has expired. Discard it and choose another unit.",
+            UnitStatus.Recalled => ": the unit was recalled. Choose another unit.",
+            UnitStatus.Quarantine => ": the unit is in quarantine. Choose another unit, or release it from quarantine first.",
+            UnitStatus.OnHold => ": the unit is on operational hold. Release the hold first, or choose another unit.",
+            UnitStatus.Missing or UnitStatus.Damaged => ": resolve it on the Discrepancy board, or choose another unit.",
+            UnitStatus.Issued or UnitStatus.TransfusionStarted or UnitStatus.Transfused or UnitStatus.TransfusionStopped
+                => ": the unit is already issued or transfused.",
+            UnitStatus.ReturnedToSupplier or UnitStatus.ShippedOut => ": the unit has left this facility.",
+            _ => "."
+        };
+
     private static bool UnitStatusAllowsIssue(IssueGateContext c) =>
         IssuableStatuses.Contains(c.UnitStatus)
         || (EmergencyMayReserveUnretyped(c) && c.UnitStatus == UnitStatus.Received);

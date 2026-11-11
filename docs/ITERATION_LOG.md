@@ -21516,3 +21516,43 @@ Scanning a unit in the top-bar lookup showed its status (Recalled, Quarantine, M
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 697 — The issue gate says what to do with a unit it will not issue (2026-11-11)
+
+### Capability matrix rescan (safety rules: issue gate; UX: human-readable errors)
+
+Continuing the status audit of Cycles 694-695, I checked whether the issue gate could issue a unit in a status the rules do not allow (discarded, modified into other units, expected, expired), even as an emergency release. It cannot: the gate's unit-status rule refuses all of them, and the new test confirms it. The refusal itself was "Unit status Modified is not issuable.", which tells the issuer neither why nor what to do.
+
+### Design
+
+- `IssueGate.NotIssuableMessage(status)` keeps the sentence's start, so anything matching it still matches, and adds the reason and the next step per status:
+  - not received yet: receive it first;
+  - received but not released: release it (and retype it if required) first;
+  - discarded: choose another unit;
+  - modified into other units: issue one of those instead;
+  - expired: discard it and choose another unit;
+  - recalled: choose another unit;
+  - in quarantine: choose another unit, or release it from quarantine first;
+  - on operational hold: release the hold first, or choose another unit;
+  - missing or damaged: resolve it on the Discrepancy board;
+  - already issued or transfused;
+  - left this facility.
+- Other statuses end at the status. No rule changed.
+
+### Verification
+
+- Unit: each status's wording and the plain ending for the rest.
+- Integration: discarded, modified, expected and expired units are refused as an emergency release with that wording; no issue is recorded and the status is unchanged (this confirms the existing gate).
+- Live: not run; seeing the refusal would mean attempting an issue on the dev data, and only the wording changed, which the tests cover.
+
+### Requirements
+
+- URS-BB-740, FRS-BB-858.
+
+### Tests
+
+- TEST-BB-932, TEST-BB-933.
+
+### Next
+
+- Back to the capability matrix.

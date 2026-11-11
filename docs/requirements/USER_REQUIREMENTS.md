@@ -745,3 +745,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-737 | A unit reported damaged or missing while issued does not return to stock; no issuing step writes a status change the status rules do not allow. | P1 | FRS-BB-855 |
 | URS-BB-738 | An EHR transfusion message for a unit no longer issued in the blood bank is held for review, not recorded over its status. | P1 | FRS-BB-856 |
 | URS-BB-739 | A unit found by the top-bar lookup says why it is out of routine use (the recorded reason or where it was shipped). | P3 | FRS-BB-857 |
+| URS-BB-740 | The issue gate's refusal for a unit status that cannot be issued says why and what to do next. | P3 | FRS-BB-858 |

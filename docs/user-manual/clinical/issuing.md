@@ -128,6 +128,8 @@ On **In transit**, each unit in a cooler shows **Cooler checked**, **Cooler diff
 
 ## What the gate will not do
 
+A unit whose status cannot be issued is refused with the status, why, and what to do next: for example *not received yet, receive it first*; *modified into other units, issue one of those instead*; *expired, discard it and choose another unit*; *missing or damaged, resolve it on the Discrepancy board*.
+
 The gate will not issue a unit whose verified retype does not match its label (even for emergency release), the losing chart of a merged patient, a unit allocated to someone else, an autologous or directed unit to the wrong patient, a unit that fails appearance, or an unmet issue procedure such as the blood warmer acknowledgment. A unit that does not meet one of the patient's unit typings or modifications (for example group O red cells only, or irradiated) is refused on a routine issue; on emergency or MTP release it can go only under the authorized override, which is recorded. Fix the record or choose another unit. Informational requirements for the patient show as a blue banner on the issue form. See [Safety checks](safety) for the list you will see most often.
 
 ## Return inspection

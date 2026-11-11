@@ -1583,6 +1583,31 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-932 (Cycle 697, confirming the existing gate): the issue gate refuses a unit in a status that cannot be issued
+    // (discarded, modified into other units, expected and not yet received, expired), even as an emergency release; no
+    // issue is recorded and the unit keeps its status.
+    [Theory]
+    [InlineData(UnitStatus.Discarded)]
+    [InlineData(UnitStatus.Modified)]
+    [InlineData(UnitStatus.Expected)]
+    [InlineData(UnitStatus.Expired)]
+    public async Task IssueGate_RefusesAStatusThatCannotBeIssued(UnitStatus status)
+    {
+        var s = await SeedAsync($"GATE-{status}", unitStatus: status);
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease, overrideReason: "Bleeding, no time", authorizedBy: "dr-authorizer"));
+            Assert.False(issued.Succeeded);
+            var refusal = issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []);
+            Assert.Contains(IssueGate.NotIssuableMessage(status), refusal);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(status, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.False(await verify.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+    }
+
     // TEST-BB-924 (Cycle 692): a unit recalled on its way to the ward is flagged on In transit with the reason and is not
     // received there (the refusal names the recall); it stays in transit to be returned. Another unit in transit is not flagged.
     [Fact]

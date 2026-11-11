@@ -639,4 +639,25 @@ public class IssueGateTests
         Assert.True(evaluation.IsHardStopped);
         Assert.Contains(evaluation.HardStops, r => r.Code == AutologousDirectedRule.IssueCode);
     }
+
+    // TEST-BB-933 (Cycle 697): the refusal for a status that cannot be issued keeps "Unit status X is not issuable" and
+    // adds why and what to do next; a status with nothing more to say ends there.
+    [Theory]
+    [InlineData(UnitStatus.Expected, "Receive it first.")]
+    [InlineData(UnitStatus.Discarded, "Choose another unit.")]
+    [InlineData(UnitStatus.Modified, "modified into other units. Issue one of those instead.")]
+    [InlineData(UnitStatus.Expired, "Discard it and choose another unit.")]
+    [InlineData(UnitStatus.Recalled, "was recalled.")]
+    [InlineData(UnitStatus.Missing, "Discrepancy board")]
+    [InlineData(UnitStatus.ShippedOut, "has left this facility.")]
+    public void NotIssuableMessage_SaysWhatToDo(UnitStatus status, string expected)
+    {
+        var message = IssueGate.NotIssuableMessage(status);
+        Assert.StartsWith($"Unit status {status} is not issuable", message);
+        Assert.Contains(expected, message);
+    }
+
+    [Fact]
+    public void NotIssuableMessage_OtherStatus_EndsAtTheStatus() =>
+        Assert.Equal("Unit status CancelledAssignment is not issuable.", IssueGate.NotIssuableMessage(UnitStatus.CancelledAssignment));
 }
