@@ -752,3 +752,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-744 | A transfusion reported over a unit's status says so on the patient's product history and timeline (with its review), and the supervisor card counts those waiting. | P2 | FRS-BB-862 |
 | URS-BB-745 | A recall notifies the recipient of a component the EHR reported transfused over its status, and does not recall that component. | P1 | FRS-BB-863 |
 | URS-BB-746 | A unit the EHR reported transfused over its status cannot be released, located, inspected, discarded or expired back into another status, and is not on the Quarantine or Discrepancy boards. | P1 | FRS-BB-864 |
+| URS-BB-747 | The unit's Status history says when its transfusion was reported over its status, and the review. | P3 | FRS-BB-865 |

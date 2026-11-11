@@ -194,7 +194,9 @@ public sealed class UnitActivityService
             rows.Add(new UnitActivityDto(
                 t.StopUtc ?? t.StartUtc ?? t.CreatedUtc,
                 "Transfusion",
-                running ? $"Started for {who}, not yet completed" : $"{t.FinalDisposition} for {who}",
+                (running ? $"Started for {who}, not yet completed" : $"{t.FinalDisposition} for {who}")
+                    // Cycle 704 (OCD-083): a transfusion the EHR reported over the unit's status says so, with its review.
+                    + (TransfusionReportNote.For(t.UnitStatusAtReport, t.ReportReviewedBy, t.ReportReviewNote) is string reportNote ? $". {reportNote}" : ""),
                 t.Transfusionist ?? t.CreatedBy,
                 nameof(TransfusionEvent),
                 t.Id));

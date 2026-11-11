@@ -21758,3 +21758,38 @@ Following OCD-083 option B (Cycle 700) through inventory: a unit reported transf
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 704 — The unit's history notes a reported transfusion (2026-11-11)
+
+### Capability matrix rescan (blood products: status history; safety architecture)
+
+Continuing from Cycle 703, the remaining direct status writers were checked against a unit reported transfused (OCD-083):
+
+- **Storage-excursion quarantine:** only stocked statuses.
+- **Product retype:** received units only.
+- **Reaction remainder hold:** its own allowed list refuses other statuses.
+
+None can reach such a unit. The deferred "Next" items of Cycles 600-695 were also re-read; each has been done since.
+
+One gap remained. The unit's own Status history listed the transfusion as an ordinary "Completed for <patient>", while Product History and the timeline (Cycle 701) say it was reported over a recalled, quarantined, damaged or missing status. A reported transfusion writes no status row, so this is the unit's only record of it.
+
+### Design
+
+- `UnitActivityService` appends `TransfusionReportNote.For(...)` to the transfusion row: the status at the report and the review (pending, or by whom and what was found). Read-only.
+
+### Verification
+
+- Integration: the reported transfusion's unit history row carries the note (added to the Cycle 700 test).
+- Live: not run; only a reported transfusion changes, and the dev data has none. Covered by the integration test.
+
+### Requirements
+
+- URS-BB-747, FRS-BB-865.
+
+### Tests
+
+- TEST-BB-948.
+
+### Next
+
+- Back to the capability matrix.
