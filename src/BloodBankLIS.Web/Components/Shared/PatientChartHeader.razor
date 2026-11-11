@@ -43,6 +43,27 @@
                 }
             </div>
         }
+        @* Cycle 699: the patient received a unit from a recalled donation and the recipient notification is still open. *@
+        @if (_openLookback.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:.5rem;" data-chart-lookback>
+                <strong>Lookback: this patient received @(_openLookback.Count == 1 ? "a unit" : $"{_openLookback.Count} units") from a recalled donation.</strong>
+                The recipient notification is still open.
+                <div class="sub">
+                    @foreach (var n in _openLookback)
+                    {
+                        <span style="margin-right:.6rem;" data-chart-lookback-row>
+                            @if (n.UnitNumber is string unitNumber)
+                            {
+                                <a class="mono" href="@($"/inventory/units/{n.BloodProductId}")">@unitNumber</a>
+                            }
+                            donation <span class="mono">@n.Din</span> · @n.Status
+                        </span>
+                    }
+                    <a href="/lookback" data-chart-lookback-link>Open Lookback</a>
+                </div>
+            </div>
+        }
         @if (_issuedUnderEarlier.Count > 0)
         {
             <div class="alert alert-warning" style="margin-top:.5rem;" data-issued-under-earlier>
@@ -429,6 +450,7 @@ else if (ReactionNotice is not null)
     }
 
     private List<IssuedUnderEarlierIdentityDto> _issuedUnderEarlier = new();
+    private List<LookbackNotificationDto> _openLookback = new();
 
     private async Task LoadFamilyAsync()
     {
@@ -436,6 +458,15 @@ else if (ReactionNotice is not null)
         _family = r.Succeeded ? r.Value : null;
         var issued = await Api.GetIssuedUnderEarlierIdentityAsync(Patient.Id);
         _issuedUnderEarlier = issued.Succeeded ? issued.Value ?? new() : new();
+        // Cycle 699: only those who work lookback can read the notifications.
+        _openLookback = new();
+        if (Session.Has(PermissionCodes.LookbackManage))
+        {
+            var lookback = await Api.GetOpenLookbackNotificationsAsync();
+            _openLookback = lookback.Succeeded && lookback.Value is not null
+                ? lookback.Value.Where(n => n.PatientId == Patient.Id).ToList()
+                : new();
+        }
     }
 
     private async Task LinkMotherAsync()

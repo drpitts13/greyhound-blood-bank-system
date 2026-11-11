@@ -21585,3 +21585,32 @@ The home cards that need attention carry a note (oldest waiting, what kind). Rec
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 699 — The chart shows an open lookback (2026-11-11)
+
+### Capability matrix rescan (patient: chart alerts; recall and lookback)
+
+A recall opens a recipient notification for each patient who received a component of the donation (Cycle 687 and before). The notification lived only on Lookback. A technologist opening that patient's chart (for a new crossmatch, a reaction, a specimen) saw nothing of it, so the notification could wait while the patient was in front of the blood bank.
+
+### Design
+
+- `PatientChartHeader`, for users with `lookback.manage` (only they can read notifications): the open notifications (pending or attempted) for this patient. They are shown as a warning naming each unit (linked), its donation (DIN) and the notification status, with a link to Lookback to record it.
+- It clears once the notification is completed or marked not applicable.
+- Read-only; no new API (the open-notification list Lookback already uses, filtered to the patient).
+
+### Verification
+
+- Rendered: an open notification for this patient shows with unit, DIN and status and the link; another patient's notification does not; with none, no banner.
+- Live (read-only): the demo's open notification is for MRN0001; that chart shows "Lookback: this patient received a unit from a recalled donation. The recipient notification is still open. W0001230000099 donation W123426000001 · Pending" with Open Lookback. No server errors.
+
+### Requirements
+
+- URS-BB-742, FRS-BB-860.
+
+### Tests
+
+- TEST-BB-935, TEST-BB-936.
+
+### Next
+
+- Back to the capability matrix.
