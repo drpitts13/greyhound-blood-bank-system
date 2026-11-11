@@ -21311,3 +21311,38 @@ The Recalled board (688) listed units to pull with only an Open link: each neede
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 691 — A unit recalled while it is out (2026-11-11)
+
+### Capability matrix rescan (patient-product workflows: return, transfusion; safety)
+
+A recall moves an issued unit to Recalled (the status rules allow Issued to Recalled). Following that unit:
+
+- **Return:** the return path writes its status steps without the transition check and chooses Available when the inspection and time out of storage pass. A recalled unit brought back unused therefore went Recalled, Returned, Available: back in stock for the next patient, with the recall left only in its recorded reason. Question 6: a recalled unit could be issued again.
+- **Bedside:** starting its transfusion was refused, but as "This issue already has a transfusion record", which does not tell the nurse why or what to do.
+- **Issued units:** nothing marked it.
+
+### Design
+
+- `ReturnUnitAsync`: a Recalled unit asked back to Available is refused ("returns to quarantine, not to stock"); otherwise `ReturnRecalledAsync` closes the issue as returned, records the Return (not reissue eligible), and moves the unit from Recalled straight to quarantine coded **Lookback recall**, "Returned after recall (<recall reason>): <return reason>", audited. No inspection can change that.
+- `StartTransfusionAsync`: a Recalled unit is refused with `ComponentRecalled`, the recall reason, and "Do not transfuse it; return it to the blood bank."
+- `ListOutstandingIssuedAsync` marks `UnitRecalled` with the reason; Issued units shows **Recalled: do not transfuse, return it**.
+- No status rule changed; the path no longer writes a step the rules do not allow (Recalled goes to Quarantine, which they do).
+
+### Verification
+
+- Integration: an issued, received unit recalled: the start is refused naming the recall and no transfusion is recorded; the issued row is marked with the reason; a return to Available is refused; a return with every inspection passed ends in Quarantine coded Lookback recall with the note, the issue Returned, the last status step Recalled to Quarantine, an audit entry, and the row off the issued list.
+- Rendered: the recalled unit's badge with the reason; the other unit has none.
+- Live (read-only): Issue & Transfuse lists the 10 demo issued units with no recalled badge (none of them is recalled); the list loads with the new recall lookup. The recall-while-issued path is covered by the tests. No server errors.
+
+### Requirements
+
+- URS-BB-734, FRS-BB-852.
+
+### Tests
+
+- TEST-BB-922, TEST-BB-923.
+
+### Next
+
+- Back to the capability matrix.

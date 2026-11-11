@@ -923,6 +923,13 @@ public sealed class IssuingService
         var locations = locationIds.Count == 0
             ? new Dictionary<long, InventoryLocation>()
             : (await _locations.ListAsync(l => locationIds.Contains(l.Id), ct)).ToDictionary(l => l.Id);
+        // Cycle 691: units recalled while they are out, by unit, with the recall's reason.
+        var issuedUnitIds = rows.Select(i => i.BloodProductId).ToHashSet();
+        var recalledOut = rows.Count == 0
+            ? new Dictionary<long, string?>()
+            : (await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Recalled), ct))
+                .Where(u => issuedUnitIds.Contains(u.Id))
+                .ToDictionary(u => u.Id, u => u.RecallReason);
         return rows
             .OrderBy(i => i.IssuedUtc)
             .Select(i =>
@@ -945,7 +952,9 @@ public sealed class IssuingService
                     TransfusionStartedUtc = startedByIssue.GetValueOrDefault(i.Id),
                     TransfusionCompletionOverdue = TransfusionCompletionRule.IsOverdue(startedByIssue.GetValueOrDefault(i.Id), now, reminderHours),
                     OpenReactionInvestigationId = openReactions.TryGetValue(i.PatientId, out var reaction) ? reaction.Id : null,
-                    OpenReactionReportedUtc = openReactions.TryGetValue(i.PatientId, out var reported) ? reported.ReportedUtc : null
+                    OpenReactionReportedUtc = openReactions.TryGetValue(i.PatientId, out var reported) ? reported.ReportedUtc : null,
+                    UnitRecalled = recalledOut.ContainsKey(i.BloodProductId),
+                    RecallReason = recalledOut.GetValueOrDefault(i.BloodProductId)
                 };
             })
             // Transfusions whose completion is overdue lead; the rest stay in issue order.
@@ -1427,6 +1436,19 @@ public sealed class IssuingService
                 $"{IsbtErrorCodes.ComponentAlreadyTransfused}: Cannot return a unit after transfusion has started.");
         }
 
+        // Cycle 691: a unit recalled while it was out comes back to quarantine for the recall, whatever the inspection;
+        // returning it to stock would undo the recall.
+        if (unit.Status == UnitStatus.Recalled)
+        {
+            if (request.Destination == UnitStatus.Available)
+            {
+                return EvaluationResult<Return>.Fail(
+                    $"{IsbtErrorCodes.ComponentRecalled}: {unit.UnitNumber} was recalled while issued; it returns to quarantine, not to stock.");
+            }
+
+            return await ReturnRecalledAsync(issue, unit, request.Reason, ct);
+        }
+
         var now = _clock.UtcNow;
         var unitUnexpired = unit.ExpiresUtc > now;
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
@@ -1790,6 +1812,15 @@ public sealed class IssuingService
         if (unit is null)
         {
             return EvaluationResult<TransfusionEvent>.Fail("Unit not found.");
+        }
+
+        // Cycle 691: a unit recalled while it was out must not be transfused; say so rather than a status mismatch.
+        if (unit.Status == UnitStatus.Recalled)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(
+                $"{IsbtErrorCodes.ComponentRecalled}: {unit.UnitNumber} was recalled after it was issued"
+                + (string.IsNullOrWhiteSpace(unit.RecallReason) ? "" : $" ({unit.RecallReason.Trim()})")
+                + ". Do not transfuse it; return it to the blood bank.");
         }
 
         if (unit.Status != UnitStatus.Issued || await _transfusions.AnyAsync(t => t.IssueId == issue.Id, ct))
@@ -2412,6 +2443,55 @@ public sealed class IssuingService
                 newValue: new { Status = OrderActionStatus.Cancelled },
                 reason: "Canceled because unit was issued");
         }
+    }
+
+    /// <summary>
+    /// Cycle 691: the return of a unit recalled while it was issued. The issue is closed as returned and the unit goes from
+    /// Recalled straight to quarantine (coded Lookback recall, naming the recall), recorded and audited; no inspection can
+    /// send it back to stock.
+    /// </summary>
+    private async Task<EvaluationResult<Return>> ReturnRecalledAsync(Issue issue, BloodUnit unit, string reason, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+        var why = reason.Trim();
+        var returnRecord = new Return
+        {
+            IssueId = issue.Id,
+            Issue = issue,
+            BloodProductId = unit.Id,
+            ReturnedUtc = now,
+            ReturnedBy = _currentUser.UserName,
+            Reason = why,
+            ReissueEligible = false,
+            ReissueEvaluationJson = JsonSerializer.Serialize(new { Recalled = true, unit.RecallReason, Destination = UnitStatus.Quarantine })
+        };
+        await _returns.AddAsync(returnRecord, ct);
+        issue.Status = IssueStatus.Returned;
+
+        var note = string.IsNullOrWhiteSpace(unit.RecallReason)
+            ? $"Returned after recall: {why}"
+            : $"Returned after recall ({unit.RecallReason.Trim()}): {why}";
+        unit.QuarantineReasonCode = UnitQuarantineReason.LookbackRecall;
+        unit.QuarantineReason = note;
+        AppendStatus(unit, UnitStatus.Quarantine, note, now, nameof(Return), issue.Id);
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.Recalled, IssueStatus = IssueStatus.Issued },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.Quarantine,
+                Path = "ReturnRecalled",
+                ReasonCode = UnitQuarantineReason.LookbackRecall,
+                IssueId = issue.Id,
+                unit.RecallReason
+            },
+            reason: note);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<Return>.Ok(returnRecord);
     }
 
     private void AppendStatus(BloodUnit unit, UnitStatus toStatus, string reason, DateTime whenUtc, string relatedType, long relatedId)

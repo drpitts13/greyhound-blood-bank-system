@@ -1430,6 +1430,59 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("UNK-20260530-01", row.IssuedUnderEarlierMrn);
     }
 
+    // TEST-BB-922 (Cycle 691): a unit recalled after it was issued is not started at the bedside (the refusal says it was
+    // recalled), is flagged on the issued list, cannot be returned to stock, and comes back to quarantine for the recall
+    // even when the inspection passes; before, a passing inspection returned it to Available.
+    [Fact]
+    public async Task RecalledWhileIssued_IsNotTransfused_AndReturnsToQuarantine()
+    {
+        var s = await SeedAsync("TX-RECALLED");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using (var c = _factory.Create())
+        {
+            var unit = (await c.BloodUnits.FindAsync(s.UnitId))!;
+            unit.Status = UnitStatus.Recalled;
+            unit.RecallReason = "Donor subsequently reactive";
+            await c.SaveChangesAsync();
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var start = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s));
+            Assert.False(start.Succeeded);
+            Assert.Contains("was recalled after it was issued (Donor subsequently reactive). Do not transfuse it", start.Error);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
+            Assert.Equal((true, "Donor subsequently reactive"), (row.UnitRecalled, row.RecallReason));
+
+            var toStock = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Recalled; brought back", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true,
+                Destination: UnitStatus.Available));
+            Assert.False(toStock.Succeeded);
+            Assert.Contains("returns to quarantine, not to stock", toStock.Error);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Recalled; brought back", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            Assert.False(returned.Value!.ReissueEligible);
+        }
+
+        await using var verify = _factory.Create();
+        var back = (await verify.BloodUnits.FindAsync(s.UnitId))!;
+        Assert.Equal((UnitStatus.Quarantine, UnitQuarantineReason.LookbackRecall), (back.Status, back.QuarantineReasonCode));
+        Assert.Equal("Returned after recall (Donor subsequently reactive): Recalled; brought back", back.QuarantineReason);
+        Assert.Equal(IssueStatus.Returned, (await verify.Issues.FindAsync(issueId))!.Status);
+        var last = await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).OrderByDescending(h => h.Id).FirstAsync();
+        Assert.Equal((UnitStatus.Recalled, UnitStatus.Quarantine), (last.FromStatus!.Value, last.ToStatus));
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson != null && a.NewValueJson.Contains("ReturnRecalled")));
+        Assert.DoesNotContain(await Issuing(verify).ListOutstandingIssuedAsync(), r => r.IssueId == issueId);
+    }
+
     [Fact]
     public async Task StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord()
     {

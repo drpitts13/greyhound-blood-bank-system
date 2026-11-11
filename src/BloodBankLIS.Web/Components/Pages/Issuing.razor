@@ -735,6 +735,10 @@
                                 {
                                     <span class="badge badge-red" title="A transfusion reaction is under investigation for this patient (#@reactionOpen)" data-issued-reaction-open>Reaction under investigation</span>
                                 }
+                                @if (row.UnitRecalled)
+                                {
+                                    <span class="badge badge-red" title="@(row.RecallReason ?? "Recalled")" data-issued-recalled>Recalled: do not transfuse, return it</span>
+                                }
                             </td>
                             <td class="right nowrap">
                                 @if (IssueRun.NextStepForIssued(row) == IssuedNextStep.ReceiveOnWard && Session.Has(PermissionCodes.TransfusionDocument))

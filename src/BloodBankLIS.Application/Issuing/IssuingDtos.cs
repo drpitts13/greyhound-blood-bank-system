@@ -280,6 +280,11 @@ public sealed record OutstandingIssueWorkItemDto(
     /// <summary>The MRN the unit was issued under when the chart has since changed MRN (a merge); null otherwise.</summary>
     public string? IssuedUnderEarlierMrn { get; init; }
 
+    /// <summary>Cycle 691: the unit was recalled while it was out: do not transfuse it; return it (to quarantine).</summary>
+    public bool UnitRecalled { get; init; }
+
+    public string? RecallReason { get; init; }
+
     public static OutstandingIssueWorkItemDto From(
         Issue i,
         DateTime now,
