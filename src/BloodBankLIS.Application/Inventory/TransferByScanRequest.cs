@@ -33,6 +33,19 @@ public sealed record OutboundShipmentDto(
     string? PackedBy = null,
     string? ReceivingContact = null);
 
+/// <summary>
+/// Cycle 686: one return to the supplier, the units returned for one reason on one (UTC) day, with who returned them and
+/// the suppliers they go back to.
+/// </summary>
+public sealed record SupplierReturnDto(
+    string Key,
+    string Reason,
+    DateTime FirstReturnedUtc,
+    DateTime LastReturnedUtc,
+    IReadOnlyList<string> ReturnedBy,
+    IReadOnlyList<string> Suppliers,
+    IReadOnlyList<BloodUnitDto> Units);
+
 /// <summary>An expired unit scanned for disposal; the second verifier when the facility requires one.</summary>
 public sealed record DiscardExpiredByScanRequest(string? Scan, string? SecondVerifier = null);
 

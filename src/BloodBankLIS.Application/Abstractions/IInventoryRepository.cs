@@ -45,4 +45,10 @@ public interface IInventoryRepository
 
     /// <summary>Units shipped to another facility, shipped on or after <paramref name="sinceUtc"/> (all when null).</summary>
     Task<IReadOnlyList<BloodUnit>> ListShippedOutAsync(DateTime? sinceUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cycle 686: units still returned to the supplier, each with the status row that returned it, returned on or after
+    /// <paramref name="sinceUtc"/>.
+    /// </summary>
+    Task<IReadOnlyList<(BloodUnit Unit, InventoryStatusHistory Returned)>> ListReturnedToSupplierAsync(DateTime sinceUtc, CancellationToken cancellationToken = default);
 }

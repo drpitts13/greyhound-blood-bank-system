@@ -210,6 +210,10 @@ public static class InventoryEndpoints
         group.MapGet("/shipments", async (int? days, InventoryService service, CancellationToken ct) =>
             Results.Ok(await service.ListShipmentsAsync(days ?? 30, ct)));
 
+        // Cycle 686: recent returns to the supplier, for the list and its printed return list.
+        group.MapGet("/supplier-returns", async (int? days, InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListSupplierReturnsAsync(days ?? 30, ct)));
+
         group.MapGet("/ship-facilities", async (InventoryService service, CancellationToken ct) =>
             Results.Ok(await service.KnownShipFacilitiesAsync(ct)));
 

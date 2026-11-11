@@ -1864,6 +1864,33 @@ public sealed class InventoryService
     /// Distinct from ward <see cref="UnitStatus.Returned"/> and from packing-list
     /// <see cref="UnitStatus.CancelledAssignment"/>. Terminal; not issuable.
     /// </summary>
+    /// <summary>
+    /// Cycle 686: returns to the supplier in the last <paramref name="days"/> days, newest first, each with its units, so
+    /// what went back can be answered and its return list printed again.
+    /// </summary>
+    public async Task<IReadOnlyList<SupplierReturnDto>> ListSupplierReturnsAsync(int days = 30, CancellationToken ct = default)
+    {
+        var since = _clock.UtcNow.AddDays(-Math.Clamp(days, 1, 366));
+        var returned = await _repository.ListReturnedToSupplierAsync(since, ct);
+        return returned
+            .GroupBy(r => SupplierReturnListRule.ReturnKey(r.Unit.SupplierReturnReason ?? r.Returned.Reason, r.Returned.ChangedUtc))
+            .Select(g =>
+            {
+                var ordered = g.OrderBy(r => r.Returned.ChangedUtc).ThenBy(r => r.Unit.UnitNumber, StringComparer.OrdinalIgnoreCase).ToList();
+                return new SupplierReturnDto(
+                    g.Key,
+                    ordered[0].Unit.SupplierReturnReason ?? ordered[0].Returned.Reason ?? string.Empty,
+                    ordered[0].Returned.ChangedUtc,
+                    ordered[^1].Returned.ChangedUtc,
+                    ordered.Select(r => r.Returned.ChangedBy).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                    ordered.Select(r => r.Unit.Supplier).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!)
+                        .Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                    ordered.Select(r => BloodUnitDto.From(r.Unit)).ToList());
+            })
+            .OrderByDescending(r => r.LastReturnedUtc)
+            .ToList();
+    }
+
     public async Task<InventoryActionResult> ReturnToSupplierAsync(long unitId, string reason, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))

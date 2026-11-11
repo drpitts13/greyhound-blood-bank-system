@@ -21149,3 +21149,39 @@ The thaw prompt on the chart and on the unit page always stated the code's close
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 686 — A return list of its own (2026-11-10)
+
+### Capability matrix rescan (blood products: transfers)
+
+The two Partial product rows wait on the licensed ICCBBA tables (OCD-004). Return to supplier, the other outbound path after Ship units (683), still printed the whole page for its list, kept nothing to print again once the page was left, and had no record of which units went back together.
+
+### Design
+
+- No schema change: each return already writes a status row (who, when, reason). `InventoryRepository.ListReturnedToSupplierAsync` reads units still returned with their latest returning row.
+- A return is the units returned for one reason (ignoring case and spaces) on one UTC day: `SupplierReturnListRule.ReturnKey`, as a shipment without a reference is a facility and a day.
+- `InventoryService.ListSupplierReturnsAsync(days)` gives each return's reason, first and last time, who returned it, the suppliers on its units and the units; `GET /api/inventory/supplier-returns`.
+- Return to supplier: **Recent returns (30 days)** and **Print return list** (the run's return, and each recent one), opening in a new tab.
+- New page `/inventory/return-to-supplier/list?key=`: the reason, returned when and by whom, the suppliers, each unit with a receiver-initials column, and a Handed over block (courier or supplier, date/time, container and temperature, signature). Unknown or missing key: no sheet and no Print.
+- Read-only.
+- Demo: two group A red cells returned yesterday for "Supplier recall R-DEMO-01" (W000123RTS0001, W000123RTS0002), each with its status row, added once, so the list has something to show.
+
+### Verification
+
+- Integration: two units returned for the same recall (typed with different case and spacing) are one return with their supplier and who returned them; another reason is another return; a return 40 days old is outside 30 days and inside a year.
+- Rendered: the named return only; unknown and missing keys; Recent returns links each to its list and nothing calls the page print.
+- Help: the every-page time rule caught "to 23:32" without its day on the sheet; both times now carry the date.
+- Seeder: the demo unit count is 73 with the two returned units.
+- Live (read-only; nothing returned): the API added the demo return; Recent returns shows "Supplier recall R-DEMO-01", Regional Blood Center, tech1, 2 units; its return list shows the reason, 2026-11-09 23:31 to 2026-11-09 23:32, both units and the Handed over block. No server errors.
+
+### Requirements
+
+- URS-BB-729, FRS-BB-847.
+
+### Tests
+
+- TEST-BB-906, TEST-BB-907, TEST-BB-908, TEST-BB-909, TEST-BB-910.
+
+### Next
+
+- Back to the capability matrix.

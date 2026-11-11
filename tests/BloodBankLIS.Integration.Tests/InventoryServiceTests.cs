@@ -684,6 +684,49 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("No unit has the number", (await service.ReturnToSupplierByScanAsync(new ReturnToSupplierByScanRequest($"U-NOPE-{key}", reason))).Error);
     }
 
+    // TEST-BB-906: recent returns group the units returned for one reason on one day, with who returned them and the
+    // suppliers; another reason is another return; a return older than the window is left out, and a longer window
+    // finds it.
+    [Fact]
+    public async Task SupplierReturns_GroupByReasonAndDay()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix, string supplier)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-RTL{suffix}-{key}", productTypeId))).Unit!.Id;
+            (await context.BloodUnits.FindAsync(id))!.Supplier = supplier;
+            await context.SaveChangesAsync();
+            return id;
+        }
+
+        var a = await Receive("A", "Regional Blood Center");
+        var b = await Receive("B", "Regional Blood Center");
+        var c = await Receive("C", "Coastal Blood Services");
+        var old = await Receive("D", "Regional Blood Center");
+        var recall = $"Supplier recall R-{key}";
+        Assert.True((await service.ReturnToSupplierAsync(a, recall)).Succeeded);
+        Assert.True((await service.ReturnToSupplierAsync(b, $"  supplier   recall r-{key} ")).Succeeded);
+        Assert.True((await service.ReturnToSupplierAsync(c, $"Short-dated {key}")).Succeeded);
+        Assert.True((await service.ReturnToSupplierAsync(old, $"Old recall {key}")).Succeeded);
+        var oldRow = await context.InventoryStatusHistory.SingleAsync(h => h.BloodProductId == old && h.ToStatus == UnitStatus.ReturnedToSupplier);
+        oldRow.ChangedUtc = _factory.Clock.UtcNow.AddDays(-40);
+        await context.SaveChangesAsync();
+
+        var recent = await service.ListSupplierReturnsAsync(30);
+        var recallReturn = Assert.Single(recent, r => r.Units.Any(u => u.Id == a));
+        Assert.Equal(SupplierReturnListRule.ReturnKey(recall, _factory.Clock.UtcNow), recallReturn.Key);
+        Assert.Equal([a, b], recallReturn.Units.Select(u => u.Id).Order());
+        Assert.Equal(["Regional Blood Center"], recallReturn.Suppliers);
+        Assert.NotEmpty(recallReturn.ReturnedBy);
+        var shortDated = Assert.Single(recent, r => r.Units.Any(u => u.Id == c));
+        Assert.Equal($"Short-dated {key}", shortDated.Reason);
+        Assert.DoesNotContain(recent, r => r.Units.Any(u => u.Id == old));
+        Assert.Contains(await service.ListSupplierReturnsAsync(366), r => r.Units.Any(u => u.Id == old));
+    }
+
     // TEST-BB-597: a unit is shipped to another facility by scan; the facility, time, and reference stay on the unit, the
     // status is final and audited; a unit reserved, expired, already shipped, or scanned without a facility is refused,
     // and a shipped unit cannot be issued.

@@ -7,15 +7,23 @@
 <div class="flex-between">
     <h1>Return units to the supplier</h1>
     <div class="flex gap">
-        <button type="button" class="btn btn-ghost" onclick="window.print()" disabled="@(_run.Count(r => r.Unit is not null) == 0)">Print list</button>
+        @if (RunReturnKey is string runKey)
+        {
+            <a class="btn btn-ghost" href="@ReturnListHref(runKey)" target="_blank" data-return-run-list>Print return list</a>
+        }
+        else
+        {
+            <button type="button" class="btn btn-ghost" disabled>Print return list</button>
+        }
         <a class="btn btn-ghost" href="/inventory">Inventory</a>
     </div>
 </div>
 <p class="muted">
     Pack a return shipment (a recall, short-dated stock, a consignee reject): give the reason once, then scan each unit. Each
     scan returns that unit at once, with the same checks and audit as a return from the unit page. A unit that is reserved,
-    issued, or already returned is refused with its status. <strong>Print list</strong> prints the units returned in this run
-    to go with the shipment.
+    issued, or already returned is refused with its status. <strong>Print return list</strong> opens the sheet that goes with
+    the shipment: the reason, who returned the units and when, the suppliers and each unit, with spaces for the courier or
+    supplier. <strong>Recent returns</strong> lists the last 30 days, to print a list again.
 </p>
 
 @if (!Session.Has(PermissionCodes.InventoryReceive))
@@ -70,9 +78,55 @@ else
             </div>
         }
     </div>
+
+    <div class="bb-card" data-recent-returns>
+        <div class="bb-card-title"><h3>Recent returns (30 days)</h3></div>
+        @if (_returns.Count == 0)
+        {
+            <div class="empty">No units returned to a supplier in the last 30 days.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Reason</th><th>Returned</th><th>Supplier</th><th>By</th><th>Units</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in _returns)
+                    {
+                        <tr>
+                            <td>@r.Reason</td>
+                            <td class="nowrap">@r.FirstReturnedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(r.Suppliers.Count == 0 ? "—" : string.Join(", ", r.Suppliers))</td>
+                            <td>@string.Join(", ", r.ReturnedBy)</td>
+                            <td>@r.Units.Count</td>
+                            <td class="right"><a class="btn btn-ghost btn-sm" href="@ReturnListHref(r.Key)" target="_blank" data-return-list>Print return list</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
 }
 
 @code {
+    private List<SupplierReturnDto> _returns = new();
+
+    protected override async Task OnInitializedAsync() => await LoadReturnsAsync();
+
+    private async Task LoadReturnsAsync()
+    {
+        var r = await Api.GetSupplierReturnsAsync(30);
+        _returns = r.Succeeded ? r.Value ?? new() : new();
+    }
+
+    // The return the latest unit of this run went into (a changed reason starts another return).
+    private string? RunReturnKey => _run.FirstOrDefault(r => r.Unit is not null)?.Unit is { } u
+        ? _returns.FirstOrDefault(r => r.Units.Any(x => x.Id == u.Id))?.Key
+        : null;
+
+    private static string ReturnListHref(string key) => $"/inventory/return-to-supplier/list?key={Uri.EscapeDataString(key)}";
+
     private string _reason = string.Empty;
     private string _scan = string.Empty;
     private Feedback? _fb;
@@ -100,6 +154,7 @@ else
         {
             _run.Insert(0, new RunRow(scan, reason, r.Value, null));
             _fb = Feedback.Succeed($"Returned {r.Value.UnitNumber} to the supplier. Scan the next unit.");
+            await LoadReturnsAsync();
         }
         else
         {

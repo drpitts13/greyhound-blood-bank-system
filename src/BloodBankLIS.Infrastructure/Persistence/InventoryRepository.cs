@@ -157,4 +157,29 @@ public sealed class InventoryRepository : IInventoryRepository
             .Where(u => u.Status == UnitStatus.ShippedOut && u.ShippedToFacility != null
                 && (sinceUtc == null || (u.ShippedUtc != null && u.ShippedUtc >= sinceUtc)))
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<(BloodUnit Unit, InventoryStatusHistory Returned)>> ListReturnedToSupplierAsync(
+        DateTime sinceUtc, CancellationToken cancellationToken = default)
+    {
+        var units = await _context.BloodUnits
+            .AsNoTracking()
+            .Where(u => u.Status == UnitStatus.ReturnedToSupplier)
+            .ToListAsync(cancellationToken);
+        if (units.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = units.Select(u => u.Id).ToList();
+        var rows = await _context.InventoryStatusHistory
+            .AsNoTracking()
+            .Where(h => ids.Contains(h.BloodProductId) && h.ToStatus == UnitStatus.ReturnedToSupplier && h.ChangedUtc >= sinceUtc)
+            .ToListAsync(cancellationToken);
+        // The latest return of each unit: a unit is returned once, but a corrected status could repeat it.
+        var latest = rows.GroupBy(h => h.BloodProductId).ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.ChangedUtc).ThenByDescending(h => h.Id).First());
+        return units
+            .Where(u => latest.ContainsKey(u.Id))
+            .Select(u => (u, latest[u.Id]))
+            .ToList();
+    }
 }

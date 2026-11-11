@@ -914,5 +914,10 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-903 | I | `AutoThawServiceTests.Thaw_OpenSystemAndPooledShelfLives` | URS-BB-728 / FRS-BB-846 |
 | TEST-BB-904 | U | `AutoThawDialogTests.OpenSystemNotSet_RefusesBeforeYes` | URS-BB-728 / FRS-BB-846 |
 | TEST-BB-905 | U | `AutoThawDialogTests.Pool_StatesThePooledTime_OrRefuses` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-906 | I | `InventoryServiceTests.SupplierReturns_GroupByReasonAndDay` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-907 | U | `SupplierReturnListTests.ReturnList_ShowsTheNamedReturn` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-908 | U | `SupplierReturnListTests.ReturnList_NoMatch` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-909 | U | `SupplierReturnListTests.ReturnToSupplier_RecentReturns_LinkToTheirList` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-910 | I | `ShipOutDemoTests.Demo_HasOneSupplierReturnOfTwoUnits` | URS-BB-729 / FRS-BB-847 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
