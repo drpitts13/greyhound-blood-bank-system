@@ -245,13 +245,15 @@ public sealed class LookbackService
 
         foreach (var unit in units)
         {
-            if (NeedsConsigneeNotification(unit.Status))
+            if (NeedsConsigneeNotification(unit))
             {
                 await EnsureConsigneeNotificationAsync(normalized, unit, reason, ct);
             }
 
-            // Transfused here, or shipped to another facility (that facility is notified, the unit is not in stock to recall).
-            if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped or UnitStatus.ShippedOut)
+            // Transfused here (including a transfusion the EHR reported over the unit's status, OCD-083), or shipped to
+            // another facility (that facility is notified): the unit is not in stock to recall.
+            if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped or UnitStatus.ShippedOut
+                || unit.TransfusionReportedUtc is not null)
             {
                 continue;
             }
@@ -285,7 +287,7 @@ public sealed class LookbackService
             {
                 Din = normalized,
                 UnitCount = units.Count,
-                PendingNotificationCount = units.Count(u => NeedsConsigneeNotification(u.Status)),
+                PendingNotificationCount = units.Count(NeedsConsigneeNotification),
                 NotRecalled = notRecalled.Select(n => new { n.UnitNumber, n.Status, n.Why }).ToList()
             },
             reason: reason);
@@ -554,6 +556,10 @@ public sealed class LookbackService
     /// Distributed components need a consignee row: already transfused, or issued
     /// and not yet recorded as transfused. In-stock components are recalled only.
     /// </summary>
+    // Cycle 702: a unit the EHR reported transfused over its status (OCD-083) has a recipient to notify, whatever its status.
+    private static bool NeedsConsigneeNotification(BloodUnit unit) =>
+        NeedsConsigneeNotification(unit.Status) || unit.TransfusionReportedUtc is not null;
+
     private static bool NeedsConsigneeNotification(UnitStatus status) =>
         status is UnitStatus.Issued
             or UnitStatus.TransfusionStarted
@@ -572,7 +578,8 @@ public sealed class LookbackService
         }
 
         var issues = await _issues.ListAsync(i => i.BloodProductId == unit.Id, ct);
-        var issue = SelectConsigneeIssue(issues, unit.Status);
+        // A transfusion the EHR reported over the unit's status (OCD-083) is a transfusion: its recipient is notified.
+        var issue = SelectConsigneeIssue(issues, unit.TransfusionReportedUtc is not null ? UnitStatus.Transfused : unit.Status);
         var transfusion = issue is null
             ? null
             : await _transfusions.FirstOrDefaultAsync(t => t.IssueId == issue.Id, ct);

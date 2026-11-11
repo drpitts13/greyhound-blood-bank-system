@@ -21693,3 +21693,34 @@ Cycle 700 records a transfusion the EHR reported over a unit's status and puts i
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 702 — A recall reaches the recipient of a reported transfusion (2026-11-11)
+
+### Capability matrix rescan (recall and lookback; safety)
+
+After OCD-083 option B (Cycle 700), a unit can be quarantined, damaged or missing in the blood bank and yet reported transfused by the EHR. A later recall of its donation chose whom to notify from the unit's status alone. Such a unit is neither issued nor transfused, so its recipient got no notification. The recall also moved it (quarantine allows it) to Recalled, as if it were on a shelf. Question 6: a patient who received a recalled donation would not be notified.
+
+### Design
+
+- `RecallByDinAsync` treats a unit with `TransfusionReportedUtc` as transfused:
+  - it opens the recipient notification for the transfusion's issue and patient;
+  - it does not recall the unit, which keeps its status;
+  - the recall's audit counts it among the pending notifications.
+- No status rule changed.
+
+### Verification
+
+- Integration: a quarantined unit reported transfused, then its donation recalled. The notification names the patient and issue. The unit is not listed as "not recalled" and keeps its Quarantine status. The old code chose by status alone, so it would have recalled the unit and notified no one.
+- Live: not run; a recall writes, and the dev data has no reported transfusion. Covered by the integration test.
+
+### Requirements
+
+- URS-BB-745, FRS-BB-863.
+
+### Tests
+
+- TEST-BB-945.
+
+### Next
+
+- Back to the capability matrix.

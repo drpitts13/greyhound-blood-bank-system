@@ -159,6 +159,58 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(1, await verify.LookbackNotifications.CountAsync(n => n.BloodProductId == shippedId));
     }
 
+    // TEST-BB-945 (Cycle 702, OCD-083): a unit the EHR reported transfused while it was quarantined is treated as
+    // transfused by a later recall: its recipient gets a notification, and the unit is not recalled (it is not here); it
+    // keeps its status and is not listed as "not recalled".
+    [Fact]
+    public async Task RecallByDin_ReportedTransfusedUnit_NotifiesItsRecipient()
+    {
+        const string din = "W000059595959";
+        long unitId, patientId, issueId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType { ProductCode = "RBC-LB-RPT", Name = "Reported RBC", ComponentClass = ComponentClass.RedBloodCells };
+            var patient = new Patient { MedicalRecordNumber = "MRN-LB-RPT", LastName = "Reported", FirstName = "Recipient", DateOfBirth = new DateOnly(1980, 3, 3) };
+            c.ProductTypes.Add(productType);
+            c.Patients.Add(patient);
+            await c.SaveChangesAsync();
+            var unit = new BloodUnit
+            {
+                UnitNumber = "U-LB-RPT", ProductTypeId = productType.Id, Abo = AboGroup.O, RhD = RhType.Positive, Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Quarantine,
+                TransfusionReportedUtc = _factory.Clock.UtcNow.AddDays(-1)
+            };
+            c.BloodUnits.Add(unit);
+            await c.SaveChangesAsync();
+            var issue = new Issue
+            {
+                BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddDays(-2), IssuedBy = "tech-test",
+                Status = IssueStatus.Transfused
+            };
+            c.Issues.Add(issue);
+            await c.SaveChangesAsync();
+            c.TransfusionEvents.Add(new TransfusionEvent
+            {
+                IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, StartUtc = _factory.Clock.UtcNow.AddDays(-1),
+                DocumentedBy = "hl7", UnitStatusAtReport = UnitStatus.Quarantine
+            });
+            await c.SaveChangesAsync();
+            (unitId, patientId, issueId) = (unit.Id, patient.Id, issue.Id);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(recalled.Succeeded, recalled.Error);
+            var note = Assert.Single(recalled.Value!.Notifications, n => n.BloodProductId == unitId);
+            Assert.Equal((patientId, issueId), (note.PatientId, note.IssueId));
+            Assert.DoesNotContain(recalled.Value.NotRecalled, n => n.BloodProductId == unitId);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Quarantine, (await verify.BloodUnits.FindAsync(unitId))!.Status);
+    }
+
     // TEST-BB-911: a recall of a DIN recalls the component on the shelf even when another component of the donation was
     // already returned to the supplier or has expired; those are left as they are and the report says why, instead of the
     // whole recall failing and recalling nothing.

@@ -20,7 +20,7 @@ routes:
 - modified into other units: those units are listed under the donation and are recalled;
 - expired: it cannot be recalled, so discard it.
 
-Transfused and issued components open a recipient notification, and a component shipped to another facility opens a notification naming that facility, as before.
+Transfused and issued components open a recipient notification, and a component shipped to another facility opens a notification naming that facility, as before. A component the EHR reported transfused while the blood bank had it quarantined, damaged or missing (OCD-083) counts as transfused: its recipient is notified, and it is not recalled, since it is no longer here.
 
 **Recipient traceback** starts with the patient MRN. It lists the units that patient received so you can see which donations are involved.
 
