@@ -21486,3 +21486,33 @@ Until then the safe, reversible behavior is to hold the message.
 ### Next
 
 - OCD-083 needs an answer before the held messages can be recorded.
+
+## Iteration 696 — The lookup says why a unit is out of use (2026-11-11)
+
+### Capability matrix rescan (UX: search everywhere)
+
+Scanning a unit in the top-bar lookup showed its status (Recalled, Quarantine, Missing...) and where a shipped unit went. It did not show why the unit was recalled, held or quarantined, though each reason is recorded on the unit. During a recall (Cycles 687-695) the first thing a technologist asks of a scanned unit is which recall, and that meant opening the unit page.
+
+### Design
+
+- `UnitStatusNote.For(status, ...)` (Domain): "shipped to <facility>", or "<recalled | quarantine | on hold | missing | damaged | discarded | returned to supplier>: <recorded reason>", shortened to 60 characters with an ellipsis; nothing for a routine status or no reason.
+- `UniversalLookupService` appends it to every unit hit's detail (exact and partial), replacing the shipped-only note with the same wording for shipped units.
+- Read-only.
+
+### Verification
+
+- Unit: each status with its reason; routine statuses and a missing reason give nothing; a long reason is shortened.
+- Integration: a recalled unit's hit ends with the recall; the shipped unit's hit still ends with where it went (TEST-BB-612).
+- Live (read-only): typing W000123RCL and Enter in the top bar lists the demo unit as "B Pos · Recalled · expires … · recalled: Supplier recall R-DEMO-02: donor subsequently reactive". No server errors.
+
+### Requirements
+
+- URS-BB-739, FRS-BB-857.
+
+### Tests
+
+- TEST-BB-930, TEST-BB-931.
+
+### Next
+
+- Back to the capability matrix.

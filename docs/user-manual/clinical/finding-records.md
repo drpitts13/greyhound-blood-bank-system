@@ -13,7 +13,7 @@ Click the find box (or press **/**) without typing to see **Your recent patients
 
 It takes:
 
-- **A unit number (DIN)**: scanned from the bag (`=` barcode) or typed, with or without spaces. Opens the unit.
+- **A unit number (DIN)**: scanned from the bag (`=` barcode) or typed, with or without spaces. Opens the unit. A unit out of routine use says why, from what was recorded: where a shipped unit went, or the reason it is recalled, in quarantine, on hold, missing, damaged, discarded or returned to the supplier (for example *Recalled · … · recalled: Supplier recall R-114*). Long reasons are shortened; open the unit for the full record.
 - **An RhIG lot** recorded as given: opens the RhIG list on who received it.
 - **A transport cooler label** while units issued in it are still in transit (not yet received on the ward): says how many and where they went, and opens **Check a cooler** with that cooler. Once everything in it is received, the cooler is not found.
 - **A specimen accession or tube barcode**: opens the patient chart on **Specimens** with that specimen's history open.

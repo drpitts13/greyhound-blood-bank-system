@@ -323,7 +323,8 @@ public sealed class UniversalLookupService
                     u.UnitNumber,
                     product,
                     $"{AboRhLabel(u.Abo, u.RhD)} · {u.Status} · expires {u.ExpiresUtc:yyyy-MM-dd HH:mm} UTC"
-                        + (u.Status == UnitStatus.ShippedOut && !string.IsNullOrWhiteSpace(u.ShippedToFacility) ? $" · shipped to {u.ShippedToFacility}" : string.Empty),
+                        + (UnitStatusNote.For(u.Status, u.ShippedToFacility, u.RecallReason, u.QuarantineReason, u.HoldReason,
+                            u.MissingReason, u.DamagedReason, u.DiscardReason, u.SupplierReturnReason) is string note ? $" · {note}" : string.Empty),
                     $"/inventory/units/{u.Id}");
             })
             .ToList();

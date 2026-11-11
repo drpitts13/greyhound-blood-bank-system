@@ -427,6 +427,22 @@ public class UniversalLookupTests : IDisposable
         Assert.EndsWith("shipped to St. Mary's Hospital", unitHit.Detail);
     }
 
+    // TEST-BB-931 (Cycle 696): a scanned recalled unit's hit says why it is out of use.
+    [Fact]
+    public async Task RecalledUnit_HitNamesTheRecall()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var unit = (await c.BloodUnits.FindAsync(f.Unit.Id))!;
+        unit.Status = UnitStatus.Recalled;
+        unit.RecallReason = "Supplier recall R-114: donor reactive";
+        await c.SaveChangesAsync();
+
+        var hit = Assert.Single((await Lookup(c).LookupAsync(f.Unit.UnitNumber)).Hits);
+        Assert.Contains("· Recalled ·", hit.Detail);
+        Assert.EndsWith("recalled: Supplier recall R-114: donor reactive", hit.Detail);
+    }
+
     // TEST-BB-659: a scanned cooler label (case and spaces ignored) finds the cooler while units issued in it are in
     // transit, counting only those not yet received on the ward and naming where they went, and opens Check a cooler with
     // it; another cooler's units do not count; once everything in it is received the cooler is not found.
