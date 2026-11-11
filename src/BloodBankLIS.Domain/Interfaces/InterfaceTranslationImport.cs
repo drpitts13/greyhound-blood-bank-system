@@ -176,56 +176,7 @@ public static class InterfaceTranslationImport
         return value.Length > 1 && value[0] == '\'' && FormulaStarts.Contains(value[1]) ? value[1..] : value;
     }
 
-    private static string[] SplitLines(string text) =>
-        text.TrimStart('\uFEFF').Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+    private static string[] SplitLines(string text) => Reporting.CsvFormat.Lines(text);
 
-    /// <summary>Tab-separated when the line has a tab (a spreadsheet paste), else comma-separated with quoted cells.</summary>
-    private static List<string> Split(string line)
-    {
-        if (line.Contains('\t', StringComparison.Ordinal))
-        {
-            return line.Split('\t').ToList();
-        }
-
-        var cells = new List<string>();
-        var current = new System.Text.StringBuilder();
-        var quoted = false;
-        for (var i = 0; i < line.Length; i++)
-        {
-            var c = line[i];
-            if (quoted)
-            {
-                if (c == '"' && i + 1 < line.Length && line[i + 1] == '"')
-                {
-                    current.Append('"');
-                    i++;
-                }
-                else if (c == '"')
-                {
-                    quoted = false;
-                }
-                else
-                {
-                    current.Append(c);
-                }
-            }
-            else if (c == '"' && current.ToString().Trim().Length == 0)
-            {
-                current.Clear();
-                quoted = true;
-            }
-            else if (c == ',')
-            {
-                cells.Add(current.ToString());
-                current.Clear();
-            }
-            else
-            {
-                current.Append(c);
-            }
-        }
-
-        cells.Add(current.ToString());
-        return cells;
-    }
+    private static List<string> Split(string line) => Reporting.CsvFormat.SplitLine(line);
 }

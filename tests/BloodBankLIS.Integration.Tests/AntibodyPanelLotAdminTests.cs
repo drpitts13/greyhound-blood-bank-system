@@ -122,6 +122,27 @@ public class AntibodyPanelLotAdminTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(historyBefore, await c.AntibodyHistory.CountAsync());
     }
 
+    // TEST-BB-956: a lot whose antigram was imported records the file in its audit entry; one entered by hand does not.
+    [Fact]
+    public async Task Create_FromAnImportedAntigram_RecordsTheFile()
+    {
+        var (manufacturerId, attrId) = await SeedManufacturerAndKellAsync("GHP-IMPORT");
+
+        await using var c = _factory.Create();
+        var created = await Admin(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigEdit))
+            .CreateAsync(ValidCreate(manufacturerId, attrId, "GHP-IMPORT-LOT") with { ImportedFrom = "Panel-A-lot-77.xlsx" });
+        Assert.True(created.Succeeded, created.Error);
+        var audit = await c.AuditEvents.SingleAsync(e => e.EntityType == nameof(AntibodyPanelLot)
+            && e.EventType == AuditEventType.TestChange && e.EntityId == created.Value!.Id);
+        Assert.Contains("antigram imported from Panel-A-lot-77.xlsx", audit.Reason);
+
+        var manual = await Admin(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigEdit))
+            .CreateAsync(ValidCreate(manufacturerId, attrId, "GHP-IMPORT-MANUAL"));
+        var manualAudit = await c.AuditEvents.SingleAsync(e => e.EntityType == nameof(AntibodyPanelLot)
+            && e.EventType == AuditEventType.TestChange && e.EntityId == manual.Value!.Id);
+        Assert.DoesNotContain("imported", manualAudit.Reason);
+    }
+
     [Fact]
     public async Task Get_AfterCreate_ReturnsCellsAndAntigens()
     {

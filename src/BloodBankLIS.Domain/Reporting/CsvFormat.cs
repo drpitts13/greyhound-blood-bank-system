@@ -60,6 +60,64 @@ public static class CsvFormat
         text.Append("\r\n");
     }
 
+    /// <summary>The lines of a CSV or tab-separated text, without a byte-order mark, whatever the line endings.</summary>
+    public static string[] Lines(string text) =>
+        text.TrimStart('\uFEFF').Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+
+    /// <summary>Every line split into cells (see <see cref="SplitLine"/>).</summary>
+    public static IReadOnlyList<IReadOnlyList<string>> ReadRows(string? text) =>
+        Lines(text ?? string.Empty).Select(l => (IReadOnlyList<string>)SplitLine(l)).ToList();
+
+    /// <summary>Tab-separated when the line has a tab (a spreadsheet paste), else comma-separated with quoted cells.</summary>
+    public static List<string> SplitLine(string line)
+    {
+        if (line.Contains('\t', StringComparison.Ordinal))
+        {
+            return line.Split('\t').ToList();
+        }
+
+        var cells = new List<string>();
+        var current = new StringBuilder();
+        var quoted = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (quoted)
+            {
+                if (c == '"' && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else if (c == '"')
+                {
+                    quoted = false;
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+            else if (c == '"' && current.ToString().Trim().Length == 0)
+            {
+                current.Clear();
+                quoted = true;
+            }
+            else if (c == ',')
+            {
+                cells.Add(current.ToString());
+                current.Clear();
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+
+        cells.Add(current.ToString());
+        return cells;
+    }
+
     /// <summary>A negative number such as -18.5 stays a number; "-1+1" or "-cmd" does not.</summary>
     private static bool IsPlainNumber(string value) =>
         decimal.TryParse(value, System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowDecimalPoint,

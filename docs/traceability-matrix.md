@@ -859,6 +859,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-745 / FRS-BB-863 | Recall notifies the recipient of a reported transfusion | `LookbackService.cs` | TEST-BB-945 | I | |
 | URS-BB-746 / FRS-BB-864 | A reported-transfused unit keeps its status | `ReportedTransfusionRule.cs`, `InventoryService.cs` | TEST-BB-946, TEST-BB-947 | U, I | |
 | URS-BB-747 / FRS-BB-865 | Unit history notes a reported transfusion | `UnitActivityService.cs` | TEST-BB-948 | I | |
+| URS-BB-748 / FRS-BB-866 | Antigram import, manual entry, download | `AntigramImport.cs`, `CsvFormat.cs`, `SpreadsheetRows.cs`, `AdminAntibodyPanelLots.razor`, `AntibodyPanelLotAdminService.cs` | TEST-BB-949..957 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

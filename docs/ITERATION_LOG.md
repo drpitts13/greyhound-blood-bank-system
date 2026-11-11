@@ -21793,3 +21793,59 @@ One gap remained. The unit's own Status history listed the transfusion as an ord
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 705 — Import and download antigrams (user request) (2026-11-11)
+
+### Request
+
+"Add the ability for the user to import/manually add/download antibody antigrams from manufacturers." Asked and answered:
+
+- **Download:** staff download the antigram from the manufacturer's site themselves and import it here, and the system exports antigrams. It does not fetch from vendor sites: they sit behind customer logins, and no vendor interface is documented here.
+- **Formats:** CSV and Excel in one documented layout.
+
+### Capability matrix rescan (testing: antibody identification; administration: panel lots)
+
+Admin › Antibody panel lots already let a lot's antigram be entered by hand (New lot: cells, each typed for the catalog antigens). There was no import of a file and no download.
+
+### Design
+
+- `AntigramImport` (Domain) reads the layout:
+  - **Header:** a header row whose first cell is "Cell" (title rows above skipped) and an optional Role column.
+  - **Antigen columns:** matched to the catalog by exact code first (C and c kept apart), otherwise by a spelling that only one antigen fits (Fy(a), anti-Jka). A one-letter code of the other case never matches.
+  - **Values:** + 0 w +het +hom, or blank for not tested; a leading apostrophe is ignored.
+  - **Stops:** an unreadable value, a repeated cell, an unknown role, no header, no antigen column, or over 60 cells stops the import, so a slip never becomes "not tested". Unknown columns are listed and left out.
+  - **Export:** `Header` and `Row` write the same layout, so an export reads back.
+- `CsvFormat.ReadRows` and `SplitLine`: the CSV reader moved out of the interface translation import and shared by both.
+- `SpreadsheetRows.ReadXlsx` (Web, ClosedXML at the Printing project's version) reads the first worksheet as text.
+- New lot form: **Import an antigram** (CSV, TSV or XLSX up to 2 MB).
+  - The cells in the form are replaced, and a summary says what was read and left out; a file with problems is not used and each problem is listed by line.
+  - Nothing is saved until Create, with its existing checks.
+  - The request carries the file name, and the lot's audit entry names it.
+- **Download blank template** (every active antigen) in the form, and **Download antigram (CSV)** on a lot, with columns in catalog order.
+
+### Verification
+
+- Unit (parser):
+  - a manufacturer-style sheet with title rows, roles, a loose antigen spelling, every value form, an autocontrol row and an extra column;
+  - each problem that stops the import, and k never matching K;
+  - an export reading back as the same cells.
+- Rendered:
+  - a CSV fills the cells and reports the left-out column;
+  - a bad file is not used and the cells stay;
+  - an Excel file fills the cells;
+  - the template opens as a download;
+  - a lot's antigram downloads in catalog order with the expected rows.
+- Integration: an imported lot's audit names the file; a hand-entered one does not.
+- Live (nothing saved): on Admin › Antibody panel lots, New lot, importing a CSV with a title row, K, E, C, c, Fy(a), JKA and a Donor column filled cells 1 to 3 and reported "3 cells and 6 antigens imported … Columns not in the antigen catalog were left out: Donor."; the form was left without creating a lot. A demo lot's Download antigram (CSV) gave "Cell,Role,K,E,C,c,FYA,JKA,JKB,M,N" and one row per cell. No server errors.
+
+### Requirements
+
+- URS-BB-748, FRS-BB-866.
+
+### Tests
+
+- TEST-BB-949 to TEST-BB-957.
+
+### Next
+
+- Back to the capability matrix.

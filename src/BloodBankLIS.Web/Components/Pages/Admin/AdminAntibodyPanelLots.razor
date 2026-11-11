@@ -1,6 +1,8 @@
 @page "/admin/antibody-panel-lots"
 @inject UserSession Session
 @inject BloodBankApiClient Api
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
 
 <PageTitle>Antibody Panel Lots &middot; Admin</PageTitle>
 
@@ -345,7 +347,13 @@
     <div @key="_detail.Lot.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <div class="bb-card-title">
             <h3>@_detail.Lot.PanelName — lot @_detail.Lot.LotNumber</h3>
-            <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseDetail">Close</button>
+            <div class="flex gap">
+                @if (_detail.Cells.Count > 0)
+                {
+                    <button class="btn btn-ghost btn-sm" type="button" @onclick="DownloadAntigramAsync" data-antigram-download>Download antigram (CSV)</button>
+                }
+                <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseDetail">Close</button>
+            </div>
         </div>
         <p class="muted">
             Reagent cell map only. Viewing a lot does not identify antibodies.
@@ -467,6 +475,34 @@
             <input type="checkbox" @bind="_createSelected" @bind:after="OnSelectedLotChanged" /> Selected-cell lot
         </label>
         <h3>Cells</h3>
+        @* Import an antigram downloaded from the manufacturer and saved in this layout; it fills the cells below. *@
+        <div class="bb-card" style="margin:.5rem 0;" data-antigram-import>
+            <p class="muted" style="margin-top:0;">
+                <strong>Import an antigram</strong> (CSV or Excel): one row per cell, a <span class="mono">Cell</span> column, an optional
+                <span class="mono">Role</span> column, and one column per antigen code; values <span class="mono">+</span>,
+                <span class="mono">0</span>, <span class="mono">w</span>, <span class="mono">+het</span>, <span class="mono">+hom</span>, or blank for not tested.
+                The cells below are replaced; check them against the manufacturer's sheet before saving.
+            </p>
+            <div class="flex gap" style="align-items:center;flex-wrap:wrap;">
+                <InputFile OnChange="OnAntigramFileAsync" accept=".csv,.tsv,.txt,.xlsx" data-antigram-file />
+                <button class="btn btn-ghost btn-sm" type="button" @onclick="DownloadTemplateAsync" data-antigram-template>Download blank template</button>
+            </div>
+            @if (_importSummary is not null)
+            {
+                <div class="@(_importProblems.Count > 0 ? "alert alert-danger" : "alert alert-info")" style="margin-top:.5rem;" data-antigram-import-result>
+                    @_importSummary
+                    @if (_importProblems.Count > 0)
+                    {
+                        <ul style="margin:.25rem 0 0;">
+                            @foreach (var problem in _importProblems)
+                            {
+                                <li>@problem</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </div>
         @foreach (var cell in _createCells)
         {
             <div class="bb-card" style="margin:.5rem 0;">
@@ -825,6 +861,111 @@
     {
         _creating = false;
         _createCells.Clear();
+        _importSummary = null;
+        _importProblems = new();
+        _importedFrom = null;
+    }
+
+    private string? _importSummary;
+    private List<string> _importProblems = new();
+    private string? _importedFrom;
+
+    private IReadOnlyList<AntigramImport.Antigen> AntigenCatalog =>
+        _attributes.Select(a => new AntigramImport.Antigen(a.Id, a.Code, a.AntibodyName)).ToList();
+
+    // An antigram file (CSV, tab-separated or Excel) fills the cells; nothing is saved until Create.
+    private async Task OnAntigramFileAsync(InputFileChangeEventArgs e)
+    {
+        const long maxBytes = 2 * 1024 * 1024;
+        IReadOnlyList<IReadOnlyList<string>> rows;
+        try
+        {
+            await using var upload = e.File.OpenReadStream(maxBytes);
+            using var buffer = new MemoryStream();
+            await upload.CopyToAsync(buffer);
+            buffer.Position = 0;
+            if (e.File.Name.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                rows = SpreadsheetRows.ReadXlsx(buffer);
+            }
+            else
+            {
+                using var reader = new StreamReader(buffer);
+                rows = BloodBankLIS.Domain.Reporting.CsvFormat.ReadRows(await reader.ReadToEndAsync());
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or InvalidOperationException)
+        {
+            _importSummary = $"{e.File.Name} could not be read: files over 2 MB, and Excel files other than .xlsx, are refused.";
+            _importProblems = new();
+            return;
+        }
+
+        var result = AntigramImport.Parse(rows, AntigenCatalog, _createSelected ? PanelCellRole.Selected : PanelCellRole.Panel);
+        var ignored = result.IgnoredColumns.Count == 0
+            ? ""
+            : $" Columns not in the antigen catalog were left out: {string.Join(", ", result.IgnoredColumns)}.";
+        if (!result.CanUse)
+        {
+            _importProblems = result.Problems.ToList();
+            _importSummary = $"{e.File.Name} was not used; correct it and import again:{ignored}";
+            return;
+        }
+
+        _createCells.Clear();
+        var order = 1;
+        foreach (var cell in result.Cells)
+        {
+            var draft = new LotCellDraft { CellNumber = cell.CellNumber, Role = cell.Role, SortOrder = order++ };
+            foreach (var value in cell.Antigens)
+            {
+                draft.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = value.AntigenId, Expression = value.Expression });
+            }
+
+            _createCells.Add(draft);
+        }
+
+        _importedFrom = e.File.Name;
+        _importProblems = new();
+        _importSummary = $"{result.Cells.Count} cell{(result.Cells.Count == 1 ? "" : "s")} and {result.AntigenIds.Count} antigen{(result.AntigenIds.Count == 1 ? "" : "s")} imported from {e.File.Name}. Check them, fill in the manufacturer, lot, name and expiry, then Create.{ignored}";
+    }
+
+    private async Task DownloadTemplateAsync()
+    {
+        var token = Downloads.Put("antigram-template.csv", BloodBankLIS.Domain.Reporting.CsvFormat.ContentType,
+            BloodBankLIS.Domain.Reporting.CsvFormat.Write(AntigramImport.Header(AntigenCatalog), []));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+    }
+
+    // The lot's antigram in the import layout, so it can be checked, kept, or imported for another lot.
+    private async Task DownloadAntigramAsync()
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        // Columns follow the antigen catalog's order, as the New lot form does.
+        if (_attributes.Count == 0)
+        {
+            var attrs = await Api.GetAdminBloodAttributesAsync(false);
+            _attributes = (attrs.Value ?? new()).Where(a => a.IsActive).OrderBy(a => a.SortOrder).ToList();
+        }
+
+        var antigens = _detail.Cells.SelectMany(c => c.Antigens)
+            .GroupBy(a => a.BloodAttributeDefinitionId)
+            .Select(g => g.First())
+            .OrderBy(a => _attributes.FindIndex(x => x.Id == a.BloodAttributeDefinitionId) is var i && i >= 0 ? i : int.MaxValue)
+            .ThenBy(a => a.AntigenCode, StringComparer.Ordinal)
+            .Select(a => new AntigramImport.Antigen(a.BloodAttributeDefinitionId, a.AntigenCode, a.AntibodyName))
+            .ToList();
+        var rows = _detail.Cells.OrderBy(c => c.SortOrder).Select(c => AntigramImport.Row(c.CellNumber, c.Role,
+            antigens.Select(a => c.Antigens.FirstOrDefault(x => x.BloodAttributeDefinitionId == a.Id)?.Expression ?? AntigenExpression.NotTested)));
+        var name = $"antigram-{_detail.Lot.ManufacturerName}-{_detail.Lot.LotNumber}.csv"
+            .Replace(' ', '-').Replace('/', '-');
+        var token = Downloads.Put(name, BloodBankLIS.Domain.Reporting.CsvFormat.ContentType,
+            BloodBankLIS.Domain.Reporting.CsvFormat.Write(AntigramImport.Header(antigens), rows));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
     }
 
     private void OnSelectedLotChanged()
@@ -910,7 +1051,8 @@
             _createPanelName,
             DateOnly.FromDateTime(_createExpires),
             _createSelected,
-            cells));
+            cells,
+            _importedFrom));
         _feedback = r.ToFeedback("Lot created. It does not identify antibodies.");
         _busy = false;
         if (r.Succeeded)

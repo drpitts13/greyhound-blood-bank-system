@@ -383,8 +383,17 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
 
         await UnitOfWork.SaveChangesAsync(ct);
         var dto = ToDto(lot, manufacturer?.Name ?? "", today);
+        var importedFrom = request.ImportedFrom?.Trim();
+        if (importedFrom is { Length: > 200 })
+        {
+            importedFrom = importedFrom[..200];
+        }
+
         RecordChange(EntityType, lot.Id, 1, ConfigChangeAction.Create, AuditEventType.TestChange,
-            oldValue: null, newValue: dto, reason: "Create antibody panel lot. Does not identify antibodies.");
+            oldValue: null, newValue: dto,
+            reason: string.IsNullOrWhiteSpace(importedFrom)
+                ? "Create antibody panel lot. Does not identify antibodies."
+                : $"Create antibody panel lot; antigram imported from {importedFrom}. Does not identify antibodies.");
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<AntibodyPanelLotListItemDto>.Ok(dto);
     }

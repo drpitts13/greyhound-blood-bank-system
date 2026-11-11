@@ -75,7 +75,9 @@ public sealed record CreateAntibodyPanelLotRequest(
     string PanelName,
     DateOnly ExpiresOn,
     bool IsSelectedCellLot,
-    IReadOnlyList<CreateAntibodyPanelLotCellRequest> Cells);
+    IReadOnlyList<CreateAntibodyPanelLotCellRequest> Cells,
+    // The antigram file the cells were imported from, if any; recorded in the lot's audit entry.
+    string? ImportedFrom = null);
 
 public sealed record AntibodyPanelLotAntigenDetailDto(
     long BloodAttributeDefinitionId,

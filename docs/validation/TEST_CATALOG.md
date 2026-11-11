@@ -957,5 +957,14 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-946 | I | `InventoryServiceTests.ReportedTransfusedUnit_KeepsItsStatus` | URS-BB-746 / FRS-BB-864 |
 | TEST-BB-947 | U | `ReportedTransfusionRuleTests.Evaluate_StopsAReportedUnit` | URS-BB-746 / FRS-BB-864 |
 | TEST-BB-948 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-747 / FRS-BB-865 |
+| TEST-BB-949 | U | `AntigramImportTests.Parse_ReadsAManufacturerSheet` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-950 | U | `AntigramImportTests.Parse_Problems_StopTheImport` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-951 | U | `AntigramImportTests.Export_ReadsBack` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-952 | U | `AntigramImportPageTests.CsvAntigram_FillsTheCells` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-953 | U | `AntigramImportPageTests.BadAntigram_IsNotUsed` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-954 | U | `AntigramImportPageTests.ExcelAntigram_FillsTheCells` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-955 | U | `AntigramImportPageTests.Template_OpensADownload` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-956 | I | `AntibodyPanelLotAdminTests.Create_FromAnImportedAntigram_RecordsTheFile` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-957 | U | `AntigramImportPageTests.LotAntigram_Downloads` | URS-BB-748 / FRS-BB-866 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
