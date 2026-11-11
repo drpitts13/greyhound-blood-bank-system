@@ -63,6 +63,30 @@ public static class ThawedExpirationRule
             ? RuleResult.Pass(ShelfLifeCode)
             : RuleResult.HardStop(ShelfLifeCode, $"The {which} thawed shelf life must be between 1 and {MaxHours} hours, or left blank.");
 
+    /// <summary>
+    /// Cycle 684: the shelf lives a code still waits for ("open system", "pooled"), so a thaw is not first refused at
+    /// the bench. Empty when both are set.
+    /// </summary>
+    public static IReadOnlyList<string> TimesToEnter(int? openSystemHours, int? pooledHours)
+    {
+        var missing = new List<string>(2);
+        if (openSystemHours is null)
+        {
+            missing.Add("open system");
+        }
+
+        if (pooledHours is null)
+        {
+            missing.Add("pooled");
+        }
+
+        return missing;
+    }
+
+    /// <summary>"E0707 (open system, pooled)": a code and the shelf lives it waits for.</summary>
+    public static string DescribeToEnter(string productCode, IReadOnlyList<string> missing) =>
+        $"{productCode} ({string.Join(", ", missing)})";
+
     /// <summary>"24 hours", "4 hours", "5 days" (whole days from 48 hours).</summary>
     public static string Describe(int hours) =>
         hours >= 48 && hours % 24 == 0 ? $"{hours / 24} days" : hours == 1 ? "1 hour" : $"{hours} hours";

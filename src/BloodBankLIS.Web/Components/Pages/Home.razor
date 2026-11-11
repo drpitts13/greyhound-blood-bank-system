@@ -536,6 +536,13 @@
                 }
 
                 var waiting = result.Value.Where(p => p.AwaitsEntry).Select(p => p.DisplayName).ToList();
+                // Cycle 684: an active thaw code without its open-system or pooled shelf life refuses that thaw.
+                var thaw = await Api.GetAdminAutoThawProductsAsync(includeInactive: false);
+                if (thaw.Succeeded && thaw.Value is not null)
+                {
+                    waiting.AddRange(AutoThawShelfLivesToEnter.Describe(thaw.Value).Select(code => "Thawed shelf life " + code));
+                }
+
                 return (card.Key, waiting.Count, DashboardQueueCatalog.SettingsToEnterNote(waiting));
             }
             case DashboardQueueCatalog.OutsideAntibodies:

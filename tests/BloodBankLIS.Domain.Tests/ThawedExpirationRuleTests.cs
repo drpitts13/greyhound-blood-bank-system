@@ -27,4 +27,15 @@ public class ThawedExpirationRuleTests
         Assert.Equal("5 days", ThawedExpirationRule.Describe(120));
         Assert.Equal("50 hours", ThawedExpirationRule.Describe(50));
     }
+
+    // TEST-BB-898: a code names the shelf lives it still waits for, and none once both are set.
+    [Fact]
+    public void TimesToEnter_NamesWhatIsNotSet()
+    {
+        Assert.Equal(["open system", "pooled"], ThawedExpirationRule.TimesToEnter(null, null));
+        Assert.Equal(["pooled"], ThawedExpirationRule.TimesToEnter(4, null));
+        Assert.Equal(["open system"], ThawedExpirationRule.TimesToEnter(null, 4));
+        Assert.Empty(ThawedExpirationRule.TimesToEnter(4, 4));
+        Assert.Equal("E0707 (open system, pooled)", ThawedExpirationRule.DescribeToEnter("E0707", ["open system", "pooled"]));
+    }
 }

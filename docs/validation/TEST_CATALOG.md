@@ -906,5 +906,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-895 | U | `ShipmentPackingListTests.PackingList_ShowsTheNamedShipment` | URS-BB-726 / FRS-BB-844 |
 | TEST-BB-896 | U | `ShipmentPackingListTests.PackingList_OlderShipment_AndNoMatch` | URS-BB-726 / FRS-BB-844 |
 | TEST-BB-897 | U | `ShipmentPackingListTests.ShipUnits_RecentShipment_LinksToItsPackingList` | URS-BB-726 / FRS-BB-844 |
+| TEST-BB-898 | U | `ThawedExpirationRuleTests.TimesToEnter_NamesWhatIsNotSet` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-899 | U | `ThawShelfLivesToEnterTests.Describe_NamesActiveCodesWaiting` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-900 | U | `ThawShelfLivesToEnterTests.FacilityPolicies_NamesThawCodesWaiting` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-901 | U | `ThawShelfLivesToEnterTests.AutoThawProducts_FilteredToCodesWaiting` | URS-BB-727 / FRS-BB-845 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

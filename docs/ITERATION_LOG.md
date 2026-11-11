@@ -21085,3 +21085,35 @@ Ship units had two Print packing list buttons, and both ran the browser's print 
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 684 — Thawed shelf lives waiting to be entered (2026-11-10)
+
+### Capability matrix rescan (blood products: thawing; administration)
+
+Cycle 667 refuses a thaw that needs an open-system or pooled shelf life the code does not have yet (OCD-068: never fall back to the longer closed time). Cycle 677 put the decided settings still at their default on a home card, but that card read only Facility Policies, so a code without these times was first found when a thaw was refused at the bench.
+
+### Design
+
+- `ThawedExpirationRule.TimesToEnter(open, pooled)` names what a code waits for; `AutoThawShelfLivesToEnter.Describe` lists active codes as "E0707 (open system, pooled)", by code. Inactive codes are not counted.
+- Home: the Facility settings to enter card adds them to its count and names ("Thawed shelf life E0707 (open system, pooled)"). If the thaw list cannot be read, the card still counts the policies.
+- Facility Policies: a second note names the codes, with a link to Auto thaw products filtered to them (`?show=to-enter`).
+- Auto thaw products: a note naming them, Show only these, and Show all codes.
+- Read-only: no values are entered or suggested; the times come from the facility SOP.
+
+### Verification
+
+- Unit: each combination of set and not set; the description.
+- Rendered: only active codes with a time not set are named; Facility Policies' note and link; Auto thaw products filtered from the link and back to all.
+- Live (read-only): the dev data has no auto-thaw codes, so Facility Policies shows only its four settings to enter and no thaw note, and Auto thaw products opened filtered says it has no codes, with Show all codes. The named codes were exercised by the rendered tests only. No server errors.
+
+### Requirements
+
+- URS-BB-727, FRS-BB-845.
+
+### Tests
+
+- TEST-BB-898, TEST-BB-899, TEST-BB-900, TEST-BB-901.
+
+### Next
+
+- Back to the capability matrix.

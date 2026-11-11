@@ -12,9 +12,26 @@
 
 <Outcome Value="_feedback" />
 
+@* Cycle 684: active codes waiting for an open-system or pooled shelf life; a thaw that needs one is refused. *@
+@if (AutoThawShelfLivesToEnter.Describe(_list) is { Count: > 0 } toEnter)
+{
+    <div class="alert alert-warning" data-thaw-to-enter>
+        <strong>@toEnter.Count @(toEnter.Count == 1 ? "code is" : "codes are") waiting for a thawed shelf life:</strong>
+        @string.Join("; ", toEnter). Until it is entered, a thaw that needs it is refused.
+        @if (!_toEnterOnly)
+        {
+            <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = true" data-thaw-to-enter-show>Show only these</button>
+        }
+    </div>
+}
+
 <div class="bb-card" style="margin-top:1rem;">
     <div class="flex gap" style="margin-bottom:.6rem;">
         <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+        @if (_toEnterOnly)
+        {
+            <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = false" data-thaw-show-all>Show all codes</button>
+        }
     </div>
 
     @if (_loading)
@@ -114,8 +131,17 @@
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
 
+    // From Facility Policies or the home card: only the active codes waiting for a shelf life.
+    [SupplyParameterFromQuery(Name = "show")] public string? Show { get; set; }
+
+    private bool _toEnterOnly;
+
+    protected override void OnParametersSet() => _toEnterOnly = string.Equals(Show, "to-enter", StringComparison.OrdinalIgnoreCase);
+
     private List<AutoThawProductDto> VisibleRows =>
-        (_includeInactive ? _list : _list.Where(row => row.IsActive))
+        (_toEnterOnly
+            ? _list.Where(row => row.IsActive && ThawedExpirationRule.TimesToEnter(row.OpenSystemShelfLifeHours, row.PooledShelfLifeHours).Count > 0)
+            : _includeInactive ? _list : _list.Where(row => row.IsActive))
             .OrderBy(row => row.ProductCode)
             .ToList();
 

@@ -12,7 +12,7 @@ routes:
 
 **Auto thaw products** lists ISBT plasma codes, such as E0707, that may be thawed in place when a technologist allocates them. The unit's expiration becomes the code's **thawed shelf life** after the thaw time, never later than the frozen expiration. Set the shelf life when you add a code (it starts at 24 hours) and use **Change** to correct it; a change needs a reason and is kept in the configuration history. Take each value from your SOP and the product's circular of information (OCD-068). Codes that are not on this list are not thawed automatically. They wait for an explicit modification.
 
-Each code can also have an **Open system** and a **Pooled** shelf life, set with **Change** alongside the closed-system time (OCD-068). Leave either blank until your SOP gives a time; the table then says *Not set (thaw refused)*.
+Each code can also have an **Open system** and a **Pooled** shelf life, set with **Change** alongside the closed-system time (OCD-068). Leave either blank until your SOP gives a time; the table then says *Not set (thaw refused)*. A note at the top names every active code still waiting for one of these times, with **Show only these**; arriving from Facility Policies or the home card shows only them, and **Show all codes** brings the rest back. Inactive codes are not counted.
 
 - When the person thawing ticks **Thawed in an open system**, the open-system shelf life applies.
 - A pooled unit (one made by pooling on Modifications) is recognized automatically, and the pooled shelf life applies.

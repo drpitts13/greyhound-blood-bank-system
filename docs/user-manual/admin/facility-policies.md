@@ -22,6 +22,8 @@ Each row shows the current value and the citation the parameter was written agai
 
 While such a setting is still at its "not set" value, its row is marked **Not set**. A note at the top of the page names all of them, with **Show only these** to list just them. The home card **Facility settings to enter**, for those who can edit configuration, counts them and opens this page filtered to them. Until a value is entered, what depends on it does not happen; for example, no RhIG dose is calculated. Settings that are off by choice, such as the neonatal rules, are not counted.
 
+The open-system and pooled thawed shelf lives are entered per product code on **Auto thaw products**, not here. An active code without one of them is named in a second note on this page (for example *E0707 (open system, pooled)*), with a link to Auto thaw products filtered to those codes, and counts on the same home card.
+
 A parameter marked legal hold should not be edited to satisfy a convenience. The badge is there so you see the hold before you save.
 
 Links on this page open [Crossmatch settings](crossmatch-settings) and [Compatibility tables](compatibility-rules). Those are separate catalogs. A change here does not edit the ABO table.

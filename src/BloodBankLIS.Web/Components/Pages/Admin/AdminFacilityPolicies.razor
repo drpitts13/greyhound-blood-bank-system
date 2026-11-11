@@ -30,6 +30,16 @@
     </div>
 }
 
+@* Cycle 684: thaw codes waiting for an open-system or pooled shelf life are entered on Auto thaw products. *@
+@if (_thawToEnter.Count > 0)
+{
+    <div class="alert alert-warning" data-thaw-to-enter>
+        <strong>@_thawToEnter.Count auto-thaw product @(_thawToEnter.Count == 1 ? "code is" : "codes are") waiting for a thawed shelf life:</strong>
+        @string.Join("; ", _thawToEnter). A thaw that needs a time not set is refused.
+        <a class="btn btn-ghost btn-sm" href="/admin/auto-thaw-products?show=to-enter" data-thaw-to-enter-link>Enter them on Auto thaw products</a>
+    </div>
+}
+
 <div class="flex gap" style="margin:1rem 0;flex-wrap:wrap;">
     <input style="flex:1;min-width:16rem;" placeholder="Filter by name, key, or citation" @bind="_filter" @bind:event="oninput" />
     @if (_toEnterOnly)
@@ -132,6 +142,7 @@ else
     private bool _busy;
     private string _filter = string.Empty;
     private List<FacilityPolicyDto> _list = new();
+    private IReadOnlyList<string> _thawToEnter = [];
     private Feedback? _feedback;
     private long? _editId;
     private string _draftValue = string.Empty;
@@ -162,6 +173,8 @@ else
         var r = await Api.GetAdminFacilityPoliciesAsync();
         _list = r.Succeeded ? r.Value ?? new() : new();
         if (!r.Succeeded) _feedback = r.ToFeedback();
+        var thaw = await Api.GetAdminAutoThawProductsAsync(includeInactive: false);
+        _thawToEnter = thaw.Succeeded && thaw.Value is not null ? AutoThawShelfLivesToEnter.Describe(thaw.Value) : [];
         _loading = false;
     }
 

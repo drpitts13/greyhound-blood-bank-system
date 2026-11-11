@@ -35,7 +35,7 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 - Possible duplicates, when you can merge charts: pairs of charts that may be one person. Pairs that carry the same identifier from another system (for example an enterprise id sent by the EHR) are named, which puts the card under Needs attention.
 - Outage still open, when you can issue: a recorded outage nobody has ended. The card names what was down, how long it has been open and the paper issues back-entered in it, and opens Downtime Snapshot, where **End outage** closes it. While an outage is open, every later paper time counts as inside it, so the back-entry check cannot catch a wrong date; an open outage is always under Needs attention. It is on the Issue desk and Supervisor desks.
 - Shift handoff, when you can hand off a shift. An open packet says it needs acknowledgment.
-- Facility settings to enter, when you can edit configuration: settings decided as policy whose values are not entered yet (the RhIG dose settings, the specimen retention days), named on the card. It opens Facility Policies filtered to them. It is on the Supervisor desk.
+- Facility settings to enter, when you can edit configuration: settings decided as policy whose values are not entered yet (the RhIG dose settings, the specimen retention days), and active auto-thaw product codes without an open-system or pooled thawed shelf life, named on the card. It opens Facility Policies filtered to them. It is on the Supervisor desk.
 
 A retrospective count names how many items are past their stored due time. An in-transit count names how many units are past the arrival window. Those notes appear only when the number is above zero.
 
