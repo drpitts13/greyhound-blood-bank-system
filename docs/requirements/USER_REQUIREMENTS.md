@@ -727,3 +727,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-719 | The patient's product history says how each issue was entered: late, from a downtime paper record, outside every recorded outage, or to an infant without a crossmatch. | P3 | FRS-BB-837 |
 | URS-BB-720 | Settings decided as policy but not yet entered are visible to administrators until entered. | P3 | FRS-BB-838 |
 | URS-BB-721 | An outside antibody report is confirmed without retyping when this laboratory's reviewed antibody identification identifies the same antibody (OCD-073). | P3 | FRS-BB-839 |
+| URS-BB-722 | The shift handoff tells the next shift how many units are overdue for a final disposition and how many outside antibody reports wait to be confirmed. | P3 | FRS-BB-840 |

@@ -60,6 +60,9 @@ public static class ShiftHandoffItems
         Add(h.Hl7OutboundNotSent, "HL7 outbound not sent", "/hl7");
         // An outage left open after recovery makes every later paper time look inside it (Cycle 663).
         Add(h.OutagesOpen, "Outage still open", "/downtime", urgent: true, detail: "end it when the system is back");
+        // Cycle 679: the home queues that carry over a shift. Every unit on the disposition board is already overdue.
+        Add(h.DispositionOverdue, "Final disposition overdue", "/issuing?desk=disposition", urgent: true, detail: "record the outcome");
+        Add(h.OutsideAntibodiesToConfirm, "Outside antibodies to confirm", "/antibody-id#outside-reports");
         Add(h.UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
         Add(h.RhigOpen, "RhIG evaluations", "/rhig", detail: Note((h.RhigToGive, "to give")));
         Add(h.AntibodyWorkupsOpen, "Antibody workups", "/antibody-id", detail: Note((h.AntibodyWorkupsToReview, "to review")));

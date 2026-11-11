@@ -77,6 +77,22 @@ public class ShiftHandoffItemsTests
         Assert.DoesNotContain("OUTAGE", Handoff().QueueSummary);
     }
 
+    // TEST-BB-889 (Cycle 679): overdue final dispositions are an urgent item opening that board; outside antibodies to
+    // confirm are a routine item opening the list on Antibody ID; both are in the summary; none, no items.
+    [Fact]
+    public void DispositionOverdue_AndOutsideAntibodies_AreHandoffItems()
+    {
+        var handoff = Handoff() with { DispositionOverdue = 2, OutsideAntibodiesToConfirm = 1 };
+        var items = ShiftHandoffItems.For(handoff);
+        var disposition = items.Single(i => i.Label == "Final disposition overdue");
+        Assert.Equal((2, "/issuing?desk=disposition", true, "record the outcome"), (disposition.Count, disposition.Href, disposition.Urgent, disposition.Detail));
+        var outside = items.Single(i => i.Label == "Outside antibodies to confirm");
+        Assert.Equal((1, "/antibody-id#outside-reports", false), (outside.Count, outside.Href, outside.Urgent));
+        Assert.Contains("final disposition overdue 2", handoff.QueueSummary);
+        Assert.Contains("outside antibodies to confirm 1", handoff.QueueSummary);
+        Assert.Empty(ShiftHandoffItems.For(Handoff()));
+    }
+
     // TEST-BB-615: unidentified patients still unmerged lead the handoff (urgent, linked to Patients); tubes due for discard
     // are a routine item linked to Store tubes; both are in the summary line.
     [Fact]

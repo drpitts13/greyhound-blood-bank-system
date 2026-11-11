@@ -64,7 +64,9 @@ public sealed record ShiftHandoffDto(
     int AntibodyWorkupsOpen = 0,
     int AntibodyWorkupsToReview = 0,
     int Hl7OutboundNotSent = 0,
-    int OutagesOpen = 0)
+    int OutagesOpen = 0,
+    int DispositionOverdue = 0,
+    int OutsideAntibodiesToConfirm = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -107,6 +109,8 @@ public sealed record ShiftHandoffDto(
         (Hl7ErrorsOpen > 0 ? $"; HL7 errors {Hl7ErrorsOpen}" : "") +
         (Hl7OutboundNotSent > 0 ? $"; HL7 outbound not sent {Hl7OutboundNotSent}" : "") +
         (OutagesOpen > 0 ? $"; OUTAGE STILL OPEN, end it when the system is back" : "") +
+        (DispositionOverdue > 0 ? $"; final disposition overdue {DispositionOverdue}" : "") +
+        (OutsideAntibodiesToConfirm > 0 ? $"; outside antibodies to confirm {OutsideAntibodiesToConfirm}" : "") +
         (UnmappedInterfaceValues > 0 ? $"; unmapped interface values {UnmappedInterfaceValues}" : "") +
         (RhigOpen > 0 ? $"; RhIG evaluations {RhigOpen}" + (RhigToGive > 0 ? $", {RhigToGive} to give" : "") : "") +
         (AntibodyWorkupsOpen > 0
@@ -131,7 +135,8 @@ public sealed record ShiftHandoffDto(
         h.InstrumentFailuresOpen, h.InstrumentResultsHeld, h.ReagentLotsFailedQc, h.ReagentResultsToReview,
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
         h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
-        h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen);
+        h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen,
+        h.DispositionOverdue, h.OutsideAntibodiesToConfirm);
 }
 
 /// <summary>
@@ -165,6 +170,8 @@ public sealed class ShiftHandoffService
     private readonly IRepository<InterfaceErrorQueueItem>? _hl7Errors;
     private readonly IRepository<Hl7MessageLog>? _hl7Messages;
     private readonly IRepository<DowntimeEpisode>? _outages;
+    private readonly BloodBankLIS.Application.Issuing.FinalDispositionBoardService? _dispositions;
+    private readonly IRepository<AntibodyHistory>? _antibodyHistory;
     private readonly IRepository<InterfaceUnmappedValue>? _unmapped;
     private readonly IRepository<RhigEvaluation>? _rhig;
     private readonly IRepository<Patient>? _patientCharts;
@@ -201,8 +208,12 @@ public sealed class ShiftHandoffService
         FacilityPolicyService? policy = null,
         IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
         IRepository<Hl7MessageLog>? hl7Messages = null,
-        IRepository<DowntimeEpisode>? outages = null)
+        IRepository<DowntimeEpisode>? outages = null,
+        BloodBankLIS.Application.Issuing.FinalDispositionBoardService? dispositions = null,
+        IRepository<AntibodyHistory>? antibodyHistory = null)
     {
+        _dispositions = dispositions;
+        _antibodyHistory = antibodyHistory;
         _hl7Messages = hl7Messages;
         _outages = outages;
         _antibodyWorkups = antibodyWorkups;
@@ -412,6 +423,9 @@ public sealed class ShiftHandoffService
             Hl7ErrorsOpen = _hl7Errors is null ? 0 : (await _hl7Errors.ListAsync(e => !e.Resolved, ct)).Count,
             Hl7OutboundNotSent = await CountOutboundNotSentAsync(now, ct),
             OutagesOpen = _outages is null ? 0 : (await _outages.ListAsync(o => o.EndedUtc == null, ct)).Count,
+            DispositionOverdue = _dispositions is null ? 0 : (await _dispositions.ListAsync(ct)).Count,
+            OutsideAntibodiesToConfirm = _antibodyHistory is null ? 0
+                : (await _antibodyHistory.ListAsync(a => a.IsActive && a.ReportingFacility != null && a.ConfirmedUtc == null, ct)).Count,
             UnmappedInterfaceValues = _unmapped is null ? 0 : (await _unmapped.ListAsync(v => v.ResolvedUtc == null, ct)).Count,
             RhigOpen = rhigOpen.Count,
             RhigToGive = rhigOpen.Count(e => e.CompletedUtc != null),
@@ -512,7 +526,9 @@ public sealed class ShiftHandoffService
         AntibodyWorkupsOpen = row.AntibodyWorkupsOpen,
         AntibodyWorkupsToReview = row.AntibodyWorkupsToReview,
         Hl7OutboundNotSent = row.Hl7OutboundNotSent,
-        OutagesOpen = row.OutagesOpen
+        OutagesOpen = row.OutagesOpen,
+        DispositionOverdue = row.DispositionOverdue,
+        OutsideAntibodiesToConfirm = row.OutsideAntibodiesToConfirm
     };
 
     /// <summary>

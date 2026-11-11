@@ -20938,3 +20938,33 @@ Cycle 669 asked for outside antibody reports to be confirmed by this laboratory'
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 679 — The handoff counts overdue dispositions and outside antibodies (2026-11-10)
+
+### Capability matrix rescan (operations: shift handoff)
+
+Comparing the home queues with the handoff items: two queues that carry over a shift were on the home screen but not handed over. Final disposition overdue (units issued and past the window with no transfusion or return recorded, every one already late) and Outside antibodies to confirm (Cycle 670).
+
+### Design
+
+- `ShiftHandoff.DispositionOverdue` (the Final disposition board's count) and `OutsideAntibodiesToConfirm` (active outside reports with no confirmation), counted when written and kept (migration `20270104000000_ShiftHandoffDispositionAndOutside`, dev bootstrap).
+- Items: "Final disposition overdue" (urgent, opens that board, "record the outcome") and "Outside antibodies to confirm" (opens the list on Antibody ID); summary lines.
+- Possible duplicates, Second ABO/Rh and Ready to issue stay off the handoff: they are worked from the home screen and do not age into an overdue state across a shift.
+
+### Verification
+
+- Unit: both items, urgency, links, summary; none without.
+- Integration: outside reports counted (confirmed, inactive and local not) and kept; the disposition count is the board's own (tested with the board).
+- Live (read-only; nothing recorded): the handoff preview lists "Final disposition overdue: 9 (record the outcome)", matching the home card (9, oldest 3 d past due); no outside-antibody item (none in the dev data). The dev database took both columns on start. No server errors.
+
+### Requirements
+
+- URS-BB-722, FRS-BB-840.
+
+### Tests
+
+- TEST-BB-889, TEST-BB-890.
+
+### Next
+
+- Back to the capability matrix.

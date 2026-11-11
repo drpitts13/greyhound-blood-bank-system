@@ -139,6 +139,12 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Recorded outages not yet ended when the handoff was written (Cycle 663).</summary>
     public int OutagesOpen { get; set; }
 
+    /// <summary>Units issued and past the final-disposition window with no outcome recorded (Cycle 679).</summary>
+    public int DispositionOverdue { get; set; }
+
+    /// <summary>Outside antibody reports not yet confirmed by this laboratory (Cycle 679, OCD-073).</summary>
+    public int OutsideAntibodiesToConfirm { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

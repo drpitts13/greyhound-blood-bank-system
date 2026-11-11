@@ -483,6 +483,36 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(expected, (await context.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == created.Value.Id)).OutagesOpen);
     }
 
+    // TEST-BB-890 (Cycle 679): a handoff counts active outside antibody reports not yet confirmed (a confirmed one, an
+    // inactive one and a local antibody are not counted) and keeps the count.
+    [Fact]
+    public async Task Create_CountsOutsideAntibodiesToConfirm()
+    {
+        await using var context = _factory.Create();
+        var patient = new Patient { MedicalRecordNumber = $"MRN-HO-OUT-{Guid.NewGuid():N}"[..20], LastName = "Handoff", FirstName = "Outside", DateOfBirth = new DateOnly(1980, 1, 1) };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+        context.AntibodyHistory.AddRange(
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-Jka", IsActive = true, ReportingFacility = "St. Mary's" },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-S", IsActive = true, ReportingFacility = "St. Mary's", ConfirmedUtc = _factory.Clock.UtcNow },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-M", IsActive = false, ReportingFacility = "St. Mary's" },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-K", IsActive = true });
+        await context.SaveChangesAsync();
+        var expected = await context.AntibodyHistory.CountAsync(a => a.IsActive && a.ReportingFacility != null && a.ConfirmedUtc == null);
+
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(0, PermissionCodes.ShiftHandoff),
+            antibodyHistory: new EfRepository<AntibodyHistory>(context));
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest("Outside reports"));
+
+        Assert.True(created.Succeeded, created.Error);
+        Assert.True(expected >= 1);
+        Assert.Equal(expected, created.Value!.OutsideAntibodiesToConfirm);
+        Assert.Equal(expected, (await context.ShiftHandoffs.AsNoTracking().SingleAsync(h => h.Id == created.Value.Id)).OutsideAntibodiesToConfirm);
+    }
+
     // TEST-BB-616: a handoff counts unidentified patients not yet merged (a merged one is not counted).
     [Fact]
     public async Task Create_CountsUnidentifiedPatientsNotYetMerged()
