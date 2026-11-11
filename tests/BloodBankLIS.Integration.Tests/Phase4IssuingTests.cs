@@ -1523,6 +1523,66 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Returned while in quarantine (Pulled after recall: donor reactive): Brought back", last.Reason);
     }
 
+    // TEST-BB-928 (Cycle 694): a unit reported damaged while issued closes its issue on return and stays Damaged for its
+    // inspection; one reported missing comes back to quarantine as located after missing; neither goes to stock, even
+    // with every inspection passed, and a return to Available is refused. A unit in a status that cannot be returned
+    // (expired here) is refused and its issue stays open.
+    [Theory]
+    [InlineData(UnitStatus.Damaged)]
+    [InlineData(UnitStatus.Missing)]
+    [InlineData(UnitStatus.Expired)]
+    public async Task ReportedWhileIssued_DoesNotReturnToStock(UnitStatus reported)
+    {
+        var s = await SeedAsync($"TX-REP-{reported}");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using (var c = _factory.Create())
+        {
+            var unit = (await c.BloodUnits.FindAsync(s.UnitId))!;
+            unit.Status = reported;
+            unit.DamagedReason = reported == UnitStatus.Damaged ? "Bag leaking on the ward" : null;
+            unit.MissingReason = reported == UnitStatus.Missing ? "Not found in the ward fridge" : null;
+            await c.SaveChangesAsync();
+        }
+
+        ReturnUnitRequest Req(UnitStatus? destination = null) => new(
+            "Brought back", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true, Destination: destination);
+        await using (var c = _factory.Create())
+        {
+            Assert.False((await Issuing(c).ReturnUnitAsync(issueId, Req(UnitStatus.Available))).Succeeded);
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, Req());
+            if (reported == UnitStatus.Expired)
+            {
+                Assert.False(returned.Succeeded);
+                Assert.Contains("is Expired; it cannot be returned", returned.Error);
+            }
+            else
+            {
+                Assert.True(returned.Succeeded, returned.Error);
+                Assert.False(returned.Value!.ReissueEligible);
+            }
+        }
+
+        await using var verify = _factory.Create();
+        var back = (await verify.BloodUnits.FindAsync(s.UnitId))!;
+        var issue = (await verify.Issues.FindAsync(issueId))!;
+        switch (reported)
+        {
+            case UnitStatus.Damaged:
+                Assert.Equal((UnitStatus.Damaged, IssueStatus.Returned), (back.Status, issue.Status));
+                Assert.Equal("Bag leaking on the ward", back.DamagedReason);
+                break;
+            case UnitStatus.Missing:
+                Assert.Equal((UnitStatus.Quarantine, UnitQuarantineReason.LocatedAfterMissing, IssueStatus.Returned),
+                    (back.Status, back.QuarantineReasonCode, issue.Status));
+                Assert.Contains("Located after missing (Not found in the ward fridge) (returned): Brought back", back.QuarantineReason);
+                Assert.Null(back.MissingReason);
+                break;
+            default:
+                Assert.Equal((UnitStatus.Expired, IssueStatus.Issued), (back.Status, issue.Status));
+                break;
+        }
+    }
+
     // TEST-BB-924 (Cycle 692): a unit recalled on its way to the ward is flagged on In transit with the reason and is not
     // received there (the refusal names the recall); it stays in transit to be returned. Another unit in transit is not flagged.
     [Fact]

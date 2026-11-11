@@ -21406,3 +21406,39 @@ Checking how Cycles 690 and 691 meet: the Recalled board's scan quarantined any 
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 694 — Issuing status steps follow the status rules (2026-11-11)
+
+### Capability matrix rescan (patient-product workflows: return; safety architecture)
+
+Cycles 691 to 693 each found a unit that a return sent to Available from a status that should have kept it out of stock (Recalled, then Quarantine). The cause is shared: the issuing paths write their own status steps (`AppendStatus`) without the status rules every inventory action checks. Two more statuses the rules allow from Issued had the same outcome. A unit reported **Damaged** or **Missing** while out, then returned with a passing inspection, went Returned, then Available.
+
+### Design
+
+- `ReturnUnitAsync`:
+  - **Damaged:** the unit refuses Available and stays Damaged, so the damage inspection on the Discrepancy board still applies. The issue is closed as returned.
+  - **Missing:** the unit refuses Available. It is back, so it is quarantined as *Located after missing* pending inspection, as Locate does, and the missing reason is cleared.
+  - **Recorded:** both are audited (Path ReturnReported), and neither return is reissue eligible.
+  - **Other statuses:** any status other than Issued or ReturnPending (after the Recalled and Quarantine paths) is refused, naming it.
+- `AppendStatus` checks `InventoryStatusTransition.IsAllowed` and throws when a step is not allowed. A future gap stops the action with a message naming the unit and the step, instead of leaving the unit in a status it should not reach. The full suite ran with the check in place before the new tests, with no failure, so no existing path relies on a disallowed step.
+
+### Verification
+
+- Integration: for a unit damaged, missing or expired while issued and received:
+  - a return to Available is refused;
+  - with every inspection passed, the damaged unit stays Damaged with its reason and the issue is returned;
+  - the missing unit is in quarantine as located after missing, with its reason folded into the note;
+  - the expired unit's return is refused and its issue stays open.
+- Live (read-only; nothing returned): Issue & Transfuse opened on Issued units (desk=issued) lists the 10 demo units with Return offered. No server errors.
+
+### Requirements
+
+- URS-BB-737, FRS-BB-855.
+
+### Tests
+
+- TEST-BB-928.
+
+### Next
+
+- Back to the capability matrix.

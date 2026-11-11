@@ -1470,6 +1470,24 @@ public sealed class IssuingService
             return await ReturnQuarantinedAsync(issue, unit, request.Reason, ct);
         }
 
+        // Cycle 694: a unit reported damaged or missing while it was out comes back to be dealt with as that, never to stock.
+        if (unit.Status is UnitStatus.Damaged or UnitStatus.Missing)
+        {
+            if (request.Destination == UnitStatus.Available)
+            {
+                return EvaluationResult<Return>.Fail(
+                    $"{unit.UnitNumber} was reported {unit.Status.ToString().ToLowerInvariant()} while issued; it does not return to stock.");
+            }
+
+            return await ReturnReportedAsync(issue, unit, request.Reason, ct);
+        }
+
+        if (unit.Status is not (UnitStatus.Issued or UnitStatus.ReturnPending))
+        {
+            return EvaluationResult<Return>.Fail(
+                $"{IsbtErrorCodes.InvalidStatusTransition}: {unit.UnitNumber} is {unit.Status}; it cannot be returned.");
+        }
+
         var now = _clock.UtcNow;
         var unitUnexpired = unit.ExpiresUtc > now;
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
@@ -2551,6 +2569,59 @@ public sealed class IssuingService
         return EvaluationResult<Return>.Ok(returnRecord);
     }
 
+    /// <summary>
+    /// Cycle 694: the return of a unit reported damaged or missing while its issue was open. The issue is closed as
+    /// returned. A damaged unit stays Damaged for its damage inspection (Discrepancy board); a missing unit is back, so it
+    /// is quarantined as located after missing, pending inspection, as Locate does. Recorded and audited.
+    /// </summary>
+    private async Task<EvaluationResult<Return>> ReturnReportedAsync(Issue issue, BloodUnit unit, string reason, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+        var why = reason.Trim();
+        var reported = unit.Status;
+        var returnRecord = new Return
+        {
+            IssueId = issue.Id,
+            Issue = issue,
+            BloodProductId = unit.Id,
+            ReturnedUtc = now,
+            ReturnedBy = _currentUser.UserName,
+            Reason = why,
+            ReissueEligible = false,
+            ReissueEvaluationJson = JsonSerializer.Serialize(new { ReportedWhileIssued = reported })
+        };
+        await _returns.AddAsync(returnRecord, ct);
+        issue.Status = IssueStatus.Returned;
+
+        string note;
+        if (reported == UnitStatus.Missing)
+        {
+            var prior = unit.MissingReason;
+            unit.MissingReason = null;
+            unit.QuarantineReasonCode = UnitQuarantineReason.LocatedAfterMissing;
+            note = string.IsNullOrWhiteSpace(prior)
+                ? $"Located after missing (returned): {why}; pending inspection"
+                : $"Located after missing ({prior}) (returned): {why}; pending inspection";
+            unit.QuarantineReason = note;
+            AppendStatus(unit, UnitStatus.Quarantine, note, now, nameof(Return), issue.Id);
+        }
+        else
+        {
+            note = $"Returned while reported damaged ({unit.DamagedReason ?? "no reason recorded"}): {why}";
+            AppendStatus(unit, UnitStatus.Damaged, note, now, nameof(Return), issue.Id);
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = reported, IssueStatus = IssueStatus.Issued },
+            newValue: new { unit.UnitNumber, unit.Status, Path = "ReturnReported", IssueId = issue.Id },
+            reason: note);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<Return>.Ok(returnRecord);
+    }
+
     /// <summary>Cycle 691: the units of these issues recalled while they are out, with the recall's reason.</summary>
     private async Task<Dictionary<long, string?>> RecalledOutAsync(IReadOnlyCollection<Issue> issues, CancellationToken ct)
     {
@@ -2568,6 +2639,14 @@ public sealed class IssuingService
     private void AppendStatus(BloodUnit unit, UnitStatus toStatus, string reason, DateTime whenUtc, string relatedType, long relatedId)
     {
         var fromStatus = unit.Status;
+        // Cycle 694: the issuing paths write their own status steps; one the status rules do not allow is a defect, so it
+        // stops the action rather than leave the unit in a status it should not reach (Cycles 691-693 each found one).
+        if (!InventoryStatusTransition.IsAllowed(fromStatus, toStatus))
+        {
+            throw new InvalidOperationException(
+                $"Status change from {fromStatus} to {toStatus} is not allowed for {unit.UnitNumber} ({relatedType} {relatedId}).");
+        }
+
         unit.Status = toStatus;
         _inventory.AddStatusHistory(new InventoryStatusHistory
         {
