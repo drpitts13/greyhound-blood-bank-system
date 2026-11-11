@@ -841,6 +841,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-727 / FRS-BB-845 | Thawed shelf lives to enter surfaced | `ThawedExpirationRule.cs`, `AutoThawProductDtos.cs`, `Home.razor`, `AdminFacilityPolicies.razor`, `AdminAutoThawProducts.razor` | TEST-BB-898..901 | U | |
 | URS-BB-728 / FRS-BB-846 | Thaw prompt states the applicable shelf life, refuses before Yes | `PatientAllocationDtos.cs`, `PatientAllocationService.cs`, `AutoThawService.cs`, `AutoThawDialog.razor` | TEST-BB-902..905 | U, I | |
 | URS-BB-729 / FRS-BB-847 | Recent returns and the return list | `SupplierReturnListRule.cs`, `InventoryRepository.cs`, `InventoryService.cs`, `InventoryEndpoints.cs`, `InventoryReturnToSupplier.razor`, `SupplierReturnList.razor`, `DatabaseSeeder.SupplierReturn.cs` | TEST-BB-906..910 | U, I | |
+| URS-BB-730 / FRS-BB-848 | Recall by DIN does not stop at a component it cannot recall | `LookbackRecallRule.cs`, `LookbackService.cs`, `Lookback.razor` | TEST-BB-911, TEST-BB-912, TEST-BB-913 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

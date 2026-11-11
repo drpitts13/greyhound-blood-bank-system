@@ -100,6 +100,19 @@ else
 
         @if (_report is not null)
         {
+            @* Cycle 687: components of the recalled donation left as they were, and what to do. *@
+            @if (_report.NotRecalled.Count > 0)
+            {
+                <div class="alert alert-warning" data-not-recalled>
+                    <strong>@_report.NotRecalled.Count component@(_report.NotRecalled.Count == 1 ? " was" : "s were") not recalled:</strong>
+                    <ul style="margin:.25rem 0 0;">
+                        @foreach (var n in _report.NotRecalled)
+                        {
+                            <li><UnitLink Id="n.BloodProductId" Number="@n.UnitNumber" /> @n.Why.</li>
+                        }
+                    </ul>
+                </div>
+            }
             <div class="bb-card">
                 <div class="bb-card-title"><h3>Components for <span class="mono">@_report.Din</span></h3></div>
                 <div class="table-scroll">

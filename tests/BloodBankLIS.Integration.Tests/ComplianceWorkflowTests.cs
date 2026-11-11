@@ -159,6 +159,49 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(1, await verify.LookbackNotifications.CountAsync(n => n.BloodProductId == shippedId));
     }
 
+    // TEST-BB-911: a recall of a DIN recalls the component on the shelf even when another component of the donation was
+    // already returned to the supplier or has expired; those are left as they are and the report says why, instead of the
+    // whole recall failing and recalling nothing.
+    [Fact]
+    public async Task RecallByDin_RecallsTheShelf_WhenAnotherComponentCannotBeRecalled()
+    {
+        const string din = "W000058585858";
+        long shelfId, returnedId, expiredId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType { ProductCode = "RBC-LB-MIX", Name = "Recall mix RBC", ComponentClass = ComponentClass.RedBloodCells };
+            c.ProductTypes.Add(productType);
+            await c.SaveChangesAsync();
+            BloodUnit Unit(string number, UnitStatus status, int days) => new()
+            {
+                UnitNumber = number, ProductTypeId = productType.Id, Abo = AboGroup.O, RhD = RhType.Positive, Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(days), Status = status
+            };
+            var shelf = Unit("U-LB-MIX-A", UnitStatus.Available, 20);
+            var returned = Unit("U-LB-MIX-B", UnitStatus.ReturnedToSupplier, 20);
+            returned.SupplierReturnReason = "Short-dated";
+            var expired = Unit("U-LB-MIX-C", UnitStatus.Expired, -1);
+            c.BloodUnits.AddRange(shelf, returned, expired);
+            await c.SaveChangesAsync();
+            (shelfId, returnedId, expiredId) = (shelf.Id, returned.Id, expired.Id);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(recalled.Succeeded, recalled.Error);
+            var notRecalled = recalled.Value!.NotRecalled;
+            Assert.Equal(2, notRecalled.Count);
+            Assert.Contains(notRecalled, n => n.BloodProductId == returnedId && n.Why.Contains("returned to the supplier"));
+            Assert.Contains(notRecalled, n => n.BloodProductId == expiredId && n.Why.Contains("expired"));
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Recalled, (await verify.BloodUnits.FindAsync(shelfId))!.Status);
+        Assert.Equal(UnitStatus.ReturnedToSupplier, (await verify.BloodUnits.FindAsync(returnedId))!.Status);
+        Assert.Equal(UnitStatus.Expired, (await verify.BloodUnits.FindAsync(expiredId))!.Status);
+    }
+
     [Fact]
     public async Task RecallByDin_IssuedUnit_OpensOneNotification_AndSecondRecallDoesNotDuplicate()
     {

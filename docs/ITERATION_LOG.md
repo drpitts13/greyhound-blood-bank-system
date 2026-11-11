@@ -21185,3 +21185,35 @@ The two Partial product rows wait on the licensed ICCBBA tables (OCD-004). Retur
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 687 — A recall does not stop at a component it cannot recall (2026-11-10)
+
+### Capability matrix rescan (patient-product workflows: recall and lookback; safety)
+
+While looking at returns after Cycle 686: a recall by DIN tried to recall every component not transfused or shipped. A component already returned to the supplier, a modified parent unit, or an expired unit cannot become Recalled (the status rules allow nothing after ReturnedToSupplier or Modified, and only discard or quarantine after Expired). The recall then failed with "Could not recall unit …", after the components earlier in the list had already been saved as Recalled: a part-done recall, and the components after it still on the shelf for issue. Question 6: this could leave a recalled donation's components available.
+
+### Design
+
+- `LookbackRecallRule.WhyNotRecalled(status)` uses the status rules, not a new list: a component whose move to Recalled is not allowed is left as it is, with why (returned to the supplier; modified into the units listed under the donation; expired, so discard it; otherwise its status). Transfused, shipped, already recalled and discarded are handled as before.
+- `RecallByDinAsync` checks it after the recipient-notification step (an issued or transfused component still opens its notification), recalls the rest, and records the components left in the recall audit.
+- The report carries them (`NotRecalled`); Lookback shows a warning naming each, linked to its unit.
+- No status rule changed, and no unit's status is overwritten.
+
+### Verification
+
+- Unit: each status named or not.
+- Integration: a donation with a unit on the shelf, one returned to the supplier and one expired: the recall succeeds, the shelf unit is Recalled, the other two keep their status and are named with why. Before the change this recall failed.
+- Rendered: after a recall, the note names the component with why and links to it.
+- Live (read-only): a recall writes, so it was not run on the dev data; the Lookback page loads with Recall all components and no note before a recall. The recall path is covered by the integration and rendered tests. No server errors.
+
+### Requirements
+
+- URS-BB-730, FRS-BB-848.
+
+### Tests
+
+- TEST-BB-911, TEST-BB-912, TEST-BB-913.
+
+### Next
+
+- Back to the capability matrix.

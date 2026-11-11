@@ -74,7 +74,15 @@ public sealed record LookbackReportDto(
     string Din,
     IReadOnlyList<LookbackUnitDto> Units,
     IReadOnlyList<LookbackRecipientDto> Recipients,
-    IReadOnlyList<LookbackNotificationDto> Notifications);
+    IReadOnlyList<LookbackNotificationDto> Notifications,
+    // Cycle 687: after a recall, the components left as they were and why (empty after a search).
+    IReadOnlyList<LookbackNotRecalledDto>? NotRecalledUnits = null)
+{
+    public IReadOnlyList<LookbackNotRecalledDto> NotRecalled => NotRecalledUnits ?? [];
+}
+
+/// <summary>A component of a recalled donation that was not recalled, and why (LookbackRecallRule).</summary>
+public sealed record LookbackNotRecalledDto(long BloodProductId, string UnitNumber, UnitStatus Status, string Why);
 
 public sealed record LookbackNotificationDto(
     long Id,
@@ -233,6 +241,7 @@ public sealed class LookbackService
 
         var normalized = find.Value.Din;
         var units = await CollectUnitsForDinAsync(normalized, ct);
+        var notRecalled = new List<LookbackNotRecalledDto>();
 
         foreach (var unit in units)
         {
@@ -244,6 +253,13 @@ public sealed class LookbackService
             // Transfused here, or shipped to another facility (that facility is notified, the unit is not in stock to recall).
             if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped or UnitStatus.ShippedOut)
             {
+                continue;
+            }
+
+            // A component that cannot become Recalled is left as it is and named, so the rest of the donation is still recalled.
+            if (LookbackRecallRule.WhyNotRecalled(unit.Status) is string why)
+            {
+                notRecalled.Add(new LookbackNotRecalledDto(unit.Id, unit.UnitNumber, unit.Status, why));
                 continue;
             }
 
@@ -269,11 +285,15 @@ public sealed class LookbackService
             {
                 Din = normalized,
                 UnitCount = units.Count,
-                PendingNotificationCount = units.Count(u => NeedsConsigneeNotification(u.Status))
+                PendingNotificationCount = units.Count(u => NeedsConsigneeNotification(u.Status)),
+                NotRecalled = notRecalled.Select(n => new { n.UnitNumber, n.Status, n.Why }).ToList()
             },
             reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
-        return await FindByDinAsync(normalized, ct);
+        var report = await FindByDinAsync(normalized, ct);
+        return report.Succeeded && report.Value is not null
+            ? OperationResult<LookbackReportDto>.Ok(report.Value with { NotRecalledUnits = notRecalled })
+            : report;
     }
 
     public async Task<OperationResult<LookbackNotification>> RecordAttemptAsync(

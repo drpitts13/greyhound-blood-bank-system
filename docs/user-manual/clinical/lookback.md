@@ -14,6 +14,14 @@ routes:
 
 **Donor lookback** starts with the donation identification number. The screen lists recipients who received a product from that donation and the units involved. Use it when a supplier notifies you about a donor.
 
+**Recall all components** recalls every component of the donation that is still here. A component that cannot be recalled is left as it is, and the rest are still recalled. A note above the components names each one with why:
+
+- returned to the supplier: it is not here to recall;
+- modified into other units: those units are listed under the donation and are recalled;
+- expired: it cannot be recalled, so discard it.
+
+Transfused and issued components open a recipient notification, and a component shipped to another facility opens a notification naming that facility, as before.
+
 **Recipient traceback** starts with the patient MRN. It lists the units that patient received so you can see which donations are involved.
 
 ## Notifications
