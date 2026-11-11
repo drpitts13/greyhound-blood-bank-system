@@ -777,6 +777,48 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.False((await service.PullRecalledByScanAsync(new PullRecalledByScanRequest($"U-NOPE-{key}"))).Succeeded);
     }
 
+    // TEST-BB-946 (Cycle 703, OCD-083): a unit reported transfused keeps its status: release from quarantine, discard and
+    // locate are refused with the rule's reason, and it leaves the Quarantine and Discrepancy boards; another quarantined
+    // unit is unaffected.
+    [Fact]
+    public async Task ReportedTransfusedUnit_KeepsItsStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        async Task<long> Receive(string suffix, UnitStatus status, bool reported)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-RPT{suffix}-{key}", productTypeId))).Unit!.Id;
+            var unit = (await context.BloodUnits.FindAsync(id))!;
+            unit.Status = status;
+            unit.QuarantineReasonCode = status == UnitStatus.Quarantine ? UnitQuarantineReason.SupervisorReview : unit.QuarantineReasonCode;
+            unit.TransfusionReportedUtc = reported ? _factory.Clock.UtcNow : null;
+            await context.SaveChangesAsync();
+            return id;
+        }
+
+        var quarantined = await Receive("A", UnitStatus.Quarantine, reported: true);
+        var missing = await Receive("B", UnitStatus.Missing, reported: true);
+        var ordinary = await Receive("C", UnitStatus.Quarantine, reported: false);
+
+        var release = await service.ReleaseFromQuarantineAsync(quarantined, "tech2");
+        Assert.False(release.Succeeded);
+        Assert.Contains(release.Evaluation!.HardStops, h => h.Code == ReportedTransfusionRule.Code);
+        var discard = await service.DiscardAsync(quarantined, new DiscardUnitCommand("EXPIRED", "Clean up", "tech2"));
+        Assert.Contains(discard.Evaluation!.HardStops, h => h.Code == ReportedTransfusionRule.Code);
+        var locate = await service.LocateMissingAsync(missing, "Found in the ward fridge");
+        Assert.Contains(locate.Evaluation!.HardStops, h => h.Code == ReportedTransfusionRule.Code);
+
+        Assert.DoesNotContain(await service.ListQuarantineAsync(), r => r.UnitId == quarantined);
+        Assert.Contains(await service.ListQuarantineAsync(), r => r.UnitId == ordinary);
+        Assert.DoesNotContain(await service.ListDiscrepancyAsync(), r => r.UnitId == missing);
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Quarantine, (await verify.BloodUnits.FindAsync(quarantined))!.Status);
+        Assert.Equal(UnitStatus.Missing, (await verify.BloodUnits.FindAsync(missing))!.Status);
+    }
+
     // TEST-BB-906: recent returns group the units returned for one reason on one day, with who returned them and the
     // suppliers; another reason is another return; a return older than the window is left out, and a longer window
     // finds it.

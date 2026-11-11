@@ -21724,3 +21724,37 @@ After OCD-083 option B (Cycle 700), a unit can be quarantined, damaged or missin
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 703 — A reported-transfused unit keeps its status (2026-11-11)
+
+### Capability matrix rescan (blood products: status history; safety)
+
+Following OCD-083 option B (Cycle 700) through inventory: a unit reported transfused while quarantined, damaged or missing kept that status and stayed on the Quarantine or Discrepancy board, and in the supervisor queue's items for them. Releasing it from quarantine or locating it would have made a unit already in a patient Available again. Inspecting or discarding it, or the expiry sweep, would change a status option B keeps. Question 6: phantom stock that could be selected.
+
+### Design
+
+- `ReportedTransfusionRule` (INV-REPORTED-TRANSFUSED): a unit with `TransfusionReportedUtc` keeps its status.
+- `InventoryService.ChangeStatusAsync` hard-stops any change to another status, which covers release, locate, inspect, quarantine and recall. `DiscardAsync` hard-stops too, and the expiry sweep skips the unit.
+- `ListQuarantineAsync` and `ListDiscrepancyAsync` leave it out, and with them the supervisor queue's quarantine-release and missing/damaged items. It is reviewed there as a reported transfusion instead (Cycle 700).
+- No status rule changed.
+
+### Verification
+
+- Unit: the rule passes an ordinary unit and stops a reported one.
+- Integration:
+  - a quarantined unit reported transfused: release and discard are refused with the rule, and it is off the Quarantine board while another quarantined unit is on it;
+  - a missing one: locate is refused, and it is off the Discrepancy board;
+  - both keep their status.
+- Live (read-only): the Quarantine board still lists the 3 demo quarantined units and the Discrepancy board the 2 missing or damaged ones (none is reported transfused). No server errors.
+
+### Requirements
+
+- URS-BB-746, FRS-BB-864.
+
+### Tests
+
+- TEST-BB-946, TEST-BB-947.
+
+### Next
+
+- Back to the capability matrix.

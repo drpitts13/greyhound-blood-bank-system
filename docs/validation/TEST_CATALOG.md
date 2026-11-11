@@ -954,5 +954,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-943 | U | `TransfusionReportNoteTests.For_ReadsTheReportAndItsReview` | URS-BB-744 / FRS-BB-862 |
 | TEST-BB-944 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-744 / FRS-BB-862 |
 | TEST-BB-945 | I | `ComplianceWorkflowTests.RecallByDin_ReportedTransfusedUnit_NotifiesItsRecipient` | URS-BB-745 / FRS-BB-863 |
+| TEST-BB-946 | I | `InventoryServiceTests.ReportedTransfusedUnit_KeepsItsStatus` | URS-BB-746 / FRS-BB-864 |
+| TEST-BB-947 | U | `ReportedTransfusionRuleTests.Evaluate_StopsAReportedUnit` | URS-BB-746 / FRS-BB-864 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

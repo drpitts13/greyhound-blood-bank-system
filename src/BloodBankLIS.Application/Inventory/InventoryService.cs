@@ -254,7 +254,10 @@ public sealed class InventoryService
 
     public async Task<IReadOnlyList<QuarantineWorkItemDto>> ListQuarantineAsync(CancellationToken ct = default)
     {
-        var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine), ct);
+        // OCD-083: a unit reported transfused is not released; it is reviewed on the supervisor queue.
+        var rows = (await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine), ct))
+            .Where(u => u.TransfusionReportedUtc is null)
+            .ToList();
         var productIds = rows.Select(u => u.ProductTypeId).Distinct().ToList();
         var products = _productTypes is null || productIds.Count == 0
             ? new Dictionary<long, ProductType>()
@@ -311,7 +314,8 @@ public sealed class InventoryService
     {
         var missing = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Missing), ct);
         var damaged = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Damaged), ct);
-        var rows = missing.Concat(damaged).ToList();
+        // OCD-083: a unit reported transfused is not located or inspected; it is reviewed on the supervisor queue.
+        var rows = missing.Concat(damaged).Where(u => u.TransfusionReportedUtc is null).ToList();
         var products = await LoadProductsAsync(rows, ct);
         var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
         return rows
@@ -2511,6 +2515,11 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation(new[] { transition }));
         }
 
+        if (ReportedTransfusionRule.Evaluate(unit.TransfusionReportedUtc, unit.UnitNumber) is { Severity: RuleSeverity.HardStop } reported)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation(new[] { reported }));
+        }
+
         var requireSecond = _policy is null
             || await _policy.GetRequireDiscardVerifierAsync(ct);
         var dual = DiscardVerifierRule.Evaluate(_currentUser.UserName, secondVerifier, requireSecond);
@@ -2590,7 +2599,7 @@ public sealed class InventoryService
         var reservationsEndedFor = new List<string>();
         foreach (var unit in due)
         {
-            if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Expired))
+            if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Expired) || unit.TransfusionReportedUtc is not null)
             {
                 continue;
             }
@@ -2690,6 +2699,12 @@ public sealed class InventoryService
 
     private async Task<InventoryActionResult> ChangeStatusAsync(BloodUnit unit, UnitStatus toStatus, string reason, CancellationToken ct)
     {
+        // Cycle 703 (OCD-083): a unit reported transfused keeps its status.
+        if (toStatus != unit.Status && ReportedTransfusionRule.Evaluate(unit.TransfusionReportedUtc, unit.UnitNumber) is { Severity: RuleSeverity.HardStop } reported)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation(new[] { reported }));
+        }
+
         var transition = InventoryStatusTransition.Evaluate(unit.Status, toStatus);
         if (transition.Severity == RuleSeverity.HardStop)
         {
