@@ -274,7 +274,10 @@ public sealed class PatientAllocationService
                 requirementNotice,
                 allocation.IssueRequestedUtc,
                 allocation.IssueRequestedTo,
-                thaw?.ThawedShelfLifeHours));
+                thaw?.ThawedShelfLifeHours,
+                thaw?.OpenSystemShelfLifeHours,
+                thaw?.PooledShelfLifeHours,
+                thaw is not null && _autoThaw is not null && await _autoThaw.IsPooledAsync(unit, ct)));
         }
 
         return rows;
@@ -961,6 +964,9 @@ public sealed class PatientAllocationService
         {
             AutoThawProductCode = thawCode,
             AutoThawShelfLifeHours = thawMatch?.ThawedShelfLifeHours,
+            AutoThawOpenSystemShelfLifeHours = thawMatch?.OpenSystemShelfLifeHours,
+            AutoThawPooledShelfLifeHours = thawMatch?.PooledShelfLifeHours,
+            AutoThawPooled = thawMatch is not null && _autoThaw is not null && await _autoThaw.IsPooledAsync(unit, ct),
             OrderSpecimenLinked = orderLinked,
             UnitOutdated = BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow),
             UnitExpiresUtc = unit.ExpiresUtc,

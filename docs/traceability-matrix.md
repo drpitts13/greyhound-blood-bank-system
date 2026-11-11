@@ -839,6 +839,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-725 / FRS-BB-843 | Shipped unit: packing and receiving contact on the unit page and the recall | `BloodUnitDtos.cs`, `UnitDetail.razor`, `LookbackService.cs`, `Lookback.razor` | TEST-BB-893, TEST-BB-894 | U, I | |
 | URS-BB-726 / FRS-BB-844 | Shipment packing list sheet | `ShipmentPackingList.razor`, `InventoryShipOut.razor` | TEST-BB-895, TEST-BB-896, TEST-BB-897 | U | |
 | URS-BB-727 / FRS-BB-845 | Thawed shelf lives to enter surfaced | `ThawedExpirationRule.cs`, `AutoThawProductDtos.cs`, `Home.razor`, `AdminFacilityPolicies.razor`, `AdminAutoThawProducts.razor` | TEST-BB-898..901 | U | |
+| URS-BB-728 / FRS-BB-846 | Thaw prompt states the applicable shelf life, refuses before Yes | `PatientAllocationDtos.cs`, `PatientAllocationService.cs`, `AutoThawService.cs`, `AutoThawDialog.razor` | TEST-BB-902..905 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

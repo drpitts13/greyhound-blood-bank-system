@@ -17,7 +17,7 @@ Each code can also have an **Open system** and a **Pooled** shelf life, set with
 - When the person thawing ticks **Thawed in an open system**, the open-system shelf life applies.
 - A pooled unit (one made by pooling on Modifications) is recognized automatically, and the pooled shelf life applies.
 - When both apply, the shorter time is used.
-- If the time that applies is not set, the thaw is refused with a message naming the code. It never falls back to the longer closed-system time.
+- If the time that applies is not set, the thaw is refused with a message naming the code. It never falls back to the longer closed-system time. The thaw prompt shows that message as soon as it applies (when the open-system box is ticked, or at once for a pool) and keeps **Yes** unavailable, so the refusal is not a surprise after confirming.
 
 Each thaw records whether it was open-system or pooled and the hours it applied.
 

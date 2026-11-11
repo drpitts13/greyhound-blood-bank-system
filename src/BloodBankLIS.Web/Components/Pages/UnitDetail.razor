@@ -82,24 +82,10 @@ else
         <p class="muted">The unit is back in stock and no longer reserved for this patient. <a class="btn btn-secondary btn-sm" href="@_reserveAgainHref">Reserve again for this patient</a></p>
     }
 
-    @if (_autoThawAllocationId is long thawAllocationId)
+    @if (_autoThawAllocationId is long thawAllocationId && _autoThawRow is not null)
     {
-        <div class="bb-dialog-backdrop">
-            <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="unit-auto-thaw-title" @onclick:stopPropagation="true">
-                <h2 id="unit-auto-thaw-title" style="margin:0;">Auto thaw @_autoThawProductCode?</h2>
-                <p class="muted">Thaw this product now? The product code stays @_autoThawProductCode. Expiration becomes @ThawedExpirationRule.Describe(_autoThawShelfLifeHours) after the thaw date and time, or the frozen expiration if that is sooner. A thaw billing message is sent and the product ID tag prints.</p>
-                <div class="field">
-                    <label>Thaw date/time</label>
-                    <input type="datetime-local" @bind="_autoThawLocal" />
-                </div>
-                <label class="flex" style="margin-top:.5rem;"><input type="checkbox" @bind="_autoThawOpenSystem" data-auto-thaw-open />&nbsp;Thawed in an open system (the bag was entered)</label>
-                <p class="muted" style="margin:.25rem 0 0;">An open-system thaw, and a pooled unit, use their own shelf life from Admin › Auto thaw products; if it is not set there, the thaw is refused.</p>
-                <div class="flex gap" style="margin-top:.75rem;">
-                    <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="() => ConfirmUnitAutoThawAsync(thawAllocationId)">Yes</button>
-                    <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => DeclineUnitAutoThawAsync(thawAllocationId)">No</button>
-                </div>
-            </div>
-        </div>
+        <AutoThawDialog Row="_autoThawRow" Ask="true" Busy="_busy" @bind-ThawLocal="_autoThawLocal" @bind-OpenSystem="_autoThawOpenSystem"
+                        OnConfirm="() => ConfirmUnitAutoThawAsync(thawAllocationId)" OnDismiss="() => DeclineUnitAutoThawAsync(thawAllocationId)" />
     }
 
     @if (_tab == "overview")
@@ -679,8 +665,7 @@ else
     private List<AllocatableOrderDto> _allocatableOrders = new();
     private long? _autoThawAllocationId;
     private long _autoThawPatientId;
-    private string _autoThawProductCode = string.Empty;
-    private int _autoThawShelfLifeHours = ThawedExpirationRule.DefaultHours;
+    private PatientAllocationRowDto? _autoThawRow;
     private DateTime _autoThawLocal;
     private bool _autoThawOpenSystem;
     private List<EligibleModificationDto> _eligibleMods = new();
@@ -991,8 +976,7 @@ else
         {
             _autoThawPatientId = order.PatientId;
             _autoThawAllocationId = r.Value.Allocation.AllocationId;
-            _autoThawProductCode = r.Value.Allocation.AutoThawProductCode ?? r.Value.Allocation.ProductCode;
-            _autoThawShelfLifeHours = r.Value.Allocation.AutoThawShelfLifeHours ?? ThawedExpirationRule.DefaultHours;
+            _autoThawRow = r.Value.Allocation;
             _autoThawLocal = LocalMinuteNow();
         }
     }

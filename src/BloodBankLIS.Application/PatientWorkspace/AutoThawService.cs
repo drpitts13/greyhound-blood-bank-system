@@ -283,9 +283,7 @@ public sealed class AutoThawService
             return OperationResult<AutoThawResultDto>.Fail("Thaw billing is not configured.");
         }
 
-        // A pool is the result of a pooling modification: inferred, not asked.
-        var pooled = unit.DerivedFromModificationId is long modificationId && _modifications is not null
-            && (await _modifications.GetByIdAsync(modificationId, ct))?.ModificationType == ModificationType.Pool;
+        var pooled = await IsPooledAsync(unit, ct);
         var (shelfLifeHours, shelfLife) = ThawedExpirationRule.ShelfLifeFor(
             matched.ProductCode, matched.ThawedShelfLifeHours, matched.OpenSystemShelfLifeHours, matched.PooledShelfLifeHours, openSystem, pooled);
         if (shelfLifeHours is not int hours)
@@ -393,4 +391,9 @@ public sealed class AutoThawService
         DateTimeKind.Local => value.ToUniversalTime(),
         _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
     };
+
+    /// <summary>A pool is the result of a pooling modification: inferred, not asked (OCD-068).</summary>
+    public async Task<bool> IsPooledAsync(BloodUnit unit, CancellationToken ct = default) =>
+        unit.DerivedFromModificationId is long modificationId && _modifications is not null
+        && (await _modifications.GetByIdAsync(modificationId, ct))?.ModificationType == ModificationType.Pool;
 }

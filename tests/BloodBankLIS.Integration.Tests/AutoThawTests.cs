@@ -327,9 +327,19 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         poolUnit.DerivedFromModificationId = pooling.Id;
         await c.SaveChangesAsync();
 
+        // TEST-BB-903: the allocation row says the unit is a pool and carries the code's times, so the prompt refuses
+        // before Yes and, once set, states the time that will apply.
+        var poolListed = (await Allocations(c).ListActiveAsync(pool.PatientId)).Single(r => r.AllocationId == pool.AllocationId);
+        Assert.True(poolListed.AutoThawPooled);
+        Assert.Null(poolListed.AutoThawPooledShelfLifeHours);
+        Assert.Contains("No pooled thawed shelf life is set", AutoThawPreview.For(poolListed, openSystem: false).Refusal);
+
         var poolNotSet = await Thaw(c).ApplyAsync(pool.PatientId, pool.AllocationId, thawUtc);
         Assert.Contains("No pooled thawed shelf life is set", poolNotSet.Error);
         Assert.True((await Admin(c).SetShelfLifeAsync(poolRow.Id, new SetAutoThawShelfLifeRequest(24, "Pool SOP", OpenSystemShelfLifeHours: 4, PooledShelfLifeHours: 6))).Succeeded);
+        var poolSet = (await Allocations(c).ListActiveAsync(pool.PatientId)).Single(r => r.AllocationId == pool.AllocationId);
+        Assert.Equal(((int?)6, (string?)null), AutoThawPreview.For(poolSet, openSystem: false));
+        Assert.Equal(((int?)4, (string?)null), AutoThawPreview.For(poolSet, openSystem: true));
         var poolThawed = await Thaw(c).ApplyAsync(pool.PatientId, pool.AllocationId, thawUtc, openSystem: true);
         Assert.True(poolThawed.Succeeded, poolThawed.Error);
         Assert.Equal(thawUtc.AddHours(4), (await c.BloodUnits.SingleAsync(u => u.Id == pool.UnitId)).ExpiresUtc);

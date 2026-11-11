@@ -21117,3 +21117,35 @@ Cycle 667 refuses a thaw that needs an open-system or pooled shelf life the code
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 685 — The thaw prompt says what will apply (2026-11-10)
+
+### Capability matrix rescan (blood products: thawing; next-step guidance)
+
+The thaw prompt on the chart and on the unit page always stated the code's closed-system time, even for a pool (which uses the pooled time) or with **Thawed in an open system** ticked. When the time that applied was not set, the prompt let the user confirm and the refusal came back afterwards, with the prompt gone. The two pages also carried two copies of the prompt.
+
+### Design
+
+- The allocation row (chart list and the allocate result) carries the code's open-system and pooled times and whether the unit is a pool (`AutoThawService.IsPooledAsync`, the same inference the thaw uses).
+- `AutoThawPreview.For(row, openSystem)` runs the same `ThawedExpirationRule.ShelfLifeFor` the thaw applies, so the prompt and the thaw cannot disagree.
+- One shared `AutoThawDialog`: the expiration sentence follows the box; a pool says so; a time not set shows the refusal in red and Yes stays unavailable; clearing the box brings it back. The chart's Auto thaw / Cancel and the after-reserve Yes / No are kept.
+- The thaw itself still checks (the server refusal is unchanged); the prompt only says it first.
+
+### Verification
+
+- Unit: each combination of box, pool and set or not set.
+- Integration: a pool's allocation row says it is a pool with no pooled time and the preview refuses; once set, the preview gives 6 hours closed and 4 opened, and the thaw applies 4.
+- Rendered: the refusal and disabled Yes appear when the box is ticked and go when cleared; Yes confirms; a pool states its time and the shorter when opened; a pool with no pooled time is refused at once.
+- Live (read-only): the dev data has no auto-thaw codes, so the prompt cannot open; the chart's Products tab (MRN0001, two rows) and a unit page load as before with the shared prompt in place. The prompt itself was exercised by the rendered tests. No server errors.
+
+### Requirements
+
+- URS-BB-728, FRS-BB-846.
+
+### Tests
+
+- TEST-BB-902, TEST-BB-903, TEST-BB-904, TEST-BB-905.
+
+### Next
+
+- Back to the capability matrix.

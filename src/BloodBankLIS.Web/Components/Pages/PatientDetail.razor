@@ -444,39 +444,8 @@ else
 
     @if (_autoThawRow is not null)
     {
-        <div class="bb-dialog-backdrop">
-            <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="auto-thaw-title" @onclick:stopPropagation="true">
-                <h2 id="auto-thaw-title" style="margin:0;">Auto thaw @AutoThawCode(_autoThawRow)?</h2>
-                <p class="muted">
-                    @if (_autoThawAsk)
-                    {
-                        <text>Thaw this product now? The product code stays @AutoThawCode(_autoThawRow). Expiration becomes @ThawedLife(_autoThawRow) after the thaw date and time, or the frozen expiration if that is sooner. A thaw billing message is sent and the product ID tag prints.</text>
-                    }
-                    else
-                    {
-                        <text>Thaw @_autoThawRow.UnitNumber in place. The product code stays @AutoThawCode(_autoThawRow) and expiration becomes @ThawedLife(_autoThawRow) after the thaw date and time, or the frozen expiration if that is sooner.</text>
-                    }
-                </p>
-                <div class="field">
-                    <label>Thaw date/time</label>
-                    <input type="datetime-local" @bind="_autoThawLocal" />
-                </div>
-                <label class="flex" style="margin-top:.5rem;"><input type="checkbox" @bind="_autoThawOpenSystem" data-auto-thaw-open />&nbsp;Thawed in an open system (the bag was entered)</label>
-                <p class="muted" style="margin:.25rem 0 0;">An open-system thaw, and a pooled unit, use their own shelf life from Admin › Auto thaw products; if it is not set there, the thaw is refused.</p>
-                <div class="flex gap" style="margin-top:.75rem;">
-                    @if (_autoThawAsk)
-                    {
-                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Yes</button>
-                        <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="DeclineAutoThawAsync">No</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Auto thaw</button>
-                        <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CancelAutoThaw">Cancel</button>
-                    }
-                </div>
-            </div>
-        </div>
+        <AutoThawDialog Row="_autoThawRow" Ask="_autoThawAsk" Busy="_busy" @bind-ThawLocal="_autoThawLocal" @bind-OpenSystem="_autoThawOpenSystem"
+                        OnConfirm="ConfirmAutoThawAsync" OnDismiss="DismissAutoThawAsync" />
     }
 
     @if (_cancellingOrder is not null)
@@ -1616,6 +1585,18 @@ else
         _autoThawLocal = LocalMinuteNow();
     }
 
+    // No declines the thaw when asked after reserving; Cancel only closes the prompt.
+    private Task DismissAutoThawAsync()
+    {
+        if (_autoThawAsk)
+        {
+            return DeclineAutoThawAsync();
+        }
+
+        CancelAutoThaw();
+        return Task.CompletedTask;
+    }
+
     private void CancelAutoThaw()
     {
         _autoThawRow = null;
@@ -1672,12 +1653,6 @@ else
         var now = DateTime.Now;
         return new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Local);
     }
-
-    private static string ThawedLife(PatientAllocationRowDto row) =>
-        ThawedExpirationRule.Describe(row.AutoThawShelfLifeHours ?? ThawedExpirationRule.DefaultHours);
-
-    private static string AutoThawCode(PatientAllocationRowDto row) =>
-        string.IsNullOrWhiteSpace(row.AutoThawProductCode) ? row.ProductCode : row.AutoThawProductCode;
 
     private async Task BeginAllocateOnOrderAsync(PatientOrderDto order)
     {

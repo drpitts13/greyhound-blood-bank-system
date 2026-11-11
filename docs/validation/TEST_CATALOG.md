@@ -910,5 +910,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-899 | U | `ThawShelfLivesToEnterTests.Describe_NamesActiveCodesWaiting` | URS-BB-727 / FRS-BB-845 |
 | TEST-BB-900 | U | `ThawShelfLivesToEnterTests.FacilityPolicies_NamesThawCodesWaiting` | URS-BB-727 / FRS-BB-845 |
 | TEST-BB-901 | U | `ThawShelfLivesToEnterTests.AutoThawProducts_FilteredToCodesWaiting` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-902 | U | `AutoThawPreviewTests.Preview_FollowsTheBox_AndThePool` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-903 | I | `AutoThawServiceTests.Thaw_OpenSystemAndPooledShelfLives` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-904 | U | `AutoThawDialogTests.OpenSystemNotSet_RefusesBeforeYes` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-905 | U | `AutoThawDialogTests.Pool_StatesThePooledTime_OrRefuses` | URS-BB-728 / FRS-BB-846 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

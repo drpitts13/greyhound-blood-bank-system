@@ -733,3 +733,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-725 | A shipped unit's page shows how it was packed and the receiving contact, and a recall notification for a shipped unit names that contact. | P3 | FRS-BB-843 |
 | URS-BB-726 | Print packing list gives a sheet for the one shipment (its facility, reference, packing details, receiving contact and units, with spaces for the receiver), not a print of the Ship units page. | P2 | FRS-BB-844 |
 | URS-BB-727 | Active auto-thaw codes without an open-system or pooled thawed shelf life are named on the settings-to-enter home card, on Facility Policies and on Auto thaw products, before a thaw is refused for them. | P2 | FRS-BB-845 |
+| URS-BB-728 | The thaw prompt states the shelf life that will apply for an open-system thaw and a pool, and refuses before confirming when that time is not set. | P2 | FRS-BB-846 |
