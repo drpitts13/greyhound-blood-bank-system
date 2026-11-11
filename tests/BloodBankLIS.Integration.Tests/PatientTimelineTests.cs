@@ -203,6 +203,46 @@ public class PatientTimelineTests : IDisposable
         Assert.Equal("Reported by St. Mary's Hospital, identified 2019-04-02", antibody.Detail);
     }
 
+    // TEST-BB-891 (Cycle 680): the timeline shows when an outside antibody was confirmed here and how, an infant's specimen
+    // valid for the admission, and how an issue was entered (a downtime back-entry outside every recorded outage).
+    [Fact]
+    public async Task Confirmation_InfantSpecimen_AndIssueEntry_AreOnTheTimeline()
+    {
+        await using var c = _factory.Create();
+        var patient = await AddPatientAsync(c, "MRN-TL-680");
+        var antibody = new AntibodyHistory
+        {
+            PatientId = patient.Id, AntibodySpecificity = "anti-Jka", IsActive = true, ReportingFacility = "St. Mary's Hospital",
+            ConfirmedUtc = T(10), ConfirmedBy = "tech2", ConfirmationNote = "Panel 2026-11-10"
+        };
+        var specimen = new Specimen
+        {
+            PatientId = patient.Id, AccessionNumber = "ACC-TL-NEO", SpecimenType = "EDTA", CollectedUtc = T(5),
+            ExpiresUtc = T(500), NeonatalStandardExpiresUtc = T(77), Status = SpecimenStatus.Accepted
+        };
+        var product = new ProductType { ProductCode = "RBC-TL680", Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+        c.AddRange(antibody, specimen, product);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "U-TL-680", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = T(600), Status = UnitStatus.Issued };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var issue = new Issue
+        {
+            BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = T(20), IssuedBy = "tech1", Status = IssueStatus.Issued,
+            DowntimeBackEntry = true, LateEntryReason = "Issued on paper during LIS downtime", OutsideOutageReason = "Outage never recorded"
+        };
+        c.Issues.Add(issue);
+        await c.SaveChangesAsync();
+
+        var events = await Timeline(c).GetAsync(patient.Id);
+        var confirmed = Event(events, $"abs-{antibody.Id}-confirm");
+        Assert.Equal(("Outside antibody confirmed here: anti-Jka", "Panel 2026-11-10", "tech2", T(10)), (confirmed.Title, confirmed.Detail, confirmed.By, confirmed.AtUtc));
+        Assert.Contains("valid for the admission (infant)", Event(events, $"spc-{specimen.Id}-collect").Detail);
+        var issued = Event(events, $"iss-{issue.Id}").Detail;
+        Assert.Contains("Entered from a paper issue record after downtime", issued);
+        Assert.Contains("Outside every recorded outage: Outage never recorded", issued);
+    }
+
     private static async Task<Patient> AddPatientAsync(BloodBankDbContext c, string mrn)
     {
         var patient = new Patient { MedicalRecordNumber = mrn, LastName = "Timeline", FirstName = "Tess", DateOfBirth = new DateOnly(1965, 4, 4), Sex = Sex.Female };

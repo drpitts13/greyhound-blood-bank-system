@@ -20968,3 +20968,31 @@ Comparing the home queues with the handoff items: two queues that carry over a s
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 680 — The timeline catches up (2026-11-10)
+
+### Capability matrix rescan (timeline views)
+
+Recent cycles recorded new facts that the patient timeline did not show: when this laboratory confirmed an outside antibody (669, 678), an infant's specimen made valid for the admission (672), and how an issue was entered (676 put it on Product History only).
+
+### Design
+
+- `PatientTimelineService`: an "Outside antibody confirmed here: <antibody>" event at its confirmation time, with the note (panel or workup) and who; the specimen collected event adds "valid for the admission (infant)"; the issue event adds the same entry notes as Product History.
+- Read-only, as the rest of the timeline.
+
+### Verification
+
+- Integration: the confirmation event with its time, note and person; the infant specimen note; a downtime back-entry outside every outage described on its issue event. The other timeline tests are unchanged.
+- Live (read-only): a chart's Timeline loads with its issue events as before (no demo record carries the new facts). No server errors.
+
+### Requirements
+
+- URS-BB-723, FRS-BB-841.
+
+### Tests
+
+- TEST-BB-891.
+
+### Next
+
+- Back to the capability matrix.

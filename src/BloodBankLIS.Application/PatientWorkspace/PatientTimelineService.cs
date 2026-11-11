@@ -140,7 +140,9 @@ public sealed class PatientTimelineService
             events.Add(new(s.CollectedUtc, TimelineCategory.Specimen, rejected ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"Specimen {s.AccessionNumber} collected ({s.SpecimenType})",
                 Join(rejected ? $"Rejected{(string.IsNullOrWhiteSpace(s.RejectionReason) ? "" : $": {s.RejectionReason}")}" : $"Now {s.Status}",
-                    s.ExpiresUtc is DateTime exp ? $"expires {exp:yyyy-MM-dd HH:mm} UTC" : null),
+                    s.ExpiresUtc is DateTime exp ? $"expires {exp:yyyy-MM-dd HH:mm} UTC" : null,
+                    // Cycle 680: an infant's specimen valid for the admission (OCD-074).
+                    s.NeonatalStandardExpiresUtc is null ? null : "valid for the admission (infant)"),
                 s.Collector, $"{chart}?tab=specimens", $"spc-{s.Id}-collect"));
             if (s.ReceivedUtc is DateTime received)
             {
@@ -170,6 +172,13 @@ public sealed class PatientTimelineService
                 Join(OutsideAntibodyReportRule.SourceLabel(a.ReportingFacility, a.IdentifiedOn), a.Comment,
                     a.IsActive ? null : $"Inactivated{(string.IsNullOrWhiteSpace(a.DeactivationReason) ? "" : $": {a.DeactivationReason}")}"),
                 a.CreatedBy, chart, $"abs-{a.Id}"));
+            // Cycle 680: when this laboratory confirmed an outside report (OCD-073), and how.
+            if (a.ConfirmedUtc is DateTime confirmed)
+            {
+                events.Add(new(confirmed, TimelineCategory.Alert, TimelineSeverity.Info,
+                    $"Outside antibody confirmed here: {a.AntibodySpecificity}",
+                    a.ConfirmationNote, a.ConfirmedBy, chart, $"abs-{a.Id}-confirm"));
+            }
         }
 
         var requirements = await _requirements.ListAsync(x => x.PatientId == patientId, ct);
@@ -238,7 +247,11 @@ public sealed class PatientTimelineService
                 $"Unit {Unit(i.BloodProductId)} issued{(i.IssueType == IssueType.Standard ? "" : $" ({i.IssueType})")}",
                 Join(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? null : $"To {i.IssuedToLocation}",
                     $"Crossmatch at issue: {i.CrossmatchStatus}",
-                    OverrideText(i.OverrideId, overrides)),
+                    OverrideText(i.OverrideId, overrides),
+                    // Cycle 680: how the issue was entered, as Product History says it (Cycle 676).
+                    IssueEntryNotes.For(i.LateEntryReason, i.DowntimeBackEntry, i.OutsideOutageReason, i.NeonatalNoCrossmatch) is { Count: > 0 } notes
+                        ? string.Join("; ", notes)
+                        : null),
                 i.IssuedBy, UnitHref(i.BloodProductId), $"iss-{i.Id}"));
         }
 
