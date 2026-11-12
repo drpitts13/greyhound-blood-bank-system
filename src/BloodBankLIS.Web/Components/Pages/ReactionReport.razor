@@ -48,6 +48,7 @@ else if (_report is { } r)
             <tbody>
                 <tr><th>At the bedside</th><td>@(r.ReactionActions ?? "—")</td></tr>
                 <tr><th>Observations</th><td>@(r.PostTransfusionObservations ?? "—")</td></tr>
+                <tr data-report-vitals><th>Vital signs</th><td>Before: @(r.VitalsBefore ?? "not recorded") · After: @(r.VitalsAfter ?? "not recorded")@(r.TemperatureChange is null ? "" : $" · {r.TemperatureChange}")</td></tr>
                 <tr><th>Findings</th><td>@(inv.Findings ?? "—")</td></tr>
             </tbody>
         </table>

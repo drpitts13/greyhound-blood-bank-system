@@ -30,6 +30,10 @@ Each specimen's tests are ordered as a Stat reaction workup order and appear on 
 
 The repeat patient ABO/Rh is the verified ABO/Rh on the post-transfusion specimen. If it disagrees with the patient's current type or with the pre-transfusion specimen, the board shows an ABO/Rh discrepancy to review. Elution is required when the verified post-transfusion DAT is positive.
 
+## Bedside vital signs
+
+The case shows the vital signs taken at the bedside before and after the transfusion, when the nurse entered them on the transfusion desk, and the temperature change between them (for example *Temperature +1.7 °C from before the transfusion*). The printable report shows the same line. The change is stated, not interpreted: the reaction concluded is chosen by the reviewer.
+
 ## What you record
 
 Record the clerical check and the visual check of the unit, the repeat unit ABO/Rh, and the elution when it applies, along with the symptoms and the timeline the ward reported. The investigation stays open while those items, or any workup test, are incomplete. Closing is a separate step with its own gate and a signature when the close action requires one.

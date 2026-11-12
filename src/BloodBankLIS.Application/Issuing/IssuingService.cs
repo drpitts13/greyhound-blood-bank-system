@@ -1671,6 +1671,11 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Fail(DispositionRequired);
         }
 
+        if (VitalsProblem(request.PreVitals, request.PostVitals) is { } documentVitals)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(documentVitals);
+        }
+
         var issue = await _issues.GetByIdAsync(issueId, ct);
         if (issue is null)
         {
@@ -1745,7 +1750,9 @@ public sealed class IssuingService
                 ?? (!string.IsNullOrWhiteSpace(request.BackEntryDin) ? DowntimeBackEntryRule.PaperDinMethod
                     : request.BedsideScan is null ? null : "BedsideScan"),
             WorkstationId = _currentUser.Workstation,
-            BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan)
+            BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan),
+            PreTransfusionVitalsJson = request.PreVitals?.ToJson(),
+            VitalsJson = request.PostVitals?.ToJson()
         };
         await _transfusions.AddAsync(transfusion, ct);
 
@@ -1824,6 +1831,13 @@ public sealed class IssuingService
     /// ward receipt, second-verifier, and unit-life checks as one-step documentation. The unit shows as
     /// Transfusion started until <see cref="CompleteTransfusionAsync"/> records the stop and outcome.
     /// </summary>
+    /// <summary>A mistyped vital sign, before or after, stops the save; vitals left blank are fine.</summary>
+    private static string? VitalsProblem(BloodBankLIS.Domain.ValueObjects.TransfusionVitals? before, BloodBankLIS.Domain.ValueObjects.TransfusionVitals? after)
+    {
+        var problems = (before?.Problems("Before") ?? []).Concat(after?.Problems("After") ?? []).ToList();
+        return problems.Count == 0 ? null : string.Join(" ", problems);
+    }
+
     public async Task<EvaluationResult<TransfusionEvent>> StartTransfusionAsync(long issueId, StartTransfusionRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -1834,6 +1848,11 @@ public sealed class IssuingService
         if (auth.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([auth]));
+        }
+
+        if (VitalsProblem(request.PreVitals, null) is { } startVitals)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(startVitals);
         }
 
         var issue = await _issues.GetByIdAsync(issueId, ct);
@@ -1905,7 +1924,8 @@ public sealed class IssuingService
             UnitIdentificationMethod = !string.IsNullOrWhiteSpace(request.BackEntryDin) ? DowntimeBackEntryRule.PaperDinMethod
                 : request.BedsideScan is null ? null : "BedsideScan",
             WorkstationId = _currentUser.Workstation,
-            BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan)
+            BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan),
+            PreTransfusionVitalsJson = request.PreVitals?.ToJson()
         };
         await _transfusions.AddAsync(transfusion, ct);
         AppendStatus(unit, UnitStatus.TransfusionStarted, "Transfusion started at the bedside", now, nameof(TransfusionEvent), issue.Id);
@@ -1951,6 +1971,11 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Fail(DispositionRequired);
         }
 
+        if (VitalsProblem(null, request.PostVitals) is { } completeVitals)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(completeVitals);
+        }
+
         var issue = await _issues.GetByIdAsync(issueId, ct);
         if (issue is null)
         {
@@ -1976,6 +2001,11 @@ public sealed class IssuingService
         transfusion.VolumeTransfused = request.VolumeTransfused;
         transfusion.FinalDisposition = disposition;
         transfusion.ReactionSuspected = request.ReactionSuspected.Value;
+        if (request.PostVitals?.ToJson() is { } postVitals)
+        {
+            transfusion.VitalsJson = postVitals;
+        }
+
         _transfusions.Update(transfusion);
 
         var terminal = disposition == TransfusionDisposition.Stopped

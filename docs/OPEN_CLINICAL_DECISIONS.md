@@ -150,3 +150,9 @@ the history.
 | ID | Decision | Software behavior |
 |---|---|---|
 | OCD-083 | Transfusion reported for a unit no longer issued. Decided 2026-11-11: option B, record the transfusion event but keep the unit's status, flagged for review. Options A (record and set Transfused), C (hold for a supervisor to document) and D (refuse) not chosen. | Implemented Cycle 700: an EHR transfusion message for a unit recalled, quarantined, damaged or missing after it was issued is recorded (issue transfused, the event keeps the unit's status), the unit keeps its status and is marked reported transfused, audited; it waits on the supervisor queue (**Reported transfusion**) until a supervisor reviews it with a note (inventory.release or override.approve), audited. The unit leaves the Recalled board and its scan refuses it. Any other non-issued status is still held. TEST-BB-929, TEST-BB-937 to TEST-BB-940. |
+
+## Open (raised 2026-11-12, end-user testing)
+
+| ID | Question | Current behavior | Owner |
+|---|---|---|---|
+| OCD-084 | Who may be the bedside second verifier for a transfusion? End-user testing found the picker lists every active account, including billing, auditor and read-only viewer accounts, and the server accepts any of them. Options: A) any active user (as now); B) only users whose role allows starting or documenting a transfusion; C) a facility list of roles. Bedside staff qualifications (RN, physician) are not known to the LIS. | Any active, unlocked, non-service account is accepted (`SecondVerifierDirectoryRule`). Nothing changed pending the decision. | Transfusion service medical director + nursing |

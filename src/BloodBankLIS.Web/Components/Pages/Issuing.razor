@@ -1486,6 +1486,12 @@
                     <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@_txPatientIdentifier2" Patient="_txPatient" />
                 </div>
             </div>
+            @* Optional vitals: before, while the transfusion is not yet started; after, when it is finished or documented. *@
+            @if (_txStartedUtc is null)
+            {
+                <TransfusionVitalsFields Draft="_txPreVitals" Key="before" Title="Vital signs before the transfusion (optional)" />
+            }
+            <TransfusionVitalsFields Draft="_txPostVitals" Key="after" Title="Vital signs after the transfusion (optional; when finishing)" />
             @* Asked, never assumed: an unticked box recorded "no reaction" without anyone answering (Cycle 596). *@
             <div class="field" style="max-width:320px;"><label>Transfusion reaction suspected?</label>
                 @* Bound through text: a select cannot bind a yes/no answer directly (the binder expects a checkbox's true or
@@ -1734,9 +1740,14 @@
 
     // A finished unit leaves the form (Cycle 624): the next scan or Next button chooses another; the patient, the
     // transfusionist, and the identifiers entered at this bedside stay. Unit number takes the focus.
+    private readonly TransfusionVitalsFields.VitalsDraft _txPreVitals = new();
+    private readonly TransfusionVitalsFields.VitalsDraft _txPostVitals = new();
+
     private void ClearTransfusionUnit()
     {
         _txIssueId = 0;
+        _txPreVitals.Clear();
+        _txPostVitals.Clear();
         // Each unit is its own decision to continue (OCD-078).
         _txOverrideReason = null;
         _txAuthorizedBy = null;
@@ -3087,7 +3098,8 @@
             PatientIdentifier2Value: _txPatientIdentifier2,
             BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim(),
             OverrideReason: TxOverride.Reason,
-            AuthorizedBy: TxOverride.AuthorizedBy));
+            AuthorizedBy: TxOverride.AuthorizedBy,
+            PreVitals: _txPreVitals.ToVitals()));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion started. Complete it here when it ends.");
         if (r.Succeeded && r.Value is not null)
@@ -3114,7 +3126,7 @@
 
         _busy = true;
         var r = await Api.CompleteTransfusionAsync(_txIssueId, new CompleteTransfusionRequest(
-            _txDisposition, VolumeTransfused: _txVolume, ReactionSuspected: _txReaction));
+            _txDisposition, VolumeTransfused: _txVolume, ReactionSuspected: _txReaction, PostVitals: _txPostVitals.ToVitals()));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion completed.");
         _openedReactionId = null;
@@ -3159,7 +3171,9 @@
             PatientIdentifier2Value: _txPatientIdentifier2,
             BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim(),
             OverrideReason: TxOverride.Reason,
-            AuthorizedBy: TxOverride.AuthorizedBy));
+            AuthorizedBy: TxOverride.AuthorizedBy,
+            PreVitals: _txPreVitals.ToVitals(),
+            PostVitals: _txPostVitals.ToVitals()));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;

@@ -199,7 +199,11 @@ public sealed record ReactionReportDto(
     TransfusionDisposition? FinalDisposition,
     string? ReactionActions,
     string? PostTransfusionObservations,
-    string? DocumentedBy);
+    string? DocumentedBy,
+    // Bedside vitals before and after, and the temperature change between them, when taken (end-user testing, 2026-11-12).
+    string? VitalsBefore = null,
+    string? VitalsAfter = null,
+    string? TemperatureChange = null);
 
 /// <summary>A reaction noticed after the transfusion was documented without one: what was seen, and when it began.</summary>
 public sealed record ReportLateReactionRequest(long IssueId, string? Description, DateTime? OnsetUtc = null, string? ReactionType = null);
@@ -833,7 +837,12 @@ public sealed class ReactionInvestigationService
             transfusion?.FinalDisposition,
             transfusion?.ReactionActions,
             transfusion?.PostTransfusionObservations,
-            transfusion?.DocumentedBy));
+            transfusion?.DocumentedBy,
+            BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.PreTransfusionVitalsJson)?.Describe(),
+            BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.VitalsJson)?.Describe(),
+            BloodBankLIS.Domain.ValueObjects.TransfusionVitals.TemperatureChange(
+                BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.PreTransfusionVitalsJson),
+                BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.VitalsJson))));
     }
 
     /// <summary>

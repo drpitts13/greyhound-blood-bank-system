@@ -83,7 +83,9 @@ public sealed record StartTransfusionRequest(
     string? BackEntryDin = null,
     /// <summary>OCD-078: required, with AuthorizedBy, when a reaction is under investigation for the patient.</summary>
     string? OverrideReason = null,
-    string? AuthorizedBy = null);
+    string? AuthorizedBy = null,
+    /// <summary>Vital signs before the transfusion, all optional (end-user testing, 2026-11-12).</summary>
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PreVitals = null);
 
 /// <summary>Completes a started transfusion: when it stopped, how much was given, and the outcome.</summary>
 public sealed record CompleteTransfusionRequest(
@@ -92,7 +94,9 @@ public sealed record CompleteTransfusionRequest(
     DateTime? StopUtc = null,
     decimal? VolumeTransfused = null,
     // Asked at the end of every transfusion: null (not answered) is refused, never read as "no reaction".
-    bool? ReactionSuspected = null);
+    bool? ReactionSuspected = null,
+    /// <summary>Vital signs after the transfusion, all optional (end-user testing, 2026-11-12).</summary>
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PostVitals = null);
 
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition? FinalDisposition,
@@ -114,7 +118,10 @@ public sealed record DocumentTransfusionRequest(
     string? BackEntryDin = null,
     /// <summary>OCD-078: required, with AuthorizedBy, when a reaction is under investigation for the patient.</summary>
     string? OverrideReason = null,
-    string? AuthorizedBy = null);
+    string? AuthorizedBy = null,
+    /// <summary>Vital signs before and after, all optional (end-user testing, 2026-11-12).</summary>
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PreVitals = null,
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PostVitals = null);
 
 public sealed record IssueDto(
     long Id,

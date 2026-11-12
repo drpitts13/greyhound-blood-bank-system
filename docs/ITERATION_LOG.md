@@ -22228,3 +22228,30 @@ As the blood bank on the running system with seeded data: Blood orders to prepar
 ### Next
 
 - Pass 3: issue and bedside, transfusion reaction, mother/baby, QC, interfaces.
+
+## Iteration 719 — End-user testing pass 3: bedside and transfusion reaction (2026-11-12)
+
+### How it was tested
+
+As the ward and the blood bank on the running system with seeded data: Issued units → Riley Demo-Multi's W0001230009205 → Start at the bedside (wristband MRN and DOB, bag scan, second verifier) → finish with the transfusion stopped at 120 mL and a suspected reaction → the reaction investigation and its report.
+
+### Found and fixed
+
+1. **No vital signs at the bedside, so no baseline for a reaction.** The transfusion record had vitals fields (one marked "placeholder") that nothing filled, and the bedside form did not ask. A febrile reaction is judged from the temperature rise over the baseline, and the workup had neither. The bedside form now takes optional vitals before the start and after the end (temperature, pulse, blood pressure, respiratory rate); a mistyped value is refused (plausibility only, no clinical limits; none is required, consistent with the earlier decision not to invent required vitals). The reaction case and its report show "Before: T 36.9 °C · P 84 · BP 128/74 · RR 18 · After: T 38.6 °C · P 112 · BP 132/78 · Temperature +1.7 °C from before the transfusion". Retested live end to end: start with vitals, stop with vitals and a suspected reaction, investigation #2 opened, vitals on the case and the report.
+
+### Raised for decision
+
+- **OCD-084:** the bedside second-verifier picker lists, and the server accepts, any active account (billing, auditor, read-only viewer). Who may verify at the bedside is the facility's policy; nothing changed pending the decision.
+
+### Observed working
+
+- The start was refused until a second verifier was chosen from the user directory (typed text is not accepted).
+- A suspected reaction opened the investigation and held the patient's next unit until a reason and the physician who decided to continue were recorded (OCD-078).
+
+### Tests
+
+- TEST-BB-998, TEST-BB-999. Full suite passed.
+
+### Next
+
+- Pass 4: mother/baby, QC (reagent and equipment) and interfaces (HL7, instruments).

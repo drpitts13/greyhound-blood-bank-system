@@ -1652,6 +1652,47 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(await Issuing(verify).ListInTransitAsync(), r => r.IssueId == issueId);
     }
 
+    // TEST-BB-999: vitals taken before the start and after the end are kept on the transfusion record (blank ones are
+    // fine); a mistyped value is refused with nothing recorded.
+    [Fact]
+    public async Task Bedside_RecordsVitalsBeforeAndAfter_AndRefusesATypo()
+    {
+        var s = await SeedAsync("TX-VITALS");
+        var issueId = await IssuedAndReceivedAsync(s);
+        var now = _factory.Clock.UtcNow;
+
+        await using (var c = _factory.Create())
+        {
+            var typo = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s, now.AddMinutes(-40)) with
+            {
+                PreVitals = new BloodBankLIS.Domain.ValueObjects.TransfusionVitals(TemperatureC: 370m)
+            });
+            Assert.False(typo.Succeeded);
+            Assert.Contains("Before: temperature 370", typo.Error);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+
+            var started = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s, now.AddMinutes(-40)) with
+            {
+                PreVitals = new BloodBankLIS.Domain.ValueObjects.TransfusionVitals(36.8m, 78, 118, 76, 16)
+            });
+            Assert.True(started.Succeeded, started.Error ?? string.Join("; ", started.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var completed = await Issuing(c).CompleteTransfusionAsync(issueId, new CompleteTransfusionRequest(
+                TransfusionDisposition.Completed, StopUtc: now.AddMinutes(-5), VolumeTransfused: 280m, ReactionSuspected: false,
+                PostVitals: new BloodBankLIS.Domain.ValueObjects.TransfusionVitals(TemperatureC: 37.1m, Pulse: 80)));
+            Assert.True(completed.Succeeded, completed.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var record = await verify.TransfusionEvents.SingleAsync(t => t.IssueId == issueId);
+        Assert.Equal("T 36.8 °C · P 78 · BP 118/76 · RR 16",
+            BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(record.PreTransfusionVitalsJson)!.Describe());
+        Assert.Equal("T 37.1 °C · P 80", BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(record.VitalsJson)!.Describe());
+    }
+
     [Fact]
     public async Task StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord()
     {
