@@ -22,6 +22,9 @@ public static class EquipmentEndpoints
         group.MapGet("/due", async (EquipmentService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListDueAsync(ct)));
 
+        group.MapGet("/upcoming", async (int? days, EquipmentService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListUpcomingAsync(days ?? 30, ct)));
+
         group.MapGet("/{id:long}", async (long id, EquipmentService svc, CancellationToken ct) =>
             await svc.GetAsync(id, ct) is { } equipment ? Results.Ok(equipment) : Results.NotFound());
 

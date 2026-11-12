@@ -764,3 +764,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-756 | A reagent code is used once in the register; a reagent is renamed with a reason, retired with a reason once no lot is received or open, and restored; all audited. | P3 | FRS-BB-874 |
 | URS-BB-757 | A received or open reagent lot's number or expiry entered wrongly is corrected with a reason, audited before and after; a closed lot is not corrected. | P3 | FRS-BB-875 |
 | URS-BB-758 | On the Equipment page a check is stopped, and equipment retired and restored, each with a reason; retired equipment is listed on request. | P3 | FRS-BB-876 |
+| URS-BB-759 | The Equipment page lists checks on equipment in service falling due within 7, 30 or 90 days, soonest first. | P3 | FRS-BB-877 |

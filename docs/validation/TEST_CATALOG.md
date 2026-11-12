@@ -1000,5 +1000,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-989 | I | `EquipmentServiceTests.Retire_AndRestore_WithAReason` | URS-BB-758 / FRS-BB-876 |
 | TEST-BB-990 | U | `EquipmentPageTests.RetireAndStop_NeedAReason_AndRetiredOffersRestore` | URS-BB-758 / FRS-BB-876 |
 | TEST-BB-991 | U | `EquipmentPageTests.RetiredEquipment_OffersRestore` | URS-BB-758 / FRS-BB-876 |
+| TEST-BB-992 | I | `EquipmentServiceTests.Upcoming_ListsChecksDueWithinTheWindow` | URS-BB-759 / FRS-BB-877 |
+| TEST-BB-993 | U | `EquipmentPageTests.ComingUp_SaysWhenNothingFallsDue` | URS-BB-759 / FRS-BB-877 |
+| TEST-BB-994 | U | `EquipmentPageTests.ComingUp_ListsChecksDueSoon` | URS-BB-759 / FRS-BB-877 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

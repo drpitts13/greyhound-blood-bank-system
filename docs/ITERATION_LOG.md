@@ -22151,3 +22151,31 @@ The service could stop a check and retire equipment (Cycle 708), but the page ha
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 716 — Equipment checks coming up (2026-11-12)
+
+### Capability matrix rescan (operations: equipment)
+
+The Equipment page showed only checks due now. An annual calibration or a vendor's preventive maintenance needs booking weeks ahead, and nothing showed what was coming.
+
+### Design
+
+- `EquipmentService.ListUpcomingAsync(days)`: current checks on active, in-service equipment due within the window (1–366 days), soonest first; checks already due stay on the due list.
+- `GET /api/equipment/upcoming?days=`; Equipment page **Coming up** with a 7, 30 (default) or 90-day window.
+
+### Verification
+
+- Integration: a weekly check inside 30 days and not inside 3; a yearly check only in the longest window; never-done and out-of-service checks excluded.
+- Rendered: the empty message names the window; a listed check shows its due date and name.
+
+### Requirements
+
+- URS-BB-759, FRS-BB-877.
+
+### Tests
+
+- TEST-BB-992 to TEST-BB-994.
+
+### Next
+
+- Back to the capability matrix.

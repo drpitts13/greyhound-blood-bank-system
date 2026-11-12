@@ -152,6 +152,26 @@ public sealed class EquipmentService
             .ThenBy(d => d.EquipmentCode)
             .ToList();
 
+    /// <summary>The longest look ahead offered for checks coming up (Cycle 716).</summary>
+    public const int MaxUpcomingDays = 366;
+
+    /// <summary>
+    /// Checks on equipment in service that are current now but fall due within the next <paramref name="days"/> days
+    /// (Cycle 716), soonest first, so a calibration or vendor visit can be booked before it is due. Checks already due
+    /// are on the due list instead.
+    /// </summary>
+    public async Task<IReadOnlyList<EquipmentCheckDueDto>> ListUpcomingAsync(int days, CancellationToken ct = default)
+    {
+        var horizon = DateOnly.FromDateTime(_clock.UtcNow).AddDays(Math.Clamp(days, 1, MaxUpcomingDays));
+        return (await ListAsync(includeInactive: false, ct))
+            .Where(e => e.InService)
+            .SelectMany(e => e.Checks.Where(c => c.IsActive && !c.NeedsAction && c.DueOn is { } due && due <= horizon)
+                .Select(c => new EquipmentCheckDueDto(e.Id, e.Code, e.Name, e.Location, c.CheckId, c.Name, c.State, c.DueOn, c.StatusText)))
+            .OrderBy(d => d.DueOn)
+            .ThenBy(d => d.EquipmentCode)
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<EquipmentCheckRecordDto>> ListRecordsAsync(long equipmentId, int take = 50, CancellationToken ct = default)
     {
         var equipment = await _equipment.GetByIdAsync(equipmentId, ct);

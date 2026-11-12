@@ -168,4 +168,32 @@ public class EquipmentPageTests : BunitContext
         Assert.Empty(page.FindAll("[data-equipment='OLD-01'] [data-equipment-service]"));
         Assert.Empty(page.FindAll("[data-equipment='OLD-01'] [data-check-add]"));
     }
+
+    // TEST-BB-993: Coming up lists the checks falling due in the window (30 days by default) with their due dates, and
+    // says when nothing falls due.
+    [Fact]
+    public void ComingUp_SaysWhenNothingFallsDue()
+    {
+        var page = Render();
+        Assert.Contains("Nothing else falls due within 30 days", page.Find("[data-equipment-upcoming]").TextContent);
+    }
+
+    [Fact]
+    public void ComingUp_ListsChecksDueSoon()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/equipment"] = new List<EquipmentDto>(),
+            ["/api/equipment/due"] = new List<EquipmentCheckDueDto>(),
+            ["/api/equipment/upcoming"] = new List<EquipmentCheckDueDto>
+            {
+                new(4, "IRR-01", "Irradiator", "Room 3", 41, "Annual dose mapping", "Current", new DateOnly(2026, 12, 1), "Next due 2026-12-01")
+            }
+        });
+        Services.AddSingleton(Cache);
+        var page = Render<EquipmentPage>();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-upcoming-check='41']")));
+        Assert.Contains("2026-12-01", page.Find("[data-upcoming-check='41']").TextContent);
+        Assert.Contains("Annual dose mapping", page.Find("[data-upcoming-check='41']").TextContent);
+    }
 }

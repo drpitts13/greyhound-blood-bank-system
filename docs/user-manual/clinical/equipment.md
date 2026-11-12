@@ -16,6 +16,10 @@ The top of the page lists every check that needs doing now on equipment in servi
 
 A check is due again its interval after it last **passed**, counted in days: a daily check done late yesterday is due today. A check never recorded is due now. A failed check stays failed, and on the list, until it is recorded as passed.
 
+## Coming up
+
+**Coming up** lists the checks on equipment in service that are not due yet but fall due within the next 7, 30 or 90 days (30 by default), soonest first, so a calibration, preventive maintenance or vendor visit can be booked in time. Checks already due are in **Checks to do** instead.
+
 ## Out of service
 
 **Take out of service** asks for the reason (for example *failed QC* or *broken lid latch*). Its checks leave the list while it is out, and the register shows since when, by whom and why. A check can still be recorded while it is out, such as the check after repair. **Return to service** asks why it can be used again (for example *repaired, QC passed* or the vendor's service report) and warns while a check's latest record failed.

@@ -171,4 +171,32 @@ public class EquipmentServiceTests : IDisposable
         Assert.False((await svc.RestoreAsync(equipmentId, "again")).Succeeded);
         Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Equipment) && e.EntityId == equipmentId && e.EventType == AuditEventType.Activate && e.Reason == "Retired in error"));
     }
+
+    // TEST-BB-992: checks current now but due within the window are listed soonest first; a check already due, one due
+    // after the window, and checks on equipment out of service are not.
+    [Fact]
+    public async Task Upcoming_ListsChecksDueWithinTheWindow()
+    {
+        await using var c = _factory.Create();
+        var svc = Service(c);
+        var (weeklyEquipment, weeklyCheck) = await RegisterAsync(c, "UP-WEEK", interval: 7);
+        var (yearlyEquipment, yearlyCheck) = await RegisterAsync(c, "UP-YEAR", interval: 365);
+        var (_, neverCheck) = await RegisterAsync(c, "UP-NEVER", interval: 7);
+        var (outEquipment, outCheck) = await RegisterAsync(c, "UP-OUT", interval: 7);
+        foreach (var check in new[] { weeklyCheck, yearlyCheck, outCheck })
+        {
+            Assert.True((await svc.RecordAsync(check, new RecordEquipmentCheckRequest(true, null))).Succeeded);
+        }
+
+        Assert.True((await svc.SetInServiceAsync(outEquipment, false, "Broken")).Succeeded);
+
+        var month = await svc.ListUpcomingAsync(30);
+        var weekly = Assert.Single(month, u => u.CheckId == weeklyCheck);
+        Assert.Equal(DateOnly.FromDateTime(_factory.Clock.UtcNow).AddDays(7), weekly.DueOn);
+        Assert.DoesNotContain(month, u => u.CheckId == yearlyCheck || u.CheckId == neverCheck || u.CheckId == outCheck);
+        Assert.Contains(await svc.ListUpcomingAsync(EquipmentService.MaxUpcomingDays), u => u.CheckId == yearlyCheck);
+        Assert.DoesNotContain(await svc.ListUpcomingAsync(3), u => u.CheckId == weeklyCheck);
+        Assert.Equal(weeklyEquipment, weekly.EquipmentId);
+        _ = yearlyEquipment;
+    }
 }

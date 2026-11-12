@@ -2060,6 +2060,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<EquipmentDto>>> GetEquipmentAsync(bool includeInactive = false, CancellationToken ct = default) =>
         SendAsync<List<EquipmentDto>>(HttpMethod.Get, $"api/equipment?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 
+    public Task<ApiResult<List<EquipmentCheckDueDto>>> GetEquipmentUpcomingAsync(int days, CancellationToken ct = default) =>
+        SendAsync<List<EquipmentCheckDueDto>>(HttpMethod.Get, $"api/equipment/upcoming?days={days}", ct: ct);
+
     public Task<ApiResult<List<EquipmentCheckDueDto>>> GetEquipmentDueAsync(CancellationToken ct = default) =>
         SendAsync<List<EquipmentCheckDueDto>>(HttpMethod.Get, "api/equipment/due", ct: ct);
 
