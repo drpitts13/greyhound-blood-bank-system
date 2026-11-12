@@ -22701,3 +22701,22 @@ On the running system with seeded data: the RhIG page → Noor DEMO-RHIG (O nega
 ### Tests
 
 - TEST-BB-1030. Full suite passed.
+
+## Iteration 739 — End-user testing pass 23: storage temperatures (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Storage temperatures (no reading had ever been recorded for any location) → record FRIDGE-1 at 8.5 °C ("Door left ajar during restock") → the deviation it opened → Inventory.
+
+### Found and fixed
+
+1. **"Review the units at this location", with no way to list them.** The excursion opened deviation DEV-3 for the 36 units in FRIDGE-1, but nothing listed those units and Inventory could not be searched by location. Inventory's search now has a **Location** filter (and a `locationId` link), and the excursion message links to the units stored there. Retested live: /inventory?locationId=1 opens with FRIDGE-1 chosen and only its units.
+2. **Deviation list codes.** Status read UnderReview and the excursion's context read StorageTemperatureReading #1; they now read "Under review" and "Temperature reading", linked to Storage temperatures.
+
+### Remaining
+
+- A deviation about a unit still names it by internal id ("Blood unit #1"); the list does not carry the unit number. No reading is due on any schedule: the system does not say when a location's manual reading is overdue (a facility interval would be needed).
+
+### Tests
+
+- Page changes only (inspection). Full suite passed.

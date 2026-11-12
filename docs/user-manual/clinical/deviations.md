@@ -21,3 +21,7 @@ Status moves from open toward closure as the corrective action is done. Closure 
 The list shows open deviations first, most severe first, then the oldest. Each row shows the description, any corrective action, who reported it and when, and how long it has been open. The record stays in the audit trail. You cannot delete a deviation to remove an uncomfortable event.
 
 Use a deviation in addition to an issue override, not instead of it. The override explains why the gate allowed the issue. The deviation explains the process failure if there was one.
+
+## Raised by the system
+
+A deviation opened by a temperature excursion shows its context as **Temperature reading**, linking to Storage temperatures. Status reads in words (Open, Under review, Closed).

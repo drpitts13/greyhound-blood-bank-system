@@ -100,7 +100,7 @@ else
                                 </td>
                                 <td><span class="badge @SeverityClass(d.Severity)">@Ui.EnumText(d.Severity)</span></td>
                                 <td>
-                                    @d.Status
+                                    @Ui.EnumText(d.Status)
                                     @if (d.Status == DeviationStatus.Closed && d.ClosedUtc is DateTime closedAt)
                                     {
                                         <span class="sub">by @d.ClosedBy @closedAt.ToLocalTime().ToString("yyyy-MM-dd")</span>
@@ -301,9 +301,16 @@ else
         ("Hl7", "HL7 message"),
     ];
 
+    // Raised by the system, not chosen on the form: shown in words and linked (end-user testing, 2026-11-12).
+    private static readonly (string Value, string Label)[] SystemContextTypes =
+    [
+        ("StorageTemperatureReading", "Temperature reading"),
+    ];
+
     // Older rows may hold free text typed before the pick list; show those as stored.
     private static string ContextLabel(string? type) =>
-        string.IsNullOrWhiteSpace(type) ? "—" : ContextTypes.FirstOrDefault(t => t.Value == type).Label ?? type;
+        string.IsNullOrWhiteSpace(type) ? "—"
+            : ContextTypes.Concat(SystemContextTypes).FirstOrDefault(t => t.Value == type).Label ?? type;
 
     private static string? ContextHref(DeviationDto d)
     {
@@ -319,6 +326,7 @@ else
             "Issue" => $"/printing?issueId={id}",
             "Specimen" => $"/printing?specimenId={id}",
             "Hl7" or "Hl7Message" => "/hl7",
+            "StorageTemperatureReading" => "/storage-temps",
             _ => null
         };
     }

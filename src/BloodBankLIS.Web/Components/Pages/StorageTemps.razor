@@ -95,6 +95,11 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Record a reading</h3></div>
         <Outcome Value="_recordFb" />
+        @if (_excursionLocationId is long excursionAt)
+        {
+            @* The units that were in the refrigerator, to review (end-user testing, 2026-11-12: the message said to review them and listed none). *@
+            <p data-excursion-units><a href="@($"/inventory?locationId={excursionAt}")">Review the units stored at this location</a> before they are released or issued.</p>
+        }
         <div class="form-row">
             <div class="field">
                 <label>Location</label>
@@ -155,6 +160,7 @@
     private long _locationId;
     private decimal? _reading;
     private Feedback? _recordFb;
+    private long? _excursionLocationId;
 
     // Rounds go fridge by fridge: Record on a row picks the location and puts the cursor in the reading.
     private async Task StartReadingAsync(long locationId)
@@ -213,6 +219,7 @@
             _recordFb = saved.ToFeedback(excursion
                 ? $"Excursion recorded. Deviation DEV-{saved.Value!.DeviationId} is open. Review the units at this location."
                 : "Reading recorded.");
+            _excursionLocationId = excursion ? _locationId : null;
             if (saved.Succeeded)
             {
                 _reading = null;

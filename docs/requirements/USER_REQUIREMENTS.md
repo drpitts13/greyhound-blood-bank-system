@@ -798,3 +798,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-790 | A DIN lookback names each component's product and current location. | P2 | FRS-BB-908 |
 | URS-BB-791 | The shift handoff hands over units a ward has asked to be sent, as urgent. | P2 | FRS-BB-909 |
 | URS-BB-792 | The RhIG queue shows when each open candidate's RhIG is to be given by, from a facility window, and marks one past it. | P1 | FRS-BB-910 |
+| URS-BB-793 | After a storage temperature excursion the units stored at the location can be listed from the excursion; inventory can be searched by location. | P1 | FRS-BB-911 |

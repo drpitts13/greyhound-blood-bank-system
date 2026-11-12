@@ -770,6 +770,10 @@
         <div class="field"><label>Product</label>
             <select @bind="_searchProductTypeId"><option value="">Any</option>@foreach (var p in _productTypes) { <option value="@p.Id">@p.ChoiceLabel</option> }</select>
         </div>
+        <div class="field"><label>Location</label>
+            @* End-user testing, 2026-11-12: after a refrigerator excursion the units stored there could not be listed. *@
+            <select @bind="_searchLocationId" data-inventory-location-filter><option value="">Any</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code @l.Name</option> }</select>
+        </div>
         <div class="field"><label>ABO</label>
             <select @bind="_searchAbo"><option value="">Any</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
         </div>
@@ -861,6 +865,7 @@
     private UnitStatus? _searchStatus;
     private AboGroup? _searchAbo;
     private long? _searchProductTypeId;
+    private long? _searchLocationId;
     private RhType? _searchRh;
 
     private List<OpenDeliveryDto> _openDeliveries = new();
@@ -923,6 +928,7 @@
         var patients = await Api.GetPatientsAsync();
         if (patients.Succeeded) _patients = patients.Value ?? new();
         _searchProductTypeId = ProductTypeId;
+        _searchLocationId = LocationId;
         if (Enum.TryParse<AboGroup>(Abo, ignoreCase: true, out var abo)) _searchAbo = abo;
         if (Enum.TryParse<UnitStatus>(Status, ignoreCase: true, out var status)) _searchStatus = status;
         await SearchAsync();
@@ -948,6 +954,10 @@
 
     [SupplyParameterFromQuery]
     public string? Abo { get; set; }
+
+    // The units stored at one location (for example after a temperature excursion).
+    [SupplyParameterFromQuery]
+    public long? LocationId { get; set; }
 
     [SupplyParameterFromQuery]
     public string? Status { get; set; }
@@ -1038,6 +1048,7 @@
         var criteria = new InventorySearchCriteria(
             string.IsNullOrWhiteSpace(_searchUnit) ? null : _searchUnit, _searchStatus, _searchAbo, _searchRh,
             ProductTypeId: _searchProductTypeId,
+            LocationId: _searchLocationId,
             Statuses: InventorySearchScope.Statuses(_searchUnit, _searchStatus, _showIssuedTransfused));
         var r = await Api.SearchUnitsAsync(criteria);
         _loading = false;

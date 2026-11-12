@@ -27,3 +27,7 @@ Consecutive out-of-range readings belong to the same excursion and share one dev
 **Automatic quarantine.** When an excursion has lasted longer than **Quarantine after excursion minutes** in Facility Policies (default 30), every unit still stored at that location is quarantined with the reason "storage temperature excursion". The time runs from the first out-of-range reading while readings stay out of range; an in-range reading ends the excursion. The check runs on each reading and every five minutes, so an excursion with no further reading is still caught. Each unit's history and the audit trail record the change, the deviation lists the units, and a critical alert is raised. Release a unit only after review. Setting the minutes to 0 turns automatic quarantine off.
 
 **History** shows the last seven days of readings for one location. **Report** opens the temperature history report for that location, with any period, summary statistics, a trend chart, CSV export, and print. Add or retire devices in Admin › Refrigerators & Freezers.
+
+## After an excursion
+
+A reading outside the location's range opens a deviation and shows **Review the units stored at this location**, which opens Inventory filtered to that location. Inventory's search has a **Location** filter for the same list at any time.
