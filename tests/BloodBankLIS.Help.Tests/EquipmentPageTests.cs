@@ -129,4 +129,43 @@ public class EquipmentPageTests : BunitContext
         Assert.Equal("1", page.Find("[data-edit-check-interval]").GetAttribute("value"));
         Assert.True(page.Find("[data-edit-check-save]").HasAttribute("disabled"));
     }
+
+    // TEST-BB-990: Stop on a check and Retire on equipment open a form saying what happens, whose button needs a reason;
+    // retired equipment shows Retired and offers only Restore and History.
+    [Fact]
+    public void RetireAndStop_NeedAReason_AndRetiredOffersRestore()
+    {
+        var page = Render();
+        page.Find("[data-equipment='CW-01'] [data-check-retire]").Click();
+        Assert.Contains("Stop scheduling Daily check on CW-01", page.Find("[data-retire-form]").TextContent);
+        Assert.True(page.Find("[data-retire-save]").HasAttribute("disabled"));
+        page.Find("[data-retire-reason]").Input("Replaced");
+        Assert.False(page.Find("[data-retire-save]").HasAttribute("disabled"));
+
+        page.Find("[data-equipment='CW-01'] [data-equipment-retire]").Click();
+        Assert.Contains("Retire CW-01 from the register", page.Find("[data-retire-form]").TextContent);
+        Assert.True(page.Find("[data-retire-save]").HasAttribute("disabled"));
+    }
+
+    // TEST-BB-991: retired equipment shows Retired and offers only Restore and History (no edit, service, record or new check).
+    [Fact]
+    public void RetiredEquipment_OffersRestore()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/equipment"] = new List<EquipmentDto>
+            {
+                new(3, "OLD-01", "Old centrifuge", "Centrifuge", null, null, false, null, null, null, [Check(31, "NeverDone", true, "Never done")])
+            },
+            ["/api/equipment/due"] = new List<EquipmentCheckDueDto>()
+        });
+        Services.AddSingleton(Cache);
+        var page = Render<EquipmentPage>();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-equipment='OLD-01'] [data-equipment-retired]")));
+        Assert.NotNull(page.Find("[data-equipment='OLD-01'] [data-equipment-restore]"));
+        Assert.NotNull(page.Find("[data-equipment='OLD-01'] [data-equipment-history]"));
+        Assert.Empty(page.FindAll("[data-equipment='OLD-01'] [data-equipment-edit]"));
+        Assert.Empty(page.FindAll("[data-equipment='OLD-01'] [data-equipment-service]"));
+        Assert.Empty(page.FindAll("[data-equipment='OLD-01'] [data-check-add]"));
+    }
 }

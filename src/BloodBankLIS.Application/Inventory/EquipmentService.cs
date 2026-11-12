@@ -433,6 +433,28 @@ public sealed class EquipmentService
         return EvaluationResult<EquipmentDto>.Ok((await GetAsync(id, ct))!);
     }
 
+    /// <summary>Bring retired equipment back into the register (in the service state it had), with a reason (Cycle 715).</summary>
+    public async Task<EvaluationResult<EquipmentDto>> RestoreAsync(long id, string? reason, CancellationToken ct = default)
+    {
+        var equipment = await _equipment.GetByIdAsync(id, ct);
+        if (equipment is null || equipment.IsActive)
+        {
+            return EvaluationResult<EquipmentDto>.Fail("Retired equipment was not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return EvaluationResult<EquipmentDto>.Blocked(new RuleEvaluation(
+                [RuleResult.HardStop(EquipmentCheckRule.SaveCode, "Say why the equipment is back (for example, retired in error, returned from loan).")]));
+        }
+
+        equipment.IsActive = true;
+        _equipment.Update(equipment);
+        _audit.Record(AuditEventType.Activate, nameof(Equipment), equipment.Id, new { IsActive = false }, new { IsActive = true }, reason.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<EquipmentDto>.Ok((await GetAsync(id, ct))!);
+    }
+
     private static EquipmentDto ToDto(Equipment e, IEnumerable<EquipmentCheck> checks, IReadOnlyList<EquipmentCheckRecord> records, DateTime now) =>
         new(e.Id, e.Code, e.Name, e.Kind, e.Location, e.SerialNumber, e.IsActive, e.OutOfServiceUtc, e.OutOfServiceReason, e.OutOfServiceBy,
             checks.OrderBy(c => c.IsActive ? 0 : 1).ThenBy(c => c.IntervalDays).ThenBy(c => c.Name)

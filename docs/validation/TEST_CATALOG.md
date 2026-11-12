@@ -997,5 +997,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-986 | U | `ReagentRegisterRuleTests.LotCorrection_Rules` | URS-BB-757 / FRS-BB-875 |
 | TEST-BB-987 | I | `ReagentLotTraceabilityTests.CorrectLot_WithAReason` | URS-BB-757 / FRS-BB-875 |
 | TEST-BB-988 | U | `ReagentRegisterPageTests.CorrectLot_IsPrefilled_AndNeedsAReason` | URS-BB-757 / FRS-BB-875 |
+| TEST-BB-989 | I | `EquipmentServiceTests.Retire_AndRestore_WithAReason` | URS-BB-758 / FRS-BB-876 |
+| TEST-BB-990 | U | `EquipmentPageTests.RetireAndStop_NeedAReason_AndRetiredOffersRestore` | URS-BB-758 / FRS-BB-876 |
+| TEST-BB-991 | U | `EquipmentPageTests.RetiredEquipment_OffersRestore` | URS-BB-758 / FRS-BB-876 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

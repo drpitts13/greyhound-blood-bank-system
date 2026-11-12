@@ -90,10 +90,13 @@ else
     <div class="bb-card" style="margin-top:1rem;">
         <div class="bb-card-title">
             <h3>Register</h3>
-            @if (CanConfigure && !_adding)
-            {
-                <button class="btn btn-secondary btn-sm" type="button" @onclick="() => _adding = true" data-equipment-add>Add equipment</button>
-            }
+            <div class="flex gap" style="align-items:center;">
+                <label class="muted" style="font-size:.85rem;"><input type="checkbox" @bind="_showRetired" @bind:after="LoadAsync" data-equipment-show-retired /> Show retired</label>
+                @if (CanConfigure && !_adding)
+                {
+                    <button class="btn btn-secondary btn-sm" type="button" @onclick="() => _adding = true" data-equipment-add>Add equipment</button>
+                }
+            </div>
         </div>
         @if (_adding)
         {
@@ -131,7 +134,11 @@ else
                     <div class="bb-card-title">
                         <h4 style="margin:0;"><span class="mono">@e.Code</span> @e.Name <span class="muted">· @e.Kind@(e.Location is null ? "" : $" · {e.Location}")@(e.SerialNumber is null ? "" : $" · S/N {e.SerialNumber}")</span></h4>
                         <div class="flex gap">
-                            @if (e.OutOfServiceUtc is not null)
+                            @if (!e.IsActive)
+                            {
+                                <span class="badge badge-gray" data-equipment-retired>Retired</span>
+                            }
+                            else if (e.OutOfServiceUtc is not null)
                             {
                                 <span class="badge badge-red" data-out-of-service>Out of service</span>
                             }
@@ -143,12 +150,17 @@ else
                             {
                                 <span class="badge badge-green">In service</span>
                             }
-                            @if (CanConfigure)
+                            @if (CanConfigure && e.IsActive)
                             {
                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginEdit(e)" data-equipment-edit>Edit</button>
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRetire(RetireKind.Equipment, e, null)" data-equipment-retire>Retire</button>
+                            }
+                            else if (CanConfigure)
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRetire(RetireKind.Restore, e, null)" data-equipment-restore>Restore</button>
                             }
                             <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ToggleHistoryAsync(e)" data-equipment-history>@(_historyFor == e.Id ? "Hide history" : "History")</button>
-                            @if (CanRecord)
+                            @if (CanRecord && e.IsActive)
                             {
                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginService(e)" data-equipment-service>@(e.OutOfServiceUtc is null ? "Take out of service" : "Return to service")</button>
                             }
@@ -175,6 +187,21 @@ else
                         {
                             <div class="alert alert-warning" data-service-failed>A check's latest record failed. Record a passing check before it is used again.</div>
                         }
+                    }
+                    @if (_retire is { } pending && pending.Equipment.Id == e.Id)
+                    {
+                        <div class="bb-card" style="margin:.5rem 0;" data-retire-form>
+                            <p class="muted" style="margin-top:0;">@RetireText(pending)</p>
+                            <div class="form-row">
+                                <div class="field" style="flex:2;"><label>Reason</label><input @bind="_retireReason" @bind:event="oninput" data-retire-reason /></div>
+                                <div class="field" style="align-self:end;">
+                                    <div class="flex gap">
+                                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_retireReason))" @onclick="SaveRetireAsync" data-retire-save>@(pending.Kind == RetireKind.Restore ? "Restore" : "Retire")</button>
+                                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _retire = null">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     }
                     @if (_editing?.Id == e.Id)
                     {
@@ -261,13 +288,14 @@ else
                                             }
                                         </td>
                                         <td class="right">
-                                            @if (CanRecord)
+                                            @if (CanRecord && e.IsActive)
                                             {
                                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRecord(e.Id, c.CheckId)">Record</button>
                                             }
-                                            @if (CanConfigure)
+                                            @if (CanConfigure && e.IsActive)
                                             {
                                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginEditCheck(c)" data-check-edit>Change</button>
+                                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRetire(RetireKind.Check, e, c)" data-check-retire>Stop</button>
                                             }
                                         </td>
                                     </tr>
@@ -293,7 +321,7 @@ else
                         </table>
                         </div>
                     }
-                    @if (CanConfigure)
+                    @if (CanConfigure && e.IsActive)
                     {
                         @if (_addingCheckTo == e.Id)
                         {
@@ -346,6 +374,55 @@ else
     private string _checkName = "";
     private int _checkInterval;
     private string? _checkInstructions;
+
+    // Retiring equipment or stopping a check, and restoring retired equipment (Cycle 715).
+    private enum RetireKind { Equipment, Check, Restore }
+    private sealed record PendingRetire(RetireKind Kind, EquipmentDto Equipment, EquipmentCheckStatusDto? Check);
+    private bool _showRetired;
+    private PendingRetire? _retire;
+    private string? _retireReason;
+
+    private void BeginRetire(RetireKind kind, EquipmentDto equipment, EquipmentCheckStatusDto? check)
+    {
+        _retire = new PendingRetire(kind, equipment, check);
+        _retireReason = null;
+    }
+
+    private static string RetireText(PendingRetire pending) => pending.Kind switch
+    {
+        RetireKind.Check => $"Stop scheduling {pending.Check!.Name} on {pending.Equipment.Code}. Its records are kept in the history.",
+        RetireKind.Restore => $"Bring {pending.Equipment.Code} back into the register, {(pending.Equipment.OutOfServiceUtc is null ? "in service" : "still out of service")}, with its checks.",
+        _ => $"Retire {pending.Equipment.Code} from the register (replaced, sent back). Its checks stop being due and its records are kept; it can no longer be used for a modification."
+    };
+
+    private async Task SaveRetireAsync()
+    {
+        if (_retire is null)
+        {
+            return;
+        }
+
+        var pending = _retire;
+        _busy = true;
+        var r = pending.Kind switch
+        {
+            RetireKind.Check => await Api.RetireEquipmentCheckAsync(pending.Check!.CheckId, _retireReason),
+            RetireKind.Restore => await Api.RestoreEquipmentAsync(pending.Equipment.Id, _retireReason),
+            _ => await Api.RetireEquipmentAsync(pending.Equipment.Id, _retireReason)
+        };
+        _feedback = r.ToFeedback(pending.Kind switch
+        {
+            RetireKind.Check => $"{pending.Check!.Name} is no longer scheduled on {pending.Equipment.Code}.",
+            RetireKind.Restore => $"{pending.Equipment.Code} restored.",
+            _ => $"{pending.Equipment.Code} retired."
+        });
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _retire = null;
+            await LoadAsync();
+        }
+    }
 
     private EquipmentDto? _editing;
     private string _editName = "";
@@ -457,7 +534,7 @@ else
     private async Task LoadAsync()
     {
         _loading = true;
-        var list = await Api.GetEquipmentAsync();
+        var list = await Api.GetEquipmentAsync(_showRetired);
         _equipment = list.Value ?? new();
         if (!list.Succeeded)
         {

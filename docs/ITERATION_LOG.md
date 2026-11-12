@@ -22123,3 +22123,31 @@ A reagent lot's number and expiry were fixed at receipt. An expiry typed wrongly
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 715 — Retire and restore on the Equipment page (2026-11-11)
+
+### Capability matrix rescan (operations: equipment)
+
+The service could stop a check and retire equipment (Cycle 708), but the page had no way to do either, retired equipment could not be seen, and nothing restored equipment retired in error.
+
+### Design
+
+- `EquipmentService.RestoreAsync` with a reason (audited Activate), keeping the service state it had; `POST /api/equipment/{id}/restore`.
+- Equipment page: **Stop** on a check, **Retire** on equipment and **Restore** on retired equipment, each in a form that says what happens and needs a reason; **Show retired** lists retired equipment, which offers only History and Restore.
+
+### Verification
+
+- Integration: retire and restore need reasons, are refused twice; retired equipment leaves the list and due list and comes back with its checks; audit.
+- Rendered: the forms' text and reason; a retired piece offers Restore and History only.
+
+### Requirements
+
+- URS-BB-758, FRS-BB-876.
+
+### Tests
+
+- TEST-BB-989 to TEST-BB-991.
+
+### Next
+
+- Back to the capability matrix.

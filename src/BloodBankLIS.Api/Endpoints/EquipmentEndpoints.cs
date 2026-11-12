@@ -52,6 +52,10 @@ public static class EquipmentEndpoints
             EndpointResults.FromEvaluation(await svc.DeactivateAsync(id, body.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
+        group.MapPost("/{id:long}/restore", async (long id, EquipmentReasonBody body, EquipmentService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.RestoreAsync(id, body.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
         group.MapPost("/checks/{checkId:long}/records", async (long checkId, RecordEquipmentCheckRequest request, EquipmentService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.RecordAsync(checkId, request, ct), d => d))
             .RequirePermission(PermissionCodes.ResultEnter);

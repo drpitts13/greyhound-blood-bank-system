@@ -146,4 +146,29 @@ public class EquipmentServiceTests : IDisposable
         Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Equipment) && e.EntityId == equipmentId && e.EventType == AuditEventType.Update && e.Reason == "Moved to Bench 2"));
         Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(EquipmentCheck) && e.EntityId == checkId && e.Reason == "SOP revised to weekly"));
     }
+
+    // TEST-BB-989: retired equipment leaves the register and the due list (listed again when retired equipment is
+    // asked for) and is restored with a reason; retiring or restoring without a reason, or twice, is refused.
+    [Fact]
+    public async Task Retire_AndRestore_WithAReason()
+    {
+        await using var c = _factory.Create();
+        var svc = Service(c);
+        var (equipmentId, checkId) = await RegisterAsync(c, "TB-RET");
+
+        Assert.False((await svc.DeactivateAsync(equipmentId, " ")).Succeeded);
+        Assert.True((await svc.DeactivateAsync(equipmentId, "Replaced by TB-02")).Succeeded);
+        Assert.False((await svc.DeactivateAsync(equipmentId, "again")).Succeeded);
+        Assert.DoesNotContain(await svc.ListAsync(), e => e.Id == equipmentId);
+        Assert.DoesNotContain(await svc.ListDueAsync(), d => d.EquipmentId == equipmentId);
+        Assert.False(Assert.Single(await svc.ListAsync(includeInactive: true), e => e.Id == equipmentId).IsActive);
+
+        Assert.False((await svc.RestoreAsync(equipmentId, "")).Succeeded);
+        var restored = await svc.RestoreAsync(equipmentId, "Retired in error");
+        Assert.True(restored.Succeeded, restored.Error);
+        Assert.True(restored.Value!.IsActive);
+        Assert.Contains(await svc.ListDueAsync(), d => d.CheckId == checkId);
+        Assert.False((await svc.RestoreAsync(equipmentId, "again")).Succeeded);
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Equipment) && e.EntityId == equipmentId && e.EventType == AuditEventType.Activate && e.Reason == "Retired in error"));
+    }
 }
