@@ -22005,3 +22005,31 @@ The equipment register (Cycles 708–709) had a home card but the shift handoff,
 ### Next
 
 - Back to the capability matrix. The equipment row is now Present.
+
+## Iteration 711 — Equipment check history and log (2026-11-11)
+
+### Capability matrix rescan (operations: equipment)
+
+The register kept every check performed, and the API returned them, but the page showed only each check's latest record. An inspector asking for a centrifuge's maintenance and QC log, or a supervisor reviewing a failure, had nothing to look at.
+
+### Design
+
+- **History** on each piece of equipment: every check performed, newest first, including checks no longer scheduled (their names are kept); refreshed after a record is saved.
+- **Download log (CSV)**: the same rows with UTC and local times, through the report download cache; `CsvFormat` guards a note that looks like a formula.
+- The latest 500 records are shown and downloaded, and the page says so when that many exist.
+
+### Verification
+
+- Rendered: history rows in order with a retired check; the CSV's file name, header, row and formula guard; hiding the history.
+
+### Requirements
+
+- URS-BB-754, FRS-BB-872.
+
+### Tests
+
+- TEST-BB-980.
+
+### Next
+
+- Back to the capability matrix.

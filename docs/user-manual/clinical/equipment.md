@@ -20,6 +20,10 @@ A check is due again its interval after it last **passed**, counted in days: a d
 
 **Take out of service** asks for the reason (for example *failed QC* or *broken lid latch*). Its checks leave the list while it is out, and the register shows since when, by whom and why. A check can still be recorded while it is out, such as the check after repair. **Return to service** asks why it can be used again (for example *repaired, QC passed* or the vendor's service report) and warns while a check's latest record failed.
 
+## History and the log
+
+**History** on a piece of equipment lists every check performed on it, newest first: when, which check (including checks no longer scheduled), passed or failed, who, and the reading or note. **Download log (CSV)** saves the same list with times in UTC and local time, for an inspection or the equipment file. The latest 500 records are shown and downloaded.
+
 ## On the home screen and in modifications
 
 The **Equipment checks to do** home card (Bench and Supervisor desks) counts the checks on this list and names any failed or overdue; it opens this page. The shift handoff records the same count, with the failed or overdue among them, and the equipment out of service (*do not use*).

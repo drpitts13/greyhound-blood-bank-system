@@ -865,6 +865,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-751 / FRS-BB-869 | Equipment register and checks | `Equipment.cs`, `EquipmentCheckRule.cs`, `EquipmentService.cs`, `EquipmentEndpoints.cs`, `EquipmentPage.razor`, `DatabaseSeeder.Equipment.cs` | TEST-BB-968..974 | U, I | |
 | URS-BB-752 / FRS-BB-870 | Equipment card; out-of-service device refused for a modification | `DashboardQueueCatalog.cs`, `DashboardHomeLayout.cs`, `Home.razor`, `ModificationDeviceRule.cs`, `BloodProductModificationService.cs`, `Modifications.razor` | TEST-BB-975..977 | U, I | |
 | URS-BB-753 / FRS-BB-871 | Equipment in the shift handoff | `ShiftHandoff.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs` | TEST-BB-978..979 | U, I | |
+| URS-BB-754 / FRS-BB-872 | Equipment check history and log | `EquipmentPage.razor`, `BloodBankApiClient.cs`, `EquipmentService.cs` | TEST-BB-980 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -759,3 +759,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-751 | Bench equipment is registered with the checks the facility schedules for each (interval set by the facility), each check is recorded passed or failed by the signed-in user, the checks due now are listed, and equipment is taken out of service and returned with a reason; all audited. | P2 | FRS-BB-869 |
 | URS-BB-752 | Equipment checks to do are counted on a home card, and a modification whose device is registered equipment out of service or retired is refused. | P2 | FRS-BB-870 |
 | URS-BB-753 | The shift handoff records the equipment checks to do (failed or overdue counted apart) and the equipment out of service, each linking to Equipment. | P3 | FRS-BB-871 |
+| URS-BB-754 | Each piece of equipment's check history (every check performed, including checks no longer scheduled) is shown and downloaded as a CSV log for inspection. | P3 | FRS-BB-872 |

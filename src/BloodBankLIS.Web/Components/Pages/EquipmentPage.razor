@@ -1,6 +1,8 @@
 @page "/equipment"
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
 
 <PageTitle>Equipment &middot; HemoCore</PageTitle>
 
@@ -141,6 +143,7 @@ else
                             {
                                 <span class="badge badge-green">In service</span>
                             }
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ToggleHistoryAsync(e)" data-equipment-history>@(_historyFor == e.Id ? "Hide history" : "History")</button>
                             @if (CanRecord)
                             {
                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginService(e)" data-equipment-service>@(e.OutOfServiceUtc is null ? "Take out of service" : "Return to service")</button>
@@ -168,6 +171,47 @@ else
                         {
                             <div class="alert alert-warning" data-service-failed>A check's latest record failed. Record a passing check before it is used again.</div>
                         }
+                    }
+                    @if (_historyFor == e.Id)
+                    {
+                        @* Every check performed on this equipment, newest first, including checks no longer scheduled (Cycle 711). *@
+                        <div class="bb-card" style="margin:.5rem 0;" data-equipment-records>
+                            <div class="bb-card-title">
+                                <h4 style="margin:0;">Check history</h4>
+                                @if (_history.Count > 0)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => DownloadLogAsync(e)" data-equipment-log>Download log (CSV)</button>
+                                }
+                            </div>
+                            @if (_history.Count == 0)
+                            {
+                                <div class="muted">No checks recorded yet.</div>
+                            }
+                            else
+                            {
+                                <div class="table-scroll">
+                                <table class="bb">
+                                    <thead><tr><th>When</th><th>Check</th><th>Result</th><th>By</th><th>Reading or note</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var r in _history)
+                                        {
+                                            <tr data-record-row>
+                                                <td class="nowrap">@r.PerformedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                <td>@r.CheckName</td>
+                                                <td>@if (r.Passed) { <span class="badge badge-green">Passed</span> } else { <span class="badge badge-red">Failed</span> }</td>
+                                                <td>@r.PerformedBy</td>
+                                                <td>@r.Note</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                </div>
+                                @if (_history.Count >= HistoryLimit)
+                                {
+                                    <div class="muted">The latest @HistoryLimit records are shown and downloaded.</div>
+                                }
+                            }
+                        </div>
                     }
                     @if (e.Checks.Count == 0)
                     {
@@ -261,6 +305,42 @@ else
     private int _checkInterval;
     private string? _checkInstructions;
 
+    private const int HistoryLimit = 500;
+    private long? _historyFor;
+    private List<EquipmentCheckRecordDto> _history = new();
+
+    private async Task ToggleHistoryAsync(EquipmentDto equipment)
+    {
+        if (_historyFor == equipment.Id)
+        {
+            _historyFor = null;
+            return;
+        }
+
+        var r = await Api.GetEquipmentRecordsAsync(equipment.Id, HistoryLimit);
+        _history = r.Value ?? new();
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+        }
+
+        _historyFor = equipment.Id;
+    }
+
+    // The equipment's check log for an inspection or the equipment file: one row per check performed, newest first.
+    private async Task DownloadLogAsync(EquipmentDto equipment)
+    {
+        var rows = _history.Select(r => (IReadOnlyList<string?>)
+        [
+            equipment.Code, equipment.Name, r.CheckName, ClinicalTimeText.Utc(r.PerformedUtc),
+            ClinicalTimeText.Local(r.PerformedUtc), r.PerformedBy, r.Passed ? "Passed" : "Failed", r.Note
+        ]);
+        var bytes = BloodBankLIS.Domain.Reporting.CsvFormat.Write(
+            ["Equipment", "Name", "Check", "Performed (UTC)", "Performed (local)", "By", "Result", "Reading or note"], rows);
+        var token = Downloads.Put($"equipment-log-{equipment.Code}.csv", BloodBankLIS.Domain.Reporting.CsvFormat.ContentType, bytes);
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+    }
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
@@ -307,8 +387,13 @@ else
         _busy = false;
         if (r.Succeeded)
         {
+            var equipmentId = _recording.Value.Equipment.Id;
             _recording = null;
             await LoadAsync();
+            if (_historyFor == equipmentId)
+            {
+                _history = (await Api.GetEquipmentRecordsAsync(equipmentId, HistoryLimit)).Value ?? _history;
+            }
         }
     }
 

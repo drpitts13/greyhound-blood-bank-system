@@ -1,6 +1,9 @@
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Web.Components.Pages;
+using BloodBankLIS.Web.Services;
 using Bunit;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BloodBankLIS.Help.Tests;
 
@@ -11,6 +14,8 @@ public class EquipmentPageTests : BunitContext
         new(id, "Daily check", 1, "Per SOP", true, state, new DateOnly(2026, 11, 11), needsAction, text,
             lastPassed is null ? null : new DateTime(2026, 11, 11, 9, 0, 0, DateTimeKind.Utc), lastPassed is null ? null : "tech", lastPassed,
             lastPassed == false ? "Read 33 °C" : null);
+
+    private readonly ReportDownloadCache Cache = new(new MemoryCache(new MemoryCacheOptions()));
 
     private IRenderedComponent<EquipmentPage> Render(object? recordResponse = null)
     {
@@ -33,7 +38,13 @@ public class EquipmentPageTests : BunitContext
             responses["/api/equipment/checks/11/records"] = recordResponse;
         }
 
+        responses["/api/equipment/2/records"] = new List<EquipmentCheckRecordDto>
+        {
+            new(31, 2, "HB-01", 21, "Temperature check", new DateTime(2026, 11, 11, 8, 0, 0, DateTimeKind.Utc), "tech", false, "=SUM(A1) read 33 °C"),
+            new(30, 2, "HB-01", 20, "Retired weekly check", new DateTime(2026, 11, 4, 8, 0, 0, DateTimeKind.Utc), "amy", true, null)
+        };
         CannedApi.Register(this, responses);
+        Services.AddSingleton(Cache);
         var page = Render<EquipmentPage>();
         page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-due-check='11']")));
         return page;
@@ -71,5 +82,34 @@ public class EquipmentPageTests : BunitContext
         Assert.Contains("Why it can be used again", page.Find("[data-service-form]").TextContent);
         Assert.Contains("Record a passing check", page.Find("[data-service-failed]").TextContent);
         Assert.True(page.Find("[data-service-save]").HasAttribute("disabled"));
+    }
+
+    // TEST-BB-980: History shows every check performed on the equipment, newest first, including a check no longer
+    // scheduled; the log downloads as CSV with UTC and local times, who, result and note (a note that looks like a
+    // spreadsheet formula is guarded).
+    [Fact]
+    public void History_ShowsRecords_AndDownloadsTheLog()
+    {
+        var page = Render();
+        page.Find("[data-equipment='HB-01'] [data-equipment-history]").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll("[data-record-row]").Count));
+        var rows = page.FindAll("[data-record-row]");
+        Assert.Contains("Temperature check", rows[0].TextContent);
+        Assert.Contains("Failed", rows[0].TextContent);
+        Assert.Contains("Retired weekly check", rows[1].TextContent);
+
+        page.Find("[data-equipment-log]").Click();
+        var token = JSInterop.VerifyInvoke("open").Arguments[0]!.ToString()!.Split('/').Last();
+        var file = Cache.Take(token)!;
+        Assert.Equal("equipment-log-HB-01.csv", file.FileName);
+        var text = System.Text.Encoding.UTF8.GetString(file.Bytes);
+        Assert.Contains("Equipment,Name,Check,Performed (UTC),Performed (local),By,Result,Reading or note", text);
+        Assert.Contains("HB-01,Heat block,Temperature check,2026-11-11 08:00 UTC,", text);
+        Assert.Contains("tech,Failed,", text);
+        Assert.Contains(",'=SUM(A1) read 33 °C", text);
+
+        page.Find("[data-equipment='HB-01'] [data-equipment-history]").Click();
+        Assert.Empty(page.FindAll("[data-equipment-records]"));
     }
 }

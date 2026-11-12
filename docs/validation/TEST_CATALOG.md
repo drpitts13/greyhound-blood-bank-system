@@ -988,5 +988,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-977 | U | `DashboardQueueCatalogTests.EquipmentChecksCard_NamesFailedAndOverdue` | URS-BB-752 / FRS-BB-870 |
 | TEST-BB-978 | U | `ShiftHandoffItemsTests.Equipment_IsHandedOver` | URS-BB-753 / FRS-BB-871 |
 | TEST-BB-979 | I | `ShiftHandoffServiceTests.Handoff_CountsEquipment` | URS-BB-753 / FRS-BB-871 |
+| TEST-BB-980 | U | `EquipmentPageTests.History_ShowsRecords_AndDownloadsTheLog` | URS-BB-754 / FRS-BB-872 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
