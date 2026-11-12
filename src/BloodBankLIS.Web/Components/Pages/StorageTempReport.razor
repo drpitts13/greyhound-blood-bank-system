@@ -79,7 +79,7 @@
             <div class="table-scroll">
             <table class="bb">
                 <thead>
-                    <tr><th>Device</th><th>Range °C</th><th class="right">Readings</th><th class="right">Min</th><th class="right">Max</th><th class="right">Mean</th><th class="right">% in range</th><th class="right">Excursions</th><th class="right">Out-of-range readings</th><th class="right">Longest gap</th><th>Last reading (UTC)</th></tr>
+                    <tr><th>Device</th><th>Range °C</th><th class="right">Readings</th><th class="right">Min</th><th class="right">Max</th><th class="right">Mean</th><th class="right">% in range</th><th class="right">Excursions</th><th class="right">Out-of-range readings</th><th class="right">Longest gap</th><th>Last reading</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var d in _report.Devices)
@@ -127,7 +127,7 @@
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Device</th><th>Time (UTC)</th><th class="right">Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Deviation</th><th>Comment</th></tr></thead>
+                <thead><tr><th>Device</th><th>Time</th><th class="right">Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Deviation</th><th>Comment</th></tr></thead>
                 <tbody>
                     @foreach (var r in _report.Readings)
                     {
@@ -245,7 +245,7 @@
     private async Task ExportCsvAsync()
     {
         if (_report is null) return;
-        var columns = new[] { "Device", "Name", "Reading time (UTC)", "Reading (C)", "Status", "Range min (C)", "Range max (C)", "Recorded by", "Deviation", "Comment" };
+        var columns = new[] { "Device", "Name", "Reading time (local)", "Reading (C)", "Status", "Range min (C)", "Range max (C)", "Recorded by", "Deviation", "Comment" };
         var names = _report.Devices.ToDictionary(d => d.LocationId, d => d.Name);
         var rows = _report.Readings.Select(r => (IReadOnlyList<string?>)new[]
         {

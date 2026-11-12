@@ -138,7 +138,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             discardReasons: new EfRepository<UnitDiscardReason>(context),
             allocations: new EfRepository<Allocation>(context),
             reactions: new EfRepository<ReactionInvestigation>(context),
-            auditQuery: new AuditQuery(context));
+            auditQuery: new AuditQuery(context),
+            temperatureReadings: new EfRepository<StorageTemperatureReading>(context));
     }
 
     /// <summary>A quarantined unit held for the given reason; optionally the remainder of a transfusion with an investigation.</summary>
@@ -182,6 +183,47 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     // TEST-BB-406: a quarantined unit goes back to stock only when its hold allows it, and the board says so.
+    // TEST-BB-1038: a unit held by an excursion is not released while its location's latest reading is still out of
+    // range; once an in-range reading is recorded it is (end-user testing pass 27).
+    [Fact]
+    public async Task QuarantineRelease_WaitsForTheLocationToBeInRange()
+    {
+        var (unitId, _) = await SeedQuarantinedAsync("U-QR-EXC", UnitQuarantineReason.StorageTemperatureExcursion, _factory.Clock.UtcNow.AddDays(10));
+        long locationId;
+        await using (var c = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "QR-FRIDGE", Name = "QR-FRIDGE", IsActive = true };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            (await c.BloodUnits.SingleAsync(u => u.Id == unitId)).CurrentLocationId = location.Id;
+            c.StorageTemperatureReadings.Add(new StorageTemperatureReading
+            {
+                InventoryLocationId = location.Id, ReadingC = 8.5m, ReadingUtc = _factory.Clock.UtcNow.AddHours(-1), RecordedBy = "tech",
+                RangeMinC = 1m, RangeMaxC = 6m, Status = StorageTemperatureStatus.AboveRange
+            });
+            await c.SaveChangesAsync();
+            locationId = location.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var service = CreateService(c);
+            var row = (await service.ListQuarantineAsync()).Single(r => r.UnitId == unitId);
+            Assert.False(row.CanRelease);
+            Assert.Contains("QR-FRIDGE (8.5 °C) is still out of range", row.NextStep);
+            var refused = await service.ReleaseFromQuarantineAsync(unitId, "tech2");
+            Assert.False(refused.Succeeded);
+            Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == QuarantineReleaseRule.Code);
+            c.StorageTemperatureReadings.Add(new StorageTemperatureReading
+            {
+                InventoryLocationId = locationId, ReadingC = 4m, ReadingUtc = _factory.Clock.UtcNow.AddMinutes(-5), RecordedBy = "tech",
+                RangeMinC = 1m, RangeMaxC = 6m, Status = StorageTemperatureStatus.InRange
+            });
+            await c.SaveChangesAsync();
+            Assert.True((await service.ReleaseFromQuarantineAsync(unitId, "tech2")).Succeeded);
+        }
+    }
+
     [Fact]
     public async Task QuarantineRelease_FollowsWhyTheUnitIsHeld()
     {

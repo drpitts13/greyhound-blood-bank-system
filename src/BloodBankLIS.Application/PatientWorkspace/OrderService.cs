@@ -766,6 +766,39 @@ public sealed class OrderService
     /// Pending test lines leave the worklist when the order is cancelled. A verified result stays
     /// so completed testing remains on the chart.
     /// </summary>
+    /// <summary>
+    /// An inbound order control (ORC-1) against an existing order. Cancel and discontinue take the chart's checks: an
+    /// order with units still reserved is refused (release them first), the test lines not yet verified are cancelled
+    /// (verified results stay reported), and the sender's reason (ORC-16) is recorded. End-user testing pass 27: an EHR
+    /// cancel had been applied with no reason and left the order's pending lines active.
+    /// </summary>
+    public async Task<OperationResult<string>> ApplyInterfaceOrderControlAsync(Order order, string? control, string? reason, CancellationToken ct = default)
+    {
+        var isCancel = string.Equals(control?.Trim(), "CA", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(control?.Trim(), "DC", StringComparison.OrdinalIgnoreCase);
+        if (isCancel && _allocations is not null
+            && await _allocations.AnyAsync(a => a.OrderId == order.Id && a.Status == AllocationStatus.Reserved, ct))
+        {
+            return OperationResult<string>.Fail(
+                $"{OrderControlRule.ReservedCode}: Units are reserved for order {order.OrderNumber}. Release them, then cancel the order in the LIS or replay this message.");
+        }
+
+        var previousStatus = order.Status;
+        var applied = OrderControlRule.Apply(order, control, reason);
+        if (applied.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<string>.Fail(applied.Message);
+        }
+
+        _orders.Update(order);
+        if (isCancel && previousStatus != order.Status)
+        {
+            await CancelPendingTestLinesAsync(order.Id, await _orderLines.ListAsync(l => l.OrderId == order.Id && l.IsActive, ct), ct);
+        }
+
+        return OperationResult<string>.Ok(applied.Message);
+    }
+
     private async Task CancelPendingTestLinesAsync(
         long orderId,
         IReadOnlyList<OrderLine> activeLines,

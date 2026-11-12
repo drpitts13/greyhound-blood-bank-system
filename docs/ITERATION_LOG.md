@@ -22776,3 +22776,28 @@ On the running system with seeded data: Reagent QC, with the seeded Anti-D lot A
 ### Tests
 
 - TEST-BB-1033 to TEST-BB-1035. Full suite passed.
+
+## Iteration 743 — End-user testing pass 27: EHR order cancels, and releases after an excursion (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: HL7 Interface (inbound ORM cancels for UAT0001's type and screen, Avery Demo-Special's red-cell order, and Trauma John Doe's ORD0014), the quality quarantine board, Storage temperatures, and a reservation through the allocations endpoint used by Compatibility.
+
+### Found and fixed
+
+1. **EHR cancels skipped the chart's checks.** A cancel (ORC-1 CA) of UAT0001's order was applied although its antibody screen was verified and its ABO/Rh awaited verification: the reason sent in ORC-16 was dropped ("Cancelled via HL7 ORM"), the lines stayed active, and units reserved for an order would not have stopped it. CA and DC now refuse an order with units reserved for it (AE, to the error queue), record the EHR's reason, and cancel only test lines without a verified result. Retested: ORD0014 with a unit reserved was refused ("Units are reserved for order ORD0014"); Avery's order (pass 15 to 18) was cancelled with reason "Patient discharged" and its crossmatch line cancelled.
+2. **Reservations from Compatibility had no order.** Avery's reserved unit W000026123460 was not linked to her order, so the reserved-unit check could not see it, and the cancel above went through. Reserve unit now links the reservation to the patient's open order for the product, as the chart's Allocate does. Retested: a reservation of W0001230009208 for John Doe was linked to ORD0014 (then released).
+3. **Released units were quarantined again.** The 29 units released in pass 25 were back in quarantine four minutes later: FRIDGE-1 had no in-range reading after the pass 23 excursion, so the sustained-excursion check took them again. A unit is now not released while its location is still out of range; the board's next step names the location and reading. Retested: the board said "Main Blood Bank Refrigerator (8.5 °C) is still out of range"; after a 4.0 °C reading the 29 were released and stayed released.
+4. **Local times labelled UTC.** Storage temperatures showed FRIDGE-1's reading at 11:43 under "Time (UTC)" while the excursion note said 16:43 UTC. Columns showing local time no longer say UTC (Storage temperatures, the temperature report, audit trail, backups, utilization, configuration history); the temperature CSV, headed UTC over local times, now says "Reading time (local)".
+
+### Left in the development data
+
+- Avery Demo-Special's order ORD-AE0969CDCC78 is cancelled (reason "Patient discharged") by the retest; her reservation of W000026123460 remains. Message UAT-ORM-CA-3 is on the HL7 error queue. FRIDGE-1 has an in-range reading.
+
+### Remaining
+
+- After its release from quarantine, Avery's reserved unit reads Available while still reserved; the release does not restore a reserved unit's status. To look at next.
+
+### Tests
+
+- TEST-BB-1036 to TEST-BB-1038. Full suite passed.

@@ -18,7 +18,8 @@ public static class QuarantineReleaseRule
         UnitQuarantineReason reason,
         bool openReactionInvestigation,
         bool verifiedRetypeMismatch,
-        bool expired)
+        bool expired,
+        string? locationStillOutOfRange = null)
     {
         if (expired)
         {
@@ -35,6 +36,14 @@ public static class QuarantineReleaseRule
         {
             return Stop("Keep held until the reaction investigation is closed.",
                 "This is the remainder of a unit in an open reaction investigation. Close the investigation before releasing it.");
+        }
+
+        // End-user testing pass 27: 29 units released after a refrigerator excursion were quarantined again four minutes
+        // later, because the refrigerator had no in-range reading yet and the sustained-excursion check runs on a schedule.
+        if (!string.IsNullOrWhiteSpace(locationStillOutOfRange))
+        {
+            return Stop($"{locationStillOutOfRange} is still out of range: record an in-range reading or move the unit.",
+                $"{locationStillOutOfRange} is still out of range, so a released unit would be quarantined again. Record an in-range reading on Storage temperatures, or move the unit to a location in range, then release it.");
         }
 
         if (reason == UnitQuarantineReason.ReturnedForDisposal)

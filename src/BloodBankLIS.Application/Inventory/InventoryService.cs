@@ -79,8 +79,10 @@ public sealed class InventoryService
         IRepository<UnitDiscardReason>? discardReasons = null,
         IRepository<Allocation>? allocations = null,
         IRepository<ReactionInvestigation>? reactions = null,
-        IAuditQuery? auditQuery = null)
+        IAuditQuery? auditQuery = null,
+        IRepository<StorageTemperatureReading>? temperatureReadings = null)
     {
+        _temperatureReadings = temperatureReadings;
         _auditQuery = auditQuery;
         _reactions = reactions;
         _repository = repository;
@@ -245,12 +247,47 @@ public sealed class InventoryService
                 .Select(r => r.BloodProductId)
                 .ToHashSet();
 
+    private readonly IRepository<StorageTemperatureReading>? _temperatureReadings;
+
+    /// <summary>
+    /// Locations, among those given, whose latest readings are an excursion still going on (no in-range reading since),
+    /// named for the person: code (or name) and the latest reading.
+    /// </summary>
+    private async Task<Dictionary<long, string>> LocationsStillOutOfRangeAsync(IEnumerable<long> locationIds, CancellationToken ct)
+    {
+        var ids = locationIds.Distinct().ToList();
+        var result = new Dictionary<long, string>();
+        if (_temperatureReadings is null || ids.Count == 0)
+        {
+            return result;
+        }
+
+        var readings = await _temperatureReadings.ListAsync(r => ids.Contains(r.InventoryLocationId), ct);
+        var names = await LoadLocationNamesAsync(ids, ct);
+        foreach (var group in readings.GroupBy(r => r.InventoryLocationId))
+        {
+            if (StorageTemperatureRule.OngoingExcursionStart(group.Select(r => (r.ReadingUtc, r.Status))) is null)
+            {
+                continue;
+            }
+
+            var latest = group.OrderByDescending(r => r.ReadingUtc).ThenByDescending(r => r.Id).First();
+            var name = names.TryGetValue(group.Key, out var n) && !string.IsNullOrWhiteSpace(n) ? n : $"Location {group.Key}";
+            result[group.Key] = $"{name} ({latest.ReadingC.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} °C)";
+        }
+
+        return result;
+    }
+
     private async Task<QuarantineReleaseRule.Decision> EvaluateQuarantineReleaseAsync(BloodUnit unit, CancellationToken ct) =>
         QuarantineReleaseRule.Evaluate(
             unit.QuarantineReasonCode,
             (await OpenReactionUnitIdsAsync([unit.Id], ct)).Contains(unit.Id),
             _retypeResults is not null && await ProductRetypeConfirmation.HasVerifiedMismatchAsync(_retypeResults, unit.Id, ct),
-            unit.ExpiresUtc <= _clock.UtcNow);
+            unit.ExpiresUtc <= _clock.UtcNow,
+            unit.CurrentLocationId is long locationId
+                ? (await LocationsStillOutOfRangeAsync([locationId], ct)).GetValueOrDefault(locationId)
+                : null);
 
     public async Task<IReadOnlyList<QuarantineWorkItemDto>> ListQuarantineAsync(CancellationToken ct = default)
     {
@@ -272,6 +309,7 @@ public sealed class InventoryService
         var locationNames = await LoadLocationNamesAsync(locationIds, ct);
         var modificationResultIds = await ModificationResultUnitIdsAsync(unitIds, ct);
         var openReactions = await OpenReactionUnitIdsAsync(unitIds, ct);
+        var outOfRange = await LocationsStillOutOfRangeAsync(locationIds, ct);
         var verifiedMismatches = new HashSet<long>();
         if (_retypeResults is not null)
         {
@@ -298,7 +336,8 @@ public sealed class InventoryService
                 }
 
                 var release = QuarantineReleaseRule.Evaluate(
-                    u.QuarantineReasonCode, openReactions.Contains(u.Id), verifiedMismatches.Contains(u.Id), u.ExpiresUtc <= now);
+                    u.QuarantineReasonCode, openReactions.Contains(u.Id), verifiedMismatches.Contains(u.Id), u.ExpiresUtc <= now,
+                    u.CurrentLocationId is long at ? outOfRange.GetValueOrDefault(at) : null);
                 return QuarantineWorkItemDto.From(
                     u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id))
                     with { NextStep = release.NextStep, CanRelease = release.CanRelease };

@@ -122,7 +122,8 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.OrderProviderName, "Ordering provider name", "Ordering provider name (XCN).", "ORC-12", false),
         new(InterfaceDataItemKeys.OrderLocationCode, "Ordering location", "Ordering location code.", "ORC-13-1", false),
         new(InterfaceDataItemKeys.OrderPriority, "Order priority", "OBR priority, or the timing priority component when OBR-5 is empty.", "OBR-5", false),
-        new(InterfaceDataItemKeys.OrderNeededBy, "Needed by", "When the order is needed: the timing start date/time (surgery start, scheduled transfusion).", "TQ1-7-1", false)
+        new(InterfaceDataItemKeys.OrderNeededBy, "Needed by", "When the order is needed: the timing start date/time (surgery start, scheduled transfusion).", "TQ1-7-1", false),
+        new(InterfaceDataItemKeys.OrderControlReason, "Order control reason", "Why the order was cancelled or discontinued: the text (the code when there is no text).", "ORC-16-2", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Results =

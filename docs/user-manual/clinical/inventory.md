@@ -69,3 +69,5 @@ The system moves units that have reached their expiration date to Expired by its
 > Facility policy. Which statuses can move to which other statuses is fixed. If an action is missing, the unit is not in a state that allows it. Do not expect a button for discard, transfer, or release on every row.
 
 > Demo data. In a development database, shipment SHIP-DEMO-01 sent two group O red cells (W000123SHP0001 and W000123SHP0002) to St. Mary's Hospital yesterday.
+
+A quarantined unit stored where a temperature excursion is still going on (the location's latest reading is out of range) cannot be released, whatever it is held for: its **Next step** names the location and reading ("FRIDGE-1 (8.5 °C) is still out of range: record an in-range reading or move the unit"). A unit released there would be quarantined again automatically. Record the in-range reading on Storage temperatures (or move the unit), then release.

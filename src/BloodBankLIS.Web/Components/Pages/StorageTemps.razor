@@ -33,7 +33,7 @@
         <div class="bb-card-title"><h3>Open excursions</h3></div>
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Location</th><th>Reading</th><th>Range</th><th>Time (UTC)</th><th>Recorded by</th><th>Deviation</th></tr></thead>
+            <thead><tr><th>Location</th><th>Reading</th><th>Range</th><th>Time</th><th>Recorded by</th><th>Deviation</th></tr></thead>
             <tbody>
                 @foreach (var row in _excursions)
                 {
@@ -62,7 +62,7 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Location</th><th>Range</th><th>Last reading</th><th>Time (UTC)</th><th>Units stored</th><th></th></tr></thead>
+            <thead><tr><th>Location</th><th>Range</th><th>Last reading</th><th>Time</th><th>Units stored</th><th></th></tr></thead>
             <tbody>
                 @foreach (var loc in _locations)
                 {
@@ -131,7 +131,7 @@
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Time (UTC)</th><th>Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Comment</th></tr></thead>
+                <thead><tr><th>Time</th><th>Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Comment</th></tr></thead>
                 <tbody>
                     @foreach (var row in _history)
                     {

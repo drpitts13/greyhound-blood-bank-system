@@ -47,3 +47,5 @@ Above the unit box, the note counts the available units compatible with the pati
 ## Crossmatching a unit reserved here
 
 A unit reserved on this page is not on a blood order. When its crossmatch is recorded with cell reactions, it joins the patient's open blood order if there is exactly one. With none, order the units on the chart (Orders) first; with several, reserve the unit from the order it is for (chart › Products). The reservation names the unit by its number.
+
+**Reserve unit** links the reservation to the patient's open order for that product (the order with an active line for it), as the chart's Allocate does, so cancelling that order sees the reserved unit.

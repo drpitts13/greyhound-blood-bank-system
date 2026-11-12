@@ -803,3 +803,6 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-795 | A storage excursion warns when the units stored there will be quarantined automatically. | P1 | FRS-BB-913 |
 | URS-BB-796 | Units quarantined by one storage temperature excursion can be released together after review, with one second verifier, each audited; the quarantine board names reasons in words. | P2 | FRS-BB-914 |
 | URS-BB-797 | Results tested with a reagent lot while its QC was failing stay to review after a repeat QC passes, until each is reviewed; stored ABO/Rh values read as the type. | P1 | FRS-BB-915 |
+| URS-BB-798 | An order cancelled or discontinued by the EHR is refused while units are reserved for it; otherwise it keeps the EHR's reason and cancels only test lines without a verified result. | P1 | FRS-BB-916 |
+| URS-BB-799 | A quarantined unit is not released while its storage location is still out of range. | P1 | FRS-BB-917 |
+| URS-BB-800 | A unit reserved on the Compatibility page is linked to the patient's open order for the product; time columns are labelled as what they show. | P2 | FRS-BB-918 |

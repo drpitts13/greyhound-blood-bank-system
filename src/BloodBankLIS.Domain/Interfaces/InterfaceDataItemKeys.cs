@@ -33,6 +33,7 @@ public static class InterfaceDataItemKeys
     public const string OrderLocationCode = "Order.OrderingLocationCode";
     public const string OrderPriority = "Order.Priority";
     public const string OrderNeededBy = "Order.NeededBy";
+    public const string OrderControlReason = "Order.OrderControlReason";
 
     /// <summary>
     /// The EHR procedure code of a test or test grouper, shared by inbound orders (OBR-4) and outbound results (OBR-4).

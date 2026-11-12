@@ -687,14 +687,15 @@ public sealed class Hl7InboundProcessor
                 throw new Hl7MappingException($"Order control {data.OrderControl} for unknown order '{data.PlacerOrderId}'.");
             }
 
-            var applied = OrderControlRule.Apply(existing, data.OrderControl, reason: null);
-            if (applied.Severity == RuleSeverity.HardStop)
+            // CA/DC take the same checks as a cancel on the chart (end-user testing pass 27): units still reserved for
+            // the order refuse it, only test lines not yet verified are cancelled, and ORC-16 is kept as the reason.
+            var applied = await _ordersService.ApplyInterfaceOrderControlAsync(existing, data.OrderControl, data.ControlReason, ct);
+            if (!applied.Succeeded)
             {
-                throw new Hl7MappingException(applied.Message);
+                throw new Hl7MappingException(applied.Error ?? "Order control could not be applied.");
             }
 
-            _orders.Update(existing);
-            return $"Order {data.PlacerOrderId}: {applied.Message}";
+            return $"Order {data.PlacerOrderId}: {applied.Value}";
         }
 
         if (existing is not null)

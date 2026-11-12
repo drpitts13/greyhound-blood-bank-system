@@ -37,4 +37,17 @@ public class QuarantineReleaseRuleTests
 
         Assert.False(QuarantineReleaseRule.Evaluate(UnitQuarantineReason.ReturnedForDisposal, false, false, false).CanRelease);
     }
+
+    // TEST-BB-1037: a unit stored where an excursion is still going on is not released, whatever the reason it is held
+    // (end-user testing pass 27: released units were quarantined again by the sustained-excursion check).
+    [Fact]
+    public void LocationStillOutOfRange_WaitsForAnInRangeReading()
+    {
+        var held = QuarantineReleaseRule.Evaluate(UnitQuarantineReason.StorageTemperatureExcursion, false, false, false, "FRIDGE-1 (8.5 °C)");
+        Assert.Equal((false, RuleSeverity.HardStop), (held.CanRelease, held.Result.Severity));
+        Assert.Contains("FRIDGE-1 (8.5 °C) is still out of range", held.NextStep);
+        Assert.Contains("in-range reading", held.Result.Message);
+        Assert.False(QuarantineReleaseRule.Evaluate(UnitQuarantineReason.VisualDefect, false, false, false, "FRIDGE-1 (8.5 °C)").CanRelease);
+        Assert.True(QuarantineReleaseRule.Evaluate(UnitQuarantineReason.StorageTemperatureExcursion, false, false, false, null).CanRelease);
+    }
 }

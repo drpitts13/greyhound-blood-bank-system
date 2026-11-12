@@ -49,7 +49,9 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestDefinition>(c),
             new EfRepository<TestGrouper>(c),
             _factory.Clock,
-            c);
+            c,
+            results: new EfRepository<TestResult>(c),
+            allocations: new EfRepository<Allocation>(c));
         return new(
             new EfRepository<Hl7MessageLog>(c),
             new EfRepository<InterfaceErrorQueueItem>(c),
@@ -202,6 +204,72 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         pv1[6] = "12345^Adams^Amy";
         pv1[18] = visitNumber;
         return Adt(controlId, mrn, last, first, trigger) + "\rPV1|" + string.Join("|", pv1);
+    }
+
+    // TEST-BB-1036: an EHR cancel (ORC-1 CA) takes the chart's checks: refused while units are reserved for the order,
+    // then applied with the ORC-16 reason, cancelling only the test lines not yet verified (end-user testing pass 27).
+    [Fact]
+    public async Task OrmCancel_RefusedWhileUnitsReserved_KeepsReason_AndVerifiedLines()
+    {
+        long orderId, verifiedLineId, pendingLineId, allocationId;
+        await using (var setup = _factory.Create())
+        {
+            await Processor(setup).ProcessAsync(Adt("CTRL-CAX-ADT", "HL7-CAX", "Cancel", "Order"));
+            if (!await setup.OrderingLocations.AnyAsync(l => l.IsActive))
+            {
+                setup.OrderingLocations.Add(new OrderingLocation { Code = "ED", Name = "ED", IsActive = true });
+                await setup.SaveChangesAsync();
+            }
+
+            Assert.True((await Processor(setup).ProcessAsync(Orm("CTRL-CAX-NW", "HL7-CAX", "PLACER-CAX", "XM"))).Accepted);
+            var order = await setup.Orders.SingleAsync(o => o.OrderNumber == "PLACER-CAX");
+            var patient = await setup.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-CAX");
+            var screen = new OrderLine { OrderId = order.Id, LineNumber = 90, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", IsActive = true };
+            var type = new OrderLine { OrderId = order.Id, LineNumber = 91, LineCategory = OrderCategory.Test, LineName = "ABO/Rh", TestCode = "ABORH", IsActive = true };
+            setup.OrderLines.AddRange(screen, type);
+            var product = new ProductType { ProductCode = "RBC-CAX", Name = "Red cells" };
+            setup.ProductTypes.Add(product);
+            await setup.SaveChangesAsync();
+            var specimen = new Specimen { AccessionNumber = "ACC-CAX", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = _factory.Clock.UtcNow, Status = SpecimenStatus.Accepted };
+            setup.Specimens.Add(specimen);
+            var unit = new BloodUnit { UnitNumber = "U-CAX", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Crossmatched };
+            setup.BloodUnits.Add(unit);
+            await setup.SaveChangesAsync();
+            setup.TestResults.Add(new TestResult { OrderId = order.Id, SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = "ABSC", Value = "Negative", Status = ResultStatus.Verified, Source = ResultSource.Manual, EnteredUtc = _factory.Clock.UtcNow, EnteredBy = "tech", VerifiedUtc = _factory.Clock.UtcNow });
+            var allocation = new Allocation { BloodProductId = unit.Id, PatientId = patient.Id, OrderId = order.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow, AllocatedBy = "tech" };
+            setup.Allocations.Add(allocation);
+            await setup.SaveChangesAsync();
+            (orderId, verifiedLineId, pendingLineId, allocationId) = (order.Id, screen.Id, type.Id, allocation.Id);
+        }
+
+        string Cancel(string control) =>
+            $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|{control}|P|2.5\r" +
+            "PID|1||HL7-CAX^^^HOSP^MR||Order^Cancel\r" +
+            "ORC|CA|PLACER-CAX||||||||||||||PT^Patient discharged\r" +
+            "OBR|1|PLACER-CAX||XM^Service";
+
+        await using (var refused = _factory.Create())
+        {
+            var outcome = await Processor(refused).ProcessAsync(Cancel("CTRL-CAX-CA1"));
+            Assert.False(outcome.Accepted);
+            Assert.Contains("Units are reserved", outcome.AckMessage);
+            Assert.NotEqual(OrderStatus.Cancelled, (await refused.Orders.SingleAsync(o => o.Id == orderId)).Status);
+            var reserved = await refused.Allocations.SingleAsync(a => a.Id == allocationId);
+            reserved.Status = AllocationStatus.Released;
+            await refused.SaveChangesAsync();
+        }
+
+        await using (var cancel = _factory.Create())
+        {
+            Assert.True((await Processor(cancel).ProcessAsync(Cancel("CTRL-CAX-CA2"))).Accepted);
+        }
+
+        await using var verify = _factory.Create();
+        var cancelled = await verify.Orders.SingleAsync(o => o.Id == orderId);
+        Assert.Equal((OrderStatus.Cancelled, "Patient discharged"), (cancelled.Status, cancelled.CancellationReason));
+        Assert.True((await verify.OrderLines.SingleAsync(l => l.Id == verifiedLineId)).IsActive);
+        var pending = await verify.OrderLines.SingleAsync(l => l.Id == pendingLineId);
+        Assert.Equal((false, FulfillmentStatus.Cancelled), (pending.IsActive, pending.FulfillmentStatus));
     }
 
     private static string AdtMerge(string controlId, string survivorMrn, string priorMrn, string last, string first) =>

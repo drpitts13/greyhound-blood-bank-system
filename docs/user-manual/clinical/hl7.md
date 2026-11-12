@@ -37,3 +37,7 @@ When an outbound blood product (BPAM) interface is enabled, every issue and ever
 ## Results to the EHR
 
 With an outbound results interface enabled, a result is queued for the EHR as soon as it is verified (OBX-11 F), and a verified correction (C) or a withdrawal (W) follows automatically. Facility Policies › Interface › **Send verified results to the EHR automatically** turns the first final off; then send it from this page on request. Corrections and withdrawals always go. Without an enabled results interface nothing is queued.
+
+## Orders cancelled by the EHR
+
+A cancel (ORC-1 **CA**) or discontinue (**DC**) from the EHR takes the same checks as cancelling on the chart. An order with units still reserved for it is refused (AE, "Units are reserved for order …") and goes to the error queue: release the units, then cancel the order in the LIS or replay the message. Otherwise the order is cancelled with the EHR's reason (ORC-16, the text or else the code; the field can be changed under the interface's data items as *Order control reason*), and only its test lines without a verified result are cancelled: a verified result stays reported.
