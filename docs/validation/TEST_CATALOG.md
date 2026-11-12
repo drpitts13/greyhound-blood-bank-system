@@ -991,5 +991,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-980 | U | `EquipmentPageTests.History_ShowsRecords_AndDownloadsTheLog` | URS-BB-754 / FRS-BB-872 |
 | TEST-BB-981 | I | `EquipmentServiceTests.Edit_EquipmentAndCheck_WithAReason` | URS-BB-755 / FRS-BB-873 |
 | TEST-BB-982 | U | `EquipmentPageTests.Edit_IsPrefilled_AndNeedsAReason` | URS-BB-755 / FRS-BB-873 |
+| TEST-BB-983 | U | `ReagentRegisterRuleTests.Register_Rules` | URS-BB-756 / FRS-BB-874 |
+| TEST-BB-984 | I | `ReagentLotTraceabilityTests.Register_DuplicateRenameRetireRestore` | URS-BB-756 / FRS-BB-874 |
+| TEST-BB-985 | U | `ReagentRegisterPageTests.Retire_NeedsAReason_AndRetiredAreHiddenUntilShown` | URS-BB-756 / FRS-BB-874 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

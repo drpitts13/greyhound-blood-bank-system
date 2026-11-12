@@ -761,3 +761,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-753 | The shift handoff records the equipment checks to do (failed or overdue counted apart) and the equipment out of service, each linking to Equipment. | P3 | FRS-BB-871 |
 | URS-BB-754 | Each piece of equipment's check history (every check performed, including checks no longer scheduled) is shown and downloaded as a CSV log for inspection. | P3 | FRS-BB-872 |
 | URS-BB-755 | Equipment details and a scheduled check's name, interval and instructions can be changed with a reason, audited, keeping the check's records; the code does not change. | P3 | FRS-BB-873 |
+| URS-BB-756 | A reagent code is used once in the register; a reagent is renamed with a reason, retired with a reason once no lot is received or open, and restored; all audited. | P3 | FRS-BB-874 |

@@ -183,4 +183,40 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
         Assert.Null(cleared.Value!.TestCodes);
         Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(Reagent) && a.EntityId == created.Value.Id && a.Reason == "Tests the reagent is used for changed."));
     }
+
+    // TEST-BB-984: a reagent code already in the register (ignoring case) is refused; a reagent is renamed with a reason;
+    // it is not retired while a lot is received or open, is retired with a reason once its lots are closed (then it
+    // takes no new lot), and is restored; each change is audited.
+    [Fact]
+    public async Task Register_DuplicateRenameRetireRestore()
+    {
+        await using var c = _factory.Create();
+        var qc = Qc(c);
+        var created = await qc.SaveReagentAsync(new SaveReagentRequest("REG-713", "Anti-Fya"));
+        Assert.True(created.Succeeded, created.Error);
+        var id = created.Value!.Id;
+        var duplicate = await qc.SaveReagentAsync(new SaveReagentRequest(" reg-713 ", "Another"));
+        Assert.False(duplicate.Succeeded);
+        Assert.Contains("already in the register", duplicate.Error);
+
+        Assert.False((await qc.RenameReagentAsync(id, new RenameReagentRequest("Anti-Fy(a)", ""))).Succeeded);
+        Assert.Equal("Anti-Fy(a)", (await qc.RenameReagentAsync(id, new RenameReagentRequest("Anti-Fy(a)", "Manufacturer's name"))).Value!.Name);
+
+        var lot = await qc.ReceiveLotAsync(new ReceiveReagentLotRequest(id, "L-713", _factory.Clock.UtcNow.AddDays(30)));
+        Assert.True(lot.Succeeded, lot.Error);
+        var refused = await qc.SetReagentActiveAsync(id, new ReagentActiveRequest(false, "Discontinued"));
+        Assert.False(refused.Succeeded);
+        Assert.Contains("1 lot is still received or open", refused.Error);
+
+        Assert.True((await qc.CloseLotAsync(lot.Value!.Id)).Succeeded);
+        Assert.False((await qc.SetReagentActiveAsync(id, new ReagentActiveRequest(false, " "))).Succeeded);
+        var retired = await qc.SetReagentActiveAsync(id, new ReagentActiveRequest(false, "Discontinued by the manufacturer"));
+        Assert.True(retired.Succeeded, retired.Error);
+        Assert.False(retired.Value!.IsActive);
+        Assert.False((await qc.ReceiveLotAsync(new ReceiveReagentLotRequest(id, "L-714", _factory.Clock.UtcNow.AddDays(30)))).Succeeded);
+
+        Assert.True((await qc.SetReagentActiveAsync(id, new ReagentActiveRequest(true, null))).Value!.IsActive);
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Reagent) && e.EntityId == id && e.Reason == "Discontinued by the manufacturer"));
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Reagent) && e.EntityId == id && e.Reason == "Manufacturer's name"));
+    }
 }

@@ -33,6 +33,10 @@ public sealed record ResultReagentLotDto(long ReagentLotId, string ReagentCode, 
 
 public sealed record SetReagentTestsRequest(string? TestCodes);
 
+public sealed record RenameReagentRequest(string Name, string? Reason);
+
+public sealed record ReagentActiveRequest(bool Active, string? Reason);
+
 /// <summary>The lots recorded against a result and anything the person entering it should know.</summary>
 public sealed record LotUse(IReadOnlyList<TestResultReagentLot> Recorded, IReadOnlyList<RuleResult> Warnings)
 {
@@ -184,6 +188,64 @@ public sealed class ReagentQcService
         _reagents.Update(reagent);
         _audit.Record(AuditEventType.Update, nameof(Reagent), reagent.Id, new { TestCodes = before }, new { reagent.TestCodes },
             "Tests the reagent is used for changed.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive, reagent.TestCodes));
+    }
+
+    public async Task<OperationResult<ReagentDto>> RenameReagentAsync(long reagentId, RenameReagentRequest request, CancellationToken ct = default)
+    {
+        var reagent = await _reagents.GetByIdAsync(reagentId, ct);
+        if (reagent is null)
+        {
+            return OperationResult<ReagentDto>.Fail("Reagent not found.");
+        }
+
+        var rule = ReagentRegisterRule.EvaluateRename(request.Name, request.Reason);
+        if (rule.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReagentDto>.Fail(rule.Message);
+        }
+
+        var before = reagent.Name;
+        reagent.Name = request.Name.Trim();
+        _reagents.Update(reagent);
+        _audit.Record(AuditEventType.Update, nameof(Reagent), reagent.Id, new { Name = before }, new { reagent.Name }, request.Reason!.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive, reagent.TestCodes));
+    }
+
+    /// <summary>
+    /// Retire a reagent no longer used (refused while any lot is received or open), or restore it; a reason is required
+    /// to retire. A retired reagent takes no new lots and records no lots on results; its lots and QC are kept.
+    /// </summary>
+    public async Task<OperationResult<ReagentDto>> SetReagentActiveAsync(long reagentId, ReagentActiveRequest request, CancellationToken ct = default)
+    {
+        var reagent = await _reagents.GetByIdAsync(reagentId, ct);
+        if (reagent is null)
+        {
+            return OperationResult<ReagentDto>.Fail("Reagent not found.");
+        }
+
+        if (reagent.IsActive == request.Active)
+        {
+            return OperationResult<ReagentDto>.Fail(request.Active ? "This reagent is already in use." : "This reagent is already retired.");
+        }
+
+        if (!request.Active)
+        {
+            var onHand = (await _lots.ListAsync(l => l.ReagentId == reagentId && l.State != ReagentLotState.Closed, ct)).Count;
+            var rule = ReagentRegisterRule.EvaluateRetire(request.Reason, onHand);
+            if (rule.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<ReagentDto>.Fail(rule.Message);
+            }
+        }
+
+        reagent.IsActive = request.Active;
+        _reagents.Update(reagent);
+        _audit.Record(request.Active ? AuditEventType.Activate : AuditEventType.Deactivate, nameof(Reagent), reagent.Id,
+            new { IsActive = !request.Active }, new { reagent.IsActive },
+            string.IsNullOrWhiteSpace(request.Reason) ? (request.Active ? "Reagent restored." : "Reagent retired.") : request.Reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive, reagent.TestCodes));
     }
@@ -365,9 +427,14 @@ public sealed class ReagentQcService
     {
         var code = request.Code?.Trim() ?? string.Empty;
         var name = request.Name?.Trim() ?? string.Empty;
-        if (code.Length == 0 || name.Length == 0)
+        // A code already in the register, retired or not, is refused (Cycle 713): two reagents with one code would
+        // split their lots and QC.
+        var inUse = code.Length > 0
+            && (await _reagents.ListAsync(ct)).Any(r => string.Equals(r.Code.Trim(), code, StringComparison.OrdinalIgnoreCase));
+        var create = ReagentRegisterRule.EvaluateCreate(code, name, inUse);
+        if (create.Severity == RuleSeverity.HardStop)
         {
-            return OperationResult<ReagentDto>.Fail("Reagent code and name are required.");
+            return OperationResult<ReagentDto>.Fail(create.Message);
         }
 
         var unknown = await UnknownTestCodesAsync(request.TestCodes, ct);

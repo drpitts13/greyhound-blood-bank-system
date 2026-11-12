@@ -86,22 +86,70 @@
             <table class="bb" style="margin-top:1rem;" data-reagent-tests>
                 <thead><tr><th>Reagent</th><th>Used for tests</th><th></th></tr></thead>
                 <tbody>
-                    @foreach (var reagent in _reagents.Where(r => r.IsActive))
+                    @foreach (var reagent in _reagents.Where(r => r.IsActive || _showRetired))
                     {
-                        <tr>
-                            <td><span class="mono">@reagent.Code</span> @reagent.Name</td>
-                            <td><input value="@(_editTests.GetValueOrDefault(reagent.Id, reagent.TestCodes ?? ""))" @oninput="e => _editTests[reagent.Id] = e.Value?.ToString() ?? string.Empty" placeholder="none: no lots recorded" data-reagent-tests-input="@reagent.Code" /></td>
-                            <td class="right">
+                        <tr data-reagent-row="@reagent.Code" class="@(reagent.IsActive ? "" : "muted")">
+                            <td><span class="mono">@reagent.Code</span> @reagent.Name @if (!reagent.IsActive) { <span class="badge badge-gray">Retired</span> }</td>
+                            <td>
+                                @if (reagent.IsActive)
+                                {
+                                    <input value="@(_editTests.GetValueOrDefault(reagent.Id, reagent.TestCodes ?? ""))" @oninput="e => _editTests[reagent.Id] = e.Value?.ToString() ?? string.Empty" placeholder="none: no lots recorded" data-reagent-tests-input="@reagent.Code" />
+                                }
+                                else
+                                {
+                                    @(reagent.TestCodes ?? "—")
+                                }
+                            </td>
+                            <td class="right nowrap">
                                 @if (_editTests.TryGetValue(reagent.Id, out var edited) && edited != (reagent.TestCodes ?? ""))
                                 {
                                     <button class="btn btn-secondary btn-sm" @onclick="() => SaveTestsAsync(reagent.Id)">Save</button>
                                 }
+                                @if (reagent.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRegister(reagent, RegisterAction.Rename)" data-reagent-rename>Rename</button>
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRegister(reagent, RegisterAction.Retire)" data-reagent-retire>Retire</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRegister(reagent, RegisterAction.Restore)" data-reagent-restore>Restore</button>
+                                }
                             </td>
                         </tr>
+                        @if (_registerFor?.Id == reagent.Id)
+                        {
+                            <tr data-reagent-register-form>
+                                <td colspan="3">
+                                    <div class="form-row">
+                                        @if (_registerAction == RegisterAction.Rename)
+                                        {
+                                            <div class="field"><label>Name</label><input @bind="_registerName" @bind:event="oninput" /></div>
+                                        }
+                                        <div class="field" style="flex:2;"><label>@(_registerAction == RegisterAction.Restore ? "Reason (optional)" : "Reason")</label>
+                                            <input @bind="_registerReason" @bind:event="oninput" data-reagent-register-reason />
+                                        </div>
+                                        <div class="field" style="align-self:end;">
+                                            <div class="flex gap">
+                                                <button class="btn btn-primary btn-sm" disabled="@(_registerAction != RegisterAction.Restore && string.IsNullOrWhiteSpace(_registerReason))" @onclick="SaveRegisterAsync" data-reagent-register-save>@_registerAction</button>
+                                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _registerFor = null">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if (_registerAction == RegisterAction.Retire)
+                                    {
+                                        <div class="muted">A retired reagent takes no new lots and records no lots on results; its lots and QC stay on record. Close its lots first.</div>
+                                    }
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
             </div>
+            @if (_reagents.Any(r => !r.IsActive))
+            {
+                <label class="flex" style="gap:.35rem;margin-top:.4rem;"><input type="checkbox" @bind="_showRetired" data-reagent-show-retired /> Show retired reagents</label>
+            }
         }
     </div>
 
@@ -315,6 +363,50 @@
 
 @code {
     private List<ReagentDto> _reagents = new();
+
+    // Keeping the register (Cycle 713).
+    private enum RegisterAction { Rename, Retire, Restore }
+    private bool _showRetired;
+    private ReagentDto? _registerFor;
+    private RegisterAction _registerAction;
+    private string _registerName = "";
+    private string? _registerReason;
+
+    private void BeginRegister(ReagentDto reagent, RegisterAction action)
+    {
+        _registerFor = reagent;
+        _registerAction = action;
+        _registerName = reagent.Name;
+        _registerReason = null;
+    }
+
+    private async Task SaveRegisterAsync()
+    {
+        if (_registerFor is null)
+        {
+            return;
+        }
+
+        var reagent = _registerFor;
+        var r = _registerAction == RegisterAction.Rename
+            ? await Api.RenameReagentAsync(reagent.Id, _registerName, _registerReason)
+            : await Api.SetReagentActiveAsync(reagent.Id, _registerAction == RegisterAction.Restore, _registerReason);
+        _feedback = r.ToFeedback(_registerAction switch
+        {
+            RegisterAction.Rename => $"{reagent.Code} renamed.",
+            RegisterAction.Retire => $"{reagent.Code} retired.",
+            _ => $"{reagent.Code} restored."
+        });
+        if (r.Succeeded && r.Value is not null)
+        {
+            _registerFor = null;
+            var i = _reagents.FindIndex(x => x.Id == r.Value.Id);
+            if (i >= 0)
+            {
+                _reagents[i] = r.Value;
+            }
+        }
+    }
     private List<ReagentLotDto> _lots = new();
     private List<ReagentQcWorkItemDto> _work = new();
     private Feedback? _feedback;

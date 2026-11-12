@@ -17,6 +17,15 @@ public static class ReagentEndpoints
             ToResult(await service.SaveReagentAsync(request, ct)))
             .RequirePermission(PermissionCodes.ResultEnter);
 
+        // Keep the register (Cycle 713): rename, retire or restore a reagent, with a reason.
+        group.MapPut("/{id:long}/name", async (long id, RenameReagentRequest request, ReagentQcService service, CancellationToken ct) =>
+            ToResult(await service.RenameReagentAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.ResultEnter);
+
+        group.MapPost("/{id:long}/active", async (long id, ReagentActiveRequest request, ReagentQcService service, CancellationToken ct) =>
+            ToResult(await service.SetReagentActiveAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.ResultEnter);
+
         group.MapPut("/{id:long}/tests", async (long id, SetReagentTestsRequest request, ReagentQcService service, CancellationToken ct) =>
             ToResult(await service.SetReagentTestsAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.ResultEnter);

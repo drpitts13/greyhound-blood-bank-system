@@ -22063,3 +22063,33 @@ Nothing registered could be corrected: a typo in a name, a centrifuge moved to a
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 713 — Keep the reagent register (2026-11-11)
+
+### Capability matrix rescan (operations: reagents)
+
+The Reagent QC register could only grow. A second reagent with the same code was accepted (splitting its lots and QC between two rows), a name could not be corrected, and a discontinued reagent stayed in every list for good.
+
+### Design
+
+- `ReagentRegisterRule`: a code is used once, ignoring case and whether retired; a rename needs a name and a reason; retiring needs a reason and is refused while any lot is Received or Opened.
+- `ReagentQcService`: duplicate check on save; `RenameReagentAsync`; `SetReagentActiveAsync` (retire or restore), audited with the reason. A retired reagent already took no new lots and recorded no lots on results; its lots and QC are kept.
+- Reagent QC page: Rename, Retire and Restore per reagent with an inline reason; retired reagents hidden behind **Show retired reagents**.
+
+### Verification
+
+- Unit: each rule.
+- Integration: duplicate code in another case refused; rename; retire refused with a lot received, refused without a reason, allowed after the lot is closed, then no new lot; restore; audit reasons.
+- Rendered: retired hidden then shown with Restore; Retire needs a reason, says what it does, and marks the reagent retired.
+
+### Requirements
+
+- URS-BB-756, FRS-BB-874.
+
+### Tests
+
+- TEST-BB-983 to TEST-BB-985.
+
+### Next
+
+- Back to the capability matrix.
