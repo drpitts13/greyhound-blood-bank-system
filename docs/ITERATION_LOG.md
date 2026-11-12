@@ -22620,3 +22620,26 @@ On the running system with seeded data: Avery Demo-Special's chart → Orders �
 ### Next
 
 - Pass 19: remaining workflows (reaction follow-up, lookback) and gaps.
+
+## Iteration 735 — End-user testing pass 19: the transfusion reaction workup (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Reactions → investigation #2 for Riley Demo-Multi (unit W0001230009205; bedside temperature 36.9 °C before, 38.6 °C after, +1.7 °C) → the AABB workup checklist.
+
+### Found and fixed
+
+1. **No record of the bag culture or of telling the supplier.** With a febrile reaction the workup had nowhere to record that the bag was sent for Gram stain and culture, or that the blood supplier was told (it handles the donation's other components); a fatality's CBER notice was the only notification. The checklist now records the culture and its result, and the supplier notification (time stamped once) with who was told. Retested live: "Blood supplier notified (2026-11-12 09:49)", culture "Gram stain negative; culture pending".
+2. **The donation's other units were not shown.** The page and report now list the implicated donation's other components (same DIN) with product and status, so they can be held if the supplier asks; nothing is held automatically. (The seeded unit has no DIN, so none is listed live; covered by the test.)
+
+### Not done
+
+- Lookback for a recalled donation (next pass).
+
+### Tests
+
+- TEST-BB-1027. Full suite passed.
+
+### Next
+
+- Pass 20: lookback and recall, and the remaining gaps.

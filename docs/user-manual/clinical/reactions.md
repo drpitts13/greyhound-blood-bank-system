@@ -63,3 +63,7 @@ A closed investigation is signed, so it is read-only. The screen shows who close
 Recording CBER notification and the written report for a fatality does not need a reopen.
 
 > Demo data. In a development database Marcus Febrile (MRN0006) has a febrile reaction under review, and another red cell unit has been ordered (ORD-RXN-NEXT) and reserved for him. It shows the reaction warnings: **Reaction under investigation** on Ready to issue and the Issue form, the unit count on this list, *with units out or reserved* on the home card and the shift handoff. Releasing the unit does not bring it back.
+
+## Bag culture, the supplier, and the donation's other units
+
+The workup checklist records whether the bag was sent for **Gram stain and culture**, with the result, and whether the **blood supplier was notified** (the time is stamped when you tick it and save) with who was told and the reference. When the implicated unit has a donation number, **Other units from this donation** lists its other components with their product and status, on the page and the report, so they can be found and held if the supplier asks. Nothing is held automatically.

@@ -394,6 +394,43 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.False((await CreateService(context).GetReportAsync(long.MaxValue)).Succeeded);
     }
 
+    // TEST-BB-1027: the investigation keeps the bag culture and when the supplier was told (once), and the report lists
+    // the other components of the implicated unit's donation (end-user testing pass 19).
+    [Fact]
+    public async Task CultureSupplierAndSameDonationUnits_AreRecordedAndListed()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        var unit = await context.BloodUnits.SingleAsync(u => u.Id == opened.BloodProductId);
+        var din = $"W{Guid.NewGuid():N}"[..13].ToUpperInvariant();
+        unit.Din = din;
+        context.BloodUnits.Add(new BloodUnit
+        {
+            UnitNumber = $"{din}|PLASMA", Din = din, ProductTypeId = unit.ProductTypeId, Abo = unit.Abo, RhD = unit.RhD,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(30), Status = UnitStatus.Available
+        });
+        await context.SaveChangesAsync();
+
+        var saved = await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null,
+            BagCultureSent: true, BagCultureResult: " Pending ", SupplierNotified: true, SupplierNotificationNote: "Called ARC, ref 4471"));
+        Assert.True(saved.Succeeded, saved.Error);
+        var first = (await context.ReactionInvestigations.AsNoTracking().SingleAsync(r => r.Id == opened.Id)).SupplierNotifiedUtc;
+        Assert.NotNull(first);
+
+        await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null, SupplierNotified: true));
+        var dto = (await CreateService(context).GetDtoAsync(opened.Id))!;
+        Assert.Equal((true, "Pending", first, "Called ARC, ref 4471"),
+            (dto.BagCultureSent, dto.BagCultureResult, dto.SupplierNotifiedUtc, dto.SupplierNotificationNote));
+
+        var report = await CreateService(context).GetReportAsync(opened.Id);
+        Assert.True(report.Succeeded, report.Error);
+        Assert.Contains(report.Value!.SameDonationUnits, l => l.StartsWith($"{din}|PLASMA") && l.EndsWith("Available"));
+        Assert.DoesNotContain(report.Value.SameDonationUnits, l => l.StartsWith(unit.UnitNumber + " "));
+    }
+
     // TEST-BB-446: the repeat patient type comes from the verified post-transfusion ABO/Rh, compared with the
     // current type and with the pre-transfusion specimen.
     [Fact]

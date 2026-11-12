@@ -32,7 +32,12 @@ public sealed record UpdateReactionInvestigationRequest(
     /// <summary>OCD-057: the reaction concluded, a code from the reaction list (NONE for No reaction).</summary>
     string? ConcludedReactionCode = null,
     /// <summary>OCD-057: treatment codes from the treatment list (NONE for No treatment).</summary>
-    IReadOnlyList<string>? TreatmentCodes = null);
+    IReadOnlyList<string>? TreatmentCodes = null,
+    bool? BagCultureSent = null,
+    string? BagCultureResult = null,
+    // True records when the supplier was told (once); false clears it.
+    bool? SupplierNotified = null,
+    string? SupplierNotificationNote = null);
 
 public sealed record ReactionInvestigationDto(
     long Id,
@@ -104,6 +109,11 @@ public sealed record ReactionInvestigationDto(
     // Units issued to the patient while this investigation was open or under review (Cycle 635), from the issue record.
     IReadOnlyList<ReactionIssuedWhileOpenDto>? IssuedWhileOpen = null)
 {
+    public bool BagCultureSent { get; init; }
+    public string? BagCultureResult { get; init; }
+    public DateTime? SupplierNotifiedUtc { get; init; }
+    public string? SupplierNotificationNote { get; init; }
+
     /// <summary>The specimen workup as the close gate sees it, from the results on this DTO.</summary>
     public ReactionWorkupCompletenessRule.WorkupState SpecimenWorkupState => new(
         PreWorkup is not null,
@@ -174,7 +184,13 @@ public sealed record ReactionInvestigationDto(
             r.ClosedBy, r.ClosedUtc, r.ReopenedBy, r.ReopenedUtc, r.ReopenReason,
             r.ReportedAfterTransfusion, r.OnsetUtc,
             r.ConcludedReactionCode, r.ConcludedReactionText, r.TreatmentCodes, r.TreatmentTexts,
-            specimenWorkup?.Pre, specimenWorkup?.Post);
+            specimenWorkup?.Pre, specimenWorkup?.Post)
+        {
+            BagCultureSent = r.BagCultureSent,
+            BagCultureResult = r.BagCultureResult,
+            SupplierNotifiedUtc = r.SupplierNotifiedUtc,
+            SupplierNotificationNote = r.SupplierNotificationNote
+        };
     }
 }
 
@@ -203,7 +219,14 @@ public sealed record ReactionReportDto(
     // Bedside vitals before and after, and the temperature change between them, when taken (end-user testing, 2026-11-12).
     string? VitalsBefore = null,
     string? VitalsAfter = null,
-    string? TemperatureChange = null);
+    string? TemperatureChange = null)
+{
+    /// <summary>
+    /// Other components from the implicated unit's donation (same DIN), with their status and location, so they can be
+    /// found and held as the supplier asks (end-user testing pass 19). Nothing is held automatically.
+    /// </summary>
+    public IReadOnlyList<string> SameDonationUnits { get; init; } = [];
+}
 
 /// <summary>A reaction noticed after the transfusion was documented without one: what was seen, and when it began.</summary>
 public sealed record ReportLateReactionRequest(long IssueId, string? Description, DateTime? OnsetUtc = null, string? ReactionType = null);
@@ -568,6 +591,11 @@ public sealed class ReactionInvestigationService
         if (request.RepeatUnitAboRh is not null) row.RepeatUnitAboRh = request.RepeatUnitAboRh;
         if (request.DatResult is not null) row.DatResult = request.DatResult.Value;
         if (request.ElutionResult is not null) row.ElutionResult = request.ElutionResult;
+        if (request.BagCultureSent is not null) row.BagCultureSent = request.BagCultureSent.Value;
+        if (request.BagCultureResult is not null) row.BagCultureResult = string.IsNullOrWhiteSpace(request.BagCultureResult) ? null : request.BagCultureResult.Trim();
+        if (request.SupplierNotified == true && row.SupplierNotifiedUtc is null) row.SupplierNotifiedUtc = _clock.UtcNow;
+        if (request.SupplierNotified == false) row.SupplierNotifiedUtc = null;
+        if (request.SupplierNotificationNote is not null) row.SupplierNotificationNote = string.IsNullOrWhiteSpace(request.SupplierNotificationNote) ? null : request.SupplierNotificationNote.Trim();
 
         RuleResult? remainderWarning = null;
         if (request.RemainderQuarantined == true && !row.RemainderQuarantined)
@@ -725,6 +753,10 @@ public sealed class ReactionInvestigationService
         || (r.DatResult is not null && r.DatResult != row.DatResult)
         || Differs(r.ElutionResult, row.ElutionResult)
         || (r.RemainderQuarantined == true && !row.RemainderQuarantined)
+        || (r.BagCultureSent is not null && r.BagCultureSent != row.BagCultureSent)
+        || Differs(r.BagCultureResult, row.BagCultureResult)
+        || (r.SupplierNotified is not null && r.SupplierNotified != (row.SupplierNotifiedUtc is not null))
+        || Differs(r.SupplierNotificationNote, row.SupplierNotificationNote)
         || Differs(r.ConcludedReactionCode, row.ConcludedReactionCode)
         || (r.TreatmentCodes is not null && string.Join("|", r.TreatmentCodes.Select(ReactionConclusionRule.Normalize).Where(c => c.Length > 0).Distinct()) != (row.TreatmentCodes ?? string.Empty));
 
@@ -842,7 +874,28 @@ public sealed class ReactionInvestigationService
             BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.VitalsJson)?.Describe(),
             BloodBankLIS.Domain.ValueObjects.TransfusionVitals.TemperatureChange(
                 BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.PreTransfusionVitalsJson),
-                BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.VitalsJson))));
+                BloodBankLIS.Domain.ValueObjects.TransfusionVitals.FromJson(transfusion?.VitalsJson)))
+        {
+            SameDonationUnits = await SameDonationUnitsAsync(unit, ct)
+        });
+    }
+
+    private async Task<IReadOnlyList<string>> SameDonationUnitsAsync(BloodUnit? unit, CancellationToken ct)
+    {
+        if (unit is null || string.IsNullOrWhiteSpace(unit.Din))
+        {
+            return [];
+        }
+
+        var others = (await _inventory.ListByUnitNumberOrDinAsync(unit.Din, ct)).Where(u => u.Id != unit.Id).ToList();
+        var lines = new List<string>();
+        foreach (var other in others.OrderBy(u => u.UnitNumber, StringComparer.OrdinalIgnoreCase))
+        {
+            var product = _productTypes is null ? null : await _productTypes.GetByIdAsync(other.ProductTypeId, ct);
+            lines.Add($"{other.UnitNumber} · {product?.Name ?? "product " + other.ProductTypeId} · {other.Status}");
+        }
+
+        return lines;
     }
 
     /// <summary>

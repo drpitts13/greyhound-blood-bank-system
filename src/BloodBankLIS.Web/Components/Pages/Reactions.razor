@@ -373,6 +373,18 @@ else
                 <div class="field"><label>Repeat unit ABO/Rh</label><input @bind="_repeatUnit" placeholder="@(_selected.UnitBloodType is { } ut ? $"labeled {ut}" : "e.g. A+")" /></div>
                 <div class="field"><label>Elution (required if the post-transfusion DAT is positive)</label><input @bind="_elution" @bind:after="SyncCloseAvailability" /></div>
             </div>
+            <div class="form-row" data-reaction-culture>
+                <label class="flex"><input type="checkbox" @bind="_bagCulture" /> &nbsp;Bag sent for Gram stain and culture</label>
+                <div class="field"><label>Culture result</label><input @bind="_bagCultureResult" placeholder="e.g. No growth at 5 days" /></div>
+            </div>
+            <div class="form-row" data-reaction-supplier>
+                <label class="flex"><input type="checkbox" @bind="_supplierNotified" /> &nbsp;Blood supplier notified@(_selected.SupplierNotifiedUtc is DateTime sn ? $" ({sn.ToLocalTime():yyyy-MM-dd HH:mm})" : "")</label>
+                <div class="field"><label>Supplier notification</label><input @bind="_supplierNote" placeholder="Who was told, reference number" /></div>
+            </div>
+            @if (_sameDonation is { Count: > 0 })
+            {
+                <div class="muted" data-same-donation><strong>Other units from this donation:</strong> @string.Join("; ", _sameDonation). Hold them if the supplier asks.</div>
+            }
             <label class="flex"><input type="checkbox" @bind="_remainderHeld" disabled="@(_selected.RemainderQuarantined)" title="@(_selected.RemainderQuarantined ? "Already recorded; this cannot be undone." : null)" /> &nbsp;Remainder / segments quarantined or retained</label>
             @if (!string.IsNullOrWhiteSpace(_selected.RemainderHoldNote))
             {
@@ -517,6 +529,11 @@ else
     private DatWorkupResult _dat;
     private string? _elution;
     private bool _remainderHeld;
+    private bool _bagCulture;
+    private string? _bagCultureResult;
+    private bool _supplierNotified;
+    private string? _supplierNote;
+    private IReadOnlyList<string>? _sameDonation;
     private string _closeSecret = string.Empty;
 
     protected override async Task OnInitializedAsync()
@@ -690,9 +707,11 @@ else
     private async Task LoadBedsideVitalsAsync(long id)
     {
         _bedsideVitals = null;
+        _sameDonation = null;
         var report = await Api.GetReactionReportAsync(id);
         if (report.Succeeded && report.Value is { } r && _selected?.Id == id)
         {
+            _sameDonation = r.SameDonationUnits;
             _bedsideVitals = r.VitalsBefore is null && r.VitalsAfter is null
                 ? "Not recorded at the bedside."
                 : $"Before: {r.VitalsBefore ?? "not recorded"} · After: {r.VitalsAfter ?? "not recorded"}{(r.TemperatureChange is null ? "" : $" · {r.TemperatureChange}")}";
@@ -722,6 +741,10 @@ else
         _dat = r.DatResult;
         _elution = r.ElutionResult;
         _remainderHeld = r.RemainderQuarantined;
+        _bagCulture = r.BagCultureSent;
+        _bagCultureResult = r.BagCultureResult;
+        _supplierNotified = r.SupplierNotifiedUtc is not null;
+        _supplierNote = r.SupplierNotificationNote;
         _concludedReaction = r.ConcludedReactionCode;
         _treatments.Clear();
         foreach (var code in (r.TreatmentCodes ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries))
@@ -778,7 +801,11 @@ else
             _type, _severity, _findings, _conclusions, _followUp, _disposition, _productAtFault, _isFatality, AlreadyClosed && _status == ReactionInvestigationStatus.Closed ? null : _status, sigId,
             _clerical, _clericalNotes, _visual, _visualOk, _repeatPatient, _repeatUnit, _dat, _elution, _remainderHeld,
             ConcludedReactionCode: _concludedReaction ?? string.Empty,
-            TreatmentCodes: _treatments.ToList()));
+            TreatmentCodes: _treatments.ToList(),
+            BagCultureSent: _bagCulture,
+            BagCultureResult: _bagCultureResult ?? string.Empty,
+            SupplierNotified: _supplierNotified,
+            SupplierNotificationNote: _supplierNote ?? string.Empty));
         _busy = false;
         _fb = r.ToFeedback("Investigation updated.");
         if (r.Succeeded)

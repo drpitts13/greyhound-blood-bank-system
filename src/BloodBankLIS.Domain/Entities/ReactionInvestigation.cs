@@ -54,6 +54,16 @@ public class ReactionInvestigation : BaseEntity
     /// <summary>Remainder, bag, or segments held out of available inventory.</summary>
     public bool RemainderQuarantined { get; set; }
 
+    /// <summary>The bag (or segments) sent for Gram stain and culture (end-user testing pass 19).</summary>
+    public bool BagCultureSent { get; set; }
+
+    public string? BagCultureResult { get; set; }
+
+    /// <summary>When the blood supplier was told of the reaction (for its other components from the donation).</summary>
+    public DateTime? SupplierNotifiedUtc { get; set; }
+
+    public string? SupplierNotificationNote { get; set; }
+
     public ReactionInvestigationStatus Status { get; set; } = ReactionInvestigationStatus.Open;
 
     public string? Disposition { get; set; }
