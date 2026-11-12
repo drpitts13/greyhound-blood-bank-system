@@ -26,6 +26,10 @@ When a lot's QC fails, its worklist row and the critical alert say how many resu
 
 This screen does not decide that a reagent is acceptable for a patient. It records what the bench did and who reviewed it.
 
+## Today's QC on one table
+
+**Today's QC, all open lots** lists every received or open lot in date, one row each. Type Expected and Observed for each lot you test; Result reads Passed when they match and Failed when they differ, and you can change it. Expected starts blank, showing the last value recorded for that reagent; **Use last expected for blank rows** copies it into every blank row, to be checked against the package insert. **Record** saves every row with both results in one step and says which passed and which failed; rows left blank stay for later. A lot already done today shows *Done today* (or *Failed today*).
+
 ## Correct a lot
 
 **Correct** on a received or open lot fixes its lot number or expiry when it was entered wrongly. Give the reason; the change is audited with the values before and after. Another received or open lot of the reagent with the same number is refused, and a closed lot is not corrected. A corrected expiry already past makes the lot expired, so it can only be closed. Results already recorded with the lot keep the number as it was; the lot's **Results** still lists them.

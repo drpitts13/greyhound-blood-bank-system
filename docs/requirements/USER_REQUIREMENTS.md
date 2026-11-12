@@ -771,3 +771,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-763 | Instrument reaction grades post as the analyzer sent them; a rule comparing a value with a number never matches text that is not a number; two instrument readings for one panel subtest that differ are both shown to the verifier. | P1 | FRS-BB-881 |
 | URS-BB-764 | RhIG lots are registered as received (lot, product, expiry, vials) and retired with a reason; once any is registered, RhIG given must name a registered, active lot in date when given, and vials given are counted. | P1 | FRS-BB-882 |
 | URS-BB-765 | An inbound HL7 message from a sender with no interface endpoint set up uses the translations for all interfaces. | P2 | FRS-BB-883 |
+| URS-BB-766 | Daily reagent QC for all open lots is entered on one table and recorded in one step, with the last expected value offered on request and failures named. | P2 | FRS-BB-884 |
+| URS-BB-767 | A unit received with a scanned ISBT 128 DIN is stored under its 13-character DIN. | P1 | FRS-BB-885 |

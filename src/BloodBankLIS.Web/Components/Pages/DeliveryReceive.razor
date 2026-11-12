@@ -274,9 +274,11 @@ else
             DeliveryId: Id);
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
+        // The unit number as stored (a scanned DIN is stored without its "=" and flags).
+        var stored = r.Value?.UnitNumber ?? req.UnitNumber;
         _receiveFeedback = r.ToFeedback(r.Value?.Status == UnitStatus.Received
-            ? $"Unit {req.UnitNumber} received. Pending retype until results are entered and verified."
-            : $"Unit {req.UnitNumber} received.");
+            ? $"Unit {stored} received. Pending retype until results are entered and verified."
+            : $"Unit {stored} received.");
         if (r.Succeeded)
         {
             // Keep shipment-level fields so the next unit from the same cooler is quick to enter. ABO/Rh is read from

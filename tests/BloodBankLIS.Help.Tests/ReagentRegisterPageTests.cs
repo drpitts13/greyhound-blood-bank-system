@@ -61,4 +61,45 @@ public class ReagentRegisterPageTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains("Lot L-1A corrected.", page.Markup));
         Assert.NotNull(page.Find("[data-lot-correct='L-1A']"));
     }
+
+    // TEST-BB-1006: today's QC lists every open lot in date on one table; a lot with QC today shows done (red when it
+    // failed); expected starts blank with the last value as a hint, copied only on request; a mismatch reads Failed; the
+    // button counts the rows with both results.
+    [Fact]
+    public void QcRun_ListsOpenLots_AndCountsRowsToRecord()
+    {
+        var expires = DateTime.UtcNow.AddDays(30);
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/reagents"] = new List<ReagentDto> { new(1, "ANTI-A", "Anti-A", true), new(2, "ANTI-D", "Anti-D", true), new(3, "AHG", "AHG", true) },
+            ["/api/reagents/lots"] = new List<ReagentLotDto>
+            {
+                new(11, 1, "ANTI-A", "AA-1", DateTime.UtcNow, DateTime.UtcNow, null, expires, BloodBankLIS.Domain.Entities.ReagentLotState.Opened),
+                new(12, 2, "ANTI-D", "AD-1", DateTime.UtcNow, DateTime.UtcNow, null, expires, BloodBankLIS.Domain.Entities.ReagentLotState.Opened),
+                new(13, 3, "AHG", "AH-1", DateTime.UtcNow, DateTime.UtcNow, null, expires, BloodBankLIS.Domain.Entities.ReagentLotState.Opened)
+            },
+            ["/api/reagents/qc"] = new List<ReagentDailyQcDto>
+            {
+                new(1, 13, "AH-1", DateTime.UtcNow.Date, "2+", "0", false, "tech", DateTime.UtcNow, null, null, 3, "AHG"),
+                new(2, 12, "AD-OLD", DateTime.UtcNow.Date.AddDays(-1), "3+", "3+", true, "tech", DateTime.UtcNow.AddDays(-1), null, null, 2, "ANTI-D")
+            }
+        });
+        var page = Render<Reagents>();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll("[data-qc-run-row]").Count));
+
+        Assert.Contains("Failed today", page.Find("[data-qc-run-row='AH-1']").TextContent);
+        Assert.Contains("last: 3+", page.Find("[data-qc-run-row='AD-1']").TextContent);
+        Assert.Equal("", page.Find("[data-qc-run-row='AD-1'] [data-qc-run-expected]").GetAttribute("value") ?? "");
+        Assert.True(page.Find("[data-qc-run-save]").HasAttribute("disabled"));
+
+        page.Find("[data-qc-run-use-last]").Click();
+        Assert.Equal("3+", page.Find("[data-qc-run-row='AD-1'] [data-qc-run-expected]").GetAttribute("value"));
+        page.Find("[data-qc-run-row='AD-1'] [data-qc-run-observed]").Input("0");
+        Assert.Equal("fail", page.Find("[data-qc-run-row='AD-1'] [data-qc-run-result]").GetAttribute("value"));
+        page.Find("[data-qc-run-row='AA-1'] [data-qc-run-expected]").Input("4+");
+        page.Find("[data-qc-run-row='AA-1'] [data-qc-run-observed]").Input("4+");
+        Assert.Equal("pass", page.Find("[data-qc-run-row='AA-1'] [data-qc-run-result]").GetAttribute("value"));
+        Assert.Contains("Record 2 QC", page.Find("[data-qc-run-save]").TextContent);
+        Assert.False(page.Find("[data-qc-run-save]").HasAttribute("disabled"));
+    }
 }

@@ -348,6 +348,78 @@
         <button class="btn btn-primary btn-sm" disabled="@(_qcLotId == 0 || !ResultsCompared)" @onclick="RecordQcAsync">Record QC</button>
     </div>
 
+    @* Daily QC for every open lot on one table (end-user testing, 2026-11-12: the morning QC was seven separate entries).
+       Expected starts blank, as on the single form: the last recorded value is shown and copied only on request, to be
+       checked against the package insert. Passed follows the comparison and can be changed. *@
+    <div class="bb-card" data-qc-run>
+        <div class="bb-card-title">
+            <h3>Today's QC, all open lots</h3>
+            @if (QcRunRows.Any(r => !r.DoneToday && string.IsNullOrWhiteSpace(r.Expected) && r.LastExpected is not null))
+            {
+                <button class="btn btn-ghost btn-sm" type="button" @onclick="UseLastExpectedForAll" title="Check each against the package insert" data-qc-run-use-last>Use last expected for blank rows</button>
+            }
+        </div>
+        @if (QcRunRows.Count == 0)
+        {
+            <div class="muted">No open or received lot in date.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Reagent</th><th>Lot</th><th>Expected</th><th>Observed</th><th>Result</th></tr></thead>
+                <tbody>
+                    @foreach (var row in QcRunRows)
+                    {
+                        <tr data-qc-run-row="@row.LotNumber">
+                            <td class="mono">@row.ReagentCode</td>
+                            <td class="mono">@row.LotNumber</td>
+                            @if (row.DoneToday)
+                            {
+                                <td colspan="3"><span class="badge @(row.DonePassed ? "badge-green" : "badge-red")">@(row.DonePassed ? "Done today" : "Failed today")</span> <span class="muted">@row.DoneText</span></td>
+                            }
+                            else
+                            {
+                                <td>
+                                    <input @bind="row.Expected" @bind:event="oninput" @bind:after="() => SyncRow(row)" style="max-width:6rem;" data-qc-run-expected />
+                                    @if (string.IsNullOrWhiteSpace(row.Expected) && row.LastExpected is not null)
+                                    {
+                                        <span class="sub">last: @row.LastExpected</span>
+                                    }
+                                </td>
+                                <td><input @bind="row.Observed" @bind:event="oninput" @bind:after="() => SyncRow(row)" style="max-width:6rem;" data-qc-run-observed /></td>
+                                <td>
+                                    @if (row.Compared)
+                                    {
+                                        <select @bind="row.Result" data-qc-run-result>
+                                            <option value="pass">Passed</option>
+                                            <option value="fail">Failed</option>
+                                        </select>
+                                        @if (!row.Matches)
+                                        {
+                                            <span class="text-error" style="font-size:.85rem;"> differs</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">—</span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <div class="flex gap" style="margin-top:.5rem;align-items:center;">
+                <button class="btn btn-primary btn-sm" disabled="@(_qcRunBusy || !QcRunRows.Any(r => !r.DoneToday && r.Compared))" @onclick="RecordQcRunAsync" data-qc-run-save>
+                    Record @QcRunRows.Count(r => !r.DoneToday && r.Compared) QC
+                </button>
+                <span class="muted">Rows with both results are recorded; the others are left for later.</span>
+            </div>
+        }
+    </div>
+
     <div class="bb-card" data-recent-qc>
         <div class="bb-card-title"><h3>Recent QC (14 days)</h3></div>
         @if (_recentQc.Count == 0)
@@ -649,6 +721,89 @@
         var saved = await Api.CloseReagentLotAsync(id);
         _feedback = saved.ToFeedback("Lot closed.");
         if (saved.Succeeded) await ReloadAsync();
+    }
+
+    private sealed class QcRunRow
+    {
+        public long LotId { get; init; }
+        public string ReagentCode { get; init; } = "";
+        public string LotNumber { get; init; } = "";
+        public string? LastExpected { get; init; }
+        public bool DoneToday { get; init; }
+        public string? DoneText { get; init; }
+        public bool DonePassed { get; init; }
+        public string Expected { get; set; } = "";
+        public string Observed { get; set; } = "";
+        public string Result { get; set; } = "fail";
+        public bool Compared => !string.IsNullOrWhiteSpace(Expected) && !string.IsNullOrWhiteSpace(Observed);
+        public bool Matches => Compared && string.Equals(Expected.Trim(), Observed.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private List<QcRunRow> _qcRun = new();
+    private bool _qcRunBusy;
+
+    private List<QcRunRow> QcRunRows
+    {
+        get
+        {
+            var today = DateTime.UtcNow.Date;
+            var open = QcLots.Where(l => l.ExpiresUtc > DateTime.UtcNow).OrderBy(l => l.ReagentCode).ThenBy(l => l.LotNumber).ToList();
+            // Keep what has been typed; add new lots, drop closed ones, refresh done-today.
+            var rows = new List<QcRunRow>();
+            foreach (var lot in open)
+            {
+                var done = _recentQc.Where(q => q.ReagentLotId == lot.Id && q.QcDateUtc.Date == today).OrderByDescending(q => q.PerformedUtc).FirstOrDefault();
+                var existing = _qcRun.FirstOrDefault(r => r.LotId == lot.Id);
+                rows.Add(done is not null
+                    ? new QcRunRow { LotId = lot.Id, ReagentCode = lot.ReagentCode, LotNumber = lot.LotNumber, DoneToday = true, DonePassed = done.Passed,
+                        DoneText = $"{done.ObservedResult} ({(done.Passed ? "passed" : "failed")}) by {done.PerformedBy}" }
+                    : existing is { DoneToday: false } ? existing
+                    : new QcRunRow { LotId = lot.Id, ReagentCode = lot.ReagentCode, LotNumber = lot.LotNumber,
+                        LastExpected = ReagentQcHistory.LastExpected(lot.ReagentId, _recentQc) });
+            }
+
+            _qcRun = rows;
+            return rows;
+        }
+    }
+
+    private static void SyncRow(QcRunRow row) => row.Result = row.Matches ? "pass" : "fail";
+
+    private void UseLastExpectedForAll()
+    {
+        foreach (var row in _qcRun.Where(r => !r.DoneToday && string.IsNullOrWhiteSpace(r.Expected) && r.LastExpected is not null))
+        {
+            row.Expected = row.LastExpected!;
+            SyncRow(row);
+        }
+    }
+
+    private async Task RecordQcRunAsync()
+    {
+        _qcRunBusy = true;
+        var recorded = new List<string>();
+        var failed = new List<string>();
+        var problems = new List<string>();
+        foreach (var row in _qcRun.Where(r => !r.DoneToday && r.Compared).ToList())
+        {
+            var passed = row.Result == "pass";
+            var saved = await Api.RecordReagentQcAsync(new RecordReagentQcRequest(row.LotId, row.Expected, row.Observed, passed));
+            if (saved.Succeeded)
+            {
+                (passed ? recorded : failed).Add($"{row.ReagentCode} {row.LotNumber}");
+            }
+            else
+            {
+                problems.Add($"{row.ReagentCode} {row.LotNumber}: {saved.Error}");
+            }
+        }
+
+        _qcRunBusy = false;
+        var text = $"{recorded.Count} passed" + (failed.Count > 0 ? $"; FAILED: {string.Join(", ", failed)}" : "") + ".";
+        _feedback = problems.Count > 0 || failed.Count > 0
+            ? Feedback.Fail(text + (problems.Count > 0 ? $" Not recorded: {string.Join("; ", problems)}" : ""))
+            : Feedback.Succeed($"QC recorded: {text}");
+        await ReloadAsync();
     }
 
     private async Task RecordQcAsync()

@@ -1014,5 +1014,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1003 | U | `RhigLotRuleTests.Receive_AndUse` | URS-BB-764 / FRS-BB-882 |
 | TEST-BB-1004 | I | `RhigLotServiceTests.Register_ChecksTheLotGiven` | URS-BB-764 / FRS-BB-882 |
 | TEST-BB-1005 | I | `InterfaceTestCodeTranslationTests.NoEndpoint_TranslationsForAllInterfacesStillApply` | URS-BB-765 / FRS-BB-883 |
+| TEST-BB-1006 | U | `ReagentRegisterPageTests.QcRun_ListsOpenLots_AndCountsRowsToRecord` | URS-BB-766 / FRS-BB-884 |
+| TEST-BB-1007 | I | `ProductRetypeServiceTests.Receive_ScannedDin_IsStoredAsTheDin` | URS-BB-767 / FRS-BB-885 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

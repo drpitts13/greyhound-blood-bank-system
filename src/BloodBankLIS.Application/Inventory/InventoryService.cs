@@ -590,6 +590,20 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit number is required.");
         }
 
+        // A scanned ISBT 128 DIN ("=" + 13 characters + 2 flag characters) is stored as its 13-character DIN, as the
+        // issue desk and bedside read it (end-user testing, 2026-11-12: a delivery's scanned unit was stored with the
+        // "=" and the flags, so later scans and searches would not find it).
+        if (request.UnitNumber.TrimStart().StartsWith('='))
+        {
+            var din = BloodBankLIS.Domain.Isbt128.Parsing.DinParser.Parse(request.UnitNumber);
+            if (!din.Success || din.Value is null)
+            {
+                return InventoryActionResult.Fail("The scanned unit number could not be read as an ISBT 128 DIN. Scan the donation identification number barcode, or type the DIN.");
+            }
+
+            request = request with { UnitNumber = din.Value.Din };
+        }
+
         if (request.ExpiresUtc <= _clock.UtcNow)
         {
             return InventoryActionResult.Fail("Expiration date/time must be in the future.");
@@ -709,6 +723,20 @@ public sealed class InventoryService
         if (string.IsNullOrWhiteSpace(request.UnitNumber))
         {
             return InventoryActionResult.Fail("Unit number is required.");
+        }
+
+        // A scanned ISBT 128 DIN ("=" + 13 characters + 2 flag characters) is stored as its 13-character DIN, as the
+        // issue desk and bedside read it (end-user testing, 2026-11-12: a delivery's scanned unit was stored with the
+        // "=" and the flags, so later scans and searches would not find it).
+        if (request.UnitNumber.TrimStart().StartsWith('='))
+        {
+            var din = BloodBankLIS.Domain.Isbt128.Parsing.DinParser.Parse(request.UnitNumber);
+            if (!din.Success || din.Value is null)
+            {
+                return InventoryActionResult.Fail("The scanned unit number could not be read as an ISBT 128 DIN. Scan the donation identification number barcode, or type the DIN.");
+            }
+
+            request = request with { UnitNumber = din.Value.Din };
         }
 
         if (request.ExpiresUtc <= _clock.UtcNow)

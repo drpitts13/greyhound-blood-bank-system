@@ -22309,3 +22309,26 @@ On the running system with seeded data: the RhIG page → register lot RHIG-L261
 ### Tests
 
 - TEST-BB-1003 to TEST-BB-1005. Full suite passed.
+
+## Iteration 722 — End-user testing pass 6: daily QC and receiving a delivery (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Reagent QC → the morning QC for the six open lots not yet done; Inventory → a new delivery from the American Red Cross (packing list PL-UAT-1, 2 red cells) → enter units, the unit number scanned as an ISBT 128 DIN.
+
+### Found and fixed
+
+1. **Morning QC one lot at a time (from pass 4).** Today's QC for all open lots is now one table: Expected (blank, with the last value as a hint and a button to copy it into blank rows, to be checked against the package insert), Observed, and a Result that follows the match and can be changed; one Record saves every complete row and names failures. Retested live: six lots recorded in one step, "5 passed; FAILED: ANTI-D AD-24092", the anti-D lot then on the worklist as Failed with its results to review.
+2. **A scanned DIN stored with its "=" and flags.** A unit received with the scanner's DIN ("=W0000261234561") was stored exactly so; the issue desk and bedside read the 13-character DIN, so later scans and searches would not find it. A unit number starting "=" is now parsed as an ISBT 128 DIN and stored as the DIN (a scan that is not a DIN is refused), and the confirmation names the stored number. Retested live: "=W00002612345700" stored as W000026123457.
+
+### Left in the development data
+
+- The unit received before the fix keeps the number "=W0000261234561" (development data from this test).
+
+### Tests
+
+- TEST-BB-1006, TEST-BB-1007. Full suite passed.
+
+### Next
+
+- Pass 7: inventory moves, stock count, and the remaining gaps (single-user verification limits noted throughout).
