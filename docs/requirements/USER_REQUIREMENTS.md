@@ -765,3 +765,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-757 | A received or open reagent lot's number or expiry entered wrongly is corrected with a reason, audited before and after; a closed lot is not corrected. | P3 | FRS-BB-875 |
 | URS-BB-758 | On the Equipment page a check is stopped, and equipment retired and restored, each with a reason; retired equipment is listed on request. | P3 | FRS-BB-876 |
 | URS-BB-759 | The Equipment page lists checks on equipment in service falling due within 7, 30 or 90 days, soonest first. | P3 | FRS-BB-877 |
+| URS-BB-760 | From the bench worklist, a tube is accessioned for an order waiting for one and linked to it in one step (no second order); stored panel results read as types and reactions, not stored data; an ABO/Rh saved for a second person's verification is labelled so. | P2 | FRS-BB-878 |

@@ -136,7 +136,9 @@ public sealed record TestWorkItemDto(
         || NeedsRecollection
         || BlockReason?.Contains("No specimen is linked", StringComparison.OrdinalIgnoreCase) == true;
 
-    public string ChartAccessionHref => $"/patients/{PatientId}?tab=orders&panel=accession";
+    // The chart's accession form for a tube, which links the waiting orders it serves (this one among them). The
+    // Orders tab's accession panel starts a new order instead, and saving it there would order the tests again.
+    public string ChartAccessionHref => $"/patients/{PatientId}?panel=specimen";
 }
 
 /// <summary>Views over the bench list that do not change what is on it.</summary>

@@ -22179,3 +22179,28 @@ The Equipment page showed only checks due now. An annual calibration or a vendor
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 717 — End-user testing pass 1: patient testing (2026-11-12)
+
+### How it was tested
+
+As a bench technologist on the running system with seeded data: the Test Worklist's stat ABO/Rh and antibody screen for Demo-Special, Avery (MRN0023, order ORD0024, no tube yet), from accession to verified result.
+
+### Found and fixed
+
+1. **Accession from the worklist made a second order.** The row's **Accession** opened the chart's new-order form with its specimen section; saving it would have ordered ABO/Rh and the screen again. It now opens the chart's tube accession, which shows "Waiting for a specimen: ORD0024" and links the tube to it on save. Retested: ACC-UAT-001 accessioned and linked to ORD0024 in one step; both tests became resultable.
+2. **Panel results shown as stored data.** The worklist's Result column (also the chart Orders tab and the supervisor queue) showed an ABO/Rh as `{"abo":"O","rh":"Positive","version":1,...}`. `ResultValueText.For` now reads ABO/Rh panels as "O+ · Anti-A:0 · …" and subtest panels as their readings. Retested on the live worklist.
+3. **"Save incomplete" on a complete ABO/Rh.** The ABO/Rh save prompt's only button read *Save incomplete* although the result is complete and waits only for a second person's verification. It reads **Save for verification**.
+
+### Observed, not changed
+
+- A patient with no recorded transfusion or pregnancy gets the standard (7-day) specimen window; whether unknown history should take the 3-day window is the facility's decision under OCD-002.
+- The ABO/Rh entered by one user waits for a different user to verify (correct); the screen was saved and verified by the same user, as configured.
+
+### Tests
+
+- TEST-BB-995; two ABO/Rh entry-panel tests updated for the new label. Full suite passed.
+
+### Next
+
+- Pass 2: transfusion request and fulfillment (blood order, allocate, crossmatch, issue, bedside), then reactions, mother/baby, QC and interfaces.

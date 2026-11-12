@@ -65,7 +65,7 @@ public class TestResultEntryPanelTests : BunitContext
         panel.FindAll("tbody select")[0].Change("4+");
 
         panel.FindAll("button").First(b => b.TextContent.Trim() == "Save result").Click();
-        panel.FindAll("button").First(b => b.TextContent.Trim() == "Save incomplete").Click();
+        panel.FindAll("button").First(b => b.TextContent.Trim() == "Save for verification").Click();
 
         panel.WaitForAssertion(() => Assert.Contains("Enter a reading for Anti-B, Anti-D before saving.", panel.Markup));
     }
@@ -105,7 +105,7 @@ public class TestResultEntryPanelTests : BunitContext
         panel.FindAll("tbody select")[1].Change("+/-");
         panel.FindAll("tbody select")[2].Change("+/-");
         panel.FindAll("button").First(b => b.TextContent.Trim() == "Save result").Click();
-        panel.FindAll("button").First(b => b.TextContent.Trim() == "Save incomplete").Click();
+        panel.FindAll("button").First(b => b.TextContent.Trim() == "Save for verification").Click();
 
         panel.WaitForAssertion(() => Assert.Contains("Choose the interpreted ABO and Rh(D).", panel.Markup));
     }

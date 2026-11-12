@@ -1003,5 +1003,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-992 | I | `EquipmentServiceTests.Upcoming_ListsChecksDueWithinTheWindow` | URS-BB-759 / FRS-BB-877 |
 | TEST-BB-993 | U | `EquipmentPageTests.ComingUp_SaysWhenNothingFallsDue` | URS-BB-759 / FRS-BB-877 |
 | TEST-BB-994 | U | `EquipmentPageTests.ComingUp_ListsChecksDueSoon` | URS-BB-759 / FRS-BB-877 |
+| TEST-BB-995 | U | `ResultValueTextTests.For_ReadsPanelsAsStaffDo` | URS-BB-760 / FRS-BB-878 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

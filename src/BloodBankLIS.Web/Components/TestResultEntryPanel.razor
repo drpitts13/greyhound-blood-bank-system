@@ -62,7 +62,7 @@
             @if (WorkItem.NeedsSpecimenLink)
             {
                 <div style="margin-top:.5rem;">
-                    <a class="btn btn-secondary btn-sm" href="@WorkItem.ChartAccessionHref">Accession and link on Orders</a>
+                    <a class="btn btn-secondary btn-sm" href="@WorkItem.ChartAccessionHref">Accession a tube for this order</a>
                 </div>
             }
         </div>
@@ -474,7 +474,8 @@
                             : "Is this test complete?")
                     </div>
                     <div class="flex gap">
-                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(false)">Save incomplete</button>
+                        @* For ABO/Rh the result is complete; it waits for a second person's verification (end-user testing, 2026-11-12). *@
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(false)">@(IsAboRhEntry ? "Save for verification" : "Save incomplete")</button>
                         @if (Session.Has(PermissionCodes.ResultVerify) && !IsAboRhEntry)
                         {
                             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(true)">Save &amp; verify</button>

@@ -174,7 +174,7 @@
     {
         <div class="empty">
             No pending tests on this bench. Orders without a linked accepted specimen do not appear here.
-            Open the patient chart Tests tab to teach the sequence, or Accession and link on Orders.
+            Open the patient chart Tests tab to teach the sequence, or use Accession on the row to take a tube for the order (it links the waiting orders it serves).
         </div>
     }
     else
@@ -246,7 +246,7 @@
                             {
                                 <span class="badge badge-gray">Pending</span>
                             }
-                            <span class="sub mono">@(item.CurrentResultValue ?? "—")</span>
+                            <span class="sub mono">@ResultValueText.For(item.CurrentResultValue)</span>
                             @if (item.AboRhDeltaHold)
                             {
                                 <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>

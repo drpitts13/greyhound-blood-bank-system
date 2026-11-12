@@ -97,7 +97,7 @@ public sealed class SupervisorQueueService
                          && r.CanEnterResults
                          && !r.IsAboSelfVerifyBlocked(_currentUser.UserName)))
             {
-                var detail = $"{row.CurrentResultSource}: {row.CurrentResultValue ?? "—"}. Posted value needs verification.";
+                var detail = $"{row.CurrentResultSource}: {BloodBankLIS.Application.Results.ResultValueText.For(row.CurrentResultValue)}. Posted value needs verification.";
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindResultVerify,
                     $"Verify {row.TestCode} — {row.PatientName} ({row.Mrn})",

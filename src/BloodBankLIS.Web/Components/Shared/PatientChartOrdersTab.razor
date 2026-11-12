@@ -334,7 +334,7 @@
                             {
                                 <div class="muted">@(string.IsNullOrWhiteSpace(o.CancellationReasonCode) ? o.CancellationReason : $"{o.CancellationReasonCode} — {o.CancellationReason}")</div>
                             }
-                            <span class="sub">@(o.CurrentResultValue ?? o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")</span>
+                            <span class="sub">@(o.CurrentResultValue is not null ? ResultValueText.For(o.CurrentResultValue) : o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")</span>
                             @if (o.HasPostedInterfaceOrInstrumentValue)
                             {
                                 <span class="badge badge-amber">@(o.CurrentResultSource)</span>
