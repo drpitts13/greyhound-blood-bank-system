@@ -103,6 +103,7 @@ public static partial class DatabaseSeeder
         await EnsureCompatibilityRuleCatalogAsync(context, cancellationToken);
         await SeedInstrumentInterfacesAsync(context, cancellationToken);
         await SeedExtendedDemoScenariosAsync(context, cancellationToken);
+        await EnsureDemoCrossmatchOrdersAsync(context, cancellationToken);
         await EnsureReportDefinitionsAsync(context, cancellationToken);
         await EnsureReportViewsAsync(context, cancellationToken);
 
@@ -2039,6 +2040,50 @@ public static partial class DatabaseSeeder
     /// 2026-11-12: no product had any attribute, so no unit could ever meet an irradiated requirement. A product that
     /// already has attributes (set by an administrator) is left as it is.
     /// </summary>
+    /// <summary>
+    /// The demo's crossmatches were seeded without their order, so Utilization put every one under "(no order)". Each
+    /// crossmatch without an order is linked to the order its reservation belongs to, else the patient's latest blood
+    /// order with a red-cell line (end-user testing pass 34). A crossmatch recorded in the system carries its order; a
+    /// patient with no blood order is left alone. Runs every start and changes only crossmatches still without one.
+    /// </summary>
+    private static async Task EnsureDemoCrossmatchOrdersAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var unlinked = await context.Crossmatches.Where(x => x.OrderId == null).ToListAsync(ct);
+        if (unlinked.Count == 0)
+        {
+            return;
+        }
+
+        var patientIds = unlinked.Select(x => x.PatientId).Distinct().ToList();
+        var allocations = await context.Allocations.Where(a => patientIds.Contains(a.PatientId) && a.OrderId != null).ToListAsync(ct);
+        var orders = await context.Orders.Where(o => patientIds.Contains(o.PatientId)).ToListAsync(ct);
+        var orderIds = orders.Select(o => o.Id).ToList();
+        var productOrders = (await context.OrderLines
+                .Where(l => orderIds.Contains(l.OrderId) && l.LineCategory == OrderCategory.Product)
+                .Select(l => l.OrderId).ToListAsync(ct))
+            .ToHashSet();
+        var changed = false;
+        foreach (var crossmatch in unlinked)
+        {
+            var orderId = allocations.FirstOrDefault(a => a.PatientId == crossmatch.PatientId && a.BloodProductId == crossmatch.BloodProductId)?.OrderId
+                ?? orders.Where(o => o.PatientId == crossmatch.PatientId && productOrders.Contains(o.Id))
+                    .OrderByDescending(o => o.OrderedUtc).Select(o => (long?)o.Id).FirstOrDefault();
+            if (orderId is not long id)
+            {
+                continue;
+            }
+
+            crossmatch.OrderId = id;
+            crossmatch.EncounterId ??= orders.First(o => o.Id == id).EncounterId;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
     private static async Task EnsureProductAttributeAssignmentsAsync(BloodBankDbContext context, CancellationToken ct)
     {
         var attributes = await context.ProductAttributes.ToDictionaryAsync(a => a.Code, ct);

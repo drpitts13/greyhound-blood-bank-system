@@ -330,5 +330,10 @@ public class BloodOrderWorklistTests
         // The demo patient's type and screen is complete on ACC0001: the reserve form opens on that specimen.
         var acc0001 = c.Specimens.Single(s => s.AccessionNumber == "ACC0001").Id;
         Assert.Equal(("Reserve 2 units", (long?)acc0001, false), (demo.NextStep, demo.UsableSpecimenId, demo.TypeAndScreenPending));
+
+        // TEST-BB-1047: the demo's crossmatches carry their order, so Utilization reports them by location and provider
+        // (end-user testing pass 34: all seven read "(no order)").
+        Assert.NotEmpty(c.Crossmatches);
+        Assert.All(c.Crossmatches.ToList(), x => Assert.NotNull(x.OrderId));
     }
 }

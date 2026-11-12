@@ -1055,5 +1055,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1044 | I | `OverrideReviewTests.PendingOverride_NamesTheUnitAndPatient` | URS-BB-805 / FRS-BB-923 |
 | TEST-BB-1045 | I | `Phase6PrintingTests.PrintSpecimenLabel_CreatesPrintedJobWithZplAndPayload`, `Phase6PrintingTests.PrintCompatibilityTag_BuildsPtagFromIssueRecord` | URS-BB-806 / FRS-BB-924 |
 | TEST-BB-1046 | I | `DowntimePatientSummaryTests.DowntimeSheet_NamesAnUnverifiedTypeThatDisagrees` | URS-BB-807 / FRS-BB-925 |
+| TEST-BB-1047 | I | `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` | URS-BB-808 / FRS-BB-926 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

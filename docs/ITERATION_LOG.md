@@ -22920,3 +22920,22 @@ Retested live on the printed summary.
 ### Tests
 
 - TEST-BB-1046. Full suite passed.
+
+## Iteration 750 — End-user testing pass 34: lapsed reservations, billing, utilization (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse › Ready to issue (the lapsed reservations the downtime sheet now marks), its **Review and release to stock** list (opened and cancelled), Billing's charge review queue, and Utilization for the last 30 days.
+
+### Checked, not defects
+
+- Ready to issue says how many reservations are past their end or hold an expired crossmatch, and the review lists each with why it is offered; units on an open order start unticked with the order named. Nothing was released.
+- Billing lists the pending charges with trigger, DFT and amount. Some seeded issues (the MTP's) have no charges because the seeder wrote them directly, not through issue.
+
+### Found and fixed
+
+1. **Utilization showed every crossmatch as "(no order)".** The demo's seven crossmatches were seeded without their order, so the crossmatch-to-transfusion ratio could not be read by location or provider. The seeder now links each to its reservation's order (else the patient's latest blood order); a crossmatch recorded in the system already carries its order. Retested live: Emergency Department / Dr. Amy Lee 1 crossmatched; Intensive Care Unit 6 crossmatched, 4 issued, 1 transfused (C:T 6.00).
+
+### Tests
+
+- TEST-BB-1047. Full suite passed.
