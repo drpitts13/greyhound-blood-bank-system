@@ -410,6 +410,34 @@
     <div class="bb-card" id="quality-quarantine">
         <div class="bb-card-title"><h3>Quality quarantine</h3></div>
         <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product, the storage location name, the recorded volume, and any ABO/Rh retype mismatch. A unit with no volume says so. Release from the row with the same second-verifier gate as Manage.</p>
+        @if (Session.Has(PermissionCodes.InventoryRelease) && ExcursionReleasable.Count > 1)
+        {
+            @* End-user testing, 2026-11-12: a refrigerator excursion held 29 units, each to be released on its own row. *@
+            <div class="alert alert-info" data-excursion-release>
+                <strong>@ExcursionReleasable.Count units are held after a storage temperature excursion.</strong>
+                Once the excursion has been reviewed (see its deviation), release them together: each is released and audited as from its own row, with the same second verifier.
+                @if (_bulkExcursionOpen)
+                {
+                    <div class="field" style="min-width:16rem;max-width:22rem;margin-top:.5rem;">
+                        <label>Second verifier</label>
+                        <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                            Items="QuarantineVerifierChoices"
+                            @bind-Value="_releaseSecondVerifier"
+                            DisplayText="@(x => x.Label)"
+                            ItemValue="@(x => x.UserName)"
+                            SearchText="@(x => x.Label)"
+                            Clearable="true"
+                            Placeholder="Different active user" />
+                    </div>
+                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="ReleaseExcursionUnitsAsync" data-excursion-release-go>Release @ExcursionReleasable.Count units</button>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _bulkExcursionOpen = false">Cancel</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary btn-sm" style="margin-left:.5rem;" @onclick="() => { _bulkExcursionOpen = true; _releaseSecondVerifier = null; }" data-excursion-release-open>Release all after review</button>
+                }
+            </div>
+        }
         @if (_quarantineItems.Count == 0)
         {
             <div class="muted">No units in quality quarantine.</div>
@@ -444,7 +472,7 @@
                             <td>
                                 @if (row.RetypeMismatch && row.RetypeInterpretedAbo is AboGroup interp)
                                 {
-                                    <span class="badge badge-red" title="Labeled @Ui.BloodType(row.Abo, row.RhD)">Retype @Ui.BloodType(interp, row.RetypeInterpretedRh ?? RhType.Unknown)</span>
+                                    <span class="badge badge-red" title="Labeled @Ui.BloodType(row.Abo, row.RhD)">@(interp == AboGroup.Unknown ? "Retype not interpreted" : $"Retype {Ui.BloodType(interp, row.RetypeInterpretedRh ?? RhType.Unknown)}")</span>
                                 }
                                 else if (row.RetypeInterpretedAbo is AboGroup ok)
                                 {
@@ -455,7 +483,7 @@
                                     <span class="muted">—</span>
                                 }
                             </td>
-                            <td>@row.ReasonCode</td>
+                            <td>@Ui.EnumText(row.ReasonCode)</td>
                             <td>@(row.Notes ?? "—")</td>
                             <td class="nowrap">@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
@@ -1266,6 +1294,31 @@
             await LoadNearExpiryAsync();
             await SearchAsync();
         }
+    }
+
+    private bool _bulkExcursionOpen;
+
+    private List<QuarantineWorkItemDto> ExcursionReleasable =>
+        _quarantineItems.Where(r => r.ReasonCode == UnitQuarantineReason.StorageTemperatureExcursion && r.CanRelease && !r.RequiresLabelScan).ToList();
+
+    private async Task ReleaseExcursionUnitsAsync()
+    {
+        _busy = true;
+        var released = 0;
+        var refused = new List<string>();
+        foreach (var row in ExcursionReleasable)
+        {
+            var r = await Api.ReleaseUnitAsync(row.UnitId, new ReleaseFromQuarantineRequest(_releaseSecondVerifier, null));
+            if (r.Succeeded) released++;
+            else refused.Add($"{row.UnitNumber}: {r.ToFeedback().Error ?? r.Error ?? "not released"}");
+        }
+
+        _busy = false;
+        _bulkExcursionOpen = refused.Count > 0;
+        _topFb = refused.Count == 0
+            ? Feedback.Succeed($"{released} units released from quarantine after the excursion review.")
+            : Feedback.Fail($"{released} released; not released: {string.Join("; ", refused)}");
+        await ReloadBoardsAsync();
     }
 
     private void ToggleQuarantineRelease(long unitId)

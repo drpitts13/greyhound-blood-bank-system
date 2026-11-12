@@ -22739,3 +22739,19 @@ On the running system with seeded data: Deviations after pass 23's FRIDGE-1 excu
 ### Tests
 
 - TEST-BB-1031, TEST-BB-1032. Full suite passed.
+
+## Iteration 741 — End-user testing pass 25: the quarantine board after an excursion (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Inventory › Quarantine after pass 23's FRIDGE-1 test excursion had quarantined 29 units (DEV-3).
+
+### Found and fixed
+
+1. **29 units, 29 separate releases.** Each unit quarantined by the excursion had to be opened, given a second verifier and released on its own row. The board now offers **Release all after review** when more than one excursion-held unit can be released: one second verifier, each unit released and audited as from its own row, and any unit not released is named. Retested live: 29 released with Sam Supervisor as second verifier ("29 units released from quarantine after the excursion review."), 29 release audit events, the excursion-held rows gone, and Avery Demo-Special's reserved unit W000026123460 no longer quarantined.
+2. **Reason codes.** The Reason column showed StorageTemperatureExcursion; it reads "Storage temperature excursion".
+3. **"Retype ??".** A retype recorded without an interpretation read "Retype ??"; it now says "Retype not interpreted".
+
+### Tests
+
+- Page change only (inspection). Full suite passed.
