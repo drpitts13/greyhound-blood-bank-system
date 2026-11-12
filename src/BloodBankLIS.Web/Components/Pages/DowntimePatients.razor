@@ -102,6 +102,10 @@ else
                                 {
                                     <div class="sub"><strong>No second determination on file</strong></div>
                                 }
+                                @foreach (var discrepancy in p.TypeDiscrepancies ?? [])
+                                {
+                                    <div class="sub" data-downtime-type-discrepancy><strong>ABO/Rh discrepancy:</strong> @discrepancy</div>
+                                }
                             </td>
                             <td>
                                 @if (p.Antibodies.Count == 0)
@@ -160,7 +164,7 @@ else
                                             &middot; unit expires @u.UnitExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                                             @if (u.ReservationEndsUtc is DateTime ends)
                                             {
-                                                <text> &middot; reservation ends @ends.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</text>
+                                                <text> &middot; reservation @(ends <= _summary.GeneratedUtc ? "ended" : "ends") @ends.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(ends <= _summary.GeneratedUtc ? " (lapsed)" : "")</text>
                                             }
                                         </div>
                                     </div>

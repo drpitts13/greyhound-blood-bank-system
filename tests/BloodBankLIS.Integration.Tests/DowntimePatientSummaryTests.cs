@@ -87,7 +87,8 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
             c,
             _factory.Clock,
-            new EfRepository<RhigEvaluation>(c));
+            new EfRepository<RhigEvaluation>(c),
+            results: new EfRepository<TestResult>(c));
 
     private Patient NewPatient(string key, string last) => new()
     {
@@ -106,6 +107,32 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
         ExpiresUtc = expires,
         Status = status
     };
+
+    // TEST-BB-1046: the downtime sheet names an ABO/Rh result not yet verified that disagrees with the type on file; one
+    // that agrees, or a verified one, says nothing (end-user testing pass 33: Riley's A+ beside O+ on file).
+    [Fact]
+    public async Task DowntimeSheet_NamesAnUnverifiedTypeThatDisagrees()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patient = NewPatient(key, "TypeDelta");
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var specimen = NewSpecimen(patient.Id, $"ACC-DTP-{key}", _factory.Clock.UtcNow.AddDays(2));
+        c.Specimens.Add(specimen);
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, IsCurrent = true });
+        await c.SaveChangesAsync();
+        TestResult Result(string value, ResultStatus status) => new()
+        {
+            PatientId = patient.Id, SpecimenId = specimen.Id, TestCode = "ABORH", Value = value, Status = status,
+            Source = ResultSource.Instrument, EnteredUtc = _factory.Clock.UtcNow, EnteredBy = "tech"
+        };
+        c.TestResults.AddRange(Result("A|Positive", ResultStatus.PendingVerification), Result("O|Positive", ResultStatus.Entered), Result("B|Positive", ResultStatus.Verified));
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single((await Service(c).GetAsync()).Patients, r => r.PatientId == patient.Id);
+        Assert.Equal([$"ACC-DTP-{key} reads A+, not yet verified, against O+ on file"], row.TypeDiscrepancies);
+    }
 
     // TEST-BB-604: an antibody known only from another facility's report says so on the antibody card; the same antibody
     // also found here reads plain.

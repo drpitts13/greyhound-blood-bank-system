@@ -22898,3 +22898,25 @@ On the running system with seeded data: Printing, the print jobs list (pass 31's
 ### Tests
 
 - TEST-BB-1045. Full suite passed.
+
+## Iteration 749 — End-user testing pass 33: the downtime sheet (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Downtime Snapshot (reconciliation counts, outage #1), then the downtime patient summary the bench keeps for an outage.
+
+### Found and fixed
+
+1. **A pending type discrepancy was not on the sheet.** Riley Demo-Multi read O+ on file, but his current specimen's instrument ABO/Rh (A+, not yet verified) disagrees; working from paper, the bench would not know. The ABO/Rh column now says "ABO/Rh discrepancy: ACC-DEMO-RCV1 reads A+, not yet verified, against O+ on file".
+2. **Lapsed reservations read as current.** Reservations that ended on 2026-11-07 read "reservation ends 2026-11-07 09:49"; they now read "reservation ended … (lapsed)" (four on the seeded sheet).
+3. **Order priority as a code.** John Doe's order read "(EmergencyRelease)"; it reads "(Emergency release)".
+
+Retested live on the printed summary.
+
+### Checked, not defects
+
+- The snapshot's generated time and outage #1 read correctly in local time; the needed-by time on a blood order is labelled UTC.
+
+### Tests
+
+- TEST-BB-1046. Full suite passed.

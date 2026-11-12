@@ -60,3 +60,5 @@ Downtime documentation is your facility's paper procedure. Capture the identifie
 ## Antigen-negative requirements on the sheet
 
 Special requirements on the downtime patient summary, and **Requires** on the antibody card, include the antigen-negative red cells the issue check asks for: one line for each clinically significant antibody on the patient's history, current or historical, for example "K-negative red cells (anti-K on file)". During downtime, select units to meet them.
+
+The **ABO/Rh** column also names an ABO/Rh result that has been entered but not verified and disagrees with the type on file ("ABO/Rh discrepancy: ACC-DEMO-RCV1 reads A+, not yet verified, against O+ on file"): resolve it before relying on the type on file. A reservation whose end has passed reads **ended … (lapsed)**. Order priorities read in words (for example *Emergency release*); a needed-by time is given in UTC, as it says.

@@ -812,3 +812,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-804 | An instrument result keeps the analyzer and completion time, and the verifier sees them and any instrument flag on the Test worklist. | P1 | FRS-BB-922 |
 | URS-BB-805 | The supervisor queue names quarantine reasons in words, offers release only where the quarantine board allows it, and names an override's unit and patient. | P2 | FRS-BB-923 |
 | URS-BB-806 | The print job list names what each label was for and when it was printed, not internal ids. | P3 | FRS-BB-924 |
+| URS-BB-807 | The downtime patient summary names an unverified ABO/Rh result that disagrees with the type on file, marks lapsed reservations, and gives order priority in words. | P1 | FRS-BB-925 |

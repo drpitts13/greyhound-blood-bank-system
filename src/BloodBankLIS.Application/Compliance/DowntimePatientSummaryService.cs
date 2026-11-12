@@ -4,6 +4,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Compliance;
 
@@ -36,7 +37,14 @@ public sealed record DowntimePatientRow(
     // RhIG evaluations still needing work (not completed, or a candidate not yet given).
     IReadOnlyList<string>? Rhig = null,
     // Blood orders whose units are not all reserved yet: what to crossmatch and by when.
-    IReadOnlyList<string>? BloodOrders = null);
+    IReadOnlyList<string>? BloodOrders = null)
+{
+    /// <summary>
+    /// An ABO/Rh result not yet verified that disagrees with the type on file ("ACC-DEMO-RCV1 reads A+, not yet verified,
+    /// against O+ on file"). End-user testing pass 33: the sheet gave the type on file with no word of it.
+    /// </summary>
+    public IReadOnlyList<string> TypeDiscrepancies { get; init; } = [];
+}
 
 public sealed record DowntimePatientSummary(DateTime GeneratedUtc, IReadOnlyList<DowntimePatientRow> Patients);
 
@@ -63,6 +71,7 @@ public sealed class DowntimePatientSummaryService
     private readonly IRepository<RhigEvaluation>? _rhig;
     private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
     private readonly IRepository<BloodAttributeDefinition>? _attributes;
+    private readonly IRepository<TestResult>? _results;
 
     public DowntimePatientSummaryService(
         IRepository<Patient> patients,
@@ -80,8 +89,10 @@ public sealed class DowntimePatientSummaryService
         IClock clock,
         IRepository<RhigEvaluation>? rhig = null,
         BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null,
-        IRepository<BloodAttributeDefinition>? attributes = null)
+        IRepository<BloodAttributeDefinition>? attributes = null,
+        IRepository<TestResult>? results = null)
     {
+        _results = results;
         _attributes = attributes;
         _bloodOrders = bloodOrders;
         _rhig = rhig;
@@ -174,6 +185,15 @@ public sealed class DowntimePatientSummaryService
                     location)
                 : null;
 
+        // ABO/Rh results entered but not verified, on the patients' current specimens.
+        var specimenAccessions = specimens.ToDictionary(sp => sp.Id, sp => sp.AccessionNumber);
+        var pendingTypes = _results is null
+            ? []
+            : (await _results.ListAsync(r => patientIds.Contains(r.PatientId) && r.TestCode == "ABORH"
+                    && (r.Status == ResultStatus.Entered || r.Status == ResultStatus.PendingVerification), ct))
+                .Where(r => specimenAccessions.ContainsKey(r.SpecimenId))
+                .ToList();
+
         var rows = patients.Select(p =>
             {
                 var history = types[p.Id].ToList();
@@ -221,14 +241,33 @@ public sealed class DowntimePatientSummaryService
                         .OfType<string>()
                         .ToList(),
                     ordersToPrepare.Where(o => o.PatientId == p.Id)
-                        .Select(o => BloodOrderPreparationRule.DowntimeLine(o.OrderNumber, o.Priority.ToString(), o.Products, o.Remaining, o.NeededByUtc))
-                        .ToList());
+                        .Select(o => BloodOrderPreparationRule.DowntimeLine(o.OrderNumber, Words(o.Priority.ToString()), o.Products, o.Remaining, o.NeededByUtc))
+                        .ToList())
+                {
+                    TypeDiscrepancies = current is null
+                        ? []
+                        : pendingTypes.Where(r => r.PatientId == p.Id)
+                            .Select(r => AboRhResultValue.TryParse(r.Value, out var pending)
+                                         && pending.IsKnown
+                                         && AboRhDeltaRule.Evaluate(current.BloodType, pending).Severity != RuleSeverity.Pass
+                                ? $"{specimenAccessions[r.SpecimenId]} reads {pending}, not yet verified, against {AboRhText(current.Abo, current.RhD)} on file"
+                                : null)
+                            .OfType<string>()
+                            .ToList()
+                };
             })
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(r => r.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         return new DowntimePatientSummary(now, rows);
+    }
+
+    /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>
+    private static string Words(string code)
+    {
+        var parts = System.Text.RegularExpressions.Regex.Split(code, "(?<=[a-z0-9])(?=[A-Z])").Where(x => x.Length > 0).ToList();
+        return string.Join(' ', parts.Select((x, i) => i == 0 ? x : x.ToLowerInvariant()));
     }
 
     /// <summary>Records who printed the sheet and which patients it carried, before the browser prints it.</summary>
