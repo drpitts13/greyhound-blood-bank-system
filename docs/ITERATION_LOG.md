@@ -22570,3 +22570,30 @@ On the running system with seeded data: Inventory → new delivery (American Red
 ### Next
 
 - Pass 17: the remaining workflows and gaps (reservation and issue for Avery's unit with the call-the-physician instruction).
+
+## Iteration 733 — End-user testing pass 17: reserving and crossmatching a patient's special unit (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Compatibility for Avery Demo-Special → Allocate unit W000026123460 (irradiated, CMV-negative, received in pass 16) → Reserve → Record crossmatch (AHG, XM, cell reactions 0 at IS, 37 °C and AHG, Compatible).
+
+### Found and fixed
+
+1. **A crossmatch with no way forward.** The reservation from Compatibility succeeded but the crossmatch was refused with "This allocation has no product order for the crossmatch", which said neither why nor what to do. A reservation without a blood order now joins the patient's one open blood order when its crossmatch is recorded; with none the message says to order the units on the chart first; with several, to reserve from the order it is for. Retested live: Avery has no open blood order, and the message says so.
+2. **The reservation named the unit by its internal id** ("Allocation #13 for unit 79"); it now shows the unit number.
+
+### Observed working
+
+- The reservation applied her special requirements and showed the call-the-physician instruction on both forms; the crossmatch form asked for the cell reactions before recording.
+
+### Not done
+
+- Ordering red cells for her and issuing the unit (next pass).
+
+### Tests
+
+- TEST-BB-1026. Full suite passed.
+
+### Next
+
+- Pass 18: order red cells for Avery, crossmatch and issue the unit with the call-the-physician instruction.

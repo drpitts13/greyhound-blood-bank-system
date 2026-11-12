@@ -253,6 +253,47 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             currentUser: _factory.CurrentUser,
             crossmatchAttachment: Attachment(c));
 
+    // TEST-BB-1026: a unit reserved without a blood order (from Compatibility) joins the patient's one open product order
+    // when its crossmatch is recorded; with no open order the message says to order the units on the chart (end-user
+    // testing pass 17: "This allocation has no product order for the crossmatch").
+    [Fact]
+    public async Task Crossmatch_ForAReservationWithoutAnOrder_JoinsTheOpenOrderOrSaysWhatToDo()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedProductAndScreenAsync(c, positiveScreen: false, antibodyHistory: false, verifyScreen: true);
+        Allocation Reserve()
+        {
+            var unit = new BloodUnit
+            {
+                UnitNumber = $"U-{Guid.NewGuid():N}"[..16], ProductTypeId = seed.Product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Allocated
+            };
+            c.BloodUnits.Add(unit);
+            c.SaveChanges();
+            var a = new Allocation
+            {
+                BloodProductId = unit.Id, PatientId = seed.Patient.Id, SpecimenId = seed.Specimen.Id,
+                Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow
+            };
+            c.Allocations.Add(a);
+            c.SaveChanges();
+            return a;
+        }
+
+        var joins = Reserve();
+        var line = await Attachment(c).EnsureManualCrossmatchLineAsync(seed.Patient.Id, joins.Id, "XM", specimenId: seed.Specimen.Id);
+        Assert.True(line.Succeeded, line.Error);
+        Assert.Equal(seed.ProductOrder.Id, line.Value!.OrderId);
+        Assert.Equal(seed.ProductOrder.Id, (await c.Allocations.AsNoTracking().SingleAsync(a => a.Id == joins.Id)).OrderId);
+
+        (await c.Orders.FindAsync(seed.ProductOrder.Id))!.Status = OrderStatus.Cancelled;
+        await c.SaveChangesAsync();
+        var none = Reserve();
+        var refused = await Attachment(c).EnsureManualCrossmatchLineAsync(seed.Patient.Id, none.Id, "XM", specimenId: seed.Specimen.Id);
+        Assert.False(refused.Succeeded);
+        Assert.Contains("reserved without a blood order, and the patient has no open blood order", refused.Error);
+    }
+
     // TEST-BB-996: a unit whose compatible crossmatch has expired is crossmatched again on a current specimen linked to
     // the order (end-user testing, 2026-11-12: the repeat was refused as "already recorded"); a current compatible or any
     // incompatible result still stands; a specimen not linked to the order is refused by name, never swapped silently.

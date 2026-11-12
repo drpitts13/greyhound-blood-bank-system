@@ -187,7 +187,7 @@
             @if (_lastAllocation is not null)
             {
                 <div class="alert alert-info" style="margin-top:1rem;">
-                    Allocation <strong>#@_lastAllocation.Id</strong> for unit @_lastAllocation.BloodUnitId &mdash; <span class="@Ui.Badge(_lastAllocation.Status)">@Ui.EnumText(_lastAllocation.Status)</span>
+                    Allocation <strong>#@_lastAllocation.Id</strong> for unit <span class="mono">@(_lastAllocationUnitNumber ?? "—")</span> &mdash; <span class="@Ui.Badge(_lastAllocation.Status)">@Ui.EnumText(_lastAllocation.Status)</span>
                     <div class="flex gap" style="margin-top:.5rem;">
                         <input @bind="_releaseReason" @bind:event="oninput" placeholder="Release reason" style="flex:1;" />
                         <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReason))" @onclick="() => ReleaseAsync(_lastAllocation.Id)">Release</button>
@@ -701,12 +701,16 @@
         if (r.Succeeded)
         {
             _lastAllocation = r.Value;
+            // The unit number, never the internal id (end-user testing, 2026-11-12: "for unit 79").
+            _lastAllocationUnitNumber = r.Value is null ? null : (await Api.GetUnitAsync(r.Value.BloodUnitId)).Value?.UnitNumber;
             _showAllocOverride = false;
             _allocOverrideReason = string.Empty;
             _allocAuthorizedBy = string.Empty;
             await LoadAllocCompatibleAsync();
         }
     }
+
+    private string? _lastAllocationUnitNumber;
 
     private async Task ReleaseAsync(long id)
     {

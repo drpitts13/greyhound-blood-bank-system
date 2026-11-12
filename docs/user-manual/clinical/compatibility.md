@@ -43,3 +43,7 @@ Crossmatch from the chart uses the same rules in a dialog. See [Products on the 
 ## Which units are offered
 
 Above the unit box, the note counts the available units compatible with the patient's type, special requirements and antibodies, by product, for example "6 available units are compatible …: 6 Fresh Frozen Plasma". When no red cell is listed, none in stock meets the patient's requirements: order one from the supplier. Each unit in the list shows its product.
+
+## Crossmatching a unit reserved here
+
+A unit reserved on this page is not on a blood order. When its crossmatch is recorded with cell reactions, it joins the patient's open blood order if there is exactly one. With none, order the units on the chart (Orders) first; with several, reserve the unit from the order it is for (chart › Products). The reservation names the unit by its number.

@@ -400,10 +400,25 @@ public sealed class CrossmatchAttachmentService
                 "Crossmatch results are recorded while the unit is still reserved.");
         }
 
+        // A unit reserved from Compatibility is not on an order. End-user testing, 2026-11-12: its crossmatch was refused
+        // with "no product order" and nothing said what to do. With exactly one open product order for the patient the
+        // reservation joins it; otherwise the message says how to proceed.
         if (allocation.OrderId is not long orderId)
         {
-            return OperationResult<ManualCrossmatchLineDto>.Fail(
-                "This allocation has no product order for the crossmatch.");
+            var open = (await _orders.ListAsync(o => o.PatientId == patientId && o.OrderCategory == OrderCategory.Product
+                    && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Discontinued, ct))
+                .ToList();
+            if (open.Count != 1)
+            {
+                return OperationResult<ManualCrossmatchLineDto>.Fail(open.Count == 0
+                    ? "This unit was reserved without a blood order, and the patient has no open blood order. Order the units on the chart (Orders), then record the crossmatch."
+                    : $"This unit was reserved without a blood order, and the patient has {open.Count} open blood orders ({string.Join(", ", open.Select(o => o.OrderNumber))}). Reserve it from the order it is for (chart › Products), then record the crossmatch.");
+            }
+
+            var tracked = await _allocations.GetByIdAsync(allocation.Id, ct) ?? allocation;
+            tracked.OrderId = open[0].Id;
+            _allocations.Update(tracked);
+            orderId = open[0].Id;
         }
 
         var recorded = (await _crossmatches.ListAsync(
