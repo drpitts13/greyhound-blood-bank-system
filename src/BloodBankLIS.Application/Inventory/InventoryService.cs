@@ -632,6 +632,11 @@ public sealed class InventoryService
             return retypeGate;
         }
 
+        if (await RejectStorageAsync(request.LocationId, productType, ct) is { } storageGate)
+        {
+            return storageGate;
+        }
+
         var initialStatus = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
         var intakeReason = AppendVerifier(
             productType?.RequiresRetype == true
@@ -878,6 +883,11 @@ public sealed class InventoryService
         if (retypeGate is not null)
         {
             return retypeGate;
+        }
+
+        if (await RejectStorageAsync(request.LocationId, productType, ct) is { } storageGate)
+        {
+            return storageGate;
         }
 
         var destination = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
@@ -2297,20 +2307,29 @@ public sealed class InventoryService
         var expected = await _repository.SearchAsync(
             new InventorySearchCriteria(LocationId: request.LocationId, Statuses: InventoryUnitScopes.OnShelf), ct);
         var expectedIds = expected.Select(u => u.Id).ToHashSet();
-        var productNames = _productTypes is null
-            ? new Dictionary<long, string>()
-            : (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id, p => p.Name);
+        var products = _productTypes is null
+            ? new Dictionary<long, ProductType>()
+            : (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id);
         var locationNames = _locations is null
             ? new Dictionary<long, string>()
             : (await _locations.ListAsync(ct)).ToDictionary(l => l.Id, l => $"{l.Code} {l.Name}".Trim());
         var now = _clock.UtcNow;
 
-        InventoryCountLineDto Line(BloodUnit u, InventoryCountOutcome outcome) => new(
-            u.Id, u.UnitNumber, productNames.GetValueOrDefault(u.ProductTypeId), u.BloodType.ToString(), u.Status, u.ExpiresUtc, outcome,
-            u.CurrentLocationId is long l ? locationNames.GetValueOrDefault(l) ?? $"location {l}" : null)
+        InventoryCountLineDto Line(BloodUnit u, InventoryCountOutcome outcome)
         {
-            Expired = u.Status == UnitStatus.Expired || u.ExpiresUtc <= now
-        };
+            var product = products.GetValueOrDefault(u.ProductTypeId);
+            var wrongStorage = location is not null && product is not null
+                && outcome is InventoryCountOutcome.Found or InventoryCountOutcome.Missing
+                && !InventoryLocationPolicyRule.AllowsComponent(location, product.ComponentClass);
+            return new(
+                u.Id, u.UnitNumber, product?.Name, u.BloodType.ToString(), u.Status, u.ExpiresUtc, outcome,
+                u.CurrentLocationId is long l ? locationNames.GetValueOrDefault(l) ?? $"location {l}" : null)
+            {
+                Expired = u.Status == UnitStatus.Expired || u.ExpiresUtc <= now,
+                // A unit in a place that does not take its component, such as platelets in a red-cell refrigerator.
+                WrongStorage = wrongStorage ? $"{location!.Code} does not take {ComponentText(product!.ComponentClass)}" : null
+            };
+        }
 
         var foundIds = new HashSet<long>();
         var elsewhere = new Dictionary<long, InventoryCountLineDto>();
@@ -2389,6 +2408,17 @@ public sealed class InventoryService
 
     private const string StockCountReasonPrefix = "Stock count at ";
 
+    private static string ComponentText(ComponentClass component) => component switch
+    {
+        ComponentClass.RedBloodCells => "red cells",
+        ComponentClass.WholeBlood => "whole blood",
+        ComponentClass.Plasma => "plasma",
+        ComponentClass.Platelets => "platelets",
+        ComponentClass.Cryoprecipitate => "cryoprecipitate",
+        ComponentClass.Granulocytes => "granulocytes",
+        _ => "this component"
+    };
+
     /// <summary>
     /// Finished stock counts, newest first, read from the audit events each count writes against its location.
     /// A location id narrows to one location.
@@ -2425,6 +2455,29 @@ public sealed class InventoryService
 
         return OperationResult<IReadOnlyList<InventoryCountHistoryDto>>.Ok(
             history.OrderByDescending(h => h.CountedUtc).Take(Math.Clamp(take, 1, 200)).ToList());
+    }
+
+    /// <summary>
+    /// The storage check a transfer makes, for a unit received into a location (end-user testing, 2026-11-12: units were
+    /// received into a location that does not take their component, such as platelets into a red-cell refrigerator).
+    /// Null when no location is given or it may hold the component.
+    /// </summary>
+    private async Task<InventoryActionResult?> RejectStorageAsync(long? locationId, ProductType? productType, CancellationToken ct)
+    {
+        if (locationId is not long id || _locations is null)
+        {
+            return null;
+        }
+
+        var location = await _locations.GetByIdAsync(id, ct);
+        var component = productType?.ComponentClass ?? ComponentClass.Other;
+        var evaluation = new RuleEvaluation(InventoryLocationPolicyRule.EvaluateTransfer(
+            location is not null,
+            location?.IsActive ?? false,
+            location is not null && InventoryLocationPolicyRule.AllowsComponent(location, component),
+            location?.StorageTempMinC,
+            location?.StorageTempMaxC));
+        return evaluation.IsHardStopped ? InventoryActionResult.Blocked(evaluation) : null;
     }
 
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)

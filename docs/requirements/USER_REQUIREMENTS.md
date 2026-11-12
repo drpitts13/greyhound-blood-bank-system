@@ -774,3 +774,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-766 | Daily reagent QC for all open lots is entered on one table and recorded in one step, with the last expected value offered on request and failures named. | P2 | FRS-BB-884 |
 | URS-BB-767 | A unit received with a scanned ISBT 128 DIN is stored under its 13-character DIN. | P1 | FRS-BB-885 |
 | URS-BB-768 | A divided unit is identified by scan in a stock count, a move, or a cooler check from its unit number followed by its product code label. | P1 | FRS-BB-886 |
+| URS-BB-769 | A unit is not received into a storage location that does not take its component, and a stock count marks a unit recorded in such a location. | P1 | FRS-BB-887 |
+| URS-BB-770 | The crossmatch status at issue is shown in words on the ward receipt, return, transfusion and retrospective crossmatch forms and the chart's product history. | P3 | FRS-BB-888 |

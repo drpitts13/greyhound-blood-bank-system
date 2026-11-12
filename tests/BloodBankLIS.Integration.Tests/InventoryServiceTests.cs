@@ -531,6 +531,49 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(blank.Code, blankRow.LocationLabel, StringComparison.Ordinal);
     }
 
+    // TEST-BB-1009: a unit is not received into a location that does not take its component (the transfer check), and
+    // a stock count flags a unit already recorded in such a place (end-user testing pass 8: platelets in a red-cell
+    // refrigerator).
+    [Fact]
+    public async Task Receive_RefusesALocationThatDoesNotTakeTheComponent_AndTheCountFlagsIt()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var incubator = new InventoryLocation
+        {
+            Code = $"WS-PLT-{key}", Name = "Platelet incubator", LocationType = LocationType.PlateletIncubator,
+            AllowsRbc = false, AllowsPlasma = false, AllowsCryo = false, AllowsWholeBlood = false
+        };
+        context.InventoryLocations.Add(incubator);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var refused = await service.ReceiveUnitAsync(NewUnitRequest($"U-WSR-{key}", productTypeId) with { LocationId = incubator.Id });
+        Assert.False(refused.Succeeded);
+        Assert.Contains(refused.Evaluation!.Results, r => r.Code == InventoryLocationPolicyRule.StorageCode);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber == $"U-WSR-{key}"));
+
+        // A unit recorded there anyway (entered before the check) is flagged in the count, found or missing.
+        var other = new InventoryLocation { Code = $"WS-FR-{key}", Name = "Any fridge", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.Add(other);
+        await context.SaveChangesAsync();
+        var a = await service.ReceiveUnitAsync(NewUnitRequest($"U-WSA-{key}", productTypeId) with { LocationId = other.Id });
+        var b = await service.ReceiveUnitAsync(NewUnitRequest($"U-WSB-{key}", productTypeId) with { LocationId = other.Id });
+        Assert.True(a.Succeeded && b.Succeeded);
+        (await context.BloodUnits.FindAsync(a.Unit!.Id))!.CurrentLocationId = incubator.Id;
+        (await context.BloodUnits.FindAsync(b.Unit!.Id))!.CurrentLocationId = incubator.Id;
+        await context.SaveChangesAsync();
+
+        var count = await service.ReconcileCountAsync(new InventoryCountRequest(incubator.Id, [$"U-WSA-{key}"]));
+        Assert.True(count.Succeeded, count.Error);
+        Assert.Contains("does not take red cells", Assert.Single(count.Value!.Found).WrongStorage);
+        Assert.Contains("does not take red cells", Assert.Single(count.Value.Missing).WrongStorage);
+
+        var proper = await service.ReconcileCountAsync(new InventoryCountRequest(other.Id, []));
+        Assert.DoesNotContain(proper.Value!.Missing, l => l.WrongStorage is not null);
+    }
+
     // TEST-BB-1008: a divided unit (one DIN, two divisions) is counted and moved by its unit number followed by its
     // product code label; the DIN alone names both, a product code alone is refused, and a product code the DIN does
     // not have is named (end-user testing pass 7).

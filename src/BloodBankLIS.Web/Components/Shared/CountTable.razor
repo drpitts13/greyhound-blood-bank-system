@@ -9,7 +9,14 @@
         {
             <tr>
                 <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
-                <td>@(row.ProductName ?? "—")</td>
+                <td>
+                    @(row.ProductName ?? "—")
+                    @if (row.WrongStorage is not null)
+                    {
+                        <span class="badge badge-red" title="Move it to a location that takes it, and check whether it is still fit for use." data-count-wrong-storage>Wrong storage</span>
+                        <span class="sub">@row.WrongStorage</span>
+                    }
+                </td>
                 <td>@row.BloodType</td>
                 <td>@Ui.EnumText(row.Status)</td>
                 <td class="nowrap">

@@ -1018,6 +1018,7 @@ public static partial class DatabaseSeeder
             return;
         }
 
+        var plateletStore = locations.GetValueOrDefault("PLT-1") ?? fridge;
         var now = DateTime.UtcNow;
         var serial = 1001;
         var units = new List<BloodUnit>();
@@ -1027,9 +1028,9 @@ public static partial class DatabaseSeeder
             units.Add(NewUnit(serial++, redCells.Id, abo, rh, fridge.Id, now.AddDays(28), 300m));
             units.Add(NewUnit(serial++, plasma.Id, abo, rh, freezer.Id, now.AddDays(300), 250m));
 
-            // Platelets belong at room temperature with agitation; the location catalog has no
-            // such type, so the main refrigerator stands in for the demo.
-            units.Add(NewUnit(serial++, platelets.Id, abo, rh, fridge.Id, now.AddDays(4), 300m));
+            // Platelets belong at room temperature with agitation: the platelet incubator when it is in the
+            // catalog (end-user testing, 2026-11-12: they were seeded into the red-cell refrigerator).
+            units.Add(NewUnit(serial++, platelets.Id, abo, rh, plateletStore.Id, now.AddDays(4), 300m));
         }
 
         // A few units that are not simply available, so the worklists show real variety.
@@ -1040,7 +1041,7 @@ public static partial class DatabaseSeeder
         quarantined.QuarantineReason = "Segment tubing damaged on receipt; pending supervisor review.";
         quarantined.QuarantineReasonCode = UnitQuarantineReason.VisualDefect;
 
-        var discarded = NewUnit(serial++, platelets.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(-1), 300m);
+        var discarded = NewUnit(serial++, platelets.Id, AboGroup.O, RhType.Positive, plateletStore.Id, now.AddDays(-1), 300m);
         discarded.Status = UnitStatus.Discarded;
         // Coded like a real discard, so the wastage report groups it under its reason.
         discarded.DiscardReasonCode = "EXPIRED";

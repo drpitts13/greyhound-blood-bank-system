@@ -29,6 +29,9 @@ public sealed record InventoryCountLineDto(
 {
     /// <summary>On the shelf but past its expiry (or marked Expired): to be discarded.</summary>
     public bool Expired { get; init; }
+
+    /// <summary>Why this location should not hold the unit (it does not take the component), or null.</summary>
+    public string? WrongStorage { get; init; }
 }
 
 /// <summary>A finished stock count, from the audit trail.</summary>

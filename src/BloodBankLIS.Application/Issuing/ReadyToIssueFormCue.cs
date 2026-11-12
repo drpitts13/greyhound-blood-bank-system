@@ -151,7 +151,18 @@ public static class ReadyToIssueFormCue
         string.IsNullOrWhiteSpace(ptagCode) ? null : $"Pickup tag {ptagCode.Trim()}";
 
     public static string CrossmatchStatusNotice(CrossmatchClinicalStatus status) =>
-        $"XM at issue {status}";
+        $"Crossmatch at issue: {CrossmatchStatusLabel(status)}";
+
+    /// <summary>The crossmatch status in words (end-user testing, 2026-11-12: shown as the code NotCrossmatchedEmergency).</summary>
+    public static string CrossmatchStatusLabel(CrossmatchClinicalStatus status) => status switch
+    {
+        CrossmatchClinicalStatus.Compatible => "Compatible",
+        CrossmatchClinicalStatus.Incompatible => "Incompatible",
+        CrossmatchClinicalStatus.NotPerformed => "Not crossmatched",
+        CrossmatchClinicalStatus.NotCrossmatchedEmergency => "Not crossmatched (emergency release)",
+        CrossmatchClinicalStatus.Expired => "Crossmatch expired",
+        _ => status.ToString()
+    };
 
     public static string TimeOutNotice(bool governed, bool acceptable) =>
         ReturnReissueRule.TimeOutLabel(governed, acceptable) switch

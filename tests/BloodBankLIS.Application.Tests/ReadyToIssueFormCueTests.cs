@@ -245,8 +245,8 @@ public class CrossmatchStatusNoticeTests
     [Fact]
     public void CrossmatchStatusNotice_NamesTheStatus()
     {
-        Assert.Equal("XM at issue Compatible", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.Compatible));
-        Assert.Equal("XM at issue NotCrossmatchedEmergency", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.NotCrossmatchedEmergency));
+        Assert.Equal("Crossmatch at issue: Compatible", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.Compatible));
+        Assert.Equal("Crossmatch at issue: Not crossmatched (emergency release)", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.NotCrossmatchedEmergency));
     }
 }
 

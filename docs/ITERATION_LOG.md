@@ -22354,3 +22354,30 @@ On the running system with seeded data: Inventory → Move units → OR-FRIDGE, 
 ### Next
 
 - Pass 8: the remaining workflows (issue to a cooler and the cooler check, returns, discards) and the gaps a modern blood bank expects.
+
+## Iteration 724 — End-user testing pass 8: coolers, returns and expired stock (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse → Cooler check → CLR-TRAUMA-1 (its unit and an unissued unit scanned); Return → the trauma unit, issued under emergency release six days earlier; Inventory → Discard expired; Stock count of FRIDGE-1 again.
+
+### Found and fixed
+
+1. **Units stored where their component does not belong.** The expired list and the count showed eight apheresis platelets recorded in FRIDGE-1, a red-cell refrigerator (it takes red cells only). A move there is refused, but receiving a unit into a location made no storage check, and nothing flagged a unit already there. Receiving (and confirming an expected unit's arrival) into a location now makes the move's storage check; the stock count marks a found or missing unit whose component the location does not take as *Wrong storage*. The demo platelets are seeded into the platelet incubator on a new database. Retested live: the FRIDGE-1 count marks all eight platelets "FRIDGE-1 does not take platelets".
+2. **Crossmatch status shown as a code.** The Return form read "XM at issue NotCrossmatchedEmergency" (also ward receipt, transfusion, retrospective crossmatch and the chart's product history). It now reads "Crossmatch at issue: Not crossmatched (emergency release)". Retested live on a return.
+
+### Observed working
+
+- The cooler check caught an unissued unit packed in the cooler; the return applied the elapsed window (quarantine only) and listed what else from the cooler was still out; Discard expired lists expired units oldest first.
+
+### Left in the development data
+
+- The eight platelets stay recorded in FRIDGE-1 (all expired), now flagged.
+
+### Tests
+
+- TEST-BB-1009, TEST-BB-1010. Full suite passed.
+
+### Next
+
+- Pass 9: patient testing scenarios not yet covered (antibody identification, DAT workups) and the gaps a modern blood bank expects.
