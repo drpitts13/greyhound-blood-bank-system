@@ -814,3 +814,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-806 | The print job list names what each label was for and when it was printed, not internal ids. | P3 | FRS-BB-924 |
 | URS-BB-807 | The downtime patient summary names an unverified ABO/Rh result that disagrees with the type on file, marks lapsed reservations, and gives order priority in words. | P1 | FRS-BB-925 |
 | URS-BB-808 | The demo data links its crossmatches to their orders, so blood utilization shows ordering location and provider. | P3 | FRS-BB-926 |
+| URS-BB-809 | Equipment check due dates and daily reagent QC count the facility's calendar days, not UTC days. | P1 | FRS-BB-927 |

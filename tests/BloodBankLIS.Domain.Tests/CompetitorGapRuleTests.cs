@@ -25,6 +25,18 @@ public class CompetitorGapRuleTests
         Assert.Contains(items, item => item.Kind == ReagentQcWorklistRule.Unreviewed);
     }
 
+    // TEST-BB-1048: daily reagent QC is counted on the facility's day when it is given: QC on the bench's yesterday is
+    // overdue today though the UTC dates match (end-user testing pass 35).
+    [Fact]
+    public void Worklist_CountsQcOnTheFacilityDay()
+    {
+        var now = new DateTime(2026, 11, 12, 1, 0, 0, DateTimeKind.Utc);
+        ReagentQcLotFact[] lots = [new ReagentQcLotFact(1, "L1", ReagentLotState.Opened, now.AddDays(10))];
+        ReagentQcFact[] qc = [new ReagentQcFact(9, 1, new DateTime(2026, 11, 11), true, "lead")];
+        Assert.Contains(ReagentQcWorklistRule.Evaluate(lots, qc, now, facilityToday: new DateTime(2026, 11, 12)), i => i.Kind == ReagentQcWorklistRule.Overdue);
+        Assert.DoesNotContain(ReagentQcWorklistRule.Evaluate(lots, qc, now, facilityToday: new DateTime(2026, 11, 11)), i => i.Kind == ReagentQcWorklistRule.Overdue);
+    }
+
     // TEST-BB-558: a failed QC stands only while it is the open lot's latest QC; an expired lot is flagged to close
     // instead of asking for daily QC.
     [Fact]

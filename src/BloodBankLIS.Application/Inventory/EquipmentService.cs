@@ -89,6 +89,13 @@ public sealed class EquipmentService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IFacilityTimeZone? _timeZone;
+
+    /// <summary>
+    /// A stored UTC time on the facility's calendar. Due dates count the bench's days: a daily check done at 19:30 local
+    /// (00:30 UTC the next day) was "Due today" a day late (end-user testing pass 35).
+    /// </summary>
+    private DateTime Local(DateTime utc) => _timeZone?.ToLocal(utc) ?? utc;
 
     public EquipmentService(
         IRepository<Equipment> equipment,
@@ -97,8 +104,10 @@ public sealed class EquipmentService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZone = timeZone;
         _equipment = equipment;
         _checks = checks;
         _records = records;
@@ -124,7 +133,7 @@ public sealed class EquipmentService
             .OrderBy(e => e.IsActive ? 0 : 1)
             .ThenBy(e => e.Kind)
             .ThenBy(e => e.Code)
-            .Select(e => ToDto(e, checks.Where(c => c.EquipmentId == e.Id), records, now))
+            .Select(e => ToDto(e, checks.Where(c => c.EquipmentId == e.Id), records, now, Local))
             .ToList();
     }
 
@@ -138,7 +147,7 @@ public sealed class EquipmentService
 
         var checks = await _checks.ListAsync(c => c.EquipmentId == id, ct);
         var records = await _records.ListAsync(r => r.EquipmentId == id, ct);
-        return ToDto(equipment, checks, records, _clock.UtcNow);
+        return ToDto(equipment, checks, records, _clock.UtcNow, Local);
     }
 
     /// <summary>Active checks on active, in-service equipment that need doing now: failed, overdue, due today, never done.</summary>
@@ -162,7 +171,7 @@ public sealed class EquipmentService
     /// </summary>
     public async Task<IReadOnlyList<EquipmentCheckDueDto>> ListUpcomingAsync(int days, CancellationToken ct = default)
     {
-        var horizon = DateOnly.FromDateTime(_clock.UtcNow).AddDays(Math.Clamp(days, 1, MaxUpcomingDays));
+        var horizon = DateOnly.FromDateTime(Local(_clock.UtcNow)).AddDays(Math.Clamp(days, 1, MaxUpcomingDays));
         return (await ListAsync(includeInactive: false, ct))
             .Where(e => e.InService)
             .SelectMany(e => e.Checks.Where(c => c.IsActive && !c.NeedsAction && c.DueOn is { } due && due <= horizon)
@@ -475,7 +484,7 @@ public sealed class EquipmentService
         return EvaluationResult<EquipmentDto>.Ok((await GetAsync(id, ct))!);
     }
 
-    private static EquipmentDto ToDto(Equipment e, IEnumerable<EquipmentCheck> checks, IReadOnlyList<EquipmentCheckRecord> records, DateTime now) =>
+    private static EquipmentDto ToDto(Equipment e, IEnumerable<EquipmentCheck> checks, IReadOnlyList<EquipmentCheckRecord> records, DateTime now, Func<DateTime, DateTime> local) =>
         new(e.Id, e.Code, e.Name, e.Kind, e.Location, e.SerialNumber, e.IsActive, e.OutOfServiceUtc, e.OutOfServiceReason, e.OutOfServiceBy,
             checks.OrderBy(c => c.IsActive ? 0 : 1).ThenBy(c => c.IntervalDays).ThenBy(c => c.Name)
                 .Select(c =>
@@ -483,7 +492,8 @@ public sealed class EquipmentService
                     var mine = records.Where(r => r.EquipmentCheckId == c.Id).OrderByDescending(r => r.PerformedUtc).ThenByDescending(r => r.Id).ToList();
                     var latest = mine.FirstOrDefault();
                     var lastPassed = mine.FirstOrDefault(r => r.Passed);
-                    var status = EquipmentCheckRule.Evaluate(c.IntervalDays, lastPassed?.PerformedUtc, latest is { Passed: false }, now);
+                    var status = EquipmentCheckRule.Evaluate(
+                        c.IntervalDays, lastPassed is null ? null : local(lastPassed.PerformedUtc), latest is { Passed: false }, local(now));
                     return new EquipmentCheckStatusDto(c.Id, c.Name, c.IntervalDays, c.Instructions, c.IsActive, status.State.ToString(),
                         status.DueOn, status.NeedsAction, EquipmentCheckRule.Describe(status), latest?.PerformedUtc, latest?.PerformedBy,
                         latest?.Passed, latest?.Note);

@@ -54,9 +54,11 @@ public static class ReagentQcWorklistRule
     public static IReadOnlyList<ReagentQcWorkItem> Evaluate(
         IReadOnlyList<ReagentQcLotFact> lots,
         IReadOnlyList<ReagentQcFact> qcRows,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        DateTime? facilityToday = null)
     {
-        var today = nowUtc.Date;
+        // The bench's day (the facility's calendar) when given; QC rows carry their day the same way.
+        var today = facilityToday?.Date ?? nowUtc.Date;
         var items = new List<ReagentQcWorkItem>();
         foreach (var lot in lots)
         {

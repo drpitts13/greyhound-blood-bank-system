@@ -22939,3 +22939,22 @@ On the running system with seeded data: Issue & Transfuse › Ready to issue (th
 ### Tests
 
 - TEST-BB-1047. Full suite passed.
+
+## Iteration 751 — End-user testing pass 35: equipment checks and the facility's day (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Equipment (cell washer CW-01, centrifuge CENT-01, heat block HB-01), then Reagent QC.
+
+### Found and fixed
+
+1. **Due dates counted UTC days.** CW-01's daily check, last done 2026-11-10 at 19:31 local (00:31 UTC on the 11th), read "Due today" on the 12th: by the bench's calendar it was due on the 11th. Every check done after 19:00 local gained a day. Due dates now count the facility's days (the configured facility time zone, else the server's). Retested live: "Overdue 1 day (due 2026-11-11)"; CENT-01, last checked at 20:31 local on 2026-08-08, is now due 2026-11-06.
+2. **Daily reagent QC counted UTC days.** The same boundary applied to "QC today": QC run in the evening counted for the next UTC day, so the next morning's QC would have looked done, and result entry would not have warned. QC is now counted on the facility's day, on the worklist, the entry warnings, and the page's "Today's QC". Retested live: today's QC done on all seven lots, nothing overdue.
+
+### Checked, not defects
+
+- HB-01 stays out of service until a passing check is recorded.
+
+### Tests
+
+- TEST-BB-1048, TEST-BB-1049. Full suite passed.

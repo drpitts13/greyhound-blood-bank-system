@@ -132,6 +132,13 @@ public sealed class ReagentQcService
     private readonly IRepository<Specimen>? _specimens;
     private readonly IRepository<Patient>? _patients;
     private readonly IRepository<TestDefinition>? _tests;
+    private readonly IFacilityTimeZone? _timeZone;
+
+    /// <summary>
+    /// The facility's calendar day of a stored UTC time. Daily QC is a bench day's: QC run at 19:30 local (00:30 UTC the
+    /// next day) had counted for the next day, so that morning's QC looked done (end-user testing pass 35).
+    /// </summary>
+    private DateTime LocalDay(DateTime utc) => (_timeZone?.ToLocal(utc) ?? utc).Date;
 
     public ReagentQcService(
         IRepository<Reagent> reagents,
@@ -145,8 +152,10 @@ public sealed class ReagentQcService
         IRepository<TestResult>? results = null,
         IRepository<Specimen>? specimens = null,
         IRepository<Patient>? patients = null,
-        IRepository<TestDefinition>? tests = null)
+        IRepository<TestDefinition>? tests = null,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZone = timeZone;
         _resultLots = resultLots;
         _results = results;
         _specimens = specimens;
@@ -287,9 +296,9 @@ public sealed class ReagentQcService
         var now = _clock.UtcNow;
         var inUse = ReagentLotUseRule.LotsInUse(result.TestCode, reagents, lots, now);
         var inUseIds = inUse.Select(l => l.Id).ToList();
-        var today = now.Date;
+        var today = LocalDay(now);
         var passedToday = (await _qc.ListAsync(q => inUseIds.Contains(q.ReagentLotId) && q.Passed, ct))
-            .Where(q => q.QcDateUtc.Date == today)
+            .Where(q => LocalDay(q.PerformedUtc) == today)
             .Select(q => q.ReagentLotId)
             .ToHashSet();
         var recorded = inUse
@@ -618,7 +627,8 @@ public sealed class ReagentQcService
         var row = new ReagentDailyQc
         {
             ReagentLotId = lot.Id,
-            QcDateUtc = now.Date,
+            // The facility's day the QC was run (see LocalDay).
+            QcDateUtc = LocalDay(now),
             ExpectedResult = request.ExpectedResult.Trim(),
             ObservedResult = request.ObservedResult.Trim(),
             Passed = request.Passed,
@@ -674,9 +684,9 @@ public sealed class ReagentQcService
         var facts = lots
             .Select(l => new ReagentQcLotFact(l.Id, l.LotNumber, l.State, l.ExpiresUtc, l.ReagentId, reagentCodes.GetValueOrDefault(l.ReagentId)))
             .ToList();
-        var qcFacts = rows.Select(q => new ReagentQcFact(q.Id, q.ReagentLotId, q.QcDateUtc, q.Passed, q.ReviewedBy)).ToList();
+        var qcFacts = rows.Select(q => new ReagentQcFact(q.Id, q.ReagentLotId, LocalDay(q.PerformedUtc), q.Passed, q.ReviewedBy)).ToList();
         var lotNumbers = lots.ToDictionary(l => l.Id, l => l.LotNumber);
-        var items = ReagentQcWorklistRule.Evaluate(facts, qcFacts, _clock.UtcNow)
+        var items = ReagentQcWorklistRule.Evaluate(facts, qcFacts, _clock.UtcNow, LocalDay(_clock.UtcNow))
             .Select(item => new ReagentQcWorkItemDto(
                 item.Kind,
                 item.LotId,

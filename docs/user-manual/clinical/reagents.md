@@ -37,3 +37,5 @@ This screen does not decide that a reagent is acceptable for a patient. It recor
 ## Keep the reagent list
 
 A reagent code is used once: adding a code already in the list (in any case, retired or not) is refused. **Rename** corrects a reagent's name and asks why. **Retire** takes a reagent the laboratory no longer uses off the list: it asks why, and is refused while any of its lots is received or open, so close them first. A retired reagent takes no new lots and records no lots on results; its lots and QC stay on record. **Show retired reagents** lists them again, with **Restore**. Each change is in the audit trail.
+
+"Today" for daily QC is the facility's day (configuration *Facility:TimeZone*, or the server's time zone): QC run in the evening counts for that day, not the next one, so the next morning's QC is still asked for.

@@ -746,13 +746,14 @@
     {
         get
         {
-            var today = DateTime.UtcNow.Date;
+            // Today on the bench's calendar (end-user testing pass 35: an evening QC counted for the next UTC day).
+            var today = DateTime.Now.Date;
             var open = QcLots.Where(l => l.ExpiresUtc > DateTime.UtcNow).OrderBy(l => l.ReagentCode).ThenBy(l => l.LotNumber).ToList();
             // Keep what has been typed; add new lots, drop closed ones, refresh done-today.
             var rows = new List<QcRunRow>();
             foreach (var lot in open)
             {
-                var done = _recentQc.Where(q => q.ReagentLotId == lot.Id && q.QcDateUtc.Date == today).OrderByDescending(q => q.PerformedUtc).FirstOrDefault();
+                var done = _recentQc.Where(q => q.ReagentLotId == lot.Id && q.PerformedUtc.ToLocalTime().Date == today).OrderByDescending(q => q.PerformedUtc).FirstOrDefault();
                 var existing = _qcRun.FirstOrDefault(r => r.LotId == lot.Id);
                 rows.Add(done is not null
                     ? new QcRunRow { LotId = lot.Id, ReagentCode = lot.ReagentCode, LotNumber = lot.LotNumber, DoneToday = true, DonePassed = done.Passed,

@@ -920,6 +920,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-806 / FRS-BB-924 | End-user testing pass 32: print job list | `PrintService.cs`, `PrintEndpoints.cs`, `Printing.razor` | TEST-BB-1045 | I | |
 | URS-BB-807 / FRS-BB-925 | End-user testing pass 33: downtime patient summary | `DowntimePatientSummaryService.cs`, `DowntimePatients.razor` | TEST-BB-1046 | I | |
 | URS-BB-808 / FRS-BB-926 | End-user testing pass 34: demo crossmatch orders | `DatabaseSeeder.cs` | TEST-BB-1047 | I | |
+| URS-BB-809 / FRS-BB-927 | End-user testing pass 35: facility days for checks and QC | `EquipmentService.cs`, `ReagentQcService.cs`, `ReagentQcRules.cs`, `Reagents.razor` | TEST-BB-1048, TEST-BB-1049 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

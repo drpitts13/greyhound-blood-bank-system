@@ -57,6 +57,24 @@ public class EquipmentServiceTests : IDisposable
         Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(EquipmentCheckRecord) && e.Reason!.Contains("Daily check passed on CW-01")));
     }
 
+    // TEST-BB-1049: a check's due date counts the facility's days: a daily check done at 19:30 Eastern (00:30 UTC the next
+    // day) is overdue the second morning after, not "due today" (end-user testing pass 35).
+    [Fact]
+    public async Task DueDates_CountTheFacilityDays()
+    {
+        await using var c = _factory.Create();
+        var eastern = BloodBankLIS.Infrastructure.Common.FacilityTimeZone.FromId("America/New_York");
+        var svc = new EquipmentService(new EfRepository<Equipment>(c), new EfRepository<EquipmentCheck>(c), new EfRepository<EquipmentCheckRecord>(c),
+            c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), eastern);
+        var (_, checkId) = await RegisterAsync(c, "CW-TZ");
+        _factory.Clock.UtcNow = new DateTime(2026, 11, 11, 0, 30, 0, DateTimeKind.Utc);
+        Assert.True((await svc.RecordAsync(checkId, new RecordEquipmentCheckRequest(true, "Evening check"))).Succeeded);
+
+        _factory.Clock.UtcNow = new DateTime(2026, 11, 12, 13, 0, 0, DateTimeKind.Utc);
+        var due = Assert.Single(await svc.ListDueAsync(), d => d.CheckId == checkId);
+        Assert.Equal((nameof(EquipmentCheckRule.State.Overdue), new DateOnly(2026, 11, 11)), (due.State, due.DueOn));
+    }
+
     // TEST-BB-971: a failed record needs a note and stays failed (on the due list first) until a pass; out of service
     // needs a reason, takes the equipment's checks off the due list, and is undone with a reason; a retired check and
     // a check with a bad interval are refused.

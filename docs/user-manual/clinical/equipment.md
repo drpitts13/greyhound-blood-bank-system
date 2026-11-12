@@ -45,3 +45,5 @@ An administrator (*admin.config.edit*) selects **Add equipment** and enters the 
 > The intervals and pass criteria are the facility's, from its SOPs and the manufacturer's instructions. None is built in; the demo equipment's intervals are examples only.
 
 Every registration, scheduled check, record, and change of service is in the audit trail. Nothing is deleted.
+
+Due dates count the facility's days (configuration *Facility:TimeZone*, or the server's time zone): a daily check done in the evening is due the next day, and overdue the day after.
