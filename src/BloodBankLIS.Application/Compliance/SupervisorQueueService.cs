@@ -34,6 +34,13 @@ public sealed class SupervisorQueueService
     private readonly RhigEvaluationService? _rhig;
     private readonly BloodBankLIS.Application.Issuing.TransfusionReportReviewService? _reported;
 
+    /// <summary>A code name in words: "ReactionRemainder" reads "Reaction remainder".</summary>
+    private static string Words(string code)
+    {
+        var parts = System.Text.RegularExpressions.Regex.Split(code, "(?<=[a-z0-9])(?=[A-Z])").Where(p => p.Length > 0).ToList();
+        return string.Join(' ', parts.Select((p, i) => i == 0 ? p : p.ToLowerInvariant()));
+    }
+
     public SupervisorQueueService(
         ICurrentUser currentUser,
         AntibodyIdentificationService? abid = null,
@@ -135,15 +142,17 @@ public sealed class SupervisorQueueService
             foreach (var u in quarantine)
             {
                 var product = string.IsNullOrWhiteSpace(u.ProductCode) ? "unit" : u.ProductCode!;
+                // The reason in words and the board's next step; Release only when the board would allow it (end-user
+                // testing pass 31: codes such as ReactionRemainder, and Release offered on units the board holds).
                 var reason = u.ReasonCode == UnitQuarantineReason.Unspecified
-                    ? (u.Notes ?? "Quarantine")
-                    : u.ReasonCode.ToString();
+                    ? (u.Notes ?? "Quarantine").Trim().TrimEnd('.')
+                    : Words(u.ReasonCode.ToString());
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindQuarantineRelease,
                     $"Quarantine release — {u.UnitNumber}",
-                    $"{product} {u.Abo} {u.RhD}. {reason}.",
+                    $"{product} {u.Abo} {u.RhD}. {reason}." + (string.IsNullOrWhiteSpace(u.NextStep) ? "" : $" {u.NextStep}"),
                     $"/inventory/units/{u.UnitId}",
-                    "Release",
+                    u.CanRelease ? "Release" : "Open",
                     ContextId: u.UnitId));
             }
         }
@@ -191,8 +200,9 @@ public sealed class SupervisorQueueService
                 var what = OverrideActionRule.Describe(o.Action);
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindOverrideReview,
-                    $"{what} — {o.ContextType} {o.ContextId}",
-                    $"{o.OverriddenUtc:yyyy-MM-dd HH:mm} UTC. Rule {o.RuleCode}. Reason: {o.Reason}. Authorized by {o.AuthorizedBy} ({AuthorizerDirectoryRule.Describe(o.AuthorizerMatch, o.AuthorizerReference)}), performed by {o.PerformedBy}.",
+                    // The record named as staff know it (unit and patient), not "Issue 7" (end-user testing pass 31).
+                    $"{what} — {o.ContextName ?? $"{o.ContextType} {o.ContextId}"}",
+                    $"{o.OverriddenUtc:yyyy-MM-dd HH:mm} UTC. Rule {o.RuleCode}. Reason: {o.Reason.Trim().TrimEnd('.')}. Authorized by {o.AuthorizedBy} ({AuthorizerDirectoryRule.Describe(o.AuthorizerMatch, o.AuthorizerReference)}), performed by {o.PerformedBy}.",
                     o.ContextHref ?? "/supervisor",
                     "Review",
                     ContextId: o.Id));

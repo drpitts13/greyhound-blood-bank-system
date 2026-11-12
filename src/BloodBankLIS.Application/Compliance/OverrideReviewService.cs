@@ -26,6 +26,9 @@ public sealed record OverrideReviewItemDto(
     AuthorizerDirectoryMatch? AuthorizerMatch = null,
     string? AuthorizerReference = null)
 {
+    /// <summary>The record as staff know it ("unit W0001230001004 for Demo, Patricia (MRN0001)"); null when it cannot be named.</summary>
+    public string? ContextName { get; init; }
+
     public static OverrideReviewItemDto From(Override o) => new(
         o.Id, o.Action, o.ContextType, o.ContextId, o.RuleCode, o.Reason, o.AuthorizedBy, o.CreatedBy, o.OverriddenUtc,
         // Issue overrides carry the unit id; the unit page shows its issue and status history.
@@ -45,6 +48,14 @@ public sealed class OverrideReviewService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<Issue>? _issues;
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<Crossmatch>? _crossmatches;
+    private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<Specimen>? _specimens;
+    private readonly IRepository<Order>? _orders;
+    private readonly IRepository<Patient>? _patients;
 
     public OverrideReviewService(
         IRepository<Override> overrides,
@@ -52,8 +63,24 @@ public sealed class OverrideReviewService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<BloodUnit>? units = null,
+        IRepository<Issue>? issues = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<Crossmatch>? crossmatches = null,
+        IRepository<TestResult>? results = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<Order>? orders = null,
+        IRepository<Patient>? patients = null)
     {
+        _units = units;
+        _issues = issues;
+        _allocations = allocations;
+        _crossmatches = crossmatches;
+        _results = results;
+        _specimens = specimens;
+        _orders = orders;
+        _patients = patients;
         _overrides = overrides;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -62,11 +89,64 @@ public sealed class OverrideReviewService
         _permissions = permissions;
     }
 
-    public async Task<IReadOnlyList<OverrideReviewItemDto>> ListPendingAsync(CancellationToken ct = default) =>
-        (await _overrides.ListAsync(o => o.ReviewedUtc == null, ct))
-            .OrderBy(o => o.OverriddenUtc)
-            .Select(OverrideReviewItemDto.From)
-            .ToList();
+    public async Task<IReadOnlyList<OverrideReviewItemDto>> ListPendingAsync(CancellationToken ct = default)
+    {
+        var rows = (await _overrides.ListAsync(o => o.ReviewedUtc == null, ct)).OrderBy(o => o.OverriddenUtc).ToList();
+        var result = new List<OverrideReviewItemDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            result.Add(OverrideReviewItemDto.From(row) with { ContextName = await NameAsync(row.ContextType, row.ContextId, ct) });
+        }
+
+        return result;
+    }
+
+    private async Task<string?> PatientAsync(long patientId, CancellationToken ct) =>
+        _patients is not null && await _patients.GetByIdAsync(patientId, ct) is { } p
+            ? $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})"
+            : null;
+
+    private async Task<string?> UnitForPatientAsync(long unitId, long? patientId, CancellationToken ct)
+    {
+        var unit = _units is null ? null : await _units.GetByIdAsync(unitId, ct);
+        if (unit is null)
+        {
+            return null;
+        }
+
+        var patient = patientId is long id ? await PatientAsync(id, ct) : null;
+        return patient is null ? $"unit {unit.UnitNumber}" : $"unit {unit.UnitNumber} for {patient}";
+    }
+
+    /// <summary>
+    /// The overridden record named for the reviewer (end-user testing pass 31: the queue said "Issue 7", where 7 is the
+    /// unit's internal id). Issue overrides carry the unit id.
+    /// </summary>
+    private async Task<string?> NameAsync(string contextType, long contextId, CancellationToken ct)
+    {
+        switch (contextType)
+        {
+            case nameof(Issue):
+                var issue = _issues is null
+                    ? null
+                    : (await _issues.ListAsync(i => i.BloodProductId == contextId, ct)).OrderByDescending(i => i.IssuedUtc).FirstOrDefault();
+                return await UnitForPatientAsync(contextId, issue?.PatientId, ct);
+            case nameof(Allocation) when _allocations is not null:
+                return await _allocations.GetByIdAsync(contextId, ct) is { } a ? await UnitForPatientAsync(a.BloodProductId, a.PatientId, ct) : null;
+            case nameof(Crossmatch) when _crossmatches is not null:
+                return await _crossmatches.GetByIdAsync(contextId, ct) is { } x ? await UnitForPatientAsync(x.BloodProductId, x.PatientId, ct) : null;
+            case nameof(TestResult) when _results is not null:
+                return await _results.GetByIdAsync(contextId, ct) is { } r
+                    ? $"{r.TestCode} for {await PatientAsync(r.PatientId, ct) ?? "the patient"}"
+                    : null;
+            case nameof(Specimen) when _specimens is not null:
+                return await _specimens.GetByIdAsync(contextId, ct) is { } s ? $"specimen {s.AccessionNumber}" : null;
+            case nameof(Order) when _orders is not null:
+                return await _orders.GetByIdAsync(contextId, ct) is { } order ? $"order {order.OrderNumber}" : null;
+            default:
+                return null;
+        }
+    }
 
     public async Task<EvaluationResult<OverrideReviewItemDto>> ReviewAsync(long id, ReviewOverrideRequest request, CancellationToken ct = default)
     {

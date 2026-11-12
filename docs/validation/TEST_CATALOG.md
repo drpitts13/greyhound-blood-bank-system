@@ -1052,5 +1052,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1041 | U | `AstmParserTests.Simulator_PutsTheResultTimeAndInstrumentWhereTheEchoDoes` | URS-BB-803 / FRS-BB-921 |
 | TEST-BB-1042 | I | `InstrumentInterfaceTests.InboundGroupResult_PostsInstrumentPendingVerification` | URS-BB-804 / FRS-BB-922 |
 | TEST-BB-1043 | U | `AstmParserTests.InstrumentRun_ReadsAsAnalyzerAndCompletionTime` | URS-BB-804 / FRS-BB-922 |
+| TEST-BB-1044 | I | `OverrideReviewTests.PendingOverride_NamesTheUnitAndPatient` | URS-BB-805 / FRS-BB-923 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

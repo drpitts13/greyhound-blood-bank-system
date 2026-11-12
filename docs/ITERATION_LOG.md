@@ -22859,3 +22859,28 @@ On the running system with seeded data: the instrument simulator sending a scree
 ### Tests
 
 - TEST-BB-1042, TEST-BB-1043. Full suite passed.
+
+## Iteration 747 — End-user testing pass 31: the newborn chart and the supervisor queue (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Baby Boy Newborn's chart (MRN0002, six days old, NICU), then the Supervisor queue.
+
+### Checked, not defects
+
+- The newborn's chart offers Link mother; no mother is linked in the seeded data. The neonatal rules are shipped off (OCD-074), and a maternal antibody adds no requirement by itself (OCD-074 option D not chosen), so nothing more applies.
+
+### Found and fixed
+
+1. **Quarantine reasons as codes, and Release on held units.** Quarantine rows read "PendingRelease", "FailedReturnInspection", "ReactionRemainder", and every one offered Release, including a reaction remainder the quarantine board holds until its investigation is closed. Rows now give the reason in words and the board's next step, and offer Release only where the board would allow it (otherwise Open).
+2. **Overrides named by internal id.** The emergency release read "Emergency release — Issue 7" (7 being the unit's internal id) and its reason ended "..". It now reads "Emergency release — unit W0001230001004 for Trauma, John Doe (MRN0005)", with one full stop.
+
+Retested live on the Supervisor queue.
+
+### Remaining
+
+- The Printing page names a job's context by type and internal id ("Issue #3").
+
+### Tests
+
+- TEST-BB-1044. Full suite passed.

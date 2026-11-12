@@ -36,3 +36,5 @@ Every override (an emergency release, a massive-transfusion release, or an issue
 Choose **Review**, then **Acceptable** or **Needs follow-up**. Follow-up needs a note saying what must happen. You cannot review an override you performed or authorized. The review is recorded on the override and in the audit trail; it does not undo anything. Who may review, and how soon, is your facility's policy.
 
 > Warning. Releasing a unit from quarantine makes it selectable for patients. Read the quarantine reason before you release. A retype mismatch is not a routine release.
+
+Quarantine rows give the reason in words and the quarantine board's next step; **Release** is offered only when the board would allow it (otherwise **Open**, for example a reaction remainder whose investigation is still open). An override row names the record as staff know it, for example "Emergency release — unit W0001230001004 for Trauma, John Doe (MRN0005)".
