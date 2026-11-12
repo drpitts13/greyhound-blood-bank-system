@@ -809,3 +809,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-801 | A reserved unit released from quarantine stays reserved; only a quarantined unit can be released. | P1 | FRS-BB-919 |
 | URS-BB-802 | A phased antibody screen reads as cell and phase ("Cell1 AHG:1+"), not its stored key. | P3 | FRS-BB-920 |
 | URS-BB-803 | The instrument simulator's result records place the completion time and instrument where the instrument does (ASTM E1394 R.13, R.14). | P2 | FRS-BB-921 |
+| URS-BB-804 | An instrument result keeps the analyzer and completion time, and the verifier sees them and any instrument flag on the Test worklist. | P1 | FRS-BB-922 |

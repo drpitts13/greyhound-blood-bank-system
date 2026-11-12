@@ -22844,3 +22844,18 @@ On the running system with seeded data: the Test worklist (Riley Demo-Multi's in
 ### Tests
 
 - TEST-BB-1040, TEST-BB-1041. Full suite passed.
+
+## Iteration 746 — End-user testing pass 30: what the verifier sees of an instrument result (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the instrument simulator sending a screen for Riley Demo-Multi's ACC-DEMO-RCV1, then the Test worklist where it is verified.
+
+### Found and fixed
+
+1. **Flags left "for the verifier" were not shown where results are verified.** An instrument Warn flag, or two differing Anti-D readings, is written into the result's source reference with the note that it is for the verifier, but the Test worklist showed only "Source: Instrument"; the reference was visible only in the chart's version history. The worklist now shows it after Source.
+2. **The analyzer and completion time were dropped.** The instrument ID (R.14) and completion time (R.13) were read and not kept. They now go with the result. Retested live: "Source: Instrument · M0002 · completed 2026-11-12 20:16 (instrument clock)".
+
+### Tests
+
+- TEST-BB-1042, TEST-BB-1043. Full suite passed.

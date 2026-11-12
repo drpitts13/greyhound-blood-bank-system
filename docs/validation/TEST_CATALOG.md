@@ -1050,5 +1050,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1039 | I | `InventoryServiceTests.QuarantineRelease_KeepsAReservedUnitReserved` | URS-BB-801 / FRS-BB-919 |
 | TEST-BB-1040 | U | `ResultValueTextTests.For_ReadsPhasedCellsAsCellAndPhase` | URS-BB-802 / FRS-BB-920 |
 | TEST-BB-1041 | U | `AstmParserTests.Simulator_PutsTheResultTimeAndInstrumentWhereTheEchoDoes` | URS-BB-803 / FRS-BB-921 |
+| TEST-BB-1042 | I | `InstrumentInterfaceTests.InboundGroupResult_PostsInstrumentPendingVerification` | URS-BB-804 / FRS-BB-922 |
+| TEST-BB-1043 | U | `AstmParserTests.InstrumentRun_ReadsAsAnalyzerAndCompletionTime` | URS-BB-804 / FRS-BB-922 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

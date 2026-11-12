@@ -153,6 +153,20 @@ public class AstmParserTests
         Assert.Contains(message.Records, r => r.Type == 'L');
     }
 
+    // TEST-BB-1043: the instrument run reads as analyzer and completion time; an unparseable time is kept as sent; the
+    // worklist shows what follows the reference's key (end-user testing pass 30).
+    [Fact]
+    public void InstrumentRun_ReadsAsAnalyzerAndCompletionTime()
+    {
+        Assert.Equal(" · M0002 · completed 2026-11-12 19:49 (instrument clock)",
+            BloodBankLIS.Astm.Messaging.AstmInboundProcessor.InstrumentRunText("M0002", "20261112194943"));
+        Assert.Equal(" · completed soon", BloodBankLIS.Astm.Messaging.AstmInboundProcessor.InstrumentRunText(null, "soon"));
+        Assert.Equal(string.Empty, BloodBankLIS.Astm.Messaging.AstmInboundProcessor.InstrumentRunText(" ", null));
+        Assert.Equal("M0002 · instrument flag W (Warn)",
+            BloodBankLIS.Application.Results.ResultSourceDetail.For("ASTM:ACC1:ABORH · M0002 · instrument flag W (Warn)"));
+        Assert.Null(BloodBankLIS.Application.Results.ResultSourceDetail.For("ASTM:ACC1:ABORH"));
+    }
+
     // TEST-BB-1041: a simulated result record follows ASTM E1394 as the Echo does: status in R.9, completion time in R.13
     // and instrument in R.14, where the catalog's data items read them (end-user testing pass 29: result_dt read M0002).
     [Fact]

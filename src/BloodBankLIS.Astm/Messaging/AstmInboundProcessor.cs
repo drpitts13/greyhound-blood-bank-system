@@ -297,6 +297,8 @@ public sealed class AstmInboundProcessor
             var holds = new List<string>();
             var warnings = new List<string>();
             var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string? completedAt = null;
+            string? instrumentSerial = null;
 
             foreach (var result in group.Results)
             {
@@ -350,6 +352,8 @@ public sealed class AstmInboundProcessor
                     }
                 }
 
+                completedAt ??= NullIfBlank(applied.GetValueOrDefault(InstrumentDataItemKeys.ResultDt));
+                instrumentSerial ??= NullIfBlank(applied.GetValueOrDefault(InstrumentDataItemKeys.InstrumentId));
                 var analyte = applied.GetValueOrDefault(InstrumentDataItemKeys.SubtestCode) ?? bag[InstrumentDataItemKeys.SubtestCode];
                 var value = applied.GetValueOrDefault(InstrumentDataItemKeys.SubtestResult);
                 var mappedInterp = applied.GetValueOrDefault(InstrumentDataItemKeys.TestInterp);
@@ -434,7 +438,7 @@ public sealed class AstmInboundProcessor
                 continue;
             }
 
-            var posted = await PostAssayAsync(appTest, specimenId, subtests, interp, units, notes, ct, warnings);
+            var posted = await PostAssayAsync(appTest, specimenId, subtests, interp, units, notes, ct, warnings, instrumentSerial, completedAt);
             if (!posted)
             {
                 log.ErrorDetail = notes.LastOrDefault() ?? log.ErrorDetail;
@@ -545,6 +549,30 @@ public sealed class AstmInboundProcessor
         return replies.Count == 0 ? null : string.Join(string.Empty, replies);
     }
 
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>" · M0002 · completed 2026-11-12 19:49 (instrument clock)", or the parts present; empty when neither is.</summary>
+    public static string InstrumentRunText(string? instrumentSerial, string? completedAt)
+    {
+        var text = string.Empty;
+        if (!string.IsNullOrWhiteSpace(instrumentSerial))
+        {
+            text += $" · {instrumentSerial.Trim()}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(completedAt))
+        {
+            var raw = completedAt.Trim();
+            text += System.DateTime.TryParseExact(raw.Length >= 12 ? raw[..Math.Min(raw.Length, 14)] : raw,
+                    ["yyyyMMddHHmmss", "yyyyMMddHHmm"], System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var at)
+                ? $" · completed {at:yyyy-MM-dd HH:mm} (instrument clock)"
+                : $" · completed {raw}";
+        }
+
+        return text;
+    }
+
     private async Task<bool> PostAssayAsync(
         string appTest,
         string specimenId,
@@ -553,7 +581,9 @@ public sealed class AstmInboundProcessor
         string? units,
         List<string> notes,
         CancellationToken ct,
-        IReadOnlyList<string>? warnings = null)
+        IReadOnlyList<string>? warnings = null,
+        string? instrumentSerial = null,
+        string? completedAt = null)
     {
         var specimen = await _specimens.FirstOrDefaultAsync(s => s.AccessionNumber == specimenId, ct);
         if (specimen is null)
@@ -583,7 +613,9 @@ public sealed class AstmInboundProcessor
             return false;
         }
 
-        var reference = $"ASTM:{specimenId}:{appTest}";
+        // The instrument and its completion time (R.14, R.13) go with the result, so the verifier and the record show which
+        // analyzer ran the test and when (end-user testing pass 30: they were read and dropped).
+        var reference = $"ASTM:{specimenId}:{appTest}" + InstrumentRunText(instrumentSerial, completedAt);
         if (warnings is { Count: > 0 })
         {
             // The verifier sees the instrument's flag beside the result's source.

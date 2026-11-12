@@ -251,7 +251,7 @@
                             {
                                 <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
                             }
-                            <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")</span>
+                            <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")@if (item.CurrentResultSourceDetail is { } sourceDetail) { <span data-worklist-source-detail> · @sourceDetail</span> }</span>
                             @if (item.CurrentResultReagentLots is { Count: > 0 } lots)
                             {
                                 <span class="sub" title="Reagent lots open for this test when the result was entered" data-worklist-lots>Lots: @string.Join(", ", lots)</span>

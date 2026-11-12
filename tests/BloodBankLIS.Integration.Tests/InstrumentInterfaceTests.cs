@@ -62,6 +62,9 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(ResultStatus.PendingVerification, posted.Status);
         Assert.True(AboRhResultValueLooksLikePanel(posted.Value));
         Assert.True(await context.InstrumentMessages.AnyAsync(m => m.SpecimenId == "ACC-INST-GRP"));
+        // TEST-BB-1042: the analyzer and its completion time go with the result (end-user testing pass 30).
+        Assert.Matches(@" · M0002 · completed \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(instrument clock\)", posted.SourceReference);
+        Assert.StartsWith("M0002 · completed", ResultSourceDetail.For(posted.SourceReference));
     }
 
     // TEST-BB-400: a failed instrument message stays open until a replay applies it or someone resolves it with a

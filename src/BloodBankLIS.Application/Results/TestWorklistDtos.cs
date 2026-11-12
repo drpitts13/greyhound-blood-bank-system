@@ -59,7 +59,9 @@ public sealed record TestWorkItemDto(
     // That result was later invalidated or corrected so it no longer matches: check whether the test is still needed.
     string? ReflexTriggerNotice = null,
     // Where the tube is stored (Store tubes), or null when it has not been put away.
-    string? SpecimenStorageLocation = null)
+    string? SpecimenStorageLocation = null,
+    // What the instrument or interface said with the current result (analyzer, completion time, flags for the verifier).
+    string? CurrentResultSourceDetail = null)
 {
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";

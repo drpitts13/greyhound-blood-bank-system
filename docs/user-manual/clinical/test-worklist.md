@@ -53,3 +53,5 @@ The product retype tab of the worklist lists units that still need a front type.
 ## Correct or invalidate
 
 After verification, a wrong result is corrected or invalidated. Correction requires a signature. You can correct a verified result, and verify the correction, after its specimen has expired: the correction fixes the record of a test already done. A new result on an expired specimen is still refused. Invalidation keeps the prior result visible and removes it from current history. Both are audited. The supervisor queue shows verifications that are waiting when your role is the one who verifies.
+
+For a result from an instrument or the interface, **Source** also shows what came with it: the analyzer, when it completed the test (by the instrument's clock), and any instrument flag or differing readings left for the verifier, for example "Source: Instrument · M0002 · completed 2026-11-12 20:16 (instrument clock)".
