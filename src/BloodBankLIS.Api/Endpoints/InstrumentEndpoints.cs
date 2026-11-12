@@ -141,7 +141,9 @@ public static class InstrumentEndpoints
             AstmInboundProcessor processor,
             CancellationToken ct) =>
         {
-            var generated = EchoResultSimulator.Generate(ToSim(req.Preview));
+            var raw = string.IsNullOrWhiteSpace(req.RawMessage)
+                ? EchoResultSimulator.Generate(ToSim(req.Preview)).RawMessage
+                : EchoSimulatorSendRequest.ToWire(req.RawMessage);
             var iface = await interfaces.GetWithChildrenAsync(req.InterfaceId, ct);
             if (iface?.Connection is null)
             {
@@ -152,24 +154,24 @@ public static class InstrumentEndpoints
             {
                 try
                 {
-                    var sent = await AstmSession.SendToAsync("127.0.0.1", iface.Connection.Port, generated.RawMessage, null, ct);
+                    var sent = await AstmSession.SendToAsync("127.0.0.1", iface.Connection.Port, raw, null, ct);
                     return Results.Ok(new EchoSimulatorSendResultDto(
-                        sent.Completed, sent.Error, null, InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
+                        sent.Completed, sent.Error, null, InstrumentMessageViewBuilder.FormatRaw(raw)));
                 }
                 catch (Exception ex)
                 {
-                    var outcome = await processor.ProcessAsync(generated.RawMessage, req.InterfaceId, isReplay: false, ct);
+                    var outcome = await processor.ProcessAsync(raw, req.InterfaceId, isReplay: false, ct);
                     return Results.Ok(new EchoSimulatorSendResultDto(
                         outcome.Accepted,
                         ex.Message + " Processed locally instead.",
                         outcome.Log.Id,
-                        InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
+                        InstrumentMessageViewBuilder.FormatRaw(raw)));
                 }
             }
 
-            var local = await processor.ProcessAsync(generated.RawMessage, req.InterfaceId, isReplay: false, ct);
+            var local = await processor.ProcessAsync(raw, req.InterfaceId, isReplay: false, ct);
             return Results.Ok(new EchoSimulatorSendResultDto(
-                local.Accepted, local.Log.ErrorDetail, local.Log.Id, InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
+                local.Accepted, local.Log.ErrorDetail, local.Log.Id, InstrumentMessageViewBuilder.FormatRaw(raw)));
         });
     }
 

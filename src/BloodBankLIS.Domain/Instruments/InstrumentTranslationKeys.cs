@@ -22,6 +22,9 @@ public static class InstrumentTranslationKeys
     /// <summary>The translated test is not ordered on the specimen: the assay is not posted to another line.</summary>
     public const string NotOrderedCode = "INST-NOT-ORDERED";
 
+    /// <summary>The result's patient ID is not the specimen's patient: nothing posts (end-user testing, 2026-11-12).</summary>
+    public const string PatientMismatchCode = "INST-PATIENT";
+
     /// <summary>An error or flag code translated (or defaulted) to Hold: the assay waits in instrument failures.</summary>
     public const string HeldCode = "INST-HOLD";
 

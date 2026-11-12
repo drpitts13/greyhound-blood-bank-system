@@ -1231,6 +1231,16 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var mine = Assert.Single(open.Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase));
         Assert.Equal((2, true), (mine.Units, mine.LastCheckReady));
         Assert.Equal(new[] { "Smith, Ann" }, mine.Patients);
+        Assert.False(mine.Overdue);
+
+        // TEST-BB-1016: a cooler with an issue past its ward receipt due time is listed as overdue, with the due time
+        // (end-user testing pass 10).
+        issueB.InTransitDueUtc = _factory.Clock.UtcNow.AddMinutes(-5);
+        issueA.InTransitDueUtc = _factory.Clock.UtcNow.AddHours(2);
+        await context.SaveChangesAsync();
+        var late = Assert.Single((await service.ListOpenAsync()).Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase));
+        Assert.True(late.Overdue);
+        Assert.Equal(issueB.InTransitDueUtc, late.ReceiptDueUtc);
 
         // Nothing to finish for a cooler with no issues in transit, and the check needs issue.create.
         Assert.False((await service.CheckAsync(new CoolerCheckRequest($"CLR-EMPTY-{key}", [], Finish: true))).Succeeded);

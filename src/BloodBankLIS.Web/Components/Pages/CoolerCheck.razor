@@ -127,7 +127,7 @@ else
             {
                 <div class="table-scroll">
                 <table class="bb" data-open-coolers>
-                    <thead><tr><th>Cooler</th><th>Units</th><th>Patients</th><th>To</th><th>First issued</th><th>Last check</th><th></th></tr></thead>
+                    <thead><tr><th>Cooler</th><th>Units</th><th>Patients</th><th>To</th><th>First issued</th><th>Receipt due</th><th>Last check</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var o in _open)
                         {
@@ -137,6 +137,20 @@ else
                                 <td>@string.Join("; ", o.Patients)</td>
                                 <td>@(o.Destinations.Count == 0 ? "—" : string.Join(", ", o.Destinations))</td>
                                 <td class="nowrap">@o.FirstIssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="nowrap">
+                                    @if (o.ReceiptDueUtc is DateTime dueUtc)
+                                    {
+                                        @dueUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">—</span>
+                                    }
+                                    @if (o.Overdue)
+                                    {
+                                        <span class="badge badge-red" title="Not received on the ward by its due time. Find the cooler; units out past their validated time need assessment before use." data-cooler-overdue>Overdue</span>
+                                    }
+                                </td>
                                 <td>
                                     @if (o.LastCheckedUtc is DateTime checkedUtc)
                                     {

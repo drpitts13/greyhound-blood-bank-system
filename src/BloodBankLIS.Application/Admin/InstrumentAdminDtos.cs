@@ -126,6 +126,16 @@ public sealed record EchoSimulatorPreviewRequest(
 
 public sealed record EchoSimulatorPreviewDto(string Assay, string RawMessage, IReadOnlyList<string> Records);
 
-public sealed record EchoSimulatorSendRequest(long InterfaceId, EchoSimulatorPreviewRequest Preview);
+/// <summary>
+/// A simulated send. With <paramref name="RawMessage"/> (the previewed message), exactly that message is sent; without
+/// it, a new randomized message is generated (end-user testing, 2026-11-12: Send generated new values, so what posted
+/// differed from the preview the user had just read).
+/// </summary>
+public sealed record EchoSimulatorSendRequest(long InterfaceId, EchoSimulatorPreviewRequest Preview, string? RawMessage = null)
+{
+    /// <summary>The previewed message as ASTM records (one per line in the preview, CR-terminated on the wire).</summary>
+    public static string ToWire(string preview) =>
+        string.Join('\r', preview.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)) + "\r";
+}
 
 public sealed record EchoSimulatorSendResultDto(bool Sent, string? Error, long? MessageLogId, string RawMessage);

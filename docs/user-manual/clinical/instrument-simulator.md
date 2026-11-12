@@ -15,3 +15,7 @@ The **Instrument Simulator** sends an ASTM message you compose into the interfac
 A message the simulator files is a real result if it matches a real specimen and the interface accepts it. Do not send a message that names a clinical accession unless you intend to create that result. Use a training accession on a training database.
 
 This screen does not replace result entry. Clinical results are entered or verified on the worklist, including results that arrived from a real instrument.
+
+## Preview, then send
+
+**Preview** shows the message the simulator generated. While the settings are unchanged, the button reads **Send this message** and sends exactly that message, so what posts is what you read. After a change of assay, specimen or patient, **Send** generates a new message.

@@ -61,7 +61,11 @@ public sealed record OpenCoolerDto(
     IReadOnlyList<string> Destinations,
     DateTime FirstIssuedUtc,
     DateTime? LastCheckedUtc,
-    bool? LastCheckReady);
+    bool? LastCheckReady,
+    // The earliest ward receipt due time among its issues, and whether it has passed (end-user testing, 2026-11-12:
+    // coolers out for six days were listed with nothing to say they were overdue).
+    DateTime? ReceiptDueUtc = null,
+    bool Overdue = false);
 
 /// <summary>
 /// Checks a cooler before it leaves the blood bank: the units scanned into it against the units issued under its id
@@ -82,6 +86,7 @@ public sealed class CoolerCheckService
     private readonly IAuditWriter _audit;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditQuery? _auditQuery;
+    private readonly IClock? _clock;
 
     public CoolerCheckService(
         IRepository<Issue> issues,
@@ -93,8 +98,10 @@ public sealed class CoolerCheckService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IUnitOfWork unitOfWork,
-        IAuditQuery? auditQuery = null)
+        IAuditQuery? auditQuery = null,
+        IClock? clock = null)
     {
+        _clock = clock;
         _issues = issues;
         _inventory = inventory;
         _units = units;
@@ -142,6 +149,8 @@ public sealed class CoolerCheckService
         foreach (var group in open.GroupBy(i => Normalize(i.CoolerId)))
         {
             var (checkedUtc, ready) = await LastCheckAsync(group.ToList(), ct);
+            var due = group.Where(i => i.InTransitDueUtc is not null).Select(i => i.InTransitDueUtc).Min();
+            var now = _clock?.UtcNow ?? DateTime.UtcNow;
             result.Add(new OpenCoolerDto(
                 group.First().CoolerId!.Trim(),
                 group.Count(),
@@ -149,7 +158,9 @@ public sealed class CoolerCheckService
                 group.Select(i => i.IssuedToLocation?.Trim()).Where(l => !string.IsNullOrEmpty(l)).Distinct().ToList()!,
                 group.Min(i => i.IssuedUtc),
                 checkedUtc,
-                ready));
+                ready,
+                due,
+                group.Any(i => !i.DowntimeBackEntry && InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning)));
         }
 
         return result.OrderBy(c => c.FirstIssuedUtc).ToList();

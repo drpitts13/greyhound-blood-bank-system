@@ -886,6 +886,9 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-772 / FRS-BB-890 | End-user testing pass 9: pattern probability | `AntibodyIdentificationAssistEvaluator.cs`, `OPEN_CLINICAL_DECISIONS.md` | TEST-BB-1012 | U | |
 | URS-BB-773 / FRS-BB-891 | End-user testing pass 9: DAT reagent grades | `DatElutionWorkup.cs`, `DatElutionWorkupRule.cs`, `DatElutionWorkupService.cs`, `PatientChartDatElutionTab.razor`, migration | TEST-BB-1013..1014 | U, I | |
 | URS-BB-774 / FRS-BB-892 | End-user testing pass 9: DAT tab with workups | `PatientChartDatElutionTab.razor` | TEST-BB-1015 | U | |
+| URS-BB-775 / FRS-BB-893 | End-user testing pass 10: overdue coolers | `CoolerCheckService.cs`, `CoolerCheck.razor` | TEST-BB-1016 | I | |
+| URS-BB-776 / FRS-BB-894 | End-user testing pass 10: instrument patient ID check | `AstmInboundProcessor.cs`, `InstrumentTranslationKeys.cs` | TEST-BB-1017 | I | |
+| URS-BB-777 / FRS-BB-895 | End-user testing pass 10: simulator sends the preview | `InstrumentAdminDtos.cs`, `InstrumentEndpoints.cs`, `InstrumentSimulator.razor` | TEST-BB-1017 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

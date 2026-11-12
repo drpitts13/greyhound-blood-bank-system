@@ -37,7 +37,7 @@
     </div>
     <div class="flex gap" style="margin-top:1rem;">
         <button class="btn btn-secondary" disabled="@_busy" @onclick="PreviewAsync">Preview</button>
-        <button class="btn btn-primary" disabled="@_busy" @onclick="SendAsync">Send</button>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="SendAsync" data-sim-send>@(PreviewIsCurrent ? "Send this message" : "Send")</button>
     </div>
 </div>
 
@@ -45,6 +45,7 @@
 {
     <div class="bb-card" style="margin-top:1rem;">
         <h3>Preview — @_preview.Assay</h3>
+        <p class="muted" data-sim-preview-note>@(PreviewIsCurrent ? "Send sends exactly this message." : "The settings have changed since this preview; Send generates a new message.")</p>
         <pre class="pre">@_preview.RawMessage</pre>
     </div>
 }
@@ -72,6 +73,9 @@
     private string _specimenId = "0651439A";
     private string _patientId = "1171984";
     private EchoSimulatorPreviewDto? _preview;
+    private EchoSimulatorPreviewRequest? _previewFor;
+
+    private bool PreviewIsCurrent => _preview is not null && _previewFor is not null && _previewFor == Request();
     private EchoSimulatorSendResultDto? _send;
     private Feedback? _feedback;
     private bool _busy;
@@ -97,6 +101,7 @@
         _busy = true;
         var result = await Api.PreviewInstrumentSimulatorAsync(Request());
         _preview = result.Value;
+        _previewFor = result.Value is null ? null : Request();
         if (!result.Succeeded) _feedback = result.ToFeedback();
         _busy = false;
     }
@@ -104,9 +109,11 @@
     private async Task SendAsync()
     {
         _busy = true;
-        var result = await Api.SendInstrumentSimulatorAsync(new EchoSimulatorSendRequest(_interfaceId, Request()));
+        var result = await Api.SendInstrumentSimulatorAsync(new EchoSimulatorSendRequest(_interfaceId, Request(),
+            PreviewIsCurrent ? _preview!.RawMessage : null));
         _send = result.Value;
         _preview = result.Value is null ? _preview : new EchoSimulatorPreviewDto(_assay, result.Value.RawMessage, []);
+        _previewFor = result.Value is null ? _previewFor : Request();
         if (!result.Succeeded) _feedback = result.ToFeedback();
         _busy = false;
     }

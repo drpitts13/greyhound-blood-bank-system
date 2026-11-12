@@ -1024,5 +1024,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1013 | U | `DatElutionWorkupRuleTests.Grades_MustAgreeWithTheResult` | URS-BB-773 / FRS-BB-891 |
 | TEST-BB-1014 | I | `EluateFindingTests.DatGrades_AreKept_AndMustMatchTheResult` | URS-BB-773 / FRS-BB-891 |
 | TEST-BB-1015 | U | `ChartDatElutionTabTests.Tab_WithWorkups_RendersTheGrades` | URS-BB-774 / FRS-BB-892 |
+| TEST-BB-1016 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-775 / FRS-BB-893 |
+| TEST-BB-1017 | I | `InstrumentInterfaceTests.PatientIdNotTheSpecimensPatient_IsNotPosted` | URS-BB-776 / FRS-BB-894, URS-BB-777 / FRS-BB-895 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

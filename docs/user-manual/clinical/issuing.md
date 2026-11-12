@@ -102,7 +102,7 @@ The transfusion desk records the bedside checks and the transfusion itself. The 
 - **Not issued:** take it out. It must not leave the blood bank.
 - **Unresolved scans:** a number no unit has, or a divided number; check those labels.
 
-A badge warns when the cooler holds units for more than one patient. Scanning changes nothing. **Finish check** records the outcome against each issue in the cooler, and Coolers in transit shows the latest check (All packed or Differences). Units already received on the ward are not expected in the cooler.
+A badge warns when the cooler holds units for more than one patient. Scanning changes nothing. **Finish check** records the outcome against each issue in the cooler, and Coolers in transit shows the latest check (All packed or Differences). Units already received on the ward are not expected in the cooler. **Receipt due** shows the earliest ward receipt due time of the units in each cooler; a cooler past it is marked **Overdue**. Find it: units out past their container's validated time need assessment before use.
 
 On **In transit**, each unit in a cooler shows **Cooler checked**, **Cooler differences**, or **Cooler not checked**; the badge opens the check. **Ward receipt** names the cooler with its check, for example "Cooler 3: checked 2026-11-05 09:30, all units packed" or "not checked before it left".
 

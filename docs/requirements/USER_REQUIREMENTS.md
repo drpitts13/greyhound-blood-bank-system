@@ -780,3 +780,6 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-772 | Antibody identification assistance states, for a possible specificity, the reactive antigen-positive and non-reactive antigen-negative cells and the probability of the pattern by chance. | P2 | FRS-BB-890 |
 | URS-BB-773 | A DAT workup records the polyspecific, anti-IgG, anti-C3 and control reactions with grades, refusing grades that do not match the DAT result. | P1 | FRS-BB-891 |
 | URS-BB-774 | The chart's DAT / Elution tab opens for a patient with workups on file. | P1 | FRS-BB-892 |
+| URS-BB-775 | Coolers in transit show their ward receipt due time and are marked overdue once it passes. | P2 | FRS-BB-893 |
+| URS-BB-776 | An instrument result whose patient ID is not the specimen's patient is not posted and waits for review. | P1 | FRS-BB-894 |
+| URS-BB-777 | The instrument simulator sends the message it previewed. | P3 | FRS-BB-895 |

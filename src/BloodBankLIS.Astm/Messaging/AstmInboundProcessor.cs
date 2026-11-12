@@ -281,6 +281,15 @@ public sealed class AstmInboundProcessor
                 continue;
             }
 
+            // The patient ID the instrument sent must be the specimen's patient. End-user testing, 2026-11-12: a screen
+            // sent with another patient's MRN posted to this specimen without a word. A blank patient ID is not checked.
+            if (await PatientMismatchAsync(specimenId, patientId, ct) is { } mismatch)
+            {
+                Fail(log, notes, $"{mismatch} ({InstrumentTranslationKeys.PatientMismatchCode}): {assayCode} not posted. "
+                    + "Check the tube label and the instrument's patient record before replaying.");
+                continue;
+            }
+
             var subtests = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string? interp = null;
             string? units = null;
@@ -434,6 +443,25 @@ public sealed class AstmInboundProcessor
 
         log.RuleTraceJson = JsonSerializer.Serialize(ruleTrace, JsonOptions);
         await RecordMissesAsync(translator, iface.Id, log, ct);
+    }
+
+    private async Task<string?> PatientMismatchAsync(string? specimenId, string? patientId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(patientId) || string.IsNullOrWhiteSpace(specimenId))
+        {
+            return null;
+        }
+
+        var specimen = await _specimens.FirstOrDefaultAsync(s => s.AccessionNumber == specimenId, ct);
+        if (specimen is null)
+        {
+            return null;
+        }
+
+        var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
+        return patient is null || string.Equals(patient.MedicalRecordNumber?.Trim(), patientId.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? null
+            : $"Patient ID {patientId.Trim()} on the result is not the patient of specimen {specimenId} (MRN {patient.MedicalRecordNumber})";
     }
 
     private static void Fail(InstrumentMessageLog log, List<string> notes, string message)

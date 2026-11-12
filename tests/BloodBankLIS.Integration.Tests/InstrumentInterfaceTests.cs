@@ -277,6 +277,32 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(ResultSource.Instrument, (await PostedResultAsync(context, "ACC-INST-ANT", "ABORH")).Source);
     }
 
+    // TEST-BB-1017: a result whose patient ID is not the specimen's patient is not posted and waits in failures; with the
+    // right patient ID, or none, it posts (end-user testing pass 10).
+    [Fact]
+    public async Task PatientIdNotTheSpecimensPatient_IsNotPosted()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        await SeedOrderAsync(context, "MRN-INST-PID", "ACC-INST-PID", "ABORH");
+        string Group(string patientId) => EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-PID", patientId, "Patient", "Test", "19590422", "M", 3)).RawMessage;
+
+        var wrong = await Processor(context).ProcessAsync(Group("MRN-SOMEONE-ELSE"), iface.Id);
+        Assert.False(wrong.Accepted);
+        Assert.Contains(InstrumentTranslationKeys.PatientMismatchCode, wrong.Log.ErrorDetail);
+        Assert.Contains("not the patient of specimen ACC-INST-PID (MRN MRN-INST-PID)", wrong.Log.ErrorDetail);
+        Assert.False(await context.TestResults.AnyAsync(r => r.Specimen!.AccessionNumber == "ACC-INST-PID"));
+
+        var right = await Processor(context).ProcessAsync(Group("mrn-inst-pid"), iface.Id);
+        Assert.True(right.Accepted, string.Join("; ", right.Notes));
+        Assert.Equal(ResultSource.Instrument, (await PostedResultAsync(context, "ACC-INST-PID", "ABORH")).Source);
+
+        // The simulator sends a previewed message as it was shown, one record per line.
+        var wire = EchoSimulatorSendRequest.ToWire("H|\\^&\nP|1|X\n\nL|1|N\n");
+        Assert.Equal("H|\\^&\rP|1|X\rL|1|N\r", wire);
+    }
+
     // TEST-BB-530: a result for a test that is not ordered on the specimen is not filed against another test's order,
     // and an unknown analyte stops its assay from posting.
     [Fact]

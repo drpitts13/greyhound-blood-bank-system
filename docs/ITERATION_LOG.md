@@ -22402,3 +22402,27 @@ On the running system with seeded data: Antibody identification → the open wor
 ### Next
 
 - Pass 10: remaining gaps (cooler time out on the open-cooler list, single-user verification limits) and the interfaces with new data.
+
+## Iteration 726 — End-user testing pass 10: coolers overdue and the instrument interface (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Cooler check → Coolers in transit; the HL7 stat type and screen for Uma Tester (pass 5) → accession ACC-UAT-010 on the chart, accepted → the instrument simulator: Group and Screen for that specimen → the bench worklist and the stored instrument messages; then a Screen for the same specimen sent with another patient's MRN.
+
+### Found and fixed
+
+1. **Coolers out for days not marked overdue (from pass 8).** Two coolers issued on 2026-11-06 were listed in transit with nothing to say they were late. The list now shows each cooler's ward receipt due time and marks it **Overdue** once it passes. Retested live: both marked Overdue (due 2026-11-06 10:50 and 10:37).
+2. **A result for another patient posted to the specimen.** A Screen sent with patient ID MRN0022 (Riley Demo-Multi) on Uma Tester's specimen posted without a word. The result's patient ID must now be the specimen's patient: otherwise nothing posts and the message waits in failures, naming both (INST-PATIENT). A result with no patient ID still posts by its specimen. Retested live: refused, "Patient ID MRN0022 on the result is not the patient of specimen ACC-UAT-010 (MRN UAT0001)".
+3. **The simulator sent something other than its preview.** The previewed Group was AB negative and the Screen negative; Send generated new values, so O positive and a 1+ screen cell posted. While the settings are unchanged, Send now sends the previewed message (**Send this message**). Retested live: the previewed negative screen posted as shown.
+
+### Observed working
+
+- Accessioning on the chart linked the tube to the waiting HL7 order and its tests moved to the tube; the Group and Screen posted from the instrument pending verification, with both anti-D readings carried.
+
+### Tests
+
+- TEST-BB-1016, TEST-BB-1017. Full suite passed.
+
+### Next
+
+- Pass 11: outbound results to the EHR after verification, billing, and reports.
