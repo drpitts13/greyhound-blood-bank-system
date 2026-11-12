@@ -40,6 +40,8 @@ public static class ShiftHandoffItems
         Add(h.OutstandingIssued, "Outstanding issued", "/issuing?desk=issued");
         Add(h.InTransit, "In transit", "/issuing?desk=transit",
             detail: Note((h.InTransitOverdue, "overdue"), (h.CoolersNotChecked, "cooler not checked"), (h.CoolersWithDifferences, "cooler with differences")));
+        // A ward is waiting for these units (end-user testing, 2026-11-12: the dashboard showed it, the handoff did not).
+        Add(h.WardRequestsWaiting, "Requested by the ward", "/issuing?desk=ready", urgent: true, detail: "to send");
         Add(h.ReservationsLapsed, "Past reservation", "/issuing?desk=ready");
         Add(h.PendingTests, "Pending tests", "/test-worklist",
             detail: Note((h.ResultsAwaitingVerification, "to verify"), (h.PendingTestsVerifyBeforeExpiry, "to verify before specimen expiry")));

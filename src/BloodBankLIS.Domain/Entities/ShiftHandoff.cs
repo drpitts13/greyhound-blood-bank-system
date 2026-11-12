@@ -157,6 +157,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Equipment out of service, so the next shift does not use it (Cycle 710).</summary>
     public int EquipmentOutOfService { get; set; }
 
+    /// <summary>Units a ward has asked to be sent and not yet issued (end-user testing pass 21).</summary>
+    public int WardRequestsWaiting { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

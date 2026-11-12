@@ -203,4 +203,15 @@ public class ShiftHandoffItemsTests
         Assert.Contains("equipment checks 3, 1 failed or overdue; equipment out of service 1", h.QueueSummary);
         Assert.Empty(ShiftHandoffItems.For(Handoff()));
     }
+
+    // TEST-BB-1029: units a ward has asked for are handed over as urgent, opening Ready to issue, and named in the summary
+    // (end-user testing pass 21).
+    [Fact]
+    public void WardRequests_AreHandedOverAsUrgent()
+    {
+        var h = Handoff() with { WardRequestsWaiting = 1 };
+        var item = Assert.Single(ShiftHandoffItems.For(h), i => i.Label == "Requested by the ward");
+        Assert.Equal((1, "/issuing?desk=ready", "to send", true), (item.Count, item.Href, item.Detail, item.Urgent));
+        Assert.Contains("WARD WAITING FOR 1 UNIT", h.QueueSummary);
+    }
 }

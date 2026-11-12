@@ -70,7 +70,8 @@ public sealed record ShiftHandoffDto(
     int RecalledToPull = 0,
     int EquipmentChecksToDo = 0,
     int EquipmentChecksFailedOrOverdue = 0,
-    int EquipmentOutOfService = 0)
+    int EquipmentOutOfService = 0,
+    int WardRequestsWaiting = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -95,6 +96,7 @@ public sealed record ShiftHandoffDto(
               (CoolersNotChecked > 0 ? $", {CoolersNotChecked} not checked" : "") +
               (CoolersWithDifferences > 0 ? $", {CoolersWithDifferences} checked with differences" : "")
             : "") +
+        (WardRequestsWaiting > 0 ? $"; WARD WAITING FOR {WardRequestsWaiting} {(WardRequestsWaiting == 1 ? "UNIT" : "UNITS")}" : "") +
         (ReservationsLapsed > 0 ? $"; {ReservationsLapsed} past reservation" : "") +
         $"; tests {PendingTests}" +
         (ResultsAwaitingVerification > 0 ? $", {ResultsAwaitingVerification} to verify" : "") +
@@ -146,7 +148,7 @@ public sealed record ShiftHandoffDto(
         h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
         h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen,
         h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull,
-        h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService);
+        h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting);
 }
 
 /// <summary>
@@ -423,6 +425,7 @@ public sealed class ShiftHandoffService
             PendingTestsVerifyBeforeExpiry = PendingTestAttentionRule.CountVerifyBeforeExpiry(pendingTests),
             ResultsAwaitingVerification = pendingTests.Count(t => t.AwaitsVerification),
             ReservationsLapsed = ReadyToIssueAttentionRule.CountReservationLapsed(ready, now),
+            WardRequestsWaiting = ReadyToIssueAttentionRule.CountRequested(ready),
             NearExpiryUnits = nearExpiry.Count,
             NearExpiryReserved = nearExpiry.Count(u => u.IsReserved),
             CoolersInTransit = coolers.Count,
@@ -553,7 +556,8 @@ public sealed class ShiftHandoffService
         RecalledToPull = row.RecalledToPull,
         EquipmentChecksToDo = row.EquipmentChecksToDo,
         EquipmentChecksFailedOrOverdue = row.EquipmentChecksFailedOrOverdue,
-        EquipmentOutOfService = row.EquipmentOutOfService
+        EquipmentOutOfService = row.EquipmentOutOfService,
+        WardRequestsWaiting = row.WardRequestsWaiting
     };
 
     /// <summary>

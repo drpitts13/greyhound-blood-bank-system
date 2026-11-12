@@ -796,3 +796,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-788 | A blood order placed on the chart can ask for more than one unit of a product. | P1 | FRS-BB-906 |
 | URS-BB-789 | A reaction investigation records the bag culture and the blood supplier notification, and lists the other units from the implicated donation. | P1 | FRS-BB-907 |
 | URS-BB-790 | A DIN lookback names each component's product and current location. | P2 | FRS-BB-908 |
+| URS-BB-791 | The shift handoff hands over units a ward has asked to be sent, as urgent. | P2 | FRS-BB-909 |

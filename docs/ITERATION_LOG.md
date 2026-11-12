@@ -22665,3 +22665,25 @@ On the running system with seeded data: Lookback → the open notification for P
 ### Next
 
 - Pass 21: remaining gaps.
+
+## Iteration 737 — End-user testing pass 21: start of shift and the handoff (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the dashboard as a technologist starting a shift (Everything focus), then Shift handoff → What you are handing over.
+
+### Found and fixed
+
+1. **A ward waiting for blood was not handed over.** The dashboard's Ready to issue card said "1 requested by the ward", but the handoff listed no such item: the next technologist would not learn that a ward was waiting. The handoff now counts units requested by a ward and lists them as urgent ("Requested by the ward: 1 (to send)", opening Ready to issue), and the summary line says WARD WAITING FOR 1 UNIT. Retested live.
+
+### Observed working
+
+- The dashboard's start-here and needs-attention cards, each with what needs doing; the handoff's counts match the dashboard.
+
+### Open observation
+
+- The integration test host crashed twice in recent full runs (once in pass 16, once here), each time partway, with no failing test and no crash event logged; the same tests then passed in full (1579). Not reproduced with crash dumps on; left for investigation.
+
+### Tests
+
+- TEST-BB-1029. Full suite passed.
