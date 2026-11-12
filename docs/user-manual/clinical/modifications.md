@@ -45,3 +45,7 @@ A product order can request irradiate, wash, thaw, volume reduce, or leukoreduce
 > Warning. Resulting units are quarantined on purpose. Issuing the source unit after it has been modified, or issuing the child unit before release, is blocked by unit status.
 
 > Hard stop. A modification result stays in quarantine when the scanned unit number is blank or does not match the result.
+
+## Where the result goes
+
+**Result location** chooses where the new unit is recorded; *Same as the source* keeps the source's location. The location must be active and take the result's component. A thawed unit cannot stay in a freezer or go to one: a thaw from a freezer asks for the refrigerator it goes to. In a batch every unit must have a place before any is modified.

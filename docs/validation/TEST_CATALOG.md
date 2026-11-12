@@ -1030,5 +1030,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1019 | I | `ReportServiceTests.CrossmatchesAndTransfusionsByMonth_RunsAndTheViewHasTheMonth` | URS-BB-779 / FRS-BB-897 |
 | TEST-BB-1020 | U | `ChartLookbackBannerTests.MergeOutcome_ShowsAfterThePanelCloses` | URS-BB-782 / FRS-BB-900 |
 | TEST-BB-1021 | I | `DowntimePatientSummaryTests.AntibodyCard_StatesTheAntigenNegativeRequirement` | URS-BB-781 / FRS-BB-899 |
+| TEST-BB-1022 | I | `BloodProductModificationServiceTests.Thaw_FromAFreezer_NeedsARefrigeratorForTheResult` | URS-BB-783 / FRS-BB-901 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

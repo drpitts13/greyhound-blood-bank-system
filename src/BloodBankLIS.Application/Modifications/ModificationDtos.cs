@@ -49,7 +49,9 @@ public sealed record PerformSingleModificationRequest(
     string? SupplyDescription = null,
     string? SupplyLot = null,
     string? DeviceId = null,
-    bool? IndicatorConfirmed = null);
+    bool? IndicatorConfirmed = null,
+    // Where the result goes; blank keeps the source's location (a thawed unit may not stay in a freezer).
+    long? ResultLocationId = null);
 
 /// <summary>One existing rule and one reason applied to several units. Ineligible units modify none.</summary>
 public sealed record PerformBatchModificationRequest(
@@ -59,7 +61,8 @@ public sealed record PerformBatchModificationRequest(
     string? SupplyDescription = null,
     string? SupplyLot = null,
     string? DeviceId = null,
-    bool? IndicatorConfirmed = null);
+    bool? IndicatorConfirmed = null,
+    long? ResultLocationId = null);
 
 public sealed record ModificationUnitSummaryDto(
     long UnitId,

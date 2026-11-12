@@ -217,6 +217,21 @@
             <div class="field"><label>Supply lot (optional)</label><input @bind="_supplyLot" /></div>
         </div>
         <p class="muted">Leave the lot blank unless facility policy requires it. That policy is off unless an administrator turns it on.</p>
+        <div class="form-row" style="margin-top:.6rem;" data-modification-result-location>
+            <div class="field"><label>Result location</label>
+                <select @bind="_resultLocationId">
+                    <option value="">Same as the source</option>
+                    @foreach (var l in _activeLocations)
+                    {
+                        <option value="@l.Id">@l.Label</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @if (_selectedRule.ModificationType == ModificationType.Thaw)
+        {
+            <p class="muted" data-thaw-location-note>A thawed unit cannot stay in a freezer: choose the refrigerator it goes to.</p>
+        }
         @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
         {
             var irradiate = _selectedRule.ModificationType == ModificationType.Irradiate;
@@ -418,6 +433,8 @@
     private string? _supplyDescription;
     private string? _supplyLot;
     private string? _deviceId;
+    private long? _resultLocationId;
+    private readonly List<(long Id, string Label)> _activeLocations = new();
     // "", "yes", or "no" from the dose indicator list; irradiation only.
     private string _indicator = string.Empty;
 
@@ -468,6 +485,9 @@
             return;
         }
 
+        _activeLocations.AddRange(locations.Value.Where(l => l.IsActive)
+            .OrderBy(l => l.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(l => (l.Id, $"{l.Code} — {l.Name}".Trim(' ', '—'))));
         foreach (var location in locations.Value)
         {
             if (!string.IsNullOrWhiteSpace(location.Name))
@@ -819,7 +839,7 @@
 
             r = await Api.ApplyModificationAsync(
                 _unit.Id,
-                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed));
+                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed, _resultLocationId));
         }
 
         _busy = false;
@@ -935,7 +955,7 @@
 
         _busy = true;
         var result = await Api.ApplyBatchModificationAsync(new PerformBatchModificationRequest(
-            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed));
+            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed, _resultLocationId));
         _busy = false;
         _actionFb = result.ToFeedback("Batch modification completed.");
         if (result.Succeeded)

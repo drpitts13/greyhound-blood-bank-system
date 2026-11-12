@@ -74,7 +74,7 @@
                         <td class="mono">@loc.Code</td>
                         <td>@loc.NameLabel</td>
                         <td>
-                            @loc.LocationType
+                            @Ui.EnumText(loc.LocationType)
                             @if (loc.IsSatellite)
                             {
                                 <span class="badge badge-amber">Satellite</span>

@@ -22473,3 +22473,30 @@ On the running system with seeded data: Patients › Possible duplicates → Ril
 ### Next
 
 - Pass 13: a paper issue back-entered against the recorded outage, and the remaining gaps.
+
+## Iteration 729 — End-user testing pass 13: paper issue back-entry and thawing plasma (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse → Issue → Downtime back-entry against outage #1 (paper time 04:30, unit W0001230009201 for Riley Demo-Multi, identifiers from the paper record); Inventory › Modify Products → thaw FFP W0001230001002 and W0001230001005 from the plasma freezer.
+
+### Found and fixed
+
+1. **Thawed plasma recorded back in the freezer.** Thawing FFP left the thawed unit (W0001230001002-M01) in the Plasma Freezer, its source's location; the modification had no way to say where the result went, and the seeded refrigerators did not take plasma, so no refrigerator could have held it. A modification now has a **Result location** (active, taking the result's component); a thaw from a freezer must name where the thawed unit goes and can never go to a freezer; a batch places every unit before modifying any. Refrigerators' storage defaults now include plasma (thawed plasma is kept refrigerated). Retested live: the thaw left in the freezer was refused with the reason; with FRIDGE-1 chosen (Plasma ticked on it in the development data), W0001230001005-M01 was recorded in the Main Blood Bank Refrigerator.
+2. **Location types as codes.** Admin › Inventory Locations listed types as PlateletIncubator and SatelliteRefrigerator; they read in words.
+
+### Observed working
+
+- The paper issue was judged as of the paper time against the recorded outage and refused for what still applies: no current compatible crossmatch, no second verifier, and the open reaction investigation needing an override with who authorized it. The back-entry does not prefill the patient from the unit, so the paper record is keyed on its own.
+
+### Left in the development data
+
+- W0001230001002-M01 (thawed before the fix) stays recorded in the Plasma Freezer, in quarantine; FRIDGE-1 now takes plasma.
+
+### Tests
+
+- TEST-BB-1022. Full suite passed.
+
+### Next
+
+- Pass 14: the remaining workflows (product orders with modifications, irradiation) and gaps.

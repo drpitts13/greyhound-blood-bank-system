@@ -343,6 +343,54 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.Contains(result.Evaluation.HardStops, r => r.Code == "MOD-STATUS-INVALID");
     }
 
+    // TEST-BB-1022: a thawed unit may not stay in the freezer its source came from: without a result location the thaw is
+    // refused and nothing changes; with a refrigerator chosen the result goes there; a freezer or a location that does
+    // not take the component is refused (end-user testing pass 13).
+    [Fact]
+    public async Task Thaw_FromAFreezer_NeedsARefrigeratorForTheResult()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("THAWLOC");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Thaw, "24H");
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        long freezerId, fridgeId, plateletId;
+        await using (var c = _factory.Create())
+        {
+            var freezer = new InventoryLocation { Code = $"FRZ-{key}", Name = "Plasma freezer", LocationType = LocationType.Freezer };
+            var fridge = new InventoryLocation { Code = $"FRG-{key}", Name = "Main fridge", LocationType = LocationType.Refrigerator };
+            var incubator = new InventoryLocation
+            {
+                Code = $"PLT-{key}", Name = "Incubator", LocationType = LocationType.PlateletIncubator,
+                AllowsRbc = false, AllowsPlasma = false, AllowsCryo = false, AllowsWholeBlood = false
+            };
+            c.InventoryLocations.AddRange(freezer, fridge, incubator);
+            await c.SaveChangesAsync();
+            (freezerId, fridgeId, plateletId) = (freezer.Id, fridge.Id, incubator.Id);
+        }
+
+        var sourceId = await CreateUnitAsync($"U-THAWLOC-{key}", sourceProductId, volume: 250m);
+        await using (var c = _factory.Create())
+        {
+            (await c.BloodUnits.FindAsync(sourceId))!.CurrentLocationId = freezerId;
+            await c.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var stays = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request"));
+        Assert.False(stays.Succeeded);
+        Assert.Contains("cannot stay in", stays.Error);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == sourceId)).Status);
+
+        var toFreezer = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request", ResultLocationId: freezerId));
+        Assert.Contains("a freezer", toFreezer.Error);
+        var toIncubator = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request", ResultLocationId: plateletId));
+        Assert.Contains("does not take", toIncubator.Error);
+
+        var thawed = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request", ResultLocationId: fridgeId));
+        Assert.True(thawed.Succeeded, thawed.Error);
+        Assert.Equal(fridgeId, Assert.Single(thawed.ResultUnits!).CurrentLocationId);
+    }
+
     [Fact]
     public async Task ApplySingle_ExpiredSource_IsBlocked()
     {
