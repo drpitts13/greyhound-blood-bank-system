@@ -7,6 +7,19 @@ namespace BloodBankLIS.Domain.Tests;
 // says what was decided (OCD-069: candidacy and dose are the facility's).
 public class RhigEvaluationRuleTests
 {
+    // TEST-BB-1030: the give-by time is the event plus the facility's window (OCD-087); none while the window is not set,
+    // for a patient decided not a candidate, or once RhIG is given (end-user testing pass 22).
+    [Fact]
+    public void GiveBy_FollowsTheFacilityWindow()
+    {
+        var delivery = new DateTime(2026, 11, 7, 13, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(delivery.AddHours(72), RhigEvaluationRule.GiveBy(delivery, 72, RhigDecision.Undetermined, given: false));
+        Assert.Equal(delivery.AddHours(72), RhigEvaluationRule.GiveBy(delivery, 72, RhigDecision.Candidate, given: false));
+        Assert.Null(RhigEvaluationRule.GiveBy(delivery, 0, RhigDecision.Candidate, given: false));
+        Assert.Null(RhigEvaluationRule.GiveBy(delivery, 72, RhigDecision.NotCandidate, given: false));
+        Assert.Null(RhigEvaluationRule.GiveBy(delivery, 72, RhigDecision.Candidate, given: true));
+    }
+
     [Fact]
     public void Facts_StateWhatIsOnFile()
     {

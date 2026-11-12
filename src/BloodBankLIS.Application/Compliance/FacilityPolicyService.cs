@@ -40,6 +40,9 @@ public sealed class FacilityPolicyService
         // Same default as the catalog and the seeded setting (OCD-008: a facility may turn it off).
         GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, true, ct);
 
+    public Task<int> GetRhigAdministrationWindowHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.RhigAdministrationWindowHours, 0, ct);
+
     public Task<bool> GetSendFinalResultsAutomaticallyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.SendFinalResultsAutomatically, true, ct);
 

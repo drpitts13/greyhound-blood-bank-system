@@ -903,6 +903,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-789 / FRS-BB-907 | End-user testing pass 19: culture, supplier, same-donation units | `ReactionInvestigation.cs`, `ReactionInvestigationService.cs`, `Reactions.razor`, migration | TEST-BB-1027 | I | |
 | URS-BB-790 / FRS-BB-908 | End-user testing pass 20: lookback components | `LookbackService.cs`, `Lookback.razor` | TEST-BB-1028 | I | |
 | URS-BB-791 / FRS-BB-909 | End-user testing pass 21: ward requests in the handoff | `ShiftHandoff.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, migration | TEST-BB-1029 | U | |
+| URS-BB-792 / FRS-BB-910 | End-user testing pass 22: RhIG give-by | `RhigEvaluationRule.cs`, `RhigEvaluationService.cs`, `RhigQueue.razor`, `FacilityPolicyCatalog.cs` | TEST-BB-1030 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -22687,3 +22687,17 @@ On the running system with seeded data: the dashboard as a technologist starting
 ### Tests
 
 - TEST-BB-1029. Full suite passed.
+
+## Iteration 738 — End-user testing pass 22: mother and baby, the RhIG window (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the RhIG page → Noor DEMO-RHIG (O negative), delivery 2026-11-07 13:27, evaluation not yet decided; the RhIG lot register.
+
+### Found and fixed
+
+1. **No sign that the time to give RhIG had passed.** Five days after delivery the evaluation sat as "Needs entries", exactly as it would one hour after; nothing tracked the window within which RhIG is given. The window is a clinical value, so it is a facility setting, shipped not set and listed for entry: Facility Policies › RhIG › *RhIG: give within (hours of the event)*. Once set, the queue shows each open candidate's give-by time and marks one past it; a reminder, nothing blocked. The value, and whether to escalate, is **OCD-087** for the medical director. Retested live: the column shows "—" while the setting is not entered, and the setting is listed among the settings to enter; the test covers a 72-hour window (past for a delivery 100 hours ago).
+
+### Tests
+
+- TEST-BB-1030. Full suite passed.

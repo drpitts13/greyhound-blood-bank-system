@@ -26,6 +26,46 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntibodyHistory>(c), c, _factory.Clock, _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions);
 
+    // TEST-BB-1030: with the facility's window set, the open queue shows each candidate's give-by time and marks one past
+    // it; with no window set it shows none (end-user testing pass 22).
+    [Fact]
+    public async Task Queue_ShowsGiveBy_FromTheFacilityWindow()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient { MedicalRecordNumber = $"MRN-RHGB-{Guid.NewGuid():N}"[..20], LastName = "Mother", FirstName = "Bea", DateOfBirth = new DateOnly(1993, 3, 4) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var delivery = _factory.Clock.UtcNow.AddHours(-100);
+        var saved = await Service(c, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord)).SaveAsync(patient.Id, new SaveRhigEvaluationRequest(
+            null, RhigContext.Postpartum, delivery, RhType.Positive, FetalBleedScreen.NotDone, null, RhigDecision.Undetermined, null, null));
+        Assert.True(saved.Succeeded, saved.Error);
+
+        var unset = Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value!.Id);
+        Assert.Null(unset.GiveByUtc);
+
+        var existing = await c.SystemSettings.FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.RhigAdministrationWindowHours);
+        if (existing is null)
+        {
+            c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.RhigAdministrationWindowHours, Value = "72" });
+        }
+        else
+        {
+            existing.Value = "72";
+        }
+
+        await c.SaveChangesAsync();
+        var withPolicy = new RhigEvaluationService(new EfRepository<RhigEvaluation>(c), new EfRepository<Patient>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), policy: new FacilityPolicyService(new EfRepository<SystemSetting>(c)));
+        var due = Assert.Single(await withPolicy.ListOpenAsync(), i => i.Evaluation.Id == saved.Value!.Id);
+        Assert.Equal(delivery.AddHours(72), due.GiveByUtc);
+        Assert.True(due.PastGiveBy);
+
+        existing = await c.SystemSettings.FirstAsync(s => s.Key == FacilityPolicyKeys.RhigAdministrationWindowHours);
+        c.SystemSettings.Remove(existing);
+        await c.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task Evaluation_IsRecorded_Completed_AndThenFixed()
     {

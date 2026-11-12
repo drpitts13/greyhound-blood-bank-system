@@ -53,7 +53,12 @@ public sealed record RhigEvaluationDto(
 /// An RhIG evaluation still needing work on the cross-patient queue: open (ready when it can be completed as recorded),
 /// or completed as a candidate with no RhIG given recorded.
 /// </summary>
-public sealed record RhigQueueItemDto(RhigEvaluationDto Evaluation, string PatientName, string Mrn, bool ReadyToComplete);
+public sealed record RhigQueueItemDto(RhigEvaluationDto Evaluation, string PatientName, string Mrn, bool ReadyToComplete)
+{
+    /// <summary>When RhIG is to be given by (OCD-087), and whether that has passed; null when not set or not due.</summary>
+    public DateTime? GiveByUtc { get; init; }
+    public bool PastGiveBy { get; init; }
+}
 
 /// <summary>A patient who was given an RhIG lot (recall trace).</summary>
 public sealed record RhigLotRecipientDto(long PatientId, string PatientName, string Mrn, string Lot, int? Vials, DateTime GivenUtc, string? GivenBy, long EvaluationId);
@@ -144,6 +149,8 @@ public sealed class RhigEvaluationService
 
         var patientIds = open.Select(e => e.PatientId).Distinct().ToList();
         var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var windowHours = _policy is null ? 0 : await _policy.GetRhigAdministrationWindowHoursAsync(ct);
+        var now = _clock.UtcNow;
         var items = new List<RhigQueueItemDto>();
         foreach (var e in open.OrderBy(e => e.EventUtc).ThenBy(e => e.Id))
         {
@@ -158,11 +165,16 @@ public sealed class RhigEvaluationService
             var ready = e.CompletedUtc is null
                 && RhigEvaluationRule.EvaluateComplete(e.Decision, e.VialsRecommended, e.DecisionNote, e.FetalBleedScreen, e.FetalBleedPercent)
                     .Severity != RuleSeverity.HardStop;
+            var giveBy = RhigEvaluationRule.GiveBy(e.EventUtc, windowHours, e.Decision, e.GivenUtc is not null);
             items.Add(new RhigQueueItemDto(
                 ToDto(e, motherRh, antiD, variant, dose),
                 patient is null ? $"Patient {e.PatientId}" : $"{patient.LastName}, {patient.FirstName}",
                 patient?.MedicalRecordNumber ?? "—",
-                ready));
+                ready)
+            {
+                GiveByUtc = giveBy,
+                PastGiveBy = giveBy is DateTime by && now > by
+            });
         }
 
         return items;

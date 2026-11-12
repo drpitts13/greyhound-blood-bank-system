@@ -46,3 +46,7 @@ For a delivery, when the newborn's chart is linked to the mother's (Link mother 
 **RhIG lots** on the RhIG page registers each lot of Rh immune globulin as it is received: the lot number, the product as on the carton, the expiry and the vials received. **Retire** takes a lot out of use (used up, recalled, expired) with a reason. The list shows, for each lot, the vials given and the vials left.
 
 Once any lot is registered, **Record RhIG given** must name a registered lot that is active and was in date on the day it was given; an unknown, retired or expired lot is refused. The lot field offers the registered lots. Giving more vials than the lot received is allowed but noted in the audit trail (the count may be off). Until the first lot is registered, the lot given is recorded as typed.
+
+## Give-by time
+
+When the medical director has set Facility Policies › RhIG › **RhIG: give within (hours of the event)**, the RhIG queue's **Give by** column shows when each open candidate's RhIG is due (the event time plus that window) and marks **Past** once it has gone. It is a reminder and blocks nothing. It is not shown for a patient decided not a candidate, after RhIG is given, or while the setting is not entered (OCD-087).

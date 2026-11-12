@@ -797,3 +797,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-789 | A reaction investigation records the bag culture and the blood supplier notification, and lists the other units from the implicated donation. | P1 | FRS-BB-907 |
 | URS-BB-790 | A DIN lookback names each component's product and current location. | P2 | FRS-BB-908 |
 | URS-BB-791 | The shift handoff hands over units a ward has asked to be sent, as urgent. | P2 | FRS-BB-909 |
+| URS-BB-792 | The RhIG queue shows when each open candidate's RhIG is to be given by, from a facility window, and marks one past it. | P1 | FRS-BB-910 |

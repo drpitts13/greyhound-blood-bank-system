@@ -137,7 +137,7 @@ else
     <div class="bb-card">
         <div class="table-scroll">
         <table class="bb" data-rhig-queue>
-            <thead><tr><th>Patient</th><th>Event</th><th>Decision</th><th>Suggested</th><th>Recorded</th><th></th></tr></thead>
+            <thead><tr><th>Patient</th><th>Event</th><th>Give by</th><th>Decision</th><th>Suggested</th><th>Recorded</th><th></th></tr></thead>
             <tbody>
                 @foreach (var item in _items)
                 {
@@ -145,6 +145,20 @@ else
                     <tr>
                         <td><a href="@($"/patients/{e.PatientId}?tab=rhig")">@item.PatientName</a> <span class="sub mono">@item.Mrn</span></td>
                         <td class="nowrap">@Context(e.Context) @e.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap" data-rhig-give-by="@e.Id">
+                            @if (item.GiveByUtc is DateTime giveBy)
+                            {
+                                @giveBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                @if (item.PastGiveBy)
+                                {
+                                    <span class="badge badge-red" data-rhig-past-give-by>Past</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
                         <td>@Decision(e)</td>
                         @* Cycle 681: what the facts suggest and the dose calculated, beside what was recorded. *@
                         <td data-rhig-queue-suggested="@e.Id">

@@ -9,6 +9,14 @@ namespace BloodBankLIS.Domain.Rules;
 /// </summary>
 public static class RhigEvaluationRule
 {
+    /// <summary>
+    /// When RhIG is to be given by, from the event and the facility's window (OCD-087): null when the window is not set,
+    /// the evaluation is decided not a candidate, or RhIG was given. End-user testing, 2026-11-12: a delivery five days
+    /// old waited undecided with nothing to say a time had passed.
+    /// </summary>
+    public static DateTime? GiveBy(DateTime eventUtc, int windowHours, RhigDecision decision, bool given) =>
+        windowHours <= 0 || decision == RhigDecision.NotCandidate || given ? null : eventUtc.AddHours(windowHours);
+
     public const string CompleteCode = "RHIG-COMPLETE";
 
     /// <summary>Facts the reviewer weighs, as plain statements; no conclusion is drawn.</summary>
