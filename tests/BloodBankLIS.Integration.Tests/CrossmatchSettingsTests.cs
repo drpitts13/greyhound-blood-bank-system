@@ -253,6 +253,63 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             currentUser: _factory.CurrentUser,
             crossmatchAttachment: Attachment(c));
 
+    // TEST-BB-996: a unit whose compatible crossmatch has expired is crossmatched again on a current specimen linked to
+    // the order (end-user testing, 2026-11-12: the repeat was refused as "already recorded"); a current compatible or any
+    // incompatible result still stands; a specimen not linked to the order is refused by name, never swapped silently.
+    [Fact]
+    public async Task RepeatCrossmatch_AfterExpiry_OnALinkedSpecimen()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedProductAndScreenAsync(c, positiveScreen: false, antibodyHistory: false, verifyScreen: true);
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-{Guid.NewGuid():N}"[..16],
+            ProductTypeId = seed.Product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Allocated
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var allocation = new Allocation
+        {
+            BloodProductId = unit.Id, PatientId = seed.Patient.Id, OrderId = seed.ProductOrder.Id, SpecimenId = seed.Specimen.Id,
+            Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddDays(-4)
+        };
+        c.Allocations.Add(allocation);
+        var earlier = new Crossmatch
+        {
+            BloodProductId = unit.Id, PatientId = seed.Patient.Id, SpecimenId = seed.Specimen.Id, Result = CrossmatchResult.Compatible,
+            PerformedUtc = _factory.Clock.UtcNow.AddDays(-4), ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1)
+        };
+        c.Crossmatches.Add(earlier);
+        var other = new Specimen
+        {
+            AccessionNumber = $"ACC-NEW-{Guid.NewGuid():N}"[..20], PatientId = seed.Patient.Id, SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1), ExpiresUtc = _factory.Clock.UtcNow.AddDays(3), Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(other);
+        await c.SaveChangesAsync();
+
+        var repeat = await Attachment(c).EnsureManualCrossmatchLineAsync(seed.Patient.Id, allocation.Id, "XM", specimenId: seed.Specimen.Id);
+        Assert.True(repeat.Succeeded, repeat.Error);
+        Assert.Equal(seed.Specimen.Id, repeat.Value!.SpecimenId);
+
+        var unlinked = await Attachment(c).EnsureManualCrossmatchLineAsync(seed.Patient.Id, allocation.Id, "XM", specimenId: other.Id);
+        Assert.False(unlinked.Succeeded);
+        Assert.Contains($"Specimen {other.AccessionNumber} is not linked to order {seed.ProductOrder.OrderNumber}", unlinked.Error);
+
+        earlier.ExpiresUtc = _factory.Clock.UtcNow.AddHours(5);
+        await c.SaveChangesAsync();
+        Assert.Contains("already recorded", (await Attachment(c).EnsureManualCrossmatchLineAsync(seed.Patient.Id, allocation.Id, "XM")).Error);
+
+        earlier.Result = CrossmatchResult.Incompatible;
+        earlier.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        await c.SaveChangesAsync();
+        Assert.Contains("already recorded", (await Attachment(c).EnsureManualCrossmatchLineAsync(seed.Patient.Id, allocation.Id, "XM")).Error);
+    }
+
     private ResultService Results(BloodBankDbContext c) =>
         new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
             c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),

@@ -225,11 +225,12 @@ public sealed class BloodBankApiClient
         long patientId,
         long allocationId,
         string testCode,
-        CancellationToken ct = default) =>
+        CancellationToken ct = default,
+        long? specimenId = null) =>
         SendAsync<ManualCrossmatchLineDto>(
             HttpMethod.Post,
             $"api/patients/{patientId}/allocations/{allocationId}/crossmatch-line",
-            new EnsureManualCrossmatchLineRequest(testCode),
+            new EnsureManualCrossmatchLineRequest(testCode, specimenId),
             ct);
 
     public Task<ApiResult<object>> DeclineAutoThawAsync(

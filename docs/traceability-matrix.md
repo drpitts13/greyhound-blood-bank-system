@@ -872,6 +872,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-758 / FRS-BB-876 | Retire and restore equipment and checks on the page | `EquipmentService.cs`, `EquipmentEndpoints.cs`, `EquipmentPage.razor` | TEST-BB-989..991 | U, I | |
 | URS-BB-759 / FRS-BB-877 | Equipment checks coming up | `EquipmentService.cs`, `EquipmentEndpoints.cs`, `EquipmentPage.razor` | TEST-BB-992..994 | U, I | |
 | URS-BB-760 / FRS-BB-878 | End-user testing pass 1: accession for a waiting order, panel result display, ABO/Rh save label | `TestWorklistDtos.cs`, `ResultValueText.cs`, `TestWorklist.razor`, `PatientChartOrdersTab.razor`, `SupervisorQueueService.cs`, `TestResultEntryPanel.razor` | TEST-BB-995 | U | |
+| URS-BB-761 / FRS-BB-879 | End-user testing pass 2: type and screen for a blood order's tube; repeat an expired crossmatch | `BloodOrderPreparationRule.cs`, `BloodOrderWorklistService.cs`, `PatientDetail.razor`, `CrossmatchAttachmentService.cs`, `Compatibility.razor`, `Issuing.razor` | TEST-BB-996..997 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

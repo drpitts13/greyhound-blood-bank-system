@@ -498,6 +498,8 @@ else
     [SupplyParameterFromQuery(Name = "mergeMrn")] public string? MergeMrnQuery { get; set; }
     private bool _mergeQueryApplied;
     [SupplyParameterFromQuery(Name = "specimen")] public long? SpecimenQuery { get; set; }
+    // panel=typeandscreen: the new-order form with the type and screen chosen, on this accepted tube.
+    [SupplyParameterFromQuery(Name = "tnsSpecimen")] public long? TypeAndScreenSpecimenQuery { get; set; }
     // Links into Orders carry their context: an order number to search for, or the visit to filter by.
     [SupplyParameterFromQuery(Name = "order")] public string? OrderQuery { get; set; }
     // From Blood orders to prepare: open the reserve form with this order (and specimen) already chosen.
@@ -886,6 +888,13 @@ else
         {
             _reserveQueryApplied = true;
             await OpenReserveForOrderAsync(reserveOrderId, ReserveSpecimenQuery);
+        }
+
+        if (!_panelFromQueryApplied
+            && string.Equals(PanelQuery, "typeandscreen", StringComparison.OrdinalIgnoreCase))
+        {
+            _panelFromQueryApplied = true;
+            await OpenAddOrderForTypeAndScreenAsync(TypeAndScreenSpecimenQuery);
         }
 
         if (!_panelFromQueryApplied
@@ -1764,6 +1773,37 @@ else
         {
             _newOrderAccessionNow = true;
             OnNewOrderAccessionNowChanged();
+        }
+    }
+
+    // From Blood orders to prepare (end-user testing, 2026-11-12): a tube accepted for a blood order with no type and
+    // screen ordered on it. The grouper that orders ABO/Rh and the antibody screen is chosen and the tube selected, so
+    // Save orders them on it; the user still chooses the visit, location and priority and saves.
+    private async Task OpenAddOrderForTypeAndScreenAsync(long? specimenId)
+    {
+        await SelectTab("orders");
+        if (!_showAddOrder)
+        {
+            await ToggleAddOrder();
+        }
+
+        var grouper = _testGroupers.FirstOrDefault(g =>
+            g.MemberTestCodes.Contains(PatientChartUrls.AboRhTestCode, StringComparer.OrdinalIgnoreCase)
+            && g.MemberTestCodes.Contains("ABSC", StringComparer.OrdinalIgnoreCase)
+            && g.MemberTestCodes.Count == 2);
+        if (grouper is not null)
+        {
+            _newOrderGrouperCodes.Add(grouper.Code);
+            foreach (var code in grouper.MemberTestCodes)
+            {
+                _newOrderTestCodes.Add(code);
+            }
+        }
+
+        _newOrderAccessionNow = false;
+        if (specimenId is long id && _specimens.Any(s => s.Id == id))
+        {
+            _newOrderSpecimenId = id;
         }
     }
 

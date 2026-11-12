@@ -22204,3 +22204,27 @@ As a bench technologist on the running system with seeded data: the Test Worklis
 ### Next
 
 - Pass 2: transfusion request and fulfillment (blood order, allocate, crossmatch, issue, bedside), then reactions, mother/baby, QC and interfaces.
+
+## Iteration 718 — End-user testing pass 2: transfusion request and fulfillment (2026-11-12)
+
+### How it was tested
+
+As the blood bank on the running system with seeded data: Blood orders to prepare → Riley Demo-Multi's surgery order ORD-SURG-DEMO (needed-by passed, tube ACC-DEMO-RCV1 drawn but not received) → receive and accept the tube by scan → order the type and screen → the Ready to issue desk for her held units (crossmatch expired) → repeat crossmatch.
+
+### Found and fixed
+
+1. **Dead end after accepting the tube.** The blood order's next step read "Finish type and screen" and opened an empty Tests tab ("No pending tests on this chart"): no type and screen was ordered on the new tube (the old one, on an expired tube, was complete). The worklist now sees that no test order is linked to the tube and says **Order type and screen on ACC-DEMO-RCV1**, opening the chart's new-order form with the type and screen chosen and the tube selected. Retested: one Save created the order linked to the tube.
+2. **"Crossmatch" was not something to click.** On Ready to issue, a unit whose crossmatch expired showed a red Crossmatch badge with nowhere to go. A **Repeat crossmatch** link beside it opens Compatibility with the patient and unit filled in.
+3. **An expired crossmatch could not be repeated.** Recording the new crossmatch was refused: "A crossmatch result is already recorded for this unit", although that result had expired with its specimen, so the unit stayed held and unissuable. Only a current compatible result, or any incompatible one, now stands. The crossmatch is recorded on the specimen chosen on screen (it had silently used the order's first linked specimen), and a specimen not linked to the order is refused by name: "Specimen ACC-DEMO-RCV1 is not linked to order ORD0023. Link it on the order (it needs a completed type and screen), then record the crossmatch." Retested live with that message.
+
+### Not completed in this pass
+
+- The ABO/Rh on the new tube waits for a second user's verification (correct), so the order could not be linked, crossmatched and issued as one user; issuing and bedside documentation are carried to the next pass with a unit already crossmatched.
+
+### Tests
+
+- TEST-BB-996, TEST-BB-997. Full suite passed.
+
+### Next
+
+- Pass 3: issue and bedside, transfusion reaction, mother/baby, QC, interfaces.

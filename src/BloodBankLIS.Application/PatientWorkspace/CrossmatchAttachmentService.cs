@@ -372,7 +372,8 @@ public sealed class CrossmatchAttachmentService
         long patientId,
         long allocationId,
         string? testCode,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        long? specimenId = null)
     {
         if (string.IsNullOrWhiteSpace(testCode))
         {
@@ -409,7 +410,13 @@ public sealed class CrossmatchAttachmentService
                 x => x.PatientId == patientId && x.BloodProductId == allocation.BloodProductId, ct))
             .OrderByDescending(x => x.PerformedUtc)
             .FirstOrDefault();
-        if (recorded?.Result is CrossmatchResult.Compatible or CrossmatchResult.Incompatible)
+        // A compatible crossmatch that has expired (its specimen expired) is repeated on a current specimen, as the issue
+        // desk asks: "a compatible, unexpired crossmatch is required" (end-user testing, 2026-11-12: the repeat was
+        // refused, leaving the unit held and unissuable). A current compatible result, or any incompatible one, still
+        // stands and is not recorded over.
+        var now = _clock.UtcNow;
+        if (recorded?.Result is CrossmatchResult.Incompatible
+            || (recorded?.Result is CrossmatchResult.Compatible && (recorded.ExpiresUtc is null || recorded.ExpiresUtc > now)))
         {
             return OperationResult<ManualCrossmatchLineDto>.Fail(
                 "A crossmatch result is already recorded for this unit.");
@@ -441,8 +448,22 @@ public sealed class CrossmatchAttachmentService
             return OperationResult<ManualCrossmatchLineDto>.Fail("Product order was not found.");
         }
 
-        var specimenId = await ResolveSpecimenIdAsync(orderId, null, ct);
-        if (specimenId is not > 0)
+        // The specimen chosen for the crossmatch must be linked to the order (a product order links only a specimen with a
+        // completed type and screen); it is never silently swapped for another of the order's specimens.
+        if (specimenId is > 0)
+        {
+            var linked = await _orderSpecimens.AnyAsync(l => l.OrderId == orderId && l.SpecimenId == specimenId.Value && l.UnlinkedUtc == null, ct);
+            if (!linked)
+            {
+                var chosen = await _specimens.GetByIdAsync(specimenId.Value, ct);
+                return OperationResult<ManualCrossmatchLineDto>.Fail(
+                    $"Specimen {chosen?.AccessionNumber ?? specimenId.ToString()} is not linked to order {order.OrderNumber}. Link it on the order " +
+                    "(it needs a completed type and screen), then record the crossmatch.");
+            }
+        }
+
+        var resolvedSpecimenId = specimenId is > 0 ? specimenId : await ResolveSpecimenIdAsync(orderId, null, ct);
+        if (resolvedSpecimenId is not > 0)
         {
             return OperationResult<ManualCrossmatchLineDto>.Fail(
                 "Link a specimen to this order before recording the crossmatch.");
@@ -464,7 +485,7 @@ public sealed class CrossmatchAttachmentService
         var line = await AddTestLineAsync(order, lines, test, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ManualCrossmatchLineDto>.Ok(
-            new ManualCrossmatchLineDto(order.Id, line.Id, specimenId.Value, test.Code));
+            new ManualCrossmatchLineDto(order.Id, line.Id, resolvedSpecimenId.Value, test.Code));
     }
 
     private async Task<OrderLine> AddTestLineAsync(

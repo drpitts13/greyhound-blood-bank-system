@@ -81,4 +81,17 @@ public class BloodOrderPreparationRuleTests
         Assert.Equal("All 2 units for this order are reserved or issued.", BloodOrderPreparationRule.ReserveProgress(2, 0));
         Assert.Equal("This order has no units ordered.", BloodOrderPreparationRule.ReserveProgress(0, 0));
     }
+
+    // TEST-BB-997: a usable tube with no type and screen ordered on it says to order one on that tube and opens the
+    // new-order form for it; one with the type and screen ordered but not finished says to finish it, as before.
+    [Fact]
+    public void TypeAndScreenNotOrdered_SaysToOrderItOnTheTube()
+    {
+        Assert.Equal("Order type and screen on ACC-9",
+            BloodOrderPreparationRule.NextStep(1, true, typeAndScreenComplete: false, typeAndScreenOrdered: false, specimenAccession: "ACC-9"));
+        Assert.Equal("/patients/5?tab=orders&panel=typeandscreen&tnsSpecimen=18",
+            BloodOrderPreparationRule.NextStepHref(5, 7, 18, typeAndScreenComplete: false, typeAndScreenOrdered: false));
+        Assert.Equal("Finish type and screen", BloodOrderPreparationRule.NextStep(1, true, typeAndScreenComplete: false));
+        Assert.Equal("/patients/5?tab=tests", BloodOrderPreparationRule.NextStepHref(5, 7, 18, typeAndScreenComplete: false));
+    }
 }

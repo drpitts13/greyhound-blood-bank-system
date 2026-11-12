@@ -58,6 +58,7 @@ public sealed record BloodOrderToPrepareDto(
 public sealed class BloodOrderWorklistService
 {
     private readonly IRepository<Order> _orders;
+    private readonly IRepository<OrderSpecimen>? _orderSpecimens;
     private readonly IRepository<OrderLine> _lines;
     private readonly IRepository<Allocation> _allocations;
     private readonly IRepository<Issue> _issues;
@@ -84,8 +85,10 @@ public sealed class BloodOrderWorklistService
         BloodBankLIS.Application.Compatibility.AntibodyScreenCompatLoader? typeAndScreen = null,
         IRepository<SpecialTransfusionRequirement>? requirements = null,
         IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? requirementDefinitions = null,
-        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null,
+        IRepository<OrderSpecimen>? orderSpecimens = null)
     {
+        _orderSpecimens = orderSpecimens;
         _policy = policy;
         _requirements = requirements;
         _requirementDefinitions = requirementDefinitions;
@@ -171,6 +174,21 @@ public sealed class BloodOrderWorklistService
                 completed[patientId] = await _typeAndScreen.ListCompletedTypeAndScreenSpecimenIdsAsync(patientId, now, ct);
             }
         }
+        // Specimens that have a test order linked (a type and screen ordered on them, or another test): without one, a
+        // tube accepted for a blood order waits for nobody until the type and screen is ordered on it.
+        var usableIds = usable.Values.SelectMany(v => v).Select(s => s.Id).ToList();
+        HashSet<long>? testedSpecimens = null;
+        if (_orderSpecimens is not null && usableIds.Count > 0)
+        {
+            var links = await _orderSpecimens.ListAsync(l => usableIds.Contains(l.SpecimenId) && l.UnlinkedUtc == null, ct);
+            var linkedOrderIds = links.Select(l => l.OrderId).Distinct().ToList();
+            var testOrderIds = linkedOrderIds.Count == 0
+                ? new HashSet<long>()
+                : (await _lines.ListAsync(l => linkedOrderIds.Contains(l.OrderId) && l.IsActive && l.LineCategory == OrderCategory.Test, ct))
+                    .Select(l => l.OrderId)
+                    .ToHashSet();
+            testedSpecimens = links.Where(l => testOrderIds.Contains(l.OrderId)).Select(l => l.SpecimenId).ToHashSet();
+        }
         var types = (await _bloodTypes.ListAsync(t => patientIds.Contains(t.PatientId) && t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
         var antibodies = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
         var requirementText = await RequirementsAsync(patientIds, now, ct);
@@ -196,6 +214,8 @@ public sealed class BloodOrderWorklistService
                 : candidates!.FirstOrDefault(s => completed.GetValueOrDefault(order.PatientId)?.Contains(s.Id) == true);
             var specimen = ready ?? (hasSpecimen ? candidates![0] : null);
             var typeAndScreenComplete = ready is not null;
+            // Without the link store, assume ordered (the previous guidance).
+            var typeAndScreenOrdered = specimen is null || typeAndScreenComplete || testedSpecimens is null || testedSpecimens.Contains(specimen.Id);
             // A new specimen is needed only when even the latest-expiring usable one ends before the order is needed.
             var expiresBeforeNeeded = hasSpecimen && OrderNeededByRule.ExpiresBeforeNeeded(candidates![0].ExpiresUtc, order.NeededByUtc, now);
             var tube = inTransit.GetValueOrDefault(order.PatientId)?
@@ -211,8 +231,10 @@ public sealed class BloodOrderWorklistService
                 PatientBloodBankFlags.ActiveAntibodies(antibodies[order.PatientId]),
                 order.Priority, TestWorklistView.IsRush(order.Priority), order.OrderedUtc, products,
                 requested, orderReserved, orderIssued, remaining, hasSpecimen, specimen?.ExpiresUtc,
-                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete, expiresBeforeNeeded, tube)!,
-                BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete, expiresBeforeNeeded, tube),
+                BloodOrderPreparationRule.NextStep(remaining, hasSpecimen, typeAndScreenComplete, expiresBeforeNeeded, tube,
+                    typeAndScreenOrdered, specimen?.AccessionNumber)!,
+                BloodOrderPreparationRule.NextStepHref(order.PatientId, order.Id, specimen?.Id, typeAndScreenComplete, expiresBeforeNeeded, tube,
+                    typeAndScreenOrdered),
                 specimen?.Id,
                 hasSpecimen && !typeAndScreenComplete,
                 order.NeededByUtc,

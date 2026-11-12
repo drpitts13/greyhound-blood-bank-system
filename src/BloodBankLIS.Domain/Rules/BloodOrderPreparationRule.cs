@@ -43,15 +43,25 @@ public static class BloodOrderPreparationRule
     public static bool ReceiveInstead(bool hasUsableSpecimen, bool specimenExpiresBeforeNeeded, string? tubeAwaitingReceipt) =>
         !string.IsNullOrWhiteSpace(tubeAwaitingReceipt) && (!hasUsableSpecimen || specimenExpiresBeforeNeeded);
 
+    /// <summary>
+    /// The chart's new-order form with the type and screen chosen and the accepted tube selected, so saving orders it on
+    /// that tube (end-user testing, 2026-11-12: a tube accepted for a blood order had no type and screen ordered on it,
+    /// and "Finish type and screen" opened an empty Tests tab).
+    /// </summary>
+    public static string OrderTypeAndScreenHref(long patientId, long specimenId) =>
+        $"/patients/{patientId}?tab=orders&panel=typeandscreen&tnsSpecimen={specimenId}";
+
     public static string NextStepHref(long patientId, long orderId, long? usableSpecimenId, bool typeAndScreenComplete = true,
-        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null) =>
+        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null, bool typeAndScreenOrdered = true) =>
         ReceiveInstead(usableSpecimenId is not null, specimenExpiresBeforeNeeded, tubeAwaitingReceipt)
             ? ReceiveTubeHref
             : usableSpecimenId is not long specimenId || specimenExpiresBeforeNeeded
             ? CollectSpecimenHref(patientId)
             : typeAndScreenComplete
                 ? $"/patients/{patientId}?tab=products&reserveOrder={orderId}&reserveSpecimen={specimenId}"
-                : $"/patients/{patientId}?tab=tests";
+                : typeAndScreenOrdered
+                    ? $"/patients/{patientId}?tab=tests"
+                    : OrderTypeAndScreenHref(patientId, specimenId);
 
     /// <summary>
     /// "Collect a specimen", "Collect a new specimen" (the usable one expires before the order is needed, so units
@@ -60,7 +70,8 @@ public static class BloodOrderPreparationRule
     /// units", or null when nothing is left to prepare. Guidance only: reserving stays possible from the chart.
     /// </summary>
     public static string? NextStep(int remaining, bool hasUsableSpecimen, bool typeAndScreenComplete = true,
-        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null) =>
+        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null, bool typeAndScreenOrdered = true,
+        string? specimenAccession = null) =>
         remaining <= 0
             ? null
             : ReceiveInstead(hasUsableSpecimen, specimenExpiresBeforeNeeded, tubeAwaitingReceipt)
@@ -70,6 +81,10 @@ public static class BloodOrderPreparationRule
                 : specimenExpiresBeforeNeeded
                     ? "Collect a new specimen"
                 : !typeAndScreenComplete
-                    ? "Finish type and screen"
+                    ? typeAndScreenOrdered
+                        ? "Finish type and screen"
+                        : string.IsNullOrWhiteSpace(specimenAccession)
+                            ? "Order type and screen"
+                            : $"Order type and screen on {specimenAccession.Trim()}"
                     : $"Reserve {remaining} {(remaining == 1 ? "unit" : "units")}";
 }

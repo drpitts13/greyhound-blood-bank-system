@@ -315,7 +315,7 @@ public static class PatientWorkspaceEndpoints
             CrossmatchAttachmentService service,
             CancellationToken ct) =>
         {
-            var line = await service.EnsureManualCrossmatchLineAsync(patientId, allocationId, request.TestCode, ct);
+            var line = await service.EnsureManualCrossmatchLineAsync(patientId, allocationId, request.TestCode, ct, request.SpecimenId);
             return line.Succeeded
                 ? Results.Ok(line.Value)
                 : Results.BadRequest(new { error = line.Error });

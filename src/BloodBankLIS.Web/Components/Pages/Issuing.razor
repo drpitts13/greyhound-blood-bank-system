@@ -378,6 +378,12 @@
                                 @if (row.CrossmatchBlocksRoutineIssue)
                                 {
                                     <span class="badge badge-red" title="@row.CrossmatchNotice">Crossmatch</span>
+                                    @* The badge said what was wrong but not where to fix it (end-user testing, 2026-11-12): repeat the
+                                       crossmatch for this patient and unit, on a current specimen. *@
+                                    @if (!row.SpecimenBlocksIssue && Session.Has(PermissionCodes.CompatibilityCrossmatch))
+                                    {
+                                        <a class="btn btn-ghost btn-sm" href="@($"/compatibility?patientId={row.PatientId}&bloodUnitId={row.BloodUnitId}")" title="@row.CrossmatchNotice" data-ready-recrossmatch>Repeat crossmatch</a>
+                                    }
                                 }
                                 else if (!string.IsNullOrWhiteSpace(row.CrossmatchNotice))
                                 {

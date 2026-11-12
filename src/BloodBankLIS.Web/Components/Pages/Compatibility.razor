@@ -628,7 +628,9 @@
             return;
         }
 
-        var line = await Api.EnsureManualCrossmatchLineAsync(_xm.PatientId, allocation.AllocationId, _xmTestCode!);
+        // The crossmatch is recorded on the specimen chosen here, not another of the order's (end-user testing, 2026-11-12).
+        var line = await Api.EnsureManualCrossmatchLineAsync(_xm.PatientId, allocation.AllocationId, _xmTestCode!,
+            specimenId: _xm.SpecimenId > 0 ? _xm.SpecimenId : null);
         if (!line.Succeeded || line.Value is null)
         {
             _busy = false;

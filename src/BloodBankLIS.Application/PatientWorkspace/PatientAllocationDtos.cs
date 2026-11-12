@@ -80,7 +80,7 @@ public sealed record CompatibleUnitDto(
     DateTime? CrossmatchExpiresUtc = null,
     CrossmatchResult? LatestCrossmatchResult = null);
 
-public sealed record EnsureManualCrossmatchLineRequest(string TestCode);
+public sealed record EnsureManualCrossmatchLineRequest(string TestCode, long? SpecimenId = null);
 
 public sealed record ManualCrossmatchLineDto(
     long OrderId,
