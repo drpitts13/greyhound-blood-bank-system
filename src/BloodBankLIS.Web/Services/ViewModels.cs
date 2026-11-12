@@ -92,7 +92,8 @@ public sealed record PrintJobVm(
     string? RenderedZpl,
     PrintDeliveryStatus DeliveryStatus,
     string? DeliveryError,
-    bool HasPdf);
+    bool HasPdf,
+    string? ContextName = null);
 
 public sealed record DeliverPrintRequestVm(long? PdfPrinterId = null, long? ZebraPrinterId = null);
 

@@ -72,8 +72,7 @@ public static class PrintEndpoints
 
         group.MapGet("/jobs", async (PrintService service, CancellationToken ct) =>
         {
-            var jobs = await service.ListAsync(ct);
-            return Results.Ok(jobs.OrderByDescending(j => j.CreatedUtc).Select(PrintJobDto.Summary));
+            return Results.Ok(await service.ListSummariesAsync(ct));
         });
 
         group.MapGet("/jobs/{id:long}", async (long id, PrintService service, CancellationToken ct) =>

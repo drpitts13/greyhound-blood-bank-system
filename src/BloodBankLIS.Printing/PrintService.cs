@@ -456,6 +456,49 @@ public sealed class PrintService
     public Task<IReadOnlyList<PrintJob>> ListAsync(CancellationToken ct = default) =>
         _printJobs.ListAsync(ct);
 
+    /// <summary>
+    /// The job list, newest first, each job naming what it printed (end-user testing pass 32: "Specimen#16").
+    /// </summary>
+    public async Task<IReadOnlyList<PrintJobDto>> ListSummariesAsync(CancellationToken ct = default)
+    {
+        var jobs = (await _printJobs.ListAsync(ct)).OrderByDescending(j => j.CreatedUtc).ToList();
+        var result = new List<PrintJobDto>(jobs.Count);
+        foreach (var job in jobs)
+        {
+            result.Add(PrintJobDto.Summary(job) with { ContextName = await ContextNameAsync(job.ContextType, job.ContextId, ct) });
+        }
+
+        return result;
+    }
+
+    private async Task<string?> ContextNameAsync(string? type, long? id, CancellationToken ct)
+    {
+        if (id is not long key)
+        {
+            return null;
+        }
+
+        switch (type)
+        {
+            case nameof(Specimen):
+                return (await _specimens.GetByIdAsync(key, ct)) is { } specimen ? $"Specimen {specimen.AccessionNumber}" : null;
+            case nameof(BloodUnit):
+                return (await _units.GetByIdAsync(key, ct)) is { } unit ? $"Unit {unit.UnitNumber}" : null;
+            case nameof(Issue):
+                var issue = await _issues.GetByIdAsync(key, ct);
+                if (issue is null)
+                {
+                    return null;
+                }
+
+                var issued = await _units.GetByIdAsync(issue.BloodProductId, ct);
+                var patient = await _patients.GetByIdAsync(issue.PatientId, ct);
+                return $"Unit {issued?.UnitNumber ?? "?"} issued to {(patient is null ? "the patient" : $"{patient.LastName}, {patient.FirstName} ({patient.MedicalRecordNumber})")}";
+            default:
+                return null;
+        }
+    }
+
     public async Task<byte[]?> GetPdfAsync(long id, CancellationToken ct = default)
     {
         var job = await _printJobs.GetByIdAsync(id, ct);

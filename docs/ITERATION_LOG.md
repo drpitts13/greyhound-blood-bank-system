@@ -22884,3 +22884,17 @@ Retested live on the Supervisor queue.
 ### Tests
 
 - TEST-BB-1044. Full suite passed.
+
+## Iteration 748 — End-user testing pass 32: the print job list (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Printing, the print jobs list (pass 31's remaining item).
+
+### Found and fixed
+
+1. **Print jobs named by internal id and code.** The list read "1 · SpecimenLabel · SPEC-STD · Pdf · Specimen#16", with no time. It now reads "2026-11-10 09:38 · Specimen label · SPEC-STD · PDF · Specimen ACC0023"; a unit's label names the unit number, and a compatibility tag the unit and the patient it was issued to. Retested live.
+
+### Tests
+
+- TEST-BB-1045. Full suite passed.

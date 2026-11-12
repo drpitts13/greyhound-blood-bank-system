@@ -148,23 +148,24 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Id</th><th>Type</th><th>Template</th><th>Format</th><th>Context</th><th>Status</th><th>By</th><th></th></tr></thead>
+            <thead><tr><th>Printed</th><th>Type</th><th>Template</th><th>Format</th><th>For</th><th>Status</th><th>By</th><th></th></tr></thead>
             <tbody>
                 @foreach (var j in _jobs)
                 {
                     <tr>
-                        <td>@j.Id</td>
-                        <td>@j.JobType @(j.IsReprint ? "(reprint)" : "")</td>
+                        @* End-user testing pass 32: the list showed internal ids ("Specimen#16") and code names. *@
+                        <td class="nowrap">@(j.PrintedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td>@Ui.EnumText(j.JobType) @(j.IsReprint ? "(reprint)" : "")</td>
                         <td class="mono">@j.TemplateCode</td>
-                        <td>@j.Format</td>
+                        <td>@Ui.EnumText(j.Format)</td>
                         <td class="muted">
                             @if (ContextHref(j) is { } href)
                             {
-                                <a href="@href">@j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")</a>
+                                <a href="@href">@(j.ContextName ?? Ui.CodeNameText(j.ContextType ?? ""))</a>
                             }
                             else
                             {
-                                @j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")
+                                @(j.ContextName ?? Ui.CodeNameText(j.ContextType ?? ""))
                             }
                         </td>
                         <td><span class="@Ui.Badge(j.Status)">@Ui.EnumText(j.Status)</span></td>

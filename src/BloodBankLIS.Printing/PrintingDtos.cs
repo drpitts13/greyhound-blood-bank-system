@@ -35,6 +35,9 @@ public sealed record PrintJobDto(
     string? DeliveryError,
     bool HasPdf)
 {
+    /// <summary>The printed record as staff know it (accession, unit number, unit and patient); null when not named.</summary>
+    public string? ContextName { get; init; }
+
     public static PrintJobDto Summary(PrintJob j) => new(
         j.Id, j.JobType, j.TemplateCode, j.Format, j.TargetPrinter, j.ContextType, j.ContextId,
         j.Status, j.IsReprint, j.ReprintReason, j.PrintedBy, j.PrintedUtc, null,
