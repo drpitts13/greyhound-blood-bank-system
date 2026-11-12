@@ -552,6 +552,17 @@
 
                 return (card.Key, waiting.Count, DashboardQueueCatalog.SettingsToEnterNote(waiting));
             }
+            case DashboardQueueCatalog.PanelLotsToReplace:
+            {
+                var result = await Api.GetAntibodyPanelLotSupplyAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var (count, note) = DashboardQueueCatalog.PanelLotsCard(result.Value);
+                return (card.Key, count, note);
+            }
             case DashboardQueueCatalog.OutsideAntibodies:
             {
                 var result = await Api.GetOutsideAntibodiesToConfirmAsync();

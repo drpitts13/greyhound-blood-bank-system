@@ -50,6 +50,7 @@ public static class DashboardQueueCatalog
     public const string OutageOpen = "outage-open";
     public const string OutsideAntibodies = "outside-antibodies";
     public const string SettingsToEnter = "settings-to-enter";
+    public const string PanelLotsToReplace = "panel-lots";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -82,6 +83,10 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.ImmunoRecord) || has(PermissionCodes.ImmunoOverride), AntibodyWorkups, "Antibody workups", "/antibody-id");
         // Antibodies reported by another facility, used for selection, not yet confirmed here (OCD-073): the bench confirms.
         Add(cards, has(PermissionCodes.ImmunoRecord), OutsideAntibodies, "Outside antibodies to confirm", "/antibody-id#outside-reports");
+        // Panel lots expiring with nothing entered to follow them, or none current (Cycle 707): whoever enters lots
+        // (admin) acts; the bench sees it so the lot is ordered in time and lands on the worklist note.
+        Add(cards, has(PermissionCodes.AdminConfigView) || has(PermissionCodes.ImmunoRecord), PanelLotsToReplace, "Panel lots to replace",
+            has(PermissionCodes.AdminConfigView) ? "/admin/antibody-panel-lots" : "/antibody-id");
         Add(cards, has(PermissionCodes.ImmunoOverride)
             || has(PermissionCodes.ResultVerify)
             || has(PermissionCodes.InventoryRelease) || has(PermissionCodes.OverrideApprove), Supervisor, "Supervisor queue", "/supervisor");
@@ -434,6 +439,19 @@ public static class DashboardQueueCatalog
     /// The Reagent QC card note: failed QC (results on that lot are at risk) and overdue daily QC. QC waiting for review
     /// stays in the count only.
     /// </summary>
+    /// <summary>The home card for panel lots: the count needing action, and the soonest message.</summary>
+    public static (int Count, string? Note) PanelLotsCard(IReadOnlyCollection<AntibodyPanelLotSupplyItemDto> items)
+    {
+        var act = items.Where(i => i.NeedsAction).ToList();
+        if (act.Count == 0)
+        {
+            return (0, null);
+        }
+
+        var first = act[0].Message;
+        return (act.Count, act.Count == 1 ? first : $"{first} (+{act.Count - 1} more)");
+    }
+
     public static string? ReagentQcNote(IEnumerable<ReagentQcWorkItemDto> work)
     {
         var items = work.ToList();

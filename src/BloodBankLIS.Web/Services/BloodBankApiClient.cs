@@ -1205,6 +1205,9 @@ public sealed class BloodBankApiClient
         SendAsync<TestDefinitionDto>(HttpMethod.Post, $"api/admin/tests/{id}/clone", new CloneRequest(newCode), ct);
 
     // ---- Admin: Blood attributes ----
+    public Task<ApiResult<List<AntibodyPanelLotSupplyItemDto>>> GetAntibodyPanelLotSupplyAsync(CancellationToken ct = default) =>
+        SendAsync<List<AntibodyPanelLotSupplyItemDto>>(HttpMethod.Get, "api/admin/antibody-panel-lots/supply", ct: ct);
+
     public Task<ApiResult<List<AntibodyPanelLotListItemDto>>> GetAdminAntibodyPanelLotsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<AntibodyPanelLotListItemDto>>(HttpMethod.Get, $"api/admin/antibody-panel-lots?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 

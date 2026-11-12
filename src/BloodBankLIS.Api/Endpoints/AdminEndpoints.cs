@@ -166,6 +166,11 @@ public static class AdminEndpoints
             Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
+        // Lots to replace soon (Cycle 707): the bench sees it on the home card too, so immuno.record may read it.
+        group.MapGet("/supply", async (AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListSupplyAsync(ct)))
+            .RequireAnyPermission(PermissionCodes.AdminConfigView, PermissionCodes.ImmunoRecord);
+
         group.MapGet("/{id:long}", async (long id, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
         {
             var lot = await svc.GetAsync(id, ct);

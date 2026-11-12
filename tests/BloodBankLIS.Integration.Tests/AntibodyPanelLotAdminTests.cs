@@ -225,6 +225,27 @@ public class AntibodyPanelLotAdminTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(AntigenExpression.Present, (await c.AntibodyPanelCellAntigens.SingleAsync(a => a.CellId == cell.Id)).Expression);
     }
 
+    // TEST-BB-966: the supply list reads the facility's lots: a lot created to expire within the warning window with no
+    // later lot of its kind is listed as needing action, naming the manufacturer's lot.
+    [Fact]
+    public async Task ListSupply_NamesALotExpiringWithoutAReplacement()
+    {
+        var (manufacturerId, attrId) = await SeedManufacturerAndKellAsync("GHP-SUPPLY");
+        await using var c = _factory.Create();
+        var svc = Admin(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigEdit));
+        var today = DateOnly.FromDateTime(_factory.Clock.UtcNow);
+        var created = await svc.CreateAsync(ValidCreate(manufacturerId, attrId, "GHP-SUPPLY-LOT", selected: true) with { ExpiresOn = today.AddDays(2) });
+        Assert.True(created.Succeeded, created.Error);
+
+        var supply = await svc.ListSupplyAsync();
+        var item = Assert.Single(supply, i => i.LotId == created.Value!.Id);
+        Assert.True(item.IsSelectedCellLot);
+        Assert.Equal(2, item.DaysLeft);
+        // Other tests share this database, so a later selected-cell lot may follow it; either way the message says which.
+        Assert.Equal(item.ReplacementLotNumber is null, item.NeedsAction);
+        Assert.Contains("lot GHP-SUPPLY-LOT expires in 2 days", item.Message);
+    }
+
     [Fact]
     public async Task Get_AfterCreate_ReturnsCellsAndAntigens()
     {

@@ -186,6 +186,28 @@ public class AntigramImportPageTests : BunitContext
         Assert.Contains("create a corrected lot", page.Find("[data-antigram-locked]").TextContent);
     }
 
+    // TEST-BB-967: the panel lots page shows lots to replace, from the supply list, with what to do.
+    [Fact]
+    public void PanelLotsPage_ShowsLotsToReplace()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/admin/antibody-panel-lots"] = new List<AntibodyPanelLotListItemDto> { Lot },
+            ["/api/admin/antibody-panel-lots/manufacturers"] = new List<AntibodyPanelManufacturerListItemDto> { new(1, "MFR", "Panel Maker", true) },
+            ["/api/admin/antibody-panel-lots/supply"] = new List<AntibodyPanelLotSupplyItemDto>
+            {
+                new("expiring", false, 9, "L-77", "Panel A", new DateOnly(2027, 1, 31), 3, null, true,
+                    "Panel A lot L-77 expires in 3 days (2027-01-31); no other primary panel lot is entered to follow it.")
+            }
+        });
+        Services.AddSingleton(new ReportDownloadCache(new MemoryCache(new MemoryCacheOptions())));
+        var page = Render<AdminAntibodyPanelLots>();
+
+        page.WaitForAssertion(() => Assert.Contains("Panel lots to replace", page.Find("[data-panel-supply]").TextContent));
+        Assert.Contains("no other primary panel lot", page.Find("[data-panel-supply-item]").TextContent);
+        Assert.Contains("Order the next lot", page.Find("[data-panel-supply]").TextContent);
+    }
+
     // TEST-BB-955: the blank template opens as a download.
     [Fact]
     public void Template_OpensADownload()

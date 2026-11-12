@@ -16,6 +16,10 @@ Withdrawing a lot does not identify antibodies and does not close workups that w
 
 The lot's antigram is what **Assist** compares. A wrong antigram produces wrong suggestions. Assist still does not identify the antibody. Correct the antigram before the bench uses the lot, and record why (see **Correct an antigram** below).
 
+## Lots to replace
+
+The top of the page (and the Antibody ID worklist) lists any primary panel or selected-cell lot that expires within 7 days, saying whether a later lot of the same kind is entered to follow it, and says when no active, unexpired primary panel lot is left, so the next lot can be ordered and entered in time. A selected-cell lot is only expected once one has been entered. The **Panel lots to replace** home card counts the ones with nothing to follow them. The 7 days are the reagent lots' warning window, not a regulatory rule.
+
 ## Enter, import or download an antigram
 
 **By hand.** **New lot** opens a form with one cell typed for every active antigen, all absent; mark what is present, add cells, and **Create**.

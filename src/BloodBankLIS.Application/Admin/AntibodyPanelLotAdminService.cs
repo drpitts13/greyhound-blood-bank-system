@@ -83,6 +83,22 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
             .ToList();
     }
 
+    /// <summary>
+    /// Panel lots expiring within the reagent warning window, and whether another current lot of the same kind follows
+    /// each; and a kind (primary panel, selected cells) with no current lot at all. Operational; identifies nothing.
+    /// </summary>
+    public async Task<IReadOnlyList<AntibodyPanelLotSupplyItemDto>> ListSupplyAsync(CancellationToken ct = default)
+    {
+        var manufacturers = (await _manufacturers.ListAsync(ct)).ToDictionary(m => m.Id, m => m.Name);
+        var lots = (await _lots.ListAsync(ct))
+            .Select(l => new AntibodyPanelLotSupplyRule.Lot(l.Id, l.PanelName, l.LotNumber,
+                manufacturers.GetValueOrDefault(l.ManufacturerId) ?? "", l.ExpiresOn, l.IsSelectedCellLot, l.IsActive));
+        return AntibodyPanelLotSupplyRule.Review(lots, DateOnly.FromDateTime(Clock.UtcNow))
+            .Select(i => new AntibodyPanelLotSupplyItemDto(i.Kind, i.IsSelectedCellLot, i.Lot?.Id, i.Lot?.LotNumber,
+                i.Lot?.PanelName, i.Lot?.ExpiresOn, i.DaysLeft, i.Replacement?.LotNumber, i.NeedsAction, i.Message))
+            .ToList();
+    }
+
     public async Task<AntibodyPanelLotDetailDto?> GetAsync(long id, CancellationToken ct = default)
     {
         var lot = await _lots.GetByIdAsync(id, ct);

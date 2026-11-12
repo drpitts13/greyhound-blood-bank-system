@@ -22,6 +22,7 @@
 }
 else
 {
+    <PanelLotSupplyNotice Items="_supply" Advice="@(Session.Has(PermissionCodes.AdminConfigView) ? "Order the next lot and enter it on Admin › Antibody panel lots when it arrives." : "Tell whoever orders reagents and enters panel lots, so the next lot is ready in time.")" />
     <div class="bb-card">
         <div class="bb-card-title">
             <h3>Open workups</h3>
@@ -296,6 +297,7 @@ else
 
 @code {
     private List<OutsideAntibodyToConfirmDto> _outside = new();
+    private List<AntibodyPanelLotSupplyItemDto> _supply = new();
 
     [SupplyParameterFromQuery]
     public string? Lot { get; set; }
@@ -450,6 +452,12 @@ else
         {
             var outside = await Api.GetOutsideAntibodiesToConfirmAsync();
             _outside = outside.Value ?? new();
+        }
+
+        if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.AdminConfigView))
+        {
+            var supply = await Api.GetAntibodyPanelLotSupplyAsync();
+            _supply = supply.Value ?? new();
         }
 
         _loading = false;

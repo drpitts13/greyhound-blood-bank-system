@@ -588,4 +588,25 @@ public class DashboardQueueCatalogTests
         Assert.Empty(clear.Attention);
         Assert.Single(clear.Clear);
     }
+
+    // TEST-BB-965: the panel lots card is shown to whoever enters lots (to the admin page) and to the bench (to the
+    // worklist); it counts only items needing action and names the first.
+    [Fact]
+    public void PanelLotsCard_CountsWhatNeedsAction()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.AdminConfigView)),
+            c => c.Key == DashboardQueueCatalog.PanelLotsToReplace && c.Href == "/admin/antibody-panel-lots");
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ImmunoRecord)),
+            c => c.Key == DashboardQueueCatalog.PanelLotsToReplace && c.Href == "/antibody-id");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)), c => c.Key == DashboardQueueCatalog.PanelLotsToReplace);
+
+        AntibodyPanelLotSupplyItemDto Item(bool act, string message) =>
+            new(AntibodyPanelLotSupplyRule.Expiring, false, 1, "L-1", "Panel A", null, 2, act ? null : "L-2", act, message);
+        Assert.Equal((0, (string?)null), DashboardQueueCatalog.PanelLotsCard([Item(false, "followed")]));
+        Assert.Equal((1, "first"), DashboardQueueCatalog.PanelLotsCard([Item(true, "first"), Item(false, "followed")]));
+        Assert.Equal((2, "first (+1 more)"), DashboardQueueCatalog.PanelLotsCard([Item(true, "first"), Item(true, "second")]));
+
+        var card = DashboardQueueCatalog.Select(_ => true).Single(c => c.Key == DashboardQueueCatalog.PanelLotsToReplace);
+        Assert.Single(DashboardHome.Arrange([new DashboardCardState(card, 1, "first")], WorkFocus.Bench).Attention);
+    }
 }

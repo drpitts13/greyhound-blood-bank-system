@@ -29,6 +29,7 @@
 </details>
 
 @if (!_creating) { <Outcome Value="_feedback" /> }
+<PanelLotSupplyNotice Items="_supply" />
 
 <div class="bb-card" style="margin-top:1rem;">
     <div class="bb-card-title"><h3>Manufacturers</h3></div>
@@ -718,6 +719,7 @@
     private List<AntibodyPanelManufacturerListItemDto> _allManufacturers = new();
     private List<BloodAttributeDefinitionDto> _attributes = new();
     private AntibodyPanelLotDetailDto? _detail;
+    private List<AntibodyPanelLotSupplyItemDto> _supply = new();
     private AntibodyPanelManufacturerDetailDto? _mfgDetail;
     private bool _creatingManufacturer;
     private string _mfgCode = "";
@@ -745,6 +747,9 @@
         {
             _feedback = r.ToFeedback();
         }
+
+        var supply = await Api.GetAntibodyPanelLotSupplyAsync();
+        _supply = supply.Value ?? new();
 
         var mfg = await Api.GetAdminAntibodyPanelManufacturersAsync(true);
         _allManufacturers = mfg.Value ?? new();

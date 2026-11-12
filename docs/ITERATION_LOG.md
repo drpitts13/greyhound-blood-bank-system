@@ -21881,3 +21881,37 @@ After Cycle 705 a lot's antigram could be entered, imported and downloaded, and 
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 707 — Panel lots to replace (2026-11-11)
+
+### Capability matrix rescan (testing: antibody identification; inventory of reagents)
+
+Reagent lots warn before they expire (Reagent QC card, 7-day window). Antibody panel lots did not: the first sign that the last primary panel had expired was a workup refused at the bench (an inactive or expired lot is a hard stop), with no lot entered to take its place.
+
+### Design
+
+- `AntibodyPanelLotSupplyRule.Review`, per kind (primary panel, selected cells):
+  - no active, unexpired lot: needs action (for selected cells only once a selected-cell lot has been entered);
+  - a current lot expiring within `ReagentLotRule.ExpiringSoonDays` (7): listed, naming the later current lot of its kind that follows it; needs action only when none does.
+  - The window is the reagent lots' operational one, not a clinical or regulatory rule.
+- `GET /api/admin/antibody-panel-lots/supply` for admin.config.view or immuno.record.
+- `PanelLotSupplyNotice` at the top of Admin › Antibody panel lots and of the Antibody ID worklist, with advice worded for who is reading.
+- Home card **Panel lots to replace** (Bench and Supervisor desks) counting what needs action and naming the soonest; it opens the admin page, or the worklist for the bench.
+
+### Verification
+
+- Unit: expiring with and without a replacement, the window edge, inactive and expired lots ignored, wording for today and tomorrow; no current lot of a kind; the card's count, note, links and permissions.
+- Integration: a created lot expiring in 2 days is listed with its days and message.
+- Rendered: the panel lots page shows the notice.
+
+### Requirements
+
+- URS-BB-750, FRS-BB-868.
+
+### Tests
+
+- TEST-BB-963 to TEST-BB-967.
+
+### Next
+
+- Back to the capability matrix.
