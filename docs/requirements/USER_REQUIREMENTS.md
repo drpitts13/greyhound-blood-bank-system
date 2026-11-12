@@ -783,3 +783,6 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-775 | Coolers in transit show their ward receipt due time and are marked overdue once it passes. | P2 | FRS-BB-893 |
 | URS-BB-776 | An instrument result whose patient ID is not the specimen's patient is not posted and waits for review. | P1 | FRS-BB-894 |
 | URS-BB-777 | The instrument simulator sends the message it previewed. | P3 | FRS-BB-895 |
+| URS-BB-778 | A verified result is sent to the EHR automatically when an outbound results interface is enabled, unless the facility turns this off. | P1 | FRS-BB-896 |
+| URS-BB-779 | The crossmatch and transfusion counts for the C:T ratio are reported by month and product. | P2 | FRS-BB-897 |
+| URS-BB-780 | Billing trigger, result status and result source read in words. | P3 | FRS-BB-898 |

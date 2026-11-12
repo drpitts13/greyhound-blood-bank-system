@@ -89,6 +89,7 @@ public static class ReportSourceCatalog
             Field("mrn", "MRN")),
         Source(CrossmatchTransfusion, "Crossmatch and transfusion activity", ReportViewCatalog.CrossmatchTransfusion,
             Field("occurred_utc", "Occurred", ReportValueKind.Date),
+            Field("occurred_month", "Month"),
             Field("event_type", "Event"),
             Field("unit_number", "Unit number"),
             Field("product_name", "Product"),

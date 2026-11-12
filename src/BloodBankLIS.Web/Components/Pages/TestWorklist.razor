@@ -240,7 +240,7 @@
                         <td>
                             @if (item.CurrentResultStatus is not null)
                             {
-                                <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@item.CurrentResultStatus</span>
+                                <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@Ui.EnumText(item.CurrentResultStatus.Value)</span>
                             }
                             else
                             {

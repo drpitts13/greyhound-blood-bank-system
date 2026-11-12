@@ -34,9 +34,9 @@
     {
         <div class="muted" style="margin-bottom:.5rem;">
             Current result:
-            <span class="@Ui.Badge(WorkItem.CurrentResultStatus ?? ResultStatus.Pending)">@(WorkItem.CurrentResultStatus?.ToString() ?? "—")</span>
+            <span class="@Ui.Badge(WorkItem.CurrentResultStatus ?? ResultStatus.Pending)">@(WorkItem.CurrentResultStatus is { } crs ? Ui.EnumText(crs) : "—")</span>
             · @DisplayValue(WorkItem.TestCode, WorkItem.CurrentResultValue)
-            · Source @(WorkItem.CurrentResultSource?.ToString() ?? "—")
+            · Source @(WorkItem.CurrentResultSource is { } src ? Ui.EnumText(src) : "—")
             @if (!string.IsNullOrWhiteSpace(WorkItem.CurrentResultInterpretation))
             {
                 <span> · @WorkItem.CurrentResultInterpretation</span>

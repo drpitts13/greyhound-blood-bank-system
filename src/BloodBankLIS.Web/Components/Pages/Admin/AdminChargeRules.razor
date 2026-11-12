@@ -52,7 +52,7 @@
                 @foreach (var r in Filtered)
                 {
                     <tr>
-                        <td>@r.TriggerType</td>
+                        <td>@Ui.EnumText(r.TriggerType)</td>
                         <td class="mono">@(r.TriggerKey ?? "(any)")</td>
                         <td>
                             <span class="mono">@r.ChargeCode</span>

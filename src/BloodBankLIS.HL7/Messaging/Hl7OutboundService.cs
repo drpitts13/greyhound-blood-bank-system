@@ -143,7 +143,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
     {
         var result = await _results.GetByIdAsync(resultId, ct);
         if (result is null
-            || !ResultReleaseRule.SentAutomatically(ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null)))
+            // The caller decides whether this result goes automatically (OCD-049, OCD-086); only a sendable one is queued.
+            || ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null) is null)
         {
             return null;
         }

@@ -301,6 +301,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
 
         var rows = crossmatches.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.PerformedUtc)),
+            ("occurred_month", row.PerformedUtc.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
             ("event_type", "Crossmatch"),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_name", ReportValueFormat.Text(row.ProductName)),
@@ -309,6 +310,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
 
         rows.AddRange(transfusions.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.StartUtc)),
+            ("occurred_month", row.StartUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
             ("event_type", "Transfusion"),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_name", ReportValueFormat.Text(row.ProductName)),

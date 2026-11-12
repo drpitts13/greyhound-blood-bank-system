@@ -1005,7 +1005,8 @@ public sealed class ResultService
 
         await _unitOfWork.SaveChangesAsync(ct);
 
-        // A verified correction replaces a value the EHR may already show (OCD-049).
+        // A verified correction replaces a value the EHR may already show (OCD-049); a first final goes too when the
+        // facility sends verified results automatically (OCD-086).
         if (await TellEhrOfChangeAsync(result, ct) is RuleResult notSent)
         {
             warnings.Add(notSent);
@@ -1020,8 +1021,9 @@ public sealed class ResultService
     /// </summary>
     private async Task<RuleResult?> TellEhrOfChangeAsync(TestResult result, CancellationToken ct)
     {
+        var sendFinal = _policy is not null && await _policy.GetSendFinalResultsAutomaticallyAsync(ct);
         if (_releases is null
-            || !ResultReleaseRule.SentAutomatically(ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null)))
+            || !ResultReleaseRule.SentAutomatically(ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null), sendFinal))
         {
             return null;
         }

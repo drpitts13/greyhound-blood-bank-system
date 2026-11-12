@@ -45,6 +45,8 @@ public static class ReportViewSql
         var dateOfBirth = sqlServer ? "CONVERT(varchar(10), p.DateOfBirth, 23)" : "p.DateOfBirth";
         var activeTest = "td.Code = r.TestCode AND td.IsActive = 1 AND td.IsDraft = 0";
         var discardedMonth = sqlServer ? "CONVERT(varchar(7), h.DiscardedUtc, 126)" : "substr(h.DiscardedUtc, 1, 7)";
+        var crossmatchMonth = sqlServer ? "CONVERT(varchar(7), c.PerformedUtc, 126)" : "substr(c.PerformedUtc, 1, 7)";
+        var transfusionMonth = sqlServer ? "CONVERT(varchar(7), t.StartUtc, 126)" : "substr(t.StartUtc, 1, 7)";
         // Specimens rejected before RejectedUtc was recorded fall back to their last modification time.
         var rejectedAt = "COALESCE(s.RejectedUtc, s.ModifiedUtc)";
         var rejectedMonth = sqlServer ? $"CONVERT(varchar(7), {rejectedAt}, 126)" : $"substr({rejectedAt}, 1, 7)";
@@ -182,6 +184,7 @@ public static class ReportViewSql
         yield return (ReportViewCatalog.CrossmatchTransfusion, $"""
             SELECT
                 c.PerformedUtc AS occurred_utc,
+                {crossmatchMonth} AS occurred_month,
                 'Crossmatch' AS event_type,
                 u.UnitNumber AS unit_number,
                 pt.Name AS product_name,
@@ -194,6 +197,7 @@ public static class ReportViewSql
             UNION ALL
             SELECT
                 t.StartUtc AS occurred_utc,
+                {transfusionMonth} AS occurred_month,
                 'Transfusion' AS event_type,
                 u.UnitNumber AS unit_number,
                 pt.Name AS product_name,

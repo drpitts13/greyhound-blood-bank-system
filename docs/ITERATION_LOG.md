@@ -22426,3 +22426,27 @@ On the running system with seeded data: Cooler check → Coolers in transit; the
 ### Next
 
 - Pass 11: outbound results to the EHR after verification, billing, and reports.
+
+## Iteration 727 — End-user testing pass 11: results to the EHR, billing and reports (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the bench worklist → verify Uma Tester's instrument screen (ordered by the EHR in pass 5) → the HL7 page's waiting-to-send list and message log; Billing → the charge review queue; Reports → run Test turnaround and the catalog; Facility Policies.
+
+### Found and fixed
+
+1. **Verified results never went back to the EHR on their own.** Verifying the EHR-ordered screen queued its charge (DFT) but no result (ORU): only corrections and withdrawals were sent automatically (OCD-049), a first final waited for someone to send it by hand. A verified result is now queued as final when an outbound results interface is enabled; Facility Policies › *Send verified results to the EHR automatically* (default on) turns it off. Confirming the default is **OCD-086** for the product owner. Nothing is queued in this development system, which has no results interface enabled.
+2. **No crossmatch-to-transfusion ratio.** No report gave the C:T ratio's numbers. **Crossmatches and transfusions by month** counts both by month and product. Retested live: November red cells, 7 crossmatches and 4 transfusions (C:T 1.75).
+3. **Codes on screen.** The billing trigger read UnitIssued and TestVerified, and the worklist result read PendingVerification (also in the entry panel with its source); they now read in words.
+
+### Observed working
+
+- The screen verified by the same technologist (allowed for a screen); the charge queued with its DFT; Test turnaround listed it at 166 minutes from order and 28 from receipt.
+
+### Tests
+
+- TEST-BB-1018, TEST-BB-1019. Full suite passed.
+
+### Next
+
+- Pass 12: patient merge and identification, downtime, and the gaps that remain.

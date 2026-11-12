@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
@@ -25,14 +26,15 @@ public class ResultEhrUpdateTests : IDisposable
         new(new EfRepository<TestResult>(c), new EfRepository<Patient>(c), new EfRepository<Hl7MessageLog>(c), c, _factory.Clock,
             endpoints: new EfRepository<InterfaceEndpoint>(c));
 
-    private ResultService Results(BloodBankDbContext c, ICurrentUser? user = null, IResultReleasePublisher? releases = null)
+    private ResultService Results(BloodBankDbContext c, ICurrentUser? user = null, IResultReleasePublisher? releases = null,
+        FacilityPolicyService? policy = null)
     {
         var current = user ?? _factory.CurrentUser;
         return new(
             new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
             c, _factory.Clock, current, new AuditWriter(c, _factory.Clock, current),
             patients: new EfRepository<Patient>(c), permissions: new FixedPermissionEvaluator(2),
-            releases: releases ?? Outbound(c));
+            releases: releases ?? Outbound(c), policy: policy);
     }
 
     private async Task<long> VerifiedAboRhAsync(string key)
@@ -109,6 +111,41 @@ public class ResultEhrUpdateTests : IDisposable
         await using var v = _factory.Create();
         var message = Assert.Single(await v.Hl7Messages.Where(m => m.MessageType == "ORU").ToListAsync());
         Assert.Equal("C", message.RawMessage.Split('\r', StringSplitOptions.RemoveEmptyEntries).Single(s => s.StartsWith("OBX|", StringComparison.Ordinal)).Split('|')[11]);
+    }
+
+    // TEST-BB-1018: with the facility sending verified results automatically (the default, OCD-086), verifying a first
+    // result queues it for the EHR as final; with the setting off it waits to be sent by hand (end-user testing pass 11).
+    [Theory]
+    [InlineData(null, 1)]
+    [InlineData("false", 0)]
+    public async Task VerifyingAFirstResult_QueuesItAsFinal_UnlessTheFacilityTurnsItOff(string? setting, int expected)
+    {
+        await EnableResultsInterfaceAsync();
+        await using var c = _factory.Create();
+        if (setting is not null)
+        {
+            c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.SendFinalResultsAutomatically, Value = setting });
+            await c.SaveChangesAsync();
+        }
+
+        var patient = new Patient { MedicalRecordNumber = "MRN-EHR-F-" + (setting ?? "on"), LastName = "Ehr", FirstName = "Final", DateOfBirth = new DateOnly(1985, 4, 4), Sex = Sex.Unknown };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var specimen = await new SpecimenService(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
+                c, _factory.Clock, currentUser: _factory.CurrentUser)
+            .AccessionAsync(new AccessionSpecimenRequest("ACC-EHR-F-" + (setting ?? "on"), patient.Id, "EDTA", _factory.Clock.UtcNow.AddHours(-1)));
+        var entered = await Results(c).EnterAboRhAsync(new EnterAboRhRequest(specimen.Value!.Id, AboGroup.A, RhType.Positive));
+        Assert.True(entered.Succeeded, entered.Error);
+        var policy = new FacilityPolicyService(new EfRepository<SystemSetting>(c));
+        var verified = await Results(c, Verifier, policy: policy).VerifyResultAsync(entered.Value!.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+
+        var messages = await c.Hl7Messages.Where(m => m.Direction == Hl7Direction.Outbound && m.MessageType == "ORU").ToListAsync();
+        Assert.Equal(expected, messages.Count);
+        if (expected == 1)
+        {
+            Assert.Equal("F", messages[0].RawMessage.Split('\r', StringSplitOptions.RemoveEmptyEntries).Single(s => s.StartsWith("OBX|", StringComparison.Ordinal)).Split('|')[11]);
+        }
     }
 
     [Fact]

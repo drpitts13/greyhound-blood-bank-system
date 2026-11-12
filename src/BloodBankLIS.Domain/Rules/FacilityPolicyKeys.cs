@@ -11,6 +11,9 @@ public static class FacilityPolicyKeys
     public const string RetrospectiveCrossmatchDueHours = "Issue.RetrospectiveCrossmatchDueHours";
     public const string InTransitDueHours = "Issue.InTransitDueHours";
 
+    /// <summary>Send a verified first result to the EHR without anyone asking (OCD-086; end-user testing 2026-11-12).</summary>
+    public const string SendFinalResultsAutomatically = "Results.SendFinalAutomatically";
+
     /// <summary>Minutes after issue when a unit may still return to Available inventory.</summary>
     public const string ReturnToAvailableMinutes = "Issue.ReturnToAvailableMinutes";
 

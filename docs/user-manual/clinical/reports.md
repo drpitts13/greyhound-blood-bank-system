@@ -21,3 +21,7 @@ Open a report, enter the parameters it asks for (a date range is typical), and r
 Operational reports are facility reports. They are not a regulatory certificate. Read the title and the parameters you typed before you send the file to someone else.
 
 If the report you need is not listed, you either lack report permission or nobody has published that definition. Report design is in the Administrator Guide.
+
+## Crossmatch-to-transfusion ratio
+
+**Crossmatches and transfusions by month** counts crossmatches and transfusions by month and product. Divide the crossmatch count by the transfusion count for the C:T ratio; use the date filter for a period.

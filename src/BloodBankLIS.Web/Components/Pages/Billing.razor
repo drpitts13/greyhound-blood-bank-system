@@ -94,7 +94,7 @@
                                     @(c.ClinicalLabel ?? "—")
                                 }
                             </td>
-                            <td>@c.TriggerType</td>
+                            <td>@Ui.EnumText(c.TriggerType)</td>
                             <td class="mono">
                                 @if (c.Hl7MessageId is > 0)
                                 {

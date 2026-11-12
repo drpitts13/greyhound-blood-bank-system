@@ -28,4 +28,13 @@ public class ResultReleaseRuleTests
     [InlineData(null, false)]
     public void OnlyCorrectionsAndWithdrawals_AreSentAutomatically(string? status, bool expected) =>
         Assert.Equal(expected, ResultReleaseRule.SentAutomatically(status));
+
+    // TEST-BB-1018 (OCD-086): with the facility setting on, a first final result goes automatically too.
+    [Theory]
+    [InlineData("F", true, true)]
+    [InlineData("F", false, false)]
+    [InlineData("C", false, true)]
+    [InlineData(null, true, false)]
+    public void FinalResults_FollowTheFacilitySetting(string? status, bool sendFinal, bool expected) =>
+        Assert.Equal(expected, ResultReleaseRule.SentAutomatically(status, sendFinal));
 }

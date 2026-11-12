@@ -24,6 +24,13 @@ public static class ResultReleaseRule
     /// <summary>A correction or a withdrawal is sent automatically (OCD-049); a first final result is sent on request.</summary>
     public static bool SentAutomatically(string? obxStatus) => obxStatus is Corrected or Wrong;
 
+    /// <summary>
+    /// With the facility's "send verified results automatically" setting (OCD-086), a first final result goes too.
+    /// End-user testing, 2026-11-12: an EHR order's verified results never went back unless someone sent them by hand.
+    /// </summary>
+    public static bool SentAutomatically(string? obxStatus, bool sendFinal) =>
+        SentAutomatically(obxStatus) || (sendFinal && obxStatus == Final);
+
     public const string NotSentCode = "RES-EHR-NOT-SENT";
 
     public static RuleResult NotSent(string testCode) =>

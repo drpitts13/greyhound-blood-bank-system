@@ -8,8 +8,8 @@ namespace BloodBankLIS.Application.Abstractions;
 public interface IResultReleasePublisher
 {
     /// <summary>
-    /// Queues the change for <paramref name="resultId"/> when it is a correction or a withdrawal and an outbound results
-    /// interface is enabled. Returns the <c>HL7Messages</c> id, or null when nothing was queued.
+    /// Queues <paramref name="resultId"/> (a final, a correction or a withdrawal; the caller decides which go
+    /// automatically, OCD-049 / OCD-086) when an outbound results interface is enabled. Returns the <c>HL7Messages</c> id, or null when nothing was queued.
     /// </summary>
     Task<long?> PublishResultChangeAsync(long resultId, CancellationToken ct = default);
 }

@@ -64,6 +64,16 @@ public static class ReportSeedCatalog
             ["occurred_utc", "event_type", "unit_number", "product_name", "mrn", "detail"],
             filters: [DateRange("activity-range", "occurred_utc")],
             sorts: [Sort("occurred_utc", ReportSortDirection.Descending)]),
+        // End-user testing, 2026-11-12: the crossmatch-to-transfusion (C:T) ratio, a standard utilization measure, could
+        // not be read from any report. Divide crossmatches by transfusions for the month (and product).
+        Visual("RPT-XM-TX-BY-MONTH", "Crossmatches and transfusions by month",
+            "Count of crossmatches and of transfusions by month and product, for the crossmatch-to-transfusion (C:T) ratio.",
+            ReportSourceCatalog.CrossmatchTransfusion,
+            ["occurred_month", "product_name", "event_type"],
+            filters: [DateRange("activity-range", "occurred_utc")],
+            sorts: [Sort("occurred_month", ReportSortDirection.Descending), Sort("product_name"), Sort("event_type")],
+            groupBy: ["occurred_month", "product_name", "event_type"],
+            aggregates: [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "count" }]),
         Visual("RPT-SPECIMEN-REJECTIONS", "Specimen rejections",
             "Rejected specimens with the coded reason, draw location, collector, and who rejected them.",
             ReportSourceCatalog.SpecimenRejections,

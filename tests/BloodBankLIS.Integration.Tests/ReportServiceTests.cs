@@ -28,7 +28,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(15, list.Value!.Count);
+        Assert.Equal(16, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -184,6 +184,34 @@ public class ReportServiceTests : IDisposable
         Assert.Equal("ABO/Rh", sqlRow[3]);
         Assert.Equal("AboRh", sqlRow[4]);
         Assert.Equal("O Pos", sqlRow[5]);
+    }
+
+    // TEST-BB-1019: crossmatches and transfusions are counted by month and product (the C:T ratio's numbers); the
+    // reporting view carries the month too (end-user testing pass 11).
+    [Fact]
+    public async Task CrossmatchesAndTransfusionsByMonth_RunsAndTheViewHasTheMonth()
+    {
+        await using var db = _factory.Create();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        await db.SaveChangesAsync();
+
+        var service = Service(db);
+        var byMonth = (await service.ListAsync()).Value!.Single(r => r.Code == "RPT-XM-TX-BY-MONTH");
+        var run = await service.RunAsync(byMonth.Id, new Dictionary<string, string?>());
+        Assert.True(run.Succeeded, run.Error);
+
+        var saved = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-SQL-XM-MONTH",
+            Name = "SQL crossmatch month",
+            Kind = Domain.Reporting.ReportKind.Sql,
+            SqlText = "SELECT occurred_month, event_type FROM rpt_crossmatch_transfusion"
+        });
+        Assert.True(saved.Succeeded, saved.Error);
+        var sqlRun = await service.RunAsync(saved.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Contains("occurred_month", sqlRun.Value!.Columns, StringComparer.OrdinalIgnoreCase);
     }
 
     // TEST-BB-335: rejections are counted by month, reason code, draw location, and collector.
