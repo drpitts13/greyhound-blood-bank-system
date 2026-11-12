@@ -62,6 +62,7 @@ public sealed class DowntimePatientSummaryService
     private readonly IClock _clock;
     private readonly IRepository<RhigEvaluation>? _rhig;
     private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
+    private readonly IRepository<BloodAttributeDefinition>? _attributes;
 
     public DowntimePatientSummaryService(
         IRepository<Patient> patients,
@@ -78,8 +79,10 @@ public sealed class DowntimePatientSummaryService
         IUnitOfWork unitOfWork,
         IClock clock,
         IRepository<RhigEvaluation>? rhig = null,
-        BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null)
+        BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null,
+        IRepository<BloodAttributeDefinition>? attributes = null)
     {
+        _attributes = attributes;
         _bloodOrders = bloodOrders;
         _rhig = rhig;
         _patients = patients;
@@ -148,8 +151,13 @@ public sealed class DowntimePatientSummaryService
         var units = (await _units.ListAsync(u => unitIds.Contains(u.Id), ct)).ToDictionary(u => u.Id);
         var productNames = (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id, p => p.Name);
         var types = (await _bloodTypes.ListAsync(t => patientIds.Contains(t.PatientId), ct)).ToLookup(t => t.PatientId);
-        var antibodies = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId) && a.IsActive, ct))
-            .ToLookup(a => a.PatientId);
+        var antibodyRows = await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
+        var antibodies = antibodyRows.Where(a => a.IsActive).ToLookup(a => a.PatientId);
+        // The gate's antigen-negative requirements from every antibody on the history, current or historical.
+        var allAntibodies = antibodyRows.ToLookup(a => a.PatientId);
+        var attributeDefinitions = _attributes is null
+            ? new Dictionary<long, BloodAttributeDefinition>()
+            : (await _attributes.ListAsync(d => d.IsActive, ct)).ToDictionary(d => d.Id);
         var requirements = (await _requirements.ListAsync(r => patientIds.Contains(r.PatientId), ct))
             .ToLookup(r => r.PatientId);
         var definitions = (await _requirementDefinitions.ListAsync(ct)).ToDictionary(d => d.Id);
@@ -193,7 +201,11 @@ public sealed class DowntimePatientSummaryService
                     // An antibody known only from another facility's report says so; found here as well, it reads plain.
                     // The same wording as the patient list and find box (one definition).
                     BloodBankLIS.Application.Patients.PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
-                    active.Where(r => !r.IsInformational).Select(RequirementText).Order(StringComparer.OrdinalIgnoreCase).ToList(),
+                    BloodBankLIS.Application.Compatibility.BloodAttributeCompatLoader
+                        .AntigenNegativeRequirements(allAntibodies[p.Id].ToList(), attributeDefinitions)
+                        .Concat(active.Where(r => !r.IsInformational).Select(RequirementText).Order(StringComparer.OrdinalIgnoreCase))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList(),
                     active.Where(r => r.IsInformational)
                         .Select(r => string.IsNullOrWhiteSpace(r.Instruction) ? r.Name ?? string.Empty : r.Instruction!)
                         .ToList(),

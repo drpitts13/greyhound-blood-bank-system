@@ -56,3 +56,7 @@ Downtime documentation is your facility's paper procedure. Capture the identifie
 5. Review overrides and interface errors before you call the recovery finished.
 
 > Facility policy. The paper forms, the decision to transfuse during downtime, and the regulatory notice are your procedure. This screen only shows what is still open in the database.
+
+## Antigen-negative requirements on the sheet
+
+Special requirements on the downtime patient summary, and **Requires** on the antibody card, include the antigen-negative red cells the issue check asks for: one line for each clinically significant antibody on the patient's history, current or historical, for example "K-negative red cells (anti-K on file)". During downtime, select units to meet them.

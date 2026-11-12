@@ -15,6 +15,63 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
 
     public DowntimePatientSummaryTests(SqliteContextFactory factory) => _factory = factory;
 
+    private DowntimePatientSummaryService Service(BloodBankDbContext c, bool withAttributes) =>
+        new(
+            new EfRepository<Patient>(c),
+            new EfRepository<Specimen>(c),
+            new EfRepository<Allocation>(c),
+            new EfRepository<Issue>(c),
+            new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<SpecialRequirementDefinition>(c),
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
+            c,
+            _factory.Clock,
+            new EfRepository<RhigEvaluation>(c),
+            attributes: withAttributes ? new EfRepository<BloodAttributeDefinition>(c) : null);
+
+    // TEST-BB-1021: the antibody card and downtime sheet state the antigen-negative requirement the issue gate applies:
+    // one per clinically significant catalog antibody on the history, current or historical; a not clinically
+    // significant antibody gives none (end-user testing pass 12: anti-K was listed with "Special requirements: None").
+    [Fact]
+    public async Task AntibodyCard_StatesTheAntigenNegativeRequirement()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var significant = new BloodAttributeDefinition
+        {
+            Code = $"KX{key}", Name = $"Kx{key}", AntibodyName = $"anti-Kx{key}", IsClinicallySignificant = true, SortOrder = 90,
+            IsActive = true, IsDraft = false, EffectiveUtc = _factory.Clock.UtcNow, Version = 1
+        };
+        var historical = new BloodAttributeDefinition
+        {
+            Code = $"JX{key}", Name = $"Jx{key}", AntibodyName = $"anti-Jx{key}", IsClinicallySignificant = true, SortOrder = 91,
+            IsActive = true, IsDraft = false, EffectiveUtc = _factory.Clock.UtcNow, Version = 1
+        };
+        var cold = new BloodAttributeDefinition
+        {
+            Code = $"MX{key}", Name = $"Mx{key}", AntibodyName = $"anti-Mx{key}", IsClinicallySignificant = false, SortOrder = 92,
+            IsActive = true, IsDraft = false, EffectiveUtc = _factory.Clock.UtcNow, Version = 1
+        };
+        c.BloodAttributeDefinitions.AddRange(significant, historical, cold);
+        var patient = NewPatient(key, "AgNeg");
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        c.AntibodyHistory.AddRange(
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = significant.AntibodyName!, BloodAttributeDefinitionId = significant.Id, IsActive = true },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = historical.AntibodyName!, BloodAttributeDefinitionId = historical.Id, IsActive = false },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = cold.AntibodyName!, BloodAttributeDefinitionId = cold.Id, IsActive = true });
+        await c.SaveChangesAsync();
+
+        var card = await Service(c, withAttributes: true).GetAntibodyCardAsync(patient.Id);
+        Assert.Contains($"Kx{key}-negative red cells (anti-Kx{key} on file)", card!.SpecialRequirements);
+        Assert.Contains($"Jx{key}-negative red cells (anti-Jx{key} on file)", card.SpecialRequirements);
+        Assert.DoesNotContain(card.SpecialRequirements, r => r.Contains($"Mx{key}"));
+    }
+
     private DowntimePatientSummaryService Service(BloodBankDbContext c) =>
         new(
             new EfRepository<Patient>(c),

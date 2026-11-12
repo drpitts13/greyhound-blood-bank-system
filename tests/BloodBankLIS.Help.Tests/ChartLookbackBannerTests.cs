@@ -52,4 +52,17 @@ public class ChartLookbackBannerTests : BunitContext
         header.WaitForAssertion(() => Assert.Contains("MRN0005", header.Markup));
         Assert.Empty(header.FindAll("[data-chart-lookback]"));
     }
+
+    // TEST-BB-1020: after a merge succeeds the merge panel closes and its confirmation shows on the chart (end-user
+    // testing pass 12: the panel closed and took the message with it).
+    [Fact]
+    public void MergeOutcome_ShowsAfterThePanelCloses()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>());
+        var header = Render<PatientChartHeader>(p => p
+            .Add(c => c.Patient, Patient)
+            .Add(c => c.ShowMerge, false)
+            .Add(c => c.MergeFeedback, BloodBankLIS.Web.Services.Feedback.Succeed("Duplicate merged into this patient.")));
+        header.WaitForAssertion(() => Assert.Contains("Duplicate merged into this patient.", header.Find("[data-merge-outcome]").TextContent));
+    }
 }

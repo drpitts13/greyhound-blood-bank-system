@@ -55,3 +55,7 @@ Merging is for a confirmed duplicate. It requires supervisor permission. You mer
 ## Special requirements
 
 Choose a requirement from the list, grouped by table: unit typings, unit modifications, informational, and issue procedures. Typings and modifications name the unit category they apply to, for example "Irradiated red cells – RBC". Give a **start date** (today unless you change it) and, if it is temporary, an **end date**. The requirement applies from the start of the start date and no longer applies on and after the end date. Dates are facility days, and the end date must come after the start. Typings and modifications are enforced for units of their category when a unit is selected and issued. Informational requirements are not enforced: each one shows as a blue banner at the top of the chart and on the issue desk. **End date** on an active requirement ends it now, with a reason. Adding or ending one is audited. A requirement added from a reaction investigation shows which investigation it came from. The catalog of requirement types is maintained in Administration.
+
+## After a merge
+
+When a merge succeeds the merge panel closes and the chart says "Duplicate merged into this patient"; the duplicate's MRN is kept on the chart as a prior MRN.

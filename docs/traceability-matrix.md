@@ -892,6 +892,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-778 / FRS-BB-896 | End-user testing pass 11: verified results to the EHR | `ResultReleaseRule.cs`, `ResultService.cs`, `Hl7OutboundService.cs`, `FacilityPolicyCatalog.cs` | TEST-BB-1018 | U, I | |
 | URS-BB-779 / FRS-BB-897 | End-user testing pass 11: C:T counts | `ReportSeedCatalog.cs`, `ReportSourceCatalog.cs`, `EfReportSourceReader.cs`, `ReportViewSql.cs` | TEST-BB-1019 | I | |
 | URS-BB-780 / FRS-BB-898 | End-user testing pass 11: codes in words | `Billing.razor`, `AdminChargeRules.razor`, `TestWorklist.razor`, `TestResultEntryPanel.razor` | — | Inspection | |
+| URS-BB-781 / FRS-BB-899 | End-user testing pass 12: antigen-negative on the downtime sheet | `BloodAttributeCompatLoader.cs`, `DowntimePatientSummaryService.cs` | TEST-BB-1021 | I | |
+| URS-BB-782 / FRS-BB-900 | End-user testing pass 12: merge confirmation | `PatientChartHeader.razor` | TEST-BB-1020 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

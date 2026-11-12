@@ -316,7 +316,7 @@
 {
     <div class="bb-card" style="margin-bottom:1rem;">
         <div class="bb-card-title"><h3>Merge a duplicate into this patient</h3></div>
-        <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History and antibody-identification workups are reassigned to this record and are not deleted. Merge HardStops if both records have an open workup.</p>
+        <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History and antibody-identification workups are reassigned to this record and are not deleted. The merge is refused if both records have an open workup.</p>
         <Outcome Value="MergeFeedback" />
         <div class="form-row">
             <div class="field"><label>Duplicate MRN</label><input @bind="MergeMrn" @bind:after="() => MergeMrnChanged.InvokeAsync(MergeMrn)" placeholder="MRN of the losing record" /></div>
@@ -327,6 +327,11 @@
             <button class="btn btn-secondary" @onclick="OnCancelMerge">Cancel</button>
         </div>
     </div>
+}
+else if (MergeFeedback is not null)
+{
+    @* End-user testing, 2026-11-12: the panel closes when the merge succeeds, so its confirmation was never seen. *@
+    <div data-merge-outcome><Outcome Value="MergeFeedback" /></div>
 }
 
 @if (AboDiscrepancyNotice is not null)

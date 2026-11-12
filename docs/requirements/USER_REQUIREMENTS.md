@@ -786,3 +786,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-778 | A verified result is sent to the EHR automatically when an outbound results interface is enabled, unless the facility turns this off. | P1 | FRS-BB-896 |
 | URS-BB-779 | The crossmatch and transfusion counts for the C:T ratio are reported by month and product. | P2 | FRS-BB-897 |
 | URS-BB-780 | Billing trigger, result status and result source read in words. | P3 | FRS-BB-898 |
+| URS-BB-781 | The downtime patient summary and antibody card state the antigen-negative red cells the issue check requires for the patient's clinically significant antibodies. | P1 | FRS-BB-899 |
+| URS-BB-782 | A successful patient merge is confirmed on the chart. | P3 | FRS-BB-900 |

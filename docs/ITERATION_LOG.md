@@ -22450,3 +22450,26 @@ On the running system with seeded data: the bench worklist → verify Uma Tester
 ### Next
 
 - Pass 12: patient merge and identification, downtime, and the gaps that remain.
+
+## Iteration 728 — End-user testing pass 12: duplicates, merge and downtime (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Patients › Possible duplicates → Riley Demo-Multi (MRN0022 and MRN0024, same name and date of birth) → keep MRN0022 and merge MRN0024 in with a reason; Downtime → record an outage (03:15 to 05:15, LIS application server) → the downtime patient summary → Diane Kellerman's antibody card.
+
+### Found and fixed
+
+1. **The downtime sheet listed anti-K but no requirement.** Diane Kellerman (anti-K on file) read "Special requirements: None" on the sheet kept at the issue bench during an outage, though the issue check requires K-negative red cells. The sheet and the antibody card now state the antigen-negative red cells the issue check applies, one per clinically significant antibody on the history (current or historical), derived as the check derives them. Retested live: "K-negative red cells (anti-K on file)" on the sheet and "Requires: K-negative red cells" on the card.
+2. **A merge gave no confirmation.** The merge succeeded (MRN0024 marked Merged and kept as a prior MRN on MRN0022) but the panel closed and took its message with it. The chart now says "Duplicate merged into this patient".
+
+### Observed working
+
+- The duplicates list named why the pair was listed; the merge asked for a reason; the outage was recorded and the snapshot counted every queue to reconcile (including the instrument result held in pass 10).
+
+### Tests
+
+- TEST-BB-1020, TEST-BB-1021. Full suite passed.
+
+### Next
+
+- Pass 13: a paper issue back-entered against the recorded outage, and the remaining gaps.

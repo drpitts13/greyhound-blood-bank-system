@@ -47,6 +47,26 @@ public sealed class BloodAttributeCompatLoader
                 .Select(u => (u.BloodAttributeDefinitionId, u.Result)), defs));
     }
 
+    /// <summary>
+    /// The antigen-negative requirements the compatibility gate applies for a patient: one line per clinically
+    /// significant catalog antibody on the history (current or historical), such as "K-negative red cells (anti-K on
+    /// file)". Shared with the downtime patient summary and the antibody card (end-user testing, 2026-11-12: the sheet
+    /// listed anti-K but no requirement).
+    /// </summary>
+    public static IReadOnlyList<string> AntigenNegativeRequirements(
+        IReadOnlyList<AntibodyHistory> antibodies,
+        IReadOnlyDictionary<long, BloodAttributeDefinition> activeDefinitions) =>
+        BuildPatientAntibodies(antibodies, activeDefinitions)
+            .Select(a => a.AntibodyName)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(n => $"{AntigenOf(n!)}-negative red cells ({n} on file)")
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+    private static string AntigenOf(string antibodyName) =>
+        antibodyName.StartsWith("anti-", StringComparison.OrdinalIgnoreCase) ? antibodyName[5..] : antibodyName;
+
     private static IReadOnlyList<BloodAttributeCompatibilityRule.AntibodyRef> BuildPatientAntibodies(
         IReadOnlyList<AntibodyHistory> antibodies,
         IReadOnlyDictionary<long, BloodAttributeDefinition> defs)
