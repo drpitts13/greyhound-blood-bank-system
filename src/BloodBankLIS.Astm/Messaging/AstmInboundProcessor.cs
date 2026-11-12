@@ -287,6 +287,7 @@ public sealed class AstmInboundProcessor
             string? unknownAnalyte = null;
             var holds = new List<string>();
             var warnings = new List<string>();
+            var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var result in group.Results)
             {
@@ -380,7 +381,21 @@ public sealed class AstmInboundProcessor
                     continue;
                 }
 
-                subtests[string.Equals(appSub, InstrumentTranslationKeys.Keep, StringComparison.OrdinalIgnoreCase) ? analyte : appSub] = value;
+                var key = string.Equals(appSub, InstrumentTranslationKeys.Keep, StringComparison.OrdinalIgnoreCase) ? analyte : appSub;
+                // Two instrument readings for one panel subtest (the Echo's Anti-D1 and Anti-D2 both read as Anti-D): when
+                // they differ, the verifier is told both rather than seeing only the last (end-user testing, 2026-11-12).
+                if (subtests.TryGetValue(key, out var earlier) && sources.TryGetValue(key, out var earlierAnalyte)
+                    && !string.Equals(earlier, value, StringComparison.OrdinalIgnoreCase))
+                {
+                    var differ = $"{earlierAnalyte} {earlier} / {analyte} {value} → {key} {value}";
+                    if (!warnings.Contains(differ, StringComparer.OrdinalIgnoreCase))
+                    {
+                        warnings.Add(differ);
+                    }
+                }
+
+                subtests[key] = value;
+                sources[key] = analyte;
             }
 
             if (string.IsNullOrWhiteSpace(specimenId))

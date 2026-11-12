@@ -354,6 +354,27 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("instrument flag W (Reaction flagged by the instrument", (await PostedResultAsync(context, "ACC-INST-WARN", "ABORH")).SourceReference);
     }
 
+    // TEST-BB-1002: graded reactions post as the analyzer sent them (the seeded score rules no longer turn 2+ into 1+),
+    // and when the Echo's Anti-D1 and Anti-D2 disagree the result carries both readings for the verifier.
+    [Fact]
+    public async Task EchoGrades_PostAsSent_AndDiscordantAntiD_IsFlagged()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        await SeedOrderAsync(context, "MRN-INST-GRD", "ACC-INST-GRD", "ABORH");
+        var raw = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC-INST-GRD", "MRN-INST-GRD", "Patient", "Test", "19590422", "M", 3)).RawMessage;
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @"\^\^\^Anti-A\|[^|]*\|", "^^^Anti-A|2+^2+^35|");
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @"\^\^\^Anti-D1\|[^|]*\|", "^^^Anti-D1|0^0^0|");
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @"\^\^\^Anti-D2\|[^|]*\|", "^^^Anti-D2|2+^2+^35|");
+
+        var processed = await Processor(context).ProcessAsync(raw, iface.Id);
+        Assert.True(processed.Accepted, string.Join("; ", processed.Notes));
+        var posted = await PostedResultAsync(context, "ACC-INST-GRD", "ABORH");
+        Assert.Contains("\"Anti-A\":\"2+\"", posted.Value);
+        Assert.Contains("Anti-D1 0 / Anti-D2 2+", posted.SourceReference);
+    }
+
     // TEST-BB-538: a held result is posted only by a release with a reason: it files as pending verification with the
     // held code beside its source, the failure closes with the reason (audited), and nothing else can be released.
     [Fact]

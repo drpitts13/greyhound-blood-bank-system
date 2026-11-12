@@ -22255,3 +22255,34 @@ As the ward and the blood bank on the running system with seeded data: Issued un
 ### Next
 
 - Pass 4: mother/baby, QC (reagent and equipment) and interfaces (HL7, instruments).
+
+## Iteration 720 — End-user testing pass 4: mother/baby, reagent QC, instrument interface (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Baby Girl Maya (MRN0027) and her mother (MRN0025) → the RhIG list → RhIG given for the mother; Reagent QC worklist → daily QC for anti-A lot AA-24117; the ImmuLINK Echo simulator → Group and Screen results for Riley Demo-Multi's tube ACC-DEMO-RCV1 → the instrument log, the stored message and its rule trace, and the bench worklist.
+
+### Found and fixed
+
+1. **Every positive reaction from the analyzer posted as 1+.** The Echo sent anti-A 2+ and B cells 4+; the worklist showed 1+ for both. The rule trace showed the seeded score-to-grade rules ("Numeric 1 to 1+": `>= 1 AND < 20`) matching "2+": the rule engine compared a value that is not a number with a number as text ("2+" sorts between "1" and "20"), and a real score (50 → 3+) was then re-converted by the next rule to 1+. A value that is not a number now never matches a comparison with a number; text compared with text is unchanged. Retested live: a resend posted anti-A 3+ and B cells 1+ exactly as sent.
+2. **Two anti-D readings, one shown.** The Echo reports Anti-D1 and Anti-D2; both translate to the panel's Anti-D, and the second silently replaced the first, so a split (0 and 2+, the pattern that prompts a weak or partial D investigation) would not reach the verifier. When two readings for one subtest differ, the result now carries "Anti-D1 0 / Anti-D2 2+ → Anti-D 2+" beside its source as an instrument flag. Which reading counts, or whether to hold, is not decided by the software.
+
+### Observed working
+
+- The analyzer's ABO/Rh (A negative) against the O positive on file was flagged Discrepancy and left pending verification; the panel reads as reactions, not stored data.
+- The infant's chart names the mother and her type; the neonatal rules stay off until validation script S-14 (OCD-074).
+- RhIG given was recorded on the mother's evaluation; reagent QC Passed follows Expected and Observed, with a warning on a mismatch.
+
+### Gaps carried to the next pass
+
+- **RhIG lot is free text:** not checked against RhIG received or its expiry, so a typo or an expired lot is accepted and a lot recall could miss a recipient.
+- **Daily reagent QC one lot at a time:** seven entries each morning; no single daily QC table.
+- **HL7 interface** not exercised in this pass.
+
+### Tests
+
+- TEST-BB-1000 to TEST-BB-1002.
+
+### Next
+
+- Pass 5: an RhIG lot register (lot, product, expiry) checked when RhIG is given; then HL7 and daily QC entry.

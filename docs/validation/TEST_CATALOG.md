@@ -1008,5 +1008,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-997 | U | `BloodOrderPreparationRuleTests.TypeAndScreenNotOrdered_SaysToOrderItOnTheTube` | URS-BB-761 / FRS-BB-879 |
 | TEST-BB-998 | U | `TransfusionVitalsTests.Vitals_AreCheckedDescribedAndCompared` | URS-BB-762 / FRS-BB-880 |
 | TEST-BB-999 | I | `Phase4IssuingTests.Bedside_RecordsVitalsBeforeAndAfter_AndRefusesATypo` | URS-BB-762 / FRS-BB-880 |
+| TEST-BB-1000 | U | `InstrumentInterfaceTests.RuleEngine_GradesStayAsSent_AndAScoreConvertsOnce` | URS-BB-763 / FRS-BB-881 |
+| TEST-BB-1001 | U | `RuleExpressionEvaluatorTests.NonNumericText_DoesNotCompareWithANumber` | URS-BB-763 / FRS-BB-881 |
+| TEST-BB-1002 | I | `InstrumentInterfaceTests.EchoGrades_PostAsSent_AndDiscordantAntiD_IsFlagged` | URS-BB-763 / FRS-BB-881 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

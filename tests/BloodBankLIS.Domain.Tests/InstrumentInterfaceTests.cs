@@ -87,6 +87,33 @@ public class InstrumentInterfaceTests
         Assert.Empty(trace);
     }
 
+    // TEST-BB-1000: the seeded score-to-grade rules leave a graded reaction as sent and convert a score once (end-user
+    // testing, 2026-11-12: "2+" compared as text with 1 and 20 matched "1 to 20", and a score of 50 became 3+ then 1+, so
+    // every positive reaction from the analyzer posted as 1+).
+    [Fact]
+    public void RuleEngine_GradesStayAsSent_AndAScoreConvertsOnce()
+    {
+        InstrumentInterfaceRule Rule(int order, string condition, string grade) => new()
+        {
+            Name = grade, ConditionExpression = condition, ActionExpression = $"set('subtest_result','{grade}')", SortOrder = order, IsEnabled = true
+        };
+        var rules = new[]
+        {
+            Rule(10, "message.subtest_result >= 40 AND message.subtest_result < 80", "3+"),
+            Rule(11, "message.subtest_result >= 80", "4+"),
+            Rule(12, "message.subtest_result >= 20 AND message.subtest_result < 40", "2+"),
+            Rule(13, "message.subtest_result >= 1 AND message.subtest_result < 20", "1+"),
+            Rule(14, "message.subtest_result = 0", "0")
+        };
+
+        foreach (var (sent, expected) in new[] { ("2+", "2+"), ("1+", "1+"), ("3+", "3+"), ("4+", "4+"), ("w+", "w+"), ("50", "3+"), ("35", "2+"), ("90", "4+"), ("5", "1+"), ("0", "0") })
+        {
+            var (fields, _) = InstrumentRuleEngine.Apply(
+                new Dictionary<string, string?> { [InstrumentDataItemKeys.SubtestResult] = sent }, rules);
+            Assert.True(expected == fields[InstrumentDataItemKeys.SubtestResult], $"{sent} posted as {fields[InstrumentDataItemKeys.SubtestResult]}, expected {expected}");
+        }
+    }
+
     [Fact]
     public void Validator_RejectsTwoOutboundMappingsForOneApplicationCode()
     {
