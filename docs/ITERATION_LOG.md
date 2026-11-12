@@ -22033,3 +22033,33 @@ The register kept every check performed, and the API returned them, but the page
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 712 — Edit equipment and checks (2026-11-11)
+
+### Capability matrix rescan (operations: equipment)
+
+Nothing registered could be corrected: a typo in a name, a centrifuge moved to another bench, or a check's interval changed by an SOP revision. A check could only be retired and added again, which splits its history and makes it due at once.
+
+### Design
+
+- `UpdateAsync`: name, kind, location and serial number with a reason; the code (asset tag, matched by modifications) does not change.
+- `UpdateCheckAsync`: name (unique among the equipment's active checks), interval (1–3660 days) and instructions with a reason; the records stay with the check, so its due date follows from its last pass and the new interval.
+- Both audited as Update with the values before and after; admin.config.edit.
+- Equipment page: **Edit** on equipment and **Change** on a check, prefilled, Save needing a reason.
+
+### Verification
+
+- Integration: reason required; equipment updated with the code kept; bad interval, missing reason and duplicate name refused; the new interval sets the due date from the last pass; records kept; audit reasons.
+- Rendered: the forms are prefilled and need a reason.
+
+### Requirements
+
+- URS-BB-755, FRS-BB-873.
+
+### Tests
+
+- TEST-BB-981, TEST-BB-982.
+
+### Next
+
+- Back to the capability matrix.

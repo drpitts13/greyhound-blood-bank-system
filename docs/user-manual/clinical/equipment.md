@@ -34,6 +34,8 @@ On **Modify Products**, the device field offers the registered equipment in serv
 
 An administrator (*admin.config.edit*) selects **Add equipment** and enters the code (the asset tag, stored in upper case and unique), name, kind, and optionally the location and serial number. Then **Schedule a check**: name it (*Daily QC*, *Monthly timer check*, *Annual calibration*), say how often it is due in days, and copy the instructions or pass criteria from the SOP so they show when the check is recorded.
 
+**Edit** corrects a piece of equipment's name, kind, location or serial number; its code (asset tag) does not change. **Change** on a check changes its name, interval or instructions, for example after an SOP revision; its records are kept, and it is next due its new interval after its last pass. Both ask for the reason, which is kept in the audit trail.
+
 > The intervals and pass criteria are the facility's, from its SOPs and the manufacturer's instructions. None is built in; the demo equipment's intervals are examples only.
 
 Every registration, scheduled check, record, and change of service is in the audit trail. Nothing is deleted.

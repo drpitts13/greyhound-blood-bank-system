@@ -115,4 +115,35 @@ public class EquipmentServiceTests : IDisposable
         Assert.False(heatBlock.InService);
         Assert.False(heatBlock.Checks.Single().LastPassed);
     }
+
+    // TEST-BB-981: equipment details are corrected with a reason (the code does not change), and a check's interval is
+    // changed with a reason, keeping its records: the due date follows from the last pass and the new interval. No
+    // reason, a bad interval or a duplicate check name is refused; each change is audited with its reason.
+    [Fact]
+    public async Task Edit_EquipmentAndCheck_WithAReason()
+    {
+        await using var c = _factory.Create();
+        var svc = Service(c);
+        var (equipmentId, checkId) = await RegisterAsync(c, "CENT-EDIT", interval: 30);
+        Assert.True((await svc.RecordAsync(checkId, new RecordEquipmentCheckRequest(true, null))).Succeeded);
+
+        Assert.False((await svc.UpdateAsync(equipmentId, new UpdateEquipmentRequest("Centrifuge", "Centrifuge", "Bench 2", null, " "))).Succeeded);
+        var moved = await svc.UpdateAsync(equipmentId, new UpdateEquipmentRequest("Serologic centrifuge", "Centrifuge", "Bench 2", "SN-9", "Moved to Bench 2"));
+        Assert.True(moved.Succeeded, moved.Error);
+        Assert.Equal(("CENT-EDIT", "Serologic centrifuge", "Bench 2", "SN-9"), (moved.Value!.Code, moved.Value.Name, moved.Value.Location, moved.Value.SerialNumber));
+
+        Assert.False((await svc.UpdateCheckAsync(checkId, new UpdateEquipmentCheckRequest("Daily check", 0, null, "x"))).Succeeded);
+        Assert.False((await svc.UpdateCheckAsync(checkId, new UpdateEquipmentCheckRequest("Daily check", 7, null, ""))).Succeeded);
+        await svc.AddCheckAsync(equipmentId, new SaveEquipmentCheckRequest("Annual calibration", 365, null));
+        Assert.False((await svc.UpdateCheckAsync(checkId, new UpdateEquipmentCheckRequest("Annual calibration", 7, null, "rename"))).Succeeded);
+
+        var weekly = await svc.UpdateCheckAsync(checkId, new UpdateEquipmentCheckRequest("Weekly check", 7, "Per SOP rev 3", "SOP revised to weekly"));
+        Assert.True(weekly.Succeeded, weekly.Error);
+        var check = weekly.Value!.Checks.Single(x => x.CheckId == checkId);
+        Assert.Equal(("Weekly check", 7, DateOnly.FromDateTime(_factory.Clock.UtcNow).AddDays(7)), (check.Name, check.IntervalDays, check.DueOn!.Value));
+        Assert.Single(await svc.ListRecordsAsync(equipmentId));
+
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Equipment) && e.EntityId == equipmentId && e.EventType == AuditEventType.Update && e.Reason == "Moved to Bench 2"));
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(EquipmentCheck) && e.EntityId == checkId && e.Reason == "SOP revised to weekly"));
+    }
 }

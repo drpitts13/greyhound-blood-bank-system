@@ -112,4 +112,21 @@ public class EquipmentPageTests : BunitContext
         page.Find("[data-equipment='HB-01'] [data-equipment-history]").Click();
         Assert.Empty(page.FindAll("[data-equipment-records]"));
     }
+
+    // TEST-BB-982: Edit fills the form with the equipment's details (the code not editable) and saving needs a reason;
+    // Change on a check fills its name and interval and also needs a reason.
+    [Fact]
+    public void Edit_IsPrefilled_AndNeedsAReason()
+    {
+        var page = Render();
+        page.Find("[data-equipment='CW-01'] [data-equipment-edit]").Click();
+        Assert.Equal("Bench 1", page.Find("[data-edit-location]").GetAttribute("value"));
+        Assert.True(page.Find("[data-edit-save]").HasAttribute("disabled"));
+        page.Find("[data-edit-reason]").Input("Moved");
+        Assert.False(page.Find("[data-edit-save]").HasAttribute("disabled"));
+
+        page.Find("[data-equipment='CW-01'] [data-check-edit]").Click();
+        Assert.Equal("1", page.Find("[data-edit-check-interval]").GetAttribute("value"));
+        Assert.True(page.Find("[data-edit-check-save]").HasAttribute("disabled"));
+    }
 }

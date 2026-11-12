@@ -2069,6 +2069,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<EquipmentDto>> CreateEquipmentAsync(SaveEquipmentRequest request, CancellationToken ct = default) =>
         SendAsync<EquipmentDto>(HttpMethod.Post, "api/equipment", request, ct);
 
+    public Task<ApiResult<EquipmentDto>> UpdateEquipmentAsync(long equipmentId, UpdateEquipmentRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Put, $"api/equipment/{equipmentId}", request, ct);
+
+    public Task<ApiResult<EquipmentDto>> UpdateEquipmentCheckAsync(long checkId, UpdateEquipmentCheckRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Put, $"api/equipment/checks/{checkId}", request, ct);
+
     public Task<ApiResult<EquipmentDto>> AddEquipmentCheckAsync(long equipmentId, SaveEquipmentCheckRequest request, CancellationToken ct = default) =>
         SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/{equipmentId}/checks", request, ct);
 

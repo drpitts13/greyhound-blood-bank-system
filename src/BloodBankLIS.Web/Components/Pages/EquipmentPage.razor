@@ -143,6 +143,10 @@ else
                             {
                                 <span class="badge badge-green">In service</span>
                             }
+                            @if (CanConfigure)
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginEdit(e)" data-equipment-edit>Edit</button>
+                            }
                             <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ToggleHistoryAsync(e)" data-equipment-history>@(_historyFor == e.Id ? "Hide history" : "History")</button>
                             @if (CanRecord)
                             {
@@ -171,6 +175,23 @@ else
                         {
                             <div class="alert alert-warning" data-service-failed>A check's latest record failed. Record a passing check before it is used again.</div>
                         }
+                    }
+                    @if (_editing?.Id == e.Id)
+                    {
+                        <div class="bb-card" style="margin:.5rem 0;" data-equipment-edit-form>
+                            <div class="form-row">
+                                <div class="field"><label>Code</label><input class="mono" value="@e.Code" disabled /></div>
+                                <div class="field"><label>Name</label><input @bind="_editName" /></div>
+                                <div class="field"><label>Kind</label><input list="equipment-kinds" @bind="_editKind" /></div>
+                                <div class="field"><label>Location</label><input @bind="_editLocation" data-edit-location /></div>
+                                <div class="field"><label>Serial number</label><input class="mono" @bind="_editSerial" /></div>
+                            </div>
+                            <div class="field" style="margin-top:.4rem;"><label>Reason for the change</label><input @bind="_editReason" @bind:event="oninput" data-edit-reason /></div>
+                            <div class="flex gap" style="margin-top:.4rem;">
+                                <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_editReason))" @onclick="SaveEditAsync" data-edit-save>Save</button>
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _editing = null">Cancel</button>
+                            </div>
+                        </div>
                     }
                     @if (_historyFor == e.Id)
                     {
@@ -244,8 +265,29 @@ else
                                             {
                                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRecord(e.Id, c.CheckId)">Record</button>
                                             }
+                                            @if (CanConfigure)
+                                            {
+                                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginEditCheck(c)" data-check-edit>Change</button>
+                                            }
                                         </td>
                                     </tr>
+                                    @if (_editingCheck?.CheckId == c.CheckId)
+                                    {
+                                        <tr data-check-edit-form>
+                                            <td colspan="5">
+                                                <div class="form-row">
+                                                    <div class="field"><label>Check</label><input @bind="_editCheckName" /></div>
+                                                    <div class="field"><label>Every (days)</label><input type="number" min="1" max="@EquipmentCheckRule.MaxIntervalDays" @bind="_editCheckInterval" data-edit-check-interval /></div>
+                                                    <div class="field" style="flex:2;"><label>Instructions</label><input @bind="_editCheckInstructions" /></div>
+                                                </div>
+                                                <div class="field" style="margin-top:.4rem;"><label>Reason for the change</label><input @bind="_editCheckReason" @bind:event="oninput" data-edit-check-reason /></div>
+                                                <div class="flex gap" style="margin-top:.4rem;">
+                                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_editCheckReason))" @onclick="SaveCheckEditAsync" data-edit-check-save>Save</button>
+                                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _editingCheck = null">Cancel</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
                                 }
                             </tbody>
                         </table>
@@ -304,6 +346,75 @@ else
     private string _checkName = "";
     private int _checkInterval;
     private string? _checkInstructions;
+
+    private EquipmentDto? _editing;
+    private string _editName = "";
+    private string _editKind = "";
+    private string? _editLocation;
+    private string? _editSerial;
+    private string? _editReason;
+
+    private void BeginEdit(EquipmentDto equipment)
+    {
+        _editing = equipment;
+        _editName = equipment.Name;
+        _editKind = equipment.Kind;
+        _editLocation = equipment.Location;
+        _editSerial = equipment.SerialNumber;
+        _editReason = null;
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (_editing is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.UpdateEquipmentAsync(_editing.Id, new UpdateEquipmentRequest(_editName, _editKind, _editLocation, _editSerial, _editReason));
+        _feedback = r.ToFeedback($"{_editing.Code} updated.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _editing = null;
+            await LoadAsync();
+        }
+    }
+
+    private EquipmentCheckStatusDto? _editingCheck;
+    private string _editCheckName = "";
+    private int _editCheckInterval;
+    private string? _editCheckInstructions;
+    private string? _editCheckReason;
+
+    private void BeginEditCheck(EquipmentCheckStatusDto check)
+    {
+        _editingCheck = check;
+        _editCheckName = check.Name;
+        _editCheckInterval = check.IntervalDays;
+        _editCheckInstructions = check.Instructions;
+        _editCheckReason = null;
+    }
+
+    private async Task SaveCheckEditAsync()
+    {
+        if (_editingCheck is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.UpdateEquipmentCheckAsync(_editingCheck.CheckId,
+            new UpdateEquipmentCheckRequest(_editCheckName, _editCheckInterval, _editCheckInstructions, _editCheckReason));
+        _feedback = r.ToFeedback("Check changed. Its due date follows from its last pass and the new interval.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _editingCheck = null;
+            await LoadAsync();
+        }
+    }
 
     private const int HistoryLimit = 500;
     private long? _historyFor;

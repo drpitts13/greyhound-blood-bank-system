@@ -69,6 +69,12 @@ public sealed record SaveEquipmentCheckRequest(string Name, int IntervalDays, st
 
 public sealed record RecordEquipmentCheckRequest(bool Passed, string? Note);
 
+/// <summary>Correct equipment details (the code, its asset tag, does not change); a reason is required (Cycle 712).</summary>
+public sealed record UpdateEquipmentRequest(string Name, string Kind, string? Location, string? SerialNumber, string? Reason);
+
+/// <summary>Change a scheduled check (for example a new interval after an SOP revision); a reason is required (Cycle 712).</summary>
+public sealed record UpdateEquipmentCheckRequest(string Name, int IntervalDays, string? Instructions, string? Reason);
+
 /// <summary>
 /// The equipment register (Cycle 708): equipment, the checks the facility schedules for each, and every time a check
 /// was performed. Recording a check and taking equipment out of service or back are bench work; adding equipment and
@@ -228,6 +234,85 @@ public sealed class EquipmentService
             new { equipment.Code, row.Name, row.IntervalDays, row.Instructions }, $"Check scheduled for {equipment.Code}.");
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<EquipmentDto>.Ok((await GetAsync(equipmentId, ct))!);
+    }
+
+    public async Task<EvaluationResult<EquipmentDto>> UpdateAsync(long id, UpdateEquipmentRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var equipment = await _equipment.GetByIdAsync(id, ct);
+        if (equipment is null)
+        {
+            return EvaluationResult<EquipmentDto>.Fail("Equipment was not found.");
+        }
+
+        var stops = EquipmentCheckRule.EvaluateSave(equipment.Code, request.Name, request.Kind, codeInUse: false).ToList();
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            stops.Add(RuleResult.HardStop(EquipmentCheckRule.SaveCode, "Say why the details change (for example, moved to Bench 2, name corrected)."));
+        }
+
+        if (stops.Count > 0)
+        {
+            return EvaluationResult<EquipmentDto>.Blocked(new RuleEvaluation(stops));
+        }
+
+        var before = new { equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber };
+        equipment.Name = request.Name.Trim();
+        equipment.Kind = request.Kind.Trim();
+        equipment.Location = Trimmed(request.Location);
+        equipment.SerialNumber = Trimmed(request.SerialNumber);
+        _equipment.Update(equipment);
+        _audit.Record(AuditEventType.Update, nameof(Equipment), equipment.Id, before,
+            new { equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber }, request.Reason!.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<EquipmentDto>.Ok((await GetAsync(id, ct))!);
+    }
+
+    /// <summary>
+    /// Change an active check's name, interval or instructions, keeping its records: its due date follows from its last
+    /// pass and the new interval.
+    /// </summary>
+    public async Task<EvaluationResult<EquipmentDto>> UpdateCheckAsync(long checkId, UpdateEquipmentCheckRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var check = await _checks.GetByIdAsync(checkId, ct);
+        if (check is null || !check.IsActive)
+        {
+            return EvaluationResult<EquipmentDto>.Fail("Active check was not found.");
+        }
+
+        var stops = new List<RuleResult>();
+        var rule = EquipmentCheckRule.EvaluateCheck(request.Name, request.IntervalDays);
+        if (rule.Severity == RuleSeverity.HardStop)
+        {
+            stops.Add(rule);
+        }
+
+        var name = request.Name?.Trim() ?? "";
+        if (name.Length > 0 && await _checks.AnyAsync(c => c.EquipmentId == check.EquipmentId && c.IsActive && c.Id != checkId && c.Name == name, ct))
+        {
+            stops.Add(RuleResult.HardStop(EquipmentCheckRule.CheckCode, $"This equipment already has an active check named {name}."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            stops.Add(RuleResult.HardStop(EquipmentCheckRule.CheckCode, "Say why the check changes (for example, SOP revised to monthly)."));
+        }
+
+        if (stops.Count > 0)
+        {
+            return EvaluationResult<EquipmentDto>.Blocked(new RuleEvaluation(stops));
+        }
+
+        var before = new { check.Name, check.IntervalDays, check.Instructions };
+        check.Name = name;
+        check.IntervalDays = request.IntervalDays;
+        check.Instructions = Trimmed(request.Instructions);
+        _checks.Update(check);
+        _audit.Record(AuditEventType.Update, nameof(EquipmentCheck), check.Id, before,
+            new { check.Name, check.IntervalDays, check.Instructions }, request.Reason!.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<EquipmentDto>.Ok((await GetAsync(check.EquipmentId, ct))!);
     }
 
     /// <summary>Stop scheduling a check (its records are kept); a reason is required.</summary>

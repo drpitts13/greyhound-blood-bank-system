@@ -32,6 +32,14 @@ public static class EquipmentEndpoints
             EndpointResults.FromEvaluation(await svc.CreateAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
+        group.MapPut("/{id:long}", async (long id, UpdateEquipmentRequest request, EquipmentService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, request, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/checks/{checkId:long}", async (long checkId, UpdateEquipmentCheckRequest request, EquipmentService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateCheckAsync(checkId, request, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
         group.MapPost("/{id:long}/checks", async (long id, SaveEquipmentCheckRequest request, EquipmentService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.AddCheckAsync(id, request, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
