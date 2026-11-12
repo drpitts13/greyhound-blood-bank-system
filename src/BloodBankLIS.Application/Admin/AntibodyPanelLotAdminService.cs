@@ -27,6 +27,8 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
     private readonly IRepository<AntibodyIdentificationFinding> _findings;
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
+    private readonly IFacilityTimeZone? _timeZone;
+
     public AntibodyPanelLotAdminService(
         IRepository<AntibodyPanelLot> lots,
         IRepository<AntibodyPanelManufacturer> manufacturers,
@@ -42,9 +44,11 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IFacilityTimeZone? timeZone = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _timeZone = timeZone;
         _lots = lots;
         _manufacturers = manufacturers;
         _cells = cells;
@@ -65,7 +69,7 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
             ? await _lots.ListAsync(ct)
             : await _lots.ListAsync(l => l.IsActive, ct);
         var manufacturers = (await _manufacturers.ListAsync(ct)).ToDictionary(m => m.Id);
-        var today = DateOnly.FromDateTime(Clock.UtcNow);
+        var today = FacilityDay.Of(Clock.UtcNow, _timeZone);
         var counts = await WorkupCountsByLotAsync(ct);
         return lots
             .Select(l => ToDto(
@@ -93,7 +97,7 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
         var lots = (await _lots.ListAsync(ct))
             .Select(l => new AntibodyPanelLotSupplyRule.Lot(l.Id, l.PanelName, l.LotNumber,
                 manufacturers.GetValueOrDefault(l.ManufacturerId) ?? "", l.ExpiresOn, l.IsSelectedCellLot, l.IsActive));
-        return AntibodyPanelLotSupplyRule.Review(lots, DateOnly.FromDateTime(Clock.UtcNow))
+        return AntibodyPanelLotSupplyRule.Review(lots, FacilityDay.Of(Clock.UtcNow, _timeZone))
             .Select(i => new AntibodyPanelLotSupplyItemDto(i.Kind, i.IsSelectedCellLot, i.Lot?.Id, i.Lot?.LotNumber,
                 i.Lot?.PanelName, i.Lot?.ExpiresOn, i.DaysLeft, i.Replacement?.LotNumber, i.NeedsAction, i.Message))
             .ToList();
@@ -108,7 +112,7 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
         }
 
         var manufacturer = await _manufacturers.GetByIdAsync(lot.ManufacturerId, ct);
-        var today = DateOnly.FromDateTime(Clock.UtcNow);
+        var today = FacilityDay.Of(Clock.UtcNow, _timeZone);
         var cells = (await _cells.ListAsync(c => c.LotId == id && c.SupersededUtc == null, ct))
             .OrderBy(c => c.SortOrder)
             .ThenBy(c => c.CellNumber)
@@ -319,7 +323,7 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
         }
 
         var manufacturer = await _manufacturers.GetByIdAsync(request.ManufacturerId, ct);
-        var today = DateOnly.FromDateTime(Clock.UtcNow);
+        var today = FacilityDay.Of(Clock.UtcNow, _timeZone);
         var lotNumber = request.LotNumber?.Trim() ?? "";
         var duplicate = manufacturer is not null
             && await _lots.AnyAsync(
@@ -572,7 +576,7 @@ public sealed class AntibodyPanelLotAdminService : ConfigAdminServiceBase
     {
         var manufacturer = await _manufacturers.GetByIdAsync(lot.ManufacturerId, ct);
         var counts = await WorkupCountsByLotAsync(ct);
-        return ToDto(lot, manufacturer?.Name ?? "", DateOnly.FromDateTime(Clock.UtcNow),
+        return ToDto(lot, manufacturer?.Name ?? "", FacilityDay.Of(Clock.UtcNow, _timeZone),
             counts.Open.GetValueOrDefault(lot.Id),
             counts.Completed.GetValueOrDefault(lot.Id),
             counts.PostedHistory.GetValueOrDefault(lot.Id));

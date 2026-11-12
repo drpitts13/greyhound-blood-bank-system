@@ -96,6 +96,8 @@ public sealed class RhigEvaluationService
     private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
     private readonly IRepository<RhigLot>? _lots;
 
+    private readonly IFacilityTimeZone? _timeZone;
+
     public RhigEvaluationService(
         IRepository<RhigEvaluation> evaluations,
         IRepository<Patient> patients,
@@ -107,8 +109,10 @@ public sealed class RhigEvaluationService
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
         BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null,
-        IRepository<RhigLot>? lots = null)
+        IRepository<RhigLot>? lots = null,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZone = timeZone;
         _lots = lots;
         _policy = policy;
         _evaluations = evaluations;
@@ -384,7 +388,8 @@ public sealed class RhigEvaluationService
             var match = all.FirstOrDefault(l => l.LotNumber.Trim().ToUpperInvariant() == upper);
             var used = match is null ? 0 : (await _evaluations.ListAsync(e => e.GivenLot != null && e.GivenLot.ToUpper() == upper, ct)).Sum(e => e.GivenVials ?? 0);
             var lotCheck = RhigLotRule.EvaluateUse(all.Count > 0, request.Lot,
-                match is null ? null : (match.IsActive, match.ExpiresOn, match.VialsReceived), givenUtc, request.Vials, used);
+                match is null ? null : (match.IsActive, match.ExpiresOn, match.VialsReceived), givenUtc, request.Vials, used,
+                FacilityDay.Of(givenUtc, _timeZone));
             if (lotCheck.Severity == RuleSeverity.HardStop)
             {
                 return OperationResult<RhigEvaluationDto>.Fail(lotCheck.Message);

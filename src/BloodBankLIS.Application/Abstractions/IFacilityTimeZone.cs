@@ -14,4 +14,16 @@ public interface IFacilityTimeZone
 
     DateTime ToLocal(DateTime utc) =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Zone);
+
+    /// <summary>The facility's calendar day of a UTC time: what "today", an expiry date or "given on" means at the bench.</summary>
+    DateOnly Day(DateTime utc) => DateOnly.FromDateTime(ToLocal(utc));
+}
+
+public static class FacilityDay
+{
+    /// <summary>
+    /// The facility's day of a UTC time, or the UTC day when no facility time zone is available. End-user testing pass 36:
+    /// an expiry date compared with the UTC day made a lot expired from 19:00 local on its last day.
+    /// </summary>
+    public static DateOnly Of(DateTime utc, IFacilityTimeZone? zone) => zone?.Day(utc) ?? DateOnly.FromDateTime(utc);
 }

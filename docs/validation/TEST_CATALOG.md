@@ -1058,5 +1058,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1047 | I | `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` | URS-BB-808 / FRS-BB-926 |
 | TEST-BB-1048 | U | `CompetitorGapRuleTests.Worklist_CountsQcOnTheFacilityDay` | URS-BB-809 / FRS-BB-927 |
 | TEST-BB-1049 | I | `EquipmentServiceTests.DueDates_CountTheFacilityDays` | URS-BB-809 / FRS-BB-927 |
+| TEST-BB-1050 | U | `RhigLotRuleTests.Use_CountsTheExpiryDateOnTheFacilityCalendar` | URS-BB-810 / FRS-BB-928 |
+| TEST-BB-1051 | I | `FacilityTimeZoneTests.FacilityDay_IsTheLocalCalendarDate` | URS-BB-810 / FRS-BB-928 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

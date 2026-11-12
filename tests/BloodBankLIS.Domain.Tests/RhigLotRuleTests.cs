@@ -28,4 +28,16 @@ public class RhigLotRuleTests
         Assert.Equal(RuleSeverity.Warning, over.Severity);
         Assert.Contains("3 vials given from lot L1, more than the 2 received", over.Message);
     }
+
+    // TEST-BB-1050: a lot is good through its expiry date on the facility's calendar: given at 19:30 local on that date
+    // (00:30 UTC the next day) it is accepted; the next local day it is refused (end-user testing pass 36).
+    [Fact]
+    public void Use_CountsTheExpiryDateOnTheFacilityCalendar()
+    {
+        var found = (true, new DateOnly(2026, 11, 12), 10);
+        var givenUtc = new DateTime(2026, 11, 13, 0, 30, 0, DateTimeKind.Utc);
+        Assert.Equal(RuleSeverity.HardStop, RhigLotRule.EvaluateUse(true, "L1", found, givenUtc, 1, 0).Severity);
+        Assert.NotEqual(RuleSeverity.HardStop, RhigLotRule.EvaluateUse(true, "L1", found, givenUtc, 1, 0, new DateOnly(2026, 11, 12)).Severity);
+        Assert.Equal(RuleSeverity.HardStop, RhigLotRule.EvaluateUse(true, "L1", found, givenUtc.AddDays(1), 1, 0, new DateOnly(2026, 11, 13)).Severity);
+    }
 }

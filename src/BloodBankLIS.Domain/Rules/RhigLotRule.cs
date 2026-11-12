@@ -26,7 +26,7 @@ public static class RhigLotRule
     /// <param name="found">The registered lot named, or null.</param>
     /// <param name="vialsUsed">Vials already recorded as given from this lot.</param>
     public static RuleResult EvaluateUse(bool registerInUse, string lot, (bool IsActive, DateOnly ExpiresOn, int VialsReceived)? found,
-        DateTime givenUtc, int vials, int vialsUsed)
+        DateTime givenUtc, int vials, int vialsUsed, DateOnly? givenOn = null)
     {
         if (!registerInUse)
         {
@@ -44,7 +44,8 @@ public static class RhigLotRule
             return RuleResult.HardStop(UseCode, $"Lot {lot.Trim()} is retired from the RhIG lot register; use another lot.");
         }
 
-        if (DateOnly.FromDateTime(givenUtc) > registered.ExpiresOn)
+        // The expiry date is a calendar date at the facility: given that evening is still on the date.
+        if ((givenOn ?? DateOnly.FromDateTime(givenUtc)) > registered.ExpiresOn)
         {
             return RuleResult.HardStop(UseCode, $"Lot {lot.Trim()} expired {registered.ExpiresOn:yyyy-MM-dd}, before it was given. Do not give an expired lot.");
         }

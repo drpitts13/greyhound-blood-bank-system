@@ -17,6 +17,16 @@ public class FacilityTimeZoneTests
         Assert.Equal(tz.Zone.DisplayName, tz.Label);
     }
 
+    // TEST-BB-1051: the facility's day of a UTC time (an evening in Chicago is still that date); without a zone, the UTC day.
+    [Fact]
+    public void FacilityDay_IsTheLocalCalendarDate()
+    {
+        IFacilityTimeZone tz = FacilityTimeZone.FromId("America/Chicago");
+        var eveningUtc = new DateTime(2026, 11, 13, 1, 30, 0, DateTimeKind.Utc);
+        Assert.Equal(new DateOnly(2026, 11, 12), FacilityDay.Of(eveningUtc, tz));
+        Assert.Equal(new DateOnly(2026, 11, 13), FacilityDay.Of(eveningUtc, null));
+    }
+
     [Fact]
     public void UnspecifiedKind_IsTreatedAsUtc()
     {

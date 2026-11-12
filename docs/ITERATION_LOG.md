@@ -22958,3 +22958,24 @@ On the running system with seeded data: Equipment (cell washer CW-01, centrifuge
 ### Tests
 
 - TEST-BB-1048, TEST-BB-1049. Full suite passed.
+
+## Iteration 752 — End-user testing pass 36: expiry dates and the facility's day (2026-11-12)
+
+### How it was tested
+
+Following pass 35, a search of the code for calendar days taken from UTC times, then the affected pages on the running system (Antibody Panel Lots, RhIG).
+
+### Found and fixed
+
+1. **RhIG given on its lot's last day, in the evening, was refused.** RhIG administration compared the lot's expiry date with the UTC date of the time given, so from 19:00 Eastern on the expiry date the lot read expired ("expired …, before it was given"). It is now compared with the facility's date.
+2. **Antibody panel lots expired early.** Antibody identification and the panel lot list counted "today" in UTC, so a panel lot read expired, or "expiring", hours before its date ended at the bench. They now count the facility's day.
+
+Both use one helper, the facility's day of a UTC time (the configured facility time zone, else the server's). Retested: the pages load and list as before (the change only shows after 19:00 local); the rule and the helper are tested at the boundary.
+
+### Remaining
+
+- Patient age (for example the neonatal age limit) and the ISBT code tables' "as of" date still use the UTC day; the effect is hours on a birthday or a code's retirement date.
+
+### Tests
+
+- TEST-BB-1050, TEST-BB-1051. Full suite passed.

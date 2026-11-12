@@ -43,6 +43,8 @@ public sealed class AntibodyIdentificationService
     private readonly IRepository<Allocation>? _allocations;
     private readonly IRepository<Issue>? _issues;
 
+    private readonly IFacilityTimeZone? _timeZone;
+
     public AntibodyIdentificationService(
         IRepository<AntibodyPanelManufacturer> manufacturers,
         IRepository<AntibodyPanelLot> lots,
@@ -66,8 +68,10 @@ public sealed class AntibodyIdentificationService
         IRepository<TestResult>? results = null,
         IRepository<TestDefinition>? testDefinitions = null,
         IRepository<Allocation>? allocations = null,
-        IRepository<Issue>? issues = null)
+        IRepository<Issue>? issues = null,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZone = timeZone;
         _manufacturers = manufacturers;
         _lots = lots;
         _cells = cells;
@@ -2007,7 +2011,7 @@ public sealed class AntibodyIdentificationService
         return patientGate ?? OperationResult<AntibodyIdentificationWorkup>.Ok(workup);
     }
 
-    private DateOnly Today() => DateOnly.FromDateTime(_clock.UtcNow);
+    private DateOnly Today() => FacilityDay.Of(_clock.UtcNow, _timeZone);
 
     private async Task<EvaluationResult<T>?> RejectMergedOrMissingPatientAsync<T>(long patientId, CancellationToken ct)
     {
