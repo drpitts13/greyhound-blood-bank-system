@@ -22526,3 +22526,25 @@ On the running system with seeded data: Avery Demo-Special (O+, irradiated and C
 ### Next
 
 - Pass 15: supplier ordering for a unit no stock meets, and the remaining gaps.
+
+## Iteration 731 — End-user testing pass 15: ordering a patient's units from the supplier (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: after pass 14 showed no red cell in stock meets Avery Demo-Special's irradiated, CMV-negative requirement, Inventory › Supplier orders → order two O positive irradiated, CMV-negative red cells for her.
+
+### Found and fixed
+
+1. **A patient's units could not be ordered.** A supplier order could only be built from the minimum stock shortfall, and its lines were product, ABO and quantity: no Rh, no requirements, no patient, and no way to add a line. **New special order** now starts an empty draft; **Add line** takes product, ABO, Rh, the requirements as the supplier is to read them, the patient (by MRN, checked against active patients) and quantity; the order list, PDF and CSV show them. Retested live: SO-20261112-001 holds "RBC-LR O Pos, irradiated, CMV-negative, for Demo-Special, Avery (MRN0023), 2".
+
+### Not tested live
+
+- Signing and submitting the order (it asks for the user's password, which is not entered in testing), and receiving it.
+
+### Tests
+
+- TEST-BB-1024. Full suite passed.
+
+### Next
+
+- Pass 16: receiving a patient-specific delivery and tying the units to the patient; remaining gaps.

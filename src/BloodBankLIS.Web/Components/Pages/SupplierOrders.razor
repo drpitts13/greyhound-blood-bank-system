@@ -36,6 +36,8 @@
             </div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(_busy || _supplierId == 0)" @onclick="CreateAsync">Create draft</button>
+        @* A patient's units (irradiated, CMV-negative, antigen-negative...) are ordered on a special order. *@
+        <button class="btn btn-secondary btn-sm" disabled="@(_busy || _supplierId == 0)" @onclick="CreateSpecialAsync" data-new-special-order>New special order</button>
     </div>
 }
 
@@ -85,13 +87,16 @@
         <div class="bb-card-title"><h3>@current.OrderNumber &middot; @current.SupplierName &middot; @current.Status</h3></div>
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th>@if (current.DeliveryId is not null) { <th class="right">Received</th><th class="right">Short</th> }</tr></thead>
+            <thead><tr><th>Product</th><th>ABO</th><th>Rh</th><th>Requirements</th><th>For patient</th><th class="right">Quantity</th>@if (current.DeliveryId is not null) { <th class="right">Received</th><th class="right">Short</th> }</tr></thead>
             <tbody>
                 @foreach (var line in _editLines)
                 {
                     <tr>
                         <td><span class="mono">@line.ProductCode</span> @line.ProductName</td>
                         <td>@(line.Abo?.ToString() ?? "Any")</td>
+                        <td>@(line.RhD is RhType rh ? (rh == RhType.Positive ? "Pos" : "Neg") : "Any")</td>
+                        <td>@(line.Requirements ?? "—")</td>
+                        <td>@(line.PatientMrn is null ? "—" : $"{line.PatientName} ({line.PatientMrn})")</td>
                         <td class="right">
                             @if (IsDraft && CanEdit)
                             {
@@ -102,7 +107,7 @@
                                 @line.Quantity
                             }
                         </td>
-                        @if (current.DeliveryId is not null && current.Lines.FirstOrDefault(l => l.ProductTypeId == line.ProductTypeId && l.Abo == line.Abo) is { } got)
+                        @if (current.DeliveryId is not null && current.Lines.FirstOrDefault(l => l.Id == line.Id) is { } got)
                         {
                             <td class="right">@got.Received</td>
                             <td class="right">
@@ -121,6 +126,34 @@
             </tbody>
         </table>
         </div>
+        @if (IsDraft && CanEdit)
+        {
+            <div class="form-row" style="margin-top:.75rem;align-items:flex-end;" data-add-order-line>
+                <div class="field"><label>Product</label>
+                    <select @bind="_newLine.ProductTypeId">
+                        <option value="0">Select</option>
+                        @foreach (var pt in _products) { <option value="@pt.Id">@pt.ProductCode @pt.Name</option> }
+                    </select>
+                </div>
+                <div class="field" style="max-width:7rem;"><label>ABO</label>
+                    <select @bind="_newLine.Abo">
+                        <option value="">Any</option>
+                        @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }
+                    </select>
+                </div>
+                <div class="field" style="max-width:7rem;"><label>Rh</label>
+                    <select @bind="_newLine.RhD">
+                        <option value="">Any</option>
+                        <option value="@RhType.Positive">Pos</option>
+                        <option value="@RhType.Negative">Neg</option>
+                    </select>
+                </div>
+                <div class="field" style="flex:2;"><label>Requirements</label><input @bind="_newLine.Requirements" maxlength="500" placeholder="e.g. irradiated, CMV-negative, K-negative" /></div>
+                <div class="field"><label>For patient (MRN)</label><input @bind="_newLine.PatientMrn" placeholder="Blank for stock" /></div>
+                <div class="field" style="max-width:6rem;"><label>Quantity</label><input type="number" min="1" max="@SupplierOrderRule.MaxLineQuantity" @bind="_newLine.Quantity" /></div>
+                <button class="btn btn-secondary btn-sm" disabled="@(_busy || _newLine.ProductTypeId == 0 || _newLine.Quantity < 1)" @onclick="AddLineAsync">Add line</button>
+            </div>
+        }
         <div class="form-row" style="margin-top:.75rem;">
             <div class="field" style="flex:2;">
                 <label>Notes</label>
@@ -197,11 +230,43 @@
 @code {
     private sealed class EditLine
     {
+        public long Id { get; init; }
         public long ProductTypeId { get; init; }
         public string ProductCode { get; init; } = string.Empty;
         public string ProductName { get; init; } = string.Empty;
         public AboGroup? Abo { get; init; }
+        public RhType? RhD { get; init; }
+        public string? Requirements { get; init; }
+        public string? PatientMrn { get; init; }
+        public string? PatientName { get; init; }
         public int Quantity { get; set; }
+    }
+
+    private sealed class NewLine
+    {
+        public long ProductTypeId { get; set; }
+        public AboGroup? Abo { get; set; }
+        public RhType? RhD { get; set; }
+        public string? Requirements { get; set; }
+        public string? PatientMrn { get; set; }
+        public int Quantity { get; set; } = 1;
+    }
+
+    private NewLine _newLine = new();
+    private List<ProductTypeDto> _products = new();
+
+    private IEnumerable<SupplierOrderLineInput> LineInputs(IEnumerable<EditLine> lines) =>
+        lines.Select(l => new SupplierOrderLineInput(l.ProductTypeId, l.Abo, l.Quantity, l.RhD, l.Requirements, l.PatientMrn));
+
+    private Task CreateSpecialAsync() =>
+        RunAsync(() => Api.CreateSupplierOrderAsync(new CreateSupplierOrderRequest(_supplierId, FromShortfall: false)), "Special order drafted. Add a line for each product the patient needs.");
+
+    private Task AddLineAsync()
+    {
+        var added = LineInputs(_editLines).Append(new SupplierOrderLineInput(
+            _newLine.ProductTypeId, _newLine.Abo, _newLine.Quantity, _newLine.RhD, _newLine.Requirements, _newLine.PatientMrn)).ToList();
+        _newLine = new NewLine();
+        return RunAsync(() => Api.UpdateSupplierOrderAsync(_selected!.Id, new UpdateSupplierOrderRequest(added, _notes)), "Line added.");
     }
 
     private List<SupplierOrderDto> _orders = new();
@@ -223,6 +288,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var products = await Api.GetProductTypesAsync();
+        if (products.Succeeded) _products = (products.Value ?? new()).OrderBy(pt => pt.ProductCode).ToList();
         var suppliers = await Api.GetBloodSuppliersAsync();
         if (suppliers.Succeeded) _suppliers = suppliers.Value ?? new();
         if (_suppliers.Count == 1) _supplierId = _suppliers[0].Id;
@@ -258,7 +325,11 @@
         _cancelReason = string.Empty;
         _deliveryId = 0;
         _editLines = order.Lines
-            .Select(l => new EditLine { ProductTypeId = l.ProductTypeId, ProductCode = l.ProductCode, ProductName = l.ProductName, Abo = l.Abo, Quantity = l.Quantity })
+            .Select(l => new EditLine
+            {
+                Id = l.Id, ProductTypeId = l.ProductTypeId, ProductCode = l.ProductCode, ProductName = l.ProductName, Abo = l.Abo,
+                RhD = l.RhD, Requirements = l.Requirements, PatientMrn = l.PatientMrn, PatientName = l.PatientName, Quantity = l.Quantity
+            })
             .ToList();
     }
 
@@ -287,14 +358,14 @@
 
     private Task SaveAsync() =>
         RunAsync(() => Api.UpdateSupplierOrderAsync(_selected!.Id, new UpdateSupplierOrderRequest(
-            _editLines.Select(l => new SupplierOrderLineInput(l.ProductTypeId, l.Abo, l.Quantity)).ToList(), _notes)), "Order saved.");
+            LineInputs(_editLines).ToList(), _notes)), "Order saved.");
 
     private async Task SubmitAsync()
     {
         if (_selected is null || _busy) return;
         // Save edits first so the signed order is the one on screen.
         var saved = await Api.UpdateSupplierOrderAsync(_selected.Id, new UpdateSupplierOrderRequest(
-            _editLines.Select(l => new SupplierOrderLineInput(l.ProductTypeId, l.Abo, l.Quantity)).ToList(), _notes));
+            LineInputs(_editLines).ToList(), _notes));
         if (!saved.Succeeded)
         {
             _feedback = saved.ToFeedback();

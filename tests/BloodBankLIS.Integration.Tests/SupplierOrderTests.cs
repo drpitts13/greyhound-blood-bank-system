@@ -34,7 +34,47 @@ public class SupplierOrderTests : IDisposable
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             _signatures,
             new TabularReportRenderer(),
-            new EfRepository<BloodUnit>(c));
+            new EfRepository<BloodUnit>(c),
+            patients: new EfRepository<Patient>(c));
+
+    // TEST-BB-1024: a special order starts empty, takes a patient-specific line (Rh, requirements, patient by MRN) beside
+    // a stock line, refuses an unknown MRN, keeps the lines apart, and exports them for the supplier (end-user testing
+    // pass 15).
+    [Fact]
+    public async Task SpecialOrder_TakesAPatientSpecificLine()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+        var patient = new Patient { MedicalRecordNumber = "MRN-SO-SPEC", LastName = "Special", FirstName = "Avery", DateOfBirth = new DateOnly(1969, 7, 9) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var service = Service(c);
+
+        var created = await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id, FromShortfall: false));
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Empty(created.Value!.Lines);
+
+        Assert.Contains("No active patient has the MRN MRN-NOPE", (await service.UpdateAsync(created.Value.Id, new UpdateSupplierOrderRequest(
+            [new SupplierOrderLineInput(f.RedCells.Id, AboGroup.O, 2, RhType.Positive, "irradiated, CMV-negative", "MRN-NOPE")], null))).Error);
+
+        var saved = await service.UpdateAsync(created.Value.Id, new UpdateSupplierOrderRequest(
+        [
+            new SupplierOrderLineInput(f.RedCells.Id, AboGroup.O, 2, RhType.Positive, " irradiated, CMV-negative ", "mrn-so-spec"),
+            new SupplierOrderLineInput(f.RedCells.Id, AboGroup.O, 3)
+        ], "For Avery Special, ONC 6"));
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.Equal(2, saved.Value!.Lines.Count);
+        var special = Assert.Single(saved.Value.Lines, l => l.PatientMrn is not null);
+        Assert.Equal((RhType.Positive, "irradiated, CMV-negative", "MRN-SO-SPEC", 2), (special.RhD!.Value, special.Requirements!, special.PatientMrn!, special.Quantity));
+        Assert.Equal("Special, Avery", special.PatientName);
+
+        var csv = await service.ExportAsync(created.Value.Id, "csv");
+        Assert.True(csv.Succeeded, csv.Error);
+        var text = Encoding.UTF8.GetString(csv.Value!.Bytes);
+        Assert.Contains("rh", text);
+        Assert.Contains("irradiated, CMV-negative", text);
+        Assert.Contains("Special, Avery (MRN-SO-SPEC)", text);
+    }
 
     [Fact]
     public async Task Order_FromMinimumStockShortfall_EditSubmitReceive()
@@ -193,7 +233,7 @@ public class SupplierOrderTests : IDisposable
         Assert.True(csv.Succeeded, csv.Error);
         Assert.Equal($"{order.OrderNumber}.csv", csv.Value!.FileName);
         var text = Encoding.UTF8.GetString(csv.Value.Bytes, 3, csv.Value.Bytes.Length - 3);
-        Assert.Equal("product_code,product,abo,quantity\r\nRBC-SO,Red cells,O,2\r\n", text);
+        Assert.Equal("product_code,product,abo,rh,requirements,for_patient,quantity\r\nRBC-SO,Red cells,O,Any,,,2\r\n", text);
 
         var pdf = await service.ExportAsync(order.Id, "pdf");
         Assert.True(pdf.Succeeded, pdf.Error);

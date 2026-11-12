@@ -31,3 +31,7 @@ When the supplier's delivery arrives and is entered under Deliveries, open the o
 ## Cancel
 
 A draft or submitted order can be cancelled with a reason. A received order cannot be cancelled.
+
+## Special orders for a patient
+
+When no unit in stock meets a patient's needs (for example irradiated, CMV-negative or antigen-negative red cells), **New special order** starts an empty draft. **Add line** takes the product, ABO and Rh (or any), the **Requirements** as the supplier is to read them, the **For patient** MRN, and the quantity. A line for a patient is kept apart from a stock line of the same product. The exported PDF and CSV list the Rh, requirements and patient for each line. Sign and submit as for any order.

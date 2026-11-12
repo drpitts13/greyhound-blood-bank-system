@@ -11,6 +11,12 @@ namespace BloodBankLIS.Application.Inventory;
 
 public sealed record SupplierOrderLineDto(long Id, long ProductTypeId, string ProductCode, string ProductName, AboGroup? Abo, int Quantity)
 {
+    public RhType? RhD { get; init; }
+    public string? Requirements { get; init; }
+    public long? PatientId { get; init; }
+    public string? PatientMrn { get; init; }
+    public string? PatientName { get; init; }
+
     /// <summary>Units on the linked delivery counted against this line; null until the order is received.</summary>
     public int? Received { get; init; }
 
@@ -41,9 +47,14 @@ public sealed record SupplierOrderDto(
     public int UnitsShort => Lines.Sum(l => l.Short);
 }
 
-public sealed record CreateSupplierOrderRequest(long SupplierId);
+/// <summary>With <paramref name="FromShortfall"/> false, an empty draft for a special order (a patient's units).</summary>
+public sealed record CreateSupplierOrderRequest(long SupplierId, bool FromShortfall = true);
 
-public sealed record SupplierOrderLineInput(long ProductTypeId, AboGroup? Abo, int Quantity);
+/// <summary>
+/// One order line. Rh, the requirements the supplier reads, and the patient (by MRN) make a patient-specific line
+/// (end-user testing, 2026-11-12: a patient needing irradiated, CMV-negative red cells could not be ordered for).
+/// </summary>
+public sealed record SupplierOrderLineInput(long ProductTypeId, AboGroup? Abo, int Quantity, RhType? RhD = null, string? Requirements = null, string? PatientMrn = null);
 
 public sealed record UpdateSupplierOrderRequest(IReadOnlyList<SupplierOrderLineInput> Lines, string? Notes);
 
@@ -75,6 +86,7 @@ public sealed class SupplierOrderService
     private readonly IReportDocumentRenderer? _renderer;
     private readonly IRepository<BloodUnit>? _units;
     private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<Patient>? _patients;
 
     public SupplierOrderService(
         IRepository<SupplierOrder> orders,
@@ -90,8 +102,10 @@ public sealed class SupplierOrderService
         ISignatureService? signatures = null,
         IReportDocumentRenderer? renderer = null,
         IRepository<BloodUnit>? units = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<Patient>? patients = null)
     {
+        _patients = patients;
         _policy = policy;
         _units = units;
         _orders = orders;
@@ -136,6 +150,22 @@ public sealed class SupplierOrderService
         if (supplier is null || !supplier.IsActive)
         {
             return OperationResult<SupplierOrderDto>.Fail("Supplier not found.");
+        }
+
+        if (!request.FromShortfall)
+        {
+            var blank = new SupplierOrder
+            {
+                OrderNumber = await NextOrderNumberAsync(ct),
+                BloodSupplierId = supplier.Id,
+                Status = SupplierOrderStatus.Draft
+            };
+            await _orders.AddAsync(blank, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+            _audit.Record(AuditEventType.Create, nameof(SupplierOrder), blank.Id, null,
+                new { blank.OrderNumber, Supplier = supplier.Code, Special = true }, "Special supplier order drafted.");
+            await _unitOfWork.SaveChangesAsync(ct);
+            return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(blank, ct));
         }
 
         var rows = await _minimumStock.ListAsync(ct);
@@ -204,35 +234,55 @@ public sealed class SupplierOrderService
             }
         }
 
-        var merged = inputs
+        // A line for a patient names a registered, active patient by MRN.
+        var patientIds = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        foreach (var mrn in inputs.Where(i => i.Quantity > 0 && !string.IsNullOrWhiteSpace(i.PatientMrn)).Select(i => i.PatientMrn!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var patient = _patients is null ? null : (await _patients.ListAsync(p => p.MedicalRecordNumber.ToUpper() == mrn.ToUpper(), ct)).FirstOrDefault();
+            if (patient is null || patient.Status == PatientStatus.Merged)
+            {
+                return OperationResult<SupplierOrderDto>.Fail($"No active patient has the MRN {mrn}.");
+            }
+
+            patientIds[mrn] = patient.Id;
+        }
+
+        static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        var keyed = inputs
             .Where(i => i.Quantity > 0)
-            .GroupBy(i => (i.ProductTypeId, i.Abo))
-            .Select(g => new SupplierOrderLineInput(g.Key.ProductTypeId, g.Key.Abo, Math.Min(g.Sum(i => i.Quantity), SupplierOrderRule.MaxLineQuantity)))
+            .Select(i => (Key: (i.ProductTypeId, i.Abo, i.RhD, Requirements: Clean(i.Requirements),
+                    PatientId: Clean(i.PatientMrn) is { } m ? patientIds[m] : (long?)null), i.Quantity))
+            .GroupBy(x => x.Key)
+            .Select(g => (g.Key, Quantity: Math.Min(g.Sum(x => x.Quantity), SupplierOrderRule.MaxLineQuantity)))
             .ToList();
 
+        static (long, AboGroup?, RhType?, string?, long?) KeyOf(SupplierOrderLine l) => (l.ProductTypeId, l.Abo, l.RhD, l.Requirements, l.PatientId);
         var existing = await _lines.ListAsync(l => l.SupplierOrderId == order.Id, ct);
-        var before = existing.Select(l => new { l.ProductTypeId, l.Abo, l.Quantity }).ToList();
+        var before = existing.Select(l => new { l.ProductTypeId, l.Abo, l.RhD, l.Requirements, l.PatientId, l.Quantity }).ToList();
         foreach (var line in existing)
         {
             var tracked = await _lines.GetByIdAsync(line.Id, ct);
-            var replacement = merged.FirstOrDefault(m => m.ProductTypeId == line.ProductTypeId && m.Abo == line.Abo);
+            var replacement = keyed.Where(k => k.Key == KeyOf(line)).Select(k => (int?)k.Quantity).FirstOrDefault();
             if (tracked is null)
             {
                 continue;
             }
 
             // Lines are never hard-deleted; a removed line is kept at zero and hidden from the order.
-            tracked.Quantity = replacement?.Quantity ?? 0;
+            tracked.Quantity = replacement ?? 0;
             _lines.Update(tracked);
         }
 
-        foreach (var input in merged.Where(m => !existing.Any(l => l.ProductTypeId == m.ProductTypeId && l.Abo == m.Abo)))
+        foreach (var input in keyed.Where(k => !existing.Any(l => KeyOf(l) == k.Key)))
         {
             await _lines.AddAsync(new SupplierOrderLine
             {
                 SupplierOrderId = order.Id,
-                ProductTypeId = input.ProductTypeId,
-                Abo = input.Abo,
+                ProductTypeId = input.Key.ProductTypeId,
+                Abo = input.Key.Abo,
+                RhD = input.Key.RhD,
+                Requirements = input.Key.Requirements,
+                PatientId = input.Key.PatientId,
                 Quantity = input.Quantity
             }, ct);
         }
@@ -241,7 +291,7 @@ public sealed class SupplierOrderService
         _orders.Update(order);
         _audit.Record(AuditEventType.Update, nameof(SupplierOrder), order.Id,
             new { Lines = before },
-            new { Lines = merged, order.Notes },
+            new { Lines = keyed.Select(k => new { k.Key.ProductTypeId, k.Key.Abo, k.Key.RhD, k.Key.Requirements, k.Key.PatientId, k.Quantity }), order.Notes },
             "Supplier order edited.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(order, ct));
@@ -352,9 +402,12 @@ public sealed class SupplierOrderService
             return OperationResult<SupplierOrderFile>.Fail("Order not found.");
         }
 
-        var columns = new[] { "product_code", "product", "abo", "quantity" };
+        var columns = new[] { "product_code", "product", "abo", "rh", "requirements", "for_patient", "quantity" };
         var rows = dto.Lines
-            .Select(l => (IReadOnlyList<string?>)[l.ProductCode, l.ProductName, l.Abo?.ToString() ?? "Any", l.Quantity.ToString(CultureInfo.InvariantCulture)])
+            .Select(l => (IReadOnlyList<string?>)[l.ProductCode, l.ProductName, l.Abo?.ToString() ?? "Any",
+                l.RhD is RhType rh ? (rh == RhType.Positive ? "Pos" : "Neg") : "Any",
+                l.Requirements, l.PatientMrn is null ? null : $"{l.PatientName} ({l.PatientMrn})",
+                l.Quantity.ToString(CultureInfo.InvariantCulture)])
             .ToList();
 
         SupplierOrderFile file;
@@ -423,11 +476,23 @@ public sealed class SupplierOrderService
         var lines = (await _lines.ListAsync(l => l.SupplierOrderId == order.Id && l.Quantity > 0, ct)).ToList();
         var productIds = lines.Select(l => l.ProductTypeId).Distinct().ToList();
         var products = (await _products.ListAsync(p => productIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var linePatientIds = lines.Where(l => l.PatientId is not null).Select(l => l.PatientId!.Value).Distinct().ToList();
+        var linePatients = _patients is null || linePatientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => linePatientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
         var lineDtos = lines
             .Select(l =>
             {
                 products.TryGetValue(l.ProductTypeId, out var product);
-                return new SupplierOrderLineDto(l.Id, l.ProductTypeId, product?.ProductCode ?? string.Empty, product?.Name ?? string.Empty, l.Abo, l.Quantity);
+                var patient = l.PatientId is long pid ? linePatients.GetValueOrDefault(pid) : null;
+                return new SupplierOrderLineDto(l.Id, l.ProductTypeId, product?.ProductCode ?? string.Empty, product?.Name ?? string.Empty, l.Abo, l.Quantity)
+                {
+                    RhD = l.RhD,
+                    Requirements = l.Requirements,
+                    PatientId = l.PatientId,
+                    PatientMrn = patient?.MedicalRecordNumber,
+                    PatientName = patient is null ? null : $"{patient.LastName}, {patient.FirstName}"
+                };
             })
             .OrderBy(l => l.ProductCode)
             .ThenBy(l => l.Abo)

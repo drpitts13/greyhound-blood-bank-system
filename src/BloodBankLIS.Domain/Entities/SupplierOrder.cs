@@ -48,5 +48,14 @@ public class SupplierOrderLine : BaseEntity
 
     public AboGroup? Abo { get; set; }
 
+    /// <summary>The Rh type wanted; null for either.</summary>
+    public RhType? RhD { get; set; }
+
+    /// <summary>What the units must be, as the supplier is to read it: irradiated, CMV-negative, K-negative...</summary>
+    public string? Requirements { get; set; }
+
+    /// <summary>The patient the units are ordered for, when the order is patient-specific.</summary>
+    public long? PatientId { get; set; }
+
     public int Quantity { get; set; }
 }

@@ -2534,6 +2534,7 @@ public sealed class SupplierOrderLineConfiguration : IEntityTypeConfiguration<Su
     {
         b.ToTable("SupplierOrderLines");
         b.HasKey(l => l.Id);
+        b.Property(l => l.Requirements).HasMaxLength(500);
         b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(l => l.ModifiedBy).HasMaxLength(100);
         b.HasOne<ProductType>().WithMany().HasForeignKey(l => l.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
