@@ -56,6 +56,7 @@ public static partial class DatabaseSeeder
         await EnsureProductTypeIsbtCodesAsync(context, cancellationToken);
         await EnsureProductAboRhPoliciesAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
+        await EnsureProductAttributeAssignmentsAsync(context, cancellationToken);
         await SeedSpecialRequirementDefinitionsAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
         await SeedAntibodyIdentificationPanelsAsync(context, cancellationToken);
@@ -2030,6 +2031,41 @@ public static partial class DatabaseSeeder
             new ProductAttribute { Code = "VOLRED", Name = "Volume Reduced", Description = "Reduced plasma volume" });
 
         await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Each seeded product gets the attributes its name states (Irradiated, Leukoreduced, Washed, Volume Reduced), so a
+    /// patient's requirement for irradiated red cells can be met by "Red Blood Cells, Irradiated". End-user testing,
+    /// 2026-11-12: no product had any attribute, so no unit could ever meet an irradiated requirement. A product that
+    /// already has attributes (set by an administrator) is left as it is.
+    /// </summary>
+    private static async Task EnsureProductAttributeAssignmentsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var attributes = await context.ProductAttributes.ToDictionaryAsync(a => a.Code, ct);
+        var assigned = (await context.ProductAttributeAssignments.Select(a => a.ProductTypeId).Distinct().ToListAsync(ct)).ToHashSet();
+        var byName = new (string Word, string Code)[] { ("Irradiated", "IRRAD"), ("Leukoreduced", "LR"), ("Washed", "WASHED"), ("Volume Reduced", "VOLRED") };
+        var added = false;
+        foreach (var product in await context.ProductTypes.ToListAsync(ct))
+        {
+            if (assigned.Contains(product.Id))
+            {
+                continue;
+            }
+
+            foreach (var (word, code) in byName)
+            {
+                if (product.Name.Contains(word, StringComparison.OrdinalIgnoreCase) && attributes.TryGetValue(code, out var attribute))
+                {
+                    context.ProductAttributeAssignments.Add(new ProductAttributeAssignment { ProductTypeId = product.Id, ProductAttributeId = attribute.Id, IsActive = true });
+                    added = true;
+                }
+            }
+        }
+
+        if (added)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     private static async Task SeedSpecialRequirementDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)

@@ -897,6 +897,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-783 / FRS-BB-901 | End-user testing pass 13: thaw result location | `ModificationDtos.cs`, `BloodProductModificationService.cs`, `Modifications.razor`, `InventoryLocationPolicyRule.cs`, `AdminInventoryLocations` | TEST-BB-1022 | I | |
 | URS-BB-784 / FRS-BB-902 | End-user testing pass 14: products in the unit list | `UnitPickerComboBox.razor`, `CompatibleUnitSummary.cs`, `Compatibility.razor` | TEST-BB-1023 | U | |
 | URS-BB-785 / FRS-BB-903 | End-user testing pass 15: special supplier orders | `SupplierOrder.cs`, `SupplierOrderService.cs`, `SupplierOrders.razor`, migration | TEST-BB-1024 | I | |
+| URS-BB-786 / FRS-BB-904 | End-user testing pass 16: product attributes in the seed | `DatabaseSeeder.cs` | TEST-BB-1025 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -311,6 +311,28 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
 
     // TEST-BB-462: the demo shows each cooler check state: Cooler M2 checked with all units packed, Cooler 1 checked
     // with one unit missing, CLR-TRAUMA-1 not checked. Seeding again adds no more check rows.
+    // TEST-BB-1025: seeded products carry the attributes their names state, so an irradiated requirement can be met by
+    // "Red Blood Cells, Irradiated"; seeding again adds none twice (end-user testing pass 16).
+    [Fact]
+    public async Task Seed_ProductsCarryTheAttributesTheirNamesState()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var codes = await (from a in verify.ProductAttributeAssignments
+                           join pa in verify.ProductAttributes on a.ProductAttributeId equals pa.Id
+                           join p in verify.ProductTypes on a.ProductTypeId equals p.Id
+                           select new { p.ProductCode, pa.Code }).ToListAsync();
+        Assert.Contains(codes, c => c.ProductCode == "RBC-IRR" && c.Code == "IRRAD");
+        Assert.Contains(codes, c => c.ProductCode == "RBC-LR" && c.Code == "LR");
+        Assert.DoesNotContain(codes, c => c.ProductCode == "FFP");
+        Assert.Equal(codes.Count, codes.Distinct().Count());
+    }
+
     [Fact]
     public async Task Seed_DemoCoolers_ShowEachCheckState_Once()
     {

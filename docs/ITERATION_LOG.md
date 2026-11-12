@@ -22548,3 +22548,25 @@ On the running system with seeded data: after pass 14 showed no red cell in stoc
 ### Next
 
 - Pass 16: receiving a patient-specific delivery and tying the units to the patient; remaining gaps.
+
+## Iteration 732 — End-user testing pass 16: receiving a patient's special unit (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Inventory → new delivery (American Red Cross, PL-UAT-2, 1 red cell) → receive W000026123460, Red Blood Cells, Irradiated (E0332), O+, into FRIDGE-1 → the unit page: record CMV Negative under Unit tests, record the ABO retype (Available) → Compatibility for Avery Demo-Special (irradiated and CMV-negative red cells required).
+
+### Found and fixed
+
+1. **No unit could meet an irradiated requirement.** The irradiated, CMV-negative O+ unit was not offered to Avery: the requirement checks the product's attributes, and no seeded product had any (the attribute catalog was seeded but never assigned), so even "Red Blood Cells, Irradiated" did not count as irradiated. Seeded products now carry the attributes their names state (Irradiated, Leukoreduced, Washed, Volume Reduced), added once where a product has none. Retested live: "7 available units are compatible …: 6 Fresh Frozen Plasma, 1 Red Blood Cells, Irradiated", the unit W000026123460; the seeded irradiated unit without a CMV result is still not offered.
+
+### Observed working
+
+- Delivery receipt, the CMV result on the unit, and the Rh-positive retype (ABO only) confirmed against the label and made the unit Available. The unit list now finds units by product name.
+
+### Tests
+
+- TEST-BB-1025. Full suite passed.
+
+### Next
+
+- Pass 17: the remaining workflows and gaps (reservation and issue for Avery's unit with the call-the-physician instruction).
