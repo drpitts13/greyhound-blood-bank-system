@@ -1330,6 +1330,12 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
         }
 
+        // End-user testing pass 28: a release of a unit that was not quarantined was accepted and recorded as a release.
+        if (unit.Status != UnitStatus.Quarantine)
+        {
+            return InventoryActionResult.Fail($"{unit.UnitNumber} is not in quarantine ({unit.Status}); there is nothing to release.");
+        }
+
         var requireSecond = _policy is null
             || await _policy.GetRequireQuarantineReleaseVerifierAsync(ct);
         var dual = QuarantineReleaseVerifierRule.Evaluate(_currentUser.UserName, secondVerifier, requireSecond);
@@ -1367,6 +1373,11 @@ public sealed class InventoryService
         if (stock == UnitStatus.Received)
         {
             reason = $"{reason} ({RetypeStockStatus.PendingReason})";
+        }
+        else if (await ReservedStatusBeforeQuarantineAsync(unit, ct) is UnitStatus reservedStatus)
+        {
+            stock = reservedStatus;
+            reason = $"{reason}; still reserved for its patient";
         }
 
         var changed = await ChangeStatusAsync(unit, stock, reason, ct);
@@ -2796,6 +2807,30 @@ public sealed class InventoryService
     }
 
     /// <summary>Available, or Received when the product requires a retype that is not yet confirmed.</summary>
+    private static readonly UnitStatus[] ReservedStatuses =
+        [UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Allocated, UnitStatus.Crossmatched];
+
+    /// <summary>
+    /// For a unit with an active reservation, the reserved status it had before it was quarantined (Assigned when the
+    /// history does not say); null when it is not reserved. End-user testing pass 28: a reserved unit came back from
+    /// quarantine as Available.
+    /// </summary>
+    private async Task<UnitStatus?> ReservedStatusBeforeQuarantineAsync(BloodUnit unit, CancellationToken ct)
+    {
+        if (_allocations is null
+            || !await _allocations.AnyAsync(a => a.BloodProductId == unit.Id && a.Status == AllocationStatus.Reserved, ct))
+        {
+            return null;
+        }
+
+        var before = (await _repository.GetHistoryAsync(unit.Id, ct))
+            .Where(h => h.ToStatus == UnitStatus.Quarantine && h.FromStatus != UnitStatus.Quarantine)
+            .OrderByDescending(h => h.ChangedUtc).ThenByDescending(h => h.Id)
+            .Select(h => (UnitStatus?)h.FromStatus)
+            .FirstOrDefault();
+        return before is UnitStatus status && ReservedStatuses.Contains(status) ? status : UnitStatus.Assigned;
+    }
+
     private async Task<UnitStatus> StockStatusAsync(BloodUnit unit, CancellationToken ct)
     {
         var product = unit.ProductType ?? await _repository.GetProductTypeAsync(unit.ProductTypeId, ct);

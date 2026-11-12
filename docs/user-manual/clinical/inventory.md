@@ -71,3 +71,5 @@ The system moves units that have reached their expiration date to Expired by its
 > Demo data. In a development database, shipment SHIP-DEMO-01 sent two group O red cells (W000123SHP0001 and W000123SHP0002) to St. Mary's Hospital yesterday.
 
 A quarantined unit stored where a temperature excursion is still going on (the location's latest reading is out of range) cannot be released, whatever it is held for: its **Next step** names the location and reading ("FRIDGE-1 (8.5 °C) is still out of range: record an in-range reading or move the unit"). A unit released there would be quarantined again automatically. Record the in-range reading on Storage temperatures (or move the unit), then release.
+
+A unit still reserved for a patient goes back to the reserved status it had before it was quarantined (for example Crossmatched), or Assigned when that is not known, rather than to Available; the history says "still reserved for its patient". Only a unit in quarantine can be released: a release of any other unit is refused.

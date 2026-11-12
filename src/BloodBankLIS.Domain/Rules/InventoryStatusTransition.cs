@@ -26,11 +26,13 @@ public static class InventoryStatusTransition
                 UnitStatus.Expired, UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing,
                 UnitStatus.ReturnedToSupplier, UnitStatus.ShippedOut
             ],
-            // Received: an unretyped unit goes back to the retype worklist (RetypeStockStatus).
+            // Received: an unretyped unit goes back to the retype worklist (RetypeStockStatus). A unit still reserved for a
+            // patient goes back to its reserved status (end-user testing pass 28: it read Available while reserved).
             [UnitStatus.Quarantine] =
             [
                 UnitStatus.Available, UnitStatus.Received, UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Recalled,
-                UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier
+                UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier,
+                UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Allocated, UnitStatus.Crossmatched
             ],
             [UnitStatus.OnHold] =
             [

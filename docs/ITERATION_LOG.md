@@ -22801,3 +22801,18 @@ On the running system with seeded data: HL7 Interface (inbound ORM cancels for U
 ### Tests
 
 - TEST-BB-1036 to TEST-BB-1038. Full suite passed.
+
+## Iteration 744 — End-user testing pass 28: releasing a reserved unit (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Avery Demo-Special's reserved unit W000026123460 (left reading Available after the pass 25 and 27 releases), quarantined and released through the inventory endpoints the Manage panel uses.
+
+### Found and fixed
+
+1. **A reserved unit came back Available.** Release always returned a unit to Available (or Received for a retype), so a unit still reserved for a patient read as free stock. It now goes back to the reserved status it had before quarantine (Assigned when that is not known), noting "still reserved for its patient". Retested: W000026123460 went Assigned, Quarantine, Assigned.
+2. **A unit not in quarantine could be "released".** A release request for W000026123460 while it was Available was accepted and recorded as a release from quarantine. Release now refuses a unit that is not quarantined ("is not in quarantine (Assigned); there is nothing to release"). Retested live.
+
+### Tests
+
+- TEST-BB-1039. Full suite passed.

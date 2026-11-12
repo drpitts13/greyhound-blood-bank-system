@@ -183,6 +183,56 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     // TEST-BB-406: a quarantined unit goes back to stock only when its hold allows it, and the board says so.
+    // TEST-BB-1039: a unit still reserved for a patient comes back from quarantine in the reserved status it had before
+    // (Assigned when that is not known), not Available; an unreserved unit comes back Available (end-user testing pass 28).
+    [Fact]
+    public async Task QuarantineRelease_KeepsAReservedUnitReserved()
+    {
+        var future = _factory.Clock.UtcNow.AddDays(10);
+        var (reserved, _) = await SeedQuarantinedAsync("U-QR-RES", UnitQuarantineReason.StorageTemperatureExcursion, future);
+        var (unknown, _) = await SeedQuarantinedAsync("U-QR-RES2", UnitQuarantineReason.StorageTemperatureExcursion, future);
+        var (free, _) = await SeedQuarantinedAsync("U-QR-FREE", UnitQuarantineReason.StorageTemperatureExcursion, future);
+        await using (var c = _factory.Create())
+        {
+            var patient = new Patient { MedicalRecordNumber = "MRN-QR-RES", LastName = "Reserved", FirstName = "Ria", DateOfBirth = new DateOnly(1975, 5, 5) };
+            c.Patients.Add(patient);
+            await c.SaveChangesAsync();
+            foreach (var id in new[] { reserved, unknown })
+            {
+                c.Allocations.Add(new Allocation { BloodProductId = id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-3), AllocatedBy = "tech" });
+            }
+
+            c.InventoryStatusHistory.Add(new InventoryStatusHistory
+            {
+                BloodProductId = reserved, FromStatus = UnitStatus.Crossmatched, ToStatus = UnitStatus.Quarantine,
+                Reason = "Storage excursion", ChangedBy = "system", ChangedUtc = _factory.Clock.UtcNow.AddHours(-1)
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var service = CreateService(c);
+            foreach (var id in new[] { reserved, unknown, free })
+            {
+                var released = await service.ReleaseFromQuarantineAsync(id, "tech2");
+                Assert.True(released.Succeeded, released.Error);
+            }
+
+            // A unit not in quarantine has nothing to release.
+            var again = await service.ReleaseFromQuarantineAsync(free, "tech2");
+            Assert.False(again.Succeeded);
+            Assert.Contains("is not in quarantine", again.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var units = await verify.BloodUnits.AsNoTracking().Where(u => u.Id == reserved || u.Id == unknown || u.Id == free).ToDictionaryAsync(u => u.Id);
+        Assert.Equal(UnitStatus.Crossmatched, units[reserved].Status);
+        Assert.Equal(UnitStatus.Assigned, units[unknown].Status);
+        Assert.Equal(UnitStatus.Available, units[free].Status);
+        Assert.True(await verify.InventoryStatusHistory.AnyAsync(h => h.BloodProductId == reserved && h.ToStatus == UnitStatus.Crossmatched && h.Reason!.Contains("still reserved")));
+    }
+
     // TEST-BB-1038: a unit held by an excursion is not released while its location's latest reading is still out of
     // range; once an in-range reading is recorded it is (end-user testing pass 27).
     [Fact]

@@ -1047,5 +1047,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1036 | I | `Phase5Hl7Tests.OrmCancel_RefusedWhileUnitsReserved_KeepsReason_AndVerifiedLines` | URS-BB-798 / FRS-BB-916 |
 | TEST-BB-1037 | U | `QuarantineReleaseRuleTests.LocationStillOutOfRange_WaitsForAnInRangeReading` | URS-BB-799 / FRS-BB-917 |
 | TEST-BB-1038 | I | `InventoryServiceTests.QuarantineRelease_WaitsForTheLocationToBeInRange` | URS-BB-799 / FRS-BB-917 |
+| TEST-BB-1039 | I | `InventoryServiceTests.QuarantineRelease_KeepsAReservedUnitReserved` | URS-BB-801 / FRS-BB-919 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
