@@ -868,6 +868,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-754 / FRS-BB-872 | Equipment check history and log | `EquipmentPage.razor`, `BloodBankApiClient.cs`, `EquipmentService.cs` | TEST-BB-980 | U | |
 | URS-BB-755 / FRS-BB-873 | Edit equipment and checks | `EquipmentService.cs`, `EquipmentEndpoints.cs`, `EquipmentPage.razor` | TEST-BB-981..982 | U, I | |
 | URS-BB-756 / FRS-BB-874 | Reagent register: unique code, rename, retire, restore | `ReagentRegisterRule.cs`, `ReagentQcService.cs`, `ReagentEndpoints.cs`, `Reagents.razor` | TEST-BB-983..985 | U, I | |
+| URS-BB-757 / FRS-BB-875 | Correct a reagent lot | `ReagentLotRule.cs`, `ReagentQcService.cs`, `ReagentEndpoints.cs`, `Reagents.razor` | TEST-BB-986..988 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

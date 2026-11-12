@@ -219,4 +219,29 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
         Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Reagent) && e.EntityId == id && e.Reason == "Discontinued by the manufacturer"));
         Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Reagent) && e.EntityId == id && e.Reason == "Manufacturer's name"));
     }
+
+    // TEST-BB-987: a received lot's expiry and number are corrected with a reason (audited before and after); no reason,
+    // no change, or another lot's number is refused; a closed lot is not corrected.
+    [Fact]
+    public async Task CorrectLot_WithAReason()
+    {
+        await using var c = _factory.Create();
+        var qc = Qc(c);
+        var reagent = (await qc.SaveReagentAsync(new SaveReagentRequest("COR-714", "Correctable"))).Value!;
+        var expires = _factory.Clock.UtcNow.AddDays(30);
+        var lot = (await qc.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Id, "L-1", expires))).Value!;
+        var other = (await qc.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Id, "L-2", expires))).Value!;
+
+        Assert.False((await qc.CorrectLotAsync(lot.Id, new CorrectReagentLotRequest("L-1", expires, "nothing changed"))).Succeeded);
+        Assert.False((await qc.CorrectLotAsync(lot.Id, new CorrectReagentLotRequest("L-1", expires.AddDays(60), ""))).Succeeded);
+        Assert.False((await qc.CorrectLotAsync(lot.Id, new CorrectReagentLotRequest("l-2", expires, "typo"))).Succeeded);
+
+        var corrected = await qc.CorrectLotAsync(lot.Id, new CorrectReagentLotRequest(" L-1A ", expires.AddDays(60), "Expiry typed wrongly at receipt"));
+        Assert.True(corrected.Succeeded, corrected.Error);
+        Assert.Equal(("L-1A", expires.AddDays(60)), (corrected.Value!.LotNumber, corrected.Value.ExpiresUtc));
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(ReagentLot) && e.EntityId == lot.Id && e.Reason == "Expiry typed wrongly at receipt"));
+
+        Assert.True((await qc.CloseLotAsync(other.Id)).Succeeded);
+        Assert.False((await qc.CorrectLotAsync(other.Id, new CorrectReagentLotRequest("L-2B", expires, "typo"))).Succeeded);
+    }
 }

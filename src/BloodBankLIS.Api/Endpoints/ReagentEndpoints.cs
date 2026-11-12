@@ -26,6 +26,10 @@ public static class ReagentEndpoints
             ToResult(await service.SetReagentActiveAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.ResultEnter);
 
+        group.MapPut("/lots/{id:long}", async (long id, CorrectReagentLotRequest request, ReagentQcService service, CancellationToken ct) =>
+            ToResult(await service.CorrectLotAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.ResultEnter);
+
         group.MapPut("/{id:long}/tests", async (long id, SetReagentTestsRequest request, ReagentQcService service, CancellationToken ct) =>
             ToResult(await service.SetReagentTestsAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.ResultEnter);

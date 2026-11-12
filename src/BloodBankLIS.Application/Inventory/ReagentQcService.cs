@@ -35,6 +35,8 @@ public sealed record SetReagentTestsRequest(string? TestCodes);
 
 public sealed record RenameReagentRequest(string Name, string? Reason);
 
+public sealed record CorrectReagentLotRequest(string LotNumber, DateTime ExpiresUtc, string? Reason);
+
 public sealed record ReagentActiveRequest(bool Active, string? Reason);
 
 /// <summary>The lots recorded against a result and anything the person entering it should know.</summary>
@@ -509,6 +511,44 @@ public sealed class ReagentQcService
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReagentLotDto>.Ok(new ReagentLotDto(
             lot.Id, lot.ReagentId, reagent.Code, lot.LotNumber, lot.ReceivedUtc, lot.OpenedUtc, lot.ClosedUtc, lot.ExpiresUtc, lot.State));
+    }
+
+    /// <summary>
+    /// Correct a received or open lot's number or expiry entered wrongly (Cycle 714), with a reason, audited before and
+    /// after. Results already recorded with the lot keep the number as it was then; the lot lookback still finds them.
+    /// </summary>
+    public async Task<OperationResult<ReagentLotDto>> CorrectLotAsync(long lotId, CorrectReagentLotRequest request, CancellationToken ct = default)
+    {
+        var lot = await _lots.GetByIdAsync(lotId, ct);
+        if (lot is null)
+        {
+            return OperationResult<ReagentLotDto>.Fail("Reagent lot not found.");
+        }
+
+        var lotNumber = request.LotNumber?.Trim() ?? string.Empty;
+        if (lotNumber.Length == 0)
+        {
+            return OperationResult<ReagentLotDto>.Fail("Enter the lot number.");
+        }
+
+        var changed = !string.Equals(lotNumber, lot.LotNumber, StringComparison.Ordinal) || request.ExpiresUtc != lot.ExpiresUtc;
+        var numberInUse = (await _lots.ListAsync(l => l.ReagentId == lot.ReagentId && l.Id != lot.Id && l.State != ReagentLotState.Closed, ct))
+            .Any(l => string.Equals(l.LotNumber.Trim(), lotNumber, StringComparison.OrdinalIgnoreCase));
+        var rule = ReagentLotRule.EvaluateCorrect(lot.State, changed, request.Reason, numberInUse);
+        if (rule.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReagentLotDto>.Fail(rule.Message);
+        }
+
+        var before = new { lot.LotNumber, lot.ExpiresUtc };
+        lot.LotNumber = lotNumber;
+        lot.ExpiresUtc = request.ExpiresUtc;
+        _lots.Update(lot);
+        _audit.Record(AuditEventType.Update, nameof(ReagentLot), lot.Id, before, new { lot.LotNumber, lot.ExpiresUtc }, request.Reason!.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        var reagent = await _reagents.GetByIdAsync(lot.ReagentId, ct);
+        return OperationResult<ReagentLotDto>.Ok(new ReagentLotDto(
+            lot.Id, lot.ReagentId, reagent?.Code ?? "", lot.LotNumber, lot.ReceivedUtc, lot.OpenedUtc, lot.ClosedUtc, lot.ExpiresUtc, lot.State));
     }
 
     public async Task<OperationResult<ReagentLotDto>> OpenLotAsync(long lotId, CancellationToken ct = default)

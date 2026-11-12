@@ -21,4 +21,16 @@ public class ReagentRegisterRuleTests
         Assert.Equal(RuleSeverity.HardStop, ReagentRegisterRule.EvaluateRetire("", 0).Severity);
         Assert.Equal(RuleSeverity.Pass, ReagentRegisterRule.EvaluateRetire("Discontinued", 0).Severity);
     }
+
+    // TEST-BB-986: a lot is corrected only while received or open, only with a change and a reason, and not to a number
+    // another received or open lot of the reagent carries.
+    [Fact]
+    public void LotCorrection_Rules()
+    {
+        Assert.Contains("final", ReagentLotRule.EvaluateCorrect(BloodBankLIS.Domain.Entities.ReagentLotState.Closed, true, "typo", false).Message);
+        Assert.Contains("Change the lot number or the expiry", ReagentLotRule.EvaluateCorrect(BloodBankLIS.Domain.Entities.ReagentLotState.Opened, false, "typo", false).Message);
+        Assert.Equal(RuleSeverity.HardStop, ReagentLotRule.EvaluateCorrect(BloodBankLIS.Domain.Entities.ReagentLotState.Received, true, " ", false).Severity);
+        Assert.Contains("another open or received lot", ReagentLotRule.EvaluateCorrect(BloodBankLIS.Domain.Entities.ReagentLotState.Received, true, "typo", true).Message);
+        Assert.Equal(RuleSeverity.Pass, ReagentLotRule.EvaluateCorrect(BloodBankLIS.Domain.Entities.ReagentLotState.Opened, true, "typo", false).Severity);
+    }
 }

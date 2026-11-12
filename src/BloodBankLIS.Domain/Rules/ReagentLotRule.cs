@@ -27,6 +27,24 @@ public static class ReagentLotRule
             : RuleResult.Pass(ReceiveCode);
     }
 
+    public const string CorrectCode = "REAGENT-LOT-CORRECT";
+
+    /// <summary>
+    /// Correct a lot's number or expiry as received in error (Cycle 714): not once it is closed (its record is final),
+    /// only with a change and a reason, and not to a number another received or open lot of the reagent carries. A
+    /// corrected expiry already past is allowed: the lot is then expired and can only be closed.
+    /// </summary>
+    public static RuleResult EvaluateCorrect(ReagentLotState state, bool changed, string? reason, bool numberInUse) =>
+        state == ReagentLotState.Closed
+            ? RuleResult.HardStop(CorrectCode, "A closed lot's record is final and is not corrected.")
+            : !changed
+                ? RuleResult.HardStop(CorrectCode, "Change the lot number or the expiry to correct the lot.")
+                : string.IsNullOrWhiteSpace(reason)
+                    ? RuleResult.HardStop(CorrectCode, "Say why the lot is corrected (for example, expiry typed wrongly at receipt).")
+                    : numberInUse
+                        ? RuleResult.HardStop(CorrectCode, "This reagent already has another open or received lot with that number. Check the lot number on the vial.")
+                        : RuleResult.Pass(CorrectCode);
+
     public static RuleResult EvaluateOpen(ReagentLotState state, DateTime expiresUtc, DateTime nowUtc)
     {
         if (state == ReagentLotState.Closed)

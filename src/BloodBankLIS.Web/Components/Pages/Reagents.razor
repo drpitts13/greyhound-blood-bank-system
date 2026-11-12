@@ -212,11 +212,29 @@
                                     <button class="btn btn-ghost btn-sm" @onclick="() => ShowLotResultsAsync(lot)" data-lot-results="@lot.LotNumber">Results</button>
                                     @if (lot.State != ReagentLotState.Closed)
                                     {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginCorrect(lot)" data-lot-correct="@lot.LotNumber">Correct</button>
                                         <button class="btn btn-ghost btn-sm" @onclick="() => _confirmCloseId = lot.Id">Close</button>
                                     }
                                 }
                             </td>
                         </tr>
+                        @if (_correctLot?.Id == lot.Id)
+                        {
+                            <tr data-lot-correct-form>
+                                <td colspan="5">
+                                    <div class="form-row">
+                                        <div class="field"><label>Lot number</label><input class="mono" @bind="_correctNumber" @bind:event="oninput" data-lot-correct-number /></div>
+                                        <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_correctExpires" data-lot-correct-expires /></div>
+                                        <div class="field" style="flex:2;"><label>Reason</label><input @bind="_correctReason" @bind:event="oninput" placeholder="e.g. expiry typed wrongly at receipt" data-lot-correct-reason /></div>
+                                    </div>
+                                    <div class="flex gap" style="margin-top:.4rem;">
+                                        <button class="btn btn-primary btn-sm" disabled="@(string.IsNullOrWhiteSpace(_correctReason) || string.IsNullOrWhiteSpace(_correctNumber))" @onclick="SaveCorrectAsync" data-lot-correct-save>Save correction</button>
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => _correctLot = null">Cancel</button>
+                                    </div>
+                                    <div class="muted" style="margin-top:.25rem;">Results already recorded with this lot keep the number as it was; the lot's Results still lists them.</div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -363,6 +381,41 @@
 
 @code {
     private List<ReagentDto> _reagents = new();
+
+    // Correcting a lot received in error (Cycle 714).
+    private ReagentLotDto? _correctLot;
+    private string _correctNumber = "";
+    private DateTime _correctExpires;
+    private string? _correctReason;
+
+    private void BeginCorrect(ReagentLotDto lot)
+    {
+        _correctLot = lot;
+        _correctNumber = lot.LotNumber;
+        _correctExpires = DateTime.SpecifyKind(lot.ExpiresUtc, DateTimeKind.Unspecified);
+        _correctReason = null;
+    }
+
+    private async Task SaveCorrectAsync()
+    {
+        if (_correctLot is null)
+        {
+            return;
+        }
+
+        var r = await Api.CorrectReagentLotAsync(_correctLot.Id,
+            new CorrectReagentLotRequest(_correctNumber, DateTime.SpecifyKind(_correctExpires, DateTimeKind.Utc), _correctReason));
+        _feedback = r.ToFeedback($"Lot {_correctNumber.Trim()} corrected.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            _correctLot = null;
+            var i = _lots.FindIndex(x => x.Id == r.Value.Id);
+            if (i >= 0)
+            {
+                _lots[i] = r.Value;
+            }
+        }
+    }
 
     // Keeping the register (Cycle 713).
     private enum RegisterAction { Rename, Retire, Restore }

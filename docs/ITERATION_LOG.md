@@ -22093,3 +22093,33 @@ The Reagent QC register could only grow. A second reagent with the same code was
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 714 — Correct a reagent lot (2026-11-11)
+
+### Capability matrix rescan (operations: reagents)
+
+A reagent lot's number and expiry were fixed at receipt. An expiry typed wrongly made a good lot read as expired (refused for QC and lot recording) or an expired lot read as good, and the only way out was to close the lot and receive it again, losing its QC history on the lot.
+
+### Design
+
+- `ReagentLotRule.EvaluateCorrect`: not a closed lot (its record is final); something must change; a reason; the number not on another received or open lot of the reagent.
+- `ReagentQcService.CorrectLotAsync`, audited Update with the values before and after. Results already recorded with the lot keep the number as it was (the record of what was used), and the lot lookback still finds them by the lot.
+- Reagent QC: **Correct** on each received or open lot, prefilled, with a reason.
+
+### Verification
+
+- Unit: each refusal and a pass.
+- Integration: no change, no reason, another lot's number refused; corrected number and expiry; audit reason; a closed lot refused.
+- Rendered: the form is prefilled, needs a reason, and the corrected number shows.
+
+### Requirements
+
+- URS-BB-757, FRS-BB-875.
+
+### Tests
+
+- TEST-BB-986 to TEST-BB-988.
+
+### Next
+
+- Back to the capability matrix.

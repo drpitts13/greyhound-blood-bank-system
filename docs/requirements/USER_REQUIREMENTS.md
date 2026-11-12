@@ -762,3 +762,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-754 | Each piece of equipment's check history (every check performed, including checks no longer scheduled) is shown and downloaded as a CSV log for inspection. | P3 | FRS-BB-872 |
 | URS-BB-755 | Equipment details and a scheduled check's name, interval and instructions can be changed with a reason, audited, keeping the check's records; the code does not change. | P3 | FRS-BB-873 |
 | URS-BB-756 | A reagent code is used once in the register; a reagent is renamed with a reason, retired with a reason once no lot is received or open, and restored; all audited. | P3 | FRS-BB-874 |
+| URS-BB-757 | A received or open reagent lot's number or expiry entered wrongly is corrected with a reason, audited before and after; a closed lot is not corrected. | P3 | FRS-BB-875 |

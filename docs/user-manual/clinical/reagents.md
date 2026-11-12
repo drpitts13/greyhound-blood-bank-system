@@ -26,6 +26,10 @@ When a lot's QC fails, its worklist row and the critical alert say how many resu
 
 This screen does not decide that a reagent is acceptable for a patient. It records what the bench did and who reviewed it.
 
+## Correct a lot
+
+**Correct** on a received or open lot fixes its lot number or expiry when it was entered wrongly. Give the reason; the change is audited with the values before and after. Another received or open lot of the reagent with the same number is refused, and a closed lot is not corrected. A corrected expiry already past makes the lot expired, so it can only be closed. Results already recorded with the lot keep the number as it was; the lot's **Results** still lists them.
+
 ## Keep the reagent list
 
 A reagent code is used once: adding a code already in the list (in any case, retired or not) is refused. **Rename** corrects a reagent's name and asks why. **Retire** takes a reagent the laboratory no longer uses off the list: it asks why, and is refused while any of its lots is received or open, so close them first. A retired reagent takes no new lots and records no lots on results; its lots and QC stay on record. **Show retired reagents** lists them again, with **Restore**. Each change is in the audit trail.
