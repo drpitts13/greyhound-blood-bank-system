@@ -405,9 +405,14 @@ public sealed class CrossmatchAttachmentService
         // reservation joins it; otherwise the message says how to proceed.
         if (allocation.OrderId is not long orderId)
         {
-            var open = (await _orders.ListAsync(o => o.PatientId == patientId && o.OrderCategory == OrderCategory.Product
+            // A blood order is any open order with an active product line (a Mixed order carries its crossmatch test line).
+            var candidates = (await _orders.ListAsync(o => o.PatientId == patientId && o.OrderCategory != OrderCategory.Test
                     && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Discontinued, ct))
                 .ToList();
+            var candidateIds = candidates.Select(o => o.Id).ToList();
+            var withProducts = (await _orderLines.ListAsync(l => candidateIds.Contains(l.OrderId) && l.IsActive && l.LineCategory == OrderCategory.Product, ct))
+                .Select(l => l.OrderId).ToHashSet();
+            var open = candidates.Where(o => withProducts.Contains(o.Id)).ToList();
             if (open.Count != 1)
             {
                 return OperationResult<ManualCrossmatchLineDto>.Fail(open.Count == 0

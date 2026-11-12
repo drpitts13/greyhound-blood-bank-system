@@ -22597,3 +22597,26 @@ On the running system with seeded data: Compatibility for Avery Demo-Special →
 ### Next
 
 - Pass 18: order red cells for Avery, crossmatch and issue the unit with the call-the-physician instruction.
+
+## Iteration 734 — End-user testing pass 18: ordering red cells for a patient (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Avery Demo-Special's chart → Orders → Add order: 2 units of Red Blood Cells, Irradiated, ICU, Dr. Amy Lee → Compatibility → record the crossmatch for her reserved unit W000026123460.
+
+### Found and fixed
+
+1. **Only one unit of a product could be ordered.** The chart's order form had a checkbox per product and no quantity; a blood order counts its units by its product lines, so a two-unit order was impossible from the chart. A ticked product now has a **units** box (1 to 20), and the order gets one product line per unit. Retested live: ORD-AE0969CDCC78 has two red cell lines (and its crossmatch line, added as her screen is negative).
+2. **The blood order was not found for the crossmatch (pass 17's fix).** An order with its crossmatch test line is Mixed, and only Product orders were looked for, so the reservation still said the patient had no open blood order. Any open order with an active product line now counts. Retested live: the reservation joined ORD-AE0969CDCC78 and the crossmatch went on to the specimen check.
+
+### Blocked by the single-user test
+
+- The crossmatch is then refused because her specimen ACC-UAT-001 has no completed type and screen: its ABO/Rh is entered, waiting for a second technologist to verify. Correct; issuing the unit waits for that verification.
+
+### Tests
+
+- TEST-BB-1026 now covers a Mixed order. Full suite passed.
+
+### Next
+
+- Pass 19: remaining workflows (reaction follow-up, lookback) and gaps.

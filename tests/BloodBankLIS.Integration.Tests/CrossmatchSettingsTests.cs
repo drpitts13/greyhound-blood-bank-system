@@ -280,6 +280,9 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             return a;
         }
 
+        // A blood order with its crossmatch test line is Mixed (pass 18: a Mixed order was not found).
+        (await c.Orders.FindAsync(seed.ProductOrder.Id))!.OrderCategory = OrderCategory.Mixed;
+        await c.SaveChangesAsync();
         var joins = Reserve();
         var line = await Attachment(c).EnsureManualCrossmatchLineAsync(seed.Patient.Id, joins.Id, "XM", specimenId: seed.Specimen.Id);
         Assert.True(line.Succeeded, line.Error);

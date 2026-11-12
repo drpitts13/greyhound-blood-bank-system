@@ -120,6 +120,15 @@
                                 <label class="checkbox-item">
                                     <input type="checkbox" checked="@NewOrderProductTypeIds.Contains(pt.Id)" @onchange="e => OnToggleNewOrderProduct.InvokeAsync((pt.Id, e))" />
                                     @pt.ChoiceLabel
+                                    @if (NewOrderProductTypeIds.Contains(pt.Id))
+                                    {
+                                        @* Units of this product (end-user testing, 2026-11-12: one checkbox could order only one unit). *@
+                                        <span class="flex" style="gap:.25rem;align-items:center;margin-left:.5rem;" @onclick:stopPropagation="true">
+                                            <input type="number" min="1" max="@MaxUnitsPerProduct" style="width:4.5rem;" value="@NewOrderProductUnits.GetValueOrDefault(pt.Id, 1)"
+                                                   @onchange="e => SetUnits(pt.Id, e.Value)" data-order-units="@pt.Id" aria-label="Units of @pt.ChoiceLabel" />
+                                            <span class="muted">units</span>
+                                        </span>
+                                    }
                                 </label>
                             }
                         </div>
@@ -613,6 +622,17 @@
     [Parameter] public HashSet<string> NewOrderTestCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<string> NewOrderGrouperCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<long> NewOrderProductTypeIds { get; set; } = [];
+
+    /// <summary>Units wanted for each checked product (1 when not set); the parent builds that many product lines.</summary>
+    [Parameter] public Dictionary<long, int> NewOrderProductUnits { get; set; } = [];
+
+    public const int MaxUnitsPerProduct = 20;
+
+    private void SetUnits(long productTypeId, object? value)
+    {
+        var units = int.TryParse(value?.ToString(), out var n) ? Math.Clamp(n, 1, MaxUnitsPerProduct) : 1;
+        NewOrderProductUnits[productTypeId] = units;
+    }
     [Parameter] public HashSet<string> EditOrderTestCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<string> EditOrderGrouperCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<long> EditOrderProductTypeIds { get; set; } = [];

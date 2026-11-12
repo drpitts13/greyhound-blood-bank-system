@@ -205,6 +205,7 @@ else
             NewOrderTestCodes="_newOrderTestCodes"
             NewOrderGrouperCodes="_newOrderGrouperCodes"
             NewOrderProductTypeIds="_newOrderProductTypeIds"
+            NewOrderProductUnits="_newOrderProductUnits"
             EditOrderTestCodes="_editOrderTestCodes"
             EditOrderGrouperCodes="_editOrderGrouperCodes"
             EditOrderProductTypeIds="_editOrderProductTypeIds"
@@ -624,6 +625,7 @@ else
     private HashSet<string> _editOrderGrouperCodes = new(StringComparer.OrdinalIgnoreCase);
     private List<TestGrouperListItemDto> _testGroupers = new();
     private HashSet<long> _newOrderProductTypeIds = new();
+    private readonly Dictionary<long, int> _newOrderProductUnits = new();
     private long? _addingActionOrderId;
     private List<EligibleModificationDto> _eligibleMods = new();
     private long _selectedEligibleRuleId;
@@ -1986,11 +1988,14 @@ else
         else _editOrderProductTypeIds.Remove(productTypeId);
     }
 
-    private static List<OrderLineInputDto> BuildLineInputs(IEnumerable<string> testCodes, IEnumerable<long> productTypeIds)
+    private static List<OrderLineInputDto> BuildLineInputs(
+        IEnumerable<string> testCodes, IEnumerable<long> productTypeIds, IReadOnlyDictionary<long, int>? units = null)
     {
+        // One product line per unit wanted: the blood order counts its units by its product lines.
         var lines = testCodes
             .Select(code => new OrderLineInputDto(OrderCategory.Test, code, null))
-            .Concat(productTypeIds.Select(id => new OrderLineInputDto(OrderCategory.Product, null, id)))
+            .Concat(productTypeIds.SelectMany(id => Enumerable.Repeat(
+                new OrderLineInputDto(OrderCategory.Product, null, id), Math.Max(1, units?.GetValueOrDefault(id, 1) ?? 1))))
             .ToList();
         return lines;
     }
@@ -2047,7 +2052,7 @@ else
     {
         if (_newOrderEncounterId <= 0) { _orderFb = Feedback.Fail("Select a visit."); return; }
         if (_newOrderLocationId <= 0) { _orderFb = Feedback.Fail("Select an ordering location."); return; }
-        var lines = BuildLineInputs(_newOrderTestCodes, _newOrderProductTypeIds);
+        var lines = BuildLineInputs(_newOrderTestCodes, _newOrderProductTypeIds, _newOrderProductUnits);
         if (lines.Count == 0) { _orderFb = Feedback.Fail("Select at least one test or product."); return; }
 
         // Check criteria before anything is saved, so a missing reason never leaves a specimen behind.
@@ -2135,6 +2140,7 @@ else
         _newOrderTestCodes.Clear();
         _newOrderGrouperCodes.Clear();
         _newOrderProductTypeIds.Clear();
+        _newOrderProductUnits.Clear();
         _pbmResults.Clear();
         _pbmIndication.Clear();
         _pbmReason.Clear();
