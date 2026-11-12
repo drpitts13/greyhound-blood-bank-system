@@ -21948,3 +21948,32 @@ Reagent lots, storage temperatures, and panel lots each have their checks, but b
 ### Next
 
 - Iteration 709: a home card and shift handoff count for equipment checks to do, and refusing a modification whose device is registered equipment out of service.
+
+## Iteration 709 — Equipment on the home screen and in modifications (2026-11-11)
+
+### Capability matrix rescan (operations: equipment)
+
+After Cycle 708 the checks due were only on the Equipment page, and an irradiator taken out of service could still be typed as the device of an irradiation.
+
+### Design
+
+- Home card **Equipment checks to do** (result.enter; Bench and Supervisor desks; ordered after Reagent QC): the due list's count. Its note names failed and overdue checks, so those need attention; checks merely due today or never done are an ordinary queue.
+- `ModificationDeviceRule.EvaluateRegistered` (MOD-DEVICE-OOS): when a modification's device code is registered equipment, it must be active and in service; the refusal says since when and why. A device not in the register is still recorded as typed (the register is not required).
+- Modify Products suggests the registered equipment in service for the device field.
+
+### Verification
+
+- Unit: the device rule; the card's permissions, link, note and attention.
+- Integration: out of service and retired refused with the unit unchanged; in service and unregistered recorded.
+
+### Requirements
+
+- URS-BB-752, FRS-BB-870.
+
+### Tests
+
+- TEST-BB-975 to TEST-BB-977.
+
+### Next
+
+- Back to the capability matrix (the shift handoff count for equipment is a candidate).

@@ -39,6 +39,20 @@ public static class ModificationDeviceRule
             : RuleResult.HardStop(Code, "Check the dose indicator on each unit and confirm it shows irradiated.");
     }
 
+    public const string OutOfServiceCode = "MOD-DEVICE-OOS";
+
+    /// <summary>
+    /// A device that is registered equipment (Cycle 709) must be in service: equipment taken out of service, or retired
+    /// from the register, is refused for a modification. A device not in the register is recorded as typed.
+    /// </summary>
+    public static RuleResult EvaluateRegistered(string code, bool isActive, DateTime? outOfServiceUtc, string? outOfServiceReason) =>
+        !isActive
+            ? RuleResult.HardStop(OutOfServiceCode, $"{code} is retired from the equipment register. Use equipment in service.")
+            : outOfServiceUtc is not null
+                ? RuleResult.HardStop(OutOfServiceCode,
+                    $"{code} is out of service since {outOfServiceUtc.Value:yyyy-MM-dd}{(string.IsNullOrWhiteSpace(outOfServiceReason) ? "" : $" ({outOfServiceReason.Trim()})")}. Use equipment in service, or return it to service on Equipment once it may be used.")
+                : RuleResult.Pass(OutOfServiceCode);
+
     /// <summary>"IRR-1, indicator confirmed", "WASHER-2", or null when nothing was recorded.</summary>
     public static string? Describe(string? deviceId, bool? indicatorConfirmed)
     {

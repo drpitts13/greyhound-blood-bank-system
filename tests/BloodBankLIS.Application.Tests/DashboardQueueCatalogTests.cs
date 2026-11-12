@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Results;
@@ -608,5 +609,23 @@ public class DashboardQueueCatalogTests
 
         var card = DashboardQueueCatalog.Select(_ => true).Single(c => c.Key == DashboardQueueCatalog.PanelLotsToReplace);
         Assert.Single(DashboardHome.Arrange([new DashboardCardState(card, 1, "first")], WorkFocus.Bench).Attention);
+    }
+
+    // TEST-BB-977: the equipment card is bench work (result.enter) and opens Equipment; its note names failed and
+    // overdue checks, not those merely due today; on the Bench desk a failed or overdue check needs attention, one due today is a queue.
+    [Fact]
+    public void EquipmentChecksCard_NamesFailedAndOverdue()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter)),
+            c => c.Key == DashboardQueueCatalog.EquipmentChecks && c.Href == "/equipment");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.IssueCreate)), c => c.Key == DashboardQueueCatalog.EquipmentChecks);
+
+        EquipmentCheckDueDto Due(string state) => new(1, "CW-01", "Cell washer", null, 2, "Daily check", state, null, state);
+        Assert.Null(DashboardQueueCatalog.EquipmentChecksNote([Due("DueToday"), Due("NeverDone")]));
+        Assert.Equal("1 failed; 2 overdue", DashboardQueueCatalog.EquipmentChecksNote([Due("Failed"), Due("Overdue"), Due("Overdue"), Due("DueToday")]));
+
+        var card = DashboardQueueCatalog.Select(_ => true).Single(c => c.Key == DashboardQueueCatalog.EquipmentChecks);
+        Assert.Single(DashboardHome.Arrange([new DashboardCardState(card, 1, "1 failed")], WorkFocus.Bench).Attention);
+        Assert.Single(DashboardHome.Arrange([new DashboardCardState(card, 1, null)], WorkFocus.Bench).Queues);
     }
 }

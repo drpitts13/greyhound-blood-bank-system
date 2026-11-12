@@ -552,6 +552,13 @@
 
                 return (card.Key, waiting.Count, DashboardQueueCatalog.SettingsToEnterNote(waiting));
             }
+            case DashboardQueueCatalog.EquipmentChecks:
+            {
+                var result = await Api.GetEquipmentDueAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.EquipmentChecksNote(result.Value))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.PanelLotsToReplace:
             {
                 var result = await Api.GetAntibodyPanelLotSupplyAsync();

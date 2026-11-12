@@ -20,6 +20,12 @@ A check is due again its interval after it last **passed**, counted in days: a d
 
 **Take out of service** asks for the reason (for example *failed QC* or *broken lid latch*). Its checks leave the list while it is out, and the register shows since when, by whom and why. A check can still be recorded while it is out, such as the check after repair. **Return to service** asks why it can be used again (for example *repaired, QC passed* or the vendor's service report) and warns while a check's latest record failed.
 
+## On the home screen and in modifications
+
+The **Equipment checks to do** home card (Bench and Supervisor desks) counts the checks on this list and names any failed or overdue; it opens this page.
+
+On **Modify Products**, the device field offers the registered equipment in service. A modification whose device is registered equipment out of service, or retired from the register, is refused and says since when and why; use other equipment, or return it to service here once it may be used. A device that is not in the register is recorded as typed.
+
 ## Register equipment and schedule checks
 
 An administrator (*admin.config.edit*) selects **Add equipment** and enters the code (the asset tag, stored in upper case and unique), name, kind, and optionally the location and serial number. Then **Schedule a check**: name it (*Daily QC*, *Monthly timer check*, *Annual calibration*), say how often it is due in days, and copy the instructions or pass criteria from the SOP so they show when the check is recorded.

@@ -222,7 +222,14 @@
             var irradiate = _selectedRule.ModificationType == ModificationType.Irradiate;
             <div class="form-row" style="margin-top:.6rem;" data-modification-device>
                 <div class="field"><label>@(irradiate ? "Irradiator" : "Device (optional)")</label>
-                    <input @bind="_deviceId" placeholder="@(irradiate ? "Scan or type the irradiator" : "Cell washer, thawer, or other device")" autocomplete="off" />
+                    <input @bind="_deviceId" placeholder="@(irradiate ? "Scan or type the irradiator" : "Cell washer, thawer, or other device")" autocomplete="off" list="modification-equipment" />
+                    @* Registered equipment in service (Cycle 709); equipment out of service is refused when saved. *@
+                    <datalist id="modification-equipment" data-modification-equipment>
+                        @foreach (var e in _equipmentInService)
+                        {
+                            <option value="@e.Code">@e.Name (@e.Kind)</option>
+                        }
+                    </datalist>
                 </div>
                 @if (irradiate)
                 {
@@ -448,8 +455,13 @@
 
     private bool _unitQueryApplied;
 
+    private List<EquipmentDto> _equipmentInService = new();
+
     protected override async Task OnInitializedAsync()
     {
+        var equipment = await Api.GetEquipmentAsync();
+        _equipmentInService = (equipment.Value ?? new()).Where(e => e.InService).OrderBy(e => e.Code).ToList();
+
         var locations = await Api.GetLocationsAsync();
         if (!locations.Succeeded || locations.Value is null)
         {

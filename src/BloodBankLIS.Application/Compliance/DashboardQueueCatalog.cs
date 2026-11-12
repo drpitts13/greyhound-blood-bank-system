@@ -51,6 +51,7 @@ public static class DashboardQueueCatalog
     public const string OutsideAntibodies = "outside-antibodies";
     public const string SettingsToEnter = "settings-to-enter";
     public const string PanelLotsToReplace = "panel-lots";
+    public const string EquipmentChecks = "equipment-checks";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -76,6 +77,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.SpecimenAccession), TubesDueForDiscard, "Tubes due for discard", "/specimens/store");
         // Daily reagent QC is bench work: whoever enters results records and reviews it.
         Add(cards, has(PermissionCodes.ResultEnter), ReagentQc, "Reagent QC", "/reagents");
+        // Equipment checks failed, overdue, due today or never done, on equipment in service (Cycle 709): bench work.
+        Add(cards, has(PermissionCodes.ResultEnter), EquipmentChecks, "Equipment checks to do", "/equipment");
         Add(cards, has(PermissionCodes.ReactionInvestigate), Reactions, "Reaction investigations", "/reactions");
         // RhIG evaluations not yet completed: recorded by the bench, completed by a verifier (OCD-069).
         Add(cards, has(PermissionCodes.ResultVerify) || has(PermissionCodes.ImmunoRecord), OpenRhig, "Open RhIG evaluations", "/rhig");
@@ -450,6 +453,18 @@ public static class DashboardQueueCatalog
 
         var first = act[0].Message;
         return (act.Count, act.Count == 1 ? first : $"{first} (+{act.Count - 1} more)");
+    }
+
+    /// <summary>"1 failed; 2 overdue": failed and overdue checks; checks merely due today or never done need no note.</summary>
+    public static string? EquipmentChecksNote(IEnumerable<EquipmentCheckDueDto> due)
+    {
+        var items = due.ToList();
+        var parts = new[]
+        {
+            AttentionNote(items.Count(i => i.State == nameof(EquipmentCheckRule.State.Failed)), "failed", "failed"),
+            AttentionNote(items.Count(i => i.State == nameof(EquipmentCheckRule.State.Overdue)), "overdue", "overdue")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
     }
 
     public static string? ReagentQcNote(IEnumerable<ReagentQcWorkItemDto> work)

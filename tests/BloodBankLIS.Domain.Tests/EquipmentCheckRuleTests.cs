@@ -56,4 +56,16 @@ public class EquipmentCheckRuleTests
         Assert.Equal(RuleSeverity.HardStop, EquipmentCheckRule.EvaluateService("", takingOut: false, alreadyThatWay: false).Severity);
         Assert.Equal(RuleSeverity.Pass, EquipmentCheckRule.EvaluateService("Repaired, QC passed", takingOut: false, alreadyThatWay: false).Severity);
     }
+
+    // TEST-BB-975: registered equipment used for a modification must be in service: retired or out of service is a
+    // hard stop that names since when and why.
+    [Fact]
+    public void ModificationDevice_MustBeInService()
+    {
+        Assert.Equal(RuleSeverity.Pass, ModificationDeviceRule.EvaluateRegistered("IRR-1", true, null, null).Severity);
+        var outOfService = ModificationDeviceRule.EvaluateRegistered("IRR-1", true, Now, "Dose map failed");
+        Assert.Equal(RuleSeverity.HardStop, outOfService.Severity);
+        Assert.Equal("IRR-1 is out of service since 2026-11-11 (Dose map failed). Use equipment in service, or return it to service on Equipment once it may be used.", outOfService.Message);
+        Assert.Contains("retired", ModificationDeviceRule.EvaluateRegistered("IRR-1", false, null, null).Message);
+    }
 }

@@ -41,7 +41,46 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             permissions: permissions,
             unitAttributes: new EfRepository<UnitBloodAttribute>(context),
             locations: new EfRepository<InventoryLocation>(context),
-            policy: policy);
+            policy: policy,
+            equipment: new EfRepository<Equipment>(context));
+    }
+
+    // TEST-BB-976: a device that is registered equipment out of service, or retired, is refused for a modification
+    // (the unit stays as it was); the same device in service, or a device not in the register, is recorded as typed.
+    [Fact]
+    public async Task Modification_OnRegisteredEquipmentOutOfService_IsRefused()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("EQOOS");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var refusedId = await CreateUnitAsync("U-EQOOS-1", sourceProductId, volume: 300m);
+        var retiredId = await CreateUnitAsync("U-EQOOS-2", sourceProductId, volume: 300m);
+        var inServiceId = await CreateUnitAsync("U-EQOOS-3", sourceProductId, volume: 300m);
+        var unregisteredId = await CreateUnitAsync("U-EQOOS-4", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        context.Equipment.AddRange(
+            new Equipment { Code = "IRR-OOS-709", Name = "Irradiator", Kind = "Irradiator", OutOfServiceUtc = _factory.Clock.UtcNow.AddDays(-1), OutOfServiceReason = "Dose map failed" },
+            new Equipment { Code = "IRR-OLD-709", Name = "Old irradiator", Kind = "Irradiator", IsActive = false },
+            new Equipment { Code = "IRR-OK-709", Name = "Irradiator 2", Kind = "Irradiator" });
+        await context.SaveChangesAsync();
+
+        var refused = await CreateService(context).ApplySingleAsync(refusedId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "irr-oos-709", IndicatorConfirmed: true));
+        Assert.False(refused.Succeeded);
+        var stop = Assert.Single(refused.Evaluation!.HardStops);
+        Assert.Equal(ModificationDeviceRule.OutOfServiceCode, stop.Code);
+        Assert.Contains("IRR-OOS-709 is out of service since", stop.Message);
+        Assert.Contains("Dose map failed", stop.Message);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(refusedId))!.Status);
+
+        var retired = await CreateService(context).ApplySingleAsync(retiredId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-OLD-709", IndicatorConfirmed: true));
+        Assert.Contains("retired", Assert.Single(retired.Evaluation!.HardStops).Message);
+
+        Assert.True((await CreateService(context).ApplySingleAsync(inServiceId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-OK-709", IndicatorConfirmed: true))).Succeeded);
+        Assert.True((await CreateService(context).ApplySingleAsync(unregisteredId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-NOT-REGISTERED", IndicatorConfirmed: true))).Succeeded);
     }
 
     private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(

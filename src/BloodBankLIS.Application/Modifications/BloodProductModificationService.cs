@@ -42,6 +42,7 @@ public sealed class BloodProductModificationService
     private readonly IRepository<InventoryLocation>? _locations;
     private readonly IRepository<Patient>? _patients;
     private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<Equipment>? _equipment;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -65,8 +66,10 @@ public sealed class BloodProductModificationService
         IRepository<UnitBloodAttribute>? unitAttributes = null,
         IRepository<InventoryLocation>? locations = null,
         IRepository<Patient>? patients = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<Equipment>? equipment = null)
     {
+        _equipment = equipment;
         _inventory = inventory;
         _rules = rules;
         _products = products;
@@ -850,6 +853,21 @@ public sealed class BloodProductModificationService
         if (device.Severity == RuleSeverity.HardStop)
         {
             return ModificationActionResult.Blocked(new RuleEvaluation([device]));
+        }
+
+        // A device in the equipment register must be in service (Cycle 709).
+        if (_equipment is not null && !string.IsNullOrWhiteSpace(deviceId))
+        {
+            var code = deviceId.Trim().ToUpperInvariant();
+            var registered = (await _equipment.ListAsync(e => e.Code == code, ct)).FirstOrDefault();
+            if (registered is not null)
+            {
+                var inService = ModificationDeviceRule.EvaluateRegistered(registered.Code, registered.IsActive, registered.OutOfServiceUtc, registered.OutOfServiceReason);
+                if (inService.Severity == RuleSeverity.HardStop)
+                {
+                    return ModificationActionResult.Blocked(new RuleEvaluation([inService]));
+                }
+            }
         }
 
         var restriction = UnitModificationRestrictionRule.Evaluate(
