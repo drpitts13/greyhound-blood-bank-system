@@ -46,12 +46,33 @@ public static class Ui
         ["Pdf"] = "PDF", ["Plt"] = "PLT", ["Rbc"] = "RBC", ["Tcp"] = "TCP", ["Url"] = "URL", ["Xm"] = "XM"
     };
 
+    private static readonly HashSet<string> AntigenSystemsWithAb = new(StringComparer.Ordinal) { "FY", "JK", "LE", "LU", "KP", "JS" };
+
+    /// <summary>
+    /// An antigen code as it is written: Fya, Jkb, Lea for codes stored in capitals (FYA, JKB, LEA); every other code as
+    /// stored, since case matters (C and c, E and e). (End-user testing, 2026-11-12: the antigram read FYA, JKA.)
+    /// </summary>
+    public static string AntigenText(string? code)
+    {
+        var c = (code ?? string.Empty).Trim();
+        return c.Length == 3 && AntigenSystemsWithAb.Contains(c[..2].ToUpperInvariant()) && c[2] is 'A' or 'B' or 'a' or 'b'
+            ? char.ToUpperInvariant(c[0]) + char.ToLowerInvariant(c[1]).ToString() + char.ToLowerInvariant(c[2])
+            : c;
+    }
+
     /// <summary>A code name in words: split at case changes, acronyms kept, later words lower case.</summary>
     public static string CodeNameText(string name)
     {
-        // "RhD" is one word; keep it whole before splitting at case changes.
+        // "RhD" and the immunoglobulins are one word; keep them whole before splitting at case changes (end-user
+        // testing, 2026-11-12: the DAT choice read "Positive ig g").
+        var guarded = name.Replace("RhD", "Rh\u0001D", StringComparison.Ordinal);
+        foreach (var ig in new[] { "IgG", "IgM", "IgA" })
+        {
+            guarded = guarded.Replace(ig, "Ig\u0001" + ig[2], StringComparison.Ordinal);
+        }
+
         var tokens = System.Text.RegularExpressions.Regex
-            .Split(name.Replace("RhD", "Rh\u0001D", StringComparison.Ordinal), "(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+            .Split(guarded, "(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
             .Where(t => t.Length > 0)
             .Select(t => t.Replace("\u0001", string.Empty, StringComparison.Ordinal))
             .ToList();
@@ -60,7 +81,9 @@ public static class Ui
             var t = tokens[i];
             tokens[i] = Acronyms.TryGetValue(t, out var acronym) ? acronym
                 : t.Length > 1 && t.All(char.IsUpper) ? t
-                : t == "RhD" ? t
+                : t is "RhD" or "IgG" or "IgM" or "IgA" ? t
+                // A code with a digit, such as C3 (complement), keeps its case.
+                : t.Length > 1 && char.IsUpper(t[0]) && t.Any(char.IsDigit) ? t
                 : i == 0 ? char.ToUpperInvariant(t[0]) + t[1..]
                 : t.ToLowerInvariant();
         }

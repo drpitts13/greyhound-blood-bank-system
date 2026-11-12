@@ -19,6 +19,10 @@ Select the specimen and the panel lot. When only one panel lot is active and in 
 
 **Assist** compares the pattern with the panel antigram and suggests specificities that fit. Assist does not identify the antibody. You still interpret. Pick each antibody from the catalog, or type it: text that names one catalog antibody (for example "anti-k") is listed as that antibody, marked catalog, because that is how it will post. Text the catalog does not hold, or text naming more than one antibody, is listed as typed and marked as not in the catalog; it will not drive antigen-negative selection. The identified specificity is posted to the patient's antibody history only when the workup is completed under your procedure, including supervisor review when policy requires it.
 
+## Reading assistance
+
+For each possible specificity, assistance gives the cells behind it: the antigen-positive cells that reacted, the antigen-negative cells that did not, and the probability of that pattern by chance (Fisher's exact; 3 and 3 cells give p = 0.05). Whether that is enough to identify the antibody is your laboratory's criterion; the system applies none. Antigram column headers keep the antigen's case (C and c, E and e) and read Fya, Jkb as written.
+
 ## While the workup is open
 
 You cannot add or remove antibodies on the chart. That prevents the history and the workup from diverging. Serologic crossmatch can still be recorded. The issue desk shows an open-workup warning and still allows issue. Electronic crossmatch is a hard stop until the workup is no longer open.

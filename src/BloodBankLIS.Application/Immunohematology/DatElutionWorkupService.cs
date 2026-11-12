@@ -14,7 +14,11 @@ public sealed record CreateDatElutionWorkupRequest(
     string? DatMethod = null,
     string? ElutionResult = null,
     string? ElutionNotPerformedReason = null,
-    string? Comment = null);
+    string? Comment = null,
+    ReactionGrade PolyspecificGrade = ReactionGrade.NotTested,
+    ReactionGrade IgGGrade = ReactionGrade.NotTested,
+    ReactionGrade C3Grade = ReactionGrade.NotTested,
+    ReactionGrade ControlGrade = ReactionGrade.NotTested);
 
 public sealed record UpdateDatElutionWorkupRequest(
     long? SpecimenId = null,
@@ -22,7 +26,11 @@ public sealed record UpdateDatElutionWorkupRequest(
     string? DatMethod = null,
     string? ElutionResult = null,
     string? ElutionNotPerformedReason = null,
-    string? Comment = null);
+    string? Comment = null,
+    ReactionGrade PolyspecificGrade = ReactionGrade.NotTested,
+    ReactionGrade IgGGrade = ReactionGrade.NotTested,
+    ReactionGrade C3Grade = ReactionGrade.NotTested,
+    ReactionGrade ControlGrade = ReactionGrade.NotTested);
 
 public sealed record VoidDatElutionWorkupRequest(string Reason);
 
@@ -65,6 +73,11 @@ public sealed record DatElutionWorkupDto(
     DateTime? VerifiedUtc = null,
     IReadOnlyList<EluateFindingDto>? EluateFindings = null)
 {
+    public ReactionGrade PolyspecificGrade { get; init; }
+    public ReactionGrade IgGGrade { get; init; }
+    public ReactionGrade C3Grade { get; init; }
+    public ReactionGrade ControlGrade { get; init; }
+
     public static DatElutionWorkupDto From(
         DatElutionWorkup w,
         string? accession = null,
@@ -72,7 +85,10 @@ public sealed record DatElutionWorkupDto(
         w.Id, w.PatientId, w.SpecimenId, accession, w.Status, w.DatResult, w.DatMethod,
         w.ElutionResult, w.ElutionNotPerformedReason, w.Comment, w.CreatedUtc, w.CreatedBy,
         w.CompletedBy, w.CompletedUtc, w.VoidedBy, w.VoidedUtc, w.VoidReason,
-        w.VerifiedBy, w.VerifiedUtc, findings ?? []);
+        w.VerifiedBy, w.VerifiedUtc, findings ?? [])
+    {
+        PolyspecificGrade = w.PolyspecificGrade, IgGGrade = w.IgGGrade, C3Grade = w.C3Grade, ControlGrade = w.ControlGrade
+    };
 }
 
 /// <summary>
@@ -167,8 +183,19 @@ public sealed class DatElutionWorkupService
             return OperationResult<DatElutionWorkup>.Fail(specimenGate.Message);
         }
 
+        var grades = new RuleEvaluation(DatElutionWorkupRule.EvaluateGrades(
+            request.DatResult, request.PolyspecificGrade, request.IgGGrade, request.C3Grade, request.ControlGrade));
+        if (grades.IsHardStopped)
+        {
+            return OperationResult<DatElutionWorkup>.Fail(grades.HardStops.First().Message);
+        }
+
         var row = new DatElutionWorkup
         {
+            PolyspecificGrade = request.PolyspecificGrade,
+            IgGGrade = request.IgGGrade,
+            C3Grade = request.C3Grade,
+            ControlGrade = request.ControlGrade,
             PatientId = patientId,
             SpecimenId = request.SpecimenId,
             DatResult = request.DatResult,
@@ -221,8 +248,19 @@ public sealed class DatElutionWorkupService
             return OperationResult<DatElutionWorkup>.Fail(specimenGate.Message);
         }
 
+        var grades = new RuleEvaluation(DatElutionWorkupRule.EvaluateGrades(
+            request.DatResult, request.PolyspecificGrade, request.IgGGrade, request.C3Grade, request.ControlGrade));
+        if (grades.IsHardStopped)
+        {
+            return OperationResult<DatElutionWorkup>.Fail(grades.HardStops.First().Message);
+        }
+
         var previous = Snapshot(row);
         row.SpecimenId = request.SpecimenId;
+        row.PolyspecificGrade = request.PolyspecificGrade;
+        row.IgGGrade = request.IgGGrade;
+        row.C3Grade = request.C3Grade;
+        row.ControlGrade = request.ControlGrade;
         row.DatResult = request.DatResult;
         row.DatMethod = Normalize(request.DatMethod);
         row.ElutionResult = Normalize(request.ElutionResult);
@@ -603,6 +641,10 @@ public sealed class DatElutionWorkupService
         w.Status,
         w.DatResult,
         w.DatMethod,
+        w.PolyspecificGrade,
+        w.IgGGrade,
+        w.C3Grade,
+        w.ControlGrade,
         w.ElutionResult,
         w.ElutionNotPerformedReason,
         w.Comment,

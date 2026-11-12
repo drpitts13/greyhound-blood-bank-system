@@ -21,6 +21,16 @@ public class DatElutionWorkup : BaseEntity
 
     public string? DatMethod { get; set; }
 
+    /// <summary>Reactions with each antiglobulin reagent; NotTested when not done (end-user testing pass 9).</summary>
+    public ReactionGrade PolyspecificGrade { get; set; } = ReactionGrade.NotTested;
+
+    public ReactionGrade IgGGrade { get; set; } = ReactionGrade.NotTested;
+
+    public ReactionGrade C3Grade { get; set; } = ReactionGrade.NotTested;
+
+    /// <summary>The negative control (saline or the manufacturer's control reagent), when tested.</summary>
+    public ReactionGrade ControlGrade { get; set; } = ReactionGrade.NotTested;
+
     /// <summary>Eluate findings or free-text result when elution was performed.</summary>
     public string? ElutionResult { get; set; }
 

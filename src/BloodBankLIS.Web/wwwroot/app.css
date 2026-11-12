@@ -214,6 +214,7 @@ table.bb { width: 100%; border-collapse: collapse; font-size: .88rem; }
 table.bb th, table.bb td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--bb-border); }
 table.bb th { color: var(--bb-muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; }
 /* A group header inside a table (Store tubes pull list): the place as staff wrote it, not an uppercase column label. */
+table.bb th.antigen { text-transform: none; font-size: .8rem; color: var(--bb-ink); }
 table.bb tr.group-row th { color: var(--bb-ink); background: var(--bb-bg); font-size: .85rem; text-transform: none; letter-spacing: 0; }
 table.bb td { overflow-wrap: break-word; }
 table.bb tbody tr:hover { background: #fafbfe; }

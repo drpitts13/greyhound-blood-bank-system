@@ -54,7 +54,7 @@
                 else
                 {
                     <div class="muted" style="margin:.35rem 0;">
-                        DAT @w.DatResult@(string.IsNullOrWhiteSpace(w.DatMethod) ? "" : $" ({w.DatMethod})")
+                        DAT @Ui.EnumText(w.DatResult)@(string.IsNullOrWhiteSpace(w.DatMethod) ? "" : $" ({w.DatMethod})")@(DatElutionWorkupRule.GradeSummary(w.PolyspecificGrade, w.IgGGrade, w.C3Grade, w.ControlGrade) is { } gs ? $": {gs}" : "")
                         · Elution: @(w.ElutionResult ?? (w.ElutionNotPerformedReason is null ? "not recorded" : $"not performed ({w.ElutionNotPerformedReason})"))
                         @if (!string.IsNullOrWhiteSpace(w.Comment)) { <span> · @w.Comment</span> }
                     </div>
@@ -146,7 +146,8 @@
                 @if (w.Status != DatElutionWorkupStatus.Voided && w.VerifiedUtc is null && CanRecord)
                 {
                     <div class="flex gap" style="margin-top:.5rem;flex-wrap:wrap;">
-                        <input placeholder="Reason to void" @bind="_voidReason[id]" @bind:event="oninput" style="min-width:16rem;" />
+                        @* End-user testing, 2026-11-12: binding to _voidReason[id] threw on the first render of any workup (no entry yet). *@
+                        <input placeholder="Reason to void" value="@_voidReason.GetValueOrDefault(id)" @oninput="e => _voidReason[id] = e.Value?.ToString() ?? string.Empty" style="min-width:16rem;" data-dat-void-reason />
                         <button type="button" class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_voidReason.GetValueOrDefault(id)))" @onclick="() => VoidAsync(id)">Void</button>
                     </div>
                 }
@@ -163,6 +164,10 @@
         public long? SpecimenId { get; set; }
         public DatWorkupResult DatResult { get; set; } = DatWorkupResult.NotRecorded;
         public string? DatMethod { get; set; }
+        public ReactionGrade Poly { get; set; } = ReactionGrade.NotTested;
+        public ReactionGrade IgG { get; set; } = ReactionGrade.NotTested;
+        public ReactionGrade C3 { get; set; } = ReactionGrade.NotTested;
+        public ReactionGrade Control { get; set; } = ReactionGrade.NotTested;
         public string? ElutionResult { get; set; }
         public string? ElutionNotPerformedReason { get; set; }
         public string? Comment { get; set; }
@@ -223,6 +228,7 @@
             _edit[w.Id] = new WorkupForm
             {
                 SpecimenId = w.SpecimenId, DatResult = w.DatResult, DatMethod = w.DatMethod, ElutionResult = w.ElutionResult,
+                Poly = w.PolyspecificGrade, IgG = w.IgGGrade, C3 = w.C3Grade, Control = w.ControlGrade,
                 ElutionNotPerformedReason = w.ElutionNotPerformedReason, Comment = w.Comment
             };
         }
@@ -242,12 +248,34 @@
                     @foreach (var r in Enum.GetValues<DatWorkupResult>()) { <option value="@r">@Ui.EnumText(r)</option> }
                 </select>
             </div>
-            <div class="field"><label>DAT method</label><input @bind="f.DatMethod" placeholder="e.g. polyspecific AHG" /></div>
+            <div class="field"><label>DAT method</label><input @bind="f.DatMethod" placeholder="e.g. tube, gel" /></div>
         </div>
+        <div class="form-row" data-dat-grades>
+            @Grade("Polyspecific", f.Poly, g => f.Poly = g)
+            @Grade("Anti-IgG", f.IgG, g => f.IgG = g)
+            @Grade("Anti-C3", f.C3, g => f.C3 = g)
+            @Grade("Control", f.Control, g => f.Control = g)
+        </div>
+        @foreach (var problem in DatElutionWorkupRule.EvaluateGrades(f.DatResult, f.Poly, f.IgG, f.C3, f.Control).Where(r => r.Severity != RuleSeverity.Pass))
+        {
+            <p class="@(problem.Severity == RuleSeverity.HardStop ? "text-error" : "muted")" style="margin:.25rem 0;" data-dat-grade-problem>@problem.Message</p>
+        }
         <div class="form-row">
             <div class="field"><label>Elution result</label><input @bind="f.ElutionResult" placeholder="Summary of eluate reactivity" /></div>
             <div class="field"><label>Elution not performed because</label><input @bind="f.ElutionNotPerformedReason" /></div>
             <div class="field"><label>Comment</label><input @bind="f.Comment" /></div>
+        </div>
+    };
+
+    private RenderFragment Grade(string label, ReactionGrade value, Action<ReactionGrade> set) => __builder =>
+    {
+        <div class="field" style="max-width:9rem;"><label>@label</label>
+            <select value="@value" @onchange="e => set(Enum.TryParse<ReactionGrade>(e.Value?.ToString(), out var g) ? g : ReactionGrade.NotTested)">
+                @foreach (var g in Enum.GetValues<ReactionGrade>())
+                {
+                    <option value="@g">@DatElutionWorkupRule.GradeText(g)</option>
+                }
+            </select>
         </div>
     };
 
@@ -279,7 +307,7 @@
     };
 
     private static string StatusText(DatElutionWorkupDto w) =>
-        w.VerifiedUtc is not null ? "Verified" : w.Status.ToString();
+        w.VerifiedUtc is not null ? "Verified" : Ui.EnumText(w.Status);
 
     private static string StatusBadge(DatElutionWorkupDto w) =>
         w.VerifiedUtc is not null ? "badge badge-green"
@@ -298,7 +326,8 @@
     private Task CreateAsync() => RunAsync(async () =>
     {
         var r = await Api.CreateDatElutionWorkupAsync(PatientId, new CreateDatElutionWorkupRequest(
-            _new.SpecimenId, _new.DatResult, _new.DatMethod, _new.ElutionResult, _new.ElutionNotPerformedReason, _new.Comment));
+            _new.SpecimenId, _new.DatResult, _new.DatMethod, _new.ElutionResult, _new.ElutionNotPerformedReason, _new.Comment,
+            _new.Poly, _new.IgG, _new.C3, _new.Control));
         if (r.Succeeded)
         {
             _new = new WorkupForm();
@@ -312,7 +341,8 @@
     {
         var f = _edit[id];
         var r = await Api.UpdateDatElutionWorkupAsync(id, new UpdateDatElutionWorkupRequest(
-            f.SpecimenId, f.DatResult, f.DatMethod, f.ElutionResult, f.ElutionNotPerformedReason, f.Comment));
+            f.SpecimenId, f.DatResult, f.DatMethod, f.ElutionResult, f.ElutionNotPerformedReason, f.Comment,
+            f.Poly, f.IgG, f.C3, f.Control));
         return r.ToFeedback("Workup saved.");
     });
 
@@ -320,7 +350,8 @@
     {
         var f = _edit[id];
         var saved = await Api.UpdateDatElutionWorkupAsync(id, new UpdateDatElutionWorkupRequest(
-            f.SpecimenId, f.DatResult, f.DatMethod, f.ElutionResult, f.ElutionNotPerformedReason, f.Comment));
+            f.SpecimenId, f.DatResult, f.DatMethod, f.ElutionResult, f.ElutionNotPerformedReason, f.Comment,
+            f.Poly, f.IgG, f.C3, f.Control));
         if (!saved.Succeeded)
         {
             return saved.ToFeedback();

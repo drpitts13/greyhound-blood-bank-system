@@ -38,8 +38,25 @@ public partial class EnumTextTests
     [InlineData("RhDNegative", "RhD negative")]
     [InlineData("DatPositive", "DAT positive")]
     [InlineData("XMCompatible", "XM compatible")]
+    [InlineData("PositiveIgG", "Positive IgG")]
+    [InlineData("PositiveC3", "Positive C3")]
+    [InlineData("InProgress", "In progress")]
     public void EnumText_KeepsAcronyms(string name, string expected) =>
         Assert.Equal(expected, Ui.CodeNameText(name));
+
+    // TEST-BB-1011: antigen headers keep their case (c is not C) and Duffy, Kidd, Lewis, Lutheran, Kell Kp and Js
+    // codes stored in capitals read as written (Fya, Jkb); end-user testing pass 9.
+    [Theory]
+    [InlineData("FYA", "Fya")]
+    [InlineData("JKB", "Jkb")]
+    [InlineData("Lea", "Lea")]
+    [InlineData("c", "c")]
+    [InlineData("C", "C")]
+    [InlineData("K", "K")]
+    [InlineData("M", "M")]
+    [InlineData("FYX", "FYX")]
+    public void AntigenText_WritesAntigensAsWritten(string code, string expected) =>
+        Assert.Equal(expected, Ui.AntigenText(code));
 
     // TEST-BB-680: a dropdown whose option text is the same value as its option value goes through Ui.EnumText, so an
     // enum never shows its code name.

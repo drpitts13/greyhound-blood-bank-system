@@ -1019,5 +1019,10 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1008 | I | `InventoryServiceTests.Scan_DinThenProductCode_PicksTheDivision` | URS-BB-768 / FRS-BB-886 |
 | TEST-BB-1009 | I | `InventoryServiceTests.Receive_RefusesALocationThatDoesNotTakeTheComponent_AndTheCountFlagsIt` | URS-BB-769 / FRS-BB-887 |
 | TEST-BB-1010 | U | `CrossmatchStatusNoticeTests.CrossmatchStatusNotice_NamesTheStatus` | URS-BB-770 / FRS-BB-888 |
+| TEST-BB-1011 | U | `EnumTextTests.AntigenText_WritesAntigensAsWritten`, `EnumTextTests.EnumText_KeepsAcronyms` | URS-BB-771 / FRS-BB-889 |
+| TEST-BB-1012 | U | `AntibodyIdentificationAssistEvaluatorTests.PatternProbability_IsFishersExact`, `AntibodyIdentificationAssistEvaluatorTests.Possible_StatesTheCellsAndProbability` | URS-BB-772 / FRS-BB-890 |
+| TEST-BB-1013 | U | `DatElutionWorkupRuleTests.Grades_MustAgreeWithTheResult` | URS-BB-773 / FRS-BB-891 |
+| TEST-BB-1014 | I | `EluateFindingTests.DatGrades_AreKept_AndMustMatchTheResult` | URS-BB-773 / FRS-BB-891 |
+| TEST-BB-1015 | U | `ChartDatElutionTabTests.Tab_WithWorkups_RendersTheGrades` | URS-BB-774 / FRS-BB-892 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

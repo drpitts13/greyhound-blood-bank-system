@@ -68,6 +68,7 @@ public static class AntibodyIdentificationAssistEvaluator
         var concordantPositives = 0;
         var discordantPositives = 0;
         var antigenPositiveNegatives = 0;
+        var concordantNegatives = 0;
 
         foreach (var cell in cells.Where(c => c.Role != PanelCellRole.Autocontrol))
         {
@@ -106,6 +107,10 @@ public static class AntibodyIdentificationAssistEvaluator
             {
                 discordantPositives++;
             }
+            else if (AntigenExpressionInfo.IsAbsent(expression) && reaction == CellReaction.Negative)
+            {
+                concordantNegatives++;
+            }
         }
 
         var excluded = IsExcluded(policy, dosageSensitive, homozygous, heterozygous);
@@ -134,7 +139,7 @@ public static class AntibodyIdentificationAssistEvaluator
         else if (concordantPositives > 0 && antigenPositiveNegatives == 0)
         {
             classification = AntibodyIdClassification.Possible;
-            rationale = $"{antigen.AntibodyName} is pattern-consistent on the cells tested ({concordantPositives} antigen-positive cell(s) reactive; no antigen-negative cells reactive). This is assistance only — not an identification.";
+            rationale = $"{antigen.AntibodyName} is pattern-consistent on the cells tested ({concordantPositives} antigen-positive cell(s) reactive; no antigen-negative cells reactive). {ProbabilityText(concordantPositives, concordantNegatives)} This is assistance only — not an identification.";
         }
         else if (cannotExcludeForDosage)
         {
@@ -274,6 +279,36 @@ public static class AntibodyIdentificationAssistEvaluator
         cells
             .Where(c => c.Role != PanelCellRole.Autocontrol)
             .Any(c => Summarize(c, phases) == CellReaction.Incomplete);
+
+    /// <summary>
+    /// The chance of the pattern by coincidence, for a pattern with every antigen-positive cell reactive and every
+    /// antigen-negative cell non-reactive: Fisher's exact probability, 1 / C(positive + negative, positive). Stated as a
+    /// fact; whether it is enough to identify the antibody is the laboratory's criterion (OCD-085).
+    /// (End-user testing, 2026-11-12: assistance named a possible antibody without the counts that support it.)
+    /// </summary>
+    public static double PatternProbability(int reactivePositive, int nonReactiveNegative)
+    {
+        if (reactivePositive <= 0 || nonReactiveNegative <= 0)
+        {
+            return 1d;
+        }
+
+        // C(n, k) built as a running product to stay exact enough for panel sizes.
+        var n = reactivePositive + nonReactiveNegative;
+        var k = Math.Min(reactivePositive, nonReactiveNegative);
+        var combinations = 1d;
+        for (var i = 1; i <= k; i++)
+        {
+            combinations = combinations * (n - k + i) / i;
+        }
+
+        return 1d / combinations;
+    }
+
+    public static string ProbabilityText(int reactivePositive, int nonReactiveNegative) =>
+        nonReactiveNegative == 0
+            ? "No antigen-negative cell was non-reactive, so the pattern has no probability support yet."
+            : $"{reactivePositive} antigen-positive reactive and {nonReactiveNegative} antigen-negative non-reactive cell(s): probability of this pattern by chance p = {PatternProbability(reactivePositive, nonReactiveNegative).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} (Fisher exact).";
 
     private static bool IsExcluded(
         AntibodyIdentificationPolicy policy,

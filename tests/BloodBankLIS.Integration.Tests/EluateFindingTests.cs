@@ -27,6 +27,30 @@ public class EluateFindingTests : IDisposable
             attributes: new EfRepository<BloodAttributeDefinition>(c));
     }
 
+    // TEST-BB-1014: a DAT workup keeps the polyspecific, anti-IgG, anti-C3 and control grades, and refuses grades that do
+    // not match the result (end-user testing pass 9).
+    [Fact]
+    public async Task DatGrades_AreKept_AndMustMatchTheResult()
+    {
+        var (patientId, workupId) = await SeedOpenAsync();
+        await using var c = _factory.Create();
+        var saved = await Service(c, "tech1").UpdateAsync(workupId, new UpdateDatElutionWorkupRequest(
+            DatResult: DatWorkupResult.Positive, ElutionResult: "Reactive",
+            PolyspecificGrade: ReactionGrade.TwoPlus, IgGGrade: ReactionGrade.TwoPlus, C3Grade: ReactionGrade.Negative,
+            ControlGrade: ReactionGrade.Negative));
+        Assert.True(saved.Succeeded, saved.Error);
+        var dto = Assert.Single(await Service(c, "tech1").ListForPatientAsync(patientId));
+        Assert.Equal((ReactionGrade.TwoPlus, ReactionGrade.TwoPlus, ReactionGrade.Negative, ReactionGrade.Negative),
+            (dto.PolyspecificGrade, dto.IgGGrade, dto.C3Grade, dto.ControlGrade));
+
+        var refused = await Service(c, "tech1").UpdateAsync(workupId, new UpdateDatElutionWorkupRequest(
+            DatResult: DatWorkupResult.Negative, IgGGrade: ReactionGrade.OnePlus));
+        Assert.False(refused.Succeeded);
+        Assert.Contains("recorded Negative but anti-IgG 1+ reacted", refused.Error);
+        await using var v = _factory.Create();
+        Assert.Equal(ReactionGrade.TwoPlus, (await v.DatElutionWorkups.FindAsync(workupId))!.IgGGrade);
+    }
+
     [Fact]
     public async Task Verified_PostsAlloantibodiesOnly_WithSourceAndAudit()
     {

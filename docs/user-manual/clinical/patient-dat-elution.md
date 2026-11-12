@@ -16,6 +16,10 @@ Enter the specimen, the method your procedure names, and the reactions you obser
 
 A positive DAT does not by itself add an antibody to the chart. Do not type a specificity into a comment and treat that comment as antibody history.
 
+## Reagent grades
+
+Beside the DAT result, record the reaction with each reagent used: **Polyspecific**, **Anti-IgG**, **Anti-C3** and the **Control**, each graded 0 to 4+ (or *not tested*). The workup summary lists them, for example "Polyspecific 2+ · IgG 2+ · C3 0 · Control 0". Grades that do not match the result are refused: a Negative DAT with a reagent reacting, or a Positive DAT with reagents recorded and none reacting. A reacting control is shown as a warning; check the reagent's instructions before reporting the DAT. Grades are optional.
+
 ## Working a DAT/elution workup
 
 1. **New workup**: choose the specimen, the DAT result and method, and the elution result. If you did not perform an elution, give the reason. Add a comment if needed.

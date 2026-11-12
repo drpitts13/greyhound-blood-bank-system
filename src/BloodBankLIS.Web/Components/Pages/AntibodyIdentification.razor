@@ -202,7 +202,7 @@ else
 
     <div class="bb-card" id="abid-scope">
         <div class="bb-card-title">
-            <h3>Workup #@_workup.Id — @_workup.Status</h3>
+            <h3>Workup #@_workup.Id — @Ui.EnumText(_workup.Status)</h3>
             <a class="btn btn-secondary btn-sm" href="@($"/patients/{PatientId}/antibody-id")">All workups</a>
         </div>
         <div class="muted">
@@ -377,7 +377,8 @@ else
                         <th>Cell</th>
                         @foreach (var antigen in AntigenColumns)
                         {
-                            <th>@antigen</th>
+                            @* Antigen names are case-sensitive (C and c, E and e): not upper-cased like other headers. *@
+                            <th class="antigen" data-antigen-col title="@antigen">@Ui.AntigenText(antigen)</th>
                         }
                         @foreach (var phase in _workup.InterpretivePhases)
                         {

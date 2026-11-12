@@ -776,3 +776,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-768 | A divided unit is identified by scan in a stock count, a move, or a cooler check from its unit number followed by its product code label. | P1 | FRS-BB-886 |
 | URS-BB-769 | A unit is not received into a storage location that does not take its component, and a stock count marks a unit recorded in such a location. | P1 | FRS-BB-887 |
 | URS-BB-770 | The crossmatch status at issue is shown in words on the ward receipt, return, transfusion and retrospective crossmatch forms and the chart's product history. | P3 | FRS-BB-888 |
+| URS-BB-771 | Antigen names on the antigram read as written: case kept (C and c) and Fya, Jkb for codes stored in capitals; DAT choices and workup status read in words. | P1 | FRS-BB-889 |
+| URS-BB-772 | Antibody identification assistance states, for a possible specificity, the reactive antigen-positive and non-reactive antigen-negative cells and the probability of the pattern by chance. | P2 | FRS-BB-890 |
+| URS-BB-773 | A DAT workup records the polyspecific, anti-IgG, anti-C3 and control reactions with grades, refusing grades that do not match the DAT result. | P1 | FRS-BB-891 |
+| URS-BB-774 | The chart's DAT / Elution tab opens for a patient with workups on file. | P1 | FRS-BB-892 |

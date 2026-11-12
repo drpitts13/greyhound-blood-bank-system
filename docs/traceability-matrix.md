@@ -882,6 +882,10 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-768 / FRS-BB-886 | End-user testing pass 7: divided units by scan | `InventoryScanResolver.cs`, `InventoryCount.razor`, `InventoryMove.razor`, `CoolerCheck.razor` | TEST-BB-1008 | I | |
 | URS-BB-769 / FRS-BB-887 | End-user testing pass 8: storage check at receipt, wrong storage in the count | `InventoryService.cs`, `InventoryCountDtos.cs`, `CountTable.razor`, `DatabaseSeeder.DemoScenarios.cs` | TEST-BB-1009 | I | |
 | URS-BB-770 / FRS-BB-888 | End-user testing pass 8: crossmatch status in words | `ReadyToIssueFormCue.cs`, `PatientChartProductHistoryTab.razor` | TEST-BB-1010 | U | |
+| URS-BB-771 / FRS-BB-889 | End-user testing pass 9: antigens and codes in words | `AntibodyIdentification.razor`, `Ui.cs`, `app.css` | TEST-BB-1011 | U | |
+| URS-BB-772 / FRS-BB-890 | End-user testing pass 9: pattern probability | `AntibodyIdentificationAssistEvaluator.cs`, `OPEN_CLINICAL_DECISIONS.md` | TEST-BB-1012 | U | |
+| URS-BB-773 / FRS-BB-891 | End-user testing pass 9: DAT reagent grades | `DatElutionWorkup.cs`, `DatElutionWorkupRule.cs`, `DatElutionWorkupService.cs`, `PatientChartDatElutionTab.razor`, migration | TEST-BB-1013..1014 | U, I | |
+| URS-BB-774 / FRS-BB-892 | End-user testing pass 9: DAT tab with workups | `PatientChartDatElutionTab.razor` | TEST-BB-1015 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

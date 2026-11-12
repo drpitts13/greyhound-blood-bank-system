@@ -22381,3 +22381,24 @@ On the running system with seeded data: Issue & Transfuse → Cooler check → C
 ### Next
 
 - Pass 9: patient testing scenarios not yet covered (antibody identification, DAT workups) and the gaps a modern blood bank expects.
+
+## Iteration 725 — End-user testing pass 9: antibody identification and the DAT workup (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Antibody identification → the open workup for Diane Kellerman (teaching 8-cell panel) → AHG reactions entered for an anti-E pattern (cells 2, 7, 8 at 2+, the rest 0) → Run assistance; the chart's DAT / Elution tab → New workup, a mismatched result, then a positive DAT with graded reagents and an elution result → Complete.
+
+### Found and fixed
+
+1. **Antigens upper-cased on the antigram.** Table headers are upper-cased, so antigen c read as C beside C (and Fya as FYA). Antigram headers now keep their case, and Fy, Jk, Le, Lu, Kp and Js codes stored in capitals read Fya, Jkb. The DAT choice "Positive ig g" now reads Positive IgG (C3 kept), and the workup status reads in words ("Pending interpretation", not InProgress).
+2. **No probability support for a possible antibody.** Assistance named anti-E pattern-consistent without the evidence laboratories use to accept an identification. It now states the reactive antigen-positive and non-reactive antigen-negative cells and Fisher's exact probability of the pattern by chance ("3 … and 5 …: p = 0.018"). No criterion is applied; whether to warn below one is **OCD-085** for the medical director.
+3. **DAT recorded only as Negative or Positive.** The DAT workup had no reagent results, so it could not tell IgG from complement coating. It now records polyspecific, anti-IgG, anti-C3 and control grades, refuses grades that do not match the result, warns when the control reacts, and lists them in the summary.
+4. **The DAT / Elution tab crashed with any workup on file.** The void-reason box indexed an entry that did not exist yet, so the first workup created ended the page. Fixed; retested: the workup shows "DAT Positive: Polyspecific 2+ · IgG 2+ · C3 0 · Control 0" and completes, waiting for another person to verify.
+
+### Tests
+
+- TEST-BB-1011 to TEST-BB-1015. Full suite passed.
+
+### Next
+
+- Pass 10: remaining gaps (cooler time out on the open-cooler list, single-user verification limits) and the interfaces with new data.
