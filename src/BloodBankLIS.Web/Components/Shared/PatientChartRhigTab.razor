@@ -152,7 +152,15 @@
                     @if (_givingId == e.Id)
                     {
                         <div class="form-row" style="margin-top:.4rem;" data-rhig-give-form>
-                            <div class="field"><label>RhIG lot</label><input @bind="_givenLot" @bind:event="oninput" placeholder="Scan or type the lot" autocomplete="off" /></div>
+                            <div class="field"><label>RhIG lot</label><input @bind="_givenLot" @bind:event="oninput" placeholder="Scan or type the lot" autocomplete="off" list="rhig-lots" data-rhig-given-lot />
+                                @* Registered lots in date (Cycle 721); once any is registered, the lot given must be one of them. *@
+                                <datalist id="rhig-lots">
+                                    @foreach (var l in _rhigLots.Where(l => l.ExpiresOn >= DateOnly.FromDateTime(DateTime.Now)))
+                                    {
+                                        <option value="@l.LotNumber">@l.ProductName · exp @l.ExpiresOn.ToString("yyyy-MM-dd") · @l.VialsLeft left</option>
+                                    }
+                                </datalist>
+                            </div>
                             <div class="field"><label>Vials given</label><input type="number" min="1" max="50" @bind="_givenVials" /></div>
                             <div class="field"><label>Given at (UTC)</label><input type="datetime-local" @bind="_givenUtc" /></div>
                             <div class="field"><label>Note</label><input @bind="_givenNote" /></div>
@@ -224,9 +232,12 @@
     private RhType? SuggestedInfantRh => _form is null ? null : MotherInfantLinkRule.SuggestInfantRh(
         _form.Context, _form.EventUtc, _infants.Select(i => (i.DateOfBirth, i.CurrentRh)));
 
+    private List<RhigLotDto> _rhigLots = new();
+
     protected override async Task OnParametersSetAsync()
     {
         await LoadAsync();
+        _rhigLots = (await Api.GetRhigLotsAsync()).Value ?? new();
         var family = await Api.GetPatientFamilyAsync(PatientId);
         _infants = family.Succeeded ? family.Value?.Infants ?? [] : [];
     }

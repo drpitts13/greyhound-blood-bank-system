@@ -40,3 +40,9 @@ For a recall, scan the lot into the top-bar lookup (it opens the trace), or use 
 The downtime patient sheet lists patients whose RhIG evaluation still needs work, with what is outstanding (for example "RhIG: Delivery 2026-11-07: candidate, 1 vial recommended; RhIG not yet given").
 
 For a delivery, when the newborn's chart is linked to the mother's (Link mother on the newborn's chart) and the newborn's type is on file, **Infant Rh** shows "Linked infant … is Rh …" with **Use it**. Nothing is filled in for you, and nothing is offered for twins, an untyped newborn, or an antepartum evaluation.
+
+## RhIG lots
+
+**RhIG lots** on the RhIG page registers each lot of Rh immune globulin as it is received: the lot number, the product as on the carton, the expiry and the vials received. **Retire** takes a lot out of use (used up, recalled, expired) with a reason. The list shows, for each lot, the vials given and the vials left.
+
+Once any lot is registered, **Record RhIG given** must name a registered lot that is active and was in date on the day it was given; an unknown, retired or expired lot is refused. The lot field offers the registered lots. Giving more vials than the lot received is allowed but noted in the audit trail (the count may be off). Until the first lot is registered, the lot given is recorded as typed.

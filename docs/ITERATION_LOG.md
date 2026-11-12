@@ -22286,3 +22286,26 @@ On the running system with seeded data: Baby Girl Maya (MRN0027) and her mother 
 ### Next
 
 - Pass 5: an RhIG lot register (lot, product, expiry) checked when RhIG is given; then HL7 and daily QC entry.
+
+## Iteration 721 — End-user testing pass 5: RhIG lots and the HL7 interface (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the RhIG page → register lot RHIG-L2611 (the lot recorded as given in pass 4); the HL7 page → submit an admission (A04) for a new patient Uma Tester, then a stat type and screen order (ORM^O01, OBR-4 LAB10117) as the EHR would → the error queue → replay → the bench worklist.
+
+### Found and fixed
+
+1. **RhIG lot checked against nothing (from pass 4).** RhIG lots are now registered as received (lot, product as on the carton, expiry, vials) and retired with a reason. Once any lot is registered, RhIG given must name a registered, active lot that was in date on the day given; vials given are counted against vials received (more than received is noted, not refused). With no lot registered, behavior is unchanged. The chart's lot field suggests registered lots. Retested live: registering RHIG-L2611 showed the 1 vial already given and 9 left.
+2. **EHR orders refused when no interface endpoint is set up.** The type and screen order coded LAB10117 was refused as an unknown code although LAB10117 ↔ TNS is translated for all interfaces: translations loaded only for an enabled endpoint, while the unknown-code check always ran. Translations for all interfaces now apply when no endpoint is set up (a disabled endpoint still translates nothing, as before). Retested: replaying the message was accepted and the stat ABO/Rh and screen appeared on the bench worklist waiting for a specimen.
+
+### Observed working
+
+- The admission created the patient and visit; the error queue named the fix and offered Replay; outbound charges wait, named, while no outbound interface is set up.
+
+### Carried to the next pass
+
+- Daily reagent QC as one table for all open lots.
+
+### Tests
+
+- TEST-BB-1003 to TEST-BB-1005. Full suite passed.

@@ -66,6 +66,16 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<RhigQueueItemDto>>> GetOpenRhigEvaluationsAsync(CancellationToken ct = default) =>
         SendAsync<List<RhigQueueItemDto>>(HttpMethod.Get, "api/rhig/open", ct: ct);
 
+    // The RhIG lot register (Cycle 721).
+    public Task<ApiResult<List<RhigLotDto>>> GetRhigLotsAsync(bool includeRetired = false, CancellationToken ct = default) =>
+        SendAsync<List<RhigLotDto>>(HttpMethod.Get, $"api/rhig/lots?includeRetired={includeRetired.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<RhigLotDto>> ReceiveRhigLotAsync(ReceiveRhigLotRequest request, CancellationToken ct = default) =>
+        SendAsync<RhigLotDto>(HttpMethod.Post, "api/rhig/lots", request, ct);
+
+    public Task<ApiResult<RhigLotDto>> RetireRhigLotAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<RhigLotDto>(HttpMethod.Post, $"api/rhig/lots/{id}/retire", new RetireRhigLotRequest(reason), ct);
+
     public Task<ApiResult<List<RhigEvaluationDto>>> GetRhigEvaluationsAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<RhigEvaluationDto>>(HttpMethod.Get, $"api/patients/{patientId}/rhig", ct: ct);
 

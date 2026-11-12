@@ -366,6 +366,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureRhigEvaluationsTableAsync(context, cancellationToken);
         await EnsureSpecimenStorageEventsTableAsync(context, cancellationToken);
         await EnsureEquipmentTablesAsync(context, cancellationToken);
+        await EnsureRhigLotsTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -1385,6 +1386,38 @@ public static class DevelopmentSqliteBootstrap
         {
             await context.Database.ExecuteSqlRawAsync(Migrations.InstrumentValueTranslations.CopyTestMappingsSql, ct);
         }
+    }
+
+    // The RhIG lot register (Cycle 721).
+    private static async Task EnsureRhigLotsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "RhigLots", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "RhigLots" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_RhigLots" PRIMARY KEY AUTOINCREMENT,
+                "LotNumber" TEXT NOT NULL,
+                "ProductName" TEXT NOT NULL,
+                "ExpiresOn" TEXT NOT NULL,
+                "VialsReceived" INTEGER NOT NULL,
+                "ReceivedUtc" TEXT NOT NULL,
+                "ReceivedBy" TEXT NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "RetiredReason" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE UNIQUE INDEX "IX_RhigLots_LotNumber" ON "RhigLots" ("LotNumber");
+            """, ct);
     }
 
     // The equipment register (Cycle 708).

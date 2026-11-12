@@ -38,6 +38,22 @@ public static class ImmunohematologyEndpoints
             .WithTags("Immunohematology")
             .RequireAuthenticatedUser();
 
+        // The RhIG lot register (Cycle 721): read by anyone signed in; receiving and retiring are issue work.
+        app.MapGet("/api/rhig/lots", async (bool? includeRetired, RhigLotService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(includeRetired ?? false, ct))).RequireAuthenticatedUser();
+        app.MapPost("/api/rhig/lots", async (ReceiveRhigLotRequest request, RhigLotService service, CancellationToken ct) =>
+            {
+                var r = await service.ReceiveAsync(request, ct);
+                return r.Succeeded ? Results.Ok(r.Value) : Results.BadRequest(new { error = r.Error });
+            })
+            .RequireAuthenticatedUser().RequirePermission(PermissionCodes.IssueCreate);
+        app.MapPost("/api/rhig/lots/{id:long}/retire", async (long id, RetireRhigLotRequest request, RhigLotService service, CancellationToken ct) =>
+            {
+                var r = await service.RetireAsync(id, request, ct);
+                return r.Succeeded ? Results.Ok(r.Value) : Results.BadRequest(new { error = r.Error });
+            })
+            .RequireAuthenticatedUser().RequirePermission(PermissionCodes.IssueCreate);
+
         app.MapGet("/api/rhig/open", async (RhigEvaluationService service, CancellationToken ct) =>
             Results.Ok(await service.ListOpenAsync(ct)))
             .WithTags("Immunohematology")

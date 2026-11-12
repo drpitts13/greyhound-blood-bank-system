@@ -2090,6 +2090,22 @@ public sealed class EquipmentCheckRecordConfiguration : IEntityTypeConfiguration
     }
 }
 
+public sealed class RhigLotConfiguration : IEntityTypeConfiguration<RhigLot>
+{
+    public void Configure(EntityTypeBuilder<RhigLot> b)
+    {
+        b.ToTable("RhigLots");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.LotNumber).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ProductName).HasMaxLength(200).IsRequired();
+        b.Property(x => x.ReceivedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.RetiredReason).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.LotNumber).IsUnique();
+    }
+}
+
 public sealed class RhigEvaluationConfiguration : IEntityTypeConfiguration<RhigEvaluation>
 {
     public void Configure(EntityTypeBuilder<RhigEvaluation> b)

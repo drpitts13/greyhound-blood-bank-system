@@ -1011,5 +1011,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1000 | U | `InstrumentInterfaceTests.RuleEngine_GradesStayAsSent_AndAScoreConvertsOnce` | URS-BB-763 / FRS-BB-881 |
 | TEST-BB-1001 | U | `RuleExpressionEvaluatorTests.NonNumericText_DoesNotCompareWithANumber` | URS-BB-763 / FRS-BB-881 |
 | TEST-BB-1002 | I | `InstrumentInterfaceTests.EchoGrades_PostAsSent_AndDiscordantAntiD_IsFlagged` | URS-BB-763 / FRS-BB-881 |
+| TEST-BB-1003 | U | `RhigLotRuleTests.Receive_AndUse` | URS-BB-764 / FRS-BB-882 |
+| TEST-BB-1004 | I | `RhigLotServiceTests.Register_ChecksTheLotGiven` | URS-BB-764 / FRS-BB-882 |
+| TEST-BB-1005 | I | `InterfaceTestCodeTranslationTests.NoEndpoint_TranslationsForAllInterfacesStillApply` | URS-BB-765 / FRS-BB-883 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

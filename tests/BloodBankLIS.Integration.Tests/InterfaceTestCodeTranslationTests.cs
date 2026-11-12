@@ -53,7 +53,7 @@ public class InterfaceTestCodeTranslationTests : IDisposable
             orderLines: new EfRepository<OrderLine>(c), testDefinitions: new EfRepository<TestDefinition>(c),
             valueSets: ValueSets(c), unmapped: Unmapped(c));
 
-    private async Task SeedAsync()
+    private async Task SeedAsync(bool withEndpoint = true)
     {
         await using var c = _factory.Create();
         c.TestDefinitions.AddRange(
@@ -67,11 +67,14 @@ public class InterfaceTestCodeTranslationTests : IDisposable
         });
         c.Patients.Add(new Patient { MedicalRecordNumber = "MRN-XL", LastName = "Code", FirstName = "Pat", DateOfBirth = new DateOnly(1980, 1, 1), Sex = Sex.Female });
         c.OrderingLocations.Add(new OrderingLocation { Code = "ICU", Name = "ICU", IsActive = true });
-        c.InterfaceEndpoints.Add(new InterfaceEndpoint
+        if (withEndpoint)
         {
-            Name = "Epic orders", InterfaceType = InterfaceType.Orders, Direction = Hl7Direction.Inbound,
-            Transport = InterfaceTransport.File, MessageTypes = "ORM", IsEnabled = true
-        });
+            c.InterfaceEndpoints.Add(new InterfaceEndpoint
+            {
+                Name = "Epic orders", InterfaceType = InterfaceType.Orders, Direction = Hl7Direction.Inbound,
+                Transport = InterfaceTransport.File, MessageTypes = "ORM", IsEnabled = true
+            });
+        }
         c.InterfaceValueTranslations.AddRange(
             new InterfaceValueTranslation { DataItemKey = InterfaceDataItemKeys.ProcedureCode, InternalValue = "TNS", ExternalValue = "LAB10117", Direction = InterfaceTranslationDirection.Both },
             new InterfaceValueTranslation { DataItemKey = InterfaceDataItemKeys.ProcedureCode, InternalValue = "DAT", ExternalValue = "LAB200", Direction = InterfaceTranslationDirection.Both });
@@ -192,5 +195,20 @@ public class InterfaceTestCodeTranslationTests : IDisposable
         Assert.Equal(("WHITE", "NOT-HISPANIC"), (patient.Race, patient.Ethnicity));
         var visit = await verify.Encounters.SingleAsync(e => e.VisitNumber == "VIS-ADT-1");
         Assert.Equal(EncounterType.Emergency, visit.EncounterType);
+    }
+
+    // TEST-BB-1005: with no interface endpoint set up for the sender, translations for all interfaces still apply, so an
+    // order coded LAB10117 is accepted as TNS (end-user testing, 2026-11-12: it was refused as an unknown code).
+    [Fact]
+    public async Task NoEndpoint_TranslationsForAllInterfacesStillApply()
+    {
+        await SeedAsync(withEndpoint: false);
+        await using var c = _factory.Create();
+        var processed = await Processor(c).ProcessAsync(Orm("XL-NE", "ORD-XL-NE", "LAB10117"));
+        Assert.True(processed.Accepted, processed.Log?.ErrorDetail);
+        var order = await c.Orders.SingleAsync(o => o.OrderNumber == "ORD-XL-NE");
+        var lines = await c.OrderLines.Where(l => l.OrderId == order.Id).Select(l => l.TestCode).ToListAsync();
+        Assert.Contains("ABORH", lines);
+        Assert.Contains("ABSC", lines);
     }
 }

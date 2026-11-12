@@ -875,6 +875,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-761 / FRS-BB-879 | End-user testing pass 2: type and screen for a blood order's tube; repeat an expired crossmatch | `BloodOrderPreparationRule.cs`, `BloodOrderWorklistService.cs`, `PatientDetail.razor`, `CrossmatchAttachmentService.cs`, `Compatibility.razor`, `Issuing.razor` | TEST-BB-996..997 | U, I | |
 | URS-BB-762 / FRS-BB-880 | End-user testing pass 3: bedside vitals to the reaction workup | `TransfusionVitals.cs`, `IssuingService.cs`, `IssuingDtos.cs`, `TransfusionVitalsFields.razor`, `Issuing.razor`, `ReactionInvestigationService.cs`, `ReactionReport.razor`, `Reactions.razor` | TEST-BB-998..999 | U, I | |
 | URS-BB-763 / FRS-BB-881 | End-user testing pass 4: instrument grades and merged readings | `RuleValue.cs`, `AstmInboundProcessor.cs` | TEST-BB-1000..1002 | U, I | |
+| URS-BB-764 / FRS-BB-882 | End-user testing pass 5: RhIG lot register | `RhigLot.cs`, `RhigLotRule.cs`, `RhigLotService.cs`, `RhigEvaluationService.cs`, `ImmunohematologyEndpoints.cs`, `RhigQueue.razor`, `PatientChartRhigTab.razor` | TEST-BB-1003..1004 | U, I | |
+| URS-BB-765 / FRS-BB-883 | End-user testing pass 5: HL7 translations with no endpoint | `Hl7InboundProcessor.cs` | TEST-BB-1005 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -1,6 +1,7 @@
 @page "/rhig"
 @using BloodBankLIS.Application.Immunohematology
 @inject BloodBankApiClient Api
+@inject UserSession Session
 
 <PageTitle>Open RhIG evaluations &middot; HemoCore</PageTitle>
 
@@ -13,6 +14,80 @@
     suggest and the dose calculated from the facility's RhIG dose settings; the reviewer decides (OCD-069).
 </p>
 <Outcome Value="_fb" />
+
+@* The RhIG lot register (end-user testing, 2026-11-12): once a lot is registered, RhIG given must name a registered,
+   active lot in date when given. *@
+<div class="bb-card" data-rhig-lots>
+    <div class="bb-card-title">
+        <h3>RhIG lots</h3>
+        <div class="flex gap" style="align-items:center;">
+            <label class="muted" style="font-size:.85rem;"><input type="checkbox" @bind="_showRetiredLots" @bind:after="LoadLotsAsync" /> Show retired</label>
+            @if (Session.Has(PermissionCodes.IssueCreate) && !_receiving)
+            {
+                <button class="btn btn-secondary btn-sm" type="button" @onclick="() => _receiving = true" data-rhig-lot-receive>Receive a lot</button>
+            }
+        </div>
+    </div>
+    <p class="muted" style="margin-top:0;">
+        @(_lots.Count == 0 && !_showRetiredLots
+            ? "No RhIG lot is registered, so the lot recorded as given is taken as typed. Register lots as they are received; from then on RhIG given must name a registered lot in date."
+            : "RhIG given must name one of these lots, active and in date on the day it is given. Vials given are counted against vials received.")
+    </p>
+    @if (_receiving)
+    {
+        <div class="form-row" data-rhig-lot-form>
+            <div class="field"><label>Lot number</label><input class="mono" @bind="_newLot" @bind:event="oninput" data-rhig-lot-number /></div>
+            <div class="field"><label>Product (as on the carton)</label><input @bind="_newProduct" @bind:event="oninput" placeholder="e.g. RhIG 300 µg" data-rhig-lot-product /></div>
+            <div class="field"><label>Expires</label><input type="date" @bind="_newExpires" data-rhig-lot-expires /></div>
+            <div class="field"><label>Vials received</label><input type="number" min="1" @bind="_newVials" data-rhig-lot-vials /></div>
+        </div>
+        <div class="flex gap" style="margin-top:.4rem;">
+            <button class="btn btn-primary btn-sm" disabled="@(string.IsNullOrWhiteSpace(_newLot) || string.IsNullOrWhiteSpace(_newProduct))" @onclick="ReceiveLotAsync" data-rhig-lot-save>Register lot</button>
+            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _receiving = false">Cancel</button>
+        </div>
+    }
+    @if (_lots.Count > 0)
+    {
+        <div class="table-scroll">
+        <table class="bb" style="margin-top:.5rem;">
+            <thead><tr><th>Lot</th><th>Product</th><th>Expires</th><th>Received</th><th>Given</th><th>Left</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var l in _lots)
+                {
+                    var expired = l.ExpiresOn < DateOnly.FromDateTime(DateTime.Now);
+                    <tr data-rhig-lot-row="@l.LotNumber" class="@(l.IsActive ? "" : "muted")">
+                        <td class="mono">@l.LotNumber</td>
+                        <td>@l.ProductName</td>
+                        <td class="nowrap">@l.ExpiresOn.ToString("yyyy-MM-dd") @if (l.IsActive && expired) { <span class="badge badge-red">Expired</span> }</td>
+                        <td>@l.VialsReceived</td>
+                        <td>@l.VialsGiven</td>
+                        <td>@l.VialsLeft</td>
+                        <td class="right nowrap">
+                            @if (!l.IsActive)
+                            {
+                                <span class="badge badge-gray" title="@l.RetiredReason">Retired</span>
+                            }
+                            else if (Session.Has(PermissionCodes.IssueCreate))
+                            {
+                                @if (_retiringLotId == l.Id)
+                                {
+                                    <input @bind="_retireReason" @bind:event="oninput" placeholder="Used up, recalled, expired…" data-rhig-lot-retire-reason />
+                                    <button class="btn btn-primary btn-sm" disabled="@string.IsNullOrWhiteSpace(_retireReason)" @onclick="() => RetireLotAsync(l.Id)">Retire</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => _retiringLotId = null">Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => { _retiringLotId = l.Id; _retireReason = null; }" data-rhig-lot-retire>Retire</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+</div>
 
 <div class="bb-card" data-rhig-lot-trace>
     <div class="bb-card-title"><h3>Who received an RhIG lot</h3></div>
@@ -139,8 +214,49 @@ else
     }
     private Feedback? _fb;
 
+    private List<RhigLotDto> _lots = new();
+    private bool _showRetiredLots;
+    private bool _receiving;
+    private string _newLot = "";
+    private string _newProduct = "";
+    private DateTime _newExpires = DateTime.Today.AddMonths(12);
+    private int _newVials = 1;
+    private long? _retiringLotId;
+    private string? _retireReason;
+
+    private async Task LoadLotsAsync()
+    {
+        var lots = await Api.GetRhigLotsAsync(_showRetiredLots);
+        _lots = lots.Value ?? new();
+    }
+
+    private async Task ReceiveLotAsync()
+    {
+        var r = await Api.ReceiveRhigLotAsync(new ReceiveRhigLotRequest(_newLot, _newProduct, DateOnly.FromDateTime(_newExpires), _newVials));
+        _fb = r.ToFeedback($"Lot {_newLot.Trim()} registered.");
+        if (r.Succeeded)
+        {
+            _receiving = false;
+            _newLot = _newProduct = "";
+            _newVials = 1;
+            await LoadLotsAsync();
+        }
+    }
+
+    private async Task RetireLotAsync(long id)
+    {
+        var r = await Api.RetireRhigLotAsync(id, _retireReason);
+        _fb = r.ToFeedback("Lot retired.");
+        if (r.Succeeded)
+        {
+            _retiringLotId = null;
+            await LoadLotsAsync();
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadLotsAsync();
         var r = await Api.GetOpenRhigEvaluationsAsync();
         _items = r.Succeeded ? r.Value ?? new() : new();
         if (!r.Succeeded)

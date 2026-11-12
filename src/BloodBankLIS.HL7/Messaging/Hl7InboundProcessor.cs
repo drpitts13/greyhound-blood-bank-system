@@ -299,7 +299,10 @@ public sealed class Hl7InboundProcessor
         {
             var (map, resolvedId, enabled) = await ResolveInboundAsync(message.MessageType, endpointId, ct);
             log.EndpointId ??= resolvedId;
-            if (enabled)
+            // Translations for all interfaces apply when no interface endpoint is set up for the sender, as they do on an
+            // enabled one (end-user testing, 2026-11-12: with no endpoint none applied, so an order coded LAB10117,
+            // translated to TNS for all interfaces, was refused as unknown). A disabled endpoint still translates nothing.
+            if (enabled || log.EndpointId is null)
             {
                 map.Translator = await LoadTranslatorAsync(log.EndpointId, ct);
             }

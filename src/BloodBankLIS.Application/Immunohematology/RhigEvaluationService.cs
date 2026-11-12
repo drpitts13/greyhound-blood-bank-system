@@ -89,6 +89,7 @@ public sealed class RhigEvaluationService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
+    private readonly IRepository<RhigLot>? _lots;
 
     public RhigEvaluationService(
         IRepository<RhigEvaluation> evaluations,
@@ -100,8 +101,10 @@ public sealed class RhigEvaluationService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null,
+        IRepository<RhigLot>? lots = null)
     {
+        _lots = lots;
         _policy = policy;
         _evaluations = evaluations;
         _patients = patients;
@@ -360,6 +363,28 @@ public sealed class RhigEvaluationService
             return OperationResult<RhigEvaluationDto>.Fail(check.Message);
         }
 
+        // The lot register, once in use (end-user testing, 2026-11-12): the lot given must be registered, active and in date.
+        string? lotWarning = null;
+        if (_lots is not null)
+        {
+            var all = await _lots.ListAsync(ct);
+            var upper = request.Lot.Trim().ToUpperInvariant();
+            var match = all.FirstOrDefault(l => l.LotNumber.Trim().ToUpperInvariant() == upper);
+            var used = match is null ? 0 : (await _evaluations.ListAsync(e => e.GivenLot != null && e.GivenLot.ToUpper() == upper, ct)).Sum(e => e.GivenVials ?? 0);
+            var lotCheck = RhigLotRule.EvaluateUse(all.Count > 0, request.Lot,
+                match is null ? null : (match.IsActive, match.ExpiresOn, match.VialsReceived), givenUtc, request.Vials, used);
+            if (lotCheck.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<RhigEvaluationDto>.Fail(lotCheck.Message);
+            }
+
+            lotWarning = lotCheck.Severity == RuleSeverity.Warning ? lotCheck.Message : null;
+            if (match is not null)
+            {
+                request = request with { Lot = match.LotNumber };
+            }
+        }
+
         row.GivenLot = request.Lot.Trim();
         row.GivenVials = request.Vials;
         row.GivenUtc = givenUtc;
@@ -372,9 +397,9 @@ public sealed class RhigEvaluationService
             row.Id,
             oldValue: new { GivenUtc = (DateTime?)null },
             newValue: new { row.PatientId, row.GivenLot, row.GivenVials, row.GivenUtc, row.GivenBy, row.GivenNote, row.VialsRecommended },
-            reason: RhigEvaluationRule.GivenDifference(row.VialsRecommended, row.GivenVials) is { } difference
+            reason: (RhigEvaluationRule.GivenDifference(row.VialsRecommended, row.GivenVials) is { } difference
                 ? $"RhIG given recorded. {difference}"
-                : "RhIG given recorded.");
+                : "RhIG given recorded.") + (lotWarning is null ? "" : $" {lotWarning}"));
         await _unitOfWork.SaveChangesAsync(ct);
         return await ResultAsync(row, ct);
     }

@@ -104,6 +104,7 @@ public static class DependencyInjection
         services.AddScoped<OverrideReviewService>();
         services.AddScoped<DatElutionWorkupService>();
         services.AddScoped<RhigEvaluationService>();
+        services.AddScoped<RhigLotService>();
         services.AddScoped<SpecimenStorageService>();
         services.AddScoped<DowntimeReconciliationService>();
         services.AddScoped<DowntimePatientSummaryService>();
