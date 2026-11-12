@@ -13,7 +13,9 @@ public enum LookupHitKind
     /// <summary>An outbound shipment's reference (packing list); opens Ship units with that shipment.</summary>
     Shipment = 5,
     /// <summary>A transport cooler with issued units still in transit; opens Check a cooler with it.</summary>
-    Cooler = 6
+    Cooler = 6,
+    /// <summary>A reagent lot (vial label); opens Reagent QC with the lot's results (end-user testing pass 37).</summary>
+    ReagentLot = 7
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

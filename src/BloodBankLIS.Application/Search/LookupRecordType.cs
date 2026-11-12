@@ -18,6 +18,7 @@ public static class LookupRecordType
         LookupHitKind.Shipment => "BloodUnit",
         // The cooler hit carries its first issue; the cooler is recorded on Issue rows.
         LookupHitKind.Cooler => "Issue",
+        LookupHitKind.ReagentLot => "ReagentLot",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No record type for this lookup kind.")
     };
 }

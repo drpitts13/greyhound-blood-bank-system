@@ -7,5 +7,5 @@ public class LookupRecordTypeTests
 {
     [Fact]
     public void EveryLookupKind_MapsToTheAuditEntityType() =>
-        Assert.Equal(["Patient", "BloodUnit", "Specimen", "Order", "RhigEvaluation", "BloodUnit", "Issue"], Enum.GetValues<LookupHitKind>().Select(LookupRecordType.For));
+        Assert.Equal(["Patient", "BloodUnit", "Specimen", "Order", "RhigEvaluation", "BloodUnit", "Issue", "ReagentLot"], Enum.GetValues<LookupHitKind>().Select(LookupRecordType.For));
 }

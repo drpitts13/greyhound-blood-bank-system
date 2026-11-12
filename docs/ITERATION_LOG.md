@@ -22979,3 +22979,27 @@ Both use one helper, the facility's day of a UTC time (the configured facility t
 ### Tests
 
 - TEST-BB-1050, TEST-BB-1051. Full suite passed.
+
+## Iteration 753 — End-user testing pass 37: blood orders to prepare and the top-bar lookup (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Blood orders to prepare, then the top-bar lookup with scanned and typed identifiers (a scanned DIN with flags, the DIN typed in groups and in lower case, MRN, accession, order, visit, a reagent lot).
+
+### Checked, not defects
+
+- Blood orders to prepare puts rush orders first, flags a needed-by time that has passed, and gives each row's next step (collect a specimen, finish the type and screen).
+- A scanned DIN ("=W12342500001000") finds its three components; the DIN typed with spaces or in lower case does too. The demo's 14-character unit numbers (W0001230009201) are not ISBT DINs, so a scan of them is refused as unreadable, correctly.
+
+### Found and fixed
+
+1. **Reagent lots could not be found.** The lookup found RhIG lots but not a reagent lot: "AD-24092" (the anti-D lot that failed QC) found nothing. A reagent lot number now finds the lot and opens Reagent QC on it. Retested live: "ANTI-D Anti-D typing serum lot AD-24092 · Opened · expires 2027-01-21", opening its results to review.
+2. **Order hits in codes.** ORD0014 read "EmergencyRelease · InProcess"; it reads "Emergency release · In process".
+
+### Noted
+
+- The API and web servers had exited (external exit code, no application error) and were restarted.
+
+### Tests
+
+- TEST-BB-1052; the lookup record-type tests include the new kind. Full suite passed.

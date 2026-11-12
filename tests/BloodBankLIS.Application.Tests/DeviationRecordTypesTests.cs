@@ -11,7 +11,7 @@ public class DeviationRecordTypesTests
     public void EveryLookupKind_MapsToARecordType()
     {
         Assert.Equal(
-            ["Patient", "BloodUnit", "Specimen", "Order", "RhigEvaluation", "BloodUnit", "Issue"],
+            ["Patient", "BloodUnit", "Specimen", "Order", "RhigEvaluation", "BloodUnit", "Issue", "ReagentLot"],
             Enum.GetValues<LookupHitKind>().Select(DeviationRecordTypes.FromLookup));
     }
 

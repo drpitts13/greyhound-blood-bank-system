@@ -18,7 +18,8 @@ public class UniversalLookupTests : IDisposable
     private static UniversalLookupService Lookup(BloodBankDbContext c) =>
         new(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
-            encounters: new EfRepository<Encounter>(c), issues: new EfRepository<Issue>(c));
+            encounters: new EfRepository<Encounter>(c), issues: new EfRepository<Issue>(c),
+            reagentLots: new EfRepository<ReagentLot>(c), reagents: new EfRepository<Reagent>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -401,7 +402,7 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, shipment, or cooler in transit matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, or cooler in transit matches \"ZZZ-NOPE\".", result.Message);
     }
 
     // TEST-BB-612: a shipment reference (case and spaces ignored) finds the shipment, opening Ship units with it; a
@@ -573,5 +574,25 @@ public class UniversalLookupTests : IDisposable
         });
         await c.SaveChangesAsync();
         return new Fixture(patient, unit, product);
+    }
+
+    // TEST-BB-1052: a reagent lot number (vial label) finds the lot and opens it on Reagent QC
+    // (end-user testing pass 37: "AD-24092" found nothing).
+    [Fact]
+    public async Task ReagentLot_IsFound_AndOpensReagentQc()
+    {
+        await using var c = _factory.Create();
+        var reagent = new Reagent { Code = "LK-ANTID", Name = "Anti-D typing serum", IsActive = true };
+        c.Reagents.Add(reagent);
+        await c.SaveChangesAsync();
+        var lot = new ReagentLot { ReagentId = reagent.Id, LotNumber = "LK-24092", ReceivedUtc = _factory.Clock.UtcNow, ExpiresUtc = new DateTime(2027, 1, 21), State = ReagentLotState.Opened };
+        c.ReagentLots.Add(lot);
+        var patient = new Patient { MedicalRecordNumber = "MRN-LKORD", LastName = "Lookup", FirstName = "Ord", DateOfBirth = new DateOnly(1980, 1, 1) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+
+        var hit = Assert.Single((await Lookup(c).LookupAsync("lk-24092")).Hits);
+        Assert.Equal((LookupHitKind.ReagentLot, "LK-ANTID Anti-D typing serum lot LK-24092", "Opened · expires 2027-01-21", $"/reagents?lot={lot.Id}"),
+            (hit.Kind, hit.Title, hit.Detail, hit.Href));
     }
 }

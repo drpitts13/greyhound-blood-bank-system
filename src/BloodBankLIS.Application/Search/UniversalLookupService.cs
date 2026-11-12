@@ -38,6 +38,8 @@ public sealed class UniversalLookupService
 
     private readonly IRepository<RhigEvaluation>? _rhig;
     private readonly IRepository<Issue>? _issues;
+    private readonly IRepository<ReagentLot>? _reagentLots;
+    private readonly IRepository<Reagent>? _reagents;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -59,8 +61,12 @@ public sealed class UniversalLookupService
         IRepository<RhigEvaluation>? rhig = null,
         IAuditQuery? auditQuery = null,
         ICurrentUser? currentUser = null,
-        IRepository<Issue>? issues = null)
+        IRepository<Issue>? issues = null,
+        IRepository<ReagentLot>? reagentLots = null,
+        IRepository<Reagent>? reagents = null)
     {
+        _reagentLots = reagentLots;
+        _reagents = reagents;
         _issues = issues;
         _auditQuery = auditQuery;
         _currentUser = currentUser;
@@ -112,6 +118,7 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactPatientsAsync(upper, ct));
             hits.AddRange(await ExactVisitsAsync(upper, ct));
             hits.AddRange(await ExactRhigLotsAsync(upper, ct));
+            hits.AddRange(await ExactReagentLotsAsync(upper, ct));
             hits.AddRange(await ExactShipmentsAsync(upper, ct));
             hits.AddRange(await ExactCoolersAsync(upper, ct));
         }
@@ -183,6 +190,46 @@ public sealed class UniversalLookupService
         }
 
         return new LookupResultDto(string.Empty, hits, false, hits.Count == 0 ? "No charts opened yet." : "Your recent patients");
+    }
+
+    /// <summary>
+    /// A scanned or typed reagent lot number: opens Reagent QC on that lot, with its results and whether QC is current.
+    /// End-user testing pass 37: the lookup found RhIG lots but not the reagent lot on a vial.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactReagentLotsAsync(string upper, CancellationToken ct)
+    {
+        if (_reagentLots is null)
+        {
+            return [];
+        }
+
+        var lots = await _reagentLots.ListAsync(l => l.LotNumber.ToUpper() == upper, ct);
+        if (lots.Count == 0)
+        {
+            return [];
+        }
+
+        var reagentIds = lots.Select(l => l.ReagentId).Distinct().ToList();
+        var reagents = _reagents is null
+            ? new Dictionary<long, Reagent>()
+            : (await _reagents.ListAsync(r => reagentIds.Contains(r.Id), ct)).ToDictionary(r => r.Id);
+        return lots
+            .Select(l => new LookupHitDto(
+                LookupHitKind.ReagentLot,
+                l.Id,
+                true,
+                l.LotNumber,
+                $"{(reagents.TryGetValue(l.ReagentId, out var reagent) ? $"{reagent.Code} {reagent.Name}" : "Reagent")} lot {l.LotNumber}",
+                $"{Words(l.State.ToString())} · expires {l.ExpiresUtc:yyyy-MM-dd}",
+                $"/reagents?lot={l.Id}"))
+            .ToList();
+    }
+
+    /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>
+    private static string Words(string code)
+    {
+        var parts = System.Text.RegularExpressions.Regex.Split(code, "(?<=[a-z0-9])(?=[A-Z])").Where(x => x.Length > 0).ToList();
+        return string.Join(' ', parts.Select((x, i) => i == 0 ? x : x.ToLowerInvariant()));
     }
 
     /// <summary>A scanned RhIG lot recorded as given: one hit that opens the lot trace (who received it).</summary>
@@ -279,7 +326,7 @@ public sealed class UniversalLookupService
     }
 
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, order, visit, RhIG lot, shipment, or cooler in transit matches \"{query}\".";
+        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, or cooler in transit matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {
@@ -374,7 +421,8 @@ public sealed class UniversalLookupService
                 true,
                 o.OrderNumber,
                 $"{(string.IsNullOrWhiteSpace(o.OrderName) ? "Order" : o.OrderName)} for {PatientLabel(patients.GetValueOrDefault(o.PatientId), o.PatientId)}",
-                $"{o.Priority} · {o.Status}",
+                // In words, not codes (end-user testing pass 37: "EmergencyRelease · InProcess").
+                $"{Words(o.Priority.ToString())} · {Words(o.Status.ToString())}",
                 OrderHref(o.PatientId, o.OrderNumber)))
             .ToList();
     }

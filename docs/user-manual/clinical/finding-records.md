@@ -38,3 +38,5 @@ Use the arrow keys and **Enter**, or click, to open a row. **Esc** closes the li
 The find box only opens records. Opening a patient chart records the access in the audit trail, the same as opening it from **Patients**. The search itself is not audited (REQUIRES REGULATORY / SME VERIFICATION if your facility audits searches).
 
 Partial lists show up to 20 patients and 20 units. Type more to narrow the list.
+
+A **reagent lot** number (scanned or typed from the vial) finds the lot, with its reagent, state and expiry, and opens Reagent QC on that lot: the results tested with it and whether any are still to review. Order hits give the priority and status in words (for example *Emergency release · In process*).
