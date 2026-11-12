@@ -976,5 +976,12 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-965 | U | `DashboardQueueCatalogTests.PanelLotsCard_CountsWhatNeedsAction` | URS-BB-750 / FRS-BB-868 |
 | TEST-BB-966 | I | `AntibodyPanelLotAdminTests.ListSupply_NamesALotExpiringWithoutAReplacement` | URS-BB-750 / FRS-BB-868 |
 | TEST-BB-967 | U | `AntigramImportPageTests.PanelLotsPage_ShowsLotsToReplace` | URS-BB-750 / FRS-BB-868 |
+| TEST-BB-968 | U | `EquipmentCheckRuleTests.Evaluate_DueFromTheLastPass` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-969 | U | `EquipmentCheckRuleTests.Validation_RefusesIncompleteEntries` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-970 | I | `EquipmentServiceTests.Register_Schedule_AndRecord_MakeTheCheckCurrent` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-971 | I | `EquipmentServiceTests.Failure_OutOfService_AndRefusals` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-972 | I | `EquipmentServiceTests.Demo_ShowsEachState` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-973 | U | `EquipmentPageTests.DueCheck_IsRecorded` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-974 | U | `EquipmentPageTests.OutOfService_ShowsWhy_AndWarnsOnReturn` | URS-BB-751 / FRS-BB-869 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

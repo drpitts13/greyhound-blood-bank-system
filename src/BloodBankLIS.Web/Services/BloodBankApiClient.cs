@@ -2056,6 +2056,25 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<StorageTemperatureReadingDto>>> GetOpenTemperatureExcursionsAsync(CancellationToken ct = default) =>
         SendAsync<List<StorageTemperatureReadingDto>>(HttpMethod.Get, "api/storage-temps/excursions", ct: ct);
 
+    // Equipment register (Cycle 708).
+    public Task<ApiResult<List<EquipmentDto>>> GetEquipmentAsync(bool includeInactive = false, CancellationToken ct = default) =>
+        SendAsync<List<EquipmentDto>>(HttpMethod.Get, $"api/equipment?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<List<EquipmentCheckDueDto>>> GetEquipmentDueAsync(CancellationToken ct = default) =>
+        SendAsync<List<EquipmentCheckDueDto>>(HttpMethod.Get, "api/equipment/due", ct: ct);
+
+    public Task<ApiResult<EquipmentDto>> CreateEquipmentAsync(SaveEquipmentRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, "api/equipment", request, ct);
+
+    public Task<ApiResult<EquipmentDto>> AddEquipmentCheckAsync(long equipmentId, SaveEquipmentCheckRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/{equipmentId}/checks", request, ct);
+
+    public Task<ApiResult<EquipmentCheckRecordDto>> RecordEquipmentCheckAsync(long checkId, RecordEquipmentCheckRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentCheckRecordDto>(HttpMethod.Post, $"api/equipment/checks/{checkId}/records", request, ct);
+
+    public Task<ApiResult<EquipmentDto>> SetEquipmentInServiceAsync(long equipmentId, bool inService, string? reason, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/{equipmentId}/service", new { InService = inService, Reason = reason }, ct);
+
     public Task<ApiResult<List<ReagentDto>>> GetReagentsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentDto>>(HttpMethod.Get, "api/reagents", ct: ct);
 

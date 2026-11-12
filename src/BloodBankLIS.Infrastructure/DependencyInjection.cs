@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<ProductRetypeService>();
         services.AddScoped<BloodProductModificationService>();
         services.AddScoped<ReagentQcService>();
+        services.AddScoped<EquipmentService>();
         services.AddScoped<StorageTemperatureService>();
         services.AddScoped<MinimumStockService>();
         services.AddScoped<UtilizationService>();

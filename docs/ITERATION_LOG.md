@@ -21915,3 +21915,36 @@ Reagent lots warn before they expire (Reagent QC card, 7-day window). Antibody p
 ### Next
 
 - Back to the capability matrix.
+
+## Iteration 708 — Equipment register and scheduled checks (2026-11-11)
+
+### Capability matrix rescan (operations: equipment)
+
+Reagent lots, storage temperatures, and panel lots each have their checks, but bench equipment had none: no register of centrifuges, cell washers, heat blocks or irradiators, no record of their QC, calibration or maintenance, no list of what was due, and no way to mark one out of service. A modification recorded its device as free text.
+
+### Design
+
+- **Register:** `Equipment` (code as asset tag, unique, upper case; name, kind, location, serial), deactivated rather than deleted, and taken out of service with a reason (when, by whom), returned with a reason.
+- **Checks:** `EquipmentCheck` per equipment: a name, an interval in days and the SOP instructions. The interval is the facility's; none is built in (the demo's are labelled examples).
+- **Records:** `EquipmentCheckRecord`: performer (signed-in user), time, passed or failed, note; a failure needs a note.
+- **Due:** `EquipmentCheckRule.Evaluate`: due its interval after the last pass, by date (a daily check done late yesterday is due today); never done is due now; a failed latest record stays Failed until a pass. Out-of-service equipment's checks are not listed.
+- **Permissions:** recording and service changes are bench work (result.enter); registering equipment and scheduling checks is configuration (admin.config.edit). Every change is audited.
+- **Page:** `/equipment` (Patients & Testing, beside Reagent QC): checks to do with Record; the register with each check's status and last record; out of service and back, warning on return while a check's latest record failed.
+
+### Verification
+
+- Unit: due states by date, never done, failed; each validation.
+- Integration: register, schedule, record, due list and next day; duplicate code; failure needs a note and stays failed; out of service off the due list, records after repair, return; check refusals and retirement; the demo's three states.
+- Rendered: record a due check; out-of-service details and the return warning.
+
+### Requirements
+
+- URS-BB-751, FRS-BB-869.
+
+### Tests
+
+- TEST-BB-968 to TEST-BB-974.
+
+### Next
+
+- Iteration 709: a home card and shift handoff count for equipment checks to do, and refusing a modification whose device is registered equipment out of service.

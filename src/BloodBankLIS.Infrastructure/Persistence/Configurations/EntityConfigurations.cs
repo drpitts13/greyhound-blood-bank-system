@@ -2042,6 +2042,54 @@ public sealed class SpecimenStorageEventConfiguration : IEntityTypeConfiguration
     }
 }
 
+public sealed class EquipmentConfiguration : IEntityTypeConfiguration<Equipment>
+{
+    public void Configure(EntityTypeBuilder<Equipment> b)
+    {
+        b.ToTable("Equipment");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Kind).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Location).HasMaxLength(200);
+        b.Property(x => x.SerialNumber).HasMaxLength(100);
+        b.Property(x => x.OutOfServiceReason).HasMaxLength(500);
+        b.Property(x => x.OutOfServiceBy).HasMaxLength(100);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Code).IsUnique();
+    }
+}
+
+public sealed class EquipmentCheckConfiguration : IEntityTypeConfiguration<EquipmentCheck>
+{
+    public void Configure(EntityTypeBuilder<EquipmentCheck> b)
+    {
+        b.ToTable("EquipmentChecks");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Instructions).HasMaxLength(1000);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.EquipmentId);
+    }
+}
+
+public sealed class EquipmentCheckRecordConfiguration : IEntityTypeConfiguration<EquipmentCheckRecord>
+{
+    public void Configure(EntityTypeBuilder<EquipmentCheckRecord> b)
+    {
+        b.ToTable("EquipmentCheckRecords");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.PerformedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Note).HasMaxLength(1000);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.EquipmentId);
+        b.HasIndex(x => x.EquipmentCheckId);
+    }
+}
+
 public sealed class RhigEvaluationConfiguration : IEntityTypeConfiguration<RhigEvaluation>
 {
     public void Configure(EntityTypeBuilder<RhigEvaluation> b)

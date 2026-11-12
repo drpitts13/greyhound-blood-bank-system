@@ -362,6 +362,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsurePatientDuplicateDismissalsTableAsync(context, cancellationToken);
         await EnsureRhigEvaluationsTableAsync(context, cancellationToken);
         await EnsureSpecimenStorageEventsTableAsync(context, cancellationToken);
+        await EnsureEquipmentTablesAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -1381,6 +1382,69 @@ public static class DevelopmentSqliteBootstrap
         {
             await context.Database.ExecuteSqlRawAsync(Migrations.InstrumentValueTranslations.CopyTestMappingsSql, ct);
         }
+    }
+
+    // The equipment register (Cycle 708).
+    private static async Task EnsureEquipmentTablesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "Equipment", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "Equipment" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_Equipment" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "Kind" TEXT NOT NULL,
+                "Location" TEXT NULL,
+                "SerialNumber" TEXT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "OutOfServiceUtc" TEXT NULL,
+                "OutOfServiceReason" TEXT NULL,
+                "OutOfServiceBy" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE UNIQUE INDEX "IX_Equipment_Code" ON "Equipment" ("Code");
+            CREATE TABLE "EquipmentChecks" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_EquipmentChecks" PRIMARY KEY AUTOINCREMENT,
+                "EquipmentId" INTEGER NOT NULL,
+                "Name" TEXT NOT NULL,
+                "IntervalDays" INTEGER NOT NULL,
+                "Instructions" TEXT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_EquipmentChecks_EquipmentId" ON "EquipmentChecks" ("EquipmentId");
+            CREATE TABLE "EquipmentCheckRecords" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_EquipmentCheckRecords" PRIMARY KEY AUTOINCREMENT,
+                "EquipmentCheckId" INTEGER NOT NULL,
+                "EquipmentId" INTEGER NOT NULL,
+                "PerformedUtc" TEXT NOT NULL,
+                "PerformedBy" TEXT NOT NULL,
+                "Passed" INTEGER NOT NULL,
+                "Note" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_EquipmentCheckRecords_EquipmentId" ON "EquipmentCheckRecords" ("EquipmentId");
+            CREATE INDEX "IX_EquipmentCheckRecords_EquipmentCheckId" ON "EquipmentCheckRecords" ("EquipmentCheckId");
+            """, ct);
     }
 
     private static async Task EnsureSpecimenStorageEventsTableAsync(BloodBankDbContext context, CancellationToken ct)

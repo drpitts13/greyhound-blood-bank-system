@@ -81,6 +81,9 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<PatientMerge> PatientMerges => Set<PatientMerge>();
     public DbSet<PatientDuplicateDismissal> PatientDuplicateDismissals => Set<PatientDuplicateDismissal>();
     public DbSet<RhigEvaluation> RhigEvaluations => Set<RhigEvaluation>();
+    public DbSet<Equipment> Equipment => Set<Equipment>();
+    public DbSet<EquipmentCheck> EquipmentChecks => Set<EquipmentCheck>();
+    public DbSet<EquipmentCheckRecord> EquipmentCheckRecords => Set<EquipmentCheckRecord>();
     public DbSet<SpecimenStorageEvent> SpecimenStorageEvents => Set<SpecimenStorageEvent>();
     public DbSet<PatientMergeMove> PatientMergeMoves => Set<PatientMergeMove>();
     public DbSet<LookbackNotification> LookbackNotifications => Set<LookbackNotification>();

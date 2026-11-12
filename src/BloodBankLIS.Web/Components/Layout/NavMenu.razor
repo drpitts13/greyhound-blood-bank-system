@@ -14,6 +14,7 @@
         {
             <NavLink href="test-worklist" ActiveClass="active">Test Worklist</NavLink>
             <NavLink href="reagents" ActiveClass="active">Reagent QC</NavLink>
+            <NavLink href="equipment" ActiveClass="active">Equipment</NavLink>
         }
         @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
         {
@@ -239,7 +240,7 @@
 </nav>
 
 @code {
-    private static readonly string[] PatientPaths = ["patients", "test-worklist", "reagents", "antibody-id", "rhig", "specimens"];
+    private static readonly string[] PatientPaths = ["patients", "test-worklist", "reagents", "equipment", "antibody-id", "rhig", "specimens"];
 
     private static readonly string[] InventorySectionPaths = ["inventory", "storage-temps"];
 
