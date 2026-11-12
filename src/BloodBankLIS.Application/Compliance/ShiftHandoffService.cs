@@ -67,7 +67,10 @@ public sealed record ShiftHandoffDto(
     int OutagesOpen = 0,
     int DispositionOverdue = 0,
     int OutsideAntibodiesToConfirm = 0,
-    int RecalledToPull = 0)
+    int RecalledToPull = 0,
+    int EquipmentChecksToDo = 0,
+    int EquipmentChecksFailedOrOverdue = 0,
+    int EquipmentOutOfService = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -103,6 +106,10 @@ public sealed record ShiftHandoffDto(
             : "") +
         (RecalledToPull > 0 ? $"; RECALLED NOT YET PULLED {RecalledToPull}" : "") +
         (ExpiredOnShelf > 0 ? $"; EXPIRED ON SHELF {ExpiredOnShelf}, to discard" : "") +
+        (EquipmentChecksToDo > 0
+            ? $"; equipment checks {EquipmentChecksToDo}" + (EquipmentChecksFailedOrOverdue > 0 ? $", {EquipmentChecksFailedOrOverdue} failed or overdue" : "")
+            : "") +
+        (EquipmentOutOfService > 0 ? $"; equipment out of service {EquipmentOutOfService}" : "") +
         (ProductsBelowMinimum > 0 ? $"; BELOW MINIMUM STOCK {ProductsBelowMinimum} {(ProductsBelowMinimum == 1 ? "product" : "products")}" : "") +
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "") +
         (InstrumentFailuresOpen > 0
@@ -138,7 +145,8 @@ public sealed record ShiftHandoffDto(
         h.Hl7ErrorsOpen, h.UnmappedInterfaceValues, h.RhigOpen, h.RhigToGive, h.UnidentifiedPatients, h.TubesDueForDiscard,
         h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
         h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen,
-        h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull);
+        h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull,
+        h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService);
 }
 
 /// <summary>
@@ -180,6 +188,7 @@ public sealed class ShiftHandoffService
     private readonly BloodBankLIS.Application.Specimens.SpecimenStorageService? _tubeStorage;
     private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
     private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
+    private readonly BloodBankLIS.Application.Inventory.EquipmentService? _equipment;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -212,8 +221,10 @@ public sealed class ShiftHandoffService
         IRepository<Hl7MessageLog>? hl7Messages = null,
         IRepository<DowntimeEpisode>? outages = null,
         BloodBankLIS.Application.Issuing.FinalDispositionBoardService? dispositions = null,
-        IRepository<AntibodyHistory>? antibodyHistory = null)
+        IRepository<AntibodyHistory>? antibodyHistory = null,
+        BloodBankLIS.Application.Inventory.EquipmentService? equipment = null)
     {
+        _equipment = equipment;
         _dispositions = dispositions;
         _antibodyHistory = antibodyHistory;
         _hl7Messages = hl7Messages;
@@ -381,6 +392,9 @@ public sealed class ShiftHandoffService
         var rhigOpen = _rhig is null
             ? []
             : (await _rhig.ListAsync(e => e.CompletedUtc == null || (e.Decision == RhigDecision.Candidate && e.GivenUtc == null), ct)).ToList();
+        // Equipment checks due and equipment out of service (Cycle 710), as the Equipment page lists them.
+        var equipment = _equipment is null ? [] : await _equipment.ListAsync(includeInactive: false, ct);
+        var equipmentDue = _equipment is null ? [] : await _equipment.ListDueAsync(ct);
         // A workup half done at shift change: the next shift reads the panel, interprets, or reviews it.
         var antibodyWorkups = _antibodyWorkups is null
             ? []
@@ -442,7 +456,11 @@ public sealed class ShiftHandoffService
             ActiveMtpIdle = await CountIdleMtpAsync(now, ct),
             ReactionsWithUnitsOut = ReactionsWithUnitsOut(outstanding, ready),
             AntibodyWorkupsOpen = antibodyWorkups.Count,
-            AntibodyWorkupsToReview = antibodyWorkups.Count(w => w.InterpretedUtc != null && w.ReviewedUtc == null)
+            AntibodyWorkupsToReview = antibodyWorkups.Count(w => w.InterpretedUtc != null && w.ReviewedUtc == null),
+            EquipmentChecksToDo = equipmentDue.Count,
+            EquipmentChecksFailedOrOverdue = equipmentDue.Count(d =>
+                d.State is nameof(EquipmentCheckRule.State.Failed) or nameof(EquipmentCheckRule.State.Overdue)),
+            EquipmentOutOfService = equipment.Count(e => e.IsActive && e.OutOfServiceUtc is not null)
         };
     }
 
@@ -532,7 +550,10 @@ public sealed class ShiftHandoffService
         OutagesOpen = row.OutagesOpen,
         DispositionOverdue = row.DispositionOverdue,
         OutsideAntibodiesToConfirm = row.OutsideAntibodiesToConfirm,
-        RecalledToPull = row.RecalledToPull
+        RecalledToPull = row.RecalledToPull,
+        EquipmentChecksToDo = row.EquipmentChecksToDo,
+        EquipmentChecksFailedOrOverdue = row.EquipmentChecksFailedOrOverdue,
+        EquipmentOutOfService = row.EquipmentOutOfService
     };
 
     /// <summary>

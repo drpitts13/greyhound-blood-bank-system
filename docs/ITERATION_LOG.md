@@ -21977,3 +21977,31 @@ After Cycle 708 the checks due were only on the Equipment page, and an irradiato
 ### Next
 
 - Back to the capability matrix (the shift handoff count for equipment is a candidate).
+
+## Iteration 710 — Equipment in the shift handoff (2026-11-11)
+
+### Capability matrix rescan (operations: equipment)
+
+The equipment register (Cycles 708–709) had a home card but the shift handoff, which records what the next shift picks up, did not mention equipment: a failed heat block or a check left undone was not handed over.
+
+### Design
+
+- `ShiftHandoff` records `EquipmentChecksToDo` (as the Equipment page lists them), `EquipmentChecksFailedOrOverdue`, and `EquipmentOutOfService`.
+- The handoff list shows **Equipment checks to do** (detail: failed or overdue) and **Equipment out of service** (detail: do not use), both opening Equipment; the summary line says the same.
+
+### Verification
+
+- Unit: items, details and summary; nothing listed when zero.
+- Integration: a handoff's counts equal the Equipment page's at that moment, a failed check counted, equipment out of service counted and its checks not due.
+
+### Requirements
+
+- URS-BB-753, FRS-BB-871.
+
+### Tests
+
+- TEST-BB-978, TEST-BB-979.
+
+### Next
+
+- Back to the capability matrix. The equipment row is now Present.

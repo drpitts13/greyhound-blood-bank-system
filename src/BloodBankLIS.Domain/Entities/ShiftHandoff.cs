@@ -148,6 +148,15 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Recalled units still recorded as Recalled, not yet quarantined or discarded (Cycle 689).</summary>
     public int RecalledToPull { get; set; }
 
+    /// <summary>Equipment checks to do on equipment in service: failed, overdue, due today or never done (Cycle 710).</summary>
+    public int EquipmentChecksToDo { get; set; }
+
+    /// <summary>Of those, the checks failed or overdue (Cycle 710).</summary>
+    public int EquipmentChecksFailedOrOverdue { get; set; }
+
+    /// <summary>Equipment out of service, so the next shift does not use it (Cycle 710).</summary>
+    public int EquipmentOutOfService { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

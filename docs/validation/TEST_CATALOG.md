@@ -986,5 +986,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-975 | U | `EquipmentCheckRuleTests.ModificationDevice_MustBeInService` | URS-BB-752 / FRS-BB-870 |
 | TEST-BB-976 | I | `BloodProductModificationServiceTests.Modification_OnRegisteredEquipmentOutOfService_IsRefused` | URS-BB-752 / FRS-BB-870 |
 | TEST-BB-977 | U | `DashboardQueueCatalogTests.EquipmentChecksCard_NamesFailedAndOverdue` | URS-BB-752 / FRS-BB-870 |
+| TEST-BB-978 | U | `ShiftHandoffItemsTests.Equipment_IsHandedOver` | URS-BB-753 / FRS-BB-871 |
+| TEST-BB-979 | I | `ShiftHandoffServiceTests.Handoff_CountsEquipment` | URS-BB-753 / FRS-BB-871 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

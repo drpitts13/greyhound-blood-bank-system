@@ -638,4 +638,39 @@ public class ShiftHandoffServiceTests : IClassFixture<SqliteContextFactory>
         var audit = await context.AuditEvents.Where(e => e.EntityType == nameof(ShiftHandoff) && e.EntityId == created.Value.Id).ToListAsync();
         Assert.Contains(audit, e => e.NewValueJson != null && e.NewValueJson.Contains("ProductsBelowMinimum", StringComparison.OrdinalIgnoreCase));
     }
+
+    // TEST-BB-979: a handoff records the equipment checks due (failed or overdue counted apart) and the equipment out
+    // of service, as the Equipment page lists them; checks on equipment out of service are not counted as due.
+    [Fact]
+    public async Task Handoff_CountsEquipment()
+    {
+        await using var context = _factory.Create();
+        var equipment = new EquipmentService(new EfRepository<Equipment>(context), new EfRepository<EquipmentCheck>(context),
+            new EfRepository<EquipmentCheckRecord>(context), context, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser));
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var washer = await equipment.CreateAsync(new SaveEquipmentRequest($"HO-CW-{key}", "Cell washer", "Cell washer", null, null));
+        var washerCheck = await equipment.AddCheckAsync(washer.Value!.Id, new SaveEquipmentCheckRequest("Daily check", 1, null));
+        Assert.True((await equipment.RecordAsync(washerCheck.Value!.Checks.Single().CheckId, new RecordEquipmentCheckRequest(false, "Low saline"))).Succeeded);
+        var block = await equipment.CreateAsync(new SaveEquipmentRequest($"HO-HB-{key}", "Heat block", "Heat block", null, null));
+        await equipment.AddCheckAsync(block.Value!.Id, new SaveEquipmentCheckRequest("Temperature", 1, null));
+        Assert.True((await equipment.SetInServiceAsync(block.Value.Id, false, "Broken")).Succeeded);
+
+        var due = await equipment.ListDueAsync();
+        var all = await equipment.ListAsync();
+        var service = new ShiftHandoffService(
+            new EfRepository<ShiftHandoff>(context), context, _factory.Clock, _factory.CurrentUser,
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ShiftHandoff),
+            equipment: equipment);
+        var created = await service.CreateAsync(new CreateShiftHandoffRequest($"Equipment {key}"));
+        Assert.True(created.Succeeded, created.Error);
+
+        Assert.Equal(due.Count, created.Value!.EquipmentChecksToDo);
+        Assert.Equal(due.Count(d => d.State is "Failed" or "Overdue"), created.Value.EquipmentChecksFailedOrOverdue);
+        Assert.Equal(all.Count(e => e.OutOfServiceUtc is not null), created.Value.EquipmentOutOfService);
+        Assert.Contains(due, d => d.EquipmentCode == $"HO-CW-{key}" && d.State == "Failed");
+        Assert.DoesNotContain(due, d => d.EquipmentCode == $"HO-HB-{key}");
+        Assert.True(created.Value.EquipmentOutOfService >= 1 && created.Value.EquipmentChecksFailedOrOverdue >= 1);
+    }
 }

@@ -52,6 +52,9 @@ public static class ShiftHandoffItems
         // Cycle 689: a recalled unit still in the building (or on the ward) has to be found before the next shift issues around it.
         Add(h.RecalledToPull, "Recalled, not yet pulled", "/inventory?board=recalled", urgent: true, detail: "quarantine or discard");
         Add(h.ExpiredOnShelf, "Expired on shelf", "/inventory/discard-expired", urgent: true, detail: "to discard");
+        // Cycle 710: equipment checks the next shift has to do, and equipment it must not use.
+        Add(h.EquipmentChecksToDo, "Equipment checks to do", "/equipment", detail: Note((h.EquipmentChecksFailedOrOverdue, "failed or overdue")));
+        Add(h.EquipmentOutOfService, "Equipment out of service", "/equipment", detail: "do not use");
         Add(h.NearExpiryUnits, "Near expiry", "/inventory?board=near", detail: Note((h.NearExpiryReserved, "reserved")));
         Add(h.ProductsBelowMinimum, "Below minimum stock", "/inventory/minimum-stock");
         Add(h.OpenDeviations, "Open deviations", "/deviations");

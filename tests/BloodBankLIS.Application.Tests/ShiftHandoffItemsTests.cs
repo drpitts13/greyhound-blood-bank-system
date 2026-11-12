@@ -188,4 +188,19 @@ public class ShiftHandoffItemsTests
         Assert.Equal(1, ShiftHandoffService.ReactionsWithUnitsOut([Out(3), Out(3)], [Ready(3)]));
         Assert.Equal(2, ShiftHandoffService.ReactionsWithUnitsOut([Out(3)], [Ready(4), Ready(null)]));
     }
+
+    // TEST-BB-978: the handoff lists equipment checks to do (naming the failed or overdue) and equipment out of
+    // service, each opening Equipment, and says so in the summary line.
+    [Fact]
+    public void Equipment_IsHandedOver()
+    {
+        var h = Handoff() with { EquipmentChecksToDo = 3, EquipmentChecksFailedOrOverdue = 1, EquipmentOutOfService = 1 };
+        var items = ShiftHandoffItems.For(h);
+        var checks = Assert.Single(items, i => i.Label == "Equipment checks to do");
+        Assert.Equal((3, "/equipment", "1 failed or overdue"), (checks.Count, checks.Href, checks.Detail));
+        var outOfService = Assert.Single(items, i => i.Label == "Equipment out of service");
+        Assert.Equal((1, "do not use"), (outOfService.Count, outOfService.Detail));
+        Assert.Contains("equipment checks 3, 1 failed or overdue; equipment out of service 1", h.QueueSummary);
+        Assert.Empty(ShiftHandoffItems.For(Handoff()));
+    }
 }

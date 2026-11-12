@@ -22,7 +22,7 @@ A check is due again its interval after it last **passed**, counted in days: a d
 
 ## On the home screen and in modifications
 
-The **Equipment checks to do** home card (Bench and Supervisor desks) counts the checks on this list and names any failed or overdue; it opens this page.
+The **Equipment checks to do** home card (Bench and Supervisor desks) counts the checks on this list and names any failed or overdue; it opens this page. The shift handoff records the same count, with the failed or overdue among them, and the equipment out of service (*do not use*).
 
 On **Modify Products**, the device field offers the registered equipment in service. A modification whose device is registered equipment out of service, or retired from the register, is refused and says since when and why; use other equipment, or return it to service here once it may be used. A device that is not in the register is recorded as typed.
 
