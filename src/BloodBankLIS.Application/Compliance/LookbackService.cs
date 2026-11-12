@@ -12,7 +12,12 @@ public sealed record LookbackUnitDto(
     string? Din,
     string UnitNumber,
     UnitStatus Status,
-    bool IsDerivedComponent);
+    bool IsDerivedComponent)
+{
+    /// <summary>What the component is and where it is now, to find and pull it in a recall (end-user testing pass 20).</summary>
+    public string? ProductName { get; init; }
+    public string? LocationName { get; init; }
+}
 
 public sealed record LookbackRecipientDto(
     long BloodProductId,
@@ -125,6 +130,7 @@ public sealed class LookbackService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<ProductType>? _productTypes;
 
     public LookbackService(
         IInventoryRepository inventory,
@@ -140,8 +146,10 @@ public sealed class LookbackService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<ProductType>? productTypes = null)
     {
+        _productTypes = productTypes;
         _inventory = inventory;
         _units = units;
         _modificationUnits = modificationUnits;
@@ -189,12 +197,22 @@ public sealed class LookbackService
         }
 
         var notes = await _notifications.ListAsync(n => n.Din == normalized, ct);
+        var productNames = _productTypes is null
+            ? new Dictionary<long, string>()
+            : (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id, p => p.Name);
+        var locationNames = _locations is null
+            ? new Dictionary<long, string>()
+            : (await _locations.ListAsync(ct)).ToDictionary(l => l.Id, l => $"{l.Code} {l.Name}".Trim());
         _audit.Record(AuditEventType.Lookback, nameof(BloodUnit), units.FirstOrDefault()?.Id, newValue: new { Din = normalized, UnitCount = units.Count }, reason: "Lookback search");
         await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<LookbackReportDto>.Ok(new LookbackReportDto(
             normalized,
-            units.Select(u => new LookbackUnitDto(u.Id, u.Din, u.UnitNumber, u.Status, u.Din != normalized)).ToList(),
+            units.Select(u => new LookbackUnitDto(u.Id, u.Din, u.UnitNumber, u.Status, u.Din != normalized)
+            {
+                ProductName = productNames.GetValueOrDefault(u.ProductTypeId),
+                LocationName = u.CurrentLocationId is long l ? locationNames.GetValueOrDefault(l) : null
+            }).ToList(),
             recipients,
             await ToNotificationDtosAsync(notes, ct)));
     }

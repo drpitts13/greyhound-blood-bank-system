@@ -22643,3 +22643,25 @@ On the running system with seeded data: Reactions → investigation #2 for Riley
 ### Next
 
 - Pass 20: lookback and recall, and the remaining gaps.
+
+## Iteration 736 — End-user testing pass 20: lookback (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Lookback → the open notification for Patricia Demo (DIN W123426000001) → DIN lookback for W123425000010 (a donation divided into three components).
+
+### Found and fixed
+
+1. **Components could not be found from the lookback.** The DIN lookback listed each component as "unit number (#internal id)" with its status, but not what it is or where it is, so pulling a recalled donation's components meant opening each unit. It now shows the product and current location, and no internal id (also on the recipient traceback). Retested live: all three components, Red Blood Cells, Leukoreduced, in FRIDGE-1.
+
+### Observed working
+
+- The notifications still due list (pending notification for the recipient of a recalled unit, with its physician); recall by DIN and recipient traceback are available.
+
+### Tests
+
+- TEST-BB-1028. Full suite passed.
+
+### Next
+
+- Pass 21: remaining gaps.

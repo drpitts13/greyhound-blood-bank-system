@@ -1036,5 +1036,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1025 | I | `SeederTests.Seed_ProductsCarryTheAttributesTheirNamesState` | URS-BB-786 / FRS-BB-904 |
 | TEST-BB-1026 | I | `CrossmatchSettingsTests.Crossmatch_ForAReservationWithoutAnOrder_JoinsTheOpenOrderOrSaysWhatToDo` | URS-BB-787 / FRS-BB-905 |
 | TEST-BB-1027 | I | `ReactionInvestigationServiceTests.CultureSupplierAndSameDonationUnits_AreRecordedAndListed` | URS-BB-789 / FRS-BB-907 |
+| TEST-BB-1028 | I | `ComplianceWorkflowTests.FindByDin_NamesProductAndLocation` | URS-BB-790 / FRS-BB-908 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

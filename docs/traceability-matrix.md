@@ -901,6 +901,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-787 / FRS-BB-905 | End-user testing pass 17: crossmatch for an orderless reservation | `CrossmatchAttachmentService.cs`, `Compatibility.razor` | TEST-BB-1026 | I | |
 | URS-BB-788 / FRS-BB-906 | End-user testing pass 18: units per product, Mixed blood orders | `PatientChartOrdersTab.razor`, `PatientDetail.razor`, `CrossmatchAttachmentService.cs` | TEST-BB-1026 | I, Inspection | |
 | URS-BB-789 / FRS-BB-907 | End-user testing pass 19: culture, supplier, same-donation units | `ReactionInvestigation.cs`, `ReactionInvestigationService.cs`, `Reactions.razor`, migration | TEST-BB-1027 | I | |
+| URS-BB-790 / FRS-BB-908 | End-user testing pass 20: lookback components | `LookbackService.cs`, `Lookback.razor` | TEST-BB-1028 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

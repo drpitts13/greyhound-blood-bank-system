@@ -31,3 +31,7 @@ Record each notification you make: who was called, when, and the outcome. The re
 You need lookback permission. Other staff can see the clinical chart but cannot open this desk.
 
 > Facility policy. How fast you notify, and which events require a lookback, are your procedure and the supplier's instruction. The screen stores what you did. It does not decide that a notification was required.
+
+## Finding the components
+
+**Components for** a DIN lists each component with its product, status and current location, so each can be found and pulled when it is recalled.

@@ -41,7 +41,33 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
             inventory,
             c, _factory.Clock, _factory.CurrentUser, audit,
             permissions,
-            withLocations ? new EfRepository<InventoryLocation>(c) : null);
+            withLocations ? new EfRepository<InventoryLocation>(c) : null,
+            withLocations ? new EfRepository<ProductType>(c) : null);
+    }
+
+    // TEST-BB-1028: a DIN lookback names each component's product and where it is now, to pull it in a recall
+    // (end-user testing pass 20).
+    [Fact]
+    public async Task FindByDin_NamesProductAndLocation()
+    {
+        await using var c = _factory.Create();
+        var din = $"W{Guid.NewGuid():N}"[..13].ToUpperInvariant();
+        var product = new ProductType { ProductCode = $"RBC-{din[..6]}", Name = "Lookback red cells", ComponentClass = ComponentClass.RedBloodCells };
+        var fridge = new InventoryLocation { Code = $"LB-{din[..6]}", Name = "Lookback fridge", LocationType = LocationType.Refrigerator };
+        c.ProductTypes.Add(product);
+        c.InventoryLocations.Add(fridge);
+        await c.SaveChangesAsync();
+        c.BloodUnits.Add(new BloodUnit
+        {
+            UnitNumber = $"{din}|E0336V00", Din = din, ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Available, CurrentLocationId = fridge.Id
+        });
+        await c.SaveChangesAsync();
+
+        var found = await Lookback(c, withLocations: true).FindByDinAsync(din);
+        Assert.True(found.Succeeded, found.Error);
+        var unit = Assert.Single(found.Value!.Units);
+        Assert.Equal(("Lookback red cells", $"LB-{din[..6]} Lookback fridge"), (unit.ProductName, unit.LocationName));
     }
 
     [Fact]
