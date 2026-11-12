@@ -18,7 +18,15 @@ public sealed record StorageTemperatureReadingDto(
     decimal? RangeMaxC,
     StorageTemperatureStatus Status,
     long? DeviationId,
-    string? Comment);
+    string? Comment)
+{
+    /// <summary>
+    /// For an excursion: minutes after which, without an in-range reading, the location's units are quarantined
+    /// automatically (OCD-036); null when that is off or the reading is in range (end-user testing pass 24: the user was
+    /// not told, and 30 units were quarantined).
+    /// </summary>
+    public int? QuarantineAfterMinutes { get; init; }
+}
 
 public sealed record StorageLocationTemperatureDto(
     long LocationId,
@@ -207,7 +215,13 @@ public sealed class StorageTemperatureService
         }
 
         await EnforceLocationAsync(location, ct);
-        return OperationResult<StorageTemperatureReadingDto>.Ok(ToDto(reading, location.Code));
+        var quarantineAfter = StorageTemperatureRule.IsExcursion(status) && _policy is not null
+            ? await _policy.GetExcursionQuarantineMinutesAsync(ct)
+            : 0;
+        return OperationResult<StorageTemperatureReadingDto>.Ok(ToDto(reading, location.Code) with
+        {
+            QuarantineAfterMinutes = quarantineAfter > 0 ? quarantineAfter : null
+        });
     }
 
     /// <summary>

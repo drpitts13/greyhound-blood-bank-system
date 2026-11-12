@@ -27,6 +27,12 @@ public sealed record DeviationDto(
     string? ClosedBy = null,
     DateTime? ClosedUtc = null)
 {
+    /// <summary>
+    /// The related record as a person reads it (unit number, patient and MRN, accession, location and reading), so the
+    /// list never shows an internal id (end-user testing pass 24: "Blood unit #1"). Null when it cannot be named.
+    /// </summary>
+    public string? ContextName { get; init; }
+
     public static DeviationDto From(Deviation d) => new(
         d.Id, d.Title, d.Description, d.Severity, d.Status, d.ContextType, d.ContextId,
         d.CorrectiveAction, d.ReportedBy, d.ReportedUtc, d.ClosedBy, d.ClosedUtc);
@@ -40,6 +46,11 @@ public sealed class DeviationService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<Patient>? _patients;
+    private readonly IRepository<Specimen>? _specimens;
+    private readonly IRepository<StorageTemperatureReading>? _readings;
+    private readonly IRepository<InventoryLocation>? _locations;
 
     public DeviationService(
         IRepository<Deviation> deviations,
@@ -47,8 +58,18 @@ public sealed class DeviationService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<BloodUnit>? units = null,
+        IRepository<Patient>? patients = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<StorageTemperatureReading>? readings = null,
+        IRepository<InventoryLocation>? locations = null)
     {
+        _units = units;
+        _patients = patients;
+        _specimens = specimens;
+        _readings = readings;
+        _locations = locations;
         _deviations = deviations;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -59,6 +80,50 @@ public sealed class DeviationService
 
     public Task<IReadOnlyList<Deviation>> ListAsync(CancellationToken ct = default) =>
         _deviations.ListAsync(ct);
+
+    /// <summary>The list (all, or one record's) with each related record named.</summary>
+    public async Task<IReadOnlyList<DeviationDto>> ListDtosAsync(string? contextType = null, long? contextId = null, CancellationToken ct = default)
+    {
+        var rows = !string.IsNullOrWhiteSpace(contextType) && contextId is long id
+            ? await ListForRecordAsync(contextType.Trim(), id, ct)
+            : await ListAsync(ct);
+        var result = new List<DeviationDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            result.Add(DeviationDto.From(row) with { ContextName = await NameAsync(row.ContextType, row.ContextId, ct) });
+        }
+
+        return result;
+    }
+
+    private async Task<string?> NameAsync(string? type, long? id, CancellationToken ct)
+    {
+        if (id is not long key || string.IsNullOrWhiteSpace(type))
+        {
+            return null;
+        }
+
+        switch (type)
+        {
+            case "BloodUnit" or "Unit" when _units is not null:
+                return (await _units.GetByIdAsync(key, ct))?.UnitNumber;
+            case "Patient" when _patients is not null:
+                return await _patients.GetByIdAsync(key, ct) is { } p ? $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})" : null;
+            case "Specimen" when _specimens is not null:
+                return (await _specimens.GetByIdAsync(key, ct))?.AccessionNumber;
+            case "StorageTemperatureReading" when _readings is not null:
+                var reading = await _readings.GetByIdAsync(key, ct);
+                if (reading is null)
+                {
+                    return null;
+                }
+
+                var location = _locations is null ? null : await _locations.GetByIdAsync(reading.InventoryLocationId, ct);
+                return $"{location?.Code ?? "location " + reading.InventoryLocationId} {reading.ReadingC.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} °C";
+            default:
+                return null;
+        }
+    }
 
     /// <summary>
     /// Deviations linked to one record (a unit, a patient), for that record's page. "Unit" and "Hl7Message" are older

@@ -799,3 +799,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-791 | The shift handoff hands over units a ward has asked to be sent, as urgent. | P2 | FRS-BB-909 |
 | URS-BB-792 | The RhIG queue shows when each open candidate's RhIG is to be given by, from a facility window, and marks one past it. | P1 | FRS-BB-910 |
 | URS-BB-793 | After a storage temperature excursion the units stored at the location can be listed from the excursion; inventory can be searched by location. | P1 | FRS-BB-911 |
+| URS-BB-794 | Deviations name their related record (unit number, patient, accession, location and reading), not an internal id. | P3 | FRS-BB-912 |
+| URS-BB-795 | A storage excursion warns when the units stored there will be quarantined automatically. | P1 | FRS-BB-913 |

@@ -40,11 +40,24 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(StorageTemperatureStatus.InRange, result.Value!.Status);
         Assert.Null(result.Value.DeviationId);
+        Assert.Null(result.Value.QuarantineAfterMinutes);
         var stored = await c.StorageTemperatureReadings.SingleAsync(r => r.Id == result.Value.Id);
         Assert.Equal(4.2m, stored.ReadingC);
         Assert.Equal("tech-test", stored.RecordedBy);
         Assert.Equal(_factory.Clock.UtcNow, stored.ReadingUtc);
         Assert.False(await c.Deviations.AnyAsync(d => d.ContextId == stored.Id && d.ContextType == StorageTemperatureService.DeviationContextType));
+    }
+
+    // TEST-BB-1032: an excursion says how long until the location's units are quarantined automatically (OCD-036; the
+    // facility default is 30 minutes), so the user is warned (end-user testing pass 24).
+    [Fact]
+    public async Task Excursion_SaysWhenUnitsWillBeQuarantined()
+    {
+        await using var c = _factory.Create();
+        var location = await AddLocationAsync(c, $"TMP-Q-{Guid.NewGuid():N}"[..14], 1m, 6m);
+        var result = await Service(c).RecordAsync(new RecordStorageTemperatureRequest(location.Id, 9m));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(30, result.Value!.QuarantineAfterMinutes);
     }
 
     [Fact]

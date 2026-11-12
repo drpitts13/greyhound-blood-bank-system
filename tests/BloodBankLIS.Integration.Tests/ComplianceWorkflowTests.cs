@@ -772,6 +772,37 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(DeviationStatus.Closed, updated.Value!.Status);
     }
 
+    // TEST-BB-1031: the deviation list names each related record (unit number, location and reading) instead of an
+    // internal id; a record it cannot name falls back to none (end-user testing pass 24).
+    [Fact]
+    public async Task Deviations_NameTheirRelatedRecords()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var product = new ProductType { ProductCode = $"RBC-DV-{key}", Name = "Deviation red cells", ComponentClass = ComponentClass.RedBloodCells };
+        var fridge = new InventoryLocation { Code = $"DV-{key}", Name = "Deviation fridge", LocationType = LocationType.Refrigerator };
+        c.ProductTypes.Add(product);
+        c.InventoryLocations.Add(fridge);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = $"U-DV-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Available };
+        c.BloodUnits.Add(unit);
+        var reading = new StorageTemperatureReading { InventoryLocationId = fridge.Id, ReadingC = 8.5m, ReadingUtc = _factory.Clock.UtcNow, RecordedBy = "tech" };
+        c.StorageTemperatureReadings.Add(reading);
+        await c.SaveChangesAsync();
+
+        var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
+        var service = new DeviationService(new EfRepository<Deviation>(c), c, _factory.Clock, _factory.CurrentUser, audit,
+            units: new EfRepository<BloodUnit>(c), readings: new EfRepository<StorageTemperatureReading>(c), locations: new EfRepository<InventoryLocation>(c));
+        var onUnit = await service.CreateAsync(new CreateDeviationRequest($"Unit {key}", "Wrong shelf", DeviationSeverity.Minor, "BloodUnit", unit.Id));
+        var onReading = await service.CreateAsync(new CreateDeviationRequest($"Temp {key}", "Excursion", DeviationSeverity.Major, "StorageTemperatureReading", reading.Id));
+        Assert.True(onUnit.Succeeded && onReading.Succeeded);
+
+        var list = await service.ListDtosAsync();
+        Assert.Equal($"U-DV-{key}", list.Single(d => d.Id == onUnit.Value!.Id).ContextName);
+        Assert.Equal($"DV-{key} 8.5 °C", list.Single(d => d.Id == onReading.Value!.Id).ContextName);
+        Assert.Equal($"U-DV-{key}", Assert.Single(await service.ListDtosAsync("BloodUnit", unit.Id)).ContextName);
+    }
+
     [Fact]
     public async Task Lookback_NamesTheStorageLocationWhenThePlaceIsALocationCode()
     {

@@ -218,6 +218,9 @@
             var excursion = saved.Succeeded && saved.Value is not null && StorageTemperatureRule.IsExcursion(saved.Value.Status);
             _recordFb = saved.ToFeedback(excursion
                 ? $"Excursion recorded. Deviation DEV-{saved.Value!.DeviationId} is open. Review the units at this location."
+                  + (saved.Value.QuarantineAfterMinutes is int after
+                      ? $" If no in-range reading is recorded within {after} minutes, the units stored here are quarantined automatically."
+                      : "")
                 : "Reading recorded.");
             _excursionLocationId = excursion ? _locationId : null;
             if (saved.Succeeded)

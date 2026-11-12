@@ -25,3 +25,5 @@ Use a deviation in addition to an issue override, not instead of it. The overrid
 ## Raised by the system
 
 A deviation opened by a temperature excursion shows its context as **Temperature reading**, linking to Storage temperatures. Status reads in words (Open, Under review, Closed).
+
+The **Context** column names the related record: the unit number, the patient and MRN, the accession, or the location and reading of a temperature excursion.

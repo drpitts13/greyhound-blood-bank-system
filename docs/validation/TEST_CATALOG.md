@@ -1039,5 +1039,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1028 | I | `ComplianceWorkflowTests.FindByDin_NamesProductAndLocation` | URS-BB-790 / FRS-BB-908 |
 | TEST-BB-1029 | U | `ShiftHandoffItemsTests.WardRequests_AreHandedOverAsUrgent` | URS-BB-791 / FRS-BB-909 |
 | TEST-BB-1030 | U, I | `RhigEvaluationRuleTests.GiveBy_FollowsTheFacilityWindow`, `RhigEvaluationServiceTests.Queue_ShowsGiveBy_FromTheFacilityWindow` | URS-BB-792 / FRS-BB-910 |
+| TEST-BB-1031 | I | `ComplianceWorkflowTests.Deviations_NameTheirRelatedRecords` | URS-BB-794 / FRS-BB-912 |
+| TEST-BB-1032 | I | `StorageTemperatureServiceTests.Excursion_SaysWhenUnitsWillBeQuarantined` | URS-BB-795 / FRS-BB-913 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

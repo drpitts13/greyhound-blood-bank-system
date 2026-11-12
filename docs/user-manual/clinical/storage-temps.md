@@ -31,3 +31,5 @@ Consecutive out-of-range readings belong to the same excursion and share one dev
 ## After an excursion
 
 A reading outside the location's range opens a deviation and shows **Review the units stored at this location**, which opens Inventory filtered to that location. Inventory's search has a **Location** filter for the same list at any time.
+
+The excursion message also says how long you have: if no in-range reading is recorded within the facility's time (Facility Policies › *Inventory.ExcursionQuarantineMinutes*, 30 minutes unless changed), the units stored at the location are quarantined automatically (OCD-036). Record the in-range reading as soon as the temperature is back.

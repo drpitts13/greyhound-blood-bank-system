@@ -22720,3 +22720,22 @@ On the running system with seeded data: Storage temperatures (no reading had eve
 ### Tests
 
 - Page changes only (inspection). Full suite passed.
+
+## Iteration 740 — End-user testing pass 24: deviations and the excursion follow-up (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Deviations after pass 23's FRIDGE-1 excursion; then Storage temperatures → OR-FRIDGE 7.2 °C, followed at once by 4.0 °C.
+
+### Found and fixed
+
+1. **Deviations named records by internal id** ("Blood unit #1", "Temperature reading #1"). The list now names each related record: the unit number, the patient and MRN, the accession, or the location and reading. Retested live: "Blood unit W0001230000001".
+2. **Units quarantined without warning.** Thirty minutes after pass 23's test excursion, with no in-range reading recorded, the 30 eligible units in FRIDGE-1 were quarantined automatically, as decided (OCD-036); the excursion message had said only to review them. It now says that, without an in-range reading within the facility's time (30 minutes), the units stored there are quarantined automatically. Retested live on OR-FRIDGE: the message named 30 minutes, and the in-range reading recorded straight after closed the excursion.
+
+### Left in the development data
+
+- 30 units in FRIDGE-1 quarantined by the pass 23 test excursion (DEV-3); DEV-4 for the OR-FRIDGE test.
+
+### Tests
+
+- TEST-BB-1031, TEST-BB-1032. Full suite passed.

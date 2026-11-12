@@ -119,12 +119,16 @@ else
                                     {
                                         @if (ContextHref(d) is { } href)
                                         {
-                                            <a href="@href">@ContextLabel(d.ContextType)@(d.ContextId is long linkedId ? $" #{linkedId}" : "")</a>
+                                            <a href="@href">@ContextLabel(d.ContextType) @(d.ContextName ?? (d.ContextId is long linkedId ? $"#{linkedId}" : ""))</a>
                                         }
                                         else
                                         {
                                             @ContextLabel(d.ContextType)
-                                            @if (d.ContextId is long contextId)
+                                            @if (d.ContextName is { } contextName)
+                                            {
+                                                <span> @contextName</span>
+                                            }
+                                            else if (d.ContextId is long contextId)
                                             {
                                                 <span> #@contextId</span>
                                             }

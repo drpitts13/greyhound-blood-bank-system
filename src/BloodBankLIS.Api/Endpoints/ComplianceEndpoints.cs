@@ -122,10 +122,7 @@ public static class ComplianceEndpoints
             .RequirePermission(PermissionCodes.DeviationManage);
 
         group.MapGet("/", async (string? contextType, long? contextId, DeviationService service, CancellationToken ct) =>
-            Results.Ok((!string.IsNullOrWhiteSpace(contextType) && contextId is long id
-                    ? await service.ListForRecordAsync(contextType.Trim(), id, ct)
-                    : await service.ListAsync(ct))
-                .Select(DeviationDto.From)));
+            Results.Ok(await service.ListDtosAsync(contextType, contextId, ct)));
 
         group.MapPost("/", async (CreateDeviationRequest request, DeviationService service, CancellationToken ct) =>
             EndpointResults.Created(await service.CreateAsync(request, ct),
