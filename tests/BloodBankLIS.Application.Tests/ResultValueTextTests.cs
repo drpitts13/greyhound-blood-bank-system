@@ -22,4 +22,13 @@ public class ResultValueTextTests
         Assert.Equal("Negative", ResultValueText.For("Negative"));
         Assert.Equal("—", ResultValueText.For(null));
     }
+
+    // TEST-BB-1033: a plain stored ABO/Rh value reads as its type, as a panel does ("O+"; end-user testing pass 26: "O|Positive").
+    [Fact]
+    public void For_ReadsPlainAboRhAsItsType()
+    {
+        Assert.Equal("O+", ResultValueText.For("O|Positive"));
+        Assert.Equal("A-", ResultValueText.For("A|Negative"));
+        Assert.Equal("Weak|Thing", ResultValueText.For("Weak|Thing"));
+    }
 }

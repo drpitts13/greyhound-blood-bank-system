@@ -33,7 +33,7 @@
                 @foreach (var row in _work)
                 {
                     <tr>
-                        <td>@Ui.EnumText(row.Kind)</td>
+                        <td>@Ui.CodeNameText(row.Kind)</td>
                         <td class="mono">@row.LotNumber</td>
                         <td>@row.Message</td>
                         <td>
@@ -46,7 +46,7 @@
                             {
                                 <button class="btn btn-secondary btn-sm" data-receive-next-lot @onclick="() => StartReceiveForAsync(replaceLot.ReagentId)">Receive next lot</button>
                             }
-                            else if (row.Kind != ReagentQcWorklistRule.Unreviewed && row.Kind != ReagentQcWorklistRule.Expired
+                            else if (row.Kind != ReagentQcWorklistRule.Unreviewed && row.Kind != ReagentQcWorklistRule.Expired && row.Kind != ReagentQcWorklistRule.ReviewResults
                                      && Session.Has(PermissionCodes.ResultEnter) && QcLots.Any(l => l.Id == row.LotId))
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => StartQcForLotAsync(row.LotId)">Enter QC</button>
@@ -255,7 +255,7 @@
                 @if (_lookback.Count(r => r.ToReview) is var toReview && toReview > 0)
                 {
                     <div class="alert alert-danger" style="margin:.3rem 0;" data-lot-to-review>
-                        This lot's latest QC failed. @toReview result@(toReview == 1 ? " was" : "s were") tested with it since it last passed QC; they are listed first as <strong>To review</strong>.
+                        This lot failed QC. @toReview result@(toReview == 1 ? " was" : "s were") tested with it between its last passed QC and the failure (or a repeat QC that passed); they are listed first as <strong>To review</strong>. A repeat QC that passes does not clear them.
                     </div>
                 }
                 @if (_lookback.Count == 0)

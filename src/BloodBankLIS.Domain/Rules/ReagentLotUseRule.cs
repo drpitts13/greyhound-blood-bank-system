@@ -45,6 +45,37 @@ public static class ReagentLotUseRule
         return rows.LastOrDefault(q => q.Passed && q.PerformedUtc < latest!.PerformedUtc)?.PerformedUtc ?? DateTime.MinValue;
     }
 
+    /// <summary>
+    /// Every period whose results need review because of a failed QC: from the lot's last passed QC before the failure
+    /// (the start of time when it never passed) to the first passed QC after it (open while none). A repeat QC that
+    /// passes ends the period but does not clear the results tested in it (end-user testing pass 26: a passing repeat
+    /// of the failed Anti-D lot would have dropped its five ABO/Rh results from review).
+    /// </summary>
+    public static IReadOnlyList<(DateTime FromUtc, DateTime? ToUtc)> ReviewWindows(IEnumerable<ReagentDailyQc> lotQc)
+    {
+        var rows = lotQc.OrderBy(q => q.PerformedUtc).ThenBy(q => q.Id).ToList();
+        var windows = new List<(DateTime FromUtc, DateTime? ToUtc)>();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].Passed)
+            {
+                continue;
+            }
+
+            var from = rows.Take(i).LastOrDefault(q => q.Passed)?.PerformedUtc ?? DateTime.MinValue;
+            DateTime? to = rows.Skip(i + 1).FirstOrDefault(q => q.Passed)?.PerformedUtc;
+            if (!windows.Contains((from, to)))
+            {
+                windows.Add((from, to));
+            }
+        }
+
+        return windows;
+    }
+
+    public static bool InReviewWindow(DateTime recordedUtc, IReadOnlyList<(DateTime FromUtc, DateTime? ToUtc)> windows) =>
+        windows.Any(w => recordedUtc > w.FromUtc && (w.ToUtc is not DateTime to || recordedUtc < to));
+
     public const string ReviewCode = "REAGENT-LOT-REVIEW";
 
     /// <summary>
@@ -60,7 +91,7 @@ public static class ReagentLotUseRule
 
         if (!inReviewWindow)
         {
-            return RuleResult.HardStop(ReviewCode, "Only a result tested with this lot since it last passed QC, while its latest QC is failed, needs this review.");
+            return RuleResult.HardStop(ReviewCode, "Only a result tested with this lot between its last passed QC and a failed QC (until a repeat QC passed) needs this review.");
         }
 
         return string.IsNullOrWhiteSpace(note)

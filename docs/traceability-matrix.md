@@ -908,6 +908,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-794 / FRS-BB-912 | End-user testing pass 24: deviation context names | `DeviationService.cs`, `ComplianceEndpoints.cs`, `Deviations.razor` | TEST-BB-1031 | I | |
 | URS-BB-795 / FRS-BB-913 | End-user testing pass 24: excursion quarantine warning | `StorageTemperatureService.cs`, `StorageTemps.razor` | TEST-BB-1032 | I | |
 | URS-BB-796 / FRS-BB-914 | End-user testing pass 25: release after an excursion | `Inventory.razor` | — | Inspection | |
+| URS-BB-797 / FRS-BB-915 | End-user testing pass 26: reagent results to review after a repeat QC | `ReagentLotUseRule.cs`, `ReagentQcService.cs`, `ShiftHandoffService.cs`, `Reagents.razor`, `ResultValueText.cs` | TEST-BB-1033, TEST-BB-1034, TEST-BB-1035 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

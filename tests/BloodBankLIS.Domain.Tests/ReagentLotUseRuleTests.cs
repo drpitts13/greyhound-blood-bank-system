@@ -80,13 +80,33 @@ public class ReagentLotUseRuleTests
         Assert.Null(ReagentLotUseRule.ReviewSinceUtc([], out _));
     }
 
+    // TEST-BB-1034: a failed QC's review period runs from the last pass before it to the first pass after it; a passing
+    // repeat ends the period but leaves the results tested in it to review (end-user testing pass 26).
+    [Fact]
+    public void ReviewWindows_SurviveAPassingRepeat()
+    {
+        ReagentDailyQc Qc(int hoursAgo, bool passed) => new() { PerformedUtc = Now.AddHours(-hoursAgo), Passed = passed };
+
+        var windows = ReagentLotUseRule.ReviewWindows([Qc(50, true), Qc(26, false), Qc(24, false), Qc(20, true), Qc(2, true)]);
+        Assert.Equal([(Now.AddHours(-50), (DateTime?)Now.AddHours(-20))], windows);
+        Assert.True(ReagentLotUseRule.InReviewWindow(Now.AddHours(-30), windows));
+        Assert.True(ReagentLotUseRule.InReviewWindow(Now.AddHours(-22), windows));
+        Assert.False(ReagentLotUseRule.InReviewWindow(Now.AddHours(-10), windows));
+        Assert.False(ReagentLotUseRule.InReviewWindow(Now.AddHours(-60), windows));
+
+        var open = ReagentLotUseRule.ReviewWindows([Qc(3, false)]);
+        Assert.True(ReagentLotUseRule.InReviewWindow(Now.AddHours(-100), open));
+        Assert.True(ReagentLotUseRule.InReviewWindow(Now, open));
+        Assert.Empty(ReagentLotUseRule.ReviewWindows([Qc(3, true)]));
+    }
+
     // TEST-BB-547: only a result still to review, not yet reviewed, can be marked reviewed, and only with a note.
     [Fact]
     public void Review_NeedsAResultToReview_AndANote()
     {
         Assert.Equal(RuleSeverity.Pass, ReagentLotUseRule.EvaluateReview(true, false, "Repeated, agreed").Severity);
         Assert.Contains("already", ReagentLotUseRule.EvaluateReview(true, true, "x").Message);
-        Assert.Contains("since it last passed", ReagentLotUseRule.EvaluateReview(false, false, "x").Message);
+        Assert.Contains("between its last passed QC", ReagentLotUseRule.EvaluateReview(false, false, "x").Message);
         Assert.Contains("Say what", ReagentLotUseRule.EvaluateReview(true, false, "  ").Message);
     }
 

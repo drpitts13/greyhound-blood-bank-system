@@ -344,8 +344,8 @@ public sealed class ReagentQcService
             return OperationResult<ReagentLotResultDto>.Fail("That result is not recorded as tested with this lot.");
         }
 
-        var since = ReagentLotUseRule.ReviewSinceUtc(await _qc.ListAsync(q => q.ReagentLotId == lotId, ct), out _);
-        var check = ReagentLotUseRule.EvaluateReview(since is not null && use.RecordedUtc > since.Value, use.ReviewedUtc is not null, note);
+        var windows = ReagentLotUseRule.ReviewWindows(await _qc.ListAsync(q => q.ReagentLotId == lotId, ct));
+        var check = ReagentLotUseRule.EvaluateReview(ReagentLotUseRule.InReviewWindow(use.RecordedUtc, windows), use.ReviewedUtc is not null, note);
         if (check.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<ReagentLotResultDto>.Fail($"{check.Code}: {check.Message}");
@@ -393,10 +393,9 @@ public sealed class ReagentQcService
 
         var uses = await _resultLots.ListAsync(r => r.ReagentLotId == lotId, ct);
         var resultIds = uses.Select(r => r.TestResultId).Distinct().ToList();
-        var since = ReagentLotUseRule.ReviewSinceUtc(await _qc.ListAsync(q => q.ReagentLotId == lotId, ct), out _);
-        var toReview = since is null
-            ? new HashSet<long>()
-            : uses.Where(u => u.RecordedUtc > since.Value && u.ReviewedUtc == null).Select(u => u.TestResultId).ToHashSet();
+        var windows = ReagentLotUseRule.ReviewWindows(await _qc.ListAsync(q => q.ReagentLotId == lotId, ct));
+        var toReview = uses.Where(u => u.ReviewedUtc == null && ReagentLotUseRule.InReviewWindow(u.RecordedUtc, windows))
+            .Select(u => u.TestResultId).ToHashSet();
         var reviews = uses.Where(u => u.ReviewedUtc is not null).GroupBy(u => u.TestResultId).ToDictionary(g => g.Key, g => g.OrderByDescending(u => u.ReviewedUtc).First());
         var results = resultIds.Count == 0 ? [] : await _results.ListAsync(r => resultIds.Contains(r.Id), ct);
         var specimenIds = results.Select(r => r.SpecimenId).Distinct().ToList();
@@ -685,27 +684,47 @@ public sealed class ReagentQcService
                 item.QcId,
                 item.Message))
             .ToList();
-        if (_resultLots is null || !items.Any(i => i.Kind == ReagentQcWorklistRule.Failed))
+        if (_resultLots is null)
         {
             return items;
         }
 
-        // A failed lot names how many results were tested with it since it last passed.
-        var result = new List<ReagentQcWorkItemDto>();
-        foreach (var item in items)
+        // A lot with a failed QC names how many results tested with it in a failed period are still to review. A
+        // repeat QC that passed ends the Failed item, but the results stay to review (end-user testing pass 26).
+        var failedLotIds = rows.Where(q => !q.Passed).Select(q => q.ReagentLotId).ToHashSet();
+        if (failedLotIds.Count == 0)
         {
-            if (item.Kind != ReagentQcWorklistRule.Failed)
+            return items;
+        }
+
+        var unreviewed = await _resultLots.ListAsync(r => failedLotIds.Contains(r.ReagentLotId) && r.ReviewedUtc == null, ct);
+        var counts = new Dictionary<long, int>();
+        foreach (var lotId in failedLotIds)
+        {
+            var windows = ReagentLotUseRule.ReviewWindows(rows.Where(q => q.ReagentLotId == lotId));
+            counts[lotId] = unreviewed.Where(u => u.ReagentLotId == lotId && ReagentLotUseRule.InReviewWindow(u.RecordedUtc, windows))
+                .Select(u => u.TestResultId).Distinct().Count();
+        }
+
+        var result = items
+            .Select(item => item.Kind == ReagentQcWorklistRule.Failed ? item with { ResultsToReview = counts.GetValueOrDefault(item.LotId) } : item)
+            .ToList();
+        foreach (var (lotId, count) in counts.Where(c => c.Value > 0).OrderBy(c => c.Key))
+        {
+            if (result.Any(i => i.LotId == lotId && i.Kind == ReagentQcWorklistRule.Failed))
             {
-                result.Add(item);
                 continue;
             }
 
-            var since = ReagentLotUseRule.ReviewSinceUtc(rows.Where(q => q.ReagentLotId == item.LotId), out _);
-            var count = since is null
-                ? 0
-                : (await _resultLots.ListAsync(r => r.ReagentLotId == item.LotId && r.RecordedUtc > since.Value && r.ReviewedUtc == null, ct))
-                    .Select(r => r.TestResultId).Distinct().Count();
-            result.Add(item with { ResultsToReview = count });
+            result.Add(new ReagentQcWorkItemDto(
+                ReagentQcWorklistRule.ReviewResults,
+                lotId,
+                lotNumbers.TryGetValue(lotId, out var number) ? number : string.Empty,
+                null,
+                "QC failed and has since passed; results tested with the lot while it was failing still need review.")
+            {
+                ResultsToReview = count
+            });
         }
 
         return result;

@@ -385,9 +385,12 @@ public sealed class ShiftHandoffService
         var instrumentFailures = _instrumentMessages is null
             ? []
             : await _instrumentMessages.ListAsync(m => m.Status == InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct);
-        var failedLots = _reagentQc is null
-            ? []
-            : (await _reagentQc.ListWorkAsync(ct)).Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
+        var reagentWork = _reagentQc is null ? [] : await _reagentQc.ListWorkAsync(ct);
+        var failedLots = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
+        // Results still to review include a lot whose repeat QC has since passed (end-user testing pass 26).
+        var reagentResultsToReview = reagentWork
+            .Where(w => w.Kind is ReagentQcWorklistRule.Failed or ReagentQcWorklistRule.ReviewResults)
+            .GroupBy(w => w.LotId).Sum(g => g.First().ResultsToReview);
 
         // RhIG evaluations still needing work: open, or a completed candidate with nothing given (Cycle 526–527).
         var bloodOrders = _bloodOrders is null ? [] : await _bloodOrders.ListAsync(ct);
@@ -439,7 +442,7 @@ public sealed class ShiftHandoffService
             InstrumentFailuresOpen = instrumentFailures.Count,
             InstrumentResultsHeld = instrumentFailures.Count(m => InstrumentMessageFollowUpRule.IsHeld(m.Status, m.ResolvedUtc, m.ErrorDetail)),
             ReagentLotsFailedQc = failedLots.Count,
-            ReagentResultsToReview = failedLots.Sum(l => l.ResultsToReview),
+            ReagentResultsToReview = reagentResultsToReview,
             Hl7ErrorsOpen = _hl7Errors is null ? 0 : (await _hl7Errors.ListAsync(e => !e.Resolved, ct)).Count,
             Hl7OutboundNotSent = await CountOutboundNotSentAsync(now, ct),
             OutagesOpen = _outages is null ? 0 : (await _outages.ListAsync(o => o.EndedUtc == null, ct)).Count,

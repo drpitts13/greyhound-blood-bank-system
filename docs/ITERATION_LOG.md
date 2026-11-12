@@ -22755,3 +22755,24 @@ On the running system with seeded data: Inventory › Quarantine after pass 23's
 ### Tests
 
 - Page change only (inspection). Full suite passed.
+
+## Iteration 742 — End-user testing pass 26: reagent QC after a failure (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Reagent QC, with the seeded Anti-D lot AD-24092 whose QC failed today (3+ expected, 0 observed). Opened its 5 results to review, then recorded a passing repeat QC (3+ / 3+).
+
+### Found and fixed
+
+1. **A passing repeat QC cleared the review.** Results to review were counted only while the lot's latest QC was failed, so the repeat QC would have dropped the five ABO/Rh results tested with the anti-D lot since it last passed from the worklist, the lookback and the shift handoff, unreviewed. The review period now runs from the last passed QC before a failure to the first passed QC after it; a lot that has passed again stays on the worklist as **Review results** with its count until each result is marked reviewed. Retested live: after the passing repeat, AD-24092 showed "Review results … 5 results to review", the five still marked To review.
+2. **Stored ABO/Rh values.** The lot's results read "O|Positive"; they read "O+" (here and on the worklist and chart pages that share the formatter).
+3. The lookback's banner said "This lot's latest QC failed" after the repeat passed; it now says the lot failed QC and that a passing repeat does not clear the results.
+
+### Checked, not defects
+
+- The worklist's "Enter QC5 results to review" is two buttons ("Enter QC", "5 results to review") read as one line; the reagents' "Used for tests" are editable fields (ABORH, ABSC, DAT, XM are set).
+- Manual result entry already warns when a lot used for the test has no passed QC today.
+
+### Tests
+
+- TEST-BB-1033 to TEST-BB-1035. Full suite passed.

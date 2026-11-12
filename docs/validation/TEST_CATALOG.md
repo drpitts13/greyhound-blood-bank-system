@@ -1041,5 +1041,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1030 | U, I | `RhigEvaluationRuleTests.GiveBy_FollowsTheFacilityWindow`, `RhigEvaluationServiceTests.Queue_ShowsGiveBy_FromTheFacilityWindow` | URS-BB-792 / FRS-BB-910 |
 | TEST-BB-1031 | I | `ComplianceWorkflowTests.Deviations_NameTheirRelatedRecords` | URS-BB-794 / FRS-BB-912 |
 | TEST-BB-1032 | I | `StorageTemperatureServiceTests.Excursion_SaysWhenUnitsWillBeQuarantined` | URS-BB-795 / FRS-BB-913 |
+| TEST-BB-1033 | U | `ResultValueTextTests.For_ReadsPlainAboRhAsItsType` | URS-BB-797 / FRS-BB-915 |
+| TEST-BB-1034 | U | `ReagentLotUseRuleTests.ReviewWindows_SurviveAPassingRepeat` | URS-BB-797 / FRS-BB-915 |
+| TEST-BB-1035 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-797 / FRS-BB-915 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

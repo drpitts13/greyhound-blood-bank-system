@@ -27,6 +27,13 @@ public static class ResultValueText
             return AboRhResultValue.FormatDisplay(value);
         }
 
+        // A plain ABO/Rh value as stored ("O|Positive") reads as its type ("O+"): end-user testing pass 26, the
+        // results to review for a failed Anti-D lot showed the stored form.
+        if (value.Contains('|') && AboRhResultValue.TryParse(value, out var aboRh))
+        {
+            return aboRh.ToString();
+        }
+
         if (PanelResultValue.TryParse(value, out var subtests) && subtests.Count > 0)
         {
             return PanelResultValue.FormatDisplay(value);

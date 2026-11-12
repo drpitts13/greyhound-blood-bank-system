@@ -48,6 +48,9 @@ public static class ReagentQcWorklistRule
     public const string Expired = "Expired";
     public const string Replace = "Replace";
 
+    /// <summary>A lot whose QC failed and later passed, with results tested in the failed period not yet reviewed.</summary>
+    public const string ReviewResults = "ReviewResults";
+
     public static IReadOnlyList<ReagentQcWorkItem> Evaluate(
         IReadOnlyList<ReagentQcLotFact> lots,
         IReadOnlyList<ReagentQcFact> qcRows,

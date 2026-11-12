@@ -802,3 +802,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-794 | Deviations name their related record (unit number, patient, accession, location and reading), not an internal id. | P3 | FRS-BB-912 |
 | URS-BB-795 | A storage excursion warns when the units stored there will be quarantined automatically. | P1 | FRS-BB-913 |
 | URS-BB-796 | Units quarantined by one storage temperature excursion can be released together after review, with one second verifier, each audited; the quarantine board names reasons in words. | P2 | FRS-BB-914 |
+| URS-BB-797 | Results tested with a reagent lot while its QC was failing stay to review after a repeat QC passes, until each is reviewed; stored ABO/Rh values read as the type. | P1 | FRS-BB-915 |
