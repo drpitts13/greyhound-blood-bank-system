@@ -2166,7 +2166,7 @@ public sealed class InventoryService
         if (movable.Count > 1)
         {
             return InventoryActionResult.Fail(
-                $"{key} matches {movable.Count} units ({string.Join(", ", movable.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Move each from its unit page.");
+                $"{key} matches {movable.Count} units ({string.Join(", ", movable.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}). Scan its product code label next to pick the division.");
         }
 
         var unit = movable[0];
@@ -2329,7 +2329,7 @@ public sealed class InventoryService
             if (units.Count > 1 && here.Count != 1)
             {
                 problems.Add(new InventoryCountProblemDto(scan.Trim(),
-                    $"{key} matches {units.Count} units ({string.Join(", ", units.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}); check each by its label."));
+                    $"{key} matches {units.Count} units ({string.Join(", ", units.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}); scan its product code label next to pick the division."));
                 continue;
             }
 

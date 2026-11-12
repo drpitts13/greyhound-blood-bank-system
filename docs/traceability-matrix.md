@@ -879,6 +879,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-765 / FRS-BB-883 | End-user testing pass 5: HL7 translations with no endpoint | `Hl7InboundProcessor.cs` | TEST-BB-1005 | I | |
 | URS-BB-766 / FRS-BB-884 | End-user testing pass 6: daily QC table | `Reagents.razor` | TEST-BB-1006 | U | |
 | URS-BB-767 / FRS-BB-885 | End-user testing pass 6: scanned DIN at receipt | `InventoryService.cs`, `DeliveryReceive.razor` | TEST-BB-1007 | I | |
+| URS-BB-768 / FRS-BB-886 | End-user testing pass 7: divided units by scan | `InventoryScanResolver.cs`, `InventoryCount.razor`, `InventoryMove.razor`, `CoolerCheck.razor` | TEST-BB-1008 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

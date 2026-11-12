@@ -106,6 +106,12 @@ else
 
         _busy = true;
         var scan = _scan.Trim();
+        // A product code scanned right after a unit number that was not moved (a divided unit) picks the division.
+        if (_run.FirstOrDefault() is { Error: not null } last && InventoryScanResolver.PairWithPrevious(last.Scan, scan) is { } paired)
+        {
+            scan = paired;
+        }
+
         var destination = _locations.FirstOrDefault(l => l.Id == _toLocationId)?.ChoiceLabel ?? $"location {_toLocationId}";
         var r = await Api.TransferUnitByScanAsync(new TransferByScanRequest(scan, _toLocationId, _reason));
         _busy = false;

@@ -22332,3 +22332,25 @@ On the running system with seeded data: Reagent QC → the morning QC for the si
 ### Next
 
 - Pass 7: inventory moves, stock count, and the remaining gaps (single-user verification limits noted throughout).
+
+## Iteration 723 — End-user testing pass 7: moving and counting stock (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Inventory → Move units → OR-FRIDGE, scanning the DIN barcode of the unit received in pass 6; Inventory → Stock count → FRIDGE-1 (43 units recorded), scanning an available unit, an expired unit, the unit just moved (recorded elsewhere), an unknown number, a repeat scan, and the divided unit W123425000010 (divisions 0A and 0B).
+
+### Found and fixed
+
+1. **A divided unit could not be counted or moved by scan.** Its DIN named both divisions and the count listed it as unresolved ("check each by its label"); the product code label that tells them apart, scanned next, was not read, so the divisions could only be shown missing, and Move units sent the user to each unit's page. A product code scanned right after the unit number is now read with it as one scan and names that division, in Stock count, Move units and the cooler check (a scanner sending both together works the same way); a product code on its own is refused with what to scan, and a product code the DIN does not have is named. Retested live: the DIN then =<E0336V0A and =<E0336V0B counted both divisions as found; Move units moved division 0B to OR-FRIDGE and back.
+
+### Observed working
+
+- Move by scan with a DIN barcode; the count's found, missing (expired units flagged), recorded elsewhere with **Move here**, unknown scans, and a repeat scan counted once.
+
+### Tests
+
+- TEST-BB-1008. Full suite passed.
+
+### Next
+
+- Pass 8: the remaining workflows (issue to a cooler and the cooler check, returns, discards) and the gaps a modern blood bank expects.

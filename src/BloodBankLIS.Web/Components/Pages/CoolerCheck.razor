@@ -234,7 +234,16 @@ else
             return;
         }
 
-        _scans.Add(_scan.Trim());
+        // A product code scanned right after a divided unit's number picks the division.
+        if (InventoryScanResolver.PairWithPrevious(_scans.LastOrDefault(), _scan) is { } paired)
+        {
+            _scans[^1] = paired;
+        }
+        else
+        {
+            _scans.Add(_scan.Trim());
+        }
+
         _scan = string.Empty;
         await CheckAsync(finish: false);
     }

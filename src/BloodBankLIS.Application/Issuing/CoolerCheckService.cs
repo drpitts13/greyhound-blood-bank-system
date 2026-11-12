@@ -208,7 +208,7 @@ public sealed class CoolerCheckService
             if (matches.Count > 1 && here.Count != 1)
             {
                 problems.Add(new CoolerCheckProblemDto(scan.Trim(),
-                    $"{key} matches {matches.Count} units ({string.Join(", ", matches.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}); check each by its label."));
+                    $"{key} matches {matches.Count} units ({string.Join(", ", matches.Select(u => u.UnitNumber + (string.IsNullOrWhiteSpace(u.DivisionCode) ? "" : $" division {u.DivisionCode}")))}); scan its product code label next to pick the division."));
                 continue;
             }
 

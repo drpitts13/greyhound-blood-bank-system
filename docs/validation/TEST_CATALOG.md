@@ -1016,5 +1016,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1005 | I | `InterfaceTestCodeTranslationTests.NoEndpoint_TranslationsForAllInterfacesStillApply` | URS-BB-765 / FRS-BB-883 |
 | TEST-BB-1006 | U | `ReagentRegisterPageTests.QcRun_ListsOpenLots_AndCountsRowsToRecord` | URS-BB-766 / FRS-BB-884 |
 | TEST-BB-1007 | I | `ProductRetypeServiceTests.Receive_ScannedDin_IsStoredAsTheDin` | URS-BB-767 / FRS-BB-885 |
+| TEST-BB-1008 | I | `InventoryServiceTests.Scan_DinThenProductCode_PicksTheDivision` | URS-BB-768 / FRS-BB-886 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

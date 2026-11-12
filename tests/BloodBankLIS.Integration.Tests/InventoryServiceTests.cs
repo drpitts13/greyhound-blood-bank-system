@@ -531,6 +531,52 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(blank.Code, blankRow.LocationLabel, StringComparison.Ordinal);
     }
 
+    // TEST-BB-1008: a divided unit (one DIN, two divisions) is counted and moved by its unit number followed by its
+    // product code label; the DIN alone names both, a product code alone is refused, and a product code the DIN does
+    // not have is named (end-user testing pass 7).
+    [Fact]
+    public async Task Scan_DinThenProductCode_PicksTheDivision()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation { Code = $"PAIR-FR-{key}", Name = "Pair fridge", LocationType = LocationType.Refrigerator };
+        var orFridge = new InventoryLocation { Code = $"PAIR-OR-{key}", Name = "Pair OR", LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.AddRange(fridge, orFridge);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var partA = await service.ReceiveUnitAsync(NewUnitRequest($"U-PAIRA-{key}", productTypeId) with { LocationId = fridge.Id });
+        var partB = await service.ReceiveUnitAsync(NewUnitRequest($"U-PAIRB-{key}", productTypeId) with { LocationId = fridge.Id });
+        Assert.True(partA.Succeeded && partB.Succeeded);
+        var din = $"D-PAIR-{key}";
+        (await context.BloodUnits.FindAsync(partA.Unit!.Id))!.Din = din;
+        (await context.BloodUnits.FindAsync(partA.Unit!.Id))!.ProductCodeData = "E0336V0A";
+        (await context.BloodUnits.FindAsync(partB.Unit!.Id))!.Din = din;
+        (await context.BloodUnits.FindAsync(partB.Unit!.Id))!.ProductCodeData = "E0336V0B";
+        await context.SaveChangesAsync();
+
+        var paired = InventoryScanResolver.PairWithPrevious(din, "=<E0336V0A");
+        Assert.Equal($"{din}=<E0336V0A", paired);
+        Assert.Null(InventoryScanResolver.PairWithPrevious(paired, "=<E0336V0B"));
+        Assert.Null(InventoryScanResolver.PairWithPrevious(din, din));
+        Assert.Null(InventoryScanResolver.PairWithPrevious(null, "=<E0336V0A"));
+
+        var count = await service.ReconcileCountAsync(new InventoryCountRequest(fridge.Id, [paired!, din, "=<E0336V0B", $"{din}=<E0336V0C"]));
+        Assert.True(count.Succeeded, count.Error);
+        Assert.Equal(new[] { partA.Unit!.Id }, count.Value!.Found.Select(l => l.UnitId).ToArray());
+        Assert.Equal(new[] { partB.Unit!.Id }, count.Value.Missing.Select(l => l.UnitId).ToArray());
+        var problems = count.Value.Problems.Select(p => p.Message).ToList();
+        Assert.Contains(problems, m => m.Contains("matches 2 units") && m.Contains("product code label next"));
+        Assert.Contains(problems, m => m.Contains("That is the product code label"));
+        Assert.Contains(problems, m => m.Contains("has no unit with product code E0336V0C"));
+
+        var moved = await service.TransferByScanAsync(new TransferByScanRequest($"{din.ToLowerInvariant()}=<E0336V0B", orFridge.Id));
+        Assert.True(moved.Succeeded, moved.Error);
+        Assert.Equal(orFridge.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == partB.Unit!.Id)).CurrentLocationId);
+        Assert.Equal(fridge.Id, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == partA.Unit!.Id)).CurrentLocationId);
+    }
+
     // TEST-BB-454: a stock count sorts the scans into found, missing, recorded elsewhere, not on hand, and unresolved;
     // it moves nothing, and finishing records the outcome in the audit trail.
     [Fact]

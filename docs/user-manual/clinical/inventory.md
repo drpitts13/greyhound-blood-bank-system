@@ -35,7 +35,7 @@ The other boards cover expected inbound units, units near expiry, units on hold,
 
 ## Move units by scan
 
-**Move units** (permission *inventory.transfer*) moves a batch of units to one location, for example to stock a satellite or operating-room refrigerator. Choose **Move to**, then scan each unit number; each scan moves that unit at once and is listed under **This run**, newest first. The checks are the same as a transfer from the unit page: the unit's status must allow a move, and the location must be active, take that kind of component, and have a storage range. A unit already in the location, an unreadable scan, or an unknown number is listed as **Not moved** with the reason. A unit number that was divided matches several units and moves none; move those from each unit's page. Every move is in the unit's history and the audit trail.
+**Move units** (permission *inventory.transfer*) moves a batch of units to one location, for example to stock a satellite or operating-room refrigerator. Choose **Move to**, then scan each unit number; each scan moves that unit at once and is listed under **This run**, newest first. The checks are the same as a transfer from the unit page: the unit's status must allow a move, and the location must be active, take that kind of component, and have a storage range. A unit already in the location, an unreadable scan, or an unknown number is listed as **Not moved** with the reason. A unit number that was divided matches several units and moves none; scan its product code label next and the division with that product code moves. Every move is in the unit's history and the audit trail.
 
 ## Count a location
 
@@ -45,7 +45,7 @@ The other boards cover expected inbound units, units near expiry, units on hold,
 - **Missing**: recorded here but not scanned. Look for it, then check the unit's history.
 - **Recorded elsewhere**: on the shelf, but recorded in another location. **Move here** corrects the record with the transfer checks and audit.
 - **Not on hand**: on the shelf, but its record says issued, transfused, discarded, or similar. Take it out and hold it, and find out why before anything is issued.
-- **Unresolved scans**: an unreadable or unknown number, or a divided number matching several units (check those by their labels).
+- **Unresolved scans**: an unreadable or unknown number, or a divided number matching several units. Scan a divided unit's number and then its product code label; the two are read as one scan and count that division. The cooler check reads them the same way.
 
 Expired units still on a shelf are expected and marked **Expired**: discard them. Scanning changes nothing. **Finish count** records the outcome (counts, and the missing, misplaced, and not-on-hand units) in the audit trail; **Count again** starts over. Choosing a location shows when it was last counted and whether everything was found; **Recent counts** lists the latest finished counts across locations. After finishing, search for anything missing first; a unit that cannot be found can be marked missing from the Missing list (the reason names the count). A scanned unit whose record says Missing offers **Found here**: it goes to quarantine for inspection, and the count is redone.
 
