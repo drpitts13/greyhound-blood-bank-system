@@ -31,4 +31,12 @@ public class ResultValueTextTests
         Assert.Equal("A-", ResultValueText.For("A|Negative"));
         Assert.Equal("Weak|Thing", ResultValueText.For("Weak|Thing"));
     }
+
+    // TEST-BB-1040: a phased screen reads as cell and phase, not the stored key (end-user testing pass 29: "Cell1|AHG:1+").
+    [Fact]
+    public void For_ReadsPhasedCellsAsCellAndPhase()
+    {
+        var screen = ResultValueText.For("{\"version\":2,\"subtests\":{\"Cell1\":{\"AHG\":\"1+\"},\"Pos Ctrl\":{\"AHG\":\"4+\"}}}");
+        Assert.Equal("Cell1 AHG:1+ · Pos Ctrl AHG:4+", screen);
+    }
 }

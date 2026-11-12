@@ -153,6 +153,20 @@ public class AstmParserTests
         Assert.Contains(message.Records, r => r.Type == 'L');
     }
 
+    // TEST-BB-1041: a simulated result record follows ASTM E1394 as the Echo does: status in R.9, completion time in R.13
+    // and instrument in R.14, where the catalog's data items read them (end-user testing pass 29: result_dt read M0002).
+    [Fact]
+    public void Simulator_PutsTheResultTimeAndInstrumentWhereTheEchoDoes()
+    {
+        var generated = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "DAT", "ACC-SIM", "MRN-SIM", "Patient", "Test", "19590422", "M", Seed: 5));
+        var result = AstmParser.Parse(generated.RawMessage).Records.First(r => r.Type == 'R');
+        Assert.Equal("F", result.GetField(9));
+        Assert.Matches("^[0-9]{14}$", result.GetField(13));
+        Assert.Equal("M0002", result.GetField(14));
+        Assert.Equal("R.13", BloodBankLIS.Domain.Instruments.InstrumentDataItemCatalog.Find("result_dt")!.DefaultAstmPath);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(3)]

@@ -807,3 +807,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-799 | A quarantined unit is not released while its storage location is still out of range. | P1 | FRS-BB-917 |
 | URS-BB-800 | A unit reserved on the Compatibility page is linked to the patient's open order for the product; time columns are labelled as what they show. | P2 | FRS-BB-918 |
 | URS-BB-801 | A reserved unit released from quarantine stays reserved; only a quarantined unit can be released. | P1 | FRS-BB-919 |
+| URS-BB-802 | A phased antibody screen reads as cell and phase ("Cell1 AHG:1+"), not its stored key. | P3 | FRS-BB-920 |
+| URS-BB-803 | The instrument simulator's result records place the completion time and instrument where the instrument does (ASTM E1394 R.13, R.14). | P2 | FRS-BB-921 |

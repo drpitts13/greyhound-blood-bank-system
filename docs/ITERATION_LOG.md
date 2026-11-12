@@ -22816,3 +22816,31 @@ On the running system with seeded data: Avery Demo-Special's reserved unit W0000
 ### Tests
 
 - TEST-BB-1039. Full suite passed.
+
+## Iteration 745 — End-user testing pass 29: instrument results (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the Test worklist (Riley Demo-Multi's instrument ABO/Rh and screen on ACC-DEMO-RCV1), then the instrument simulator sending a DAT for ACC-DEMO-RCV1 and the instrument message view.
+
+### Found and fixed
+
+1. **Screen readings in their stored form.** Riley's instrument antibody screen read "Cell1|AHG:1+ · … · Pos Ctrl|AHG:1+" on the worklist and chart. It reads "Cell1 AHG:1+ · … · Pos Ctrl AHG:1+". Retested live.
+2. **Simulator result records one field short.** The simulated DAT parsed with result date/time "M0002" (the instrument ID) and no instrument ID: the simulator put the completion time in R.12 and the instrument in R.13, where ASTM E1394 and the Echo's own records put them in R.13 and R.14 (the catalog defaults were right). Retested live: result_dt 20261112194943, instrument_id M0002.
+
+### Checked, not defects
+
+- The DAT for a specimen with no DAT ordered was refused and listed as an open failure ("Test DAT is not ordered on specimen ACC-DEMO-RCV1 (INST-NOT-ORDERED): not posted").
+- Riley's instrument ABO/Rh (A+ against a historical O+) is flagged Discrepancy, and Verify needs an authorized override with a history resolution.
+
+### Left in the development data
+
+- Two open instrument failures for ACC-DEMO-RCV1 (the test DATs), to resolve or keep as examples.
+
+### Remaining
+
+- The instrument's completion time (R.13) is read but not kept on the posted result.
+
+### Tests
+
+- TEST-BB-1040, TEST-BB-1041. Full suite passed.
