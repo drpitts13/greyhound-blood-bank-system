@@ -508,9 +508,7 @@
         if (r.Succeeded && r.Value is not null)
         {
             _allocCompatibleIds = r.Value.Select(u => u.BloodUnitId).ToHashSet();
-            _allocCompatibleNote = r.Value.Count == 1
-                ? "1 available unit is compatible with this patient's type, special requirements, and antibodies."
-                : $"{r.Value.Count} available units are compatible with this patient's type, special requirements, and antibodies.";
+            _allocCompatibleNote = BloodBankLIS.Application.PatientWorkspace.CompatibleUnitSummary.Note(r.Value);
         }
         else
         {

@@ -789,3 +789,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-781 | The downtime patient summary and antibody card state the antigen-negative red cells the issue check requires for the patient's clinically significant antibodies. | P1 | FRS-BB-899 |
 | URS-BB-782 | A successful patient merge is confirmed on the chart. | P3 | FRS-BB-900 |
 | URS-BB-783 | A modification records where its result goes; a thawed unit is never left in or sent to a freezer. | P1 | FRS-BB-901 |
+| URS-BB-784 | Units offered for a patient show their product, and the compatible count is given by product. | P2 | FRS-BB-902 |

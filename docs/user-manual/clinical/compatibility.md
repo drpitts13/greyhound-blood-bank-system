@@ -39,3 +39,7 @@ When you choose the patient, their special requirements appear above the form: r
 An emergency or massive-transfusion issue that still needs a retrospective crossmatch can open this screen with the patient and unit already filled in. Record the crossmatch against the specimen you actually tested. The retrospective queue on the issue desk clears only when that crossmatch is filed. An incompatible result shows a warning on this screen, raises a critical alert, and opens a critical deviation, because the unit may already be at the bedside or transfused.
 
 Crossmatch from the chart uses the same rules in a dialog. See [Products on the chart](patient-products).
+
+## Which units are offered
+
+Above the unit box, the note counts the available units compatible with the patient's type, special requirements and antibodies, by product, for example "6 available units are compatible …: 6 Fresh Frozen Plasma". When no red cell is listed, none in stock meets the patient's requirements: order one from the supplier. Each unit in the list shows its product.

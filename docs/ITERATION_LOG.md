@@ -22500,3 +22500,29 @@ On the running system with seeded data: Issue & Transfuse → Issue → Downtime
 ### Next
 
 - Pass 14: the remaining workflows (product orders with modifications, irradiation) and gaps.
+
+## Iteration 730 — End-user testing pass 14: special requirements at unit selection (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Avery Demo-Special (O+, irradiated and CMV-negative red cells required, call the transfusion service physician) → her chart → Compatibility → Allocate unit.
+
+### Found and fixed
+
+1. **Plasma read as compatible red cells.** The page said "6 available units are compatible with this patient's type, special requirements, and antibodies", and the list showed only unit number, type, status and expiry. All six were plasma: no red cell in stock is both irradiated and CMV-negative, and nothing said so. The note now counts by product ("…: 6 Fresh Frozen Plasma"), and every unit list in the system shows the product (and the status in words). Retested live.
+
+### Observed working
+
+- The special requirements and the call-the-physician instruction show on the chart and on both Compatibility forms; reserve and issue refuse a unit that does not meet them.
+
+### Not tested
+
+- Irradiating a unit for her: no red cell in stock is CMV-negative, and irradiation does not make it so; the unit would be ordered from the supplier.
+
+### Tests
+
+- TEST-BB-1023. Full suite passed.
+
+### Next
+
+- Pass 15: supplier ordering for a unit no stock meets, and the remaining gaps.
