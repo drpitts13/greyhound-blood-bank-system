@@ -18,6 +18,16 @@ public class ReportServiceTests : IDisposable
 
     public void Dispose() => _factory.Dispose();
 
+    // End-user testing pass 51: a discard at 21:00 on 31 October Eastern counted in November.
+    [Fact]
+    public void MonthText_IsTheFacilityMonth()
+    {
+        var eastern = TimeZoneInfo.CreateCustomTimeZone("Test-4", TimeSpan.FromHours(-4), "Test-4", "Test-4");
+        Assert.Equal("2026-10", EfReportSourceReader.MonthText(new DateTime(2026, 11, 1, 1, 0, 0, DateTimeKind.Utc), eastern));
+        Assert.Equal("2026-11", EfReportSourceReader.MonthText(new DateTime(2026, 11, 1, 4, 0, 0, DateTimeKind.Utc), eastern));
+        Assert.Null(EfReportSourceReader.MonthText(null, eastern));
+    }
+
     [Fact]
     public async Task SeededReports_Exist_Run_AndCannotBeDeleted()
     {

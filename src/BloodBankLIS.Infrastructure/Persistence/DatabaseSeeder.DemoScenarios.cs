@@ -87,6 +87,37 @@ public static partial class DatabaseSeeder
         await EnsureReactionNextUnitDemoAsync(context, ct);
         await EnsureTubeAwaitingReceiptDemoAsync(context, ct);
         await EnsureAntibodyWorkupInProgressDemoAsync(context, ct);
+        await EnsureSeededDiscardHistoryAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (end-user testing pass 51): the seeded discarded platelet
+    /// (W0001230001027, the third unit after the 24 by type) had no Discarded history, so the wastage reports showed
+    /// it with no discard date or month and a dated range left it out. Its discard is recorded at its expiry, as a
+    /// discard of an expired unit would be.
+    /// </summary>
+    private static async Task EnsureSeededDiscardHistoryAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var unit = await context.BloodUnits.FirstOrDefaultAsync(
+            u => u.UnitNumber == "W0001230001027" && u.Status == UnitStatus.Discarded && u.DiscardReasonCode == "EXPIRED", ct);
+        if (unit is null
+            || await context.InventoryStatusHistory.AnyAsync(h => h.BloodProductId == unit.Id && h.ToStatus == UnitStatus.Discarded, ct))
+        {
+            return;
+        }
+
+        context.InventoryStatusHistory.Add(new InventoryStatusHistory
+        {
+            BloodProductId = unit.Id,
+            FromStatus = UnitStatus.Available,
+            ToStatus = UnitStatus.Discarded,
+            FromLocationId = unit.CurrentLocationId,
+            ToLocationId = unit.CurrentLocationId,
+            Reason = unit.DiscardReason ?? "Expired before use",
+            ChangedBy = "tech1",
+            ChangedUtc = unit.ExpiresUtc.AddMinutes(30)
+        });
+        await context.SaveChangesAsync(ct);
     }
 
     /// <summary>

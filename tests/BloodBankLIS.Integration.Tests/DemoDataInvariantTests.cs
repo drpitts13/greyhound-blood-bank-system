@@ -35,6 +35,14 @@ public class DemoDataInvariantTests : IDisposable
             }
         }
 
+        // End-user testing pass 51: a seeded discard had no history, so the wastage reports had no date for it.
+        var discardedWithHistory = await v.InventoryStatusHistory.AsNoTracking()
+            .Where(h => h.ToStatus == UnitStatus.Discarded).Select(h => h.BloodProductId).ToListAsync();
+        foreach (var unit in units.Values.Where(u => u.Status == UnitStatus.Discarded && !discardedWithHistory.Contains(u.Id)))
+        {
+            problems.Add($"Unit {unit.UnitNumber} is Discarded with no Discarded history (no discard date).");
+        }
+
         foreach (var issue in issues)
         {
             var unit = units[issue.BloodProductId];

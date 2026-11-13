@@ -23255,3 +23255,23 @@ On the running system with seeded data: Reports › Crossmatch and transfusion a
 ### Tests
 
 - TEST-BB-1064. Full suite passed.
+
+## Iteration 767 — End-user testing pass 51: report months and a discard with no date (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Reports › Wastage by product and reason, and Discards and waste.
+
+### Found and fixed
+
+1. **UTC months.** Month columns (discard, activity, verified, ordered, rejected) were UTC months, so a discard at 21:00 on 31 October Eastern counted in November. They are now the facility's local month in visual reports.
+2. **A discard with no date.** The seeded discarded platelet (W0001230001027) had no Discarded history, so Wastage by product and reason showed it with a blank month, and with pass 50's date ranges a dated range left it out. The seed now records its discard (once, on existing databases too), and the demo-data invariant test (TEST-BB-345) requires a Discarded history for every discarded unit. Retested live: "2026-11 · Apheresis Platelets · EXPIRED · 1"; Discards and waste dates it 2026-11-05 10:20.
+
+### Remaining
+
+- SQL reports over the `rpt_*` views still compute months in UTC.
+- Patient age and ISBT as-of dates still use the UTC day.
+
+### Tests
+
+- TEST-BB-1065; TEST-BB-345 extended. Full suite passed.

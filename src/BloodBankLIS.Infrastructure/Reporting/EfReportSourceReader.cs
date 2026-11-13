@@ -11,7 +11,23 @@ public sealed class EfReportSourceReader : IReportSourceReader
 {
     private readonly BloodBankDbContext _db;
 
-    public EfReportSourceReader(BloodBankDbContext db) => _db = db;
+    private readonly TimeZoneInfo _zone;
+
+    public EfReportSourceReader(BloodBankDbContext db, IFacilityTimeZone? timeZone = null)
+    {
+        _db = db;
+        _zone = timeZone?.Zone ?? TimeZoneInfo.Local;
+    }
+
+    /// <summary>
+    /// The month a stored instant falls in at the facility (end-user testing pass 51: month columns were UTC months, so
+    /// a discard at 21:00 on 31 October Eastern counted in November).
+    /// </summary>
+    public static string? MonthText(DateTime? utc, TimeZoneInfo zone) =>
+        utc is DateTime value
+            ? TimeZoneInfo.ConvertTimeFromUtc(value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc), zone)
+                .ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)
+            : null;
 
     public Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> LoadAsync(string sourceCode, CancellationToken cancellationToken = default) =>
         sourceCode.ToLowerInvariant() switch
@@ -135,7 +151,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("discard_reason", ReportValueFormat.Text(row.DiscardReason)),
             ("discard_reason_code", ReportValueFormat.Text(row.DiscardReasonCode)),
             ("discarded_utc", row.DiscardedUtc is DateTime discarded ? ReportValueFormat.Date(discarded) : null),
-            ("discarded_month", row.DiscardedUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("discarded_month", MonthText(row.DiscardedUtc, _zone)),
             ("expires_utc", ReportValueFormat.Date(row.ExpiresUtc)))).ToList();
     }
 
@@ -301,7 +317,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
 
         var rows = crossmatches.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.PerformedUtc)),
-            ("occurred_month", row.PerformedUtc.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("occurred_month", MonthText(row.PerformedUtc, _zone)),
             ("event_type", "Crossmatch"),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_name", ReportValueFormat.Text(row.ProductName)),
@@ -310,7 +326,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
 
         rows.AddRange(transfusions.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.StartUtc)),
-            ("occurred_month", row.StartUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("occurred_month", MonthText(row.StartUtc, _zone)),
             ("event_type", "Transfusion"),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_name", ReportValueFormat.Text(row.ProductName)),
@@ -416,7 +432,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
 
         return rows.Select(row => ReportValueFormat.Row(
             ("verified_utc", ReportValueFormat.Date(row.VerifiedUtc)),
-            ("verified_month", row.VerifiedUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("verified_month", MonthText(row.VerifiedUtc, _zone)),
             ("ordered_utc", ReportValueFormat.Date(row.OrderedUtc)),
             ("received_utc", ReportValueFormat.Date(row.ReceivedUtc)),
             ("priority", row.Priority.ToString()),
@@ -476,7 +492,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             var ready = BloodOrderTurnaroundRule.FirstReady(reserved, issued);
             return ReportValueFormat.Row(
                 ("ordered_utc", ReportValueFormat.Date(row.OrderedUtc)),
-                ("ordered_month", row.OrderedUtc.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+                ("ordered_month", MonthText(row.OrderedUtc, _zone)),
                 ("priority", row.Priority.ToString()),
                 ("order_number", ReportValueFormat.Text(row.OrderNumber)),
                 ("status", row.Status.ToString()),
@@ -518,7 +534,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
 
         return rows.Select(row => ReportValueFormat.Row(
             ("rejected_utc", ReportValueFormat.Date(row.RejectedUtc)),
-            ("rejected_month", row.RejectedUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("rejected_month", MonthText(row.RejectedUtc, _zone)),
             ("rejection_reason_code", string.IsNullOrWhiteSpace(row.RejectionReasonCode) ? "UNCODED" : row.RejectionReasonCode),
             ("rejection_reason", ReportValueFormat.Text(row.RejectionReason)),
             ("rejected_by", ReportValueFormat.Text(row.RejectedBy)),

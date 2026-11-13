@@ -1073,5 +1073,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1062 | I | `Phase4IssuingTests.RecalledInTransit_IsFlagged_AndNotReceived` | URS-BB-822 / FRS-BB-940 |
 | TEST-BB-1063 | I | `PatientServiceTests.PossibleDuplicatesOf_NamesTheOtherChart` | URS-BB-823 / FRS-BB-941 |
 | TEST-BB-1064 | U | `VisualReportCompilerTests.DateRange_CountsWholeLocalDays_AndShowsLocalTimes` | URS-BB-826 / FRS-BB-944 |
+| TEST-BB-1065 | I | `ReportServiceTests.MonthText_IsTheFacilityMonth` | URS-BB-827 / FRS-BB-945 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
