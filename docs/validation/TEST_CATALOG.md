@@ -1078,5 +1078,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1067 | U | `InstrumentMessagesTests.SessionLog_HidesListenerStarts_KeepsProblems` | URS-BB-829 / FRS-BB-947 |
 | TEST-BB-1068 | U | `InventoryDiscardExpiredTests.SecondVerifier_RequiredIsSaid_AndAScanWithoutOneIsNotSent`, `InventoryDiscardExpiredTests.SecondVerifier_NotRequired_IsSaid` | URS-BB-830 / FRS-BB-948 |
 | TEST-BB-1069 | U | `DashboardHomeTests.ExpiredOnShelfNote_SaysOldestAndWhere` | URS-BB-831 / FRS-BB-949 |
+| TEST-BB-1070 | U | `DashboardDueCountTests.CountHeldByWardRequest_LapsedOrExpiredButRequested` | URS-BB-832 / FRS-BB-950 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

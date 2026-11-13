@@ -23346,3 +23346,26 @@ On the running system with seeded data: the dashboard's urgent inventory cards a
 ### Tests
 
 - TEST-BB-1069. Full suite passed.
+
+## Iteration 772 — End-user testing pass 56: blood orders and a stale ward request (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Blood orders to prepare (three open orders, each needing a specimen), then Issue & Transfuse › Ready to issue.
+
+### Checked, not defects
+
+- Blood orders to prepare puts the emergency and STAT orders first, marks Riley's surgery order past its needed-by time, and links each order to its history on the chart, where it can be cancelled.
+- The open MTP for Morgan Demo-Massive says no unit has been issued under it for 163 hours and offers to close it.
+
+### Found and fixed
+
+1. **A ward request nobody could act on.** Riley Demo-Multi's W0001230009201 was requested by ICU 4 on 2026-11-06; its reservation had ended and its crossmatch had expired, so it could not be issued, and a requested unit is never offered for release. The request could be cancelled only from the chart's Products tab, and nothing on Ready to issue said so; the dashboard counted six units past their reservation and the release banner five. A ward request can now be cancelled on the Ready to issue row with a reason (audited), and the banner says how many lapsed units are held by a ward request. Retested live: the banner said "1 more … requested by the ward"; after the request was cancelled (test reason) the release review offered all six.
+
+### Left in the development data
+
+- The ward request on W0001230009201 cancelled (test reason); the unit is still reserved for Riley.
+
+### Tests
+
+- TEST-BB-1070. Full suite passed.

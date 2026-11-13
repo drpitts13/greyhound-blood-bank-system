@@ -58,6 +58,14 @@ public static class ReadyToIssueAttentionRule
     public static string? StillWanted(ReadyToIssueWorkItemDto row) =>
         string.IsNullOrWhiteSpace(row.OrderNumber) ? null : $"Open order {row.OrderNumber.Trim()}";
 
+    /// <summary>
+    /// Units that would be offered for release but for an open ward request (end-user testing pass 56: a request from
+    /// ICU 4 seven days old held a unit whose crossmatch had expired; it could be neither issued nor released, and
+    /// nothing on Ready to issue said what to do). The ward request is cancelled first, with a reason.
+    /// </summary>
+    public static int CountHeldByWardRequest(IEnumerable<ReadyToIssueWorkItemDto> rows, DateTime nowUtc) =>
+        rows.Count(row => row.IssueRequestedUtc is not null && ReleaseReason(row with { IssueRequestedUtc = null }, nowUtc) is not null);
+
     /// <summary>The rows offered for release to stock, oldest reservation first.</summary>
     public static IReadOnlyList<ReadyToIssueWorkItemDto> ReleaseCandidates(IEnumerable<ReadyToIssueWorkItemDto> rows, DateTime nowUtc) =>
         rows.Where(row => ReleaseReason(row, nowUtc) is not null)

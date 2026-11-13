@@ -837,3 +837,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-829 | The instrument session log hides routine listener starts, shows a listener that could not start, and filters to warnings and errors or one instrument. | P3 | FRS-BB-947 |
 | URS-BB-830 | Discard expired says whether a second verifier is required before the first scan, and holds a scan with none chosen. | P3 | FRS-BB-948 |
 | URS-BB-831 | The Expired on shelf card says how long the oldest unit has been expired and where the units are. | P3 | FRS-BB-949 |
+| URS-BB-832 | Ready to issue lets the desk cancel a ward request with a reason, and says when a lapsed unit is held only by a ward request. | P2 | FRS-BB-950 |

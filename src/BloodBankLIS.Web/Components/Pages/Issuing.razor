@@ -248,6 +248,10 @@
                     {
                         <span>@candidates.Count reserved @(candidates.Count == 1 ? "unit is" : "units are") past @(candidates.Count == 1 ? "its" : "their") reservation, or @(candidates.Count == 1 ? "has" : "have") an expired crossmatch on an expired specimen.</span>
                         <button type="button" class="btn btn-secondary btn-sm" @onclick="() => BeginReleaseReview(candidates)" data-release-review-open>Review and release to stock</button>
+                        @if (ReadyToIssueAttentionRule.CountHeldByWardRequest(_readyItems, DateTime.UtcNow) is var held && held > 0)
+                        {
+                            <div class="sub" data-release-held-by-request>@held more @(held == 1 ? "is" : "are") past @(held == 1 ? "its" : "their") reservation but requested by the ward: cancel the ward request on the row (with a reason) to release @(held == 1 ? "it" : "them").</div>
+                        }
                     }
                     else
                     {
@@ -340,6 +344,20 @@
                                 @if (row.IssueRequestedUtc is DateTime requestedAt)
                                 {
                                     <span class="badge badge-blue" title="Requested @requestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @row.IssueRequestedBy" data-ready-requested>Requested → @row.IssueRequestedTo @ClockText.Short(requestedAt)</span>
+                                    @* Pass 56: a request the desk cannot fill (crossmatch expired, reservation ended) could only be cancelled from the chart. *@
+                                    @if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        @if (_cancellingRequestId == row.AllocationId)
+                                        {
+                                            <input style="width:12rem;" @bind="_cancelRequestReason" @bind:event="oninput" placeholder="Why cancel the request?" data-ready-cancel-request-reason />
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelRequestReason))" @onclick="() => CancelWardRequestAsync(row)" data-ready-cancel-request-submit>Cancel request</button>
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _cancellingRequestId = null">Keep</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => { _cancellingRequestId = row.AllocationId; _cancelRequestReason = string.Empty; }" data-ready-cancel-request>Cancel request…</button>
+                                        }
+                                    }
                                 }
                                 @if (row.OpenReactionInvestigationId is long readyReaction)
                                 {
@@ -1926,6 +1944,23 @@
     }
 
     /// <summary>A reservation past its end goes back to stock through the same release as the chart, with a reason.</summary>
+    private long? _cancellingRequestId;
+    private string _cancelRequestReason = string.Empty;
+
+    private async Task CancelWardRequestAsync(ReadyToIssueWorkItemDto row)
+    {
+        _busy = true;
+        var r = await Api.CancelIssueRequestAsync(row.AllocationId, new CancelIssueRequestRequest(_cancelRequestReason.Trim()));
+        _busy = false;
+        _releaseReadyFb = r.ToFeedback($"Ward request for {row.UnitNumber} cancelled. The unit stays reserved until issued or released.");
+        if (r.Succeeded)
+        {
+            _cancellingRequestId = null;
+            _cancelRequestReason = string.Empty;
+            await LoadWorklistsAsync();
+        }
+    }
+
     private async Task ReleaseReadyAsync(ReadyToIssueWorkItemDto row)
     {
         _busy = true;

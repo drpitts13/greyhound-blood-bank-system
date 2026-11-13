@@ -190,6 +190,21 @@ public class DashboardDueCountTests
         Assert.Equal([2L, 1L], ReadyToIssueAttentionRule.ReleaseCandidates([lapsed, xmAndSpecimen, xmOnly, requested, current], now).Select(r => r.AllocationId));
     }
 
+    // End-user testing pass 56: a unit past its reservation but requested by the ward is counted as held by the request,
+    // so Ready to issue can say to cancel the request; a request on a unit still in date is not counted.
+    [Fact]
+    public void CountHeldByWardRequest_LapsedOrExpiredButRequested()
+    {
+        var now = new DateTime(2026, 11, 13, 7, 0, 0, DateTimeKind.Utc);
+        var lapsedRequested = Ready(1) with { ReservationExpiresUtc = now.AddDays(-6), IssueRequestedUtc = now.AddDays(-7) };
+        var expiredRequested = Ready(2) with { DisplayStatus = ProductAllocationDisplayStatus.CrossmatchExpired, SpecimenExpired = true, IssueRequestedUtc = now.AddHours(-2) };
+        var currentRequested = Ready(3) with { ReservationExpiresUtc = now.AddHours(4), IssueRequestedUtc = now.AddMinutes(-5) };
+        var lapsedNotRequested = Ready(4) with { ReservationExpiresUtc = now.AddDays(-1) };
+
+        Assert.Equal(2, ReadyToIssueAttentionRule.CountHeldByWardRequest([lapsedRequested, expiredRequested, currentRequested, lapsedNotRequested], now));
+        Assert.Equal(0, ReadyToIssueAttentionRule.CountHeldByWardRequest([currentRequested, lapsedNotRequested], now));
+    }
+
     // TEST-BB-742: an offered unit reserved for an order still open is named as still wanted (it starts unticked in the
     // release review); one with no open order is not.
     [Fact]
