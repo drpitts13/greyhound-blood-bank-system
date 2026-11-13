@@ -67,3 +67,5 @@ Recording CBER notification and the written report for a fatality does not need 
 ## Bag culture, the supplier, and the donation's other units
 
 The workup checklist records whether the bag was sent for **Gram stain and culture**, with the result, and whether the **blood supplier was notified** (the time is stamped when you tick it and save) with who was told and the reference. When the implicated unit has a donation number, **Other units from this donation** lists its other components with their product and status, on the page and the report, so they can be found and held if the supplier asks. Nothing is held automatically.
+
+To accession the post-transfusion tube from the investigation, enter both patient identifiers as they appear on its label (MRN, then date of birth), as for any accession. The workup ordered on the pre-transfusion tube stays open when that tube is past its usual expiration: the specimen expiry sweep does not cancel or unlink a reaction workup.

@@ -23,10 +23,11 @@ public class ReactionWorkupServiceTests : IDisposable
 
     private DateTime Now => _factory.Clock.UtcNow;
 
-    private ReactionWorkupService Workup(BloodBankDbContext c)
+    private ReactionWorkupService Workup(BloodBankDbContext c, bool withPolicy = false)
     {
         var specimens = new SpecimenService(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
-            c, _factory.Clock, currentUser: _factory.CurrentUser);
+            c, _factory.Clock, currentUser: _factory.CurrentUser,
+            policy: withPolicy ? new FacilityPolicyService(new EfRepository<SystemSetting>(c)) : null);
         var orders = new OrderService(
             new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
             new EfRepository<Encounter>(c), new EfRepository<OrderingLocation>(c), new EfRepository<Patient>(c),
@@ -259,5 +260,26 @@ public class ReactionWorkupServiceTests : IDisposable
         var order = await c.Orders.SingleAsync(o => o.Id == post.Value.PostTransfusionOrderId);
         Assert.Equal($"RXN-{s.InvestigationId}-POST", order.OrderNumber);
         Assert.Equal(new[] { "ABORH", "DAT", "ABSC" }, await c.OrderLines.Where(l => l.OrderId == order.Id).OrderBy(l => l.LineNumber).Select(l => l.TestCode).ToArrayAsync());
+    }
+
+    // TEST-BB-1053: with the facility's policies (identifiers not pre-filled), the post-transfusion tube is accessioned from
+    // the investigation only with both identifiers from its label (end-user testing pass 38: the form could not give them,
+    // so the workup could never be finished).
+    [Fact]
+    public async Task PostTransfusionTube_TakesTheLabelIdentifiers()
+    {
+        var s = await SeedAsync("IDS");
+        await using var c = _factory.Create();
+        var patient = await c.Patients.SingleAsync(p => p.Id == s.PatientId);
+
+        var missing = await Workup(c, withPolicy: true).AccessionPostTransfusionSpecimenAsync(s.InvestigationId,
+            new AccessionPostTransfusionSpecimenRequest("ACC-RXW-IDS-0", "EDTA", Now.AddMinutes(-20)));
+        Assert.Contains(SpecimenLabelIdentityRule.Code, missing.Error);
+
+        var post = await Workup(c, withPolicy: true).AccessionPostTransfusionSpecimenAsync(s.InvestigationId,
+            new AccessionPostTransfusionSpecimenRequest("ACC-RXW-IDS-1", "EDTA", Now.AddMinutes(-20),
+                Identifier1Value: patient.MedicalRecordNumber, Identifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd")));
+        Assert.True(post.Succeeded, post.Error);
+        Assert.NotNull(post.Value!.PostTransfusionSpecimenId);
     }
 }

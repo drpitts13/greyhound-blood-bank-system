@@ -23003,3 +23003,22 @@ On the running system with seeded data: Blood orders to prepare, then the top-ba
 ### Tests
 
 - TEST-BB-1052; the lookup record-type tests include the new kind. Full suite passed.
+
+## Iteration 754 — End-user testing pass 38: working a transfusion reaction (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Reactions, Marcus Febrile's open investigation (suspected febrile reaction to W0001230001007). Ordered the workup on the retained pre-transfusion tube ACC0014, accessioned a post-transfusion tube, and watched the orders.
+
+### Found and fixed
+
+1. **The post-transfusion tube could not be accessioned.** Accession requires both patient identifiers from the tube label (SPEC-LABEL-IDS), but the investigation's accession form had no fields for them, so the workup could never get its post-transfusion specimen. The form now takes both (MRN, date of birth). Retested live: ACC-RXN-POST1 accessioned with MRN0006 and 1974-11-22; its workup tests ordered.
+2. **The pre-transfusion workup was cancelled by the expiry sweep.** The investigation allows the retained pre-transfusion tube though past its crossmatch expiry ("Expired: workup allowed"); 30 seconds after RXN-1-PRE was ordered on ACC0014, the specimen expiry sweep cancelled it as "Specimen expired", as it had the demo's RXN-1-POST on 2026-11-09. A transfusion reaction workup is now left open and linked. Retested live: RXN-1-PRE-2 still open after two minutes; the investigation's next step reads "Result and verify the workup tests: 5 still to verify".
+
+### Left in the development data
+
+- Investigation 1 (Marcus Febrile) has workup orders RXN-1-PRE-2 and RXN-1-POST-2 open to result; the earlier RXN-1-PRE and RXN-1-POST stay cancelled.
+
+### Tests
+
+- TEST-BB-1053, TEST-BB-1054. Full suite passed.

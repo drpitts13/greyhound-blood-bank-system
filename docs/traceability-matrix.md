@@ -923,6 +923,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-809 / FRS-BB-927 | End-user testing pass 35: facility days for checks and QC | `EquipmentService.cs`, `ReagentQcService.cs`, `ReagentQcRules.cs`, `Reagents.razor` | TEST-BB-1048, TEST-BB-1049 | U, I | |
 | URS-BB-810 / FRS-BB-928 | End-user testing pass 36: expiry dates on the facility calendar | `IFacilityTimeZone.cs`, `RhigLotRule.cs`, `RhigEvaluationService.cs`, `AntibodyIdentificationService.cs`, `AntibodyPanelLotAdminService.cs` | TEST-BB-1050, TEST-BB-1051 | U, I | |
 | URS-BB-811 / FRS-BB-929 | End-user testing pass 37: reagent lots in the lookup | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor` | TEST-BB-1052 | I | |
+| URS-BB-812 / FRS-BB-930 | End-user testing pass 38: post-transfusion tube identifiers | `ReactionWorkupDtos.cs`, `ReactionWorkupService.cs`, `Reactions.razor` | TEST-BB-1053 | I | |
+| URS-BB-813 / FRS-BB-931 | End-user testing pass 38: reaction workup and the expiry sweep | `ExpiredSpecimenOrderDisposition.cs`, `ExpiredSpecimenOrderService.cs` | TEST-BB-1054 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

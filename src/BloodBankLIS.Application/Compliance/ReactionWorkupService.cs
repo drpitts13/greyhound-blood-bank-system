@@ -165,6 +165,8 @@ public sealed class ReactionWorkupService
             request.SpecimenType,
             request.CollectedUtc,
             request.Barcode,
+            Identifier1Value: string.IsNullOrWhiteSpace(request.Identifier1Value) ? null : request.Identifier1Value.Trim(),
+            Identifier2Value: string.IsNullOrWhiteSpace(request.Identifier2Value) ? null : request.Identifier2Value.Trim(),
             Comment: $"Post-transfusion specimen for transfusion reaction investigation {context.Row.Id}."), ct);
         if (!accessioned.Succeeded || accessioned.Value is null)
         {

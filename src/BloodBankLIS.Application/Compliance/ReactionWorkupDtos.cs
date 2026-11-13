@@ -67,4 +67,8 @@ public sealed record AccessionPostTransfusionSpecimenRequest(
     string AccessionNumber,
     string SpecimenType,
     DateTime CollectedUtc,
-    string? Barcode = null);
+    string? Barcode = null,
+    // The two patient identifiers as they appear on the tube label (MRN, then date of birth), checked like any accession.
+    // End-user testing pass 38: accession requires them, and the reaction form had no way to give them.
+    string? Identifier1Value = null,
+    string? Identifier2Value = null);

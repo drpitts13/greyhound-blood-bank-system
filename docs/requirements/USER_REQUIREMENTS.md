@@ -817,3 +817,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-809 | Equipment check due dates and daily reagent QC count the facility's calendar days, not UTC days. | P1 | FRS-BB-927 |
 | URS-BB-810 | A RhIG lot and an antibody panel lot are good through their expiry date on the facility's calendar. | P1 | FRS-BB-928 |
 | URS-BB-811 | The top-bar lookup finds a reagent lot by its number and opens it on Reagent QC; order hits read in words. | P2 | FRS-BB-929 |
+| URS-BB-812 | The post-transfusion tube of a reaction investigation can be accessioned from the investigation with the identifiers on its label. | P1 | FRS-BB-930 |
+| URS-BB-813 | A transfusion reaction workup on an expired pre-transfusion tube is not cancelled by the specimen expiry sweep. | P1 | FRS-BB-931 |

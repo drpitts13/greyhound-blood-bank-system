@@ -338,6 +338,8 @@ else
                                     <div class="field"><label>New tube accession</label><input @bind="_postAccession" @bind:event="oninput" placeholder="Scan or type" autocomplete="off" /></div>
                                     <div class="field"><label>Type</label><input @bind="_postType" /></div>
                                     <div class="field"><label>Collected</label><input type="datetime-local" @bind="_postCollected" /></div>
+                                    <div class="field"><label>Patient ID 1 (MRN) on the tube</label><input @bind="_postId1" @bind:event="oninput" placeholder="Scan or type from the tube label" autocomplete="off" data-post-id1 /></div>
+                                    <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd) on the tube</label><input @bind="_postId2" @bind:event="oninput" placeholder="From the tube label" autocomplete="off" data-post-id2 /></div>
                                 </div>
                                 <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_postAccession))" @onclick="AccessionPostAsync">Accession and order @group</button>
                             }
@@ -581,6 +583,8 @@ else
     private long _preChoice;
     private long _postChoice;
     private string? _postAccession;
+    private string? _postId1;
+    private string? _postId2;
     private string _postType = "EDTA";
     private DateTime _postCollected = DateTime.Now;
 
@@ -603,6 +607,8 @@ else
         _preChoice = _workupOptions?.PreCandidates.FirstOrDefault(c => c.Suggested)?.SpecimenId ?? 0;
         _postChoice = 0;
         _postAccession = null;
+        _postId1 = null;
+        _postId2 = null;
         _postCollected = DateTime.Now;
     }
 
@@ -643,7 +649,8 @@ else
         _busy = true;
         var id = _selected.Id;
         var r = await Api.AccessionReactionPostSpecimenAsync(id, new AccessionPostTransfusionSpecimenRequest(
-            _postAccession.Trim(), string.IsNullOrWhiteSpace(_postType) ? "EDTA" : _postType.Trim(), _postCollected.ToUniversalTime()));
+            _postAccession.Trim(), string.IsNullOrWhiteSpace(_postType) ? "EDTA" : _postType.Trim(), _postCollected.ToUniversalTime(),
+            Identifier1Value: _postId1, Identifier2Value: _postId2));
         _busy = false;
         _fb = r.ToFeedback("Post-transfusion specimen accessioned; its workup tests are ordered. Result them on the bench.");
         if (r.Succeeded)

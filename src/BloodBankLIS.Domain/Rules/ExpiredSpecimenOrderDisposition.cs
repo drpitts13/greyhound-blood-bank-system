@@ -28,6 +28,12 @@ public static class ExpiredSpecimenOrderDisposition
     public const string CancellationReason = "Specimen expired.";
     public const string UnlinkReason = "Specimen expired.";
 
+    /// <summary>
+    /// Orders that are meant to be tested on an expired specimen and are never cancelled or unlinked for it: a transfusion
+    /// reaction workup (the pre-transfusion tube is chosen for being collected before issue, not for being in date).
+    /// </summary>
+    public static bool KeepsExpiredSpecimen(OrderType orderType) => orderType == OrderType.TransfusionReactionWorkup;
+
     public static bool IsOpen(OrderStatus status) =>
         status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued);
 
