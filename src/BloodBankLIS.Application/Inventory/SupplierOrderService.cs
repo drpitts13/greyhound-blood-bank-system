@@ -23,6 +23,8 @@ public sealed record SupplierOrderLineDto(long Id, long ProductTypeId, string Pr
     public int Short => Received is int r ? Math.Max(0, Quantity - r) : 0;
 }
 
+public sealed record SupplierOrderFollowUpRequest(string Note, DateTime? PromisedArrivalUtc = null);
+
 public sealed record SupplierOrderDto(
     long Id,
     string OrderNumber,
@@ -43,6 +45,15 @@ public sealed record SupplierOrderDto(
     DateTime? ArrivalDueUtc = null,
     bool ArrivalOverdue = false)
 {
+    /// <summary>The last follow-up with the supplier: note, who and when; the promised arrival is in ArrivalDueUtc.</summary>
+    public string? FollowUpNote { get; init; }
+
+    public string? FollowUpBy { get; init; }
+
+    public DateTime? FollowUpUtc { get; init; }
+
+    public bool ArrivalPromised { get; init; }
+
     /// <summary>Units ordered that the linked delivery did not bring (0 before receipt).</summary>
     public int UnitsShort => Lines.Sum(l => l.Short);
 }
@@ -393,6 +404,42 @@ public sealed class SupplierOrderService
         return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(order, ct));
     }
 
+    /// <summary>
+    /// Records a follow-up with the supplier on a submitted order (what was said, and the arrival they now promise, if
+    /// any); the latest replaces the last on the order and each is audited.
+    /// </summary>
+    public async Task<OperationResult<SupplierOrderDto>> RecordFollowUpAsync(long id, SupplierOrderFollowUpRequest request, CancellationToken ct = default)
+    {
+        var order = await _orders.GetByIdAsync(id, ct);
+        if (order is null)
+        {
+            return OperationResult<SupplierOrderDto>.Fail("Order not found.");
+        }
+
+        var promised = request?.PromisedArrivalUtc is DateTime p ? DateTime.SpecifyKind(p, DateTimeKind.Utc) : (DateTime?)null;
+        var check = SupplierOrderRule.EvaluateFollowUp(order.Status, request?.Note, promised, _clock.UtcNow);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<SupplierOrderDto>.Fail(check.Message);
+        }
+
+        var before = new { order.FollowUpNote, order.PromisedArrivalUtc };
+        var note = request!.Note.Trim();
+        order.FollowUpNote = note.Length <= 500 ? note : note[..500];
+        order.FollowUpBy = _currentUser.UserName;
+        order.FollowUpUtc = _clock.UtcNow;
+        if (promised is not null)
+        {
+            order.PromisedArrivalUtc = promised;
+        }
+
+        _orders.Update(order);
+        _audit.Record(AuditEventType.Update, nameof(SupplierOrder), order.Id, before,
+            new { order.FollowUpNote, order.PromisedArrivalUtc }, $"Supplier followed up: {order.FollowUpNote}");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(order, ct));
+    }
+
     /// <summary>The order as a PDF or CSV to send to the supplier. Exporting is audited.</summary>
     public async Task<OperationResult<SupplierOrderFile>> ExportAsync(long id, string format, CancellationToken ct = default)
     {
@@ -508,7 +555,13 @@ public sealed class SupplierOrderService
             order.Id, order.OrderNumber, order.BloodSupplierId, supplier?.Name ?? string.Empty, order.Status, order.Notes,
             order.CreatedUtc, order.CreatedBy, order.SubmittedBy, order.SubmittedUtc, order.BloodDeliveryId, order.ReceivedUtc,
             order.CancelReason, lineDtos.Sum(l => l.Quantity), lineDtos,
-            order.Status == SupplierOrderStatus.Submitted ? SupplierOrderRule.ArrivalDueUtc(order.SubmittedUtc, dueHours) : null,
-            SupplierOrderRule.IsArrivalOverdue(order.Status, order.SubmittedUtc, dueHours, _clock.UtcNow));
+            order.Status == SupplierOrderStatus.Submitted ? order.PromisedArrivalUtc ?? SupplierOrderRule.ArrivalDueUtc(order.SubmittedUtc, dueHours) : null,
+            SupplierOrderRule.IsArrivalOverdue(order.Status, order.SubmittedUtc, dueHours, _clock.UtcNow, order.PromisedArrivalUtc))
+        {
+            FollowUpNote = order.FollowUpNote,
+            FollowUpBy = order.FollowUpBy,
+            FollowUpUtc = order.FollowUpUtc,
+            ArrivalPromised = order.PromisedArrivalUtc is not null
+        };
     }
 }

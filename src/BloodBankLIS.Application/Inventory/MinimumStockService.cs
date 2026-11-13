@@ -117,7 +117,7 @@ public sealed class MinimumStockService
         var dueHours = _policy is null ? 24 : await _policy.GetExpectedArrivalDueHoursAsync(ct);
         var now = _clock?.UtcNow ?? DateTime.UtcNow;
         var overdue = submitted
-            .Where(o => SupplierOrderRule.IsArrivalOverdue(o.Status, o.SubmittedUtc, dueHours, now))
+            .Where(o => SupplierOrderRule.IsArrivalOverdue(o.Status, o.SubmittedUtc, dueHours, now, o.PromisedArrivalUtc))
             .Select(o => o.Id)
             .ToHashSet();
         return (await _supplierOrderLines.ListAsync(l => ids.Contains(l.SupplierOrderId) && l.Quantity > 0, ct), overdue);

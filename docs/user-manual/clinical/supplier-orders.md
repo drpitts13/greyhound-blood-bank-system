@@ -35,3 +35,7 @@ A draft or submitted order can be cancelled with a reason. A received order cann
 ## Special orders for a patient
 
 When no unit in stock meets a patient's needs (for example irradiated, CMV-negative or antigen-negative red cells), **New special order** starts an empty draft. **Add line** takes the product, ABO and Rh (or any), the **Requirements** as the supplier is to read them, the **For patient** MRN, and the quantity. A line for a patient is kept apart from a stock line of the same product. The exported PDF and CSV list the Rh, requirements and patient for each line. Sign and submit as for any order.
+
+## Following up an order
+
+On a submitted order, **Record follow-up** keeps who you spoke to at the supplier and what they said, and, when they give one, the **promised arrival**. The order is then due at the promised time instead of the usual arrival window, so it is not marked overdue (here, on Minimum stock, or in the alert) until then. The latest follow-up shows on the order with who recorded it and when; each is in the audit trail. Times on the order are local.

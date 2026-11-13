@@ -1879,6 +1879,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SupplierOrderDto>> ReceiveSupplierOrderAsync(long id, ReceiveSupplierOrderRequest req, CancellationToken ct = default) =>
         SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/receive", req, ct);
 
+    public Task<ApiResult<SupplierOrderDto>> RecordSupplierOrderFollowUpAsync(long id, SupplierOrderFollowUpRequest req, CancellationToken ct = default) =>
+        SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/follow-up", req, ct);
+
     public Task<ApiResult<SupplierOrderDto>> CancelSupplierOrderAsync(long id, CancelSupplierOrderRequest req, CancellationToken ct = default) =>
         SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/cancel", req, ct);
 

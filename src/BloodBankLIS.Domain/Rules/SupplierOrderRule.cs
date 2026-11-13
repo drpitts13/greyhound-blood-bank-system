@@ -26,8 +26,31 @@ public static class SupplierOrderRule
         submittedUtc is DateTime submitted ? submitted.AddHours(Math.Max(1, dueHours)) : null;
 
     /// <summary>A submitted order not received by its arrival time: chase the supplier or plan around it.</summary>
-    public static bool IsArrivalOverdue(SupplierOrderStatus status, DateTime? submittedUtc, int dueHours, DateTime nowUtc) =>
-        status == SupplierOrderStatus.Submitted && ArrivalDueUtc(submittedUtc, dueHours) is DateTime due && nowUtc > due;
+    public static bool IsArrivalOverdue(SupplierOrderStatus status, DateTime? submittedUtc, int dueHours, DateTime nowUtc, DateTime? promisedUtc = null) =>
+        status == SupplierOrderStatus.Submitted && (promisedUtc ?? ArrivalDueUtc(submittedUtc, dueHours)) is DateTime due && nowUtc > due;
+
+    public const string FollowUpCode = "SUPPLIER-ORDER-FOLLOWUP";
+
+    /// <summary>
+    /// A follow-up with the supplier is recorded on a submitted order, with what was said; a promised arrival, when given,
+    /// is in the future (end-user testing pass 45: an overdue order could only be cancelled).
+    /// </summary>
+    public static RuleResult EvaluateFollowUp(SupplierOrderStatus status, string? note, DateTime? promisedUtc, DateTime nowUtc)
+    {
+        if (status != SupplierOrderStatus.Submitted)
+        {
+            return RuleResult.HardStop(FollowUpCode, "A follow-up is recorded on a submitted order that has not arrived.");
+        }
+
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            return RuleResult.HardStop(FollowUpCode, "Say who you spoke to and what they said.");
+        }
+
+        return promisedUtc is DateTime promised && promised <= nowUtc
+            ? RuleResult.HardStop(FollowUpCode, "The promised arrival must be later than now.")
+            : RuleResult.Pass(FollowUpCode);
+    }
 
     public const string NotDraftCode = "SUPORD-NOT-DRAFT";
     public const string EmptyCode = "SUPORD-EMPTY";

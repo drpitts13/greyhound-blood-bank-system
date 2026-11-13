@@ -2522,6 +2522,8 @@ public sealed class SupplierOrderConfiguration : IEntityTypeConfiguration<Suppli
         b.Property(o => o.SubmittedBy).HasMaxLength(100);
         b.Property(o => o.CancelledBy).HasMaxLength(100);
         b.Property(o => o.CancelReason).HasMaxLength(500);
+        b.Property(o => o.FollowUpNote).HasMaxLength(500);
+        b.Property(o => o.FollowUpBy).HasMaxLength(100);
         b.Property(o => o.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(o => o.ModifiedBy).HasMaxLength(100);
         b.HasOne(o => o.BloodSupplier).WithMany().HasForeignKey(o => o.BloodSupplierId).OnDelete(DeleteBehavior.Restrict);

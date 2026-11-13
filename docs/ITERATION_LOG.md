@@ -23138,3 +23138,22 @@ Retested live on Nora Kline's chart (nothing saved).
 ### Tests
 
 - Page changes (inspection). Full suite passed.
+
+## Iteration 761 — End-user testing pass 45: minimum stock and an overdue supplier order (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Minimum stock (RBC-LR group A 0 of 4, one unit on an overdue order), then Supplier orders › SO-DEMO-002, submitted 2026-11-06 for one group A red cell and not delivered.
+
+### Found and fixed
+
+1. **"Chase the supplier", with nowhere to say it was chased.** An overdue order could only be linked to a delivery or cancelled; the next shift could not tell whether anyone had called the supplier, and the order read overdue until it came. A submitted order now records a follow-up (who was spoken to, what they said) and, optionally, the arrival the supplier promised; the order is then due at that time, on the order, on Minimum stock and in the alert. Retested live: "Follow-up recorded."; "Promised by the supplier for 2026-11-13 09:00"; the order no longer marked overdue.
+2. **Times labelled UTC on the order.** The order panel gave submitted and arrival times in UTC and the list's tooltip converted to local but still said UTC; both are local now.
+
+### Left in the development data
+
+- SO-DEMO-002 has a follow-up and a promised arrival of 2026-11-13 09:00.
+
+### Tests
+
+- TEST-BB-1061. Full suite passed.

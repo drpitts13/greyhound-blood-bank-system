@@ -66,7 +66,7 @@
                             }
                             @if (order.ArrivalOverdue)
                             {
-                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") UTC; chase the supplier" data-arrival-overdue>Arrival overdue</span>
+                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"); chase the supplier" data-arrival-overdue>Arrival overdue</span>
                             }
                         </td>
                         <td class="right">@order.UnitsOrdered</td>
@@ -169,10 +169,14 @@
         </div>
         @if (current.SubmittedUtc is DateTime submitted)
         {
-            <p class="muted">Submitted by @current.SubmittedBy @submitted.ToString("yyyy-MM-dd HH:mm") UTC.@if (current.ArrivalDueUtc is DateTime due)
+            <p class="muted">Submitted by @current.SubmittedBy @submitted.ToLocalTime().ToString("yyyy-MM-dd HH:mm").@if (current.ArrivalDueUtc is DateTime due)
                 {
-                    <span class="@(current.ArrivalOverdue ? "text-danger" : null)" data-arrival-due> Arrival due @due.ToString("yyyy-MM-dd HH:mm") UTC@(current.ArrivalOverdue ? ": overdue, chase the supplier" : "").</span>
+                    <span class="@(current.ArrivalOverdue ? "text-danger" : null)" data-arrival-due> @(current.ArrivalPromised ? "Promised by the supplier for" : "Arrival due") @due.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(current.ArrivalOverdue ? ": overdue, chase the supplier" : "").</span>
                 }</p>
+            @if (current.FollowUpNote is not null)
+            {
+                <p class="muted" data-follow-up>Followed up @current.FollowUpUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @current.FollowUpBy: @current.FollowUpNote</p>
+            }
         }
         @if (current.ReceivedUtc is DateTime received)
         {
@@ -215,6 +219,13 @@
                 </div>
             </div>
             <button class="btn btn-primary btn-sm" disabled="@(_busy || _deliveryId == 0)" @onclick="ReceiveAsync">Link delivery</button>
+
+            @* End-user testing pass 45: an overdue order said "chase the supplier" with nowhere to record that it was chased. *@
+            <div class="form-row" style="margin-top:1rem;" data-follow-up-form>
+                <div class="field" style="flex:2;"><label>Follow-up with the supplier</label><input @bind="_followUpNote" @bind:event="oninput" maxlength="500" placeholder="Who you spoke to and what they said" /></div>
+                <div class="field"><label>Promised arrival (optional)</label><input type="datetime-local" @bind="_followUpPromised" /></div>
+            </div>
+            <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_followUpNote))" @onclick="FollowUpAsync" data-follow-up-save>Record follow-up</button>
         }
 
         @if (current.Status is SupplierOrderStatus.Draft or SupplierOrderStatus.Submitted && CanEdit)
@@ -386,6 +397,13 @@
 
     private Task ReceiveAsync() =>
         RunAsync(() => Api.ReceiveSupplierOrderAsync(_selected!.Id, new ReceiveSupplierOrderRequest(_deliveryId)), "Delivery linked. The order is received.");
+
+    private string? _followUpNote;
+    private DateTime? _followUpPromised;
+
+    private Task FollowUpAsync() =>
+        RunAsync(() => Api.RecordSupplierOrderFollowUpAsync(_selected!.Id,
+            new SupplierOrderFollowUpRequest(_followUpNote ?? string.Empty, _followUpPromised?.ToUniversalTime())), "Follow-up recorded.");
 
     private Task CancelAsync() =>
         RunAsync(() => Api.CancelSupplierOrderAsync(_selected!.Id, new CancelSupplierOrderRequest(_cancelReason)), "Order cancelled.");

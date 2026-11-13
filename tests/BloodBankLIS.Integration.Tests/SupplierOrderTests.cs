@@ -201,6 +201,19 @@ public class SupplierOrderTests : IDisposable
         var row = (await minimum.ListAsync()).Single(r => r.ProductTypeId == f.RedCells.Id);
         Assert.Equal((2, 2), (row.OnOrder, row.OnOrderOverdue));
         Assert.Equal("RBC-SO O: 1 of 3, 2 on order (overdue)", DashboardQueueCatalog.LowStockCard([row]).Note);
+
+        // TEST-BB-1061: the follow-up with the supplier is recorded with what was said; a promised arrival replaces the
+        // due time, so the order is no longer overdue until then (end-user testing pass 45).
+        Assert.Contains("Say who", (await service.RecordFollowUpAsync(order.Id, new SupplierOrderFollowUpRequest(" "))).Error);
+        Assert.Contains("later than now", (await service.RecordFollowUpAsync(order.Id,
+            new SupplierOrderFollowUpRequest("Called ARC", _factory.Clock.UtcNow.AddHours(-1)))).Error);
+        var promised = _factory.Clock.UtcNow.AddHours(6);
+        var followed = await service.RecordFollowUpAsync(order.Id, new SupplierOrderFollowUpRequest("Called ARC: on the 14:00 courier", promised));
+        Assert.True(followed.Succeeded, followed.Error);
+        Assert.Equal((false, promised, true, "Called ARC: on the 14:00 courier", "tech-test"),
+            (followed.Value!.ArrivalOverdue, followed.Value.ArrivalDueUtc, followed.Value.ArrivalPromised, followed.Value.FollowUpNote, followed.Value.FollowUpBy));
+        Assert.Equal(0, (await minimum.ListAsync()).Single(r => r.ProductTypeId == f.RedCells.Id).OnOrderOverdue);
+        Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(SupplierOrder) && a.Reason!.StartsWith("Supplier followed up")));
     }
 
     // TEST-BB-468: named-ABO lines take matching units first, any-ABO lines take what is left, and no unit counts twice.

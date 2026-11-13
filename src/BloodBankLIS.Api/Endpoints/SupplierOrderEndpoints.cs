@@ -33,6 +33,10 @@ public static class SupplierOrderEndpoints
             ToResult(await service.ReceiveAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
+        group.MapPost("/{id:long}/follow-up", async (long id, SupplierOrderFollowUpRequest request, SupplierOrderService service, CancellationToken ct) =>
+            ToResult(await service.RecordFollowUpAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         group.MapPost("/{id:long}/cancel", async (long id, CancelSupplierOrderRequest request, SupplierOrderService service, CancellationToken ct) =>
             ToResult(await service.CancelAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);

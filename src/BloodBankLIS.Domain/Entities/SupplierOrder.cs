@@ -35,6 +35,18 @@ public class SupplierOrder : BaseEntity
 
     public string? CancelReason { get; set; }
 
+    /// <summary>
+    /// The last follow-up with the supplier on a submitted order (who was spoken to, what was said), and the arrival they
+    /// promised; the order is overdue against the promised time when there is one (end-user testing pass 45).
+    /// </summary>
+    public DateTime? PromisedArrivalUtc { get; set; }
+
+    public string? FollowUpNote { get; set; }
+
+    public string? FollowUpBy { get; set; }
+
+    public DateTime? FollowUpUtc { get; set; }
+
     public ICollection<SupplierOrderLine> Lines { get; set; } = new List<SupplierOrderLine>();
 }
 
