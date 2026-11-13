@@ -174,11 +174,11 @@
                                 <span class="sub" data-order-specimen-note>@typeNote</span>
                             }
                         </div>
-                        <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
+                        <div class="field"><label>Collected</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
                         @if (AccessionPreviewExpires is { } preview)
                         {
                             <div class="field"><label>Expires (preview)</label>
-                                <input value="@preview.ToString("yyyy-MM-dd HH:mm")" disabled />
+                                <input value="@LocalEntry.FromUtc(preview).ToString("yyyy-MM-dd HH:mm")" disabled />
                             </div>
                         }
                         <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="OrderAcc.ValidityHours" /></div>
@@ -854,7 +854,7 @@
     }
 
     private DateTime? AccessionPreviewExpires =>
-        SpecimenTypeOrderHint.PreviewExpiresUtc(OrderAcc.CollectedLocal, OrderAcc.SpecimenType, SpecimenTypes);
+        SpecimenTypeOrderHint.PreviewExpiresUtc(LocalEntry.ToUtc(OrderAcc.CollectedLocal), OrderAcc.SpecimenType, SpecimenTypes);
 
     private string? AccessionMismatch =>
         SpecimenTypeOrderHint.MismatchWarning(TestDefs, NewOrderTestCodes, OrderAcc.SpecimenType);

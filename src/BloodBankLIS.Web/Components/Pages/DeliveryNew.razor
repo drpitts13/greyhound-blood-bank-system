@@ -30,7 +30,7 @@
                 @foreach (var s in _suppliers) { <option value="@s.Id">@s.DisplayName</option> }
             </select>
         </div>
-        <div class="field"><label>Ordered (UTC)</label><input type="datetime-local" @bind="_orderedLocal" /></div>
+        <div class="field"><label>Ordered</label><input type="datetime-local" @bind="_orderedLocal" /></div>
         <div class="field"><label>Packing list</label><input @bind="_packingList" placeholder="Optional" /></div>
     </div>
     <div class="table-scroll">
@@ -72,7 +72,7 @@
     private Feedback? _feedback;
     private List<BloodSupplierRefDto> _suppliers = new();
     private long _supplierId;
-    private DateTime _orderedLocal = DateTime.UtcNow;
+    private DateTime _orderedLocal = LocalEntry.Now;
     private string? _packingList;
     private List<LineDraft> _lines = [new()];
 
@@ -110,7 +110,7 @@
         _busy = true;
         var r = await Api.CreateDeliveryAsync(new CreateDeliveryRequest(
             _supplierId,
-            DateTime.SpecifyKind(_orderedLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_orderedLocal),
             string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim(),
             _lines.Select(l => new SaveDeliveryLineRequest(l.ComponentClass, l.ExpectedQuantity)).ToList()));
         _busy = false;

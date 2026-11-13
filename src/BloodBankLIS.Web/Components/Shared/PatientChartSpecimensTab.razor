@@ -58,11 +58,11 @@
                         <span class="sub" data-several-open>More than one visit is open: choose the one this tube was drawn on.</span>
                     }
                 </div>
-                <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Accession.CollectedLocal" @bind:after="RefreshAccessionPreviewAsync" /></div>
+                <div class="field"><label>Collected</label><input type="datetime-local" @bind="Accession.CollectedLocal" @bind:after="RefreshAccessionPreviewAsync" /></div>
                 @if (AccessionPreviewExpires is { } preview)
                 {
                     <div class="field"><label>Expires (preview)</label>
-                        <input value="@preview.ToString("yyyy-MM-dd HH:mm")" disabled />
+                        <input value="@LocalEntry.FromUtc(preview).ToString("yyyy-MM-dd HH:mm")" disabled />
                         @if (_accessionPreview?.ShortenedForAlloimmunizationRisk == true)
                         {
                             <span class="sub">Shorter window: patient transfused or pregnant recently.</span>
@@ -218,11 +218,11 @@
                                 <div class="form-row">
                                     <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
                                     <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
-                                    <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" /></div>
+                                    <div class="field"><label>Collected</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" /></div>
                                     <div class="field"><label>Barcode</label><input value="@(s.Barcode ?? "—")" disabled /><span class="muted">Use Relabel to change.</span></div>
                                     <div class="field"><label>Draw location</label><input @bind="Edit.DrawLocation" /></div>
                                     <div class="field"><label>Collector</label><input @bind="Edit.Collector" /></div>
-                                    <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="Edit.ExpiresLocal" @bind:after="OnExpiresChanged" /></div>
+                                    <div class="field"><label>Expires</label><input type="datetime-local" @bind="Edit.ExpiresLocal" @bind:after="OnExpiresChanged" /></div>
                                 </div>
                                 <div class="field">
                                     <label>Comment</label>
@@ -413,7 +413,7 @@
 
     private DateTime? AccessionPreviewExpires =>
         _accessionPreview?.PolicyExpiresUtc
-        ?? SpecimenTypeOrderHint.PreviewExpiresUtc(Accession.CollectedLocal, Accession.SpecimenType, SpecimenTypes);
+        ?? SpecimenTypeOrderHint.PreviewExpiresUtc(LocalEntry.ToUtc(Accession.CollectedLocal), Accession.SpecimenType, SpecimenTypes);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -444,7 +444,7 @@
         }
 
         _accessionPreviewKey = key;
-        var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Accession.SpecimenType, Accession.CollectedLocal, validityHours: Accession.ValidityHours);
+        var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Accession.SpecimenType, LocalEntry.ToUtc(Accession.CollectedLocal), validityHours: Accession.ValidityHours);
         _accessionPreview = r.Succeeded ? r.Value : null;
     }
 
@@ -460,13 +460,14 @@
         DateTime? server = null;
         if (Patient is not null)
         {
-            var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Edit.SpecimenType, Edit.CollectedLocal);
+            var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Edit.SpecimenType, LocalEntry.ToUtc(Edit.CollectedLocal));
             server = r.Succeeded ? r.Value?.PolicyExpiresUtc : null;
         }
 
-        var preview = server
-            ?? SpecimenTypeOrderHint.PreviewExpiresUtc(Edit.CollectedLocal, Edit.SpecimenType, SpecimenTypes)
-            ?? Edit.CollectedLocal.AddHours(Edit.PolicyHours);
+        // The form holds local times (pass 57): the server and catalog give UTC.
+        var previewUtc = server
+            ?? SpecimenTypeOrderHint.PreviewExpiresUtc(LocalEntry.ToUtc(Edit.CollectedLocal), Edit.SpecimenType, SpecimenTypes);
+        var preview = previewUtc is DateTime utc ? LocalEntry.FromUtc(utc) : Edit.CollectedLocal.AddHours(Edit.PolicyHours);
         Edit.PolicyExpires = preview;
         if (!Edit.ExpiryTouched)
         {

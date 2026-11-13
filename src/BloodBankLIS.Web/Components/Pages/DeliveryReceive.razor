@@ -97,7 +97,7 @@ else
             </div>
             <div class="field"><label>ABO</label><select @bind="_rec.Abo"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
             <div class="field"><label>Rh(D)</label><select @bind="_rec.RhD"><option value="">— Select —</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select></div>
-            <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_rec.ExpiresLocal" /></div>
+            <div class="field"><label>Expires</label><input type="datetime-local" @bind="_rec.ExpiresLocal" /></div>
             <div class="field"><label>Location</label>
                 <select @bind="_rec.LocationId">
                     <option value="0">— none —</option>
@@ -261,7 +261,7 @@ else
             _rec.ProductTypeId,
             _rec.Abo!.Value,
             _rec.RhD!.Value,
-            DateTime.SpecifyKind(_rec.ExpiresLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_rec.ExpiresLocal),
             _rec.LocationId == 0 ? null : _rec.LocationId,
             Isbt128ProductCode: string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim(),
             VisualInspectionAcceptable: _rec.Appearance == UnitAppearance.Acceptable,
@@ -308,7 +308,7 @@ else
         if (!string.IsNullOrWhiteSpace(product.Isbt128ProductCode))
             _rec.ProductDescriptionCode = product.Isbt128ProductCode;
         if (product.DefaultShelfLifeHours is int hours && hours > 0)
-            _rec.ExpiresLocal = DateTime.UtcNow.AddHours(hours);
+            _rec.ExpiresLocal = LocalEntry.Now.AddHours(hours);
     }
 
     private bool AllExpectedReceived =>
@@ -338,7 +338,7 @@ else
         // Read from the unit's label: starts unchosen, never assumed O / Positive (Cycle 593).
         public AboGroup? Abo { get; set; }
         public RhType? RhD { get; set; }
-        public DateTime ExpiresLocal { get; set; } = DateTime.UtcNow.AddDays(30);
+        public DateTime ExpiresLocal { get; set; } = LocalEntry.Now.AddDays(30);
         public long LocationId { get; set; }
         public string ProductDescriptionCode { get; set; } = string.Empty;
         public string? VisualInspectionNotes { get; set; }

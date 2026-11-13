@@ -44,7 +44,7 @@ else
                     </select>
                 }
             </div>
-            <div class="field"><label>Ordered (UTC)</label>
+            <div class="field"><label>Ordered</label>
                 @if (_delivery.Status == DeliveryStatus.Open)
                 {
                     <input type="datetime-local" @bind="_orderedLocal" />
@@ -208,7 +208,7 @@ else
     {
         _delivery = delivery;
         _supplierId = delivery.BloodSupplierId;
-        _orderedLocal = delivery.OrderedUtc;
+        _orderedLocal = LocalEntry.FromUtc(delivery.OrderedUtc);
         _packingList = delivery.PackingListNumber;
         _lines = delivery.Lines.Select(l => new LineDraft
         {
@@ -226,7 +226,7 @@ else
         _delivery is not null
         && _delivery.Status == DeliveryStatus.Open
         && (_supplierId != _delivery.BloodSupplierId
-            || _orderedLocal != _delivery.OrderedUtc
+            || _orderedLocal != LocalEntry.FromUtc(_delivery.OrderedUtc)
             || (string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim()) != _delivery.PackingListNumber
             || _lines.Count != _delivery.Lines.Count
             || _lines.Any(l => !_delivery.Lines.Any(d => d.Id == l.Id && d.ComponentClass == l.ComponentClass && d.ExpectedQuantity == l.ExpectedQuantity)));
@@ -259,7 +259,7 @@ else
         _busy = true;
         var r = await Api.UpdateDeliveryAsync(Id, new UpdateDeliveryRequest(
             _delivery.SupplierLocked ? _delivery.BloodSupplierId : _supplierId,
-            DateTime.SpecifyKind(_orderedLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_orderedLocal),
             string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim(),
             lines));
         _busy = false;

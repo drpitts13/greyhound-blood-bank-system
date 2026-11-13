@@ -23369,3 +23369,21 @@ On the running system with seeded data: Blood orders to prepare (three open orde
 ### Tests
 
 - TEST-BB-1070. Full suite passed.
+
+## Iteration 773 — End-user testing pass 57: forms took times in UTC (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Reagent QC (worklist, receive a lot), then the forms that take a time: specimen accession and edit on the chart, the order's accession, the RhIG tab, deliveries.
+
+### Checked, not defects
+
+- The reagent QC worklist lists the seven lots due today, the unreviewed QC, and the 5 results to review after AD-24092's failed QC.
+
+### Found and fixed
+
+1. **Times typed in UTC.** Reagent lot receive and correct ("Expires (UTC)"), specimen accession and edit ("Collected (UTC)", "Expires (UTC)"), the order's accession, the RhIG event and given times, delivery order time and unit expiry all took UTC, while the pages around them show local time. At 04:50 Eastern the accession form offered 09:50 as the collection time; a collection typed from the tube's 04:50 was stored five hours early, moving its expiry; an RhIG delivery typed at 13:27 was saved as 08:27 Eastern, five hours early for the give-by time; a reagent lot entered to expire at midnight showed as expiring 19:00 the day before. The specimen expiry previews printed a UTC time unlabelled, and prior result versions showed raw UTC under "When (UTC)". Every one of these now takes and shows local time, stored as UTC. A guard test forbids "(UTC)" labels and local values stamped as UTC. Retested live: the accession form offers 04:50 with expiry 2026-11-16 04:50; Noor's RhIG delivery opens at 13:27, as its heading says.
+
+### Tests
+
+- TEST-BB-1071. Full suite passed.

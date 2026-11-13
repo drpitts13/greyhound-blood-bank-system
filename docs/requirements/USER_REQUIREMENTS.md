@@ -838,3 +838,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-830 | Discard expired says whether a second verifier is required before the first scan, and holds a scan with none chosen. | P3 | FRS-BB-948 |
 | URS-BB-831 | The Expired on shelf card says how long the oldest unit has been expired and where the units are. | P3 | FRS-BB-949 |
 | URS-BB-832 | Ready to issue lets the desk cancel a ward request with a reason, and says when a lapsed unit is held only by a ward request. | P2 | FRS-BB-950 |
+| URS-BB-833 | Dates and times are typed in local time on every form (specimen collection and expiry, RhIG event and given, reagent lot expiry, delivery order and unit expiry). | P1 | FRS-BB-951 |

@@ -30,7 +30,7 @@
                         <option value="@RhigContext.OtherExposure">Other exposure</option>
                     </select>
                 </div>
-                <div class="field"><label>Event date and time (UTC)</label><input type="datetime-local" @bind="_form.EventUtc" /></div>
+                <div class="field"><label>Event date and time</label><input type="datetime-local" @bind="_form.EventUtc" /></div>
                 <div class="field"><label>Infant Rh</label>
                     <select @bind="_form.InfantRh">
                         <option value="@RhType.Unknown">Not known</option>
@@ -162,7 +162,7 @@
                                 </datalist>
                             </div>
                             <div class="field"><label>Vials given</label><input type="number" min="1" max="50" @bind="_givenVials" /></div>
-                            <div class="field"><label>Given at (UTC)</label><input type="datetime-local" @bind="_givenUtc" /></div>
+                            <div class="field"><label>Given at</label><input type="datetime-local" @bind="_givenUtc" /></div>
                             <div class="field"><label>Note</label><input @bind="_givenNote" /></div>
                         </div>
                         @if (RhigEvaluationRule.GivenDifference(e.VialsRecommended, _givenVials) is { } preview)
@@ -213,7 +213,8 @@
     {
         public long? Id { get; set; }
         public RhigContext Context { get; set; } = RhigContext.Postpartum;
-        public DateTime EventUtc { get; set; } = DateTime.UtcNow;
+        // Typed in local time (pass 57); sent as UTC.
+        public DateTime EventUtc { get; set; } = LocalEntry.Now;
         public RhType InfantRh { get; set; } = RhType.Unknown;
         public FetalBleedScreen FetalBleedScreen { get; set; } = FetalBleedScreen.NotDone;
         public decimal? FetalBleedPercent { get; set; }
@@ -255,7 +256,7 @@
     private long? _givingId;
     private string _givenLot = string.Empty;
     private int _givenVials = 1;
-    private DateTime _givenUtc = DateTime.UtcNow;
+    private DateTime _givenUtc = LocalEntry.Now;
     private string? _givenNote;
 
     // Starts on the vials recommended, so the usual case is a lot scan and Record given.
@@ -264,14 +265,14 @@
         _givingId = e.Id;
         _givenLot = string.Empty;
         _givenVials = e.VialsRecommended ?? 1;
-        _givenUtc = DateTime.UtcNow;
+        _givenUtc = LocalEntry.Now;
         _givenNote = null;
     }
 
     private async Task RecordGivenAsync(RhigEvaluationDto e)
     {
         _busy = true;
-        var r = await Api.RecordRhigGivenAsync(PatientId, e.Id, new RecordRhigGivenRequest(_givenLot, _givenVials, DateTime.SpecifyKind(_givenUtc, DateTimeKind.Utc), _givenNote));
+        var r = await Api.RecordRhigGivenAsync(PatientId, e.Id, new RecordRhigGivenRequest(_givenLot, _givenVials, LocalEntry.ToUtc(_givenUtc), _givenNote));
         _busy = false;
         _fb = r.ToFeedback("RhIG given recorded.");
         if (r.Succeeded)
@@ -305,7 +306,7 @@
     {
         Id = e.Id,
         Context = e.Context,
-        EventUtc = e.EventUtc,
+        EventUtc = LocalEntry.FromUtc(e.EventUtc),
         InfantRh = e.InfantRh,
         FetalBleedScreen = e.FetalBleedScreen,
         FetalBleedPercent = e.FetalBleedPercent,
@@ -323,7 +324,7 @@
 
         _busy = true;
         var r = await Api.SaveRhigEvaluationAsync(PatientId, new SaveRhigEvaluationRequest(
-            _form.Id, _form.Context, DateTime.SpecifyKind(_form.EventUtc, DateTimeKind.Utc), _form.InfantRh, _form.FetalBleedScreen,
+            _form.Id, _form.Context, LocalEntry.ToUtc(_form.EventUtc), _form.InfantRh, _form.FetalBleedScreen,
             _form.FetalBleedPercent, _form.Decision, _form.VialsRecommended, _form.DecisionNote));
         _busy = false;
         _fb = r.ToFeedback("RhIG evaluation saved.");

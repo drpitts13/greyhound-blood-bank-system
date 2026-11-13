@@ -28,3 +28,7 @@ On any signed-in screen, **Help for this page** in the top bar opens the topic t
 ## Downloads
 
 **Download clinical guide** and **Download administrator guide** save the PDF manuals. They are generated from these topics, including the figures. Specialized authoring help on Order and Test Rules, Instrument Interfaces, and the SQL report designer stays on those screens and is linked from the administrator topics.
+
+## Dates and times
+
+Times on screen are your workstation's local time, and times you type are local too: the time on the clock, the tube or the paper record. This includes when a specimen was collected and when it expires, an RhIG event and when RhIG was given, a reagent lot's expiry, and a delivery's order time and unit expiry. The system stores them in UTC; you never convert.

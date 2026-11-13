@@ -172,7 +172,7 @@
                 </select>
             </div>
             <div class="field"><label>Lot number</label><input id="reagent-lot-number" @bind="_lotNumber" @bind:event="oninput" /></div>
-            <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_expiresLocal" /></div>
+            <div class="field"><label>Expires</label><input type="datetime-local" @bind="_expiresLocal" /></div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(_reagentId == 0 || string.IsNullOrWhiteSpace(_lotNumber))" @onclick="ReceiveLotAsync">Receive lot</button>
         @if (VisibleLots.Any())
@@ -224,7 +224,7 @@
                                 <td colspan="5">
                                     <div class="form-row">
                                         <div class="field"><label>Lot number</label><input class="mono" @bind="_correctNumber" @bind:event="oninput" data-lot-correct-number /></div>
-                                        <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_correctExpires" data-lot-correct-expires /></div>
+                                        <div class="field"><label>Expires</label><input type="datetime-local" @bind="_correctExpires" data-lot-correct-expires /></div>
                                         <div class="field" style="flex:2;"><label>Reason</label><input @bind="_correctReason" @bind:event="oninput" placeholder="e.g. expiry typed wrongly at receipt" data-lot-correct-reason /></div>
                                     </div>
                                     <div class="flex gap" style="margin-top:.4rem;">
@@ -464,7 +464,7 @@
     {
         _correctLot = lot;
         _correctNumber = lot.LotNumber;
-        _correctExpires = DateTime.SpecifyKind(lot.ExpiresUtc, DateTimeKind.Unspecified);
+        _correctExpires = LocalEntry.FromUtc(lot.ExpiresUtc);
         _correctReason = null;
     }
 
@@ -476,7 +476,7 @@
         }
 
         var r = await Api.CorrectReagentLotAsync(_correctLot.Id,
-            new CorrectReagentLotRequest(_correctNumber, DateTime.SpecifyKind(_correctExpires, DateTimeKind.Utc), _correctReason));
+            new CorrectReagentLotRequest(_correctNumber, LocalEntry.ToUtc(_correctExpires), _correctReason));
         _feedback = r.ToFeedback($"Lot {_correctNumber.Trim()} corrected.");
         if (r.Succeeded && r.Value is not null)
         {
@@ -539,7 +539,7 @@
     private string _name = string.Empty;
     private long _reagentId;
     private string _lotNumber = string.Empty;
-    private DateTime _expiresLocal = DateTime.UtcNow.Date.AddDays(30);
+    private DateTime _expiresLocal = DateTime.Now.Date.AddDays(30);
     private long _qcLotId;
     private string _expected = string.Empty;
     private string _observed = string.Empty;
@@ -696,7 +696,7 @@
 
     private async Task ReceiveLotAsync()
     {
-        var expires = DateTime.SpecifyKind(_expiresLocal, DateTimeKind.Utc);
+        var expires = LocalEntry.ToUtc(_expiresLocal);
         var saved = await Api.ReceiveReagentLotAsync(new ReceiveReagentLotRequest(_reagentId, _lotNumber, expires));
         _feedback = saved.ToFeedback("Lot received.");
         if (saved.Succeeded)

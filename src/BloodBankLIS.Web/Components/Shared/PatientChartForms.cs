@@ -4,6 +4,7 @@ using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
+using BloodBankLIS.Web.Services;
 
 namespace BloodBankLIS.Web.Components.Shared;
 
@@ -11,7 +12,8 @@ public sealed class PatientAccessionForm
 {
     public string AccessionNumber { get; set; } = string.Empty;
     public string SpecimenType { get; set; } = "EDTA";
-    public DateTime CollectedLocal { get; set; } = DateTime.UtcNow;
+    // Local time as typed (pass 57); sent as UTC with LocalEntry.ToUtc.
+    public DateTime CollectedLocal { get; set; } = LocalEntry.Now;
     public int? ValidityHours { get; set; }
     public string? Identifier1Value { get; set; }
     public string? Identifier2Value { get; set; }
@@ -27,14 +29,15 @@ public sealed class PatientAccessionForm
 
 public sealed class PatientSpecimenEditForm
 {
-    public DateTime CollectedLocal { get; set; } = DateTime.UtcNow;
-    public DateTime ExpiresLocal { get; set; } = DateTime.UtcNow;
+    // Local times as typed (pass 57), like PolicyExpires; sent as UTC with LocalEntry.ToUtc.
+    public DateTime CollectedLocal { get; set; } = LocalEntry.Now;
+    public DateTime ExpiresLocal { get; set; } = LocalEntry.Now;
     public string SpecimenType { get; set; } = string.Empty;
     public string? Barcode { get; set; }
     public string? DrawLocation { get; set; }
     public string? Collector { get; set; }
     public int PolicyHours { get; set; } = 168;
-    public DateTime PolicyExpires { get; set; } = DateTime.UtcNow;
+    public DateTime PolicyExpires { get; set; } = LocalEntry.Now;
     public bool ExpiryTouched { get; set; }
     public string? Comment { get; set; }
     public string OverrideReason { get; set; } = string.Empty;

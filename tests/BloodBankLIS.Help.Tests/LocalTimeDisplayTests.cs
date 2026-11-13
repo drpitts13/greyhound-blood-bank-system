@@ -34,6 +34,32 @@ public partial class LocalTimeDisplayTests
             "A stored UTC time is shown without .ToLocalTime():" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
 
+    // End-user testing pass 57: specimen collection, RhIG, reagent and delivery forms took their times in UTC, so a time
+    // typed from the wall clock was five hours off. No form field is labelled UTC, and no page sends a typed local
+    // value as if it were UTC.
+    [Fact]
+    public void Forms_TakeTimesInLocalTime()
+    {
+        var root = RepoRoot();
+        var problems = Directory.EnumerateFiles(Path.Combine(root, "src", "BloodBankLIS.Web", "Components"), "*.razor", SearchOption.AllDirectories)
+            .SelectMany(f => File.ReadAllLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
+            .Where(l => l.Text.Contains("(UTC)</label>", StringComparison.Ordinal) || LocalSentAsUtc().IsMatch(l.Text))
+            .Select(l => $"{Path.GetRelativePath(root, l.File)}:{l.Line}: {l.Text.Trim()}")
+            .ToList();
+
+        Assert.True(problems.Count == 0, "A form takes or sends a time as UTC:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+
+        var typed = new DateTime(2026, 11, 13, 8, 30, 0, DateTimeKind.Unspecified);
+        var utc = BloodBankLIS.Web.Services.LocalEntry.ToUtc(typed);
+        Assert.Equal(DateTimeKind.Utc, utc.Kind);
+        Assert.Equal(DateTime.SpecifyKind(typed, DateTimeKind.Local).ToUniversalTime(), utc);
+        Assert.Equal(typed, BloodBankLIS.Web.Services.LocalEntry.FromUtc(utc));
+    }
+
+    // A field named *Local stamped as UTC without conversion.
+    [GeneratedRegex(@"SpecifyKind\([^,()]*Local[^,()]*,\s*DateTimeKind\.Utc\)")]
+    private static partial Regex LocalSentAsUtc();
+
     // TEST-BB-718: server messages never write a stored time in the "u" format ("…12:49:00Z") or as an unlabelled
     // date-time: on-screen text uses ClinicalTimeText.Local, saved text says UTC (Cycle 605).
     [Fact]

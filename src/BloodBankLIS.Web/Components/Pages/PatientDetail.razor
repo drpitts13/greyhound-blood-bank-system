@@ -2116,7 +2116,7 @@ else
                 accessionNumber,
                 Id,
                 string.IsNullOrWhiteSpace(_orderAcc.SpecimenType) ? "EDTA" : _orderAcc.SpecimenType,
-                DateTime.SpecifyKind(_orderAcc.CollectedLocal, DateTimeKind.Utc),
+                LocalEntry.ToUtc(_orderAcc.CollectedLocal),
                 ValidityHours: _orderAcc.ValidityHours,
                 Identifier1Value: string.IsNullOrWhiteSpace(_orderAcc.Identifier1Value) ? null : _orderAcc.Identifier1Value,
                 Identifier2Value: string.IsNullOrWhiteSpace(_orderAcc.Identifier2Value) ? null : _orderAcc.Identifier2Value,
@@ -2753,7 +2753,7 @@ else
     {
         _busy = true;
         var req = new AccessionSpecimenRequest(_acc.AccessionNumber, Id, _acc.SpecimenType,
-            DateTime.SpecifyKind(_acc.CollectedLocal, DateTimeKind.Utc), ValidityHours: _acc.ValidityHours,
+            LocalEntry.ToUtc(_acc.CollectedLocal), ValidityHours: _acc.ValidityHours,
             Identifier1Value: string.IsNullOrWhiteSpace(_acc.Identifier1Value) ? null : _acc.Identifier1Value,
             Identifier2Value: string.IsNullOrWhiteSpace(_acc.Identifier2Value) ? null : _acc.Identifier2Value,
             Collector: string.IsNullOrWhiteSpace(_acc.Collector) ? null : _acc.Collector.Trim(),
@@ -2871,11 +2871,11 @@ else
         _editFb = null;
         _edit = new PatientSpecimenEditForm
         {
-            CollectedLocal = s.CollectedUtc,
-            ExpiresLocal = s.ExpiresUtc ?? policyExpires,
+            CollectedLocal = LocalEntry.FromUtc(s.CollectedUtc),
+            ExpiresLocal = LocalEntry.FromUtc(s.ExpiresUtc ?? policyExpires),
             SpecimenType = s.SpecimenType,
             PolicyHours = hours,
-            PolicyExpires = policyExpires,
+            PolicyExpires = LocalEntry.FromUtc(policyExpires),
             Barcode = s.Barcode,
             DrawLocation = s.DrawLocation,
             Collector = s.Collector,
@@ -2920,13 +2920,13 @@ else
 
         _busy = true;
         var r = await Api.UpdateSpecimenAsync(specimenId, new UpdateSpecimenRequest(
-            DateTime.SpecifyKind(_edit.CollectedLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_edit.CollectedLocal),
             string.IsNullOrWhiteSpace(_edit.Barcode) ? null : _edit.Barcode,
             string.IsNullOrWhiteSpace(_edit.DrawLocation) ? null : _edit.DrawLocation,
             string.IsNullOrWhiteSpace(_edit.Collector) ? null : _edit.Collector,
             ValidityHours: null,
             string.IsNullOrWhiteSpace(_edit.Comment) ? null : _edit.Comment,
-            DateTime.SpecifyKind(_edit.ExpiresLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_edit.ExpiresLocal),
             NeedsSpecimenExpiryOverride ? _edit.OverrideReason.Trim() : null,
             NeedsSpecimenExpiryOverride ? _edit.AuthorizedBy.Trim() : null));
         _busy = false;
@@ -3400,7 +3400,7 @@ else
                                         <details>
                                             <summary class="muted">@priors.Count prior version@(priors.Count == 1 ? "" : "s") retained</summary>
                                             <table class="bb" style="margin-top:.35rem;">
-                                                <thead><tr><th>Ver.</th><th>Value</th><th>Status</th><th>Source</th><th>Reason</th><th>Who</th><th>When (UTC)</th></tr></thead>
+                                                <thead><tr><th>Ver.</th><th>Value</th><th>Status</th><th>Source</th><th>Reason</th><th>Who</th><th>When</th></tr></thead>
                                                 <tbody>
                                                 @foreach (var p in priors)
                                                 {
@@ -3411,7 +3411,7 @@ else
                                                         <td>@Ui.EnumText(p.Source)</td>
                                                         <td>@VersionReason(p)</td>
                                                         <td>@(p.InvalidatedBy ?? p.VerifiedBy ?? p.EnteredBy)</td>
-                                                        <td class="mono">@(p.InvalidatedUtc ?? p.VerifiedUtc ?? p.EnteredUtc)</td>
+                                                        <td class="mono">@(((DateTime?)(p.InvalidatedUtc ?? p.VerifiedUtc ?? p.EnteredUtc)) is DateTime when ? when.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "")</td>
                                                     </tr>
                                                 }
                                                 </tbody>
