@@ -844,3 +844,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-836 | An order message naming another patient's order number is refused with nothing applied: it neither cancels that order nor is skipped as already existing. | P1 | FRS-BB-954 |
 | URS-BB-837 | HL7 message times are read with their stated UTC offset and seconds; a merged-away MRN on a transfusion message is followed to the surviving chart. | P1 | FRS-BB-955 |
 | URS-BB-838 | The instrument simulator stamps results with the local clock, as an analyzer does. | P3 | FRS-BB-956 |
+| URS-BB-839 | Reagent QC alerts name the kind of work in words. | P3 | FRS-BB-957 |

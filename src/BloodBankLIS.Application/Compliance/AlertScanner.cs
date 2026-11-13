@@ -104,7 +104,7 @@ public sealed class AlertScanner
                 item.Kind == ReagentQcWorklistRule.Failed ? AlertSeverity.Critical : AlertSeverity.Warning,
                 item.Kind == ReagentQcWorklistRule.Replace
                     ? $"Reagent lot to replace: lot {item.LotNumber}"
-                    : $"Reagent QC {item.Kind.ToLowerInvariant()}: lot {item.LotNumber}",
+                    : $"Reagent QC {ReagentQcWorklistRule.KindText(item.Kind)}: lot {item.LotNumber}",
                 item.ResultsToReview > 0
                     ? $"{item.Message} {item.ResultsToReview} result{(item.ResultsToReview == 1 ? " was" : "s were")} tested with this lot since it last passed QC: review {(item.ResultsToReview == 1 ? "it" : "them")}."
                     : item.Message,

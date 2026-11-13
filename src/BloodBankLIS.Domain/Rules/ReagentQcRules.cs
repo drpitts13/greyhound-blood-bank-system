@@ -51,6 +51,16 @@ public static class ReagentQcWorklistRule
     /// <summary>A lot whose QC failed and later passed, with results tested in the failed period not yet reviewed.</summary>
     public const string ReviewResults = "ReviewResults";
 
+    /// <summary>
+    /// The kind in words for a title ("overdue", "results to review"). End-user testing pass 64: the alert read
+    /// "Reagent QC reviewresults: lot AD-24092".
+    /// </summary>
+    public static string KindText(string kind) => kind switch
+    {
+        ReviewResults => "results to review",
+        _ => kind.ToLowerInvariant()
+    };
+
     public static IReadOnlyList<ReagentQcWorkItem> Evaluate(
         IReadOnlyList<ReagentQcLotFact> lots,
         IReadOnlyList<ReagentQcFact> qcRows,

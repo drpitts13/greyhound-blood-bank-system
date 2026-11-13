@@ -20,4 +20,13 @@ public class ReagentQcResultBlockTests
         Assert.Equal(ReagentQcResultGate.Evaluate(true, true).Message, block!.Message);
         Assert.Equal("LOT-7", Assert.Single(block.Work).LotNumber);
     }
+
+    // End-user testing pass 64: the alert title read "Reagent QC reviewresults"; kinds read as words.
+    [Fact]
+    public void KindText_ReadsAsWords()
+    {
+        Assert.Equal("results to review", ReagentQcWorklistRule.KindText(ReagentQcWorklistRule.ReviewResults));
+        Assert.Equal("overdue", ReagentQcWorklistRule.KindText(ReagentQcWorklistRule.Overdue));
+        Assert.Equal("unreviewed", ReagentQcWorklistRule.KindText(ReagentQcWorklistRule.Unreviewed));
+    }
 }

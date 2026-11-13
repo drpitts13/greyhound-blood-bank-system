@@ -950,6 +950,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-836 / FRS-BB-954 | End-user testing pass 61: ORM naming another patient's order | `Hl7InboundProcessor.cs` | TEST-BB-1074 | I | |
 | URS-BB-837 / FRS-BB-955 | End-user testing pass 62: HL7 times and merged MRN on BPAM | `Hl7Mappers.cs`, `Hl7InboundProcessor.cs` | TEST-BB-1075 | U, I | |
 | URS-BB-838 / FRS-BB-956 | End-user testing pass 63: simulator clock | `EchoResultSimulator.cs` | TEST-BB-1041 | U | |
+| URS-BB-839 / FRS-BB-957 | End-user testing pass 64: reagent QC alert title | `ReagentQcRules.cs`, `AlertScanner.cs` | TEST-BB-1076 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

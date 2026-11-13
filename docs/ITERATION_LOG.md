@@ -23520,3 +23520,26 @@ How instrument (ASTM) result times are read and shown, then Instrument simulator
 ### Tests
 
 - TEST-BB-1041 extended. Full suite passed.
+
+## Iteration 780 — End-user testing pass 64: the alert board (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Antibody ID (Kellerman's workup, flagged on an expired specimen), then Alerts (29 open).
+
+### Checked, not defects
+
+- Two "units quarantined at FRIDGE-1" alerts for one excursion (DEV-3) come from two automatic quarantine runs, one alert per run, as designed.
+- The identity-change alert for Riley Demo-Multi (MRN0022) was raised as designed when a test ADT changed her date of birth.
+
+### Found and fixed
+
+1. **"Reagent QC reviewresults".** The alert title lower-cased the worklist kind. Kinds now read as words: "Reagent QC results to review: lot AD-24092". Retested live: the open alert was retitled by the next scan.
+
+### Development data restored
+
+- Riley Demo-Multi (MRN0022): pass 60's test discharge (UAT-ADT-A03-X1, applied before that fix) had also overwritten her name, date of birth (1958-11-21 → 1988-07-04) and sex. Restored through Edit demographics with a reason: Demo-Multi, Riley, 1958-11-21, sex Unknown.
+
+### Tests
+
+- TEST-BB-1076. Full suite passed.
