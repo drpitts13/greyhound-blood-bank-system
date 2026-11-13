@@ -218,6 +218,22 @@ public sealed class PatientService
             }
         }
 
+        return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Ok(await ComputePossibleDuplicatePairsAsync(ct));
+    }
+
+    /// <summary>
+    /// The charts this one may duplicate (same pairs as the report, dismissed pairs left out), each with its blood bank
+    /// flags, so whoever opens the chart sees that the history may be on another one. End-user testing pass 47: an EHR
+    /// registration created a second chart for Riley Demo-Multi, with no blood type, and the chart said nothing.
+    /// </summary>
+    public async Task<IReadOnlyList<PossibleDuplicateOfDto>> PossibleDuplicatesOfAsync(long patientId, CancellationToken ct = default) =>
+        (await ComputePossibleDuplicatePairsAsync(ct))
+            .Where(p => p.First.Id == patientId || p.Second.Id == patientId)
+            .Select(p => new PossibleDuplicateOfDto(p.First.Id == patientId ? p.Second : p.First, p.Reason))
+            .ToList();
+
+    private async Task<IReadOnlyList<PossibleDuplicatePairDto>> ComputePossibleDuplicatePairsAsync(CancellationToken ct)
+    {
         var active = (await ListDtosAsync(ct)).Where(p => p.Status != PatientStatus.Merged && !p.Unidentified).ToList();
         var reasons = new Dictionary<(long, long), List<string>>();
         void AddPair(PatientDto a, PatientDto b, string reason)
@@ -284,8 +300,7 @@ public sealed class PatientService
             .Where(pair => !dismissed.TryGetValue(OrderedKey(pair.First.Id, pair.Second.Id), out var reviewed)
                 || !PossibleDuplicatePatientRule.StillDismissed(pair.Reason, reviewed))
             .ToList();
-        return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Ok(
-            pairs.OrderBy(p => p.First.LastName, StringComparer.OrdinalIgnoreCase).ThenBy(p => p.First.MedicalRecordNumber).ToList());
+        return pairs.OrderBy(p => p.First.LastName, StringComparer.OrdinalIgnoreCase).ThenBy(p => p.First.MedicalRecordNumber).ToList();
 
         static (PatientDto First, PatientDto Second) Older(PatientDto a, PatientDto b) =>
             (a.CreatedUtc, a.Id).CompareTo((b.CreatedUtc, b.Id)) <= 0 ? (a, b) : (b, a);

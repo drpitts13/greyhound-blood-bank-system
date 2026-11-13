@@ -38,6 +38,10 @@ public static class PatientEndpoints
             EndpointResults.From(await patients.ListPossibleDuplicatesAsync(lastName, firstName, dateOfBirth, ct), d => d))
             .RequirePermission(PermissionCodes.PatientWrite);
 
+        // Other charts this one may duplicate, so the chart can warn that the blood bank history may be elsewhere.
+        group.MapGet("/{id:long}/possible-duplicates", async (long id, PatientService patients, CancellationToken ct) =>
+            Results.Ok(await patients.PossibleDuplicatesOfAsync(id, ct)));
+
         // Mother and infant charts: each shows the other's type and antibodies (information only).
         group.MapGet("/{id:long}/family", async (long id, PatientService patients, CancellationToken ct) =>
             await patients.GetFamilyAsync(id, ct) is { } family ? Results.Ok(family) : Results.NotFound());

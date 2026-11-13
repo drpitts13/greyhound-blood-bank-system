@@ -59,3 +59,7 @@ Choose a requirement from the list, grouped by table: unit typings, unit modific
 ## After a merge
 
 When a merge succeeds the merge panel closes and the chart says "Duplicate merged into this patient"; the duplicate's MRN is kept on the chart as a prior MRN.
+
+## Possible duplicate chart
+
+When another chart may be the same person (the same name and date of birth, or the same identifier from another system), the chart says so at the top, links to it, and gives the blood bank history it holds (type and antibodies). If they are the same person, merge the charts before testing or issue so the history is in one place; if not, dismiss the pair on Possible duplicates and the warning goes.

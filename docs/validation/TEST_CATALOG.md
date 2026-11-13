@@ -1071,5 +1071,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1060 | I | `PatientServiceTests.Update_DateOfBirthChange_NeedsAReason_AndIsAlerted` | URS-BB-819 / FRS-BB-937 |
 | TEST-BB-1061 | I | `SupplierOrderTests.SubmittedOrder_PastItsArrivalWindow_IsOverdue` | URS-BB-821 / FRS-BB-939 |
 | TEST-BB-1062 | I | `Phase4IssuingTests.RecalledInTransit_IsFlagged_AndNotReceived` | URS-BB-822 / FRS-BB-940 |
+| TEST-BB-1063 | I | `PatientServiceTests.PossibleDuplicatesOf_NamesTheOtherChart` | URS-BB-823 / FRS-BB-941 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -23175,3 +23175,26 @@ On the running system with seeded data: Issue & Transfuse › Final disposition 
 ### Tests
 
 - TEST-BB-1062. Full suite passed.
+
+## Iteration 763 — End-user testing pass 47: retrospective crossmatch and a duplicate registration (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse › Retrospective crossmatch due (Morgan Demo-Massive's MTP red cells), then an HL7 ADT^A04 registering "DEMO-MULTI, RILEY", same date of birth as Riley Demo-Multi (MRN0022), under a new MRN, MRN9022.
+
+### Checked, not defects
+
+- The retrospective crossmatch list keeps the MTP's uncrossmatched red cells until a compatible crossmatch is recorded (plasma is not listed) and says to collect a specimen when none is on file.
+- The Possible duplicates report pairs MRN9022 with MRN0022.
+
+### Found and fixed
+
+1. **The new chart said nothing of the other.** MRN9022's chart showed no blood type and no history, with no word that MRN0022, which holds Riley's O+ type, may be the same person; a technologist working from the new chart would not know. A chart that may duplicate another now says so at the top, links to it, and gives the blood bank history it holds, with what to do. Retested live: "Possible duplicate chart: Demo-Multi, Riley (MRN0022) (Same name and date of birth). That chart holds blood bank history: O+."
+
+### Left in the development data
+
+- MRN9022 (DEMO-MULTI, RILEY) with visit VIS-DUP-1, a possible duplicate of MRN0022.
+
+### Tests
+
+- TEST-BB-1063. Full suite passed.

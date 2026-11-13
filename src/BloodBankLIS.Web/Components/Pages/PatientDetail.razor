@@ -58,6 +58,20 @@ else
         OnCancelMerge="() => _showMerge = false"
         OnUnmerge="UnmergeAsync" />
 
+    @* End-user testing pass 47: a second chart for the same person said nothing of the history on the first. *@
+    @foreach (var dup in _possibleDuplicates)
+    {
+        <div class="alert alert-warning" data-possible-duplicate>
+            <strong>Possible duplicate chart:</strong>
+            <a href="@($"/patients/{dup.Other.Id}")">@dup.Other.LastName, @dup.Other.FirstName (@dup.Other.MedicalRecordNumber)</a>
+            @(string.IsNullOrWhiteSpace(dup.Reason) ? "" : $"({dup.Reason})").
+            @if (!string.IsNullOrWhiteSpace(dup.Other.CurrentBloodType) || dup.Other.ActiveAntibodies is { Count: > 0 })
+            {
+                <span> That chart holds blood bank history: @(dup.Other.CurrentBloodType ?? "no type")@(dup.Other.ActiveAntibodies is { Count: > 0 } abs ? $", {string.Join(", ", abs)}" : "").</span>
+            }
+            If they are the same person, merge the charts (Merge duplicate) before testing or issue; if not, dismiss the pair on Possible duplicates.
+        </div>
+    }
     <PatientWorkflowRibbon Steps="WorkflowSteps" OnStepSelected="OpenWorkflowStepAsync" />
     <PatientChartTabBar Current="@_tab" OnSelect="SelectTab" />
 
@@ -632,6 +646,7 @@ else
     private long _eligibleModUnitId;
     private OrderPriority _newOrderPriority = OrderPriority.Routine;
     private long _newOrderLocationId;
+    private List<PossibleDuplicateOfDto> _possibleDuplicates = new();
     private long? _newOrderProviderId;
     private long? _editingOrderId;
     private PatientOrderDto? _cancellingOrder;
@@ -939,6 +954,7 @@ else
         _patient = p.Value;
 
         _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
+        _possibleDuplicates = (await Api.GetPossibleDuplicatesOfAsync(Id)).Value ?? new();
         _exm = (await Api.GetPatientElectronicCrossmatchEligibilityAsync(Id)).Value;
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
         await LoadSecondAboPolicyAsync();

@@ -149,6 +149,31 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("ACC-DEMO-DOB", alert.Message);
     }
 
+    // TEST-BB-1063: each of two charts with the same name and date of birth names the other as a possible duplicate,
+    // with its blood bank flags; a third with another birthday names none (end-user testing pass 47).
+    [Fact]
+    public async Task PossibleDuplicatesOf_NamesTheOtherChart()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        Patient New(string mrn, DateOnly dob) => new()
+        {
+            MedicalRecordNumber = mrn, LastName = $"Twin{key}", FirstName = "Casey", DateOfBirth = dob, Sex = Sex.Unknown, Status = PatientStatus.Active
+        };
+        var first = New($"MRN-DUPA-{key}", new DateOnly(1960, 2, 3));
+        var second = New($"MRN-DUPB-{key}", new DateOnly(1960, 2, 3));
+        var other = New($"MRN-DUPC-{key}", new DateOnly(1961, 2, 3));
+        context.Patients.AddRange(first, second, other);
+        await context.SaveChangesAsync();
+
+        var service = Patients(context);
+        var ofSecond = Assert.Single(await service.PossibleDuplicatesOfAsync(second.Id));
+        Assert.Equal(first.Id, ofSecond.Other.Id);
+        Assert.False(string.IsNullOrWhiteSpace(ofSecond.Reason));
+        Assert.Equal(second.Id, Assert.Single(await service.PossibleDuplicatesOfAsync(first.Id)).Other.Id);
+        Assert.Empty(await service.PossibleDuplicatesOfAsync(other.Id));
+    }
+
     [Fact]
     public async Task Update_NameChangeWithoutReason_IsHardStopped()
     {
