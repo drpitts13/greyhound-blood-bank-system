@@ -23387,3 +23387,25 @@ On the running system with seeded data: Reagent QC (worklist, receive a lot), th
 ### Tests
 
 - TEST-BB-1071. Full suite passed.
+
+## Iteration 774 — End-user testing pass 58: a visit's admit time (2026-11-13)
+
+### How it was tested
+
+Every date-and-time field on the pages, checked for how what is typed reaches the server; then Add visit on TESTER-KLINE's chart (UAT0001).
+
+### Checked, not defects
+
+- ISBT receive converts the typed expiry through the facility time zone; the needed-by, reaction onset, supplier follow-up, auto-thaw and paper-record times convert local to UTC.
+
+### Found and fixed
+
+1. **Admit (local) stored as UTC.** The new visit form labels the time "Admit (local)" and defaults it to the local clock, but the page stamped it as UTC without converting, so a visit added at 05:18 Eastern was stored as 05:18 UTC and showed as admitted at 00:18. It is now converted. The guard test from pass 57 missed it (it looked only for fields named Local); it now fails on any typed value stamped as UTC without conversion, and failed on this line before the fix. Retested live: VIS-20261113-19 shows admit 05:18 and is stored 10:18 UTC.
+
+### Left in the development data
+
+- Visit VIS-20261113-19 on UAT0001 (TESTER-KLINE).
+
+### Tests
+
+- TEST-BB-1071 widened. Full suite passed.

@@ -1861,8 +1861,9 @@ else
             return;
         }
         _busy = true;
+        // The admit time is typed in local time (it defaults to the local clock); pass 58: it was stamped as UTC unconverted.
         DateTime? admit = _newVisitAdmit.HasValue
-            ? DateTime.SpecifyKind(_newVisitAdmit.Value, DateTimeKind.Utc)
+            ? LocalEntry.ToUtc(_newVisitAdmit.Value)
             : null;
 
         var req = new CreateEncounterRequest(

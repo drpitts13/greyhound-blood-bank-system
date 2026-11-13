@@ -56,8 +56,9 @@ public partial class LocalTimeDisplayTests
         Assert.Equal(typed, BloodBankLIS.Web.Services.LocalEntry.FromUtc(utc));
     }
 
-    // A field named *Local stamped as UTC without conversion.
-    [GeneratedRegex(@"SpecifyKind\([^,()]*Local[^,()]*,\s*DateTimeKind\.Utc\)")]
+    // A typed value stamped as UTC without conversion (pass 58: the new visit's admit time); converting a stored UTC
+    // value for display (followed by .ToLocalTime()) is fine.
+    [GeneratedRegex(@"SpecifyKind\([^;]*?,\s*DateTimeKind\.Utc\)(?!\.ToLocalTime)")]
     private static partial Regex LocalSentAsUtc();
 
     // TEST-BB-718: server messages never write a stored time in the "u" format ("…12:49:00Z") or as an unlabelled

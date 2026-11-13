@@ -31,4 +31,4 @@ On any signed-in screen, **Help for this page** in the top bar opens the topic t
 
 ## Dates and times
 
-Times on screen are your workstation's local time, and times you type are local too: the time on the clock, the tube or the paper record. This includes when a specimen was collected and when it expires, an RhIG event and when RhIG was given, a reagent lot's expiry, and a delivery's order time and unit expiry. The system stores them in UTC; you never convert.
+Times on screen are your workstation's local time, and times you type are local too: the time on the clock, the tube or the paper record. This includes when a specimen was collected and when it expires, an RhIG event and when RhIG was given, a reagent lot's expiry, a delivery's order time and unit expiry, and a new visit's admit time. The system stores them in UTC; you never convert.
