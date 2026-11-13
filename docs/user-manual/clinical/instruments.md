@@ -21,3 +21,7 @@ Show **All**, **Open failures**, or **Held** above the message list; the home sc
 **When** shows the time for today's messages and the date and time for earlier ones, so a failure from yesterday is not read as today's. An open failure also says how long it has been **waiting**: its result has not reached the patient record for that long. The home card names the oldest wait (for example "oldest waiting 26 h").
 
 The simulator is a separate screen for sending a test message. Do not point it at a live instrument connection.
+
+## Session logs
+
+The session log lists connections, messages received and sent, and problems, newest first, 50 at a time. A listener start ("Listening on port …") is written each time the service starts; these are hidden unless you tick **Show listener starts** (the box gives how many there are). A listener that could not start (for example, the port is in use) is logged as an error and always shown. Tick **Warnings and errors only** to see just the problems. With more than one instrument, choose one or All instruments, and each row names its instrument.

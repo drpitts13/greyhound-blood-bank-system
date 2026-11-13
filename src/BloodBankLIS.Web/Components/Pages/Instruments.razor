@@ -50,20 +50,40 @@
 <div class="bb-grid cols-2" style="margin-top:1rem;">
     <div class="bb-card">
         <div class="bb-card-title"><h3>Session logs</h3></div>
-        @if (_logs.Count == 0)
+        @* End-user testing pass 52/53: listener starts filled the first 50 rows and hid the connections and receives. *@
+        <div class="flex gap" style="flex-wrap:wrap;align-items:center;margin-bottom:.4rem;" data-instrument-log-filters>
+            @if (_status.Count > 1)
+            {
+                <select @bind="_logInstrumentId" aria-label="Instrument">
+                    <option value="0">All instruments</option>
+                    @foreach (var s in _status)
+                    {
+                        <option value="@s.Id">@s.Name</option>
+                    }
+                </select>
+            }
+            <label class="nowrap"><input type="checkbox" @bind="_logProblemsOnly" /> Warnings and errors only</label>
+            <label class="nowrap"><input type="checkbox" @bind="_logShowListening" /> Show listener starts (@_logs.Count(IsListenerStart))</label>
+        </div>
+        @if (VisibleLogs.Count == 0)
         {
-            <div class="empty">No log entries.</div>
+            <div class="empty">@(_logs.Count == 0 ? "No log entries." : "No log entries match these filters.")</div>
         }
         else
         {
+            <div class="muted" data-instrument-log-count>Showing @Math.Min(50, VisibleLogs.Count) of @VisibleLogs.Count</div>
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>When</th><th>Level</th><th>Event</th><th>Message</th></tr></thead>
+                <thead><tr><th>When</th>@if (_status.Count > 1) { <th>Instrument</th> }<th>Level</th><th>Event</th><th>Message</th></tr></thead>
                 <tbody>
-                    @foreach (var log in _logs.Take(50))
+                    @foreach (var log in VisibleLogs.Take(50))
                     {
                         <tr>
                             <td class="nowrap">@When(log.OccurredUtc)</td>
+                            @if (_status.Count > 1)
+                            {
+                                <td>@(_status.FirstOrDefault(s => s.Id == log.InterfaceId)?.Name ?? $"Instrument {log.InterfaceId}")</td>
+                            }
                             <td>@Ui.EnumText(log.Level)</td>
                             <td class="mono">@log.EventType</td>
                             <td>@log.Message</td>
@@ -235,6 +255,19 @@
 @code {
     private List<InstrumentStatusDto> _status = new();
     private List<InstrumentLogDto> _logs = new();
+    private long _logInstrumentId;
+    private bool _logProblemsOnly;
+    private bool _logShowListening;
+
+    private static bool IsListenerStart(InstrumentLogDto log) =>
+        string.Equals(log.EventType, "Bind", StringComparison.OrdinalIgnoreCase) && string.Equals(log.Level, "Info", StringComparison.OrdinalIgnoreCase);
+
+    // Listener starts are routine (one per service start); they are hidden unless asked for.
+    private List<InstrumentLogDto> VisibleLogs => _logs
+        .Where(l => _logInstrumentId == 0 || l.InterfaceId == _logInstrumentId)
+        .Where(l => !_logProblemsOnly || !string.Equals(l.Level, "Info", StringComparison.OrdinalIgnoreCase))
+        .Where(l => _logShowListening || _logProblemsOnly || !IsListenerStart(l))
+        .ToList();
     private List<InstrumentMessageSummaryDto> _messages = new();
     private InstrumentMessageDetailDto? _detail;
     private Feedback? _feedback;

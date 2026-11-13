@@ -23294,3 +23294,23 @@ On the running system with seeded data: the newborn's chart (Baby Girl Maya, MRN
 ### Tests
 
 - TEST-BB-1066; TEST-BB-1030 extended. Full suite passed.
+
+## Iteration 769 — End-user testing pass 53: instrument session log (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Interfaces › Instrument status & logs for the ImmuLINK Echo, its session log and its open failures.
+
+### Checked, not defects
+
+- The open failure for ACC-UAT-010 names both patients and says what to check before replaying (INST-PATIENT).
+- Its parsed "result_dt M0002" comes from a message sent before the simulator fix in pass 29 (completion time at R.13, instrument at R.14).
+
+### Found and fixed
+
+1. **Listener starts buried the log.** 343 "Listening on port 2576" entries, one per service start, filled the 50 rows shown, so the connections and messages received were out of sight. Listener starts are now hidden unless asked for (the box gives the count), with a warnings-and-errors filter, and an instrument filter and column when there is more than one. Retested live: the log opens on the 20 connections and receives.
+2. **A listener that could not start was not logged.** A failed bind went to the server log and the status line only. It is now an Error entry in the session log, always shown.
+
+### Tests
+
+- TEST-BB-1067. Full suite passed.

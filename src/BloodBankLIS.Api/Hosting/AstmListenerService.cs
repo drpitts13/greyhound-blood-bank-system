@@ -54,6 +54,8 @@ public sealed class AstmListenerService : BackgroundService
                 {
                     _status.Set(target.Id, "Error", ex.Message);
                     _logger.LogError(ex, "Failed to bind ASTM listener on port {Port} ({Name}).", target.Port, target.Name);
+                    // End-user testing pass 53: the session log never said the listener could not start.
+                    await WriteLogAsync(target.Id, "Error", "Bind", $"Could not listen on port {target.Port}: {ex.Message}", stoppingToken);
                 }
             }
 
