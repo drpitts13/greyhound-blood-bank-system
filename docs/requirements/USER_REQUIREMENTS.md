@@ -827,3 +827,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-819 | Changing a patient's date of birth or sex on the chart requires a reason and alerts the blood bank like an EHR change. | P1 | FRS-BB-937 |
 | URS-BB-820 | A new order picks no ordering location by itself when the visit's place matches none; the second ABO/Rh order starts on a new specimen. | P2 | FRS-BB-938 |
 | URS-BB-821 | A follow-up with the supplier on an overdue order is recorded, with a promised arrival that becomes its due time. | P2 | FRS-BB-939 |
+| URS-BB-822 | The in-transit list leaves out units whose transfusion has been documented. | P3 | FRS-BB-940 |

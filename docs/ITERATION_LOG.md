@@ -23157,3 +23157,21 @@ On the running system with seeded data: Minimum stock (RBC-LR group A 0 of 4, on
 ### Tests
 
 - TEST-BB-1061. Full suite passed.
+
+## Iteration 762 — End-user testing pass 46: final disposition and units in transit (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse › Final disposition (seven units issued 2026-11-06, five days past the 24-hour window, each with Receive or Return and Document transfusion) and In transit.
+
+### Checked, not defects
+
+- Final disposition lists each unit past the facility window with the next step; it warns and does not block.
+
+### Found and fixed
+
+1. **A unit being transfused was listed in transit.** Patricia Demo's W0001230000099 has had a transfusion documented since 2026-11-06 (no ward receipt, as after a back-entry) and was still listed "In transit to ward", counted on the desk and the dashboard. A unit whose transfusion has been documented is no longer listed in transit. Retested live: In transit 6 (it had been 7). Its overdue completion is still raised under Outstanding issued.
+
+### Tests
+
+- TEST-BB-1062. Full suite passed.

@@ -1650,6 +1650,16 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         Assert.Null((await verify.Issues.FindAsync(issueId))!.WardReceivedUtc);
         Assert.Contains(await Issuing(verify).ListInTransitAsync(), r => r.IssueId == issueId);
+
+        // TEST-BB-1062: a unit whose transfusion has been documented without a ward receipt (a back-entry) has reached the
+        // patient and is no longer listed in transit (end-user testing pass 46).
+        verify.TransfusionEvents.Add(new TransfusionEvent
+        {
+            IssueId = otherIssueId, BloodProductId = other.UnitId, PatientId = other.PatientId,
+            StartUtc = _factory.Clock.UtcNow, DocumentedBy = "tech-test"
+        });
+        await verify.SaveChangesAsync();
+        Assert.DoesNotContain(await Issuing(verify).ListInTransitAsync(), r => r.IssueId == otherIssueId);
     }
 
     // TEST-BB-999: vitals taken before the start and after the end are kept on the transfusion record (blank ones are

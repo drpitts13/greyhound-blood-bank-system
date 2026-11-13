@@ -795,6 +795,15 @@ public sealed class IssuingService
         var rows = await _issues.ListAsync(i =>
             i.Status == IssueStatus.Issued && i.WardReceivedUtc == null, ct);
 
+        // A unit whose transfusion has been documented has reached the patient, receipt or not (a downtime back-entry or
+        // a transfusion documented without the ward's receipt): it is not "in transit" (end-user testing pass 46: Patricia
+        // Demo's unit, transfusing since 2026-11-06, was still listed as on its way to the ward).
+        var issueIds = rows.Select(i => i.Id).ToList();
+        var documented = issueIds.Count == 0
+            ? new HashSet<long>()
+            : (await _transfusions.ListAsync(t => issueIds.Contains(t.IssueId), ct)).Select(t => t.IssueId).ToHashSet();
+        rows = rows.Where(i => !documented.Contains(i.Id)).ToList();
+
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
