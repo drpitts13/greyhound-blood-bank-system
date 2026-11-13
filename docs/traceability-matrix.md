@@ -926,6 +926,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-812 / FRS-BB-930 | End-user testing pass 38: post-transfusion tube identifiers | `ReactionWorkupDtos.cs`, `ReactionWorkupService.cs`, `Reactions.razor` | TEST-BB-1053 | I | |
 | URS-BB-813 / FRS-BB-931 | End-user testing pass 38: reaction workup and the expiry sweep | `ExpiredSpecimenOrderDisposition.cs`, `ExpiredSpecimenOrderService.cs` | TEST-BB-1054 | I | |
 | URS-BB-814 / FRS-BB-932 | End-user testing pass 39: next test after a save | `TestWorklistDtos.cs`, `TestWorklist.razor`, `ResultSourceEntryCopy.cs` | TEST-BB-1055 | U | |
+| URS-BB-815 / FRS-BB-933 | End-user testing pass 40: test comment save | `TestLineCommentEditor.razor` | TEST-BB-1056 | C | |
+| URS-BB-816 / FRS-BB-934 | End-user testing pass 40: excursions back in range | `StorageTemperatureService.cs`, `DashboardQueueCatalog.cs`, `Home.razor`, `StorageTemps.razor` | TEST-BB-1057 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

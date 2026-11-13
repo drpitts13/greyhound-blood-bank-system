@@ -35,3 +35,5 @@ A reading outside the location's range opens a deviation and shows **Review the 
 The excursion message also says how long you have: if no in-range reading is recorded within the facility's time (Facility Policies › *Inventory.ExcursionQuarantineMinutes*, 30 minutes unless changed), the units stored at the location are quarantined automatically (OCD-036). Record the in-range reading as soon as the temperature is back.
 
 Times on this page and on the temperature history report are local time. The report's CSV gives the reading time in local time too ("Reading time (local)").
+
+An open excursion whose location has had an in-range reading since is marked **Back in range: close the deviation**. The dashboard's *Temperature excursions* counts only excursions still out of range; recovered ones are left to their deviations (counted under *Open deviations*).

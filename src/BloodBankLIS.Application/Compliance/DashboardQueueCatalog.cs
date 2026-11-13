@@ -432,6 +432,20 @@ public static class DashboardQueueCatalog
     /// The Open deviations card: every deviation not yet closed, naming the critical ones (which puts the card under
     /// Needs attention). Major and minor stay in the count.
     /// </summary>
+    /// <summary>
+    /// Temperature excursions: the count is locations' excursions still out of range (urgent); those back in range with
+    /// their deviation still open are named in the note, and counted under open deviations (end-user testing pass 40).
+    /// </summary>
+    public static (int Count, string? Note) ExcursionsCard(IEnumerable<StorageTemperatureReadingDto> open)
+    {
+        var rows = open.ToList();
+        var ongoing = rows.Count(r => !r.BackInRange);
+        var recovered = rows.Where(r => r.BackInRange).Select(r => r.LocationCode).Distinct().Count();
+        return (ongoing, recovered == 0
+            ? null
+            : $"{recovered} back in range: close {(recovered == 1 ? "its deviation" : "their deviations")}");
+    }
+
     public static (int Count, string? Note) DeviationsCard(IEnumerable<DeviationDto> deviations)
     {
         var open = deviations.Where(d => d.Status != DeviationStatus.Closed).ToList();

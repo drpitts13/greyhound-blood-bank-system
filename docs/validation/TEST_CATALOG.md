@@ -1064,5 +1064,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1053 | I | `ReactionWorkupServiceTests.PostTransfusionTube_TakesTheLabelIdentifiers` | URS-BB-812 / FRS-BB-930 |
 | TEST-BB-1054 | I | `ExpiredSpecimenOrderTests.ReactionWorkup_OnAnExpiredTube_StaysOpenAndLinked` | URS-BB-813 / FRS-BB-931 |
 | TEST-BB-1055 | U | `TubeFinishedTests.NextToEnter_PrefersTheSameTube_ThenTheSamePatient` | URS-BB-814 / FRS-BB-932 |
+| TEST-BB-1056 | C | `TestLineCommentEditorTests.SaveComment_OnlyWhenTheTextChanged` | URS-BB-815 / FRS-BB-933 |
+| TEST-BB-1057 | I | `StorageTemperatureServiceTests.OpenExcursion_SaysWhenBackInRange_AndTheDashboardCountsOnlyOngoing` | URS-BB-816 / FRS-BB-934 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

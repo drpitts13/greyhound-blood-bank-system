@@ -143,6 +143,26 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         Assert.DoesNotContain(await service.ListOpenExcursionsAsync(), r => r.Id == excursion.Value!.Id);
     }
 
+    // TEST-BB-1057: an open excursion says when its location is back in range; the dashboard counts only those still out
+    // of range and names the recovered ones (end-user testing pass 40).
+    [Fact]
+    public async Task OpenExcursion_SaysWhenBackInRange_AndTheDashboardCountsOnlyOngoing()
+    {
+        await using var c = _factory.Create();
+        var start = _factory.Clock.UtcNow;
+        var location = await AddLocationAsync(c, $"TMP-BK-{Guid.NewGuid():N}"[..14], 1m, 6m);
+        var service = Service(c);
+        var excursion = await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 8m, start.AddMinutes(-20)));
+        Assert.True(excursion.Succeeded, excursion.Error);
+        Assert.False((await service.ListOpenExcursionsAsync()).Single(r => r.Id == excursion.Value!.Id).BackInRange);
+
+        Assert.True((await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 4m, start.AddMinutes(-5)))).Succeeded);
+        var open = await service.ListOpenExcursionsAsync();
+        Assert.True(open.Single(r => r.Id == excursion.Value!.Id).BackInRange);
+        var (count, note) = BloodBankLIS.Application.Compliance.DashboardQueueCatalog.ExcursionsCard(open.Where(r => r.LocationId == location.Id));
+        Assert.Equal((0, "1 back in range: close its deviation"), (count, note));
+    }
+
     [Fact]
     public async Task Locations_ShowLastReading_AndKeepTheRangeInForceAtTheTime()
     {

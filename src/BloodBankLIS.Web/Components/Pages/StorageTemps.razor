@@ -39,7 +39,7 @@
                 {
                     <tr>
                         <td class="mono">@row.LocationCode</td>
-                        <td class="text-error">@row.ReadingC °C (@StatusText(row.Status))</td>
+                        <td class="text-error">@row.ReadingC °C (@StatusText(row.Status))@if (row.BackInRange) { <span class="badge badge-green" style="margin-left:.3rem;" data-back-in-range>Back in range: close the deviation</span> }</td>
                         <td>@RangeText(row.RangeMinC, row.RangeMaxC)</td>
                         <td>@row.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@row.RecordedBy</td>

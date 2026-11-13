@@ -476,7 +476,16 @@
                 return (card.Key, shortCount, note);
             }
             case DashboardQueueCatalog.TemperatureExcursions:
-                return await CountList(card.Key, Api.GetOpenTemperatureExcursionsAsync());
+            {
+                var result = await Api.GetOpenTemperatureExcursionsAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var (ongoing, note) = DashboardQueueCatalog.ExcursionsCard(result.Value);
+                return (card.Key, ongoing, note);
+            }
             case DashboardQueueCatalog.InstrumentFailures:
             {
                 var result = await Api.GetOpenInstrumentFailuresAsync();

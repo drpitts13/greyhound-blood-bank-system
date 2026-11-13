@@ -23045,3 +23045,18 @@ On the running system with seeded data: the Test worklist, resulting Marcus Febr
 ### Tests
 
 - TEST-BB-1055. Full suite passed.
+
+## Iteration 756 — End-user testing pass 40: the test comment and the dashboard's first item (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the Test worklist's comment box (pass 39's note), then the Dashboard as a shift starts, and Storage temperatures.
+
+### Found and fixed
+
+1. **An empty comment was "saved".** Save comment was always enabled; with an empty, unchanged box it reported "Comment saved." It is now enabled only when the comment differs from the one saved, and clearing one says "Comment removed."
+2. **The dashboard led with recovered excursions.** "Start here: Temperature excursions: 2" although both refrigerators (FRIDGE-1, OR-FRIDGE) had in-range readings since; they were open only because their deviations were. The card now counts only excursions still out of range; Storage temperatures marks the others "Back in range: close the deviation", and their deviations stay under Open deviations. Retested live: the dashboard starts with the open reaction investigations; Temperature excursions is clear.
+
+### Tests
+
+- TEST-BB-1056, TEST-BB-1057. Full suite passed.

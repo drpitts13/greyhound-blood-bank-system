@@ -820,3 +820,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-812 | The post-transfusion tube of a reaction investigation can be accessioned from the investigation with the identifiers on its label. | P1 | FRS-BB-930 |
 | URS-BB-813 | A transfusion reaction workup on an expired pre-transfusion tube is not cancelled by the specimen expiry sweep. | P1 | FRS-BB-931 |
 | URS-BB-814 | After a result is saved, the worklist opens a test still open on the same tube or for the same patient before moving to another patient. | P3 | FRS-BB-932 |
+| URS-BB-815 | A test comment is saved only when it changed; clearing it says so. | P3 | FRS-BB-933 |
+| URS-BB-816 | The dashboard's temperature excursions count only those still out of range; an excursion back in range says so. | P2 | FRS-BB-934 |

@@ -26,6 +26,12 @@ public sealed record StorageTemperatureReadingDto(
     /// not told, and 30 units were quarantined).
     /// </summary>
     public int? QuarantineAfterMinutes { get; init; }
+
+    /// <summary>
+    /// For an open excursion: an in-range reading has been recorded at the location since, so only its deviation is
+    /// left to close (end-user testing pass 40: the dashboard led with two excursions both refrigerators had recovered from).
+    /// </summary>
+    public bool BackInRange { get; init; }
 }
 
 public sealed record StorageLocationTemperatureDto(
@@ -450,10 +456,18 @@ public sealed class StorageTemperatureService
             .Select(d => d.Id)
             .ToHashSet();
         var codes = (await _locations.ListAsync(ct)).ToDictionary(l => l.Id, l => l.Code);
+        var locationIds = excursions.Select(r => r.InventoryLocationId).Distinct().ToList();
+        var inRange = (await _readings.ListAsync(
+                r => locationIds.Contains(r.InventoryLocationId) && r.Status == StorageTemperatureStatus.InRange, ct))
+            .GroupBy(r => r.InventoryLocationId)
+            .ToDictionary(g => g.Key, g => g.Max(r => r.ReadingUtc));
         return excursions
             .Where(r => r.DeviationId is not long id || !closed.Contains(id))
             .OrderByDescending(r => r.ReadingUtc)
-            .Select(r => ToDto(r, codes.GetValueOrDefault(r.InventoryLocationId, string.Empty)))
+            .Select(r => ToDto(r, codes.GetValueOrDefault(r.InventoryLocationId, string.Empty)) with
+            {
+                BackInRange = inRange.TryGetValue(r.InventoryLocationId, out var last) && last > r.ReadingUtc
+            })
             .ToList();
     }
 

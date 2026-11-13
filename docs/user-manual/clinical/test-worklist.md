@@ -57,3 +57,5 @@ After verification, a wrong result is corrected or invalidated. Correction requi
 For a result from an instrument or the interface, **Source** also shows what came with it: the analyzer, when it completed the test (by the instrument's clock), and any instrument flag or differing readings left for the verifier, for example "Source: Instrument · M0002 · completed 2026-11-12 20:16 (instrument clock)".
 
 After a result is saved, the next test opened is one still open on the same tube, else for the same patient, else the next row below, so a patient's tests (for example a reaction workup) are finished before the list moves on.
+
+**Save comment** is available only when the comment differs from the one saved; clearing it and saving says *Comment removed*.
