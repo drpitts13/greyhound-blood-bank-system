@@ -23583,3 +23583,18 @@ Issue & Transfuse's return and start forms for times taken from records; then Lo
 ### Tests
 
 - TEST-BB-1077; TEST-BB-885 extended. Full suite passed.
+
+## Iteration 783 — Lookback notify-by days: one facility setting for every lookback (2026-11-13)
+
+### Decision
+
+The product owner decided OCD-089's structure: the number of days to notify within is configurable in Administration › Facility policies, and one value applies to every lookback type. The number itself is left for the facility to enter (shipped not set).
+
+### Built and checked
+
+- The setting (Facility policies › Lookback › *Lookback: notify the physician within (days)*) was already editable there and already applied to every notification whatever its reason. The notifications listed by a DIN search now show the notify-by date too, as the open list does.
+- Retested live: set to 84 (with a reason), Patricia Demo's notification opened 2026-11-06 showed notify by 2027-01-29; then set back to 0 (not set).
+
+### Tests
+
+- Page change (inspection); TEST-BB-1077 covers the date. Full suite passed.

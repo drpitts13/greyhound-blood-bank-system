@@ -224,7 +224,7 @@ else
                 {
                     <div class="table-scroll">
                     <table class="bb">
-                        <thead><tr><th>Id</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                        <thead><tr><th>Id</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Notify by</th><th>Attempted</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var n in _report.Notifications)
                             {
@@ -243,6 +243,21 @@ else
                                     </td>
                                     <td>@Ui.EnumText(n.Status)</td>
                                     <td>@n.PhysicianOfRecord</td>
+                                    @* One facility setting for every lookback (recipient, consignee, recall): OCD-089, decided 2026-11-13. *@
+                                    <td class="nowrap" data-lookback-report-notify-by="@n.Id">
+                                        @if (n.NotifyByUtc is DateTime reportNotifyBy)
+                                        {
+                                            @reportNotifyBy.ToLocalTime().ToString("yyyy-MM-dd")
+                                            @if (n.PastNotifyBy)
+                                            {
+                                                <span class="badge badge-red">Past</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="muted">—</span>
+                                        }
+                                    </td>
                                     <td class="nowrap">@(n.AttemptedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                                     <td class="right nowrap">
                                         @if (n.PatientId is long noteChartId)

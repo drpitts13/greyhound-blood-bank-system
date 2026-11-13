@@ -18,6 +18,8 @@ Each row shows the current value and the citation the parameter was written agai
 
 **Settings to enter.** Some settings have been decided as policy, but their value is your facility's to enter:
 - the three *RhIG dose* settings;
+- *RhIG: give within (hours of the event)*;
+- *Lookback: notify the physician within (days)*: the days after a lookback notification is opened within which the recipient's physician is to be notified. One value applies to every lookback type (a recipient, a facility the unit was shipped to, a recall); the lookback list and a DIN search show each notification's notify-by date from it (OCD-089);
 - *Specimen retention days*.
 
 While such a setting is still at its "not set" value, its row is marked **Not set**. A note at the top of the page names all of them, with **Show only these** to list just them. The home card **Facility settings to enter**, for those who can edit configuration, counts them and opens this page filtered to them. Until a value is entered, what depends on it does not happen; for example, no RhIG dose is calculated. Settings that are off by choice, such as the neonatal rules, are not counted.
