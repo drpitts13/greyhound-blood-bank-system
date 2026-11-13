@@ -24,8 +24,18 @@ public static class PatientIdentityChangeRule
         return changes;
     }
 
+    public const string ReasonCode = "PAT-IDENTITY-REASON";
+
+    /// <summary>A date of birth or sex changed on the chart needs a reason, like a name (end-user testing pass 43).</summary>
+    public static RuleResult EvaluateReason(bool identityChanged, string? reason) =>
+        identityChanged && string.IsNullOrWhiteSpace(reason)
+            ? RuleResult.HardStop(ReasonCode, "A reason is required when changing the date of birth or sex.")
+            : RuleResult.Pass(ReasonCode);
+
+    /// <param name="changedOnChartBy">Who changed it on the chart (with the reason); null when the EHR changed it.</param>
     public static AlertCandidate Alert(
-        long patientId, string mrn, string name, IReadOnlyList<string> changes, IReadOnlyList<string> currentTubes, string messageControlId)
+        long patientId, string mrn, string name, IReadOnlyList<string> changes, IReadOnlyList<string> currentTubes, string messageControlId,
+        string? changedOnChartBy = null, string? reason = null)
     {
         var tubes = currentTubes.Count == 0
             ? "No current tube."
@@ -34,8 +44,10 @@ public static class PatientIdentityChangeRule
             AlertRule.PatientIdentityChanged,
             $"IDCHANGE:{patientId}:{messageControlId}",
             AlertSeverity.Warning,
-            $"EHR changed {name} (MRN {mrn})",
-            $"The EHR changed {string.Join(" and ", changes)}. {tubes}",
+            changedOnChartBy is null ? $"EHR changed {name} (MRN {mrn})" : $"{name} (MRN {mrn}) changed on the chart",
+            changedOnChartBy is null
+                ? $"The EHR changed {string.Join(" and ", changes)}. {tubes}"
+                : $"{changedOnChartBy} changed {string.Join(" and ", changes)} (reason: {reason?.Trim()}). {tubes}",
             $"/patients/{patientId}");
     }
 }

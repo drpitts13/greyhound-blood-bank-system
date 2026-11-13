@@ -26,6 +26,8 @@ public sealed class PatientService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly SpecimenService _specimens;
+    private readonly AlertService? _alerts;
+    private readonly IRepository<Specimen>? _specimenRows;
     private readonly IAuditWriter? _audit;
     private readonly ICurrentUser? _currentUser;
     private readonly IPermissionEvaluator? _permissions;
@@ -53,8 +55,12 @@ public sealed class PatientService
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
         IRepository<Encounter>? encounters = null,
         IRepository<PatientDuplicateDismissal>? dismissals = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        AlertService? alerts = null,
+        IRepository<Specimen>? specimenRows = null)
     {
+        _alerts = alerts;
+        _specimenRows = specimenRows;
         _policy = policy;
         _dismissals = dismissals;
         _encounters = encounters;
@@ -738,6 +744,14 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail(reasonRule.Message);
         }
 
+        var identityChanges = PatientIdentityChangeRule.Changes(
+            patient.DateOfBirth, request.DateOfBirth, patient.Sex.ToString(), request.Sex.ToString());
+        var identityReason = PatientIdentityChangeRule.EvaluateReason(identityChanges.Count > 0, request.NameChangeReason);
+        if (identityReason.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(identityReason.Message);
+        }
+
         var previous = new
         {
             patient.LastName,
@@ -800,12 +814,28 @@ public sealed class PatientService
                 patient.Race,
                 patient.Ethnicity,
                 ArchivedPriorName = archivedName,
-                NameChangeReason = nameChanged ? request.NameChangeReason?.Trim() : null
+                NameChangeReason = nameChanged || identityChanges.Count > 0 ? request.NameChangeReason?.Trim() : null
             },
             reason: nameChanged
                 ? $"Patient name changed: {request.NameChangeReason!.Trim()}"
-                : "Patient demographics updated.");
+                : identityChanges.Count > 0
+                    ? $"Patient {string.Join(" and ", identityChanges)}: {request.NameChangeReason!.Trim()}"
+                    : "Patient demographics updated.");
         await _unitOfWork.SaveChangesAsync(ct);
+
+        if (identityChanges.Count > 0 && _alerts is not null)
+        {
+            var now = _clock.UtcNow;
+            var tubes = _specimenRows is null
+                ? []
+                : (await _specimenRows.ListAsync(s => s.PatientId == patient.Id
+                        && (s.Status == SpecimenStatus.Accepted || s.Status == SpecimenStatus.Received || s.Status == SpecimenStatus.Collected)
+                        && (s.ExpiresUtc == null || s.ExpiresUtc > now), ct))
+                    .OrderBy(s => s.CollectedUtc).Select(s => s.AccessionNumber).ToList();
+            await _alerts.RaiseAsync(PatientIdentityChangeRule.Alert(
+                patient.Id, patient.MedicalRecordNumber, $"{patient.LastName}, {patient.FirstName}", identityChanges, tubes,
+                $"{now:yyyyMMddHHmmss}", _currentUser?.UserName ?? "Someone", request.NameChangeReason), ct);
+        }
 
         if (pregnancyChanged)
         {

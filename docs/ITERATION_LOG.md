@@ -23102,3 +23102,17 @@ A search for screen messages giving UTC times without saying so (none found beyo
 ### Tests
 
 - TEST-BB-1059; the alerts help page describes the new source. Full suite passed.
+
+## Iteration 759 — End-user testing pass 43: identity edits on the chart (2026-11-12)
+
+### How it was tested
+
+Following pass 42 (a date of birth changed by the EHR now raises an alert), the same change made by hand: Edit demographics on UMA TESTER-KLINE's chart (UAT0001).
+
+### Found and fixed
+
+1. **A date of birth or sex changed on the chart needed no reason and told no one.** Only a name change asked for a reason. Changing the date of birth or sex on the chart now needs a reason (the field reads "Reason for the change"), the audit records it, and the blood bank gets the same alert as for an EHR change, naming who changed it, why, and the patient's current tubes. Retested live: changing UAT0001's date of birth without a reason was refused ("A reason is required when changing the date of birth or sex."); nothing was saved.
+
+### Tests
+
+- TEST-BB-1060. Full suite passed.

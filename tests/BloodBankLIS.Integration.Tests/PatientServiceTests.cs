@@ -114,6 +114,41 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Hijacked", allowed.Value!.LastName);
     }
 
+    // TEST-BB-1060: changing the date of birth on the chart needs a reason and alerts the blood bank, naming the current
+    // tube; the audit keeps the change and reason (end-user testing pass 43: only a name change asked for a reason).
+    [Fact]
+    public async Task Update_DateOfBirthChange_NeedsAReason_AndIsAlerted()
+    {
+        var id = await EnsurePatientAsync("MRN-DEMO-DOB");
+        await using var context = _factory.Create();
+        context.Specimens.Add(new Specimen
+        {
+            AccessionNumber = "ACC-DEMO-DOB", PatientId = id, SpecimenType = "EDTA", CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(2), Status = SpecimenStatus.Accepted
+        });
+        await context.SaveChangesAsync();
+        var current = await context.Patients.SingleAsync(p => p.Id == id);
+        var alerts = new BloodBankLIS.Application.Compliance.AlertService(new EfRepository<Alert>(context), context, _factory.Clock,
+            _factory.CurrentUser, new AuditWriter(context, _factory.Clock, _factory.CurrentUser));
+        var service = new PatientService(new EfRepository<Patient>(context), context, _factory.Clock, Specimens(context, _factory),
+            audit: new AuditWriter(context, _factory.Clock, _factory.CurrentUser), currentUser: _factory.CurrentUser,
+            identifiers: new EfRepository<PatientIdentifier>(context), alerts: alerts, specimenRows: new EfRepository<Specimen>(context));
+
+        var newDob = current.DateOfBirth.AddDays(9);
+        var refused = await service.UpdateAsync(id, new UpdatePatientRequest(
+            current.LastName, current.FirstName, current.MiddleName, newDob, current.Sex, current.Status));
+        Assert.Contains("date of birth or sex", refused.Error);
+
+        var changed = await service.UpdateAsync(id, new UpdatePatientRequest(
+            current.LastName, current.FirstName, current.MiddleName, newDob, current.Sex, current.Status,
+            NameChangeReason: "Typo at registration"));
+        Assert.True(changed.Succeeded, changed.Error);
+        var alert = Assert.Single(await context.Alerts.Where(a => a.Source == AlertRule.PatientIdentityChanged && a.Link == $"/patients/{id}").ToListAsync());
+        Assert.Contains("changed on the chart", alert.Title);
+        Assert.Contains("(reason: Typo at registration)", alert.Message);
+        Assert.Contains("ACC-DEMO-DOB", alert.Message);
+    }
+
     [Fact]
     public async Task Update_NameChangeWithoutReason_IsHardStopped()
     {

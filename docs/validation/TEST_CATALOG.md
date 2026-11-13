@@ -1068,5 +1068,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1057 | I | `StorageTemperatureServiceTests.OpenExcursion_SaysWhenBackInRange_AndTheDashboardCountsOnlyOngoing` | URS-BB-816 / FRS-BB-934 |
 | TEST-BB-1058 | U | `ReadyToIssueFormCueTests.Notices_RepeatTheReadyToIssueMarks` | URS-BB-817 / FRS-BB-935 |
 | TEST-BB-1059 | I | `Phase5Hl7Tests.AdtDateOfBirthChange_IsRaised_WithTheCurrentTubes` | URS-BB-818 / FRS-BB-936 |
+| TEST-BB-1060 | I | `PatientServiceTests.Update_DateOfBirthChange_NeedsAReason_AndIsAlerted` | URS-BB-819 / FRS-BB-937 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

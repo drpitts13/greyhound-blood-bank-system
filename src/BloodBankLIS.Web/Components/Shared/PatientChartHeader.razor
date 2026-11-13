@@ -279,10 +279,10 @@
             <CodedCommentField Page="CommentPage.Patient" @bind-Value="Demo.Comment" />
         </div>
         <div class="field">
-            <label>Name-change reason</label>
-            <input @bind="Demo.NameChangeReason" placeholder="Required when first, middle, or last name changes" />
+            <label>Reason for the change</label>
+            <input @bind="Demo.NameChangeReason" placeholder="Required when the name, date of birth or sex changes" />
         </div>
-        <p class="muted">MRN cannot be changed. Changing the name keeps the previous name as a historical alias and requires a reason. Later ADT messages may overwrite name, date of birth, and sex.</p>
+        <p class="muted">MRN cannot be changed. Changing the name keeps the previous name as a historical alias and requires a reason; changing the date of birth or sex also requires a reason and alerts the blood bank, naming the patient's current tubes. Later ADT messages may overwrite name, date of birth, and sex.</p>
         <div class="flex gap">
             <button class="btn btn-primary" disabled="@Busy" @onclick="OnSaveDemo">Save</button>
             <button class="btn btn-secondary" @onclick="OnCancelEdit">Cancel</button>
