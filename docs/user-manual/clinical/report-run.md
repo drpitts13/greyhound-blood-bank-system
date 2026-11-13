@@ -17,3 +17,5 @@ Run, then read the table before you export. Export PDF for a paginated copy, Exc
 If the report was changed while you had it open, run it again. The file you export is the run you just executed, not a later edit to the design.
 
 To change columns or the query, you need report-design permission and the designer. Running permission is not design permission.
+
+Date filters count whole local days: a range from 2026-11-12 to 2026-11-12 includes everything that day, and **Today**, **Last 7 days**, **Last 30 days** and **Last month** are local days. Times in the results are local, and columns are headed by their names (for example "Occurred") in the page and in exports. A row with no date is left out when a date range is set.

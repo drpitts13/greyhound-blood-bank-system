@@ -36,6 +36,44 @@ public class VisualReportCompilerTests
         Assert.All(result.Value.Rows, row => Assert.Equal("Available", row[1]));
     }
 
+    // End-user testing pass 50: "To 2026-11-12" stopped at midnight UTC, so a one-day range returned nothing.
+    [Fact]
+    public void DateRange_CountsWholeLocalDays_AndShowsLocalTimes()
+    {
+        var zone = TimeZoneInfo.CreateCustomTimeZone("Test-5", TimeSpan.FromHours(-5), "Test-5", "Test-5");
+        IReadOnlyList<ReportField> fields =
+        [
+            new() { Code = "occurred_utc", Label = "Occurred", Kind = ReportValueKind.Date },
+            new() { Code = "event_type", Label = "Event" }
+        ];
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
+        [
+            new Dictionary<string, string?> { ["occurred_utc"] = "2026-11-12T04:59:00Z", ["event_type"] = "late on the 11th" },
+            new Dictionary<string, string?> { ["occurred_utc"] = "2026-11-12T06:52:03Z", ["event_type"] = "early on the 12th" },
+            new Dictionary<string, string?> { ["occurred_utc"] = "2026-11-13T04:30:00Z", ["event_type"] = "late on the 12th" },
+            new Dictionary<string, string?> { ["occurred_utc"] = "2026-11-13T05:00:00Z", ["event_type"] = "midnight on the 13th" },
+            new Dictionary<string, string?> { ["occurred_utc"] = null, ["event_type"] = "no date" }
+        ];
+        var layout = new ReportLayout
+        {
+            SourceCode = "crossmatch_transfusion",
+            Columns = ["occurred_utc", "event_type"],
+            Filters = [new ReportFilter { Id = "range", Field = "occurred_utc", Operator = ReportFilterOperator.Between, PromptAtRun = true }]
+        };
+        var parameters = new Dictionary<string, string?> { ["range"] = "2026-11-12", ["range:to"] = "2026-11-12" };
+
+        var result = VisualReportCompiler.Compile(layout, fields, rows, parameters, 100, zone);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(["occurred_utc", "event_type"], result.Value!.Columns);
+        Assert.Equal(["Occurred", "Event"], result.Value.ColumnLabels);
+        Assert.Equal(["early on the 12th", "late on the 12th"], result.Value.Rows.Select(r => r[1]));
+        Assert.Equal("2026-11-12 01:52", result.Value.Rows[0][0]);
+        Assert.True(VisualReportCompiler.MatchDate(ReportFilterOperator.After, "2026-11-13T05:00:00Z", "2026-11-12", null, zone));
+        Assert.False(VisualReportCompiler.MatchDate(ReportFilterOperator.After, "2026-11-13T04:30:00Z", "2026-11-12", null, zone));
+        Assert.True(VisualReportCompiler.MatchDate(ReportFilterOperator.Before, "2026-11-12T04:59:00Z", "2026-11-12", null, zone));
+    }
+
     [Fact]
     public void GroupAndCount_AggregatesEachProduct()
     {

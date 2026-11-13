@@ -831,3 +831,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-823 | A chart that may duplicate another says so, naming the other chart and its blood bank history. | P1 | FRS-BB-941 |
 | URS-BB-824 | The audit trail's date filters count local days, and its rows name patients, units, specimens and orders. | P3 | FRS-BB-942 |
 | URS-BB-825 | The temperature history report and the Utilization report take local dates. | P3 | FRS-BB-943 |
+| URS-BB-826 | Report date filters include the whole of the To day in local time, and report results show local times under column names. | P2 | FRS-BB-944 |

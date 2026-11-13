@@ -207,7 +207,7 @@ else
             <div style="overflow:auto;">
                 <table class="table">
                     <thead>
-                        <tr>@foreach (var column in _preview.Columns) { <th>@column</th> }</tr>
+                        <tr>@foreach (var column in _preview.ColumnLabels.Count == _preview.Columns.Count ? _preview.ColumnLabels : _preview.Columns) { <th>@column</th> }</tr>
                     </thead>
                     <tbody>
                         @foreach (var row in _preview.Rows.Take(50))

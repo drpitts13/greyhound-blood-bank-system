@@ -23235,3 +23235,23 @@ On the running system with seeded data: Temperature history (Last 7 days) and Ut
 ### Tests
 
 - Page changes (inspection). Full suite passed.
+
+## Iteration 766 — End-user testing pass 50: report date filters (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Reports › Crossmatch and transfusion activity with one-day and preset ranges, and Crossmatches and transfusions by month.
+
+### Found and fixed
+
+1. **The To day was left out.** A range compared each row with the To date at midnight UTC, so "2026-11-12 to 2026-11-12" returned no rows though Riley Demo-Multi's transfusion was stopped at 01:52 that day, and **Today** always returned nothing. Every date range dropped its last day. Date filters now count whole facility-local days, and the presets are local days. Retested live: the one-day range lists the transfusion.
+2. **UTC on the page.** Results showed "occurred_utc" and "2026-11-12T06:52:03Z". Times are now local ("2026-11-12 01:52") and columns are headed by name ("Occurred"), in the page and in exports. Retested live.
+
+### Remaining
+
+- Month buckets ("Month" columns) are still UTC months.
+- Patient age and ISBT as-of dates still use the UTC day.
+
+### Tests
+
+- TEST-BB-1064. Full suite passed.
