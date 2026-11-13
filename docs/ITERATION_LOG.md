@@ -23314,3 +23314,21 @@ On the running system with seeded data: Interfaces › Instrument status & logs 
 ### Tests
 
 - TEST-BB-1067. Full suite passed.
+
+## Iteration 770 — End-user testing pass 54: discarding expired units (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: the dashboard's Expired on shelf card (11), then Inventory › Discard expired, scanning W0001230001028 (AB- red cells, expired 2026-11-03).
+
+### Found and fixed
+
+1. **The verifier requirement came out only as a refusal.** The field read "Second verifier (when your facility requires one)". The first scan was sent and refused (INV-DISC-2ND), and the run list recorded the unit as not discarded. The page now reads the facility setting and says "required at this facility" (or not required), and a scan with no verifier chosen when one is required is held with a message instead of being sent. The server check is unchanged. Retested live: the scan with no verifier was held; with Terry Technologist chosen, the unit was discarded and the list went to 10.
+
+### Left in the development data
+
+- W0001230001028 discarded (EXPIRED), second verifier tech1.
+
+### Tests
+
+- TEST-BB-1068. Full suite passed.

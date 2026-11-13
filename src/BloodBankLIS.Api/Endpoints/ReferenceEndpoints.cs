@@ -31,7 +31,9 @@ public static class ReferenceEndpoints
         FacilityPolicyKeys.RequireSpecimenCollector,
         // Antibody identification says before Accept that the interpreting technologist cannot review their own workup.
         FacilityPolicyKeys.AntibodyIdRequireSupervisorReview,
-        FacilityPolicyKeys.AntibodyIdBlockSelfReview
+        FacilityPolicyKeys.AntibodyIdBlockSelfReview,
+        // Discard expired says before the first scan whether a second verifier is required (end-user testing pass 54).
+        FacilityPolicyKeys.RequireDiscardVerifier
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)

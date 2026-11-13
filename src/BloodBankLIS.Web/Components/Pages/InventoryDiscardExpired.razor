@@ -23,7 +23,7 @@ else
     <div class="bb-card">
         <div class="form-row" style="align-items:flex-end;">
             <div class="field" style="min-width:16rem;">
-                <label>Second verifier (when your facility requires one)</label>
+                <label data-discard-verifier-label>@(_verifierRequired ? "Second verifier (required at this facility)" : "Second verifier (not required at this facility)")</label>
                 <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
                     Items="VerifierChoices"
                     @bind-Value="_secondVerifier"
@@ -106,6 +106,8 @@ else
     private List<ExpiredUnitDto>? _expired;
     private List<DirectoryUserDto> _users = new();
     private string? _secondVerifier;
+    // Read from the facility setting; until it is read, assume required (the server checks either way).
+    private bool _verifierRequired = true;
     private string _scan = string.Empty;
     private Feedback? _fb;
     private bool _busy;
@@ -126,6 +128,8 @@ else
 
         var users = await Api.GetDirectoryUsersAsync();
         _users = users.Value ?? new();
+        var required = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireDiscardVerifier);
+        _verifierRequired = !required.Succeeded || required.Value?.Enabled != false;
         await LoadExpiredAsync();
     }
 
@@ -144,6 +148,14 @@ else
     {
         if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || _busy)
         {
+            return;
+        }
+
+        // End-user testing pass 54: the scan was sent and refused (INV-DISC-2ND) before the tech knew a verifier was needed.
+        if (_verifierRequired && string.IsNullOrWhiteSpace(_secondVerifier))
+        {
+            _fb = Feedback.Fail("Choose the second verifier first: this facility requires one to discard a unit. The scanned unit was not discarded; scan it again.");
+            _scan = string.Empty;
             return;
         }
 

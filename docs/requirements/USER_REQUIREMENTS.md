@@ -835,3 +835,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-827 | Report month columns are the facility's local months, and seeded discards carry a discard date. | P3 | FRS-BB-945 |
 | URS-BB-828 | The RhIG queue says when no give-by time is shown because the facility window is not set, and how long ago the event was. | P2 | FRS-BB-946 |
 | URS-BB-829 | The instrument session log hides routine listener starts, shows a listener that could not start, and filters to warnings and errors or one instrument. | P3 | FRS-BB-947 |
+| URS-BB-830 | Discard expired says whether a second verifier is required before the first scan, and holds a scan with none chosen. | P3 | FRS-BB-948 |
