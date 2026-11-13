@@ -23217,3 +23217,21 @@ On the running system with seeded data: Audit Trail, its quick ranges and filter
 ### Tests
 
 - Page and endpoint changes (inspection). Full suite passed.
+
+## Iteration 765 — End-user testing pass 49: report date ranges (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Temperature history (Last 7 days) and Utilization (default range), after midnight local time.
+
+### Found and fixed
+
+1. **UTC dates on reports.** Both reports took "From (UTC date)" and "To (UTC date)" while the readings and orders in them show local times, so between 19:00 and midnight Eastern "today" was already tomorrow and a period's first evening fell into the previous day. The dates and presets now count local days, converted to UTC for the request; the headings and the CSV file name show local dates. Retested live: "Summary · 2026-11-06 to 2026-11-13"; Utilization "2026-10-14 to 2026-11-13", labels "From date" and "To date (inclusive)".
+
+### Remaining
+
+- Patient age and ISBT as-of dates still use the UTC day.
+
+### Tests
+
+- Page changes (inspection). Full suite passed.

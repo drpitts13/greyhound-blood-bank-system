@@ -18,7 +18,7 @@
 <details class="bb-help">
     <summary>How it works</summary>
     <ul>
-        <li>Dates are UTC. The period runs from the start of the From date to the end of the To date, up to 366 days.</li>
+        <li>Dates are local days, as are the reading times. The period runs from the start of the From date to the end of the To date, up to 366 days.</li>
         <li>% in range counts only readings taken while the device had a range. An excursion is an unbroken run of out-of-range readings.</li>
         <li>Longest gap is the longest stretch with no reading, including from the period start and up to the period end (or now). Use it to spot missed rounds.</li>
         <li>Each reading shows the range in force when it was taken, so a later range change does not rewrite history.</li>
@@ -38,8 +38,8 @@
                 }
             </select>
         </div>
-        <div class="field"><label>From (UTC date)</label><input type="date" @bind="_from" /></div>
-        <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
+        <div class="field"><label>From date</label><input type="date" @bind="_from" /></div>
+        <div class="field"><label>To date (inclusive)</label><input type="date" @bind="_to" /></div>
         <div class="field">
             <label>Readings</label>
             <select @bind="ExcursionsOnlyChoice" data-excursions-only>
@@ -68,7 +68,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title">
-            <h3>Summary &middot; @_report.FromUtc.ToString("yyyy-MM-dd") to @_report.ToUtc.AddTicks(-1).ToString("yyyy-MM-dd")</h3>
+            <h3>Summary &middot; @_report.FromUtc.ToLocalTime().ToString("yyyy-MM-dd") to @_report.ToUtc.AddTicks(-1).ToLocalTime().ToString("yyyy-MM-dd")</h3>
         </div>
         @if (_report.Devices.Count == 0)
         {
@@ -168,15 +168,16 @@
         set => _excursionsOnly = value == "true";
     }
     private bool _reportExcursionsOnly;
-    private DateTime _to = DateTime.UtcNow.Date;
-    private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);
+    private DateTime _to = DateTime.Now.Date;
+    private DateTime _from = DateTime.Now.Date.AddDays(-30);
 
     // A period that ends today stops the trend at now rather than at midnight.
     private DateTime ChartEnd => _report is not null && _report.ToUtc < DateTime.UtcNow ? _report.ToUtc : DateTime.UtcNow;
 
     private static IEnumerable<(string Label, (DateTime From, DateTime To) Range)> Presets()
     {
-        var today = DateTime.UtcNow.Date;
+        // End-user testing pass 49: local days, as the times in the report are local.
+        var today = DateTime.Now.Date;
         var monthStart = new DateTime(today.Year, today.Month, 1);
         yield return ("Last 7 days", (today.AddDays(-7), today));
         yield return ("Last 30 days", (today.AddDays(-30), today));
@@ -214,8 +215,8 @@
         _busy = true;
         try
         {
-            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Utc);
-            var to = DateTime.SpecifyKind(_to.Date.AddDays(1), DateTimeKind.Utc);
+            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Local).ToUniversalTime();
+            var to = DateTime.SpecifyKind(_to.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
             long? device = _deviceId == 0 ? null : _deviceId;
             var result = await Api.GetStorageTemperatureReportAsync(device, from, to, _excursionsOnly);
             _report = result.Succeeded ? result.Value : null;
@@ -261,7 +262,7 @@
             r.Comment
         });
         var scope = _report.Devices.Count == 1 ? _report.Devices[0].Code : "all-devices";
-        var name = $"temperature-history-{scope}-{_report.FromUtc:yyyyMMdd}-{_report.ToUtc.AddTicks(-1):yyyyMMdd}.csv";
+        var name = $"temperature-history-{scope}-{_report.FromUtc.ToLocalTime():yyyyMMdd}-{_report.ToUtc.AddTicks(-1).ToLocalTime():yyyyMMdd}.csv";
         var token = Downloads.Put(name, CsvFormat.ContentType, CsvFormat.Write(columns, rows));
         await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
     }
