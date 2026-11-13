@@ -23616,3 +23616,17 @@ On the running system with seeded data: Lookback / Trace › Recipient traceback
 ### Tests
 
 - TEST-BB-1078. Full suite passed.
+
+## Iteration 785 — End-user testing pass 68: UTC in search, timelines and the supervisor queue (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Supervisor queue (10 items), then the lookup bar and the server text behind the timelines.
+
+### Found and fixed
+
+1. **UTC in text built for the screen.** The supervisor queue's override review read "2026-11-06 14:32 UTC" while every page shows local time, and the same held for the lookup bar ("expires 2026-11-29 14:50 UTC" for a unit whose page says 09:50), the patient, order and specimen timelines, and several refusals shown on screen (an issue already requested, a transfusion already started, a discarded tube, a unit not expired). These now show local time. Text that is stored or sent (alerts, deviation notes, audit reasons, HL7 replies) keeps UTC. A guard test covers the display services. Retested live: the override review reads 2026-11-06 09:32; the lookup reads "expires 2026-11-29 09:50".
+
+### Tests
+
+- TEST-BB-1079. Full suite passed.

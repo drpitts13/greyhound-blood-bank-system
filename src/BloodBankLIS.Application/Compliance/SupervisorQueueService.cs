@@ -183,7 +183,7 @@ public sealed class SupervisorQueueService
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindTransfusionReported,
                     $"Transfused while {r.UnitStatusAtReport} — {r.UnitNumber}",
-                    $"The EHR reported {r.UnitNumber} transfused to MRN {r.MedicalRecordNumber ?? r.PatientId.ToString()} {(r.StartUtc is DateTime started ? $" (started {started:yyyy-MM-dd HH:mm} UTC)" : "")} while the blood bank had it {r.UnitStatusAtReport}{why}. Recorded; the unit keeps its status.",
+                    $"The EHR reported {r.UnitNumber} transfused to MRN {r.MedicalRecordNumber ?? r.PatientId.ToString()} {(r.StartUtc is DateTime started ? $" (started {ClinicalTimeText.Local(started)})" : "")} while the blood bank had it {r.UnitStatusAtReport}{why}. Recorded; the unit keeps its status.",
                     $"/inventory/units/{r.BloodUnitId}",
                     "Review",
                     PatientId: r.PatientId,
@@ -202,7 +202,7 @@ public sealed class SupervisorQueueService
                     SupervisorQueueRule.KindOverrideReview,
                     // The record named as staff know it (unit and patient), not "Issue 7" (end-user testing pass 31).
                     $"{what} — {o.ContextName ?? $"{o.ContextType} {o.ContextId}"}",
-                    $"{o.OverriddenUtc:yyyy-MM-dd HH:mm} UTC. Rule {o.RuleCode}. Reason: {o.Reason.Trim().TrimEnd('.')}. Authorized by {o.AuthorizedBy} ({AuthorizerDirectoryRule.Describe(o.AuthorizerMatch, o.AuthorizerReference)}), performed by {o.PerformedBy}.",
+                    $"{ClinicalTimeText.Local(o.OverriddenUtc)}. Rule {o.RuleCode}. Reason: {o.Reason.Trim().TrimEnd('.')}. Authorized by {o.AuthorizedBy} ({AuthorizerDirectoryRule.Describe(o.AuthorizerMatch, o.AuthorizerReference)}), performed by {o.PerformedBy}.",
                     o.ContextHref ?? "/supervisor",
                     "Review",
                     ContextId: o.Id));

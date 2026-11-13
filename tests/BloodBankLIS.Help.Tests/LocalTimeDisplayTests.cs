@@ -61,6 +61,27 @@ public partial class LocalTimeDisplayTests
     [GeneratedRegex(@"SpecifyKind\([^;]*?,\s*DateTimeKind\.Utc\)(?!\.ToLocalTime)")]
     private static partial Regex LocalSentAsUtc();
 
+    // End-user testing pass 68: text built for a screen when it is asked for (search results, timelines, the supervisor
+    // queue) printed UTC. Those services show local time; stored or sent text (alerts, reasons, HL7) keeps UTC.
+    [Fact]
+    public void DisplayServices_ShowLocalTime()
+    {
+        var root = RepoRoot();
+        var files = new[]
+        {
+            "Search/UniversalLookupService.cs", "PatientWorkspace/PatientTimelineService.cs", "PatientWorkspace/OrderTimelineService.cs",
+            "PatientWorkspace/SpecimenTimelineService.cs", "Compliance/SupervisorQueueService.cs"
+        };
+        var problems = files
+            .Select(f => Path.Combine(root, "src", "BloodBankLIS.Application", f))
+            .SelectMany(f => File.ReadAllLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
+            .Where(l => l.Text.Contains("HH:mm} UTC", StringComparison.Ordinal) || l.Text.Contains("ClinicalTimeText.Utc(", StringComparison.Ordinal))
+            .Select(l => $"{Path.GetRelativePath(root, l.File)}:{l.Line}: {l.Text.Trim()}")
+            .ToList();
+
+        Assert.True(problems.Count == 0, "A display service writes a UTC time:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
     // TEST-BB-718: server messages never write a stored time in the "u" format ("…12:49:00Z") or as an unlabelled
     // date-time: on-screen text uses ClinicalTimeText.Local, saved text says UTC (Cycle 605).
     [Fact]

@@ -2312,7 +2312,7 @@ public sealed class InventoryService
             var unit = candidates[0];
             return InventoryActionResult.Fail(unit.Status == UnitStatus.Discarded
                 ? $"{unit.UnitNumber} is already discarded."
-                : $"{unit.UnitNumber} is not expired ({unit.Status}, expires {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC). Discard it from its unit page with its own reason.");
+                : $"{unit.UnitNumber} is not expired ({unit.Status}, expires {ClinicalTimeText.Local(unit.ExpiresUtc)}). Discard it from its unit page with its own reason.");
         }
 
         if (expired.Count > 1)

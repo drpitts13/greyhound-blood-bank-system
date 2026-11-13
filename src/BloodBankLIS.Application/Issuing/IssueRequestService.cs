@@ -76,7 +76,7 @@ public sealed class IssueRequestService
         if (allocation.IssueRequestedUtc is DateTime already)
         {
             return OperationResult<IssueRequestDto>.Fail(
-                $"Already requested at {already:yyyy-MM-dd HH:mm} UTC by {allocation.IssueRequestedBy} for {allocation.IssueRequestedTo}. Cancel that request to change it.");
+                $"Already requested at {ClinicalTimeText.Local(already)} by {allocation.IssueRequestedBy} for {allocation.IssueRequestedTo}. Cancel that request to change it.");
         }
 
         allocation.IssueRequestedUtc = _clock.UtcNow;

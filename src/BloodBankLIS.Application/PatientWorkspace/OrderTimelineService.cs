@@ -82,7 +82,7 @@ public sealed class OrderTimelineService
                 $"Ordered: {(string.IsNullOrWhiteSpace(order.OrderName) ? order.TestCode : order.OrderName)}",
                 join($"{order.Priority}", $"from {order.Source}",
                     string.IsNullOrWhiteSpace(order.OrderingProvider) ? null : $"provider {order.OrderingProvider}",
-                    order.NeededByUtc is DateTime nb ? $"needed by {nb:yyyy-MM-dd HH:mm} UTC" : null),
+                    order.NeededByUtc is DateTime nb ? $"needed by {ClinicalTimeText.Local(nb)}" : null),
                 order.OrderedByUser ?? order.CreatedBy, $"{chart}?tab=orders", $"ord-{order.Id}")
         };
 

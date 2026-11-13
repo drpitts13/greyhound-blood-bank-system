@@ -848,3 +848,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-840 | A transfusion charted afterwards takes its start and stop times from the record, not the time it is charted. | P1 | FRS-BB-958 |
 | URS-BB-841 | Open lookback notifications show when they were opened and how long they have waited, and a notify-by date once the facility sets one. | P2 | FRS-BB-959 |
 | URS-BB-842 | Recipient traceback names units with no DIN recorded and does not report "none found" for donations it could not search. | P1 | FRS-BB-960 |
+| URS-BB-843 | Search results, timelines, the supervisor queue and refusal messages show times in local time. | P2 | FRS-BB-961 |

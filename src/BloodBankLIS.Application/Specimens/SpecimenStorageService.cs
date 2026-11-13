@@ -203,7 +203,7 @@ public sealed class SpecimenStorageService
 
         if (specimen.DiscardedUtc is DateTime discardedUtc)
         {
-            return OperationResult<StoredSpecimenDto>.Fail($"Tube {specimen.AccessionNumber} was discarded on {discardedUtc:yyyy-MM-dd HH:mm} UTC; it cannot be stored.");
+            return OperationResult<StoredSpecimenDto>.Fail($"Tube {specimen.AccessionNumber} was discarded on {ClinicalTimeText.Local(discardedUtc)}; it cannot be stored.");
         }
 
         // The same place typed or scanned another way ("rack3" for "Rack 3") is stored under the spelling already in use.

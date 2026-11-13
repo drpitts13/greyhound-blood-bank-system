@@ -156,7 +156,7 @@ public sealed class ReactionWorkupService
         if (request.CollectedUtc < context.StartUtc)
         {
             return OperationResult<ReactionInvestigation>.Fail(
-                $"{ReactionWorkupSpecimenRule.PostCode}: The post-transfusion specimen must be collected after the transfusion began at {context.StartUtc:yyyy-MM-dd HH:mm} UTC.");
+                $"{ReactionWorkupSpecimenRule.PostCode}: The post-transfusion specimen must be collected after the transfusion began at {ClinicalTimeText.Local(context.StartUtc)}.");
         }
 
         var accessioned = await _specimenService.AccessionAsync(new AccessionSpecimenRequest(

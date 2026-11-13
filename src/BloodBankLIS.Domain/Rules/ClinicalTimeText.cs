@@ -10,6 +10,9 @@ public static class ClinicalTimeText
 {
     public static string Local(DateTime utc) => AsUtc(utc).ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
+    /// <summary>A time that may be missing: empty when there is none, as the formatted value was.</summary>
+    public static string Local(DateTime? utc) => utc is DateTime value ? Local(value) : string.Empty;
+
     public static string Utc(DateTime utc) => $"{AsUtc(utc):yyyy-MM-dd HH:mm} UTC";
 
     // Stored times come back from the database without a kind; they are UTC.

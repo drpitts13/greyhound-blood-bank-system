@@ -177,7 +177,7 @@ public sealed class UniversalLookupService
                 continue;
             }
 
-            var hit = await PatientHitAsync(patient, exact: true, $"Opened {openedUtc:yyyy-MM-dd HH:mm} UTC", ct);
+            var hit = await PatientHitAsync(patient, exact: true, $"Opened {ClinicalTimeText.Local(openedUtc)}", ct);
             if (hits.All(h => h.Id != hit.Id))
             {
                 hits.Add(hit);
@@ -257,7 +257,7 @@ public sealed class UniversalLookupService
                 true,
                 lot,
                 $"RhIG lot given to {patients} patient{(patients == 1 ? "" : "s")}",
-                $"Last given {last:yyyy-MM-dd HH:mm} UTC",
+                $"Last given {ClinicalTimeText.Local(last)}",
                 $"/rhig?lot={Uri.EscapeDataString(lot)}")
         ];
     }
@@ -282,7 +282,7 @@ public sealed class UniversalLookupService
                     true,
                     first.OutboundShipmentReference!,
                     $"Shipment to {first.ShippedToFacility}: {count} unit{(count == 1 ? "" : "s")}",
-                    $"Shipped {first.ShippedUtc:yyyy-MM-dd HH:mm} UTC",
+                    $"Shipped {ClinicalTimeText.Local(first.ShippedUtc)}",
                     $"/inventory/ship-out?shipment={Uri.EscapeDataString(first.OutboundShipmentReference!)}");
             })
             .ToList();
@@ -320,7 +320,7 @@ public sealed class UniversalLookupService
                 true,
                 cooler,
                 $"Cooler {cooler}: {inCooler.Count} unit{(inCooler.Count == 1 ? "" : "s")} in transit",
-                (destinations.Count > 0 ? $"To {string.Join(", ", destinations)} · " : "") + $"issued {first.IssuedUtc:yyyy-MM-dd HH:mm} UTC",
+                (destinations.Count > 0 ? $"To {string.Join(", ", destinations)} · " : "") + $"issued {ClinicalTimeText.Local(first.IssuedUtc)}",
                 $"/issuing/cooler-check?cooler={Uri.EscapeDataString(cooler)}")
         ];
     }
@@ -369,7 +369,7 @@ public sealed class UniversalLookupService
                     exact,
                     u.UnitNumber,
                     product,
-                    $"{AboRhLabel(u.Abo, u.RhD)} · {u.Status} · expires {u.ExpiresUtc:yyyy-MM-dd HH:mm} UTC"
+                    $"{AboRhLabel(u.Abo, u.RhD)} · {u.Status} · expires {ClinicalTimeText.Local(u.ExpiresUtc)}"
                         + (UnitStatusNote.For(u.Status, u.ShippedToFacility, u.RecallReason, u.QuarantineReason, u.HoldReason,
                             u.MissingReason, u.DamagedReason, u.DiscardReason, u.SupplierReturnReason) is string note ? $" · {note}" : string.Empty),
                     $"/inventory/units/{u.Id}");
@@ -397,7 +397,7 @@ public sealed class UniversalLookupService
                     true,
                     s.AccessionNumber,
                     $"Specimen for {PatientLabel(owner, s.PatientId)}",
-                    $"{s.SpecimenType} · {s.Status} · collected {s.CollectedUtc:yyyy-MM-dd HH:mm} UTC"
+                    $"{s.SpecimenType} · {s.Status} · collected {ClinicalTimeText.Local(s.CollectedUtc)}"
                         + (string.IsNullOrWhiteSpace(s.StorageLocation) ? string.Empty : $" · stored in {s.StorageLocation}")
                         + (s.DiscardedUtc is DateTime discarded ? $" · discarded {discarded:yyyy-MM-dd}" : string.Empty),
                     $"/patients/{s.PatientId}?tab=specimens&specimen={s.Id}");

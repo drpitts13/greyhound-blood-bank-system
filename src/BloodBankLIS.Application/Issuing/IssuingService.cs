@@ -1711,7 +1711,7 @@ public sealed class IssuingService
         if (await FindStartedTransfusionAsync(issue, ct) is TransfusionEvent started)
         {
             return EvaluationResult<TransfusionEvent>.Fail(
-                $"{TransfusionDocumentationRule.Code}: This transfusion was started at {started.StartUtc:yyyy-MM-dd HH:mm} UTC. Complete it instead of documenting it again.");
+                $"{TransfusionDocumentationRule.Code}: This transfusion was started at {ClinicalTimeText.Local(started.StartUtc)}. Complete it instead of documenting it again.");
         }
 
         var documentation = TransfusionDocumentationRule.Evaluate(

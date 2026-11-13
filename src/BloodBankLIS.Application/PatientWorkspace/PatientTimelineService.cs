@@ -140,7 +140,7 @@ public sealed class PatientTimelineService
             events.Add(new(s.CollectedUtc, TimelineCategory.Specimen, rejected ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"Specimen {s.AccessionNumber} collected ({s.SpecimenType})",
                 Join(rejected ? $"Rejected{(string.IsNullOrWhiteSpace(s.RejectionReason) ? "" : $": {s.RejectionReason}")}" : $"Now {s.Status}",
-                    s.ExpiresUtc is DateTime exp ? $"expires {exp:yyyy-MM-dd HH:mm} UTC" : null,
+                    s.ExpiresUtc is DateTime exp ? $"expires {ClinicalTimeText.Local(exp)}" : null,
                     // Cycle 680: an infant's specimen valid for the admission (OCD-074).
                     s.NeonatalStandardExpiresUtc is null ? null : "valid for the admission (infant)"),
                 s.Collector, $"{chart}?tab=specimens", $"spc-{s.Id}-collect"));
@@ -291,7 +291,7 @@ public sealed class PatientTimelineService
                 t.ReactionSuspected ? TimelineSeverity.Critical
                     : t.UnitStatusAtReport is not null && t.ReportReviewedUtc is null ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"Unit {Unit(t.BloodProductId)} transfused",
-                Join(t.StopUtc is DateTime stop && t.StartUtc is not null ? $"stopped {stop:yyyy-MM-dd HH:mm} UTC" : null,
+                Join(t.StopUtc is DateTime stop && t.StartUtc is not null ? $"stopped {ClinicalTimeText.Local(stop)}" : null,
                     t.VolumeTransfused is decimal v ? $"{v:0.#} mL" : null,
                     t.ReactionSuspected ? "Reaction suspected" : null,
                     reportNote),

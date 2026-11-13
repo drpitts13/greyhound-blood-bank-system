@@ -156,7 +156,7 @@ public sealed class SpecimenTimelineService
             events.Add(new(x.PerformedUtc, TimelineCategory.Product,
                 CrossmatchValidityRule.Shown(x.Result, x.ClinicalStatus) == CrossmatchClinicalStatus.Incompatible ? TimelineSeverity.Critical : TimelineSeverity.Info,
                 $"Crossmatch {Unit(x.BloodProductId)}: {CrossmatchValidityRule.Shown(x.Result, x.ClinicalStatus)}",
-                x.ExpiresUtc is DateTime until ? $"Valid until {until:yyyy-MM-dd HH:mm} UTC" : null,
+                x.ExpiresUtc is DateTime until ? $"Valid until {ClinicalTimeText.Local(until)}" : null,
                 x.PerformedBy, $"/inventory/units/{x.BloodProductId}", $"xm-{x.Id}"));
         }
 
