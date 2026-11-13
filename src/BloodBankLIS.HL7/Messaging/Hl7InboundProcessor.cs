@@ -988,10 +988,35 @@ public sealed class Hl7InboundProcessor
         }
 
         var data = Hl7BpamMapper.Map(message, map);
+
+        // End-user testing pass 62: the transfusion was looked up under the MRN as sent, so after a chart merge a message
+        // carrying the merged-away MRN found no issued unit, though the unit was issued to the same patient on the
+        // surviving chart. Follow merges as every other message does.
+        var mrn = data.Mrn;
+        string? mergeNote = null;
+        if (!string.IsNullOrWhiteSpace(mrn) && _merges is not null)
+        {
+            var patient = await PatientMergeFollow.ResolveClinicalRecordAsync(_patients, await _merges.FindByMrnAsync(mrn, followMerge: true, ct), ct);
+            if (patient is not null)
+            {
+                var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+                if (clinical.Severity == RuleSeverity.HardStop)
+                {
+                    throw new Hl7MappingException(clinical.Message);
+                }
+
+                if (!string.Equals(patient.MedicalRecordNumber, mrn.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    mergeNote = $" MRN {mrn.Trim()} is merged into {patient.MedicalRecordNumber}; recorded there.";
+                    mrn = patient.MedicalRecordNumber;
+                }
+            }
+        }
+
         try
         {
             return await _bpam.DocumentFromHl7Async(new InterfaceTransfusionRequest(
-                data.Mrn,
+                mrn,
                 data.UnitNumber,
                 data.Din,
                 data.StartUtc,
@@ -999,7 +1024,7 @@ public sealed class Hl7InboundProcessor
                 data.VolumeTransfused,
                 data.Location,
                 data.Transfusionist,
-                data.ReactionSuspected), ct);
+                data.ReactionSuspected), ct) + mergeNote;
         }
         catch (InvalidOperationException ex)
         {

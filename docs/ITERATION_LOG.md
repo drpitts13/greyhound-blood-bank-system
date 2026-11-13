@@ -23474,3 +23474,31 @@ On the running system with seeded data: HL7 Interface › Submit inbound message
 ### Tests
 
 - TEST-BB-1074. Full suite passed.
+
+## Iteration 778 — End-user testing pass 62: transfusion messages and message times (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: HL7 RAS^O17 transfusion documentation for a unit issued to Riley Demo-Multi, sent under MRN0024 (merged into her chart, MRN0022); an ADT^A08 with an admit time carrying a UTC offset.
+
+### Checked, not defects
+
+- A transfusion message names the patient and the unit, and the unit must be issued to that patient.
+
+### Found and fixed
+
+1. **A merged MRN on a transfusion message.** Every other message follows a chart merge; transfusion documentation did not, so the message under MRN0024 failed with "No issued unit … found for patient MRN0024" though the unit was issued to the same person. It now follows the merge, records on the surviving chart and says so. Retested live: the replay recorded W0001230009203's transfusion on MRN0022.
+2. **Message times ignored their UTC offset.** "20261113051800-0500" was read as 05:18 UTC (five hours early), and seconds were dropped. The offset and seconds are now applied. Retested live: the admit time was stored as 10:18 UTC.
+
+### Open decision
+
+- OCD-088: a time with no offset is still read as UTC (outbound times are written in UTC). Whether the EHR sends local times without an offset is for the facility and the EHR team to confirm.
+
+### Left in the development data
+
+- W0001230009203 transfused for Riley Demo-Multi (test message, 07:00–07:55 as sent).
+- UAT-ADT-TZ-1 applied to VIS-20261113-19 (admit 10:18 UTC, unchanged).
+
+### Tests
+
+- TEST-BB-1075. Full suite passed.

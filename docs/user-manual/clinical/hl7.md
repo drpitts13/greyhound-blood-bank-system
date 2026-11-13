@@ -49,3 +49,7 @@ An admit, transfer, update or discharge message (ADT) that names a visit number 
 ## An order number that belongs to another patient
 
 An order message (new order, cancel or discontinue) whose order number is already another patient's order is refused with **ORM-PLACER-OTHER-PATIENT**, and nothing in it is applied: the other patient's order is not cancelled, and the new order is not quietly skipped as "already exists". The error names the order's patient. Have the EHR send the order under its own number for this patient, or correct the patient, then replay. A result for another patient's order was already refused.
+
+## Times in messages
+
+A time in a message may carry its UTC offset (for example 20261113070000-0500); the offset is applied. A time with no offset is read as UTC, and the times this system sends are in UTC. If your EHR sends local times without an offset, tell your interface analyst before go-live (OCD-088).

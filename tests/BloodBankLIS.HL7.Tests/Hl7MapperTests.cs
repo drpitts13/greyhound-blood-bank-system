@@ -185,6 +185,22 @@ public class Hl7MapperTests
         Assert.Equal("Nurse, Pat", data.Transfusionist);
     }
 
+    // End-user testing pass 62: a stated UTC offset and the seconds were ignored; a time without an offset is UTC (OCD-088).
+    [Fact]
+    public void BpamMapper_TimestampsHonourTheOffsetAndSeconds()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20261113120000||RAS^O17|C4Z|P|2.5\r" +
+            "PID|1||MRN900^^^HOSP^MR||Blood^Pat\r" +
+            "PV1||I|4W Oncology\r" +
+            "RXA|0|1|20261113070015-0500|202611130755|CODE^RBC|350||||12345^Nurse^Pat|||||W0001-00");
+
+        var data = Hl7BpamMapper.Map(message);
+        Assert.Equal(new DateTime(2026, 11, 13, 12, 0, 15, DateTimeKind.Utc), data.StartUtc);
+        Assert.Equal(DateTimeKind.Utc, data.StartUtc!.Value.Kind);
+        Assert.Equal(new DateTime(2026, 11, 13, 7, 55, 0, DateTimeKind.Utc), data.StopUtc);
+    }
+
     [Fact]
     public void AdtMapper_TranslatesExternalSexBeforeMapSex()
     {

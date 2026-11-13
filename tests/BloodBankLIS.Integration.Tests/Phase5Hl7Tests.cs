@@ -1837,6 +1837,28 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Empty(await context.OrderSpecimens.Where(l => l.OrderId == order.Id).ToListAsync());
     }
 
+    // End-user testing pass 62: a transfusion message under an MRN merged into another chart found no issued unit; it now
+    // follows the merge, records on the surviving chart, and says so.
+    [Fact]
+    public async Task InboundRas_MergedMrn_RecordsOnTheSurvivingChart()
+    {
+        await using var context = _factory.Create();
+        var (survivor, unit) = await SeedIssuedUnitForBpamAsync(context, "HL7-BPAM-SURV", "W-BPAM-MERGE");
+        var merged = new Patient
+        {
+            MedicalRecordNumber = "HL7-BPAM-OLD", LastName = "Bpam", FirstName = "Iris",
+            DateOfBirth = new DateOnly(1985, 6, 2), Sex = Sex.Female, Status = PatientStatus.Merged, MergedIntoPatientId = survivor.Id
+        };
+        context.Patients.Add(merged);
+        await context.SaveChangesAsync();
+
+        var result = await Processor(context).ProcessAsync(Ras("CTRL-RAS-MRG", "HL7-BPAM-OLD", "W-BPAM-MERGE"));
+        Assert.True(result.Accepted, result.Log.ErrorDetail);
+        Assert.Contains("merged into HL7-BPAM-SURV", result.AckMessage);
+        var transfusion = await context.TransfusionEvents.SingleAsync(t => t.BloodProductId == unit.Id);
+        Assert.Equal(survivor.Id, transfusion.PatientId);
+    }
+
     [Fact]
     public async Task InboundRas_DocumentsTransfusionOnIssuedUnitWithoutRekey()
     {

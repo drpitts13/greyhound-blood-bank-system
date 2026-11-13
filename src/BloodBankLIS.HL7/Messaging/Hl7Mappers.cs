@@ -162,6 +162,12 @@ public static class Hl7AdtMapper
             : null;
     }
 
+    /// <summary>
+    /// An HL7 TS (YYYYMMDD[HHMM[SS[.S…]]][+/-ZZZZ]) as UTC. A stated offset is applied (end-user testing pass 62: it
+    /// was ignored, along with the seconds, so "20261113070000-0500" was stored as 07:00 UTC instead of 12:00 UTC). A
+    /// time with no offset is taken as UTC, the interface's convention in both directions (outbound times are written
+    /// in UTC); whether an EHR's offset-less local times should be read in the facility time zone is OCD-088.
+    /// </summary>
     internal static DateTime? ParseHl7DateTime(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length < 8)
@@ -169,19 +175,44 @@ public static class Hl7AdtMapper
             return null;
         }
 
+        value = value.Trim();
+        TimeSpan? offset = null;
+        var sign = value.IndexOfAny(['+', '-'], 8);
+        if (sign > 0)
+        {
+            var zone = value[(sign + 1)..];
+            if (zone.Length == 4
+                && int.TryParse(zone.AsSpan(0, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var zh)
+                && int.TryParse(zone.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var zm)
+                && zh <= 14 && zm < 60)
+            {
+                offset = new TimeSpan(zh, zm, 0) * (value[sign] == '-' ? -1 : 1);
+            }
+
+            value = value[..sign];
+        }
+
         if (!DateOnly.TryParseExact(value[..8], "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
         {
             return null;
         }
 
+        var local = date.ToDateTime(TimeOnly.MinValue);
         if (value.Length >= 12
-            && int.TryParse(value.AsSpan(8, 2), out var hour)
-            && int.TryParse(value.AsSpan(10, 2), out var minute))
+            && int.TryParse(value.AsSpan(8, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var hour)
+            && int.TryParse(value.AsSpan(10, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var minute)
+            && hour < 24 && minute < 60)
         {
-            return new DateTime(date.Year, date.Month, date.Day, hour, minute, 0, DateTimeKind.Utc);
+            local = local.AddHours(hour).AddMinutes(minute);
+            if (value.Length >= 14
+                && int.TryParse(value.AsSpan(12, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var second)
+                && second < 60)
+            {
+                local = local.AddSeconds(second);
+            }
         }
 
-        return date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        return DateTime.SpecifyKind(offset is TimeSpan o ? local - o : local, DateTimeKind.Utc);
     }
 
     internal static string? MapPersonName(Hl7Message message, Hl7FieldMap map, string key)
