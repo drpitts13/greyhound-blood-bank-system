@@ -23598,3 +23598,21 @@ The product owner decided OCD-089's structure: the number of days to notify with
 ### Tests
 
 - Page change (inspection); TEST-BB-1077 covers the date. Full suite passed.
+
+## Iteration 784 — End-user testing pass 67: recipient traceback without DINs (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Lookback / Trace › Recipient traceback for Riley Demo-Multi (MRN0022).
+
+### Found and fixed
+
+1. **"None found" for donations never searched.** All four of Riley's units have no DIN recorded (70 of the 79 units in the development data have none), so the traceback could not search their donations, yet it said "No other components share these DINs" and "No other recipients identified", which reads as a clean traceback. The units are now marked "no DIN recorded" and named in a warning with what to do, and the empty results say "No DIN to search". Retested live.
+
+### Remaining
+
+- Most seeded units have no DIN; the demo data could give them DINs so DIN lookback can be shown on them.
+
+### Tests
+
+- TEST-BB-1078. Full suite passed.

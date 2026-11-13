@@ -39,3 +39,7 @@ You need lookback permission. Other staff can see the clinical chart but cannot 
 ## How long a notification has waited
 
 The notifications still due show when each was opened and how long it has been open. When the medical director has set Facility Policies › Lookback › **Lookback: notify the physician within (days)**, each also shows its **Notify by** date, marked **Past** once it has gone; until then the column says *not set* (OCD-089). One value applies to every kind of lookback (a recipient, a facility the unit was shipped to, a recall), and the notifications listed by a DIN search show the same date. It is a reminder and blocks nothing.
+
+## A unit with no DIN on record
+
+Recipient traceback finds other components and other recipients through each unit's DIN. A unit with no DIN recorded (entered by hand, or received before DINs were captured) is marked *no DIN recorded*, and the page names those units above the results: their donations cannot be traced here. Read the DIN from the unit label or the supplier's records and search it under **DIN lookback**. When no unit has a DIN, the results say *No DIN to search* rather than that nothing was found.

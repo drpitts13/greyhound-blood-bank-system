@@ -339,7 +339,7 @@ else
                                         }
                                         else
                                         {
-                                            <span>—</span>
+                                            <span class="muted" data-trace-no-din>— no DIN recorded</span>
                                         }
                                     </td>
                                     <td><span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span></td>
@@ -369,9 +369,17 @@ else
 
             <div class="bb-card">
                 <div class="bb-card-title"><h3>Other components from the same donations</h3></div>
+                @* End-user testing pass 67: units with no DIN were not searched, yet the card said none share their DINs. *@
+                @if (TraceUnitsWithoutDin.Count > 0)
+                {
+                    <div class="alert alert-warning" data-trace-without-din>
+                        @(TraceUnitsWithoutDin.Count == 1 ? "1 unit has" : $"{TraceUnitsWithoutDin.Count} units have") no DIN recorded (@string.Join(", ", TraceUnitsWithoutDin)), so other components and other recipients of @(TraceUnitsWithoutDin.Count == 1 ? "that donation" : "those donations") cannot be found here.
+                        Read the DIN from the unit label or the supplier's records and search it under DIN lookback.
+                    </div>
+                }
                 @if (_trace.RelatedComponents.Count == 0)
                 {
-                    <div class="empty">No other components share these DINs.</div>
+                    <div class="empty">@(TraceUnitsWithoutDin.Count == _trace.Units.Count && _trace.Units.Count > 0 ? "No DIN to search." : "No other components share the DINs on record.")</div>
                 }
                 else
                 {
@@ -402,7 +410,7 @@ else
                 <div class="bb-card-title"><h3>Other recipients of those donations</h3></div>
                 @if (_trace.CoRecipients.Count == 0)
                 {
-                    <div class="empty">No other recipients identified.</div>
+                    <div class="empty">@(TraceUnitsWithoutDin.Count == _trace.Units.Count && _trace.Units.Count > 0 ? "No DIN to search." : "No other recipients of the DINs on record.")</div>
                 }
                 else
                 {
@@ -451,6 +459,10 @@ else
     private List<LookbackNotificationDto> _openNotes = new();
     private LookbackReportDto? _report;
     private RecipientTraceReportDto? _trace;
+
+    private IReadOnlyList<string> TraceUnitsWithoutDin => _trace is null
+        ? []
+        : _trace.Units.Where(u => string.IsNullOrWhiteSpace(u.Din)).Select(u => u.UnitNumber).Distinct().ToList();
     private long? _attemptId;
     private string? _physician;
     private string? _attemptNotes;
