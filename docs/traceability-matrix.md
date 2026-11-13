@@ -929,6 +929,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-815 / FRS-BB-933 | End-user testing pass 40: test comment save | `TestLineCommentEditor.razor` | TEST-BB-1056 | C | |
 | URS-BB-816 / FRS-BB-934 | End-user testing pass 40: excursions back in range | `StorageTemperatureService.cs`, `DashboardQueueCatalog.cs`, `Home.razor`, `StorageTemps.razor` | TEST-BB-1057 | I | |
 | URS-BB-817 / FRS-BB-935 | End-user testing pass 41: in transit and ward receipt | `ReadyToIssueFormCue.cs`, `Issuing.razor`, `PatientChartProductHistoryTab.razor` | TEST-BB-1058 | U | |
+| URS-BB-818 / FRS-BB-936 | End-user testing pass 42: EHR identity change | `PatientIdentityChangeRule.cs`, `AlertRule.cs`, `Hl7InboundProcessor.cs`, `alerts.md` | TEST-BB-1059 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -77,7 +77,9 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             aliasWriter: new PatientHistoricalAliasWriter(new EfRepository<PatientIdentifier>(c)),
             dispenseRequests: new InterfaceDispenseRequestService(
                 new EfRepository<Allocation>(c), new EfRepository<Order>(c), new EfRepository<BloodUnit>(c),
-                _factory.Clock, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c));
+                _factory.Clock, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c),
+            alerts: new AlertService(new EfRepository<Alert>(c), c, _factory.Clock, _factory.CurrentUser,
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)));
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -270,6 +272,42 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True((await verify.OrderLines.SingleAsync(l => l.Id == verifiedLineId)).IsActive);
         var pending = await verify.OrderLines.SingleAsync(l => l.Id == pendingLineId);
         Assert.Equal((false, FulfillmentStatus.Cancelled), (pending.IsActive, pending.FulfillmentStatus));
+    }
+
+    // TEST-BB-1059: an ADT update that changes the date of birth raises a warning naming the patient's current tube; one
+    // that changes only the name raises none (end-user testing pass 42: the DOB changed with no word to anyone).
+    [Fact]
+    public async Task AdtDateOfBirthChange_IsRaised_WithTheCurrentTubes()
+    {
+        long patientId;
+        await using (var setup = _factory.Create())
+        {
+            Assert.True((await Processor(setup).ProcessAsync(Adt("CTRL-IDC-1", "HL7-IDC", "Change", "Dob"))).Accepted);
+            var patient = await setup.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-IDC");
+            setup.Specimens.Add(new Specimen
+            {
+                AccessionNumber = "ACC-IDC-1", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = _factory.Clock.UtcNow.AddHours(-2),
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(2), Status = SpecimenStatus.Accepted
+            });
+            await setup.SaveChangesAsync();
+            patientId = patient.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.True((await Processor(c).ProcessAsync(Adt("CTRL-IDC-2", "HL7-IDC", "Changed", "Dob", "A08"))).Accepted);
+            Assert.False(await c.Alerts.AnyAsync(a => a.Source == AlertRule.PatientIdentityChanged && a.Key.StartsWith($"IDCHANGE:{patientId}:")));
+            var newDob = "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|CTRL-IDC-3|P|2.5\r" +
+                "PID|1||HL7-IDC^^^HOSP^MR||Changed^Dob||19800110|M";
+            Assert.True((await Processor(c).ProcessAsync(newDob)).Accepted);
+        }
+
+        await using var verify = _factory.Create();
+        var alert = Assert.Single(await verify.Alerts.Where(a => a.Source == AlertRule.PatientIdentityChanged && a.Key.StartsWith($"IDCHANGE:{patientId}:")).ToListAsync());
+        Assert.Equal(AlertSeverity.Warning, alert.Severity);
+        Assert.Contains("date of birth 1980-01-01 → 1980-01-10", alert.Message);
+        Assert.Contains("ACC-IDC-1", alert.Message);
+        Assert.Equal(new DateOnly(1980, 1, 10), (await verify.Patients.SingleAsync(p => p.Id == patientId)).DateOfBirth);
     }
 
     private static string AdtMerge(string controlId, string survivorMrn, string priorMrn, string last, string first) =>

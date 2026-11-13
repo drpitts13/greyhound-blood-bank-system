@@ -1067,5 +1067,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1056 | C | `TestLineCommentEditorTests.SaveComment_OnlyWhenTheTextChanged` | URS-BB-815 / FRS-BB-933 |
 | TEST-BB-1057 | I | `StorageTemperatureServiceTests.OpenExcursion_SaysWhenBackInRange_AndTheDashboardCountsOnlyOngoing` | URS-BB-816 / FRS-BB-934 |
 | TEST-BB-1058 | U | `ReadyToIssueFormCueTests.Notices_RepeatTheReadyToIssueMarks` | URS-BB-817 / FRS-BB-935 |
+| TEST-BB-1059 | I | `Phase5Hl7Tests.AdtDateOfBirthChange_IsRaised_WithTheCurrentTubes` | URS-BB-818 / FRS-BB-936 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

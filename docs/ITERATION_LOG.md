@@ -23079,3 +23079,26 @@ On the running system with seeded data: Issue & Transfuse › In transit (seven 
 ### Tests
 
 - TEST-BB-1058 (the form cue test now expects local time). Full suite passed.
+
+## Iteration 758 — End-user testing pass 42: tube storage, and identity changes from the EHR (2026-11-12)
+
+### How it was tested
+
+A search for screen messages giving UTC times without saying so (none found beyond pass 41's). On the running system with seeded data: Store tubes (storing Marcus Febrile's post-transfusion tube, discarding his pre-transfusion tube), then HL7 ADT^A08 updates for UMA TESTER (UAT0001): a name change, then a date-of-birth change.
+
+### Checked, not defects
+
+- Discarding ACC0014 was refused while its reaction investigation is open; ACC-RXN-POST1 was stored in Retention fridge R2 with its history. Keep-until reads "Not set" (OCD-070, retention not set).
+- A name change from the EHR keeps the former name, and a lookup of the old name finds the chart ("Matched" on the former name).
+
+### Found and fixed
+
+1. **A date of birth changed silently.** An ADT^A08 changed UAT0001's date of birth (1974-03-12 to 1974-03-21) with no word to the blood bank, while her current tube ACC-UAT-010 carries the old date on its label; the date of birth is the second identifier on every tube and at issue. An ADT update that changes the date of birth or sex of a patient now raises a warning naming the patient's current tubes, to check their labels against the chart. Nothing is changed or blocked. Retested live: "The EHR changed date of birth 1974-03-21 → 1974-03-12. Current tube ACC-UAT-010 was labelled before the change: check its label against the chart before testing or issue."
+
+### Left in the development data
+
+- UAT0001 is now TESTER-KLINE, UMA (former name kept), date of birth back to 1974-03-12; one open identity-change alert.
+
+### Tests
+
+- TEST-BB-1059; the alerts help page describes the new source. Full suite passed.

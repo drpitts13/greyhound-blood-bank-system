@@ -823,3 +823,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-815 | A test comment is saved only when it changed; clearing it says so. | P3 | FRS-BB-933 |
 | URS-BB-816 | The dashboard's temperature excursions count only those still out of range; an excursion back in range says so. | P2 | FRS-BB-934 |
 | URS-BB-817 | Issue, receipt, return and transfusion forms give unit and crossmatch expiry in local time, as the lists do; issue type and appearance read in words. | P2 | FRS-BB-935 |
+| URS-BB-818 | A date of birth or sex changed by the EHR on a patient the blood bank holds raises a warning naming the patient's current tubes. | P1 | FRS-BB-936 |

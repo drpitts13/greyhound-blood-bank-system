@@ -56,6 +56,7 @@ public sealed class Hl7InboundProcessor
     private readonly IRepository<Specimen>? _specimens;
     private readonly ICurrentUser? _currentUser;
     private readonly IAuditWriter? _audit;
+    private readonly BloodBankLIS.Application.Compliance.AlertService? _alerts;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -82,8 +83,10 @@ public sealed class Hl7InboundProcessor
         PatientHistoricalAliasWriter? aliasWriter = null,
         InterfaceDispenseRequestService? dispenseRequests = null,
         InterfaceValueSets? valueSets = null,
-        InterfaceUnmappedValueService? unmapped = null)
+        InterfaceUnmappedValueService? unmapped = null,
+        BloodBankLIS.Application.Compliance.AlertService? alerts = null)
     {
+        _alerts = alerts;
         _valueSets = valueSets;
         _unmapped = unmapped;
         _dispenseRequests = dispenseRequests;
@@ -584,6 +587,34 @@ public sealed class Hl7InboundProcessor
     /// When a stated name differs from the chart name, the previous display name
     /// is retained as <see cref="IdentityTokenType.PriorFullName"/>.
     /// </summary>
+    /// <summary>See <see cref="PatientIdentityChangeRule"/>: a changed date of birth or sex is raised to the blood bank.</summary>
+    private async Task AlertIdentityChangeAsync(Patient patient, DateOnly oldBirth, Sex oldSex, CancellationToken ct)
+    {
+        if (_alerts is null || patient.Id == 0)
+        {
+            return;
+        }
+
+        var changes = PatientIdentityChangeRule.Changes(oldBirth, patient.DateOfBirth, oldSex.ToString(), patient.Sex.ToString());
+        if (changes.Count == 0)
+        {
+            return;
+        }
+
+        var now = _clock.UtcNow;
+        var tubes = _specimens is null
+            ? []
+            : (await _specimens.ListAsync(s => s.PatientId == patient.Id
+                    && (s.Status == SpecimenStatus.Accepted || s.Status == SpecimenStatus.Received || s.Status == SpecimenStatus.Collected)
+                    && (s.ExpiresUtc == null || s.ExpiresUtc > now), ct))
+                .OrderBy(s => s.CollectedUtc)
+                .Select(s => s.AccessionNumber)
+                .ToList();
+        await _alerts.RaiseAsync(PatientIdentityChangeRule.Alert(
+            patient.Id, patient.MedicalRecordNumber, $"{patient.LastName}, {patient.FirstName}", changes, tubes,
+            $"{now:yyyyMMddHHmmss}"), ct);
+    }
+
     private async Task ApplyPresentDemographicsAsync(
         Patient patient,
         Hl7PatientData data,
@@ -633,6 +664,7 @@ public sealed class Hl7InboundProcessor
             patient.MiddleName = data.MiddleName.Trim();
         }
 
+        var (oldBirth, oldSex) = (patient.DateOfBirth, patient.Sex);
         if (data.DateOfBirth is not null)
         {
             patient.DateOfBirth = data.DateOfBirth.Value;
@@ -642,6 +674,8 @@ public sealed class Hl7InboundProcessor
         {
             patient.Sex = data.Sex;
         }
+
+        await AlertIdentityChangeAsync(patient, oldBirth, oldSex, ct);
 
         // Like sex, a message without (or with an unmapped) race or ethnicity keeps what is on file.
         if (data.Race is not null)
