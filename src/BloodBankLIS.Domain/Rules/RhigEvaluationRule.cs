@@ -17,6 +17,17 @@ public static class RhigEvaluationRule
     public static DateTime? GiveBy(DateTime eventUtc, int windowHours, RhigDecision decision, bool given) =>
         windowHours <= 0 || decision == RhigDecision.NotCandidate || given ? null : eventUtc.AddHours(windowHours);
 
+    /// <summary>How long ago an event was, in words ("6 days 12 hours", "30 hours"), for a reviewer with no give-by time.</summary>
+    public static string AgeText(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+        var hours = (int)elapsed.TotalHours;
+        if (hours < 72) return hours == 1 ? "1 hour" : $"{hours} hours";
+        var days = hours / 24;
+        var rest = hours % 24;
+        return rest == 0 ? $"{days} days" : $"{days} days {rest} hour{(rest == 1 ? "" : "s")}";
+    }
+
     public const string CompleteCode = "RHIG-COMPLETE";
 
     /// <summary>Facts the reviewer weighs, as plain statements; no conclusion is drawn.</summary>

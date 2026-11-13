@@ -23275,3 +23275,22 @@ On the running system with seeded data: Reports › Wastage by product and reaso
 ### Tests
 
 - TEST-BB-1065; TEST-BB-345 extended. Full suite passed.
+
+## Iteration 768 — End-user testing pass 52: mother and baby, RhIG give-by (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: the newborn's chart (Baby Girl Maya, MRN0027, linked to her mother MRN0025), and the RhIG queue.
+
+### Checked, not defects
+
+- The newborn's chart names her mother and the mother's type, and the mother's chart names the infant.
+- With the neonatal rules off (OCD-074, off by default) the infant's chart applies the adult second-type and electronic crossmatch rules, as the facility setting says.
+
+### Found and fixed
+
+1. **A blank give-by read as no deadline.** Noor Demo-Rhig (MRN0026) delivered on 2026-11-07 and her RhIG evaluation was still undecided, with "—" under Give by because the facility RhIG window (OCD-087) is not set. Nothing said why, or how long ago the delivery was. The queue now says the window is not set, where to set it, and how long ago the event was. Retested live: "Not shown: the facility's RhIG window is not set (Admin › Facility policies › RhIG: give within). The event was 5 days 12 hours ago."
+
+### Tests
+
+- TEST-BB-1066; TEST-BB-1030 extended. Full suite passed.

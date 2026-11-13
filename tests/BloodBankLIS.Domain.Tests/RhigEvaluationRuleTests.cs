@@ -9,6 +9,17 @@ public class RhigEvaluationRuleTests
 {
     // TEST-BB-1030: the give-by time is the event plus the facility's window (OCD-087); none while the window is not set,
     // for a patient decided not a candidate, or once RhIG is given (end-user testing pass 22).
+    // End-user testing pass 52: with no window set, the queue says how long ago the event was.
+    [Fact]
+    public void AgeText_HoursThenDays()
+    {
+        Assert.Equal("1 hour", RhigEvaluationRule.AgeText(TimeSpan.FromMinutes(70)));
+        Assert.Equal("30 hours", RhigEvaluationRule.AgeText(TimeSpan.FromHours(30.5)));
+        Assert.Equal("3 days", RhigEvaluationRule.AgeText(TimeSpan.FromHours(72)));
+        Assert.Equal("6 days 1 hour", RhigEvaluationRule.AgeText(TimeSpan.FromHours(145)));
+        Assert.Equal("0 hours", RhigEvaluationRule.AgeText(TimeSpan.FromHours(-2)));
+    }
+
     [Fact]
     public void GiveBy_FollowsTheFacilityWindow()
     {

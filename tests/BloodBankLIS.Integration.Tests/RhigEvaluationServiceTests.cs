@@ -42,6 +42,9 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
 
         var unset = Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value!.Id);
         Assert.Null(unset.GiveByUtc);
+        // Pass 52: say why there is no give-by time, and how old the event is.
+        Assert.Contains("RhIG window is not set", unset.GiveByNote);
+        Assert.Contains("4 days 4 hours ago", unset.GiveByNote);
 
         var existing = await c.SystemSettings.FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.RhigAdministrationWindowHours);
         if (existing is null)
@@ -60,6 +63,7 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
         var due = Assert.Single(await withPolicy.ListOpenAsync(), i => i.Evaluation.Id == saved.Value!.Id);
         Assert.Equal(delivery.AddHours(72), due.GiveByUtc);
         Assert.True(due.PastGiveBy);
+        Assert.Null(due.GiveByNote);
 
         existing = await c.SystemSettings.FirstAsync(s => s.Key == FacilityPolicyKeys.RhigAdministrationWindowHours);
         c.SystemSettings.Remove(existing);

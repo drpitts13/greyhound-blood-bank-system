@@ -939,6 +939,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-825 / FRS-BB-943 | End-user testing pass 49: report date ranges | `StorageTempReport.razor`, `Utilization.razor` | — | Inspection | |
 | URS-BB-826 / FRS-BB-944 | End-user testing pass 50: report date filters | `VisualReportCompiler.cs`, `ReportService.cs`, `ReportRun.razor` | TEST-BB-1064 | U | |
 | URS-BB-827 / FRS-BB-945 | End-user testing pass 51: report months and the seeded discard | `EfReportSourceReader.cs`, `DatabaseSeeder.DemoScenarios.cs` | TEST-BB-1065, TEST-BB-345 | I | |
+| URS-BB-828 / FRS-BB-946 | End-user testing pass 52: RhIG give-by with no window | `RhigEvaluationService.cs`, `RhigEvaluationRule.cs`, `RhigQueue.razor` | TEST-BB-1066, TEST-BB-1030 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

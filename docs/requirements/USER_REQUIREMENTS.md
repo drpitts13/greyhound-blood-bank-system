@@ -833,3 +833,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-825 | The temperature history report and the Utilization report take local dates. | P3 | FRS-BB-943 |
 | URS-BB-826 | Report date filters include the whole of the To day in local time, and report results show local times under column names. | P2 | FRS-BB-944 |
 | URS-BB-827 | Report month columns are the facility's local months, and seeded discards carry a discard date. | P3 | FRS-BB-945 |
+| URS-BB-828 | The RhIG queue says when no give-by time is shown because the facility window is not set, and how long ago the event was. | P2 | FRS-BB-946 |

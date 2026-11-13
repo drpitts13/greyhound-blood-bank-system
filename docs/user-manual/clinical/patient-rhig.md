@@ -50,3 +50,5 @@ Once any lot is registered, **Record RhIG given** must name a registered lot tha
 ## Give-by time
 
 When the medical director has set Facility Policies › RhIG › **RhIG: give within (hours of the event)**, the RhIG queue's **Give by** column shows when each open candidate's RhIG is due (the event time plus that window) and marks **Past** once it has gone. It is a reminder and blocks nothing. It is not shown for a patient decided not a candidate, after RhIG is given, or while the setting is not entered (OCD-087).
+
+While the setting is not entered, the column says so and gives how long ago the event was ("The event was 5 days 12 hours ago"), so a blank never reads as no deadline.

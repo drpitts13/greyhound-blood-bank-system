@@ -58,6 +58,12 @@ public sealed record RhigQueueItemDto(RhigEvaluationDto Evaluation, string Patie
     /// <summary>When RhIG is to be given by (OCD-087), and whether that has passed; null when not set or not due.</summary>
     public DateTime? GiveByUtc { get; init; }
     public bool PastGiveBy { get; init; }
+
+    /// <summary>
+    /// Why there is no give-by time when one could apply: the facility has not set its RhIG window. End-user testing
+    /// pass 52: a delivery six days old showed "—", which read as no deadline.
+    /// </summary>
+    public string? GiveByNote { get; init; }
 }
 
 /// <summary>A patient who was given an RhIG lot (recall trace).</summary>
@@ -177,7 +183,10 @@ public sealed class RhigEvaluationService
                 ready)
             {
                 GiveByUtc = giveBy,
-                PastGiveBy = giveBy is DateTime by && now > by
+                PastGiveBy = giveBy is DateTime by && now > by,
+                GiveByNote = windowHours <= 0 && e.Decision != RhigDecision.NotCandidate && e.GivenUtc is null
+                    ? $"Not shown: the facility's RhIG window is not set (Admin › Facility policies › RhIG: give within). The event was {RhigEvaluationRule.AgeText(now - e.EventUtc)} ago."
+                    : null
             });
         }
 

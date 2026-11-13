@@ -154,6 +154,10 @@ else
                                     <span class="badge badge-red" data-rhig-past-give-by>Past</span>
                                 }
                             }
+                            else if (!string.IsNullOrWhiteSpace(item.GiveByNote))
+                            {
+                                <span class="muted" data-rhig-give-by-note title="@item.GiveByNote">— <span class="sub">@item.GiveByNote</span></span>
+                            }
                             else
                             {
                                 <span class="muted">—</span>
