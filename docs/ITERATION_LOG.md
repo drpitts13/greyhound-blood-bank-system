@@ -23060,3 +23060,22 @@ On the running system with seeded data: the Test worklist's comment box (pass 39
 ### Tests
 
 - TEST-BB-1056, TEST-BB-1057. Full suite passed.
+
+## Iteration 757 — End-user testing pass 41: units in transit and ward receipt (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse › In transit (seven units issued 2026-11-06, all past their arrival window, Morgan's MTP cooler with differences), then Ward receipt opened for Patricia Demo's W0001230000099.
+
+### Found and fixed
+
+1. **The same expiry in two time zones.** The in-transit list gave W0001230000099's expiry as 2026-12-01 09:49 (local) and the receipt form, beside it, as 14:49 (UTC, unlabelled). The unit and crossmatch expiry notices on the issue, receipt, return and transfusion forms, and in unit pickers, now give local time, as the lists do and as messages shown on screen do elsewhere. Retested live: 09:49 on both.
+2. **Codes in the issue details.** The MTP units' issue type read "MassiveTransfusion"; issue type and appearance now read in words ("Massive transfusion"), on Issue & Transfuse and the chart's product history.
+
+### Checked, not defects
+
+- Ward receipt asks for who received the unit, the appearance at receipt (with "Not recorded. Look at the bag."), and a scan of the unit label, with a downtime back-entry path.
+
+### Tests
+
+- TEST-BB-1058 (the form cue test now expects local time). Full suite passed.

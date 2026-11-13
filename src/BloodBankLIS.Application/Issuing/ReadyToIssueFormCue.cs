@@ -39,14 +39,16 @@ public static class ReadyToIssueFormCue
         return notices;
     }
 
+    // Shown on screen, so in local time like the lists beside it (end-user testing pass 41: 14:49 on the receipt form,
+    // 09:49 in the in-transit list, for one unit).
     public static string? ExpirationNotice(DateTime? expiresUtc) =>
-        expiresUtc is DateTime expires ? $"Unit expires {expires:yyyy-MM-dd HH:mm}" : null;
+        expiresUtc is DateTime expires ? $"Unit expires {ClinicalTimeText.Local(expires)}" : null;
 
     public static string? UnitTypeNotice(string? unitBloodType) =>
         string.IsNullOrWhiteSpace(unitBloodType) ? null : $"Unit type {unitBloodType.Trim()}";
 
     public static string? CrossmatchExpirationNotice(DateTime? expiresUtc) =>
-        expiresUtc is DateTime expires ? $"Crossmatch expires {expires:yyyy-MM-dd HH:mm}" : null;
+        expiresUtc is DateTime expires ? $"Crossmatch expires {ClinicalTimeText.Local(expires)}" : null;
 
     public static string? CrossmatchResultNotice(CrossmatchResult? result) => result switch
     {

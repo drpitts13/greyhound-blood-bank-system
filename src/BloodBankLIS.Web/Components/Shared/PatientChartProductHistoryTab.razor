@@ -99,7 +99,7 @@
                         <tr class="@HistoryRowClass(h)">
                             <td colspan="8" class="bb-facts" style="padding-top:0;">
                                 <ul>
-                                    <li>Issue type: @(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : h.IssueType)</li>
+                                    <li>Issue type: @(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : Ui.CodeNameText(h.IssueType))</li>
                                     <li>Release reason: @(string.IsNullOrWhiteSpace(h.EmergencyReleaseReason) ? "—" : h.EmergencyReleaseReason)</li>
                                     <li>Second verifier: @(string.IsNullOrWhiteSpace(h.SecondVerifier) ? "—" : h.SecondVerifier)</li>
                                     <li>Authorized by: @(string.IsNullOrWhiteSpace(h.EmergencyReleaseAuthorizer) ? "—" : h.EmergencyReleaseAuthorizer)</li>

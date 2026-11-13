@@ -534,7 +534,7 @@
                                     <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
                                 }
                             </td>
-                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>@IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)</td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td class="nowrap">
                                 @row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
@@ -623,7 +623,7 @@
                                 <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
                             <td>
-                                @IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)
+                                @IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)
                                 @CoolerCheckBadge(row.CoolerId)
                             </td>
                             <td>@(row.IssuedToLocation ?? "—")<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
@@ -718,7 +718,7 @@
                                 }
                                 <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>@IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)</td>
                             <td>
                                 @if (row.WardReceivedUtc is DateTime received)
                                 {
