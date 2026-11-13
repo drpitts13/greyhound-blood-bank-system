@@ -38,7 +38,7 @@ else
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>DIN</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                <thead><tr><th>DIN</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Opened</th><th>Notify by</th><th>Attempted</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var n in _openNotes)
                     {
@@ -48,6 +48,32 @@ else
                             <td>@PatientLabel(n)</td>
                             <td>@Ui.EnumText(n.Status)</td>
                             <td>@(n.PhysicianOfRecord ?? "—")</td>
+                            @* Pass 66: how long it has waited, and the notify-by date when the facility has set one (OCD-089). *@
+                            <td class="nowrap" data-lookback-opened="@n.Id">
+                                @if (n.OpenedUtc is DateTime opened)
+                                {
+                                    @opened.ToLocalTime().ToString("yyyy-MM-dd")
+                                    <div class="sub">open @AlertInboxView.OpenFor(opened, DateTime.UtcNow)</div>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td class="nowrap" data-lookback-notify-by="@n.Id">
+                                @if (n.NotifyByUtc is DateTime notifyBy)
+                                {
+                                    @notifyBy.ToLocalTime().ToString("yyyy-MM-dd")
+                                    @if (n.PastNotifyBy)
+                                    {
+                                        <span class="badge badge-red" data-lookback-past>Past</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="muted" title="Facility Policies › Lookback: notify the physician within (days) is not set (OCD-089).">not set</span>
+                                }
+                            </td>
                             <td class="nowrap">@(n.AttemptedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                             <td class="right nowrap">
                                 @if (n.PatientId is long openChartId)

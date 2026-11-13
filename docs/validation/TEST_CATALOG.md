@@ -1085,5 +1085,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1074 | I | `Phase5Hl7Tests.InboundOrm_OrderOfAnotherPatient_IsRefused` | URS-BB-836 / FRS-BB-954 |
 | TEST-BB-1075 | U, I | `Hl7MapperTests.BpamMapper_TimestampsHonourTheOffsetAndSeconds`, `Phase5Hl7Tests.InboundRas_MergedMrn_RecordsOnTheSurvivingChart` | URS-BB-837 / FRS-BB-955 |
 | TEST-BB-1076 | U | `ReagentQcResultBlockTests.KindText_ReadsAsWords` | URS-BB-839 / FRS-BB-957 |
+| TEST-BB-1077 | U | `LookbackNotifyRuleTests.NotifyBy_FollowsTheFacilityDays` | URS-BB-841 / FRS-BB-959 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

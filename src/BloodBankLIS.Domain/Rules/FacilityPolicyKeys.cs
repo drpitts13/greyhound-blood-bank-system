@@ -122,6 +122,9 @@ public static class FacilityPolicyKeys
     /// <summary>Hours after the event within which RhIG is to be given (OCD-087; 0 = not set).</summary>
     public const string RhigAdministrationWindowHours = "Rhig.AdministrationWindowHours";
 
+    /// <summary>Days after a lookback notification is opened within which the recipient's physician is to be notified (OCD-089; 0 = not set).</summary>
+    public const string LookbackNotifyWithinDays = "Lookback.NotifyWithinDays";
+
     /// <summary>OCD-074: turns on the neonatal pretransfusion testing rules. Default off.</summary>
     public const string NeonatalRulesEnabled = "Neonatal.RulesEnabled";
 

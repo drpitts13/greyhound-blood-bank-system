@@ -23561,3 +23561,25 @@ On the running system with seeded data: Issue & Transfuse › Issued units, the 
 ### Tests
 
 - Page change (inspection; the server's time checks are covered by existing tests). Full suite passed.
+
+## Iteration 782 — End-user testing pass 66: return, then lookback notifications (2026-11-13)
+
+### How it was tested
+
+Issue & Transfuse's return and start forms for times taken from records; then Lookback / Trace, the open notification for Patricia Demo (W0001230000099, DIN W123426000001).
+
+### Checked, not defects
+
+- A return is recorded at the desk when it happens, and the server judges time out of storage; starting a transfusion is a bedside step (a transfusion charted afterwards is documented with its own times, pass 65).
+
+### Found and fixed
+
+1. **No sense of time on lookback.** The open notification showed no date it was opened and nothing about how long it had waited (opened 2026-11-06, a week). The list now shows when each was opened and how long it has been open, and a notify-by date, marked Past, from a new facility setting shipped unset (OCD-089), as for the RhIG give-by time. Retested live: "2026-11-06, open 6 d · not set".
+
+### Open decision
+
+- OCD-089: how many days to notify the physician within. Listed with the facility settings to enter.
+
+### Tests
+
+- TEST-BB-1077; TEST-BB-885 extended. Full suite passed.

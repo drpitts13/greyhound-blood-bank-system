@@ -107,6 +107,14 @@ public sealed record LookbackNotificationDto(
     string? ShippedToFacility = null,
     string? ShippedReceivingContact = null)
 {
+    /// <summary>
+    /// When the notification was opened, and when the physician is to be notified by (OCD-089), whether that has
+    /// passed. End-user testing pass 66: an open notification said nothing of how long it had waited.
+    /// </summary>
+    public DateTime? OpenedUtc { get; init; }
+    public DateTime? NotifyByUtc { get; init; }
+    public bool PastNotifyBy { get; init; }
+
     public static LookbackNotificationDto From(LookbackNotification n) => new(
         n.Id, n.Din, n.BloodProductId, n.PatientId, n.IssueId, n.Status,
         n.PhysicianOfRecord, n.AttemptedUtc, n.AttemptedBy, n.Notes);
@@ -123,6 +131,7 @@ public sealed class LookbackService
     private readonly IRepository<TransfusionEvent> _transfusions;
     private readonly IRepository<Patient> _patients;
     private readonly IRepository<LookbackNotification> _notifications;
+    private readonly FacilityPolicyService? _policy;
     private readonly InventoryService _inventoryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
@@ -147,8 +156,10 @@ public sealed class LookbackService
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
         IRepository<InventoryLocation>? locations = null,
-        IRepository<ProductType>? productTypes = null)
+        IRepository<ProductType>? productTypes = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _productTypes = productTypes;
         _inventory = inventory;
         _units = units;
@@ -617,8 +628,11 @@ public sealed class LookbackService
         IReadOnlyList<LookbackNotification> notes, CancellationToken ct)
     {
         var dtos = new List<LookbackNotificationDto>();
+        var notifyWithinDays = _policy is null ? 0 : await _policy.GetLookbackNotifyWithinDaysAsync(ct);
+        var now = _clock.UtcNow;
         foreach (var note in notes.OrderBy(n => n.Id))
         {
+            var notifyBy = LookbackNotifyRule.NotifyBy(note.CreatedUtc, notifyWithinDays, note.Status);
             var unit = await _units.GetByIdAsync(note.BloodProductId, ct);
             Patient? patient = null;
             if (note.PatientId is long patientId)
@@ -632,7 +646,10 @@ public sealed class LookbackService
                 MedicalRecordNumber = patient?.MedicalRecordNumber,
                 PatientName = FormatName(patient),
                 ShippedToFacility = unit?.Status == UnitStatus.ShippedOut ? unit.ShippedToFacility : null,
-                ShippedReceivingContact = unit?.Status == UnitStatus.ShippedOut ? unit.ShipReceivingContact : null
+                ShippedReceivingContact = unit?.Status == UnitStatus.ShippedOut ? unit.ShipReceivingContact : null,
+                OpenedUtc = note.CreatedUtc == default ? null : note.CreatedUtc,
+                NotifyByUtc = notifyBy,
+                PastNotifyBy = notifyBy is DateTime by && now > by
             });
         }
 

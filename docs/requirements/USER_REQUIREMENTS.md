@@ -846,3 +846,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-838 | The instrument simulator stamps results with the local clock, as an analyzer does. | P3 | FRS-BB-956 |
 | URS-BB-839 | Reagent QC alerts name the kind of work in words. | P3 | FRS-BB-957 |
 | URS-BB-840 | A transfusion charted afterwards takes its start and stop times from the record, not the time it is charted. | P1 | FRS-BB-958 |
+| URS-BB-841 | Open lookback notifications show when they were opened and how long they have waited, and a notify-by date once the facility sets one. | P2 | FRS-BB-959 |

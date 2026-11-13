@@ -14,7 +14,7 @@ public class FacilityPolicyAwaitsEntryTests
     public void AwaitsEntry_OnlyForDecidedSettingsStillAtTheirDefault()
     {
         Assert.Equal(
-            [FacilityPolicyKeys.SpecimenRetentionDays, FacilityPolicyKeys.RhigMlPerVial, FacilityPolicyKeys.RhigMaternalBloodVolumeMl, FacilityPolicyKeys.RhigDoseRounding, FacilityPolicyKeys.RhigAdministrationWindowHours],
+            [FacilityPolicyKeys.SpecimenRetentionDays, FacilityPolicyKeys.RhigMlPerVial, FacilityPolicyKeys.RhigMaternalBloodVolumeMl, FacilityPolicyKeys.RhigDoseRounding, FacilityPolicyKeys.RhigAdministrationWindowHours, FacilityPolicyKeys.LookbackNotifyWithinDays],
             FacilityPolicyCatalog.All.Where(d => d.AwaitingEntryAtDefault).Select(d => d.Key));
 
         Assert.True(FacilityPolicyCatalog.AwaitsEntry(Def(FacilityPolicyKeys.SpecimenRetentionDays), "0"));

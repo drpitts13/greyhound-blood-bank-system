@@ -35,3 +35,7 @@ You need lookback permission. Other staff can see the clinical chart but cannot 
 ## Finding the components
 
 **Components for** a DIN lists each component with its product, status and current location, so each can be found and pulled when it is recalled.
+
+## How long a notification has waited
+
+The notifications still due show when each was opened and how long it has been open. When the medical director has set Facility Policies › Lookback › **Lookback: notify the physician within (days)**, each also shows its **Notify by** date, marked **Past** once it has gone; until then the column says *not set* (OCD-089). It is a reminder and blocks nothing.

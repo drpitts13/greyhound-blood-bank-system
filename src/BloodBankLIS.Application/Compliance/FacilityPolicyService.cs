@@ -43,6 +43,9 @@ public sealed class FacilityPolicyService
     public Task<int> GetRhigAdministrationWindowHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.RhigAdministrationWindowHours, 0, ct);
 
+    public Task<int> GetLookbackNotifyWithinDaysAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.LookbackNotifyWithinDays, 0, ct);
+
     public Task<bool> GetSendFinalResultsAutomaticallyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.SendFinalResultsAutomatically, true, ct);
 
