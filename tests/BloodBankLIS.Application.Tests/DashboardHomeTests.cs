@@ -186,6 +186,21 @@ public class DashboardHomeTests
         Assert.DoesNotContain(DashboardHome.Arrange([State(RecalledToPull, 0)], WorkFocus.IssueDesk).Attention, c => c.Card.Key == RecalledToPull);
     }
 
+    // End-user testing pass 55: the Expired on shelf card says how long the oldest has been expired and where they are.
+    [Fact]
+    public void ExpiredOnShelfNote_SaysOldestAndWhere()
+    {
+        var now = new DateTime(2026, 11, 13, 7, 0, 0, DateTimeKind.Utc);
+        ExpiredUnitDto Row(long id, DateTime expires, string? place) => new(id, $"W{id}", "RBC-LR", "Red cells", "O+", UnitStatus.Available, expires, place);
+
+        Assert.Null(ExpiredOnShelfNote([], now));
+        Assert.Equal("oldest expired 9 d ago; in Main Blood Bank Refrigerator",
+            ExpiredOnShelfNote([Row(1, now.AddDays(-9.5), "Main Blood Bank Refrigerator"), Row(2, now.AddHours(-5), "main blood bank refrigerator")], now));
+        Assert.Equal("oldest expired 5 h ago; in 2 places",
+            ExpiredOnShelfNote([Row(1, now.AddHours(-5), "FRIDGE-1"), Row(2, now.AddHours(-1), "PLT-1")], now));
+        Assert.Equal("oldest expired 40 min ago; no place recorded", ExpiredOnShelfNote([Row(1, now.AddMinutes(-40), null)], now));
+    }
+
     // TEST-BB-934 (Cycle 698): the Recalled units to pull note says how long the oldest recall has waited and how many
     // are on the ward; none, no note; a unit with no recall time still counts for the ward.
     [Fact]

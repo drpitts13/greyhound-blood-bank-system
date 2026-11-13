@@ -437,7 +437,12 @@
                 return (card.Key, open, note);
             }
             case DashboardQueueCatalog.ExpiredOnShelf:
-                return await CountList(card.Key, Api.GetExpiredOnShelfAsync());
+            {
+                var result = await Api.GetExpiredOnShelfAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.ExpiredOnShelfNote(result.Value, DateTime.UtcNow))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.RecalledToPull:
             {
                 var result = await Api.GetRecalledUnitsAsync();

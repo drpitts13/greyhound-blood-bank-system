@@ -942,6 +942,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-828 / FRS-BB-946 | End-user testing pass 52: RhIG give-by with no window | `RhigEvaluationService.cs`, `RhigEvaluationRule.cs`, `RhigQueue.razor` | TEST-BB-1066, TEST-BB-1030 | U, I | |
 | URS-BB-829 / FRS-BB-947 | End-user testing pass 53: instrument session log | `Instruments.razor`, `AstmListenerService.cs` | TEST-BB-1067 | U | |
 | URS-BB-830 / FRS-BB-948 | End-user testing pass 54: discard expired second verifier | `InventoryDiscardExpired.razor`, `ReferenceEndpoints.cs` | TEST-BB-1068 | U | |
+| URS-BB-831 / FRS-BB-949 | End-user testing pass 55: Expired on shelf card | `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-1069 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -23332,3 +23332,17 @@ On the running system with seeded data: the dashboard's Expired on shelf card (1
 ### Tests
 
 - TEST-BB-1068. Full suite passed.
+
+## Iteration 771 — End-user testing pass 55: the Expired on shelf card (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: the dashboard's urgent inventory cards against the pages they open.
+
+### Found and fixed
+
+1. **A bare count.** Expired on shelf was the one urgent inventory card with no line under the count; the others say how long the oldest has waited. It now says how long the oldest unit has been expired and where the units are, so the tech knows where to pull from. Retested live: "10 · oldest expired 5 d ago; in Main Blood Bank Refrigerator".
+
+### Tests
+
+- TEST-BB-1069. Full suite passed.

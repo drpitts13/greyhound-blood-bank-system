@@ -301,6 +301,26 @@ public static class DashboardQueueCatalog
         return string.Join("; ", parts) is { Length: > 0 } note ? note : null;
     }
 
+    /// <summary>
+    /// The Expired on shelf note (end-user testing pass 55: the card was a bare count): how long the oldest has been
+    /// expired, and where they are (the place when one, else how many places), so the tech knows where to pull from.
+    /// </summary>
+    public static string? ExpiredOnShelfNote(IReadOnlyCollection<ExpiredUnitDto> expired, DateTime nowUtc)
+    {
+        if (expired.Count == 0)
+        {
+            return null;
+        }
+
+        var oldest = expired.Min(u => u.ExpiresUtc);
+        var places = expired.Select(u => string.IsNullOrWhiteSpace(u.LocationName) ? null : u.LocationName.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var where = places.Count == 1
+            ? places[0] is string place ? $"in {place}" : "no place recorded"
+            : $"in {places.Count} places";
+        return $"oldest expired {AlertInboxView.OpenFor(oldest, nowUtc)} ago; {where}";
+    }
+
     /// <summary>The settings-to-enter card note: the names, the first three and how many more.</summary>
     public static string? SettingsToEnterNote(IReadOnlyList<string> displayNames)
     {
