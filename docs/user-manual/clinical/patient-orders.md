@@ -51,3 +51,5 @@ When the facility turns on **Evaluate product orders against transfusion criteri
 ## Units of a product
 
 When a product is ticked on **Add order**, a **units** box appears beside it (1 to 20). The order is saved with one product line per unit, so the blood order shows how many units are wanted and how many are still needed.
+
+When the visit names a place that is not one ordering location, no ordering location is chosen for you: pick it from the list. **Order ABO/Rh** from Second ABO/Rh due opens the order with ABO/Rh ticked and **Accession a new specimen now** chosen, because the second type must come from a separately collected tube.

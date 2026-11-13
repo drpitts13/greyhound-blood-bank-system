@@ -825,3 +825,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-817 | Issue, receipt, return and transfusion forms give unit and crossmatch expiry in local time, as the lists do; issue type and appearance read in words. | P2 | FRS-BB-935 |
 | URS-BB-818 | A date of birth or sex changed by the EHR on a patient the blood bank holds raises a warning naming the patient's current tubes. | P1 | FRS-BB-936 |
 | URS-BB-819 | Changing a patient's date of birth or sex on the chart requires a reason and alerts the blood bank like an EHR change. | P1 | FRS-BB-937 |
+| URS-BB-820 | A new order picks no ordering location by itself when the visit's place matches none; the second ABO/Rh order starts on a new specimen. | P2 | FRS-BB-938 |

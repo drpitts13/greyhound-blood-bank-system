@@ -46,7 +46,11 @@
                         <input type="datetime-local" @bind="NewOrderNeededBy" @bind:after="() => NewOrderNeededByChanged.InvokeAsync(NewOrderNeededBy)" data-order-needed-by />
                     </div>
                     <div class="field"><label>Ordering location</label>
-                        <select @bind="NewOrderLocationId" @bind:after="() => NewOrderLocationIdChanged.InvokeAsync(NewOrderLocationId)">
+                        <select @bind="NewOrderLocationId" @bind:after="() => NewOrderLocationIdChanged.InvokeAsync(NewOrderLocationId)" data-order-location>
+                            @if (NewOrderLocationId <= 0)
+                            {
+                                <option value="0">Choose the ordering location</option>
+                            }
                             @foreach (var l in OrderingLocations)
                             {
                                 <option value="@l.Id">@l.DisplayName (@l.Code)</option>

@@ -23116,3 +23116,25 @@ Following pass 42 (a date of birth changed by the EHR now raises an alert), the 
 ### Tests
 
 - TEST-BB-1060. Full suite passed.
+
+## Iteration 760 — End-user testing pass 44: unidentified patients, mother and baby, the second ABO/Rh (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the unidentified trauma chart UNK-20261108-01 and its identify step; the mother and baby link of Maya DEMO-RHIG and Baby Girl Maya, and Noor DEMO-RHIG's delivery evaluation; Issue & Transfuse › Second ABO/Rh due › Order ABO/Rh for Nora Kline.
+
+### Checked, not defects
+
+- Identifying the unidentified chart asks for the identified patient's MRN and how they were identified, and merges the temporary chart into theirs (warning of units issued under the temporary identity); an MRN with no chart is refused with "register the identified patient first".
+- Baby Girl Maya is linked to Maya DEMO-RHIG (MRN0025); Noor DEMO-RHIG's delivery evaluation records an Rh-positive infant without an infant chart.
+
+### Found and fixed
+
+1. **An order defaulted to the wrong ordering location.** Nora Kline's visit is on 6E Oncology, which is not an ordering location; the form said so but had chosen the first location on the list, Emergency Department. When the visit's place matches no ordering location, none is chosen now ("Choose the ordering location"); saving without one is refused.
+2. **The second ABO/Rh order defaulted to the same tube.** Order ABO/Rh from Second ABO/Rh due opened the order with "Auto-link most recent accepted specimen": with a current specimen, the second type would have been run on the same tube, which does not count. It now starts with "Accession a new specimen now".
+
+Retested live on Nora Kline's chart (nothing saved).
+
+### Tests
+
+- Page changes (inspection). Full suite passed.

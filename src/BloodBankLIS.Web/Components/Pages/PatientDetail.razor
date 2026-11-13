@@ -1746,10 +1746,17 @@ else
             if (!_visitsLoaded) await LoadVisitsAsync();
             if (_encounters.Count == 0) SuggestVisit();
             if (_encounters.Count > 0 && _newOrderEncounterId == 0) _newOrderEncounterId = _encounters[0].Id;
-            // The chosen visit's own location, when it names exactly one ordering location; else the default stays.
-            if (OrderVisitDefaults.LocationFor(_encounters.FirstOrDefault(v => v.Id == _newOrderEncounterId), _orderingLocations) is long visitLocation)
+            // The chosen visit's own location, when it names exactly one ordering location. When the visit names a place
+            // that is not one ordering location, none is chosen: the first on the list had been, unnoticed (end-user
+            // testing pass 44: an oncology patient's order defaulted to the Emergency Department).
+            var visit = _encounters.FirstOrDefault(v => v.Id == _newOrderEncounterId);
+            if (OrderVisitDefaults.LocationFor(visit, _orderingLocations) is long visitLocation)
             {
                 _newOrderLocationId = visitLocation;
+            }
+            else if (OrderVisitDefaults.VisitLocation(visit) is not null)
+            {
+                _newOrderLocationId = 0;
             }
             _newOrderAccessionNow = false;
             _orderAcc = new();
@@ -1821,6 +1828,11 @@ else
         {
             _newOrderTestCodes.Add(abo.Code);
         }
+
+        // The second type must come from a separately collected specimen: start on a new tube rather than auto-linking
+        // the most recent accepted one, which would type the same tube again (end-user testing pass 44).
+        _newOrderAccessionNow = true;
+        OnNewOrderAccessionNowChanged();
     }
 
     private async Task AddVisitAsync()
