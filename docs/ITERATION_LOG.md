@@ -23543,3 +23543,21 @@ On the running system with seeded data: Antibody ID (Kellerman's workup, flagged
 ### Tests
 
 - TEST-BB-1076. Full suite passed.
+
+## Iteration 781 — End-user testing pass 65: completing a transfusion afterwards (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse › Issued units, the overdue transfusion of W0001230000099 for Patricia Demo (MRN0001, started 2026-11-06 09:34), completed from its row.
+
+### Found and fixed
+
+1. **No stop time.** The alert and the list both said to record the stop time, but Complete transfusion had no field for it, and Document start and finish had no start or stop: the server stamped the time the record was made. Completing Patricia's transfusion a week later would have recorded it as running seven days, and every transfusion charted afterwards got the charting time. Complete now has Stopped at, and Document has Started at and Stopped at (local time; blank is now), with a hint when the transfusion started more than six hours ago. Retested live: completed with Stopped at 2026-11-06 12:30, stored 17:30 UTC.
+
+### Left in the development data
+
+- W0001230000099 (Patricia Demo) completed: stopped 2026-11-06 12:30, 300 mL, no reaction (test values).
+
+### Tests
+
+- Page change (inspection; the server's time checks are covered by existing tests). Full suite passed.

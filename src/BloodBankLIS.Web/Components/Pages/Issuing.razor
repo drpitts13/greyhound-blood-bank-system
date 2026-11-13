@@ -1528,6 +1528,15 @@
                     Transfusion started at @txStarted.ToLocalTime().ToString("yyyy-MM-dd HH:mm"). The patient was identified then.
                     Set the disposition, volume, and any suspected reaction, then complete it when it ends.
                 </div>
+                @* End-user testing pass 65: completing a transfusion charted later stamped "now" as the stop, so one started a
+                   week earlier was recorded as running seven days. The stop time is entered from the chart. *@
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Stopped at</label><input type="datetime-local" @bind="_txStopLocal" data-tx-stop /></div>
+                </div>
+                @if (_txStopLocal is null && DateTime.UtcNow - txStarted > TimeSpan.FromHours(6))
+                {
+                    <p class="sub" data-tx-stop-hint>Started @ClockText.Short(txStarted). Enter when it stopped from the transfusion record; left blank, the stop is recorded as now.</p>
+                }
                 <div style="margin-top:.75rem;">
                     <button class="btn btn-primary" disabled="@(_busy || _txIssueId == 0)" @onclick="CompleteTransfusionAsync" data-tx-complete>Complete transfusion</button>
                 </div>
@@ -1535,6 +1544,11 @@
             else
             {
                 <p class="muted" style="margin-top:.75rem;">Start records the bedside check when the unit is spiked; complete it when it ends. Document records start and finish together, for a transfusion charted afterwards.</p>
+                @* For Document (charted afterwards): the times from the transfusion record; blank means now (pass 65). *@
+                <div class="form-row">
+                    <div class="field"><label>Started at (for Document)</label><input type="datetime-local" @bind="_txStartLocal" data-tx-start-time /></div>
+                    <div class="field"><label>Stopped at (for Document)</label><input type="datetime-local" @bind="_txStopLocal" data-tx-stop /></div>
+                </div>
                 <div class="flex gap" style="margin-top:.5rem;">
                     <button class="btn btn-primary" disabled="@(_busy || _txIssueId == 0)" @onclick="StartTransfusionAsync" data-tx-start>Start transfusion</button>
                     <button class="btn btn-secondary" disabled="@(_busy || _txIssueId == 0)" @onclick="DocumentTransfusionAsync" data-tx-document>Document start and finish</button>
@@ -1764,6 +1778,8 @@
     private void ClearTransfusionUnit()
     {
         _txIssueId = 0;
+        _txStartLocal = null;
+        _txStopLocal = null;
         _txPreVitals.Clear();
         _txPostVitals.Clear();
         // Each unit is its own decision to continue (OCD-078).
@@ -1815,6 +1831,9 @@
     private TransfusionEventDto? _lastTransfusion;
     // Set when the selected issue's transfusion was started at the bedside and is not yet completed.
     private DateTime? _txStartedUtc;
+    // Times typed from the transfusion record, local (pass 65); blank means now.
+    private DateTime? _txStartLocal;
+    private DateTime? _txStopLocal;
 
     private bool CanRecordTransfusion =>
         Session.Has(PermissionCodes.TransfusionDocument)
@@ -2620,6 +2639,8 @@
         // The reaction answer and the disposition belong to one unit.
         _txReaction = null;
         _txDisposition = null;
+        _txStartLocal = null;
+        _txStopLocal = null;
         _txStartedUtc = row.TransfusionStartedUtc;
         _txUnitLookup = row.UnitNumber ?? string.Empty;
         _txProductName = row.ProductName;
@@ -3161,7 +3182,9 @@
 
         _busy = true;
         var r = await Api.CompleteTransfusionAsync(_txIssueId, new CompleteTransfusionRequest(
-            _txDisposition, VolumeTransfused: _txVolume, ReactionSuspected: _txReaction, PostVitals: _txPostVitals.ToVitals()));
+            _txDisposition,
+            StopUtc: _txStopLocal is DateTime stop ? LocalEntry.ToUtc(stop) : null,
+            VolumeTransfused: _txVolume, ReactionSuspected: _txReaction, PostVitals: _txPostVitals.ToVitals()));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion completed.");
         _openedReactionId = null;
@@ -3197,7 +3220,10 @@
 
         _busy = true;
         var r = await Api.DocumentTransfusionAsync(_txIssueId, new DocumentTransfusionRequest(
-            _txDisposition, VolumeTransfused: _txVolume,
+            _txDisposition,
+            StartUtc: _txStartLocal is DateTime start ? LocalEntry.ToUtc(start) : null,
+            StopUtc: _txStopLocal is DateTime stop ? LocalEntry.ToUtc(stop) : null,
+            VolumeTransfused: _txVolume,
             Transfusionist: string.IsNullOrWhiteSpace(_txTransfusionist) ? null : _txTransfusionist,
             ReactionSuspected: _txReaction,
             BedsideScan: _txScan.ToRequest(),

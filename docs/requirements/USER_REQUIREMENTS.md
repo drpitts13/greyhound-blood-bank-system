@@ -845,3 +845,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-837 | HL7 message times are read with their stated UTC offset and seconds; a merged-away MRN on a transfusion message is followed to the surviving chart. | P1 | FRS-BB-955 |
 | URS-BB-838 | The instrument simulator stamps results with the local clock, as an analyzer does. | P3 | FRS-BB-956 |
 | URS-BB-839 | Reagent QC alerts name the kind of work in words. | P3 | FRS-BB-957 |
+| URS-BB-840 | A transfusion charted afterwards takes its start and stop times from the record, not the time it is charted. | P1 | FRS-BB-958 |
