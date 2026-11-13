@@ -1063,5 +1063,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1052 | I | `UniversalLookupTests.ReagentLot_IsFound_AndOpensReagentQc` | URS-BB-811 / FRS-BB-929 |
 | TEST-BB-1053 | I | `ReactionWorkupServiceTests.PostTransfusionTube_TakesTheLabelIdentifiers` | URS-BB-812 / FRS-BB-930 |
 | TEST-BB-1054 | I | `ExpiredSpecimenOrderTests.ReactionWorkup_OnAnExpiredTube_StaysOpenAndLinked` | URS-BB-813 / FRS-BB-931 |
+| TEST-BB-1055 | U | `TubeFinishedTests.NextToEnter_PrefersTheSameTube_ThenTheSamePatient` | URS-BB-814 / FRS-BB-932 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -201,6 +201,34 @@ public static class TestWorklistView
         return ForTube(after, saved.AccessionNumber).Count == 0 ? saved.AccessionNumber : null;
     }
 
+    /// <summary>
+    /// After a save, the test to open next: one still open on the same tube, else for the same patient, else the next row
+    /// below; within each, the first after the saved row in the order shown (then from the top). End-user testing pass 39:
+    /// after a reaction workup's last row the bench was sent to another patient with the same patient's tests still open
+    /// above it.
+    /// </summary>
+    public static TestWorkItemDto? NextToEnter(TestWorkItemDto? saved, IReadOnlyList<long> shownOrder, IReadOnlyList<TestWorkItemDto> items)
+    {
+        if (saved is null)
+        {
+            return null;
+        }
+
+        var position = shownOrder.ToList().IndexOf(saved.OrderLineId);
+        var rotated = position < 0
+            ? shownOrder.ToList()
+            : shownOrder.Skip(position + 1).Concat(shownOrder.Take(position)).ToList();
+        var open = rotated
+            .Select(id => items.FirstOrDefault(i => i.OrderLineId == id))
+            .OfType<TestWorkItemDto>()
+            .Where(i => i.OrderLineId != saved.OrderLineId && i is { CanEnterResults: true, NeedsSpecimenLink: false })
+            .ToList();
+        var below = position < 0 ? [] : shownOrder.Skip(position + 1).ToHashSet();
+        return open.FirstOrDefault(i => saved.SpecimenId is long s && i.SpecimenId == s)
+            ?? open.FirstOrDefault(i => i.PatientId == saved.PatientId)
+            ?? open.FirstOrDefault(i => below.Contains(i.OrderLineId));
+    }
+
     /// <summary>Orders (not lines) at a rush priority that have no tube yet.</summary>
     public static int RushOrdersWithoutSpecimen(IEnumerable<TestWorkItemDto> items) =>
         NoSpecimen(items).Where(i => IsRush(i.Priority)).Select(i => i.OrderId).Distinct().Count();

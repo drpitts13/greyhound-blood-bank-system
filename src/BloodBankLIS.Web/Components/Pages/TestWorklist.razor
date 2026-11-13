@@ -948,13 +948,7 @@
 
         // Open the next test below the one just saved, so the bench can key results row after row
         // without an extra click each time. Rows that cannot take a result yet are skipped.
-        var next = savedLineId is long savedId
-            ? previousOrder
-                .SkipWhile(id => id != savedId)
-                .Skip(1)
-                .Select(id => _items.FirstOrDefault(i => i.OrderLineId == id))
-                .FirstOrDefault(i => i is { CanEnterResults: true, NeedsSpecimenLink: false })
-            : null;
+        var next = TestWorklistView.NextToEnter(savedItem, previousOrder, _items);
         _expandedLineId = next?.OrderLineId;
 
         // The tube's last line is done and the tube was never put away: offer to store it.

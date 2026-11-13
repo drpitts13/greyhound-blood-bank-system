@@ -23022,3 +23022,26 @@ On the running system with seeded data: Reactions, Marcus Febrile's open investi
 ### Tests
 
 - TEST-BB-1053, TEST-BB-1054. Full suite passed.
+
+## Iteration 755 — End-user testing pass 39: resulting a reaction workup (2026-11-12)
+
+### How it was tested
+
+On the running system with seeded data: the Test worklist, resulting Marcus Febrile's five reaction workup tests from pass 38 (pre-transfusion DAT and ABO/Rh on ACC0014; post-transfusion DAT, antibody screen and ABO/Rh on ACC-RXN-POST1).
+
+### Results
+
+- Both DATs and the antibody screen were saved and verified (negative; check cells 2+). The pre-transfusion ABO/Rh was saved for verification: a different user must verify ABO/Rh, so with one development user the workup cannot be closed here.
+
+### Found and fixed
+
+1. **The next test jumped to another patient.** After the post-transfusion DAT (Marcus's last row) and again after the screen, the worklist opened "ABO/Rh Type for Demo-Special, Avery" while Marcus's own tests were still open above. The next test is now one still open on the same tube, else for the same patient, else the next row below.
+2. **The antibody screen's entry note said "ABO/Rh".** The panel hint shown on every panel form read "not a typed Manual ABO/Rh"; it reads "not a typed Manual result".
+
+### Noted
+
+- "Save comment" with an empty comment box reports "Comment saved."
+
+### Tests
+
+- TEST-BB-1055. Full suite passed.

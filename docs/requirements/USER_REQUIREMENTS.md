@@ -819,3 +819,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-811 | The top-bar lookup finds a reagent lot by its number and opens it on Reagent QC; order hits read in words. | P2 | FRS-BB-929 |
 | URS-BB-812 | The post-transfusion tube of a reaction investigation can be accessioned from the investigation with the identifiers on its label. | P1 | FRS-BB-930 |
 | URS-BB-813 | A transfusion reaction workup on an expired pre-transfusion tube is not cancelled by the specimen expiry sweep. | P1 | FRS-BB-931 |
+| URS-BB-814 | After a result is saved, the worklist opens a test still open on the same tube or for the same patient before moving to another patient. | P3 | FRS-BB-932 |
