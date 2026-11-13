@@ -173,6 +173,39 @@ public sealed class EncounterService
         return OperationResult<Encounter>.Ok(encounter);
     }
 
+    public const string VisitOtherPatientCode = "ADT-VISIT-OTHER-PATIENT";
+
+    /// <summary>
+    /// Why an ADT message may not apply its visit: the visit number is already another patient's visit (not one merged
+    /// into this patient). End-user testing pass 60: an A03 for MRN0022 naming UAT0001's visit moved the visit, and
+    /// whatever was recorded on it, to MRN0022 and discharged it, acknowledged AA. Null when the visit is new or this
+    /// patient's. <paramref name="patientId"/> is null for a patient the message would create.
+    /// </summary>
+    public async Task<string?> VisitOwnerConflictAsync(long? patientId, string? visitNumber, string messageMrn, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(visitNumber))
+        {
+            return null;
+        }
+
+        var visit = visitNumber.Trim();
+        var encounter = await _encounters.FirstOrDefaultAsync(e => e.VisitNumber == visit, ct);
+        if (encounter is null || (patientId is long id && encounter.PatientId == id))
+        {
+            return null;
+        }
+
+        var owner = await _patients.GetByIdAsync(encounter.PatientId, ct);
+        if (owner is { Status: PatientStatus.Merged } && patientId is long survivor && owner.MergedIntoPatientId == survivor)
+        {
+            return null;
+        }
+
+        var ownerText = owner is null ? $"patient {encounter.PatientId}" : $"{owner.LastName}, {owner.FirstName} ({owner.MedicalRecordNumber})";
+        return $"{VisitOtherPatientCode}: Visit {visit} belongs to {ownerText}, but this message is for {messageMrn}. "
+            + "Nothing was applied. Correct the visit or patient in the EHR (a visit move is a separate message), then replay.";
+    }
+
     /// <summary>
     /// Creates or updates a visit from ADT PV1 when a visit number is present.
     /// </summary>

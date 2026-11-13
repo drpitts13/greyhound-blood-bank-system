@@ -840,3 +840,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-832 | Ready to issue lets the desk cancel a ward request with a reason, and says when a lapsed unit is held only by a ward request. | P2 | FRS-BB-950 |
 | URS-BB-833 | Dates and times are typed in local time on every form (specimen collection and expiry, RhIG event and given, reagent lot expiry, delivery order and unit expiry). | P1 | FRS-BB-951 |
 | URS-BB-834 | A reaction investigation lists every step still due before close, not only the next one. | P2 | FRS-BB-952 |
+| URS-BB-835 | An ADT message never moves another patient's visit to the patient it names; it is refused with nothing applied. | P1 | FRS-BB-953 |

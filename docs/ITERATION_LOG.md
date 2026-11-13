@@ -23427,3 +23427,28 @@ On the running system with seeded data: Reactions, Riley Demo-Multi's open inves
 ### Tests
 
 - TEST-BB-1072. Full suite passed.
+
+## Iteration 776 — End-user testing pass 60: the HL7 interface and a visit moved by ADT (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: HL7 Interface (error queue, outbound queue, message log); the EHR's cancel of ORD0014; an ADT^A03 discharge.
+
+### Checked, not defects
+
+- The EHR's cancel of ORD0014 had been refused while a unit was reserved for it (ORM-ORC-RESERVED); that reservation was since released, and the replay cancelled the order, which left Blood orders to prepare.
+- The ten outbound charge messages say they wait for an enabled outbound interface.
+
+### Found and fixed
+
+1. **ADT moved another patient's visit.** An ADT^A03 for Riley Demo-Multi (MRN0022) naming TESTER-KLINE's visit VIS-20261113-19 (UAT0001) was accepted (AA): the visit, and anything recorded on it, moved to MRN0022 and was discharged. Such a message is now refused (ADT-VISIT-OTHER-PATIENT) before anything is applied, naming both patients; a visit of a chart merged into the patient is still allowed. Retested live: the same message went to the error queue and the visit stayed UAT0001's and open.
+
+### Left in the development data
+
+- ORD0014 cancelled by the replayed EHR message.
+- VIS-20261113-19 restored to UAT0001, open (the defect had moved and discharged it).
+- UAT-ADT-A03-X1 (applied before the fix) and UAT-ADT-A03-X2 (in the error queue) in the message log.
+
+### Tests
+
+- TEST-BB-1073. Full suite passed.

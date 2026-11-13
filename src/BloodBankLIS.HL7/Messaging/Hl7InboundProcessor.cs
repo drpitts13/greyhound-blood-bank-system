@@ -387,6 +387,12 @@ public sealed class Hl7InboundProcessor
             }
         }
 
+        // Before anything is applied: a visit number that is another patient's visit is refused (pass 60).
+        if (await _encounters.VisitOwnerConflictAsync(patient?.Id, data.VisitNumber, data.Mrn, ct) is { } visitConflict)
+        {
+            throw new Hl7MappingException(visitConflict);
+        }
+
         var created = false;
         if (patient is null)
         {

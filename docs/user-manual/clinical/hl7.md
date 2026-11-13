@@ -41,3 +41,7 @@ With an outbound results interface enabled, a result is queued for the EHR as so
 ## Orders cancelled by the EHR
 
 A cancel (ORC-1 **CA**) or discontinue (**DC**) from the EHR takes the same checks as cancelling on the chart. An order with units still reserved for it is refused (AE, "Units are reserved for order …") and goes to the error queue: release the units, then cancel the order in the LIS or replay the message. Otherwise the order is cancelled with the EHR's reason (ORC-16, the text or else the code; the field can be changed under the interface's data items as *Order control reason*), and only its test lines without a verified result are cancelled: a verified result stays reported.
+
+## A visit that belongs to another patient
+
+An admit, transfer, update or discharge message (ADT) that names a visit number already belonging to another patient is refused with **ADT-VISIT-OTHER-PATIENT**, and nothing in it is applied: the visit, its orders and specimens stay with the patient they belong to. The error names both patients. Have the EHR correct the visit or the patient (moving a visit to another patient is its own message), then replay. A visit of a chart merged into this patient is not refused.

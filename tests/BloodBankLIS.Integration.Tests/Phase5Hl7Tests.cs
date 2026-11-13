@@ -549,6 +549,25 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("12345", (await context.OrderingProviders.FirstOrDefaultAsync(p => p.Id == enc!.AttendingProviderId))!.ProviderId);
     }
 
+    // End-user testing pass 60: an ADT for one patient naming another patient's visit moved the visit to it. It is refused
+    // (error queue), nothing applied; the owner's own message still updates it.
+    [Fact]
+    public async Task InboundAdt_VisitOfAnotherPatient_IsRefused()
+    {
+        await using var context = _factory.Create();
+        Assert.True((await Processor(context).ProcessAsync(AdtWithVisit("CTRL-VO-1", "HL7-VO-A", "Owner", "Ann", "VIS-VO-1"))).Accepted);
+        var owner = await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-VO-A");
+
+        var other = await Processor(context).ProcessAsync(AdtWithVisit("CTRL-VO-2", "HL7-VO-B", "Other", "Bea", "VIS-VO-1"));
+        Assert.False(other.Accepted);
+        Assert.Contains("ADT-VISIT-OTHER-PATIENT", other.AckMessage);
+        Assert.Equal(owner.Id, (await context.Encounters.AsNoTracking().SingleAsync(e => e.VisitNumber == "VIS-VO-1")).PatientId);
+        Assert.False(await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "HL7-VO-B"));
+        Assert.True(await context.InterfaceErrorQueue.AnyAsync(q => q.ErrorDetail.Contains("ADT-VISIT-OTHER-PATIENT")));
+
+        Assert.True((await Processor(context).ProcessAsync(AdtWithVisit("CTRL-VO-3", "HL7-VO-A", "Owner", "Ann", "VIS-VO-1"))).Accepted);
+    }
+
     [Fact]
     public async Task InboundAdt_Update_ChangesDemographicsWithoutDuplicating()
     {
