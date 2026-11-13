@@ -56,6 +56,35 @@ public static class ReactionWorkupCompletenessRule
         return RuleResult.Pass(Code);
     }
 
+    /// <summary>
+    /// Every workup step still due, in the order of <see cref="Evaluate(bool, bool, WorkupState, string?)"/> (end-user
+    /// testing pass 59: the page named one step at a time, so the work came out one save at a time). Empty when the
+    /// gate passes.
+    /// </summary>
+    public static IReadOnlyList<string> Outstanding(
+        bool clericalCheckCompleted,
+        bool visualInspectionCompleted,
+        WorkupState workup,
+        string? elutionResult)
+    {
+        ArgumentNullException.ThrowIfNull(workup);
+        var steps = new List<string>();
+        if (!clericalCheckCompleted)
+            steps.Add("Record the clerical check (patient ID, unit number, ABO/Rh).");
+        if (!visualInspectionCompleted)
+            steps.Add("Record the visual inspection of the returned unit or segments.");
+        if (!workup.PreLinked)
+            steps.Add("Choose the pre-transfusion specimen to order its workup tests.");
+        if (!workup.PostLinked)
+            steps.Add("Accession or choose the post-transfusion specimen to order its workup tests.");
+        var pending = workup.PrePending + workup.PostPending;
+        if (pending > 0)
+            steps.Add($"Result and verify the workup tests: {pending} still to verify.");
+        if (workup.PostDatPositive && string.IsNullOrWhiteSpace(elutionResult))
+            steps.Add("The post-transfusion DAT is positive: record the elution result or why elution was not performed.");
+        return steps;
+    }
+
     /// <summary>The earlier checklist gate (typed DAT), kept for cases recorded before the specimen workup.</summary>
     public static RuleResult Evaluate(
         bool clericalCheckCompleted,

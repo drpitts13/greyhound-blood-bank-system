@@ -23409,3 +23409,21 @@ Every date-and-time field on the pages, checked for how what is typed reaches th
 ### Tests
 
 - TEST-BB-1071 widened. Full suite passed.
+
+## Iteration 775 — End-user testing pass 59: transfusion reaction workup (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Reactions, Riley Demo-Multi's open investigation (#2, W0001230009205, temperature +1.7 °C and pulse 84 to 112), recording its clerical check.
+
+### Found and fixed
+
+1. **One step at a time.** The investigation named only the next missing step. After the clerical check was saved, it named the visual inspection; behind that were the pre- and post-transfusion specimens, the workup tests and the provider conclusion, each found only after the one before was saved. The investigation now lists every step still due, with the provider conclusion. The close gate is unchanged. Retested live: five steps listed after the clerical check.
+
+### Left in the development data
+
+- Investigation #2: clerical check recorded.
+
+### Tests
+
+- TEST-BB-1072. Full suite passed.

@@ -38,6 +38,8 @@ The case shows the vital signs taken at the bedside before and after the transfu
 
 Record the clerical check and the visual check of the unit, the repeat unit ABO/Rh, and the elution when it applies, along with the symptoms and the timeline the ward reported. The investigation stays open while those items, or any workup test, are incomplete. Closing is a separate step with its own gate and a signature when the close action requires one.
 
+While anything is still due, the investigation lists every step left before close (the checks, each workup specimen, the tests to verify, the elution when the DAT is positive, and the provider conclusion), so you can see all the remaining work at once.
+
 Investigations recorded before the specimen workup show their typed repeat ABO/Rh and DAT read-only. If one is reopened, it needs the specimen workup before it can close again.
 
 Remaining product from the implicated unit is quarantined so it cannot be issued to someone else while you are investigating. Do not release that quarantine to "put the unit back" until the investigation says the unit can be released. Discard, if that is the outcome, uses the inventory discard permission and a reason.

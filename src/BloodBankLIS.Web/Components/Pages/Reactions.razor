@@ -360,7 +360,16 @@ else
             }
             @if (WorkupHoldMessage is not null && _selected.Status != ReactionInvestigationStatus.Closed)
             {
-                <p class="alert alert-warning">@WorkupHoldMessage Close stays unavailable until this step is recorded.</p>
+                @* Pass 59: every step still due, not only the next one. *@
+                <div class="alert alert-warning" data-workup-outstanding>
+                    <strong>@ReactionWorkupCompletenessRule.Code: still to do before close</strong>
+                    <ul style="margin:.3rem 0 0 1.1rem;">
+                        @foreach (var step in OutstandingSteps)
+                        {
+                            <li>@step</li>
+                        }
+                    </ul>
+                </div>
             }
             <label class="flex"><input type="checkbox" @bind="_clerical" @bind:after="SyncCloseAvailability" /> &nbsp;Clerical check completed (patient ID, unit number, ABO/Rh)</label>
             <div class="field"><label>Clerical notes</label><input @bind="_clericalNotes" /></div>
@@ -462,6 +471,31 @@ else
                 ? RuleResult.Pass(ReactionWorkupCompletenessRule.Code)
                 : ReactionWorkupCompletenessRule.Evaluate(_clerical, _visual, _selected.SpecimenWorkupState, _elution);
             return workup.Severity == RuleSeverity.HardStop ? $"{workup.Code}: {workup.Message}" : null;
+        }
+    }
+
+    // The workup steps, then the provider's conclusion (required to close, OCD-057).
+    private IReadOnlyList<string> OutstandingSteps
+    {
+        get
+        {
+            if (_selected is null)
+            {
+                return [];
+            }
+
+            var steps = ReactionWorkupCompletenessRule.Outstanding(_clerical, _visual, _selected.SpecimenWorkupState, _elution).ToList();
+            if (string.IsNullOrWhiteSpace(_concludedReaction))
+            {
+                steps.Add("Choose the reaction concluded (Provider conclusion).");
+            }
+
+            if (_treatments.Count == 0)
+            {
+                steps.Add("Choose the treatment for future transfusions, or No treatment (Provider conclusion).");
+            }
+
+            return steps;
         }
     }
 

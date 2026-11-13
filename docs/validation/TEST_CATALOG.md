@@ -1080,5 +1080,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1069 | U | `DashboardHomeTests.ExpiredOnShelfNote_SaysOldestAndWhere` | URS-BB-831 / FRS-BB-949 |
 | TEST-BB-1070 | U | `DashboardDueCountTests.CountHeldByWardRequest_LapsedOrExpiredButRequested` | URS-BB-832 / FRS-BB-950 |
 | TEST-BB-1071 | U | `LocalTimeDisplayTests.Forms_TakeTimesInLocalTime` | URS-BB-833 / FRS-BB-951 |
+| TEST-BB-1072 | U | `ReactionWorkupCompletenessRuleTests.Outstanding_ListsEveryStepStillDue` | URS-BB-834 / FRS-BB-952 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
