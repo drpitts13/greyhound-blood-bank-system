@@ -62,8 +62,8 @@
         }
     </div>
     <div class="form-row">
-        <div class="field"><label>From date (UTC)</label><input type="date" @bind="_fromDate" /></div>
-        <div class="field"><label>To date (UTC, inclusive)</label><input type="date" @bind="_toDate" /></div>
+        <div class="field"><label>From date</label><input type="date" @bind="_fromDate" /></div>
+        <div class="field"><label>To date (inclusive)</label><input type="date" @bind="_toDate" /></div>
         <div class="field">
             <label>Quick range</label>
             <div class="flex gap" style="flex-wrap:wrap;">
@@ -105,11 +105,11 @@
                         <td>
                             @if (EntityHref(e) is { } href)
                             {
-                                <a href="@href">@e.EntityType @(e.EntityId is null ? "" : $"#{e.EntityId}")</a>
+                                <a href="@href">@e.EntityType @(e.EntityName ?? (e.EntityId is null ? "" : $"#{e.EntityId}"))</a>
                             }
                             else
                             {
-                                @e.EntityType @(e.EntityId is null ? "" : $"#{e.EntityId}")
+                                @e.EntityType @(e.EntityName ?? (e.EntityId is null ? "" : $"#{e.EntityId}"))
                             }
                         </td>
                         <td>@e.UserName</td>
@@ -163,9 +163,14 @@
     private static readonly (string Label, int? Days)[] DatePresets =
         [("Today", 0), ("Last 7 days", 6), ("Last 30 days", 29), ("Any date", null)];
 
+    /// <summary>The start of a local calendar day, in UTC, for the search.</summary>
+    private static DateTime LocalDayStartUtc(DateTime day) => DateTime.SpecifyKind(day.Date, DateTimeKind.Local).ToUniversalTime();
+
     private async Task SearchRangeAsync(int? days)
     {
-        var today = DateTime.UtcNow.Date;
+        // Local days, as the rows show (end-user testing pass 48: "Today" was the UTC day, so after 19:00 Eastern it
+        // showed only the last hours of the local day).
+        var today = DateTime.Now.Date;
         _fromDate = days is int d ? today.AddDays(-d) : null;
         _toDate = days is null ? null : today;
         await LoadAsync(0);
@@ -281,8 +286,8 @@
         _busy = true;
         try
         {
-            var fromUtc = _fromDate is DateTime from ? DateTime.SpecifyKind(from.Date, DateTimeKind.Utc) : (DateTime?)null;
-            var toUtc = _toDate is DateTime to ? DateTime.SpecifyKind(to.Date.AddDays(1), DateTimeKind.Utc) : (DateTime?)null;
+            var fromUtc = _fromDate is DateTime from ? LocalDayStartUtc(from) : (DateTime?)null;
+            var toUtc = _toDate is DateTime to ? LocalDayStartUtc(to.AddDays(1)) : (DateTime?)null;
             var r = await Api.ExportAuditCsvAsync(
                 string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
                 _entityId is > 0 ? _entityId : null,
@@ -310,8 +315,8 @@
         _loading = true;
         _busy = true;
         _skip = skip;
-        var fromUtc = _fromDate is DateTime from ? DateTime.SpecifyKind(from.Date, DateTimeKind.Utc) : (DateTime?)null;
-        var toUtc = _toDate is DateTime to ? DateTime.SpecifyKind(to.Date.AddDays(1), DateTimeKind.Utc) : (DateTime?)null;
+        var fromUtc = _fromDate is DateTime from ? LocalDayStartUtc(from) : (DateTime?)null;
+        var toUtc = _toDate is DateTime to ? LocalDayStartUtc(to.AddDays(1)) : (DateTime?)null;
         var r = await Api.GetAuditEventsAsync(
             string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
             _entityId is > 0 ? _entityId : null,

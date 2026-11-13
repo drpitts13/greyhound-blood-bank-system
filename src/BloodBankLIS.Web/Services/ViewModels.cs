@@ -110,7 +110,8 @@ public sealed record AuditEventVm(
     string? OldValueJson,
     string? NewValueJson,
     string? Reason,
-    long? SignatureId);
+    long? SignatureId,
+    string? EntityName = null);
 
 public sealed record AuditPageVm(int Total, int Skip, int Take, List<AuditEventVm> Items);
 

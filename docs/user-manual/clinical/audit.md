@@ -19,3 +19,5 @@ Filter by time, user, patient, or unit. To see everything recorded about one rec
 Use the audit trail to answer a specific question. It is not a report designer. For a table you need to export on a schedule, use Reports.
 
 Configuration changes also appear in **Configuration History** under Administration, which compares versions. The audit trail is the broader record, including bench actions.
+
+The date filters and **Today**, **Last 7 days** and **Last 30 days** count local days, as the times in the list are local. Patients, units, specimens and orders are named in the list (name and MRN, unit number, accession, order number) rather than by record number.

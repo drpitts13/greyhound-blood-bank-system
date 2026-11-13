@@ -829,3 +829,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-821 | A follow-up with the supplier on an overdue order is recorded, with a promised arrival that becomes its due time. | P2 | FRS-BB-939 |
 | URS-BB-822 | The in-transit list leaves out units whose transfusion has been documented. | P3 | FRS-BB-940 |
 | URS-BB-823 | A chart that may duplicate another says so, naming the other chart and its blood bank history. | P1 | FRS-BB-941 |
+| URS-BB-824 | The audit trail's date filters count local days, and its rows name patients, units, specimens and orders. | P3 | FRS-BB-942 |

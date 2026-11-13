@@ -23198,3 +23198,22 @@ On the running system with seeded data: Issue & Transfuse › Retrospective cros
 ### Tests
 
 - TEST-BB-1063. Full suite passed.
+
+## Iteration 764 — End-user testing pass 48: the audit trail (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: Audit Trail, its quick ranges and filters, after midnight local time.
+
+### Found and fixed
+
+1. **Date filters in UTC days.** The rows show local times, but the date filters were UTC days ("From date (UTC)"), so "Today" ran from 19:00 Eastern the evening before. The filters and quick ranges now count local days. Retested live at 00:18 local: "Today" listed the nine events since midnight.
+2. **Records by number.** Rows read "Patient #20", "Specimen #18". Patients, units, specimens and orders are now named: "Patient DEMO-MULTI, RILEY (MRN9022)", "Specimen ACC-DEMO-RCV1". Retested live.
+
+### Remaining
+
+- The temperature history report and Utilization still take UTC dates (labelled as such): the server reads them as UTC days.
+
+### Tests
+
+- Page and endpoint changes (inspection). Full suite passed.

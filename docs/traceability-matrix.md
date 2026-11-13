@@ -935,6 +935,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-821 / FRS-BB-939 | End-user testing pass 45: supplier follow-up | `SupplierOrder.cs`, `SupplierOrderRule.cs`, `SupplierOrderService.cs`, `MinimumStockService.cs`, `SupplierOrderEndpoints.cs`, `SupplierOrders.razor` | TEST-BB-1061 | I | |
 | URS-BB-822 / FRS-BB-940 | End-user testing pass 46: in transit after transfusion | `IssuingService.cs` | TEST-BB-1062 | I | |
 | URS-BB-823 / FRS-BB-941 | End-user testing pass 47: possible duplicate on the chart | `PatientService.cs`, `PatientEndpoints.cs`, `PatientDetail.razor` | TEST-BB-1063 | I | |
+| URS-BB-824 / FRS-BB-942 | End-user testing pass 48: audit trail | `Audit.razor`, `AuditEndpoints.cs` | — | Inspection | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
