@@ -841,3 +841,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-833 | Dates and times are typed in local time on every form (specimen collection and expiry, RhIG event and given, reagent lot expiry, delivery order and unit expiry). | P1 | FRS-BB-951 |
 | URS-BB-834 | A reaction investigation lists every step still due before close, not only the next one. | P2 | FRS-BB-952 |
 | URS-BB-835 | An ADT message never moves another patient's visit to the patient it names; it is refused with nothing applied. | P1 | FRS-BB-953 |
+| URS-BB-836 | An order message naming another patient's order number is refused with nothing applied: it neither cancels that order nor is skipped as already existing. | P1 | FRS-BB-954 |

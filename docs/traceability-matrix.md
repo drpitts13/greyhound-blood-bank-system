@@ -947,6 +947,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-833 / FRS-BB-951 | End-user testing pass 57: forms take local time | `LocalEntry.cs`, chart specimen, order, RhIG tabs, `Reagents.razor`, delivery pages | TEST-BB-1071 | U | |
 | URS-BB-834 / FRS-BB-952 | End-user testing pass 59: reaction workup steps | `ReactionWorkupCompletenessRule.cs`, `Reactions.razor` | TEST-BB-1072 | U | |
 | URS-BB-835 / FRS-BB-953 | End-user testing pass 60: ADT naming another patient's visit | `EncounterService.cs`, `Hl7InboundProcessor.cs` | TEST-BB-1073 | I | |
+| URS-BB-836 / FRS-BB-954 | End-user testing pass 61: ORM naming another patient's order | `Hl7InboundProcessor.cs` | TEST-BB-1074 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -1082,5 +1082,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1071 | U | `LocalTimeDisplayTests.Forms_TakeTimesInLocalTime` | URS-BB-833 / FRS-BB-951 |
 | TEST-BB-1072 | U | `ReactionWorkupCompletenessRuleTests.Outstanding_ListsEveryStepStillDue` | URS-BB-834 / FRS-BB-952 |
 | TEST-BB-1073 | I | `Phase5Hl7Tests.InboundAdt_VisitOfAnotherPatient_IsRefused` | URS-BB-835 / FRS-BB-953 |
+| TEST-BB-1074 | I | `Phase5Hl7Tests.InboundOrm_OrderOfAnotherPatient_IsRefused` | URS-BB-836 / FRS-BB-954 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

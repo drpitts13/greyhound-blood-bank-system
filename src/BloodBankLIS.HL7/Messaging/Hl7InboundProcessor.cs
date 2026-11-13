@@ -695,6 +695,8 @@ public sealed class Hl7InboundProcessor
         }
     }
 
+    public const string OrderPlacerOtherPatientCode = "ORM-PLACER-OTHER-PATIENT";
+
     private async Task<string> HandleOrmAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
     {
         var data = Hl7OrmMapper.Map(message, map);
@@ -719,6 +721,18 @@ public sealed class Hl7InboundProcessor
         }
 
         var existing = await _orders.FirstOrDefaultAsync(o => o.OrderNumber == data.PlacerOrderId, ct);
+
+        // End-user testing pass 61: a cancel naming another patient's order number cancelled it, and a new order reusing
+        // one was acknowledged as "already exists" while the new patient's order was never created. Results already check
+        // this; orders now do, before anything is applied.
+        if (existing is not null && existing.PatientId != patient.Id)
+        {
+            var owner = await _patients.GetByIdAsync(existing.PatientId, ct);
+            var ownerText = owner is null ? $"patient {existing.PatientId}" : $"{owner.LastName}, {owner.FirstName} ({owner.MedicalRecordNumber})";
+            throw new Hl7MappingException(
+                $"{OrderPlacerOtherPatientCode}: Order '{data.PlacerOrderId}' belongs to {ownerText}, but this message is for {data.Mrn}. "
+                + "Nothing was applied. Have the EHR send the order with its own number for this patient, or correct the patient, then replay.");
+        }
 
         if (!OrderControlRule.IsNewOrder(data.OrderControl))
         {

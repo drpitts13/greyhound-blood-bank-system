@@ -855,6 +855,38 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("First", patient.LastName);
     }
 
+    // End-user testing pass 61: an order message naming another patient's order number is refused, nothing applied: a new
+    // order is not "already exists" for the wrong patient, and a cancel does not cancel the other patient's order.
+    [Fact]
+    public async Task InboundOrm_OrderOfAnotherPatient_IsRefused()
+    {
+        await using (var c1 = _factory.Create())
+        {
+            await Processor(c1).ProcessAsync(Adt("CTRL-PO-ADT1", "HL7-PO-A", "Owner", "Ann"));
+            await Processor(c1).ProcessAsync(Adt("CTRL-PO-ADT2", "HL7-PO-B", "Other", "Bea"));
+            if (!await c1.OrderingLocations.AnyAsync(l => l.Code == "ED"))
+            {
+                c1.OrderingLocations.Add(new OrderingLocation { Code = "ED", Name = "ED", IsActive = true });
+                await c1.SaveChangesAsync();
+            }
+
+            Assert.True((await Processor(c1).ProcessAsync(Orm("CTRL-PO-NW1", "HL7-PO-A", "PLACER-PO-1", "XM"))).Accepted);
+        }
+
+        await using var context = _factory.Create();
+        var duplicate = await Processor(context).ProcessAsync(Orm("CTRL-PO-NW2", "HL7-PO-B", "PLACER-PO-1", "XM"));
+        Assert.False(duplicate.Accepted);
+        Assert.Contains("ORM-PLACER-OTHER-PATIENT", duplicate.AckMessage);
+
+        var cancel = await Processor(context).ProcessAsync(Orm("CTRL-PO-CA", "HL7-PO-B", "PLACER-PO-1", "XM", "CA"));
+        Assert.False(cancel.Accepted);
+        Assert.Contains("ORM-PLACER-OTHER-PATIENT", cancel.AckMessage);
+
+        var order = await context.Orders.AsNoTracking().SingleAsync(o => o.OrderNumber == "PLACER-PO-1");
+        Assert.NotEqual(OrderStatus.Cancelled, order.Status);
+        Assert.Equal((await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-PO-A")).Id, order.PatientId);
+    }
+
     [Fact]
     public async Task InboundOrm_CreatesOrder_WhenPatientExists()
     {

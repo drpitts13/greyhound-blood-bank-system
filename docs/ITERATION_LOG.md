@@ -23452,3 +23452,25 @@ On the running system with seeded data: HL7 Interface (error queue, outbound que
 ### Tests
 
 - TEST-BB-1073. Full suite passed.
+
+## Iteration 777 — End-user testing pass 61: an order number of another patient (2026-11-13)
+
+### How it was tested
+
+On the running system with seeded data: HL7 Interface › Submit inbound message, an ORM^O01 new order for Patricia Demo (MRN0001) reusing Helen Interface's order number PLACER-HL7-0009 (MRN0009).
+
+### Checked, not defects
+
+- A result (ORU) for another patient's order is refused ("does not belong to patient").
+
+### Found and fixed
+
+1. **Orders did not check the patient.** The new order was acknowledged AA as "already exists; not duplicated", so Patricia's type and screen was never created and nobody was told; a cancel (CA/DC) naming another patient's order number would have cancelled that patient's order. Such a message is now refused (ORM-PLACER-OTHER-PATIENT) before anything is applied, naming the order's patient. Retested live: UAT-ORM-DUP-2 went to the error queue.
+
+### Left in the development data
+
+- UAT-ORM-DUP-1 (accepted before the fix; nothing was created) and UAT-ORM-DUP-2 (in the error queue) in the message log.
+
+### Tests
+
+- TEST-BB-1074. Full suite passed.

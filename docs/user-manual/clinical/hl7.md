@@ -45,3 +45,7 @@ A cancel (ORC-1 **CA**) or discontinue (**DC**) from the EHR takes the same chec
 ## A visit that belongs to another patient
 
 An admit, transfer, update or discharge message (ADT) that names a visit number already belonging to another patient is refused with **ADT-VISIT-OTHER-PATIENT**, and nothing in it is applied: the visit, its orders and specimens stay with the patient they belong to. The error names both patients. Have the EHR correct the visit or the patient (moving a visit to another patient is its own message), then replay. A visit of a chart merged into this patient is not refused.
+
+## An order number that belongs to another patient
+
+An order message (new order, cancel or discontinue) whose order number is already another patient's order is refused with **ORM-PLACER-OTHER-PATIENT**, and nothing in it is applied: the other patient's order is not cancelled, and the new order is not quietly skipped as "already exists". The error names the order's patient. Have the EHR send the order under its own number for this patient, or correct the patient, then replay. A result for another patient's order was already refused.
