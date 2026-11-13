@@ -23502,3 +23502,21 @@ On the running system with seeded data: HL7 RAS^O17 transfusion documentation fo
 ### Tests
 
 - TEST-BB-1075. Full suite passed.
+
+## Iteration 779 — End-user testing pass 63: the instrument clock (2026-11-13)
+
+### How it was tested
+
+How instrument (ASTM) result times are read and shown, then Instrument simulator › preview of a DAT.
+
+### Checked, not defects
+
+- The completion time an analyzer sends (R.13) is kept as text and shown as "completed … (instrument clock)"; it sets no stored time, so the analyzer's clock zone does not move anything.
+
+### Found and fixed
+
+1. **The simulator's clock was UTC.** An analyzer stamps its own local clock; the simulator stamped UTC, so a demo result read "completed 12:47 (instrument clock)" at 07:47 on the bench. It now stamps the local clock. Retested live: a preview at 07:47:35 EST stamped 20261113074735.
+
+### Tests
+
+- TEST-BB-1041 extended. Full suite passed.

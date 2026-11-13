@@ -177,6 +177,9 @@ public class AstmParserTests
         var result = AstmParser.Parse(generated.RawMessage).Records.First(r => r.Type == 'R');
         Assert.Equal("F", result.GetField(9));
         Assert.Matches("^[0-9]{14}$", result.GetField(13));
+        // The analyzer's own clock is local time (end-user testing pass 63: it stamped UTC).
+        var stamped = DateTime.ParseExact(result.GetField(13), "yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.True(Math.Abs((stamped - DateTime.Now).TotalMinutes) < 2, $"R.13 {stamped:O} is not the local clock {DateTime.Now:O}");
         Assert.Equal("M0002", result.GetField(14));
         Assert.Equal("R.13", BloodBankLIS.Domain.Instruments.InstrumentDataItemCatalog.Find("result_dt")!.DefaultAstmPath);
     }

@@ -19,3 +19,5 @@ This screen does not replace result entry. Clinical results are entered or verif
 ## Preview, then send
 
 **Preview** shows the message the simulator generated. While the settings are unchanged, the button reads **Send this message** and sends exactly that message, so what posts is what you read. After a change of assay, specimen or patient, **Send** generates a new message.
+
+The simulator stamps each result with its own clock in local time, as an analyzer does; the worklist shows it as "completed … (instrument clock)".
