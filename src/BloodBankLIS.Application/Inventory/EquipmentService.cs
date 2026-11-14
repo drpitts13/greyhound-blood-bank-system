@@ -64,6 +64,20 @@ public sealed record EquipmentCheckDueDto(
     DateOnly? DueOn,
     string StatusText);
 
+/// <summary>A result recorded as tested on a piece of equipment (end-user testing pass 76), with its condition then.</summary>
+public sealed record EquipmentResultDto(
+    long ResultId,
+    long PatientId,
+    string? PatientMrn,
+    string? PatientName,
+    string? SpecimenAccession,
+    string TestCode,
+    ResultStatus Status,
+    DateTime? EnteredUtc,
+    string? EnteredBy,
+    string? Value,
+    string? Condition);
+
 public sealed record SaveEquipmentRequest(string Code, string Name, string Kind, string? Location, string? SerialNumber, string? TestCodes = null);
 
 public sealed record SaveEquipmentCheckRequest(string Name, int IntervalDays, string? Instructions);
@@ -99,6 +113,51 @@ public sealed class EquipmentService
     private DateTime Local(DateTime utc) => _timeZone?.ToLocal(utc) ?? utc;
 
     private readonly IRepository<TestResultEquipment>? _resultEquipment;
+    private readonly IRepository<TestResult>? _resultRows;
+    private readonly IRepository<Specimen>? _specimenRows;
+    private readonly IRepository<Patient>? _patientRows;
+
+    /// <summary>
+    /// Equipment lookback (end-user testing pass 76): the results recorded as tested on this equipment, newest first, with
+    /// patient, specimen and the equipment's condition then, so results tested on equipment later found faulty can be
+    /// found and reviewed. Null when the equipment does not exist.
+    /// </summary>
+    public async Task<IReadOnlyList<EquipmentResultDto>?> ResultsForEquipmentAsync(long equipmentId, int take = 200, CancellationToken ct = default)
+    {
+        if (await _equipment.GetByIdAsync(equipmentId, ct) is null)
+        {
+            return null;
+        }
+
+        if (_resultEquipment is null || _resultRows is null)
+        {
+            return [];
+        }
+
+        var uses = await _resultEquipment.ListAsync(r => r.EquipmentId == equipmentId, ct);
+        var conditions = uses.GroupBy(u => u.TestResultId).ToDictionary(g => g.Key, g => g.First().Condition);
+        var ids = conditions.Keys.ToList();
+        var results = ids.Count == 0 ? [] : await _resultRows.ListAsync(r => ids.Contains(r.Id), ct);
+        var specimenIds = results.Select(r => r.SpecimenId).Distinct().ToList();
+        var patientIds = results.Select(r => r.PatientId).Distinct().ToList();
+        var specimens = _specimenRows is null || specimenIds.Count == 0
+            ? new Dictionary<long, string>()
+            : (await _specimenRows.ListAsync(s => specimenIds.Contains(s.Id), ct)).ToDictionary(s => s.Id, s => s.AccessionNumber);
+        var patients = _patientRows is null || patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patientRows.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return results
+            .OrderByDescending(r => r.EnteredUtc).ThenByDescending(r => r.Id)
+            .Take(Math.Clamp(take, 1, 1000))
+            .Select(r =>
+            {
+                var patient = patients.GetValueOrDefault(r.PatientId);
+                return new EquipmentResultDto(r.Id, r.PatientId, patient?.MedicalRecordNumber,
+                    patient is null ? null : $"{patient.LastName}, {patient.FirstName}", specimens.GetValueOrDefault(r.SpecimenId),
+                    r.TestCode, r.Status, r.EnteredUtc, r.EnteredBy, r.Value, conditions.GetValueOrDefault(r.Id));
+            })
+            .ToList();
+    }
 
     /// <summary>
     /// Records the active equipment used for a manual result's test against it (saved with the caller's next save), with
@@ -162,9 +221,15 @@ public sealed class EquipmentService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IFacilityTimeZone? timeZone = null,
-        IRepository<TestResultEquipment>? resultEquipment = null)
+        IRepository<TestResultEquipment>? resultEquipment = null,
+        IRepository<TestResult>? results = null,
+        IRepository<Specimen>? specimens = null,
+        IRepository<Patient>? patients = null)
     {
         _resultEquipment = resultEquipment;
+        _resultRows = results;
+        _specimenRows = specimens;
+        _patientRows = patients;
         _timeZone = timeZone;
         _equipment = equipment;
         _checks = checks;

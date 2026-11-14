@@ -23748,3 +23748,17 @@ After pass 74: whether a result says what equipment it was tested on; then the t
 ### Tests
 
 - TEST-BB-1086. Full suite passed.
+
+## Iteration 793 — End-user testing pass 76: results tested on a piece of equipment (2026-11-14)
+
+### How it was tested
+
+Equipment, after pass 75: from a heat block found faulty, finding the results worked on it.
+
+### Found and fixed
+
+1. **No way back from equipment to results.** Results now record their equipment (pass 75), but nothing listed them from the equipment, as a reagent lot lists its results. Each equipment entry now has Results: the hand-entered results recorded on it, newest first, with patient, specimen, test, result, status and the equipment's condition then. Retested live: HB-01's Results opens and says none are recorded yet (recording began with pass 75); the integration test lists a result with its condition.
+
+### Tests
+
+- TEST-BB-1086 extended. Full suite passed.

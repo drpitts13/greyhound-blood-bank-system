@@ -31,6 +31,10 @@ public static class EquipmentEndpoints
         group.MapGet("/{id:long}/records", async (long id, int? take, EquipmentService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListRecordsAsync(id, take ?? 50, ct)));
 
+        // Results tested on this equipment (end-user testing pass 76).
+        group.MapGet("/{id:long}/results", async (long id, int? take, EquipmentService svc, CancellationToken ct) =>
+            await svc.ResultsForEquipmentAsync(id, take ?? 200, ct) is { } rows ? Results.Ok(rows) : Results.NotFound());
+
         group.MapPost("", async (SaveEquipmentRequest request, EquipmentService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.CreateAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);

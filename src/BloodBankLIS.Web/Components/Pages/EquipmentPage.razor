@@ -198,6 +198,7 @@ else
                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRetire(RetireKind.Restore, e, null)" data-equipment-restore>Restore</button>
                             }
                             <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ToggleHistoryAsync(e)" data-equipment-history>@(_historyFor == e.Id ? "Hide history" : "History")</button>
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ToggleResultsAsync(e)" data-equipment-results-toggle>@(_resultsFor == e.Id ? "Hide results" : "Results")</button>
                             @if (CanRecord && e.IsActive)
                             {
                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginService(e)" data-equipment-service>@(e.OutOfServiceUtc is null ? "Take out of service" : "Return to service")</button>
@@ -257,6 +258,39 @@ else
                                 <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_editReason))" @onclick="SaveEditAsync" data-edit-save>Save</button>
                                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _editing = null">Cancel</button>
                             </div>
+                        </div>
+                    }
+                    @if (_resultsFor == e.Id)
+                    {
+                        @* Pass 76: results tested on this equipment, to review those worked while it was faulty. *@
+                        <div class="bb-card" style="margin:.5rem 0;" data-equipment-results>
+                            <div class="bb-card-title"><h4 style="margin:0;">Results tested on @e.Code</h4></div>
+                            @if (_results.Count == 0)
+                            {
+                                <div class="muted">No hand-entered results are recorded on this equipment. A result records the equipment used for its test from when the test is listed under Used for tests.</div>
+                            }
+                            else
+                            {
+                                <div class="table-scroll">
+                                <table class="bb">
+                                    <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>Equipment then</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var r in _results)
+                                        {
+                                            <tr data-equipment-result-row>
+                                                <td class="nowrap">@(r.EnteredUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—") <span class="sub">@r.EnteredBy</span></td>
+                                                <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientName ?? $"Patient {r.PatientId}")</a> <span class="sub mono">@r.PatientMrn</span></td>
+                                                <td class="mono">@(r.SpecimenAccession ?? "—")</td>
+                                                <td class="mono">@r.TestCode</td>
+                                                <td>@r.Value</td>
+                                                <td>@Ui.EnumText(r.Status)</td>
+                                                <td>@if (r.Condition is null) { <span class="muted">In order</span> } else { <span class="badge badge-amber">@r.Condition</span> }</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                </div>
+                            }
                         </div>
                     }
                     @if (_historyFor == e.Id)
@@ -541,6 +575,22 @@ else
             _editingCheck = null;
             await LoadAsync();
         }
+    }
+
+    private long? _resultsFor;
+    private List<EquipmentResultDto> _results = new();
+
+    private async Task ToggleResultsAsync(EquipmentDto equipment)
+    {
+        if (_resultsFor == equipment.Id)
+        {
+            _resultsFor = null;
+            return;
+        }
+
+        var r = await Api.GetEquipmentResultsAsync(equipment.Id);
+        _results = r.Value ?? new();
+        _resultsFor = equipment.Id;
     }
 
     private const int HistoryLimit = 500;

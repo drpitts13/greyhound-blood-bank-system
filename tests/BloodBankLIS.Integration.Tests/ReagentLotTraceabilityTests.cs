@@ -50,7 +50,8 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
     private EquipmentService Equipment(BloodBankDbContext c) =>
         new(new EfRepository<Equipment>(c), new EfRepository<EquipmentCheck>(c), new EfRepository<EquipmentCheckRecord>(c), c,
             _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            resultEquipment: new EfRepository<TestResultEquipment>(c));
+            resultEquipment: new EfRepository<TestResultEquipment>(c), results: new EfRepository<TestResult>(c),
+            specimens: new EfRepository<Specimen>(c), patients: new EfRepository<Patient>(c));
 
     // End-user testing pass 75: a manual result records the equipment used for its test and its condition, warning when it
     // was out of service; an instrument result records none.
@@ -86,6 +87,14 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
         var labels = await Equipment(verify).LabelsForResultsAsync([manualId, instrumentId]);
         Assert.Equal(["EQ-DOWN (out of service)", "EQ-OK"], labels[manualId]);
         Assert.False(labels.ContainsKey(instrumentId));
+
+        // Pass 76: the equipment lookback lists the result with its patient, specimen and the equipment's condition then.
+        var down = await verify.Equipment.SingleAsync(e => e.Code == "EQ-DOWN");
+        var lookback = await Equipment(verify).ResultsForEquipmentAsync(down.Id);
+        var row = Assert.Single(lookback!);
+        Assert.Equal((manualId, "MRN-TRACE-EQ", "ACC-TRACE-EQ", "TREQ"), (row.ResultId, row.PatientMrn, row.SpecimenAccession, row.TestCode));
+        Assert.StartsWith("out of service", row.Condition);
+        Assert.Null(await Equipment(verify).ResultsForEquipmentAsync(999999));
     }
 
     private async Task<long> SpecimenAsync(string mrn, string accession)

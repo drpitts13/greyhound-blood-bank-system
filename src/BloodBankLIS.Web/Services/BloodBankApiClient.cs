@@ -2087,6 +2087,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<EquipmentCheckRecordDto>>> GetEquipmentRecordsAsync(long equipmentId, int take = 500, CancellationToken ct = default) =>
         SendAsync<List<EquipmentCheckRecordDto>>(HttpMethod.Get, $"api/equipment/{equipmentId}/records?take={take}", ct: ct);
 
+    public Task<ApiResult<List<EquipmentResultDto>>> GetEquipmentResultsAsync(long equipmentId, int take = 200, CancellationToken ct = default) =>
+        SendAsync<List<EquipmentResultDto>>(HttpMethod.Get, $"api/equipment/{equipmentId}/results?take={take}", ct: ct);
+
     public Task<ApiResult<EquipmentDto>> CreateEquipmentAsync(SaveEquipmentRequest request, CancellationToken ct = default) =>
         SendAsync<EquipmentDto>(HttpMethod.Post, "api/equipment", request, ct);
 
