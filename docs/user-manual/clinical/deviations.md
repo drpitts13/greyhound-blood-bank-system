@@ -27,3 +27,7 @@ Use a deviation in addition to an issue override, not instead of it. The overrid
 A deviation opened by a temperature excursion shows its context as **Temperature reading**, linking to Storage temperatures. Status reads in words (Open, Under review, Closed).
 
 The **Context** column names the related record: the unit number, the patient and MRN, the accession, or the location and reading of a temperature excursion.
+
+## Root cause and FDA reportability
+
+**Update** also records the **root cause** and whether the deviation is **FDA reportable** as a biological product deviation report (BPDR, 21 CFR 606.171): *Not determined* (until someone decides), *Not reportable*, or *Reportable*, with the date it was reported to the FDA and the FDA report number. A report date is accepted only for a reportable deviation and not in the future. The list shows the root cause and the determination for each deviation. Whether closing should require a determination is for your quality unit to decide (OCD-090); nothing requires it yet.

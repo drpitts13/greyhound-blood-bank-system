@@ -1899,6 +1899,8 @@ public sealed class DeviationConfiguration : IEntityTypeConfiguration<Deviation>
         b.Property(x => x.Description).HasMaxLength(4000).IsRequired();
         b.Property(x => x.ContextType).HasMaxLength(100);
         b.Property(x => x.CorrectiveAction).HasMaxLength(4000);
+        b.Property(x => x.RootCause).HasMaxLength(4000);
+        b.Property(x => x.FdaReportNumber).HasMaxLength(100);
         b.Property(x => x.ReportedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ClosedBy).HasMaxLength(100);
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();

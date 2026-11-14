@@ -1193,8 +1193,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<DeviationDto>> CreateDeviationAsync(CreateDeviationRequest req, CancellationToken ct = default) =>
         SendAsync<DeviationDto>(HttpMethod.Post, "api/deviations", req, ct);
 
-    public Task<ApiResult<DeviationDto>> UpdateDeviationStatusAsync(long id, DeviationStatus status, string? correctiveAction = null, CancellationToken ct = default) =>
-        SendAsync<DeviationDto>(HttpMethod.Post, $"api/deviations/{id}/status", new { status, correctiveAction }, ct);
+    public Task<ApiResult<DeviationDto>> UpdateDeviationStatusAsync(long id, DeviationStatus status, string? correctiveAction = null, CancellationToken ct = default,
+        DeviationInvestigationUpdate? investigation = null) =>
+        SendAsync<DeviationDto>(HttpMethod.Post, $"api/deviations/{id}/status", new { status, correctiveAction, investigation }, ct);
 
     // ---- Admin: Tests ----
     public Task<ApiResult<List<TestDefinitionDto>>> GetAdminTestsAsync(bool includeInactive = true, CancellationToken ct = default) =>

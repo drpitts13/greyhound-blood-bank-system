@@ -1092,5 +1092,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1081 | U | `ShiftHandoffItemsTests.ReagentQcToDoAndToReview_AreHandedOver` | URS-BB-845 / FRS-BB-963 |
 | TEST-BB-1082 | U | `ShiftHandoffItemsTests.SecondAboAndSupervisorQueue_AreHandedOver` | URS-BB-846 / FRS-BB-964 |
 | TEST-BB-1083 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-847 / FRS-BB-965 |
+| TEST-BB-1084 | I | `DeviationServiceTests.UpdateStatus_RecordsRootCauseAndFdaReportability` | URS-BB-848 / FRS-BB-966 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -23694,3 +23694,21 @@ On the running system with seeded data: Issue & Transfuse › In transit (5 over
 ### Tests
 
 - TEST-BB-1083 (the cooler check integration test, extended). Full suite passed.
+
+## Iteration 790 — End-user testing pass 73: deviation investigation (2026-11-14)
+
+### How it was tested
+
+On the running system with seeded data: Deviations (three open: a unit on the wrong shelf, two storage temperature excursions), Update on each.
+
+### Found and fixed
+
+1. **No root cause or reportability.** A deviation could record only a status and a corrective action. A blood bank's deviation must also record why it happened and whether it is reportable to the FDA as a biological product deviation (BPDR, 21 CFR 606.171), with when and under what number it was reported. These are now recorded on Update, audited, and shown in the list ("FDA reportability not determined" until decided). Whether a determination is required to close is OCD-090. Retested live: deviation #1's root cause saved and shown; choosing Reportable offers the report date and number.
+
+### Left in the development data
+
+- Deviation #1: root cause "Test entry: unit returned to the wrong shelf during the count" (test text); reportability not determined.
+
+### Tests
+
+- TEST-BB-1084. Full suite passed.

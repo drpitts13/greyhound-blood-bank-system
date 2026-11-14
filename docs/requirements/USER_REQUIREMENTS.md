@@ -853,3 +853,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-845 | The shift handoff carries the day's reagent QC still to do and QC to review. | P2 | FRS-BB-963 |
 | URS-BB-846 | The shift handoff carries second ABO/Rh due and the supervisor queue. | P3 | FRS-BB-964 |
 | URS-BB-847 | A cooler shows what its last finished check found, who did it and when, on its badge and on the cooler check. | P2 | FRS-BB-965 |
+| URS-BB-848 | A deviation records its root cause and FDA reportability determination (BPDR), with the report date and number. | P2 | FRS-BB-966 |

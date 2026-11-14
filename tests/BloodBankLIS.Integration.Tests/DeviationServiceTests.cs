@@ -43,6 +43,36 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(allowedTitle, allowed.Value!.Title);
     }
 
+    // End-user testing pass 73: a deviation records its root cause and the FDA reportability determination (BPDR); a
+    // report date only for a reportable deviation and never in the future; all audited.
+    [Fact]
+    public async Task UpdateStatus_RecordsRootCauseAndFdaReportability()
+    {
+        await using var context = _factory.Create();
+        var created = await CreateService(context).CreateAsync(
+            new CreateDeviationRequest($"Wrong unit issued {Guid.NewGuid():N}", "Unit issued under another patient's label", DeviationSeverity.Critical));
+        var id = created.Value!.Id;
+        var today = DateOnly.FromDateTime(_factory.Clock.UtcNow);
+
+        var notReportable = await CreateService(context).UpdateStatusAsync(id, DeviationStatus.UnderReview, null,
+            investigation: new DeviationInvestigationUpdate("Label printed for the wrong patient", DeviationFdaReportability.NotReportable, today, null));
+        Assert.False(notReportable.Succeeded);
+        Assert.Contains("only for a deviation determined reportable", notReportable.Error);
+
+        var future = await CreateService(context).UpdateStatusAsync(id, DeviationStatus.UnderReview, null,
+            investigation: new DeviationInvestigationUpdate("Label printed for the wrong patient", DeviationFdaReportability.Reportable, today.AddDays(10), null));
+        Assert.False(future.Succeeded);
+
+        var saved = await CreateService(context).UpdateStatusAsync(id, DeviationStatus.UnderReview, null,
+            investigation: new DeviationInvestigationUpdate(" Label printed for the wrong patient ", DeviationFdaReportability.Reportable, today, " BPDR-2026-0001 "));
+        Assert.True(saved.Succeeded, saved.Error);
+        var dto = DeviationDto.From(saved.Value!);
+        Assert.Equal(("Label printed for the wrong patient", DeviationFdaReportability.Reportable, today, "BPDR-2026-0001"),
+            (dto.RootCause, dto.FdaReportability, dto.FdaReportedOn, dto.FdaReportNumber));
+        Assert.Contains(context.AuditEvents.Where(e => e.EntityType == nameof(Deviation) && e.EntityId == id).ToList(),
+            e => e.NewValueJson != null && e.NewValueJson.Contains("BPDR-2026-0001"));
+    }
+
     [Fact]
     public async Task UpdateStatus_WithoutDeviationManage_IsHardStopped()
     {

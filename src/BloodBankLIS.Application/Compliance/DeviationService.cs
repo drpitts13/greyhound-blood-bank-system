@@ -13,6 +13,13 @@ public sealed record CreateDeviationRequest(
     string? ContextType = null,
     long? ContextId = null);
 
+/// <summary>The investigation fields of a deviation update (end-user testing pass 73); null leaves them as they are.</summary>
+public sealed record DeviationInvestigationUpdate(
+    string? RootCause,
+    DeviationFdaReportability FdaReportability,
+    DateOnly? FdaReportedOn,
+    string? FdaReportNumber);
+
 public sealed record DeviationDto(
     long Id,
     string Title,
@@ -33,9 +40,21 @@ public sealed record DeviationDto(
     /// </summary>
     public string? ContextName { get; init; }
 
+    /// <summary>Root cause and the FDA reportability determination (end-user testing pass 73).</summary>
+    public string? RootCause { get; init; }
+    public DeviationFdaReportability FdaReportability { get; init; }
+    public DateOnly? FdaReportedOn { get; init; }
+    public string? FdaReportNumber { get; init; }
+
     public static DeviationDto From(Deviation d) => new(
         d.Id, d.Title, d.Description, d.Severity, d.Status, d.ContextType, d.ContextId,
-        d.CorrectiveAction, d.ReportedBy, d.ReportedUtc, d.ClosedBy, d.ClosedUtc);
+        d.CorrectiveAction, d.ReportedBy, d.ReportedUtc, d.ClosedBy, d.ClosedUtc)
+    {
+        RootCause = d.RootCause,
+        FdaReportability = d.FdaReportability,
+        FdaReportedOn = d.FdaReportedOn,
+        FdaReportNumber = d.FdaReportNumber
+    };
 }
 
 public sealed class DeviationService
@@ -176,7 +195,8 @@ public sealed class DeviationService
     }
 
     public async Task<OperationResult<Deviation>> UpdateStatusAsync(
-        long id, DeviationStatus status, string? correctiveAction, CancellationToken ct = default)
+        long id, DeviationStatus status, string? correctiveAction, CancellationToken ct = default,
+        DeviationInvestigationUpdate? investigation = null)
     {
         var denied = await RejectUnauthorizedAsync(ct);
         if (denied is not null)
@@ -194,6 +214,26 @@ public sealed class DeviationService
         if (check.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<Deviation>.Fail(check.Message);
+        }
+
+        if (investigation is not null)
+        {
+            var fda = DeviationFdaReportRule.Evaluate(investigation.FdaReportability, investigation.FdaReportedOn, DateOnly.FromDateTime(_clock.UtcNow).AddDays(1));
+            if (fda.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Deviation>.Fail(fda.Message);
+            }
+        }
+
+        var oldInvestigation = new { row.RootCause, row.FdaReportability, row.FdaReportedOn, row.FdaReportNumber };
+        if (investigation is not null)
+        {
+            row.RootCause = string.IsNullOrWhiteSpace(investigation.RootCause) ? null : investigation.RootCause.Trim();
+            row.FdaReportability = investigation.FdaReportability;
+            row.FdaReportedOn = investigation.FdaReportability == DeviationFdaReportability.Reportable ? investigation.FdaReportedOn : null;
+            row.FdaReportNumber = investigation.FdaReportability == DeviationFdaReportability.Reportable && !string.IsNullOrWhiteSpace(investigation.FdaReportNumber)
+                ? investigation.FdaReportNumber.Trim()
+                : null;
         }
 
         var oldStatus = row.Status;
@@ -222,8 +262,8 @@ public sealed class DeviationService
             AuditEventType.Deviation,
             nameof(Deviation),
             row.Id,
-            oldValue: new { Status = oldStatus, CorrectiveAction = oldAction, ClosedBy = oldClosedBy, ClosedUtc = oldClosedUtc },
-            newValue: new { row.Status, row.CorrectiveAction, row.ClosedBy, row.ClosedUtc },
+            oldValue: new { Status = oldStatus, CorrectiveAction = oldAction, ClosedBy = oldClosedBy, ClosedUtc = oldClosedUtc, Investigation = oldInvestigation },
+            newValue: new { row.Status, row.CorrectiveAction, row.ClosedBy, row.ClosedUtc, Investigation = new { row.RootCause, row.FdaReportability, row.FdaReportedOn, row.FdaReportNumber } },
             reason: "Deviation status updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Deviation>.Ok(row);

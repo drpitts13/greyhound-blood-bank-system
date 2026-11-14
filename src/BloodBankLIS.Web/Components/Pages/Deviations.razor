@@ -93,10 +93,30 @@ else
                                 <td>
                                     <strong>@d.Title</strong>
                                     <span class="sub">@d.Description</span>
+                                    @if (!string.IsNullOrWhiteSpace(d.RootCause))
+                                    {
+                                        <span class="sub" data-root-cause>Root cause: @d.RootCause</span>
+                                    }
                                     @if (!string.IsNullOrWhiteSpace(d.CorrectiveAction))
                                     {
                                         <span class="sub" data-corrective-action>Corrective action: @d.CorrectiveAction</span>
                                     }
+                                    @* Pass 73: the FDA reportability determination (BPDR, 21 CFR 606.171). *@
+                                    <span class="sub" data-fda-reportability>
+                                        @switch (d.FdaReportability)
+                                        {
+                                            case DeviationFdaReportability.Reportable:
+                                                <span class="badge badge-amber">FDA reportable</span>
+                                                @(d.FdaReportedOn is DateOnly on ? $" reported {on:yyyy-MM-dd}" + (string.IsNullOrWhiteSpace(d.FdaReportNumber) ? "" : $" ({d.FdaReportNumber})") : " not yet reported")
+                                                break;
+                                            case DeviationFdaReportability.NotReportable:
+                                                <span>Not FDA reportable</span>
+                                                break;
+                                            default:
+                                                <span class="muted">FDA reportability not determined</span>
+                                                break;
+                                        }
+                                    </span>
                                 </td>
                                 <td><span class="badge @SeverityClass(d.Severity)">@Ui.EnumText(d.Severity)</span></td>
                                 <td>
@@ -154,7 +174,22 @@ else
                     <div class="field" style="margin-top:.5rem;"><label>Status</label>
                         <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                     </div>
+                    <div class="field"><label>Root cause</label><textarea rows="2" @bind="_rootCause" @bind:event="oninput" placeholder="Why it happened, as investigated" data-deviation-root-cause></textarea></div>
                     <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa" @bind:event="oninput" placeholder="What was done, or why no action is needed"></textarea></div>
+                    <div class="form-row">
+                        <div class="field"><label>FDA reportable (BPDR, 21 CFR 606.171)</label>
+                            <select @bind="_fdaReportability" data-deviation-fda>
+                                <option value="@DeviationFdaReportability.NotDetermined">Not determined</option>
+                                <option value="@DeviationFdaReportability.NotReportable">Not reportable</option>
+                                <option value="@DeviationFdaReportability.Reportable">Reportable</option>
+                            </select>
+                        </div>
+                        @if (_fdaReportability == DeviationFdaReportability.Reportable)
+                        {
+                            <div class="field"><label>Reported to the FDA on</label><input type="date" @bind="_fdaReportedOn" data-deviation-fda-date /></div>
+                            <div class="field"><label>FDA report number</label><input @bind="_fdaReportNumber" maxlength="100" data-deviation-fda-number /></div>
+                        }
+                    </div>
                     @if (StatusCheck is { Severity: RuleSeverity.HardStop } blocked)
                     {
                         <div class="sub" data-deviation-status-block>@blocked.Message</div>
@@ -335,18 +370,28 @@ else
         };
     }
 
+    private string? _rootCause;
+    private DeviationFdaReportability _fdaReportability;
+    private DateTime? _fdaReportedOn;
+    private string? _fdaReportNumber;
+
     private void BeginStatus(DeviationDto d)
     {
         _statusId = d.Id;
         _newStatus = d.Status;
         _capa = d.CorrectiveAction;
+        _rootCause = d.RootCause;
+        _fdaReportability = d.FdaReportability;
+        _fdaReportedOn = d.FdaReportedOn?.ToDateTime(TimeOnly.MinValue);
+        _fdaReportNumber = d.FdaReportNumber;
     }
 
     private async Task SaveStatusAsync()
     {
         if (_statusId is null) return;
         _busy = true;
-        var r = await Api.UpdateDeviationStatusAsync(_statusId.Value, _newStatus, _capa);
+        var r = await Api.UpdateDeviationStatusAsync(_statusId.Value, _newStatus, _capa, investigation: new DeviationInvestigationUpdate(
+            _rootCause, _fdaReportability, _fdaReportedOn is DateTime on ? DateOnly.FromDateTime(on) : null, _fdaReportNumber));
         _busy = false;
         _fb = r.ToFeedback("Deviation updated.");
         if (r.Succeeded)

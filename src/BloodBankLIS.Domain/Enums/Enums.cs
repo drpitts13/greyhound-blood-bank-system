@@ -1103,6 +1103,17 @@ public enum LookbackNotificationStatus
     NotApplicable = 3
 }
 
+/// <summary>
+/// Whether a deviation is reportable to the FDA as a biological product deviation report (21 CFR 606.171), as the
+/// quality reviewer determined it (end-user testing pass 73). Not determined until someone records it.
+/// </summary>
+public enum DeviationFdaReportability
+{
+    NotDetermined = 0,
+    NotReportable = 1,
+    Reportable = 2
+}
+
 public enum DeviationStatus
 {
     Open = 0,

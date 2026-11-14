@@ -129,7 +129,7 @@ public static class ComplianceEndpoints
                 d => ($"/api/deviations/{d.Id}", (object)DeviationDto.From(d))));
 
         group.MapPost("/{id:long}/status", async (long id, DeviationStatusBody request, DeviationService service, CancellationToken ct) =>
-            EndpointResults.From(await service.UpdateStatusAsync(id, request.Status, request.CorrectiveAction, ct), DeviationDto.From));
+            EndpointResults.From(await service.UpdateStatusAsync(id, request.Status, request.CorrectiveAction, ct, request.Investigation), DeviationDto.From));
     }
 
     private static void MapShiftHandoffs(WebApplication app)
@@ -245,4 +245,4 @@ public static class ComplianceEndpoints
 
 public sealed record ReasonBody(string Reason);
 
-public sealed record DeviationStatusBody(DeviationStatus Status, string? CorrectiveAction = null);
+public sealed record DeviationStatusBody(DeviationStatus Status, string? CorrectiveAction = null, DeviationInvestigationUpdate? Investigation = null);
