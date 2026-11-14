@@ -224,7 +224,7 @@ public static class IssuingEndpoints
             var result = await service.CompleteTransfusionAsync(id, request, ct);
             if (result.Succeeded)
             {
-                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);
+                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct, result.Value.StopUtc ?? result.Value.StartUtc);
             }
 
             return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
@@ -240,7 +240,7 @@ public static class IssuingEndpoints
             var result = await service.DocumentTransfusionAsync(id, request, ct);
             if (result.Succeeded)
             {
-                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);
+                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct, result.Value.StopUtc ?? result.Value.StartUtc);
             }
 
             return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));

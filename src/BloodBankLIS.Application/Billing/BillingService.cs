@@ -144,8 +144,12 @@ public sealed class BillingService
     /// SoftBank / SafeTrace administration charge: captured when transfusion is
     /// documented complete. Other dispositions do not bill. Idempotent.
     /// </summary>
+    /// <param name="transfusedUtc">
+    /// When the transfusion happened (its stop, else its start). End-user testing pass 79: the charge's service date was
+    /// the time it was charted, so a transfusion charted a week later was billed a week late.
+    /// </param>
     public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForTransfusionAsync(
-        long issueId, TransfusionDisposition disposition, CancellationToken ct = default)
+        long issueId, TransfusionDisposition disposition, CancellationToken ct = default, DateTime? transfusedUtc = null)
     {
         if (disposition != TransfusionDisposition.Completed)
         {
@@ -157,11 +161,11 @@ public sealed class BillingService
             return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
         }
 
-        return await CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitTransfused, ct);
+        return await CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitTransfused, ct, transfusedUtc);
     }
 
     private async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForUnitEventAsync(
-        long issueId, BillingTriggerType triggerType, CancellationToken ct)
+        long issueId, BillingTriggerType triggerType, CancellationToken ct, DateTime? transfusedUtc = null)
     {
         var issue = await _issues.GetByIdAsync(issueId, ct);
         if (issue is null)
@@ -180,7 +184,7 @@ public sealed class BillingService
         }
 
         var serviceDate = triggerType == BillingTriggerType.UnitTransfused
-            ? _clock.UtcNow
+            ? transfusedUtc ?? _clock.UtcNow
             : issue.IssuedUtc;
         var context = new BillingTriggerContext(
             triggerType,
@@ -891,6 +895,18 @@ public sealed class BillingService
         if (await _events.AnyAsync(e => e.DedupeKey == dedupeKey, ct))
         {
             return;
+        }
+
+        // A unit is issued, or transfused, once per issue: the same charge for the same issue on another service day is
+        // the same event recaptured (end-user testing pass 79: a transfusion charted later, or its stop time corrected by
+        // the EHR, must not bill twice).
+        if (context.TriggerType is BillingTriggerType.UnitIssued or BillingTriggerType.UnitTransfused)
+        {
+            var sameIssue = $"{context.TriggerType}|{context.TriggerEntityType}|{context.TriggerEntityId}|{sourceKind}|{sourceId}|";
+            if (await _events.AnyAsync(e => e.DedupeKey.StartsWith(sameIssue), ct))
+            {
+                return;
+            }
         }
 
         var billingEvent = new BillingEvent

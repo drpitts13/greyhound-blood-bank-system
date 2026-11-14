@@ -146,7 +146,7 @@ public sealed class InterfaceTransfusionService
             }
 
             await _unitOfWork.SaveChangesAsync(ct);
-            await TryCaptureAsync(issue.Id, existing.FinalDisposition, ct);
+            await TryCaptureAsync(issue.Id, existing.FinalDisposition, ct, existing.StopUtc ?? existing.StartUtc);
             return $"Transfusion for unit {unitKey} updated from BPAM.";
         }
 
@@ -215,7 +215,7 @@ public sealed class InterfaceTransfusionService
                 await _unitOfWork.SaveChangesAsync(ct);
             }
 
-            await TryCaptureAsync(issue.Id, transfusion.FinalDisposition, ct);
+            await TryCaptureAsync(issue.Id, transfusion.FinalDisposition, ct, transfusion.StopUtc ?? transfusion.StartUtc);
             return $"Transfusion for unit {unitKey} recorded from BPAM; the unit is {over} in the blood bank and is flagged for review (OCD-083).";
         }
 
@@ -247,18 +247,18 @@ public sealed class InterfaceTransfusionService
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
-        await TryCaptureAsync(issue.Id, transfusion.FinalDisposition, ct);
+        await TryCaptureAsync(issue.Id, transfusion.FinalDisposition, ct, transfusion.StopUtc ?? transfusion.StartUtc);
         return $"Transfusion for unit {unitKey} documented from BPAM.";
     }
 
-    private async Task TryCaptureAsync(long issueId, TransfusionDisposition disposition, CancellationToken ct)
+    private async Task TryCaptureAsync(long issueId, TransfusionDisposition disposition, CancellationToken ct, DateTime? transfusedUtc = null)
     {
         if (_billing is null)
         {
             return;
         }
 
-        await _billing.CaptureForTransfusionAsync(issueId, disposition, ct);
+        await _billing.CaptureForTransfusionAsync(issueId, disposition, ct, transfusedUtc);
     }
 
     private async Task<BloodUnit?> FindUnitAsync(string? unitNumber, string? din, CancellationToken ct)

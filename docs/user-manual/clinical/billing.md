@@ -21,3 +21,5 @@ Open the queue if you have billing review permission. Confirm the patient, the c
 Cancel requires a reason and the cancel permission. Cancel when the clinical event was reversed or charged in error, for example a result that was invalidated or an issue that was returned under your billing rules. Do not cancel a charge only because the dollar amount looks high. The amount comes from the charge master. An administrator changes the master. You document the reason for a cancellation.
 
 A charge you cannot see means you lack review permission, not that the capture failed. Ask a billing analyst to open the queue.
+
+**Transfused-unit charges.** When your facility charges products on transfusion (Facility Policies › *Product charge on transfuse*), the charge's service date is when the transfusion happened (its stop time, else its start), not when it was charted. A unit's issue or transfusion is charged once per issue: documenting it again, or the EHR correcting its times, does not add a second charge.

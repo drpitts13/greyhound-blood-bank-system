@@ -1097,5 +1097,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1086 | I | `ReagentLotTraceabilityTests.ManualResult_RecordsEquipmentUsed_AndWarnsWhenOutOfService` | URS-BB-850 / FRS-BB-968 |
 | TEST-BB-1087 | U | `LocalTimeDisplayTests.Today_IsNeverTheUtcDate` | URS-BB-852 / FRS-BB-970 |
 | TEST-BB-1088 | I | `ReportServiceTests.ViewMonth_IsTheLocalMonth` | URS-BB-853 / FRS-BB-971 |
+| TEST-BB-1089 | I | `Phase7BillingTests.CaptureForTransfusion_Completed_CreatesChargeFromCatalogAndRule` | URS-BB-854 / FRS-BB-972 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

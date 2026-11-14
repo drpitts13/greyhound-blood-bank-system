@@ -504,9 +504,12 @@ public class Phase7BillingTests : IDisposable
         Assert.True(wasted.Succeeded);
         Assert.Empty(wasted.Value!);
 
-        var completed = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
+        // End-user testing pass 79: the service date is when the transfusion happened, not when it was charted.
+        var transfusedAt = _factory.Clock.UtcNow.AddDays(-7);
+        var completed = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed, transfusedUtc: transfusedAt);
         Assert.True(completed.Succeeded);
         var charge = Assert.Single(completed.Value!);
+        Assert.Equal(transfusedAt, charge.ServiceDateUtc);
         Assert.Equal(BillingChargeSourceKind.Product, charge.SourceKind);
         Assert.Equal("CAT-TX-E0336", charge.BillingCode);
         Assert.Equal(BillingTriggerType.UnitTransfused, charge.TriggerType);

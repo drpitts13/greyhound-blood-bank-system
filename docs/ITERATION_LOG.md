@@ -23790,3 +23790,22 @@ The reporting views behind SQL reports (the remaining item from pass 51), then t
 ### Tests
 
 - TEST-BB-1088 (the view month matches the visual reports' month across month boundaries). Full suite passed.
+
+## Iteration 796 — End-user testing pass 79: billing a transfusion charted later (2026-11-14)
+
+### How it was tested
+
+On the running system with seeded data: Billing (10 charges to review) against the transfusions recorded in passes 62 and 65; then the charge capture code.
+
+### Checked, not defects
+
+- Riley Demo-Multi's transfusion from the EHR (pass 62) has no charge because this facility charges products at issue (Product charge on transfuse is off).
+
+### Found and fixed
+
+1. **Charge dated when charted.** With product charges on transfusion, the service date was the time of charting, so a transfusion charted a week later (pass 65) would be billed a week late. It is now the transfusion's stop time, else its start, from the bench and from the EHR.
+2. **A second charge on another day.** Charges were deduplicated by a key including the service day, so recapturing the same transfusion with another date (the EHR correcting its stop time) would bill again. Unit issue and transfusion charges are now charged once per issue and source.
+
+### Tests
+
+- TEST-BB-1089 (extended). Full suite passed. Pages retested live.
