@@ -204,7 +204,8 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         catalog.TryGetValue(code, out var row) ? row.Description : null;
 
     private static bool IsRetired(IsbtProductCode? code) =>
-        code?.RetiredDate is DateOnly retired && retired <= DateOnly.FromDateTime(DateTime.UtcNow);
+        // The facility's day (the server's local day), not the UTC date (end-user testing pass 77).
+        code?.RetiredDate is DateOnly retired && retired <= DateOnly.FromDateTime(DateTime.Now);
 
     private async Task<EvaluationResult<AutoThawProductDto>?> RejectUnauthorizedAsync(
         string permissionCode,

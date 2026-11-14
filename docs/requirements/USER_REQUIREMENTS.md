@@ -857,3 +857,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-849 | Equipment names the tests it is used for, and the test worklist warns when such equipment is out of service or overdue for a check. | P2 | FRS-BB-967 |
 | URS-BB-850 | A hand-entered result records the equipment used for its test and its condition, warning when it was out of service or due a check. | P2 | FRS-BB-968 |
 | URS-BB-851 | Equipment lists the results tested on it, with patient, specimen and its condition then. | P2 | FRS-BB-969 |
+| URS-BB-852 | No date default or check takes "today" from the UTC date. | P3 | FRS-BB-970 |

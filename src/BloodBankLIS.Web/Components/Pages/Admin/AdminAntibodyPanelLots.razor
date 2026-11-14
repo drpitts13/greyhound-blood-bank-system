@@ -712,7 +712,7 @@
     private long? _createManufacturerId;
     private string _createLotNumber = "";
     private string _createPanelName = "";
-    private DateTime _createExpires = DateTime.UtcNow.Date.AddYears(1);
+    private DateTime _createExpires = DateTime.Now.Date.AddYears(1);
     private bool _createSelected;
     private readonly List<LotCellDraft> _createCells = new();
     private List<AntibodyPanelManufacturerListItemDto> _manufacturers = new();
@@ -886,7 +886,7 @@
         _createManufacturerId = null;
         _createLotNumber = "";
         _createPanelName = "";
-        _createExpires = DateTime.UtcNow.Date.AddYears(1);
+        _createExpires = DateTime.Now.Date.AddYears(1);
         _createSelected = false;
         _createCells.Clear();
         _manufacturers = _allManufacturers.Where(m => m.IsActive).ToList();

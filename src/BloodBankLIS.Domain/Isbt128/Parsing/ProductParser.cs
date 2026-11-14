@@ -49,7 +49,7 @@ public static class ProductParser
         var division = data[6..8];
 
         lookupByPdc.TryGetValue(pdc, out var row);
-        var isRetired = row?.RetiredDate is not null && row.RetiredDate < (asOf ?? DateOnly.FromDateTime(DateTime.UtcNow));
+        var isRetired = row?.RetiredDate is not null && row.RetiredDate < (asOf ?? DateOnly.FromDateTime(DateTime.Now));
 
         if (row is null)
         {

@@ -218,7 +218,7 @@ public sealed class DeviationService
 
         if (investigation is not null)
         {
-            var fda = DeviationFdaReportRule.Evaluate(investigation.FdaReportability, investigation.FdaReportedOn, DateOnly.FromDateTime(_clock.UtcNow).AddDays(1));
+            var fda = DeviationFdaReportRule.Evaluate(investigation.FdaReportability, investigation.FdaReportedOn, DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(_clock.UtcNow, DateTimeKind.Utc), TimeZoneInfo.Local)));
             if (fda.Severity == RuleSeverity.HardStop)
             {
                 return OperationResult<Deviation>.Fail(fda.Message);

@@ -23762,3 +23762,17 @@ Equipment, after pass 75: from a heat block found faulty, finding the results wo
 ### Tests
 
 - TEST-BB-1086 extended. Full suite passed.
+
+## Iteration 794 — End-user testing pass 77: the last UTC "today" (2026-11-14)
+
+### How it was tested
+
+A search of every place that takes "today" (the remaining item from pass 69), then the compatibility rules, antibody panel lots, auto-thaw products, ISBT receive, deviations and chart pages on the running system.
+
+### Found and fixed
+
+1. **"Today" from the UTC date.** Retiring a compatibility rule version, a new version's effective date, auto-thaw product-code retirement, the ISBT parsers' and product-code validator's fallback date, the chart header's offer to link a newborn, and a new panel lot's default expiry took the UTC date, which is tomorrow from 19:00 Eastern. They take the local day. A guard test now fails on any "today" from the UTC date (the demo seed is exempt). Retested live: the pages load.
+
+### Tests
+
+- TEST-BB-1087. Full suite passed.

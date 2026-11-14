@@ -303,7 +303,7 @@
     private void NewVersion()
     {
         _editVersionId = null;
-        _versionDraft = new VersionDraft { EffectiveDate = DateOnly.FromDateTime(DateTime.UtcNow) };
+        _versionDraft = new VersionDraft { EffectiveDate = DateOnly.FromDateTime(DateTime.Now) };
         _feedback = null;
     }
 

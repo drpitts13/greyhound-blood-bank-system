@@ -59,6 +59,10 @@ public sealed record SaveCompatibilityRuleRequest(
 
 public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
 {
+    // A retirement date is the bench's day (the server's local day), not the UTC date (end-user testing pass 77).
+    private DateOnly LocalToday =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(Clock.UtcNow, DateTimeKind.Utc), TimeZoneInfo.Local));
+
     private const string VersionEntity = nameof(CompatibilityRuleVersion);
     private const string RuleEntity = nameof(CompatibilityRule);
 
@@ -216,7 +220,7 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
             }
 
             other.IsActive = false;
-            other.RetiredDate ??= DateOnly.FromDateTime(Clock.UtcNow);
+            other.RetiredDate ??= LocalToday;
         }
 
         var old = await ToDtoAsync(entity, ct);
@@ -254,7 +258,7 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
 
         var old = await ToDtoAsync(entity, ct);
         entity.IsActive = false;
-        entity.RetiredDate ??= DateOnly.FromDateTime(Clock.UtcNow);
+        entity.RetiredDate ??= LocalToday;
         _versions.Update(entity);
         var dto = await ToDtoAsync(entity, ct);
         RecordChange(VersionEntity, entity.Id, 1, ConfigChangeAction.Deactivate, AuditEventType.Deactivate, old, dto, reason.Trim());

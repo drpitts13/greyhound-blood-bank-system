@@ -963,6 +963,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-849 / FRS-BB-967 | End-user testing pass 74: equipment for tests | `Equipment.cs`, `EquipmentService.cs`, `EquipmentTestNotice.cs`, `TestWorklist.razor`, `EquipmentPage.razor`, migration | TEST-BB-1085 | U | |
 | URS-BB-850 / FRS-BB-968 | End-user testing pass 75: equipment recorded with results | `Equipment.cs`, `EquipmentService.cs`, `ResultService.cs`, `TestWorklistService.cs`, `TestWorklist.razor`, migration | TEST-BB-1086 | I | |
 | URS-BB-851 / FRS-BB-969 | End-user testing pass 76: equipment lookback | `EquipmentService.cs`, `EquipmentEndpoints.cs`, `EquipmentPage.razor` | TEST-BB-1086 | I | |
+| URS-BB-852 / FRS-BB-970 | End-user testing pass 77: no UTC "today" | admin services and pages, ISBT parsers | TEST-BB-1087 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -82,6 +82,28 @@ public partial class LocalTimeDisplayTests
         Assert.True(problems.Count == 0, "A display service writes a UTC time:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
     }
 
+    // End-user testing passes 69 and 77: "today" taken from the UTC date turned over at 19:00 Eastern. Code takes the
+    // facility's day (FacilityDay.Of, the facility time zone, or the server's local day), never the UTC date; the demo
+    // seed is exempt.
+    [Fact]
+    public void Today_IsNeverTheUtcDate()
+    {
+        var root = RepoRoot();
+        var problems = new[] { "BloodBankLIS.Domain", "BloodBankLIS.Application", "BloodBankLIS.Web", "BloodBankLIS.Api" }
+            .SelectMany(project => Directory.EnumerateFiles(Path.Combine(root, "src", project), "*.*", SearchOption.AllDirectories))
+            .Where(f => (f.EndsWith(".cs", StringComparison.Ordinal) || f.EndsWith(".razor", StringComparison.Ordinal))
+                && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .SelectMany(f => File.ReadAllLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
+            .Where(l => UtcToday().IsMatch(l.Text))
+            .Select(l => $"{Path.GetRelativePath(root, l.File)}:{l.Line}: {l.Text.Trim()}")
+            .ToList();
+
+        Assert.True(problems.Count == 0, "\"Today\" is taken from the UTC date:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
+    [GeneratedRegex(@"DateOnly\.FromDateTime\((DateTime|_?[Cc]lock)\.UtcNow\)|DateTime\.UtcNow\.Date")]
+    private static partial Regex UtcToday();
+
     // TEST-BB-718: server messages never write a stored time in the "u" format ("…12:49:00Z") or as an unlabelled
     // date-time: on-screen text uses ClinicalTimeText.Local, saved text says UTC (Cycle 605).
     [Fact]

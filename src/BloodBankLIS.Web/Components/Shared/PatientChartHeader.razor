@@ -102,7 +102,7 @@
                     </span>
                 }
                 @if (family.Mother is null && Session.Has(PermissionCodes.PatientWrite) && Patient.Status != PatientStatus.Merged
-                     && MotherInfantLinkRule.OfferLink(Patient.DateOfBirth, DateOnly.FromDateTime(DateTime.UtcNow)))
+                     && MotherInfantLinkRule.OfferLink(Patient.DateOfBirth, DateOnly.FromDateTime(DateTime.Now)))
                 {
                     @if (_linking)
                     {
