@@ -2687,7 +2687,9 @@
         builder.OpenElement(0, "a");
         builder.AddAttribute(1, "class", $"badge {css}");
         builder.AddAttribute(2, "href", $"/issuing/cooler-check?cooler={Uri.EscapeDataString(coolerId.Trim())}");
-        builder.AddAttribute(3, "title", check?.LastCheckedUtc is DateTime at ? $"Checked {at.ToLocalTime():yyyy-MM-dd HH:mm}" : "Open the cooler check");
+        builder.AddAttribute(3, "title", check?.LastCheckedUtc is DateTime at
+            ? $"Checked {at.ToLocalTime():yyyy-MM-dd HH:mm}{(string.IsNullOrWhiteSpace(check.LastCheckSummary) ? "" : $": {check.LastCheckSummary}")}"
+            : "Open the cooler check");
         builder.AddAttribute(4, "data-cooler-check-badge", true);
         builder.AddContent(5, text);
         builder.CloseElement();

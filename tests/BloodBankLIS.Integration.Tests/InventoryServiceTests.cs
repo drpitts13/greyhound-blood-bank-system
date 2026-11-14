@@ -1315,6 +1315,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("1 of 2 packed, 1 missing, 1 issued to another cooler, 1 not issued, 1 unresolved", audits[0].Reason);
         Assert.Contains($"U-CLRC-{key}", audits[0].NewValueJson);
 
+        // End-user testing pass 72: the open-cooler list says what the recorded check found, and who did it.
+        var afterDifferences = Assert.Single((await service.ListOpenAsync()).Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("1 of 2 packed, 1 missing", afterDifferences.LastCheckSummary);
+        Assert.Contains($"Missing: U-CLRB-{key}", afterDifferences.LastCheckSummary);
+        Assert.Contains("Not issued:", afterDifferences.LastCheckSummary);
+        Assert.Equal(_factory.CurrentUser.UserName, afterDifferences.LastCheckedBy);
+
         // A full, correct cooler is ready; the open-cooler list shows the latest check.
         var clean = await service.CheckAsync(new CoolerCheckRequest(cooler, [$"U-CLRA-{key}", $"U-CLRB-{key}"], Finish: true));
         Assert.True(clean.Value!.Ready);
@@ -1322,6 +1329,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(open.Succeeded, open.Error);
         var mine = Assert.Single(open.Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase));
         Assert.Equal((2, true), (mine.Units, mine.LastCheckReady));
+        Assert.Equal("all 2 units packed.", mine.LastCheckSummary);
         Assert.Equal(new[] { "Smith, Ann" }, mine.Patients);
         Assert.False(mine.Overdue);
 

@@ -43,6 +43,15 @@ else
         </div>
         <Outcome Value="_fb" />
 
+        @if (_check is { Recorded: false } current && _open?.FirstOrDefault(o => string.Equals(o.CoolerId.Trim(), current.CoolerId.Trim(), StringComparison.OrdinalIgnoreCase)) is { LastCheckedUtc: DateTime lastChecked } last)
+        {
+            @* Pass 72: the recorded check's findings, before (and while) checking again. *@
+            <div class="alert @(last.LastCheckReady == true ? "alert-info" : "alert-warning")" data-cooler-last-check>
+                <strong>Last check @ClockText.Short(lastChecked)@(string.IsNullOrWhiteSpace(last.LastCheckedBy) ? "" : $" by {last.LastCheckedBy}"):</strong>
+                @(last.LastCheckSummary ?? (last.LastCheckReady == true ? "all packed." : "differences."))
+                Scanning below starts a new check.
+            </div>
+        }
         @if (_check is { } c)
         {
             <div class="flex gap" style="flex-wrap:wrap;margin:.75rem 0;" data-cooler-summary>
@@ -154,7 +163,7 @@ else
                                 <td>
                                     @if (o.LastCheckedUtc is DateTime checkedUtc)
                                     {
-                                        <span class="badge @(o.LastCheckReady == true ? "badge-green" : "badge-amber")">@(o.LastCheckReady == true ? "All packed" : "Differences")</span>
+                                        <span class="badge @(o.LastCheckReady == true ? "badge-green" : "badge-amber")" title="@o.LastCheckSummary">@(o.LastCheckReady == true ? "All packed" : "Differences")</span>
                                         <span class="sub">@ClockText.Short(checkedUtc)</span>
                                     }
                                     else
@@ -227,6 +236,12 @@ else
         _scans.Clear();
         _check = null;
         _fb = null;
+        // The open-cooler list carries the last recorded check shown above the new one (pass 72).
+        if (_open is null)
+        {
+            await LoadOpenAsync();
+        }
+
         await CheckAsync(finish: false);
     }
 

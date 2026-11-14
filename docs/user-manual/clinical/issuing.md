@@ -153,3 +153,7 @@ When you return a unit, answer **Temperature**, **Seal**, and **Visual inspectio
 > Issued under an earlier MRN. When a patient's chart changes MRN after a unit was issued (for example an unidentified patient identified and merged), the In transit and Issued units rows show **Issued under** the earlier MRN, and the transfusion form warns that the wristband or unit tag may still show it. Make sure they agree before transfusing; the bedside check uses the current MRN.
 
 A unit whose transfusion has already been documented (for example entered after a downtime, without the ward's receipt) has reached the patient and is not listed **In transit**.
+
+## The last check of a cooler
+
+A cooler's **Cooler differences** or **Cooler checked** badge (In transit, Issued units) and the list of coolers in transit say what the last finished check found when you point at them: how many were packed and which units were missing, issued to another cooler, not issued, or not found. Opening the cooler shows the same above the new check, with when and by whom it was done. Scanning starts a new check; finishing it records a new outcome.

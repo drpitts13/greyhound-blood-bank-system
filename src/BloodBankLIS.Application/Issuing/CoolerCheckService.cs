@@ -65,7 +65,11 @@ public sealed record OpenCoolerDto(
     // The earliest ward receipt due time among its issues, and whether it has passed (end-user testing, 2026-11-12:
     // coolers out for six days were listed with nothing to say they were overdue).
     DateTime? ReceiptDueUtc = null,
-    bool Overdue = false);
+    bool Overdue = false,
+    // What the last finished check found and who did it (end-user testing pass 72: "Cooler differences" opened a new
+    // check with nothing to say which differences were recorded).
+    string? LastCheckSummary = null,
+    string? LastCheckedBy = null);
 
 /// <summary>
 /// Checks a cooler before it leaves the blood bank: the units scanned into it against the units issued under its id
@@ -148,7 +152,7 @@ public sealed class CoolerCheckService
         var result = new List<OpenCoolerDto>();
         foreach (var group in open.GroupBy(i => Normalize(i.CoolerId)))
         {
-            var (checkedUtc, ready) = await LastCheckAsync(group.ToList(), ct);
+            var (checkedUtc, ready, summary, checkedBy) = await LastCheckAsync(group.ToList(), ct);
             var due = group.Where(i => i.InTransitDueUtc is not null).Select(i => i.InTransitDueUtc).Min();
             var now = _clock?.UtcNow ?? DateTime.UtcNow;
             result.Add(new OpenCoolerDto(
@@ -160,7 +164,9 @@ public sealed class CoolerCheckService
                 checkedUtc,
                 ready,
                 due,
-                group.Any(i => !i.DowntimeBackEntry && InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning)));
+                group.Any(i => !i.DowntimeBackEntry && InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning),
+                summary,
+                checkedBy));
         }
 
         return result.OrderBy(c => c.FirstIssuedUtc).ToList();
@@ -297,11 +303,11 @@ public sealed class CoolerCheckService
     private static string PatientName(Patient p) => $"{p.LastName}, {p.FirstName}".Trim(' ', ',');
 
     // The newest finished check on any unit in the cooler; its outcome is whether the reason says all were packed.
-    private async Task<(DateTime? CheckedUtc, bool? Ready)> LastCheckAsync(IReadOnlyList<Issue> issues, CancellationToken ct)
+    private async Task<(DateTime? CheckedUtc, bool? Ready, string? Summary, string? By)> LastCheckAsync(IReadOnlyList<Issue> issues, CancellationToken ct)
     {
         if (_auditQuery is null)
         {
-            return (null, null);
+            return (null, null, null, null);
         }
 
         AuditEvent? latest = null;
@@ -315,6 +321,38 @@ public sealed class CoolerCheckService
             }
         }
 
-        return latest is null ? (null, null) : (latest.OccurredUtc, latest.Reason!.Contains(": all ", StringComparison.Ordinal));
+        return latest is null
+            ? (null, null, null, null)
+            : (latest.OccurredUtc, latest.Reason!.Contains(": all ", StringComparison.Ordinal), CheckSummary(latest), latest.UserName);
+    }
+
+    /// <summary>"3 of 4 packed, 1 missing, … Missing: W…" from the check's audit record, without the cooler prefix.</summary>
+    public static string? CheckSummary(AuditEvent check)
+    {
+        var reason = check.Reason ?? string.Empty;
+        var text = reason.StartsWith(CheckReasonPrefix, StringComparison.Ordinal) ? reason[CheckReasonPrefix.Length..] : reason;
+        var colon = text.IndexOf(": ", StringComparison.Ordinal);
+        text = (colon >= 0 ? text[(colon + 2)..] : text).Trim().TrimEnd('.');
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(check.NewValueJson ?? "{}");
+            string Names(string property) =>
+                doc.RootElement.TryGetProperty(property, out var list) && list.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? string.Join(", ", list.EnumerateArray().Select(e => e.GetString()).Where(s => !string.IsNullOrWhiteSpace(s)))
+                    : string.Empty;
+            foreach (var (property, label) in new[] { ("Missing", "Missing"), ("OtherCooler", "Issued to another cooler"), ("NotIssued", "Not issued"), ("Unresolved", "Unresolved scans") })
+            {
+                if (Names(property) is { Length: > 0 } names)
+                {
+                    text += $". {label}: {names}";
+                }
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // The counts alone.
+        }
+
+        return text.Length == 0 ? null : text + ".";
     }
 }

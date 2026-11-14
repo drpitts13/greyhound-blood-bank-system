@@ -23680,3 +23680,17 @@ Shift handoff against the dashboard, after pass 70.
 ### Tests
 
 - TEST-BB-1082. Full suite passed.
+
+## Iteration 789 — End-user testing pass 72: what a cooler check found (2026-11-14)
+
+### How it was tested
+
+On the running system with seeded data: Issue & Transfuse › In transit (5 overdue), Morgan Demo-Massive's MTP Cooler 1 marked "Cooler differences", and its cooler check.
+
+### Found and fixed
+
+1. **"Cooler differences" without the differences.** The badge said only when the cooler was checked, and opening it started a new check (packed 0 of 4) with nothing about what the recorded check had found. The last finished check is now summarised (counts and the units missing, issued to another cooler, not issued or not found) with who did it, on the badge, the open-cooler list and above the new check. Retested live: "Last check 2026-11-06 09:11 by tech2: 3 of 4 packed, 1 missing … Missing: W0001230009101."
+
+### Tests
+
+- TEST-BB-1083 (the cooler check integration test, extended). Full suite passed.
