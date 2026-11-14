@@ -297,6 +297,8 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "EquipmentChecksToDo", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "EquipmentChecksToDo" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "EquipmentChecksFailedOrOverdue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "EquipmentChecksFailedOrOverdue" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "WardRequestsWaiting", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "WardRequestsWaiting" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReagentLotsQcDue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentLotsQcDue" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReagentQcUnreviewed", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentQcUnreviewed" INTEGER NOT NULL DEFAULT 0"""),
         ("SupplierOrders", "PromisedArrivalUtc", """ALTER TABLE "SupplierOrders" ADD COLUMN "PromisedArrivalUtc" TEXT NULL"""),
         ("SupplierOrders", "FollowUpNote", """ALTER TABLE "SupplierOrders" ADD COLUMN "FollowUpNote" TEXT NULL"""),
         ("SupplierOrders", "FollowUpBy", """ALTER TABLE "SupplierOrders" ADD COLUMN "FollowUpBy" TEXT NULL"""),

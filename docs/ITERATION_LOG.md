@@ -23648,3 +23648,21 @@ The remaining places that took "today" from the UTC date, then the RhIG, issue, 
 ### Tests
 
 - TEST-BB-1080. Full suite passed.
+
+## Iteration 787 — End-user testing pass 70: the shift handoff and reagent QC (2026-11-14)
+
+### How it was tested
+
+On the running system with seeded data: Shift handoff, its snapshot of open work against the dashboard.
+
+### Found and fixed
+
+1. **The day's QC did not carry over.** The dashboard showed reagent QC 16 (7 overdue), and the handoff named reagent QC only when a lot had failed, so the next technologist was not told that today's QC was still to be run on seven lots or that QC waited for review. The handoff now counts reagent QC to do (lots with no QC for today) and QC to review, as items opening Reagent QC and in the summary; recorded handoffs keep the counts (migration 20270117000000). Retested live: "Reagent QC to do: 7 (no QC for today)", "Reagent QC to review: 7".
+
+### Remaining
+
+- Second ABO/Rh and the supervisor queue are on the dashboard but not in the handoff.
+
+### Tests
+
+- TEST-BB-1081. Full suite passed.

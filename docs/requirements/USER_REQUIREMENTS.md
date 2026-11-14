@@ -850,3 +850,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-842 | Recipient traceback names units with no DIN recorded and does not report "none found" for donations it could not search. | P1 | FRS-BB-960 |
 | URS-BB-843 | Search results, timelines, the supervisor queue and refusal messages show times in local time. | P2 | FRS-BB-961 |
 | URS-BB-844 | "Today" for a patient's age, a date of birth, an RhIG lot's expiry, an outside antibody report, and ISBT product-code retirement is the facility's day. | P2 | FRS-BB-962 |
+| URS-BB-845 | The shift handoff carries the day's reagent QC still to do and QC to review. | P2 | FRS-BB-963 |

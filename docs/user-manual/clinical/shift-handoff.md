@@ -29,3 +29,5 @@ The next shift should read the note before relying on the dashboard alone. The n
 ## Units a ward is waiting for
 
 **Requested by the ward** counts reserved units a ward has asked to be sent and that are not yet issued. It is listed with the urgent items and opens Ready to issue.
+
+The handoff also carries the day's reagent QC: **Reagent QC to do** (lots with no QC for today) and **Reagent QC to review** (QC recorded but not yet reviewed), each opening Reagent QC. Failed QC stays an urgent item of its own.

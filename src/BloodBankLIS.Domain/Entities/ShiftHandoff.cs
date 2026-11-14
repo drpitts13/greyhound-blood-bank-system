@@ -160,6 +160,11 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Units a ward has asked to be sent and not yet issued (end-user testing pass 21).</summary>
     public int WardRequestsWaiting { get; set; }
 
+    /// <summary>Reagent lots with no QC for the facility's day, and QC not yet reviewed (end-user testing pass 70).</summary>
+    public int ReagentLotsQcDue { get; set; }
+
+    public int ReagentQcUnreviewed { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

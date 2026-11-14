@@ -71,7 +71,9 @@ public sealed record ShiftHandoffDto(
     int EquipmentChecksToDo = 0,
     int EquipmentChecksFailedOrOverdue = 0,
     int EquipmentOutOfService = 0,
-    int WardRequestsWaiting = 0)
+    int WardRequestsWaiting = 0,
+    int ReagentLotsQcDue = 0,
+    int ReagentQcUnreviewed = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -96,6 +98,8 @@ public sealed record ShiftHandoffDto(
               (CoolersNotChecked > 0 ? $", {CoolersNotChecked} not checked" : "") +
               (CoolersWithDifferences > 0 ? $", {CoolersWithDifferences} checked with differences" : "")
             : "") +
+        (ReagentLotsQcDue > 0 ? $"; reagent QC to do {ReagentLotsQcDue} {(ReagentLotsQcDue == 1 ? "lot" : "lots")}" : "") +
+        (ReagentQcUnreviewed > 0 ? $"; reagent QC to review {ReagentQcUnreviewed} {(ReagentQcUnreviewed == 1 ? "lot" : "lots")}" : "") +
         (WardRequestsWaiting > 0 ? $"; WARD WAITING FOR {WardRequestsWaiting} {(WardRequestsWaiting == 1 ? "UNIT" : "UNITS")}" : "") +
         (ReservationsLapsed > 0 ? $"; {ReservationsLapsed} past reservation" : "") +
         $"; tests {PendingTests}" +
@@ -148,7 +152,8 @@ public sealed record ShiftHandoffDto(
         h.BloodOrdersToPrepare, h.BloodOrdersPastNeededBy, h.BloodOrdersNeededSoon, h.ActiveMtpIdle, h.ReactionsWithUnitsOut,
         h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen,
         h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull,
-        h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting);
+        h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
+        h.ReagentLotsQcDue, h.ReagentQcUnreviewed);
 }
 
 /// <summary>
@@ -429,6 +434,9 @@ public sealed class ShiftHandoffService
             ResultsAwaitingVerification = pendingTests.Count(t => t.AwaitsVerification),
             ReservationsLapsed = ReadyToIssueAttentionRule.CountReservationLapsed(ready, now),
             WardRequestsWaiting = ReadyToIssueAttentionRule.CountRequested(ready),
+            // End-user testing pass 70: the handoff named failed QC only; the day's QC still to do and QC to review carry over too.
+            ReagentLotsQcDue = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Overdue).Select(w => w.LotId).Distinct().Count(),
+            ReagentQcUnreviewed = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Unreviewed).Select(w => w.LotId).Distinct().Count(),
             NearExpiryUnits = nearExpiry.Count,
             NearExpiryReserved = nearExpiry.Count(u => u.IsReserved),
             CoolersInTransit = coolers.Count,
@@ -560,7 +568,9 @@ public sealed class ShiftHandoffService
         EquipmentChecksToDo = row.EquipmentChecksToDo,
         EquipmentChecksFailedOrOverdue = row.EquipmentChecksFailedOrOverdue,
         EquipmentOutOfService = row.EquipmentOutOfService,
-        WardRequestsWaiting = row.WardRequestsWaiting
+        WardRequestsWaiting = row.WardRequestsWaiting,
+        ReagentLotsQcDue = row.ReagentLotsQcDue,
+        ReagentQcUnreviewed = row.ReagentQcUnreviewed
     };
 
     /// <summary>

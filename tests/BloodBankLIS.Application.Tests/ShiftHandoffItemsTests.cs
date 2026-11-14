@@ -214,4 +214,16 @@ public class ShiftHandoffItemsTests
         Assert.Equal((1, "/issuing?desk=ready", "to send", true), (item.Count, item.Href, item.Detail, item.Urgent));
         Assert.Contains("WARD WAITING FOR 1 UNIT", h.QueueSummary);
     }
+
+    // End-user testing pass 70: the day's reagent QC still to do and QC to review are handed over and named in the summary.
+    [Fact]
+    public void ReagentQcToDoAndToReview_AreHandedOver()
+    {
+        var h = Handoff() with { ReagentLotsQcDue = 7, ReagentQcUnreviewed = 1 };
+        var due = Assert.Single(ShiftHandoffItems.For(h), i => i.Label == "Reagent QC to do");
+        Assert.Equal((7, "/reagents", "no QC for today"), (due.Count, due.Href, due.Detail));
+        Assert.Single(ShiftHandoffItems.For(h), i => i.Label == "Reagent QC to review" && i.Count == 1);
+        Assert.Contains("reagent QC to do 7 lots", h.QueueSummary);
+        Assert.Contains("reagent QC to review 1 lot", h.QueueSummary);
+    }
 }
