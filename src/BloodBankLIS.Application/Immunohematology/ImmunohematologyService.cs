@@ -27,6 +27,9 @@ public sealed class ImmunohematologyService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationFinding>? _findings;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public ImmunohematologyService(
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<AntibodyHistory> antibodies,
@@ -39,8 +42,10 @@ public sealed class ImmunohematologyService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IRepository<AntibodyIdentificationFinding>? findings = null)
+        IRepository<AntibodyIdentificationFinding>? findings = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
         _antigenProfiles = antigenProfiles;
@@ -327,7 +332,7 @@ public sealed class ImmunohematologyService
         }
 
         var outside = OutsideAntibodyReportRule.Evaluate(
-            reportingFacility, identifiedOn, DateOnly.FromDateTime(_clock.UtcNow), reportKind, reportDocumentation);
+            reportingFacility, identifiedOn, FacilityDay.Of(_clock.UtcNow, _facilityTimeZone), reportKind, reportDocumentation);
         if (outside.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<AntibodyHistory>.Fail(outside.Message);

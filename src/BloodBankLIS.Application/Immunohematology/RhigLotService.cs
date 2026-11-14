@@ -38,14 +38,19 @@ public sealed class RhigLotService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public RhigLotService(
         IRepository<RhigLot> lots,
         IRepository<RhigEvaluation> evaluations,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _lots = lots;
         _evaluations = evaluations;
         _unitOfWork = unitOfWork;
@@ -81,7 +86,7 @@ public sealed class RhigLotService
         var upper = lot.ToUpperInvariant();
         var inUse = lot.Length > 0 && (await _lots.ListAsync(ct)).Any(l => l.LotNumber.Trim().ToUpperInvariant() == upper);
         var rule = RhigLotRule.EvaluateReceive(lot, request.ProductName, request.ExpiresOn, request.VialsReceived,
-            DateOnly.FromDateTime(_clock.UtcNow), inUse);
+            FacilityDay.Of(_clock.UtcNow, _facilityTimeZone), inUse);
         if (rule.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<RhigLotDto>.Fail(rule.Message);

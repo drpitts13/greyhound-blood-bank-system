@@ -72,6 +72,9 @@ public sealed class IssuingService
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
     private readonly IRepository<Encounter>? _encounters;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public IssuingService(
         IInventoryRepository inventory,
         IRepository<Issue> issues,
@@ -119,8 +122,10 @@ public sealed class IssuingService
         IProductDispensePublisher? dispensePublisher = null,
         IRepository<Encounter>? encounters = null,
         IRepository<OrderLine>? orderLines = null,
-        IRepository<DowntimeEpisode>? outages = null)
+        IRepository<DowntimeEpisode>? outages = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _orderLines = orderLines;
         _outages = outages;
         _encounters = encounters;
@@ -430,7 +435,7 @@ public sealed class IssuingService
                 ? null
                 : await ProductAboRhPolicyLoader.ForProductAsync(
                     _aboCompatibilities, _rhCompatibilities, productType.Id, ct),
-            PatientAgeYears = AgeYears(patient.DateOfBirth, gateTime),
+            PatientAgeYears = AgeYears(patient.DateOfBirth, _facilityTimeZone?.ToLocal(gateTime) ?? gateTime),
             UncrossmatchedMustBeGroupO = uncrossmatchedGroupO,
             UncrossmatchedONegForChildbearing = uncrossmatchedONeg,
             ChildbearingAgeYears = childbearingAge,

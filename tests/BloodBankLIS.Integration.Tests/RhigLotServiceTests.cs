@@ -42,6 +42,23 @@ public class RhigLotServiceTests : IDisposable
         return (patient.Id, evaluation.Id);
     }
 
+    // End-user testing pass 69: "today" is the facility's day. At 20:00 in Chicago (02:00 UTC the next day) a lot expiring
+    // that day is still in date; on the UTC day it was refused as expired.
+    [Fact]
+    public async Task Receive_UsesTheFacilityDay()
+    {
+        await using var c = _factory.Create();
+        var evening = new FixedClock(new DateTime(2026, 11, 13, 2, 0, 0, DateTimeKind.Utc));
+        var chicago = BloodBankLIS.Infrastructure.Common.FacilityTimeZone.FromId("America/Chicago");
+        RhigLotService Lots(BloodBankLIS.Application.Abstractions.IFacilityTimeZone? zone) =>
+            new(new EfRepository<RhigLot>(c), new EfRepository<RhigEvaluation>(c), c, evening, _factory.CurrentUser,
+                new AuditWriter(c, evening, _factory.CurrentUser), zone);
+
+        var localDay = await Lots(chicago).ReceiveAsync(new ReceiveRhigLotRequest("RH-EVE-1", "RhIG 300 ug", new DateOnly(2026, 11, 12), 5));
+        Assert.True(localDay.Succeeded, localDay.Error);
+        Assert.False((await Lots(null).ReceiveAsync(new ReceiveRhigLotRequest("RH-EVE-2", "RhIG 300 ug", new DateOnly(2026, 11, 12), 5))).Succeeded);
+    }
+
     // TEST-BB-1004: with no lot registered the lot given is taken as typed; once lots are registered, an unknown lot, a
     // retired lot and a lot expired when given are refused, a registered lot is recorded under its registered number
     // (any case), and the register counts vials given; receiving and retiring are audited.

@@ -23630,3 +23630,21 @@ On the running system with seeded data: Supervisor queue (10 items), then the lo
 ### Tests
 
 - TEST-BB-1079. Full suite passed.
+
+## Iteration 786 — End-user testing pass 69: the facility day everywhere "today" is asked (2026-11-14)
+
+### How it was tested
+
+The remaining places that took "today" from the UTC date, then the RhIG, issue, patient, inventory, reagent and antibody pages on the running system.
+
+### Found and fixed
+
+1. **"Today" turned over at 19:00 Eastern.** A patient's age at the issue gate (childbearing potential for emergency release), the date-of-birth check, an RhIG lot's expiry on receipt, an outside antibody report's date, and ISBT product-code retirement compared with the UTC date, so from 19:00 Eastern a lot expiring that day was refused as expired and a code retired the next day was already retired. They now use the facility's day, as equipment and reagent QC have since passes 35–36. Retested: a lot expiring 2026-11-12 is received at 20:00 Chicago time and refused on the UTC day (test); the pages load with the services' new settings.
+
+### Remaining
+
+- Admin defaults for a retirement date (compatibility rules, auto-thaw product codes) still take the UTC date.
+
+### Tests
+
+- TEST-BB-1080. Full suite passed.

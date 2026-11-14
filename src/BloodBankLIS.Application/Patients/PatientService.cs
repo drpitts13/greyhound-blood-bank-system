@@ -39,6 +39,9 @@ public sealed class PatientService
 
     private readonly IRepository<PatientDuplicateDismissal>? _dismissals;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public PatientService(
         IRepository<Patient> patients,
         IUnitOfWork unitOfWork,
@@ -57,8 +60,10 @@ public sealed class PatientService
         IRepository<PatientDuplicateDismissal>? dismissals = null,
         FacilityPolicyService? policy = null,
         AlertService? alerts = null,
-        IRepository<Specimen>? specimenRows = null)
+        IRepository<Specimen>? specimenRows = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _alerts = alerts;
         _specimenRows = specimenRows;
         _policy = policy;
@@ -621,7 +626,7 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail("Date of birth is required.");
         }
 
-        var today = DateOnly.FromDateTime(_clock.UtcNow);
+        var today = FacilityDay.Of(_clock.UtcNow, _facilityTimeZone);
         if (request.DateOfBirth > today)
         {
             return OperationResult<Patient>.Fail("Date of birth cannot be in the future.");
@@ -743,7 +748,7 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail($"'{request.Ethnicity.Trim()}' is not an ethnicity on the list.");
         }
 
-        var today = DateOnly.FromDateTime(_clock.UtcNow);
+        var today = FacilityDay.Of(_clock.UtcNow, _facilityTimeZone);
         if (request.DateOfBirth > today)
         {
             return OperationResult<Patient>.Fail("Date of birth cannot be in the future.");

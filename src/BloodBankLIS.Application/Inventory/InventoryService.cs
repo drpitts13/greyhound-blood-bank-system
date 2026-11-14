@@ -57,6 +57,9 @@ public sealed class InventoryService
     private readonly IRepository<Allocation>? _allocations;
     private readonly IAuditQuery? _auditQuery;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public InventoryService(
         IInventoryRepository repository,
         IRepository<UnitBloodAttribute> unitAttributes,
@@ -80,8 +83,10 @@ public sealed class InventoryService
         IRepository<Allocation>? allocations = null,
         IRepository<ReactionInvestigation>? reactions = null,
         IAuditQuery? auditQuery = null,
-        IRepository<StorageTemperatureReading>? temperatureReadings = null)
+        IRepository<StorageTemperatureReading>? temperatureReadings = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _temperatureReadings = temperatureReadings;
         _auditQuery = auditQuery;
         _reactions = reactions;
@@ -652,7 +657,7 @@ public sealed class InventoryService
         var productValidation = ProductCodeLookupValidator.Validate(
             request.Isbt128ProductCode,
             productLookup,
-            DateOnly.FromDateTime(_clock.UtcNow));
+            FacilityDay.Of(_clock.UtcNow, _facilityTimeZone));
         if (!productValidation.Success)
         {
             return InventoryActionResult.Fail(productValidation.Error!);
@@ -792,7 +797,7 @@ public sealed class InventoryService
         var productValidation = ProductCodeLookupValidator.Validate(
             request.Isbt128ProductCode,
             productLookup,
-            DateOnly.FromDateTime(_clock.UtcNow));
+            FacilityDay.Of(_clock.UtcNow, _facilityTimeZone));
         if (!productValidation.Success)
         {
             return InventoryActionResult.Fail(productValidation.Error!);

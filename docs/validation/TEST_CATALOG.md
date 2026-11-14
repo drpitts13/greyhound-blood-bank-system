@@ -1088,5 +1088,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1077 | U | `LookbackNotifyRuleTests.NotifyBy_FollowsTheFacilityDays` | URS-BB-841 / FRS-BB-959 |
 | TEST-BB-1078 | U | `LookbackTraceTests.Trace_UnitsWithoutDin_AreNamed_NotReportedAsNoneFound` | URS-BB-842 / FRS-BB-960 |
 | TEST-BB-1079 | U | `LocalTimeDisplayTests.DisplayServices_ShowLocalTime` | URS-BB-843 / FRS-BB-961 |
+| TEST-BB-1080 | I | `RhigLotServiceTests.Receive_UsesTheFacilityDay` | URS-BB-844 / FRS-BB-962 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

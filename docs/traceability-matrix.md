@@ -955,6 +955,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-841 / FRS-BB-959 | End-user testing pass 66: lookback notification age | `LookbackNotifyRule.cs`, `LookbackService.cs`, `Lookback.razor`, `FacilityPolicyCatalog.cs` | TEST-BB-1077, TEST-BB-885 | U | |
 | URS-BB-842 / FRS-BB-960 | End-user testing pass 67: traceback without DINs | `Lookback.razor` | TEST-BB-1078 | U | |
 | URS-BB-843 / FRS-BB-961 | End-user testing pass 68: display text in local time | `ClinicalTimeText.cs`, lookup, timelines, supervisor queue | TEST-BB-1079 | U | |
+| URS-BB-844 / FRS-BB-962 | End-user testing pass 69: the facility day | the services named in FRS-BB-962 | TEST-BB-1080 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
