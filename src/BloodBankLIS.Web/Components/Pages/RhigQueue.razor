@@ -1,0 +1,305 @@
+@page "/rhig"
+@using BloodBankLIS.Application.Immunohematology
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Open RhIG evaluations &middot; HemoCore</PageTitle>
+
+<h1>Open RhIG evaluations</h1>
+<p class="muted">
+    RhIG evaluations recorded on patient charts and not yet completed, and completed candidates with no RhIG given recorded
+    (<strong>To give</strong>), oldest event first. <strong>Ready</strong> means the
+    record says what was decided and can be completed by a verifier; the others still need the decision, the vials, the
+    quantitation, or a reason. Open a chart to finish or complete it. <strong>Suggested</strong> is what the facts on file
+    suggest and the dose calculated from the facility's RhIG dose settings; the reviewer decides (OCD-069).
+</p>
+<Outcome Value="_fb" />
+
+@* The RhIG lot register (end-user testing, 2026-11-12): once a lot is registered, RhIG given must name a registered,
+   active lot in date when given. *@
+<div class="bb-card" data-rhig-lots>
+    <div class="bb-card-title">
+        <h3>RhIG lots</h3>
+        <div class="flex gap" style="align-items:center;">
+            <label class="muted" style="font-size:.85rem;"><input type="checkbox" @bind="_showRetiredLots" @bind:after="LoadLotsAsync" /> Show retired</label>
+            @if (Session.Has(PermissionCodes.IssueCreate) && !_receiving)
+            {
+                <button class="btn btn-secondary btn-sm" type="button" @onclick="() => _receiving = true" data-rhig-lot-receive>Receive a lot</button>
+            }
+        </div>
+    </div>
+    <p class="muted" style="margin-top:0;">
+        @(_lots.Count == 0 && !_showRetiredLots
+            ? "No RhIG lot is registered, so the lot recorded as given is taken as typed. Register lots as they are received; from then on RhIG given must name a registered lot in date."
+            : "RhIG given must name one of these lots, active and in date on the day it is given. Vials given are counted against vials received.")
+    </p>
+    @if (_receiving)
+    {
+        <div class="form-row" data-rhig-lot-form>
+            <div class="field"><label>Lot number</label><input class="mono" @bind="_newLot" @bind:event="oninput" data-rhig-lot-number /></div>
+            <div class="field"><label>Product (as on the carton)</label><input @bind="_newProduct" @bind:event="oninput" placeholder="e.g. RhIG 300 µg" data-rhig-lot-product /></div>
+            <div class="field"><label>Expires</label><input type="date" @bind="_newExpires" data-rhig-lot-expires /></div>
+            <div class="field"><label>Vials received</label><input type="number" min="1" @bind="_newVials" data-rhig-lot-vials /></div>
+        </div>
+        <div class="flex gap" style="margin-top:.4rem;">
+            <button class="btn btn-primary btn-sm" disabled="@(string.IsNullOrWhiteSpace(_newLot) || string.IsNullOrWhiteSpace(_newProduct))" @onclick="ReceiveLotAsync" data-rhig-lot-save>Register lot</button>
+            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _receiving = false">Cancel</button>
+        </div>
+    }
+    @if (_lots.Count > 0)
+    {
+        <div class="table-scroll">
+        <table class="bb" style="margin-top:.5rem;">
+            <thead><tr><th>Lot</th><th>Product</th><th>Expires</th><th>Received</th><th>Given</th><th>Left</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var l in _lots)
+                {
+                    var expired = l.ExpiresOn < DateOnly.FromDateTime(DateTime.Now);
+                    <tr data-rhig-lot-row="@l.LotNumber" class="@(l.IsActive ? "" : "muted")">
+                        <td class="mono">@l.LotNumber</td>
+                        <td>@l.ProductName</td>
+                        <td class="nowrap">@l.ExpiresOn.ToString("yyyy-MM-dd") @if (l.IsActive && expired) { <span class="badge badge-red">Expired</span> }</td>
+                        <td>@l.VialsReceived</td>
+                        <td>@l.VialsGiven</td>
+                        <td>@l.VialsLeft</td>
+                        <td class="right nowrap">
+                            @if (!l.IsActive)
+                            {
+                                <span class="badge badge-gray" title="@l.RetiredReason">Retired</span>
+                            }
+                            else if (Session.Has(PermissionCodes.IssueCreate))
+                            {
+                                @if (_retiringLotId == l.Id)
+                                {
+                                    <input @bind="_retireReason" @bind:event="oninput" placeholder="Used up, recalled, expired…" data-rhig-lot-retire-reason />
+                                    <button class="btn btn-primary btn-sm" disabled="@string.IsNullOrWhiteSpace(_retireReason)" @onclick="() => RetireLotAsync(l.Id)">Retire</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => _retiringLotId = null">Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => { _retiringLotId = l.Id; _retireReason = null; }" data-rhig-lot-retire>Retire</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+</div>
+
+<div class="bb-card" data-rhig-lot-trace>
+    <div class="bb-card-title"><h3>Who received an RhIG lot</h3></div>
+    <p class="muted" style="margin-top:0;">For a recall: scan or type a lot number and press Enter.</p>
+    <div class="flex gap" style="align-items:center;">
+        <input @bind="_lot" @bind:event="oninput" @onkeydown="OnLotKey" placeholder="RhIG lot" autocomplete="off" data-rhig-lot />
+        <button class="btn btn-secondary btn-sm" disabled="@string.IsNullOrWhiteSpace(_lot)" @onclick="FindLotAsync">Find</button>
+    </div>
+    @if (_recipients is not null)
+    {
+        @if (_recipients.Count == 0)
+        {
+            <div class="empty" style="margin-top:.5rem;">No patient has RhIG lot @_searchedLot recorded as given.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb" style="margin-top:.5rem;" data-rhig-lot-results>
+                <thead><tr><th>Patient</th><th>Given</th><th>Vials</th><th>By</th></tr></thead>
+                <tbody>
+                    @foreach (var r in _recipients)
+                    {
+                        <tr>
+                            <td><a href="@($"/patients/{r.PatientId}?tab=rhig")">@r.PatientName</a> <span class="sub mono">@r.Mrn</span></td>
+                            <td class="nowrap">@r.GivenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@r.Vials</td>
+                            <td>@r.GivenBy</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    }
+</div>
+
+@if (_items is null)
+{
+    <div class="loading">Loading...</div>
+}
+else if (_items.Count == 0)
+{
+    <div class="empty">No open RhIG evaluations.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="table-scroll">
+        <table class="bb" data-rhig-queue>
+            <thead><tr><th>Patient</th><th>Event</th><th>Give by</th><th>Decision</th><th>Suggested</th><th>Recorded</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    var e = item.Evaluation;
+                    <tr>
+                        <td><a href="@($"/patients/{e.PatientId}?tab=rhig")">@item.PatientName</a> <span class="sub mono">@item.Mrn</span></td>
+                        <td class="nowrap">@Context(e.Context) @e.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap" data-rhig-give-by="@e.Id">
+                            @if (item.GiveByUtc is DateTime giveBy)
+                            {
+                                @giveBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                @if (item.PastGiveBy)
+                                {
+                                    <span class="badge badge-red" data-rhig-past-give-by>Past</span>
+                                }
+                            }
+                            else if (!string.IsNullOrWhiteSpace(item.GiveByNote))
+                            {
+                                <span class="muted" data-rhig-give-by-note title="@item.GiveByNote">— <span class="sub">@item.GiveByNote</span></span>
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
+                        <td>@Decision(e)</td>
+                        @* Cycle 681: what the facts suggest and the dose calculated, beside what was recorded. *@
+                        <td data-rhig-queue-suggested="@e.Id">
+                            @SuggestedText(e)
+                            @if (e.DecisionDiffersFromSuggestion || e.VialsDifferFromCalculated)
+                            {
+                                <span class="badge badge-amber" data-rhig-queue-differs>Differs</span>
+                            }
+                        </td>
+                        <td class="nowrap">@e.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") <span class="sub">@e.RecordedBy</span></td>
+                        <td>
+                            @if (item.Evaluation.AwaitsGiving)
+                            {
+                                <span class="badge badge-blue" data-rhig-to-give>To give</span>
+                            }
+                            else if (item.ReadyToComplete)
+                            {
+                                <span class="badge badge-green" data-rhig-ready>Ready to complete</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-amber">Needs entries</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </div>
+}
+
+@code {
+    private List<RhigQueueItemDto>? _items;
+
+    /// <summary>"Candidate, 3 vials", "Not a candidate", "Candidate (no dose calculated)", or "—" when the facts suggest nothing.</summary>
+    private static string SuggestedText(RhigEvaluationDto e) => e.SuggestedDecision switch
+    {
+        RhigDecision.Candidate => e.VialsCalculated is int v ? $"Candidate, {v} vial{(v == 1 ? "" : "s")}" : "Candidate (no dose calculated)",
+        RhigDecision.NotCandidate => "Not a candidate",
+        _ => "—"
+    };
+
+    // A link (the top-bar lookup) may open the page on a lot's trace.
+    [SupplyParameterFromQuery(Name = "lot")] public string? LotQuery { get; set; }
+    private string _lot = string.Empty;
+    private string _searchedLot = string.Empty;
+    private List<RhigLotRecipientDto>? _recipients;
+
+    private async Task OnLotKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_lot))
+        {
+            await FindLotAsync();
+        }
+    }
+
+    private async Task FindLotAsync()
+    {
+        _searchedLot = _lot.Trim();
+        var r = await Api.FindRhigLotRecipientsAsync(_searchedLot);
+        _recipients = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+    private Feedback? _fb;
+
+    private List<RhigLotDto> _lots = new();
+    private bool _showRetiredLots;
+    private bool _receiving;
+    private string _newLot = "";
+    private string _newProduct = "";
+    private DateTime _newExpires = DateTime.Today.AddMonths(12);
+    private int _newVials = 1;
+    private long? _retiringLotId;
+    private string? _retireReason;
+
+    private async Task LoadLotsAsync()
+    {
+        var lots = await Api.GetRhigLotsAsync(_showRetiredLots);
+        _lots = lots.Value ?? new();
+    }
+
+    private async Task ReceiveLotAsync()
+    {
+        var r = await Api.ReceiveRhigLotAsync(new ReceiveRhigLotRequest(_newLot, _newProduct, DateOnly.FromDateTime(_newExpires), _newVials));
+        _fb = r.ToFeedback($"Lot {_newLot.Trim()} registered.");
+        if (r.Succeeded)
+        {
+            _receiving = false;
+            _newLot = _newProduct = "";
+            _newVials = 1;
+            await LoadLotsAsync();
+        }
+    }
+
+    private async Task RetireLotAsync(long id)
+    {
+        var r = await Api.RetireRhigLotAsync(id, _retireReason);
+        _fb = r.ToFeedback("Lot retired.");
+        if (r.Succeeded)
+        {
+            _retiringLotId = null;
+            await LoadLotsAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLotsAsync();
+        var r = await Api.GetOpenRhigEvaluationsAsync();
+        _items = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+        }
+
+        if (!string.IsNullOrWhiteSpace(LotQuery))
+        {
+            _lot = LotQuery.Trim();
+            await FindLotAsync();
+        }
+    }
+
+    private static string Context(RhigContext c) => c switch
+    {
+        RhigContext.Antepartum => "Antepartum",
+        RhigContext.Postpartum => "Delivery",
+        _ => "Other exposure"
+    };
+
+    private static string Decision(RhigEvaluationDto e) => e.Decision switch
+    {
+        RhigDecision.Candidate => e.VialsRecommended is int v ? $"Candidate, {v} vial{(v == 1 ? "" : "s")}" : "Candidate",
+        RhigDecision.NotCandidate => "Not a candidate",
+        _ => "Not yet decided"
+    };
+}

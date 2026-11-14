@@ -1,0 +1,310 @@
+@page "/specimens/store"
+@using BloodBankLIS.Application.Specimens
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject IJSRuntime Js
+
+<PageTitle>Store tubes &middot; HemoCore</PageTitle>
+
+<h1>Store tubes</h1>
+<p class="muted">
+    Scan the rack or shelf once, then scan each tube you put there (its accession or label barcode). The chart shows where
+    each tube is; a tube moved to a new place keeps its earlier place on its timeline. When a tube is no longer needed,
+    scan it under Discard tubes. How long tubes are kept is your facility's policy (Specimen retention days, OCD-070).
+</p>
+
+@if (!Session.Has(PermissionCodes.SpecimenAccession))
+{
+    <div class="alert alert-warning">Storing tubes requires specimen accession permission.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row">
+            <div class="field">
+                <label>Storage place</label>
+                <input id="store-location" @bind="_location" @bind:event="oninput" @onkeydown="OnLocationKey"
+                       placeholder="Scan the rack or type the shelf" autocomplete="off" list="store-places" data-store-location />
+                <datalist id="store-places">
+                    @foreach (var place in _places)
+                    {
+                        <option value="@place"></option>
+                    }
+                </datalist>
+            </div>
+            <div class="field">
+                <label>Tube</label>
+                <input id="store-tube" @bind="_tube" @bind:event="oninput" @onkeydown="OnTubeKey" disabled="@string.IsNullOrWhiteSpace(_location)"
+                       placeholder="Scan the tube; Enter stores it" autocomplete="off" data-store-tube />
+            </div>
+            <div class="field">
+                <label>Note (optional)</label>
+                <input @bind="_note" placeholder="For example: position A4" />
+            </div>
+        </div>
+        <Outcome Value="_fb" />
+    </div>
+
+    <div class="bb-card" data-discard-tubes>
+        <div class="bb-card-title"><h3>Discard tubes</h3></div>
+        <p class="muted">
+            Scan each tube as you throw it away. A tube on an unfinished order or an open reaction investigation is kept.
+            Before its keep-until date, or when your facility has not set a retention period, give a reason first.
+        </p>
+        <div class="form-row">
+            <div class="field">
+                <label>Tube to discard</label>
+                <input id="discard-tube" @bind="_discardTube" @bind:event="oninput" @onkeydown="OnDiscardKey"
+                       placeholder="Scan the tube; Enter discards it" autocomplete="off" data-discard-tube />
+            </div>
+            <div class="field">
+                <label>Reason (needed when early)</label>
+                <input @bind="_discardReason" maxlength="@SpecimenDiscardRule.MaxReasonLength" placeholder="For example: duplicate draw, label damaged" data-discard-reason />
+            </div>
+        </div>
+        <Outcome Value="_discardFb" />
+        @if (_discarded.Count > 0)
+        {
+            <div class="table-scroll">
+            <table class="bb" data-discarded-tubes>
+                <thead><tr><th>Tube</th><th>Patient</th><th>Was in</th><th>When</th><th>Early</th></tr></thead>
+                <tbody>
+                    @foreach (var d in _discarded)
+                    {
+                        <tr>
+                            <td class="mono">@d.AccessionNumber</td>
+                            <td><a href="@($"/patients/{d.PatientId}?tab=specimens&specimen={d.SpecimenId}")">@d.PatientName</a> <span class="sub mono">@d.Mrn</span></td>
+                            <td>@(d.PreviousLocation ?? "—")</td>
+                            <td class="nowrap">@d.DiscardedUtc.ToLocalTime().ToString("HH:mm:ss")</td>
+                            <td>@(d.EarlyReason ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+
+    @if (_due.Count > 0)
+    {
+        <div class="bb-card" data-due-for-discard>
+            <div class="bb-card-title"><h3>Due for discard (@_due.Count)</h3></div>
+            <p class="muted">Stored tubes past their keep-until date, grouped by place so each rack or shelf is visited once: the place with the oldest tube first, oldest first within it. Pull each from its place and scan it under Discard tubes; the list shortens as you go.</p>
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Tube</th><th>Patient</th><th>Kept until</th></tr></thead>
+                @foreach (var place in TubePullList.Group(_due))
+                {
+                    <tbody data-pull-place="@place.Name">
+                        <tr class="group-row"><th colspan="3">@place.Name <span class="sub">· @place.Tubes.Count @(place.Tubes.Count == 1 ? "tube" : "tubes")</span></th></tr>
+                        @foreach (var t in place.Tubes)
+                        {
+                            <tr data-pull-tube="@t.AccessionNumber">
+                                <td class="mono">@t.AccessionNumber</td>
+                                <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
+                                <td class="nowrap">
+                                    @t.KeepUntilUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                    @if (t.KeepUntilUtc is { } keepUntil)
+                                    {
+                                        <span class="muted">@AlertInboxView.OpenFor(keepUntil, DateTime.UtcNow) past</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                }
+            </table>
+            </div>
+        </div>
+    }
+
+    @if (_inPlace is not null)
+    {
+        <div class="bb-card" data-tubes-in-place>
+            <div class="bb-card-title"><h3>In @_inPlaceFor now (@_inPlace.Count)</h3></div>
+            @if (_inPlace.Count == 0)
+            {
+                <div class="empty">No tube is recorded in @_inPlaceFor.</div>
+            }
+            else
+            {
+                <div class="table-scroll">
+                <table class="bb">
+                    <thead><tr><th>Tube</th><th>Patient</th><th>Type</th><th>Status</th><th>Collected</th><th>Stored</th><th>Keep until</th></tr></thead>
+                    <tbody>
+                        @foreach (var t in _inPlace)
+                        {
+                            <tr>
+                                <td class="mono">@t.AccessionNumber</td>
+                                <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
+                                <td>@t.SpecimenType</td>
+                                <td>@Ui.EnumText(t.Status)</td>
+                                <td class="nowrap">@t.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="nowrap">@t.StoredUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") <span class="sub">@t.StoredBy</span></td>
+                                <td class="nowrap">
+                                    @if (t.KeepUntilUtc is DateTime keep)
+                                    {
+                                        @keep.ToLocalTime().ToString("yyyy-MM-dd")
+                                        @if (SpecimenDiscardRule.Due(keep, DateTime.UtcNow))
+                                        {
+                                            <span class="badge badge-amber" data-tube-due>Due</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="sub">Not set</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+            }
+        </div>
+    }
+
+    @if (_stored.Count > 0)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Stored this session (@_stored.Count)</h3></div>
+            <div class="table-scroll">
+            <table class="bb" data-stored-tubes>
+                <thead><tr><th>Tube</th><th>Patient</th><th>Stored in</th><th>Was in</th><th>When</th></tr></thead>
+                <tbody>
+                    @foreach (var s in _stored)
+                    {
+                        <tr>
+                            <td class="mono">@s.AccessionNumber</td>
+                            <td><a href="@($"/patients/{s.PatientId}?tab=specimens&specimen={s.SpecimenId}")">@s.PatientName</a> <span class="sub mono">@s.Mrn</span></td>
+                            <td>@s.Location</td>
+                            <td>@(s.PreviousLocation ?? "—")</td>
+                            <td class="nowrap">@s.StoredUtc.ToLocalTime().ToString("HH:mm:ss")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private string _location = string.Empty;
+    private string _tube = string.Empty;
+    private string? _note;
+    private Feedback? _fb;
+    private readonly List<StoredSpecimenDto> _stored = new();
+
+    private List<TubeInPlaceDto>? _inPlace;
+    private List<string> _places = new();
+
+    private string _discardTube = string.Empty;
+    private string? _discardReason;
+    private Feedback? _discardFb;
+    private readonly List<DiscardedSpecimenDto> _discarded = new();
+    private List<TubeInPlaceDto> _due = new();
+
+    // From the worklist's "Store tube": the tube is waiting; scan or choose its place first.
+    [SupplyParameterFromQuery(Name = "tube")] public string? TubeQuery { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var r = await Api.GetSpecimenStoragePlacesAsync();
+        _places = r.Succeeded ? r.Value ?? new() : new();
+        await LoadDueAsync();
+        if (!string.IsNullOrWhiteSpace(TubeQuery))
+        {
+            _tube = TubeQuery.Trim();
+            _fb = Feedback.Succeed($"Tube {_tube} is ready to store: scan or choose its place, then press Enter in Tube.");
+        }
+    }
+    private string _inPlaceFor = string.Empty;
+
+    private async Task LoadDueAsync()
+    {
+        var due = await Api.GetTubesDueForDiscardAsync();
+        _due = due.Succeeded ? due.Value ?? new() : new();
+    }
+
+    // Scan the tube being thrown away; the reason stays for the next tube only when it was needed.
+    private async Task OnDiscardKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_discardTube))
+        {
+            return;
+        }
+
+        var r = await Api.DiscardSpecimenAsync(new DiscardSpecimenRequest(_discardTube, _discardReason));
+        if (r.Succeeded && r.Value is { } d)
+        {
+            _discarded.Insert(0, d);
+            _discardFb = Feedback.Succeed(d.EarlyReason is null
+                ? $"{d.AccessionNumber} discarded{(d.PreviousLocation is null ? "" : $" from {d.PreviousLocation}")}."
+                : $"{d.AccessionNumber} discarded early: {d.EarlyReason}");
+            _discardReason = null;
+            await LoadDueAsync();
+            if (_inPlace is not null)
+            {
+                await LoadInPlaceAsync();
+            }
+        }
+        else
+        {
+            _discardFb = r.ToFeedback();
+        }
+
+        _discardTube = string.Empty;
+        await Js.FocusSelectAsync("discard-tube", preventScroll: true);
+    }
+
+    // Scanning the place shows what is recorded there, then waits for tubes.
+    private async Task OnLocationKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_location))
+        {
+            await LoadInPlaceAsync();
+            await Js.FocusSelectAsync("store-tube", preventScroll: true);
+        }
+    }
+
+    private async Task LoadInPlaceAsync()
+    {
+        // Show the place under the spelling already in use when this is the same place typed another way.
+        _inPlaceFor = SpecimenStorageRule.Canonical(_location, _places);
+        var r = await Api.GetTubesInPlaceAsync(_inPlaceFor);
+        _inPlace = r.Succeeded ? r.Value ?? new() : new();
+    }
+
+    // A scanner ends with Enter: store the tube, then wait for the next one in the same place.
+    private async Task OnTubeKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_tube))
+        {
+            return;
+        }
+
+        var r = await Api.StoreSpecimenAsync(new StoreSpecimenRequest(_tube, _location, _note));
+        if (r.Succeeded && r.Value is { } stored)
+        {
+            _stored.Insert(0, stored);
+            _location = stored.Location;
+            if (!_places.Any(p => SpecimenStorageRule.SamePlace(p, stored.Location)))
+            {
+                _places.Insert(0, stored.Location);
+            }
+
+            _fb = Feedback.Succeed(stored.PreviousLocation is null
+                ? $"{stored.AccessionNumber} stored in {stored.Location}."
+                : $"{stored.AccessionNumber} moved from {stored.PreviousLocation} to {stored.Location}.");
+            await LoadInPlaceAsync();
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+
+        _tube = string.Empty;
+        await Js.FocusSelectAsync("store-tube", preventScroll: true);
+    }
+}

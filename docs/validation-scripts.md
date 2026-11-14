@@ -245,3 +245,61 @@ and privileged requests proceed.
 3. There is **no** API path to update or delete an audit event.
 
 Pass/fail: PASS if every clinical action produced an audit event and audit is read-only.
+
+---
+
+## S-14 — Neonatal pretransfusion testing rules (OCD-074)
+
+Run in a test environment before the neonatal rules are turned on in production (decided 2026-11-10, option C). The
+automated equivalents are TEST-BB-871 to TEST-BB-877; this script repeats them through the application as an operator
+would, with the facility's own settings.
+
+Precondition:
+- Facility Policies: *Neonatal pretransfusion testing rules* = true; *Neonatal age limit (days)* = the value to be used in
+  production (120 by default); *Require second ABO/Rh for RBC issue* = true.
+- Patients: infant **N1** (date of birth within the age limit) with an open inpatient visit; infant **N2** past the age
+  limit with an open visit; infant **N3** within the limit with no visit; an antibody already on file for infant **N4**
+  (within the limit, open visit).
+- Units: group O red cells and red cells of N1's ABO group (if not O), unreserved, in date.
+- Sign in as `tech1` (results, issue) and `supervisor` (verify).
+
+Part A — one specimen covers the admission
+
+1. Accession an EDTA tube for N1 on the open visit.
+   Expected: the specimen expires on the day N1 reaches the age limit (00:00 UTC, shown in local time), or at the visit's
+   discharge if that is already set and sooner; the chart's Specimens tab says *For the admission (infant)*; the specimen's
+   audit entry says "Infant: valid for the admission (OCD-074)".
+2. Accession a tube for N1 with validity hours entered by hand. Expected: the entered hours, no admission note.
+3. Accession a tube for N2 and for N3. Expected: the usual expiration for both; no admission note.
+4. Discharge N1's visit (chart visit edit, or an ADT A03 from the interface simulator).
+   Expected: the step 1 specimen now expires at the discharge time, or at its usual expiration if that is later; an audit
+   entry names the visit. Re-admit N1 on a new visit for Parts B and C and repeat step 1.
+
+Part B — ABO/Rh is not repeated during the admission
+
+5. Enter and verify ABO/Rh on N1's admission specimen. Reserve a group O red cell unit for N1.
+   Expected: the chart header says *Infant: stands for the admission* with no second-ABO/Rh notice; N1 is not on the
+   Second ABO/Rh desk; Ready to issue does not flag the unit for a second ABO/Rh.
+6. Check electronic crossmatch eligibility for N1. Expected: not eligible (it still needs two determinations).
+
+Part C — no crossmatch when the antibody screen is negative
+
+7. Enter and verify a negative antibody screen on N1's admission specimen. Issue the reserved group O unit without a
+   crossmatch (routine issue).
+   Expected: issued; the issue record and its audit entry are marked neonatal, no crossmatch; Ready to issue did not ask
+   for a crossmatch for that unit.
+8. Reserve a red cell unit of N1's group (not O) and try to issue it without a crossmatch.
+   Expected: refused, *A compatible, unexpired crossmatch is required* (OCD-082).
+9. For N4 (antibody on file, negative screen on an admission specimen), try to issue group O red cells without a crossmatch.
+   Expected: refused, crossmatch required.
+10. Emergency release to N1 follows the emergency path (authorized override), not the neonatal waiver.
+
+Part D — off
+
+11. Set *Neonatal pretransfusion testing rules* = false and repeat step 1 on a new tube for N1.
+    Expected: the usual expiration; the second ABO/Rh and crossmatch requirements apply as for any patient. Specimens made
+    admission-long while the rules were on keep their dating until discharge or the age limit.
+
+Pass/fail: PASS if every expected result is seen and each audit entry is present; FAIL on any difference. Record the
+facility's settings, the run date, who ran it, and the evidence (screenshots or exports) with the validation file before
+turning the rules on in production.

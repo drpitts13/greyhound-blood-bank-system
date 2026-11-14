@@ -38,6 +38,8 @@ public static class Hl7DftBuilder
             .Set(map.Path(InterfaceDataItemKeys.PatientMiddleName), translator.ToExternal(InterfaceDataItemKeys.PatientMiddleName, patient?.MiddleName))
             .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), translator.ToExternal(InterfaceDataItemKeys.PatientDateOfBirth, patient is null ? null : patient.DateOfBirth.ToString("yyyyMMdd")))
             .Set(map.Path(InterfaceDataItemKeys.PatientSex), translator.ToExternal(InterfaceDataItemKeys.PatientSex, SexCode(patient)))
+            .Set(map.Path(InterfaceDataItemKeys.PatientRace), translator.ToExternal(InterfaceDataItemKeys.PatientRace, patient?.Race))
+            .Set(map.Path(InterfaceDataItemKeys.PatientEthnicity), translator.ToExternal(InterfaceDataItemKeys.PatientEthnicity, patient?.Ethnicity))
             .Set("FT1-1", "1")
             .Set("FT1-2", billingEvent.Id > 0 ? billingEvent.Id.ToString() : string.Empty)
             .Set(map.Path(InterfaceDataItemKeys.BillingServiceDate), translator.ToExternal(InterfaceDataItemKeys.BillingServiceDate, billingEvent.ServiceDateUtc.ToString(Hl7MessageBuilder.Hl7TimestampFormat)))

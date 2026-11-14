@@ -1,10 +1,10 @@
-@page "/patients/{PatientId:long}/antibody-id"
+﻿@page "/patients/{PatientId:long}/antibody-id"
 @page "/patients/{PatientId:long}/antibody-id/{WorkupId:long}"
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Antibody identification &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Antibody identification &middot; HemoCore</PageTitle>
 
 <h1>Antibody identification</h1>
 <p class="muted">
@@ -38,13 +38,14 @@ else if (_workup is null)
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Opened</th><th>Specimen</th><th>Panel</th><th>Manufacturer</th><th>Lot</th><th>Next</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var w in _workups)
                     {
                         <tr>
-                            <td class="nowrap">@w.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@w.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(w.SpecimenAccession))
                                 {
@@ -104,6 +105,7 @@ else if (_workup is null)
                     }
                 </tbody>
             </table>
+            </div>
         }
 
         @if (Session.Has(PermissionCodes.ImmunoRecord))
@@ -123,7 +125,7 @@ else if (_workup is null)
                 <div class="field"><label>Panel lot</label>
                     <select @bind="_newLotId">
                         <option value="">Select an in-date lot</option>
-                        @foreach (var lot in _lots.Where(l => !l.IsExpired && l.IsActive && !l.IsSelectedCellLot))
+                        @foreach (var lot in NewWorkupPanelLots)
                         {
                             <option value="@lot.Id">@LotOptionLabel(lot)</option>
                         }
@@ -151,10 +153,21 @@ else if (_workup is null)
                         The specimen you opened is not usable for a new workup
                         (@PrefillSpecimenStatus).
                         Accession a current specimen on the
-                        <a href="@($"/patients/{PatientId}?tab=orders&panel=accession")">patient chart</a>,
+                        <a href="@($"/patients/{PatientId}?panel=specimen")">patient chart</a>,
                         or pick another accession. This does not identify antibodies.
                     </div>
                 }
+            }
+            @if (NewWorkupPanelLots.Count == 0)
+            {
+                <div class="alert alert-warning" data-no-panel-lot>
+                    No in-date active panel lot, so a workup cannot be opened.
+                    Add or reactivate one on <a href="/admin/antibody-panel-lots">Antibody panel lots</a>.
+                </div>
+            }
+            else if (_lotDefaulted && _newLotId == NewWorkupPanelLots[0].Id)
+            {
+                <p class="muted" data-lot-defaulted>The only in-date panel lot is selected.</p>
             }
             @if (_newSpecimenId is null)
             {
@@ -189,7 +202,7 @@ else
 
     <div class="bb-card" id="abid-scope">
         <div class="bb-card-title">
-            <h3>Workup #@_workup.Id — @_workup.Status</h3>
+            <h3>Workup #@_workup.Id — @Ui.EnumText(_workup.Status)</h3>
             <a class="btn btn-secondary btn-sm" href="@($"/patients/{PatientId}/antibody-id")">All workups</a>
         </div>
         <div class="muted">
@@ -282,6 +295,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Specificity</th><th>Status</th><th>Active</th></tr></thead>
                 <tbody>
@@ -289,12 +303,13 @@ else
                     {
                         <tr>
                             <td><strong>@a.AntibodySpecificity</strong></td>
-                            <td>@a.Status</td>
+                            <td>@Ui.EnumText(a.Status)</td>
                             <td>@(a.IsActive ? "Yes" : "No")</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -307,6 +322,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Antigen</th><th>Result</th><th>Method</th></tr></thead>
                 <tbody>
@@ -325,6 +341,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -335,7 +352,7 @@ else
                 <select @bind="_dat" disabled="@(!CanEdit)">
                     @foreach (var d in Enum.GetValues<AntibodyIdDatResult>())
                     {
-                        <option value="@d">@d</option>
+                        <option value="@d">@Ui.EnumText(d)</option>
                     }
                 </select>
             </div>
@@ -353,17 +370,27 @@ else
     <div class="bb-card" id="abid-antigram">
         <div class="bb-card-title"><h3>Antigram</h3></div>
         <div style="overflow:auto;">
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
                         <th>Cell</th>
                         @foreach (var antigen in AntigenColumns)
                         {
-                            <th>@antigen</th>
+                            @* Antigen names are case-sensitive (C and c, E and e): not upper-cased like other headers. *@
+                            <th class="antigen" data-antigen-col title="@antigen">@Ui.AntigenText(antigen)</th>
                         }
                         @foreach (var phase in _workup.InterpretivePhases)
                         {
-                            <th>@phase</th>
+                            <th>
+                                @phase
+                                @if (CanEdit && UntestedCount(phase) > 0)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" data-fill-negative="@phase"
+                                            title="Set the cells still NT at @phase to 0. Not saved until Save reactions."
+                                            @onclick="() => FillNegative(phase)">Rest 0</button>
+                                }
+                            </th>
                         }
                     </tr>
                 </thead>
@@ -388,6 +415,8 @@ else
                                     @if (CanEdit)
                                     {
                                         <select value="@CurrentGrade(cell, phase)"
+                                                data-bulk-filled="@(_bulkFilled.Contains((cell.CellId, phase)) ? "true" : null)"
+                                                style="@(_bulkFilled.Contains((cell.CellId, phase)) ? "outline:2px dashed var(--bb-warn);" : null)"
                                                 @onchange="e => SetGrade(cell.CellId, phase, e.Value?.ToString())">
                                             @foreach (var g in Enum.GetValues<ReactionGrade>())
                                             {
@@ -405,7 +434,15 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         </div>
+        @if (CanEdit && _bulkFilled.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:0.75rem;" data-bulk-filled-note>
+                @(_bulkFilled.Count == 1 ? "1 cell" : $"{_bulkFilled.Count} cells") set to 0 with Rest 0 (outlined).
+                Check each against its tube before Save reactions; change any that reacted.
+            </div>
+        }
         @if (CanEdit)
         {
             <div class="flex gap" style="margin-top:0.75rem;">
@@ -449,6 +486,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Specificity</th><th>Class</th><th>Source</th><th>History</th><th>Rationale</th></tr></thead>
                 <tbody>
@@ -457,13 +495,14 @@ else
                         <tr>
                             <td><strong>@f.Specificity</strong></td>
                             <td>@f.Classification</td>
-                            <td>@f.Source</td>
+                            <td>@Ui.EnumText(f.Source)</td>
                             <td>@(f.PostedToHistory ? "Posted" : f.Source == AntibodyIdSource.Technologist && f.Classification == AntibodyIdClassification.Identified ? "Will post on complete" : "—")</td>
                             <td>@f.Rationale</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -533,7 +572,7 @@ else
                 <ul>
                     @foreach (var item in _interpItems)
                     {
-                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(free-text; will not drive antigen-negative unless resolved)" : "(catalog)")@(string.IsNullOrWhiteSpace(item.Rationale) ? "" : $" — {item.Rationale}")
+                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(not in the catalog; will not drive antigen-negative selection)" : "(catalog)")@(string.IsNullOrWhiteSpace(item.Rationale) ? "" : $" — {item.Rationale}")
                             <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _interpItems.Remove(item)">Remove</button></li>
                     }
                 </ul>
@@ -546,6 +585,19 @@ else
     {
         <div class="bb-card" id="abid-review">
             <div class="bb-card-title"><h3>Supervisor review</h3></div>
+            @if (string.IsNullOrWhiteSpace(_workup.TechnologistInterpretation))
+            {
+                <p class="muted" data-review-waiting>Waiting for the technologist interpretation. Review opens once it is recorded.</p>
+            }
+            else
+            {
+            @if (OwnInterpretationBlocksAccept)
+            {
+                <div class="alert alert-warning" data-review-self>
+                    You recorded this interpretation, so another supervisor must accept it (facility policy: block antibody ID self-review).
+                    You can still reject it.
+                </div>
+            }
             @if (IncompleteBlocksComplete)
             {
                 <div class="alert alert-warning">Identified antibodies cannot be accepted while panel or selected cells are missing interpretive-phase reactions.</div>
@@ -560,9 +612,10 @@ else
             }
             <div class="field"><label>Review comment</label><input @bind="_reviewComment" /></div>
             <div class="flex gap">
-                <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive || ReviewAckBlocksAccept)" @onclick="() => ReviewAsync(true)">Accept</button>
+                <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive || ReviewAckBlocksAccept || OwnInterpretationBlocksAccept)" @onclick="() => ReviewAsync(true)">Accept</button>
                 <button class="btn btn-danger" disabled="@_busy" @onclick="() => ReviewAsync(false)">Reject</button>
             </div>
+            }
         </div>
     }
 
@@ -591,6 +644,12 @@ else
                     }
                 </ul>
             }
+            @if (CompleteWaitingFor is { } waiting)
+            {
+                <p class="muted" data-complete-waiting>@waiting</p>
+            }
+            else
+            {
             @if (NeedsCompleteAck)
             {
                 <div class="field">
@@ -600,6 +659,7 @@ else
                 <p class="muted">Required when completion warnings are present. Acknowledgment does not identify antibodies.</p>
             }
             <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || AckBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive)" @onclick="CompleteAsync">Complete workup</button>
+            }
             <p class="muted">Posts only the technologist-Identified specificities listed above, after supervisor acceptance. Assistance is never posted.</p>
         </div>
         <div class="bb-card">
@@ -629,6 +689,8 @@ else
     private List<AntibodyPanelLotListItemDto> _lots = new();
     private AntibodyIdWorkupDetailDto? _workup;
     private long? _newLotId;
+    // Set when the page chose the panel lot because it was the only in-date one.
+    private bool _lotDefaulted;
     private long? _selectedLotId;
     private long? _attachLotId;
     private long? _newSpecimenId;
@@ -652,6 +714,10 @@ else
     private readonly List<AntibodyIdInterpretationItem> _interpItems = new();
     private string? _reviewComment;
     private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _grades = new();
+    // The grades as last loaded: Save reactions sends only the cells changed since.
+    private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _savedGrades = new();
+    // Cells Rest 0 set to negative and not yet saved or changed by hand: outlined so each is checked against its tube.
+    private readonly HashSet<(long CellId, string Phase)> _bulkFilled = new();
 
     private bool JudgmentStale =>
         _workup is not null
@@ -685,6 +751,9 @@ else
             return list;
         }
     }
+
+    private IReadOnlyList<AntibodyPanelLotListItemDto> NewWorkupPanelLots =>
+        _lots.Where(l => !l.IsExpired && l.IsActive && !l.IsSelectedCellLot).ToList();
 
     private bool NewSpecimenUsable =>
         _newSpecimenId is not > 0 || LinkableSpecimens.Any(s => s.Id == _newSpecimenId);
@@ -844,6 +913,44 @@ else
 
     private bool AckBlocksComplete => NeedsCompleteAck && string.IsNullOrWhiteSpace(_completeAck);
 
+    // The service refuses to complete without a current interpretation and, when review is required, a supervisor's
+    // acceptance; the card says which is outstanding instead of offering Complete.
+    private bool _reviewRequiredByPolicy = true;
+
+    private string? CompleteWaitingFor
+    {
+        get
+        {
+            if (_workup is null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(_workup.TechnologistInterpretation) || _workup.InterpretedUtc is null)
+            {
+                return "Waiting for the technologist interpretation, then supervisor review. Complete opens after that.";
+            }
+
+            if (!_reviewRequiredByPolicy || (_workup.ReviewedUtc is not null && _workup.SupervisorAccepted))
+            {
+                return null;
+            }
+
+            return _workup.ReviewedUtc is not null
+                ? $"The supervisor rejected this interpretation{(string.IsNullOrWhiteSpace(_workup.SupervisorUser) ? "" : $" ({_workup.SupervisorUser})")}. Record a new interpretation for review; Complete opens after a supervisor accepts it."
+                : "Waiting for supervisor review. Complete opens once a supervisor accepts the interpretation.";
+        }
+    }
+
+    // The service refuses an accept by the interpreting technologist while review is required and self-review is
+    // blocked; the page says so before Accept rather than after.
+    private bool _selfReviewBlockedByPolicy;
+
+    private bool OwnInterpretationBlocksAccept =>
+        _selfReviewBlockedByPolicy
+        && !string.IsNullOrWhiteSpace(_workup?.TechnologistUser)
+        && string.Equals(_workup.TechnologistUser, Session.UserName, StringComparison.OrdinalIgnoreCase);
+
     private bool ReviewAckBlocksAccept => NeedsCompleteAck && string.IsNullOrWhiteSpace(_reviewAck);
 
     private bool AutocontrolLooksPositive =>
@@ -943,6 +1050,7 @@ else
     {
         _patient = (await Api.GetPatientAsync(PatientId)).Value;
         _lots = (await Api.GetAntibodyIdLotsAsync(true)).Value ?? new();
+        ApplyLotDefault();
         _workups = (await Api.GetAntibodyIdWorkupsAsync(PatientId)).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(PatientId)).Value ?? new();
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
@@ -960,6 +1068,7 @@ else
             }
 
             ApplyWorkup(r.Value);
+            await LoadSelfReviewPolicyAsync();
             return;
         }
 
@@ -974,6 +1083,33 @@ else
                 Nav.NavigateTo($"/patients/{PatientId}/antibody-id/{open.Id}", replace: true);
             }
         }
+    }
+
+    // One in-date panel lot is the only choice, so it is selected; with several the technologist picks.
+    private void ApplyLotDefault()
+    {
+        var lots = NewWorkupPanelLots;
+        if (_newLotId is long chosen && lots.Any(l => l.Id == chosen))
+        {
+            return;
+        }
+
+        _newLotId = lots.Count == 1 ? lots[0].Id : null;
+        _lotDefaulted = _newLotId is not null;
+    }
+
+    private async Task LoadSelfReviewPolicyAsync()
+    {
+        // Unreadable reads as on, the shipped default; the service decides either way.
+        var required = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AntibodyIdRequireSupervisorReview);
+        _reviewRequiredByPolicy = required.Value?.Enabled ?? true;
+        if (!Session.Has(PermissionCodes.ImmunoOverride))
+        {
+            return;
+        }
+
+        var blockSelf = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AntibodyIdBlockSelfReview);
+        _selfReviewBlockedByPolicy = _reviewRequiredByPolicy && (blockSelf.Value?.Enabled ?? true);
     }
 
     private void ApplySpecimenPrefill()
@@ -1004,6 +1140,13 @@ else
                 var existing = cell.Reactions.LastOrDefault(r => string.Equals(r.PhaseCode, phase, StringComparison.OrdinalIgnoreCase));
                 _grades[(cell.CellId, phase)] = existing?.Strength ?? ReactionGrade.NotTested;
             }
+        }
+
+        _bulkFilled.Clear();
+        _savedGrades.Clear();
+        foreach (var kv in _grades)
+        {
+            _savedGrades[kv.Key] = kv.Value;
         }
     }
 
@@ -1065,10 +1208,19 @@ else
     private async Task SaveReactionsAsync()
     {
         if (_workup is null) return;
+        var payload = _grades
+            .Where(kv => !_savedGrades.TryGetValue(kv.Key, out var saved) || saved != kv.Value)
+            .Select(kv => new RecordAntibodyIdReactionRequest(kv.Key.CellId, kv.Key.Phase, kv.Value))
+            .ToList();
+        if (payload.Count == 0)
+        {
+            _fb = Feedback.Succeed("No reactions changed; nothing to save.");
+            return;
+        }
+
         _busy = true;
-        var payload = _grades.Select(kv => new RecordAntibodyIdReactionRequest(kv.Key.CellId, kv.Key.Phase, kv.Value)).ToList();
         var r = await Api.RecordAntibodyIdReactionsAsync(_workup.Id, payload);
-        _fb = r.ToFeedback("Reactions saved.");
+        _fb = r.ToFeedback(payload.Count == 1 ? "1 reaction saved." : $"{payload.Count} reactions saved.");
         if (r.Succeeded && r.Value is not null) ApplyWorkup(r.Value);
         _busy = false;
     }
@@ -1100,9 +1252,16 @@ else
         }
 
         if (string.IsNullOrWhiteSpace(_interpSpec)) return;
-        _interpItems.Add(new AntibodyIdInterpretationItem(null, _interpSpec.Trim(), _interpClass, InterpRationaleOrDefault()));
+        // Typed text is matched to the catalog as the server will match it, so the list shows what will post.
+        var resolution = AntibodyIdentificationCatalogResolver.Resolve(null, _interpSpec, AntibodyCatalog);
+        _interpItems.Add(resolution.CatalogMatched
+            ? new AntibodyIdInterpretationItem(resolution.DefinitionId, resolution.Specificity, _interpClass, InterpRationaleOrDefault())
+            : new AntibodyIdInterpretationItem(null, _interpSpec.Trim(), _interpClass, InterpRationaleOrDefault()));
         _interpSpec = "";
     }
+
+    private IReadOnlyList<AntibodyCatalogItem> AntibodyCatalog =>
+        _bloodAttributeCatalog.Select(a => new AntibodyCatalogItem(a.Id, a.Code, a.Name, a.AntibodyName)).ToList();
 
     private string? InterpRationaleOrDefault() =>
         AntibodyIdentificationInterpretationRule.HasDocumentedRationale(_interpRationale)
@@ -1222,6 +1381,21 @@ else
         if (Enum.TryParse<ReactionGrade>(value, out var grade))
         {
             _grades[(cellId, phase)] = grade;
+            _bulkFilled.Remove((cellId, phase));
+        }
+    }
+
+    private int UntestedCount(string phase) =>
+        _workup?.Cells.Count(c => CurrentGrade(c, phase) == ReactionGrade.NotTested) ?? 0;
+
+    // Only cells still NT in this phase are set; graded cells and other phases are left as they are (OCD-079).
+    private void FillNegative(string phase)
+    {
+        if (_workup is null) return;
+        foreach (var cell in _workup.Cells.Where(c => CurrentGrade(c, phase) == ReactionGrade.NotTested))
+        {
+            _grades[(cell.CellId, phase)] = ReactionGrade.Negative;
+            _bulkFilled.Add((cell.CellId, phase));
         }
     }
 

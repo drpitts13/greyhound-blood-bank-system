@@ -2,7 +2,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Authenticator &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Authenticator &middot; HemoCore</PageTitle>
 
 <h1>Authenticator app</h1>
 <p class="muted">Sign in with a 6-digit code from an authenticator app as well as your password.</p>
@@ -17,7 +17,7 @@ else if (_status is { } status)
     <div class="bb-card">
         @if (status.Enrolled)
         {
-            <p><span class="badge badge-green">On</span> Set up @status.EnrolledUtc?.ToString("yyyy-MM-dd HH:mm") UTC. You enter a code each time you sign in.</p>
+            <p><span class="badge badge-green">On</span> Set up @status.EnrolledUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") UTC. You enter a code each time you sign in.</p>
             @if (status.RequiredByPolicy)
             {
                 <p class="muted">Facility policy requires an authenticator for your account. If you lose your device, ask an administrator to reset it; you then set it up again when you sign in.</p>

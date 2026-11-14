@@ -1,0 +1,383 @@
+@page "/admin/specimen-labels"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Specimen labels · Admin</PageTitle>
+
+@if (_editing is null)
+{
+    <h1>Specimen labels</h1>
+    <p class="muted">
+        Design the labels printed for specimen tubes and for aliquots split from them. Each design has its own label size.
+        One design per purpose is the default; the others are chosen when printing.
+    </p>
+    <Outcome Value="_feedback" />
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Designs</h3></div>
+        @if (_designs.Count == 0)
+        {
+            <div class="empty">No label designs yet. Create one below.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Name</th><th>Code</th><th>For</th><th>Size</th><th>Elements</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var d in _designs)
+                    {
+                        <tr data-design="@d.Code">
+                            <td><a href="@($"/admin/specimen-labels?id={d.Id}")">@d.Name</a></td>
+                            <td class="mono">@d.Code</td>
+                            <td>@(d.Purpose == SpecimenLabelPurpose.Aliquot ? "Aliquot" : "Tube")</td>
+                            <td class="nowrap">@SpecimenLabelDesignRules.InchesText(d.WidthInches) × @SpecimenLabelDesignRules.InchesText(d.HeightInches) in</td>
+                            <td>@d.ElementCount</td>
+                            <td>
+                                @if (d.IsDefault) { <span class="badge badge-green">Default</span> }
+                                @if (!d.IsActive) { <span class="badge badge-gray">Inactive</span> }
+                                <span class="sub">v@(d.Version)</span>
+                            </td>
+                            <td class="right nowrap">
+                                <a class="btn btn-ghost btn-sm" href="@($"/admin/specimen-labels?id={d.Id}")">@(CanEdit ? "Design" : "View")</a>
+                                @if (CanEdit && d.IsActive && !d.IsDefault)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => MakeDefaultAsync(d)">Make default</button>
+                                }
+                                @if (CanEdit && !d.IsDefault)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SetActiveAsync(d, !d.IsActive)">@(d.IsActive ? "Deactivate" : "Activate")</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+
+    @if (CanEdit)
+    {
+        <div class="bb-card" data-new-design>
+            <div class="bb-card-title"><h3>New design</h3></div>
+            <div class="form-row">
+                <div class="field"><label>Name</label><input @bind="_newName" @bind:event="oninput" placeholder="Cryovial label" /></div>
+                <div class="field"><label>Code</label><input class="mono" @bind="_newCode" @bind:event="oninput" placeholder="CRYO-1" /></div>
+                <div class="field"><label>For</label>
+                    <select @bind="NewPurposeText">
+                        <option value="Tube">Tube</option>
+                        <option value="Aliquot">Aliquot</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field"><label>Label size</label>
+                    <select @bind="_newSize">
+                        @foreach (var size in SpecimenLabelDesignRules.StockSizes)
+                        {
+                            <option value="@size.Label">@size.Label</option>
+                        }
+                        <option value="@CustomSize">Custom…</option>
+                    </select>
+                </div>
+                @if (_newSize == CustomSize)
+                {
+                    <div class="field"><label>Width (in)</label><input type="number" step="0.05" min="@SpecimenLabelDesignRules.MinWidthInches" max="@SpecimenLabelDesignRules.MaxWidthInches" @bind="_customWidth" /></div>
+                    <div class="field"><label>Height (in)</label><input type="number" step="0.05" min="@SpecimenLabelDesignRules.MinHeightInches" max="@SpecimenLabelDesignRules.MaxHeightInches" @bind="_customHeight" /></div>
+                }
+                <div class="field"><label>Start from</label>
+                    <select @bind="_copyFromText">
+                        <option value="">A starter layout for this size</option>
+                        @foreach (var d in _designs)
+                        {
+                            <option value="@d.Id">A copy of @d.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newCode))" @onclick="CreateAsync">Create and design</button>
+        </div>
+    }
+}
+else
+{
+    <p><a href="/admin/specimen-labels">All specimen label designs</a></p>
+    <div class="bb-card">
+        <div class="bb-card-title flex-between">
+            <h1 style="margin:0;">@_editing.Name</h1>
+            <div class="flex gap">
+                @if (!CanEdit)
+                {
+                    <span class="muted">View only. Saving needs the configuration edit permission.</span>
+                }
+                <button type="button" class="btn btn-primary" data-save-design disabled="@(_busy || !CanEdit || _check.Errors.Count > 0)" @onclick="SaveAsync">Save</button>
+            </div>
+        </div>
+        <p class="muted">
+            <span class="mono">@_editing.Code</span> · @(_editing.Purpose == SpecimenLabelPurpose.Aliquot ? "Aliquot label" : "Tube label")
+            · @SpecimenLabelDesignRules.InchesText(_editing.WidthDots) × @SpecimenLabelDesignRules.InchesText(_editing.HeightDots) in
+            · version @_editing.Version@(_editing.IsDefault ? " · default" : "")@(_editing.IsActive ? "" : " · inactive").
+            Drag an element onto the label, or click it to add it at the top. Sample data is shown at printed size; print a test label before relying on a new layout.
+        </p>
+        <Outcome Value="_feedback" />
+        @if (CanEdit)
+        {
+            <div class="field" style="max-width:420px;"><label>Name</label><input @bind="_editName" /></div>
+        }
+
+        <LabelCanvasEditor @ref="_canvas"
+                           Fields="_editing.Document.Page1"
+                           WidthDots="_editing.WidthDots"
+                           HeightDots="_editing.HeightDots"
+                           Scale="Scale"
+                           Palette="LabelFields.SpecimenDesignPalette(_editing.Purpose == SpecimenLabelPurpose.Aliquot)"
+                           AllowBarcode="@(f => f.Key == LabelFields.Accession)"
+                           SampleData="true"
+                           ShowBarcodeOptions="true"
+                           ReadOnly="@(!CanEdit)"
+                           Caption="@CanvasCaption"
+                           Changed="Recheck" />
+
+        @if (_check.Errors.Count > 0 || _check.Warnings.Count > 0)
+        {
+            <div style="margin-top:.75rem;" data-design-check>
+                @foreach (var error in _check.Errors)
+                {
+                    <div class="alert alert-danger" style="margin:.25rem 0;">@error</div>
+                }
+                @foreach (var warning in _check.Warnings)
+                {
+                    <div class="alert alert-warning" style="margin:.25rem 0;">@warning</div>
+                }
+            </div>
+        }
+        @if (CanEdit)
+        {
+            @* A test label of the layout as it stands, saved or not, with sample data that is plainly not a patient (Cycle 658). *@
+            <div class="bb-card" style="margin-top:1rem;" data-test-print>
+                <div class="bb-card-title"><h3>Test print</h3></div>
+                <p class="muted">Prints the layout on the canvas, saved or not, for patient "TEST LABEL, NOT FOR USE" with barcode <span class="mono">TESTLABEL01</span>, which matches no specimen. Nothing is recorded against a patient; a test label sent to a printer is recorded against this design.</p>
+                <div class="form-row">
+                    <div class="field"><label>Send to</label>
+                        <select @bind="_testTarget" data-test-target>
+                            <option value="">Show a PDF here (no printer)</option>
+                            <option value="zpl">Show the ZPL here (no printer)</option>
+                            @foreach (var p in _zebraPrinters)
+                            {
+                                <option value="@($"z{p.Id}")">Zebra: @p.Name</option>
+                            }
+                            @foreach (var p in _pdfPrinters)
+                            {
+                                <option value="@($"p{p.Id}")">PDF printer: @p.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary" data-test-print-button disabled="@(_busy || _check.Errors.Count > 0)" @onclick="TestPrintAsync">Test print</button>
+                <Outcome Value="_testFb" />
+                @if (_testPdf is not null)
+                {
+                    <iframe title="Test label PDF" src="@_testPdf" data-test-pdf style="width:100%;height:260px;border:1px solid var(--bb-border);background:#fff;margin-top:.5rem;"></iframe>
+                }
+                @if (_testZpl is not null)
+                {
+                    <pre class="mono" data-test-zpl style="white-space:pre-wrap;word-break:break-all;margin-top:.5rem;">@_testZpl</pre>
+                }
+            </div>
+        }
+        <ConfigHistoryPanel EntityType="SpecimenLabelDesign" EntityId="@_editing.Id" />
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")]
+    public long? DesignId { get; set; }
+
+    private const string CustomSize = "custom";
+    private List<SpecimenLabelDesignListItemDto> _designs = new();
+    private SpecimenLabelDesignDto? _editing;
+    private LabelCanvasEditor? _canvas;
+    private SpecimenLabelDesignCheck _check = new([], []);
+    private Feedback? _feedback;
+    private bool _busy;
+    private string _newName = string.Empty;
+    private string _newCode = string.Empty;
+    private SpecimenLabelPurpose _newPurpose = SpecimenLabelPurpose.Tube;
+    private string _newSize = SpecimenLabelDesignRules.StockSizes[0].Label;
+    private decimal _customWidth = 2m;
+    private decimal _customHeight = 1m;
+    private string _copyFromText = string.Empty;
+    private string _editName = string.Empty;
+    private List<ZebraPrinterDto> _zebraPrinters = new();
+    private List<PdfPrinterDto> _pdfPrinters = new();
+    private string _testTarget = string.Empty;
+    private Feedback? _testFb;
+    private string? _testPdf;
+    private string? _testZpl;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+
+    // A select cannot bind an enum through a converter it lacks; bind its text (Cycle 596 guard).
+    private string NewPurposeText
+    {
+        get => _newPurpose.ToString();
+        set
+        {
+            _newPurpose = Enum.TryParse<SpecimenLabelPurpose>(value, out var purpose) ? purpose : SpecimenLabelPurpose.Tube;
+            // An aliquot design starts on the small stock most aliquot tubes take.
+            if (_newPurpose == SpecimenLabelPurpose.Aliquot && _newSize == SpecimenLabelDesignRules.StockSizes[0].Label)
+            {
+                _newSize = SpecimenLabelDesignRules.StockSizes.First(s => s.HeightInches == 0.5m).Label;
+            }
+        }
+    }
+
+    // The canvas fits the middle column of a 1366px-wide window; small labels are drawn larger.
+    private double Scale => _editing is null ? 1 : Math.Min(2.5, 560.0 / _editing.WidthDots);
+
+    private string CanvasCaption => _editing is null
+        ? string.Empty
+        : $"{SpecimenLabelDesignRules.InchesText(_editing.WidthDots)} × {SpecimenLabelDesignRules.InchesText(_editing.HeightDots)} in at {SpecimenLabelDesignRules.Dpi} dpi, shown at {Scale:0.##}×.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _feedback = null;
+        if (DesignId is long id)
+        {
+            var result = await Api.GetSpecimenLabelDesignAsync(id);
+            if (result.Succeeded && result.Value is not null)
+            {
+                Open(result.Value);
+                await LoadPrintersAsync();
+                return;
+            }
+
+            _feedback = result.ToFeedback();
+        }
+
+        _editing = null;
+        await LoadListAsync();
+    }
+
+    private async Task LoadListAsync()
+    {
+        var result = await Api.GetSpecimenLabelDesignsAsync();
+        if (result.Succeeded)
+        {
+            _designs = result.Value ?? new();
+        }
+        else
+        {
+            _feedback = result.ToFeedback();
+        }
+    }
+
+    private async Task LoadPrintersAsync()
+    {
+        if (!CanEdit || _zebraPrinters.Count > 0 || _pdfPrinters.Count > 0)
+        {
+            return;
+        }
+
+        var zebra = await Api.GetAdminZebraPrintersAsync(includeInactive: false);
+        _zebraPrinters = zebra.Value ?? new();
+        var pdf = await Api.GetAdminPdfPrintersAsync(includeInactive: false);
+        _pdfPrinters = pdf.Value ?? new();
+    }
+
+    private async Task TestPrintAsync()
+    {
+        if (_editing is null)
+        {
+            return;
+        }
+
+        long? zebraId = _testTarget.StartsWith('z') && long.TryParse(_testTarget[1..], out var z) ? z : null;
+        long? pdfId = _testTarget.StartsWith('p') && long.TryParse(_testTarget[1..], out var p) ? p : null;
+        var format = _testTarget == "zpl" || zebraId is not null ? LabelFormat.Zpl : LabelFormat.Pdf;
+        _busy = true;
+        var result = await Api.TestPrintSpecimenLabelDesignAsync(_editing.Id, new SpecimenLabelTestPrintVm(_editing.Document, format, pdfId, zebraId));
+        _busy = false;
+        _testPdf = null;
+        _testZpl = null;
+        _testFb = result.ToFeedback(result.Value?.SentTo is { } sent ? $"Test label sent to {sent}." : "Test label rendered.");
+        if (result.Succeeded && result.Value is { } done)
+        {
+            _testPdf = done.PdfBase64 is null ? null : "data:application/pdf;base64," + done.PdfBase64;
+            _testZpl = done.Zpl;
+        }
+    }
+
+    private void Open(SpecimenLabelDesignDto design)
+    {
+        _testFb = null;
+        _testPdf = null;
+        _testZpl = null;
+        _editing = design;
+        _editName = design.Name;
+        _canvas?.ClearSelection();
+        Recheck();
+    }
+
+    private void Recheck()
+    {
+        if (_editing is not null)
+        {
+            _check = SpecimenLabelDesignRules.Check(_editing.Purpose, _editing.WidthDots, _editing.HeightDots, _editing.Document.Page1);
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        var size = SpecimenLabelDesignRules.StockSizes.FirstOrDefault(s => s.Label == _newSize);
+        var width = size?.WidthInches ?? _customWidth;
+        var height = size?.HeightInches ?? _customHeight;
+        _busy = true;
+        var result = await Api.CreateSpecimenLabelDesignAsync(new CreateSpecimenLabelDesignRequest(
+            _newCode, _newName, _newPurpose, width, height, long.TryParse(_copyFromText, out var from) ? from : null));
+        _busy = false;
+        _feedback = result.ToFeedback("Design created.");
+        if (result.Succeeded && result.Value is not null)
+        {
+            _newName = _newCode = _copyFromText = string.Empty;
+            Nav.NavigateTo($"/admin/specimen-labels?id={result.Value.Id}");
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.SaveSpecimenLabelDesignAsync(_editing.Id, new SaveSpecimenLabelDesignRequest(_editName, _editing.Document));
+        _busy = false;
+        _feedback = result.ToFeedback($"Design saved as version {(result.Value?.Version ?? _editing.Version)}.");
+        if (result.Succeeded && result.Value is not null)
+        {
+            Open(result.Value);
+        }
+    }
+
+    private async Task MakeDefaultAsync(SpecimenLabelDesignListItemDto design)
+    {
+        _busy = true;
+        var result = await Api.MakeSpecimenLabelDesignDefaultAsync(design.Id);
+        _busy = false;
+        _feedback = result.ToFeedback($"{design.Name} is now the default {(design.Purpose == SpecimenLabelPurpose.Aliquot ? "aliquot" : "tube")} label.");
+        await LoadListAsync();
+    }
+
+    private async Task SetActiveAsync(SpecimenLabelDesignListItemDto design, bool active)
+    {
+        _busy = true;
+        var result = await Api.SetSpecimenLabelDesignActiveAsync(design.Id, active);
+        _busy = false;
+        _feedback = result.ToFeedback(active ? $"{design.Name} activated." : $"{design.Name} deactivated.");
+        await LoadListAsync();
+    }
+}

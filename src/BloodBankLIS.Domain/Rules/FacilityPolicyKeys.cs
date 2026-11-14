@@ -1,4 +1,4 @@
-namespace BloodBankLIS.Domain.Rules;
+﻿namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>Canonical facility policy keys stored in <c>SystemSettings</c>.</summary>
 public static class FacilityPolicyKeys
@@ -11,8 +11,14 @@ public static class FacilityPolicyKeys
     public const string RetrospectiveCrossmatchDueHours = "Issue.RetrospectiveCrossmatchDueHours";
     public const string InTransitDueHours = "Issue.InTransitDueHours";
 
+    /// <summary>Send a verified first result to the EHR without anyone asking (OCD-086; end-user testing 2026-11-12).</summary>
+    public const string SendFinalResultsAutomatically = "Results.SendFinalAutomatically";
+
     /// <summary>Minutes after issue when a unit may still return to Available inventory.</summary>
     public const string ReturnToAvailableMinutes = "Issue.ReturnToAvailableMinutes";
+
+    /// <summary>Hours after a bedside start when an uncompleted transfusion is raised as a reminder (0 = off).</summary>
+    public const string TransfusionCompletionReminderHours = "Transfusion.CompletionReminderHours";
     public const string RequireQuarantineReleaseVerifier = "Inventory.RequireQuarantineReleaseVerifier";
     public const string RequireReceiveVisualInspection = "Inventory.RequireReceiveVisualInspection";
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";
@@ -26,9 +32,24 @@ public static class FacilityPolicyKeys
     /// <summary>The user who entered a patient ABO/Rh result may not verify it (establishes current type).</summary>
     public const string BlockAboSelfVerify = "Result.BlockAboSelfVerify";
 
+    /// <summary>A second person may verify eligible routine results in a batch (OCD-061). Default off.</summary>
+    public const string AllowBatchVerify = "Result.AllowBatchVerify";
+
+    /// <summary>A tube is accepted for testing only when who collected it is recorded (OCD-064). Default off.</summary>
+    public const string RequireSpecimenCollector = "Specimen.RequireCollector";
+
     /// <summary>Retired. Unit retype is the supplier confirmation and no longer requires a second reviewer.</summary>
     public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";
+
+    /// <summary>Days a patient tube is kept after its expiration before it is due for discard (OCD-070). 0 = not set.</summary>
+    public const string SpecimenRetentionDays = "Specimen.RetentionDays";
+
+    /// <summary>Minutes before a blood order's needed-by time that it is marked as needed soon (OCD-075). 0 = off.</summary>
+    public const string BloodOrderNeededBySoonMinutes = "BloodOrder.NeededBySoonMinutes";
+    public const string MtpIdleReminderMinutes = "Mtp.IdleReminderMinutes";
+    /// <summary>Hours an unidentified patient chart stays open before the home card asks to identify it (OCD-077). 0 = off.</summary>
+    public const string UnidentifiedReminderHours = "Patient.UnidentifiedReminderHours";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";
 
     /// <summary>Facility must enable computer XM after AABB 5.16 validation (SoftBank/SafeTrace switch).</summary>
@@ -72,10 +93,41 @@ public static class FacilityPolicyKeys
 
     /// <summary>When true, a modification requires a supply lot. Default off.</summary>
     public const string RequireModificationSupplyLot = "Modification.RequireSupplyLot";
+    public const string RequireIrradiationRecord = "Modification.RequireIrradiationRecord";
     public const string RequirePrivilegedMfa = "Security.RequirePrivilegedMfa";
     public const string MfaEnabled = "Security.MfaEnabled";
     public const string RequireAllUsersMfa = "Security.RequireAllUsersMfa";
     public const string ExcursionQuarantineMinutes = "Inventory.ExcursionQuarantineMinutes";
     public const string PbmEvaluateOrders = "Order.PbmEvaluate";
     public const string PbmRequireJustification = "Order.PbmRequireJustification";
+
+    /// <summary>When true, issue and bedside forms start with the patient's MRN and DOB filled in. Default off (OCD-039).</summary>
+    public const string PrefillPatientIdentifiers = "Issue.PrefillPatientIdentifiers";
+
+    /// <summary>When true, a specimen can be received only by scanning the tube, not from a list row. Default off (OCD-056).</summary>
+    public const string RequireSpecimenReceiptByScan = "Specimen.RequireReceiptByScan";
+
+    /// <summary>When true, unit inspections (return, appearance at issue and receipt) start as acceptable. Default off (OCD-040).</summary>
+    public const string InspectionDefaultAcceptable = "Inspection.DefaultAcceptable";
+
+    /// <summary>OCD-069: mL of fetal whole blood one RhIG vial covers; 0 = not set (no dose is calculated).</summary>
+    public const string RhigMlPerVial = "Rhig.MlFetalBloodPerVial";
+
+    /// <summary>OCD-069: the maternal blood volume (mL) the fetal bleed is calculated against; 0 = not set.</summary>
+    public const string RhigMaternalBloodVolumeMl = "Rhig.MaternalBloodVolumeMl";
+
+    /// <summary>OCD-069: how the calculated vials are rounded (1 up, 2 nearest plus one, 3 up plus one); 0 = not set.</summary>
+    public const string RhigDoseRounding = "Rhig.DoseRounding";
+
+    /// <summary>Hours after the event within which RhIG is to be given (OCD-087; 0 = not set).</summary>
+    public const string RhigAdministrationWindowHours = "Rhig.AdministrationWindowHours";
+
+    /// <summary>Days after a lookback notification is opened within which the recipient's physician is to be notified (OCD-089; 0 = not set).</summary>
+    public const string LookbackNotifyWithinDays = "Lookback.NotifyWithinDays";
+
+    /// <summary>OCD-074: turns on the neonatal pretransfusion testing rules. Default off.</summary>
+    public const string NeonatalRulesEnabled = "Neonatal.RulesEnabled";
+
+    /// <summary>OCD-074: the age (days) under which the neonatal rules apply.</summary>
+    public const string NeonatalAgeLimitDays = "Neonatal.AgeLimitDays";
 }

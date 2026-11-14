@@ -54,7 +54,15 @@ public static class AuditEndpoints
                 .Take(take)
                 .ToListAsync(ct);
 
-            return Results.Ok(new { total, skip, take, items = events });
+            // Each row names its record as staff know it (end-user testing pass 48: "Patient #20", "Specimen #18").
+            var names = await RecordNamesAsync(context, events, ct);
+            var items = events.Select(e => new
+            {
+                e.Id, e.EventType, e.EntityType, e.EntityId, e.UserName, e.Workstation, e.OccurredUtc,
+                e.OldValueJson, e.NewValueJson, e.Reason, e.SignatureId,
+                EntityName = e.EntityId is long id ? names.GetValueOrDefault((e.EntityType, id)) : null
+            });
+            return Results.Ok(new { total, skip, take, items });
         });
 
         // CSV of the filtered trail, newest first, capped at AuditCsvExport.MaxRows. The export itself is audited.
@@ -111,5 +119,55 @@ public static class AuditEndpoints
                 .Distinct()
                 .OrderBy(u => u)
                 .ToListAsync(ct)));
+    }
+
+    /// <summary>Names for the page's patients, units, specimens and orders: one lookup per type.</summary>
+    private static async Task<Dictionary<(string, long), string>> RecordNamesAsync(
+        BloodBankDbContext context, IReadOnlyList<BloodBankLIS.Domain.Audit.AuditEvent> events, CancellationToken ct)
+    {
+        var names = new Dictionary<(string, long), string>();
+        List<long> Ids(params string[] types) => events
+            .Where(e => e.EntityId is not null && types.Contains(e.EntityType))
+            .Select(e => e.EntityId!.Value).Distinct().ToList();
+
+        var patients = Ids("Patient");
+        if (patients.Count > 0)
+        {
+            foreach (var p in await context.Patients.AsNoTracking().Where(p => patients.Contains(p.Id))
+                         .Select(p => new { p.Id, p.LastName, p.FirstName, p.MedicalRecordNumber }).ToListAsync(ct))
+            {
+                names[("Patient", p.Id)] = $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})";
+            }
+        }
+
+        var units = Ids("BloodUnit", "Unit");
+        if (units.Count > 0)
+        {
+            foreach (var u in await context.BloodUnits.AsNoTracking().Where(u => units.Contains(u.Id)).Select(u => new { u.Id, u.UnitNumber }).ToListAsync(ct))
+            {
+                names[("BloodUnit", u.Id)] = u.UnitNumber;
+                names[("Unit", u.Id)] = u.UnitNumber;
+            }
+        }
+
+        var specimens = Ids("Specimen");
+        if (specimens.Count > 0)
+        {
+            foreach (var s in await context.Specimens.AsNoTracking().Where(s => specimens.Contains(s.Id)).Select(s => new { s.Id, s.AccessionNumber }).ToListAsync(ct))
+            {
+                names[("Specimen", s.Id)] = s.AccessionNumber;
+            }
+        }
+
+        var orders = Ids("Order");
+        if (orders.Count > 0)
+        {
+            foreach (var o in await context.Orders.AsNoTracking().Where(o => orders.Contains(o.Id)).Select(o => new { o.Id, o.OrderNumber }).ToListAsync(ct))
+            {
+                names[("Order", o.Id)] = o.OrderNumber;
+            }
+        }
+
+        return names;
     }
 }

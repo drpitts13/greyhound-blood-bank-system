@@ -31,6 +31,10 @@ public sealed record CompatibilityRuleDto(
     bool IsActive,
     string Description)
 {
+    /// <summary>What the row does at issue when its version is the active table (OCD-052).</summary>
+    public string AtIssue => CompatibilityTablePolicy.DescribeAtIssue(
+        new CompatibilityTableRow(RuleCode, ComponentClass, Severity, IsActive));
+
     public static CompatibilityRuleDto From(CompatibilityRule r) => new(
         r.Id, r.CompatibilityRuleVersionId, r.RuleCode, r.ComponentClass, r.RuleFamily,
         r.ExpressionJson, r.Severity, r.IsActive, r.Description);
@@ -49,10 +53,16 @@ public sealed record SaveCompatibilityRuleRequest(
     string? RuleFamily,
     string? ExpressionJson,
     string Severity,
-    string Description);
+    string Description,
+    // Required when the rule's version is the active table (COMPAT.REASON.REQUIRED).
+    string? Reason = null);
 
 public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
 {
+    // A retirement date is the bench's day (the server's local day), not the UTC date (end-user testing pass 77).
+    private DateOnly LocalToday =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(Clock.UtcNow, DateTimeKind.Utc), TimeZoneInfo.Local));
+
     private const string VersionEntity = nameof(CompatibilityRuleVersion);
     private const string RuleEntity = nameof(CompatibilityRule);
 
@@ -210,7 +220,7 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
             }
 
             other.IsActive = false;
-            other.RetiredDate ??= DateOnly.FromDateTime(Clock.UtcNow);
+            other.RetiredDate ??= LocalToday;
         }
 
         var old = await ToDtoAsync(entity, ct);
@@ -248,7 +258,7 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
 
         var old = await ToDtoAsync(entity, ct);
         entity.IsActive = false;
-        entity.RetiredDate ??= DateOnly.FromDateTime(Clock.UtcNow);
+        entity.RetiredDate ??= LocalToday;
         _versions.Update(entity);
         var dto = await ToDtoAsync(entity, ct);
         RecordChange(VersionEntity, entity.Id, 1, ConfigChangeAction.Deactivate, AuditEventType.Deactivate, old, dto, reason.Trim());
@@ -269,7 +279,14 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
             return denied;
         }
 
-        var versionExists = await _versions.AnyAsync(v => v.Id == versionId, ct);
+        var version = await _versions.GetByIdAsync(versionId, ct);
+        var versionExists = version is not null;
+        var reasonCheck = CompatibilityTableChangeReasonRule.Evaluate(version?.IsActive == true, request.Reason);
+        if (reasonCheck.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<CompatibilityRuleDto>.Blocked(new RuleEvaluation([reasonCheck]));
+        }
+
         var entity = ApplyRule(new CompatibilityRule { CompatibilityRuleVersionId = versionId, IsActive = true }, request);
         var duplicate = await _rules.AnyAsync(
             r => r.CompatibilityRuleVersionId == versionId && r.RuleCode == entity.RuleCode, ct);
@@ -282,7 +299,7 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
         await _rules.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
         var dto = CompatibilityRuleDto.From(entity);
-        RecordChange(RuleEntity, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
+        RecordChange(RuleEntity, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, Trimmed(request.Reason));
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<CompatibilityRuleDto>.Ok(dto, validation);
     }
@@ -306,6 +323,12 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
             return EvaluationResult<CompatibilityRuleDto>.Fail("Compatibility rule not found.");
         }
 
+        var reasonCheck = CompatibilityTableChangeReasonRule.Evaluate(await IsActiveVersionAsync(entity, ct), request.Reason);
+        if (reasonCheck.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<CompatibilityRuleDto>.Blocked(new RuleEvaluation([reasonCheck]));
+        }
+
         var old = CompatibilityRuleDto.From(entity);
         ApplyRule(entity, request);
         var duplicate = await _rules.AnyAsync(
@@ -320,7 +343,7 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
 
         _rules.Update(entity);
         var dto = CompatibilityRuleDto.From(entity);
-        RecordChange(RuleEntity, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
+        RecordChange(RuleEntity, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, Trimmed(request.Reason));
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<CompatibilityRuleDto>.Ok(dto, validation);
     }
@@ -328,7 +351,8 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<CompatibilityRuleDto>> SetRuleActiveAsync(
         long id,
         bool active,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? reason = null)
     {
         var denied = await RejectUnauthorizedRuleAsync(
             PermissionCodes.AdminConfigActivate,
@@ -347,14 +371,25 @@ public sealed class CompatibilityRuleAdminService : ConfigAdminServiceBase
             return EvaluationResult<CompatibilityRuleDto>.Fail("Compatibility rule not found.");
         }
 
+        var reasonCheck = CompatibilityTableChangeReasonRule.Evaluate(await IsActiveVersionAsync(entity, ct), reason);
+        if (reasonCheck.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<CompatibilityRuleDto>.Blocked(new RuleEvaluation([reasonCheck]));
+        }
+
         var old = CompatibilityRuleDto.From(entity);
         entity.IsActive = active;
         _rules.Update(entity);
         var action = active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate;
-        RecordChange(RuleEntity, entity.Id, 1, action, ToAuditType(action), old, CompatibilityRuleDto.From(entity), null);
+        RecordChange(RuleEntity, entity.Id, 1, action, ToAuditType(action), old, CompatibilityRuleDto.From(entity), Trimmed(reason));
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<CompatibilityRuleDto>.Ok(CompatibilityRuleDto.From(entity), new RuleEvaluation([]));
     }
+
+    private async Task<bool> IsActiveVersionAsync(CompatibilityRule rule, CancellationToken ct) =>
+        (await _versions.GetByIdAsync(rule.CompatibilityRuleVersionId, ct))?.IsActive == true;
+
+    private static string? Trimmed(string? reason) => string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
 
     private async Task<CompatibilityRuleVersionDto> ToDtoAsync(CompatibilityRuleVersion entity, CancellationToken ct)
     {

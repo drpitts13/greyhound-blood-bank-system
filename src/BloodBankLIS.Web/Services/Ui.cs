@@ -16,12 +16,80 @@ public static class Ui
         UnitStatus.Transfused => "badge badge-gray",
         UnitStatus.Quarantine or UnitStatus.Received or UnitStatus.OnHold or UnitStatus.Missing => "badge badge-amber",
         UnitStatus.Discarded or UnitStatus.Expired or UnitStatus.ReturnedToSupplier or UnitStatus.Damaged => "badge badge-red",
+        UnitStatus.ShippedOut => "badge badge-gray",
         UnitStatus.Returned => "badge badge-gray",
         _ => "badge badge-gray"
     };
 
     public static string StatusLabel(UnitStatus status) =>
-        status == UnitStatus.Received ? "Pending Retype" : status.ToString();
+        status == UnitStatus.Received ? "Pending Retype" : CodeNameText(status.ToString());
+
+    /// <summary>
+    /// How a choice reads in a dropdown: an enum in words ("EmergencyRelease" → "Emergency release", "CmvNegative" →
+    /// "CMV negative", "Hl7" → "HL7"), using the curated label where one exists (product classes, pending retype);
+    /// anything else as it is. The option's value stays the enum name, so binding and stored data do not change.
+    /// </summary>
+    public static string EnumText(object? value) => value switch
+    {
+        null => string.Empty,
+        ComponentClass componentClass => ComponentClassLabels.Label(componentClass),
+        UnitStatus.Received => StatusLabel(UnitStatus.Received),
+        Enum e => CodeNameText(e.ToString()),
+        _ => value.ToString() ?? string.Empty
+    };
+
+    private static readonly Dictionary<string, string> Acronyms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Abo"] = "ABO", ["Ahg"] = "AHG", ["Astm"] = "ASTM", ["Cmv"] = "CMV", ["Csv"] = "CSV", ["Dat"] = "DAT", ["Ehr"] = "EHR",
+        ["Ffp"] = "FFP", ["Fhir"] = "FHIR", ["Hl7"] = "HL7", ["Hla"] = "HLA", ["Http"] = "HTTP", ["Iat"] = "IAT",
+        ["Id"] = "ID", ["Isbt"] = "ISBT", ["Lis"] = "LIS", ["Mfa"] = "MFA", ["Mllp"] = "MLLP", ["Mtp"] = "MTP",
+        ["Pdf"] = "PDF", ["Plt"] = "PLT", ["Rbc"] = "RBC", ["Tcp"] = "TCP", ["Url"] = "URL", ["Xm"] = "XM"
+    };
+
+    private static readonly HashSet<string> AntigenSystemsWithAb = new(StringComparer.Ordinal) { "FY", "JK", "LE", "LU", "KP", "JS" };
+
+    /// <summary>
+    /// An antigen code as it is written: Fya, Jkb, Lea for codes stored in capitals (FYA, JKB, LEA); every other code as
+    /// stored, since case matters (C and c, E and e). (End-user testing, 2026-11-12: the antigram read FYA, JKA.)
+    /// </summary>
+    public static string AntigenText(string? code)
+    {
+        var c = (code ?? string.Empty).Trim();
+        return c.Length == 3 && AntigenSystemsWithAb.Contains(c[..2].ToUpperInvariant()) && c[2] is 'A' or 'B' or 'a' or 'b'
+            ? char.ToUpperInvariant(c[0]) + char.ToLowerInvariant(c[1]).ToString() + char.ToLowerInvariant(c[2])
+            : c;
+    }
+
+    /// <summary>A code name in words: split at case changes, acronyms kept, later words lower case.</summary>
+    public static string CodeNameText(string name)
+    {
+        // "RhD" and the immunoglobulins are one word; keep them whole before splitting at case changes (end-user
+        // testing, 2026-11-12: the DAT choice read "Positive ig g").
+        var guarded = name.Replace("RhD", "Rh\u0001D", StringComparison.Ordinal);
+        foreach (var ig in new[] { "IgG", "IgM", "IgA" })
+        {
+            guarded = guarded.Replace(ig, "Ig\u0001" + ig[2], StringComparison.Ordinal);
+        }
+
+        var tokens = System.Text.RegularExpressions.Regex
+            .Split(guarded, "(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+            .Where(t => t.Length > 0)
+            .Select(t => t.Replace("\u0001", string.Empty, StringComparison.Ordinal))
+            .ToList();
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            tokens[i] = Acronyms.TryGetValue(t, out var acronym) ? acronym
+                : t.Length > 1 && t.All(char.IsUpper) ? t
+                : t is "RhD" or "IgG" or "IgM" or "IgA" ? t
+                // A code with a digit, such as C3 (complement), keeps its case.
+                : t.Length > 1 && char.IsUpper(t[0]) && t.Any(char.IsDigit) ? t
+                : i == 0 ? char.ToUpperInvariant(t[0]) + t[1..]
+                : t.ToLowerInvariant();
+        }
+
+        return string.Join(' ', tokens);
+    }
 
     public static string Badge(SpecimenStatus status) => status switch
     {
@@ -71,6 +139,7 @@ public static class Ui
         ProductAllocationDisplayStatus.ReadyForIssue => "badge badge-green",
         ProductAllocationDisplayStatus.Exception => "badge badge-red",
         ProductAllocationDisplayStatus.Reserved => "badge badge-amber",
+        ProductAllocationDisplayStatus.CrossmatchExpired => "badge badge-amber",
         _ => "badge"
     };
 
@@ -79,6 +148,7 @@ public static class Ui
         ProductAllocationDisplayStatus.ReadyForIssue => "Ready for issue",
         ProductAllocationDisplayStatus.Exception => "Exception",
         ProductAllocationDisplayStatus.Reserved => "Reserved",
+        ProductAllocationDisplayStatus.CrossmatchExpired => "Crossmatch expired",
         _ => status.ToString()
     };
 

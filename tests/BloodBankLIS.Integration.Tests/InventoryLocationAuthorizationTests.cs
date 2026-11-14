@@ -61,13 +61,13 @@ public class InventoryLocationAuthorizationTests : IClassFixture<SqliteContextFa
         Assert.True(created.Value!.IsActive);
 
         var denied = await Locations(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigEdit))
-            .SetActiveAsync(created.Value.Id, false);
+            .SetActiveAsync(created.Value.Id, false, "Fridge retired after validation");
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryLocationAuthorizationRule.DeactivateCode);
         Assert.True((await c.InventoryLocations.SingleAsync(e => e.Id == created.Value.Id)).IsActive);
 
         var allowed = await Locations(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigActivate))
-            .SetActiveAsync(created.Value.Id, false);
+            .SetActiveAsync(created.Value.Id, false, "Fridge retired after validation");
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.False(allowed.Value!.IsActive);
     }
@@ -86,10 +86,16 @@ public class InventoryLocationAuthorizationTests : IClassFixture<SqliteContextFa
             && a.EntityId == created.Value!.Id
             && a.EventType == AuditEventType.Configure));
 
+        // TEST-BB-410: an edit records why; without a reason it is refused and nothing changes.
+        var noReason = await svc.UpdateAsync(created.Value!.Id, Request(code) with { Name = "Issue fridge", AllowsIssue = true });
+        Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == StorageLocationChangeReasonRule.Code);
+
         var updated = await svc.UpdateAsync(
             created.Value!.Id,
-            Request(code) with { Name = "Issue fridge", AllowsIssue = true });
+            Request(code) with { Name = "Issue fridge", AllowsIssue = true, Reason = "Now used as the issue fridge per SOP 12" });
         Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityType == nameof(InventoryLocation)
+            && h.EntityId == created.Value.Id && h.ChangeReason == "Now used as the issue fridge per SOP 12"));
 
         var events = await c.AuditEvents
             .Where(a => a.EntityType == nameof(InventoryLocation) && a.EntityId == created.Value.Id)
@@ -119,14 +125,14 @@ public class InventoryLocationAuthorizationTests : IClassFixture<SqliteContextFa
         c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
 
-        var refused = await Locations(c).SetActiveAsync(created.Value.Id, false);
+        var refused = await Locations(c).SetActiveAsync(created.Value.Id, false, "Fridge retired after validation");
         Assert.False(refused.Succeeded);
         Assert.Contains("1 unit(s)", refused.Error);
         Assert.True((await c.InventoryLocations.SingleAsync(e => e.Id == created.Value.Id)).IsActive);
 
         unit.Status = UnitStatus.Transfused;
         await c.SaveChangesAsync();
-        var allowed = await Locations(c).SetActiveAsync(created.Value.Id, false);
+        var allowed = await Locations(c).SetActiveAsync(created.Value.Id, false, "Fridge retired after validation");
         Assert.True(allowed.Succeeded, allowed.Error);
     }
 }

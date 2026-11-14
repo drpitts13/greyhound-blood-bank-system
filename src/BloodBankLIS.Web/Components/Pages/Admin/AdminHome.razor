@@ -1,7 +1,7 @@
 @page "/admin"
 @inject UserSession Session
 
-<PageTitle>Administration &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Administration &middot; HemoCore</PageTitle>
 
 <div class="flex-between">
     <h1>Administration</h1>
@@ -39,6 +39,22 @@
             <h3>Transfusion Criteria</h3>
             <p>Facility-approved indications for ordering each component, used for patient blood management review. None are shipped.</p>
         </a>
+        <a class="admin-card" href="/admin/mtp-packs">
+            <h3>MTP Packs</h3>
+            <p>Units of each component per round of the massive transfusion protocol, shown as guidance on the issue desk. None are shipped.</p>
+        </a>
+        <a class="admin-card" href="/admin/transport-containers">
+            <h3>Transport Containers</h3>
+            <p>Coolers, insulated bags, and boxes units are packed into, with your validated temperature range and hours. None are shipped.</p>
+        </a>
+        <a class="admin-card" href="/admin/specimen-rejection-reasons">
+            <h3>Specimen Rejection Reasons</h3>
+            <p>Codes required when a specimen is rejected, so rejections can be counted by cause. Starter list included as an example.</p>
+        </a>
+        <a class="admin-card" href="/admin/reaction-lists">
+            <h3>Reactions and Treatments</h3>
+            <p>The reactions a provider can conclude and the treatments for future transfusions, chosen when a reaction investigation closes. No reaction and No treatment are always offered.</p>
+        </a>
         <a class="admin-card" href="/admin/discard-reasons">
             <h3>Discard Reasons</h3>
             <p>Codes required when a unit is discarded. The wastage report groups on them.</p>
@@ -65,13 +81,17 @@
             <h3>Crossmatch Settings</h3>
             <p>Default XM/CXM tests by antibody history and electronic XM visit, specimen, and test minimums.</p>
         </a>
+        <a class="admin-card" href="/admin/reaction-workup">
+            <h3>Reaction Workup</h3>
+            <p>The Test Group ordered on the pre-transfusion and post-transfusion specimens of a transfusion reaction workup.</p>
+        </a>
         <a class="admin-card" href="/admin/expiration-codes">
             <h3>Expiration Codes</h3>
             <p>ISBT expiration-modification codes that change dating after irradiation, pooling, or similar processing.</p>
         </a>
         <a class="admin-card" href="/admin/auto-thaw-products">
             <h3>Auto thaw products</h3>
-            <p>ISBT plasma codes, such as E0707, that can be thawed in place when allocated. Expiration becomes 24 hours from the thaw time.</p>
+            <p>ISBT plasma codes, such as E0707, that can be thawed in place when allocated. Expiration becomes each code's thawed shelf life after the thaw time.</p>
         </a>
         <a class="admin-card" href="/admin/exceptions">
             <h3>Exceptions</h3>
@@ -93,9 +113,9 @@
             <h3>Printers</h3>
             <p>PDF queues installed on this computer, and Zebra printers by network, USB, Windows driver, serial, or Bluetooth.</p>
         </a>
-        <a class="admin-card" href="/admin/specimen-label">
-            <h3>Specimen Label</h3>
-            <p>Place specimen, patient, and barcode fields on the 2×1 inch label. One active layout.</p>
+        <a class="admin-card" href="/admin/specimen-labels">
+            <h3>Specimen Labels</h3>
+            <p>Design tube and aliquot labels: size, barcode, and patient and specimen data placed on the label. One default per purpose.</p>
         </a>
         <a class="admin-card" href="/admin/ptag">
             <h3>P-tag Layout</h3>

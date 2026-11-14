@@ -1,6 +1,8 @@
 @page "/admin/antibody-panel-lots"
 @inject UserSession Session
 @inject BloodBankApiClient Api
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
 
 <PageTitle>Antibody Panel Lots &middot; Admin</PageTitle>
 
@@ -27,6 +29,7 @@
 </details>
 
 @if (!_creating) { <Outcome Value="_feedback" /> }
+<PanelLotSupplyNotice Items="_supply" />
 
 <div class="bb-card" style="margin-top:1rem;">
     <div class="bb-card-title"><h3>Manufacturers</h3></div>
@@ -36,6 +39,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Workups</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -87,6 +91,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -108,6 +113,7 @@
             @if (_mfgDetail.OpenWorkups.Count > 0)
             {
                 <h4>Open workups</h4>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Next</th><th></th></tr></thead>
                     <tbody>
@@ -125,11 +131,13 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             @if (_mfgDetail.CompletedWorkups.Count > 0)
             {
                 <h4 style="margin-top:1rem;">Completed identifications of record</h4>
                 <p class="muted">These workups already posted or completed using this manufacturer's lots. History count is posted Identified findings only and does not identify antibodies.</p>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Status</th><th>History</th><th></th></tr></thead>
                     <tbody>
@@ -148,6 +156,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
     </div>
@@ -189,6 +198,7 @@
         {
             @if (_mfgDetail.OpenWorkups.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Next</th><th></th></tr></thead>
                     <tbody>
@@ -206,10 +216,12 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             @if (_mfgDetail.CompletedWorkups.Count > 0)
             {
                 <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Status</th><th>History</th><th></th></tr></thead>
                     <tbody>
@@ -228,6 +240,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
         <div class="field"><label>Reason (required)</label>
@@ -256,6 +269,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -325,6 +339,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -333,7 +348,17 @@
     <div @key="_detail.Lot.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <div class="bb-card-title">
             <h3>@_detail.Lot.PanelName — lot @_detail.Lot.LotNumber</h3>
-            <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseDetail">Close</button>
+            <div class="flex gap">
+                @if (_detail.Cells.Count > 0)
+                {
+                    <button class="btn btn-ghost btn-sm" type="button" @onclick="DownloadAntigramAsync" data-antigram-download>Download antigram (CSV)</button>
+                }
+                @if (CanEdit && !InUse(_detail) && !_creating)
+                {
+                    <button class="btn btn-secondary btn-sm" type="button" @onclick="BeginCorrectAsync" data-antigram-correct>Correct antigram</button>
+                }
+                <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseDetail">Close</button>
+            </div>
         </div>
         <p class="muted">
             Reagent cell map only. Viewing a lot does not identify antibodies.
@@ -341,12 +366,20 @@
             · exp @_detail.Lot.ExpiresOn.ToString("yyyy-MM-dd")
             · @(_detail.Lot.IsSelectedCellLot ? "Selected cells" : "Panel")
         </p>
+        @if (CanEdit && InUse(_detail))
+        {
+            <p class="muted" data-antigram-locked>
+                Workups have used this lot, so its antigram cannot be corrected here: their reactions were read against these cells.
+                If the antigram is wrong, deactivate the lot with the reason, create a corrected lot, and review the workups listed below.
+            </p>
+        }
         @if (_detail.Cells.Count == 0)
         {
             <div class="empty">This lot has no cells.</div>
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -379,11 +412,13 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
         @if (_detail.OpenWorkups.Count > 0)
         {
             <h4 style="margin-top:1rem;">Open workups using this lot</h4>
             <p class="muted">Deactivating the lot HardStops Accept and complete on these workups. This list does not identify antibodies.</p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Patient</th><th>MRN</th><th>Next</th><th></th></tr></thead>
                 <tbody>
@@ -400,11 +435,13 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
         @if (_detail.CompletedWorkups.Count > 0)
         {
             <h4 style="margin-top:1rem;">Completed identifications of record</h4>
             <p class="muted">These workups already completed using this lot. History count is posted Identified findings only and does not identify antibodies or void history.</p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Patient</th><th>MRN</th><th>Status</th><th>History</th><th></th></tr></thead>
                 <tbody>
@@ -422,6 +459,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -429,6 +467,17 @@
 @if (_creating && CanEdit)
 {
     <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        @if (_correcting is not null)
+        {
+            <h2>Correct antigram — @_correcting.Lot.PanelName lot @_correcting.Lot.LotNumber</h2>
+            <p class="muted" data-antigram-correct-form>
+                No workup has used this lot yet, so its cells can be corrected. The cells below replace the current ones (which are kept
+                on record, not deleted); the audit entry keeps the antigram before and after, with your reason. Check them against the
+                manufacturer's sheet before saving.
+            </p>
+        }
+        else
+        {
         <h2>New antibody panel lot</h2>
         <p class="muted">Teaching or reagent panels only. This does not identify antibodies.</p>
         <div class="form-row">
@@ -448,7 +497,36 @@
         <label class="flex" style="gap:.35rem;margin:.6rem 0;">
             <input type="checkbox" @bind="_createSelected" @bind:after="OnSelectedLotChanged" /> Selected-cell lot
         </label>
+        }
         <h3>Cells</h3>
+        @* Import an antigram downloaded from the manufacturer and saved in this layout; it fills the cells below. *@
+        <div class="bb-card" style="margin:.5rem 0;" data-antigram-import>
+            <p class="muted" style="margin-top:0;">
+                <strong>Import an antigram</strong> (CSV or Excel): one row per cell, a <span class="mono">Cell</span> column, an optional
+                <span class="mono">Role</span> column, and one column per antigen code; values <span class="mono">+</span>,
+                <span class="mono">0</span>, <span class="mono">w</span>, <span class="mono">+het</span>, <span class="mono">+hom</span>, or blank for not tested.
+                The cells below are replaced; check them against the manufacturer's sheet before saving.
+            </p>
+            <div class="flex gap" style="align-items:center;flex-wrap:wrap;">
+                <InputFile OnChange="OnAntigramFileAsync" accept=".csv,.tsv,.txt,.xlsx" data-antigram-file />
+                <button class="btn btn-ghost btn-sm" type="button" @onclick="DownloadTemplateAsync" data-antigram-template>Download blank template</button>
+            </div>
+            @if (_importSummary is not null)
+            {
+                <div class="@(_importProblems.Count > 0 ? "alert alert-danger" : "alert alert-info")" style="margin-top:.5rem;" data-antigram-import-result>
+                    @_importSummary
+                    @if (_importProblems.Count > 0)
+                    {
+                        <ul style="margin:.25rem 0 0;">
+                            @foreach (var problem in _importProblems)
+                            {
+                                <li>@problem</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </div>
         @foreach (var cell in _createCells)
         {
             <div class="bb-card" style="margin:.5rem 0;">
@@ -471,6 +549,7 @@
                 </div>
                 @if (cell.Role != PanelCellRole.Autocontrol)
                 {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Antigen</th><th>Expression</th><th></th></tr></thead>
                         <tbody>
@@ -490,6 +569,7 @@
                                         <select @bind="ag.Expression">
                                             <option value="@AntigenExpression.Absent">Absent</option>
                                             <option value="@AntigenExpression.Present">Present</option>
+                                            <option value="@AntigenExpression.Weak">Weak</option>
                                             <option value="@AntigenExpression.Heterozygous">Heterozygous</option>
                                             <option value="@AntigenExpression.Homozygous">Homozygous</option>
                                         </select>
@@ -501,6 +581,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
                     <button class="btn btn-ghost btn-sm" type="button" @onclick="() => AddAntigen(cell)">Add antigen</button>
                     @if (_attributes.Any(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id)))
                     {
@@ -510,13 +591,31 @@
                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => RemoveCell(cell)">Remove cell</button>
             </div>
         }
+        @if (_correcting is not null)
+        {
+            <div class="field" style="margin-top:.6rem;">
+                <label>Reason for the correction</label>
+                <input @bind="_correctReason" @bind:event="oninput" placeholder="e.g. Cell 4 Jka entered wrongly; manufacturer's corrected sheet" data-antigram-correct-reason />
+            </div>
+        }
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-secondary btn-sm" type="button" @onclick="AddCell">Add cell</button>
-            <button class="btn btn-primary" disabled="@(_busy || _createManufacturerId is null)" @onclick="CreateAsync">Create lot</button>
+            @if (_correcting is not null)
+            {
+                <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_correctReason))" @onclick="SaveCorrectionAsync" data-antigram-correct-save>Save corrected antigram</button>
+            }
+            else
+            {
+                <button class="btn btn-primary" disabled="@(_busy || _createManufacturerId is null)" @onclick="CreateAsync">Create lot</button>
+            }
             <button class="btn btn-ghost" type="button" @onclick="CancelCreate">Cancel</button>
-            @if (_createManufacturerId is null)
+            @if (_correcting is null && _createManufacturerId is null)
             {
                 <span class="muted">Choose a manufacturer to create the lot.</span>
+            }
+            else if (_correcting is not null && string.IsNullOrWhiteSpace(_correctReason))
+            {
+                <span class="muted">Give a reason to save the correction.</span>
             }
         </div>
         <div style="margin-top:.6rem;"><Outcome Value="_feedback" /></div>
@@ -543,6 +642,7 @@
         {
             @if (_detail.OpenWorkups.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Next</th><th></th></tr></thead>
                     <tbody>
@@ -559,10 +659,12 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             @if (_detail.CompletedWorkups.Count > 0)
             {
                 <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Patient</th><th>MRN</th><th>Status</th><th>History</th><th></th></tr></thead>
                     <tbody>
@@ -580,6 +682,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
         <div class="field"><label>Reason (required)</label>
@@ -609,13 +712,14 @@
     private long? _createManufacturerId;
     private string _createLotNumber = "";
     private string _createPanelName = "";
-    private DateTime _createExpires = DateTime.UtcNow.Date.AddYears(1);
+    private DateTime _createExpires = DateTime.Now.Date.AddYears(1);
     private bool _createSelected;
     private readonly List<LotCellDraft> _createCells = new();
     private List<AntibodyPanelManufacturerListItemDto> _manufacturers = new();
     private List<AntibodyPanelManufacturerListItemDto> _allManufacturers = new();
     private List<BloodAttributeDefinitionDto> _attributes = new();
     private AntibodyPanelLotDetailDto? _detail;
+    private List<AntibodyPanelLotSupplyItemDto> _supply = new();
     private AntibodyPanelManufacturerDetailDto? _mfgDetail;
     private bool _creatingManufacturer;
     private string _mfgCode = "";
@@ -643,6 +747,9 @@
         {
             _feedback = r.ToFeedback();
         }
+
+        var supply = await Api.GetAntibodyPanelLotSupplyAsync();
+        _supply = supply.Value ?? new();
 
         var mfg = await Api.GetAdminAntibodyPanelManufacturersAsync(true);
         _allManufacturers = mfg.Value ?? new();
@@ -774,11 +881,12 @@
 
     private async Task BeginCreate()
     {
+        CancelCreate();
         _creating = true;
         _createManufacturerId = null;
         _createLotNumber = "";
         _createPanelName = "";
-        _createExpires = DateTime.UtcNow.Date.AddYears(1);
+        _createExpires = DateTime.Now.Date.AddYears(1);
         _createSelected = false;
         _createCells.Clear();
         _manufacturers = _allManufacturers.Where(m => m.IsActive).ToList();
@@ -800,7 +908,114 @@
     private void CancelCreate()
     {
         _creating = false;
+        _correcting = null;
+        _correctReason = null;
         _createCells.Clear();
+        _importSummary = null;
+        _importProblems = new();
+        _importedFrom = null;
+    }
+
+    private string? _importSummary;
+    private List<string> _importProblems = new();
+    private string? _importedFrom;
+
+    private IReadOnlyList<AntigramImport.Antigen> AntigenCatalog =>
+        _attributes.Select(a => new AntigramImport.Antigen(a.Id, a.Code, a.AntibodyName)).ToList();
+
+    // An antigram file (CSV, tab-separated or Excel) fills the cells; nothing is saved until Create.
+    private async Task OnAntigramFileAsync(InputFileChangeEventArgs e)
+    {
+        const long maxBytes = 2 * 1024 * 1024;
+        IReadOnlyList<IReadOnlyList<string>> rows;
+        try
+        {
+            await using var upload = e.File.OpenReadStream(maxBytes);
+            using var buffer = new MemoryStream();
+            await upload.CopyToAsync(buffer);
+            buffer.Position = 0;
+            if (e.File.Name.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                rows = SpreadsheetRows.ReadXlsx(buffer);
+            }
+            else
+            {
+                using var reader = new StreamReader(buffer);
+                rows = BloodBankLIS.Domain.Reporting.CsvFormat.ReadRows(await reader.ReadToEndAsync());
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or InvalidOperationException)
+        {
+            _importSummary = $"{e.File.Name} could not be read: files over 2 MB, and Excel files other than .xlsx, are refused.";
+            _importProblems = new();
+            return;
+        }
+
+        var result = AntigramImport.Parse(rows, AntigenCatalog, _createSelected ? PanelCellRole.Selected : PanelCellRole.Panel);
+        var ignored = result.IgnoredColumns.Count == 0
+            ? ""
+            : $" Columns not in the antigen catalog were left out: {string.Join(", ", result.IgnoredColumns)}.";
+        if (!result.CanUse)
+        {
+            _importProblems = result.Problems.ToList();
+            _importSummary = $"{e.File.Name} was not used; correct it and import again:{ignored}";
+            return;
+        }
+
+        _createCells.Clear();
+        var order = 1;
+        foreach (var cell in result.Cells)
+        {
+            var draft = new LotCellDraft { CellNumber = cell.CellNumber, Role = cell.Role, SortOrder = order++ };
+            foreach (var value in cell.Antigens)
+            {
+                draft.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = value.AntigenId, Expression = value.Expression });
+            }
+
+            _createCells.Add(draft);
+        }
+
+        _importedFrom = e.File.Name;
+        _importProblems = new();
+        _importSummary = $"{result.Cells.Count} cell{(result.Cells.Count == 1 ? "" : "s")} and {result.AntigenIds.Count} antigen{(result.AntigenIds.Count == 1 ? "" : "s")} imported from {e.File.Name}. {(_correcting is null ? "Check them, fill in the manufacturer, lot, name and expiry, then Create." : "Check them against the current cells, give a reason, then Save corrected antigram.")}{ignored}";
+    }
+
+    private async Task DownloadTemplateAsync()
+    {
+        var token = Downloads.Put("antigram-template.csv", BloodBankLIS.Domain.Reporting.CsvFormat.ContentType,
+            BloodBankLIS.Domain.Reporting.CsvFormat.Write(AntigramImport.Header(AntigenCatalog), []));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+    }
+
+    // The lot's antigram in the import layout, so it can be checked, kept, or imported for another lot.
+    private async Task DownloadAntigramAsync()
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        // Columns follow the antigen catalog's order, as the New lot form does.
+        if (_attributes.Count == 0)
+        {
+            var attrs = await Api.GetAdminBloodAttributesAsync(false);
+            _attributes = (attrs.Value ?? new()).Where(a => a.IsActive).OrderBy(a => a.SortOrder).ToList();
+        }
+
+        var antigens = _detail.Cells.SelectMany(c => c.Antigens)
+            .GroupBy(a => a.BloodAttributeDefinitionId)
+            .Select(g => g.First())
+            .OrderBy(a => _attributes.FindIndex(x => x.Id == a.BloodAttributeDefinitionId) is var i && i >= 0 ? i : int.MaxValue)
+            .ThenBy(a => a.AntigenCode, StringComparer.Ordinal)
+            .Select(a => new AntigramImport.Antigen(a.BloodAttributeDefinitionId, a.AntigenCode, a.AntibodyName))
+            .ToList();
+        var rows = _detail.Cells.OrderBy(c => c.SortOrder).Select(c => AntigramImport.Row(c.CellNumber, c.Role,
+            antigens.Select(a => c.Antigens.FirstOrDefault(x => x.BloodAttributeDefinitionId == a.Id)?.Expression ?? AntigenExpression.NotTested)));
+        var name = $"antigram-{_detail.Lot.ManufacturerName}-{_detail.Lot.LotNumber}.csv"
+            .Replace(' ', '-').Replace('/', '-');
+        var token = Downloads.Put(name, BloodBankLIS.Domain.Reporting.CsvFormat.ContentType,
+            BloodBankLIS.Domain.Reporting.CsvFormat.Write(AntigramImport.Header(antigens), rows));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
     }
 
     private void OnSelectedLotChanged()
@@ -869,24 +1084,15 @@
         }
 
         _busy = true;
-        var cells = _createCells
-            .Select(c => new CreateAntibodyPanelLotCellRequest(
-                c.CellNumber,
-                c.Role,
-                c.SortOrder,
-                c.Role == PanelCellRole.Autocontrol
-                    ? []
-                    : c.Antigens
-                        .Select(a => new CreateAntibodyPanelLotAntigenRequest(a.BloodAttributeDefinitionId, a.Expression))
-                        .ToList()))
-            .ToList();
+        var cells = CellRequests();
         var r = await Api.CreateAntibodyPanelLotAsync(new CreateAntibodyPanelLotRequest(
             _createManufacturerId.Value,
             _createLotNumber,
             _createPanelName,
             DateOnly.FromDateTime(_createExpires),
             _createSelected,
-            cells));
+            cells,
+            _importedFrom));
         _feedback = r.ToFeedback("Lot created. It does not identify antibodies.");
         _busy = false;
         if (r.Succeeded)
@@ -897,6 +1103,83 @@
             {
                 await ViewLotAsync(r.Value.Id);
             }
+        }
+    }
+
+    private List<CreateAntibodyPanelLotCellRequest> CellRequests() =>
+        _createCells
+            .Select(c => new CreateAntibodyPanelLotCellRequest(
+                c.CellNumber,
+                c.Role,
+                c.SortOrder,
+                c.Role == PanelCellRole.Autocontrol
+                    ? []
+                    : c.Antigens
+                        .Select(a => new CreateAntibodyPanelLotAntigenRequest(a.BloodAttributeDefinitionId, a.Expression))
+                        .ToList()))
+            .ToList();
+
+    // Correcting an antigram (Cycle 706): only before any workup uses the lot; the server refuses it otherwise.
+    private AntibodyPanelLotDetailDto? _correcting;
+    private string? _correctReason;
+
+    private static bool InUse(AntibodyPanelLotDetailDto detail) =>
+        detail.OpenWorkups.Count > 0 || detail.CompletedWorkups.Count > 0
+        || detail.Lot.OpenWorkupCount > 0 || detail.Lot.CompletedWorkupCount > 0;
+
+    private async Task BeginCorrectAsync()
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        var lot = _detail;
+        CancelCreate();
+        if (_attributes.Count == 0)
+        {
+            var attrs = await Api.GetAdminBloodAttributesAsync(false);
+            _attributes = (attrs.Value ?? new()).Where(a => a.IsActive).OrderBy(a => a.SortOrder).ToList();
+        }
+
+        _correcting = lot;
+        _creating = true;
+        _createSelected = lot.Lot.IsSelectedCellLot;
+        foreach (var cell in lot.Cells.OrderBy(c => c.SortOrder))
+        {
+            var draft = new LotCellDraft { CellNumber = cell.CellNumber, Role = cell.Role, SortOrder = cell.SortOrder };
+            foreach (var antigen in cell.Antigens)
+            {
+                draft.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = antigen.BloodAttributeDefinitionId, Expression = antigen.Expression });
+            }
+
+            _createCells.Add(draft);
+        }
+    }
+
+    private async Task SaveCorrectionAsync()
+    {
+        if (_correcting is null)
+        {
+            return;
+        }
+
+        if (_createCells.Any(c => c.Role != PanelCellRole.Autocontrol && c.Antigens.Any(a => a.BloodAttributeDefinitionId <= 0)))
+        {
+            _feedback = Feedback.Fail("Choose an antigen for every antigen row, or remove the empty rows.");
+            return;
+        }
+
+        _busy = true;
+        var lotId = _correcting.Lot.Id;
+        var r = await Api.CorrectAntibodyPanelLotAntigramAsync(lotId,
+            new CorrectAntibodyPanelLotAntigramRequest(CellRequests(), _correctReason, _importedFrom));
+        _feedback = r.ToFeedback("Antigram corrected. The previous cells are kept on record and the change is audited.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            CancelCreate();
+            _detail = r.Value;
         }
     }
 

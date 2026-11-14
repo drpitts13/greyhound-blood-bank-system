@@ -1,7 +1,7 @@
 @page "/utilization"
 @inject BloodBankApiClient Api
 
-<PageTitle>Utilization &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Utilization &middot; HemoCore</PageTitle>
 
 <h1>Blood utilization</h1>
 <p class="muted">Crossmatch-to-transfusion ratio by ordering location and provider.</p>
@@ -18,8 +18,8 @@
 
 <div class="bb-card">
     <div class="form-row">
-        <div class="field"><label>From (UTC date)</label><input type="date" @bind="_from" /></div>
-        <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
+        <div class="field"><label>From date</label><input type="date" @bind="_from" /></div>
+        <div class="field"><label>To date (inclusive)</label><input type="date" @bind="_to" /></div>
     </div>
     <div class="flex gap" style="flex-wrap:wrap;align-items:center;">
         <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="LoadAsync">Run</button>
@@ -34,13 +34,14 @@
 @if (_report is not null)
 {
     <div class="bb-card">
-        <div class="bb-card-title"><h3>@_report.FromUtc.ToString("yyyy-MM-dd") to @_report.ToUtc.ToString("yyyy-MM-dd")</h3></div>
+        <div class="bb-card-title"><h3>@_report.FromUtc.ToLocalTime().ToString("yyyy-MM-dd") to @_report.ToUtc.ToLocalTime().ToString("yyyy-MM-dd")</h3></div>
         @if (_report.Total.Crossmatched == 0)
         {
             <div class="muted">No compatible crossmatches in this period.</div>
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr><th>Ordering location</th><th>Provider</th><th class="right">Crossmatched</th><th class="right">Issued</th><th class="right">Transfused</th><th class="right">C:T ratio</th><th class="right">Transfused / crossmatched</th><th class="right">Transfused / issued</th></tr>
@@ -55,6 +56,7 @@
                     <UtilizationRow Row="_report.Total" Bold="true" />
                 </tfoot>
             </table>
+            </div>
         }
     </div>
 }
@@ -71,13 +73,14 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Ordered (UTC)</th><th>Order</th><th>MRN</th><th>Product</th><th>Location</th><th>Provider</th><th>Finding</th><th>Reason given</th></tr></thead>
+            <thead><tr><th>Ordered</th><th>Order</th><th>MRN</th><th>Product</th><th>Location</th><th>Provider</th><th>Finding</th><th>Reason given</th></tr></thead>
             <tbody>
                 @foreach (var row in _review)
                 {
                     <tr>
-                        <td class="nowrap">@row.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@row.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="mono">@row.OrderNumber</td>
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.ProductCode</td>
@@ -89,6 +92,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -97,14 +101,15 @@
     private UtilizationReportDto? _report;
     private Feedback? _feedback;
     private bool _busy;
-    private DateTime _to = DateTime.UtcNow.Date;
-    private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);
+    private DateTime _to = DateTime.Now.Date;
+    private DateTime _from = DateTime.Now.Date.AddDays(-30);
     private string? _reviewError;
 
     // Reviews usually cover a calendar period; one click sets the dates and runs.
     private static IEnumerable<(string Label, (DateTime From, DateTime To) Range)> Presets()
     {
-        var today = DateTime.UtcNow.Date;
+        // End-user testing pass 49: local days, as the times in the report are local.
+        var today = DateTime.Now.Date;
         var monthStart = new DateTime(today.Year, today.Month, 1);
         var quarterStart = new DateTime(today.Year, (today.Month - 1) / 3 * 3 + 1, 1);
         yield return ("Last 30 days", (today.AddDays(-30), today));
@@ -127,8 +132,8 @@
         _busy = true;
         try
         {
-            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Utc);
-            var to = DateTime.SpecifyKind(_to.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Local).ToUniversalTime();
+            var to = DateTime.SpecifyKind(_to.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime().AddTicks(-1);
             var review = await Api.GetPbmReviewAsync(from, to);
             _review = review.Succeeded ? review.Value ?? new() : new();
             // An empty list would read as "none in this period", so say when it failed instead.

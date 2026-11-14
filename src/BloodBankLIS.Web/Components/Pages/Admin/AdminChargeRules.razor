@@ -45,13 +45,14 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Trigger</th><th>Key</th><th>Charge code</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var r in Filtered)
                 {
                     <tr>
-                        <td>@r.TriggerType</td>
+                        <td>@Ui.EnumText(r.TriggerType)</td>
                         <td class="mono">@(r.TriggerKey ?? "(any)")</td>
                         <td>
                             <span class="mono">@r.ChargeCode</span>
@@ -82,6 +83,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -95,7 +97,7 @@
                 <select @bind="_draft.TriggerType">
                     @foreach (var t in Enum.GetValues<BillingTriggerType>())
                     {
-                        <option value="@t">@t</option>
+                        <option value="@t">@Ui.EnumText(t)</option>
                     }
                 </select>
             </div>

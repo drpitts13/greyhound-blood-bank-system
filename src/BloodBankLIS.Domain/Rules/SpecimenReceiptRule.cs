@@ -34,6 +34,11 @@ public static class SpecimenReceiptRule
 
     public static RuleResult EvaluateAccept(SpecimenStatus status, DateTime? expiresUtc, DateTime now)
     {
+        if (status == SpecimenStatus.Accepted)
+        {
+            return RuleResult.HardStop(AcceptStatusCode, "This specimen is already accepted for testing.");
+        }
+
         if (status != SpecimenStatus.Received)
         {
             return RuleResult.HardStop(

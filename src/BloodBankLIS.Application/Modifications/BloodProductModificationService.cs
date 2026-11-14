@@ -42,6 +42,7 @@ public sealed class BloodProductModificationService
     private readonly IRepository<InventoryLocation>? _locations;
     private readonly IRepository<Patient>? _patients;
     private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<Equipment>? _equipment;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -65,8 +66,10 @@ public sealed class BloodProductModificationService
         IRepository<UnitBloodAttribute>? unitAttributes = null,
         IRepository<InventoryLocation>? locations = null,
         IRepository<Patient>? patients = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<Equipment>? equipment = null)
     {
+        _equipment = equipment;
         _inventory = inventory;
         _rules = rules;
         _products = products;
@@ -276,7 +279,9 @@ public sealed class BloodProductModificationService
                         ? patientLabel
                         : ModificationHistoryPatientCue.Format(null, orderCouldNotBeRead: true),
                     m.SupplyDescription,
-                    m.SupplyLot);
+                    m.SupplyLot,
+                    m.DeviceId,
+                    m.IndicatorConfirmed);
             })
             .ToList();
     }
@@ -642,7 +647,10 @@ public sealed class BloodProductModificationService
             orderLink.Context,
             inherited.Attributes,
             supplyDescription: request.SupplyDescription,
-            supplyLot: request.SupplyLot);
+            supplyLot: request.SupplyLot,
+            deviceId: request.DeviceId,
+            indicatorConfirmed: request.IndicatorConfirmed,
+            resultLocationId: request.ResultLocationId);
     }
 
     /// <summary>
@@ -712,6 +720,16 @@ public sealed class BloodProductModificationService
             ready.Add((source, inherited.Attributes));
         }
 
+        // Every result must have a place before any unit is modified (a batch modifies all or none).
+        foreach (var item in ready)
+        {
+            var placed = await ResolveResultLocationAsync(rule, item.Unit.CurrentLocationId, request.ResultLocationId, ct);
+            if (placed.Error is not null)
+            {
+                return ModificationActionResult.Fail($"{item.Unit.UnitNumber}: {placed.Error} No unit was modified.");
+            }
+        }
+
         ModificationActionResult? last = null;
         foreach (var item in ready)
         {
@@ -724,7 +742,10 @@ public sealed class BloodProductModificationService
                 ct,
                 inheritedAttributes: item.Attributes,
                 supplyDescription: request.SupplyDescription,
-                supplyLot: request.SupplyLot);
+                supplyLot: request.SupplyLot,
+                deviceId: request.DeviceId,
+                indicatorConfirmed: request.IndicatorConfirmed,
+                resultLocationId: request.ResultLocationId);
             if (!last.Succeeded)
             {
                 return last;
@@ -817,6 +838,47 @@ public sealed class BloodProductModificationService
         return (null, inheritance.Inherited);
     }
 
+    /// <summary>
+    /// Where the result units go. A chosen location must be active and take the result's component (the transfer's
+    /// storage check). With none chosen the result stays where the source was, except that a thawed unit may not stay
+    /// in a freezer (end-user testing, 2026-11-12: thawed plasma was recorded back in the plasma freezer).
+    /// </summary>
+    private async Task<(long? LocationId, string? Error)> ResolveResultLocationAsync(
+        ModificationRule rule, long? sourceLocationId, long? chosenLocationId, CancellationToken ct)
+    {
+        if (_locations is null)
+        {
+            return (chosenLocationId ?? sourceLocationId, null);
+        }
+
+        if (chosenLocationId is long chosen)
+        {
+            var location = await _locations.GetByIdAsync(chosen, ct);
+            if (location is null || !location.IsActive)
+            {
+                return (null, "The result location is not an active inventory location.");
+            }
+
+            var target = await _inventory.GetProductTypeAsync(rule.TargetProductTypeId, ct);
+            if (target is not null && !InventoryLocationPolicyRule.AllowsComponent(location, target.ComponentClass))
+            {
+                return (null, $"{location.Code} {location.Name} does not take {target.Name}. Choose another result location.");
+            }
+
+            return rule.ModificationType == ModificationType.Thaw && location.LocationType == LocationType.Freezer
+                ? (null, $"A thawed unit cannot go to {location.Code} {location.Name}, a freezer. Choose a refrigerator.")
+                : (chosen, null);
+        }
+
+        if (rule.ModificationType == ModificationType.Thaw && sourceLocationId is long sourceId
+            && await _locations.GetByIdAsync(sourceId, ct) is { LocationType: LocationType.Freezer } freezer)
+        {
+            return (null, $"A thawed unit cannot stay in {freezer.Code} {freezer.Name}, a freezer. Choose the result location (a refrigerator).");
+        }
+
+        return (sourceLocationId, null);
+    }
+
     private async Task<ModificationActionResult> ExecuteAsync(
         IReadOnlyList<BloodUnit> sources,
         ModificationRule rule,
@@ -827,13 +889,45 @@ public sealed class BloodProductModificationService
         IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null,
         bool keepParent = false,
         string? supplyDescription = null,
-        string? supplyLot = null)
+        string? supplyLot = null,
+        string? deviceId = null,
+        bool? indicatorConfirmed = null,
+        long? resultLocationId = null)
     {
+        var placed = await ResolveResultLocationAsync(rule, sources[0].CurrentLocationId, resultLocationId, ct);
+        if (placed.Error is not null)
+        {
+            return ModificationActionResult.Fail(placed.Error);
+        }
+
         var requiredLot = _policy is not null && await _policy.GetRequireModificationSupplyLotAsync(ct);
         var supply = ModificationSupplyLotRule.Evaluate(requiredLot, supplyLot);
         if (supply.Severity == RuleSeverity.HardStop)
         {
             return ModificationActionResult.Blocked(new RuleEvaluation([supply]));
+        }
+
+        var requiredIrradiation = rule.ModificationType == ModificationType.Irradiate
+            && _policy is not null && await _policy.GetRequireIrradiationRecordAsync(ct);
+        var device = ModificationDeviceRule.Evaluate(rule.ModificationType, requiredIrradiation, deviceId, indicatorConfirmed);
+        if (device.Severity == RuleSeverity.HardStop)
+        {
+            return ModificationActionResult.Blocked(new RuleEvaluation([device]));
+        }
+
+        // A device in the equipment register must be in service (Cycle 709).
+        if (_equipment is not null && !string.IsNullOrWhiteSpace(deviceId))
+        {
+            var code = deviceId.Trim().ToUpperInvariant();
+            var registered = (await _equipment.ListAsync(e => e.Code == code, ct)).FirstOrDefault();
+            if (registered is not null)
+            {
+                var inService = ModificationDeviceRule.EvaluateRegistered(registered.Code, registered.IsActive, registered.OutOfServiceUtc, registered.OutOfServiceReason);
+                if (inService.Severity == RuleSeverity.HardStop)
+                {
+                    return ModificationActionResult.Blocked(new RuleEvaluation([inService]));
+                }
+            }
         }
 
         var restriction = UnitModificationRestrictionRule.Evaluate(
@@ -917,7 +1011,9 @@ public sealed class BloodProductModificationService
             PerformedBy = _currentUser.UserName,
             PerformedUtc = now,
             SupplyDescription = string.IsNullOrWhiteSpace(supplyDescription) ? null : supplyDescription.Trim(),
-            SupplyLot = string.IsNullOrWhiteSpace(supplyLot) ? null : supplyLot.Trim()
+            SupplyLot = string.IsNullOrWhiteSpace(supplyLot) ? null : supplyLot.Trim(),
+            DeviceId = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId.Trim(),
+            IndicatorConfirmed = rule.ModificationType == ModificationType.Irradiate ? indicatorConfirmed : null
         };
         await _modifications.AddAsync(header, ct);
 
@@ -1021,7 +1117,7 @@ public sealed class BloodProductModificationService
                 DonationRestriction = restriction.Restriction,
                 ReservedPatientId = restriction.ReservedPatientId,
                 ExpiresUtc = resultExpiresUtc,
-                CurrentLocationId = primarySource.CurrentLocationId,
+                CurrentLocationId = placed.LocationId,
                 Volume = spec.Volume,
                 Status = orderLink is null ? UnitStatus.Quarantine : UnitStatus.Assigned,
                 Source = ComponentEntrySource.Manual,
@@ -1112,7 +1208,9 @@ public sealed class BloodProductModificationService
                 ParentVolumeBefore = parentVolumeBefore,
                 ParentVolumeAfter = parentVolumeAfter,
                 header.SupplyDescription,
-                header.SupplyLot
+                header.SupplyLot,
+                header.DeviceId,
+                header.IndicatorConfirmed
             },
             reason: reason);
 

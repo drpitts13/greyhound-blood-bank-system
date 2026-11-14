@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Entities;
+﻿using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -29,10 +29,18 @@ public sealed record IssueUnitRequest(
     ComponentScanVerificationRequest? VerifiedScan = null,
     string? ReceivedBy = null,
     string? CoolerId = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable,
+    UnitAppearance? Appearance = null,
     IReadOnlyList<string>? AcknowledgedSpecialRequirementCodes = null,
     /// <summary>Scanned P-tag ID. Required when the active P-tag layout places that field.</summary>
-    string? PtagId = null);
+    string? PtagId = null,
+    /// <summary>Required when IssuedUtc is earlier than now (late entry, for example after downtime).</summary>
+    string? LateEntryReason = null,
+    /// <summary>OCD-054: a paper issue record entered after downtime; needs issue.downtime-backentry.</summary>
+    bool DowntimeBackEntry = false,
+    /// <summary>The unit number typed from the paper record, in place of the fresh scan, for a downtime back-entry.</summary>
+    string? BackEntryDin = null,
+    /// <summary>OCD-081: required when a back-entry's paper time is outside every recorded outage.</summary>
+    string? OutsideOutageReason = null);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,
@@ -43,9 +51,10 @@ public sealed record ComponentScanVerificationRequest(
 
 public sealed record ReturnUnitRequest(
     string Reason,
-    bool TemperatureAcceptable = true,
-    bool SealIntegrityAcceptable = true,
-    bool VisualInspectionAcceptable = true,
+    // Null means not answered: refused unless facility policy treats it as acceptable (OCD-040).
+    bool? TemperatureAcceptable = null,
+    bool? SealIntegrityAcceptable = null,
+    bool? VisualInspectionAcceptable = null,
     bool TimeOutOfStorageAcceptable = true,
     UnitStatus? Destination = null);
 
@@ -53,15 +62,49 @@ public sealed record WardReceiptRequest(
     string ReceivedBy,
     bool VisualInspectionAcceptable = true,
     ComponentScanVerificationRequest? VerifiedScan = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable);
+    UnitAppearance? Appearance = null,
+    /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the scan.</summary>
+    string? BackEntryDin = null,
+    /// <summary>With BackEntryDin: the receipt time written on the paper record (required).</summary>
+    DateTime? ReceivedUtc = null);
+
+/// <summary>Bedside start: who the patient is, the unit scan, and when it was spiked. Stop and outcome come later.</summary>
+public sealed record StartTransfusionRequest(
+    DateTime? StartUtc = null,
+    string? Transfusionist = null,
+    ComponentScanVerificationRequest? BedsideScan = null,
+    string? SecondVerifier = null,
+    string? Location = null,
+    IdentityTokenType PatientIdentifier1Type = IdentityTokenType.MedicalRecordNumber,
+    string? PatientIdentifier1Value = null,
+    IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
+    string? PatientIdentifier2Value = null,
+    /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the bedside scan.</summary>
+    string? BackEntryDin = null,
+    /// <summary>OCD-078: required, with AuthorizedBy, when a reaction is under investigation for the patient.</summary>
+    string? OverrideReason = null,
+    string? AuthorizedBy = null,
+    /// <summary>Vital signs before the transfusion, all optional (end-user testing, 2026-11-12).</summary>
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PreVitals = null);
+
+/// <summary>Completes a started transfusion: when it stopped, how much was given, and the outcome.</summary>
+public sealed record CompleteTransfusionRequest(
+    // Asked, like the reaction question: null (not chosen) is refused, never read as Completed.
+    TransfusionDisposition? FinalDisposition,
+    DateTime? StopUtc = null,
+    decimal? VolumeTransfused = null,
+    // Asked at the end of every transfusion: null (not answered) is refused, never read as "no reaction".
+    bool? ReactionSuspected = null,
+    /// <summary>Vital signs after the transfusion, all optional (end-user testing, 2026-11-12).</summary>
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PostVitals = null);
 
 public sealed record DocumentTransfusionRequest(
-    TransfusionDisposition FinalDisposition,
+    TransfusionDisposition? FinalDisposition,
     DateTime? StartUtc = null,
     DateTime? StopUtc = null,
     decimal? VolumeTransfused = null,
     string? Transfusionist = null,
-    bool ReactionSuspected = false,
+    bool? ReactionSuspected = null,
     ComponentScanVerificationRequest? BedsideScan = null,
     string? SecondVerifier = null,
     string? Location = null,
@@ -70,7 +113,15 @@ public sealed record DocumentTransfusionRequest(
     IdentityTokenType PatientIdentifier1Type = IdentityTokenType.MedicalRecordNumber,
     string? PatientIdentifier1Value = null,
     IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
-    string? PatientIdentifier2Value = null);
+    string? PatientIdentifier2Value = null,
+    /// <summary>OCD-054: for a downtime back-entered issue, the DIN on the paper record in place of the bedside scan.</summary>
+    string? BackEntryDin = null,
+    /// <summary>OCD-078: required, with AuthorizedBy, when a reaction is under investigation for the patient.</summary>
+    string? OverrideReason = null,
+    string? AuthorizedBy = null,
+    /// <summary>Vital signs before and after, all optional (end-user testing, 2026-11-12).</summary>
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PreVitals = null,
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PostVitals = null);
 
 public sealed record IssueDto(
     long Id,
@@ -94,7 +145,10 @@ public sealed record IssueDto(
     DateTime? InTransitDueUtc = null,
     UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
     UnitAppearance WardAppearance = UnitAppearance.Acceptable,
-    string? AcknowledgedSpecialRequirementCodes = null)
+    string? AcknowledgedSpecialRequirementCodes = null,
+    string? LateEntryReason = null,
+    DateTime? EnteredUtc = null,
+    bool DowntimeBackEntry = false)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
@@ -102,7 +156,8 @@ public sealed record IssueDto(
         i.WardReceivedUtc, i.WardReceivedBy,
         i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc,
         i.CoolerId, i.InTransitDueUtc, i.IssueAppearance, i.WardAppearance,
-        i.AcknowledgedSpecialRequirementCodes);
+        i.AcknowledgedSpecialRequirementCodes,
+        i.LateEntryReason, i.LateEntryReason is null ? null : i.CreatedUtc, i.DowntimeBackEntry);
 }
 
 public sealed record InTransitWorkItemDto(
@@ -137,8 +192,18 @@ public sealed record InTransitWorkItemDto(
     string? EmergencyReleaseAuthorizer = null,
     UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
     string? PtagCode = null,
-    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed)
+    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed,
+    // OCD-054: custody was on paper, so the row asks for the receipt to be back-entered instead of showing overdue.
+    bool DowntimeBackEntry = false)
 {
+    /// <summary>The MRN the unit was issued under when the chart has since changed MRN (a merge); null otherwise.</summary>
+    public string? IssuedUnderEarlierMrn { get; init; }
+
+    /// <summary>Cycle 692: the unit was recalled on its way: do not accept it on the ward; return it.</summary>
+    public bool UnitRecalled { get; init; }
+
+    public string? RecallReason { get; init; }
+
     public static InTransitWorkItemDto From(
         Issue i,
         DateTime now,
@@ -161,7 +226,7 @@ public sealed record InTransitWorkItemDto(
         i.Id, i.PatientId, mrn, displayName, i.BloodProductId, unitNumber, currentBloodType,
         hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
         i.IssuedUtc, i.InTransitDueUtc,
-        InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning,
+        !i.DowntimeBackEntry && InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning,
         i.CoolerId, IssueDestinationCue.Format(i.IssuedToLocation, issuePlaces), i.Status, productName, unitExpiresUtc, unitBloodType, specimenAccession, crossmatchExpiresUtc, latestCrossmatchResult,
         string.IsNullOrWhiteSpace(i.IssuedTo) ? null : i.IssuedTo.Trim(),
         i.IssueType,
@@ -171,7 +236,11 @@ public sealed record InTransitWorkItemDto(
         string.IsNullOrWhiteSpace(emergencyReleaseAuthorizer) ? null : emergencyReleaseAuthorizer.Trim(),
         i.IssueAppearance,
         string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
-        i.CrossmatchStatus);
+        i.CrossmatchStatus,
+        i.DowntimeBackEntry)
+    {
+        IssuedUnderEarlierMrn = IssuedUnderEarlierIdentityRule.EarlierMrn(i.PatientIdentifier1, mrn)
+    };
 }
 
 public sealed record OutstandingIssueWorkItemDto(
@@ -210,8 +279,24 @@ public sealed record OutstandingIssueWorkItemDto(
     string? PtagCode = null,
     CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed,
     bool StorageTimeOutGoverned = true,
-    bool StorageTimeOutAcceptable = true)
+    bool StorageTimeOutAcceptable = true,
+    // Set when the transfusion was started at the bedside and is not yet completed.
+    DateTime? TransfusionStartedUtc = null,
+    // Started and still not completed after the facility completion reminder hours.
+    bool TransfusionCompletionOverdue = false,
+    // The patient's latest transfusion reaction investigation still open or under review (Cycle 626): the bedside is
+    // warned before another unit is started (OCD-078; a warning, not a block).
+    long? OpenReactionInvestigationId = null,
+    DateTime? OpenReactionReportedUtc = null)
 {
+    /// <summary>The MRN the unit was issued under when the chart has since changed MRN (a merge); null otherwise.</summary>
+    public string? IssuedUnderEarlierMrn { get; init; }
+
+    /// <summary>Cycle 691: the unit was recalled while it was out: do not transfuse it; return it (to quarantine).</summary>
+    public bool UnitRecalled { get; init; }
+
+    public string? RecallReason { get; init; }
+
     public static OutstandingIssueWorkItemDto From(
         Issue i,
         DateTime now,
@@ -248,7 +333,10 @@ public sealed record OutstandingIssueWorkItemDto(
         string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
         i.CrossmatchStatus,
         storageTimeOutGoverned,
-        storageTimeOutAcceptable);
+        storageTimeOutAcceptable)
+    {
+        IssuedUnderEarlierMrn = IssuedUnderEarlierIdentityRule.EarlierMrn(i.PatientIdentifier1, mrn)
+    };
 }
 
 public sealed record ReadyToIssueWorkItemDto(
@@ -289,7 +377,30 @@ public sealed record ReadyToIssueWorkItemDto(
     string? UnitBloodType = null,
     DateTime? CrossmatchExpiresUtc = null,
     string? StorageLocationName = null,
-    string? SpecimenAccession = null);
+    string? SpecimenAccession = null,
+    // OCD-053: no usable specimen, but this unit may be released as an emergency under override.
+    bool PreSpecimenEmergencyAllowed = false,
+    // When the reservation itself was set to end; past it, the unit is still held until someone releases it.
+    DateTime? ReservationExpiresUtc = null,
+    // The ward's open request to issue this unit now, and where to.
+    DateTime? IssueRequestedUtc = null,
+    string? IssueRequestedBy = null,
+    string? IssueRequestedTo = null,
+    // Where the patient's open visit says they are; a suggestion for the issue destination, never filled in alone.
+    string? PatientVisitLocation = null,
+    // The open order the unit is reserved for, when it is needed by (a surgery start, a scheduled transfusion), whether
+    // that has passed, and whether it is within the facility's warning window (OCD-075) with the minutes left.
+    string? OrderNumber = null,
+    DateTime? NeededByUtc = null,
+    bool NeededByPassed = false,
+    bool NeededBySoon = false,
+    int? NeededInMinutes = null,
+    // The crossmatch or specimen stops being valid before the order is needed: issue before then, or prepare again.
+    bool ExpiresBeforeNeeded = false,
+    // The patient's latest transfusion reaction investigation still open or under review (Cycle 627): said before the
+    // unit leaves the bank (OCD-078; a warning, not a block).
+    long? OpenReactionInvestigationId = null,
+    DateTime? OpenReactionReportedUtc = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,
@@ -297,7 +408,10 @@ public sealed record SecondAboWorkItemDto(
     string DisplayName,
     string CurrentAboRh,
     int ReservedUnitCount,
-    string Reason);
+    string Reason,
+    // An open ABO/Rh order for the patient (not yet verified), so the board says it is on its way instead of
+    // asking for another. Null: nothing ordered yet, the next step is to order one from a separate draw.
+    string? AboOrderNumber = null);
 
 public sealed record RetrospectiveCrossmatchWorkItemDto(
     long IssueId,
@@ -378,10 +492,48 @@ public sealed record ReturnDto(
     DateTime ReturnedUtc,
     string ReturnedBy,
     string Reason,
-    bool ReissueEligible)
+    bool ReissueEligible,
+    // The unit went back to Received because its required retype is not confirmed (RetypeStockStatus).
+    bool RetypePending = false,
+    // The unit is back in available stock, so it can be reserved again (for the same patient or anyone).
+    bool BackInStock = false,
+    // The patient the unit had been issued to, when the issue was loaded with the return.
+    long? PatientId = null)
 {
     public static ReturnDto From(Return r) => new(
-        r.Id, r.IssueId, r.BloodProductId, r.ReturnedUtc, r.ReturnedBy, r.Reason, r.ReissueEligible);
+        r.Id, r.IssueId, r.BloodProductId, r.ReturnedUtc, r.ReturnedBy, r.Reason, r.ReissueEligible,
+        r.ReissueEvaluationJson?.Contains("\"RetypePending\":true", StringComparison.Ordinal) == true,
+        DestinationOf(r.ReissueEvaluationJson) == UnitStatus.Available,
+        r.Issue?.PatientId);
+
+    /// <summary>
+    /// Opens Compatibility with the patient and unit filled in, so reserving the returned unit again for the
+    /// same patient is one step and still runs every reservation check. Nothing is reserved automatically.
+    /// </summary>
+    public string? ReserveAgainHref =>
+        BackInStock && PatientId is long patientId
+            ? $"/compatibility?patientId={patientId}&bloodUnitId={BloodUnitId}&from=return"
+            : null;
+
+    private static UnitStatus? DestinationOf(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("destination", out var value) && value.TryGetInt32(out var number)
+                ? (UnitStatus)number
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
 }
 
 public sealed record TransfusionEventDto(

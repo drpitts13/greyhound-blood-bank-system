@@ -17,6 +17,9 @@ public static class ReportSourceCatalog
     public const string Overrides = "overrides";
     public const string CrossmatchTransfusion = "crossmatch_transfusion";
     public const string LabResults = "lab_results";
+    public const string SpecimenRejections = "specimen_rejections";
+    public const string TestTurnaround = "test_turnaround";
+    public const string BloodOrderTurnaround = "blood_order_turnaround";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -86,6 +89,7 @@ public static class ReportSourceCatalog
             Field("mrn", "MRN")),
         Source(CrossmatchTransfusion, "Crossmatch and transfusion activity", ReportViewCatalog.CrossmatchTransfusion,
             Field("occurred_utc", "Occurred", ReportValueKind.Date),
+            Field("occurred_month", "Month"),
             Field("event_type", "Event"),
             Field("unit_number", "Unit number"),
             Field("product_name", "Product"),
@@ -111,7 +115,52 @@ public static class ReportSourceCatalog
             Field("interpretation", "Interpretation"),
             Field("result_status", "Result status"),
             Field("entered_utc", "Entered", ReportValueKind.Date),
-            Field("verified_utc", "Verified", ReportValueKind.Date))
+            Field("verified_utc", "Verified", ReportValueKind.Date)),
+        Source(SpecimenRejections, "Specimen rejections", ReportViewCatalog.SpecimenRejections,
+            Field("rejected_utc", "Rejected", ReportValueKind.Date),
+            Field("rejected_month", "Rejection month"),
+            Field("rejection_reason_code", "Reason code"),
+            Field("rejection_reason", "Reason"),
+            Field("rejected_by", "Rejected by"),
+            Field("accession_number", "Accession"),
+            Field("specimen_type", "Specimen type"),
+            Field("draw_location", "Draw location"),
+            Field("collector", "Collector"),
+            Field("collected_utc", "Collected", ReportValueKind.Date),
+            Field("received_utc", "Received", ReportValueKind.Date),
+            Field("mrn", "MRN"),
+            Field("patient_name", "Patient")),
+        // One row per verified current result on an order: minutes from order, and from tube receipt, to verification.
+        Source(TestTurnaround, "Test turnaround", ReportViewCatalog.TestTurnaround,
+            Field("verified_utc", "Verified", ReportValueKind.Date),
+            Field("verified_month", "Verification month"),
+            Field("ordered_utc", "Ordered", ReportValueKind.Date),
+            Field("received_utc", "Received", ReportValueKind.Date),
+            Field("priority", "Priority"),
+            Field("test_code", "Test code"),
+            Field("order_number", "Order"),
+            Field("accession_number", "Accession"),
+            Field("minutes_order_to_verify", "Minutes, order to verified", ReportValueKind.Number),
+            Field("minutes_receipt_to_verify", "Minutes, receipt to verified", ReportValueKind.Number),
+            Field("mrn", "MRN"),
+            Field("patient_name", "Patient")),
+        // One row per blood order (an order with product lines, not cancelled or discontinued): minutes from order to
+        // the first unit reserved and the first issued, and whether a unit was ready by the needed-by time.
+        Source(BloodOrderTurnaround, "Blood order turnaround", ReportViewCatalog.BloodOrderTurnaround,
+            Field("ordered_utc", "Ordered", ReportValueKind.Date),
+            Field("ordered_month", "Order month"),
+            Field("priority", "Priority"),
+            Field("order_number", "Order"),
+            Field("status", "Status"),
+            Field("units_ordered", "Units ordered", ReportValueKind.Number),
+            Field("first_reserved_utc", "First reserved", ReportValueKind.Date),
+            Field("first_issued_utc", "First issued", ReportValueKind.Date),
+            Field("minutes_order_to_reserve", "Minutes, order to first reserved", ReportValueKind.Number),
+            Field("minutes_order_to_issue", "Minutes, order to first issued", ReportValueKind.Number),
+            Field("needed_by_utc", "Needed by", ReportValueKind.Date),
+            Field("ready_by_needed_by", "Ready by needed-by"),
+            Field("mrn", "MRN"),
+            Field("patient_name", "Patient"))
     };
 
     public static ReportSourceDefinition? Find(string? code) =>

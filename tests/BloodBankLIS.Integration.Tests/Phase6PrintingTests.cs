@@ -78,6 +78,9 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
             && e.EventType == AuditEventType.Print
             && e.EntityId == job.Id
             && e.Reason == "SpecimenLabel printed.");
+
+        // TEST-BB-1045: the job list names what was printed, not "Specimen#16" (end-user testing pass 32).
+        Assert.Equal("Specimen ACC-PRT-1", (await Printing(context).ListSummariesAsync()).Single(j => j.Id == job.Id).ContextName);
     }
 
     [Fact]
@@ -195,6 +198,7 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(PrintJobType.CompatibilityTag, result.Value!.JobType);
         Assert.Contains("W-PRT-200", result.Value.RenderedZpl);
         Assert.Equal(nameof(Issue), result.Value.ContextType);
+        Assert.StartsWith("Unit W-PRT-200 issued to ", (await Printing(context).ListSummariesAsync()).Single(j => j.Id == result.Value.Id).ContextName);
     }
 
     [Fact]

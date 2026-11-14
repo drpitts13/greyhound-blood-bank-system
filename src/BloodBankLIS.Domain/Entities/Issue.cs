@@ -99,4 +99,37 @@ public class Issue : BaseEntity
 
     /// <summary>Comma-separated special-requirement codes acknowledged at issue (warmer / Other).</summary>
     public string? AcknowledgedSpecialRequirementCodes { get; set; }
+
+    /// <summary>The massive transfusion protocol activation this unit was issued under.</summary>
+    public long? MtpActivationId { get; set; }
+
+    /// <summary>The MTP pack (container) this unit was packed into, once packed.</summary>
+    public long? MtpPackRecordId { get; set; }
+
+    /// <summary>
+    /// Why the issue was entered after the stated issue time (IssuedUtc). Null for a contemporaneous issue; the
+    /// entry time is CreatedUtc.
+    /// </summary>
+    public string? LateEntryReason { get; set; }
+
+    /// <summary>
+    /// OCD-054: entered after downtime from a paper issue record, with expiration judged as of IssuedUtc and the DIN
+    /// typed from the paper record in place of a fresh scan.
+    /// </summary>
+    public bool DowntimeBackEntry { get; set; }
+
+    /// <summary>
+    /// OCD-081: why a downtime back-entry's paper time falls outside every recorded outage. Null when it falls inside one,
+    /// when no outage was recorded, and for every other issue.
+    /// </summary>
+    public string? OutsideOutageReason { get; set; }
+
+    /// <summary>OCD-074: issued to an infant under the neonatal rules without a crossmatch (negative screen, group O).</summary>
+    public bool NeonatalNoCrossmatch { get; set; }
+
+    /// <summary>
+    /// The patient's transfusion reaction investigation still open or under review when this unit was issued (Cycle 634),
+    /// recorded so a review or lookback finds units given while a reaction was being investigated (OCD-078).
+    /// </summary>
+    public long? ReactionInvestigationOpenAtIssueId { get; set; }
 }

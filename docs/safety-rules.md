@@ -48,6 +48,9 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `XM-ALLOC-PERM` | Caller has `compatibility.allocate` when reserving a unit to a patient | HardStop when a permission evaluator is present and the privilege is missing |
 | `XM-REL-PERM` | Caller has `compatibility.allocate` when releasing a reservation back to Available | HardStop when a permission evaluator is present and the privilege is missing |
 | `XM-PERM` | Caller has `compatibility.crossmatch` when recording a crossmatch | HardStop when a permission evaluator is present and the privilege is missing |
+| `XM-SPEC-EXPIRED` | The specimen a crossmatch is recorded on has not reached its expiration (an undated specimen keeps the default crossmatch validity) | HardStop |
+| `ISS-PRE-SPECIMEN` | Emergency or MTP issue with no current specimen (or an expired one): group O red cells or whole blood and group AB or A plasma only (OCD-053) | Warning, accepted only through the emergency override; any other group or component HardStop |
+| `XM-SPEC-EXPIRED-RETRO` | Retrospective crossmatch after emergency release on the expired pre-transfusion specimen (collected at or before issue): allowed as an exception (OCD-050) | Warning; override with reason and authorizer, recorded and sent to supervisor review |
 | `ISS-SPECIAL-REQ` | All clinically active special requirements met (unit product attributes / antigen-negative / issue acknowledgment / A1/A2 subgroup). End-dated rows are ignored. Extended XM is enforced via `ALLOC-XM-AB-HISTORY` / `XM-EC-EXTXM`, not this boolean | HardStop |
 | `ISS-ANTIGEN-NEG` | For RBC/WB: unit typed antigen-negative for each clinically significant patient antibody (current or historical). The message says the unit is not tested or states the recorded non-negative result. Reserve requires reason, authorizer, and `ExceptionOverridePolicy`; a client boolean is not enough | Warning (supervisor+ override via ExceptionDefinitions, MinSecurityLevel 2) |
 | `ALLOC-XM-AB-HISTORY` | Positive antibody screen (current/historical), antibody history, or an active extended-crossmatch special requirement requires complex crossmatch (simple XM needs override) | Warning |
@@ -99,6 +102,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-DIR-CONV-2ND` | Distinct directory user as second verifier to convert a directed unit to allogeneic | HardStop when `Inventory.RequireDirectedConversionVerifier` is true (default) |
 | `INV-RCV-2ND` | Distinct directory user as second verifier when receiving a unit (walk-in, expected arrival, ISBT) | HardStop when `Inventory.RequireReceiveVerifier` is true (default) |
 | `RES-SELF-VERIFY` | The user who entered a patient ABO/Rh result may not verify it | HardStop when `Result.BlockAboSelfVerify` is true (default); `MarkComplete` does not auto-verify ABO/Rh |
+| `BATCH-VERIFY` | A result may join a batch verification only if it is a plainly Negative ABSC or DAT, or an ABORH matching the current historical type, waiting for first verification, entered by someone other than the verifier, on a patient with no antibody history and no special requirement in effect (OCD-061); policy `Result.AllowBatchVerify`, default off | HardStop for that result only: it stays unverified with the reason. Every batched result still passes the normal verification checks. |
 | `RES-VERIFY-PERM` | Caller has `result.verify` when verifying a test result, or when confirming a leftover Entered unit retype | HardStop when a permission evaluator is present and the privilege is missing |
 | `RES-ENTER-PERM` | Caller has `result.enter` when entering or updating an unverified result or recording a unit retype | HardStop when a permission evaluator is present and the privilege is missing |
 | `RES-CORRECT-PERM` | Caller has `result.correct` when correcting a verified result | HardStop when a permission evaluator is present and the privilege is missing |
@@ -107,7 +111,8 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `SPEC-RCV-EXPIRED` | An expired specimen cannot be received | HardStop (reject instead) |
 | `SPEC-ACCEPT-STATUS` | Only a Received specimen can be accepted for testing | HardStop |
 | `SPEC-ACCEPT-EXPIRED` | An expired specimen cannot be accepted | HardStop (reject instead) |
-| `SHIFT-HANDOFF-PERM` | Caller has `audit.read` when recording or acknowledging a shift handoff | HardStop when a permission evaluator is present and the privilege is missing |
+| `SHIFT-HANDOFF-PERM` | Caller has `shift.handoff` when recording or acknowledging a shift handoff (Cycle 286; was `audit.read`) | HardStop when a permission evaluator is present and the privilege is missing |
+| `SHIFT-HANDOFF-TO` | A named recipient is an active user other than the sender | HardStop |
 | `SHIFT-HANDOFF-NOTES` | Shift handoff note is required | HardStop |
 | `SHIFT-HANDOFF-SELF` | The user who recorded a handoff cannot acknowledge it | HardStop |
 | `SHIFT-HANDOFF-ACKED` | An already acknowledged handoff cannot be acknowledged again | HardStop |
@@ -209,6 +214,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ORDPROV-CREATE-PERM` | Caller has `admin.config.edit` when creating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing. Create/update writes `Configure`. |
 | `ORDPROV-UPD-PERM` | Caller has `admin.config.edit` when updating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDPROV-ACT-PERM` | Caller has `admin.config.activate` when activating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
+| `ORD-DUP-TEST` | A test being ordered is already ordered and open for the patient (order not completed, cancelled, or discontinued; line active; result not verified) | Warning only; the order is created and names the open orders. Cancel the new order if the repeat was a mistake. |
 | `ORDPROV-DEACT-PERM` | Caller has `admin.config.activate` when deactivating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDLOC-CREATE-PERM` | Caller has `admin.config.edit` when creating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDLOC-UPD-PERM` | Caller has `admin.config.edit` when updating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |
@@ -248,6 +254,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ENC-UPD-PERM` | Caller has `patient.write` when updating a visit from the workspace | HardStop when a permission evaluator is present and the privilege is missing |
 | `RXN-PERM` | Caller has `reaction.investigate` when updating a reaction investigation or recording fatality notifications | HardStop when a permission evaluator is present and the privilege is missing. Open, update, CBER, and written-report write `ReactionInvestigation` with the row id. |
 | `DEV-PERM` | Caller has `deviation.manage` when creating or updating a quality-system deviation | HardStop when a permission evaluator is present and the privilege is missing. Create and status update write `Deviation` with the row id. |
+| `DEV-STATUS` | Closing a deviation needs a corrective action (recorded or entered); a recorded corrective action is not replaced with blank text | HardStop. Reopening clears the close stamp; the audit keeps the earlier close. |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 
 If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory. Issuing any unit is HardStop `ISS-CREATE-PERM` without `issue.create`. Emergency or MTP issue is also HardStop `ISS-EMERG-PERM` unless the user has `issue.emergency-release`. Non-emergency warning overrides are HardStop `ISS-OVR-PERM` without `issue.override`. Returning an issued unit is HardStop `ISS-RET-PERM` without `issue.return`. Documenting a transfusion is HardStop `TXN-DOC-PERM` without `transfusion.document`. Recording ward receipt is HardStop `TXN-WARD-PERM` without `transfusion.document` and writes `Transfusion` on the issue. Adding a special requirement writes `Antibody` (entity id, type, antigen, reason); deactivating writes `Deactivate` with old/new.
@@ -385,8 +392,12 @@ Recorded on `ReactionInvestigation` and evaluated by `ReactionWorkupCompleteness
 
 | Code | Rule | Severity if violated |
 |---|---|---|
-| `RXN-WORKUP-INCOMPLETE` | Clerical check, visual inspection, and DAT are recorded; DAT-positive requires elution notes | HardStop |
-| `RXN-REPEAT-ABORH` | Recorded repeat patient or unit ABO/Rh disagrees with current or labeled type | Warning (does not block close) |
+| `RXN-WORKUP-INCOMPLETE` | Clerical check and visual inspection recorded; pre- and post-transfusion specimens on the case; every Test Group test on them verified; a verified positive post-transfusion DAT requires elution notes | HardStop |
+| `RXN-PRE-SPECIMEN` | Pre-transfusion specimen: same patient, Accepted or Expired, collected at or before the issue | HardStop |
+| `RXN-POST-SPECIMEN` | Post-transfusion specimen: same patient, Accepted, collected at or after the transfusion start, not the pre-transfusion tube | HardStop |
+| `RXN-REPEAT-ABORH` | Verified post-transfusion ABO/Rh (or a typed legacy value) disagrees with the current type or the pre-transfusion specimen; typed repeat unit ABO/Rh disagrees with the labeled type | Warning (does not block close) |
+
+Reaction workup orders (OCD-058) may use an expired specimen; every other order keeps the expiry block.
 
 Opening a reaction investigation quarantines the implicated unit when `InventoryStatusTransition` allows (typically `TransfusionStopped` remainder). Fully transfused units stay terminal; the checklist still records segment/bag retention.
 
@@ -418,6 +429,7 @@ Opening a reaction investigation quarantines the implicated unit when `Inventory
 - No clinical row is hard-deleted; status/void columns and history tables preserve prior state.
 - The system never auto-resolves an ABO/Rh discrepancy, antibody conflict, or compatibility failure. Resolution is always an explicit, audited user action.
 - Audit writes occur in the same transaction as the change; a failed audit rolls back the operation.
+- A unit status action (recall, hold, damaged, missing, return to supplier, discard, specific quarantine) repeated on a unit already in that status is refused, so the reason recorded the first time is never replaced (Cycles 434–435).
 - New `AuditEvent` rows store `PreviousHash` and `RecordHash`. A payload edit or a missing hashed row fails `AuditHashChainRule.Verify` (`AUDIT-CHAIN-PAYLOAD` / `AUDIT-CHAIN-LINK`). Rows written before the chain are not rewritten. This is not a retention or purge policy (OCD-007).
 
 ---

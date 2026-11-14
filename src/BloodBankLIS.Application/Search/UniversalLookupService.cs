@@ -1,0 +1,651 @@
+using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Patients;
+using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
+using BloodBankLIS.Domain.Isbt128.Parsing;
+using BloodBankLIS.Domain.Rules;
+
+namespace BloodBankLIS.Application.Search;
+
+/// <summary>
+/// The top-bar "scan anything" lookup. One field takes a unit DIN or number, a specimen accession or tube barcode,
+/// an order number, an MRN (current or prior) or other patient identifier, a visit or account number, or part of a
+/// patient name, and returns the matching records.
+/// Exact identifier matches win; partial matches are offered only when nothing matched exactly.
+/// Read-only: it opens nothing itself, and the patient chart audits the access when the user opens it.
+/// </summary>
+public sealed class UniversalLookupService
+{
+    public const int PartialLimit = 20;
+    private const int MinimumPartialLength = 2;
+    private const int MaxMergeHops = 5;
+
+    private readonly IRepository<Patient> _patients;
+    private readonly IRepository<PatientIdentifier> _identifiers;
+    private readonly IRepository<BloodUnit> _units;
+    private readonly IRepository<ProductType> _products;
+    private readonly IRepository<Specimen> _specimens;
+    private readonly IRepository<Order> _orders;
+    private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
+    private readonly IRepository<AntibodyHistory>? _antibodies;
+    private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
+    private readonly IClock? _clock;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<Encounter>? _encounters;
+
+    private readonly IRepository<RhigEvaluation>? _rhig;
+    private readonly IRepository<Issue>? _issues;
+    private readonly IRepository<ReagentLot>? _reagentLots;
+    private readonly IRepository<Reagent>? _reagents;
+    private readonly IAuditQuery? _auditQuery;
+    private readonly ICurrentUser? _currentUser;
+
+    public const int RecentPatientCount = 8;
+
+    public UniversalLookupService(
+        IRepository<Patient> patients,
+        IRepository<PatientIdentifier> identifiers,
+        IRepository<BloodUnit> units,
+        IRepository<ProductType> products,
+        IRepository<Specimen> specimens,
+        IRepository<Order> orders,
+        IRepository<PatientBloodTypeHistory>? bloodTypes = null,
+        IRepository<AntibodyHistory>? antibodies = null,
+        IRepository<SpecialTransfusionRequirement>? requirements = null,
+        IClock? clock = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        IRepository<Encounter>? encounters = null,
+        IRepository<RhigEvaluation>? rhig = null,
+        IAuditQuery? auditQuery = null,
+        ICurrentUser? currentUser = null,
+        IRepository<Issue>? issues = null,
+        IRepository<ReagentLot>? reagentLots = null,
+        IRepository<Reagent>? reagents = null)
+    {
+        _reagentLots = reagentLots;
+        _reagents = reagents;
+        _issues = issues;
+        _auditQuery = auditQuery;
+        _currentUser = currentUser;
+        _rhig = rhig;
+        _encounters = encounters;
+        _requirementDefinitions = requirementDefinitions;
+        _bloodTypes = bloodTypes;
+        _antibodies = antibodies;
+        _requirements = requirements;
+        _clock = clock;
+        _patients = patients;
+        _identifiers = identifiers;
+        _units = units;
+        _products = products;
+        _specimens = specimens;
+        _orders = orders;
+    }
+
+    public async Task<LookupResultDto> LookupAsync(string? query, CancellationToken ct = default)
+    {
+        var sanitized = ScannerInputSanitizer.Sanitize(query).Sanitized.Trim();
+        if (sanitized.Length == 0)
+        {
+            return LookupResultDto.Empty(string.Empty);
+        }
+
+        var compact = sanitized.Replace(" ", string.Empty);
+        var upper = compact.ToUpperInvariant();
+
+        // A scanner DIN (leading '=') is unambiguous: report a malformed scan instead of searching names for it.
+        string? din = null;
+        var dinParse = DinParser.Parse(sanitized);
+        if (dinParse.Success)
+        {
+            din = dinParse.Value!.Din;
+        }
+        else if (sanitized.StartsWith('='))
+        {
+            return LookupResultDto.Empty(sanitized,
+                $"That scan is not a readable unit number (DIN). {dinParse.Errors.FirstOrDefault()?.Message} Scan the unit number barcode again.");
+        }
+
+        var hits = new List<LookupHitDto>();
+        hits.AddRange(await ExactUnitsAsync(upper, din?.ToUpperInvariant(), ct));
+        if (!sanitized.StartsWith('='))
+        {
+            hits.AddRange(await ExactSpecimensAsync(upper, ct));
+            hits.AddRange(await ExactOrdersAsync(upper, ct));
+            hits.AddRange(await ExactPatientsAsync(upper, ct));
+            hits.AddRange(await ExactVisitsAsync(upper, ct));
+            hits.AddRange(await ExactRhigLotsAsync(upper, ct));
+            hits.AddRange(await ExactReagentLotsAsync(upper, ct));
+            hits.AddRange(await ExactShipmentsAsync(upper, ct));
+            hits.AddRange(await ExactCoolersAsync(upper, ct));
+        }
+
+        if (hits.Count > 0)
+        {
+            // A patient found by both MRN and visit number is one record.
+            return new LookupResultDto(sanitized, Distinct(hits), false, null);
+        }
+
+        if (sanitized.StartsWith('=') || sanitized.Length < MinimumPartialLength)
+        {
+            return LookupResultDto.Empty(sanitized, NoMatch(sanitized));
+        }
+
+        var (patients, patientsCapped) = await PartialPatientsAsync(sanitized, ct);
+        var (units, unitsCapped) = await PartialUnitsAsync(upper, ct);
+        var partial = patients.Concat(units).ToList();
+        if (partial.Count == 0)
+        {
+            return LookupResultDto.Empty(sanitized, NoMatch(sanitized));
+        }
+
+        var truncated = patientsCapped || unitsCapped;
+        return new LookupResultDto(
+            sanitized,
+            partial,
+            truncated,
+            truncated ? $"Showing the first {PartialLimit} of each kind. Type more of the name or number to narrow the list." : null);
+    }
+
+    /// <summary>
+    /// The charts the signed-in user opened most recently (from their own "Patient record opened" audit rows), newest
+    /// first, one row per patient; a merged-away chart shows as the chart it was merged into. Nothing new is stored.
+    /// </summary>
+    public async Task<LookupResultDto> RecentPatientsAsync(CancellationToken ct = default)
+    {
+        var user = _currentUser?.UserName;
+        if (_auditQuery is null || string.IsNullOrWhiteSpace(user))
+        {
+            return LookupResultDto.Empty(string.Empty);
+        }
+
+        var opened = await _auditQuery.ListLatestForUserAsync(user, AuditEventType.PatientAccess, nameof(Patient), 200, ct);
+        var latest = opened
+            .GroupBy(e => e.EntityId!.Value)
+            .Select(g => (PatientId: g.Key, Opened: g.Max(e => e.OccurredUtc)))
+            .OrderByDescending(x => x.Opened)
+            .ToList();
+        var patients = await PatientsByIdAsync(latest.Select(x => x.PatientId), ct);
+        var hits = new List<LookupHitDto>();
+        foreach (var (patientId, openedUtc) in latest)
+        {
+            if (!patients.TryGetValue(patientId, out var patient))
+            {
+                continue;
+            }
+
+            var hit = await PatientHitAsync(patient, exact: true, $"Opened {ClinicalTimeText.Local(openedUtc)}", ct);
+            if (hits.All(h => h.Id != hit.Id))
+            {
+                hits.Add(hit);
+            }
+
+            if (hits.Count == RecentPatientCount)
+            {
+                break;
+            }
+        }
+
+        return new LookupResultDto(string.Empty, hits, false, hits.Count == 0 ? "No charts opened yet." : "Your recent patients");
+    }
+
+    /// <summary>
+    /// A scanned or typed reagent lot number: opens Reagent QC on that lot, with its results and whether QC is current.
+    /// End-user testing pass 37: the lookup found RhIG lots but not the reagent lot on a vial.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactReagentLotsAsync(string upper, CancellationToken ct)
+    {
+        if (_reagentLots is null)
+        {
+            return [];
+        }
+
+        var lots = await _reagentLots.ListAsync(l => l.LotNumber.ToUpper() == upper, ct);
+        if (lots.Count == 0)
+        {
+            return [];
+        }
+
+        var reagentIds = lots.Select(l => l.ReagentId).Distinct().ToList();
+        var reagents = _reagents is null
+            ? new Dictionary<long, Reagent>()
+            : (await _reagents.ListAsync(r => reagentIds.Contains(r.Id), ct)).ToDictionary(r => r.Id);
+        return lots
+            .Select(l => new LookupHitDto(
+                LookupHitKind.ReagentLot,
+                l.Id,
+                true,
+                l.LotNumber,
+                $"{(reagents.TryGetValue(l.ReagentId, out var reagent) ? $"{reagent.Code} {reagent.Name}" : "Reagent")} lot {l.LotNumber}",
+                $"{Words(l.State.ToString())} · expires {l.ExpiresUtc:yyyy-MM-dd}",
+                $"/reagents?lot={l.Id}"))
+            .ToList();
+    }
+
+    /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>
+    private static string Words(string code)
+    {
+        var parts = System.Text.RegularExpressions.Regex.Split(code, "(?<=[a-z0-9])(?=[A-Z])").Where(x => x.Length > 0).ToList();
+        return string.Join(' ', parts.Select((x, i) => i == 0 ? x : x.ToLowerInvariant()));
+    }
+
+    /// <summary>A scanned RhIG lot recorded as given: one hit that opens the lot trace (who received it).</summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactRhigLotsAsync(string upper, CancellationToken ct)
+    {
+        if (_rhig is null)
+        {
+            return [];
+        }
+
+        var given = await _rhig.ListAsync(e => e.GivenLot != null && e.GivenLot.ToUpper() == upper, ct);
+        if (given.Count == 0)
+        {
+            return [];
+        }
+
+        var lot = given[0].GivenLot!;
+        var patients = given.Select(e => e.PatientId).Distinct().Count();
+        var last = given.Max(e => e.GivenUtc) ?? DateTime.MinValue;
+        return
+        [
+            new LookupHitDto(
+                LookupHitKind.RhigLot,
+                given.Min(e => e.Id),
+                true,
+                lot,
+                $"RhIG lot given to {patients} patient{(patients == 1 ? "" : "s")}",
+                $"Last given {ClinicalTimeText.Local(last)}",
+                $"/rhig?lot={Uri.EscapeDataString(lot)}")
+        ];
+    }
+
+    /// <summary>
+    /// A scanned outbound shipment reference (packing list or courier number): one hit per facility shipped to under it,
+    /// opening Ship units with that shipment's units.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactShipmentsAsync(string upper, CancellationToken ct)
+    {
+        var shipped = await _units.ListAsync(u => u.Status == UnitStatus.ShippedOut && u.OutboundShipmentReference != null
+            && u.OutboundShipmentReference.ToUpper().Replace(" ", "") == upper, ct);
+        return shipped
+            .GroupBy(u => ShipOutRule.ShipmentKey(u.ShippedToFacility, u.OutboundShipmentReference, u.ShippedUtc))
+            .Select(g =>
+            {
+                var first = g.OrderBy(u => u.ShippedUtc).ThenBy(u => u.Id).First();
+                var count = g.Count();
+                return new LookupHitDto(
+                    LookupHitKind.Shipment,
+                    first.Id,
+                    true,
+                    first.OutboundShipmentReference!,
+                    $"Shipment to {first.ShippedToFacility}: {count} unit{(count == 1 ? "" : "s")}",
+                    $"Shipped {ClinicalTimeText.Local(first.ShippedUtc)}",
+                    $"/inventory/ship-out?shipment={Uri.EscapeDataString(first.OutboundShipmentReference!)}");
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// A scanned transport cooler label: one hit when units issued in it are still in transit (not yet received on the
+    /// ward), naming how many and where they went, and opening Check a cooler with it. A cooler with nothing in transit is
+    /// not found. Read-only.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactCoolersAsync(string upper, CancellationToken ct)
+    {
+        if (_issues is null)
+        {
+            return [];
+        }
+
+        var inCooler = (await _issues.ListAsync(i => i.Status == IssueStatus.Issued && i.WardReceivedUtc == null && i.CoolerId != null, ct))
+            .Where(i => string.Equals(i.CoolerId!.Trim().Replace(" ", "").ToUpperInvariant(), upper, StringComparison.Ordinal))
+            .OrderBy(i => i.IssuedUtc).ThenBy(i => i.Id)
+            .ToList();
+        if (inCooler.Count == 0)
+        {
+            return [];
+        }
+
+        var first = inCooler[0];
+        var cooler = first.CoolerId!.Trim();
+        var destinations = inCooler.Select(i => i.IssuedToLocation?.Trim()).Where(l => !string.IsNullOrEmpty(l)).Distinct().ToList();
+        return
+        [
+            new LookupHitDto(
+                LookupHitKind.Cooler,
+                first.Id,
+                true,
+                cooler,
+                $"Cooler {cooler}: {inCooler.Count} unit{(inCooler.Count == 1 ? "" : "s")} in transit",
+                (destinations.Count > 0 ? $"To {string.Join(", ", destinations)} · " : "") + $"issued {ClinicalTimeText.Local(first.IssuedUtc)}",
+                $"/issuing/cooler-check?cooler={Uri.EscapeDataString(cooler)}")
+        ];
+    }
+
+    private static string NoMatch(string query) =>
+        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, or cooler in transit matches \"{query}\".";
+
+    private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
+    {
+        var units = await _units.ListAsync(u =>
+            u.UnitNumber.ToUpper() == upper
+            || (u.ComponentIdentity != null && u.ComponentIdentity.ToUpper() == upper)
+            || (din != null && (u.UnitNumber.ToUpper() == din || (u.Din != null && u.Din.ToUpper() == din))), ct);
+        return await ToUnitHitsAsync(units, exact: true, ct);
+    }
+
+    private async Task<(IReadOnlyList<LookupHitDto> Hits, bool Capped)> PartialUnitsAsync(string upper, CancellationToken ct)
+    {
+        var units = (await _units.ListAsync(u => u.UnitNumber.ToUpper().Contains(upper), ct))
+            .OrderBy(u => u.UnitNumber)
+            .Take(PartialLimit + 1)
+            .ToList();
+        var hits = await ToUnitHitsAsync(units.Take(PartialLimit).ToList(), exact: false, ct);
+        return (hits, units.Count > PartialLimit);
+    }
+
+    private async Task<IReadOnlyList<LookupHitDto>> ToUnitHitsAsync(IReadOnlyList<BloodUnit> units, bool exact, CancellationToken ct)
+    {
+        if (units.Count == 0)
+        {
+            return [];
+        }
+
+        var productIds = units.Select(u => u.ProductTypeId).Distinct().ToList();
+        var products = (await _products.ListAsync(p => productIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return units
+            .OrderBy(u => u.UnitNumber)
+            .Select(u =>
+            {
+                var product = products.TryGetValue(u.ProductTypeId, out var p) && !string.IsNullOrWhiteSpace(p.Name)
+                    ? p.Name
+                    : $"Product {u.ProductTypeId}";
+                return new LookupHitDto(
+                    LookupHitKind.Unit,
+                    u.Id,
+                    exact,
+                    u.UnitNumber,
+                    product,
+                    $"{AboRhLabel(u.Abo, u.RhD)} · {u.Status} · expires {ClinicalTimeText.Local(u.ExpiresUtc)}"
+                        + (UnitStatusNote.For(u.Status, u.ShippedToFacility, u.RecallReason, u.QuarantineReason, u.HoldReason,
+                            u.MissingReason, u.DamagedReason, u.DiscardReason, u.SupplierReturnReason) is string note ? $" · {note}" : string.Empty),
+                    $"/inventory/units/{u.Id}");
+            })
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<LookupHitDto>> ExactSpecimensAsync(string upper, CancellationToken ct)
+    {
+        var specimens = await _specimens.ListAsync(s =>
+            s.AccessionNumber.ToUpper() == upper || (s.Barcode != null && s.Barcode.ToUpper() == upper), ct);
+        if (specimens.Count == 0)
+        {
+            return [];
+        }
+
+        var patients = await PatientsByIdAsync(specimens.Select(s => s.PatientId), ct);
+        return specimens
+            .Select(s =>
+            {
+                var owner = patients.GetValueOrDefault(s.PatientId);
+                return new LookupHitDto(
+                    LookupHitKind.Specimen,
+                    s.Id,
+                    true,
+                    s.AccessionNumber,
+                    $"Specimen for {PatientLabel(owner, s.PatientId)}",
+                    $"{s.SpecimenType} · {s.Status} · collected {ClinicalTimeText.Local(s.CollectedUtc)}"
+                        + (string.IsNullOrWhiteSpace(s.StorageLocation) ? string.Empty : $" · stored in {s.StorageLocation}")
+                        + (s.DiscardedUtc is DateTime discarded ? $" · discarded {discarded:yyyy-MM-dd}" : string.Empty),
+                    $"/patients/{s.PatientId}?tab=specimens&specimen={s.Id}");
+            })
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<LookupHitDto>> ExactOrdersAsync(string upper, CancellationToken ct)
+    {
+        var orders = await _orders.ListAsync(o => o.OrderNumber.ToUpper() == upper, ct);
+        if (orders.Count == 0)
+        {
+            return [];
+        }
+
+        var patients = await PatientsByIdAsync(orders.Select(o => o.PatientId), ct);
+        return orders
+            .Select(o => new LookupHitDto(
+                LookupHitKind.Order,
+                o.Id,
+                true,
+                o.OrderNumber,
+                $"{(string.IsNullOrWhiteSpace(o.OrderName) ? "Order" : o.OrderName)} for {PatientLabel(patients.GetValueOrDefault(o.PatientId), o.PatientId)}",
+                // In words, not codes (end-user testing pass 37: "EmergencyRelease · InProcess").
+                $"{Words(o.Priority.ToString())} · {Words(o.Status.ToString())}",
+                OrderHref(o.PatientId, o.OrderNumber)))
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<LookupHitDto>> ExactPatientsAsync(string upper, CancellationToken ct)
+    {
+        var byMrn = await _patients.ListAsync(p => p.MedicalRecordNumber.ToUpper() == upper, ct);
+        // Scannable identifiers only: a prior MRN, an account number, or another recorded id. Names and dates of birth
+        // are not identifiers to scan, and stay with the partial search.
+        var identifiers = await _identifiers.ListAsync(i =>
+            i.IsActive
+            && (i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber
+                || i.IdentifierType == IdentityTokenType.AccountNumber
+                || i.IdentifierType == IdentityTokenType.Other)
+            && i.Value.ToUpper() == upper, ct);
+
+        var hits = new List<LookupHitDto>();
+        foreach (var patient in byMrn)
+        {
+            hits.Add(await PatientHitAsync(patient, exact: true, matchedNote: null, ct));
+        }
+
+        var owners = await PatientsByIdAsync(identifiers.Select(i => i.PatientId), ct);
+        foreach (var identifier in identifiers.Where(i => owners.ContainsKey(i.PatientId)))
+        {
+            hits.Add(await PatientHitAsync(owners[identifier.PatientId], exact: true, IdentifierNote(identifier.IdentifierType, upper), ct));
+        }
+
+        return Distinct(hits);
+    }
+
+    private static string IdentifierNote(IdentityTokenType type, string value) => type switch
+    {
+        IdentityTokenType.PriorMedicalRecordNumber => $"Prior MRN {value}",
+        IdentityTokenType.AccountNumber => $"Account number {value}",
+        _ => $"Identifier {value}"
+    };
+
+    /// <summary>
+    /// A visit (or its account) number from a requisition or wristband opens that patient on the visit's orders, and says
+    /// whether the visit is still open, so an old visit is not mistaken for the current one.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactVisitsAsync(string upper, CancellationToken ct)
+    {
+        if (_encounters is null)
+        {
+            return [];
+        }
+
+        var visits = await _encounters.ListAsync(e =>
+            e.VisitNumber.ToUpper() == upper || (e.AccountNumber != null && e.AccountNumber.ToUpper() == upper), ct);
+        if (visits.Count == 0)
+        {
+            return [];
+        }
+
+        var owners = await PatientsByIdAsync(visits.Select(v => v.PatientId), ct);
+        var hits = new List<LookupHitDto>();
+        foreach (var visit in visits.Where(v => owners.ContainsKey(v.PatientId)).OrderByDescending(v => v.AdmitUtc ?? DateTime.MinValue))
+        {
+            hits.Add(await PatientHitAsync(owners[visit.PatientId], exact: true, VisitNote(visit), ct, visit.Id));
+        }
+
+        return Distinct(hits);
+    }
+
+    /// <summary>"Visit V-1 · Inpatient · ICU 4 · open": the recorded parts, then whether the visit is still open.</summary>
+    public static string VisitNote(Encounter visit)
+    {
+        var state = visit.Status switch
+        {
+            EncounterStatus.Cancelled => "cancelled",
+            _ when visit.DischargeUtc is DateTime discharged => $"discharged {discharged:yyyy-MM-dd}",
+            EncounterStatus.Discharged => "discharged",
+            EncounterStatus.Historical => "historical",
+            EncounterStatus.PreAdmit => "pre-admit",
+            _ => "open"
+        };
+        return string.Join(" · ", new[]
+        {
+            $"Visit {visit.VisitNumber}",
+            visit.EncounterType == EncounterType.Unknown ? null : visit.EncounterType.ToString(),
+            (visit.CurrentLocation ?? visit.AdmissionLocation)?.Trim() is { Length: > 0 } place ? place : null,
+            state
+        }.Where(p => p is not null));
+    }
+
+    /// <summary>The Orders tab searching for this order, the same link the chart builds.</summary>
+    public static string OrderHref(long patientId, string? orderNumber) =>
+        string.IsNullOrWhiteSpace(orderNumber)
+            ? $"/patients/{patientId}?tab=orders"
+            : $"/patients/{patientId}?tab=orders&order={Uri.EscapeDataString(orderNumber.Trim())}";
+
+    private async Task<(IReadOnlyList<LookupHitDto> Hits, bool Capped)> PartialPatientsAsync(string term, CancellationToken ct)
+    {
+        var upper = term.ToUpperInvariant();
+        var direct = (await _patients.ListAsync(p => p.MedicalRecordNumber.ToUpper().Contains(upper)
+                || p.LastName.ToUpper().Contains(upper)
+                || p.FirstName.ToUpper().Contains(upper)
+                || (p.LastName + ", " + p.FirstName).ToUpper().Contains(upper), ct))
+            .OrderBy(p => p.LastName).ThenBy(p => p.FirstName).ThenBy(p => p.Id)
+            .Take(PartialLimit + 1)
+            .ToList();
+        var aliasOwnerIds = (await _identifiers.ListAsync(i => i.IsActive && i.Value.ToUpper().Contains(upper), ct))
+            .Select(i => i.PatientId)
+            .Distinct()
+            .Take(PartialLimit + 1)
+            .ToList();
+        var aliasOwners = await PatientsByIdAsync(aliasOwnerIds.Where(id => direct.All(p => p.Id != id)), ct);
+
+        var all = direct.Concat(aliasOwners.Values).ToList();
+        var hits = new List<LookupHitDto>();
+        foreach (var patient in all.Take(PartialLimit))
+        {
+            var note = aliasOwners.ContainsKey(patient.Id) ? "Matched a prior name or MRN" : null;
+            hits.Add(await PatientHitAsync(patient, exact: false, note, ct));
+        }
+
+        return (Distinct(hits), all.Count > PartialLimit);
+    }
+
+    /// <summary>A merged duplicate opens the surviving chart, and says so, so nobody works on the retired record.</summary>
+    private async Task<LookupHitDto> PatientHitAsync(Patient patient, bool exact, string? matchedNote, CancellationToken ct, long? visitId = null)
+    {
+        var target = patient;
+        string? mergedNote = null;
+        for (var hop = 0; hop < MaxMergeHops && target.MergedIntoPatientId is long survivorId; hop++)
+        {
+            var survivor = (await _patients.ListAsync(p => p.Id == survivorId, ct)).FirstOrDefault();
+            if (survivor is null)
+            {
+                break;
+            }
+
+            mergedNote = $"MRN {patient.MedicalRecordNumber} was merged into MRN {survivor.MedicalRecordNumber}";
+            target = survivor;
+        }
+
+        var targetId = target.Id;
+        // Where the patient is now (the chart header's current visit), unless the row is for that same visit.
+        string? whereNow = null;
+        if (_encounters is not null)
+        {
+            var (current, otherOpen) = CurrentVisit.For(await _encounters.ListAsync(e => e.PatientId == targetId, ct));
+            if (current is not null && current.Id != visitId)
+            {
+                var where = CurrentVisit.Where(current);
+                whereNow = $"Now {(where.Length > 0 ? where : $"visit {current.VisitNumber}")}{(otherOpen > 0 ? $" (+{otherOpen} more open)" : string.Empty)}";
+            }
+        }
+
+        var detail = string.Join(" · ", new[]
+        {
+            $"DOB {target.DateOfBirth:yyyy-MM-dd}",
+            target.Sex.ToString(),
+            whereNow,
+            mergedNote,
+            matchedNote
+        }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+        var bloodType = _bloodTypes is null
+            ? null
+            : PatientBloodBankFlags.CurrentBloodType(await _bloodTypes.ListAsync(t => t.PatientId == targetId, ct));
+        var antibodies = _antibodies is null
+            ? []
+            : PatientBloodBankFlags.ActiveAntibodies(await _antibodies.ListAsync(a => a.PatientId == targetId, ct));
+        var rows = _requirements is null
+            ? []
+            : await _requirements.ListAsync(r => r.PatientId == targetId, ct);
+        var informational = _requirementDefinitions is null || rows.Count == 0
+            ? null
+            : PatientBloodBankFlags.InformationalIds(await _requirementDefinitions.ListAsync(ct));
+        var now = _clock?.UtcNow ?? DateTime.UtcNow;
+        var requirements = PatientBloodBankFlags.RequirementsInEffect(rows, now, informational);
+        var notes = PatientBloodBankFlags.NotesInEffect(rows, now, informational);
+
+        return new LookupHitDto(
+            LookupHitKind.Patient,
+            target.Id,
+            exact,
+            target.MedicalRecordNumber,
+            PatientName(target),
+            detail,
+            // A visit opens its own orders, unless the visit's patient was merged away (the survivor opens plainly).
+            visitId is long id && target.Id == patient.Id ? $"/patients/{target.Id}?tab=orders&visit={id}" : $"/patients/{target.Id}",
+            bloodType,
+            antibodies,
+            requirements,
+            notes);
+    }
+
+    private static IReadOnlyList<LookupHitDto> Distinct(IEnumerable<LookupHitDto> hits) =>
+        hits.GroupBy(h => (h.Kind, h.Id)).Select(g => g.First()).ToList();
+
+    private async Task<Dictionary<long, Patient>> PatientsByIdAsync(IEnumerable<long> ids, CancellationToken ct)
+    {
+        var wanted = ids.Distinct().ToList();
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        return (await _patients.ListAsync(p => wanted.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+    }
+
+    private static string PatientName(Patient p)
+    {
+        var name = $"{p.LastName}, {p.FirstName}".Trim().Trim(',').Trim();
+        return string.IsNullOrWhiteSpace(name) ? $"Patient {p.Id}" : name;
+    }
+
+    private static string PatientLabel(Patient? p, long patientId) =>
+        p is null ? $"patient {patientId}" : $"{PatientName(p)} (MRN {p.MedicalRecordNumber})";
+
+    private static string AboRhLabel(AboGroup abo, RhType rh)
+    {
+        var aboText = abo == AboGroup.Unknown ? "ABO unknown" : abo.ToString();
+        var rhText = rh switch
+        {
+            RhType.Positive => "Pos",
+            RhType.Negative => "Neg",
+            _ => "Rh unknown"
+        };
+        return $"{aboText} {rhText}";
+    }
+}

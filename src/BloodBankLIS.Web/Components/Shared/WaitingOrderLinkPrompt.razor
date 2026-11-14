@@ -1,0 +1,81 @@
+@* After a tube is accepted: the patient's waiting test orders it suits, linked in one click through the audited order link. *@
+@inject BloodBankApiClient Api
+
+@if (_linkable.Count > 0)
+{
+    <div class="alert alert-info flex gap" style="align-items:center;flex-wrap:wrap;" data-waiting-order-link>
+        <span>
+            Tube <span class="mono">@Specimen!.AccessionNumber</span> suits @(_linkable.Count == 1 ? "a waiting order" : $"{_linkable.Count} waiting orders"):
+            @SpecimenTypeOrderHint.OrderList(_linkable).
+        </span>
+        <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="LinkAsync" data-link-waiting-orders>Link @(_linkable.Count == 1 ? "it" : "them")</button>
+        <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="Dismiss">Not now</button>
+    </div>
+}
+
+@code {
+    /// <summary>The tube just accepted; null hides the prompt.</summary>
+    [Parameter] public SpecimenDto? Specimen { get; set; }
+
+    /// <summary>Called after linking with the outcome message and whether every link succeeded.</summary>
+    [Parameter] public EventCallback<(string Message, bool Succeeded)> OnLinked { get; set; }
+
+    private IReadOnlyList<PatientOrderDto> _linkable = [];
+    private long? _loadedFor;
+    private bool _busy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Specimen is null)
+        {
+            _linkable = [];
+            _loadedFor = null;
+            return;
+        }
+
+        if (_loadedFor == Specimen.Id)
+        {
+            return;
+        }
+
+        _loadedFor = Specimen.Id;
+        _linkable = [];
+        var orders = await Api.GetPatientOrdersAsync(Specimen.PatientId);
+        var tests = await Api.GetTestDefinitionsListAsync();
+        if (orders.Succeeded && tests.Succeeded)
+        {
+            _linkable = SpecimenTypeOrderHint.LinkableOnAccession(
+                orders.Value ?? [], tests.Value ?? [], Specimen.SpecimenType, Specimen.EncounterId ?? 0);
+        }
+    }
+
+    private async Task LinkAsync()
+    {
+        if (Specimen is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var linked = new List<string>();
+        var failed = new List<string>();
+        foreach (var order in _linkable)
+        {
+            var r = await Api.LinkPatientOrderSpecimenAsync(Specimen.PatientId, order.Id, new LinkOrderSpecimenRequest(Specimen.Id));
+            if (r.Succeeded)
+            {
+                linked.Add(order.OrderNumber);
+            }
+            else
+            {
+                failed.Add($"{order.OrderNumber}: {r.Error}");
+            }
+        }
+
+        _busy = false;
+        _linkable = [];
+        await OnLinked.InvokeAsync((SpecimenTypeOrderHint.LinkOutcome(Specimen.AccessionNumber, linked, failed), failed.Count == 0));
+    }
+
+    private void Dismiss() => _linkable = [];
+}

@@ -41,7 +41,46 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             permissions: permissions,
             unitAttributes: new EfRepository<UnitBloodAttribute>(context),
             locations: new EfRepository<InventoryLocation>(context),
-            policy: policy);
+            policy: policy,
+            equipment: new EfRepository<Equipment>(context));
+    }
+
+    // TEST-BB-976: a device that is registered equipment out of service, or retired, is refused for a modification
+    // (the unit stays as it was); the same device in service, or a device not in the register, is recorded as typed.
+    [Fact]
+    public async Task Modification_OnRegisteredEquipmentOutOfService_IsRefused()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("EQOOS");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var refusedId = await CreateUnitAsync("U-EQOOS-1", sourceProductId, volume: 300m);
+        var retiredId = await CreateUnitAsync("U-EQOOS-2", sourceProductId, volume: 300m);
+        var inServiceId = await CreateUnitAsync("U-EQOOS-3", sourceProductId, volume: 300m);
+        var unregisteredId = await CreateUnitAsync("U-EQOOS-4", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        context.Equipment.AddRange(
+            new Equipment { Code = "IRR-OOS-709", Name = "Irradiator", Kind = "Irradiator", OutOfServiceUtc = _factory.Clock.UtcNow.AddDays(-1), OutOfServiceReason = "Dose map failed" },
+            new Equipment { Code = "IRR-OLD-709", Name = "Old irradiator", Kind = "Irradiator", IsActive = false },
+            new Equipment { Code = "IRR-OK-709", Name = "Irradiator 2", Kind = "Irradiator" });
+        await context.SaveChangesAsync();
+
+        var refused = await CreateService(context).ApplySingleAsync(refusedId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "irr-oos-709", IndicatorConfirmed: true));
+        Assert.False(refused.Succeeded);
+        var stop = Assert.Single(refused.Evaluation!.HardStops);
+        Assert.Equal(ModificationDeviceRule.OutOfServiceCode, stop.Code);
+        Assert.Contains("IRR-OOS-709 is out of service since", stop.Message);
+        Assert.Contains("Dose map failed", stop.Message);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(refusedId))!.Status);
+
+        var retired = await CreateService(context).ApplySingleAsync(retiredId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-OLD-709", IndicatorConfirmed: true));
+        Assert.Contains("retired", Assert.Single(retired.Evaluation!.HardStops).Message);
+
+        Assert.True((await CreateService(context).ApplySingleAsync(inServiceId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-OK-709", IndicatorConfirmed: true))).Succeeded);
+        Assert.True((await CreateService(context).ApplySingleAsync(unregisteredId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-NOT-REGISTERED", IndicatorConfirmed: true))).Succeeded);
     }
 
     private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(
@@ -302,6 +341,54 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.NotNull(result.Evaluation);
         Assert.True(result.Evaluation!.IsHardStopped);
         Assert.Contains(result.Evaluation.HardStops, r => r.Code == "MOD-STATUS-INVALID");
+    }
+
+    // TEST-BB-1022: a thawed unit may not stay in the freezer its source came from: without a result location the thaw is
+    // refused and nothing changes; with a refrigerator chosen the result goes there; a freezer or a location that does
+    // not take the component is refused (end-user testing pass 13).
+    [Fact]
+    public async Task Thaw_FromAFreezer_NeedsARefrigeratorForTheResult()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("THAWLOC");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Thaw, "24H");
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        long freezerId, fridgeId, plateletId;
+        await using (var c = _factory.Create())
+        {
+            var freezer = new InventoryLocation { Code = $"FRZ-{key}", Name = "Plasma freezer", LocationType = LocationType.Freezer };
+            var fridge = new InventoryLocation { Code = $"FRG-{key}", Name = "Main fridge", LocationType = LocationType.Refrigerator };
+            var incubator = new InventoryLocation
+            {
+                Code = $"PLT-{key}", Name = "Incubator", LocationType = LocationType.PlateletIncubator,
+                AllowsRbc = false, AllowsPlasma = false, AllowsCryo = false, AllowsWholeBlood = false
+            };
+            c.InventoryLocations.AddRange(freezer, fridge, incubator);
+            await c.SaveChangesAsync();
+            (freezerId, fridgeId, plateletId) = (freezer.Id, fridge.Id, incubator.Id);
+        }
+
+        var sourceId = await CreateUnitAsync($"U-THAWLOC-{key}", sourceProductId, volume: 250m);
+        await using (var c = _factory.Create())
+        {
+            (await c.BloodUnits.FindAsync(sourceId))!.CurrentLocationId = freezerId;
+            await c.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var stays = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request"));
+        Assert.False(stays.Succeeded);
+        Assert.Contains("cannot stay in", stays.Error);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.AsNoTracking().SingleAsync(u => u.Id == sourceId)).Status);
+
+        var toFreezer = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request", ResultLocationId: freezerId));
+        Assert.Contains("a freezer", toFreezer.Error);
+        var toIncubator = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request", ResultLocationId: plateletId));
+        Assert.Contains("does not take", toIncubator.Error);
+
+        var thawed = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "OR request", ResultLocationId: fridgeId));
+        Assert.True(thawed.Succeeded, thawed.Error);
+        Assert.Equal(fridgeId, Assert.Single(thawed.ResultUnits!).CurrentLocationId);
     }
 
     [Fact]
@@ -1560,6 +1647,44 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.False(blocked.Succeeded);
         Assert.Contains(blocked.Evaluation!.HardStops, stop => stop.Code == ModificationSupplyLotRule.Code);
         Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(sourceId))!.Status);
+    }
+
+    [Fact]
+    public async Task Irradiation_RecordsTheIrradiatorAndIndicator_AndRefusesWhatThePolicyRequires()
+    {
+        // TEST-BB-564
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("IRRDEV");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var recordedId = await CreateUnitAsync("U-IRRDEV-1", sourceProductId, volume: 300m);
+        var failedId = await CreateUnitAsync("U-IRRDEV-2", sourceProductId, volume: 300m);
+        var policyId = await CreateUnitAsync("U-IRRDEV-3", sourceProductId, volume: 300m);
+        var policySecondId = await CreateUnitAsync("U-IRRDEV-4", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var recorded = await CreateService(context).ApplySingleAsync(recordedId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: " IRR-1 ", IndicatorConfirmed: true));
+        Assert.True(recorded.Succeeded, recorded.Error);
+        var row = Assert.Single(await CreateService(context).GetHistoryAsync(recordedId));
+        Assert.Equal("IRR-1", row.DeviceId);
+        Assert.True(row.IndicatorConfirmed);
+        Assert.Contains(await context.AuditEvents.Where(a => a.EntityType == nameof(UnitModification)).Select(a => a.NewValueJson).ToListAsync(),
+            json => json != null && json.Contains("IRR-1"));
+
+        var failed = await CreateService(context).ApplySingleAsync(failedId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", DeviceId: "IRR-1", IndicatorConfirmed: false));
+        Assert.False(failed.Succeeded);
+        Assert.Contains(failed.Evaluation!.HardStops, stop => stop.Code == ModificationDeviceRule.Code);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(failedId))!.Status);
+
+        context.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.RequireIrradiationRecord, Value = "true" });
+        await context.SaveChangesAsync();
+        var service = CreateService(context, policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+        var missing = await service.ApplyBatchAsync(new PerformBatchModificationRequest(ruleId, new[] { policyId, policySecondId }, "Irradiate", SupplyLot: "LOT-1"));
+        Assert.False(missing.Succeeded);
+        Assert.Contains(missing.Evaluation!.HardStops, stop => stop.Message.Contains("irradiator"));
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(policyId))!.Status);
+        var batch = await service.ApplyBatchAsync(new PerformBatchModificationRequest(ruleId, new[] { policyId, policySecondId }, "Irradiate", SupplyLot: "LOT-1", DeviceId: "IRR-2", IndicatorConfirmed: true));
+        Assert.True(batch.Succeeded, batch.Error);
     }
 
     [Fact]

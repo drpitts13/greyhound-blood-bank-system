@@ -41,6 +41,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Version</th><th>Policy</th><th>Effective</th><th>Rules</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -71,6 +72,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -119,6 +121,13 @@
                 <button class="btn btn-primary btn-sm" @onclick="NewRule">Add rule</button>
             }
         </div>
+        @if (SelectedVersionIsActive && CanEdit)
+        {
+            <div class="field" style="margin:.5rem 0;">
+                <label>Reason for changing the active table</label>
+                <input @bind="_ruleReason" @bind:event="oninput" placeholder="Required to add, edit, activate, or deactivate a rule in the table in use" />
+            </div>
+        }
         @if (_loadingRules)
         {
             <div class="loading">Loading...</div>
@@ -129,15 +138,30 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Code</th><th>Component</th><th>Severity</th><th>Description</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Code</th><th>Component</th><th>Severity</th><th>At issue</th><th>Description</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var r in _rules)
                     {
                         <tr>
                             <td class="mono">@r.RuleCode</td>
                             <td>@r.ComponentClass</td>
-                            <td>@r.Severity</td>
+                            <td>@Ui.EnumText(r.Severity)</td>
+                            <td>
+                                @if (r.AtIssue == CompatibilityTablePolicy.AtIssueRaises)
+                                {
+                                    <span class="badge badge-red">@r.AtIssue</span>
+                                }
+                                else if (r.AtIssue == CompatibilityTablePolicy.AtIssueRaisesIfReported)
+                                {
+                                    <span class="badge badge-amber" title="This code is not a built-in issue rule, so it applies only if a gate rule reports it.">@r.AtIssue</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">@r.AtIssue</span>
+                                }
+                            </td>
                             <td>@r.Description</td>
                             <td>@(r.IsActive ? "Active" : "Inactive")</td>
                             <td class="right nowrap">
@@ -158,6 +182,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -182,7 +207,7 @@
                 <select @bind="_ruleDraft.ComponentClass">
                     @foreach (var c in Enum.GetValues<ComponentClass>())
                     {
-                        <option value="@c">@c</option>
+                        <option value="@c">@Ui.EnumText(c)</option>
                     }
                 </select>
             </div>
@@ -222,6 +247,10 @@
     private string _actionReason = string.Empty;
     private VersionDraft? _versionDraft;
     private RuleDraft? _ruleDraft;
+    private string _ruleReason = string.Empty;
+
+    private bool SelectedVersionIsActive =>
+        _selectedVersionId is long selected && _versions.Any(v => v.Id == selected && v.IsActive);
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
@@ -274,7 +303,7 @@
     private void NewVersion()
     {
         _editVersionId = null;
-        _versionDraft = new VersionDraft { EffectiveDate = DateOnly.FromDateTime(DateTime.UtcNow) };
+        _versionDraft = new VersionDraft { EffectiveDate = DateOnly.FromDateTime(DateTime.Now) };
         _feedback = null;
     }
 
@@ -373,7 +402,8 @@
         _busy = true;
         var req = new SaveCompatibilityRuleRequest(
             _ruleDraft.RuleCode, _ruleDraft.ComponentClass, _ruleDraft.RuleFamily,
-            _ruleDraft.ExpressionJson, _ruleDraft.Severity, _ruleDraft.Description);
+            _ruleDraft.ExpressionJson, _ruleDraft.Severity, _ruleDraft.Description,
+            string.IsNullOrWhiteSpace(_ruleReason) ? null : _ruleReason.Trim());
         var r = _editRuleId is null
             ? await Api.CreateAdminCompatibilityRuleAsync(versionId, req)
             : await Api.UpdateAdminCompatibilityRuleAsync(_editRuleId.Value, req);
@@ -389,7 +419,7 @@
     private async Task SetRuleActiveAsync(long id, bool active)
     {
         _busy = true;
-        var r = await Api.SetAdminCompatibilityRuleActiveAsync(id, active);
+        var r = await Api.SetAdminCompatibilityRuleActiveAsync(id, active, string.IsNullOrWhiteSpace(_ruleReason) ? null : _ruleReason.Trim());
         _busy = false;
         _feedback = r.ToFeedback(active ? "Rule activated." : "Rule deactivated.");
         if (r.Succeeded) await LoadVersionsAsync();

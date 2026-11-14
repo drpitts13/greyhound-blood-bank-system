@@ -1,8 +1,9 @@
 @page "/deviations"
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@using BloodBankLIS.Application.Search
 
-<PageTitle>Deviations &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Deviations &middot; HemoCore</PageTitle>
 
 <h1>Deviations / nonconformances</h1>
 <p class="muted">Quality-system records linking a problem to an order, unit, result, or interface event. CAPA status is tracked here; this is not an AABB certification claim.</p>
@@ -21,11 +22,33 @@ else
             <div class="field"><label>Description</label><textarea rows="3" @bind="_description" @bind:event="oninput"></textarea></div>
             <div class="form-row">
                 <div class="field"><label>Severity</label>
-                    <select @bind="_severity">@foreach (var s in Enum.GetValues<DeviationSeverity>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="_severity">@foreach (var s in Enum.GetValues<DeviationSeverity>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                 </div>
-                <div class="field"><label>Related record</label>
+            </div>
+            <div class="field"><label>Related record: scan or type</label>
+                <input @bind="_recordScan" @bind:event="oninput" @onkeydown="OnRecordScanKey" placeholder="DIN, MRN, accession, or order number; Enter to find" autocomplete="off" data-record-scan />
+                @if (_recordHits.Count > 0)
+                {
+                    <div class="flex" style="gap:.35rem;flex-wrap:wrap;margin-top:.35rem;">
+                        @foreach (var hit in _recordHits)
+                        {
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => UseRecord(hit)">@hit.Identifier · @hit.Title</button>
+                        }
+                    </div>
+                }
+                @if (_recordLabel is not null)
+                {
+                    <span class="sub" data-record-linked>Linked: @_recordLabel</span>
+                }
+                @if (_recordMessage is not null)
+                {
+                    <span class="sub" data-record-message>@_recordMessage</span>
+                }
+            </div>
+            <div class="form-row">
+                <div class="field"><label>Or choose the type</label>
                     @* A pick list, not free text: the record link only works when the stored type matches exactly. *@
-                    <select @bind="_contextType">
+                    <select @bind="_contextType" @bind:after="() => _recordLabel = null">
                         <option value="">— none —</option>
                         @foreach (var (value, label) in ContextTypes)
                         {
@@ -33,7 +56,7 @@ else
                         }
                     </select>
                 </div>
-                <div class="field"><label>Record id</label><input type="number" @bind="_contextId" placeholder="Id shown on that record" /></div>
+                <div class="field"><label>Record id</label><input type="number" @bind="_contextId" @bind:after="() => _recordLabel = null" placeholder="Id shown on that record" /></div>
             </div>
             <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_description))" @onclick="CreateAsync">Create</button>
         </div>
@@ -59,16 +82,54 @@ else
             }
             else
             {
+                <div class="table-scroll">
                 <table class="bb">
-                    <thead><tr><th>Id</th><th>Title</th><th>Severity</th><th>Status</th><th>Context</th><th></th></tr></thead>
+                    <thead><tr><th>Id</th><th>Deviation</th><th>Severity</th><th>Status</th><th>Reported</th><th>Context</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var d in VisibleRows)
                         {
                             <tr>
                                 <td>@d.Id</td>
-                                <td>@d.Title</td>
-                                <td>@d.Severity</td>
-                                <td>@d.Status</td>
+                                <td>
+                                    <strong>@d.Title</strong>
+                                    <span class="sub">@d.Description</span>
+                                    @if (!string.IsNullOrWhiteSpace(d.RootCause))
+                                    {
+                                        <span class="sub" data-root-cause>Root cause: @d.RootCause</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(d.CorrectiveAction))
+                                    {
+                                        <span class="sub" data-corrective-action>Corrective action: @d.CorrectiveAction</span>
+                                    }
+                                    @* Pass 73: the FDA reportability determination (BPDR, 21 CFR 606.171). *@
+                                    <span class="sub" data-fda-reportability>
+                                        @switch (d.FdaReportability)
+                                        {
+                                            case DeviationFdaReportability.Reportable:
+                                                <span class="badge badge-amber">FDA reportable</span>
+                                                @(d.FdaReportedOn is DateOnly on ? $" reported {on:yyyy-MM-dd}" + (string.IsNullOrWhiteSpace(d.FdaReportNumber) ? "" : $" ({d.FdaReportNumber})") : " not yet reported")
+                                                break;
+                                            case DeviationFdaReportability.NotReportable:
+                                                <span>Not FDA reportable</span>
+                                                break;
+                                            default:
+                                                <span class="muted">FDA reportability not determined</span>
+                                                break;
+                                        }
+                                    </span>
+                                </td>
+                                <td><span class="badge @SeverityClass(d.Severity)">@Ui.EnumText(d.Severity)</span></td>
+                                <td>
+                                    @Ui.EnumText(d.Status)
+                                    @if (d.Status == DeviationStatus.Closed && d.ClosedUtc is DateTime closedAt)
+                                    {
+                                        <span class="sub">by @d.ClosedBy @closedAt.ToLocalTime().ToString("yyyy-MM-dd")</span>
+                                    }
+                                </td>
+                                <td class="nowrap">
+                                    @d.ReportedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                    <span class="sub">@d.ReportedBy@(d.Status == DeviationStatus.Closed ? "" : $" · open {AlertInboxView.OpenFor(d.ReportedUtc, DateTime.UtcNow)}")</span>
+                                </td>
                                 <td class="mono">
                                     @if (string.IsNullOrWhiteSpace(d.ContextType) && d.ContextId is null)
                                     {
@@ -78,12 +139,16 @@ else
                                     {
                                         @if (ContextHref(d) is { } href)
                                         {
-                                            <a href="@href">@ContextLabel(d.ContextType)@(d.ContextId is long linkedId ? $" #{linkedId}" : "")</a>
+                                            <a href="@href">@ContextLabel(d.ContextType) @(d.ContextName ?? (d.ContextId is long linkedId ? $"#{linkedId}" : ""))</a>
                                         }
                                         else
                                         {
                                             @ContextLabel(d.ContextType)
-                                            @if (d.ContextId is long contextId)
+                                            @if (d.ContextName is { } contextName)
+                                            {
+                                                <span> @contextName</span>
+                                            }
+                                            else if (d.ContextId is long contextId)
                                             {
                                                 <span> #@contextId</span>
                                             }
@@ -97,6 +162,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             }
 
             @if (_statusId is not null)
@@ -104,11 +170,31 @@ else
                 @* Keyed so switching rows re-adds the panel and it scrolls into view again. *@
                 <div @key="_statusId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
                     <strong>Update deviation #@_statusId: @_rows.FirstOrDefault(r => r.Id == _statusId)?.Title</strong>
+                    <div class="muted">@_rows.FirstOrDefault(r => r.Id == _statusId)?.Description</div>
                     <div class="field" style="margin-top:.5rem;"><label>Status</label>
-                        <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@s</option> }</select>
+                        <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                     </div>
-                    <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa"></textarea></div>
-                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveStatusAsync">Save</button>
+                    <div class="field"><label>Root cause</label><textarea rows="2" @bind="_rootCause" @bind:event="oninput" placeholder="Why it happened, as investigated" data-deviation-root-cause></textarea></div>
+                    <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa" @bind:event="oninput" placeholder="What was done, or why no action is needed"></textarea></div>
+                    <div class="form-row">
+                        <div class="field"><label>FDA reportable (BPDR, 21 CFR 606.171)</label>
+                            <select @bind="_fdaReportability" data-deviation-fda>
+                                <option value="@DeviationFdaReportability.NotDetermined">Not determined</option>
+                                <option value="@DeviationFdaReportability.NotReportable">Not reportable</option>
+                                <option value="@DeviationFdaReportability.Reportable">Reportable</option>
+                            </select>
+                        </div>
+                        @if (_fdaReportability == DeviationFdaReportability.Reportable)
+                        {
+                            <div class="field"><label>Reported to the FDA on</label><input type="date" @bind="_fdaReportedOn" data-deviation-fda-date /></div>
+                            <div class="field"><label>FDA report number</label><input @bind="_fdaReportNumber" maxlength="100" data-deviation-fda-number /></div>
+                        }
+                    </div>
+                    @if (StatusCheck is { Severity: RuleSeverity.HardStop } blocked)
+                    {
+                        <div class="sub" data-deviation-status-block>@blocked.Message</div>
+                    }
+                    <button class="btn btn-primary btn-sm" disabled="@(_busy || StatusCheck.Severity == RuleSeverity.HardStop)" @onclick="SaveStatusAsync">Save</button>
                     <button class="btn btn-ghost btn-sm" @onclick="() => _statusId = null">Cancel</button>
                 </div>
             }
@@ -133,13 +219,35 @@ else
     // Closed deviations stay on record but are hidden by default so the working list stays short.
     private bool _showClosed;
     private int ClosedCount => _rows.Count(r => r.Status == DeviationStatus.Closed);
-    private IEnumerable<DeviationDto> VisibleRows => _showClosed ? _rows : _rows.Where(r => r.Status != DeviationStatus.Closed);
+    // Open first, most severe first, oldest first.
+    private IEnumerable<DeviationDto> VisibleRows => DeviationListView.Order(_showClosed ? _rows : _rows.Where(r => r.Status != DeviationStatus.Closed));
+
+    // The server rule, shown before Save: closing needs a corrective action, and a recorded one is not blanked.
+    private RuleResult StatusCheck =>
+        DeviationStatusRule.Evaluate(_newStatus, _rows.FirstOrDefault(r => r.Id == _statusId)?.CorrectiveAction, _capa);
+
+    private static string SeverityClass(DeviationSeverity severity) => severity switch
+    {
+        DeviationSeverity.Critical => "badge-red",
+        DeviationSeverity.Major => "badge-amber",
+        _ => "badge-gray"
+    };
 
     // A DEV-n link elsewhere (storage temperatures, the temperature report) opens that deviation's update panel.
     [SupplyParameterFromQuery(Name = "id")] public long? DeviationId { get; set; }
 
+    // Record deviation on a unit or patient page starts the form linked to that record.
+    [SupplyParameterFromQuery(Name = "contextType")] public string? ContextTypeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "contextId")] public long? ContextIdQuery { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
+        if (ContextTypes.Any(t => t.Value == ContextTypeQuery) && ContextIdQuery is > 0)
+        {
+            _contextType = ContextTypeQuery;
+            _contextId = ContextIdQuery;
+        }
+
         await LoadAsync();
         if (DeviationId is long id && Session.Has(PermissionCodes.DeviationManage))
         {
@@ -161,6 +269,47 @@ else
         else _fb = r.ToFeedback();
     }
 
+    // Scan-first linking: an exact single lookup hit links at once; several hits are offered to pick from.
+    private string _recordScan = string.Empty;
+    private List<LookupHitDto> _recordHits = new();
+    private string? _recordLabel;
+    private string? _recordMessage;
+
+    private async Task OnRecordScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_recordScan)) return;
+        _recordHits = new();
+        _recordMessage = null;
+        var query = _recordScan;
+        var result = await Api.LookupAsync(new LookupRequest(query));
+        // A scan typed while this lookup ran is newer: drop this result rather than clear what was typed.
+        if (_recordScan != query) return;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _recordMessage = result.Error ?? "The lookup failed.";
+            return;
+        }
+
+        if (result.Value.OpenDirectly)
+        {
+            UseRecord(result.Value.Hits[0]);
+            return;
+        }
+
+        _recordHits = result.Value.Hits.ToList();
+        _recordMessage = _recordHits.Count == 0 ? result.Value.Message ?? "No record matches." : "Several records match; choose one.";
+    }
+
+    private void UseRecord(LookupHitDto hit)
+    {
+        _contextType = DeviationRecordTypes.FromLookup(hit.Kind);
+        _contextId = hit.Id;
+        _recordLabel = $"{ContextLabel(_contextType)} {hit.Identifier} ({hit.Title})";
+        _recordHits = new();
+        _recordMessage = null;
+        _recordScan = string.Empty;
+    }
+
     private async Task CreateAsync()
     {
         _busy = true;
@@ -174,6 +323,7 @@ else
             _severity = DeviationSeverity.Minor;
             _contextType = null;
             _contextId = null;
+            _recordLabel = null;
             await LoadAsync();
         }
     }
@@ -190,9 +340,16 @@ else
         ("Hl7", "HL7 message"),
     ];
 
+    // Raised by the system, not chosen on the form: shown in words and linked (end-user testing, 2026-11-12).
+    private static readonly (string Value, string Label)[] SystemContextTypes =
+    [
+        ("StorageTemperatureReading", "Temperature reading"),
+    ];
+
     // Older rows may hold free text typed before the pick list; show those as stored.
     private static string ContextLabel(string? type) =>
-        string.IsNullOrWhiteSpace(type) ? "—" : ContextTypes.FirstOrDefault(t => t.Value == type).Label ?? type;
+        string.IsNullOrWhiteSpace(type) ? "—"
+            : ContextTypes.Concat(SystemContextTypes).FirstOrDefault(t => t.Value == type).Label ?? type;
 
     private static string? ContextHref(DeviationDto d)
     {
@@ -208,22 +365,33 @@ else
             "Issue" => $"/printing?issueId={id}",
             "Specimen" => $"/printing?specimenId={id}",
             "Hl7" or "Hl7Message" => "/hl7",
+            "StorageTemperatureReading" => "/storage-temps",
             _ => null
         };
     }
+
+    private string? _rootCause;
+    private DeviationFdaReportability _fdaReportability;
+    private DateTime? _fdaReportedOn;
+    private string? _fdaReportNumber;
 
     private void BeginStatus(DeviationDto d)
     {
         _statusId = d.Id;
         _newStatus = d.Status;
         _capa = d.CorrectiveAction;
+        _rootCause = d.RootCause;
+        _fdaReportability = d.FdaReportability;
+        _fdaReportedOn = d.FdaReportedOn?.ToDateTime(TimeOnly.MinValue);
+        _fdaReportNumber = d.FdaReportNumber;
     }
 
     private async Task SaveStatusAsync()
     {
         if (_statusId is null) return;
         _busy = true;
-        var r = await Api.UpdateDeviationStatusAsync(_statusId.Value, _newStatus, _capa);
+        var r = await Api.UpdateDeviationStatusAsync(_statusId.Value, _newStatus, _capa, investigation: new DeviationInvestigationUpdate(
+            _rootCause, _fdaReportability, _fdaReportedOn is DateTime on ? DateOnly.FromDateTime(on) : null, _fdaReportNumber));
         _busy = false;
         _fb = r.ToFeedback("Deviation updated.");
         if (r.Succeeded)

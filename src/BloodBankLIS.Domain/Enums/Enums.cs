@@ -39,7 +39,24 @@ public enum SpecialRequirementEnforcementKind
     RequireAntigenNegative = 1,
     RequireIssueAcknowledgment = 2,
     RequireComplexCrossmatch = 3,
-    RequireAboSubgroup = 4
+    RequireAboSubgroup = 4,
+    /// <summary>The unit's ABO group must be one of the definition's allowed groups.</summary>
+    RequireUnitAbo = 5,
+    /// <summary>The unit must be RhD negative.</summary>
+    RequireRhNegative = 6,
+    /// <summary>The product code carries the attribute, or the unit has a negative test result recorded (CMV, HbS).</summary>
+    RequireUnitTestNegative = 7,
+    /// <summary>Shown as a banner; never enforced.</summary>
+    Informational = 8
+}
+
+/// <summary>Which admin table a special requirement belongs to.</summary>
+public enum SpecialRequirementCategory
+{
+    UnitTyping = 0,
+    UnitModification = 1,
+    Informational = 2,
+    IssueProcedure = 3
 }
 
 public enum RhType
@@ -192,7 +209,10 @@ public enum PatientProductHistoryEventType
     PartiallyTransfused = 6,
     Wasted = 7,
     Discarded = 8,
-    Cancelled = 9
+    Cancelled = 9,
+
+    /// <summary>Started at the bedside and not yet completed (no stop time, issue still Issued).</summary>
+    TransfusionStarted = 10
 }
 
 public enum OrderSource
@@ -231,6 +251,14 @@ public enum BloodTypeSource
     Hl7 = 1,
     ManualEntry = 2,
     HistoricalImport = 3
+}
+
+/// <summary>Where a hand-recorded ABO/Rh came from (OCD-048).</summary>
+public enum ManualTypeDocumentation
+{
+    NotDocumented = 0,
+    PreviousBloodBankSystem = 1,
+    OutsideSource = 2
 }
 
 public enum AntibodyStatus
@@ -289,7 +317,12 @@ public enum UnitStatus
     /// <see cref="CancelledAssignment"/> (packing list cancelled; unit never arrived).
     /// Not issuable.
     /// </summary>
-    ReturnedToSupplier = 23
+    ReturnedToSupplier = 23,
+    /// <summary>
+    /// Terminal: shipped to another facility (stock balancing, a patient transferred with blood). The receiving facility
+    /// is kept on the unit so a recall or lookback notifies it. Not issuable here.
+    /// </summary>
+    ShippedOut = 24
 }
 
 /// <summary>
@@ -327,7 +360,10 @@ public enum UnitQuarantineReason
     Other = 10,
 
     /// <summary>Placed by the system when a storage excursion lasted past the facility limit (OCD-036).</summary>
-    StorageTemperatureExcursion = 11
+    StorageTemperatureExcursion = 11,
+
+    /// <summary>Returned with disposal requested; it is discarded from quarantine with a coded reason.</summary>
+    ReturnedForDisposal = 12
 }
 
 /// <summary>
@@ -445,6 +481,20 @@ public enum IssueType
     RemoteIssue = 4
 }
 
+public enum TransportContainerType
+{
+    Cooler = 0,
+    InsulatedBag = 1,
+    Box = 2,
+    Other = 9
+}
+
+public enum MtpActivationStatus
+{
+    Active = 0,
+    Closed = 1
+}
+
 public enum IssueStatus
 {
     Issued = 0,
@@ -460,10 +510,36 @@ public enum TransfusionDisposition
     Returned = 3
 }
 
+/// <summary>A D antigen variant recorded for the patient (OCD-069): treated as Rh negative for RhIG.</summary>
+public enum RhDVariant
+{
+    None = 0,
+    WeakD = 1,
+    PartialD = 2
+}
+
+/// <summary>OCD-073: how an antibody reported by another facility is documented here.</summary>
+public enum OutsideReportKind
+{
+    /// <summary>A copy of the report (antibody card, transfer letter) is kept.</summary>
+    Copy = 1,
+
+    /// <summary>The report was given by phone; who called is recorded, and who took it is the user recording it.</summary>
+    Phone = 2
+}
+
 public enum OverrideAction
 {
     WarningOverride = 0,
-    EmergencyRelease = 1
+    EmergencyRelease = 1,
+    MassiveTransfusion = 2
+}
+
+/// <summary>Second-person review of an override after the fact.</summary>
+public enum OverrideReviewOutcome
+{
+    Acceptable = 1,
+    FollowUpRequired = 2
 }
 
 /// <summary>
@@ -517,6 +593,13 @@ public enum LabelLayoutKind
 {
     Specimen = 0,
     Ptag = 1
+}
+
+/// <summary>What a specimen label design is printed for: the collected tube, or a tube split from it.</summary>
+public enum SpecimenLabelPurpose
+{
+    Tube = 0,
+    Aliquot = 1
 }
 
 public enum PrintJobStatus
@@ -694,7 +777,10 @@ public enum AuditEventType
     DatElution = 43,
 
     /// <summary>A patient merge was undone and history was restored to the duplicate record.</summary>
-    Unmerge = 44
+    Unmerge = 44,
+
+    /// <summary>A massive transfusion protocol was activated or closed for a patient.</summary>
+    MassiveTransfusionProtocol = 45
 }
 
 /// <summary>
@@ -799,6 +885,7 @@ public enum TestCategory
     ProductModification = 7,
     TransfusionReactionInvestigation = 8,
     AboRhRetype = 9,
+    AntibodyTiter = 10,
     Other = 99
 }
 
@@ -812,7 +899,9 @@ public enum ResultValueType
     Subtest = 4,
     BloodAttribute = 5,
     Crossmatch = 6,
-    ComplexCrossmatch = 7
+    ComplexCrossmatch = 7,
+    // A doubling dilution series with an endpoint (and optional score).
+    Titer = 8
 }
 
 /// <summary>
@@ -823,7 +912,10 @@ public enum ProductAllocationDisplayStatus
 {
     Reserved = 0,
     Exception = 1,
-    ReadyForIssue = 2
+    ReadyForIssue = 2,
+
+    /// <summary>The unit was crossmatched compatible, but no compatible crossmatch is still in date.</summary>
+    CrossmatchExpired = 3
 }
 
 /// <summary>Antigen typing result on a patient or unit.</summary>
@@ -944,6 +1036,13 @@ public enum IdentityTokenType
     Other = 99
 }
 
+/// <summary>Which reaction list an admin catalog entry belongs to (OCD-057).</summary>
+public enum ReactionCatalogKind
+{
+    ReactionType = 0,
+    Treatment = 1
+}
+
 public enum ReactionInvestigationStatus
 {
     Open = 0,
@@ -987,12 +1086,32 @@ public enum DatElutionWorkupStatus
     Voided = 2
 }
 
+/// <summary>What an eluate finding is (OCD-042). Only <see cref="Alloantibody"/> posts to antibody history.</summary>
+public enum EluateFindingKind
+{
+    Alloantibody = 0,
+    Autoantibody = 1,
+    Panreactive = 2,
+    Nonspecific = 3
+}
+
 public enum LookbackNotificationStatus
 {
     Pending = 0,
     Attempted = 1,
     Completed = 2,
     NotApplicable = 3
+}
+
+/// <summary>
+/// Whether a deviation is reportable to the FDA as a biological product deviation report (21 CFR 606.171), as the
+/// quality reviewer determined it (end-user testing pass 73). Not determined until someone records it.
+/// </summary>
+public enum DeviationFdaReportability
+{
+    NotDetermined = 0,
+    NotReportable = 1,
+    Reportable = 2
 }
 
 public enum DeviationStatus
@@ -1147,4 +1266,28 @@ public enum DeliveryStatus
 {
     Open = 0,
     Completed = 1
+}
+
+/// <summary>What exposure an RhIG evaluation follows.</summary>
+public enum RhigContext
+{
+    Antepartum = 0,
+    Postpartum = 1,
+    OtherExposure = 2
+}
+
+/// <summary>Fetal bleed (fetomaternal hemorrhage) screen result on an RhIG evaluation.</summary>
+public enum FetalBleedScreen
+{
+    NotDone = 0,
+    Negative = 1,
+    Positive = 2
+}
+
+/// <summary>The reviewer's RhIG decision (OCD-069: the criteria are the facility's).</summary>
+public enum RhigDecision
+{
+    Undetermined = 0,
+    Candidate = 1,
+    NotCandidate = 2
 }

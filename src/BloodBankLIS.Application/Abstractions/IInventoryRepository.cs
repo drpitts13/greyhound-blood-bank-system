@@ -24,6 +24,9 @@ public interface IInventoryRepository
 
     Task<BloodUnit?> GetByComponentIdentityAsync(string componentIdentity, CancellationToken cancellationToken = default);
 
+    /// <summary>Units whose unit number or DIN is exactly this value, ignoring case (several for a divided DIN).</summary>
+    Task<IReadOnlyList<BloodUnit>> ListByUnitNumberOrDinAsync(string value, CancellationToken cancellationToken = default);
+
     Task AddUnitAsync(BloodUnit unit, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken cancellationToken = default);
@@ -39,4 +42,13 @@ public interface IInventoryRepository
 
     /// <summary>Units waiting for a product ABO/Rh retype (Received + product RequiresRetype).</summary>
     Task<IReadOnlyList<BloodUnit>> ListPendingRetypeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Units shipped to another facility, shipped on or after <paramref name="sinceUtc"/> (all when null).</summary>
+    Task<IReadOnlyList<BloodUnit>> ListShippedOutAsync(DateTime? sinceUtc, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cycle 686: units still returned to the supplier, each with the status row that returned it, returned on or after
+    /// <paramref name="sinceUtc"/>.
+    /// </summary>
+    Task<IReadOnlyList<(BloodUnit Unit, InventoryStatusHistory Returned)>> ListReturnedToSupplierAsync(DateTime sinceUtc, CancellationToken cancellationToken = default);
 }

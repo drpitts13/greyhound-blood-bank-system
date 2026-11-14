@@ -23,6 +23,7 @@ public sealed class SpecimenService
     /// <summary>Default specimen validity window when no facility policy is registered.</summary>
     public const int DefaultValidityHours = SpecimenValidityPolicy.DefaultStandardHours;
 
+    private readonly IRepository<Encounter>? _encounters;
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<Patient> _patients;
     private readonly IRepository<SpecimenTypeDefinition> _specimenTypes;
@@ -37,6 +38,13 @@ public sealed class SpecimenService
     private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
+    private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<OrderSpecimen>? _orderSpecimens;
+    private readonly IRepository<Order>? _orders;
+    private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<SpecimenRejectionReason>? _rejectionReasons;
+    private readonly ISpecimenRejectionPublisher? _rejectionNotices;
     private readonly AntibodyScreenCompatLoader? _antibodyScreen;
 
     public SpecimenService(
@@ -54,8 +62,20 @@ public sealed class SpecimenService
         IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
         IRepository<Override>? overrides = null,
-        AntibodyScreenCompatLoader? antibodyScreen = null)
+        AntibodyScreenCompatLoader? antibodyScreen = null,
+        IRepository<TestResult>? results = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<BloodUnit>? units = null,
+        IRepository<SpecimenRejectionReason>? rejectionReasons = null,
+        IRepository<OrderSpecimen>? orderSpecimens = null,
+        IRepository<Order>? orders = null,
+        ISpecimenRejectionPublisher? rejectionNotices = null,
+        IRepository<Encounter>? encounters = null)
     {
+        _encounters = encounters;
+        _rejectionNotices = rejectionNotices;
+        _orderSpecimens = orderSpecimens;
+        _orders = orders;
         _specimens = specimens;
         _patients = patients;
         _specimenTypes = specimenTypes;
@@ -69,6 +89,10 @@ public sealed class SpecimenService
         _antibodyWorkups = antibodyWorkups;
         _antibodyFindings = antibodyFindings;
         _exceptionDefinitions = exceptionDefinitions;
+        _results = results;
+        _allocations = allocations;
+        _units = units;
+        _rejectionReasons = rejectionReasons;
         _overrides = overrides;
         _antibodyScreen = antibodyScreen;
     }
@@ -161,6 +185,14 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail($"Accession number '{request.AccessionNumber}' already exists.");
         }
 
+        // The identifiers come from the tube label. Without a policy service (unit tests) the record is used, as before.
+        var prefill = _policy is null || await _policy.GetPrefillPatientIdentifiersAsync(ct);
+        var label = SpecimenLabelIdentityRule.Evaluate(request.Identifier1Value, request.Identifier2Value, prefill);
+        if (label.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail($"{label.Code}: {label.Message}");
+        }
+
         var id1Type = request.Identifier1Type ?? IdentityTokenType.MedicalRecordNumber;
         var id1Value = string.IsNullOrWhiteSpace(request.Identifier1Value) ? patient.MedicalRecordNumber : request.Identifier1Value;
         var id2Type = request.Identifier2Type ?? IdentityTokenType.DateOfBirth;
@@ -180,20 +212,45 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail(identity.Message);
         }
 
+        var (visitId, visitError) = await ResolveVisitAsync(patient.Id, request.EncounterId, ct);
+        if (visitError is not null)
+        {
+            return OperationResult<Specimen>.Fail(visitError);
+        }
+
         var expiresUtc = await ComputeExpiresUtcAsync(
             request.CollectedUtc, typeDef, patient, request.ValidityHours, ct);
+        // OCD-074: an infant's specimen collected during a visit stays valid for the admission.
+        DateTime? neonatalStandard = null;
+        if (request.ValidityHours is not > 0 && await NeonatalAdmissionExpiresAsync(patient, visitId, request.CollectedUtc, expiresUtc, ct) is { } admission)
+        {
+            neonatalStandard = expiresUtc;
+            expiresUtc = admission;
+        }
+
         var acceptNow = request.AcceptImmediately;
+        if (acceptNow)
+        {
+            var collector = SpecimenCollectorRule.EvaluateAccept(request.Collector, await CollectorRequiredAsync(ct));
+            if (collector.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Specimen>.Fail($"{collector.Code}: {collector.Message}");
+            }
+        }
+
         var specimen = new Specimen
         {
             AccessionNumber = request.AccessionNumber,
             PatientId = request.PatientId,
+            EncounterId = visitId,
             SpecimenType = typeCode,
             Barcode = request.Barcode,
             CollectedUtc = request.CollectedUtc,
             ReceivedUtc = acceptNow ? _clock.UtcNow : null,
             ExpiresUtc = expiresUtc,
+            NeonatalStandardExpiresUtc = neonatalStandard,
             DrawLocation = request.DrawLocation,
-            Collector = request.Collector,
+            Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim(),
             Identifier1Type = id1Type,
             Identifier1Value = id1Value,
             Identifier2Type = id2Type,
@@ -208,8 +265,9 @@ public sealed class SpecimenService
             AuditEventType.Specimen,
             nameof(Specimen),
             specimen.Id,
-            newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status },
-            reason: acceptNow ? "Specimen accessioned." : "Specimen collected; awaiting receipt.");
+            newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status, specimen.Collector, specimen.DrawLocation, specimen.NeonatalStandardExpiresUtc },
+            reason: (acceptNow ? "Specimen accessioned." : "Specimen collected; awaiting receipt.")
+                + (neonatalStandard is null ? string.Empty : " Infant: valid for the admission (OCD-074)."));
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
@@ -219,6 +277,31 @@ public sealed class SpecimenService
     /// patient, identity tokens, barcode, and status are immutable here. Use
     /// <see cref="RelabelAsync"/> to change the barcode with a required reason.
     /// </summary>
+    /// <summary>
+    /// The policy expiration the save uses (<see cref="ComputeExpiresUtcAsync"/>), so a form can show it and decide
+    /// whether an override is needed without recomputing the policy itself.
+    /// </summary>
+    public async Task<OperationResult<SpecimenExpirationPreviewDto>> PreviewExpirationAsync(
+        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default, int? validityHours = null)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return OperationResult<SpecimenExpirationPreviewDto>.Fail("Patient not found.");
+        }
+
+        var code = specimenType?.Trim();
+        var typeDef = string.IsNullOrEmpty(code)
+            ? null
+            : await _specimenTypes.FirstOrDefaultAsync(t => t.IsActive && !t.IsDraft && t.Code == code, ct);
+        var collected = DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc);
+        var hours = validityHours is > 0 ? validityHours : null;
+        var withRisk = await ComputeExpiresUtcAsync(collected, typeDef, patient, hours, ct);
+        var catalogOnly = await ComputeExpiresUtcAsync(collected, typeDef, null, hours, ct);
+        return OperationResult<SpecimenExpirationPreviewDto>.Ok(
+            new SpecimenExpirationPreviewDto(withRisk, withRisk < catalogOnly));
+    }
+
     public async Task<OperationResult<Specimen>> UpdateAsync(long specimenId, UpdateSpecimenRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -417,11 +500,46 @@ public sealed class SpecimenService
         return OperationResult<Specimen>.Ok(specimen);
     }
 
-    public async Task<OperationResult<Specimen>> RejectAsync(long specimenId, string reason, CancellationToken ct = default)
+    /// <summary>
+    /// Rejects with a coded reason from the catalog (and a comment when the code requires one). Without the catalog
+    /// (unit tests that construct the service directly) the code is stored as the reason text.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> RejectAsync(
+        long specimenId, string reasonCode, CancellationToken ct = default) =>
+        await RejectAsync(specimenId, reasonCode, null, ct);
+
+    public async Task<OperationResult<Specimen>> RejectAsync(
+        long specimenId, string? reasonCode, string? comment, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(reason))
+        if (string.IsNullOrWhiteSpace(reasonCode))
         {
+            if (_rejectionReasons is not null)
+            {
+                var blank = SpecimenRejectionReasonRule.Evaluate(reasonCode, null, comment);
+                return OperationResult<Specimen>.Fail($"{blank.Code}: {blank.Message}");
+            }
+
             return OperationResult<Specimen>.Fail("A reason is required to reject a specimen.");
+        }
+
+        string reason;
+        string? storedCode = null;
+        if (_rejectionReasons is not null)
+        {
+            var code = reasonCode.Trim().ToUpperInvariant();
+            var catalog = await _rejectionReasons.FirstOrDefaultAsync(r => r.Code == code, ct);
+            var coded = SpecimenRejectionReasonRule.Evaluate(code, catalog, comment);
+            if (coded.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Specimen>.Fail($"{coded.Code}: {coded.Message}");
+            }
+
+            reason = SpecimenRejectionReasonRule.StoredText(catalog!, comment);
+            storedCode = catalog!.Code;
+        }
+        else
+        {
+            reason = string.IsNullOrWhiteSpace(comment) ? reasonCode.Trim() : $"{reasonCode.Trim()}: {comment.Trim()}";
         }
 
         var denied = await RejectUnauthorizedAsync(
@@ -442,24 +560,92 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail($"A specimen with status {specimen.Status} cannot be rejected.");
         }
 
+        if (_results is not null)
+        {
+            var active = (await _results.ListAsync(
+                    r => r.SpecimenId == specimen.Id && r.SupersededByResultId == null && r.Status != ResultStatus.Invalidated, ct))
+                .Select(r => r.TestCode)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var withResults = DerivedFromSourceRule.EvaluateReject(active);
+            if (withResults.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Specimen>.Fail($"{withResults.Code}: {withResults.Message}");
+            }
+        }
+
         var previousStatus = specimen.Status;
         specimen.Status = SpecimenStatus.Rejected;
         specimen.RejectionReason = reason;
+        specimen.RejectionReasonCode = storedCode;
+        specimen.RejectedUtc = _clock.UtcNow;
+        specimen.RejectedBy = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? null : _currentUser.UserName;
         _specimens.Update(specimen);
         _audit?.Record(
             AuditEventType.Specimen,
             nameof(Specimen),
             specimen.Id,
             oldValue: new { Status = previousStatus },
-            newValue: new { specimen.Status, specimen.RejectionReason },
+            newValue: new { specimen.Status, specimen.RejectionReason, specimen.RejectionReasonCode, specimen.RejectedUtc },
             reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
 
-        var warnings = await WarnAndWithdrawOpenWorkupAsync(
+        var warnings = (await WarnAndWithdrawOpenWorkupAsync(
             specimen.Id,
             AntibodyIdentificationHistoryPostRule.EvaluateSpecimenRejectedOpenWorkup,
             "Linked specimen was rejected while an antibody-identification workup was open. Interpretation and supervisor review must be repeated, or the workup voided, before completing. This does not identify antibodies.",
-            ct);
+            ct)).ToList();
+
+        // Open orders on this tube now wait for a new specimen: name them, so recollection is asked for.
+        if (_orderSpecimens is not null && _orders is not null)
+        {
+            var orderIds = (await _orderSpecimens.ListAsync(
+                    os => os.SpecimenId == specimen.Id && os.UnlinkedUtc == null, ct))
+                .Select(os => os.OrderId)
+                .Distinct()
+                .ToList();
+            var waiting = orderIds.Count == 0
+                ? []
+                : (await _orders.ListAsync(o => orderIds.Contains(o.Id), ct))
+                    .Where(o => o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+                    .Select(o => o.OrderNumber)
+                    .Order(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            if (waiting.Count > 0)
+            {
+                warnings.Add(SpecimenRecollectionRule.OrdersWaiting(waiting));
+            }
+        }
+
+        // OCD-062: the EHR is told the tests on this tube will have no result. A failure never undoes the rejection.
+        if (_rejectionNotices is not null)
+        {
+            try
+            {
+                await _rejectionNotices.PublishSpecimenRejectedAsync(specimen.Id, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                warnings.Add(SpecimenRecollectionRule.EhrNotSent(specimen.AccessionNumber));
+            }
+        }
+
+        // Reservations made on this specimen are not released automatically; the bench decides, but is told.
+        if (_allocations is not null)
+        {
+            var reserved = await _allocations.ListAsync(
+                a => a.SpecimenId == specimen.Id && a.Status == AllocationStatus.Reserved, ct);
+            if (reserved.Count > 0)
+            {
+                var unitIds = reserved.Select(a => a.BloodProductId).ToList();
+                var numbers = _units is null
+                    ? unitIds.Select(id => $"unit {id}").ToList()
+                    : (await _units.ListAsync(u => unitIds.Contains(u.Id), ct)).Select(u => u.UnitNumber).OrderBy(n => n).ToList();
+                warnings.Add(DerivedFromSourceRule.ReservedUnits(numbers));
+            }
+        }
+
         return OperationResult<Specimen>.Ok(specimen, warnings);
     }
 
@@ -492,16 +678,124 @@ public sealed class SpecimenService
             return denied;
         }
 
+        // OCD-056: the facility may require the tube in hand to be scanned.
+        var listReceipt = SpecimenReceiptScanRule.EvaluateListReceipt(await ScanRequiredAsync(ct));
+        if (listReceipt.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail($"{listReceipt.Code}: {listReceipt.Message}");
+        }
+
         var specimen = await _specimens.GetByIdAsync(specimenId, ct);
         if (specimen is null)
         {
             return OperationResult<Specimen>.Fail("Specimen not found.");
         }
 
+        return await ReceiveCoreAsync(specimen, "Selected from the worklist", nameTheTube: false, ct);
+    }
+
+    /// <summary>
+    /// Receives the tube in hand by its scanned accession number or label barcode, so the specimen received is the
+    /// one scanned, not a row picked from a list. Recorded as received by scan.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> ReceiveByScanAsync(string? scan, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var (found, error) = await FindByScanAsync(scan, ct);
+        return found is null
+            ? OperationResult<Specimen>.Fail(error!)
+            : await ReceiveCoreAsync(found, "Scanned tube", nameTheTube: true, ct);
+    }
+
+    /// <summary>Accepts the received tube in hand by its scanned accession number or label barcode.</summary>
+    public async Task<OperationResult<Specimen>> AcceptByScanAsync(string? scan, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var (found, error) = await FindByScanAsync(scan, ct);
+        return found is null
+            ? OperationResult<Specimen>.Fail(error!)
+            : await AcceptCoreAsync(found, "Scanned tube", nameTheTube: true, ct);
+    }
+
+    /// <summary>The one specimen whose accession or label barcode is the scan, or a plain refusal.</summary>
+    private async Task<(Specimen? Specimen, string? Error)> FindByScanAsync(string? scan, CancellationToken ct)
+    {
+        var normalized = SpecimenReceiptScanRule.Normalize(scan);
+        if (normalized.Length == 0)
+        {
+            var empty = SpecimenReceiptScanRule.NotFound(normalized);
+            return (null, $"{empty.Code}: {empty.Message}");
+        }
+
+        var candidates = (await _specimens.ListAsync(
+                s => s.AccessionNumber.ToUpper() == normalized || (s.Barcode != null && s.Barcode.ToUpper() == normalized), ct))
+            .Where(s => SpecimenReceiptScanRule.Matches(normalized, s.AccessionNumber, s.Barcode))
+            .ToList();
+        if (candidates.Count == 1)
+        {
+            // Load by id so an instance this unit of work already tracks is the one changed.
+            return (await _specimens.GetByIdAsync(candidates[0].Id, ct) ?? candidates[0], null);
+        }
+
+        var miss = candidates.Count == 0
+            ? SpecimenReceiptScanRule.NotFound(normalized)
+            : SpecimenReceiptScanRule.Ambiguous(normalized, await ScanRequiredAsync(ct));
+        return (null, $"{miss.Code}: {miss.Message}");
+    }
+
+    /// <summary>
+    /// The visit a new tube belongs to: the one named, which must be this patient's and not cancelled; otherwise the
+    /// patient's open visit (active, not discharged) when there is exactly one. With several open visits none is guessed.
+    /// </summary>
+    private async Task<(long? VisitId, string? Error)> ResolveVisitAsync(long patientId, long? requested, CancellationToken ct)
+    {
+        if (_encounters is null)
+        {
+            return (requested is > 0 ? requested : null, null);
+        }
+
+        if (requested is > 0)
+        {
+            var visit = await _encounters.GetByIdAsync(requested.Value, ct);
+            if (visit is null || visit.PatientId != patientId)
+            {
+                return (null, "That visit is not this patient's. Choose one of the patient's visits.");
+            }
+
+            return visit.Status == EncounterStatus.Cancelled
+                ? (null, $"Visit {visit.VisitNumber} is cancelled. Choose an open visit.")
+                : (visit.Id, null);
+        }
+
+        var open = await _encounters.ListAsync(e => e.PatientId == patientId && e.Status == EncounterStatus.Active && e.DischargeUtc == null, ct);
+        return (open.Count == 1 ? open[0].Id : null, null);
+    }
+
+    private async Task<bool> CollectorRequiredAsync(CancellationToken ct) =>
+        _policy is not null && await _policy.GetRequireSpecimenCollectorAsync(ct);
+
+    private async Task<bool> ScanRequiredAsync(CancellationToken ct) =>
+        _policy is not null && await _policy.GetRequireSpecimenReceiptByScanAsync(ct);
+
+    // A scan does not show which row it matched, so its refusal names the tube.
+    private async Task<OperationResult<Specimen>> ReceiveCoreAsync(Specimen specimen, string method, bool nameTheTube, CancellationToken ct)
+    {
         var gate = SpecimenReceiptRule.EvaluateReceive(specimen.Status, specimen.ExpiresUtc, _clock.UtcNow);
         if (gate.Severity == RuleSeverity.HardStop)
         {
-            return OperationResult<Specimen>.Fail(gate.Message);
+            return OperationResult<Specimen>.Fail(nameTheTube ? $"{specimen.AccessionNumber}: {gate.Message}" : gate.Message);
         }
 
         var previous = new { specimen.Status, specimen.ReceivedUtc };
@@ -513,8 +807,59 @@ public sealed class SpecimenService
             nameof(Specimen),
             specimen.Id,
             oldValue: previous,
-            newValue: new { specimen.Status, specimen.ReceivedUtc },
+            newValue: new { specimen.Status, specimen.ReceivedUtc, ReceiptMethod = method },
             reason: "Specimen received in the blood bank.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Specimen>.Ok(specimen);
+    }
+
+    /// <summary>
+    /// Records who collected a tube that is collected or received but not yet accepted, so it can be accepted where the
+    /// facility requires the collector (OCD-064). An accepted tube is changed through the specimen edit instead. Audited.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> RecordCollectorAsync(long specimenId, string? collector, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var name = collector?.Trim() ?? string.Empty;
+        if (name.Length == 0)
+        {
+            return OperationResult<Specimen>.Fail("Enter who collected the tube, as shown on the label.");
+        }
+
+        if (name.Length > 100)
+        {
+            return OperationResult<Specimen>.Fail("The collector cannot exceed 100 characters.");
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null)
+        {
+            return OperationResult<Specimen>.Fail("Specimen not found.");
+        }
+
+        if (specimen.Status is not (SpecimenStatus.Collected or SpecimenStatus.Received))
+        {
+            return OperationResult<Specimen>.Fail(specimen.Status == SpecimenStatus.Accepted
+                ? "This specimen is accepted; change the collector by editing the specimen."
+                : $"A specimen with status {specimen.Status} cannot be changed.");
+        }
+
+        var previous = new { specimen.Collector };
+        specimen.Collector = name;
+        _specimens.Update(specimen);
+        _audit?.Record(
+            AuditEventType.Specimen,
+            nameof(Specimen),
+            specimen.Id,
+            oldValue: previous,
+            newValue: new { specimen.Collector },
+            reason: "Collector recorded before acceptance.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
@@ -534,10 +879,22 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Specimen not found.");
         }
 
+        return await AcceptCoreAsync(specimen, "Selected from the worklist", nameTheTube: false, ct);
+    }
+
+    private async Task<OperationResult<Specimen>> AcceptCoreAsync(Specimen specimen, string method, bool nameTheTube, CancellationToken ct)
+    {
         var gate = SpecimenReceiptRule.EvaluateAccept(specimen.Status, specimen.ExpiresUtc, _clock.UtcNow);
         if (gate.Severity == RuleSeverity.HardStop)
         {
-            return OperationResult<Specimen>.Fail(gate.Message);
+            return OperationResult<Specimen>.Fail(nameTheTube ? $"{specimen.AccessionNumber}: {gate.Message}" : gate.Message);
+        }
+
+        var collector = SpecimenCollectorRule.EvaluateAccept(specimen.Collector, await CollectorRequiredAsync(ct));
+        if (collector.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(
+                nameTheTube ? $"{specimen.AccessionNumber}: {collector.Code}: {collector.Message}" : $"{collector.Code}: {collector.Message}");
         }
 
         var previous = new { specimen.Status };
@@ -549,7 +906,7 @@ public sealed class SpecimenService
             nameof(Specimen),
             specimen.Id,
             oldValue: previous,
-            newValue: new { specimen.Status, specimen.ReceivedUtc },
+            newValue: new { specimen.Status, specimen.ReceivedUtc, AcceptMethod = method },
             reason: "Specimen accepted for testing.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
@@ -584,7 +941,8 @@ public sealed class SpecimenService
 
         foreach (var specimen in specimens)
         {
-            if (overriddenIds.Contains(specimen.Id))
+            // An infant's admission-long specimen keeps its admission dating (OCD-074).
+            if (overriddenIds.Contains(specimen.Id) || specimen.NeonatalStandardExpiresUtc is not null)
             {
                 continue;
             }
@@ -654,6 +1012,25 @@ public sealed class SpecimenService
             ct);
         warnings.Add(open);
         return warnings;
+    }
+
+    private async Task<DateTime?> NeonatalAdmissionExpiresAsync(
+        Patient patient, long? visitId, DateTime collectedUtc, DateTime standardExpiresUtc, CancellationToken ct)
+    {
+        if (_policy is null || _encounters is null || visitId is not long id)
+        {
+            return null;
+        }
+
+        var (enabled, ageLimitDays) = await _policy.GetNeonatalSettingsAsync(ct);
+        if (!enabled)
+        {
+            return null;
+        }
+
+        var visit = await _encounters.GetByIdAsync(id, ct);
+        return NeonatalTestingRule.AdmissionExpiresUtc(enabled, ageLimitDays, patient.DateOfBirth,
+            DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc), visit is not null, visit?.DischargeUtc, standardExpiresUtc);
     }
 
     private async Task<DateTime> ComputeExpiresUtcAsync(
@@ -749,7 +1126,9 @@ public sealed class SpecimenService
             && !string.IsNullOrWhiteSpace(request.AuthorizedBy);
         if (!overrideAttempted)
         {
-            return OperationResult<Specimen>.Fail(warning.Message);
+            // OCD-041: once an override is started, say which field is missing as well as why it is needed.
+            var missing = OverrideFieldsRule.Missing(request.OverrideReason, request.AuthorizedBy);
+            return OperationResult<Specimen>.Fail(missing is null ? warning.Message : $"{warning.Message} {missing.Message}");
         }
 
         if (_exceptionDefinitions is null || _permissions is null || _currentUser is null)

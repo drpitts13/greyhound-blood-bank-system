@@ -50,8 +50,17 @@ public sealed record IssueGateContext
     /// <summary>Unit antigen phenotype results.</summary>
     public IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> UnitAntigens { get; init; } = [];
 
-    /// <summary>All clinically active special transfusion requirements satisfied (unit attributes, acknowledgments, A2 subgroup).</summary>
+    /// <summary>
+    /// Clinically active special requirements are satisfied: the issue procedures (acknowledgments, A1/A2 subgroup),
+    /// and, for callers that do not give <see cref="UnmetUnitRequirements"/>, the unit facts too.
+    /// </summary>
     public required bool SpecialRequirementsMet { get; init; }
+
+    /// <summary>
+    /// What each unmet unit typing or modification requires (e.g. "Patient requires Irradiated – RBC").
+    /// A hard stop, except on emergency or MTP release, where it needs an authorized override.
+    /// </summary>
+    public IReadOnlyList<string> UnmetUnitRequirements { get; init; } = [];
 
     /// <summary>A current vs historical ABO/Rh discrepancy that has not been resolved.</summary>
     public required bool UnresolvedAboRhDiscrepancy { get; init; }
@@ -85,6 +94,9 @@ public sealed record IssueGateContext
 
     /// <summary>AABB 5.16 computer-crossmatch preconditions hold for this patient.</summary>
     public bool ElectronicCrossmatchEligible { get; init; }
+
+    /// <summary>OCD-074 part three: an infant under the neonatal rules needs no crossmatch for this unit.</summary>
+    public bool NeonatalNoCrossmatch { get; init; }
 
     /// <summary>Facility requires two concordant ABO/Rh determinations for RBC/WB issue.</summary>
     public bool RequireSecondAboForCellularIssue { get; init; } = true;
@@ -132,6 +144,9 @@ public sealed record IssueGateContext
     /// Products that do not require retype are confirmed.
     /// </summary>
     public bool RetypeConfirmed { get; init; } = true;
+
+    /// <summary>The latest verified product retype disagrees with the label: a known mislabeled unit.</summary>
+    public bool UnitRetypeMismatch { get; init; }
 }
 
 /// <summary>
@@ -153,11 +168,34 @@ public static class IssueGate
     public const string SpecialReqCode = "ISS-SPECIAL-REQ";
     public const string AboRhDiscrepancyCode = "ISS-ABORH-DISCREPANCY";
     public const string VisualInspectionCode = "ISS-VISUAL";
+    public const string UnitRetypeMismatchCode = "ISS-RETYPE-MISMATCH";
 
     private static readonly UnitStatus[] IssuableStatuses =
     {
         UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Assigned, UnitStatus.Crossmatched, UnitStatus.Selected
     };
+
+    /// <summary>
+    /// Unmet issue procedures always stop the issue. An unmet unit typing or modification stops it too, except on
+    /// emergency or MTP release, where it becomes a warning that needs the authorized emergency override.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> EvaluateSpecialRequirements(IssueGateContext c)
+    {
+        var results = new List<RuleResult>();
+        if (!c.SpecialRequirementsMet)
+        {
+            results.Add(RuleResult.HardStop(SpecialReqCode, "One or more active special transfusion requirements are not satisfied."));
+        }
+
+        foreach (var unmet in c.UnmetUnitRequirements)
+        {
+            results.Add(c.IsEmergencyRelease
+                ? RuleResult.Warning(SpecialReqCode, $"{unmet} Emergency or MTP release requires an authorized override.")
+                : RuleResult.HardStop(SpecialReqCode, unmet));
+        }
+
+        return results.Count == 0 ? [RuleResult.Pass(SpecialReqCode)] : results;
+    }
 
     public static RuleEvaluation Evaluate(IssueGateContext c)
     {
@@ -190,7 +228,7 @@ public static class IssueGate
 
             UnitStatusAllowsIssue(c)
                 ? RuleResult.Pass(UnitStatusCode)
-                : RuleResult.HardStop(UnitStatusCode, $"Unit status {c.UnitStatus} is not issuable."),
+                : RuleResult.HardStop(UnitStatusCode, NotIssuableMessage(c.UnitStatus)),
 
             BloodUnitExpirationRule.Evaluate(c.UnitExpiresUtc, c.NowUtc, c.UnitNearExpiryWindow),
 
@@ -200,16 +238,18 @@ public static class IssueGate
 
             ProductRetypeAllocationRule.EvaluateForIssue(c.RetypeConfirmed, c.IsEmergencyRelease),
 
+            // Never converted for emergency: "not yet retyped" may be overridden, "retyped and wrong" may not.
+            c.UnitRetypeMismatch
+                ? RuleResult.HardStop(UnitRetypeMismatchCode,
+                    "This unit's verified ABO/Rh retype does not match its label. It cannot be issued, even for emergency release, until the discrepancy is resolved.")
+                : RuleResult.Pass(UnitRetypeMismatchCode),
+
             CrossmatchValidityRule.Evaluate(
-                RequiresCrossmatchEffective(c),
+                RequiresCrossmatchEffective(c) && !c.NeonatalNoCrossmatch,
                 c.HasValidCrossmatch,
                 c.IsEmergencyRelease,
                 c.ElectronicCrossmatchEligible && (c.IsElectronicIssue || c.IsRemoteIssue),
                 c.HasIncompatibleCrossmatch),
-
-            c.SpecialRequirementsMet
-                ? RuleResult.Pass(SpecialReqCode)
-                : RuleResult.HardStop(SpecialReqCode, "One or more active special transfusion requirements are not satisfied."),
 
             c.VisualInspectionAcceptable
                 ? RuleResult.Pass(VisualInspectionCode)
@@ -232,6 +272,17 @@ public static class IssueGate
             OrderControlRule.EvaluateIssue(c.OrderLinked, c.OrderIsFulfillable)
         };
 
+        results.AddRange(EvaluateSpecialRequirements(c));
+
+        // OCD-053: an emergency with no usable specimen replaces the specimen checks with the pre-specimen rule.
+        // A specimen that belongs to another patient is a wrong-patient signal and stays a hard stop.
+        if (c.SpecimenExists == c.SpecimenBelongsToPatient
+            && EmergencyPreSpecimenRule.Applies(c.IsEmergencyRelease, c.SpecimenExists, c.SpecimenExpiresUtc, c.NowUtc))
+        {
+            results.RemoveAll(r => r.Code is SpecExistsCode or SpecPatientCode or SpecimenExpirationRule.ExpiredCode or SpecimenExpirationRule.NearExpiryCode);
+            results.Add(EmergencyPreSpecimenRule.Evaluate(c.ComponentClass, c.UnitAboRh));
+        }
+
         results.AddRange(EmergencyUncrossmatchedAboRule.Evaluate(
             c.IsEmergencyRelease,
             c.ComponentClass,
@@ -242,6 +293,14 @@ public static class IssueGate
             c.UncrossmatchedMustBeGroupO,
             c.UncrossmatchedONegForChildbearing,
             c.ChildbearingAgeYears));
+
+        // Not covered by the emergency warning conversion below: an established ABO conflict stays a hard stop.
+        results.Add(EmergencyUncrossmatchedAboRule.EvaluateEstablishedConflict(
+            c.IsEmergencyRelease,
+            c.ComponentClass,
+            c.UnitAboRh,
+            c.PatientAboRh,
+            c.PatientBloodTypeKnown));
 
         results.AddRange(InventoryLocationPolicyRule.EvaluateIssue(
             c.LocationKnown,
@@ -284,6 +343,28 @@ public static class IssueGate
     /// Emergency or MTP issue may release a unit that is still Received because retype
     /// has not been confirmed. Every other issue stays on the normal issuable statuses.
     /// </summary>
+    /// <summary>
+    /// Cycle 697: the refusal for a status that cannot be issued says why and what to do next, after the status itself
+    /// (the wording "Unit status X is not issuable" is kept at the start).
+    /// </summary>
+    public static string NotIssuableMessage(UnitStatus status) =>
+        $"Unit status {status} is not issuable" + status switch
+        {
+            UnitStatus.Expected => ": the unit has not been received yet. Receive it first.",
+            UnitStatus.Received => ": the unit is received but not released to stock. Release it (and retype it if required) first.",
+            UnitStatus.Discarded => ": the unit was discarded. Choose another unit.",
+            UnitStatus.Modified => ": the unit was modified into other units. Issue one of those instead.",
+            UnitStatus.Expired => ": the unit has expired. Discard it and choose another unit.",
+            UnitStatus.Recalled => ": the unit was recalled. Choose another unit.",
+            UnitStatus.Quarantine => ": the unit is in quarantine. Choose another unit, or release it from quarantine first.",
+            UnitStatus.OnHold => ": the unit is on operational hold. Release the hold first, or choose another unit.",
+            UnitStatus.Missing or UnitStatus.Damaged => ": resolve it on the Discrepancy board, or choose another unit.",
+            UnitStatus.Issued or UnitStatus.TransfusionStarted or UnitStatus.Transfused or UnitStatus.TransfusionStopped
+                => ": the unit is already issued or transfused.",
+            UnitStatus.ReturnedToSupplier or UnitStatus.ShippedOut => ": the unit has left this facility.",
+            _ => "."
+        };
+
     private static bool UnitStatusAllowsIssue(IssueGateContext c) =>
         IssuableStatuses.Contains(c.UnitStatus)
         || (EmergencyMayReserveUnretyped(c) && c.UnitStatus == UnitStatus.Received);
@@ -347,6 +428,13 @@ public static class IssueGate
             ? new AboRhDiscrepancyCue(false, null)
             : new AboRhDiscrepancyCue(result.Severity == RuleSeverity.HardStop, result.Message);
     }
+
+    /// <summary>
+    /// The discrepancy input from stored history: types whose source result was invalidated are left out.
+    /// The chart builds the same input from its rows (<c>BloodTypeDto.DiscrepancyInput</c>).
+    /// </summary>
+    public static IReadOnlyList<(AboRh Type, bool IsCurrent)> DiscrepancyInput(IEnumerable<Entities.PatientBloodTypeHistory> rows) =>
+        rows.Where(h => h.InvalidatedUtc is null).Select(h => (h.BloodType, h.IsCurrent)).ToList();
 
     /// <summary>
     /// True when the first current known type disagrees with any other known,

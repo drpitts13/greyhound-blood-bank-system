@@ -64,6 +64,7 @@ public sealed class ResultService
     private readonly CrossmatchAttachmentService? _crossmatchAttachment;
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
     private readonly ReagentQcService? _reagentQc;
+    private readonly IResultReleasePublisher? _releases;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -97,8 +98,11 @@ public sealed class ResultService
         IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
         CrossmatchAttachmentService? crossmatchAttachment = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
-        ReagentQcService? reagentQc = null)
+        ReagentQcService? reagentQc = null,
+        IResultReleasePublisher? releases = null,
+        EquipmentService? equipment = null)
     {
+        _equipment = equipment;
         _ruleEngine = ruleEngine;
         _allocations = allocations;
         _policy = policy;
@@ -130,6 +134,7 @@ public sealed class ResultService
         _antibodyFindings = antibodyFindings;
         _crossmatchAttachment = crossmatchAttachment;
         _reagentQc = reagentQc;
+        _releases = releases;
         _orderSpecimens = orderSpecimens;
     }
 
@@ -138,6 +143,30 @@ public sealed class ResultService
 
     public Task<IReadOnlyList<TestResult>> GetBySpecimenAsync(long specimenId, CancellationToken ct = default) =>
         _results.ListAsync(r => r.SpecimenId == specimenId, ct);
+
+    /// <summary>
+    /// A manual result records the reagent lots open for its test at entry (lot traceability). Instrument and interface
+    /// results are tested with the instrument's own reagents and record none here.
+    /// </summary>
+    private async Task<LotUse> RecordReagentLotsAsync(TestResult result, CancellationToken ct)
+    {
+        if (result.Source != ResultSource.Manual)
+        {
+            return LotUse.None;
+        }
+
+        // Pass 75: the equipment used for the test is recorded with the lots, and named if it was out of service or due.
+        var equipmentWarnings = _equipment is null ? [] : await _equipment.RecordInUseAsync(result, ct);
+        if (_reagentQc is null)
+        {
+            return equipmentWarnings.Count == 0 ? LotUse.None : new LotUse([], equipmentWarnings);
+        }
+
+        var lots = await _reagentQc.RecordLotsInUseAsync(result, ct);
+        return equipmentWarnings.Count == 0 ? lots : lots with { Warnings = lots.Warnings.Concat(equipmentWarnings).ToList() };
+    }
+
+    private readonly EquipmentService? _equipment;
 
     private async Task<RuleEvaluation?> ReagentResultGateAsync(CancellationToken ct)
     {
@@ -162,7 +191,21 @@ public sealed class ResultService
             return EvaluationResult<TestResult>.Blocked(reagentGate);
         }
 
-        var gate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct);
+        // OCD-058: a reaction workup order may be resulted on an expired (pre-transfusion) specimen.
+        var gate = await ValidateSpecimenForEntryAsync(
+            request.SpecimenId, request.TestCode, ct, allowExpired: await IsReactionWorkupOrderAsync(request.OrderId, ct));
+        string? expiredError = null;
+        if (!gate.Succeeded && !string.IsNullOrWhiteSpace(request.CorrectionReason))
+        {
+            // Only a correction may go ahead on an expired specimen; decided below once the current result is known.
+            var correctionGate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct, allowExpired: true);
+            if (correctionGate.Succeeded)
+            {
+                expiredError = gate.Error;
+                gate = correctionGate;
+            }
+        }
+
         if (!gate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(gate.Error!);
@@ -199,6 +242,11 @@ public sealed class ResultService
 
         var current = await GetCurrentResultAsync(request.OrderId, normalizedCode, request.SpecimenId, ct);
         OperationResult<TestResult> saveResult;
+
+        if (expiredError is not null && current?.Status is not (ResultStatus.Verified or ResultStatus.Corrected))
+        {
+            return EvaluationResult<TestResult>.Fail(expiredError);
+        }
 
         if (current is null)
         {
@@ -249,6 +297,7 @@ public sealed class ResultService
         }
 
         var savedValueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
+        allWarnings.AddRange(await ApplyResultShapeAsync(saveResult.Value, savedValueType, ct));
         if (TestDefinitionValidator.IsCrossmatchResultType(savedValueType)
             || string.Equals(normalizedCode, CrossmatchTestCode, StringComparison.OrdinalIgnoreCase))
         {
@@ -364,6 +413,14 @@ public sealed class ResultService
             return OperationResult<TestResult>.Fail("Interface result value is required.");
         }
 
+        // Same specimen gate as manual entry, before every branch: a re-sent or replacement
+        // result must not post to an expired, rejected, or merged-away specimen either.
+        var gate = await ValidateSpecimenForEntryAsync(specimenId, testCode, ct);
+        if (!gate.Succeeded)
+        {
+            return OperationResult<TestResult>.Fail(gate.Error!);
+        }
+
         var normalized = testCode.Trim().ToUpperInvariant();
         var current = await GetCurrentResultAsync(orderId, normalized, specimenId, ct);
         OperationResult<TestResult> saved;
@@ -372,7 +429,7 @@ public sealed class ResultService
         {
             saved = await EnterInternalAsync(
                 specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
-                source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
+                skipSpecimenCheck: true, source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
         }
         else if (current.Status == ResultStatus.Verified)
         {
@@ -395,7 +452,7 @@ public sealed class ResultService
         {
             saved = await EnterInternalAsync(
                 specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
-                source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
+                skipSpecimenCheck: true, source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
         }
 
         if (!saved.Succeeded || saved.Value is null)
@@ -573,11 +630,21 @@ public sealed class ResultService
 
         await _results.AddAsync(result, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+        var lotUse = await RecordReagentLotsAsync(result, ct);
+        if (lotUse.Warnings.Count > 0)
+        {
+            warnings = warnings.Concat(lotUse.Warnings).ToList();
+        }
+
         _audit.Record(
             AuditEventType.Result,
             nameof(TestResult),
             result.Id,
-            newValue: new { result.TestCode, result.Value, result.Status, result.Source, result.SourceReference },
+            newValue: new
+            {
+                result.TestCode, result.Value, result.Status, result.Source, result.SourceReference,
+                ReagentLots = lotUse.Recorded.Select(r => $"{r.ReagentCode} {r.LotNumber}").ToList()
+            },
             reason: $"Result entered from {source}.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(result, warnings);
@@ -719,7 +786,11 @@ public sealed class ResultService
             return denied;
         }
 
-        var specimenGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct);
+        var specimenGate = await ValidateSpecimenForEntryAsync(
+            result.SpecimenId,
+            result.TestCode,
+            ct,
+            allowExpired: result.Status == ResultStatus.Corrected || await IsReactionWorkupOrderAsync(result.OrderId, ct));
         if (!specimenGate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
@@ -769,7 +840,7 @@ public sealed class ResultService
 
                 if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
                 {
-                    return EvaluationResult<TestResult>.Blocked(evaluation);
+                    return EvaluationResult<TestResult>.Blocked(OverrideFieldsRule.WithMissing(evaluation, request.OverrideReason, request.AuthorizedBy));
                 }
 
                 if (request.HistoryResolution is null)
@@ -945,7 +1016,39 @@ public sealed class ResultService
             reason: "Result verified.");
 
         await _unitOfWork.SaveChangesAsync(ct);
+
+        // A verified correction replaces a value the EHR may already show (OCD-049); a first final goes too when the
+        // facility sends verified results automatically (OCD-086).
+        if (await TellEhrOfChangeAsync(result, ct) is RuleResult notSent)
+        {
+            warnings.Add(notSent);
+        }
+
         return EvaluationResult<TestResult>.Ok(result, warnings.Count > 0 ? new RuleEvaluation(warnings) : null);
+    }
+
+    /// <summary>
+    /// Queues the EHR update for a verified correction or an invalidated verified result. A failure never undoes the
+    /// clinical change already saved; it comes back as a warning to send the result by hand.
+    /// </summary>
+    private async Task<RuleResult?> TellEhrOfChangeAsync(TestResult result, CancellationToken ct)
+    {
+        var sendFinal = _policy is not null && await _policy.GetSendFinalResultsAutomaticallyAsync(ct);
+        if (_releases is null
+            || !ResultReleaseRule.SentAutomatically(ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null), sendFinal))
+        {
+            return null;
+        }
+
+        try
+        {
+            await _releases.PublishResultChangeAsync(result.Id, ct);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return ResultReleaseRule.NotSent(result.TestCode);
+        }
     }
 
     private async Task ApplyReflexRulesAsync(TestResult result, CancellationToken ct)
@@ -1009,7 +1112,11 @@ public sealed class ResultService
                 TestCode = reflexCode,
                 OrderType = OrderLineBuilder.MapTestOrderType(reflexCode),
                 ResultStatus = ResultStatus.Pending,
-                IsActive = true
+                IsActive = true,
+                ReflexFromTestCode = triggerCode,
+                ReflexFromValue = string.Equals(rule.TriggerResultValue.Trim(), interpretation, StringComparison.OrdinalIgnoreCase)
+                    && interpretation.Length > 0 ? interpretation : resultValue,
+                ReflexFromResultId = result.Id
             };
             await _orderLines.AddAsync(line, ct);
             addedLines.Add((line, rule.Code));
@@ -1124,6 +1231,7 @@ public sealed class ResultService
             AboSubgroup = SpecialRequirementCatalog.DefaultSubgroup(aboRh.Abo),
             Source = BloodTypeSource.TestResult,
             SourceResultId = result.Id,
+            SpecimenId = result.SpecimenId,
             IsCurrent = true
         }, ct);
     }
@@ -1273,7 +1381,13 @@ public sealed class ResultService
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
-        var warnings = await EvaluateTypeCorrectionOpenWorkupWarningsAsync(original, ct);
+        var warnings = (await EvaluateTypeCorrectionOpenWorkupWarningsAsync(original, ct)).ToList();
+
+        // The corrected value is declared wrong now, so the type recorded from it stops driving compatibility now,
+        // not when the correction is verified. Verifying the correction records the corrected type.
+        warnings.AddRange(await RetireDerivedTypesAsync(
+            original.Id, $"Source result corrected: {reason.Trim()}", AuditEventType.Correct,
+            DerivedFromSourceRule.TypeRetiredByCorrection, ct));
         return OperationResult<TestResult>.Ok(correction, warnings);
     }
 
@@ -1369,6 +1483,7 @@ public sealed class ResultService
                 Version = current.Version + 1,
                 Value = current.Value,
                 Units = current.Units,
+                AbnormalFlag = current.AbnormalFlag,
                 Interpretation = current.Interpretation,
                 Status = ResultStatus.Invalidated,
                 Source = current.Source,
@@ -1448,8 +1563,60 @@ public sealed class ResultService
     private async Task<OperationResult<TestResult>> FinishInvalidateAsync(
         TestResult original, TestResult value, CancellationToken ct)
     {
-        var warnings = await EvaluateInvalidateOpenWorkupWarningsAsync(original, ct);
+        var warnings = (await EvaluateInvalidateOpenWorkupWarningsAsync(original, ct)).ToList();
+
+        // A blood type recorded from the invalidated result is no longer the patient's type. Nothing earlier is
+        // reinstated: the type is repeated, so a wrong-blood-in-tube result can never stay behind the issue gate.
+        warnings.AddRange(await RetireDerivedTypesAsync(
+            original.Id, $"Source result invalidated: {original.InvalidationReason ?? value.InvalidationReason}",
+            AuditEventType.Invalidate, DerivedFromSourceRule.TypeRetired, ct));
+
+        // A verified result withdrawn as wrong is withdrawn from the EHR too (OCD-049).
+        if (await TellEhrOfChangeAsync(value, ct) is RuleResult notSent)
+        {
+            warnings.Add(notSent);
+        }
+
         return OperationResult<TestResult>.Ok(value, warnings);
+    }
+
+    /// <summary>
+    /// Takes every current blood type recorded from <paramref name="sourceResultId"/> out of use: not current, marked
+    /// invalidated (so it is never evidence again), reason recorded, audited. Returns one warning per retired type.
+    /// </summary>
+    private async Task<IReadOnlyList<RuleResult>> RetireDerivedTypesAsync(
+        long sourceResultId, string reason, AuditEventType eventType, Func<string, RuleResult> warning, CancellationToken ct)
+    {
+        var warnings = new List<RuleResult>();
+        var derived = await _bloodTypes.ListAsync(h => h.SourceResultId == sourceResultId && h.IsCurrent, ct);
+        foreach (var row in derived)
+        {
+            var tracked = await _bloodTypes.GetByIdAsync(row.Id, ct);
+            if (tracked is null)
+            {
+                continue;
+            }
+
+            tracked.IsCurrent = false;
+            tracked.InvalidatedUtc = _clock.UtcNow;
+            tracked.Reason = reason;
+            _bloodTypes.Update(tracked);
+            _audit.Record(
+                eventType,
+                nameof(PatientBloodTypeHistory),
+                tracked.Id,
+                oldValue: new { IsCurrent = true, tracked.Abo, tracked.RhD, tracked.SourceResultId },
+                newValue: new { IsCurrent = false, tracked.Reason },
+                reason: tracked.Reason);
+            warnings.Add(warning($"{tracked.Abo} {tracked.RhD}"));
+        }
+
+        if (derived.Count > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return warnings;
     }
 
     private async Task<IReadOnlyList<RuleResult>> EvaluateTypeCorrectionOpenWorkupWarningsAsync(
@@ -1581,6 +1748,10 @@ public sealed class ResultService
             newValue: new { replacement.Value, replacement.Status, NewVersion = replacement.Version, replacement.Source },
             reason: "Re-entry after invalidation.");
         await _unitOfWork.SaveChangesAsync(ct);
+        // The re-entry was tested again: record the lots open now, and the equipment.
+        await RecordReagentLotsAsync(replacement, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
         return OperationResult<TestResult>.Ok(replacement);
     }
 
@@ -1611,7 +1782,25 @@ public sealed class ResultService
             : "Link a specimen to this order before entering results.";
     }
 
-    private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(long specimenId, string testCode, CancellationToken ct)
+    /// <param name="allowExpired">
+    /// For a correction of a verified result: the correction fixes the record of a test
+    /// already performed, so a specimen that has since expired (by date, or marked Expired
+    /// by the sweep) does not stop it. Rejected or cancelled specimens and merged-away
+    /// patients are still refused.
+    /// </param>
+    private async Task<bool> IsReactionWorkupOrderAsync(long? orderId, CancellationToken ct)
+    {
+        if (_orders is null || orderId is not > 0)
+        {
+            return false;
+        }
+
+        var order = await _orders.GetByIdAsync(orderId.Value, ct);
+        return order is not null && ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType);
+    }
+
+    private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(
+        long specimenId, string testCode, CancellationToken ct, bool allowExpired = false)
     {
         var specimen = await _specimens.GetByIdAsync(specimenId, ct);
         if (specimen is null)
@@ -1619,7 +1808,8 @@ public sealed class ResultService
             return OperationResult<Specimen>.Fail("Specimen not found.");
         }
 
-        if (specimen.Status != SpecimenStatus.Accepted)
+        if (specimen.Status != SpecimenStatus.Accepted
+            && !(allowExpired && specimen.Status == SpecimenStatus.Expired))
         {
             return OperationResult<Specimen>.Fail($"Specimen {specimen.AccessionNumber} is {specimen.Status}; only Accepted specimens allow result entry.");
         }
@@ -1637,7 +1827,7 @@ public sealed class ResultService
             }
         }
 
-        if (specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
+        if (!allowExpired && specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
         {
             return OperationResult<Specimen>.Fail($"Specimen {specimen.AccessionNumber} has expired.");
         }
@@ -1713,6 +1903,18 @@ public sealed class ResultService
             {
                 return OperationResult<(string, string?, string?)>.Fail(
                     $"Required cell reactions missing: {string.Join(", ", missing)}.");
+            }
+
+            if (provided.Count > 0)
+            {
+                var positiveStop = CrossmatchReactionRule.Evaluate(
+                    request.CrossmatchResult.Value,
+                    CrossmatchReactionRule.PositiveReactions(
+                        provided, await LoadActiveSubtestCatalogAsync(ct), await LoadActivePhasesAsync(ct)));
+                if (positiveStop is not null)
+                {
+                    return OperationResult<(string, string?, string?)>.Fail(positiveStop.Message);
+                }
             }
 
             string value;
@@ -1858,12 +2060,74 @@ public sealed class ResultService
                 (PanelResultValue.Format(request.Subtests), null, interpretationLabel));
         }
 
+        if (valueType == ResultValueType.Titer)
+        {
+            var titerDef = await LoadActiveDefinitionAsync(normalizedCode, ct);
+            var settings = titerDef is null ? null : TiterSettings.From(titerDef);
+            if (settings is null)
+            {
+                return OperationResult<(string, string?, string?)>.Fail(
+                    $"{TiterRule.ConfigCode}: This titer test is not set up (dilutions and endpoint grade). Ask an administrator.");
+            }
+
+            var titer = TiterRule.Evaluate(settings, request.TiterReadings);
+            return titer.Value is null
+                ? OperationResult<(string, string?, string?)>.Fail($"{titer.Result.Code}: {titer.Result.Message}")
+                : OperationResult<(string, string?, string?)>.Ok((titer.Value.Serialize(), null, titer.Value.Interpretation));
+        }
+
         if (string.IsNullOrWhiteSpace(request.Value))
         {
             return OperationResult<(string, string?, string?)>.Fail("Result value is required.");
         }
 
+        if (valueType == ResultValueType.Numeric && await LoadActiveDefinitionAsync(normalizedCode, ct) is { } numericDef)
+        {
+            var units = string.IsNullOrWhiteSpace(request.Units) ? numericDef.ResultUnits : request.Units.Trim();
+            var numeric = NumericResultRule.Evaluate(request.Value, NumericLimits.From(numericDef), units);
+            return numeric.IsAllowed
+                ? OperationResult<(string, string?, string?)>.Ok((request.Value.Trim(), units, request.Interpretation))
+                : OperationResult<(string, string?, string?)>.Fail($"{numeric.Result.Code}: {numeric.Result.Message}");
+        }
+
         return OperationResult<(string, string?, string?)>.Ok((request.Value.Trim(), request.Units, request.Interpretation));
+    }
+
+    private async Task<TestDefinition?> LoadActiveDefinitionAsync(string normalizedCode, CancellationToken ct) =>
+        _testDefinitions is null
+            ? null
+            : await _testDefinitions.FirstOrDefaultAsync(d => d.IsActive && d.Code == normalizedCode, ct);
+
+    /// <summary>
+    /// After a numeric or titer result is saved: the numeric flag (L/H/LL/HH) is stored and a critical value warns; a
+    /// titer with a reaction after a negative dilution warns. Every saved version gets its own flag.
+    /// </summary>
+    private async Task<IReadOnlyList<RuleResult>> ApplyResultShapeAsync(TestResult saved, ResultValueType valueType, CancellationToken ct)
+    {
+        if (valueType is not (ResultValueType.Numeric or ResultValueType.Titer)
+            || await LoadActiveDefinitionAsync(saved.TestCode, ct) is not { } definition)
+        {
+            return [];
+        }
+
+        if (valueType == ResultValueType.Titer)
+        {
+            return TiterResultValue.TryParse(saved.Value, out var titer)
+                && TiterSettings.From(definition) is { } settings
+                && TiterRule.Evaluate(settings, titer!.Readings).Pattern is { } pattern
+                ? [pattern]
+                : [];
+        }
+
+        var numeric = NumericResultRule.Evaluate(saved.Value, NumericLimits.From(definition), saved.Units);
+        if (saved.AbnormalFlag != numeric.Flag)
+        {
+            saved.AbnormalFlag = numeric.Flag;
+            _results.Update(saved);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return numeric.Critical is { } critical ? [critical] : [];
     }
 
     private async Task<bool> UsedCatalogInterpretationAsync(
@@ -2023,7 +2287,10 @@ public sealed class ResultService
 
         if (!xm.Succeeded)
         {
-            return OperationResult<TestResult>.Fail(xm.Error ?? "Crossmatch could not be recorded.");
+            return OperationResult<TestResult>.Fail(
+                xm.Error
+                ?? xm.Evaluation?.HardStops.Select(h => h.Message).FirstOrDefault()
+                ?? "Crossmatch could not be recorded.");
         }
 
         return OperationResult<TestResult>.Ok(result, xm.Evaluation?.Warnings);

@@ -1,0 +1,753 @@
+@page "/equipment"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
+
+<PageTitle>Equipment &middot; HemoCore</PageTitle>
+
+<h1>Equipment</h1>
+<p class="muted">Centrifuges, cell washers, heat blocks, irradiators and other bench equipment: the checks each needs, when they are due, and whether it is in service. Refrigerators and freezers keep their temperature log under Storage temps.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>Each check is due again its interval after it last passed. A check never done is due now; a failed check stays failed until it passes.</li>
+        <li>The intervals are the facility's, from its SOP or the manufacturer. None is built in.</li>
+        <li>Take equipment out of service with a reason; its checks are not due while it is out. Record a passing check before you return it.</li>
+    </ul>
+</details>
+
+<Outcome Value="_feedback" />
+
+@if (_loading)
+{
+    <div class="empty">Loading…</div>
+}
+else
+{
+    <div class="bb-card" data-equipment-due>
+        <div class="bb-card-title">
+            <h3>Checks to do</h3>
+            <button class="btn btn-secondary btn-sm" type="button" @onclick="LoadAsync">Refresh</button>
+        </div>
+        @if (_due.Count == 0)
+        {
+            <div class="empty">No checks due. Equipment out of service is not listed.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Equipment</th><th>Check</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var d in _due)
+                    {
+                        <tr data-due-check="@d.CheckId">
+                            <td><span class="mono">@d.EquipmentCode</span> @d.EquipmentName @(d.Location is null ? "" : $"· {d.Location}")</td>
+                            <td>@d.CheckName</td>
+                            <td><span class="badge @(d.State is "Failed" or "Overdue" ? "badge-red" : "badge-amber")">@d.StatusText</span></td>
+                            <td class="right">
+                                @if (CanRecord)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRecord(d.EquipmentId, d.CheckId)">Record</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+
+    @* Checks falling due soon, so a calibration or vendor visit is booked in time (Cycle 716). *@
+    <div class="bb-card" style="margin-top:1rem;" data-equipment-upcoming>
+        <div class="bb-card-title">
+            <h3>Coming up</h3>
+            <div class="flex gap" style="align-items:center;">
+                <label class="muted" style="font-size:.85rem;">Within</label>
+                <select @bind="_upcomingDays" @bind:after="LoadUpcomingAsync" data-upcoming-days>
+                    <option value="7">7 days</option>
+                    <option value="30">30 days</option>
+                    <option value="90">90 days</option>
+                </select>
+            </div>
+        </div>
+        @if (_upcoming.Count == 0)
+        {
+            <div class="empty">Nothing else falls due within @_upcomingDays days.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Due</th><th>Equipment</th><th>Check</th></tr></thead>
+                <tbody>
+                    @foreach (var u in _upcoming)
+                    {
+                        <tr data-upcoming-check="@u.CheckId">
+                            <td class="nowrap">@u.DueOn?.ToString("yyyy-MM-dd")</td>
+                            <td><span class="mono">@u.EquipmentCode</span> @u.EquipmentName @(u.Location is null ? "" : $"· {u.Location}")</td>
+                            <td>@u.CheckName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+
+    @if (_recording is not null)
+    {
+        <div class="bb-card" style="margin-top:1rem;" data-record-form data-scroll-on-show>
+            <h3>Record @_recording.Value.Check.Name — <span class="mono">@_recording.Value.Equipment.Code</span> @_recording.Value.Equipment.Name</h3>
+            @if (!string.IsNullOrWhiteSpace(_recording.Value.Check.Instructions))
+            {
+                <p class="muted">@_recording.Value.Check.Instructions</p>
+            }
+            <div class="form-row">
+                <div class="field"><label>Result</label>
+                    <select @bind="_recordPassed" data-record-result>
+                        <option value="">Choose…</option>
+                        <option value="pass">Passed</option>
+                        <option value="fail">Failed</option>
+                    </select>
+                </div>
+                <div class="field" style="flex:2;"><label>Reading or note @(_recordPassed == "fail" ? "(what failed and what was done)" : "(optional)")</label>
+                    <input @bind="_recordNote" @bind:event="oninput" data-record-note />
+                </div>
+            </div>
+            <div class="flex gap" style="margin-top:.6rem;">
+                <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrEmpty(_recordPassed))" @onclick="SaveRecordAsync" data-record-save>Save</button>
+                <button class="btn btn-ghost" type="button" @onclick="() => _recording = null">Cancel</button>
+            </div>
+        </div>
+    }
+
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title">
+            <h3>Register</h3>
+            <div class="flex gap" style="align-items:center;">
+                <label class="muted" style="font-size:.85rem;"><input type="checkbox" @bind="_showRetired" @bind:after="LoadAsync" data-equipment-show-retired /> Show retired</label>
+                @if (CanConfigure && !_adding)
+                {
+                    <button class="btn btn-secondary btn-sm" type="button" @onclick="() => _adding = true" data-equipment-add>Add equipment</button>
+                }
+            </div>
+        </div>
+        @if (_adding)
+        {
+            <div class="bb-card" style="margin:.5rem 0;" data-equipment-form>
+                <div class="form-row">
+                    <div class="field"><label>Code (asset tag)</label><input class="mono" @bind="_newCode" data-equipment-code /></div>
+                    <div class="field"><label>Name</label><input @bind="_newName" data-equipment-name /></div>
+                    <div class="field"><label>Kind</label>
+                        <input list="equipment-kinds" @bind="_newKind" data-equipment-kind />
+                        <datalist id="equipment-kinds">
+                            @foreach (var kind in EquipmentCheckRule.CommonKinds)
+                            {
+                                <option value="@kind"></option>
+                            }
+                        </datalist>
+                    </div>
+                    <div class="field"><label>Location</label><input @bind="_newLocation" /></div>
+                    <div class="field"><label>Serial number</label><input class="mono" @bind="_newSerial" /></div>
+                    <div class="field"><label>Used for tests</label><input class="mono" @bind="_newTests" placeholder="ABSC, XM" data-equipment-tests /></div>
+                </div>
+                <div class="flex gap" style="margin-top:.6rem;">
+                    <button class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync" data-equipment-save>Add</button>
+                    <button class="btn btn-ghost" type="button" @onclick="() => _adding = false">Cancel</button>
+                </div>
+            </div>
+        }
+        @if (_equipment.Count == 0)
+        {
+            <div class="empty">No equipment registered yet.@(CanConfigure ? " Add each piece the SOPs require checks for." : "")</div>
+        }
+        else
+        {
+            @foreach (var e in _equipment)
+            {
+                <div class="bb-card" style="margin:.5rem 0;" data-equipment="@e.Code">
+                    <div class="bb-card-title">
+                        <h4 style="margin:0;"><span class="mono">@e.Code</span> @e.Name <span class="muted">· @e.Kind@(e.Location is null ? "" : $" · {e.Location}")@(e.SerialNumber is null ? "" : $" · S/N {e.SerialNumber}")@(e.TestCodes is null ? "" : $" · used for {e.TestCodes}")</span></h4>
+                        <div class="flex gap">
+                            @if (!e.IsActive)
+                            {
+                                <span class="badge badge-gray" data-equipment-retired>Retired</span>
+                            }
+                            else if (e.OutOfServiceUtc is not null)
+                            {
+                                <span class="badge badge-red" data-out-of-service>Out of service</span>
+                            }
+                            else if (e.ChecksNeedingAction > 0)
+                            {
+                                <span class="badge badge-amber">@e.ChecksNeedingAction to do</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-green">In service</span>
+                            }
+                            @if (CanConfigure && e.IsActive)
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginEdit(e)" data-equipment-edit>Edit</button>
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRetire(RetireKind.Equipment, e, null)" data-equipment-retire>Retire</button>
+                            }
+                            else if (CanConfigure)
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRetire(RetireKind.Restore, e, null)" data-equipment-restore>Restore</button>
+                            }
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ToggleHistoryAsync(e)" data-equipment-history>@(_historyFor == e.Id ? "Hide history" : "History")</button>
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ToggleResultsAsync(e)" data-equipment-results-toggle>@(_resultsFor == e.Id ? "Hide results" : "Results")</button>
+                            @if (CanRecord && e.IsActive)
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginService(e)" data-equipment-service>@(e.OutOfServiceUtc is null ? "Take out of service" : "Return to service")</button>
+                            }
+                        </div>
+                    </div>
+                    @if (e.OutOfServiceUtc is not null)
+                    {
+                        <p class="muted">Out of service since @e.OutOfServiceUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @e.OutOfServiceBy: @e.OutOfServiceReason</p>
+                    }
+                    @if (_service?.Id == e.Id)
+                    {
+                        <div class="form-row" data-service-form>
+                            <div class="field" style="flex:2;"><label>@(e.OutOfServiceUtc is null ? "Reason it is out of service" : "Why it can be used again")</label>
+                                <input @bind="_serviceReason" @bind:event="oninput" data-service-reason />
+                            </div>
+                            <div class="field" style="align-self:end;">
+                                <div class="flex gap">
+                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_serviceReason))" @onclick="SaveServiceAsync" data-service-save>Save</button>
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _service = null">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                        @if (e.OutOfServiceUtc is not null && e.Checks.Any(c => c.IsActive && c.LastPassed == false))
+                        {
+                            <div class="alert alert-warning" data-service-failed>A check's latest record failed. Record a passing check before it is used again.</div>
+                        }
+                    }
+                    @if (_retire is { } pending && pending.Equipment.Id == e.Id)
+                    {
+                        <div class="bb-card" style="margin:.5rem 0;" data-retire-form>
+                            <p class="muted" style="margin-top:0;">@RetireText(pending)</p>
+                            <div class="form-row">
+                                <div class="field" style="flex:2;"><label>Reason</label><input @bind="_retireReason" @bind:event="oninput" data-retire-reason /></div>
+                                <div class="field" style="align-self:end;">
+                                    <div class="flex gap">
+                                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_retireReason))" @onclick="SaveRetireAsync" data-retire-save>@(pending.Kind == RetireKind.Restore ? "Restore" : "Retire")</button>
+                                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _retire = null">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (_editing?.Id == e.Id)
+                    {
+                        <div class="bb-card" style="margin:.5rem 0;" data-equipment-edit-form>
+                            <div class="form-row">
+                                <div class="field"><label>Code</label><input class="mono" value="@e.Code" disabled /></div>
+                                <div class="field"><label>Name</label><input @bind="_editName" /></div>
+                                <div class="field"><label>Kind</label><input list="equipment-kinds" @bind="_editKind" /></div>
+                                <div class="field"><label>Location</label><input @bind="_editLocation" data-edit-location /></div>
+                                <div class="field"><label>Serial number</label><input class="mono" @bind="_editSerial" /></div>
+                                <div class="field"><label>Used for tests</label><input class="mono" @bind="_editTests" placeholder="ABSC, XM" data-equipment-edit-tests /></div>
+                            </div>
+                            <div class="field" style="margin-top:.4rem;"><label>Reason for the change</label><input @bind="_editReason" @bind:event="oninput" data-edit-reason /></div>
+                            <div class="flex gap" style="margin-top:.4rem;">
+                                <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_editReason))" @onclick="SaveEditAsync" data-edit-save>Save</button>
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _editing = null">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                    @if (_resultsFor == e.Id)
+                    {
+                        @* Pass 76: results tested on this equipment, to review those worked while it was faulty. *@
+                        <div class="bb-card" style="margin:.5rem 0;" data-equipment-results>
+                            <div class="bb-card-title"><h4 style="margin:0;">Results tested on @e.Code</h4></div>
+                            @if (_results.Count == 0)
+                            {
+                                <div class="muted">No hand-entered results are recorded on this equipment. A result records the equipment used for its test from when the test is listed under Used for tests.</div>
+                            }
+                            else
+                            {
+                                <div class="table-scroll">
+                                <table class="bb">
+                                    <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>Equipment then</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var r in _results)
+                                        {
+                                            <tr data-equipment-result-row>
+                                                <td class="nowrap">@(r.EnteredUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—") <span class="sub">@r.EnteredBy</span></td>
+                                                <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientName ?? $"Patient {r.PatientId}")</a> <span class="sub mono">@r.PatientMrn</span></td>
+                                                <td class="mono">@(r.SpecimenAccession ?? "—")</td>
+                                                <td class="mono">@r.TestCode</td>
+                                                <td>@r.Value</td>
+                                                <td>@Ui.EnumText(r.Status)</td>
+                                                <td>@if (r.Condition is null) { <span class="muted">In order</span> } else { <span class="badge badge-amber">@r.Condition</span> }</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (_historyFor == e.Id)
+                    {
+                        @* Every check performed on this equipment, newest first, including checks no longer scheduled (Cycle 711). *@
+                        <div class="bb-card" style="margin:.5rem 0;" data-equipment-records>
+                            <div class="bb-card-title">
+                                <h4 style="margin:0;">Check history</h4>
+                                @if (_history.Count > 0)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => DownloadLogAsync(e)" data-equipment-log>Download log (CSV)</button>
+                                }
+                            </div>
+                            @if (_history.Count == 0)
+                            {
+                                <div class="muted">No checks recorded yet.</div>
+                            }
+                            else
+                            {
+                                <div class="table-scroll">
+                                <table class="bb">
+                                    <thead><tr><th>When</th><th>Check</th><th>Result</th><th>By</th><th>Reading or note</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var r in _history)
+                                        {
+                                            <tr data-record-row>
+                                                <td class="nowrap">@r.PerformedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                <td>@r.CheckName</td>
+                                                <td>@if (r.Passed) { <span class="badge badge-green">Passed</span> } else { <span class="badge badge-red">Failed</span> }</td>
+                                                <td>@r.PerformedBy</td>
+                                                <td>@r.Note</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                </div>
+                                @if (_history.Count >= HistoryLimit)
+                                {
+                                    <div class="muted">The latest @HistoryLimit records are shown and downloaded.</div>
+                                }
+                            }
+                        </div>
+                    }
+                    @if (e.Checks.Count == 0)
+                    {
+                        <div class="muted">No checks scheduled.</div>
+                    }
+                    else
+                    {
+                        <div class="table-scroll">
+                        <table class="bb">
+                            <thead><tr><th>Check</th><th>Every</th><th>Status</th><th>Last</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var c in e.Checks.Where(c => c.IsActive))
+                                {
+                                    <tr>
+                                        <td>@c.Name</td>
+                                        <td>@c.IntervalDays day@(c.IntervalDays == 1 ? "" : "s")</td>
+                                        <td>@c.StatusText</td>
+                                        <td>
+                                            @if (c.LastPerformedUtc is not null)
+                                            {
+                                                @($"{c.LastPerformedUtc.Value.ToLocalTime():yyyy-MM-dd HH:mm} {c.LastPerformedBy}, {(c.LastPassed == true ? "passed" : "failed")}{(string.IsNullOrWhiteSpace(c.LastNote) ? "" : $": {c.LastNote}")}")
+                                            }
+                                            else
+                                            {
+                                                <span class="muted">Never</span>
+                                            }
+                                        </td>
+                                        <td class="right">
+                                            @if (CanRecord && e.IsActive)
+                                            {
+                                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRecord(e.Id, c.CheckId)">Record</button>
+                                            }
+                                            @if (CanConfigure && e.IsActive)
+                                            {
+                                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginEditCheck(c)" data-check-edit>Change</button>
+                                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginRetire(RetireKind.Check, e, c)" data-check-retire>Stop</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                    @if (_editingCheck?.CheckId == c.CheckId)
+                                    {
+                                        <tr data-check-edit-form>
+                                            <td colspan="5">
+                                                <div class="form-row">
+                                                    <div class="field"><label>Check</label><input @bind="_editCheckName" /></div>
+                                                    <div class="field"><label>Every (days)</label><input type="number" min="1" max="@EquipmentCheckRule.MaxIntervalDays" @bind="_editCheckInterval" data-edit-check-interval /></div>
+                                                    <div class="field" style="flex:2;"><label>Instructions</label><input @bind="_editCheckInstructions" /></div>
+                                                </div>
+                                                <div class="field" style="margin-top:.4rem;"><label>Reason for the change</label><input @bind="_editCheckReason" @bind:event="oninput" data-edit-check-reason /></div>
+                                                <div class="flex gap" style="margin-top:.4rem;">
+                                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_editCheckReason))" @onclick="SaveCheckEditAsync" data-edit-check-save>Save</button>
+                                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _editingCheck = null">Cancel</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                        </div>
+                    }
+                    @if (CanConfigure && e.IsActive)
+                    {
+                        @if (_addingCheckTo == e.Id)
+                        {
+                            <div class="form-row" data-check-form>
+                                <div class="field"><label>Check</label><input @bind="_checkName" placeholder="e.g. Daily QC, Annual calibration" data-check-name /></div>
+                                <div class="field"><label>Every (days)</label><input type="number" min="1" max="@EquipmentCheckRule.MaxIntervalDays" @bind="_checkInterval" data-check-interval /></div>
+                                <div class="field" style="flex:2;"><label>Instructions (from the SOP)</label><input @bind="_checkInstructions" /></div>
+                            </div>
+                            <div class="flex gap" style="margin-top:.4rem;">
+                                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => AddCheckAsync(e.Id)" data-check-save>Schedule check</button>
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _addingCheckTo = null">Cancel</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginAddCheck(e.Id)" data-check-add>Schedule a check</button>
+                        }
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private Feedback? _feedback;
+    private bool _loading = true;
+    private bool _busy;
+    private List<EquipmentDto> _equipment = new();
+    private List<EquipmentCheckDueDto> _due = new();
+    private List<EquipmentCheckDueDto> _upcoming = new();
+    private int _upcomingDays = 30;
+
+    private async Task LoadUpcomingAsync()
+    {
+        var upcoming = await Api.GetEquipmentUpcomingAsync(_upcomingDays);
+        _upcoming = upcoming.Value ?? new();
+    }
+
+    private bool CanRecord => Session.Has(PermissionCodes.ResultEnter);
+    private bool CanConfigure => Session.Has(PermissionCodes.AdminConfigEdit);
+
+    private (EquipmentDto Equipment, EquipmentCheckStatusDto Check)? _recording;
+    private string _recordPassed = "";
+    private string? _recordNote;
+
+    private EquipmentDto? _service;
+    private string? _serviceReason;
+
+    private bool _adding;
+    private string _newCode = "";
+    private string _newName = "";
+    private string _newKind = "";
+    private string? _newLocation;
+    private string? _newSerial;
+    private string? _newTests;
+
+    private long? _addingCheckTo;
+    private string _checkName = "";
+    private int _checkInterval;
+    private string? _checkInstructions;
+
+    // Retiring equipment or stopping a check, and restoring retired equipment (Cycle 715).
+    private enum RetireKind { Equipment, Check, Restore }
+    private sealed record PendingRetire(RetireKind Kind, EquipmentDto Equipment, EquipmentCheckStatusDto? Check);
+    private bool _showRetired;
+    private PendingRetire? _retire;
+    private string? _retireReason;
+
+    private void BeginRetire(RetireKind kind, EquipmentDto equipment, EquipmentCheckStatusDto? check)
+    {
+        _retire = new PendingRetire(kind, equipment, check);
+        _retireReason = null;
+    }
+
+    private static string RetireText(PendingRetire pending) => pending.Kind switch
+    {
+        RetireKind.Check => $"Stop scheduling {pending.Check!.Name} on {pending.Equipment.Code}. Its records are kept in the history.",
+        RetireKind.Restore => $"Bring {pending.Equipment.Code} back into the register, {(pending.Equipment.OutOfServiceUtc is null ? "in service" : "still out of service")}, with its checks.",
+        _ => $"Retire {pending.Equipment.Code} from the register (replaced, sent back). Its checks stop being due and its records are kept; it can no longer be used for a modification."
+    };
+
+    private async Task SaveRetireAsync()
+    {
+        if (_retire is null)
+        {
+            return;
+        }
+
+        var pending = _retire;
+        _busy = true;
+        var r = pending.Kind switch
+        {
+            RetireKind.Check => await Api.RetireEquipmentCheckAsync(pending.Check!.CheckId, _retireReason),
+            RetireKind.Restore => await Api.RestoreEquipmentAsync(pending.Equipment.Id, _retireReason),
+            _ => await Api.RetireEquipmentAsync(pending.Equipment.Id, _retireReason)
+        };
+        _feedback = r.ToFeedback(pending.Kind switch
+        {
+            RetireKind.Check => $"{pending.Check!.Name} is no longer scheduled on {pending.Equipment.Code}.",
+            RetireKind.Restore => $"{pending.Equipment.Code} restored.",
+            _ => $"{pending.Equipment.Code} retired."
+        });
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _retire = null;
+            await LoadAsync();
+        }
+    }
+
+    private EquipmentDto? _editing;
+    private string _editName = "";
+    private string _editKind = "";
+    private string? _editLocation;
+    private string? _editSerial;
+    private string? _editTests;
+    private string? _editReason;
+
+    private void BeginEdit(EquipmentDto equipment)
+    {
+        _editing = equipment;
+        _editName = equipment.Name;
+        _editKind = equipment.Kind;
+        _editLocation = equipment.Location;
+        _editSerial = equipment.SerialNumber;
+        _editTests = equipment.TestCodes;
+        _editReason = null;
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (_editing is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.UpdateEquipmentAsync(_editing.Id, new UpdateEquipmentRequest(_editName, _editKind, _editLocation, _editSerial, _editReason, _editTests));
+        _feedback = r.ToFeedback($"{_editing.Code} updated.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _editing = null;
+            await LoadAsync();
+        }
+    }
+
+    private EquipmentCheckStatusDto? _editingCheck;
+    private string _editCheckName = "";
+    private int _editCheckInterval;
+    private string? _editCheckInstructions;
+    private string? _editCheckReason;
+
+    private void BeginEditCheck(EquipmentCheckStatusDto check)
+    {
+        _editingCheck = check;
+        _editCheckName = check.Name;
+        _editCheckInterval = check.IntervalDays;
+        _editCheckInstructions = check.Instructions;
+        _editCheckReason = null;
+    }
+
+    private async Task SaveCheckEditAsync()
+    {
+        if (_editingCheck is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.UpdateEquipmentCheckAsync(_editingCheck.CheckId,
+            new UpdateEquipmentCheckRequest(_editCheckName, _editCheckInterval, _editCheckInstructions, _editCheckReason));
+        _feedback = r.ToFeedback("Check changed. Its due date follows from its last pass and the new interval.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _editingCheck = null;
+            await LoadAsync();
+        }
+    }
+
+    private long? _resultsFor;
+    private List<EquipmentResultDto> _results = new();
+
+    private async Task ToggleResultsAsync(EquipmentDto equipment)
+    {
+        if (_resultsFor == equipment.Id)
+        {
+            _resultsFor = null;
+            return;
+        }
+
+        var r = await Api.GetEquipmentResultsAsync(equipment.Id);
+        _results = r.Value ?? new();
+        _resultsFor = equipment.Id;
+    }
+
+    private const int HistoryLimit = 500;
+    private long? _historyFor;
+    private List<EquipmentCheckRecordDto> _history = new();
+
+    private async Task ToggleHistoryAsync(EquipmentDto equipment)
+    {
+        if (_historyFor == equipment.Id)
+        {
+            _historyFor = null;
+            return;
+        }
+
+        var r = await Api.GetEquipmentRecordsAsync(equipment.Id, HistoryLimit);
+        _history = r.Value ?? new();
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+        }
+
+        _historyFor = equipment.Id;
+    }
+
+    // The equipment's check log for an inspection or the equipment file: one row per check performed, newest first.
+    private async Task DownloadLogAsync(EquipmentDto equipment)
+    {
+        var rows = _history.Select(r => (IReadOnlyList<string?>)
+        [
+            equipment.Code, equipment.Name, r.CheckName, ClinicalTimeText.Utc(r.PerformedUtc),
+            ClinicalTimeText.Local(r.PerformedUtc), r.PerformedBy, r.Passed ? "Passed" : "Failed", r.Note
+        ]);
+        var bytes = BloodBankLIS.Domain.Reporting.CsvFormat.Write(
+            ["Equipment", "Name", "Check", "Performed (UTC)", "Performed (local)", "By", "Result", "Reading or note"], rows);
+        var token = Downloads.Put($"equipment-log-{equipment.Code}.csv", BloodBankLIS.Domain.Reporting.CsvFormat.ContentType, bytes);
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var list = await Api.GetEquipmentAsync(_showRetired);
+        _equipment = list.Value ?? new();
+        if (!list.Succeeded)
+        {
+            _feedback = list.ToFeedback();
+        }
+
+        var due = await Api.GetEquipmentDueAsync();
+        _due = due.Value ?? new();
+        await LoadUpcomingAsync();
+        _loading = false;
+    }
+
+    private void BeginRecord(long equipmentId, long checkId)
+    {
+        var equipment = _equipment.FirstOrDefault(e => e.Id == equipmentId);
+        var check = equipment?.Checks.FirstOrDefault(c => c.CheckId == checkId);
+        if (equipment is null || check is null)
+        {
+            return;
+        }
+
+        _recording = (equipment, check);
+        _recordPassed = "";
+        _recordNote = null;
+    }
+
+    private async Task SaveRecordAsync()
+    {
+        if (_recording is null || string.IsNullOrEmpty(_recordPassed))
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.RecordEquipmentCheckAsync(_recording.Value.Check.CheckId, new RecordEquipmentCheckRequest(_recordPassed == "pass", _recordNote));
+        _feedback = r.ToFeedback(_recordPassed == "pass"
+            ? "Check recorded as passed."
+            : "Check recorded as failed. Take the equipment out of service if it must not be used.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            var equipmentId = _recording.Value.Equipment.Id;
+            _recording = null;
+            await LoadAsync();
+            if (_historyFor == equipmentId)
+            {
+                _history = (await Api.GetEquipmentRecordsAsync(equipmentId, HistoryLimit)).Value ?? _history;
+            }
+        }
+    }
+
+    private void BeginService(EquipmentDto equipment)
+    {
+        _service = equipment;
+        _serviceReason = null;
+    }
+
+    private async Task SaveServiceAsync()
+    {
+        if (_service is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var returning = _service.OutOfServiceUtc is not null;
+        var r = await Api.SetEquipmentInServiceAsync(_service.Id, returning, _serviceReason);
+        _feedback = r.ToFeedback(returning ? $"{_service.Code} returned to service." : $"{_service.Code} is out of service.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _service = null;
+            await LoadAsync();
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        var r = await Api.CreateEquipmentAsync(new SaveEquipmentRequest(_newCode, _newName, _newKind, _newLocation, _newSerial, _newTests));
+        _feedback = r.ToFeedback("Equipment registered. Schedule the checks its SOP requires.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _adding = false;
+            _newCode = _newName = _newKind = "";
+            _newLocation = _newSerial = _newTests = null;
+            await LoadAsync();
+            if (r.Value is not null)
+            {
+                BeginAddCheck(r.Value.Id);
+            }
+        }
+    }
+
+    private void BeginAddCheck(long equipmentId)
+    {
+        _addingCheckTo = equipmentId;
+        _checkName = "";
+        _checkInterval = 0;
+        _checkInstructions = null;
+    }
+
+    private async Task AddCheckAsync(long equipmentId)
+    {
+        _busy = true;
+        var r = await Api.AddEquipmentCheckAsync(equipmentId, new SaveEquipmentCheckRequest(_checkName, _checkInterval, _checkInstructions));
+        _feedback = r.ToFeedback("Check scheduled. It is due now until first recorded.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _addingCheckTo = null;
+            await LoadAsync();
+        }
+    }
+}

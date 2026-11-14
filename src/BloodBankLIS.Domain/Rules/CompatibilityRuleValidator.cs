@@ -92,6 +92,10 @@ public static class CompatibilityRuleValidator
         {
             results.Add(RuleResult.HardStop(SeverityCode, "Severity must be HardStop, Warning, or Pass."));
         }
+        else if (CompatibilityTablePolicy.EvaluateRowSeverity(rule.RuleCode, rule.Severity) is { Severity: RuleSeverity.HardStop } softer)
+        {
+            results.Add(softer);
+        }
 
         if (string.IsNullOrWhiteSpace(rule.Description))
         {

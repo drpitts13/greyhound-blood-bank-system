@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 
@@ -18,12 +18,136 @@ public static class DevelopmentSqliteBootstrap
     private static readonly (string Table, string Column, string AlterSql)[] AdditiveColumns =
     [
         ("Issues", "Comment", """ALTER TABLE "Issues" ADD COLUMN "Comment" TEXT NULL"""),
+        ("Issues", "MtpActivationId", """ALTER TABLE "Issues" ADD COLUMN "MtpActivationId" INTEGER NULL"""),
+        ("MtpActivations", "PackDefinitionId", """ALTER TABLE "MtpActivations" ADD COLUMN "PackDefinitionId" INTEGER NULL"""),
+        ("Issues", "MtpPackRecordId", """ALTER TABLE "Issues" ADD COLUMN "MtpPackRecordId" INTEGER NULL"""),
+        ("Issues", "LateEntryReason", """ALTER TABLE "Issues" ADD COLUMN "LateEntryReason" TEXT NULL"""),
+        ("Issues", "DowntimeBackEntry", """ALTER TABLE "Issues" ADD COLUMN "DowntimeBackEntry" INTEGER NOT NULL DEFAULT 0"""),
+        ("Issues", "OutsideOutageReason", """ALTER TABLE "Issues" ADD COLUMN "OutsideOutageReason" TEXT NULL"""),
+        ("AutoThawProducts", "OpenSystemShelfLifeHours", """ALTER TABLE "AutoThawProducts" ADD COLUMN "OpenSystemShelfLifeHours" INTEGER NULL"""),
+        ("AutoThawProducts", "PooledShelfLifeHours", """ALTER TABLE "AutoThawProducts" ADD COLUMN "PooledShelfLifeHours" INTEGER NULL"""),
+        ("AutoThawRequests", "OpenSystem", """ALTER TABLE "AutoThawRequests" ADD COLUMN "OpenSystem" INTEGER NOT NULL DEFAULT 0"""),
+        ("AutoThawRequests", "Pooled", """ALTER TABLE "AutoThawRequests" ADD COLUMN "Pooled" INTEGER NOT NULL DEFAULT 0"""),
+        ("AutoThawRequests", "ShelfLifeHoursApplied", """ALTER TABLE "AutoThawRequests" ADD COLUMN "ShelfLifeHoursApplied" INTEGER NULL"""),
+        ("Patients", "RhDVariant", """ALTER TABLE "Patients" ADD COLUMN "RhDVariant" INTEGER NOT NULL DEFAULT 0"""),
+        ("Issues", "NeonatalNoCrossmatch", """ALTER TABLE "Issues" ADD COLUMN "NeonatalNoCrossmatch" INTEGER NOT NULL DEFAULT 0"""),
+        ("Specimens", "NeonatalStandardExpiresUtc", """ALTER TABLE "Specimens" ADD COLUMN "NeonatalStandardExpiresUtc" TEXT NULL"""),
+        ("RhigEvaluations", "SuggestedDecision", """ALTER TABLE "RhigEvaluations" ADD COLUMN "SuggestedDecision" INTEGER NULL"""),
+        ("RhigEvaluations", "VialsCalculated", """ALTER TABLE "RhigEvaluations" ADD COLUMN "VialsCalculated" INTEGER NULL"""),
+        ("AntibodyHistory", "ReportKind", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ReportKind" INTEGER NULL"""),
+        ("AntibodyHistory", "ReportDocumentation", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ReportDocumentation" TEXT NULL"""),
+        ("AntibodyHistory", "ConfirmedUtc", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ConfirmedUtc" TEXT NULL"""),
+        ("AntibodyHistory", "ConfirmedBy", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ConfirmedBy" TEXT NULL"""),
+        ("AntibodyHistory", "ConfirmationNote", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ConfirmationNote" TEXT NULL"""),
+        ("BloodProducts", "ShipContainer", """ALTER TABLE "BloodProducts" ADD COLUMN "ShipContainer" TEXT NULL"""),
+        ("BloodProducts", "ShipPackingTemperatureC", """ALTER TABLE "BloodProducts" ADD COLUMN "ShipPackingTemperatureC" TEXT NULL"""),
+        ("BloodProducts", "ShipPackedBy", """ALTER TABLE "BloodProducts" ADD COLUMN "ShipPackedBy" TEXT NULL"""),
+        ("BloodProducts", "ShipReceivingContact", """ALTER TABLE "BloodProducts" ADD COLUMN "ShipReceivingContact" TEXT NULL"""),
+        ("Issues", "ReactionInvestigationOpenAtIssueId", """ALTER TABLE "Issues" ADD COLUMN "ReactionInvestigationOpenAtIssueId" INTEGER NULL"""),
+        ("InterfaceErrorQueue", "ResolutionNote", """ALTER TABLE "InterfaceErrorQueue" ADD COLUMN "ResolutionNote" TEXT NULL"""),
+        ("InstrumentMessages", "ResolvedUtc", """ALTER TABLE "InstrumentMessages" ADD COLUMN "ResolvedUtc" TEXT NULL"""),
+        ("InstrumentMessages", "ResolvedBy", """ALTER TABLE "InstrumentMessages" ADD COLUMN "ResolvedBy" TEXT NULL"""),
+        ("InstrumentMessages", "ResolutionNote", """ALTER TABLE "InstrumentMessages" ADD COLUMN "ResolutionNote" TEXT NULL"""),
+        ("Overrides", "ReviewOutcome", """ALTER TABLE "Overrides" ADD COLUMN "ReviewOutcome" INTEGER NULL"""),
+        ("Overrides", "AuthorizerMatch", """ALTER TABLE "Overrides" ADD COLUMN "AuthorizerMatch" INTEGER NULL"""),
+        ("Overrides", "AuthorizerReference", """ALTER TABLE "Overrides" ADD COLUMN "AuthorizerReference" TEXT NULL"""),
+        ("Overrides", "ReviewedBy", """ALTER TABLE "Overrides" ADD COLUMN "ReviewedBy" TEXT NULL"""),
+        ("Overrides", "ReviewedUtc", """ALTER TABLE "Overrides" ADD COLUMN "ReviewedUtc" TEXT NULL"""),
+        ("Overrides", "ReviewNote", """ALTER TABLE "Overrides" ADD COLUMN "ReviewNote" TEXT NULL"""),
+        ("PatientBloodTypeHistory", "InvalidatedUtc", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "InvalidatedUtc" TEXT NULL"""),
+        ("PatientBloodTypeHistory", "SpecimenId", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "SpecimenId" INTEGER NULL"""),
+        ("PatientBloodTypeHistory", "ManualDocumentation", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "ManualDocumentation" INTEGER NULL"""),
+        ("PatientBloodTypeHistory", "ManualDocumentationReference", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "ManualDocumentationReference" TEXT NULL"""),
+        ("Specimens", "RejectionReasonCode", """ALTER TABLE "Specimens" ADD COLUMN "RejectionReasonCode" TEXT NULL"""),
+        ("Specimens", "RejectedUtc", """ALTER TABLE "Specimens" ADD COLUMN "RejectedUtc" TEXT NULL"""),
+        ("Specimens", "RejectedBy", """ALTER TABLE "Specimens" ADD COLUMN "RejectedBy" TEXT NULL"""),
+        ("ShiftHandoffs", "ActiveMtp", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ActiveMtp" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "TransfusionsRunning", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TransfusionsRunning" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "TransfusionsCompletionOverdue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TransfusionsCompletionOverdue" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "PendingTestsVerifyBeforeExpiry", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "PendingTestsVerifyBeforeExpiry" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ResultsAwaitingVerification", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ResultsAwaitingVerification" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReservationsLapsed", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReservationsLapsed" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "NearExpiryUnits", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "NearExpiryUnits" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "NearExpiryReserved", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "NearExpiryReserved" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "CoolersInTransit", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "CoolersInTransit" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "CoolersNotChecked", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "CoolersNotChecked" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "CoolersWithDifferences", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "CoolersWithDifferences" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ExpiredOnShelf", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ExpiredOnShelf" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "OpenDeviations", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "OpenDeviations" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "CriticalDeviations", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "CriticalDeviations" INTEGER NOT NULL DEFAULT 0"""),
+        ("TestDefinitions", "ResultUnits", """ALTER TABLE "TestDefinitions" ADD COLUMN "ResultUnits" TEXT NULL"""),
+        ("TestDefinitions", "DecimalPlaces", """ALTER TABLE "TestDefinitions" ADD COLUMN "DecimalPlaces" INTEGER NULL"""),
+        ("TestDefinitions", "ReportableLow", """ALTER TABLE "TestDefinitions" ADD COLUMN "ReportableLow" TEXT NULL"""),
+        ("TestDefinitions", "ReportableHigh", """ALTER TABLE "TestDefinitions" ADD COLUMN "ReportableHigh" TEXT NULL"""),
+        ("TestDefinitions", "ReferenceLow", """ALTER TABLE "TestDefinitions" ADD COLUMN "ReferenceLow" TEXT NULL"""),
+        ("TestDefinitions", "ReferenceHigh", """ALTER TABLE "TestDefinitions" ADD COLUMN "ReferenceHigh" TEXT NULL"""),
+        ("TestDefinitions", "CriticalLow", """ALTER TABLE "TestDefinitions" ADD COLUMN "CriticalLow" TEXT NULL"""),
+        ("TestDefinitions", "CriticalHigh", """ALTER TABLE "TestDefinitions" ADD COLUMN "CriticalHigh" TEXT NULL"""),
+        ("TestDefinitions", "TiterStartDilution", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterStartDilution" INTEGER NULL"""),
+        ("TestDefinitions", "TiterEndDilution", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterEndDilution" INTEGER NULL"""),
+        ("TestDefinitions", "TiterPhaseCode", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterPhaseCode" TEXT NULL"""),
+        ("TestDefinitions", "TiterEndpointMinGrade", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterEndpointMinGrade" TEXT NULL"""),
+        ("TestDefinitions", "TiterScored", """ALTER TABLE "TestDefinitions" ADD COLUMN "TiterScored" INTEGER NOT NULL DEFAULT 0"""),
+        ("Patients", "Race", """ALTER TABLE "Patients" ADD COLUMN "Race" TEXT NULL"""),
+        ("AntibodyHistory", "ReportingFacility", """ALTER TABLE "AntibodyHistory" ADD COLUMN "ReportingFacility" TEXT NULL"""),
+        ("AntibodyHistory", "IdentifiedOn", """ALTER TABLE "AntibodyHistory" ADD COLUMN "IdentifiedOn" TEXT NULL"""),
+        ("Orders", "NeededByUtc", """ALTER TABLE "Orders" ADD COLUMN "NeededByUtc" TEXT NULL"""),
+        ("Patients", "MotherPatientId", """ALTER TABLE "Patients" ADD COLUMN "MotherPatientId" INTEGER NULL"""),
+        ("Patients", "Unidentified", """ALTER TABLE "Patients" ADD COLUMN "Unidentified" INTEGER NOT NULL DEFAULT 0"""),
+        ("Patients", "Ethnicity", """ALTER TABLE "Patients" ADD COLUMN "Ethnicity" TEXT NULL"""),
+        ("OrderLines", "GrouperCode", """ALTER TABLE "OrderLines" ADD COLUMN "GrouperCode" TEXT NULL"""),
+        ("InterfaceValueTranslations", "EndpointId", """ALTER TABLE "InterfaceValueTranslations" ADD COLUMN "EndpointId" INTEGER NULL"""),
+        ("Reagents", "TestCodes", """ALTER TABLE "Reagents" ADD COLUMN "TestCodes" TEXT NULL"""),
+        ("TestResultReagentLots", "ReviewedUtc", """ALTER TABLE "TestResultReagentLots" ADD COLUMN "ReviewedUtc" TEXT NULL"""),
+        ("TestResultReagentLots", "ReviewedBy", """ALTER TABLE "TestResultReagentLots" ADD COLUMN "ReviewedBy" TEXT NULL"""),
+        ("TestResultReagentLots", "ReviewNote", """ALTER TABLE "TestResultReagentLots" ADD COLUMN "ReviewNote" TEXT NULL"""),
+        ("InstrumentValueTranslations", "Description", """ALTER TABLE "InstrumentValueTranslations" ADD COLUMN "Description" TEXT NULL"""),
+        ("InterfaceUnmappedValues", "InstrumentInterfaceId", """ALTER TABLE "InterfaceUnmappedValues" ADD COLUMN "InstrumentInterfaceId" INTEGER NULL"""),
+        ("TestDefinitions", "LoincCode", """ALTER TABLE "TestDefinitions" ADD COLUMN "LoincCode" TEXT NULL"""),
+        ("TestResults", "AbnormalFlag", """ALTER TABLE "TestResults" ADD COLUMN "AbnormalFlag" TEXT NULL"""),
+        ("ShiftHandoffs", "ProductsBelowMinimum", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ProductsBelowMinimum" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "InstrumentFailuresOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "InstrumentFailuresOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "InstrumentResultsHeld", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "InstrumentResultsHeld" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReagentLotsFailedQc", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentLotsFailedQc" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReagentResultsToReview", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentResultsToReview" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "Hl7ErrorsOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "Hl7ErrorsOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "UnmappedInterfaceValues", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "UnmappedInterfaceValues" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RetrospectiveIncompatible", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RetrospectiveIncompatible" INTEGER NOT NULL DEFAULT 0"""),
+        ("ReactionInvestigations", "ReopenedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedUtc" TEXT NULL"""),
+        ("ReactionInvestigations", "ReopenedBy", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedBy" TEXT NULL"""),
+        ("ReactionInvestigations", "ReopenReason", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenReason" TEXT NULL"""),
+        ("ReactionInvestigations", "BagCultureSent", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "BagCultureSent" INTEGER NOT NULL DEFAULT 0"""),
+        ("ReactionInvestigations", "BagCultureResult", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "BagCultureResult" TEXT NULL"""),
+        ("ReactionInvestigations", "SupplierNotifiedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "SupplierNotifiedUtc" TEXT NULL"""),
+        ("ReactionInvestigations", "SupplierNotificationNote", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "SupplierNotificationNote" TEXT NULL"""),
+        ("ReactionInvestigations", "ReportedAfterTransfusion", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReportedAfterTransfusion" INTEGER NOT NULL DEFAULT 0"""),
+        ("ReactionInvestigations", "OnsetUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "OnsetUtc" TEXT NULL"""),
+        ("ReactionInvestigations", "ConcludedReactionCode", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ConcludedReactionCode" TEXT NULL"""),
+        ("ReactionInvestigations", "ConcludedReactionText", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ConcludedReactionText" TEXT NULL"""),
+        ("ReactionInvestigations", "TreatmentCodes", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "TreatmentCodes" TEXT NULL"""),
+        ("ReactionInvestigations", "TreatmentTexts", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "TreatmentTexts" TEXT NULL"""),
+        ("ReactionInvestigations", "PreTransfusionSpecimenId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PreTransfusionSpecimenId" INTEGER NULL"""),
+        ("ReactionInvestigations", "PreTransfusionOrderId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PreTransfusionOrderId" INTEGER NULL"""),
+        ("ReactionInvestigations", "PostTransfusionSpecimenId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PostTransfusionSpecimenId" INTEGER NULL"""),
+        ("ReactionInvestigations", "PostTransfusionOrderId", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "PostTransfusionOrderId" INTEGER NULL"""),
+        ("DatElutionWorkups", "VerifiedBy", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedBy" TEXT NULL"""),
+        ("DatElutionWorkups", "VerifiedUtc", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedUtc" TEXT NULL"""),
+        ("SupplierOrderLines", "RhD", """ALTER TABLE "SupplierOrderLines" ADD COLUMN "RhD" INTEGER NULL"""),
+        ("SupplierOrderLines", "Requirements", """ALTER TABLE "SupplierOrderLines" ADD COLUMN "Requirements" TEXT NULL"""),
+        ("SupplierOrderLines", "PatientId", """ALTER TABLE "SupplierOrderLines" ADD COLUMN "PatientId" INTEGER NULL"""),
+        ("DatElutionWorkups", "PolyspecificGrade", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "PolyspecificGrade" INTEGER NOT NULL DEFAULT 0"""),
+        ("DatElutionWorkups", "IgGGrade", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "IgGGrade" INTEGER NOT NULL DEFAULT 0"""),
+        ("DatElutionWorkups", "C3Grade", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "C3Grade" INTEGER NOT NULL DEFAULT 0"""),
+        ("DatElutionWorkups", "ControlGrade", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "ControlGrade" INTEGER NOT NULL DEFAULT 0"""),
         ("Issues", "VerifiedScanJson", """ALTER TABLE "Issues" ADD COLUMN "VerifiedScanJson" TEXT NULL"""),
         ("Issues", "CrossmatchStatus", """ALTER TABLE "Issues" ADD COLUMN "CrossmatchStatus" INTEGER NOT NULL DEFAULT 2"""),
         ("Issues", "EmergencyReleaseDetails", """ALTER TABLE "Issues" ADD COLUMN "EmergencyReleaseDetails" TEXT NULL"""),
         ("Issues", "ReceivedBy", """ALTER TABLE "Issues" ADD COLUMN "ReceivedBy" TEXT NULL"""),
         ("Issues", "UnitExpirationAtIssueUtc", """ALTER TABLE "Issues" ADD COLUMN "UnitExpirationAtIssueUtc" TEXT NULL"""),
         ("Allocations", "AssignmentType", """ALTER TABLE "Allocations" ADD COLUMN "AssignmentType" INTEGER NOT NULL DEFAULT 0"""),
+        ("Allocations", "IssueRequestedUtc", """ALTER TABLE "Allocations" ADD COLUMN "IssueRequestedUtc" TEXT NULL"""),
+        ("Allocations", "IssueRequestedBy", """ALTER TABLE "Allocations" ADD COLUMN "IssueRequestedBy" TEXT NULL"""),
+        ("Allocations", "IssueRequestedTo", """ALTER TABLE "Allocations" ADD COLUMN "IssueRequestedTo" TEXT NULL"""),
         ("BloodProducts", "ComponentIdentity", """ALTER TABLE "BloodProducts" ADD COLUMN "ComponentIdentity" TEXT NULL"""),
         ("BloodProducts", "ComponentIdentityKey", """ALTER TABLE "BloodProducts" ADD COLUMN "ComponentIdentityKey" TEXT NULL"""),
         ("BloodProducts", "Din", """ALTER TABLE "BloodProducts" ADD COLUMN "Din" TEXT NULL"""),
@@ -58,6 +182,9 @@ public static class DevelopmentSqliteBootstrap
         ("BloodProducts", "MissingReason", """ALTER TABLE "BloodProducts" ADD COLUMN "MissingReason" TEXT NULL"""),
         ("BloodProducts", "DamagedReason", """ALTER TABLE "BloodProducts" ADD COLUMN "DamagedReason" TEXT NULL"""),
         ("BloodProducts", "SupplierReturnReason", """ALTER TABLE "BloodProducts" ADD COLUMN "SupplierReturnReason" TEXT NULL"""),
+        ("BloodProducts", "ShippedToFacility", """ALTER TABLE "BloodProducts" ADD COLUMN "ShippedToFacility" TEXT NULL"""),
+        ("BloodProducts", "ShippedUtc", """ALTER TABLE "BloodProducts" ADD COLUMN "ShippedUtc" TEXT NULL"""),
+        ("BloodProducts", "OutboundShipmentReference", """ALTER TABLE "BloodProducts" ADD COLUMN "OutboundShipmentReference" TEXT NULL"""),
         ("BloodProducts", "DonationRestriction", """ALTER TABLE "BloodProducts" ADD COLUMN "DonationRestriction" INTEGER NOT NULL DEFAULT 0"""),
         ("BloodProducts", "ReservedPatientId", """ALTER TABLE "BloodProducts" ADD COLUMN "ReservedPatientId" INTEGER NULL"""),
         ("BloodProducts", "DirectedConversionReason", """ALTER TABLE "BloodProducts" ADD COLUMN "DirectedConversionReason" TEXT NULL"""),
@@ -74,6 +201,12 @@ public static class DevelopmentSqliteBootstrap
         ("Crossmatches", "EncounterId", """ALTER TABLE "Crossmatches" ADD COLUMN "EncounterId" INTEGER NULL"""),
         ("Crossmatches", "OrderId", """ALTER TABLE "Crossmatches" ADD COLUMN "OrderId" INTEGER NULL"""),
         ("TransfusionEvents", "SecondVerifier", """ALTER TABLE "TransfusionEvents" ADD COLUMN "SecondVerifier" TEXT NULL"""),
+        ("TransfusionEvents", "UnitStatusAtReport", """ALTER TABLE "TransfusionEvents" ADD COLUMN "UnitStatusAtReport" INTEGER NULL"""),
+        ("TransfusionEvents", "ReportReviewedUtc", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ReportReviewedUtc" TEXT NULL"""),
+        ("TransfusionEvents", "ReportReviewedBy", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ReportReviewedBy" TEXT NULL"""),
+        ("TransfusionEvents", "ReportReviewNote", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ReportReviewNote" TEXT NULL"""),
+        ("BloodProducts", "TransfusionReportedUtc", """ALTER TABLE "BloodProducts" ADD COLUMN "TransfusionReportedUtc" TEXT NULL"""),
+        ("AntibodyPanelCells", "SupersededUtc", """ALTER TABLE "AntibodyPanelCells" ADD COLUMN "SupersededUtc" TEXT NULL"""),
         ("TransfusionEvents", "Location", """ALTER TABLE "TransfusionEvents" ADD COLUMN "Location" TEXT NULL"""),
         ("TransfusionEvents", "PreTransfusionVitalsJson", """ALTER TABLE "TransfusionEvents" ADD COLUMN "PreTransfusionVitalsJson" TEXT NULL"""),
         ("TransfusionEvents", "PostTransfusionObservations", """ALTER TABLE "TransfusionEvents" ADD COLUMN "PostTransfusionObservations" TEXT NULL"""),
@@ -144,6 +277,57 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
         ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
         ("UnitModifications", "SupplyLot", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyLot" TEXT NULL"""),
+        ("Specimens", "StorageLocation", """ALTER TABLE "Specimens" ADD COLUMN "StorageLocation" TEXT NULL"""),
+        ("Specimens", "StoredUtc", """ALTER TABLE "Specimens" ADD COLUMN "StoredUtc" TEXT NULL"""),
+        ("Specimens", "StoredBy", """ALTER TABLE "Specimens" ADD COLUMN "StoredBy" TEXT NULL"""),
+        ("Specimens", "DiscardedUtc", """ALTER TABLE "Specimens" ADD COLUMN "DiscardedUtc" TEXT NULL"""),
+        ("Specimens", "DiscardedBy", """ALTER TABLE "Specimens" ADD COLUMN "DiscardedBy" TEXT NULL"""),
+        ("Specimens", "DiscardReason", """ALTER TABLE "Specimens" ADD COLUMN "DiscardReason" TEXT NULL"""),
+        ("SpecimenStorageEvents", "Discarded", """ALTER TABLE "SpecimenStorageEvents" ADD COLUMN "Discarded" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "BloodOrdersToPrepare", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersToPrepare" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "BloodOrdersPastNeededBy", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersPastNeededBy" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "BloodOrdersNeededSoon", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "BloodOrdersNeededSoon" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ActiveMtpIdle", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ActiveMtpIdle" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReactionsWithUnitsOut", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReactionsWithUnitsOut" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "Hl7OutboundNotSent", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "Hl7OutboundNotSent" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "OutagesOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "OutagesOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "DispositionOverdue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "DispositionOverdue" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "OutsideAntibodiesToConfirm", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "OutsideAntibodiesToConfirm" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RecalledToPull", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RecalledToPull" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "EquipmentChecksToDo", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "EquipmentChecksToDo" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "EquipmentChecksFailedOrOverdue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "EquipmentChecksFailedOrOverdue" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "WardRequestsWaiting", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "WardRequestsWaiting" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReagentLotsQcDue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentLotsQcDue" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "ReagentQcUnreviewed", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentQcUnreviewed" INTEGER NOT NULL DEFAULT 0"""),
+        ("Equipment", "TestCodes", """ALTER TABLE "Equipment" ADD COLUMN "TestCodes" TEXT NULL"""),
+        ("Deviations", "RootCause", """ALTER TABLE "Deviations" ADD COLUMN "RootCause" TEXT NULL"""),
+        ("Deviations", "FdaReportability", """ALTER TABLE "Deviations" ADD COLUMN "FdaReportability" INTEGER NOT NULL DEFAULT 0"""),
+        ("Deviations", "FdaReportedOn", """ALTER TABLE "Deviations" ADD COLUMN "FdaReportedOn" TEXT NULL"""),
+        ("Deviations", "FdaReportNumber", """ALTER TABLE "Deviations" ADD COLUMN "FdaReportNumber" TEXT NULL"""),
+        ("ShiftHandoffs", "SecondAboRhDue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "SecondAboRhDue" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "SupervisorQueueOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "SupervisorQueueOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("SupplierOrders", "PromisedArrivalUtc", """ALTER TABLE "SupplierOrders" ADD COLUMN "PromisedArrivalUtc" TEXT NULL"""),
+        ("SupplierOrders", "FollowUpNote", """ALTER TABLE "SupplierOrders" ADD COLUMN "FollowUpNote" TEXT NULL"""),
+        ("SupplierOrders", "FollowUpBy", """ALTER TABLE "SupplierOrders" ADD COLUMN "FollowUpBy" TEXT NULL"""),
+        ("SupplierOrders", "FollowUpUtc", """ALTER TABLE "SupplierOrders" ADD COLUMN "FollowUpUtc" TEXT NULL"""),
+        ("ShiftHandoffs", "EquipmentOutOfService", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "EquipmentOutOfService" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "AntibodyWorkupsOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "AntibodyWorkupsOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "AntibodyWorkupsToReview", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "AntibodyWorkupsToReview" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "UnidentifiedPatients", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "UnidentifiedPatients" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "TubesDueForDiscard", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TubesDueForDiscard" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RhigOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigOpen" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RhigToGive", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RhigToGive" INTEGER NOT NULL DEFAULT 0"""),
+        ("RhigEvaluations", "GivenLot", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenLot" TEXT NULL"""),
+        ("RhigEvaluations", "GivenVials", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenVials" INTEGER NULL"""),
+        ("RhigEvaluations", "GivenUtc", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenUtc" TEXT NULL"""),
+        ("RhigEvaluations", "GivenBy", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenBy" TEXT NULL"""),
+        ("RhigEvaluations", "GivenNote", """ALTER TABLE "RhigEvaluations" ADD COLUMN "GivenNote" TEXT NULL"""),
+        ("OrderLines", "ReflexFromTestCode", """ALTER TABLE "OrderLines" ADD COLUMN "ReflexFromTestCode" TEXT NULL"""),
+        ("OrderLines", "ReflexFromValue", """ALTER TABLE "OrderLines" ADD COLUMN "ReflexFromValue" TEXT NULL"""),
+        ("OrderLines", "ReflexFromResultId", """ALTER TABLE "OrderLines" ADD COLUMN "ReflexFromResultId" INTEGER NULL"""),
+        ("AutoThawProducts", "ThawedShelfLifeHours", """ALTER TABLE "AutoThawProducts" ADD COLUMN "ThawedShelfLifeHours" INTEGER NOT NULL DEFAULT 24"""),
+        ("UnitModifications", "DeviceId", """ALTER TABLE "UnitModifications" ADD COLUMN "DeviceId" TEXT NULL"""),
+        ("UnitModifications", "IndicatorConfirmed", """ALTER TABLE "UnitModifications" ADD COLUMN "IndicatorConfirmed" INTEGER NULL"""),
         ("ChargeCodes", "RevenueCode", """ALTER TABLE "ChargeCodes" ADD COLUMN "RevenueCode" TEXT NULL"""),
         ("ChargeCodes", "Modifier", """ALTER TABLE "ChargeCodes" ADD COLUMN "Modifier" TEXT NULL"""),
         ("BillingEvents", "ProcedureCode", """ALTER TABLE "BillingEvents" ADD COLUMN "ProcedureCode" TEXT NULL"""),
@@ -159,6 +343,12 @@ public static class DevelopmentSqliteBootstrap
         ("SpecimenTypeDefinitions", "ExpirationCode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationCode" TEXT NOT NULL DEFAULT '7D'"""),
         ("SpecimenTypeDefinitions", "ExpirationMode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationMode" INTEGER NOT NULL DEFAULT 0"""),
         ("SpecialTransfusionRequirements", "RequirementDefinitionId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "RequirementDefinitionId" INTEGER NULL"""),
+        ("SpecialTransfusionRequirements", "ReactionInvestigationId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "ReactionInvestigationId" INTEGER NULL"""),
+        ("SpecialRequirementDefinitions", "Category", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "Category" INTEGER NOT NULL DEFAULT -1"""),
+        ("SpecialRequirementDefinitions", "ComponentClass", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "ComponentClass" INTEGER NULL"""),
+        ("SpecialRequirementDefinitions", "AllowedAboGroups", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "AllowedAboGroups" TEXT NULL"""),
+        ("SpecialRequirementDefinitions", "AntigenCode", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "AntigenCode" TEXT NULL"""),
+        ("SpecialRequirementDefinitions", "UnitTestCode", """ALTER TABLE "SpecialRequirementDefinitions" ADD COLUMN "UnitTestCode" TEXT NULL"""),
         ("PatientBloodTypeHistory", "AboSubgroup", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "AboSubgroup" INTEGER NOT NULL DEFAULT 0"""),
         ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL"""),
         ("InstrumentInterfaces", "InterpretationMatch", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationMatch" INTEGER NOT NULL DEFAULT 0"""),
@@ -178,13 +368,30 @@ public static class DevelopmentSqliteBootstrap
         await EnsureCompetitorGapTablesAsync(context, cancellationToken);
         await EnsureStorageTemperatureTableAsync(context, cancellationToken);
         await EnsureUnitDiscardReasonsTableAsync(context, cancellationToken);
+        await EnsureSpecimenRejectionReasonsTableAsync(context, cancellationToken);
+        await EnsureReactionCatalogEntriesTableAsync(context, cancellationToken);
+        await EnsureReactionWorkupSettingsTableAsync(context, cancellationToken);
         await EnsureAlertsTableAsync(context, cancellationToken);
+        await EnsureSpecimenLabelDesignsTableAsync(context, cancellationToken);
+        await EnsureDowntimeEpisodesTableAsync(context, cancellationToken);
         await EnsureSupplierOrderTablesAsync(context, cancellationToken);
         await EnsureDatabaseBackupsTableAsync(context, cancellationToken);
         await EnsureTransfusionIndicationCriteriaTableAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
+        await EnsureEluateFindingsTableAsync(context, cancellationToken);
+        await EnsureMtpPackDefinitionsTableAsync(context, cancellationToken);
+        await EnsureMtpActivationsTableAsync(context, cancellationToken);
+        await EnsureTransportContainersTableAsync(context, cancellationToken);
+        await EnsureMtpPackRecordsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
+        await EnsureInterfaceUnmappedValuesTableAsync(context, cancellationToken);
+        await EnsureInstrumentValueTranslationsTableAsync(context, cancellationToken);
+        await EnsurePatientDuplicateDismissalsTableAsync(context, cancellationToken);
+        await EnsureRhigEvaluationsTableAsync(context, cancellationToken);
+        await EnsureSpecimenStorageEventsTableAsync(context, cancellationToken);
+        await EnsureEquipmentTablesAsync(context, cancellationToken);
+        await EnsureRhigLotsTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -202,6 +409,20 @@ public static class DevelopmentSqliteBootstrap
         {
             await ApplyAdditiveColumnsAsync(context, logger, cancellationToken);
         }
+
+        // A translation limited to one interface may repeat a global row: the unique index includes the interface.
+        if (!created && !recreate)
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                DROP INDEX IF EXISTS "IX_InterfaceValueTranslations_DataItemKey_InternalValue_ExternalValue_Direction";
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_InterfaceValueTranslations_EndpointId_DataItemKey_InternalValue_ExternalValue_Direction"
+                    ON "InterfaceValueTranslations" ("EndpointId", "DataItemKey", "InternalValue", "ExternalValue", "Direction");
+                """, cancellationToken);
+        }
+
+        // After the additive columns, so SpecimenId exists on upgraded databases (idempotent).
+        await context.Database.ExecuteSqlRawAsync(BloodTypeSpecimenBackfill.Sql, cancellationToken);
 
         logger.LogInformation(
             recreate || created
@@ -296,6 +517,174 @@ public static class DevelopmentSqliteBootstrap
     /// <summary>
     /// Creates the DAT/elution workup table when an existing dev database predates it.
     /// </summary>
+    private static async Task EnsureTransportContainersTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "TransportContainers", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "TransportContainers" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_TransportContainers" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "ContainerType" INTEGER NOT NULL,
+                "Description" TEXT NULL,
+                "MinTemperatureC" TEXT NULL,
+                "MaxTemperatureC" TEXT NULL,
+                "ValidatedHours" INTEGER NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_TransportContainers_Code" ON "TransportContainers" ("Code")""", ct);
+    }
+
+    private static async Task EnsureMtpPackRecordsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "MtpActivations", ct)
+            || await TableExistsAsync(context, "MtpPackRecords", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "MtpPackRecords" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_MtpPackRecords" PRIMARY KEY AUTOINCREMENT,
+                "MtpActivationId" INTEGER NOT NULL,
+                "PackNumber" INTEGER NOT NULL,
+                "TransportContainerId" INTEGER NOT NULL,
+                "ContainerLabel" TEXT NULL,
+                "TemperatureC" TEXT NOT NULL,
+                "TemperatureOutsideRange" INTEGER NOT NULL,
+                "PackedUtc" TEXT NOT NULL,
+                "PackedBy" TEXT NOT NULL,
+                "Comment" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_MtpPackRecords_MtpActivations_MtpActivationId" FOREIGN KEY ("MtpActivationId") REFERENCES "MtpActivations" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_MtpPackRecords_TransportContainers_TransportContainerId" FOREIGN KEY ("TransportContainerId") REFERENCES "TransportContainers" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_MtpPackRecords_MtpActivationId_PackNumber" ON "MtpPackRecords" ("MtpActivationId", "PackNumber")""", ct);
+    }
+
+    private static async Task EnsureMtpPackDefinitionsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "MtpPackDefinitions", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "MtpPackDefinitions" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_MtpPackDefinitions" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "RedCellUnits" INTEGER NOT NULL,
+                "PlasmaUnits" INTEGER NOT NULL,
+                "PlateletUnits" INTEGER NOT NULL,
+                "CryoUnits" INTEGER NOT NULL,
+                "WholeBloodUnits" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_MtpPackDefinitions_Code" ON "MtpPackDefinitions" ("Code")""", ct);
+    }
+
+    private static async Task EnsureMtpActivationsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "MtpActivations", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "MtpActivations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_MtpActivations" PRIMARY KEY AUTOINCREMENT,
+                "PatientId" INTEGER NOT NULL,
+                "Status" INTEGER NOT NULL,
+                "RequestedBy" TEXT NOT NULL,
+                "Reason" TEXT NOT NULL,
+                "Location" TEXT NULL,
+                "ActivatedUtc" TEXT NOT NULL,
+                "ActivatedBy" TEXT NOT NULL,
+                "ClosedUtc" TEXT NULL,
+                "ClosedBy" TEXT NULL,
+                "CloseReason" TEXT NULL,
+                "PackDefinitionId" INTEGER NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_MtpActivations_Patients_PatientId" FOREIGN KEY ("PatientId") REFERENCES "Patients" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_MtpActivations_PatientId_Status" ON "MtpActivations" ("PatientId", "Status")""", ct);
+    }
+
+    private static async Task EnsureEluateFindingsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "DatElutionWorkups", ct)
+            || await TableExistsAsync(context, "DatElutionEluateFindings", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "DatElutionEluateFindings" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_DatElutionEluateFindings" PRIMARY KEY AUTOINCREMENT,
+                "WorkupId" INTEGER NOT NULL,
+                "Kind" INTEGER NOT NULL,
+                "BloodAttributeDefinitionId" INTEGER NULL,
+                "Specificity" TEXT NOT NULL,
+                "PostedAntibodyHistoryId" INTEGER NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_DatElutionEluateFindings_DatElutionWorkups_WorkupId" FOREIGN KEY ("WorkupId") REFERENCES "DatElutionWorkups" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_DatElutionEluateFindings_WorkupId" ON "DatElutionEluateFindings" ("WorkupId")""", ct);
+    }
+
     private static async Task EnsureDatElutionWorkupsTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct)
@@ -446,9 +835,27 @@ public static class DevelopmentSqliteBootstrap
 
         await BackfillUnitAttributeTypingSourceAsync(context, ct);
         await BackfillModificationCodesAsync(context, ct);
+        await BackfillSpecialRequirementCategoriesAsync(context, ct);
         await ReplaceModificationRuleCodeIndexAsync(context, logger, ct);
         await BackfillInventoryLocationPolicyAsync(context, ct);
         await ApplyAdditiveIndexesAsync(context, logger, ct);
+        await FilterPanelCellNumberIndexAsync(context, ct);
+    }
+
+    // A corrected antigram supersedes a lot's cells (Cycle 706), so a cell number is unique among current cells only.
+    private static async Task FilterPanelCellNumberIndexAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "AntibodyPanelCells", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            DROP INDEX IF EXISTS "IX_AntibodyPanelCells_LotId_CellNumber";
+            CREATE UNIQUE INDEX "IX_AntibodyPanelCells_LotId_CellNumber" ON "AntibodyPanelCells" ("LotId", "CellNumber") WHERE "SupersededUtc" IS NULL;
+            """,
+            ct);
     }
 
     private static readonly (string Name, string Sql)[] AdditiveIndexes =
@@ -547,6 +954,18 @@ public static class DevelopmentSqliteBootstrap
             WHERE SourceResultId IS NOT NULL AND TypingSource <> 2
             """,
             ct);
+    }
+
+    /// <summary>Same mapping as migration 20261112000000 for definitions made before categories.</summary>
+    private static async Task BackfillSpecialRequirementCategoriesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "SpecialRequirementDefinitions", ct)
+            || !await ColumnExistsAsync(context, "SpecialRequirementDefinitions", "Category", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(SpecialRequirementCategoryBackfill.Sql("Category = -1"), ct);
     }
 
     private static async Task BackfillModificationCodesAsync(BloodBankDbContext context, CancellationToken ct)
@@ -677,6 +1096,50 @@ public static class DevelopmentSqliteBootstrap
                     "ModifiedBy" TEXT NULL,
                     "RowVersion" BLOB NULL
                 )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "TestResultReagentLots", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "TestResultReagentLots" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_TestResultReagentLots" PRIMARY KEY AUTOINCREMENT,
+                    "TestResultId" INTEGER NOT NULL,
+                    "ReagentLotId" INTEGER NOT NULL,
+                    "ReagentCode" TEXT NOT NULL,
+                    "LotNumber" TEXT NOT NULL,
+                    "RecordedUtc" TEXT NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                );
+                CREATE INDEX "IX_TestResultReagentLots_ReagentLotId" ON "TestResultReagentLots" ("ReagentLotId");
+                CREATE INDEX "IX_TestResultReagentLots_TestResultId" ON "TestResultReagentLots" ("TestResultId");
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "TestResultEquipment", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "TestResultEquipment" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_TestResultEquipment" PRIMARY KEY AUTOINCREMENT,
+                    "TestResultId" INTEGER NOT NULL,
+                    "EquipmentId" INTEGER NOT NULL,
+                    "EquipmentCode" TEXT NOT NULL,
+                    "Condition" TEXT NULL,
+                    "RecordedUtc" TEXT NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                );
+                CREATE INDEX "IX_TestResultEquipment_EquipmentId" ON "TestResultEquipment" ("EquipmentId");
+                CREATE INDEX "IX_TestResultEquipment_TestResultId" ON "TestResultEquipment" ("TestResultId");
                 """, ct);
         }
 
@@ -812,6 +1275,9 @@ public static class DevelopmentSqliteBootstrap
                 "SupplierOrderId" INTEGER NOT NULL,
                 "ProductTypeId" INTEGER NOT NULL,
                 "Abo" INTEGER NULL,
+                "RhD" INTEGER NULL,
+                "Requirements" TEXT NULL,
+                "PatientId" INTEGER NULL,
                 "Quantity" INTEGER NOT NULL,
                 "CreatedUtc" TEXT NOT NULL,
                 "CreatedBy" TEXT NOT NULL,
@@ -871,6 +1337,364 @@ public static class DevelopmentSqliteBootstrap
             """CREATE INDEX "IX_Alerts_Key" ON "Alerts" ("Key")""", ct);
     }
 
+    private static async Task EnsureSpecimenRejectionReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "SpecimenRejectionReasons", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SpecimenRejectionReasons" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SpecimenRejectionReasons" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Text" TEXT NOT NULL,
+                "RequiresComment" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_SpecimenRejectionReasons_Code" ON "SpecimenRejectionReasons" ("Code")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_SpecimenRejectionReasons_IsActive_SortOrder" ON "SpecimenRejectionReasons" ("IsActive", "SortOrder")""", ct);
+    }
+
+    private static async Task EnsureReactionCatalogEntriesTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "ReactionCatalogEntries", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "ReactionCatalogEntries" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ReactionCatalogEntries" PRIMARY KEY AUTOINCREMENT,
+                "Kind" INTEGER NOT NULL,
+                "Code" TEXT NOT NULL,
+                "Text" TEXT NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "IsNoneOption" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_ReactionCatalogEntries_Kind_Code" ON "ReactionCatalogEntries" ("Kind", "Code")""", ct);
+    }
+
+    /// <summary>
+    /// Creates the per-instrument translation table on an existing dev database and copies the old assay and analyte
+    /// map into it, as migration 20261125000000_InstrumentValueTranslations does.
+    /// </summary>
+    private static async Task EnsureInstrumentValueTranslationsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "InstrumentInterfaces", ct)
+            || await TableExistsAsync(context, "InstrumentValueTranslations", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "InstrumentValueTranslations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_InstrumentValueTranslations" PRIMARY KEY AUTOINCREMENT,
+                "InterfaceId" INTEGER NOT NULL,
+                "DataItemKey" TEXT NOT NULL,
+                "InstrumentValue" TEXT NOT NULL,
+                "LocalValue" TEXT NOT NULL,
+                "Context" TEXT NULL,
+                "Direction" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_InstrumentValueTranslations_InstrumentInterfaces_InterfaceId" FOREIGN KEY ("InterfaceId") REFERENCES "InstrumentInterfaces" ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX "IX_InstrumentValueTranslations_InterfaceId_DataItemKey_Context_InstrumentValue_LocalValue_Direction"
+                ON "InstrumentValueTranslations" ("InterfaceId", "DataItemKey", "Context", "InstrumentValue", "LocalValue", "Direction");
+            """, ct);
+        if (await TableExistsAsync(context, "InstrumentTestMappings", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(Migrations.InstrumentValueTranslations.CopyTestMappingsSql, ct);
+        }
+    }
+
+    // The RhIG lot register (Cycle 721).
+    private static async Task EnsureRhigLotsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "RhigLots", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "RhigLots" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_RhigLots" PRIMARY KEY AUTOINCREMENT,
+                "LotNumber" TEXT NOT NULL,
+                "ProductName" TEXT NOT NULL,
+                "ExpiresOn" TEXT NOT NULL,
+                "VialsReceived" INTEGER NOT NULL,
+                "ReceivedUtc" TEXT NOT NULL,
+                "ReceivedBy" TEXT NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "RetiredReason" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE UNIQUE INDEX "IX_RhigLots_LotNumber" ON "RhigLots" ("LotNumber");
+            """, ct);
+    }
+
+    // The equipment register (Cycle 708).
+    private static async Task EnsureEquipmentTablesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "Equipment", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "Equipment" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_Equipment" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "Kind" TEXT NOT NULL,
+                "Location" TEXT NULL,
+                "SerialNumber" TEXT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "OutOfServiceUtc" TEXT NULL,
+                "OutOfServiceReason" TEXT NULL,
+                "OutOfServiceBy" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE UNIQUE INDEX "IX_Equipment_Code" ON "Equipment" ("Code");
+            CREATE TABLE "EquipmentChecks" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_EquipmentChecks" PRIMARY KEY AUTOINCREMENT,
+                "EquipmentId" INTEGER NOT NULL,
+                "Name" TEXT NOT NULL,
+                "IntervalDays" INTEGER NOT NULL,
+                "Instructions" TEXT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_EquipmentChecks_EquipmentId" ON "EquipmentChecks" ("EquipmentId");
+            CREATE TABLE "EquipmentCheckRecords" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_EquipmentCheckRecords" PRIMARY KEY AUTOINCREMENT,
+                "EquipmentCheckId" INTEGER NOT NULL,
+                "EquipmentId" INTEGER NOT NULL,
+                "PerformedUtc" TEXT NOT NULL,
+                "PerformedBy" TEXT NOT NULL,
+                "Passed" INTEGER NOT NULL,
+                "Note" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_EquipmentCheckRecords_EquipmentId" ON "EquipmentCheckRecords" ("EquipmentId");
+            CREATE INDEX "IX_EquipmentCheckRecords_EquipmentCheckId" ON "EquipmentCheckRecords" ("EquipmentCheckId");
+            """, ct);
+    }
+
+    private static async Task EnsureSpecimenStorageEventsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "SpecimenStorageEvents", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SpecimenStorageEvents" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SpecimenStorageEvents" PRIMARY KEY AUTOINCREMENT,
+                "SpecimenId" INTEGER NOT NULL,
+                "Location" TEXT NOT NULL,
+                "PreviousLocation" TEXT NULL,
+                "StoredUtc" TEXT NOT NULL,
+                "StoredBy" TEXT NOT NULL,
+                "Note" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_SpecimenStorageEvents_SpecimenId" ON "SpecimenStorageEvents" ("SpecimenId");
+            """, ct);
+    }
+
+    private static async Task EnsureRhigEvaluationsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "RhigEvaluations", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "RhigEvaluations" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_RhigEvaluations" PRIMARY KEY AUTOINCREMENT,
+                "PatientId" INTEGER NOT NULL,
+                "Context" INTEGER NOT NULL,
+                "EventUtc" TEXT NOT NULL,
+                "InfantRh" INTEGER NOT NULL,
+                "FetalBleedScreen" INTEGER NOT NULL,
+                "FetalBleedPercent" TEXT NULL,
+                "Decision" INTEGER NOT NULL,
+                "VialsRecommended" INTEGER NULL,
+                "DecisionNote" TEXT NULL,
+                "RecordedBy" TEXT NOT NULL,
+                "RecordedUtc" TEXT NOT NULL,
+                "CompletedBy" TEXT NULL,
+                "CompletedUtc" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_RhigEvaluations_PatientId" ON "RhigEvaluations" ("PatientId");
+            """, ct);
+    }
+
+    private static async Task EnsurePatientDuplicateDismissalsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "PatientDuplicateDismissals", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "PatientDuplicateDismissals" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_PatientDuplicateDismissals" PRIMARY KEY AUTOINCREMENT,
+                "FirstPatientId" INTEGER NOT NULL,
+                "SecondPatientId" INTEGER NOT NULL,
+                "ReviewedReasons" TEXT NOT NULL,
+                "Reason" TEXT NOT NULL,
+                "DismissedBy" TEXT NOT NULL,
+                "DismissedUtc" TEXT NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE UNIQUE INDEX "IX_PatientDuplicateDismissals_FirstPatientId_SecondPatientId" ON "PatientDuplicateDismissals" ("FirstPatientId", "SecondPatientId");
+            """, ct);
+    }
+
+    private static async Task EnsureInterfaceUnmappedValuesTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "InterfaceUnmappedValues", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "InterfaceUnmappedValues" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_InterfaceUnmappedValues" PRIMARY KEY AUTOINCREMENT,
+                "EndpointId" INTEGER NULL,
+                "DataItemKey" TEXT NOT NULL,
+                "Value" TEXT NOT NULL,
+                "Direction" INTEGER NOT NULL,
+                "FirstSeenUtc" TEXT NOT NULL,
+                "LastSeenUtc" TEXT NOT NULL,
+                "Count" INTEGER NOT NULL,
+                "LastMessageControlId" TEXT NULL,
+                "ResolvedUtc" TEXT NULL,
+                "ResolvedBy" TEXT NULL,
+                "ResolvedNote" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            );
+            CREATE INDEX "IX_InterfaceUnmappedValues_EndpointId_DataItemKey_Direction_Value" ON "InterfaceUnmappedValues" ("EndpointId", "DataItemKey", "Direction", "Value");
+            CREATE INDEX "IX_InterfaceUnmappedValues_ResolvedUtc" ON "InterfaceUnmappedValues" ("ResolvedUtc");
+            """, ct);
+    }
+
+    private static async Task EnsureReactionWorkupSettingsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "ReactionWorkupSettings", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "ReactionWorkupSettings" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ReactionWorkupSettings" PRIMARY KEY AUTOINCREMENT,
+                "PreTransfusionTestGroupCode" TEXT NULL,
+                "PostTransfusionTestGroupCode" TEXT NULL,
+                "Version" INTEGER NOT NULL,
+                "EffectiveUtc" TEXT NULL,
+                "RetiredUtc" TEXT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "IsDraft" INTEGER NOT NULL,
+                "IsPendingApproval" INTEGER NOT NULL,
+                "ApprovedBy" TEXT NULL,
+                "ApprovedUtc" TEXT NULL,
+                "ChangeReason" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+    }
+
     private static async Task EnsureUnitDiscardReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct)
@@ -900,6 +1724,69 @@ public static class DevelopmentSqliteBootstrap
             """CREATE UNIQUE INDEX "IX_UnitDiscardReasons_Code" ON "UnitDiscardReasons" ("Code")""", ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE INDEX "IX_UnitDiscardReasons_IsActive_SortOrder" ON "UnitDiscardReasons" ("IsActive", "SortOrder")""", ct);
+    }
+
+    private static async Task EnsureSpecimenLabelDesignsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "SpecimenLabelDesigns", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SpecimenLabelDesigns" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SpecimenLabelDesigns" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "Purpose" INTEGER NOT NULL,
+                "WidthDots" INTEGER NOT NULL,
+                "HeightDots" INTEGER NOT NULL,
+                "DocumentJson" TEXT NOT NULL,
+                "IsDefault" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "Version" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_SpecimenLabelDesigns_Code" ON "SpecimenLabelDesigns" ("Code")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_SpecimenLabelDesigns_Purpose_IsActive" ON "SpecimenLabelDesigns" ("Purpose", "IsActive")""", ct);
+    }
+
+    private static async Task EnsureDowntimeEpisodesTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "DowntimeEpisodes", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "DowntimeEpisodes" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_DowntimeEpisodes" PRIMARY KEY AUTOINCREMENT,
+                "StartedUtc" TEXT NOT NULL,
+                "EndedUtc" TEXT NULL,
+                "Description" TEXT NOT NULL,
+                "EndedBy" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_DowntimeEpisodes_StartedUtc" ON "DowntimeEpisodes" ("StartedUtc")""", ct);
     }
 
     private static async Task EnsureStorageTemperatureTableAsync(BloodBankDbContext context, CancellationToken ct)
@@ -1005,7 +1892,9 @@ public static class DevelopmentSqliteBootstrap
                     continue;
                 }
 
-                if (!existing.Contains(column))
+                // A required column on the additive list is added with its default by ALTER TABLE below, so it does
+                // not justify deleting the database and its demo data.
+                if (!existing.Contains(column) && !IsAdditive(table, column))
                 {
                     return $"{table}.{column}";
                 }
@@ -1014,6 +1903,11 @@ public static class DevelopmentSqliteBootstrap
 
         return null;
     }
+
+    private static bool IsAdditive(string table, string column) =>
+        AdditiveColumns.Any(c =>
+            string.Equals(c.Table, table, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(c.Column, column, StringComparison.OrdinalIgnoreCase));
 
     private static async Task<HashSet<string>> GetColumnNamesAsync(
         BloodBankDbContext context,

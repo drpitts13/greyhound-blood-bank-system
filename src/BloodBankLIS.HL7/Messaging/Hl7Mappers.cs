@@ -1,6 +1,7 @@
 using System.Globalization;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
@@ -21,7 +22,15 @@ public sealed record Hl7PatientData(
     string? CurrentLocation,
     string? AttendingProviderId,
     string? AttendingProviderName,
-    string? PriorMrn);
+    string? PriorMrn,
+    // Local codes after translation; null when the field was empty or did not translate to a local value.
+    string? Race = null,
+    string? Ethnicity = null,
+    EncounterType? PatientClass = null,
+    // PID-3 repetitions other than the MRN (enterprise id, other facilities' numbers), kept as alternate identifiers.
+    IReadOnlyList<Hl7PatientIdentifier>? OtherIdentifiers = null,
+    // PID-21 Mother's Identifier, for a newborn: the mother's MRN.
+    string? MotherMrn = null);
 
 /// <summary>Order details extracted from an inbound ORM/OML message (ORC/OBR/PV1).</summary>
 public sealed record Hl7OrderData(
@@ -34,7 +43,11 @@ public sealed record Hl7OrderData(
     string? OrderingProviderId,
     string? OrderingProviderName,
     string? OrderingLocationCode,
-    OrderPriority Priority = OrderPriority.Routine);
+    OrderPriority Priority = OrderPriority.Routine,
+    // TQ1-7 (or OBR-27-4) start date/time: when the order is needed.
+    DateTime? NeededByUtc = null,
+    // ORC-16: why the order was cancelled or discontinued (text, else code).
+    string? ControlReason = null);
 
 /// <summary>Result details extracted from an inbound ORU message (PID/ORC/OBR/OBX).</summary>
 public sealed record Hl7ResultData(
@@ -68,7 +81,7 @@ public static class Hl7AdtMapper
         map ??= Hl7FieldMap.Default(InterfaceType.Adt, Hl7Direction.Inbound);
 
         return new Hl7PatientData(
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             LastName: map.Get(message, InterfaceDataItemKeys.PatientLastName),
             FirstName: map.Get(message, InterfaceDataItemKeys.PatientFirstName),
             MiddleName: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientMiddleName)),
@@ -82,7 +95,51 @@ public static class Hl7AdtMapper
             CurrentLocation: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterCurrentLocation)),
             AttendingProviderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterAttendingProviderId)),
             AttendingProviderName: MapPersonName(message, map, InterfaceDataItemKeys.EncounterAttendingProviderName),
-            PriorMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientPriorMrn)));
+            PriorMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientPriorMrn)),
+            Race: MapLocal(map, message, InterfaceDataItemKeys.PatientRace, PatientDemographicCodes.NormalizeRace),
+            Ethnicity: MapLocal(map, message, InterfaceDataItemKeys.PatientEthnicity, PatientDemographicCodes.NormalizeEthnicity),
+            PatientClass: MapPatientClass(map, message),
+            OtherIdentifiers: Hl7PatientIdentifiers.Others(message, map),
+            MotherMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientMotherMrn)));
+    }
+
+    /// <summary>
+    /// A coded field translated to one of the LIS's local values. A value that does not translate to one is listed as
+    /// unmapped for the interface team and not stored.
+    /// </summary>
+    private static string? MapLocal(Hl7FieldMap map, Hl7Message message, string key, Func<string?, string?> normalize)
+    {
+        var value = map.Get(message, key);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var local = normalize(value);
+        if (local is null)
+        {
+            map.Translator.RecordMiss(key, value, InterfaceTranslationDirection.Inbound);
+        }
+
+        return local;
+    }
+
+    /// <summary>PV1-2 translated to a visit type (Inpatient, Outpatient, Emergency…); unmapped values are listed.</summary>
+    private static EncounterType? MapPatientClass(Hl7FieldMap map, Hl7Message message)
+    {
+        var value = map.Get(message, InterfaceDataItemKeys.EncounterPatientClass);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (Enum.TryParse<EncounterType>(value.Trim(), ignoreCase: true, out var type) && !int.TryParse(value.Trim(), out _))
+        {
+            return type;
+        }
+
+        map.Translator.RecordMiss(InterfaceDataItemKeys.EncounterPatientClass, value, InterfaceTranslationDirection.Inbound);
+        return null;
     }
 
     public static Sex MapSex(string code) => code.ToUpperInvariant() switch
@@ -105,6 +162,12 @@ public static class Hl7AdtMapper
             : null;
     }
 
+    /// <summary>
+    /// An HL7 TS (YYYYMMDD[HHMM[SS[.S…]]][+/-ZZZZ]) as UTC. A stated offset is applied (end-user testing pass 62: it
+    /// was ignored, along with the seconds, so "20261113070000-0500" was stored as 07:00 UTC instead of 12:00 UTC). A
+    /// time with no offset is taken as UTC, the interface's convention in both directions (outbound times are written
+    /// in UTC); whether an EHR's offset-less local times should be read in the facility time zone is OCD-088.
+    /// </summary>
     internal static DateTime? ParseHl7DateTime(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length < 8)
@@ -112,19 +175,44 @@ public static class Hl7AdtMapper
             return null;
         }
 
+        value = value.Trim();
+        TimeSpan? offset = null;
+        var sign = value.IndexOfAny(['+', '-'], 8);
+        if (sign > 0)
+        {
+            var zone = value[(sign + 1)..];
+            if (zone.Length == 4
+                && int.TryParse(zone.AsSpan(0, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var zh)
+                && int.TryParse(zone.AsSpan(2, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var zm)
+                && zh <= 14 && zm < 60)
+            {
+                offset = new TimeSpan(zh, zm, 0) * (value[sign] == '-' ? -1 : 1);
+            }
+
+            value = value[..sign];
+        }
+
         if (!DateOnly.TryParseExact(value[..8], "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
         {
             return null;
         }
 
+        var local = date.ToDateTime(TimeOnly.MinValue);
         if (value.Length >= 12
-            && int.TryParse(value.AsSpan(8, 2), out var hour)
-            && int.TryParse(value.AsSpan(10, 2), out var minute))
+            && int.TryParse(value.AsSpan(8, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var hour)
+            && int.TryParse(value.AsSpan(10, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var minute)
+            && hour < 24 && minute < 60)
         {
-            return new DateTime(date.Year, date.Month, date.Day, hour, minute, 0, DateTimeKind.Utc);
+            local = local.AddHours(hour).AddMinutes(minute);
+            if (value.Length >= 14
+                && int.TryParse(value.AsSpan(12, 2), NumberStyles.None, CultureInfo.InvariantCulture, out var second)
+                && second < 60)
+            {
+                local = local.AddSeconds(second);
+            }
         }
 
-        return date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        return DateTime.SpecifyKind(offset is TimeSpan o ? local - o : local, DateTimeKind.Utc);
     }
 
     internal static string? MapPersonName(Hl7Message message, Hl7FieldMap map, string key)
@@ -155,14 +243,16 @@ public static class Hl7OrmMapper
         return new Hl7OrderData(
             OrderControl: FirstNonEmpty(map.Get(message, InterfaceDataItemKeys.OrderControl), "NW"),
             PlacerOrderId: placer,
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             OrderType: MapOrderType(testCode ?? string.Empty),
             TestCode: testCode,
             VisitNumber: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterVisitNumber)),
             OrderingProviderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderProviderId)),
             OrderingProviderName: Hl7AdtMapper.MapPersonName(message, map, InterfaceDataItemKeys.OrderProviderName),
             OrderingLocationCode: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderLocationCode)),
-            Priority: MapPriority(map.Get(message, InterfaceDataItemKeys.OrderPriority)));
+            Priority: MapPriority(map.Get(message, InterfaceDataItemKeys.OrderPriority)),
+            NeededByUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.OrderNeededBy)),
+            ControlReason: NullIfEmpty(FirstNonEmpty(map.Get(message, InterfaceDataItemKeys.OrderControlReason), message.Get("ORC-16-1")).Trim()));
     }
 
     /// <summary>
@@ -210,7 +300,7 @@ public static class Hl7OruMapper
             map.Get(message, InterfaceDataItemKeys.ResultObxIdentifier));
 
         return new Hl7ResultData(
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             PlacerOrderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderNumber)),
             TestCode: testCode,
             Value: FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultValue)),
@@ -242,6 +332,36 @@ public static class Hl7OruMapper
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 }
 
+/// <summary>An OMB^O27 request to send a reserved unit now (OCD-063).</summary>
+public sealed record Hl7DispenseRequestData(
+    string Mrn,
+    bool Cancel,
+    string? OrderNumber,
+    string? Din,
+    string? Destination,
+    string? Requester);
+
+/// <summary>Pure mapping of an OMB^O27 dispense request. The DIN is read only when the facility has mapped a field to it.</summary>
+public static class Hl7DispenseRequestMapper
+{
+    public static Hl7DispenseRequestData Map(Hl7Message message, Hl7FieldMap? map = null)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        map ??= Hl7FieldMap.Default(InterfaceType.Bpam, Hl7Direction.Inbound);
+        var control = map.Get(message, InterfaceDataItemKeys.DispenseOrderControl).Trim().ToUpperInvariant();
+        var dinPath = map.Path(InterfaceDataItemKeys.DispenseDin);
+        return new Hl7DispenseRequestData(
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
+            Cancel: control is "CA" or "OC" or "DC",
+            OrderNumber: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseOrderNumber)),
+            Din: string.IsNullOrWhiteSpace(dinPath) ? null : Hl7AdtMapper.NullIfEmpty(message.Get(dinPath)),
+            Destination: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseDestination))
+                ?? Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispensePatientLocation)),
+            Requester: Hl7AdtMapper.MapPersonName(message, map, InterfaceDataItemKeys.DispenseRequester)
+                ?? Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.DispenseRequester)));
+    }
+}
+
 /// <summary>Pure mapping of RAS/BPS blood-product administration fields.</summary>
 public static class Hl7BpamMapper
 {
@@ -260,7 +380,7 @@ public static class Hl7BpamMapper
             || reactionRaw.Contains("REACTION", StringComparison.OrdinalIgnoreCase);
 
         return new Hl7BpamData(
-            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             UnitNumber: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.UnitNumber)),
             Din: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.UnitDin)),
             StartUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.TransfusionStartUtc)),

@@ -2,12 +2,110 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Downtime Snapshot &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Downtime Snapshot &middot; HemoCore</PageTitle>
 
 <h1>Downtime reconciliation snapshot</h1>
 <p class="muted">
     After an outage, see what is left to work in each queue. This page only counts; it changes nothing.
 </p>
+@if (Session.Has(PermissionCodes.IssueCreate))
+{
+    <p>
+        Before a planned outage, or as one starts: <a href="/downtime/patients">print the downtime patient summary</a>
+        (blood type, antibodies, special requirements, specimens, and units for every patient being worked for now).
+    </p>
+}
+
+@* Recorded outages (Cycle 662): the window worked on paper, so back-entry does not depend on anyone remembering it. *@
+@if (Session.Has(PermissionCodes.IssueCreate))
+{
+    <div class="bb-card" data-outages>
+        <div class="bb-card-title"><h3>Outages</h3></div>
+        <p class="muted">
+            Record when the system was down. Paper issues entered afterwards are checked against the outage, carry it as their
+            reason, and are counted here.
+        </p>
+        @if (_episodeFb is not null)
+        {
+            <Outcome Value="_episodeFb" />
+        }
+        @if (_episodes.FirstOrDefault(e => e.EndedUtc is null) is { } open)
+        {
+            <div class="alert alert-warning" data-outage-open="@open.Id">
+                <strong>Outage #@open.Id is still open</strong>: @open.Description, since @open.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm").
+                @if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
+                {
+                    <div class="form-row" style="margin-top:.5rem;">
+                        <div class="field"><label>System back at</label>
+                            <input type="datetime-local" @bind="_endLocal" data-outage-end-time />
+                        </div>
+                        <div class="field" style="align-self:end;">
+                            <button class="btn btn-primary btn-sm" disabled="@(_busy || _endLocal is null)" @onclick="() => EndAsync(open.Id)" data-outage-end>End outage</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        @if (_episodes.Count > 0)
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Outage</th><th>Started</th><th>Ended</th><th>What was down</th><th>Paper issues back-entered</th><th>Recorded by</th></tr></thead>
+                <tbody>
+                    @foreach (var e in _episodes)
+                    {
+                        <tr data-outage="@e.Id">
+                            <td class="mono">#@e.Id</td>
+                            <td class="nowrap">@e.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">
+                                @if (e.EndedUtc is { } ended)
+                                {
+                                    @ended.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                }
+                                else
+                                {
+                                    <span class="badge badge-amber">Still down</span>
+                                }
+                            </td>
+                            <td>@e.Description</td>
+                            <td>
+                                @e.BackEntries
+                                @if (e.BackEntriesOpen > 0)
+                                {
+                                    <span class="sub"><a href="/issuing?desk=issued">@e.BackEntriesOpen transfusion not yet entered</a></span>
+                                }
+                            </td>
+                            <td>@RecordedBy(e)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty">No outage recorded.</div>
+        }
+        @if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
+        {
+            <details style="margin-top:.75rem;" open="@(_episodes.Count == 0)" data-outage-record>
+                <summary>Record an outage</summary>
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Started</label>
+                        <input type="datetime-local" @bind="_newStartLocal" data-outage-start />
+                    </div>
+                    <div class="field"><label>Ended (blank while still down)</label>
+                        <input type="datetime-local" @bind="_newEndLocal" data-outage-ended />
+                    </div>
+                    <div class="field" style="flex:2;"><label>What was down</label>
+                        <input @bind="_newDescription" @bind:event="oninput" maxlength="200" placeholder="e.g. LIS upgrade, or network outage" data-outage-description />
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm" disabled="@(_busy || _newStartLocal is null || string.IsNullOrWhiteSpace(_newDescription))" @onclick="RecordAsync" data-outage-save>Record outage</button>
+            </details>
+        }
+    </div>
+}
 
 @if (!Session.Has(PermissionCodes.AuditRead))
 {
@@ -29,9 +127,10 @@ else
 {
     <div class="bb-card">
         <div class="flex gap" style="margin-bottom:.75rem;">
-            <span class="muted">Generated @_snap.GeneratedUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+            <span class="muted">Generated @_snap.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</span>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
         </div>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Queue</th><th>Count</th><th>Where to work it</th></tr></thead>
             <tbody>
@@ -39,6 +138,11 @@ else
                     <td>Unresolved interface errors</td>
                     <td class="mono">@Work(_snap.UnresolvedInterfaceErrors)</td>
                     <td><a href="/hl7">Open HL7</a></td>
+                </tr>
+                <tr>
+                    <td>Failed instrument messages not yet replayed or resolved</td>
+                    <td class="mono">@Work(_snap.OpenInstrumentFailures)</td>
+                    <td><a href="/instruments">Open Instruments</a></td>
                 </tr>
                 <tr>
                     <td>Pending outbound HL7 (received, errored, or nacked)</td>
@@ -49,6 +153,27 @@ else
                     <td>Open issues (still Issued)</td>
                     <td class="mono">@Work(_snap.OpenIssues)</td>
                     <td><a href="/issuing">Open Issue &amp; Transfuse</a></td>
+                </tr>
+                <tr>
+                    <td>Paper issues back-entered, transfusion not yet entered
+                        <span class="sub">Of these, @_snap.BackEntriesAwaitingWardReceipt not yet received at the ward</span></td>
+                    <td class="mono">@Work(_snap.BackEntriesAwaitingTransfusion)</td>
+                    <td><a href="/issuing?desk=issued">Open Issued units</a><span class="sub"><a href="/issuing?desk=transit">Open In transit</a></span></td>
+                </tr>
+                <tr data-queue="verify">
+                    <td>Results entered and waiting for verification
+                        @if (_snap.ResultsVerifyBeforeExpiry > 0)
+                        {
+                            <span class="sub">Of these, @_snap.ResultsVerifyBeforeExpiry must be verified before their specimen expires</span>
+                        }
+                    </td>
+                    <td class="mono">@Work(_snap.ResultsAwaitingVerification)</td>
+                    <td><a href="/test-worklist?show=verify">Open To verify</a></td>
+                </tr>
+                <tr data-queue="reservations-lapsed">
+                    <td>Reservations past their end time, unit still held</td>
+                    <td class="mono">@Work(_snap.ReservationsLapsed)</td>
+                    <td><a href="/issuing?desk=ready">Open Ready to issue</a></td>
                 </tr>
                 <tr>
                     <td>Pending retrospective crossmatches</td>
@@ -67,6 +192,7 @@ else
                 </tr>
             </tbody>
         </table>
+        </div>
         <p class="muted" style="margin-top:.75rem;">
             Audit chain <span class="mono">@_snap.AuditChainCode</span>: @_snap.AuditChainMessage
         </p>
@@ -85,7 +211,76 @@ else
         ? @<span class="badge badge-amber">@count</span>
         : @<span class="muted">0</span>;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private List<DowntimeEpisodeDto> _episodes = new();
+    private Feedback? _episodeFb;
+    private DateTime? _endLocal;
+    private DateTime? _newStartLocal;
+    private DateTime? _newEndLocal;
+    private string? _newDescription;
+
+    private static string RecordedBy(DowntimeEpisodeDto e) =>
+        e.EndedBy is { } by && by != e.RecordedBy ? $"{e.RecordedBy}; ended by {by}" : e.RecordedBy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEpisodesAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadEpisodesAsync()
+    {
+        if (!Session.Has(PermissionCodes.IssueCreate))
+        {
+            return;
+        }
+
+        var r = await Api.GetDowntimeEpisodesAsync();
+        _episodes = r.Value ?? new();
+        // Ending an open outage defaults to now: the usual moment to end it is as the system comes back.
+        _endLocal ??= TrimSeconds(DateTime.Now);
+    }
+
+    private static DateTime TrimSeconds(DateTime t) => new(t.Year, t.Month, t.Day, t.Hour, t.Minute, 0, t.Kind);
+
+    private static DateTime? ToUtc(DateTime? local) =>
+        local is { } l ? DateTime.SpecifyKind(l, DateTimeKind.Local).ToUniversalTime() : null;
+
+    private async Task RecordAsync()
+    {
+        _busy = true;
+        var r = await Api.RecordDowntimeEpisodeAsync(new RecordDowntimeEpisodeRequest(
+            ToUtc(_newStartLocal)!.Value, ToUtc(_newEndLocal), _newDescription?.Trim() ?? string.Empty));
+        _busy = false;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _episodeFb = Feedback.Succeed($"Outage #{r.Value.Id} recorded.");
+            _newStartLocal = null;
+            _newEndLocal = null;
+            _newDescription = null;
+            await LoadEpisodesAsync();
+        }
+        else
+        {
+            _episodeFb = r.ToFeedback();
+        }
+    }
+
+    private async Task EndAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.EndDowntimeEpisodeAsync(id, new EndDowntimeEpisodeRequest(ToUtc(_endLocal)!.Value));
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _episodeFb = Feedback.Succeed($"Outage #{id} ended. Enter the paper records, then work the queues below.");
+            await LoadEpisodesAsync();
+            await LoadAsync();
+        }
+        else
+        {
+            _episodeFb = r.ToFeedback();
+        }
+    }
 
     private async Task LoadAsync()
     {

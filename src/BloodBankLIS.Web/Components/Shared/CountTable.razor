@@ -1,0 +1,49 @@
+@* Units in one group of a stock count. *@
+<div class="table-scroll">
+<table class="bb">
+    <thead>
+        <tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th>Expires</th>@if (ShowRecorded) { <th>Recorded in</th> }@if (Action is not null) { <th></th> }</tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Rows)
+        {
+            <tr>
+                <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
+                <td>
+                    @(row.ProductName ?? "—")
+                    @if (row.WrongStorage is not null)
+                    {
+                        <span class="badge badge-red" title="Move it to a location that takes it, and check whether it is still fit for use." data-count-wrong-storage>Wrong storage</span>
+                        <span class="sub">@row.WrongStorage</span>
+                    }
+                </td>
+                <td>@row.BloodType</td>
+                <td>@Ui.EnumText(row.Status)</td>
+                <td class="nowrap">
+                    @row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                    @if (row.Expired)
+                    {
+                        <a class="badge badge-red" href="/inventory/discard-expired" title="Past its expiry: discard it">Expired</a>
+                    }
+                </td>
+                @if (ShowRecorded)
+                {
+                    <td>@(row.RecordedLocation ?? "No location")</td>
+                }
+                @if (Action is not null)
+                {
+                    <td class="right">@Action(row)</td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<InventoryCountLineDto> Rows { get; set; } = [];
+    [Parameter] public bool ShowRecorded { get; set; }
+
+    /// <summary>An optional follow-up for each row, such as Mark missing or Found here.</summary>
+    [Parameter] public RenderFragment<InventoryCountLineDto>? Action { get; set; }
+}

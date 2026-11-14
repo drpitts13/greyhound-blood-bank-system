@@ -1,0 +1,35 @@
+@* Optional bedside vital signs (end-user testing, 2026-11-12): before the transfusion starts and after it ends. *@
+@using BloodBankLIS.Domain.ValueObjects
+
+<fieldset class="form-row" style="border:0;padding:0;margin:.5rem 0;" data-vitals="@Key">
+    <legend class="muted" style="font-size:.85rem;">@Title</legend>
+    <div class="field" style="max-width:7rem;"><label>Temp °C</label><input type="number" step="0.1" @bind="Draft.TemperatureC" data-vitals-temp /></div>
+    <div class="field" style="max-width:6rem;"><label>Pulse</label><input type="number" @bind="Draft.Pulse" data-vitals-pulse /></div>
+    <div class="field" style="max-width:6rem;"><label>BP systolic</label><input type="number" @bind="Draft.SystolicBp" data-vitals-sys /></div>
+    <div class="field" style="max-width:6rem;"><label>BP diastolic</label><input type="number" @bind="Draft.DiastolicBp" data-vitals-dia /></div>
+    <div class="field" style="max-width:6rem;"><label>Resp rate</label><input type="number" @bind="Draft.RespiratoryRate" data-vitals-rr /></div>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public VitalsDraft Draft { get; set; } = new();
+    [Parameter] public string Title { get; set; } = "Vital signs (optional)";
+    [Parameter] public string Key { get; set; } = "";
+
+    /// <summary>The form's values, all optional; <see cref="ToVitals"/> is null when nothing was entered.</summary>
+    public sealed class VitalsDraft
+    {
+        public decimal? TemperatureC { get; set; }
+        public int? Pulse { get; set; }
+        public int? SystolicBp { get; set; }
+        public int? DiastolicBp { get; set; }
+        public int? RespiratoryRate { get; set; }
+
+        public TransfusionVitals? ToVitals()
+        {
+            var vitals = new TransfusionVitals(TemperatureC, Pulse, SystolicBp, DiastolicBp, RespiratoryRate);
+            return vitals.IsEmpty ? null : vitals;
+        }
+
+        public void Clear() => (TemperatureC, Pulse, SystolicBp, DiastolicBp, RespiratoryRate) = (null, null, null, null, null);
+    }
+}

@@ -53,6 +53,38 @@ public class AntibodyPanelLotAdminRuleTests
         Assert.Empty(stops);
     }
 
+    // TEST-BB-958: an antigram can be corrected only before any workup uses the lot, with a reason, and the corrected
+    // cells pass the same checks as a new lot's.
+    [Fact]
+    public void CorrectDraft_InUse_NoReason_OrBadCells_IsHardStop()
+    {
+        IReadOnlyList<AntibodyPanelLotCreateCellDraft> good =
+            [new("1", PanelCellRole.Panel, [new AntibodyPanelLotCreateAntigenDraft(10, AntigenExpression.Present)])];
+        var active = new HashSet<long> { 10 };
+
+        var inUse = Assert.Single(AntibodyPanelLotAdminRule.EvaluateCorrectDraft(2, "typo", false, good, active));
+        Assert.Equal(AntibodyPanelLotAdminRule.CorrectInUseCode, inUse.Code);
+        Assert.Contains("2 workups use this lot", inUse.Message);
+
+        Assert.Contains(AntibodyPanelLotAdminRule.EvaluateCorrectDraft(0, " ", false, good, active),
+            r => r.Code == AntibodyPanelLotAdminRule.CorrectReasonCode);
+
+        IReadOnlyList<AntibodyPanelLotCreateCellDraft> duplicate =
+        [
+            new("1", PanelCellRole.Panel, [new AntibodyPanelLotCreateAntigenDraft(10, AntigenExpression.Present)]),
+            new("1", PanelCellRole.Selected, [new AntibodyPanelLotCreateAntigenDraft(99, AntigenExpression.Present)])
+        ];
+        var stops = AntibodyPanelLotAdminRule.EvaluateCorrectDraft(0, "typo", false, duplicate, active);
+        Assert.Contains(stops, r => r.Code == AntibodyPanelLotAdminRule.CellsCode && r.Message.Contains("duplicated"));
+        Assert.Contains(stops, r => r.Code == AntibodyPanelLotAdminRule.CellsCode && r.Message.Contains("Primary panels"));
+        Assert.Contains(stops, r => r.Code == AntibodyPanelLotAdminRule.AntigenCode);
+        Assert.Contains(AntibodyPanelLotAdminRule.EvaluateCorrectDraft(0, "typo", false, [], active),
+            r => r.Message.StartsWith("A corrected antigram requires at least one cell"));
+
+        Assert.Empty(AntibodyPanelLotAdminRule.EvaluateCorrectDraft(0, "typo", false, good, active));
+        Assert.Equal(RuleSeverity.HardStop, AntibodyPanelLotAdminRule.EvaluateCorrect(false).Severity);
+    }
+
     private static AntibodyPanelLotCreateDraft ValidDraft(
         IReadOnlyList<AntibodyPanelLotCreateCellDraft>? cells = null) =>
         new(

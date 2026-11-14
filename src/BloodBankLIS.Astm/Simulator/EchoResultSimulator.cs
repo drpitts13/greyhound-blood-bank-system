@@ -30,7 +30,9 @@ public static class EchoResultSimulator
     public static EchoSimulatorResult Generate(EchoSimulatorRequest request)
     {
         var rng = request.Seed is int seed ? new Random(seed) : Random.Shared;
-        var now = DateTime.UtcNow;
+        // An analyzer stamps its own clock, local time (end-user testing pass 63: the simulator stamped UTC, so results
+        // read "completed 07:20 (instrument clock)" at 02:20 on the bench).
+        var now = DateTime.Now;
         var records = new List<string>
         {
             AstmBuilder.Header("ImmuLINK", "LIS", now),
@@ -188,5 +190,5 @@ public static class EchoResultSimulator
 
     private static string Pick(Random rng, IReadOnlyList<string> values) => values[rng.Next(values.Count)];
 
-    private static string Stamp(DateTime utc) => utc.ToString("yyyyMMddHHmmss");
+    private static string Stamp(DateTime instrumentClock) => instrumentClock.ToString("yyyyMMddHHmmss");
 }

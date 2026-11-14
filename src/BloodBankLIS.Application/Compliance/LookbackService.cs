@@ -12,7 +12,12 @@ public sealed record LookbackUnitDto(
     string? Din,
     string UnitNumber,
     UnitStatus Status,
-    bool IsDerivedComponent);
+    bool IsDerivedComponent)
+{
+    /// <summary>What the component is and where it is now, to find and pull it in a recall (end-user testing pass 20).</summary>
+    public string? ProductName { get; init; }
+    public string? LocationName { get; init; }
+}
 
 public sealed record LookbackRecipientDto(
     long BloodProductId,
@@ -74,7 +79,15 @@ public sealed record LookbackReportDto(
     string Din,
     IReadOnlyList<LookbackUnitDto> Units,
     IReadOnlyList<LookbackRecipientDto> Recipients,
-    IReadOnlyList<LookbackNotificationDto> Notifications);
+    IReadOnlyList<LookbackNotificationDto> Notifications,
+    // Cycle 687: after a recall, the components left as they were and why (empty after a search).
+    IReadOnlyList<LookbackNotRecalledDto>? NotRecalledUnits = null)
+{
+    public IReadOnlyList<LookbackNotRecalledDto> NotRecalled => NotRecalledUnits ?? [];
+}
+
+/// <summary>A component of a recalled donation that was not recalled, and why (LookbackRecallRule).</summary>
+public sealed record LookbackNotRecalledDto(long BloodProductId, string UnitNumber, UnitStatus Status, string Why);
 
 public sealed record LookbackNotificationDto(
     long Id,
@@ -89,8 +102,19 @@ public sealed record LookbackNotificationDto(
     string? Notes,
     string? UnitNumber = null,
     string? MedicalRecordNumber = null,
-    string? PatientName = null)
+    string? PatientName = null,
+    // A unit shipped to another facility: that facility is the one to notify, and who received the shipment there.
+    string? ShippedToFacility = null,
+    string? ShippedReceivingContact = null)
 {
+    /// <summary>
+    /// When the notification was opened, and when the physician is to be notified by (OCD-089), whether that has
+    /// passed. End-user testing pass 66: an open notification said nothing of how long it had waited.
+    /// </summary>
+    public DateTime? OpenedUtc { get; init; }
+    public DateTime? NotifyByUtc { get; init; }
+    public bool PastNotifyBy { get; init; }
+
     public static LookbackNotificationDto From(LookbackNotification n) => new(
         n.Id, n.Din, n.BloodProductId, n.PatientId, n.IssueId, n.Status,
         n.PhysicianOfRecord, n.AttemptedUtc, n.AttemptedBy, n.Notes);
@@ -107,6 +131,7 @@ public sealed class LookbackService
     private readonly IRepository<TransfusionEvent> _transfusions;
     private readonly IRepository<Patient> _patients;
     private readonly IRepository<LookbackNotification> _notifications;
+    private readonly FacilityPolicyService? _policy;
     private readonly InventoryService _inventoryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
@@ -114,6 +139,7 @@ public sealed class LookbackService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<ProductType>? _productTypes;
 
     public LookbackService(
         IInventoryRepository inventory,
@@ -129,8 +155,12 @@ public sealed class LookbackService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<ProductType>? productTypes = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
+        _productTypes = productTypes;
         _inventory = inventory;
         _units = units;
         _modificationUnits = modificationUnits;
@@ -178,12 +208,22 @@ public sealed class LookbackService
         }
 
         var notes = await _notifications.ListAsync(n => n.Din == normalized, ct);
+        var productNames = _productTypes is null
+            ? new Dictionary<long, string>()
+            : (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id, p => p.Name);
+        var locationNames = _locations is null
+            ? new Dictionary<long, string>()
+            : (await _locations.ListAsync(ct)).ToDictionary(l => l.Id, l => $"{l.Code} {l.Name}".Trim());
         _audit.Record(AuditEventType.Lookback, nameof(BloodUnit), units.FirstOrDefault()?.Id, newValue: new { Din = normalized, UnitCount = units.Count }, reason: "Lookback search");
         await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<LookbackReportDto>.Ok(new LookbackReportDto(
             normalized,
-            units.Select(u => new LookbackUnitDto(u.Id, u.Din, u.UnitNumber, u.Status, u.Din != normalized)).ToList(),
+            units.Select(u => new LookbackUnitDto(u.Id, u.Din, u.UnitNumber, u.Status, u.Din != normalized)
+            {
+                ProductName = productNames.GetValueOrDefault(u.ProductTypeId),
+                LocationName = u.CurrentLocationId is long l ? locationNames.GetValueOrDefault(l) : null
+            }).ToList(),
             recipients,
             await ToNotificationDtosAsync(notes, ct)));
     }
@@ -230,16 +270,27 @@ public sealed class LookbackService
 
         var normalized = find.Value.Din;
         var units = await CollectUnitsForDinAsync(normalized, ct);
+        var notRecalled = new List<LookbackNotRecalledDto>();
 
         foreach (var unit in units)
         {
-            if (NeedsConsigneeNotification(unit.Status))
+            if (NeedsConsigneeNotification(unit))
             {
                 await EnsureConsigneeNotificationAsync(normalized, unit, reason, ct);
             }
 
-            if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped)
+            // Transfused here (including a transfusion the EHR reported over the unit's status, OCD-083), or shipped to
+            // another facility (that facility is notified): the unit is not in stock to recall.
+            if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped or UnitStatus.ShippedOut
+                || unit.TransfusionReportedUtc is not null)
             {
+                continue;
+            }
+
+            // A component that cannot become Recalled is left as it is and named, so the rest of the donation is still recalled.
+            if (LookbackRecallRule.WhyNotRecalled(unit.Status) is string why)
+            {
+                notRecalled.Add(new LookbackNotRecalledDto(unit.Id, unit.UnitNumber, unit.Status, why));
                 continue;
             }
 
@@ -265,11 +316,15 @@ public sealed class LookbackService
             {
                 Din = normalized,
                 UnitCount = units.Count,
-                PendingNotificationCount = units.Count(u => NeedsConsigneeNotification(u.Status))
+                PendingNotificationCount = units.Count(NeedsConsigneeNotification),
+                NotRecalled = notRecalled.Select(n => new { n.UnitNumber, n.Status, n.Why }).ToList()
             },
             reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
-        return await FindByDinAsync(normalized, ct);
+        var report = await FindByDinAsync(normalized, ct);
+        return report.Succeeded && report.Value is not null
+            ? OperationResult<LookbackReportDto>.Ok(report.Value with { NotRecalledUnits = notRecalled })
+            : report;
     }
 
     public async Task<OperationResult<LookbackNotification>> RecordAttemptAsync(
@@ -386,7 +441,7 @@ public sealed class LookbackService
                 issue.IssueType,
                 issue.Status,
                 tx?.Id,
-                tx?.FinalDisposition,
+                tx is null ? null : TransfusionRecordState.Outcome(tx.FinalDisposition, tx.StopUtc, issue.Status),
                 tx?.ReactionSuspected ?? false));
         }
 
@@ -530,11 +585,16 @@ public sealed class LookbackService
     /// Distributed components need a consignee row: already transfused, or issued
     /// and not yet recorded as transfused. In-stock components are recalled only.
     /// </summary>
+    // Cycle 702: a unit the EHR reported transfused over its status (OCD-083) has a recipient to notify, whatever its status.
+    private static bool NeedsConsigneeNotification(BloodUnit unit) =>
+        NeedsConsigneeNotification(unit.Status) || unit.TransfusionReportedUtc is not null;
+
     private static bool NeedsConsigneeNotification(UnitStatus status) =>
         status is UnitStatus.Issued
             or UnitStatus.TransfusionStarted
             or UnitStatus.TransfusionStopped
-            or UnitStatus.Transfused;
+            or UnitStatus.Transfused
+            or UnitStatus.ShippedOut;
 
     private async Task EnsureConsigneeNotificationAsync(
         string din, BloodUnit unit, string reason, CancellationToken ct)
@@ -547,7 +607,8 @@ public sealed class LookbackService
         }
 
         var issues = await _issues.ListAsync(i => i.BloodProductId == unit.Id, ct);
-        var issue = SelectConsigneeIssue(issues, unit.Status);
+        // A transfusion the EHR reported over the unit's status (OCD-083) is a transfusion: its recipient is notified.
+        var issue = SelectConsigneeIssue(issues, unit.TransfusionReportedUtc is not null ? UnitStatus.Transfused : unit.Status);
         var transfusion = issue is null
             ? null
             : await _transfusions.FirstOrDefaultAsync(t => t.IssueId == issue.Id, ct);
@@ -567,8 +628,11 @@ public sealed class LookbackService
         IReadOnlyList<LookbackNotification> notes, CancellationToken ct)
     {
         var dtos = new List<LookbackNotificationDto>();
+        var notifyWithinDays = _policy is null ? 0 : await _policy.GetLookbackNotifyWithinDaysAsync(ct);
+        var now = _clock.UtcNow;
         foreach (var note in notes.OrderBy(n => n.Id))
         {
+            var notifyBy = LookbackNotifyRule.NotifyBy(note.CreatedUtc, notifyWithinDays, note.Status);
             var unit = await _units.GetByIdAsync(note.BloodProductId, ct);
             Patient? patient = null;
             if (note.PatientId is long patientId)
@@ -580,7 +644,12 @@ public sealed class LookbackService
             {
                 UnitNumber = unit?.UnitNumber,
                 MedicalRecordNumber = patient?.MedicalRecordNumber,
-                PatientName = FormatName(patient)
+                PatientName = FormatName(patient),
+                ShippedToFacility = unit?.Status == UnitStatus.ShippedOut ? unit.ShippedToFacility : null,
+                ShippedReceivingContact = unit?.Status == UnitStatus.ShippedOut ? unit.ShipReceivingContact : null,
+                OpenedUtc = note.CreatedUtc == default ? null : note.CreatedUtc,
+                NotifyByUtc = notifyBy,
+                PastNotifyBy = notifyBy is DateTime by && now > by
             });
         }
 

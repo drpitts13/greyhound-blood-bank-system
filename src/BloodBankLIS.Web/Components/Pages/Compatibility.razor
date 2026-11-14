@@ -1,8 +1,8 @@
-@page "/compatibility"
+﻿@page "/compatibility"
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Compatibility &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Compatibility &middot; HemoCore</PageTitle>
 
 <h1>Compatibility Testing</h1>
 @if (PatientId is long chartPatientId)
@@ -36,16 +36,32 @@
         else
         {
             <Outcome Value="_xmFb" RequiresSignature="false" />
+            <PatientRequirementsBanner PatientId="_xm.PatientId" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label>
-                    <UnitPickerComboBox Scope="UnitPickerScope.Crossmatch" @bind-Value="_xm.BloodUnitId" />
+                    @* Opened for a patient with no unit (the chart's link), scanning the unit is the next step. *@
+                    <UnitPickerComboBox Scope="UnitPickerScope.Crossmatch" @bind-Value="_xm.BloodUnitId"
+                        OnlyIds="@(_xmShowAll ? null : _xmOffer?.Ids)"
+                        Autofocus="@(PatientId is not null && BloodUnitId is null)" />
+                    @if (_xmOffer is { } offer)
+                    {
+                        <div class="sub" data-xm-offer>
+                            @offer.Note
+                            @if (offer.Ids is not null)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _xmShowAll = !_xmShowAll">
+                                    @(_xmShowAll ? "Show this patient's units only" : "Show all units")
+                                </button>
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="field"><label>Patient</label>
                     <FilterableComboBox TItem="PatientDto" TValue="long?"
                         Items="_patients"
                         @bind-Value="XmPatientId"
                         @bind-Value:after="LoadXmSpecimensAsync"
-                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                        DisplayText="@(p => p.PickerLabel)"
                         ItemValue="@(p => p.Id)"
                         SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
                         Clearable="true"
@@ -62,7 +78,7 @@
                         Placeholder="Search accession" />
                 </div>
                 <div class="field"><label>Method</label>
-                    <select @bind="_xm.Method" @bind:after="OnXmMethodChanged">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }</select>
+                    <select @bind="_xm.Method" @bind:after="OnXmMethodChanged">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@Ui.EnumText(m)</option> }</select>
                 </div>
                 @if (_xm.Method != CrossmatchMethod.Electronic)
                 {
@@ -77,10 +93,7 @@
                     </div>
                 }
                 <div class="field"><label>Result</label>
-                    <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@r</option> }</select>
-                </div>
-                <div class="field"><label>Antibody screen</label>
-                    <select @bind="_xm.ScreenNegative"><option value="true">Negative</option><option value="false">Positive</option></select>
+                    <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@(r == CrossmatchResult.NotPerformed ? "— Select —" : Ui.EnumText(r))</option> }</select>
                 </div>
             </div>
             @if (_xm.Method != CrossmatchMethod.Electronic && _xmDefinition is not null)
@@ -88,6 +101,14 @@
                 <CrossmatchReactionFields Subtests="_xmDefinition.PanelSubtests" Values="_xmReactions" ValuesChanged="OnXmReactionsChanged" />
             }
             <div class="field"><label>Comment</label><input @bind="_xm.Comment" /></div>
+            @if (_showXmOverride)
+            {
+                <div class="alert alert-warning" style="margin-top:.75rem;">The pre-transfusion specimen has expired. The retrospective crossmatch can be recorded on it as an exception, with the reason and who authorized it. The exception goes to supervisor review.</div>
+                <div class="form-row">
+                    <div class="field"><label>Exception reason</label><input @bind="_xmOverrideReason" /></div>
+                    <AuthorizerField @bind-Value="_xmAuthorizedBy" />
+                </div>
+            }
             <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null || _xm.PatientId == 0 || _xm.SpecimenId == 0)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
             @if (CrossmatchMissing.Count > 0)
             {
@@ -115,14 +136,27 @@
             <Outcome Value="_allocFb" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label>
-                    <UnitPickerComboBox Scope="UnitPickerScope.Available" @bind-Value="_alloc.BloodUnitId" />
+                    <UnitPickerComboBox Scope="UnitPickerScope.Available" @bind-Value="_alloc.BloodUnitId"
+                        OnlyIds="@(_allocShowAll ? null : _allocCompatibleIds)" />
+                    @if (_allocCompatibleNote is not null)
+                    {
+                        <div class="sub" data-alloc-compatible>
+                            @_allocCompatibleNote
+                            @if (_allocCompatibleIds is not null)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _allocShowAll = !_allocShowAll">
+                                    @(_allocShowAll ? "Show compatible units only" : "Show all available units")
+                                </button>
+                            }
+                        </div>
+                    }
                 </div>
                 <div class="field"><label>Patient</label>
                     <FilterableComboBox TItem="PatientDto" TValue="long?"
                         Items="_patients"
                         @bind-Value="AllocPatientId"
                         @bind-Value:after="LoadAllocSpecimensAsync"
-                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                        DisplayText="@(p => p.PickerLabel)"
                         ItemValue="@(p => p.Id)"
                         SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
                         Clearable="true"
@@ -139,12 +173,13 @@
                         Placeholder="Search accession" />
                 </div>
             </div>
+            <PatientRequirementsBanner PatientId="_alloc.PatientId" />
             @if (_showAllocOverride)
             {
                 <div class="alert alert-warning" style="margin-top:.75rem;">This unit is not antigen-negative for the patient's antibody. Reserve requires an authorized override.</div>
                 <div class="form-row">
                     <div class="field"><label>Override reason</label><input @bind="_allocOverrideReason" /></div>
-                    <div class="field"><label>Authorized by</label><input @bind="_allocAuthorizedBy" /></div>
+                    <AuthorizerField @bind-Value="_allocAuthorizedBy" />
                 </div>
             }
             <button class="btn btn-primary" disabled="@(_busy || _alloc.BloodUnitId is null || _alloc.PatientId == 0)" @onclick="AllocateAsync">Reserve unit</button>
@@ -152,7 +187,7 @@
             @if (_lastAllocation is not null)
             {
                 <div class="alert alert-info" style="margin-top:1rem;">
-                    Allocation <strong>#@_lastAllocation.Id</strong> for unit @_lastAllocation.BloodUnitId &mdash; <span class="@Ui.Badge(_lastAllocation.Status)">@_lastAllocation.Status</span>
+                    Allocation <strong>#@_lastAllocation.Id</strong> for unit <span class="mono">@(_lastAllocationUnitNumber ?? "—")</span> &mdash; <span class="@Ui.Badge(_lastAllocation.Status)">@Ui.EnumText(_lastAllocation.Status)</span>
                     <div class="flex gap" style="margin-top:.5rem;">
                         <input @bind="_releaseReason" @bind:event="oninput" placeholder="Release reason" style="flex:1;" />
                         <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReason))" @onclick="() => ReleaseAsync(_lastAllocation.Id)">Release</button>
@@ -235,6 +270,9 @@
     private AllocModel _alloc = new();
     private Feedback? _allocFb;
     private bool _showAllocOverride;
+    private bool _showXmOverride;
+    private string _xmOverrideReason = string.Empty;
+    private string _xmAuthorizedBy = string.Empty;
     private string _allocOverrideReason = string.Empty;
     private string _allocAuthorizedBy = string.Empty;
     private AllocationDto? _lastAllocation;
@@ -324,8 +362,31 @@
         if (_alloc.SpecimenId == 0) _alloc.SpecimenId = preferred.Id;
     }
 
+    // The units offered for the chosen patient: reserved for them, then compatible in stock. The retrospective
+    // emergency path keeps every unit (its unit was already issued).
+    private CrossmatchUnitOffer.Offer? _xmOffer;
+    private bool _xmShowAll;
+
+    private async Task LoadXmUnitOfferAsync()
+    {
+        _xmOffer = null;
+        _xmShowAll = false;
+        if (_xm.PatientId == 0 || _fromRetro)
+        {
+            return;
+        }
+
+        var reserved = await Api.GetPatientAllocationsAsync(_xm.PatientId);
+        var compatible = await Api.GetPatientCompatibleUnitsAsync(_xm.PatientId);
+        _xmOffer = CrossmatchUnitOffer.Build(
+            reserved.Succeeded ? (reserved.Value ?? new()).Select(a => a.BloodUnitId) : [],
+            compatible.Succeeded && reserved.Succeeded ? (compatible.Value ?? new()).Select(u => u.BloodUnitId) : null,
+            !reserved.Succeeded ? reserved.Error : compatible.Error);
+    }
+
     private async Task LoadXmSpecimensAsync()
     {
+        await LoadXmUnitOfferAsync();
         if (_xm.PatientId == 0)
         {
             _xmSpecimens = new();
@@ -427,8 +488,38 @@
         }
     }
 
+    // Units offered for the chosen patient: the chart's compatible list (type, special requirements, antigens).
+    // Null shows every available unit; Reserve checks the chosen unit either way.
+    private HashSet<long>? _allocCompatibleIds;
+    private string? _allocCompatibleNote;
+    private bool _allocShowAll;
+
+    private async Task LoadAllocCompatibleAsync()
+    {
+        _allocCompatibleIds = null;
+        _allocCompatibleNote = null;
+        _allocShowAll = false;
+        if (_alloc.PatientId == 0)
+        {
+            return;
+        }
+
+        var r = await Api.GetPatientCompatibleUnitsAsync(_alloc.PatientId);
+        if (r.Succeeded && r.Value is not null)
+        {
+            _allocCompatibleIds = r.Value.Select(u => u.BloodUnitId).ToHashSet();
+            _allocCompatibleNote = BloodBankLIS.Application.PatientWorkspace.CompatibleUnitSummary.Note(r.Value);
+        }
+        else
+        {
+            var why = (r.Error ?? "the compatible list could not be loaded").Trim().TrimEnd('.');
+            _allocCompatibleNote = $"Showing all available units: {why}. Reserve still checks the unit.";
+        }
+    }
+
     private async Task LoadAllocSpecimensAsync()
     {
+        await LoadAllocCompatibleAsync();
         if (_alloc.PatientId == 0)
         {
             _allocSpecimens = new();
@@ -445,7 +536,7 @@
 
     private static string FormatSpecimen(SpecimenDto s)
     {
-        var expires = s.ExpiresUtc is DateTime exp ? $" expires {exp:yyyy-MM-dd HH:mm}" : "";
+        var expires = s.ExpiresUtc is DateTime exp ? $" expires {exp.ToLocalTime():yyyy-MM-dd HH:mm}" : "";
         return $"{s.AccessionNumber} — {s.SpecimenType} ({s.Status}{expires})";
     }
 
@@ -479,12 +570,22 @@
         }
 
         _busy = true;
-        var req = new RecordCrossmatchRequest(_xm.BloodUnitId!.Value, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, _xm.ScreenNegative,
-            string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment);
+        var req = new RecordCrossmatchRequest(_xm.BloodUnitId!.Value, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, AntibodyScreenNegative: true,
+            string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment,
+            OverrideReason: _showXmOverride && !string.IsNullOrWhiteSpace(_xmOverrideReason) ? _xmOverrideReason.Trim() : null,
+            AuthorizedBy: _showXmOverride && !string.IsNullOrWhiteSpace(_xmAuthorizedBy) ? _xmAuthorizedBy.Trim() : null);
         var r = await Api.RecordCrossmatchAsync(req);
         _busy = false;
+        if (r.Blocked && r.Overridable)
+        {
+            _showXmOverride = true;
+        }
+
         if (r.Succeeded && r.Value is not null)
         {
+            _showXmOverride = false;
+            _xmOverrideReason = string.Empty;
+            _xmAuthorizedBy = string.Empty;
             _lastCrossmatch = r.Value;
             _alloc.BloodUnitId = _xm.BloodUnitId;
             _alloc.PatientId = _xm.PatientId;
@@ -525,7 +626,9 @@
             return;
         }
 
-        var line = await Api.EnsureManualCrossmatchLineAsync(_xm.PatientId, allocation.AllocationId, _xmTestCode!);
+        // The crossmatch is recorded on the specimen chosen here, not another of the order's (end-user testing, 2026-11-12).
+        var line = await Api.EnsureManualCrossmatchLineAsync(_xm.PatientId, allocation.AllocationId, _xmTestCode!,
+            specimenId: _xm.SpecimenId > 0 ? _xm.SpecimenId : null);
         if (!line.Succeeded || line.Value is null)
         {
             _busy = false;
@@ -549,7 +652,7 @@
             UnitNumber: allocation.UnitNumber,
             CrossmatchMethod: _xm.Method,
             CrossmatchResult: _xm.Result,
-            AntibodyScreenNegative: _xm.ScreenNegative));
+            AntibodyScreenNegative: true));
         _busy = false;
         _xmFb = save.Succeeded
             ? Feedback.Succeed($"Crossmatch recorded for unit {allocation.UnitNumber}.")
@@ -587,7 +690,7 @@
             _showAllocOverride = true;
             if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
             {
-                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+                _allocAuthorizedBy = string.Empty;
             }
 
             _allocFb = r.ToFeedback();
@@ -598,11 +701,16 @@
         if (r.Succeeded)
         {
             _lastAllocation = r.Value;
+            // The unit number, never the internal id (end-user testing, 2026-11-12: "for unit 79").
+            _lastAllocationUnitNumber = r.Value is null ? null : (await Api.GetUnitAsync(r.Value.BloodUnitId)).Value?.UnitNumber;
             _showAllocOverride = false;
             _allocOverrideReason = string.Empty;
             _allocAuthorizedBy = string.Empty;
+            await LoadAllocCompatibleAsync();
         }
     }
+
+    private string? _lastAllocationUnitNumber;
 
     private async Task ReleaseAsync(long id)
     {
@@ -610,7 +718,11 @@
         var r = await Api.ReleaseAllocationAsync(id, _releaseReason);
         _busy = false;
         _allocFb = r.ToFeedback("Allocation released.");
-        if (r.Succeeded) _lastAllocation = r.Value;
+        if (r.Succeeded)
+        {
+            _lastAllocation = r.Value;
+            await LoadAllocCompatibleAsync();
+        }
     }
 
     private sealed class XmModel
@@ -619,8 +731,8 @@
         public long PatientId { get; set; }
         public long SpecimenId { get; set; }
         public CrossmatchMethod Method { get; set; } = CrossmatchMethod.Serologic;
-        public CrossmatchResult Result { get; set; } = CrossmatchResult.Compatible;
-        public bool ScreenNegative { get; set; } = true;
+        // Starts unchosen; never assumed Compatible.
+        public CrossmatchResult Result { get; set; } = CrossmatchResult.NotPerformed;
         public string? Comment { get; set; }
     }
 

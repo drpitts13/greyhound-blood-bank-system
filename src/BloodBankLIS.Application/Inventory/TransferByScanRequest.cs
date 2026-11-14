@@ -1,0 +1,64 @@
+using BloodBankLIS.Domain.Enums;
+
+namespace BloodBankLIS.Application.Inventory;
+
+/// <summary>Move the scanned unit to a location (the Move units desk).</summary>
+public sealed record TransferByScanRequest(string? Scan, long ToLocationId, string? Reason = null);
+
+/// <summary>A unit scanned into a return shipment to its supplier, with the reason for the whole shipment.</summary>
+public sealed record ReturnToSupplierByScanRequest(string? Scan, string? Reason);
+
+/// <summary>Cycle 690: a recalled unit found and scanned, to quarantine it for the recall.</summary>
+public sealed record PullRecalledByScanRequest(string? Scan);
+
+/// <summary>A unit scanned into an outbound shipment to another facility; the facility and reference are given once per shipment.</summary>
+/// <summary>OCD-072: Container, PackingTemperatureC, PackedBy and ReceivingContact are required for every shipment.</summary>
+public sealed record ShipOutByScanRequest(
+    string? Scan,
+    string? Facility,
+    string? Reference = null,
+    string? Note = null,
+    string? Container = null,
+    decimal? PackingTemperatureC = null,
+    string? PackedBy = null,
+    string? ReceivingContact = null);
+
+/// <summary>One outbound shipment: the units shipped to a facility under one reference (or on one day without one).</summary>
+public sealed record OutboundShipmentDto(
+    string Facility,
+    string? Reference,
+    DateTime FirstShippedUtc,
+    DateTime LastShippedUtc,
+    IReadOnlyList<BloodUnitDto> Units,
+    // OCD-072, as recorded on the shipment's first unit; null for shipments recorded before it was required.
+    string? Container = null,
+    decimal? PackingTemperatureC = null,
+    string? PackedBy = null,
+    string? ReceivingContact = null);
+
+/// <summary>
+/// Cycle 686: one return to the supplier, the units returned for one reason on one (UTC) day, with who returned them and
+/// the suppliers they go back to.
+/// </summary>
+public sealed record SupplierReturnDto(
+    string Key,
+    string Reason,
+    DateTime FirstReturnedUtc,
+    DateTime LastReturnedUtc,
+    IReadOnlyList<string> ReturnedBy,
+    IReadOnlyList<string> Suppliers,
+    IReadOnlyList<BloodUnitDto> Units);
+
+/// <summary>An expired unit scanned for disposal; the second verifier when the facility requires one.</summary>
+public sealed record DiscardExpiredByScanRequest(string? Scan, string? SecondVerifier = null);
+
+/// <summary>An expired unit still on a shelf, waiting to be discarded.</summary>
+public sealed record ExpiredUnitDto(
+    long UnitId,
+    string UnitNumber,
+    string? ProductCode,
+    string? ProductName,
+    string BloodType,
+    UnitStatus Status,
+    DateTime ExpiresUtc,
+    string? LocationName);

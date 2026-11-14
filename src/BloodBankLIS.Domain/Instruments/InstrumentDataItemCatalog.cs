@@ -22,7 +22,8 @@ public static class InstrumentDataItemCatalog
         new(InstrumentDataItemKeys.TestCode, "Test code", "Instrument assay / battery code.", "O.5.4", true),
         new(InstrumentDataItemKeys.SubtestCode, "Subtest code", "Instrument analyte code.", "R.3.4", true),
         new(InstrumentDataItemKeys.SubtestResult, "Subtest result", "Original reaction or measured value.", "R.4.1", true),
-        new(InstrumentDataItemKeys.TestInterp, "Test interpretation", "Assay-level interpretation (analyte equals assay).", "R.4.1", false)
+        new(InstrumentDataItemKeys.TestInterp, "Test interpretation", "Assay-level interpretation (analyte equals assay).", "R.4.1", false),
+        new(InstrumentDataItemKeys.ResultFlag, "Result flag", "Instrument flag on a result (ASTM abnormal flags), translated as an error code.", "R.7", false)
     ];
 
     public static InstrumentDataItem? Find(string key) =>

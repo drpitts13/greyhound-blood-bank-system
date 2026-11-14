@@ -20,6 +20,12 @@ public class OrderLine : BaseEntity
 
     public string? TestCode { get; set; }
 
+    /// <summary>
+    /// The test grouper this line was ordered as part of (for example TNS for ABORH and ABSC), so a result can be
+    /// reported to the EHR under the grouper's procedure code. Null when the test was ordered on its own.
+    /// </summary>
+    public string? GrouperCode { get; set; }
+
     public OrderType OrderType { get; set; } = OrderType.Other;
 
     public long? ProductTypeId { get; set; }
@@ -34,6 +40,15 @@ public class OrderLine : BaseEntity
 
     /// <summary>Free-text test-line comment. Coded comments from the Test catalog may be inserted.</summary>
     public string? Comment { get; set; }
+
+    /// <summary>For a line added by a reflex rule: the test whose verified result added it. Null otherwise.</summary>
+    public string? ReflexFromTestCode { get; set; }
+
+    /// <summary>For a reflex line: the verified value (or interpretation) that matched the rule.</summary>
+    public string? ReflexFromValue { get; set; }
+
+    /// <summary>For a reflex line: the verified result that added it.</summary>
+    public long? ReflexFromResultId { get; set; }
 
     /// <summary>Patient-blood-management check for a product line (OCD-038).</summary>
     public BloodBankLIS.Domain.Rules.PbmStatus PbmStatus { get; set; }

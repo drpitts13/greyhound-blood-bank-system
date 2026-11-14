@@ -122,6 +122,21 @@ public class IssueGateSafetyRegressionTests
         Assert.False(evaluation.IsHardStopped);
     }
 
+    // RISK-BB-532: an emergency override must never release red cells that conflict with an established ABO group.
+    [Fact]
+    public void Emergency_GroupARedCells_ForEstablishedGroupO_IsHardStopped()
+    {
+        var evaluation = IssueGate.Evaluate(Passing() with
+        {
+            HasValidCrossmatch = false,
+            IsEmergencyRelease = true,
+            PatientAboRh = new AboRh(AboGroup.O, RhType.Positive),
+            UnitAboRh = new AboRh(AboGroup.A, RhType.Positive)
+        });
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == EmergencyUncrossmatchedAboRule.EstablishedConflictCode);
+    }
+
     [Fact]
     public void IdentityNotConfirmed_IsHardStopped()
     {

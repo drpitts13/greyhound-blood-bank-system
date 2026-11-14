@@ -4,7 +4,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Report designer · Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Report designer · HemoCore</PageTitle>
 
 <h1>@(Id is null ? "New report" : "Design report")</h1>
 <p class="muted">Drag fields onto the report, or write one SELECT against a reporting view. Facility operational reports are not an FDA, AABB, or CAP compliance claim.</p>
@@ -133,7 +133,7 @@ else
                         <select @bind="filter.Operator" disabled="@_systemOwned">
                             @foreach (var op in Enum.GetValues<ReportFilterOperator>())
                             {
-                                <option value="@op">@op</option>
+                                <option value="@op">@Ui.EnumText(op)</option>
                             }
                         </select>
                         <input placeholder="Value" @bind="filter.Value" disabled="@(_systemOwned || filter.PromptAtRun)" />
@@ -178,7 +178,7 @@ else
                         <select @bind="aggregate.Function" disabled="@_systemOwned">
                             @foreach (var function in Enum.GetValues<ReportAggregateFunction>())
                             {
-                                <option value="@function">@function</option>
+                                <option value="@function">@Ui.EnumText(function)</option>
                             }
                         </select>
                         <span class="mono">@aggregate.Field</span>
@@ -207,7 +207,7 @@ else
             <div style="overflow:auto;">
                 <table class="table">
                     <thead>
-                        <tr>@foreach (var column in _preview.Columns) { <th>@column</th> }</tr>
+                        <tr>@foreach (var column in _preview.ColumnLabels.Count == _preview.Columns.Count ? _preview.ColumnLabels : _preview.Columns) { <th>@column</th> }</tr>
                     </thead>
                     <tbody>
                         @foreach (var row in _preview.Rows.Take(50))

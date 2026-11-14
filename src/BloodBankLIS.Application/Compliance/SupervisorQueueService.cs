@@ -16,7 +16,8 @@ public sealed record SupervisorQueueItemDto(
     string NextAction,
     long? PatientId = null,
     long? ContextId = null,
-    string? Mrn = null);
+    string? Mrn = null,
+    bool DueSoon = false);
 
 /// <summary>
 /// Aggregates supervisor-scoped work already owned by ABID review, result
@@ -29,14 +30,30 @@ public sealed class SupervisorQueueService
     private readonly InventoryService? _inventory;
     private readonly ICurrentUser _currentUser;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly OverrideReviewService? _overrides;
+    private readonly RhigEvaluationService? _rhig;
+    private readonly BloodBankLIS.Application.Issuing.TransfusionReportReviewService? _reported;
+
+    /// <summary>A code name in words: "ReactionRemainder" reads "Reaction remainder".</summary>
+    private static string Words(string code)
+    {
+        var parts = System.Text.RegularExpressions.Regex.Split(code, "(?<=[a-z0-9])(?=[A-Z])").Where(p => p.Length > 0).ToList();
+        return string.Join(' ', parts.Select((p, i) => i == 0 ? p : p.ToLowerInvariant()));
+    }
 
     public SupervisorQueueService(
         ICurrentUser currentUser,
         AntibodyIdentificationService? abid = null,
         TestWorklistService? tests = null,
         InventoryService? inventory = null,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        OverrideReviewService? overrides = null,
+        RhigEvaluationService? rhig = null,
+        BloodBankLIS.Application.Issuing.TransfusionReportReviewService? reported = null)
     {
+        _reported = reported;
+        _rhig = rhig;
+        _overrides = overrides;
         _currentUser = currentUser;
         _abid = abid;
         _tests = tests;
@@ -50,7 +67,8 @@ public sealed class SupervisorQueueService
         var immuno = await HasAsync(PermissionCodes.ImmunoOverride, ct);
         var verify = await HasAsync(PermissionCodes.ResultVerify, ct);
         var release = await HasAsync(PermissionCodes.InventoryRelease, ct);
-        var access = SupervisorQueueRule.EvaluateAccess(immuno, verify, release);
+        var approve = await HasAsync(PermissionCodes.OverrideApprove, ct);
+        var access = SupervisorQueueRule.EvaluateAccess(immuno, verify, release, approve);
         if (access.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<IReadOnlyList<SupervisorQueueItemDto>>.Fail(access.Message);
@@ -86,15 +104,35 @@ public sealed class SupervisorQueueService
                          && r.CanEnterResults
                          && !r.IsAboSelfVerifyBlocked(_currentUser.UserName)))
             {
+                var detail = $"{row.CurrentResultSource}: {BloodBankLIS.Application.Results.ResultValueText.For(row.CurrentResultValue)}. Posted value needs verification.";
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindResultVerify,
                     $"Verify {row.TestCode} — {row.PatientName} ({row.Mrn})",
-                    $"{row.CurrentResultSource}: {row.CurrentResultValue ?? "—"}. Posted value needs verification.",
+                    row.VerificationDeadlineNotice is null ? detail : $"{detail} {row.VerificationDeadlineNotice}",
                     $"/test-worklist?patientId={row.PatientId}&orderLineId={row.OrderLineId}",
                     "Verify",
                     row.PatientId,
                     row.CurrentResultId,
-                    row.Mrn));
+                    row.Mrn,
+                    DueSoon: row.VerificationDeadlineNotice is not null));
+            }
+        }
+
+        // RhIG evaluations the bench filled in: a verifier completes them (same completion check as the RhIG list).
+        if (SupervisorQueueRule.IncludeResultVerify(verify) && _rhig is not null)
+        {
+            foreach (var item in (await _rhig.ListOpenAsync(ct)).Where(i => i.ReadyToComplete))
+            {
+                var e = item.Evaluation;
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindRhigComplete,
+                    $"Complete RhIG evaluation — {item.PatientName} ({item.Mrn})",
+                    $"{RhigEvaluationRule.Summary(e.Context, e.EventUtc, e.Decision, e.VialsRecommended)}. Recorded by {e.RecordedBy}.",
+                    $"/patients/{e.PatientId}?tab=rhig",
+                    "Complete",
+                    e.PatientId,
+                    e.Id,
+                    item.Mrn));
             }
         }
 
@@ -104,22 +142,77 @@ public sealed class SupervisorQueueService
             foreach (var u in quarantine)
             {
                 var product = string.IsNullOrWhiteSpace(u.ProductCode) ? "unit" : u.ProductCode!;
+                // The reason in words and the board's next step; Release only when the board would allow it (end-user
+                // testing pass 31: codes such as ReactionRemainder, and Release offered on units the board holds).
                 var reason = u.ReasonCode == UnitQuarantineReason.Unspecified
-                    ? (u.Notes ?? "Quarantine")
-                    : u.ReasonCode.ToString();
+                    ? (u.Notes ?? "Quarantine").Trim().TrimEnd('.')
+                    : Words(u.ReasonCode.ToString());
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindQuarantineRelease,
                     $"Quarantine release — {u.UnitNumber}",
-                    $"{product} {u.Abo} {u.RhD}. {reason}.",
+                    $"{product} {u.Abo} {u.RhD}. {reason}." + (string.IsNullOrWhiteSpace(u.NextStep) ? "" : $" {u.NextStep}"),
                     $"/inventory/units/{u.UnitId}",
-                    "Release",
+                    u.CanRelease ? "Release" : "Open",
                     ContextId: u.UnitId));
+            }
+        }
+
+        if (SupervisorQueueRule.IncludeDiscrepancy(release) && _inventory is not null)
+        {
+            foreach (var u in await _inventory.ListDiscrepancyAsync(ct))
+            {
+                var missing = u.Status == UnitStatus.Missing;
+                var product = string.IsNullOrWhiteSpace(u.ProductCode) ? "unit" : u.ProductCode!;
+                var reason = string.IsNullOrWhiteSpace(u.Reason) ? "No reason recorded" : u.Reason!.Trim().TrimEnd('.');
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindDiscrepancy,
+                    $"{(missing ? "Missing" : "Damaged")} — {u.UnitNumber}",
+                    $"{product} {u.Abo} {u.RhD}. {reason}. Last recorded at {u.LocationLabel}.",
+                    $"/inventory/units/{u.UnitId}",
+                    missing ? "Locate" : "Inspect",
+                    ContextId: u.UnitId));
+            }
+        }
+
+        // OCD-083 option B: each transfusion the EHR reported over a unit's status until a supervisor reviews it.
+        if (SupervisorQueueRule.IncludeTransfusionReported(release, approve) && _reported is not null)
+        {
+            foreach (var r in await _reported.ListToReviewAsync(ct))
+            {
+                var why = string.IsNullOrWhiteSpace(r.UnitReason) ? "" : $" ({r.UnitReason.Trim().TrimEnd('.')})";
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindTransfusionReported,
+                    $"Transfused while {r.UnitStatusAtReport} — {r.UnitNumber}",
+                    $"The EHR reported {r.UnitNumber} transfused to MRN {r.MedicalRecordNumber ?? r.PatientId.ToString()} {(r.StartUtc is DateTime started ? $" (started {ClinicalTimeText.Local(started)})" : "")} while the blood bank had it {r.UnitStatusAtReport}{why}. Recorded; the unit keeps its status.",
+                    $"/inventory/units/{r.BloodUnitId}",
+                    "Review",
+                    PatientId: r.PatientId,
+                    ContextId: r.TransfusionId,
+                    Mrn: r.MedicalRecordNumber,
+                    DueSoon: true));
+            }
+        }
+
+        if (SupervisorQueueRule.IncludeOverrideReview(approve) && _overrides is not null)
+        {
+            foreach (var o in await _overrides.ListPendingAsync(ct))
+            {
+                var what = OverrideActionRule.Describe(o.Action);
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindOverrideReview,
+                    // The record named as staff know it (unit and patient), not "Issue 7" (end-user testing pass 31).
+                    $"{what} — {o.ContextName ?? $"{o.ContextType} {o.ContextId}"}",
+                    $"{ClinicalTimeText.Local(o.OverriddenUtc)}. Rule {o.RuleCode}. Reason: {o.Reason.Trim().TrimEnd('.')}. Authorized by {o.AuthorizedBy} ({AuthorizerDirectoryRule.Describe(o.AuthorizerMatch, o.AuthorizerReference)}), performed by {o.PerformedBy}.",
+                    o.ContextHref ?? "/supervisor",
+                    "Review",
+                    ContextId: o.Id));
             }
         }
 
         return OperationResult<IReadOnlyList<SupervisorQueueItemDto>>.Ok(
             items
                 .OrderBy(i => SupervisorQueueRule.KindSortOrder(i.Kind))
+                .ThenBy(i => i.DueSoon ? 0 : 1)
                 .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList());
     }

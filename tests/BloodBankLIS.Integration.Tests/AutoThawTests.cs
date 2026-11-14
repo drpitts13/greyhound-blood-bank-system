@@ -97,6 +97,19 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
 
     public AutoThawServiceTests(SqliteContextFactory factory) => _factory = factory;
 
+    private AutoThawProductAdminService Admin(BloodBankDbContext c)
+    {
+        var env = new StaticEnvironmentInfo("Development", isDevMode: false);
+        return new AutoThawProductAdminService(
+            new EfRepository<AutoThawProduct>(c),
+            new EfRepository<IsbtProductCode>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
+    }
+
     private BillingService Billing(BloodBankDbContext c, CapturingPublisher publisher) =>
         new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
             new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
@@ -122,7 +135,8 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
             c,
             _factory.Clock,
             _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            modifications: new EfRepository<UnitModification>(c));
 
     private PatientAllocationService Allocations(BloodBankDbContext c) =>
         new(Compatibility(c),
@@ -215,6 +229,7 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         var thawUtc = _factory.Clock.UtcNow.AddHours(-2);
         var beforeCount = await c.BloodUnits.CountAsync();
         var before = await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId);
+        var modificationsBefore = await c.UnitModifications.CountAsync();
 
         var result = await Thaw(c, publisher).ApplyAsync(seeded.PatientId, seeded.AllocationId, thawUtc);
 
@@ -226,7 +241,125 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(thawUtc.AddHours(24), after.ExpiresUtc);
         Assert.Equal(1, await c.BillingEvents.CountAsync(e => e.BillingCode == "BB-THAW" && e.PatientId == seeded.PatientId));
         Assert.Single(publisher.Published);
-        Assert.Equal(0, await c.UnitModifications.CountAsync());
+        Assert.Equal(modificationsBefore, await c.UnitModifications.CountAsync());
+    }
+
+    [Fact]
+    public async Task Thaw_UsesTheCodesShelfLife_AndShelfLifeChangesNeedAReason()
+    {
+        // TEST-BB-565
+        await using var c = _factory.Create();
+        var seeded = await SeedReservedScenarioAsync(c, listed: true, alreadyAllocated: true);
+        var row = await c.AutoThawProducts.SingleAsync(p => p.ProductCode == seeded.ProductCode);
+
+        var noReason = await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(6, " "));
+        Assert.False(noReason.Succeeded);
+        var tooLong = await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(1000, "SOP"));
+        Assert.False(tooLong.Succeeded);
+        var changed = await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(6, "Cryo SOP rev 4"));
+        Assert.True(changed.Succeeded, changed.Error);
+        Assert.Equal(6, changed.Value!.ThawedShelfLifeHours);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(AutoThawProduct) && a.EntityId == row.Id && a.Reason == "Cryo SOP rev 4"));
+
+        var rows = await Allocations(c).ListActiveAsync(seeded.PatientId);
+        Assert.Equal(6, rows.Single(r => r.AllocationId == seeded.AllocationId).AutoThawShelfLifeHours);
+
+        var thawUtc = _factory.Clock.UtcNow.AddHours(-1);
+        var result = await Thaw(c).ApplyAsync(seeded.PatientId, seeded.AllocationId, thawUtc);
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(thawUtc.AddHours(6), (await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId)).ExpiresUtc);
+    }
+
+    // TEST-BB-858 (OCD-068, decided 2026-11-10): open-system and pooled shelf lives are set with the closed one, with a
+    // reason, blank meaning not set; out of range is refused. An open-system thaw is refused until its shelf life is set,
+    // then uses it, and the thaw records what applied. A pool (the result of a pooling modification) is recognized
+    // without asking: refused until the pooled shelf life is set, then the shorter of the two when thawed open.
+    [Fact]
+    public async Task Thaw_OpenSystemAndPooledShelfLives()
+    {
+        await using var c = _factory.Create();
+        var seeded = await SeedReservedScenarioAsync(c, listed: true, alreadyAllocated: true);
+        var row = await c.AutoThawProducts.SingleAsync(p => p.ProductCode == seeded.ProductCode);
+        var thawUtc = _factory.Clock.UtcNow.AddHours(-1);
+
+        var notSet = await Thaw(c).ApplyAsync(seeded.PatientId, seeded.AllocationId, thawUtc, openSystem: true);
+        Assert.False(notSet.Succeeded);
+        Assert.Contains("No open-system thawed shelf life is set", notSet.Error);
+        Assert.False(await c.AutoThawRequests.AnyAsync(r => r.AllocationId == seeded.AllocationId && r.Status == AutoThawRequestStatus.Completed));
+
+        Assert.False((await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(24, "SOP", OpenSystemShelfLifeHours: 0))).Succeeded);
+        var set = await Admin(c).SetShelfLifeAsync(row.Id, new SetAutoThawShelfLifeRequest(24, "Plasma SOP rev 5", OpenSystemShelfLifeHours: 4, PooledShelfLifeHours: 6));
+        Assert.True(set.Succeeded, set.Error);
+        Assert.Equal((4, 6), (set.Value!.OpenSystemShelfLifeHours, set.Value.PooledShelfLifeHours));
+
+        var thawed = await Thaw(c).ApplyAsync(seeded.PatientId, seeded.AllocationId, thawUtc, openSystem: true);
+        Assert.True(thawed.Succeeded, thawed.Error);
+        Assert.Equal(thawUtc.AddHours(4), (await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId)).ExpiresUtc);
+        var recorded = await c.AutoThawRequests.SingleAsync(r => r.AllocationId == seeded.AllocationId);
+        Assert.Equal((true, false, (int?)4), (recorded.OpenSystem, recorded.Pooled, recorded.ShelfLifeHoursApplied));
+
+        // A pooled unit of another listed code.
+        var pool = await SeedReservedScenarioAsync(c, listed: true, alreadyAllocated: true);
+        var poolRow = await c.AutoThawProducts.SingleAsync(p => p.ProductCode == pool.ProductCode);
+        var poolUnit = await c.BloodUnits.SingleAsync(u => u.Id == pool.UnitId);
+        var expiration = new ExpirationModificationCode
+        {
+            Code = $"POOL-{pool.UnitId}", OffsetAmount = 4, OffsetUnit = BloodBankLIS.Domain.ValueObjects.ExpirationOffsetUnit.Hours,
+            RelativeTo = ExpirationRelativeTo.ModificationDateTime, IsActive = true
+        };
+        c.ExpirationModificationCodes.Add(expiration);
+        await c.SaveChangesAsync();
+        var rule = new ModificationRule
+        {
+            ModificationCode = $"POOL-{pool.UnitId}", SourceProductTypeId = poolUnit.ProductTypeId, TargetProductTypeId = poolUnit.ProductTypeId,
+            ModificationType = ModificationType.Pool, ExpirationModificationCodeId = expiration.Id, IsActive = true
+        };
+        c.ModificationRules.Add(rule);
+        await c.SaveChangesAsync();
+        var pooling = new UnitModification
+        {
+            ModificationRuleId = rule.Id, ModificationType = ModificationType.Pool, ExpirationOffsetCodeApplied = "4H",
+            ResultExpiresUtc = poolUnit.ExpiresUtc, Reason = "Pooled", PerformedBy = "tech", PerformedUtc = thawUtc.AddHours(-2)
+        };
+        c.UnitModifications.Add(pooling);
+        await c.SaveChangesAsync();
+        poolUnit.DerivedFromModificationId = pooling.Id;
+        await c.SaveChangesAsync();
+
+        // TEST-BB-903: the allocation row says the unit is a pool and carries the code's times, so the prompt refuses
+        // before Yes and, once set, states the time that will apply.
+        var poolListed = (await Allocations(c).ListActiveAsync(pool.PatientId)).Single(r => r.AllocationId == pool.AllocationId);
+        Assert.True(poolListed.AutoThawPooled);
+        Assert.Null(poolListed.AutoThawPooledShelfLifeHours);
+        Assert.Contains("No pooled thawed shelf life is set", AutoThawPreview.For(poolListed, openSystem: false).Refusal);
+
+        var poolNotSet = await Thaw(c).ApplyAsync(pool.PatientId, pool.AllocationId, thawUtc);
+        Assert.Contains("No pooled thawed shelf life is set", poolNotSet.Error);
+        Assert.True((await Admin(c).SetShelfLifeAsync(poolRow.Id, new SetAutoThawShelfLifeRequest(24, "Pool SOP", OpenSystemShelfLifeHours: 4, PooledShelfLifeHours: 6))).Succeeded);
+        var poolSet = (await Allocations(c).ListActiveAsync(pool.PatientId)).Single(r => r.AllocationId == pool.AllocationId);
+        Assert.Equal(((int?)6, (string?)null), AutoThawPreview.For(poolSet, openSystem: false));
+        Assert.Equal(((int?)4, (string?)null), AutoThawPreview.For(poolSet, openSystem: true));
+        var poolThawed = await Thaw(c).ApplyAsync(pool.PatientId, pool.AllocationId, thawUtc, openSystem: true);
+        Assert.True(poolThawed.Succeeded, poolThawed.Error);
+        Assert.Equal(thawUtc.AddHours(4), (await c.BloodUnits.SingleAsync(u => u.Id == pool.UnitId)).ExpiresUtc);
+        Assert.True((await c.AutoThawRequests.SingleAsync(r => r.AllocationId == pool.AllocationId)).Pooled);
+    }
+
+    [Fact]
+    public async Task Thaw_NeverExtendsPastTheFrozenExpiration()
+    {
+        // TEST-BB-565
+        await using var c = _factory.Create();
+        var seeded = await SeedReservedScenarioAsync(c, listed: true, alreadyAllocated: true);
+        var unit = await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId);
+        var frozenExpires = _factory.Clock.UtcNow.AddHours(5);
+        unit.ExpiresUtc = frozenExpires;
+        await c.SaveChangesAsync();
+
+        var result = await Thaw(c).ApplyAsync(seeded.PatientId, seeded.AllocationId, _factory.Clock.UtcNow.AddMinutes(-10));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(frozenExpires, (await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId)).ExpiresUtc);
     }
 
     [Fact]

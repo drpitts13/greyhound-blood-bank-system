@@ -18,6 +18,7 @@
     </p>
 
     <h4 style="margin-top:.9rem;">Counts and totals</h4>
+    <div class="table-scroll">
     <table class="bb">
         <thead><tr><th>Function</th><th>Returns</th><th>Description</th><th>Example</th></tr></thead>
         <tbody>
@@ -32,8 +33,10 @@
             }
         </tbody>
     </table>
+    </div>
 
     <h4 style="margin-top:.9rem;">Values</h4>
+    <div class="table-scroll">
     <table class="bb">
         <thead><tr><th>Function</th><th>Returns</th><th>Description</th><th>Example</th></tr></thead>
         <tbody>
@@ -48,6 +51,7 @@
             }
         </tbody>
     </table>
+    </div>
 
     <h4 style="margin-top:.9rem;">Filters and grouping</h4>
     <p class="muted">Text values go in single quotes. Comparison ignores the database's own case rules, so write the value as it is stored, for example <span class="mono">'Verified'</span>.</p>
@@ -90,6 +94,7 @@ ORDER BY units DESC</pre>
     {
         <h4 style="margin-top:.9rem;"><span class="mono">@source.ViewName</span> — @source.Name</h4>
         <p class="muted">@Scope(source.Code)</p>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Column</th><th>Label</th><th>Kind</th></tr></thead>
             <tbody>
@@ -103,6 +108,7 @@ ORDER BY units DESC</pre>
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 

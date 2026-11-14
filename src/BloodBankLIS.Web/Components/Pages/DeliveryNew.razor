@@ -7,7 +7,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>New delivery &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>New delivery &middot; HemoCore</PageTitle>
 
 <InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Inventory" />
 
@@ -30,9 +30,10 @@
                 @foreach (var s in _suppliers) { <option value="@s.Id">@s.DisplayName</option> }
             </select>
         </div>
-        <div class="field"><label>Ordered (UTC)</label><input type="datetime-local" @bind="_orderedLocal" /></div>
+        <div class="field"><label>Ordered</label><input type="datetime-local" @bind="_orderedLocal" /></div>
         <div class="field"><label>Packing list</label><input @bind="_packingList" placeholder="Optional" /></div>
     </div>
+    <div class="table-scroll">
     <table class="bb">
         <thead><tr><th>Product</th><th>Expected quantity</th><th></th></tr></thead>
         <tbody>
@@ -58,6 +59,7 @@
             }
         </tbody>
     </table>
+    </div>
     <div class="flex gap" style="margin-top:.6rem;">
         <button class="btn btn-secondary" type="button" disabled="@(!CanAddLine)" title="@(CanAddLine ? null : "Every product is already on this delivery.")" @onclick="AddLine">Add product</button>
         <button class="btn btn-primary" disabled="@_busy" @onclick="() => CreateAsync(enterUnits: true)">Save and enter units</button>
@@ -70,7 +72,7 @@
     private Feedback? _feedback;
     private List<BloodSupplierRefDto> _suppliers = new();
     private long _supplierId;
-    private DateTime _orderedLocal = DateTime.UtcNow;
+    private DateTime _orderedLocal = LocalEntry.Now;
     private string? _packingList;
     private List<LineDraft> _lines = [new()];
 
@@ -108,7 +110,7 @@
         _busy = true;
         var r = await Api.CreateDeliveryAsync(new CreateDeliveryRequest(
             _supplierId,
-            DateTime.SpecifyKind(_orderedLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_orderedLocal),
             string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim(),
             _lines.Select(l => new SaveDeliveryLineRequest(l.ComponentClass, l.ExpectedQuantity)).ToList()));
         _busy = false;

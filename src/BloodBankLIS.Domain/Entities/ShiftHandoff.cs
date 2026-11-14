@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Common;
+﻿using BloodBankLIS.Domain.Common;
 
 namespace BloodBankLIS.Domain.Entities;
 
@@ -34,6 +34,141 @@ public class ShiftHandoff : BaseEntity
     public int OpenReactions { get; set; }
 
     public int FatalityFollowUpDue { get; set; }
+
+    /// <summary>Massive transfusion protocols still active at handoff.</summary>
+    public int ActiveMtp { get; set; }
+
+    /// <summary>Transfusions started at the bedside and not yet completed at handoff.</summary>
+    public int TransfusionsRunning { get; set; }
+
+    /// <summary>Of those, how many are past the facility completion reminder hours.</summary>
+    public int TransfusionsCompletionOverdue { get; set; }
+
+    /// <summary>Emergency or MTP issues whose retrospective crossmatch came back incompatible and are still open.</summary>
+    public int RetrospectiveIncompatible { get; set; }
+
+    /// <summary>Pending results whose specimen expires within the near-expiry window, so they must be verified first.</summary>
+    public int PendingTestsVerifyBeforeExpiry { get; set; }
+
+    /// <summary>Pending results already entered and waiting for a second person to verify them.</summary>
+    public int ResultsAwaitingVerification { get; set; }
+
+    /// <summary>Reservations past their own end time, still holding a unit for a patient.</summary>
+    public int ReservationsLapsed { get; set; }
+
+    /// <summary>Units inside the near-expiry window, and how many of them are reserved for a patient.</summary>
+    public int NearExpiryUnits { get; set; }
+
+    public int NearExpiryReserved { get; set; }
+
+    /// <summary>Coolers with units still in transit, and of those how many were never checked or checked with differences.</summary>
+    public int CoolersInTransit { get; set; }
+
+    public int CoolersNotChecked { get; set; }
+
+    public int CoolersWithDifferences { get; set; }
+
+    /// <summary>Expired units still recorded on a shelf, to pull and discard.</summary>
+    public int ExpiredOnShelf { get; set; }
+
+    /// <summary>Quality deviations not yet closed, and how many of them are critical.</summary>
+    public int OpenDeviations { get; set; }
+
+    public int CriticalDeviations { get; set; }
+
+    /// <summary>Products (by ABO where the level names one) with fewer available units than their minimum stock level.</summary>
+    public int ProductsBelowMinimum { get; set; }
+
+    /// <summary>Instrument messages that failed and are still open (replay, release, or resolve).</summary>
+    public int InstrumentFailuresOpen { get; set; }
+
+    /// <summary>Of those, results an instrument error code held for review.</summary>
+    public int InstrumentResultsHeld { get; set; }
+
+    /// <summary>Reagent lots whose latest daily QC failed.</summary>
+    public int ReagentLotsFailedQc { get; set; }
+
+    /// <summary>Results tested with those lots since they last passed QC and not yet reviewed.</summary>
+    public int ReagentResultsToReview { get; set; }
+
+    /// <summary>HL7 messages in the interface error queue not yet resolved (an order, result, or admission that did not file or send).</summary>
+    public int Hl7ErrorsOpen { get; set; }
+
+    /// <summary>Interface values with no translation, still open on the Unmapped values list.</summary>
+    public int UnmappedInterfaceValues { get; set; }
+
+    /// <summary>RhIG evaluations still needing work: not completed, or a completed candidate with no RhIG given recorded.</summary>
+    public int RhigOpen { get; set; }
+
+    /// <summary>Of those, completed candidates with no RhIG given recorded.</summary>
+    public int RhigToGive { get; set; }
+
+    /// <summary>Unidentified emergency patients not yet merged into an identified chart.</summary>
+    public int UnidentifiedPatients { get; set; }
+
+    /// <summary>Stored tubes past the facility's keep-until date (0 when no retention period is set).</summary>
+    public int TubesDueForDiscard { get; set; }
+
+    /// <summary>Open blood orders whose units are not all reserved or issued yet.</summary>
+    public int BloodOrdersToPrepare { get; set; }
+
+    /// <summary>Of those, orders whose needed-by time has passed.</summary>
+    public int BloodOrdersPastNeededBy { get; set; }
+
+    /// <summary>Of those, orders needed within the facility's warning window (OCD-075; 0 while the window is off).</summary>
+    public int BloodOrdersNeededSoon { get; set; }
+
+    /// <summary>Of the active protocols, those with no unit issued under them for the facility reminder minutes (OCD-076).</summary>
+    public int ActiveMtpIdle { get; set; }
+
+    /// <summary>
+    /// Reaction investigations still open or under review whose patient has units issued or reserved: the next shift is
+    /// warned before another unit goes to that patient (Cycle 629, OCD-078).
+    /// </summary>
+    public int ReactionsWithUnitsOut { get; set; }
+
+    /// <summary>Antibody-identification workups not completed or voided (Cycle 646).</summary>
+    public int AntibodyWorkupsOpen { get; set; }
+
+    /// <summary>Of those, workups interpreted and waiting for supervisor review.</summary>
+    public int AntibodyWorkupsToReview { get; set; }
+
+    /// <summary>Outbound HL7 results and charges queued longer than the stuck window and not yet sent (Cycle 661).</summary>
+    public int Hl7OutboundNotSent { get; set; }
+
+    /// <summary>Recorded outages not yet ended when the handoff was written (Cycle 663).</summary>
+    public int OutagesOpen { get; set; }
+
+    /// <summary>Units issued and past the final-disposition window with no outcome recorded (Cycle 679).</summary>
+    public int DispositionOverdue { get; set; }
+
+    /// <summary>Outside antibody reports not yet confirmed by this laboratory (Cycle 679, OCD-073).</summary>
+    public int OutsideAntibodiesToConfirm { get; set; }
+
+    /// <summary>Recalled units still recorded as Recalled, not yet quarantined or discarded (Cycle 689).</summary>
+    public int RecalledToPull { get; set; }
+
+    /// <summary>Equipment checks to do on equipment in service: failed, overdue, due today or never done (Cycle 710).</summary>
+    public int EquipmentChecksToDo { get; set; }
+
+    /// <summary>Of those, the checks failed or overdue (Cycle 710).</summary>
+    public int EquipmentChecksFailedOrOverdue { get; set; }
+
+    /// <summary>Equipment out of service, so the next shift does not use it (Cycle 710).</summary>
+    public int EquipmentOutOfService { get; set; }
+
+    /// <summary>Units a ward has asked to be sent and not yet issued (end-user testing pass 21).</summary>
+    public int WardRequestsWaiting { get; set; }
+
+    /// <summary>Reagent lots with no QC for the facility's day, and QC not yet reviewed (end-user testing pass 70).</summary>
+    public int ReagentLotsQcDue { get; set; }
+
+    public int ReagentQcUnreviewed { get; set; }
+
+    /// <summary>Patients waiting for a second ABO/Rh, and supervisor queue items (end-user testing pass 71).</summary>
+    public int SecondAboRhDue { get; set; }
+
+    public int SupervisorQueueOpen { get; set; }
 
     public string? AcknowledgedBy { get; set; }
 

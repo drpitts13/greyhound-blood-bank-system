@@ -10,8 +10,9 @@ namespace BloodBankLIS.Domain.Rules;
 /// </summary>
 public static class ResultSourceEntryCopy
 {
+    // Shown on every panel form, so it names no one test (end-user testing pass 39: the antibody screen read "ABO/Rh").
     public const string PanelHint =
-        "When panel reactions are recorded, the stored source is Calculated (catalog interpretation), not a typed Manual ABO/Rh. Instrument and Interface observations keep their source.";
+        "When panel reactions are recorded, the stored source is Calculated (catalog interpretation), not a typed Manual result. Instrument and Interface observations keep their source.";
 
     public const string TypedHint =
         "Typed test code and value (no panel) are stored as Manual. Instrument and Interface observations keep their source.";

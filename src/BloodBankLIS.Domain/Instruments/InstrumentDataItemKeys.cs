@@ -19,11 +19,12 @@ public static class InstrumentDataItemKeys
     public const string SubtestCode = "subtest_code";
     public const string SubtestResult = "subtest_result";
     public const string TestInterp = "test_interp";
+    public const string ResultFlag = "result_flag";
 
     public static readonly IReadOnlyList<string> All =
     [
         PatientId, PatientLname, PatientFname, PatientGender, PatientDob,
         OrderId, SpecimenId, CollectionDt, ResultDt, InstrumentId,
-        Error, ResultStatus, TestCode, SubtestCode, SubtestResult, TestInterp
+        Error, ResultStatus, TestCode, SubtestCode, SubtestResult, TestInterp, ResultFlag
     ];
 }

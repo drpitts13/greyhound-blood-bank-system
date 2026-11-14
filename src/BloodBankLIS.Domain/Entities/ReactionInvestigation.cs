@@ -54,6 +54,16 @@ public class ReactionInvestigation : BaseEntity
     /// <summary>Remainder, bag, or segments held out of available inventory.</summary>
     public bool RemainderQuarantined { get; set; }
 
+    /// <summary>The bag (or segments) sent for Gram stain and culture (end-user testing pass 19).</summary>
+    public bool BagCultureSent { get; set; }
+
+    public string? BagCultureResult { get; set; }
+
+    /// <summary>When the blood supplier was told of the reaction (for its other components from the donation).</summary>
+    public DateTime? SupplierNotifiedUtc { get; set; }
+
+    public string? SupplierNotificationNote { get; set; }
+
     public ReactionInvestigationStatus Status { get; set; } = ReactionInvestigationStatus.Open;
 
     public string? Disposition { get; set; }
@@ -77,4 +87,42 @@ public class ReactionInvestigation : BaseEntity
     public string? ClosedBy { get; set; }
 
     public DateTime? ClosedUtc { get; set; }
+
+    /// <summary>Last reopen of a signed investigation: who, when, and why. Earlier ones are in the audit trail.</summary>
+    public DateTime? ReopenedUtc { get; set; }
+
+    public string? ReopenedBy { get; set; }
+
+    public string? ReopenReason { get; set; }
+
+    /// <summary>True when the reaction was reported after the transfusion was documented without one.</summary>
+    public bool ReportedAfterTransfusion { get; set; }
+
+    /// <summary>When the signs began, if the late report gives it.</summary>
+    public DateTime? OnsetUtc { get; set; }
+
+    /// <summary>OCD-057: the reaction the provider concluded, from the admin list (NONE for No reaction).</summary>
+    public string? ConcludedReactionCode { get; set; }
+
+    /// <summary>The list text as it read when chosen, so later edits to the list do not change this record.</summary>
+    public string? ConcludedReactionText { get; set; }
+
+    /// <summary>OCD-057: treatment codes for future transfusions, "|"-separated (NONE for No treatment).</summary>
+    public string? TreatmentCodes { get; set; }
+
+    /// <summary>The treatment texts as they read when chosen, "; "-separated.</summary>
+    public string? TreatmentTexts { get; set; }
+
+    /// <summary>
+    /// Workup specimens and the orders that carry their Test Group (<see cref="Configuration.ReactionWorkupSettings"/>):
+    /// the pre-transfusion specimen, collected before the unit was issued, and the post-transfusion specimen, drawn
+    /// after the reaction. Set once each; the tests are resulted on the bench.
+    /// </summary>
+    public long? PreTransfusionSpecimenId { get; set; }
+
+    public long? PreTransfusionOrderId { get; set; }
+
+    public long? PostTransfusionSpecimenId { get; set; }
+
+    public long? PostTransfusionOrderId { get; set; }
 }

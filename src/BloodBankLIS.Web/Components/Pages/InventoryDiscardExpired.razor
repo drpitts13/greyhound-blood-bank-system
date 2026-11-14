@@ -1,0 +1,179 @@
+@page "/inventory/discard-expired"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Discard expired &middot; HemoCore</PageTitle>
+
+<div class="flex-between">
+    <h1>Discard expired units</h1>
+    <a class="btn btn-ghost" href="/inventory">Inventory</a>
+</div>
+<p class="muted">
+    Expired units still recorded on a shelf, oldest expiry first. Pull each one and scan it: the scan discards that unit with
+    the reason <strong>EXPIRED</strong>, with the same checks and audit as a discard from the unit page. A unit that is not
+    expired is refused; discard it from its unit page with its own reason.
+</p>
+
+@if (!Session.Has(PermissionCodes.InventoryDiscard))
+{
+    <div class="muted">No permission to discard units.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="field" style="min-width:16rem;">
+                <label data-discard-verifier-label>@(_verifierRequired ? "Second verifier (required at this facility)" : "Second verifier (not required at this facility)")</label>
+                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                    Items="VerifierChoices"
+                    @bind-Value="_secondVerifier"
+                    DisplayText="@(x => x.Label)"
+                    ItemValue="@(x => x.UserName)"
+                    SearchText="@(x => x.Label)"
+                    Clearable="true"
+                    Placeholder="Different active user" />
+            </div>
+            <div class="field">
+                <label>Scan unit number</label>
+                <input @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" placeholder="Scan the expired unit" autocomplete="off" data-discard-scan />
+            </div>
+        </div>
+        <Outcome Value="_fb" />
+
+        @if (_run.Count > 0)
+        {
+            <h3 style="margin-top:1rem;">This run: @_run.Count(r => r.Discarded) discarded@(_run.Any(r => !r.Discarded) ? $", {_run.Count(r => !r.Discarded)} not discarded" : "")</h3>
+            <div class="table-scroll">
+            <table class="bb" data-discard-run>
+                <thead><tr><th>Unit</th><th>Result</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _run)
+                    {
+                        <tr>
+                            <td class="mono">@row.Label</td>
+                            <td>
+                                @if (row.Discarded)
+                                {
+                                    <span class="badge badge-gray">Discarded</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red">Not discarded</span> <span class="sub">@row.Error</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>Still on a shelf (@(_expired?.Count ?? 0))</h3></div>
+        @if (_expired is null)
+        {
+            <div class="loading">Loading…</div>
+        }
+        else if (_expired.Count == 0)
+        {
+            <div class="muted" data-expired-empty>No expired unit is recorded on a shelf.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb" data-expired-list>
+                <thead><tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Expired</th><th>Recorded in</th></tr></thead>
+                <tbody>
+                    @foreach (var u in _expired)
+                    {
+                        <tr>
+                            <td class="mono"><a href="@InventoryUrls.Unit(u.UnitId)">@u.UnitNumber</a></td>
+                            <td><span class="mono">@u.ProductCode</span> @u.ProductName</td>
+                            <td>@u.BloodType</td>
+                            <td class="nowrap">@u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") @if (u.Status != UnitStatus.Expired) { <span class="sub">@u.Status, past expiry</span> }</td>
+                            <td>@(u.LocationName ?? "No location")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ExpiredUnitDto>? _expired;
+    private List<DirectoryUserDto> _users = new();
+    private string? _secondVerifier;
+    // Read from the facility setting; until it is read, assume required (the server checks either way).
+    private bool _verifierRequired = true;
+    private string _scan = string.Empty;
+    private Feedback? _fb;
+    private bool _busy;
+
+    private sealed record RunRow(string Label, bool Discarded, string? Error);
+    // Newest first, so the unit just scanned is at the top.
+    private readonly List<RunRow> _run = new();
+
+    private IEnumerable<DirectoryUserDto> VerifierChoices =>
+        _users.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.Has(PermissionCodes.InventoryDiscard))
+        {
+            return;
+        }
+
+        var users = await Api.GetDirectoryUsersAsync();
+        _users = users.Value ?? new();
+        var required = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireDiscardVerifier);
+        _verifierRequired = !required.Succeeded || required.Value?.Enabled != false;
+        await LoadExpiredAsync();
+    }
+
+    private async Task LoadExpiredAsync()
+    {
+        var r = await Api.GetExpiredOnShelfAsync();
+        _expired = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+
+    // A scanner ends with Enter: discard the scanned unit, record the outcome, clear for the next scan.
+    private async Task OnScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || _busy)
+        {
+            return;
+        }
+
+        // End-user testing pass 54: the scan was sent and refused (INV-DISC-2ND) before the tech knew a verifier was needed.
+        if (_verifierRequired && string.IsNullOrWhiteSpace(_secondVerifier))
+        {
+            _fb = Feedback.Fail("Choose the second verifier first: this facility requires one to discard a unit. The scanned unit was not discarded; scan it again.");
+            _scan = string.Empty;
+            return;
+        }
+
+        _busy = true;
+        var scan = _scan.Trim();
+        var r = await Api.DiscardExpiredByScanAsync(new DiscardExpiredByScanRequest(scan, _secondVerifier));
+        _busy = false;
+        _scan = string.Empty;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _run.Insert(0, new RunRow(r.Value.UnitNumber, true, null));
+            _fb = Feedback.Succeed($"Discarded {r.Value.UnitNumber} (expired). Scan the next unit.");
+            await LoadExpiredAsync();
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+            _run.Insert(0, new RunRow(scan, false, _fb.Error ?? string.Join(" ", _fb.HardStops.Select(h => h.Message))));
+        }
+    }
+}

@@ -42,6 +42,9 @@ public static class PermissionCodes
     public const string IssueOverride = "issue.override";
     public const string IssueReturn = "issue.return";
     public const string IssueEmergencyRelease = "issue.emergency-release";
+
+    /// <summary>Back-enter an issue made on paper during downtime, judged as of the paper record's time (OCD-054).</summary>
+    public const string IssueDowntimeBackEntry = "issue.downtime-backentry";
     public const string TransfusionDocument = "transfusion.document";
     public const string TransfusionStart = "transfusion.start";
     public const string TransfusionComplete = "transfusion.complete";
@@ -61,6 +64,9 @@ public static class PermissionCodes
 
     public const string AuditRead = "audit.read";
 
+    /// <summary>Record and acknowledge shift handoffs (accepting responsibility for open bench work).</summary>
+    public const string ShiftHandoff = "shift.handoff";
+
     /// <summary>Run a saved report and export PDF or Excel.</summary>
     public const string ReportRun = "report.run";
 
@@ -70,6 +76,9 @@ public static class PermissionCodes
     public const string LookbackManage = "lookback.manage";
     public const string ReactionInvestigate = "reaction.investigate";
     public const string DeviationManage = "deviation.manage";
+
+    /// <summary>Add an override authorizer who is not in the directory as an outside provider (OCD-055).</summary>
+    public const string ProviderOutsideAdd = "provider.outside.add";
 
     // --- Administration / configuration ---
 
@@ -103,12 +112,13 @@ public static class PermissionCodes
         InventoryReceive, InventoryTransfer, InventoryRelease, InventoryDiscard,
         InventoryRecall, InventoryCorrectIdentity, InventoryModify,
         CompatibilityCrossmatch, CompatibilityAllocate,
-        IssueCreate, IssueOverride, IssueReturn, IssueEmergencyRelease,
+        IssueCreate, IssueOverride, IssueReturn, IssueEmergencyRelease, IssueDowntimeBackEntry,
         TransfusionDocument, TransfusionStart, TransfusionComplete, OverrideApprove,
         PrintLabel, PrintReprint,
         BillingReview, BillingCancel, BillingExport,
         Hl7Manage, InstrumentManage,
-        AuditRead, ReportRun, ReportDesign, LookbackManage, ReactionInvestigate, DeviationManage,
+        AuditRead, ShiftHandoff, ReportRun, ReportDesign, LookbackManage, ReactionInvestigate, DeviationManage,
+        ProviderOutsideAdd,
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminInstrumentsManage,

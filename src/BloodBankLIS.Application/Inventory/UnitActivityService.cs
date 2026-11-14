@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -118,7 +118,8 @@ public sealed class UnitActivityService
             rows.Add(new UnitActivityDto(
                 a.AllocatedUtc,
                 "Allocation",
-                $"{a.Status} to {who}",
+                // What became of the reservation, worded as on the patient timelines (Cycle 601; before: "Expired to …").
+                $"Reserved for {who} · {BloodBankLIS.Application.PatientWorkspace.AllocationTimelineNote.Describe(a)}",
                 a.AllocatedBy,
                 nameof(Allocation),
                 a.Id));
@@ -184,14 +185,18 @@ public sealed class UnitActivityService
                 r.Id));
         }
 
+        var issueStatusById = issues.ToDictionary(i => i.Id, i => i.Status);
         foreach (var t in transfusions)
         {
             patients.TryGetValue(t.PatientId, out var patient);
             var who = PatientActivityLabel.Format(t.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+            var running = TransfusionRecordState.IsRunning(t.StopUtc, issueStatusById.GetValueOrDefault(t.IssueId));
             rows.Add(new UnitActivityDto(
                 t.StopUtc ?? t.StartUtc ?? t.CreatedUtc,
                 "Transfusion",
-                $"{t.FinalDisposition} for {who}",
+                (running ? $"Started for {who}, not yet completed" : $"{t.FinalDisposition} for {who}")
+                    // Cycle 704 (OCD-083): a transfusion the EHR reported over the unit's status says so, with its review.
+                    + (TransfusionReportNote.For(t.UnitStatusAtReport, t.ReportReviewedBy, t.ReportReviewNote) is string reportNote ? $". {reportNote}" : ""),
                 t.Transfusionist ?? t.CreatedBy,
                 nameof(TransfusionEvent),
                 t.Id));

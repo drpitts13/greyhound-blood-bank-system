@@ -293,7 +293,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-282 | I | `CompetitorGapRuleTests`; `CompetitorGapWorkflowTests.OverdueDisposition_ListsOnlyUndocumentedIssuedUnits` | URS-BB-392 / FRS-BB-427 / RISK-BB-494 |
 | TEST-BB-283 | I | `BloodProductModificationServiceTests.ApplySingle_RecordsOptionalSupplyLot_OnHistory`; `BloodProductModificationServiceTests.ApplySingle_RequiredSupplyLot_BlocksWhenMissing` | URS-BB-393 / FRS-BB-428 / RISK-BB-495 |
 | TEST-BB-284 | I | `BloodProductModificationServiceTests.ApplyBatch_IneligibleUnit_ModifiesNone`; `BloodProductModificationServiceTests.ApplyBatch_AllEligible_ModifiesEach` | URS-BB-394 / FRS-BB-429 / RISK-BB-496 |
-| TEST-BB-285 | I | `CompetitorGapRuleTests`; `CompetitorGapWorkflowTests.StockPar_ShowsOnHandAgainstTheMinimum` | URS-BB-395 / FRS-BB-430 / RISK-BB-497 |
+| TEST-BB-285 | I | `CompetitorGapRuleTests`; `CompetitorGapWorkflowTests.MinimumStock_ShowsOnHandAgainstTheMinimum` | URS-BB-395 / FRS-BB-430 / RISK-BB-497 |
 | TEST-BB-286 | A | `DashboardQueueCatalogTests` | URS-BB-396 / FRS-BB-431 / RISK-BB-498 |
 | TEST-BB-287 | A | `TestDefinitionChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-397 / FRS-BB-432 / RISK-BB-499 |
 | TEST-BB-288 | A | `TestDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-398 / FRS-BB-433 / RISK-BB-500 |
@@ -315,5 +315,786 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-304 | D / I | `StorageExcursionQuarantineRuleTests`; `StorageTemperatureServiceTests.SustainedExcursion_*`, `ShortExcursion_*`, `QuarantineMinutesZero_*` | URS-BB-414 / FRS-BB-449 / RISK-BB-516 |
 | TEST-BB-305 | D / I | `TotpTests.MfaRule_*`, `TotpTests.IsRequired_*`; `MfaTests` | URS-BB-415 / FRS-BB-450 / RISK-BB-517 |
 | TEST-BB-306 | D / I | `TransfusionIndicationRuleTests`; `TransfusionIndicationTests` | URS-BB-416 / FRS-BB-451 / RISK-BB-518 |
+| TEST-BB-307 | D / I | `UniversalLookupTests` | URS-BB-417 / FRS-BB-452 / RISK-BB-519 |
+| TEST-BB-308 | D / I | `PatientTimelineTests` | URS-BB-418 / FRS-BB-453 / RISK-BB-520 |
+| TEST-BB-309 | D / I | `SpecimenTimelineTests` | URS-BB-419 / FRS-BB-454 / RISK-BB-521 |
+| TEST-BB-310 | D / I | `DashboardHomeTests` | URS-BB-420 / FRS-BB-455 / RISK-BB-522 |
+| TEST-BB-311 | D / I | `PatientIdentifierEntryRuleTests`; `RazorFormBindingTests.Patient_identifier_fields_are_not_filled_from_the_record_directly` | URS-BB-421 / FRS-BB-456 / RISK-BB-523 |
+| TEST-BB-312 | D / I | `ComboBoxDisplayTests` | URS-BB-422 / FRS-BB-457 / RISK-BB-524 |
+| TEST-BB-313 | D / I | `EnterFlowTests` | URS-BB-423 / FRS-BB-458 / RISK-BB-525 |
+| TEST-BB-314 | D / I | `ReturnInspectionRuleTests`; `Phase4IssuingTests.Return_WithUnansweredInspection_*`, `Return_WithFacilityDefault_*`, `Return_ExplicitQuarantine_*`, `Return_ExplicitAvailable_*`; `AttestationDefaultTests` | URS-BB-424 / FRS-BB-459 / RISK-BB-526 |
+| TEST-BB-315 | D / I | `AppearanceAttestationRuleTests`; `Phase4IssuingTests.Issue_WithoutAppearance_*`, `Issue_WithFacilityDefault_*`, `WardReceipt_WithoutAppearance_*`; `InventoryServiceTests.ReceiveUnit_WithoutAppearance_*`; `AttestationDefaultTests.Appearance_*` | URS-BB-425 / FRS-BB-460 / RISK-BB-527 |
+| TEST-BB-316 | D / I | `CrossmatchSettingsTests.UpdateOrder_OverrideReasonWithoutAuthorizer_SaysWhoIsMissing`; `Phase3ServicesTests.Update_ExpiryChange_ReasonWithoutAuthorizer_SaysWhoIsMissing` | URS-BB-424 / FRS-BB-459 / RISK-BB-526 |
+| TEST-BB-317 | D / I | `EluateVerificationRuleTests`; `EluateFindingTests` | URS-BB-426 / FRS-BB-461 / RISK-BB-528 |
+| TEST-BB-318 | D / I | `IsbtReadinessRuleTests`; `IsbtReadinessTests` | URS-BB-427 / FRS-BB-462 / RISK-BB-529 |
+| TEST-BB-319 | D / I | `PbmDraftCriteriaTests`; `TransfusionIndicationTests.LoadDrafts_*`, `Draft_CannotBeActivated_UntilRenamed` | URS-BB-428 / FRS-BB-463 / RISK-BB-530 |
+| TEST-BB-320 | I | `FhirReadServiceTests` | URS-BB-429 / FRS-BB-464 / RISK-BB-531 |
+| TEST-BB-321 | D / I | `IssueGateTests.Emergency_*`, `NonEmergency_AboConflict_UsesTheOrdinaryHardStop`; `Phase4IssuingTests.EmergencyRelease_RedCellsConflictingWithEstablishedType_AreRefused_EvenWithOverride`, `EmergencyRelease_GroupORedCells_ForEstablishedGroupA_StillIssueWithOverride`; `IssueGateSafetyRegressionTests.Emergency_GroupARedCells_ForEstablishedGroupO_IsHardStopped` | URS-BB-430 / FRS-BB-465 / RISK-BB-532 |
+| TEST-BB-322 | D | `RequestReadErrorTests` | URS-BB-431 / FRS-BB-466 / RISK-BB-533 |
+| TEST-BB-323 | D / I | `RetypeStockStatusTests`; `IssueGateTests.VerifiedRetypeMismatch_IsHardStopped_OnAnyIssueType`, `NoRetypeMismatch_Passes`; `Phase4IssuingTests.Return_OfUnretypedEmergencyUnit_GoesBackToReceived_ForRetype`, `Return_OfRetypedUnit_StillGoesToAvailable`, `EmergencyRelease_OfUnitWithVerifiedRetypeMismatch_IsHardStopped`; `InventoryServiceTests.QuarantineRelease_RespectsPendingRetype`, `HoldRelease_RespectsPendingRetype` | URS-BB-432 / FRS-BB-467 / RISK-BB-534 |
+| TEST-BB-324 | D / I | `MtpActivationRuleTests`; `Phase4IssuingTests.MassiveTransfusionIssue_*`, `MtpActivation_*`, `EmergencyRelease_DoesNotNeedOrLinkAnActivation` | URS-BB-433 / FRS-BB-468 / RISK-BB-535 |
+| TEST-BB-325 | D / I | `MtpPackRuleTests`; `Phase4IssuingTests.MtpPack_ChosenAtActivation_ShowsRoundProgress_AndIgnoresReturnedUnits`, `MtpActivation_WithInactiveOrUnknownPack_IsRefused`, `MtpPack_InvalidContents_AreRefused_AndNoneAreShipped` | URS-BB-434 / FRS-BB-469 / RISK-BB-536 |
+| TEST-BB-326 | D / I | `TransportContainerRuleTests`; `MtpPackReportTextTests`; `MtpPackCrossmatchTextTests`; `Phase4IssuingTests.MtpPack_IsRecorded_Audited_AndReported`, `MtpPack_OutOfRangeTemperature_IsRecordedAndFlagged`, `MtpPack_Refusals_WriteNothing`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-435 / FRS-BB-470 / RISK-BB-537 |
+| TEST-BB-327 | D / I | `ReactionInvestigationLockRuleTests`; `ReactionInvestigationServiceTests.ClosedInvestigation_RefusesChanges_ButAcceptsAnUnchangedResave`, `Reopen_NeedsReason_KeepsTheCloseInTheAudit_AndNeedsANewSignatureToClose`, `ClosedFatality_StillTakesItsFollowUpReporting` | URS-BB-436 / FRS-BB-471 / RISK-BB-538 |
+| TEST-BB-328 | I | `FacilityTimeZoneTests`; `Phase4IssuingTests.MtpPackReport_PrintsLocalTime_AndNamesTheZone` | URS-BB-435 / FRS-BB-472 / RISK-BB-537 |
+| TEST-BB-329 | D / I | `TransfusionDocumentationRuleTests`; `Phase4IssuingTests.DocumentTransfusion_InconsistentTimesOrVolume_AreRefused` | URS-BB-437 / FRS-BB-473 / RISK-BB-539 |
+| TEST-BB-330 | D / I | `ShiftHandoffRuleTests`; `ShiftHandoffServiceTests`; `DashboardQueueCatalogTests.Select_AuditReadOnly_OmitsHandoff` | URS-BB-438 / FRS-BB-474 / RISK-BB-540 |
+| TEST-BB-331 | D / I | `IssueTimeRuleTests`; `Phase4IssuingTests.Issue_LateEntry_NeedsReason_AndKeepsBothTimes`, `Issue_WithoutStatedTime_IsNotALateEntry` | URS-BB-439 / FRS-BB-475 / RISK-BB-541 |
+| TEST-BB-332 | D / I | `OverrideReviewRuleTests`; `OverrideReviewTests` | URS-BB-440 / FRS-BB-476 / RISK-BB-542 |
+| TEST-BB-333 | D / I | `DerivedFromSourceRuleTests`; `ResultLifecycleTests.InvalidateVerifiedAboRh_RetiresTheDerivedType_AndWarns`, `InvalidatedType_IsNotASecondConcordantDetermination`, `RejectSpecimen_WithActiveResults_IsRefused_ThenAllowedAfterInvalidation` | URS-BB-441 / FRS-BB-477 / RISK-BB-543 |
+| TEST-BB-334 | D / I | `SpecimenRejectionReasonRuleTests`; `SpecimenRejectionReasonTests.CodedRejection_StoresCodeAndText_AndAudits`, `CommentRequiredReason_WithoutComment_IsRefused_ThenStoresComment`, `UnknownInactiveOrBlankReason_IsRefused_AndSpecimenUnchanged` | URS-BB-442 / FRS-BB-478 / RISK-BB-544 |
+| TEST-BB-335 | I | `ReportServiceTests.RejectionsByCause_GroupsRejectedSpecimens_AndSkipsOthers`, `SeededReports_Exist_Run_AndCannotBeDeleted`; `SpecimenRejectionReasonTests.CodedRejection_StoresCodeAndText_AndAudits` (rejection time and user) | URS-BB-443 / FRS-BB-479 / RISK-BB-545 |
+| TEST-BB-336 | D / I | `RetrospectiveCrossmatchIncompatibleRuleTests`; `Phase4IssuingTests.EmergencyRelease_IncompatibleXm_RaisesCriticalAlert_AndLeadsTheBoard`, `EmergencyRelease_CompatibleXm_RaisesNoAlert`, `EmergencyRelease_IncompatibleXm_StaysOnWorklist` | URS-BB-444 / FRS-BB-480 / RISK-BB-546 |
+| TEST-BB-337 | D / I | `AuthorizerDirectoryRuleTests`; `OverrideAuthorizerMatchTests.Provider_User_AndUnknown_AreStamped`, `InactiveProvider_IsNotInDirectory`, `ExistingMatch_IsNotRecomputed_AndLaterEditsDoNotRestamp` | URS-BB-445 / FRS-BB-481 / RISK-BB-547 |
+| TEST-BB-338 | D / I | `OverrideActionRuleTests`; `Phase4IssuingTests.MassiveTransfusionIssue_RecordsAMassiveTransfusionOverride_AndQueueNamesIt` | URS-BB-446 / FRS-BB-482 / RISK-BB-548 |
+| TEST-BB-339 | I | `OverrideApproveGrantSeederTests.FreshInstall_GrantsSupervisor_AndRecordsTheMarker`, `OlderDatabaseWithoutTheMarker_IsGrantedOnce`, `AdministratorRemoval_AfterTheGrant_IsNotUndone` | OCD-047 |
+| TEST-BB-340 | D / I | `ReturnDisposalRuleTests`; `Phase4IssuingTests.Return_AfterThirtyMinutes_DisposalRequested_QuarantinesInstead`, `Return_FailedVisual_QuarantinesAndLeavesOutstanding` | URS-BB-447 / FRS-BB-483 / RISK-BB-549 |
+| TEST-BB-341 | I | `Phase4IssuingTests.Return_ToStock_OffersReserveAgain_ThenReissues`, `Return_ToQuarantine_OffersNoReserveAgain` | URS-BB-448 / FRS-BB-484 / RISK-BB-550 |
+| TEST-BB-342 | D / I | `TransfusionUnitLifeRuleTests`; `Phase4IssuingTests.DocumentTransfusion_UnitExpiredAfterItStarted_CanBeDocumented`, `DocumentTransfusion_StartedAfterExpiry_IsRefused`, `DocumentTransfusion_StartBeforeIssue_IsRefused`, `DocumentTransfusion_InconsistentTimesOrVolume_AreRefused` (now issued before its documented start) | URS-BB-449 / FRS-BB-485 / RISK-BB-551 |
+| TEST-BB-343 | I | `Phase4IssuingTests.StartThenComplete_ShowsTransfusing_ThenFinishesTheSameRecord`, `Start_WithoutIdentifiers_IsRefused_AndRecordsNothing`, `Complete_WithoutStart_OrWithStopBeforeStart_IsRefused`, `FinishedRecordOnAnIssuedIssue_IsNotShownAsStarted_AndCannotBeStartedAgain`, `StartOnlyPermission_CanStart_ButNotComplete` | URS-BB-450 / FRS-BB-486 / RISK-BB-552 |
+| TEST-BB-344 | I | `DemoTransfusionConsistencyTests.EveryTransfusionOnAnIssuedIssue_IsARunningTransfusion`; `FdaAabbScenarioTests.LookbackByDin_ListsSeededRecipientAndPendingNotification` (running transfusion counts as reaching the patient) | FRS-BB-486 |
+| TEST-BB-345 | I | `DemoDataInvariantTests.SeededUnitsIssuesAndRecords_AreConsistent` | Demo data |
+| TEST-BB-346 | D / I | `TransfusionCompletionRuleTests`; `AlertWorkflowTests.Scanner_RaisesTransfusionNotCompleted_AfterReminderHours_AndResolvesWhenCompleted`, `Scanner_TransfusionReminder_OffWhenHoursAreZero` | URS-BB-451 / FRS-BB-487 / RISK-BB-553 |
+| TEST-BB-347 | I | `DemoTransfusionConsistencyTests.RunningTransfusion_IsShownAsStarted_OnProductHistoryAndTimeline` | URS-BB-452 / FRS-BB-488 / RISK-BB-554 |
+| TEST-BB-348 | D / I | `TransfusionRecordStateTests`; `FdaAabbScenarioTests.RunningTransfusion_HasNoDispositionInLookback_AndReportsInProgress` | URS-BB-453 / FRS-BB-489 / RISK-BB-555 |
+| TEST-BB-349 | D / I | `SpecimenLabelIdentityRuleTests`; `SpecimenLabelIdentityTests.WithoutLabelIdentifiers_IsRefused_AndNothingIsAccessioned`, `LabelIdentifiersThatDoNotMatch_AreRefused`, `MatchingLabelIdentifiers_AreRecorded_WithCollectorAndDrawLocation`, `WhenTheFacilityPrefills_TheRecordIsUsed` | URS-BB-454 / FRS-BB-490 / RISK-BB-556 |
+| TEST-BB-350 | D / I | `SpecimenReceiptScanRuleTests`; `SpecimenReceiptScanTests.ScanOfTheAccession_ReceivesThatTube_AndRecordsTheMethod`, `ScanOfTheLabelBarcode_ReceivesThatTube`, `UnknownTube_IsRefused_AndNothingChanges`, `ScanningAReceivedTubeAgain_IsRefused_NamingTheAccession` | URS-BB-455 / FRS-BB-491 / RISK-BB-557 |
+| TEST-BB-351 | D / I | `SpecimenTransitRuleTests`; `SpecimenReceiptScanTests.AcceptByScan_AfterReceipt_AcceptsThatTube_AndRecordsTheMethod`, `AcceptByScan_BeforeReceipt_IsRefused_NamingTheTube`, `PendingList_ShowsTimeSinceDraw_ThenTimeToReceipt` | URS-BB-456 / FRS-BB-492 |
+| TEST-BB-352 | D / I | `DerivedFromSourceRuleTests.TypeRetiredByCorrection_IsAWarningSayingWhenTheTypeReturns`; `ResultLifecycleTests.CorrectVerifiedAboRh_RetiresTheDerivedTypeImmediately_AndWarns` | URS-BB-457 / FRS-BB-493 / RISK-BB-558 |
+| TEST-BB-353 | D / I | `SecondAboSeparateSpecimenTests`; `ResultLifecycleTests.SameSpecimenRetest_IsNotASecondDetermination_ButASecondTubeIs`, `Backfill_FillsTheSpecimenFromTheSourceResult` | URS-BB-458 / FRS-BB-494 / RISK-BB-559 |
+| TEST-BB-354 | I | `Phase4IssuingTests.ShiftHandoff_CountsRunningTransfusions_AndIncompatibleRetrospectiveCrossmatches` | URS-BB-459 / FRS-BB-495 |
+| TEST-BB-355 | D / I | `ManualBloodTypeDocumentationRuleTests`; `Phase3ServicesTests.ManualBloodType_Documented_NeedsAReference_AndIsStored`, `ManualBloodType_Undocumented_StoresNoDocumentation` | URS-BB-460 / FRS-BB-496 / RISK-BB-560 |
+| TEST-BB-356 | D / A | `BloodTypeHistoryLabelTests`; `BloodTypeDtoTests.RetiredTestedType_IsMarked_AndDoesNotCount`, `DocumentedManualType_NamesItsRecord_AndCounts` | URS-BB-461 / FRS-BB-497 |
+| TEST-BB-357 | D / I | `ResultReleaseRuleTests`; `Hl7OruBuilderTests.FirstVerifiedResult_IsFinal`, `VerifiedCorrection_IsCorrected`, `InvalidatedAfterVerification_IsPostedAsWrong`; `ResultLifecycleTests.Outbound_InvalidatedVerifiedResult_IsSentAsWrong_UnverifiedIsRefused` | URS-BB-462 / FRS-BB-498 / RISK-BB-561 |
+| TEST-BB-358 | D / I | `ResultReleaseRuleTests.OnlyCorrectionsAndWithdrawals_AreSentAutomatically`; `ResultEhrUpdateTests.InvalidatingAVerifiedResult_QueuesAWithdrawal_WhenAResultsInterfaceIsEnabled`, `VerifyingACorrection_QueuesACorrection`, `WithoutAnEnabledResultsInterface_NothingIsQueued`, `WhenQueueingFails_TheInvalidationStands_AndAWarningSaysToSendByHand` | URS-BB-463 / FRS-BB-499 / RISK-BB-562 |
+| TEST-BB-359 | I | `InventoryServiceTests.ExpireDueUnits_EndsTheReservationOnAnExpiredUnit_AndLeavesOthers`; `AlertWorkflowTests.UnitsExpiredAndExcursion_RaiseEventAlerts` | URS-BB-464 / FRS-BB-500 / RISK-BB-563 |
+| TEST-BB-360 | D / I | `ProductAllocationDisplayStatusRuleTests.Evaluate_AnExpiredCrossmatch_IsNotReadyForIssue`; `Phase4IssuingTests.ListReadyToIssue_AnExpiredCrossmatch_ShowsCrossmatchExpired_NotReady` | URS-BB-465 / FRS-BB-501 / RISK-BB-564 |
+| TEST-BB-361 | D | `DashboardDueCountTests.ReadyToIssue_CountsOnlyReservationsWhoseCrossmatchExpired` | URS-BB-466 / FRS-BB-502 / RISK-BB-565 |
+| TEST-BB-362 | D | `DashboardDueCountTests.ReadyToIssue_IssuableRowsComeFirst_AndKeepTheirOrder`; `DashboardDueCountTests.ReadyToIssue_EachBlockingMark_StopsRoutineIssue` | URS-BB-467 / FRS-BB-503 / RISK-BB-566 |
+| TEST-BB-363 | D / I | `CrossmatchSpecimenRuleTests.ExpiredSpecimen_IsAHardStop_NamingTheSpecimenAndTheNextStep`, `AtTheExpirationTime_TheSpecimenHasExpired`, `InDateOrUndatedSpecimen_Passes`, `ExpiredCompatibleCrossmatch_NeedsRepeating_UnlessElectronicOrIssued`; `Phase4IssuingTests.RecordCrossmatch_OnAnExpiredSpecimen_IsRefused_AndNothingIsSaved` | URS-BB-468 / FRS-BB-504 / RISK-BB-567 |
+| TEST-BB-364 | D / I | `CrossmatchSpecimenRuleTests.RetrospectiveOnPreTransfusionSpecimen_IsAWarningToOverride`, `PreTransfusionSpecimen_IsCollectedAtOrBeforeIssue`; `Phase4IssuingTests.RetrospectiveXm_OnExpiredPreTransfusionSpecimen_AsksForAnException_ThenRecordsIt`, `RetrospectiveXm_OnSpecimenCollectedAfterIssue_ThatExpired_IsStillAHardStop`, `RetrospectiveXm_Exception_WithoutAnActiveDefinition_IsRefused` | URS-BB-469 / FRS-BB-505 / RISK-BB-568 / OCD-050 |
+| TEST-BB-365 | I | `ResultLifecycleTests.InterfaceResend_OnAnExpiredSpecimen_IsRefused_AndThePendingValueStands` | URS-BB-470 / FRS-BB-506 / RISK-BB-569 |
+| TEST-BB-366 | I | `ResultCorrectionAfterExpiryTests.CorrectionOfAVerifiedResult_CanBeVerified_AfterTheSpecimenExpires`, `APendingFirstResult_IsStillNotVerified_OnAnExpiredSpecimen`, `CorrectionOnARejectedSpecimen_IsStillRefusedAtVerification` | URS-BB-471 / FRS-BB-507 / RISK-BB-570 / OCD-051 |
+| TEST-BB-367 | I | `TestWorklistTests.WorklistCorrection_AfterTheSpecimenExpires_CreatesTheCorrectedVersion`, `CorrectionReason_DoesNotLetAFirstResultPost_OnAnExpiredSpecimen`; `ResultCorrectionAfterExpiryTests.VerifiedResult_CanBeInvalidated_AfterTheSpecimenExpires` | URS-BB-471 / FRS-BB-507 / RISK-BB-570 / OCD-051 |
+| TEST-BB-368 | D / I | `VerificationDeadlineRuleTests.PendingResult_WithSpecimenExpiringInsideTheWindow_GetsTheDeadline`, `NoDeadline_OutsideTheWindow_AfterExpiry_OrWithoutAnExpiration`, `NoDeadline_ForCorrectionsOrFinishedResults`, `OnlyAPendingCorrection_IsAllowedAnExpiredSpecimen`; `TestWorklistTests.PendingResult_WhoseSpecimenExpiresSoon_NamesTheDeadline_AndComesFirst`, `PendingCorrection_OnAnExpiredSpecimen_CanStillBeWorkedFromTheWorklist` | URS-BB-472 / FRS-BB-508 / RISK-BB-571 |
+| TEST-BB-369 | D | `DashboardDueCountTests.PendingTests_CountsOnlyRowsWithAVerificationDeadline` | URS-BB-473 / FRS-BB-509 / RISK-BB-572 |
+| TEST-BB-370 | I | `TestWorklistTests.ShiftHandoff_CountsResultsToVerifyBeforeSpecimenExpiry` | URS-BB-474 / FRS-BB-510 / RISK-BB-573 |
+| TEST-BB-371 | I | `TestWorklistTests.PatientTestsTab_CarriesTheVerificationDeadline` | URS-BB-475 / FRS-BB-511 / RISK-BB-571 |
+| TEST-BB-372 | D | `BloodTypeDtoDeterminationTests.ChartDeterminations_MatchTheServer`, `TheDto_CarriesTheSpecimen` | URS-BB-476 / FRS-BB-512 / RISK-BB-574 |
+| TEST-BB-373 | D | `BloodTypeDtoDeterminationTests.ChartDiscrepancy_MatchesTheIssueGate` | URS-BB-476 / FRS-BB-513 / RISK-BB-574 |
+| TEST-BB-374 | I | `Phase4IssuingTests.OutstandingIssue_TimeOutDecision_FollowsTheFacilityWindow` | URS-BB-477 / FRS-BB-514 / RISK-BB-575 |
+| TEST-BB-375 | I | `Phase3ServicesTests.ExpirationPreview_MatchesTheSave_ForAnAlloRiskPatient`, `ExpirationPreview_WithoutRisk_IsTheCatalogWindow_AndUnknownPatientFails` | URS-BB-478 / FRS-BB-515 / RISK-BB-576 |
+| TEST-BB-376 | I | `Phase3ServicesTests.ExpirationPreview_WithValidityHours_MatchesAccession` | URS-BB-478 / FRS-BB-516 / RISK-BB-576 |
+| TEST-BB-377 | I | `SeederTests.Seed_DemoPatientSpecimens_ExpireAsPolicySays` | URS-BB-478 / RISK-BB-576 |
+| TEST-BB-378 | I | `Phase4IssuingTests.EmergencyRelease_Override_StoresTrimmedFields_AndNeedsAnAuthorizer` | FRS-BB-517 / OCD-041 |
+| TEST-BB-379 | I | `InventoryServiceTests.NearExpiry_NamesThePatientAReservedUnitIsHeldFor`; `AlertWorkflowTests.NearExpiryAlert_OnAReservedUnit_NamesThePatient_AndIsAWarning` | URS-BB-479 / FRS-BB-518 / RISK-BB-577 |
+| TEST-BB-380 | D | `DashboardDueCountTests.ReadyToIssueCard_NamesExpiringSoonAndExpiredCrossmatches` | URS-BB-479 / FRS-BB-519 / RISK-BB-577 |
+| TEST-BB-381 | D / I | `ExceptionCatalogChangeReasonRuleTests.MissingOrShortReason_IsAHardStop`, `EightCharactersAfterTrimming_Passes`; `AdminCatalogTests.ExceptionDefinition_CreateAndUpdate_WriteConfigure`; `ExceptionDefinitionAuthorizationTests.Deactivate_WithoutAdminConfigActivate_IsRejected` | URS-BB-480 / FRS-BB-520 / RISK-BB-578 |
+| TEST-BB-382 | D / I | `CompatibilityTableChangeReasonRuleTests.ActiveTable_WithoutAReason_IsAHardStop`, `ActiveTableWithReason_OrDraftTable_Passes`; `CompatibilityRuleAdminTests.RuleInTheActiveTable_ChangesOnlyWithAReason` | URS-BB-481 / FRS-BB-521 / RISK-BB-579 |
+| TEST-BB-383 | D / I | `CompatibilityTablePolicyTests.ActiveHardStopRow_MakesAMatchingWarningAHardStop`, `SeededRowsEqualToTheBuiltInDefault_ChangeNothing`, `Table_NeverSoftensAHardStop`, `InactiveRow_OtherComponentClass_OtherCode_OrPass_LeaveTheResultAlone`, `Admin_CannotSaveARowSofterThanTheBuiltInRule`; `CompatibilityRuleValidatorTests.Rule_ValidObject_Passes`; `Phase4IssuingTests.Issue_ActiveCompatibilityTable_MakesAWarningAHardStop_AndNeverSoftens` | URS-BB-482 / FRS-BB-522 / RISK-BB-580 / OCD-052 |
+| TEST-BB-384 | D | `CompatibilityTablePolicyTests.DescribeAtIssue_MatchesWhatTheGateDoes` | URS-BB-482 / FRS-BB-523 / RISK-BB-580 |
+| TEST-BB-385 | I | `UserAdminAuthorizationTests.AccessChanges_RequireAReason_AndKeepTheBeforeState`, `RolePermissionOrLevelChange_NeedsAReason_DescriptionDoesNot` | URS-BB-483 / FRS-BB-524 / RISK-BB-581 |
+| TEST-BB-386 | D / I | `EmergencyPreSpecimenRuleTests.OnlyGroupORedCellsAndAbOrAPlasma`, `Applies_OnlyToEmergency_WithNoUsableSpecimen`, `Gate_EmergencyGroupORedCells_WithoutSpecimen_IsAnOverridableWarning_ThatSaysToCollectOne`, `Gate_EmergencyGroupARedCells_WithoutSpecimen_IsAHardStop`, `Gate_RoutineIssue_WithoutSpecimen_StaysAHardStop`, `Gate_Emergency_WithAnotherPatientsSpecimen_StaysAHardStop`, `Gate_Emergency_WithAnExpiredSpecimen_UsesThePreSpecimenRule`; `Phase4IssuingTests.EmergencyRelease_WithAnExpiredSpecimen_GroupORedCells_IssuesUnderOverride` | URS-BB-484 / FRS-BB-525 / RISK-BB-582 / OCD-053 |
+| TEST-BB-387 | I | `Phase4IssuingTests.ReadyToIssue_ExpiredSpecimen_OffersEmergencyOnlyForGroupORedCells` | URS-BB-484 / FRS-BB-526 / RISK-BB-582 |
+| TEST-BB-388 | D | `AlertHelpCoverageTests.EverySource_HasAHelpName_AndIsDescribedOnTheAlertsPage`, `ThePageCount_MatchesTheSources` | Alerts help / `AlertRule.HelpName` |
+| TEST-BB-389 | I | `ExceptionDefinitionCoverageTests.TheScan_FindsTheKnownOverridePaths`, `EveryCheckedCode_HasAnActiveOverridableSeededDefinition` | Exception catalog / `ExceptionOverridePolicy` |
+| TEST-BB-390 | D / I | `RetrospectiveCrossmatchIncompatibleRuleTests.Deviation_IsCritical_AndItsNumberIsNamedInTheWarningAndAlert`; `Phase4IssuingTests.EmergencyRelease_IncompatibleXm_RaisesCriticalAlert_AndLeadsTheBoard`, `EmergencyRelease_CompatibleXm_RaisesNoAlert` | URS-BB-444 / FRS-BB-527 / RISK-BB-546 / OCD-046 |
+| TEST-BB-391 | D / I | `OutsideProviderRuleTests`; `OutsideProviderTests.Add_WithPermissionAndReason_CreatesAnOutsideProvider_WithAnAssignedId_AndAuditsTheReason`, `Add_WithoutPermission_IsRefused_AndNothingIsAdded`, `Add_WithoutReason_WithoutName_OrAlreadyListed_IsRefused`, `AnOverrideAuthorizedByTheAddedProvider_IsRecordedAsOutsideProvider` | URS-BB-485 / FRS-BB-528 / RISK-BB-583 / OCD-055 |
+| TEST-BB-392 | D / I | `DowntimeBackEntryRuleTests`; `Phase4IssuingTests.DowntimeBackEntry_JudgesExpiryAsOfThePaperTime_AndIsControlledByRole` | URS-BB-486 / FRS-BB-529 / RISK-BB-584 / OCD-054 |
+| TEST-BB-393 | D / I | `SpecimenReceiptScanRuleListTests`; `SpecimenReceiptScanTests.ScanRequired_RefusesReceiptFromARow_ButAcceptsTheScan`, `ScanNotRequired_ByDefault_ReceiptFromARowIsAllowed`, `ScanRequired_DuplicateLabel_DoesNotSendTheUserToTheRow` | URS-BB-487 / FRS-BB-530 / OCD-056 |
+| TEST-BB-394 | D / I | `DowntimeBackEntryRuleTests.FollowOn_OnlyForABackEnteredIssue_WithThePermission_AndTheRightDin`; `Phase4IssuingTests.DowntimeBackEntry_WardReceiptAndTransfusion_UseThePaperDin_InPlaceOfTheScan` | URS-BB-486 / FRS-BB-531 / RISK-BB-584 / OCD-054 |
+| TEST-BB-395 | D / I | `DowntimeBackEntryRuleTests.ReceiptTime_IsRequired_NotBeforeTheIssue_AndNotInTheFuture`; `Phase4IssuingTests.DowntimeBackEntry_WardReceiptAndTransfusion_UseThePaperDin_InPlaceOfTheScan` (In transit row, receipt time checks, stamped time, audit) | URS-BB-486 / FRS-BB-532 / RISK-BB-584 / OCD-054 |
+| TEST-BB-396 | I | `DowntimeReconciliationTests.GetSnapshot_CountsOpenWorkAndReportsChain` (back-entered issues: open without receipt, open with receipt, transfused) | URS-BB-486 / FRS-BB-533 / OCD-054 |
+| TEST-BB-397 | A | `FacilityPolicyDefaultsCoverageTests.EveryKey_IsInTheCatalog_UnlessRetired`, `EveryGetter_ReadsACatalogKey_AndUsesTheCatalogDefault` | URS-BB-488 / FRS-BB-534 / RISK-BB-585 / OCD-008 |
+| TEST-BB-398 | I | `FacilityPolicyStorageTests.Seeding_AnUpgradedDatabase_StoresEveryMissingPolicy_AtItsDefault_WithHistory`, `Seeding_Twice_AddsNothingMore` | URS-BB-488 / FRS-BB-535 / RISK-BB-585 |
+| TEST-BB-399 | I | `Phase5Hl7Tests.ResolveQueueItem_ClearsTheRow_WithoutReprocessing`, `Replay_AfterPatientExists_ResolvesMappingError`, `OutboundSender_Aa_ResolvesErrorQueue` | URS-BB-489 / FRS-BB-536 |
+| TEST-BB-400 | D / I | `InstrumentMessageFollowUpRuleTests`; `InstrumentInterfaceTests.FailedMessage_ClosesOnASuccessfulReplay_AndProcessedMessages_AreNotReplayed`, `FailedMessage_ResolvedByHand_NeedsAReason_AndIsAudited` | URS-BB-489 / FRS-BB-537 / RISK-BB-586 |
+| TEST-BB-401 | A / I | `DashboardQueueCatalogTests.InterfaceCards_FollowTheInterfacePermissions`; `DashboardHomeTests.InterfaceFailures_AreAttention_WhenNonZero_AfterPatientSafetyItems`; `DowntimeReconciliationTests.GetSnapshot_CountsOpenWorkAndReportsChain` | URS-BB-489 / FRS-BB-538 |
+| TEST-BB-402 | D / I | `LateReactionReportRuleTests.AValidReport_Passes_WithOrWithoutAnOnset`, `Refusals_SayWhy`; `Phase4IssuingTests.LateReactionReport_OpensAnInvestigation_AndMarksTheTransfusion` | URS-BB-490 / FRS-BB-539 / RISK-BB-587 |
+| TEST-BB-403 | I | `SpecialRequirementReactionLinkTests.Requirement_AddedFromAReaction_IsLinked_AndAudited`, `Requirement_CannotLinkAnotherPatientsReaction_OrOneThatDoesNotExist` | URS-BB-490 / FRS-BB-540 / OCD-057 |
+| TEST-BB-404 | D | `ReactionNextStepRuleTests.FatalityFollowUp_LeadsEverything_EvenWhenClosed`, `Steps_FollowTheUrgencyOrder`, `ARemainderThatCannotBeHeld_IsNotAskedToBeHeld` | URS-BB-490 / FRS-BB-541 |
+| TEST-BB-405 | A | `PendingSpecimenAttentionRuleTests.ExpiredTubes_AreCounted_AndMakeTheCardNeedAttention`, `NoExpiredTubes_KeepsAPlainCount` | URS-BB-487 / FRS-BB-542 |
+| TEST-BB-406 | D / I | `QuarantineReleaseRuleTests.OrdinaryHolds_CanBeReleased`, `ReactionRemainder_WaitsForTheInvestigation`, `Expired_RetypeMismatch_AndDisposal_AreNeverReleased_AndSayWhatToDo`; `InventoryServiceTests.QuarantineRelease_FollowsWhyTheUnitIsHeld` | URS-BB-491 / FRS-BB-543 / RISK-BB-588 |
+| TEST-BB-407 | D / I | `HoldReleaseRuleTests.Release_NeedsAReason_AndAnInDateUnit`; `InventoryServiceTests.ReleaseFromQuarantineAndHold_WriteProductStatus` | URS-BB-491 / FRS-BB-544 |
+| TEST-BB-408 | I | `InventoryServiceTests.MarkMissing_ThenLocate_EntersQuarantine`, `MarkDamaged_ThenInspect_EntersQuarantine`, `LocateAndInspect_WriteProductStatus` | URS-BB-491 / FRS-BB-545 |
+| TEST-BB-409 | D / I | `ReactionConclusionRuleTests.Closing_NeedsAReactionAndATreatment_NoneCountsForEach`, `CodesMustBeOnTheActiveList_OfTheRightKind_AndNoTreatmentStandsAlone`, `TheNoneEntries_CannotBeDeactivatedOrRecoded`; `ReactionNextStepRuleTests.AWorkedUpCase_WithoutAConclusion_AsksForIt`; `ReactionCatalogTests.Seeding_GivesNoneOnBothLists_AndTheyCannotBeRemovedOrRecoded`, `Closing_RecordsTheConclusion_FromTheLists_AsTheyReadThen`, `NoReaction_AndNoTreatment_CloseAnInvestigation` | URS-BB-492 / FRS-BB-546 / OCD-057 |
+| TEST-BB-410 | D / I | `StorageLocationChangeReasonRuleTests.AReasonOfAtLeastEightCharacters_IsRequired`; `InventoryLocationAuthorizationTests.CreateAndUpdate_WriteConfigure`, `Deactivate_WithoutAdminConfigActivate_IsRejected`, `Deactivate_WhileUnitsAreStored_IsRefused` | URS-BB-483 / FRS-BB-547 |
+| TEST-BB-411 | D / I | `ValidatedConfigChangeReasonRuleTests.AReasonOfAtLeastEightCharacters_IsRequired_AndNamesWhatChanged`; `Phase4IssuingTests.TransportContainer_Update_And_Deactivate_NeedAReason`, `MtpActivation_WithInactiveOrUnknownPack_IsRefused` | URS-BB-483 / FRS-BB-548 |
+| TEST-BB-412 | D / I | `SpecialRequirementCategoryRuleTests.ARequirementForOneUnitCategory_IgnoresUnitsOfAnother_AndAllCategoriesAppliesToEvery`, `UnitAbo_AcceptsOnlyTheAllowedGroups_AndRhNegative_OnlyRhNegativeUnits`, `UnitTestNegative_IsMetByTheProductCode_OrANegativeTestOnTheUnit_AndNotOtherwise`, `Informational_NeverBlocks_SelectionOrIssue`, `ARequirement_AppliesFromItsStart_AndNoLongerOnOrAfterItsEnd`, `AtIssue_AnUnmetTypingStops_ButOnEmergencyRelease_NeedsTheOverride_WhileProceduresStillStop`, `Validator_PutsEachKindInItsTable_AndAsksForWhatTheKindNeeds`, `ChoiceLabels_NameTheUnitCategory`; `Phase4IssuingTests.Issue_GroupORedCellsOnly_RefusesAGroupARedCell_ButNotGroupAPlasma`, `Issue_UnmetModification_OnEmergencyRelease_IssuesUnderTheRecordedOverride`, `Issue_CmvNegativeTyping_IsMetByANegativeTestRecordedOnTheUnit`; `PatientAllocationTests.ListCompatibleUnits_GroupORedCellsOnly_AppliesToRedCellsOnly_UntilItsEndDate`; `SpecialRequirementAdminTests.Create_InEachTable_AsksForWhatThatTableNeeds`, `Backfill_PlacesEarlierDefinitions_AndKeepsAllCategories`, `ChartDates_AreFacilityMidnight_AndTheEndMustFollowTheStart` | URS-BB-493 / FRS-BB-549, FRS-BB-550 / RISK-BB-589 |
+| TEST-BB-413 | D / I | `UnitSpecialTestRuleTests.ACodeAndANegativeOrPositiveResult_AreRequired`, `TheSameResultTwice_IsRefused_AndAChange_NeedsAReason`; `UnitSpecialTestTests.Record_KeepsTheResult_AuditsIt_AndRefusesTheSameResultAgain`, `Correction_NeedsAReason_KeepsHistory_AndTheLatestResultCounts`, `Record_WithoutInventoryReceive_IsRefused` | URS-BB-493 / FRS-BB-551 / RISK-BB-589 |
+| TEST-BB-414 | I | `PatientAllocationTests.ListActive_ReservedUnitThatFailsALaterRequirement_SaysWhatItLacks` | URS-BB-493 / FRS-BB-552 / RISK-BB-589 |
+| TEST-BB-415 | D | `IssueRunTests.NextForPatient_OffersThatPatientsOtherReadyUnits_OldestReservationFirst`, `UnitsTheBoardWouldNotIssueRoutinely_AreNotOffered_ButCounted` | URS-BB-494 / FRS-BB-553 |
+| TEST-BB-416 | D | `IssueRunTests.NextToReceive_OffersTheRestOfTheSameCooler_ForThatPatient_EarliestFirst`, `NextToReceive_WithoutACooler_MatchesTheDestination_AndOnlyUncooledUnits` | URS-BB-494 / FRS-BB-554 |
+| TEST-BB-417 | D / I | `Hl7BpsBuilderTests.Dispensed_SendsBpsO29_WithTheUnitTheOrderAndWhereItWent`, `Returned_SendsReturnedUnused_WithoutADestination_AndWithoutAnOrderUsesTheIssue`, `TheDispenseStatus_CanBeTranslatedForASite`; `Phase4IssuingTests.IssueAndReturn_QueueADispenseMessage_OnlyWithAnEnabledBloodProductInterface` | URS-BB-495 / FRS-BB-555 |
+| TEST-BB-418 | D | `IssueRunTests.NextAtBedside_PutsUnitsStillTransfusingFirst_ThenReceivedOnes_ForThatPatientOnly` | URS-BB-494 / FRS-BB-556 |
+| TEST-BB-419 | D | `IssueRunTests.APickedUnit_FillsItsReservedPatient_OrSaysWhoseItIs` | URS-BB-494 / FRS-BB-557 |
+| TEST-BB-420 | D | `IssueRunTests.RoutineIssueBlocks_NameWhatStopsRoutineIssue_AndAreEmptyWhenReady` | URS-BB-494 / FRS-BB-558 |
+| TEST-BB-421 | D | `IssueRunTests.AnIssuedUnitsNextStep_FollowsReceiptThenStartThenComplete_AndReturnStopsOnceStarted` | URS-BB-494 / FRS-BB-559 |
+| TEST-BB-422 | D / I | `CrossmatchShownStatusTests.ARecordedResult_IsShown_OtherwiseTheClinicalStatus`; `PatientTimelineTests.RecordedCrossmatchResults_AndWardReceipt_AreShown`; `Phase4IssuingTests.Issue_CmvNegativeTyping_IsMetByANegativeTestRecordedOnTheUnit` (records the crossmatch and asserts its clinical status) | URS-BB-494 / FRS-BB-560 / RISK-BB-590 |
+| TEST-BB-423 | D | `DashboardQueueCatalogTests.Select_NearExpiry_ForInventoryOrIssue_OpensTheNearExpiryBoard`; `DashboardHomeTests.NearExpiry_IsAnIssueDeskAndSupervisorQueue_AndReservedOnesNeedAttention` | URS-BB-496 / FRS-BB-561 |
+| TEST-BB-424 | D | `IssueRunTests.NearExpiry_OffersIssueForAReadyReservedUnit_AndAllocateWhenOrdersAreOpen` | URS-BB-496 / FRS-BB-562 |
+| TEST-BB-425 | D / I | `DashboardDueCountTests.LapsedReservations_AreCountedOnTheReadyCard`; `Phase4IssuingTests.LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason` | URS-BB-497 / FRS-BB-563 |
+| TEST-BB-426 | D / I | `MinimumStockRuleOpenOrdersTests.OpenOrdersExceedOnHand_OnlyWhenThereAreMoreOrdersThanUnits`; `MinimumStockOpenOrdersTests.OpenOrders_CountOnlyActiveProductLines_OnOpenOrders` | URS-BB-498 / FRS-BB-564 |
+| TEST-BB-427 | D | `TestWorkItemBenchActionTests.AnEnteredResult_SaysVerify_WhateverItsSource`, `TheEntererOfAnAboRh_SeesReview_OthersSeeVerify_AndThePromptNamesTheOrigin` | URS-BB-499 / FRS-BB-566 |
+| TEST-BB-428 | D | `TestWorkItemBenchActionTests.ToVerify_KeepsWaitingResults_ButNotEmptyBlockedOrOwnAboRhLines` | URS-BB-499 / FRS-BB-567 |
+| TEST-BB-429 | D / I | `ShiftHandoffSummaryTests.Summary_NamesTheNewCounts_OnlyWhenAboveZero`; `TestWorklistTests.ShiftHandoff_CountsResultsToVerifyBeforeSpecimenExpiry`; `Phase4IssuingTests.LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason` | URS-BB-500 / FRS-BB-568 |
+| TEST-BB-430 | I | `DowntimePatientSummaryTests.Summary_ListsPatientsBeingWorkedFor_WithTypeAntibodiesRequirementsSpecimensAndUnits`; `DowntimePatientSummaryTests.Print_IsAudited_WithThePatientsOnTheSheet` | URS-BB-501 / FRS-BB-569 |
+| TEST-BB-431 | I | `TestWorklistTests.DowntimeSnapshot_CountsResultsToVerify_AndThoseDueBeforeSpecimenExpiry`; `Phase4IssuingTests.LapsedReservation_StaysOnReadyToIssue_UntilReleasedWithAReason` | URS-BB-502 / FRS-BB-570 |
+| TEST-BB-432 | D | `TestWorkItemBenchActionTests.ForTube_KeepsTheScannedTubesLines_AndFirstToWorkSkipsBlockedOnes` | URS-BB-503 / FRS-BB-571 |
+| TEST-BB-433 | D / I | `TestWorkItemBenchActionTests.ForTube_MatchesTheLabelBarcode_AndNamesTheTubeByItsAccession`; `TestWorklistTests.WorklistRow_CarriesTheLabelBarcode_AndALabelScanFindsIt` | URS-BB-503 / FRS-BB-572 |
+| TEST-BB-434 | I | `DowntimePatientSummaryTests.OnePatient_IsOnTheSheetEvenWithNothingCurrent_AndThePrintIsAuditedAgainstThem` | URS-BB-501 / FRS-BB-573 |
+| TEST-BB-435 | D | `DashboardQueueCatalogTests.ToVerify_ForVerifiersOnly_CountsTheirOwnVerifiableResults_WithTheExpiryNote` | URS-BB-504 / FRS-BB-574 |
+| TEST-BB-436 | I | `PatientListFlagsTests.PatientList_ShowsCurrentType_ActiveAntibodies_AndRequirementsInEffect` | URS-BB-505 / FRS-BB-575 |
+| TEST-BB-437 | I | `UniversalLookupTests.PatientHit_CarriesTypeAndAlerts_FromTheSurvivingChart` | URS-BB-505 / FRS-BB-576 |
+| TEST-BB-438 | D | `PatientPickerLabelTests.PickerLabel_ShowsTypeAndAlerts_AndMarksMergedRecords` | URS-BB-505 / FRS-BB-577 |
+| TEST-BB-439 | I | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` (special-requirements demo patient: MRN0023 with IRRAD-RBC, CMVNEG-RBC, and CALL-TSMD in effect, typed O+ twice) | SRS-BB-457 |
+| TEST-BB-440 | D / I | `PatientListFlagsTests.PatientList_ShowsCurrentType_ActiveAntibodies_AndRequirementsInEffect`; `UniversalLookupTests.PatientHit_CarriesTypeAndAlerts_FromTheSurvivingChart`; `PatientPickerLabelTests.PickerLabel_ShowsTypeAndAlerts_AndMarksMergedRecords` | URS-BB-505 / FRS-BB-578 |
+| TEST-BB-441 | I | `Phase4IssuingTests.CompatibilityReserve_RefusesAUnitThatMissesARequirement_ButReservesOneThatMeetsIt` | URS-BB-506 / FRS-BB-579 |
+| TEST-BB-442 | D / I | `ReactionWorkupRulesTests.Settings_AcceptOnlyReleasedGroups_AndNeedAReason`; `ReactionWorkupServiceTests.Settings_StartAtTheStarterGroups_AndAcceptOnlyReleasedGroupsWithAReason` | URS-BB-507 / FRS-BB-581 |
+| TEST-BB-443 | I | `ReactionWorkupServiceTests.PreSpecimen_OrdersItsTestGroup_OnTheChosenTube_AndOptionsSuggestTheCrossmatchTube`; `ReactionWorkupServiceTests.Attach_RefusesTheWrongTube_AnUnchosenGroup_AndAClosedCase` | URS-BB-507 / FRS-BB-582 |
+| TEST-BB-444 | I | `ReactionWorkupServiceTests.ExpiredPreTube_IsUsed_AndThePostTubeIsAccessionedWithItsGroup`; `TestWorklistTests.ExpiredTube_TakesReactionWorkupResults_ButNotOrdinaryOnes` | URS-BB-507 / FRS-BB-583 |
+| TEST-BB-445 | D | `ReactionWorkupRulesTests.PreSpecimen_MustBeThePatients_Usable_AndCollectedBeforeTheIssue`; `ReactionWorkupRulesTests.PostSpecimen_MustBeANewAcceptedTube_CollectedAfterTheStart`; `ReactionWorkupRulesTests.ExpiredSpecimens_AreAllowedOnlyForReactionWorkupOrders` | URS-BB-507 / FRS-BB-582, FRS-BB-583 |
+| TEST-BB-446 | D / I | `ReactionWorkupRulesTests.CloseGate_NamesTheNextMissingStep_InOrder`; `ReactionInvestigationServiceTests.Close_WaitsForEveryWorkupTestToBeVerified_AndTheBoardShowsTheResults`; `ReactionInvestigationServiceTests.RepeatAboRh_ComesFromTheWorkupResults` | URS-BB-507 / FRS-BB-584 |
+| TEST-BB-447 | I | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` (MRN0006 workup: ACC0014 pre with ORD0016, ACC0024 post with RXN-n-POST unresulted, settings TRX-PRE and TRX-POST) | URS-BB-507 / FRS-BB-584 |
+| TEST-BB-448 | I | `ReactionWorkupServiceTests.CancelledWorkupOrder_FreesTheRole_ForAReplacementTube` | URS-BB-507 / FRS-BB-582 |
+| TEST-BB-449 | I | `ReactionInvestigationServiceTests.Report_CarriesTheTransfusionRecordAndWorkup_AndItsPrintIsAudited` | URS-BB-508 / FRS-BB-585 |
+| TEST-BB-450 | I | `TestWorklistTests.ExpiredTube_TakesReactionWorkupResults_ButNotOrdinaryOnes` | URS-BB-507 / FRS-BB-586 |
+| TEST-BB-451 | I | `TestWorklistTests.RejectedTube_NamesItsWaitingOrders_AndTheBenchAsksForRecollection` | URS-BB-509 / FRS-BB-587 |
+| TEST-BB-452 | D | `DashboardQueueCatalogTests.PendingTestsNote_NamesRecollections_AndTheRecollectViewKeepsThem` | URS-BB-509 / FRS-BB-588 |
+| TEST-BB-453 | I | `InventoryServiceTests.TransferByScan_MovesTheScannedUnit_AndRefusesWhatItCannotMove` | URS-BB-510 / FRS-BB-589 |
+| TEST-BB-454 | I | `InventoryServiceTests.StockCount_ReconcilesScansAgainstTheLocation_AndFinishingIsAudited` | URS-BB-511 / FRS-BB-590 |
+| TEST-BB-455 | I | `InventoryServiceTests.StockCount_ReconcilesScansAgainstTheLocation_AndFinishingIsAudited` | URS-BB-511 / FRS-BB-591 |
+| TEST-BB-456 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-512 / FRS-BB-592 |
+| TEST-BB-457 | U | `CoolerCheckNoticeTests.CoolerCheckNotice_SaysWhetherTheCoolerWasCheckedBeforeItLeft` | URS-BB-512 / FRS-BB-593 |
+| TEST-BB-458 | U | `IssueRunTests.NextToReturn_OffersTheRestOfTheCooler_ForThatPatient_NotOnesTransfusing` | URS-BB-513 / FRS-BB-594 |
+| TEST-BB-459 | I | `InventoryServiceTests.StockCount_MissingUnit_CanBeMarkedMissing_ThenFoundOnALaterCount` | URS-BB-511 / FRS-BB-595 |
+| TEST-BB-460 | U, I | `ShiftHandoffSummaryTests.Summary_NamesCoolersOut_AndTheirChecks`; `ShiftHandoffServiceTests.Create_CountsCoolersInTransit_AndTheirChecks` | URS-BB-512 / FRS-BB-596 |
+| TEST-BB-461 | U | `DashboardQueueCatalogTests.InTransitNote_NamesOverdueUnits_AndCoolerChecks` | URS-BB-512 / FRS-BB-597 |
+| TEST-BB-462 | I | `SeederTests.Seed_DemoCoolers_ShowEachCheckState_Once` | URS-BB-512 / FRS-BB-592 |
+| TEST-BB-463 | U | `DashboardDueCountTests.ReactionsNote_NamesPostSpecimenAndWorkupStillToVerify` | URS-BB-507 / FRS-BB-598 |
+| TEST-BB-464 | I, U | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesMissingUnit_UntilLocated`; `SupervisorQueueRuleTests.KindSortOrder_PutsAntibodyReviewFirst` | URS-BB-337 / FRS-BB-599 |
+| TEST-BB-465 | U, I | `DashboardQueueCatalogTests.NoSpecimen_ListsRushFirst_AndTheNoteCountsStatOrders`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-509 / FRS-BB-600 |
+| TEST-BB-466 | U, I | `PossibleDuplicatePatientRuleTests.SameBirthday_MatchesOnLastNameAndInitial_OrSwappedNames`; `PatientServiceTests.Create_PossibleDuplicate_IsRefusedUntilConfirmed_AndTheConfirmationIsAudited` | URS-BB-514 / FRS-BB-601 |
+| TEST-BB-467 | I | `PatientServiceTests.PossibleDuplicatePairs_ListActiveMatches_OlderFirst`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-514 / FRS-BB-602 |
+| TEST-BB-468 | I | `SupplierOrderTests.Reconcile_CountsEachDeliveredUnitOnce`; `SupplierOrderTests.Order_FromMinimumStockShortfall_EditSubmitReceive` | URS-BB-411 / FRS-BB-603 |
+| TEST-BB-469 | I | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-411 / FRS-BB-603 |
+| TEST-BB-470 | U | `BenchShortcutTests.Shortcut_clicks_only_row_toggles_and_ignores_typing`; `BenchShortcutTests.Worklist_rows_carry_the_toggle_and_entry_markers` | URS-BB-515 / FRS-BB-604 |
+| TEST-BB-471 | U | `CrossmatchUnitOfferTests.Offer_IsReservedPlusCompatible_CountedOnce`; `CrossmatchUnitOfferTests.UnreadableCompatibleList_OffersEveryUnit_AndSaysWhy` | URS-BB-506 / FRS-BB-605 |
+| TEST-BB-472 | I | `InventoryServiceTests.DiscardExpiredByScan_DiscardsOnlyExpiredUnits_WithTheExpiredReason` | URS-BB-516 / FRS-BB-606 |
+| TEST-BB-473 | U | `DashboardHomeTests.ExpiredOnShelf_IsForDiscarders_AndNeedsAttentionAboveZero` | URS-BB-516 / FRS-BB-607 |
+| TEST-BB-474 | U, I | `ShiftHandoffSummaryTests.Summary_NamesExpiredUnitsOnTheShelf`; `InventoryServiceTests.DiscardExpiredByScan_DiscardsOnlyExpiredUnits_WithTheExpiredReason` | URS-BB-516 / FRS-BB-608 |
+| TEST-BB-475 | I | `InventoryServiceTests.ReturnToSupplierByScan_ReturnsEachUnit_WithTheShipmentReason`; `InventoryServiceTests.StockCount_MissingUnit_CanBeMarkedMissing_ThenFoundOnALaterCount` | URS-BB-517 / FRS-BB-609 |
+| TEST-BB-476 | I | `InventoryServiceTests.RepeatedStatusActions_AreRefused_AndKeepTheFirstReason` | URS-BB-517 / FRS-BB-610 |
+| TEST-BB-477 | I | `ReportServiceTests.TestTurnaround_MinutesFromOrderAndReceipt_ByPriority`; `ReportServiceTests.SeededReports_Exist_Run_AndCannotBeDeleted` | URS-BB-518 / FRS-BB-611 |
+| TEST-BB-478 | I | `DowntimePatientSummaryTests.AntibodyCard_CarriesTypeAndActiveAntibodies_AndPrintIsAudited` | URS-BB-519 / FRS-BB-612 |
+| TEST-BB-479 | U, I | `DormantAccountRuleTests.Dormant_WhenActivePersonNotSignedInWithinTheDays`; `UserAdminAuthorizationTests.AccessReview_RecordsActiveAccounts_AndIsReadBack` | URS-BB-520 / FRS-BB-613 |
+| TEST-BB-480 | U, I | `IssueRequestServiceTests.Request_ThenCancel_KeepsTheTrail_AndRefusesWhatItShould`; `DashboardDueCountTests.Requested_LeadReadyToIssue_AndAreNamedOnTheCard` | URS-BB-521 / FRS-BB-614 |
+| TEST-BB-481 | U | `PatientVisitLocationTests.ReservationVisit_WinsWhenOpen_ElseLatestOpenVisit`; `PatientVisitLocationTests.NoOpenVisitWithALocation_SuggestsNothing` | URS-BB-521 / FRS-BB-615 |
+| TEST-BB-482 | U | `PatientVisitLocationTests.ChartVisitList_GivesTheSameChoice` | URS-BB-521 / FRS-BB-616 |
+| TEST-BB-483 | I | `Phase4IssuingTests.CompletionOverdue_LeadsTheIssuedList` | URS-BB-451 / FRS-BB-617 |
+| TEST-BB-484 | U | `DashboardQueueCatalogTests.SupervisorNote_NamesTheItemsWithADeadlineOrAReview` | URS-BB-337 / FRS-BB-618 |
+| TEST-BB-485 | I | `PatientTestHistoryTests.Rows_NameTheEnterer_AndRevisedOnlyGroupsTheCorrectionChain` | URS-BB-067 / FRS-BB-619 |
+| TEST-BB-486 | U | `OrderVisitDefaultsTests.LocationFor_MatchesCodeOrName_OnlyWhenExactlyOneActiveLocation`; `OrderVisitDefaultsTests.AttendingFor_FindsTheVisitAttending_OrNothing` | URS-BB-522 / FRS-BB-620 |
+| TEST-BB-487 | U | `AlertInboxViewTests.Kinds_AreNamedAsTheHelpPage_MostSevereFirst`; `AlertInboxViewTests.OpenFor_UsesMinutesThenHoursThenDays` | URS-BB-409 / FRS-BB-621 |
+| TEST-BB-488 | U | `PatientChartUrlsTests.Links_NameTheTube_TheOrder_OrTheVisit`; `PatientChartUrlsTests.TheChart_ReadsEveryQueryNameTheLinksUse` | URS-BB-523 / FRS-BB-622 |
+| TEST-BB-489 | U, I | `DeviationStatusRuleTests.ClosingNeedsAnAction_AndARecordedActionIsNotCleared`; `DeviationServiceTests.Close_NeedsACorrectiveAction_AndReopenKeepsTheEarlierCloseInTheAudit` | URS-BB-524 / FRS-BB-623 |
+| TEST-BB-490 | U | `DashboardQueueCatalogTests.Deviations_ForManagers_CountOpenAndNameCritical` | URS-BB-524 / FRS-BB-624 |
+| TEST-BB-491 | I | `DeviationServiceTests.ListForRecord_MatchesTheRecordAndOlderSpellings_OpenFirst` | URS-BB-524 / FRS-BB-625 |
+| TEST-BB-492 | U | `DeviationRecordTypesTests.EveryLookupKind_MapsToARecordType`; `DeviationRecordTypesTests.RecordPages_FindOlderSpellings` | URS-BB-524 / FRS-BB-626 |
+| TEST-BB-493 | U, I | `ShiftHandoffSummaryTests.Summary_NamesOpenAndCriticalDeviations`; `ShiftHandoffServiceTests.Create_CountsOpenAndCriticalDeviations` | URS-BB-524 / FRS-BB-627 |
+| TEST-BB-494 | U | `DashboardQueueCatalogTests.ReagentQc_ForResultEntry_NamesFailedAndOverdue` | URS-BB-391 / FRS-BB-628 |
+| TEST-BB-495 | U | `ReagentQcResultBlockTests.Blocked_OnlyWhenPolicyOnAndWorkOpen` | URS-BB-391 / FRS-BB-629 |
+| TEST-BB-496 | I | `ReagentQcHistoryTests.RecentQc_NewestFirst_WithinTheWindow_AndTheFormHelpers` | URS-BB-391 / FRS-BB-630 |
+| TEST-BB-497 | U, I | `BatchVerifyRuleTests.PlainNegatives_AndMatchingTypes_Qualify`; `BatchVerifyRuleTests.EverythingElse_IsVerifiedOnItsOwn`; `BatchVerifyServiceTests.OnlyEligibleResults_AreVerified_AndEachIsAuditedWithTheBatch` | URS-BB-525 / FRS-BB-631 |
+| TEST-BB-498 | U, I | `Hl7OruBuilderTests.NoResultNotice_CarriesTheOrderAndTheReason`; `SpecimenRejectionEhrNoticeTests.Rejecting_QueuesANoResultNoticePerOpenTest_OnlyWithAResultsInterface`; `SpecimenRejectionEhrNoticeTests.AFailureToQueue_KeepsTheRejection_AndWarns` | URS-BB-509 / FRS-BB-632 |
+| TEST-BB-499 | I | `Phase5Hl7Tests.DispenseRequest_RequestsTheOneReservedUnit_ThenACancelWithdrawsIt`; `Phase5Hl7Tests.DispenseRequest_UsesThePatientLocation_WhenNoDeliverToIsSent`; `Phase5Hl7Tests.DispenseRequest_ForAnOrderWithSeveralUnits_GoesToTheErrorQueue_AndChangesNothing`; `Phase5Hl7Tests.DispenseRequest_ByDin_PicksThatUnit_EvenWhenTheOrderHasSeveral` | URS-BB-521 / FRS-BB-633 |
+| TEST-BB-500 | U | `SupervisorQueueKindQueryTests.KindFromQuery_MatchesAKnownKind_AnyCase` | URS-BB-337 / FRS-BB-634 |
+| TEST-BB-501 | U | `LookupRecordTypeTests.EveryLookupKind_MapsToTheAuditEntityType`; `AuditTrailLinkTests.UnitAuditLink_MatchesTheAuditPageQueryNames` (unit, patient timeline, specimen history) | URS-BB-526 / FRS-BB-635 |
+| TEST-BB-502 | U, I | `DuplicateTestOrderRuleTests.NamesEachRepeatedTest_AndItsOpenOrders`; `Phase10PatientWorkspaceTests.CreateOrder_WarnsWhenTheSameTestIsAlreadyOpen`; `Phase10PatientWorkspaceTests.UpdateOrder_WarnsWhenAnAddedTestIsAlreadyOpenElsewhere` | URS-BB-527 / FRS-BB-636 |
+| TEST-BB-503 | U | `CurrentVisitTests.Picks_TheLatestOpenVisit_AndCountsTheOthers`; `CurrentVisitTests.Describe_UsesOnlyWhatIsRecorded` | URS-BB-528 / FRS-BB-637 |
+| TEST-BB-504 | I | `UniversalLookupTests.VisitNumber_OpensThatVisitsOrders_AndSaysItIsOpen`; `UniversalLookupTests.DischargedVisit_SaysSo_AndAMergedVisitOpensTheSurvivor`; `UniversalLookupTests.AccountAndOtherIdentifiers_FindThePatient_ButNamesStayPartial`; `UniversalLookupTests.OrderNumber_OpensThePatientsOrders` | URS-BB-529 / FRS-BB-638 |
+| TEST-BB-505 | U, I | `CurrentVisitTests.StoredVisits_PickTheSameVisit_AndSayWhereThePatientIs`; `PatientListFlagsTests.PatientList_ShowsWhereThePatientIs_FromTheCurrentOpenVisit`; `UniversalLookupTests.PatientHit_SaysWhereThePatientIsNow` | URS-BB-530 / FRS-BB-639 |
+| TEST-BB-506 | U, I | `PatientPickerLabelTests.PickerLabel_SaysWhereThePatientIs`; `PatientListFlagsTests.PatientList_ShowsWhereThePatientIs_FromTheCurrentOpenVisit` | URS-BB-531 / FRS-BB-640 |
+| TEST-BB-507 | U | `DashboardHomeTests.LowStock_NamesTheShortfalls_AndNeedsAttention` | URS-BB-532 / FRS-BB-641 |
+| TEST-BB-508 | U, I | `ShiftHandoffSummaryTests.Summary_NamesProductsBelowMinimumStock`; `ShiftHandoffServiceTests.Create_CountsProductsBelowMinimumStock` | URS-BB-533 / FRS-BB-642 |
+| TEST-BB-509 | U, I | `SupplierOrderTests.SubmittedOrders_CountAsOnOrder_SoAShortageIsNotOrderedTwice`; `MinimumStockRuleTests.StillToOrder_IsTheShortfallLessWhatIsOnOrder`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-534 / FRS-BB-643 |
+| TEST-BB-510 | U, I | `SupplierOrderRuleTests.Arrival_IsDueAfterTheWindow_AndOverdueOnlyWhileSubmitted`; `SupplierOrderTests.SubmittedOrder_PastItsArrivalWindow_IsOverdue` | URS-BB-535 / FRS-BB-644 |
+| TEST-BB-511 | U, I | `AlertRuleTests.Changed_ListsAlertsThatNowReadDifferently`; `AlertWorkflowTests.ShortageAlert_FollowsWhatIsOnOrder_WithoutRaisingAgain` | URS-BB-536 / FRS-BB-645 |
+| TEST-BB-512 | U, I | `AlertRuleTests.RaisesAgain_OnlyWhenAnAcknowledgedAlertBecomesMoreSevere`; `AlertWorkflowTests.AcknowledgedShortage_IsRaisedAgain_WhenItsOrderIsLate` | URS-BB-537 / FRS-BB-646 |
+| TEST-BB-513 | U, I | `SpecimenCollectorRuleTests.Accept_NeedsTheCollector_OnlyWhenRequired`; `SpecimenCollectorTests.Required_AcceptIsRefusedUntilTheCollectorIsRecorded`; `SpecimenCollectorTests.NotRequired_ByDefault_ATubeWithoutACollectorIsAccepted` | URS-BB-538 / FRS-BB-647 |
+| TEST-BB-514 | I | `SpecimenVisitLinkTests.OneOpenVisit_IsTheTubesVisit_AndANamedVisitIsUsed`; `SpecimenVisitLinkTests.TwoOpenVisits_NoneIsGuessed`; `SpecimenVisitLinkTests.AnotherPatientsVisit_OrACancelledOne_IsRefused` | URS-BB-539 / FRS-BB-648 |
+| TEST-BB-515 | U | `CurrentVisitTests.NewTube_StartsOnTheOnlyOpenVisit_AndListsChoicesOpenFirst` | URS-BB-540 / FRS-BB-649 |
+| TEST-BB-516 | U | `NumericResultRuleTests.Flags_FollowTheRanges_AtEachBoundary`; `NumericResultRuleTests.DecimalsReportableRangeAndFormat_RefuseEntry`; `NumericResultRuleTests.NoLimits_AcceptsAnyNumber_WithoutAFlag` | URS-BB-542 / FRS-BB-651 |
+| TEST-BB-517 | U | `TiterRuleTests.Dilutions_DoubleFromStartToEnd_AndBadSeriesAreRejected`; `TiterRuleTests.Endpoint_IsTheHighestDilutionAtTheEndpointGrade_WithScore`; `TiterRuleTests.NoReaction_IsBelowTheFirstDilution`; `TiterRuleTests.MissingDilutions_BeforeTheFirstNegative_AreRefused_AndUnknownGradesToo`; `TiterRuleTests.AReactionAfterANegative_IsKept_AndWarns`; `TiterRuleTests.Change_IsCountedInDilutionSteps`; `TiterRuleTests.Value_RoundTripsThroughJson` | URS-BB-543, URS-BB-544 / FRS-BB-652, FRS-BB-653 |
+| TEST-BB-518 | U | `TestDefinitionNumericTiterValidatorTests.WellFormedNumericAndTiter_Pass`; `TestDefinitionNumericTiterValidatorTests.BadNumericLimits_AreRefused`; `TestDefinitionNumericTiterValidatorTests.BadTiterSetup_IsRefused` | URS-BB-541, URS-BB-543 / FRS-BB-650 |
+| TEST-BB-519 | I | `NumericTiterResultTests.Numeric_IsChecked_Flagged_AndSentWithUnitsAndFlag`; `NumericTiterResultTests.Titer_IsStoredWithEndpointAndScore_AndACorrectionRecomputes`; `NumericTiterResultTests.History_TrendsTitersOfTheSameTest_OldestFirst` | URS-BB-542–544 / FRS-BB-651–653 |
+| TEST-BB-520 | I | `SeederTests.Seed_AddsExampleTestsAsValidDrafts_AndTheTiterDemo` | URS-BB-545 / FRS-BB-654 |
+| TEST-BB-521 | I | `AdminConfigTests.NumericAndTiterSettings_RoundTrip_AndOnlyTheMatchingPartIsKept` | URS-BB-541 / FRS-BB-650 |
+| TEST-BB-522 | I | `NumericTiterResultTests.QueuedNumericResult_CarriesTheReferenceRange` | URS-BB-546 / FRS-BB-655 |
+| TEST-BB-523 | U, I | `LoincCodeRuleTests.Code_NeedsDigitsHyphenAndCheckDigit`; `LoincCodeRuleTests.Definition_WithAMalformedCode_IsRefused`; `NumericTiterResultTests.QueuedNumericResult_CarriesTheReferenceRange` | URS-BB-547 / FRS-BB-656 |
+| TEST-BB-524 | U | `InterfaceTranslatorScopeTests.InterfaceRows_OverrideGlobalRows_AndOtherInterfacesAreIgnored`; `InterfaceTranslatorScopeTests.TestCodes_FallBackToTheProcedureCode_AndASpecificRowWins`; `InterfaceTranslatorScopeTests.Inbound_AGrouperWinsOverATestForTheSameExternalCode`; `InterfaceTranslatorScopeTests.Misses_AreRecordedOnlyForFieldsWithTranslations_Once` | URS-BB-548 / FRS-BB-657 |
+| TEST-BB-525 | I | `InterfaceTranslationScopeTests.GlobalAndInterfaceRows_AreSavedApart_WithAReason_AndCheckShowsTheSource`; `InterfaceTranslationScopeTests.LocalValues_MustBeOnesTheLisHas`; `InterfaceTranslationScopeTests.UnmappedValues_AreCounted_ResolvedByATranslation_OrDismissedWithAReason` | URS-BB-548 / FRS-BB-657 / FRS-BB-661 |
+| TEST-BB-526 | I | `InterfaceTestCodeTranslationTests.ServiceCode_PrefersTheGroupersTranslation_ThenTheTests`; `InterfaceTestCodeTranslationTests.InboundGrouperCode_OrdersItsTests_AndTheResultGoesOutUnderIt`; `InterfaceTestCodeTranslationTests.UnknownOrderCode_GoesToTheErrorQueue_AndTheUnmappedList` | URS-BB-549 / FRS-BB-659 |
+| TEST-BB-527 | U, I | `Hl7DemographicTranslationTests.Adt_ReadsRaceEthnicityAndPatientClass_ThroughTheTranslations`; `Hl7DemographicTranslationTests.Adt_UntranslatedValues_AreListed_AndNotStored`; `Hl7DemographicTranslationTests.Outbound_SendsTranslatedRaceEthnicity_FlagAndPatientClass`; `InterfaceTestCodeTranslationTests.Adt_StoresRaceEthnicityAndVisitType_AndASparseUpdateKeepsThem` | URS-BB-550 / FRS-BB-660 |
+| TEST-BB-528 | A, I | `SeederTests.Seed_AddsStarterTranslations_OncePerField_AndTheTranslationDemo`; `DashboardQueueCatalogTests.UnmappedValuesCard_FollowsTheInterfaceAdminPermission` | URS-BB-548 / FRS-BB-658 / FRS-BB-661 |
+| TEST-BB-529 | U | `InterfaceTranslationImportTests.SpreadsheetPaste_WithAHeader_ReadsEachRow_AndBlankDirectionIsBoth`; `InterfaceTranslationImportTests.Csv_HandlesQuotes_AndTwoColumnLines`; `InterfaceTranslationImportTests.BadLines_AreNamedAndSkipped_AndRepeatsCountedOnce`; `InterfaceTranslationImportTests.Export_ReadsBackUnchanged_IncludingAFormulaGuardedCode`; `InterfaceTranslationImportTests.Empty_HasNothing` | URS-BB-551 / FRS-BB-662 |
+| TEST-BB-530 | I | `InstrumentInterfaceTests.UnknownAssay_IsNotPosted_IsListed_AndPostsOnReplayAfterATranslation`; `InstrumentInterfaceTests.NotOrderedTest_AndUnknownAnalyte_AreNotPosted` | URS-BB-553 / FRS-BB-665 |
+| TEST-BB-531 | I | `InstrumentInterfaceTests.GroupInterpretation_IsTranslated_WithoutTheOldRule` | URS-BB-552 / FRS-BB-665 |
+| TEST-BB-532 | I | `InstrumentInterfaceTests.ErrorCodes_HoldOrWarn` | URS-BB-554 / FRS-BB-666 |
+| TEST-BB-533 | I | `InstrumentInterfaceTests.Query_ForATestWithNoInstrumentCode_LeavesItOut_AndListsIt`; `AstmParserTests.OrderBuilder_IncludesDonorCommentForCrossmatch` | URS-BB-553 / FRS-BB-665 |
+| TEST-BB-534 | I | `InstrumentInterfaceTests.Admin_RefusesUnknownLocalValues_AndBadErrorActions` | URS-BB-552 / FRS-BB-663 |
+| TEST-BB-535 | U | `InstrumentValueTranslatorTests.ARowForTheTest_WinsOverARowForEveryTest`; `InstrumentValueTranslatorTests.OrderTestCodes_GoOut_AndInboundRowsDoNot`; `InstrumentValueTranslatorTests.ErrorCodes_MapToActions_AndAnUnknownCodeHolds_AndIsListedOnce`; `InstrumentValueTranslatorTests.Validation_NamesBadRows`; `InstrumentValueTranslatorTests.InstrumentRows_ImportWithAnOptionalTestLimit`; `InstrumentInterfaceTests.Translator_UsesOrderWhenMultipleTestsShareInstrumentCode` | URS-BB-552 / FRS-BB-663 / FRS-BB-666 |
+| TEST-BB-536 | I | `SeederTests.Upgrade_CopiesTheOldMap_AndTurnsOffOnlyUnchangedTextRules`; `SeederTests.Seed_GivesTheEchoTranslations_InsteadOfTextRules` | URS-BB-552 / FRS-BB-663 / FRS-BB-664 |
+| TEST-BB-537 | U | `InstrumentMessageFollowUpRuleTests.Release_NeedsAHeldOpenFailure_AndAReason` | URS-BB-555 / FRS-BB-667 |
+| TEST-BB-538 | I | `InstrumentInterfaceTests.HeldResult_IsReleasedWithAReason_AndOtherFailuresAreNot` | URS-BB-555 / FRS-BB-667 |
+| TEST-BB-539 | U, I | `InstrumentValueTranslatorTests.ErrorCodes_AreDescribedFromTheTable`; `InstrumentValueTranslatorTests.ErrorCodeTable_ExportsAndImportsWithMeanings`; `InstrumentInterfaceTests.ErrorCodes_HoldOrWarn`; `SeederTests.Seed_GivesTheEchoTranslations_InsteadOfTextRules` | URS-BB-554 / FRS-BB-668 |
+| TEST-BB-540 | U | `DashboardQueueCatalogTests.InstrumentFailuresCard_NamesHeldResults`; `DashboardQueueCatalogTests.InterfaceCards_FollowTheInterfacePermissions` | URS-BB-556 / FRS-BB-669 |
+| TEST-BB-541 | U | `ReagentLotUseRuleTests.TestCodes_AreParsedAndNormalized`; `ReagentLotUseRuleTests.LotsInUse_AreOpenUnexpiredLotsOfActiveReagentsForTheTest` | URS-BB-557 / FRS-BB-670 |
+| TEST-BB-542 | I | `ReagentLotTraceabilityTests.ManualResult_RecordsOpenLots_AndTheLotLookbackFindsIt`; `ReagentLotTraceabilityTests.ReagentTests_MustBeKnownTests_AndAreStoredTidy` | URS-BB-557 / FRS-BB-670 |
+| TEST-BB-543 | I | `SeederTests.Seed_AddsDemoReagentLots_AndRecordsRecentManualResults_Once` | URS-BB-557 / FRS-BB-670 |
+| TEST-BB-544 | U, I | `ReagentLotUseRuleTests.EntryWarnings_NameMissingLotsAndQc`; `ReagentLotTraceabilityTests.ManualResult_RecordsOpenLots_AndTheLotLookbackFindsIt` | URS-BB-558 / FRS-BB-671 |
+| TEST-BB-545 | I | `ReagentLotTraceabilityTests.WorklistLine_ShowsTheLotsOfItsResult` | URS-BB-558 / FRS-BB-672 |
+| TEST-BB-546 | U, I | `ReagentLotUseRuleTests.ReviewSince_IsTheLastPassBeforeTheLatestFailure`; `AlertWorkflowTests.FailedQc_NamesTheResultsToReview_AndTheAlertOpensThem` | URS-BB-559 / FRS-BB-673 |
+| TEST-BB-547 | U, I | `ReagentLotUseRuleTests.Review_NeedsAResultToReview_AndANote`; `AlertWorkflowTests.FailedQc_NamesTheResultsToReview_AndTheAlertOpensThem` | URS-BB-560 / FRS-BB-674 |
+| TEST-BB-548 | I | `FhirReadServiceTests.VerifiedResults_AreObservations_WithLoincAndQuantity` | URS-BB-561 / FRS-BB-675 |
+| TEST-BB-549 | U | `AcceptedSpecimenTypesTests.List_IsParsedNormalizedAndDescribed`; `AcceptedSpecimenTypesTests.Accepts_AnyListedType`; `AcceptedSpecimenTypesTests.ResultEntry_AcceptsAnyListedType_AndNamesThemWhenRefused`; `AcceptedSpecimenTypesTests.Validator_RefusesAListedTypeMissingFromTheCatalog` | URS-BB-562 / FRS-BB-676 |
+| TEST-BB-550 | U | `AcceptedSpecimenTypesTests.OrderNote_NamesAcceptedTypes_AndWhetherOneTubeSuitsAll` | URS-BB-562 / FRS-BB-677 |
+| TEST-BB-551 | I | `FhirReadServiceTests.OrderReport_IsPartialThenFinalThenCorrected` | URS-BB-563 / FRS-BB-678 |
+| TEST-BB-552 | I | `FhirReadServiceTests.Specimens_CarryTheirStateAndExpiry_AndResultsPointAtThem`; `FhirReadServiceTests.OrderReport_IsPartialThenFinalThenCorrected` | URS-BB-564 / FRS-BB-679 |
+| TEST-BB-553 | I | `ShiftHandoffServiceTests.Create_CountsInstrumentFailuresAndFailedReagentLots` | URS-BB-565 / FRS-BB-680 |
+| TEST-BB-554 | I | `ShiftHandoffServiceTests.Create_CountsHl7ErrorsAndUnmappedInterfaceValues` | URS-BB-565 / FRS-BB-681 |
+| TEST-BB-555 | I | `ShiftHandoffServiceTests.Preview_MatchesTheRecordedCounts_AndSavesNothing` | URS-BB-566 / FRS-BB-682 |
+| TEST-BB-556 | U | `ShiftHandoffItemsTests.Items_AreTheNonEmptyQueues_UrgentFirst_LinkedToTheirBoards`; `ShiftHandoffItemsTests.Items_AreEmpty_WhenNothingIsOpen`; `ShiftHandoffItemsTests.RetrospectiveCrossmatch_IsUrgentOnlyWhenOverdue` | URS-BB-567 / FRS-BB-683 |
+| TEST-BB-557 | U | `DashboardQueueCatalogTests.HandoffNote_NamesTheUrgentItemsOfTheOpenHandoff` | URS-BB-567 / FRS-BB-684 |
+| TEST-BB-558 | U | `CompetitorGapRuleTests.Worklist_FailedOnlyWhileLatest_AndExpiredLotsFlagged`; `ReagentLotUseRuleTests.EntryWarning_NamesAnExpiredOpenLot`; `DashboardQueueCatalogTests.ReagentQc_*` (expired note) | URS-BB-568 / FRS-BB-685 |
+| TEST-BB-559 | U, I | `ReagentLotRuleTests.Receive_RefusesAnExpiredLot_AndANumberInUse`; `ReagentLotRuleTests.OpenAndQc_RefuseExpiredOrClosedLots`; `ReagentLotRuleTests.ExpiryText_CountsDaysLeft_AndFlagsExpiringSoon`; `CompetitorGapWorkflowTests.ReagentLot_Lifecycle_RefusesExpiredAndDuplicateLots_AndAuditsOpenAndClose` | URS-BB-569 / FRS-BB-686 |
+| TEST-BB-560 | U, I | `ReagentLotRuleTests.Worklist_AsksToReplaceAnOpenLotNearExpiry_OnlyWhenNoLaterLotIsOnHand`; `DashboardQueueCatalogTests.ReagentQc_*` (lots to replace); `CompetitorGapWorkflowTests.ReagentLot_NearExpiryWithNoNextLot_AsksToReceiveOne_UntilANextLotIsReceived` | URS-BB-570 / FRS-BB-687 |
+| TEST-BB-561 | U | `SpecimenAccessionWaitingTests.Waiting_IsOpenTestOrdersWithoutASpecimen`; `SpecimenAccessionWaitingTests.AccessionType_StartsOnATypeTheWaitingOrdersAccept` | URS-BB-571 / FRS-BB-688 |
+| TEST-BB-562 | U | `SpecimenAccessionWaitingTests.LinkableOnAccession_IsTestOrdersOnTheVisitThatAcceptTheType` (link validation and audit: existing `OrderService.LinkSpecimenAsync` tests) | URS-BB-572 / FRS-BB-689 |
+| TEST-BB-563 | U | `SpecimenAccessionWaitingTests.AcceptPrompt_NamesTheOrders_AndReportsTheLinks` (order selection as in TEST-BB-562, link validation and audit by the existing `OrderService.LinkSpecimenAsync` tests) | URS-BB-573 / FRS-BB-690 |
+| TEST-BB-564 | U, I | `ModificationDeviceRuleTests.Irradiation_RefusesAnUnconfirmedIndicator_EvenWithThePolicyOff`; `ModificationDeviceRuleTests.Irradiation_UnderThePolicy_NeedsTheIrradiatorAndAConfirmedIndicator`; `ModificationDeviceRuleTests.OtherModifications_RecordADeviceWithoutChecks`; `BloodProductModificationServiceTests.Irradiation_RecordsTheIrradiatorAndIndicator_AndRefusesWhatThePolicyRequires` | URS-BB-574 / FRS-BB-691 |
+| TEST-BB-565 | U, I | `ThawedExpirationRuleTests.Expiration_IsTheShelfLifeAfterThaw_CappedAtTheFrozenExpiration`; `ThawedExpirationRuleTests.ShelfLife_IsBounded_AndDescribed`; `AutoThawServiceTests.Thaw_UsesTheCodesShelfLife_AndShelfLifeChangesNeedAReason`; `AutoThawServiceTests.Thaw_NeverExtendsPastTheFrozenExpiration` | URS-BB-575 / FRS-BB-692 |
+| TEST-BB-566 | U, I | `ReflexNoteTests.NewReflexNote_NamesOnlyReflexLinesThatJustAppeared`; `ReflexNoteTests.ReflexLabel_IsTheTriggerTestAndValue`; `ReflexRulesTests.VerifyPositiveAbsc_AddsAbidLine_AndShowsOnWorklist` | URS-BB-576 / FRS-BB-693 |
+| TEST-BB-567 | U, I | `ReflexTriggerChangeRuleTests.StandingTrigger_HasNoNotice`; `ReflexTriggerChangeRuleTests.CorrectedTrigger_NamesTheNewValue`; `ReflexTriggerChangeRuleTests.InvalidatedTrigger_SaysSo`; `ReflexRulesTests.CorrectingTheTrigger_FlagsTheReflexTest_WithoutCancellingIt` | URS-BB-577 / FRS-BB-694 |
+| TEST-BB-568 | U, I | `Hl7PatientIdentifierTests.Mrn_IsTheMrTypedRepetition_EvenWhenItIsNotFirst`; `Hl7PatientIdentifierTests.Mrn_WithoutATypedRepetition_IsTheFirst_AsBefore`; `Hl7PatientIdentifierTests.CustomMrnPath_IsReadAsConfigured`; `Phase5Hl7Tests.InboundAdt_TakesTheMrRepetition_AndKeepsTheOthersAsExternalIdentifiers` | URS-BB-578 / FRS-BB-695 |
+| TEST-BB-569 | I | `PatientServiceTests.PossibleDuplicatePairs_IncludeChartsSharingAnExternalIdentifier`; `PatientServiceTests.PossibleDuplicatePairs_ListActiveMatches_OlderFirst` (reason); `Phase5Hl7Tests.InboundAdt_TakesTheMrRepetition_AndKeepsTheOthersAsExternalIdentifiers` (second chart with the same enterprise id) | URS-BB-579 / FRS-BB-696 |
+| TEST-BB-570 | U, I | `ExternalIdentifierAuthorityTests.AlsoOnMark_ReadsBackTheIssuerAndTheOtherChart`; `ExternalIdentifierAuthorityTests.SameIssuer_IgnoresTheMark`; `PatientMergeServiceTests.Merge_OfChartsSharingAnExternalId_KeepsOneCopyOnTheSurvivor` | URS-BB-580 / FRS-BB-697 |
+| TEST-BB-571 | U | `DashboardQueueCatalogTests.PossibleDuplicatesCard_ForMergers_NamesSharedIdentifierPairs` | URS-BB-581 / FRS-BB-698 |
+| TEST-BB-572 | U, I | `PossibleDuplicateDismissalTests.StillDismissed_OnlyWhileNoNewReasonAppears`; `PatientServiceTests.DismissPossibleDuplicate_HidesThePair_UntilNewEvidenceLinksThem` | URS-BB-582 / FRS-BB-699 |
+| TEST-BB-573 | U, I | `RhigEvaluationRuleTests.Facts_StateWhatIsOnFile`; `RhigEvaluationRuleTests.Complete_NeedsTheDecisionRecorded`; `RhigEvaluationRuleTests.Complete_Passes_WhenTheDecisionIsRecorded`; `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` | URS-BB-583 / FRS-BB-700 |
+| TEST-BB-574 | U, I | `DashboardQueueCatalogTests.OpenRhigCard_ForRecordersAndVerifiers_CountsThoseReadyToComplete`; `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (queue) | URS-BB-584 / FRS-BB-701 |
+| TEST-BB-575 | U, I | `RhigGivenRuleTests.Given_IsRefused_UntilTheEvaluationAndEntriesAllowIt`; `RhigGivenRuleTests.Difference_IsNotedOnly_WhenTheVialsDiffer`; `DashboardQueueCatalogTests.OpenRhigCard_ForRecordersAndVerifiers_CountsThoseReadyToComplete` (to give); `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (given) | URS-BB-585 / FRS-BB-702 |
+| TEST-BB-576 | I | `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (lot trace and timeline) | URS-BB-586 / FRS-BB-703 |
+| TEST-BB-577 | U, I | `ShiftHandoffItemsTests.RhigEvaluations_AreAHandoffItem_WithThoseToGive`; `ShiftHandoffServiceTests.Create_CountsRhigEvaluationsStillNeedingWork` | URS-BB-587 / FRS-BB-704 |
+| TEST-BB-578 | I | `DemoRhigSeedTests.RhigDemo_IsConsistent_AndAddedOnce` | URS-BB-583 / FRS-BB-700 (demo data) |
+| TEST-BB-579 | I | `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (lookup); `UniversalLookupTests.UnknownInput_SaysNothingMatches`; `LookupRecordTypeTests.EveryLookupKind_MapsToTheAuditEntityType`; `DeviationRecordTypesTests.EveryLookupKind_MapsToARecordType` | URS-BB-588 / FRS-BB-705 |
+| TEST-BB-580 | U, I | `RhigGivenRuleTests.OutstandingLine_SaysWhatIsLeft`; `DowntimePatientSummaryTests.Summary_CarriesRhigStillNeedingWork` | URS-BB-589 / FRS-BB-706 |
+| TEST-BB-581 | U, I | `SpecimenStorageTests.Tube_IsStoredByScan_AndAMoveKeepsWhereItWas`; `SpecimenStorageTests.Rule_BoundsThePlace` | URS-BB-590 / FRS-BB-707 |
+| TEST-BB-582 | I | `SpecimenStorageTests.Tube_IsStoredByScan_AndAMoveKeepsWhereItWas` (lookup); `SpecimenStorageTests.Demo_ReactionTube_IsStoredWithItsHistory` | URS-BB-591 / FRS-BB-708 |
+| TEST-BB-583 | I | `SpecimenStorageTests.Tube_IsStoredByScan_AndAMoveKeepsWhereItWas` (tubes in a place) | URS-BB-592 / FRS-BB-709 |
+| TEST-BB-584 | U, I | `SpecimenStorageTests.Places_MatchIgnoringCaseSpacesAndPunctuation`; `SpecimenStorageTests.Tube_IsStoredByScan_AndAMoveKeepsWhereItWas` (spelling) | URS-BB-593 / FRS-BB-710 |
+| TEST-BB-585 | I | `RhigEvaluationServiceTests.Evaluation_IsRecorded_Completed_AndThenFixed` (supervisor queue) | URS-BB-594 / FRS-BB-711 |
+| TEST-BB-586 | U | `TubeFinishedTests.TubeFinished_OnlyWhenNoLineIsLeft_AndTheTubeIsNotStored` | URS-BB-595 / FRS-BB-712 |
+| TEST-BB-587 | U | `SpecimenDiscardRuleTests.Evaluate_KeepsANeededTube_AndAsksForAReasonWhenEarly`, `SpecimenDiscardRuleTests.KeepUntil_IsExpirationPlusRetentionDays_OrNotSet` | URS-BB-596 / FRS-BB-713 |
+| TEST-BB-588 | I | `SpecimenDiscardTests.Tube_IsDiscardedWhenDue_OrEarlyWithAReason_AndKeptWhileStillNeeded` | URS-BB-596 / FRS-BB-713 |
+| TEST-BB-589 | U | `DashboardHomeTests.TubesDueForDiscard_IsForTubeStorers_OnTheBench_AndRoutine` | URS-BB-597 / FRS-BB-714 |
+| TEST-BB-590 | U | `UnidentifiedPatientRuleTests.TemporaryIdentity_CarriesTheDateAndNumber`, `UnidentifiedPatientRuleTests.Evaluate_RequiresSexAndAge_AndIdentifyNeedsADifferentIdentifiedChart` | URS-BB-598 / FRS-BB-715 |
+| TEST-BB-591 | I | `UnidentifiedPatientTests.Unidentified_IsRegisteredInOneStep_AndMergedOnceIdentified` | URS-BB-598 / FRS-BB-715 |
+| TEST-BB-592 | U | `UnidentifiedPatientRuleTests.IssueTypeFor_UnidentifiedPatient_IsEmergencyUnlessMtp` | URS-BB-599 / FRS-BB-716 |
+| TEST-BB-593 | I | `UnidentifiedPatientTests.Demo_HasOneUnidentifiedPatient` | URS-BB-599 / FRS-BB-716 |
+| TEST-BB-594 | U | `DashboardDueCountTests.ReleaseCandidates_LapsedOrExpiredCrossmatchAndSpecimen_NotRequested` | URS-BB-600 / FRS-BB-717 |
+| TEST-BB-595 | I | `Phase4IssuingTests.ReleaseBatch_ReleasesEach_AndReportsThoseItCannot` | URS-BB-600 / FRS-BB-717 |
+| TEST-BB-596 | U | `ShipOutRuleTests.Evaluate_NeedsAFacility_AndAnUnreservedUnexpiredUnitInStock` | URS-BB-601 / FRS-BB-718 |
+| TEST-BB-597 | I | `InventoryServiceTests.ShipOutByScan_ShipsAnUnreservedUnit_AndKeepsTheFacility` | URS-BB-601 / FRS-BB-718 |
+| TEST-BB-598 | I | `ComplianceWorkflowTests.RecallByDin_ShippedUnit_NotifiesTheReceivingFacility` | URS-BB-601 / FRS-BB-718 |
+| TEST-BB-599 | U | `ShipOutRuleTests.ShipmentKey_FacilityAndReference_OrTheDay` | URS-BB-602 / FRS-BB-719 |
+| TEST-BB-600 | I | `InventoryServiceTests.Shipments_AreGroupedByFacilityAndReference_AndFacilitiesOfferedOnce` | URS-BB-602 / FRS-BB-719 |
+| TEST-BB-601 | I | `ShipOutDemoTests.Demo_HasOneShipmentOfTwoUnits` | URS-BB-602 / FRS-BB-719 |
+| TEST-BB-602 | U | `OutsideAntibodyReportRuleTests.Evaluate_And_SourceLabel` | URS-BB-603 / FRS-BB-720 |
+| TEST-BB-603 | I | `Phase3ServicesTests.OutsideAntibody_KeepsTheReportingFacilityAndDate` | URS-BB-603 / FRS-BB-720 |
+| TEST-BB-604 | I | `DowntimePatientSummaryTests.AntibodyCard_MarksOutsideReports` | URS-BB-603 / FRS-BB-720 |
+| TEST-BB-605 | U | `MotherInfantLinkRuleTests.Evaluate_RefusesWhatCannotBeTheMother` | URS-BB-604 / FRS-BB-721 |
+| TEST-BB-606 | I | `MotherInfantTests.Infant_IsLinkedToTheMother_AndTheLinkFollowsAMerge` | URS-BB-604 / FRS-BB-721 |
+| TEST-BB-607 | I | `MotherInfantTests.Demo_NewbornIsLinkedToTheRhigMother` | URS-BB-604 / FRS-BB-721 |
+| TEST-BB-608 | U | `MotherInfantLinkRuleTests.OfferLink_AndSuggestInfantRh` | URS-BB-605 / FRS-BB-722 |
+| TEST-BB-609 | I | `MotherInfantTests.Infant_IsLinkedToTheMother_AndTheLinkFollowsAMerge` (current Rh) | URS-BB-605 / FRS-BB-722 |
+| TEST-BB-610 | U | `Hl7MapperTests.AdtMapper_ReadsTheMothersIdentifier` | URS-BB-606 / FRS-BB-723 |
+| TEST-BB-611 | I | `Phase5Hl7Tests.InboundAdt_Pid21_LinksTheNewbornToTheMother` | URS-BB-606 / FRS-BB-723 |
+| TEST-BB-612 | I | `UniversalLookupTests.ShipmentReference_FindsTheShipment` | URS-BB-607 / FRS-BB-724 |
+| TEST-BB-613 | I | `PatientTimelineTests.OutsideAntibody_SaysWhereItWasReported` | URS-BB-607 / FRS-BB-724 |
+| TEST-BB-614 | I | `UniversalLookupTests.RecentPatients_AreTheUsersOwnLatestChartOpenings` | URS-BB-608 / FRS-BB-725 |
+| TEST-BB-615 | U | `ShiftHandoffItemsTests.UnidentifiedPatientsAndTubesDue_AreHandoffItems` | URS-BB-609 / FRS-BB-726 |
+| TEST-BB-616 | I | `ShiftHandoffServiceTests.Create_CountsUnidentifiedPatientsNotYetMerged` | URS-BB-609 / FRS-BB-726 |
+| TEST-BB-617 | U | `IssuedUnderEarlierIdentityRuleTests.Applies_AndWarning` | URS-BB-610 / FRS-BB-727 |
+| TEST-BB-618 | I | `UnidentifiedPatientTests.Unidentified_IsRegisteredInOneStep_AndMergedOnceIdentified` (units still out) | URS-BB-610 / FRS-BB-727 |
+| TEST-BB-619 | U | `IssuedUnderEarlierIdentityRuleTests.EarlierMrn_AndBedsideNotice` | URS-BB-611 / FRS-BB-728 |
+| TEST-BB-620 | I | `Phase4IssuingTests.IssuedList_NamesAnEarlierMrn_WhenTheChartChangedSinceIssue` | URS-BB-611 / FRS-BB-728 |
+| TEST-BB-621 | U | `BloodOrderPreparationRuleTests.Remaining_AndNextStep` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-622 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-623 | U | `DashboardHomeTests.BloodOrders_IsForAllocators_WithRushAndSpecimenNotes` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-624 | I | `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` | URS-BB-612 / FRS-BB-729 |
+| TEST-BB-625 | U | `BloodOrderPreparationRuleTests.NextStepHref_ReserveFormOrSpecimens` | URS-BB-613 / FRS-BB-730 |
+| TEST-BB-626 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (next-step link) | URS-BB-613 / FRS-BB-730 |
+| TEST-BB-627 | U | `BloodOrderPreparationRuleTests.TypeAndScreenPending_FinishesItFirst` | URS-BB-613 / FRS-BB-730 |
+| TEST-BB-628 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (type and screen pending), `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` (reserve on ACC0001) | URS-BB-613 / FRS-BB-730 |
+| TEST-BB-629 | U | `OrderNeededByRuleTests.Evaluate_AndPassed` | URS-BB-614 / FRS-BB-731 |
+| TEST-BB-630 | U | `Hl7MapperTests.OrmMapper_ReadsTheNeededByTime` | URS-BB-614 / FRS-BB-731 |
+| TEST-BB-631 | I | `NumericTiterResultTests.Numeric_IsChecked_Flagged_AndSentWithUnitsAndFlag` (setup: needed-by kept, earlier refused) | URS-BB-614 / FRS-BB-731 |
+| TEST-BB-632 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (needed-by) | URS-BB-614 / FRS-BB-731 |
+| TEST-BB-633 | I | `NumericTiterResultTests.NeededBy_IsChangedOrCleared_WithTheEarlierTimeKept` | URS-BB-615 / FRS-BB-732 |
+| TEST-BB-634 | U | `ShiftHandoffItemsTests.BloodOrdersToPrepare_AreAHandoffItem_UrgentWhenPastNeededBy` | URS-BB-616 / FRS-BB-733 |
+| TEST-BB-635 | I | `BloodOrderWorklistTests.Handoff_CountsBloodOrdersToPrepare` | URS-BB-616 / FRS-BB-733 |
+| TEST-BB-636 | U | `BloodOrderPreparationRuleTests.DowntimeLine_SaysWhatAndByWhen` | URS-BB-617 / FRS-BB-734 |
+| TEST-BB-637 | I | `BloodOrderWorklistTests.DowntimeSheet_ListsBloodOrdersToPrepare` | URS-BB-617 / FRS-BB-734 |
+| TEST-BB-638 | U | `BloodOrderPreparationRuleTests.ReserveProgress_SaysWhatIsLeft` | URS-BB-618 / FRS-BB-735 |
+| TEST-BB-639 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (progress) | URS-BB-618 / FRS-BB-735 |
+| TEST-BB-640 | U | `BloodOrderTurnaroundRuleTests.FirstReady_ReadyByNeededBy_AndMinutes` | URS-BB-619 / FRS-BB-736 |
+| TEST-BB-641 | I | `ReportServiceTests.BloodOrderTurnaround_MinutesToFirstUnit_ByPriority` | URS-BB-619 / FRS-BB-736 |
+| TEST-BB-642 | I | `OrderTimelineTests.OrderHistory_FromPlacedToTransfused` | URS-BB-620 / FRS-BB-737 |
+| TEST-BB-643 | U | `OrderHistoryLinkRuleTests.HistoryToOpen_OnlyForTheOneExactMatch` | URS-BB-621 / FRS-BB-738 |
+| TEST-BB-644 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (requirements) | URS-BB-622 / FRS-BB-739 |
+| TEST-BB-645 | U | `SpecialRequirementDisplayTests.Display_OneWordingForEveryScreen` | URS-BB-623 / FRS-BB-740 |
+| TEST-BB-646 | U | `TableLayoutTests.Tables_scroll_inside_their_card` | URS-BB-624 / FRS-BB-741 |
+| TEST-BB-647 | U | `OrderNeededByRuleTests.DueSoon_OnlyWithinTheWindow_AndAhead` | URS-BB-625 / FRS-BB-742 |
+| TEST-BB-648 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (needed soon) | URS-BB-625 / FRS-BB-742 |
+| TEST-BB-649 | U | `ShiftHandoffItemsTests.BloodOrdersToPrepare_AreAHandoffItem_UrgentWhenPastNeededBy` (needed soon) | URS-BB-626 / FRS-BB-743 |
+| TEST-BB-650 | I | `BloodOrderWorklistTests.Handoff_CountsBloodOrdersToPrepare` (needed soon) | URS-BB-626 / FRS-BB-743 |
+| TEST-BB-651 | U | `DashboardDueCountTests.Requested_LeadReadyToIssue_AndAreNamedOnTheCard` (needed-by order) | URS-BB-627 / FRS-BB-744 |
+| TEST-BB-652 | I | `Phase4IssuingTests.ListReadyToIssue_ShowsWhenTheOrderIsNeeded_EarliestFirst` | URS-BB-627 / FRS-BB-744 |
+| TEST-BB-653 | U | `OrderNeededByRuleTests.ExpiresBeforeNeeded_AndEarliestEnd` | URS-BB-628 / FRS-BB-745 |
+| TEST-BB-654 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (specimen before needed-by) | URS-BB-628 / FRS-BB-745 |
+| TEST-BB-655 | I | `Phase4IssuingTests.ListReadyToIssue_ShowsWhenTheOrderIsNeeded_EarliestFirst` (crossmatch before needed-by) | URS-BB-628 / FRS-BB-745 |
+| TEST-BB-656 | U | `BloodOrderPreparationRuleTests.SpecimenExpiresBeforeNeeded_CollectsANewOne` | URS-BB-629 / FRS-BB-746 |
+| TEST-BB-657 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (new specimen next step) | URS-BB-629 / FRS-BB-746 |
+| TEST-BB-658 | I | `BloodOrderWorklistTests.SurgeryDemo_NeedsANewSpecimen` | URS-BB-629 / FRS-BB-746 |
+| TEST-BB-659 | I | `UniversalLookupTests.CoolerLabel_FindsTheCoolerInTransit` | URS-BB-630 / FRS-BB-747 |
+| TEST-BB-660 | U | `BloodOrdersPageTests.SpecimenCell_SaysOneThing_WithTheNeededByWarningBeside` | URS-BB-628 / FRS-BB-745 |
+| TEST-BB-661 | U | `ReadyToIssuePageTests.ReadyRows_ShowRequestNeededByAndExpiry_OnTheRightRow` | URS-BB-627 / FRS-BB-744 |
+| TEST-BB-662 | U | `EveryPageRendersTests.Page_RendersWithAnEmptyApi` | URS-BB-631 / FRS-BB-748 |
+| TEST-BB-663 | U | `EveryPageRendersTests.RecordPage_RendersWhenTheRecordIsNotFound` (and `RecordRoutes_CoverEveryParameterizedPage`) | URS-BB-631 / FRS-BB-748 |
+| TEST-BB-664 | U | `EveryPageRendersTests.ChartTab_RendersForAPatientWithNothingOnFile` | URS-BB-631 / FRS-BB-748 |
+| TEST-BB-665 | I | `NumericTiterResultTests.ChartOrders_MarkNeededByPassedOrSoon` | URS-BB-632 / FRS-BB-749 |
+| TEST-BB-666 | U | `ChartOrdersTabTests.NeededBy_ReadsAsOnTheWorklists` | URS-BB-632 / FRS-BB-749 |
+| TEST-BB-667 | U | `PatientSafetyBannerTests.ChartHeader_NamesAntibodiesAndRequirements` (and `ChartHeader_NoBanners_WhenNothingToWarnAbout`) | URS-BB-633 / FRS-BB-750 |
+| TEST-BB-668 | U | `PatientSafetyBannerTests.RequirementsBanner_WarnsWhereUnitsArePicked` | URS-BB-633 / FRS-BB-750 |
+| TEST-BB-669 | U | `ActiveAntibodiesLabelTests.OutsideReports_NameTheFacility_FoundHereReadsPlain` | URS-BB-634 / FRS-BB-751 |
+| TEST-BB-670 | U | `AntibodyHistoryEntryTests.HistoryEntry_OneWordingForEveryWarning` | URS-BB-635 / FRS-BB-752 |
+| TEST-BB-671 | I | `Phase4IssuingTests.ListReadyToIssue_AntibodySummary_NamesOutsideReports` | URS-BB-635 / FRS-BB-752 |
+| TEST-BB-672 | U | `AntibodyWordingSourceTests.AntibodyListWording_LivesInOneRule` | URS-BB-635 / FRS-BB-752 |
+| TEST-BB-673 | U | `SpecialRequirementMessageNamesTests.HardStops_NameTheRequirement_NotItsCode` | URS-BB-636 / FRS-BB-753 |
+| TEST-BB-674 | U | `AntibodyWordingSourceTests.RequirementTypeCodeName_IsNotShown` | URS-BB-636 / FRS-BB-753 |
+| TEST-BB-675 | U | `ChartAllocatableOrdersTests.EachOrderOncePerProduct` | URS-BB-637 / FRS-BB-754 |
+| TEST-BB-676 | U | `ChartAllocatableOrdersTests.UnitsFor_TheChosenOrdersProduct_AndSaysHowMany` | URS-BB-637 / FRS-BB-754 |
+| TEST-BB-677 | U | `DashboardDueCountTests.Requested_LeadReadyToIssue_AndAreNamedOnTheCard` (shared notice) | URS-BB-638 / FRS-BB-755 |
+| TEST-BB-678 | U | `ReadyToIssuePageTests.SharedElectronicCrossmatchNotice_IsSaidOnce` (and `DifferingElectronicCrossmatchNotices_StayOnTheirRows`) | URS-BB-638 / FRS-BB-755 |
+| TEST-BB-679 | U | `EnumTextTests.EnumText_ReadsAsWords` (and `EnumText_KeepsAcronyms`) | URS-BB-639 / FRS-BB-756 |
+| TEST-BB-680 | U | `EnumTextTests.Dropdowns_DoNotShowCodeNames` | URS-BB-639 / FRS-BB-756 |
+| TEST-BB-681 | U | `EnumTextTests.BadgesAndStatusCells_DoNotShowCodeNames` | URS-BB-639 / FRS-BB-756 |
+| TEST-BB-682 | A | `ReactionInterpretationSuggestionTests.MissingReadings_NamesRequiredReadingsNotEntered` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-683 | A | `ReactionInterpretationSuggestionTests.SuggestAboRh_NoReadingsEntered_ReturnsNull` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-684 | U | `TestResultEntryPanelTests.RequiredReactions_StartBlank` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-685 | U | `TestResultEntryPanelTests.Save_WithReadingsMissing_IsRefusedNamingThem` | URS-BB-640 / FRS-BB-757 |
+| TEST-BB-686 | D | `CrossmatchReactionRuleTests.PositiveReactions_NamesCountedPositivesOnly` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-687 | D | `CrossmatchReactionRuleTests.Evaluate_StopsCompatibleWithPositiveReactions` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-688 | I | `TestWorklistTests.XmSave_CompatibleWithPositiveReaction_IsRefused` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-689 | U | `TestResultEntryPanelTests.CrossmatchResult_StartsUnchosen` | URS-BB-641 / FRS-BB-758 |
+| TEST-BB-690 | U | `ProductRetypeEntryPanelTests.Retype_StartsUnchosen_NotFromTheLabel` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-691 | U | `ProductRetypeEntryPanelTests.Retype_WithReadingsOrTypeMissing_IsRefused` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-692 | U | `TestResultEntryPanelTests.AboRhInterpretation_StartsUnchosen_AndIsRequired` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-693 | A | `ReactionInterpretationSuggestionTests.SuggestCrossmatch_IgnoresUncountedCheckCells` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-694 | D | `CrossmatchReactionRuleTests.CountsInInterpretation_LeavesOutCheckCells` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-695 | U | `AttestationDefaultTests.Readings_do_not_start_at_a_grade` | URS-BB-642 / FRS-BB-759 |
+| TEST-BB-696 | U | `DeliveryReceivePageTests.UnitType_StartsUnchosen_AndIsRequired` | URS-BB-643 / FRS-BB-760 |
+| TEST-BB-697 | U | `AttestationDefaultTests.Blood_types_do_not_start_at_a_type` | URS-BB-643 / FRS-BB-760 |
+| TEST-BB-698 | I | `AntibodyIdentificationWorkupTests.UnchangedReactions_KeepTheReview_AndChangesAreAudited` (and `ReactionsAfterReview_RequireReinterpretation`, now with a changed grade) | URS-BB-644 / FRS-BB-761 |
+| TEST-BB-699 | I | `ElectronicCrossmatchEligibilityTests.Assess_NoCurrentScreen_IsNotEligible` | URS-BB-645 / FRS-BB-762 |
+| TEST-BB-700 | I | `Phase4IssuingTests.ElectronicCrossmatch_WithoutScreenOnTheSpecimen_IsBlocked` (eXM fixtures in nine tests now seed the current screen, `ExmScreenSeed`) | URS-BB-645 / FRS-BB-762 |
+| TEST-BB-701 | I | `Phase4IssuingTests.Transfusion_WithoutReactionAnswer_IsRefused` | URS-BB-646 / FRS-BB-763 |
+| TEST-BB-702 | U | `AttestationDefaultTests.Reaction_questions_are_not_unticked_checkboxes` | URS-BB-646 / FRS-BB-763 |
+| TEST-BB-703 | I | `Phase4IssuingTests.Transfusion_WithoutDisposition_IsRefused` | URS-BB-647 / FRS-BB-764 |
+| TEST-BB-704 | I | `InventoryServiceTests.ExpireDueUnits_EndsTheReservationOnAnExpiredUnit_AndLeavesOthers` (names unit and patient) | URS-BB-648 / FRS-BB-765 |
+| TEST-BB-705 | A | `UnitsExpiredAlertTests.ReservationsEnded_NameUnitsAndPatients_AndOpenBloodOrders` | URS-BB-648 / FRS-BB-765 |
+| TEST-BB-706 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` (expired reservation named) | URS-BB-649 / FRS-BB-766 |
+| TEST-BB-707 | A | `DashboardHomeTests.BloodOrders_IsForAllocators_WithRushAndSpecimenNotes` (counts lost reservations) | URS-BB-649 / FRS-BB-766 |
+| TEST-BB-708 | U | `BloodOrdersPageTests.ExpiredReservation_IsNamedOnItsRow` | URS-BB-649 / FRS-BB-766 |
+| TEST-BB-709 | A | `AllocationTimelineNoteTests.Outcome_ReadsInWords` (and the order timeline test's wording) | URS-BB-650 / FRS-BB-767 |
+| TEST-BB-710 | I | `SeederUnlinkedSpecimenTests.Reseed_AfterLinksWereUnlinked_DoesNotFail` | Demo data (startup) |
+| TEST-BB-711 | I | `InventoryServiceTests.UnitActivity_NamesThePatientOnAnAllocation` (reservation outcome and expiry reason) | URS-BB-650 / FRS-BB-767 |
+| TEST-BB-712 | I | `AlertWorkflowTests.Scanner_RaisesMtpStillOpen_WhenIdle_AndResolvesWhenAUnitIsIssued` | URS-BB-651 / FRS-BB-768 |
+| TEST-BB-713 | D | `MtpIdleRuleTests.IdleTime_RunsFromTheLastIssue_AndZeroIsOff` | URS-BB-651 / FRS-BB-768 |
+| TEST-BB-714 | I | `ShiftHandoffServiceTests.Create_CountsActiveMassiveTransfusionProtocols` (idle protocols counted and named) | URS-BB-651 / FRS-BB-768 |
+| TEST-BB-715 | U | `LocalTimeDisplayTests.Pages_ShowStoredTimesInLocalTime` | URS-BB-652 / FRS-BB-769 |
+| TEST-BB-716 | D | `CurrentSpecimenBannerTests.Times_AreShownThroughTheDisplayConversion` | URS-BB-652 / FRS-BB-769 |
+| TEST-BB-717 | D | `ClinicalTimeTextTests.Times_AreLocalOnScreen_AndLabelledUtcWhenSaved` | URS-BB-652 / FRS-BB-769 |
+| TEST-BB-718 | U | `LocalTimeDisplayTests.ServerMessages_SayLocalOrUtc` | URS-BB-652 / FRS-BB-769 |
+| TEST-BB-719 | U | `InventorySearchScopeTests.DefaultSearch_ListsUnitsStillOnAShelf` | URS-BB-653 / FRS-BB-770 |
+| TEST-BB-720 | U | `NearExpiryBoardTests.Discard_OffersCodedReasons_AndComesLast` | URS-BB-654 / FRS-BB-771 |
+| TEST-BB-721 | U | `RetypeBoardScanTests.Scan_PicksThePendingUnit` | URS-BB-655 / FRS-BB-772 |
+| TEST-BB-722 | I | `InventoryServiceTests.TransferByScan_MovesTheScannedUnit_AndRefusesWhatItCannotMove` (a typed 14-character number finds that unit, not a neighbour) | URS-BB-655 / FRS-BB-772 |
+| TEST-BB-723 | U | `RetypeBoardFlowTests.AfterARetypeIsRecorded_TheScanFieldTakesTheFocus` | URS-BB-655 / FRS-BB-772 |
+| TEST-BB-724 | U | `FinalDispositionBoardTests.OverdueRow_OffersTheNextStep` | URS-BB-656 / FRS-BB-773 |
+| TEST-BB-725 | U | `DashboardQueueCatalogTests.DispositionNote_NamesTheOldestPastDue` | URS-BB-657 / FRS-BB-774 |
+| TEST-BB-726 | U | `DashboardQueueCatalogTests.DispositionCard_WithOverdueUnits_NeedsAttention` | URS-BB-657 / FRS-BB-774 |
+| TEST-BB-727 | U | `DashboardQueueCatalogTests.SecondAboNote_NamesPatientsWithNothingOrdered` | URS-BB-658 / FRS-BB-775 |
+| TEST-BB-728 | I | `Phase4IssuingTests.SecondAboWorklist_NamesAnOpenAboRhOrder` | URS-BB-658 / FRS-BB-775 |
+| TEST-BB-729 | U | `SecondAboBoardTests.Rows_SayWhetherAnAboRhIsOrdered` | URS-BB-658 / FRS-BB-775 |
+| TEST-BB-730 | I | `UnidentifiedPatientTests.UnidentifiedList_FlagsChartsOpenPastTheReminder` | URS-BB-659 / FRS-BB-776 |
+| TEST-BB-731 | U | `DashboardQueueCatalogTests.UnidentifiedNote_NamesChartsPastTheReminder` | URS-BB-659 / FRS-BB-776 |
+| TEST-BB-732 | U | `TubePullListTests.Group_PutsEachPlaceTogether_OldestPlaceFirst` | URS-BB-660 / FRS-BB-777 |
+| TEST-BB-733 | U | `TubePullListTests.StoreTubes_ShowsDueTubesByPlace` | URS-BB-660 / FRS-BB-777 |
+| TEST-BB-734 | U | `DashboardQueueCatalogTests.OldestWaitingNote_NamesTheOldestError` | URS-BB-661 / FRS-BB-778 |
+| TEST-BB-735 | U | `Hl7ErrorQueueTests.ErrorRows_SayHowLongTheyHaveWaited` | URS-BB-661 / FRS-BB-778 |
+| TEST-BB-736 | U | `DashboardQueueCatalogTests.InstrumentFailuresCard_NamesTheOldestWait` | URS-BB-662 / FRS-BB-779 |
+| TEST-BB-737 | U | `InstrumentMessagesTests.Messages_ShowTheDate_AndHowLongAnOpenFailureHasWaited` | URS-BB-662 / FRS-BB-779 |
+| TEST-BB-738 | U | `ClockTextTests.Short_NamesTheDayWhenItIsNotToday` | URS-BB-663 / FRS-BB-780 |
+| TEST-BB-739 | U | `LocalTimeDisplayTests.Pages_DoNotShowATimeWithoutItsDay` | URS-BB-663 / FRS-BB-780 |
+| TEST-BB-740 | U | `ClockTextTests.VerificationDeadlineBadge_ShowsTheLocalExpiry` | URS-BB-663 / FRS-BB-780 |
+| TEST-BB-741 | U | `ReadyToIssuePageTests.SpecimenBlockedRow_NewSpecimenOpensTheAccessionForm` | URS-BB-664 / FRS-BB-781 |
+| TEST-BB-742 | U | `DashboardDueCountTests.StillWanted_NamesAnOpenOrder` | URS-BB-665 / FRS-BB-782 |
+| TEST-BB-743 | U | `ReadyToIssuePageTests.ReleaseReview_LeavesOpenOrderUnitsUnticked` | URS-BB-665 / FRS-BB-782 |
+| TEST-BB-744 | U | `ScanDeskFocusTests.DeskButton_FocusesUnitNumber` | URS-BB-666 / FRS-BB-783 |
+| TEST-BB-745 | U | `ScanDeskFocusTests.ReturnFromARow_LeavesTheFocusAlone` | URS-BB-666 / FRS-BB-783 |
+| TEST-BB-746 | U | `ScanDeskFocusTests.AfterAReturn_UnitNumberIsClearAndFocused` | URS-BB-667 / FRS-BB-784 |
+| TEST-BB-747 | U | `ScanDeskFocusTests.AfterAWardReceipt_UnitNumberIsClearAndFocused` | URS-BB-667 / FRS-BB-784 |
+| TEST-BB-748 | U | `ScanDeskFocusTests.AfterCompletingATransfusion_TheNextScanKeepsTheBedside` | URS-BB-668 / FRS-BB-785 |
+| TEST-BB-749 | U | `OptionValueTests.Options_DoNotUseBooleanLiteralValues` | URS-BB-668 / FRS-BB-785 |
+| TEST-BB-750 | U | `SelectBindingTests.NullableSelectTypes_Bind` | URS-BB-668 / FRS-BB-785 |
+| TEST-BB-751 | U | `SelectBindingTests.BoolSelect_DoesNotBind_TextDoes` | URS-BB-668 / FRS-BB-785 |
+| TEST-BB-752 | I | `Phase4IssuingTests.IssuedList_CarriesThePatientsOpenReactionInvestigation` | URS-BB-669 / FRS-BB-786 |
+| TEST-BB-753 | U | `ScanDeskFocusTests.TransfusionDesk_WarnsOfAnOpenReactionInvestigation` | URS-BB-669 / FRS-BB-786 |
+| TEST-BB-754 | I | `Phase4IssuingTests.ReadyList_CarriesThePatientsOpenReactionInvestigation` | URS-BB-670 / FRS-BB-787 |
+| TEST-BB-755 | U | `ReadyToIssuePageTests.ReactionUnderInvestigation_IsSaidBeforeIssue` | URS-BB-670 / FRS-BB-787 |
+| TEST-BB-756 | U | `FocusTimingTests.ElementFocus_HappensAfterTheRender` | URS-BB-671 / FRS-BB-788 |
+| TEST-BB-757 | U | `SignInCodeFocusTests.PasswordAccepted_CodeFieldTakesTheFocus` | URS-BB-671 / FRS-BB-788 |
+| TEST-BB-758 | U | `ShiftHandoffItemsTests.ReactionsWithUnitsOut_MakeTheReactionItemUrgent` | URS-BB-672 / FRS-BB-789 |
+| TEST-BB-759 | U | `ShiftHandoffItemsTests.ReactionsWithUnitsOut_CountsEachInvestigationOnce` | URS-BB-672 / FRS-BB-789 |
+| TEST-BB-760 | U | `DashboardDueCountTests.ReactionsNote_NamesCasesWithUnitsOut` | URS-BB-673 / FRS-BB-790 |
+| TEST-BB-761 | I | `Phase4IssuingTests.ReactionList_CountsThePatientsUnitsOutOrReserved` | URS-BB-673 / FRS-BB-790 |
+| TEST-BB-762 | I | `SeederReactionNextUnitTests.ReactionPatient_HasAnotherUnitReserved_Once` | URS-BB-673 / FRS-BB-790 |
+| TEST-BB-763 | I | `SeederReactionNextUnitTests.FirstVersionBorrowedUnit_IsGivenBack` | URS-BB-673 / FRS-BB-790 |
+| TEST-BB-764 | U | `PatientSafetyBannerTests.ChartHeader_SaysAReactionIsUnderInvestigation` | URS-BB-674 / FRS-BB-791 |
+| TEST-BB-765 | I | `Phase4IssuingTests.ReactionList_CountsThePatientsUnitsOutOrReserved` | URS-BB-674 / FRS-BB-791 |
+| TEST-BB-766 | U | `LocalTimeDisplayTests.Pages_ConvertUtcMatchedIntoAVariable` | URS-BB-675 / FRS-BB-792 |
+| TEST-BB-767 | U | `YesNoSelectTests.StorageTemperatures_ExcursionsOnly_IsTaken` | URS-BB-675 / FRS-BB-792 |
+| TEST-BB-768 | I | `Phase4IssuingTests.Issue_RecordsTheReactionUnderInvestigation` | URS-BB-676 / FRS-BB-793 |
+| TEST-BB-769 | U | `ProductHistoryReactionTests.IssuedDuringAReaction_IsMarkedOnTheRow` | URS-BB-676 / FRS-BB-793 |
+| TEST-BB-770 | U | `ReactionIssuedWhileOpenTests.SelectedCase_ListsUnitsIssuedWhileOpen` | URS-BB-677 / FRS-BB-794 |
+| TEST-BB-771 | I | `Phase4IssuingTests.Issue_RecordsTheReactionUnderInvestigation` | URS-BB-677 / FRS-BB-794 |
+| TEST-BB-772 | U | `ReactionIssuedWhileOpenTests.Report_ListsUnitsIssuedWhileOpen` | URS-BB-678 / FRS-BB-795 |
+| TEST-BB-773 | U | `PendingSpecimenScanFocusTests.ScanField_TakesTheFocus_OnOpenAndModeChange` | URS-BB-679 / FRS-BB-796 |
+| TEST-BB-774 | I | `SeederReactionNextUnitTests.TubeAwaitingReceipt_IsSeededOnce` | URS-BB-680 / FRS-BB-797 |
+| TEST-BB-775 | U | `PendingSpecimenScanFocusTests.RejectingATube_OffersANewSpecimen` | URS-BB-680 / FRS-BB-797 |
+| TEST-BB-776 | U | `PendingSpecimenScanFocusTests.RejectReason_TakesTheFocus` | URS-BB-681 / FRS-BB-798 |
+| TEST-BB-777 | U | `AntibodyIdLotDefaultTests.OnlyInDatePanelLot_IsSelected` | URS-BB-682 / FRS-BB-799 |
+| TEST-BB-778 | U | `AntibodyIdLotDefaultTests.SeveralPanelLots_LeaveTheChoice` | URS-BB-682 / FRS-BB-799 |
+| TEST-BB-779 | U | `AntibodyIdLotDefaultTests.NoPanelLot_SaysWhyAndWhere` | URS-BB-682 / FRS-BB-799 |
+| TEST-BB-780 | U | `AntibodyIdRestNegativeTests.RestNegative_FillsOnlyUntestedCellsInThePhase` | URS-BB-683 / FRS-BB-800 |
+| TEST-BB-781 | U | `AntibodyIdRestNegativeTests.Saving_ClearsTheOutlines` | URS-BB-683 / FRS-BB-800 |
+| TEST-BB-782 | U | `AntibodyIdRestNegativeTests.CompletedWorkup_OffersNoRestNegative` | URS-BB-683 / FRS-BB-800 |
+| TEST-BB-783 | I | `SeederAntibodyWorkupDemoTests.KellermanHasAWorkupInProgress` | URS-BB-684 / FRS-BB-801 |
+| TEST-BB-784 | I | `SeederAntibodyWorkupDemoTests.SeedingAgain_AddsNothing` | URS-BB-684 / FRS-BB-801 |
+| TEST-BB-785 | U | `AntibodyIdTypedSpecificityTests.TypedCatalogName_IsListedAsTheCatalogAntibody` | URS-BB-685 / FRS-BB-802 |
+| TEST-BB-786 | U | `AntibodyIdTypedSpecificityTests.UnmatchedOrAmbiguousText_StaysAsTyped` | URS-BB-685 / FRS-BB-802 |
+| TEST-BB-787 | U | `AntibodyIdReviewGateTests.NoInterpretation_ReviewWaits` | URS-BB-686 / FRS-BB-803 |
+| TEST-BB-788 | U | `AntibodyIdReviewGateTests.OwnInterpretation_CannotBeAccepted` | URS-BB-686 / FRS-BB-803 |
+| TEST-BB-789 | U | `AntibodyIdReviewGateTests.OtherSupervisorOrPolicyOff_MayAccept`, `AntibodyIdReviewGateTests.SelfReviewAllowed_TechnologistMayAccept` | URS-BB-686 / FRS-BB-803 |
+| TEST-BB-790 | U | `AntibodyIdCompleteGateTests.NoInterpretation_WaitsForInterpretation` | URS-BB-687 / FRS-BB-804 |
+| TEST-BB-791 | U | `AntibodyIdCompleteGateTests.Interpreted_WaitsForReview`, `AntibodyIdCompleteGateTests.Rejected_AsksForANewInterpretation` | URS-BB-687 / FRS-BB-804 |
+| TEST-BB-792 | U | `AntibodyIdCompleteGateTests.Accepted_OffersComplete`, `AntibodyIdCompleteGateTests.ReviewNotRequired_OffersCompleteAfterInterpretation` | URS-BB-687 / FRS-BB-804 |
+| TEST-BB-793 | U | `ShiftHandoffItemsTests.AntibodyWorkups_AreAHandoffItem_WithThoseToReview` | URS-BB-688 / FRS-BB-805 |
+| TEST-BB-794 | I | `ShiftHandoffServiceTests.Create_CountsOpenAntibodyWorkupsAndThoseToReview` | URS-BB-688 / FRS-BB-805 |
+| TEST-BB-795 | U | `DashboardQueueCatalogTests.Select_AntibodyWorkups_ForImmunoRecordOrOverride` | URS-BB-689 / FRS-BB-806 |
+| TEST-BB-796 | U, I | `DashboardQueueCatalogTests.AntibodyWorkupsNote_NamesOnlyWhatNeedsAttention`, `AntibodyIdentificationWorkupTests.ListOpenWorkups_ShowsNextActionAndSummary` | URS-BB-689 / FRS-BB-806 |
+| TEST-BB-797 | U | `ModifyScanFocusTests.OpenedWithoutAUnit_SourcePickerTakesTheCursor` | URS-BB-690 / FRS-BB-807 |
+| TEST-BB-798 | U | `ModifyScanFocusTests.OpenedOnAUnit_PickerDoesNotTakeTheCursor` | URS-BB-690 / FRS-BB-807 |
+| TEST-BB-799 | U | `ModifyScanFocusTests.LaterFocus_OpensTheList` | URS-BB-690 / FRS-BB-807 |
+| TEST-BB-800 | U | `CompatibilityScanFocusTests.OpenedForAPatient_CrossmatchUnitTakesTheCursor` | URS-BB-691 / FRS-BB-808 |
+| TEST-BB-801 | U | `CompatibilityScanFocusTests.OpenedBareOrWithAUnit_NothingTakesTheCursor` | URS-BB-691 / FRS-BB-808 |
+| TEST-BB-802 | U | `BloodOrderPreparationRuleTests.TubeAwaitingReceipt_IsReceivedInsteadOfDrawingAgain` | URS-BB-692 / FRS-BB-809 |
+| TEST-BB-803 | I | `BloodOrderWorklistTests.TubeAwaitingReceipt_IsOfferedInsteadOfANewDraw` | URS-BB-692 / FRS-BB-809 |
+| TEST-BB-804 | U | `CurrentSpecimenBannerTests.NoCurrentSpecimen_NamesTheTubeOnItsWay` | URS-BB-693 / FRS-BB-810 |
+| TEST-BB-805 | U | `CurrentSpecimenBannerTests.ExpiredCurrent_NamesOnlyANewerTube` | URS-BB-693 / FRS-BB-810 |
+| TEST-BB-806 | U | `ChartOrdersTabTests.LinkPanel_NamesTheTubeOnItsWay`, `ChartOrdersTabTests.LinkPanel_WithoutATubeOnItsWay_SaysToAccession`, `ChartOrdersTabTests.LinkPanel_ProductOrder_NamesTheTubeAndTheTypeAndScreen` | URS-BB-694 / FRS-BB-811 |
+| TEST-BB-807 | U | `CurrentSpecimenBannerTests.TubeOnItsWay_PicksTheNewestInDateTube` | URS-BB-694 / FRS-BB-811 |
+| TEST-BB-808 | U | `PatientSafetyBannerTests.ChartHeader_ElectronicCrossmatch_WarnsOnlyAboutThisPatient` | URS-BB-695 / FRS-BB-812 |
+| TEST-BB-809 | U | `ElectronicCrossmatchBannerTests.HeaderNotice_AndBadge_SeparateFacilityOffFromThisPatient` | URS-BB-695 / FRS-BB-812 |
+| TEST-BB-810 | I | `DuplicateEhrOrderAlertTests.EhrOrderRepeatingAnOpenTest_RaisesAnAlert` | URS-BB-696 / FRS-BB-813 |
+| TEST-BB-811 | U | `DuplicateEhrOrderAlertTests.Alert_NamesThePatientAsRecorded` | URS-BB-696 / FRS-BB-813 |
+| TEST-BB-812 | U | `LocalTimeDisplayTests.Pages_ConvertUtcMatchedIntoAVariable` (extended: the matched variable used on the next lines) | URS-BB-697 / FRS-BB-814 |
+| TEST-BB-813 | U | `AlertInboxViewTests.Rows_GroupAlertsOfOneKindRaisedTogether` | URS-BB-698 / FRS-BB-815 |
+| TEST-BB-814 | U | `AlertGroupRowTests.LotsRaisedTogether_AreOneRow` | URS-BB-698 / FRS-BB-815 |
+| TEST-BB-815 | U | `AlertGroupRowTests.AcknowledgeAll_AcknowledgesEach_AndSaysWhichFailed` | URS-BB-698 / FRS-BB-815 |
+| TEST-BB-816 | U | `SpecimenLabelDesignRulesTests.Check_RefusesWhatCannotPrintOrScan` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-817 | U | `SpecimenLabelDesignRulesTests.Check_WarnsAboutIdentifiersAliquotNumberAndBarcodeFit` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-818 | U | `SpecimenLabelDesignRulesTests.Sizes_AndBarcodeWidth` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-819 | U | `SpecimenLabelDesignRulesTests.Starters_FitTheirLabels` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-820 | U | `SpecimenLabelDesignRulesTests.Normalize_KeepsElementsOnTheLabel` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-821 | I | `SpecimenLabelDesignTests.Create_StartersCopiesAndRefusals` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-822 | I | `SpecimenLabelDesignTests.Save_ChecksTheDesignAndRecordsTheChange` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-823 | I | `SpecimenLabelDesignTests.Default_AndActive_AndPermission` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-824 | I | `SpecimenLabelDesignTests.TubeLabel_PrintsOnTheChosenDesign` | URS-BB-700 / FRS-BB-818 |
+| TEST-BB-825 | I | `SpecimenLabelDesignTests.AliquotLabels_OnePerAliquot` | URS-BB-700 / FRS-BB-818 |
+| TEST-BB-826 | I | `SpecimenLabelDesignTests.Seed_AddsTheStartingDesignsOnce` | URS-BB-699 / FRS-BB-816 |
+| TEST-BB-827 | U | `SpecimenLabelDesignerTests.List_ShowsDesignsAndTheirActions` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-828 | U | `SpecimenLabelDesignerTests.Design_OpensOnItsCanvas` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-829 | U | `SpecimenLabelDesignerTests.Keyboard_MovesAndRemovesTheSelectedElement` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-830 | U | `SpecimenLabelDesignerTests.Design_IsCheckedAsItIsLaidOut` | URS-BB-699 / FRS-BB-817 |
+| TEST-BB-831 | U | `SpecimenLabelDesignerTests.Printing_OffersDesignsAndAliquotCount` | URS-BB-700 / FRS-BB-818 |
+| TEST-BB-832 | I | `SpecimenLabelTestPrintTests.TestPrint_RendersTheLayoutWithSampleData` | URS-BB-701 / FRS-BB-819 |
+| TEST-BB-833 | I | `SpecimenLabelTestPrintTests.TestPrint_ToAPrinter_IsAuditedAndChecked` | URS-BB-701 / FRS-BB-819 |
+| TEST-BB-834 | U | `SpecimenLabelDesignerTests.TestPrint_ShowsTheLabel` | URS-BB-701 / FRS-BB-819 |
+| TEST-BB-835 | U | `SpecimenLabelDesignRulesTests.Check_WarnsAboutOverlapsAndTextOffTheEdge` | URS-BB-702 / FRS-BB-820 |
+| TEST-BB-836 | U | `SpecimenLabelDesignerTests.Overlap_IsOutlinedUntilMovedClear` | URS-BB-702 / FRS-BB-820 |
+| TEST-BB-837 | I | `Hl7OutboundWaitingTests.NoInterface_MessagesWaitForOne` | URS-BB-703 / FRS-BB-821 |
+| TEST-BB-838 | I | `Hl7OutboundWaitingTests.WithAnInterface_SaysWhyEachWaits` | URS-BB-703 / FRS-BB-821 |
+| TEST-BB-839 | U | `DashboardQueueCatalogTests.Hl7OutboundWaiting_CardAndNote` | URS-BB-703 / FRS-BB-821 |
+| TEST-BB-840 | U | `Hl7OutboundWaitingPageTests.WaitingMessages_AreListedWithWhy` | URS-BB-703 / FRS-BB-821 |
+| TEST-BB-841 | U | `ShiftHandoffItemsTests.Hl7OutboundNotSent_IsAHandoffItem` | URS-BB-704 / FRS-BB-822 |
+| TEST-BB-842 | I | `ShiftHandoffServiceTests.Create_CountsOutboundMessagesNotSent` | URS-BB-704 / FRS-BB-822 |
+| TEST-BB-843 | U | `DowntimeEpisodeRuleTests.PaperTime_IsCheckedAgainstRecordedOutages`, `DowntimeEpisodeRuleTests.Validate_AllowsAdjacentOutages` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-844 | I | `DowntimeEpisodeTests.Record_ThenEnd_IsAudited` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-845 | I | `DowntimeEpisodeTests.Record_RefusesWhatCannotBeTrue` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-846 | I | `DowntimeEpisodeTests.List_CountsBackEntriesInsideEachOutage` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-847 | U | `DowntimeOutagePageTests.DowntimePage_ShowsAndRecordsOutages` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-848 | U | `DowntimeOutagePageTests.BackEntry_UsesTheRecordedOutage` | URS-BB-705 / FRS-BB-823 |
+| TEST-BB-849 | U | `DashboardQueueCatalogTests.OutageOpen_CardAndNote` | URS-BB-706 / FRS-BB-824 |
+| TEST-BB-850 | U | `ShiftHandoffItemsTests.OutageOpen_IsAnUrgentHandoffItem` | URS-BB-706 / FRS-BB-824 |
+| TEST-BB-851 | I | `ShiftHandoffServiceTests.Create_CountsOutagesStillOpen` | URS-BB-706 / FRS-BB-824 |
+| TEST-BB-852 | I | `SpecimenLabelDesignTests.TubeLabel_RefusedOnADesignWithOneIdentifier` | URS-BB-707 / FRS-BB-825 |
+| TEST-BB-853 | U | `SpecimenLabelDesignRulesTests.Check_TubeNeedsTwoIdentifiers` | URS-BB-707 / FRS-BB-825 |
+| TEST-BB-854 | I | `Phase4IssuingTests.DowntimeBackEntry_OutsideEveryRecordedOutage_NeedsAReason` | URS-BB-708 / FRS-BB-826 |
+| TEST-BB-855 | U | `ReactionUnderInvestigationRuleTests.Warns_OnlyAfterTheReactionWasReported` | URS-BB-709 / FRS-BB-827 |
+| TEST-BB-856 | I | `Phase4IssuingTests.ReactionUnderInvestigation_IssueAndBedsideStart_NeedAnOverride` | URS-BB-709 / FRS-BB-827 |
+| TEST-BB-857 | U | `ThawedShelfLifeForTests.ShelfLifeFor_PicksTheApplicableSetting` | URS-BB-710 / FRS-BB-828 |
+| TEST-BB-858 | I | `AutoThawServiceTests.Thaw_OpenSystemAndPooledShelfLives` | URS-BB-710 / FRS-BB-828 |
+| TEST-BB-859 | I | `InventoryServiceTests.ShipOutByScan_RecordsThePackingDetails` | URS-BB-711 / FRS-BB-829 |
+| TEST-BB-860 | U | `ShipOutDetailsRuleTests.EvaluateDetails_NamesWhatIsMissing` | URS-BB-711 / FRS-BB-829 |
+| TEST-BB-861 | U | `ShipOutDetailsPageTests.ScanWaitsForThePackingDetails` | URS-BB-711 / FRS-BB-829 |
+| TEST-BB-862 | I | `Phase3ServicesTests.OutsideAntibody_IsDocumented_ThenConfirmedHere` | URS-BB-712 / FRS-BB-830 |
+| TEST-BB-863 | U | `OutsideAntibodyReportRuleTests.Documentation_And_Confirmation` | URS-BB-712 / FRS-BB-830 |
+| TEST-BB-864 | U | `OutsideAntibodyChartTests.OutsideReports_ShowDocumentationAndConfirmation` | URS-BB-712 / FRS-BB-830 |
+| TEST-BB-865 | U | `DashboardQueueCatalogTests.OutsideAntibodies_CardAndNote` | URS-BB-713 / FRS-BB-831 |
+| TEST-BB-866 | I | `Phase3ServicesTests.OutsideAntibodiesToConfirm_ListsOnlyUnconfirmedOutsideReports` | URS-BB-713 / FRS-BB-831 |
+| TEST-BB-867 | U | `OutsideAntibodyWorklistTests.OutsideReports_AreListedToConfirm` | URS-BB-713 / FRS-BB-831 |
+| TEST-BB-868 | U | `RhigDoseRuleTests.Calculate_UsesTheFacilitySettings`, `RhigDoseRuleTests.Suggest_FromTheFactsOnFile` | URS-BB-714 / FRS-BB-832 |
+| TEST-BB-869 | I | `RhigSuggestionTests.Evaluation_SuggestsAndCalculates_AndCompletionKeepsThem` | URS-BB-714 / FRS-BB-832 |
+| TEST-BB-870 | U | `RhigSuggestionTabTests.Tab_ShowsSuggestionAndDose` | URS-BB-714 / FRS-BB-832 |
+| TEST-BB-871 | I | `NeonatalSpecimenTests.InfantSpecimen_IsValidForTheAdmission_UntilDischarge` | URS-BB-715 / FRS-BB-833 |
+| TEST-BB-872 | U | `NeonatalTestingRuleTests.AdmissionDating` | URS-BB-715 / FRS-BB-833 |
+| TEST-BB-873 | U | `NeonatalTestingRuleTests.AdmissionTypeStands_WhileTheAdmissionSpecimenIsValid` | URS-BB-716 / FRS-BB-834 |
+| TEST-BB-874 | I | `Phase4IssuingTests.Infant_AdmissionType_StandsWithoutASecondDetermination` | URS-BB-716 / FRS-BB-834 |
+| TEST-BB-875 | U | `NeonatalTypeHeaderTests.InfantAdmissionType_HasNoSecondTypeNotice` | URS-BB-716 / FRS-BB-834 |
+| TEST-BB-876 | U | `NeonatalTestingRuleTests.NoCrossmatch_OnlyForGroupORedCellsWithANegativeScreen` | URS-BB-717 / FRS-BB-835 |
+| TEST-BB-877 | I | `Phase4IssuingTests.Infant_NegativeScreen_GroupO_IssuedWithoutCrossmatch` | URS-BB-717 / FRS-BB-835 |
+| TEST-BB-878 | U | `RhigDoseRuleTests.Suggest_TreatsWeakAndPartialDAsRhNegative` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-879 | I | `RhigSuggestionTests.WeakD_Patient_IsSuggestedACandidate` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-880 | I | `Phase3ServicesTests.RhDVariant_IsRecordedWithAReason_AndAudited` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-881 | U | `OutsideAntibodyChartTests.OutsideReports_ShowDocumentationAndConfirmation` | URS-BB-718 / FRS-BB-836 |
+| TEST-BB-882 | U | `IssueEntryNotesTests.Notes_SayHowTheIssueWasEntered` | URS-BB-719 / FRS-BB-837 |
+| TEST-BB-883 | I | `Phase4IssuingTests.Infant_NegativeScreen_GroupO_IssuedWithoutCrossmatch` | URS-BB-719 / FRS-BB-837 |
+| TEST-BB-884 | U | `ProductHistoryReactionTests.EntryNotes_AreShownOnTheIssueRow` | URS-BB-719 / FRS-BB-837 |
+| TEST-BB-885 | U | `FacilityPolicyAwaitsEntryTests.AwaitsEntry_OnlyForDecidedSettingsStillAtTheirDefault` | URS-BB-720 / FRS-BB-838 |
+| TEST-BB-886 | U | `DashboardQueueCatalogTests.SettingsToEnter_CardAndNote` | URS-BB-720 / FRS-BB-838 |
+| TEST-BB-887 | U | `SettingsToEnterPageTests.SettingsToEnter_AreNamedMarkedAndFiltered` | URS-BB-720 / FRS-BB-838 |
+| TEST-BB-888 | I | `AntibodyIdentificationWorkupTests.CompletedWorkup_ConfirmsTheMatchingOutsideReport` | URS-BB-721 / FRS-BB-839 |
+| TEST-BB-889 | U | `ShiftHandoffItemsTests.DispositionOverdue_AndOutsideAntibodies_AreHandoffItems` | URS-BB-722 / FRS-BB-840 |
+| TEST-BB-890 | I | `ShiftHandoffServiceTests.Create_CountsOutsideAntibodiesToConfirm` | URS-BB-722 / FRS-BB-840 |
+| TEST-BB-891 | I | `PatientTimelineTests.Confirmation_InfantSpecimen_AndIssueEntry_AreOnTheTimeline` | URS-BB-723 / FRS-BB-841 |
+| TEST-BB-892 | U | `RhigQueueSuggestionTests.Queue_ShowsTheSuggestion` | URS-BB-724 / FRS-BB-842 |
+| TEST-BB-893 | U | `UnitShipPackingTests.ShippedUnit_ShowsPackingAndReceivingContact` | URS-BB-725 / FRS-BB-843 |
+| TEST-BB-894 | I | `ComplianceWorkflowTests.RecallByDin_ShippedUnit_NotifiesTheReceivingFacility` | URS-BB-725 / FRS-BB-843 |
+| TEST-BB-895 | U | `ShipmentPackingListTests.PackingList_ShowsTheNamedShipment` | URS-BB-726 / FRS-BB-844 |
+| TEST-BB-896 | U | `ShipmentPackingListTests.PackingList_OlderShipment_AndNoMatch` | URS-BB-726 / FRS-BB-844 |
+| TEST-BB-897 | U | `ShipmentPackingListTests.ShipUnits_RecentShipment_LinksToItsPackingList` | URS-BB-726 / FRS-BB-844 |
+| TEST-BB-898 | U | `ThawedExpirationRuleTests.TimesToEnter_NamesWhatIsNotSet` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-899 | U | `ThawShelfLivesToEnterTests.Describe_NamesActiveCodesWaiting` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-900 | U | `ThawShelfLivesToEnterTests.FacilityPolicies_NamesThawCodesWaiting` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-901 | U | `ThawShelfLivesToEnterTests.AutoThawProducts_FilteredToCodesWaiting` | URS-BB-727 / FRS-BB-845 |
+| TEST-BB-902 | U | `AutoThawPreviewTests.Preview_FollowsTheBox_AndThePool` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-903 | I | `AutoThawServiceTests.Thaw_OpenSystemAndPooledShelfLives` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-904 | U | `AutoThawDialogTests.OpenSystemNotSet_RefusesBeforeYes` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-905 | U | `AutoThawDialogTests.Pool_StatesThePooledTime_OrRefuses` | URS-BB-728 / FRS-BB-846 |
+| TEST-BB-906 | I | `InventoryServiceTests.SupplierReturns_GroupByReasonAndDay` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-907 | U | `SupplierReturnListTests.ReturnList_ShowsTheNamedReturn` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-908 | U | `SupplierReturnListTests.ReturnList_NoMatch` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-909 | U | `SupplierReturnListTests.ReturnToSupplier_RecentReturns_LinkToTheirList` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-910 | I | `ShipOutDemoTests.Demo_HasOneSupplierReturnOfTwoUnits` | URS-BB-729 / FRS-BB-847 |
+| TEST-BB-911 | I | `ComplianceWorkflowTests.RecallByDin_RecallsTheShelf_WhenAnotherComponentCannotBeRecalled` | URS-BB-730 / FRS-BB-848 |
+| TEST-BB-912 | U | `LookbackRecallRuleTests.WhyNotRecalled_NamesWhatCannotBeRecalled` | URS-BB-730 / FRS-BB-848 |
+| TEST-BB-913 | U | `LookbackNotRecalledTests.Recall_NamesTheComponentsNotRecalled` | URS-BB-730 / FRS-BB-848 |
+| TEST-BB-914 | U | `DashboardHomeTests.RecalledToPull_IsForStockKeepers_AndNeedsAttentionAboveZero` | URS-BB-731 / FRS-BB-849 |
+| TEST-BB-915 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-731 / FRS-BB-849 |
+| TEST-BB-916 | U | `InventoryRecalledBoardTests.RecalledBoard_ListsUnitsToPull` | URS-BB-731 / FRS-BB-849 |
+| TEST-BB-917 | U | `ShiftHandoffItemsTests.RecalledToPull_IsAnUrgentHandoffItem` | URS-BB-732 / FRS-BB-850 |
+| TEST-BB-918 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-732 / FRS-BB-850 |
+| TEST-BB-919 | I | `InventoryServiceTests.PullRecalledByScan_QuarantinesTheFoundUnit` | URS-BB-733 / FRS-BB-851 |
+| TEST-BB-920 | U | `InventoryRecalledBoardTests.RecalledBoard_ScanQuarantinesTheFoundUnit` | URS-BB-733 / FRS-BB-851 |
+| TEST-BB-921 | I | `ShipOutDemoTests.Demo_HasOneRecalledUnitToPull` | URS-BB-733 / FRS-BB-851 |
+| TEST-BB-922 | I | `Phase4IssuingTests.RecalledWhileIssued_IsNotTransfused_AndReturnsToQuarantine` | URS-BB-734 / FRS-BB-852 |
+| TEST-BB-923 | U | `IssuedRecalledBadgeTests.IssuedUnits_FlagARecalledUnit` | URS-BB-734 / FRS-BB-852 |
+| TEST-BB-924 | I | `Phase4IssuingTests.RecalledInTransit_IsFlagged_AndNotReceived` | URS-BB-735 / FRS-BB-853 |
+| TEST-BB-925 | U | `IssuedRecalledBadgeTests.InTransit_FlagsARecalledUnit` | URS-BB-735 / FRS-BB-853 |
+| TEST-BB-926 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-736 / FRS-BB-854 |
+| TEST-BB-927 | I | `Phase4IssuingTests.QuarantinedWhileIssued_StaysInQuarantine_OnReturn` | URS-BB-736 / FRS-BB-854 |
+| TEST-BB-928 | I | `Phase4IssuingTests.ReportedWhileIssued_DoesNotReturnToStock` | URS-BB-737 / FRS-BB-855 |
+| TEST-BB-929 | I | `InterfaceTransfusionAuthorizationTests.Document_UnitNoLongerIssued_IsRecordedAndFlagged` | URS-BB-743 / FRS-BB-861 |
+| TEST-BB-930 | U | `UnitStatusNoteTests.For_NamesTheReason`, `UnitStatusNoteTests.For_NoReason_OrALongOne` | URS-BB-739 / FRS-BB-857 |
+| TEST-BB-931 | I | `UniversalLookupTests.RecalledUnit_HitNamesTheRecall` | URS-BB-739 / FRS-BB-857 |
+| TEST-BB-932 | I | `Phase4IssuingTests.IssueGate_RefusesAStatusThatCannotBeIssued` | URS-BB-740 / FRS-BB-858 |
+| TEST-BB-933 | U | `IssueGateTests.NotIssuableMessage_SaysWhatToDo`, `IssueGateTests.NotIssuableMessage_OtherStatus_EndsAtTheStatus` | URS-BB-740 / FRS-BB-858 |
+| TEST-BB-934 | U | `DashboardHomeTests.RecalledToPullNote_SaysOldestAndOnTheWard` | URS-BB-741 / FRS-BB-859 |
+| TEST-BB-935 | U | `ChartLookbackBannerTests.OpenNotification_ShowsOnTheChart` | URS-BB-742 / FRS-BB-860 |
+| TEST-BB-936 | U | `ChartLookbackBannerTests.NoNotification_NoBanner` | URS-BB-742 / FRS-BB-860 |
+| TEST-BB-937 | I | `InterfaceTransfusionAuthorizationTests.Document_DiscardedUnit_IsStillRefused` | URS-BB-738 / FRS-BB-856 |
+| TEST-BB-938 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-743 / FRS-BB-861 |
+| TEST-BB-939 | I | `InventoryServiceTests.Recalled_ListsUnitsNotYetPulled` | URS-BB-743 / FRS-BB-861 |
+| TEST-BB-940 | U | `TransfusionReportReviewPageTests.ReportedTransfusion_IsReviewedInPlace` | URS-BB-743 / FRS-BB-861 |
+| TEST-BB-941 | U | `DashboardQueueCatalogTests.SupervisorNote_NamesTheItemsWithADeadlineOrAReview` | URS-BB-744 / FRS-BB-862 |
+| TEST-BB-942 | I | `PatientTimelineTests.ReportedTransfusion_ReadsSoOnTheTimeline` | URS-BB-744 / FRS-BB-862 |
+| TEST-BB-943 | U | `TransfusionReportNoteTests.For_ReadsTheReportAndItsReview` | URS-BB-744 / FRS-BB-862 |
+| TEST-BB-944 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-744 / FRS-BB-862 |
+| TEST-BB-945 | I | `ComplianceWorkflowTests.RecallByDin_ReportedTransfusedUnit_NotifiesItsRecipient` | URS-BB-745 / FRS-BB-863 |
+| TEST-BB-946 | I | `InventoryServiceTests.ReportedTransfusedUnit_KeepsItsStatus` | URS-BB-746 / FRS-BB-864 |
+| TEST-BB-947 | U | `ReportedTransfusionRuleTests.Evaluate_StopsAReportedUnit` | URS-BB-746 / FRS-BB-864 |
+| TEST-BB-948 | I | `InterfaceTransfusionAuthorizationTests.ReportedTransfusion_IsReviewedOnTheSupervisorQueue` | URS-BB-747 / FRS-BB-865 |
+| TEST-BB-949 | U | `AntigramImportTests.Parse_ReadsAManufacturerSheet` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-950 | U | `AntigramImportTests.Parse_Problems_StopTheImport` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-951 | U | `AntigramImportTests.Export_ReadsBack` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-952 | U | `AntigramImportPageTests.CsvAntigram_FillsTheCells` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-953 | U | `AntigramImportPageTests.BadAntigram_IsNotUsed` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-954 | U | `AntigramImportPageTests.ExcelAntigram_FillsTheCells` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-955 | U | `AntigramImportPageTests.Template_OpensADownload` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-956 | I | `AntibodyPanelLotAdminTests.Create_FromAnImportedAntigram_RecordsTheFile` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-957 | U | `AntigramImportPageTests.LotAntigram_Downloads` | URS-BB-748 / FRS-BB-866 |
+| TEST-BB-958 | U | `AntibodyPanelLotAdminRuleTests.CorrectDraft_InUse_NoReason_OrBadCells_IsHardStop` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-959 | I | `AntibodyPanelLotAdminTests.CorrectAntigram_BeforeAnyWorkup_ReplacesTheCells` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-960 | I | `AntibodyPanelLotAdminTests.CorrectAntigram_InUse_NoReason_OrNoPermission_IsRefused` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-961 | U | `AntigramImportPageTests.CorrectAntigram_PrefillsAndSaves` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-962 | U | `AntigramImportPageTests.LotInUse_CannotBeCorrected` | URS-BB-749 / FRS-BB-867 |
+| TEST-BB-963 | U | `AntibodyPanelLotSupplyRuleTests.Review_ExpiringLots_NeedActionWithoutAReplacement` | URS-BB-750 / FRS-BB-868 |
+| TEST-BB-964 | U | `AntibodyPanelLotSupplyRuleTests.Review_NoCurrentLotOfAKind_NeedsAction` | URS-BB-750 / FRS-BB-868 |
+| TEST-BB-965 | U | `DashboardQueueCatalogTests.PanelLotsCard_CountsWhatNeedsAction` | URS-BB-750 / FRS-BB-868 |
+| TEST-BB-966 | I | `AntibodyPanelLotAdminTests.ListSupply_NamesALotExpiringWithoutAReplacement` | URS-BB-750 / FRS-BB-868 |
+| TEST-BB-967 | U | `AntigramImportPageTests.PanelLotsPage_ShowsLotsToReplace` | URS-BB-750 / FRS-BB-868 |
+| TEST-BB-968 | U | `EquipmentCheckRuleTests.Evaluate_DueFromTheLastPass` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-969 | U | `EquipmentCheckRuleTests.Validation_RefusesIncompleteEntries` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-970 | I | `EquipmentServiceTests.Register_Schedule_AndRecord_MakeTheCheckCurrent` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-971 | I | `EquipmentServiceTests.Failure_OutOfService_AndRefusals` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-972 | I | `EquipmentServiceTests.Demo_ShowsEachState` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-973 | U | `EquipmentPageTests.DueCheck_IsRecorded` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-974 | U | `EquipmentPageTests.OutOfService_ShowsWhy_AndWarnsOnReturn` | URS-BB-751 / FRS-BB-869 |
+| TEST-BB-975 | U | `EquipmentCheckRuleTests.ModificationDevice_MustBeInService` | URS-BB-752 / FRS-BB-870 |
+| TEST-BB-976 | I | `BloodProductModificationServiceTests.Modification_OnRegisteredEquipmentOutOfService_IsRefused` | URS-BB-752 / FRS-BB-870 |
+| TEST-BB-977 | U | `DashboardQueueCatalogTests.EquipmentChecksCard_NamesFailedAndOverdue` | URS-BB-752 / FRS-BB-870 |
+| TEST-BB-978 | U | `ShiftHandoffItemsTests.Equipment_IsHandedOver` | URS-BB-753 / FRS-BB-871 |
+| TEST-BB-979 | I | `ShiftHandoffServiceTests.Handoff_CountsEquipment` | URS-BB-753 / FRS-BB-871 |
+| TEST-BB-980 | U | `EquipmentPageTests.History_ShowsRecords_AndDownloadsTheLog` | URS-BB-754 / FRS-BB-872 |
+| TEST-BB-981 | I | `EquipmentServiceTests.Edit_EquipmentAndCheck_WithAReason` | URS-BB-755 / FRS-BB-873 |
+| TEST-BB-982 | U | `EquipmentPageTests.Edit_IsPrefilled_AndNeedsAReason` | URS-BB-755 / FRS-BB-873 |
+| TEST-BB-983 | U | `ReagentRegisterRuleTests.Register_Rules` | URS-BB-756 / FRS-BB-874 |
+| TEST-BB-984 | I | `ReagentLotTraceabilityTests.Register_DuplicateRenameRetireRestore` | URS-BB-756 / FRS-BB-874 |
+| TEST-BB-985 | U | `ReagentRegisterPageTests.Retire_NeedsAReason_AndRetiredAreHiddenUntilShown` | URS-BB-756 / FRS-BB-874 |
+| TEST-BB-986 | U | `ReagentRegisterRuleTests.LotCorrection_Rules` | URS-BB-757 / FRS-BB-875 |
+| TEST-BB-987 | I | `ReagentLotTraceabilityTests.CorrectLot_WithAReason` | URS-BB-757 / FRS-BB-875 |
+| TEST-BB-988 | U | `ReagentRegisterPageTests.CorrectLot_IsPrefilled_AndNeedsAReason` | URS-BB-757 / FRS-BB-875 |
+| TEST-BB-989 | I | `EquipmentServiceTests.Retire_AndRestore_WithAReason` | URS-BB-758 / FRS-BB-876 |
+| TEST-BB-990 | U | `EquipmentPageTests.RetireAndStop_NeedAReason_AndRetiredOffersRestore` | URS-BB-758 / FRS-BB-876 |
+| TEST-BB-991 | U | `EquipmentPageTests.RetiredEquipment_OffersRestore` | URS-BB-758 / FRS-BB-876 |
+| TEST-BB-992 | I | `EquipmentServiceTests.Upcoming_ListsChecksDueWithinTheWindow` | URS-BB-759 / FRS-BB-877 |
+| TEST-BB-993 | U | `EquipmentPageTests.ComingUp_SaysWhenNothingFallsDue` | URS-BB-759 / FRS-BB-877 |
+| TEST-BB-994 | U | `EquipmentPageTests.ComingUp_ListsChecksDueSoon` | URS-BB-759 / FRS-BB-877 |
+| TEST-BB-995 | U | `ResultValueTextTests.For_ReadsPanelsAsStaffDo` | URS-BB-760 / FRS-BB-878 |
+| TEST-BB-996 | I | `CrossmatchSettingsTests.RepeatCrossmatch_AfterExpiry_OnALinkedSpecimen` | URS-BB-761 / FRS-BB-879 |
+| TEST-BB-997 | U | `BloodOrderPreparationRuleTests.TypeAndScreenNotOrdered_SaysToOrderItOnTheTube` | URS-BB-761 / FRS-BB-879 |
+| TEST-BB-998 | U | `TransfusionVitalsTests.Vitals_AreCheckedDescribedAndCompared` | URS-BB-762 / FRS-BB-880 |
+| TEST-BB-999 | I | `Phase4IssuingTests.Bedside_RecordsVitalsBeforeAndAfter_AndRefusesATypo` | URS-BB-762 / FRS-BB-880 |
+| TEST-BB-1000 | U | `InstrumentInterfaceTests.RuleEngine_GradesStayAsSent_AndAScoreConvertsOnce` | URS-BB-763 / FRS-BB-881 |
+| TEST-BB-1001 | U | `RuleExpressionEvaluatorTests.NonNumericText_DoesNotCompareWithANumber` | URS-BB-763 / FRS-BB-881 |
+| TEST-BB-1002 | I | `InstrumentInterfaceTests.EchoGrades_PostAsSent_AndDiscordantAntiD_IsFlagged` | URS-BB-763 / FRS-BB-881 |
+| TEST-BB-1003 | U | `RhigLotRuleTests.Receive_AndUse` | URS-BB-764 / FRS-BB-882 |
+| TEST-BB-1004 | I | `RhigLotServiceTests.Register_ChecksTheLotGiven` | URS-BB-764 / FRS-BB-882 |
+| TEST-BB-1005 | I | `InterfaceTestCodeTranslationTests.NoEndpoint_TranslationsForAllInterfacesStillApply` | URS-BB-765 / FRS-BB-883 |
+| TEST-BB-1006 | U | `ReagentRegisterPageTests.QcRun_ListsOpenLots_AndCountsRowsToRecord` | URS-BB-766 / FRS-BB-884 |
+| TEST-BB-1007 | I | `ProductRetypeServiceTests.Receive_ScannedDin_IsStoredAsTheDin` | URS-BB-767 / FRS-BB-885 |
+| TEST-BB-1008 | I | `InventoryServiceTests.Scan_DinThenProductCode_PicksTheDivision` | URS-BB-768 / FRS-BB-886 |
+| TEST-BB-1009 | I | `InventoryServiceTests.Receive_RefusesALocationThatDoesNotTakeTheComponent_AndTheCountFlagsIt` | URS-BB-769 / FRS-BB-887 |
+| TEST-BB-1010 | U | `CrossmatchStatusNoticeTests.CrossmatchStatusNotice_NamesTheStatus` | URS-BB-770 / FRS-BB-888 |
+| TEST-BB-1011 | U | `EnumTextTests.AntigenText_WritesAntigensAsWritten`, `EnumTextTests.EnumText_KeepsAcronyms` | URS-BB-771 / FRS-BB-889 |
+| TEST-BB-1012 | U | `AntibodyIdentificationAssistEvaluatorTests.PatternProbability_IsFishersExact`, `AntibodyIdentificationAssistEvaluatorTests.Possible_StatesTheCellsAndProbability` | URS-BB-772 / FRS-BB-890 |
+| TEST-BB-1013 | U | `DatElutionWorkupRuleTests.Grades_MustAgreeWithTheResult` | URS-BB-773 / FRS-BB-891 |
+| TEST-BB-1014 | I | `EluateFindingTests.DatGrades_AreKept_AndMustMatchTheResult` | URS-BB-773 / FRS-BB-891 |
+| TEST-BB-1015 | U | `ChartDatElutionTabTests.Tab_WithWorkups_RendersTheGrades` | URS-BB-774 / FRS-BB-892 |
+| TEST-BB-1016 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-775 / FRS-BB-893 |
+| TEST-BB-1017 | I | `InstrumentInterfaceTests.PatientIdNotTheSpecimensPatient_IsNotPosted` | URS-BB-776 / FRS-BB-894, URS-BB-777 / FRS-BB-895 |
+| TEST-BB-1018 | U, I | `ResultReleaseRuleTests.FinalResults_FollowTheFacilitySetting`, `ResultEhrUpdateTests.VerifyingAFirstResult_QueuesItAsFinal_UnlessTheFacilityTurnsItOff` | URS-BB-778 / FRS-BB-896 |
+| TEST-BB-1019 | I | `ReportServiceTests.CrossmatchesAndTransfusionsByMonth_RunsAndTheViewHasTheMonth` | URS-BB-779 / FRS-BB-897 |
+| TEST-BB-1020 | U | `ChartLookbackBannerTests.MergeOutcome_ShowsAfterThePanelCloses` | URS-BB-782 / FRS-BB-900 |
+| TEST-BB-1021 | I | `DowntimePatientSummaryTests.AntibodyCard_StatesTheAntigenNegativeRequirement` | URS-BB-781 / FRS-BB-899 |
+| TEST-BB-1022 | I | `BloodProductModificationServiceTests.Thaw_FromAFreezer_NeedsARefrigeratorForTheResult` | URS-BB-783 / FRS-BB-901 |
+| TEST-BB-1023 | U | `CompatibleUnitSummaryTests.Note_NamesTheProducts` | URS-BB-784 / FRS-BB-902 |
+| TEST-BB-1024 | I | `SupplierOrderTests.SpecialOrder_TakesAPatientSpecificLine` | URS-BB-785 / FRS-BB-903 |
+| TEST-BB-1025 | I | `SeederTests.Seed_ProductsCarryTheAttributesTheirNamesState` | URS-BB-786 / FRS-BB-904 |
+| TEST-BB-1026 | I | `CrossmatchSettingsTests.Crossmatch_ForAReservationWithoutAnOrder_JoinsTheOpenOrderOrSaysWhatToDo` | URS-BB-787 / FRS-BB-905 |
+| TEST-BB-1027 | I | `ReactionInvestigationServiceTests.CultureSupplierAndSameDonationUnits_AreRecordedAndListed` | URS-BB-789 / FRS-BB-907 |
+| TEST-BB-1028 | I | `ComplianceWorkflowTests.FindByDin_NamesProductAndLocation` | URS-BB-790 / FRS-BB-908 |
+| TEST-BB-1029 | U | `ShiftHandoffItemsTests.WardRequests_AreHandedOverAsUrgent` | URS-BB-791 / FRS-BB-909 |
+| TEST-BB-1030 | U, I | `RhigEvaluationRuleTests.GiveBy_FollowsTheFacilityWindow`, `RhigEvaluationServiceTests.Queue_ShowsGiveBy_FromTheFacilityWindow` | URS-BB-792 / FRS-BB-910 |
+| TEST-BB-1031 | I | `ComplianceWorkflowTests.Deviations_NameTheirRelatedRecords` | URS-BB-794 / FRS-BB-912 |
+| TEST-BB-1032 | I | `StorageTemperatureServiceTests.Excursion_SaysWhenUnitsWillBeQuarantined` | URS-BB-795 / FRS-BB-913 |
+| TEST-BB-1033 | U | `ResultValueTextTests.For_ReadsPlainAboRhAsItsType` | URS-BB-797 / FRS-BB-915 |
+| TEST-BB-1034 | U | `ReagentLotUseRuleTests.ReviewWindows_SurviveAPassingRepeat` | URS-BB-797 / FRS-BB-915 |
+| TEST-BB-1035 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-797 / FRS-BB-915 |
+| TEST-BB-1036 | I | `Phase5Hl7Tests.OrmCancel_RefusedWhileUnitsReserved_KeepsReason_AndVerifiedLines` | URS-BB-798 / FRS-BB-916 |
+| TEST-BB-1037 | U | `QuarantineReleaseRuleTests.LocationStillOutOfRange_WaitsForAnInRangeReading` | URS-BB-799 / FRS-BB-917 |
+| TEST-BB-1038 | I | `InventoryServiceTests.QuarantineRelease_WaitsForTheLocationToBeInRange` | URS-BB-799 / FRS-BB-917 |
+| TEST-BB-1039 | I | `InventoryServiceTests.QuarantineRelease_KeepsAReservedUnitReserved` | URS-BB-801 / FRS-BB-919 |
+| TEST-BB-1040 | U | `ResultValueTextTests.For_ReadsPhasedCellsAsCellAndPhase` | URS-BB-802 / FRS-BB-920 |
+| TEST-BB-1041 | U | `AstmParserTests.Simulator_PutsTheResultTimeAndInstrumentWhereTheEchoDoes` | URS-BB-803 / FRS-BB-921 |
+| TEST-BB-1042 | I | `InstrumentInterfaceTests.InboundGroupResult_PostsInstrumentPendingVerification` | URS-BB-804 / FRS-BB-922 |
+| TEST-BB-1043 | U | `AstmParserTests.InstrumentRun_ReadsAsAnalyzerAndCompletionTime` | URS-BB-804 / FRS-BB-922 |
+| TEST-BB-1044 | I | `OverrideReviewTests.PendingOverride_NamesTheUnitAndPatient` | URS-BB-805 / FRS-BB-923 |
+| TEST-BB-1045 | I | `Phase6PrintingTests.PrintSpecimenLabel_CreatesPrintedJobWithZplAndPayload`, `Phase6PrintingTests.PrintCompatibilityTag_BuildsPtagFromIssueRecord` | URS-BB-806 / FRS-BB-924 |
+| TEST-BB-1046 | I | `DowntimePatientSummaryTests.DowntimeSheet_NamesAnUnverifiedTypeThatDisagrees` | URS-BB-807 / FRS-BB-925 |
+| TEST-BB-1047 | I | `BloodOrderWorklistTests.Demo_HasAStatOrderToPrepare` | URS-BB-808 / FRS-BB-926 |
+| TEST-BB-1048 | U | `CompetitorGapRuleTests.Worklist_CountsQcOnTheFacilityDay` | URS-BB-809 / FRS-BB-927 |
+| TEST-BB-1049 | I | `EquipmentServiceTests.DueDates_CountTheFacilityDays` | URS-BB-809 / FRS-BB-927 |
+| TEST-BB-1050 | U | `RhigLotRuleTests.Use_CountsTheExpiryDateOnTheFacilityCalendar` | URS-BB-810 / FRS-BB-928 |
+| TEST-BB-1051 | I | `FacilityTimeZoneTests.FacilityDay_IsTheLocalCalendarDate` | URS-BB-810 / FRS-BB-928 |
+| TEST-BB-1052 | I | `UniversalLookupTests.ReagentLot_IsFound_AndOpensReagentQc` | URS-BB-811 / FRS-BB-929 |
+| TEST-BB-1053 | I | `ReactionWorkupServiceTests.PostTransfusionTube_TakesTheLabelIdentifiers` | URS-BB-812 / FRS-BB-930 |
+| TEST-BB-1054 | I | `ExpiredSpecimenOrderTests.ReactionWorkup_OnAnExpiredTube_StaysOpenAndLinked` | URS-BB-813 / FRS-BB-931 |
+| TEST-BB-1055 | U | `TubeFinishedTests.NextToEnter_PrefersTheSameTube_ThenTheSamePatient` | URS-BB-814 / FRS-BB-932 |
+| TEST-BB-1056 | C | `TestLineCommentEditorTests.SaveComment_OnlyWhenTheTextChanged` | URS-BB-815 / FRS-BB-933 |
+| TEST-BB-1057 | I | `StorageTemperatureServiceTests.OpenExcursion_SaysWhenBackInRange_AndTheDashboardCountsOnlyOngoing` | URS-BB-816 / FRS-BB-934 |
+| TEST-BB-1058 | U | `ReadyToIssueFormCueTests.Notices_RepeatTheReadyToIssueMarks` | URS-BB-817 / FRS-BB-935 |
+| TEST-BB-1059 | I | `Phase5Hl7Tests.AdtDateOfBirthChange_IsRaised_WithTheCurrentTubes` | URS-BB-818 / FRS-BB-936 |
+| TEST-BB-1060 | I | `PatientServiceTests.Update_DateOfBirthChange_NeedsAReason_AndIsAlerted` | URS-BB-819 / FRS-BB-937 |
+| TEST-BB-1061 | I | `SupplierOrderTests.SubmittedOrder_PastItsArrivalWindow_IsOverdue` | URS-BB-821 / FRS-BB-939 |
+| TEST-BB-1062 | I | `Phase4IssuingTests.RecalledInTransit_IsFlagged_AndNotReceived` | URS-BB-822 / FRS-BB-940 |
+| TEST-BB-1063 | I | `PatientServiceTests.PossibleDuplicatesOf_NamesTheOtherChart` | URS-BB-823 / FRS-BB-941 |
+| TEST-BB-1064 | U | `VisualReportCompilerTests.DateRange_CountsWholeLocalDays_AndShowsLocalTimes` | URS-BB-826 / FRS-BB-944 |
+| TEST-BB-1065 | I | `ReportServiceTests.MonthText_IsTheFacilityMonth` | URS-BB-827 / FRS-BB-945 |
+| TEST-BB-1066 | U, I | `RhigEvaluationRuleTests.AgeText_HoursThenDays`, `RhigEvaluationServiceTests.Queue_ShowsGiveBy_FromTheFacilityWindow` | URS-BB-828 / FRS-BB-946 |
+| TEST-BB-1067 | U | `InstrumentMessagesTests.SessionLog_HidesListenerStarts_KeepsProblems` | URS-BB-829 / FRS-BB-947 |
+| TEST-BB-1068 | U | `InventoryDiscardExpiredTests.SecondVerifier_RequiredIsSaid_AndAScanWithoutOneIsNotSent`, `InventoryDiscardExpiredTests.SecondVerifier_NotRequired_IsSaid` | URS-BB-830 / FRS-BB-948 |
+| TEST-BB-1069 | U | `DashboardHomeTests.ExpiredOnShelfNote_SaysOldestAndWhere` | URS-BB-831 / FRS-BB-949 |
+| TEST-BB-1070 | U | `DashboardDueCountTests.CountHeldByWardRequest_LapsedOrExpiredButRequested` | URS-BB-832 / FRS-BB-950 |
+| TEST-BB-1071 | U | `LocalTimeDisplayTests.Forms_TakeTimesInLocalTime` | URS-BB-833 / FRS-BB-951 |
+| TEST-BB-1072 | U | `ReactionWorkupCompletenessRuleTests.Outstanding_ListsEveryStepStillDue` | URS-BB-834 / FRS-BB-952 |
+| TEST-BB-1073 | I | `Phase5Hl7Tests.InboundAdt_VisitOfAnotherPatient_IsRefused` | URS-BB-835 / FRS-BB-953 |
+| TEST-BB-1074 | I | `Phase5Hl7Tests.InboundOrm_OrderOfAnotherPatient_IsRefused` | URS-BB-836 / FRS-BB-954 |
+| TEST-BB-1075 | U, I | `Hl7MapperTests.BpamMapper_TimestampsHonourTheOffsetAndSeconds`, `Phase5Hl7Tests.InboundRas_MergedMrn_RecordsOnTheSurvivingChart` | URS-BB-837 / FRS-BB-955 |
+| TEST-BB-1076 | U | `ReagentQcResultBlockTests.KindText_ReadsAsWords` | URS-BB-839 / FRS-BB-957 |
+| TEST-BB-1077 | U | `LookbackNotifyRuleTests.NotifyBy_FollowsTheFacilityDays` | URS-BB-841 / FRS-BB-959 |
+| TEST-BB-1078 | U | `LookbackTraceTests.Trace_UnitsWithoutDin_AreNamed_NotReportedAsNoneFound` | URS-BB-842 / FRS-BB-960 |
+| TEST-BB-1079 | U | `LocalTimeDisplayTests.DisplayServices_ShowLocalTime` | URS-BB-843 / FRS-BB-961 |
+| TEST-BB-1080 | I | `RhigLotServiceTests.Receive_UsesTheFacilityDay` | URS-BB-844 / FRS-BB-962 |
+| TEST-BB-1081 | U | `ShiftHandoffItemsTests.ReagentQcToDoAndToReview_AreHandedOver` | URS-BB-845 / FRS-BB-963 |
+| TEST-BB-1082 | U | `ShiftHandoffItemsTests.SecondAboAndSupervisorQueue_AreHandedOver` | URS-BB-846 / FRS-BB-964 |
+| TEST-BB-1083 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-847 / FRS-BB-965 |
+| TEST-BB-1084 | I | `DeviationServiceTests.UpdateStatus_RecordsRootCauseAndFdaReportability` | URS-BB-848 / FRS-BB-966 |
+| TEST-BB-1085 | U | `EquipmentTestNoticeTests.For_NamesOutOfServiceAndOverdueEquipmentForListedTests` | URS-BB-849 / FRS-BB-967 |
+| TEST-BB-1086 | I | `ReagentLotTraceabilityTests.ManualResult_RecordsEquipmentUsed_AndWarnsWhenOutOfService` | URS-BB-850 / FRS-BB-968 |
+| TEST-BB-1087 | U | `LocalTimeDisplayTests.Today_IsNeverTheUtcDate` | URS-BB-852 / FRS-BB-970 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

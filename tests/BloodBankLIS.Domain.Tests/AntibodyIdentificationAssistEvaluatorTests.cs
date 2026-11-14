@@ -21,6 +21,36 @@ public class AntibodyIdentificationAssistEvaluatorTests
         Assert.Equal(AntibodyIdClassification.Possible, kell.Classification);
     }
 
+    // TEST-BB-1012: a possible specificity states the cells behind it and Fisher's exact probability of the pattern by
+    // chance (3 reactive antigen-positive and 3 non-reactive antigen-negative cells: p = 1/20 = 0.05).
+    [Theory]
+    [InlineData(3, 3, 0.05)]
+    [InlineData(3, 5, 1d / 56)]
+    [InlineData(2, 2, 1d / 6)]
+    [InlineData(1, 1, 0.5)]
+    [InlineData(3, 0, 1d)]
+    public void PatternProbability_IsFishersExact(int positive, int negative, double expected) =>
+        Assert.Equal(expected, AntibodyIdentificationAssistEvaluator.PatternProbability(positive, negative), 6);
+
+    [Fact]
+    public void Possible_StatesTheCellsAndProbability()
+    {
+        var cells = new[]
+        {
+            Cell("1", PanelCellRole.Panel, antigens: new() { ["E"] = AntigenExpression.Present }, reactions: Pos("AHG")),
+            Cell("2", PanelCellRole.Panel, antigens: new() { ["E"] = AntigenExpression.Present }, reactions: Pos("AHG")),
+            Cell("3", PanelCellRole.Panel, antigens: new() { ["E"] = AntigenExpression.Present }, reactions: Pos("AHG")),
+            Cell("4", PanelCellRole.Panel, antigens: new() { ["E"] = AntigenExpression.Absent }, reactions: Neg("AHG")),
+            Cell("5", PanelCellRole.Panel, antigens: new() { ["E"] = AntigenExpression.Absent }, reactions: Neg("AHG")),
+            Cell("6", PanelCellRole.Panel, antigens: new() { ["E"] = AntigenExpression.Absent }, reactions: Neg("AHG"))
+        };
+
+        var finding = Assert.Single(Evaluate(cells, [BigE]).Findings, f => f.AttributeCode == "E");
+        Assert.Equal(AntibodyIdClassification.Possible, finding.Classification);
+        Assert.Contains("3 antigen-positive reactive and 3 antigen-negative non-reactive", finding.Rationale);
+        Assert.Contains("p = 0.05", finding.Rationale);
+    }
+
     [Fact]
     public void HomozygousNegative_RulesOutDosageSensitiveAntigen()
     {

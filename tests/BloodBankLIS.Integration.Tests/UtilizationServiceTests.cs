@@ -194,7 +194,8 @@ public class UtilizationServiceTests : IDisposable
             BloodProductId = unit.Id,
             PatientId = f.Patient.Id,
             IssuedUtc = _factory.Clock.UtcNow.AddDays(-1),
-            Status = IssueStatus.Issued
+            // A recorded outcome means the transfusion was completed, so the issue is Transfused (TEST-BB-348).
+            Status = IssueStatus.Transfused
         };
         c.Issues.Add(issue);
         await c.SaveChangesAsync();

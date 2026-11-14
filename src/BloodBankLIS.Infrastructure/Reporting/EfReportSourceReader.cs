@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Reporting;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,7 +11,23 @@ public sealed class EfReportSourceReader : IReportSourceReader
 {
     private readonly BloodBankDbContext _db;
 
-    public EfReportSourceReader(BloodBankDbContext db) => _db = db;
+    private readonly TimeZoneInfo _zone;
+
+    public EfReportSourceReader(BloodBankDbContext db, IFacilityTimeZone? timeZone = null)
+    {
+        _db = db;
+        _zone = timeZone?.Zone ?? TimeZoneInfo.Local;
+    }
+
+    /// <summary>
+    /// The month a stored instant falls in at the facility (end-user testing pass 51: month columns were UTC months, so
+    /// a discard at 21:00 on 31 October Eastern counted in November).
+    /// </summary>
+    public static string? MonthText(DateTime? utc, TimeZoneInfo zone) =>
+        utc is DateTime value
+            ? TimeZoneInfo.ConvertTimeFromUtc(value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc), zone)
+                .ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)
+            : null;
 
     public Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> LoadAsync(string sourceCode, CancellationToken cancellationToken = default) =>
         sourceCode.ToLowerInvariant() switch
@@ -24,6 +41,9 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Overrides => OverridesAsync(cancellationToken),
             ReportSourceCatalog.CrossmatchTransfusion => ActivityAsync(cancellationToken),
             ReportSourceCatalog.LabResults => LabResultsAsync(cancellationToken),
+            ReportSourceCatalog.SpecimenRejections => SpecimenRejectionsAsync(cancellationToken),
+            ReportSourceCatalog.TestTurnaround => TestTurnaroundAsync(cancellationToken),
+            ReportSourceCatalog.BloodOrderTurnaround => BloodOrderTurnaroundAsync(cancellationToken),
             _ => throw new InvalidOperationException($"Unknown report source '{sourceCode}'.")
         };
 
@@ -82,7 +102,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 issue.Status,
                 StartUtc = transfusion != null ? transfusion.StartUtc : null,
                 StopUtc = transfusion != null ? transfusion.StopUtc : null,
-                Disposition = transfusion != null ? (TransfusionDisposition?)transfusion.FinalDisposition : null
+                Disposition = transfusion != null ? (TransfusionDisposition?)transfusion.FinalDisposition : null,
+                Running = transfusion != null && transfusion.StopUtc == null && issue.Status == IssueStatus.Issued
             }).ToListAsync(cancellationToken);
 
         return rows.Select(row => ReportValueFormat.Row(
@@ -97,7 +118,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("issue_status", row.Status.ToString()),
             ("transfusion_start_utc", ReportValueFormat.Date(row.StartUtc)),
             ("transfusion_stop_utc", ReportValueFormat.Date(row.StopUtc)),
-            ("disposition", row.Disposition?.ToString()))).ToList();
+            ("disposition", row.Running ? TransfusionRecordState.InProgress : row.Disposition?.ToString()))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> DiscardsAsync(CancellationToken cancellationToken)
@@ -130,7 +151,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("discard_reason", ReportValueFormat.Text(row.DiscardReason)),
             ("discard_reason_code", ReportValueFormat.Text(row.DiscardReasonCode)),
             ("discarded_utc", row.DiscardedUtc is DateTime discarded ? ReportValueFormat.Date(discarded) : null),
-            ("discarded_month", row.DiscardedUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
+            ("discarded_month", MonthText(row.DiscardedUtc, _zone)),
             ("expires_utc", ReportValueFormat.Date(row.ExpiresUtc)))).ToList();
     }
 
@@ -283,17 +304,20 @@ public sealed class EfReportSourceReader : IReportSourceReader
             join unit in _db.BloodUnits.AsNoTracking() on transfusion.BloodProductId equals unit.Id
             join product in _db.ProductTypes.AsNoTracking() on unit.ProductTypeId equals product.Id
             join patient in _db.Patients.AsNoTracking() on transfusion.PatientId equals patient.Id
+            join issue in _db.Issues.AsNoTracking() on transfusion.IssueId equals issue.Id
             select new
             {
                 transfusion.StartUtc,
                 unit.UnitNumber,
                 ProductName = product.Name,
                 patient.MedicalRecordNumber,
-                transfusion.FinalDisposition
+                transfusion.FinalDisposition,
+                Running = transfusion.StopUtc == null && issue.Status == IssueStatus.Issued
             }).ToListAsync(cancellationToken);
 
         var rows = crossmatches.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.PerformedUtc)),
+            ("occurred_month", MonthText(row.PerformedUtc, _zone)),
             ("event_type", "Crossmatch"),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_name", ReportValueFormat.Text(row.ProductName)),
@@ -302,11 +326,12 @@ public sealed class EfReportSourceReader : IReportSourceReader
 
         rows.AddRange(transfusions.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.StartUtc)),
+            ("occurred_month", MonthText(row.StartUtc, _zone)),
             ("event_type", "Transfusion"),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_name", ReportValueFormat.Text(row.ProductName)),
             ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
-            ("detail", row.FinalDisposition.ToString()))));
+            ("detail", row.Running ? TransfusionRecordState.InProgress : row.FinalDisposition.ToString()))));
 
         return rows;
     }
@@ -376,5 +401,150 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 ("entered_utc", ReportValueFormat.Date(row.EnteredUtc)),
                 ("verified_utc", ReportValueFormat.Date(row.VerifiedUtc)));
         }).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> TestTurnaroundAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from result in _db.TestResults.AsNoTracking()
+            join order in _db.Orders.AsNoTracking() on result.OrderId equals order.Id
+            join specimen in _db.Specimens.AsNoTracking() on result.SpecimenId equals specimen.Id
+            join patient in _db.Patients.AsNoTracking() on result.PatientId equals patient.Id
+            where result.Status == ResultStatus.Verified && result.SupersededByResultId == null && result.VerifiedUtc != null
+            select new
+            {
+                result.VerifiedUtc,
+                order.OrderedUtc,
+                specimen.ReceivedUtc,
+                order.Priority,
+                result.TestCode,
+                order.OrderNumber,
+                specimen.AccessionNumber,
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName
+            }).ToListAsync(cancellationToken);
+
+        static string? Minutes(DateTime? from, DateTime? to) =>
+            from is DateTime a && to is DateTime b
+                ? Math.Round((b - a).TotalMinutes).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : null;
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("verified_utc", ReportValueFormat.Date(row.VerifiedUtc)),
+            ("verified_month", MonthText(row.VerifiedUtc, _zone)),
+            ("ordered_utc", ReportValueFormat.Date(row.OrderedUtc)),
+            ("received_utc", ReportValueFormat.Date(row.ReceivedUtc)),
+            ("priority", row.Priority.ToString()),
+            ("test_code", ReportValueFormat.Text(row.TestCode)),
+            ("order_number", ReportValueFormat.Text(row.OrderNumber)),
+            ("accession_number", ReportValueFormat.Text(row.AccessionNumber)),
+            ("minutes_order_to_verify", Minutes(row.OrderedUtc, row.VerifiedUtc)),
+            ("minutes_receipt_to_verify", Minutes(row.ReceivedUtc, row.VerifiedUtc)),
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)))).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> BloodOrderTurnaroundAsync(CancellationToken cancellationToken)
+    {
+        var unitsOrdered = await _db.OrderLines.AsNoTracking()
+            .Where(l => l.IsActive && l.LineCategory == OrderCategory.Product)
+            .GroupBy(l => l.OrderId)
+            .Select(g => new { OrderId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.OrderId, g => g.Count, cancellationToken);
+        if (unitsOrdered.Count == 0)
+            return [];
+
+        var orderIds = unitsOrdered.Keys.ToList();
+        var rows = await (
+            from order in _db.Orders.AsNoTracking()
+            join patient in _db.Patients.AsNoTracking() on order.PatientId equals patient.Id
+            where orderIds.Contains(order.Id) && order.Status != OrderStatus.Cancelled && order.Status != OrderStatus.Discontinued
+            select new
+            {
+                order.Id,
+                order.OrderedUtc,
+                order.Priority,
+                order.OrderNumber,
+                order.Status,
+                order.NeededByUtc,
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName
+            }).ToListAsync(cancellationToken);
+        var reservedTimes = await _db.Allocations.AsNoTracking()
+            .Where(a => a.OrderId != null && orderIds.Contains(a.OrderId.Value))
+            .Select(a => new { OrderId = a.OrderId!.Value, a.AllocatedUtc })
+            .ToListAsync(cancellationToken);
+        var issuedTimes = await _db.Issues.AsNoTracking()
+            .Where(i => i.OrderId != null && orderIds.Contains(i.OrderId.Value))
+            .Select(i => new { OrderId = i.OrderId!.Value, i.IssuedUtc })
+            .ToListAsync(cancellationToken);
+        var firstReserved = reservedTimes.GroupBy(a => a.OrderId).ToDictionary(g => g.Key, g => g.Min(a => a.AllocatedUtc));
+        var firstIssued = issuedTimes.GroupBy(i => i.OrderId).ToDictionary(g => g.Key, g => g.Min(i => i.IssuedUtc));
+
+        static string? Number(int? value) => value?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        return rows.Select(row =>
+        {
+            DateTime? reserved = firstReserved.TryGetValue(row.Id, out var r) ? r : null;
+            DateTime? issued = firstIssued.TryGetValue(row.Id, out var i) ? i : null;
+            var ready = BloodOrderTurnaroundRule.FirstReady(reserved, issued);
+            return ReportValueFormat.Row(
+                ("ordered_utc", ReportValueFormat.Date(row.OrderedUtc)),
+                ("ordered_month", MonthText(row.OrderedUtc, _zone)),
+                ("priority", row.Priority.ToString()),
+                ("order_number", ReportValueFormat.Text(row.OrderNumber)),
+                ("status", row.Status.ToString()),
+                ("units_ordered", Number(unitsOrdered[row.Id])),
+                ("first_reserved_utc", ReportValueFormat.Date(reserved)),
+                ("first_issued_utc", ReportValueFormat.Date(issued)),
+                ("minutes_order_to_reserve", Number(BloodOrderTurnaroundRule.Minutes(row.OrderedUtc, reserved))),
+                ("minutes_order_to_issue", Number(BloodOrderTurnaroundRule.Minutes(row.OrderedUtc, issued))),
+                ("needed_by_utc", ReportValueFormat.Date(row.NeededByUtc)),
+                ("ready_by_needed_by", BloodOrderTurnaroundRule.ReadyByNeededBy(ready, row.NeededByUtc)),
+                ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+                ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)));
+        }).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> SpecimenRejectionsAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from specimen in _db.Specimens.AsNoTracking()
+            join patient in _db.Patients.AsNoTracking() on specimen.PatientId equals patient.Id
+            where specimen.Status == SpecimenStatus.Rejected
+            select new
+            {
+                // Specimens rejected before RejectedUtc was recorded fall back to their last modification time.
+                RejectedUtc = specimen.RejectedUtc ?? specimen.ModifiedUtc,
+                specimen.RejectionReasonCode,
+                specimen.RejectionReason,
+                specimen.RejectedBy,
+                specimen.AccessionNumber,
+                specimen.SpecimenType,
+                specimen.DrawLocation,
+                specimen.Collector,
+                specimen.CollectedUtc,
+                specimen.ReceivedUtc,
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("rejected_utc", ReportValueFormat.Date(row.RejectedUtc)),
+            ("rejected_month", MonthText(row.RejectedUtc, _zone)),
+            ("rejection_reason_code", string.IsNullOrWhiteSpace(row.RejectionReasonCode) ? "UNCODED" : row.RejectionReasonCode),
+            ("rejection_reason", ReportValueFormat.Text(row.RejectionReason)),
+            ("rejected_by", ReportValueFormat.Text(row.RejectedBy)),
+            ("accession_number", ReportValueFormat.Text(row.AccessionNumber)),
+            ("specimen_type", ReportValueFormat.Text(row.SpecimenType)),
+            ("draw_location", ReportValueFormat.Text(row.DrawLocation) ?? string.Empty),
+            ("collector", ReportValueFormat.Text(row.Collector) ?? string.Empty),
+            ("collected_utc", ReportValueFormat.Date(row.CollectedUtc)),
+            ("received_utc", ReportValueFormat.Date(row.ReceivedUtc)),
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)))).ToList();
     }
 }

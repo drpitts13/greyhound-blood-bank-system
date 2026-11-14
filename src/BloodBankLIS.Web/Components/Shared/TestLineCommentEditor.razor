@@ -15,7 +15,8 @@
     </div>
     @if (Session.Has(PermissionCodes.PatientWrite))
     {
-        <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="SaveAsync">Save comment</button>
+        @* End-user testing pass 39: an empty, unchanged box saved and said "Comment saved." *@
+        <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || !Changed)" @onclick="SaveAsync" data-save-comment>Save comment</button>
     }
     <Outcome Value="_feedback" />
 </div>
@@ -28,6 +29,9 @@
     private bool _busy;
     private Feedback? _feedback;
     private long _lineId;
+    private string? _saved;
+
+    private bool Changed => (_draft ?? string.Empty).Trim() != (_saved ?? string.Empty).Trim();
 
     protected override void OnParametersSet()
     {
@@ -38,6 +42,7 @@
 
         _lineId = WorkItem.OrderLineId;
         _draft = WorkItem.Comment;
+        _saved = WorkItem.Comment;
     }
 
     private async Task SaveAsync()
@@ -49,9 +54,10 @@
             WorkItem.OrderLineId,
             new UpdateOrderLineCommentRequest(_draft));
         _busy = false;
-        _feedback = r.ToFeedback("Comment saved.");
+        _feedback = r.ToFeedback(string.IsNullOrWhiteSpace(_draft) ? "Comment removed." : "Comment saved.");
         if (r.Succeeded)
         {
+            _saved = _draft;
             await OnSaved.InvokeAsync();
         }
     }

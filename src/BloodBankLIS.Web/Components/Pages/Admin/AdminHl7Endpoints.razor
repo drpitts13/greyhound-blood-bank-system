@@ -38,6 +38,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Name</th><th>Type</th><th>Vendor</th><th>Direction</th><th>Host:Port</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -47,7 +48,7 @@
                         <td>@e.Name</td>
                         <td>@e.InterfaceType</td>
                         <td>@(string.IsNullOrWhiteSpace(e.VendorCode) ? "Custom" : e.VendorCode)</td>
-                        <td>@e.Direction</td>
+                        <td>@Ui.EnumText(e.Direction)</td>
                         <td class="mono">@(e.Host is null ? "—" : $"{e.Host}:{e.Port}")</td>
                         <td>
                             @if (e.IsEnabled) { <span class="badge badge-green">Enabled</span> }
@@ -64,6 +65,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -84,14 +86,14 @@
                 <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
                 <div class="field"><label>Interface type</label>
                     <select value="@_editing.InterfaceType" @onchange="OnTypeChanged">
-                        @foreach (var t in Enum.GetValues<InterfaceType>()) { <option value="@t">@t</option> }
+                        @foreach (var t in Enum.GetValues<InterfaceType>()) { <option value="@t">@Ui.EnumText(t)</option> }
                     </select>
                 </div>
                 <div class="field"><label>Direction</label>
-                    <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@d</option> }</select>
+                    <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@Ui.EnumText(d)</option> }</select>
                 </div>
                 <div class="field"><label>Transport</label>
-                    <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@t</option> }</select>
+                    <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@Ui.EnumText(t)</option> }</select>
                 </div>
                 @if (_editing.Transport == InterfaceTransport.Mllp)
                 {
@@ -163,6 +165,7 @@
             }
             else
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Data item</th><th>HL7 path</th><th>Required</th></tr></thead>
                     <tbody>
@@ -183,6 +186,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
 

@@ -129,6 +129,32 @@ public class BloodUnit : BaseEntity
     /// <summary>Why the unit was returned to the supplier instead of entering (or remaining in) inventory.</summary>
     public string? SupplierReturnReason { get; set; }
 
+    /// <summary>The facility the unit was shipped to (<see cref="UnitStatus.ShippedOut"/>); a recall or lookback notifies it.</summary>
+    public string? ShippedToFacility { get; set; }
+
+    public DateTime? ShippedUtc { get; set; }
+
+    /// <summary>The outbound shipment's reference (packing list, courier number); <see cref="ShipmentId"/> is the inbound one.</summary>
+    public string? OutboundShipmentReference { get; set; }
+
+    /// <summary>OCD-072: the container the unit was shipped in.</summary>
+    public string? ShipContainer { get; set; }
+
+    /// <summary>OCD-072: the temperature (°C) read when the shipment was packed.</summary>
+    public decimal? ShipPackingTemperatureC { get; set; }
+
+    /// <summary>OCD-072: who packed the shipment.</summary>
+    public string? ShipPackedBy { get; set; }
+
+    /// <summary>OCD-072: who receives the shipment at the other facility (name, and phone if given).</summary>
+    public string? ShipReceivingContact { get; set; }
+
+    /// <summary>
+    /// OCD-083 (option B): when the EHR reported this unit transfused while the blood bank had it recalled, quarantined,
+    /// damaged or missing. The status is kept; this says the unit is no longer here to pull.
+    /// </summary>
+    public DateTime? TransfusionReportedUtc { get; set; }
+
     /// <summary>Allogeneic, autologous, or directed. Autologous/directed require <see cref="ReservedPatientId"/>.</summary>
     public DonationRestriction DonationRestriction { get; set; } = DonationRestriction.Allogeneic;
 

@@ -3,7 +3,10 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Domain.Entities;
 
-/// <summary>Maps an instrument assay/analyte code to an application test or subtest code.</summary>
+/// <summary>
+/// Retired: the instrument assay/analyte map, copied into <see cref="InstrumentValueTranslation"/> by migration
+/// 20261125000000_InstrumentValueTranslations. Kept only so the old rows stay readable until the table is dropped.
+/// </summary>
 public class InstrumentTestMapping : BaseEntity
 {
     public long InterfaceId { get; set; }

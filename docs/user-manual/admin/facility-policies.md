@@ -12,9 +12,19 @@ routes:
 
 **Facility Policy** holds the parameters that drive clinical behavior: how long a specimen is valid, when a second person must verify, whether electronic crossmatch is allowed, how inventory receipt works, and how long records are retained. The page groups them by category. Filter by name, key, or citation.
 
-Each row shows the current value and the citation the parameter was written against. Select the row to edit. Boolean parameters are true or false. Numeric parameters show the allowed range. A value outside the range is rejected. Every save requires a reason.
+Each row shows the current value and the citation the parameter was written against. When the system starts, any parameter the database does not have yet is stored at the default shown here, and Configuration History records it as added by the system. A value your facility has already saved is never changed. **Require second verifier at issue** defaults to on: a facility that does not require one turns it off here with a reason. Select the row to edit. Boolean parameters are true or false. Numeric parameters show the allowed range. A value outside the range is rejected. Every save requires a reason.
 
 > Facility policy. Electronic crossmatch stays off until you set the policy that allows it. Turning it on does not by itself make any patient eligible. Antibody history, open workups, and the minimums in Crossmatch Settings still apply.
+
+**Settings to enter.** Some settings have been decided as policy, but their value is your facility's to enter:
+- the three *RhIG dose* settings;
+- *RhIG: give within (hours of the event)*;
+- *Lookback: notify the physician within (days)*: the days after a lookback notification is opened within which the recipient's physician is to be notified. One value applies to every lookback type (a recipient, a facility the unit was shipped to, a recall); the lookback list and a DIN search show each notification's notify-by date from it (OCD-089);
+- *Specimen retention days*.
+
+While such a setting is still at its "not set" value, its row is marked **Not set**. A note at the top of the page names all of them, with **Show only these** to list just them. The home card **Facility settings to enter**, for those who can edit configuration, counts them and opens this page filtered to them. Until a value is entered, what depends on it does not happen; for example, no RhIG dose is calculated. Settings that are off by choice, such as the neonatal rules, are not counted.
+
+The open-system and pooled thawed shelf lives are entered per product code on **Auto thaw products**, not here. An active code without one of them is named in a second note on this page (for example *E0707 (open system, pooled)*), with a link to Auto thaw products filtered to those codes, and counts on the same home card.
 
 A parameter marked legal hold should not be edited to satisfy a convenience. The badge is there so you see the hold before you save.
 
@@ -22,4 +32,4 @@ Links on this page open [Crossmatch settings](crossmatch-settings) and [Compatib
 
 The bench feels a policy change on the next action. It does not reprint old issues. Say in the reason which procedure version you are implementing.
 
-Three operational settings ship off or at a default that only warns. **Block results when reagent QC is open** stays off, so patient resulting continues while the reagent worklist has overdue, failed, or unreviewed rows. **Final disposition due hours** ships at 24 and only fills the warning board. **Require supply lot** stays off, so a modification can be saved without a lot.
+Three operational settings ship off or at a default that only warns. **Block results when reagent QC is open** stays off, so patient resulting continues while the reagent worklist has overdue, failed, or unreviewed rows. **Final disposition due hours** ships at 24 and only fills the warning board. **Require supply lot** stays off, so a modification can be saved without a lot. **Require irradiator and dose indicator** stays off too (OCD-067): an irradiation can be saved without them, but an indicator reported as not showing irradiated is always refused.

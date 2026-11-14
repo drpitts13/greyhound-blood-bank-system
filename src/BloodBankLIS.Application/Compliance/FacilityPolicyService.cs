@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -37,7 +37,17 @@ public sealed class FacilityPolicyService
         GetIntAsync(FacilityPolicyKeys.SpecimenLookbackDays, SpecimenValidityPolicy.DefaultLookbackDays, ct);
 
     public Task<bool> GetRequireSecondVerifierAsync(CancellationToken ct = default) =>
-        GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, false, ct);
+        // Same default as the catalog and the seeded setting (OCD-008: a facility may turn it off).
+        GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, true, ct);
+
+    public Task<int> GetRhigAdministrationWindowHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.RhigAdministrationWindowHours, 0, ct);
+
+    public Task<int> GetLookbackNotifyWithinDaysAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.LookbackNotifyWithinDays, 0, ct);
+
+    public Task<bool> GetSendFinalResultsAutomaticallyAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.SendFinalResultsAutomatically, true, ct);
 
     public Task<bool> GetRequireWardReceiptAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireWardReceipt, true, ct);
@@ -47,6 +57,9 @@ public sealed class FacilityPolicyService
 
     public Task<int> GetInTransitDueHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.InTransitDueHours, 4, ct);
+
+    public Task<int> GetTransfusionCompletionReminderHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.TransfusionCompletionReminderHours, TransfusionCompletionRule.DefaultReminderHours, ct);
 
     public Task<int> GetReturnToAvailableMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.ReturnToAvailableMinutes, ReturnReissueRule.DefaultReturnToAvailableMinutes, ct);
@@ -87,6 +100,37 @@ public sealed class FacilityPolicyService
     public Task<int> GetRetentionYearsAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.RetentionYears, 10, ct);
 
+    public Task<bool> GetAllowBatchVerifyAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.AllowBatchVerify, false, ct);
+
+    /// <summary>OCD-074: whether the neonatal rules are on, and the age limit in days.</summary>
+    public async Task<(bool Enabled, int AgeLimitDays)> GetNeonatalSettingsAsync(CancellationToken ct = default) =>
+        (await GetBoolAsync(FacilityPolicyKeys.NeonatalRulesEnabled, false, ct),
+            Math.Clamp(await GetIntAsync(FacilityPolicyKeys.NeonatalAgeLimitDays, NeonatalTestingRule.DefaultAgeLimitDays, ct), 1, 365));
+
+    /// <summary>OCD-069: the RhIG dose settings; each 0 until the medical director sets it.</summary>
+    public async Task<RhigDoseRule.Settings> GetRhigDoseSettingsAsync(CancellationToken ct = default) => new(
+        await GetIntAsync(FacilityPolicyKeys.RhigMlPerVial, 0, ct),
+        await GetIntAsync(FacilityPolicyKeys.RhigMaternalBloodVolumeMl, 0, ct),
+        (RhigDoseRule.Rounding)Math.Clamp(await GetIntAsync(FacilityPolicyKeys.RhigDoseRounding, 0, ct), 0, 3));
+
+    public Task<int> GetSpecimenRetentionDaysAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
+
+    /// <summary>Minutes before a blood order's needed-by time that it counts as needed soon (OCD-075); 0 = off.</summary>
+    public Task<int> GetMtpIdleReminderMinutesAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.MtpIdleReminderMinutes, MtpIdleRule.DefaultReminderMinutes, ct);
+
+    /// <summary>Hours an unidentified chart stays open before the home card names it (OCD-077); 0 = off.</summary>
+    public Task<int> GetUnidentifiedReminderHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.UnidentifiedReminderHours, UnidentifiedPatientRule.DefaultReminderHours, ct);
+
+    public Task<int> GetBloodOrderNeededBySoonMinutesAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, 0, ct);
+
+    public Task<bool> GetRequireSpecimenCollectorAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireSpecimenCollector, false, ct);
+
     public Task<bool> GetBlockResultsWhenReagentQcOpenAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen, false, ct);
 
@@ -95,6 +139,9 @@ public sealed class FacilityPolicyService
 
     public Task<bool> GetRequireModificationSupplyLotAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireModificationSupplyLot, false, ct);
+
+    public Task<bool> GetRequireIrradiationRecordAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireIrradiationRecord, false, ct);
 
     public Task<bool> GetRequirePrivilegedMfaAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequirePrivilegedMfa, false, ct);
@@ -113,6 +160,15 @@ public sealed class FacilityPolicyService
 
     public Task<bool> GetPbmRequireJustificationAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.PbmRequireJustification, false, ct);
+
+    public Task<bool> GetRequireSpecimenReceiptByScanAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan, false, ct);
+
+    public Task<bool> GetPrefillPatientIdentifiersAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.PrefillPatientIdentifiers, false, ct);
+
+    public Task<bool> GetInspectionDefaultAcceptableAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.InspectionDefaultAcceptable, false, ct);
 
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);

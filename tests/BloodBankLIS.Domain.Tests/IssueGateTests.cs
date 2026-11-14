@@ -363,19 +363,159 @@ public class IssueGateTests
         Assert.Contains(evaluation.Warnings, r => r.Code == IssueGate.PatientAboRhCode);
     }
 
-    [Fact]
-    public void Emergency_AboMismatch_IsWarning()
+    // TEST-BB-321: red cells that conflict with an established ABO group are a hard stop even at emergency issue.
+    [Theory]
+    [InlineData(AboGroup.A, AboGroup.B)]
+    [InlineData(AboGroup.O, AboGroup.A)]
+    [InlineData(AboGroup.O, AboGroup.AB)]
+    [InlineData(AboGroup.B, AboGroup.AB)]
+    public void Emergency_RedCellsConflictingWithEstablishedType_AreHardStopped(AboGroup patient, AboGroup unit)
     {
         var context = PassingContext() with
         {
             IsEmergencyRelease = true,
             HasValidCrossmatch = false,
-            UnitAboRh = new AboRh(AboGroup.B, RhType.Positive)
+            PatientAboRh = new AboRh(patient, RhType.Positive),
+            UnitAboRh = new AboRh(unit, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        var stop = Assert.Single(evaluation.HardStops);
+        Assert.Equal(EmergencyUncrossmatchedAboRule.EstablishedConflictCode, stop.Code);
+        Assert.Contains($"group {patient}", stop.Message);
+        Assert.Contains("even for emergency release", stop.Message);
+    }
+
+    [Theory]
+    [InlineData(AboGroup.A, AboGroup.O)]
+    [InlineData(AboGroup.AB, AboGroup.A)]
+    [InlineData(AboGroup.AB, AboGroup.B)]
+    [InlineData(AboGroup.B, AboGroup.B)]
+    public void Emergency_CompatibleRedCells_DoNotHitTheConflictStop(AboGroup patient, AboGroup unit)
+    {
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            PatientAboRh = new AboRh(patient, RhType.Positive),
+            UnitAboRh = new AboRh(unit, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.DoesNotContain(evaluation.HardStops, r => r.Code == EmergencyUncrossmatchedAboRule.EstablishedConflictCode);
+    }
+
+    [Fact]
+    public void Emergency_GroupOWholeBlood_ForGroupA_StaysOverridable()
+    {
+        // Plasma-direction mismatch only (low-titer group O whole blood): the red cells do not conflict.
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            ComponentClass = ComponentClass.WholeBlood,
+            PatientAboRh = new AboRh(AboGroup.A, RhType.Positive),
+            UnitAboRh = new AboRh(AboGroup.O, RhType.Positive)
         };
         var evaluation = IssueGate.Evaluate(context);
         Assert.False(evaluation.IsHardStopped);
         Assert.Contains(evaluation.Warnings, r => r.Code == AboCompatibilityRule.AboCode);
+    }
+
+    [Fact]
+    public void Emergency_GroupAWholeBlood_ForGroupO_IsHardStopped()
+    {
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            ComponentClass = ComponentClass.WholeBlood,
+            PatientAboRh = new AboRh(AboGroup.O, RhType.Positive),
+            UnitAboRh = new AboRh(AboGroup.A, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.Contains(evaluation.HardStops, r => r.Code == EmergencyUncrossmatchedAboRule.EstablishedConflictCode);
+    }
+
+    [Fact]
+    public void Emergency_PlasmaAboMismatch_StaysOverridable()
+    {
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            ComponentClass = ComponentClass.Plasma,
+            PatientAboRh = new AboRh(AboGroup.A, RhType.Positive),
+            UnitAboRh = new AboRh(AboGroup.O, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.Warnings, r => r.Code == AboCompatibilityRule.AboCode);
+    }
+
+    [Fact]
+    public void Emergency_UnknownPatientType_NonOUnit_IsStillAWarning()
+    {
+        // No established type: the group O warning applies, not the conflict stop.
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            PatientBloodTypeKnown = false,
+            PatientAboRh = new AboRh(AboGroup.Unknown, RhType.Unknown),
+            UnitAboRh = new AboRh(AboGroup.A, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
         Assert.Contains(evaluation.Warnings, r => r.Code == EmergencyUncrossmatchedAboRule.AboCode);
+    }
+
+    [Fact]
+    public void Emergency_RhMismatchOnly_StaysOverridable()
+    {
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            PatientAboRh = new AboRh(AboGroup.A, RhType.Negative),
+            UnitAboRh = new AboRh(AboGroup.O, RhType.Positive),
+            PatientSex = Sex.Male
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+    }
+
+    // TEST-BB-323: "retyped and wrong" is never converted to a warning, unlike "not yet retyped".
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VerifiedRetypeMismatch_IsHardStopped_OnAnyIssueType(bool emergency)
+    {
+        var context = PassingContext() with
+        {
+            UnitRetypeMismatch = true,
+            RetypeConfirmed = false,
+            IsEmergencyRelease = emergency,
+            HasValidCrossmatch = !emergency
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.UnitRetypeMismatchCode);
+    }
+
+    [Fact]
+    public void NoRetypeMismatch_Passes()
+    {
+        var evaluation = IssueGate.Evaluate(PassingContext());
+        Assert.DoesNotContain(evaluation.HardStops, r => r.Code == IssueGate.UnitRetypeMismatchCode);
+    }
+
+    [Fact]
+    public void NonEmergency_AboConflict_UsesTheOrdinaryHardStop()
+    {
+        var context = PassingContext() with { UnitAboRh = new AboRh(AboGroup.B, RhType.Positive) };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.Contains(evaluation.HardStops, r => r.Code == AboCompatibilityRule.AboCode);
+        Assert.DoesNotContain(evaluation.HardStops, r => r.Code == EmergencyUncrossmatchedAboRule.EstablishedConflictCode);
     }
 
     [Fact]
@@ -499,4 +639,25 @@ public class IssueGateTests
         Assert.True(evaluation.IsHardStopped);
         Assert.Contains(evaluation.HardStops, r => r.Code == AutologousDirectedRule.IssueCode);
     }
+
+    // TEST-BB-933 (Cycle 697): the refusal for a status that cannot be issued keeps "Unit status X is not issuable" and
+    // adds why and what to do next; a status with nothing more to say ends there.
+    [Theory]
+    [InlineData(UnitStatus.Expected, "Receive it first.")]
+    [InlineData(UnitStatus.Discarded, "Choose another unit.")]
+    [InlineData(UnitStatus.Modified, "modified into other units. Issue one of those instead.")]
+    [InlineData(UnitStatus.Expired, "Discard it and choose another unit.")]
+    [InlineData(UnitStatus.Recalled, "was recalled.")]
+    [InlineData(UnitStatus.Missing, "Discrepancy board")]
+    [InlineData(UnitStatus.ShippedOut, "has left this facility.")]
+    public void NotIssuableMessage_SaysWhatToDo(UnitStatus status, string expected)
+    {
+        var message = IssueGate.NotIssuableMessage(status);
+        Assert.StartsWith($"Unit status {status} is not issuable", message);
+        Assert.Contains(expected, message);
+    }
+
+    [Fact]
+    public void NotIssuableMessage_OtherStatus_EndsAtTheStatus() =>
+        Assert.Equal("Unit status CancelledAssignment is not issuable.", IssueGate.NotIssuableMessage(UnitStatus.CancelledAssignment));
 }

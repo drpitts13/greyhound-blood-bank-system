@@ -19,6 +19,9 @@ public static class InventoryUnitScopes
         UnitStatus.Selected
     ];
 
+    /// <summary>OCD-054: a downtime back-entry may name a unit the expiry sweep has marked Expired since.</summary>
+    public static readonly IReadOnlyList<UnitStatus> DowntimeBackEntry = [..Issuable, UnitStatus.Expired];
+
     public static readonly IReadOnlyList<UnitStatus> OnHand =
     [
         UnitStatus.Quarantine,
@@ -33,6 +36,9 @@ public static class InventoryUnitScopes
         UnitStatus.CancelledAssignment,
         UnitStatus.OnHold
     ];
+
+    /// <summary>What a stock count expects to find on a shelf: on hand, plus expired units not yet discarded.</summary>
+    public static readonly IReadOnlyList<UnitStatus> OnShelf = [..OnHand, UnitStatus.Expired];
 
     /// <summary>
     /// Crossmatch entry includes issued and transfused units so retrospective

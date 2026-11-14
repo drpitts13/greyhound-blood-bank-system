@@ -48,6 +48,42 @@ public static class InterfaceDataItemCatalog
     public static bool ContainsKey(string key) =>
         Enum.GetValues<InterfaceType>().Any(t => Find(t, Hl7Direction.Inbound, key) is not null);
 
+    /// <summary>
+    /// Fields that can be translated but are not mapped to a path of their own: the shared procedure code (used by
+    /// order and result OBR-4), the abnormal flag (OBX-8 of a numeric result), and the BPS dispense status.
+    /// </summary>
+    public static IReadOnlyList<InterfaceDataItem> TranslationOnly { get; } =
+    [
+        new(InterfaceDataItemKeys.ProcedureCode, "Procedure code (test or grouper)",
+            "EHR procedure code of a test or test grouper, for orders in and results out (OBR-4). A grouper's code is used for its tests' results.", "OBR-4-1", false),
+        new(InterfaceDataItemKeys.ResultAbnormalFlag, "Abnormal flag", "OBX-8 of a numeric result outside its ranges (L, H, LL, HH).", "OBX-8", false),
+        new(InterfaceDataItemKeys.DispenseStatus, "Dispense status", "BPX-2 status on the dispense message (DI dispensed, RT returned…).", "BPX-2-1", false)
+    ];
+
+    /// <summary>Every field that can carry translations: the mapped catalog plus <see cref="TranslationOnly"/>.</summary>
+    public static IReadOnlyList<InterfaceDataItem> Translatable() =>
+        AllDistinct().Concat(TranslationOnly)
+            .GroupBy(i => i.Key, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .OrderBy(i => i.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    public static bool IsTranslatable(string key) =>
+        ContainsKey(key) || TranslationOnly.Any(i => string.Equals(i.Key, key, StringComparison.Ordinal));
+
+    /// <summary>The group a translatable field is listed under on the admin screen.</summary>
+    public static string CategoryOf(string key) => key switch
+    {
+        InterfaceDataItemKeys.ProcedureCode or InterfaceDataItemKeys.OrderTestCode or InterfaceDataItemKeys.ResultObrTestCode
+            or InterfaceDataItemKeys.ResultObxIdentifier => "Tests and procedures",
+        _ when key.StartsWith("Patient.", StringComparison.Ordinal) => "Patient",
+        _ when key.StartsWith("Encounter.", StringComparison.Ordinal) => "Visit",
+        _ when key.StartsWith("Order.", StringComparison.Ordinal) => "Orders",
+        _ when key.StartsWith("TestResult.", StringComparison.Ordinal) || key.StartsWith("Specimen.", StringComparison.Ordinal) => "Results",
+        _ when key.StartsWith("BillingEvent.", StringComparison.Ordinal) => "Billing",
+        _ => "Blood products"
+    };
+
     private static readonly IReadOnlyList<InterfaceDataItem> PatientDemographics =
     [
         new(InterfaceDataItemKeys.PatientMrn, "Medical record number", "Patient MRN.", "PID-3-1", true),
@@ -55,7 +91,9 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.PatientFirstName, "First name", "Patient given name.", "PID-5-2", true),
         new(InterfaceDataItemKeys.PatientMiddleName, "Middle name", "Patient middle name.", "PID-5-3", false),
         new(InterfaceDataItemKeys.PatientDateOfBirth, "Date of birth", "Patient date of birth.", "PID-7", false),
-        new(InterfaceDataItemKeys.PatientSex, "Sex", "Patient sex code (M/F/O/U).", "PID-8", false)
+        new(InterfaceDataItemKeys.PatientSex, "Sex", "Patient sex code (M/F/O/U).", "PID-8", false),
+        new(InterfaceDataItemKeys.PatientRace, "Race", "Patient race (HL7 table 0005).", "PID-10-1", false),
+        new(InterfaceDataItemKeys.PatientEthnicity, "Ethnicity", "Patient ethnic group (HL7 table 0189).", "PID-22-1", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Adt =
@@ -66,9 +104,11 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.EncounterAdmitUtc, "Admit date/time", "Admission timestamp.", "PV1-44", false),
         new(InterfaceDataItemKeys.EncounterDischargeUtc, "Discharge date/time", "Discharge timestamp.", "PV1-45", false),
         new(InterfaceDataItemKeys.EncounterCurrentLocation, "Current location", "Patient location.", "PV1-3-1", false),
+        new(InterfaceDataItemKeys.EncounterPatientClass, "Patient class", "Visit type: inpatient, outpatient, emergency (HL7 table 0004).", "PV1-2", false),
         new(InterfaceDataItemKeys.EncounterAttendingProviderId, "Attending provider ID", "Attending provider identifier.", "PV1-7-1", false),
         new(InterfaceDataItemKeys.EncounterAttendingProviderName, "Attending provider name", "Attending provider name (XCN).", "PV1-7", false),
-        new(InterfaceDataItemKeys.PatientPriorMrn, "Prior medical record number", "MRG prior patient identifier for ADT merge (A18/A40).", "MRG-1-1", false)
+        new(InterfaceDataItemKeys.PatientPriorMrn, "Prior medical record number", "MRG prior patient identifier for ADT merge (A18/A40).", "MRG-1-1", false),
+        new(InterfaceDataItemKeys.PatientMotherMrn, "Mother's medical record number", "Mother's identifier for a newborn; links the infant's chart to the mother's.", "PID-21-1", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Orders =
@@ -81,7 +121,9 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.OrderProviderId, "Ordering provider ID", "Ordering provider identifier.", "ORC-12-1", false),
         new(InterfaceDataItemKeys.OrderProviderName, "Ordering provider name", "Ordering provider name (XCN).", "ORC-12", false),
         new(InterfaceDataItemKeys.OrderLocationCode, "Ordering location", "Ordering location code.", "ORC-13-1", false),
-        new(InterfaceDataItemKeys.OrderPriority, "Order priority", "OBR priority, or the timing priority component when OBR-5 is empty.", "OBR-5", false)
+        new(InterfaceDataItemKeys.OrderPriority, "Order priority", "OBR priority, or the timing priority component when OBR-5 is empty.", "OBR-5", false),
+        new(InterfaceDataItemKeys.OrderNeededBy, "Needed by", "When the order is needed: the timing start date/time (surgery start, scheduled transfusion).", "TQ1-7-1", false),
+        new(InterfaceDataItemKeys.OrderControlReason, "Order control reason", "Why the order was cancelled or discontinued: the text (the code when there is no text).", "ORC-16-2", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Results =
@@ -122,6 +164,13 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.TransfusionVolume, "Volume transfused", "Administered amount.", "RXA-6", false),
         new(InterfaceDataItemKeys.TransfusionLocation, "Location", "Administration location.", "PV1-3-1", false),
         new(InterfaceDataItemKeys.Transfusionist, "Transfusionist", "Administering provider (XCN).", "RXA-10", false),
-        new(InterfaceDataItemKeys.TransfusionReaction, "Reaction suspected", "Reaction / completion flag.", "RXA-18", false)
+        new(InterfaceDataItemKeys.TransfusionReaction, "Reaction suspected", "Reaction / completion flag.", "RXA-18", false),
+        // OMB^O27 "send this reserved unit now" (OCD-063). A standard OMB carries no DIN: map one only if your EHR sends it.
+        new(InterfaceDataItemKeys.DispenseOrderControl, "Dispense request: order control", "ORC-1: NW or XO requests; CA, OC, or DC cancels.", "ORC-1", false),
+        new(InterfaceDataItemKeys.DispenseOrderNumber, "Dispense request: placer order", "ORC-2: the blood product order with exactly one reserved unit.", "ORC-2-1", false),
+        new(InterfaceDataItemKeys.DispenseDestination, "Dispense request: deliver to", "BPO-14: requested dispense-to location.", "BPO-14-1", false),
+        new(InterfaceDataItemKeys.DispensePatientLocation, "Dispense request: patient location", "PV1-3: used when BPO-14 is empty.", "PV1-3-1", false),
+        new(InterfaceDataItemKeys.DispenseDin, "Dispense request: unit (DIN)", "Not in a standard OMB; map it to the field your EHR uses to name the unit.", "", false),
+        new(InterfaceDataItemKeys.DispenseRequester, "Dispense request: requested by", "ORC-12 ordering provider (XCN).", "ORC-12", false)
     ];
 }

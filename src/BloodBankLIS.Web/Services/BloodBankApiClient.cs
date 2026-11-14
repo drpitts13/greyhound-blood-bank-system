@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using BloodBankLIS.Application.Search;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Application.Billing;
@@ -59,11 +60,76 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PatientDto>> GetPatientAsync(long id, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Get, $"api/patients/{id}", ct: ct);
 
+    public Task<ApiResult<List<RhigLotRecipientDto>>> FindRhigLotRecipientsAsync(string lot, CancellationToken ct = default) =>
+        SendAsync<List<RhigLotRecipientDto>>(HttpMethod.Get, $"api/rhig/given?lot={Uri.EscapeDataString(lot)}", ct: ct);
+
+    public Task<ApiResult<List<RhigQueueItemDto>>> GetOpenRhigEvaluationsAsync(CancellationToken ct = default) =>
+        SendAsync<List<RhigQueueItemDto>>(HttpMethod.Get, "api/rhig/open", ct: ct);
+
+    // The RhIG lot register (Cycle 721).
+    public Task<ApiResult<List<RhigLotDto>>> GetRhigLotsAsync(bool includeRetired = false, CancellationToken ct = default) =>
+        SendAsync<List<RhigLotDto>>(HttpMethod.Get, $"api/rhig/lots?includeRetired={includeRetired.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<RhigLotDto>> ReceiveRhigLotAsync(ReceiveRhigLotRequest request, CancellationToken ct = default) =>
+        SendAsync<RhigLotDto>(HttpMethod.Post, "api/rhig/lots", request, ct);
+
+    public Task<ApiResult<RhigLotDto>> RetireRhigLotAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<RhigLotDto>(HttpMethod.Post, $"api/rhig/lots/{id}/retire", new RetireRhigLotRequest(reason), ct);
+
+    public Task<ApiResult<List<RhigEvaluationDto>>> GetRhigEvaluationsAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<RhigEvaluationDto>>(HttpMethod.Get, $"api/patients/{patientId}/rhig", ct: ct);
+
+    public Task<ApiResult<RhigEvaluationDto>> SaveRhigEvaluationAsync(long patientId, SaveRhigEvaluationRequest req, CancellationToken ct = default) =>
+        SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig", req, ct);
+
+    public Task<ApiResult<RhigEvaluationDto>> RecordRhigGivenAsync(long patientId, long id, RecordRhigGivenRequest req, CancellationToken ct = default) =>
+        SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig/{id}/given", req, ct);
+
+    public Task<ApiResult<RhigEvaluationDto>> CompleteRhigEvaluationAsync(long patientId, long id, CancellationToken ct = default) =>
+        SendAsync<RhigEvaluationDto>(HttpMethod.Post, $"api/patients/{patientId}/rhig/{id}/complete", ct: ct);
+
+    public Task<ApiResult<List<PossibleDuplicateOfDto>>> GetPossibleDuplicatesOfAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<PossibleDuplicateOfDto>>(HttpMethod.Get, $"api/patients/{patientId}/possible-duplicates", ct: ct);
+
+    public Task<ApiResult<List<PossibleDuplicatePairDto>>> GetPossibleDuplicatePairsAsync(CancellationToken ct = default) =>
+        SendAsync<List<PossibleDuplicatePairDto>>(HttpMethod.Get, "api/patients/possible-duplicates/pairs", ct: ct);
+
+    public Task<ApiResult<PossibleDuplicatePairDto>> DismissPossibleDuplicateAsync(DismissPossibleDuplicateRequest req, CancellationToken ct = default) =>
+        SendAsync<PossibleDuplicatePairDto>(HttpMethod.Post, "api/patients/possible-duplicates/dismiss", req, ct);
+
+    public Task<ApiResult<List<PatientDto>>> GetPossibleDuplicatePatientsAsync(string lastName, string firstName, DateOnly dateOfBirth, CancellationToken ct = default) =>
+        SendAsync<List<PatientDto>>(HttpMethod.Get,
+            $"api/patients/possible-duplicates?lastName={Uri.EscapeDataString(lastName)}&firstName={Uri.EscapeDataString(firstName)}&dateOfBirth={dateOfBirth:yyyy-MM-dd}", ct: ct);
+
     public Task<ApiResult<PatientDto>> CreatePatientAsync(CreatePatientRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Post, "api/patients", req, ct);
 
     public Task<ApiResult<PatientDto>> UpdatePatientAsync(long id, UpdatePatientRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Put, $"api/patients/{id}", req, ct);
+
+    public Task<ApiResult<PatientFamilyDto>> GetPatientFamilyAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<PatientFamilyDto>(HttpMethod.Get, $"api/patients/{patientId}/family", ct: ct);
+
+    public Task<ApiResult<PatientDto>> LinkMotherAsync(long infantId, LinkMotherRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{infantId}/mother", req, ct);
+
+    public Task<ApiResult<PatientDto>> UnlinkMotherAsync(long infantId, UnlinkMotherRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{infantId}/mother/unlink", req, ct);
+
+    public Task<ApiResult<List<PatientDto>>> GetUnidentifiedPatientsAsync(CancellationToken ct = default) =>
+        SendAsync<List<PatientDto>>(HttpMethod.Get, "api/patients/unidentified", ct: ct);
+
+    public Task<ApiResult<PatientDto>> CreateUnidentifiedPatientAsync(CreateUnidentifiedPatientRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, "api/patients/unidentified", req, ct);
+
+    public Task<ApiResult<List<IssuedUnderEarlierIdentityDto>>> GetIssuedUnderEarlierIdentityAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<IssuedUnderEarlierIdentityDto>>(HttpMethod.Get, $"api/patients/{patientId}/issued-under-earlier-identity", ct: ct);
+
+    public Task<ApiResult<List<OpenReactionInvestigationDto>>> GetReactionUnderInvestigationAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<OpenReactionInvestigationDto>>(HttpMethod.Get, $"api/patients/{patientId}/reaction-under-investigation", ct: ct);
+
+    public Task<ApiResult<PatientDto>> IdentifyPatientAsync(long unidentifiedId, IdentifyPatientRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{unidentifiedId}/identify", req, ct);
 
     public Task<ApiResult<PatientDto>> MergePatientAsync(long survivorId, MergePatientsRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{survivorId}/merge", req, ct);
@@ -160,22 +226,24 @@ public sealed class BloodBankApiClient
         long patientId,
         long allocationId,
         DateTime thawUtc,
-        CancellationToken ct = default) =>
+        CancellationToken ct = default,
+        bool openSystem = false) =>
         SendAsync<AutoThawResultDto>(
             HttpMethod.Post,
             $"api/patients/{patientId}/allocations/{allocationId}/auto-thaw",
-            new ApplyAutoThawRequest(thawUtc),
+            new ApplyAutoThawRequest(thawUtc, openSystem),
             ct);
 
     public Task<ApiResult<ManualCrossmatchLineDto>> EnsureManualCrossmatchLineAsync(
         long patientId,
         long allocationId,
         string testCode,
-        CancellationToken ct = default) =>
+        CancellationToken ct = default,
+        long? specimenId = null) =>
         SendAsync<ManualCrossmatchLineDto>(
             HttpMethod.Post,
             $"api/patients/{patientId}/allocations/{allocationId}/crossmatch-line",
-            new EnsureManualCrossmatchLineRequest(testCode),
+            new EnsureManualCrossmatchLineRequest(testCode, specimenId),
             ct);
 
     public Task<ApiResult<object>> DeclineAutoThawAsync(
@@ -229,6 +297,12 @@ public sealed class BloodBankApiClient
         CancellationToken ct = default) =>
         SendAsync<OrderLineDto>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}/lines/{lineId}/comment", req, ct);
 
+    public async Task<ApiResult<bool>> SetOrderNeededByAsync(long patientId, long orderId, SetOrderNeededByRequest req, CancellationToken ct = default)
+    {
+        var r = await SendAsync<System.Text.Json.JsonElement>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}/needed-by", req, ct);
+        return r.Succeeded ? ApiResult<bool>.Ok(true) : ApiResult<bool>.Fail(r.Error ?? "The needed-by time was not changed.", r.StatusCode);
+    }
+
     public Task<ApiResult<PatientOrderDto>> LinkPatientOrderSpecimenAsync(
         long patientId,
         long orderId,
@@ -252,14 +326,27 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecimenDto>> GetSpecimenByAccessionAsync(string accessionNumber, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/by-accession/{Uri.EscapeDataString(accessionNumber.Trim())}", ct: ct);
 
-    public Task<ApiResult<SpecimenDto>> RejectSpecimenAsync(long id, string reason, CancellationToken ct = default) =>
-        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/reject", new ReasonRequestVm(reason), ct);
+    public Task<ApiResult<SpecimenDto>> RejectSpecimenAsync(long id, string reasonCode, string? comment = null, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/reject",
+            new { ReasonCode = reasonCode, Comment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim() }, ct);
+
+    public Task<ApiResult<List<SpecimenRejectionReasonRefDto>>> GetSpecimenRejectionReasonsAsync(CancellationToken ct = default) =>
+        SendAsync<List<SpecimenRejectionReasonRefDto>>(HttpMethod.Get, "api/reference/specimen-rejection-reasons", ct: ct);
 
     public Task<ApiResult<List<PendingSpecimenWorkItemDto>>> GetPendingSpecimensAsync(CancellationToken ct = default) =>
         SendAsync<List<PendingSpecimenWorkItemDto>>(HttpMethod.Get, "api/specimens/pending", ct: ct);
 
+    public Task<ApiResult<SpecimenDto>> ReceiveSpecimenByScanAsync(string scan, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, "api/specimens/receive-scan", new ReceiveSpecimenScanRequest(scan), ct);
+
+    public Task<ApiResult<SpecimenDto>> AcceptSpecimenByScanAsync(string scan, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, "api/specimens/accept-scan", new ReceiveSpecimenScanRequest(scan), ct);
+
     public Task<ApiResult<SpecimenDto>> ReceiveSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/receive", ct: ct);
+
+    public Task<ApiResult<SpecimenDto>> RecordSpecimenCollectorAsync(long id, string collector, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/collector", new RecordSpecimenCollectorRequest(collector), ct);
 
     public Task<ApiResult<SpecimenDto>> AcceptSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/accept", ct: ct);
@@ -267,12 +354,26 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<SpecimenDto>>> GetPatientSpecimensAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<SpecimenDto>>(HttpMethod.Get, $"api/patients/{patientId}/specimens", ct: ct);
 
+    public Task<ApiResult<SpecimenExpirationPreviewDto>> PreviewSpecimenExpirationAsync(
+        long patientId, string? specimenType, DateTime collectedUtc, CancellationToken ct = default, int? validityHours = null) =>
+        SendAsync<SpecimenExpirationPreviewDto>(
+            HttpMethod.Get,
+            $"api/patients/{patientId}/specimen-expiration?specimenType={Uri.EscapeDataString(specimenType ?? string.Empty)}&collectedUtc={Uri.EscapeDataString(DateTime.SpecifyKind(collectedUtc, DateTimeKind.Utc).ToString("O"))}"
+                + (validityHours is > 0 ? $"&validityHours={validityHours}" : string.Empty),
+            ct: ct);
+
     // ---- Results ----
     public Task<ApiResult<TestResultDto>> EnterResultAsync(EnterResultRequest req, CancellationToken ct = default) =>
         SendAsync<TestResultDto>(HttpMethod.Post, "api/results", req, ct);
 
     public Task<ApiResult<TestResultDto>> EnterAboRhAsync(EnterAboRhRequest req, CancellationToken ct = default) =>
         SendAsync<TestResultDto>(HttpMethod.Post, "api/results/abo-rh", req, ct);
+
+    public Task<ApiResult<BatchVerifyCandidatesDto>> GetBatchVerifyCandidatesAsync(CancellationToken ct = default) =>
+        SendAsync<BatchVerifyCandidatesDto>(HttpMethod.Get, "api/results/batch-verify/candidates", ct: ct);
+
+    public Task<ApiResult<BatchVerifyOutcomeDto>> BatchVerifyAsync(IReadOnlyList<long> resultIds, CancellationToken ct = default) =>
+        SendAsync<BatchVerifyOutcomeDto>(HttpMethod.Post, "api/results/batch-verify", new BatchVerifyRequest(resultIds), ct);
 
     public Task<ApiResult<TestResultDto>> VerifyResultAsync(long id, VerifyResultRequest? req = null, long? signatureId = null, CancellationToken ct = default)
     {
@@ -341,6 +442,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<AntibodyDto>> AddAntibodyAsync(long patientId, AddAntibodyRequest req, CancellationToken ct = default) =>
         SendAsync<AntibodyDto>(HttpMethod.Post, $"api/patients/{patientId}/antibodies", req, ct);
 
+    public Task<ApiResult<PatientDto>> SetRhDVariantAsync(long patientId, RhDVariant variant, string reason, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{patientId}/rhd-variant", new SetRhDVariantRequest(variant, reason), ct);
+
+    public Task<ApiResult<List<OutsideAntibodyToConfirmDto>>> GetOutsideAntibodiesToConfirmAsync(CancellationToken ct = default) =>
+        SendAsync<List<OutsideAntibodyToConfirmDto>>(HttpMethod.Get, "api/antibodies/outside-to-confirm", ct: ct);
+
+    public Task<ApiResult<AntibodyDto>> ConfirmOutsideAntibodyAsync(long antibodyId, string note, CancellationToken ct = default) =>
+        SendAsync<AntibodyDto>(HttpMethod.Post, $"api/antibodies/{antibodyId}/confirm-outside", new ConfirmOutsideAntibodyRequest(note), ct);
+
     public Task<ApiResult<AntibodyDto>> DeactivateAntibodyAsync(long antibodyId, string reason, CancellationToken ct = default) =>
         SendAsync<AntibodyDto>(HttpMethod.Post, $"api/antibodies/{antibodyId}/deactivate", new ReasonRequestVm(reason), ct);
 
@@ -360,6 +470,12 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<DatElutionWorkupDto>> VoidDatElutionWorkupAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/void", new VoidDatElutionWorkupRequest(reason), ct);
+
+    public Task<ApiResult<DatElutionWorkupDto>> RecordEluateFindingsAsync(long id, RecordEluateFindingsRequest req, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/eluate-findings", req, ct);
+
+    public Task<ApiResult<DatElutionWorkupDto>> VerifyDatElutionWorkupAsync(long id, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/verify", ct: ct);
 
     public Task<ApiResult<List<AntigenProfileDto>>> GetAntigenProfilesAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<AntigenProfileDto>>(HttpMethod.Get, $"api/patients/{patientId}/antigen-profiles", ct: ct);
@@ -453,6 +569,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<UnitBloodAttributeDto>>> GetUnitBloodAttributesAsync(long unitId, CancellationToken ct = default) =>
         SendAsync<List<UnitBloodAttributeDto>>(HttpMethod.Get, $"api/inventory/units/{unitId}/blood-attributes", ct: ct);
 
+    public Task<ApiResult<List<UnitSpecialTestDto>>> GetUnitSpecialTestsAsync(long unitId, CancellationToken ct = default) =>
+        SendAsync<List<UnitSpecialTestDto>>(HttpMethod.Get, $"api/inventory/units/{unitId}/special-tests", ct: ct);
+
+    public Task<ApiResult<UnitSpecialTestDto>> RecordUnitSpecialTestAsync(long unitId, RecordUnitSpecialTestRequest req, CancellationToken ct = default) =>
+        SendAsync<UnitSpecialTestDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/special-tests", req, ct);
+
     public Task<ApiResult<UnitBloodAttributeDto>> SaveUnitBloodAttributeAsync(long unitId, SaveUnitBloodAttributeRequest req, CancellationToken ct = default) =>
         SendAsync<UnitBloodAttributeDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/blood-attributes", req, ct);
 
@@ -492,6 +614,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<OnHoldWorkItemDto>>> GetOnHoldUnitsAsync(CancellationToken ct = default) =>
         SendAsync<List<OnHoldWorkItemDto>>(HttpMethod.Get, "api/inventory/units/on-hold", ct: ct);
 
+    public Task<ApiResult<List<RecalledWorkItemDto>>> GetRecalledUnitsAsync(CancellationToken ct = default) =>
+        SendAsync<List<RecalledWorkItemDto>>(HttpMethod.Get, "api/inventory/units/recalled", ct: ct);
+
+    public Task<ApiResult<BloodUnitDto>> PullRecalledByScanAsync(PullRecalledByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/pull-recalled-by-scan", req, ct);
+
     public Task<ApiResult<BloodUnitDto>> ReceiveExpectedUnitAsync(long id, ReceiveExpectedUnitRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/receive-expected", req, ct);
 
@@ -508,32 +636,64 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodUnitDto>> HoldUnitAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/hold", new ReasonRequestVm(reason), ct);
 
-    public Task<ApiResult<BloodUnitDto>> ReleaseHoldAsync(long id, CancellationToken ct = default) =>
-        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/release-hold", ct: ct);
+    public Task<ApiResult<BloodUnitDto>> ReleaseHoldAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/release-hold", new ReasonRequestVm(reason), ct);
 
     public Task<ApiResult<BloodUnitDto>> MarkMissingAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/missing", new ReasonRequestVm(reason), ct);
 
-    public Task<ApiResult<BloodUnitDto>> LocateMissingAsync(long id, CancellationToken ct = default) =>
-        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/locate", ct: ct);
+    public Task<ApiResult<BloodUnitDto>> LocateMissingAsync(long id, string foundNote, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/locate", new ReasonRequestVm(foundNote), ct);
 
     public Task<ApiResult<BloodUnitDto>> MarkDamagedAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/damaged", new ReasonRequestVm(reason), ct);
 
-    public Task<ApiResult<BloodUnitDto>> InspectDamagedAsync(long id, CancellationToken ct = default) =>
-        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/inspect-damaged", ct: ct);
+    public Task<ApiResult<BloodUnitDto>> InspectDamagedAsync(long id, string findings, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/inspect-damaged", new ReasonRequestVm(findings), ct);
 
     public Task<ApiResult<BloodUnitDto>> ReturnToSupplierAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/return-to-supplier", new ReasonRequestVm(reason), ct);
 
     public Task<ApiResult<BloodUnitDto>> ConvertDirectedToAllogeneicAsync(
-        long id, string reason, string? secondVerifier = null, CancellationToken ct = default) =>
+        long id, string reason, string? secondVerifier, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/convert-directed", new DiscardUnitRequestVm(reason, secondVerifier), ct);
+
+    public Task<ApiResult<List<InventoryCountHistoryDto>>> GetInventoryCountHistoryAsync(long? locationId = null, CancellationToken ct = default) =>
+        SendAsync<List<InventoryCountHistoryDto>>(HttpMethod.Get, locationId is long id ? $"api/inventory/counts?locationId={id}" : "api/inventory/counts", ct: ct);
+
+    public Task<ApiResult<InventoryCountDto>> ReconcileInventoryCountAsync(InventoryCountRequest req, CancellationToken ct = default) =>
+        SendAsync<InventoryCountDto>(HttpMethod.Post, "api/inventory/counts", req, ct);
+
+    public Task<ApiResult<List<OutboundShipmentDto>>> GetShipmentsAsync(int days = 30, CancellationToken ct = default) =>
+        SendAsync<List<OutboundShipmentDto>>(HttpMethod.Get, $"api/inventory/shipments?days={days}", ct: ct);
+
+    public Task<ApiResult<List<SupplierReturnDto>>> GetSupplierReturnsAsync(int days = 30, CancellationToken ct = default) =>
+        SendAsync<List<SupplierReturnDto>>(HttpMethod.Get, $"api/inventory/supplier-returns?days={days}", ct: ct);
+
+    public Task<ApiResult<List<string>>> GetShipFacilitiesAsync(CancellationToken ct = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, "api/inventory/ship-facilities", ct: ct);
+
+    public Task<ApiResult<BloodUnitDto>> ShipOutByScanAsync(ShipOutByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/ship-out-by-scan", req, ct);
+
+    public Task<ApiResult<BloodUnitDto>> ReturnToSupplierByScanAsync(ReturnToSupplierByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/return-to-supplier-by-scan", req, ct);
+
+    public Task<ApiResult<List<ExpiredUnitDto>>> GetExpiredOnShelfAsync(CancellationToken ct = default) =>
+        SendAsync<List<ExpiredUnitDto>>(HttpMethod.Get, "api/inventory/expired", ct: ct);
+
+    public Task<ApiResult<BloodUnitDto>> DiscardExpiredByScanAsync(DiscardExpiredByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/discard-expired-by-scan", req, ct);
+
+    public Task<ApiResult<BloodUnitDto>> TransferUnitByScanAsync(TransferByScanRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/transfer-by-scan", req, ct);
 
     public Task<ApiResult<BloodUnitDto>> TransferUnitAsync(long id, long toLocationId, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/transfer", new TransferRequestVm(toLocationId, reason), ct);
 
-    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reasonCode, string? comment, string? secondVerifier = null, CancellationToken ct = default) =>
+    // The second verifier has no default (Cycle 608): a call that leaves it out must not compile, as the near-expiry
+    // board did when it passed the verifier in the comment slot (Cycle 607).
+    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reasonCode, string? comment, string? secondVerifier, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/discard", new DiscardCodedUnitRequestVm(reasonCode, comment, secondVerifier), ct);
 
     public Task<ApiResult<ExpireDueVm>> ExpireDueAsync(CancellationToken ct = default) =>
@@ -574,10 +734,28 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<AllocationDto>> AllocateUnitAsync(AllocateUnitRequest req, CancellationToken ct = default) =>
         SendAsync<AllocationDto>(HttpMethod.Post, "api/allocations", req, ct);
 
+    public Task<ApiResult<List<ReleaseAllocationOutcomeDto>>> ReleaseAllocationsAsync(ReleaseAllocationsRequest req, CancellationToken ct = default) =>
+        SendAsync<List<ReleaseAllocationOutcomeDto>>(HttpMethod.Post, "api/allocations/release-batch", req, ct);
+
     public Task<ApiResult<AllocationDto>> ReleaseAllocationAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<AllocationDto>(HttpMethod.Post, $"api/allocations/{id}/release", new ReasonRequestVm(reason), ct);
 
     // ---- Issuing ----
+    public Task<ApiResult<TransfusionReportToReviewDto>> ReviewTransfusionReportAsync(long transfusionId, ReviewTransfusionReportRequest req, CancellationToken ct = default) =>
+        SendAsync<TransfusionReportToReviewDto>(HttpMethod.Post, $"api/transfusions/{transfusionId}/report-review", req, ct);
+
+    public Task<ApiResult<OverrideReviewItemDto>> ReviewOverrideAsync(long overrideId, ReviewOverrideRequest req, CancellationToken ct = default) =>
+        SendAsync<OverrideReviewItemDto>(HttpMethod.Post, $"api/overrides/{overrideId}/review", req, ct);
+
+    public Task<ApiResult<List<MtpActivationDto>>> GetActiveMtpAsync(CancellationToken ct = default) =>
+        SendAsync<List<MtpActivationDto>>(HttpMethod.Get, "api/mtp/active", ct: ct);
+
+    public Task<ApiResult<MtpActivationDto>> ActivateMtpAsync(long patientId, ActivateMtpRequest req, CancellationToken ct = default) =>
+        SendAsync<MtpActivationDto>(HttpMethod.Post, $"api/patients/{patientId}/mtp", req, ct);
+
+    public Task<ApiResult<MtpActivationDto>> CloseMtpAsync(long activationId, CloseMtpRequest req, CancellationToken ct = default) =>
+        SendAsync<MtpActivationDto>(HttpMethod.Post, $"api/mtp/{activationId}/close", req, ct);
+
     public Task<ApiResult<IssueDto>> IssueUnitAsync(IssueUnitRequest req, long? signatureId = null, CancellationToken ct = default)
     {
         var headers = signatureId is not null
@@ -590,6 +768,12 @@ public sealed class BloodBankApiClient
         CancellationToken ct = default) =>
         SendAsync<List<RetrospectiveCrossmatchWorkItemDto>>(
             HttpMethod.Get, "api/issues/pending-retrospective-crossmatch", ct: ct);
+
+    public Task<ApiResult<List<OpenCoolerDto>>> GetOpenCoolersAsync(CancellationToken ct = default) =>
+        SendAsync<List<OpenCoolerDto>>(HttpMethod.Get, "api/issues/coolers", ct: ct);
+
+    public Task<ApiResult<CoolerCheckDto>> CheckCoolerAsync(CoolerCheckRequest req, CancellationToken ct = default) =>
+        SendAsync<CoolerCheckDto>(HttpMethod.Post, "api/issues/coolers/check", req, ct);
 
     public Task<ApiResult<List<InTransitWorkItemDto>>> GetInTransitIssuesAsync(CancellationToken ct = default) =>
         SendAsync<List<InTransitWorkItemDto>>(HttpMethod.Get, "api/issues/in-transit", ct: ct);
@@ -621,8 +805,11 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<TransfusionEventDto>> DocumentTransfusionAsync(long issueId, DocumentTransfusionRequest req, CancellationToken ct = default) =>
         SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/transfusion", req, ct);
 
-    public Task<ApiResult<TransfusionEventDto>> MarkIssueTransfusedAsync(long issueId, CancellationToken ct = default) =>
-        SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/mark-transfused", ct: ct);
+    public Task<ApiResult<TransfusionEventDto>> StartTransfusionAsync(long issueId, StartTransfusionRequest req, CancellationToken ct = default) =>
+        SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/transfusion/start", req, ct);
+
+    public Task<ApiResult<TransfusionEventDto>> CompleteTransfusionAsync(long issueId, CompleteTransfusionRequest req, CancellationToken ct = default) =>
+        SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/transfusion/complete", req, ct);
 
     // ---- Signatures ----
     public Task<ApiResult<SignatureCreatedVm>> RecordSignatureAsync(SignatureRequestVm req, CancellationToken ct = default) =>
@@ -658,8 +845,14 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<Hl7ReplayVm>> ReplayHl7Async(long id, CancellationToken ct = default) =>
         SendAsync<Hl7ReplayVm>(HttpMethod.Post, $"api/hl7/messages/{id}/replay", ct: ct);
 
+    public Task<ApiResult<List<Hl7OutboundWaitingVm>>> GetHl7OutboundWaitingAsync(CancellationToken ct = default) =>
+        SendAsync<List<Hl7OutboundWaitingVm>>(HttpMethod.Get, "api/hl7/outbound/waiting", ct: ct);
+
     public Task<ApiResult<List<Hl7ErrorVm>>> GetHl7ErrorsAsync(CancellationToken ct = default) =>
         SendAsync<List<Hl7ErrorVm>>(HttpMethod.Get, "api/hl7/errors", ct: ct);
+
+    public Task<ApiResult<List<Hl7ErrorVm>>> GetResolvedHl7ErrorsAsync(CancellationToken ct = default) =>
+        SendAsync<List<Hl7ErrorVm>>(HttpMethod.Get, "api/hl7/errors/resolved?take=50", ct: ct);
 
     public Task<ApiResult<Hl7ErrorVm>> ResolveHl7ErrorAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<Hl7ErrorVm>(HttpMethod.Post, $"api/hl7/errors/{id}/resolve", new ReasonRequestVm(reason), ct);
@@ -679,6 +872,9 @@ public sealed class BloodBankApiClient
     // ---- Printing ----
     public Task<ApiResult<PrintJobVm>> PrintSpecimenLabelAsync(long specimenId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/specimen-labels/{specimenId}", req, ct);
+
+    public Task<ApiResult<List<PrintJobVm>>> PrintSpecimenAliquotLabelsAsync(long specimenId, PrintAliquotLabelsVm req, CancellationToken ct = default) =>
+        SendAsync<List<PrintJobVm>>(HttpMethod.Post, $"api/print/specimen-labels/{specimenId}/aliquots", req, ct);
 
     public Task<ApiResult<PrintJobVm>> PrintCompatibilityTagAsync(long issueId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/compatibility-tags/{issueId}", req, ct);
@@ -780,6 +976,13 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<OrderingProviderRefDto>>> GetOrderingProvidersAsync(CancellationToken ct = default) =>
         SendAsync<List<OrderingProviderRefDto>>(HttpMethod.Get, "api/reference/ordering-providers", ct: ct);
 
+    /// <summary>Ordering providers plus outside providers (OCD-055), for the override authorizer field.</summary>
+    public Task<ApiResult<List<OrderingProviderRefDto>>> GetAuthorizerProvidersAsync(CancellationToken ct = default) =>
+        SendAsync<List<OrderingProviderRefDto>>(HttpMethod.Get, "api/reference/ordering-providers?includeOutside=true", ct: ct);
+
+    public Task<ApiResult<OrderingProviderDto>> AddOutsideProviderAsync(AddOutsideProviderRequest req, CancellationToken ct = default) =>
+        SendAsync<OrderingProviderDto>(HttpMethod.Post, "api/admin/providers/outside", req, ct);
+
     public Task<ApiResult<List<DirectoryUserDto>>> GetDirectoryUsersAsync(CancellationToken ct = default) =>
         SendAsync<List<DirectoryUserDto>>(HttpMethod.Get, "api/reference/users", ct: ct);
 
@@ -865,6 +1068,30 @@ public sealed class BloodBankApiClient
         SendAsync<DowntimeReconciliationSnapshot>(
             HttpMethod.Get, "api/compliance/downtime-reconciliation", ct: ct);
 
+    public Task<ApiResult<List<DowntimeEpisodeDto>>> GetDowntimeEpisodesAsync(CancellationToken ct = default) =>
+        SendAsync<List<DowntimeEpisodeDto>>(HttpMethod.Get, "api/compliance/downtime-episodes", ct: ct);
+
+    public Task<ApiResult<DowntimeEpisodeDto>> RecordDowntimeEpisodeAsync(RecordDowntimeEpisodeRequest request, CancellationToken ct = default) =>
+        SendAsync<DowntimeEpisodeDto>(HttpMethod.Post, "api/compliance/downtime-episodes", request, ct);
+
+    public Task<ApiResult<DowntimeEpisodeDto>> EndDowntimeEpisodeAsync(long id, EndDowntimeEpisodeRequest request, CancellationToken ct = default) =>
+        SendAsync<DowntimeEpisodeDto>(HttpMethod.Post, $"api/compliance/downtime-episodes/{id}/end", request, ct);
+
+    public Task<ApiResult<DowntimePatientSummary>> GetDowntimePatientSummaryAsync(long? patientId = null, CancellationToken ct = default) =>
+        SendAsync<DowntimePatientSummary>(HttpMethod.Get, DowntimePatientsPath("api/compliance/downtime-patients", patientId), ct: ct);
+
+    public Task<ApiResult<DowntimePatientRow>> GetAntibodyCardAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<DowntimePatientRow>(HttpMethod.Get, $"api/patients/{patientId}/antibody-card", ct: ct);
+
+    public Task<ApiResult<DowntimePatientRow>> RecordAntibodyCardPrintedAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<DowntimePatientRow>(HttpMethod.Post, $"api/patients/{patientId}/antibody-card/printed", ct: ct);
+
+    public Task<ApiResult<int>> RecordDowntimePatientSummaryPrintedAsync(long? patientId = null, CancellationToken ct = default) =>
+        SendAsync<int>(HttpMethod.Post, DowntimePatientsPath("api/compliance/downtime-patients/printed", patientId), ct: ct);
+
+    private static string DowntimePatientsPath(string path, long? patientId) =>
+        patientId is long id ? $"{path}?patientId={id}" : path;
+
     public Task<ApiResult<List<ShiftHandoffDto>>> GetShiftHandoffsAsync(CancellationToken ct = default) =>
         SendAsync<List<ShiftHandoffDto>>(HttpMethod.Get, "api/shift-handoffs", ct: ct);
 
@@ -874,6 +1101,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ShiftHandoffDto>> CreateShiftHandoffAsync(
         CreateShiftHandoffRequest req, CancellationToken ct = default) =>
         SendAsync<ShiftHandoffDto>(HttpMethod.Post, "api/shift-handoffs", req, ct);
+
+    public Task<ApiResult<ShiftHandoffDto>> PreviewShiftHandoffAsync(CancellationToken ct = default) =>
+        SendAsync<ShiftHandoffDto>(HttpMethod.Get, "api/shift-handoffs/preview", ct: ct);
 
     public Task<ApiResult<ShiftHandoffDto>> AcknowledgeShiftHandoffAsync(long id, CancellationToken ct = default) =>
         SendAsync<ShiftHandoffDto>(HttpMethod.Post, $"api/shift-handoffs/{id}/acknowledge", ct: ct);
@@ -915,8 +1145,38 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<ReactionInvestigationDto>>> GetReactionInvestigationsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReactionInvestigationDto>>(HttpMethod.Get, "api/reaction-investigations", ct: ct);
 
+    public Task<ApiResult<ReactionInvestigationDto>> ReportLateReactionAsync(ReportLateReactionRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, "api/reaction-investigations/report", req, ct);
+
     public Task<ApiResult<ReactionInvestigationDto>> UpdateReactionInvestigationAsync(long id, UpdateReactionInvestigationRequest req, CancellationToken ct = default) =>
         SendAsync<ReactionInvestigationDto>(HttpMethod.Put, $"api/reaction-investigations/{id}", req, ct);
+
+    public Task<ApiResult<ReactionReportDto>> GetReactionReportAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionReportDto>(HttpMethod.Get, $"api/reaction-investigations/{id}/report", ct: ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> RecordReactionReportPrintedAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/report/printed", ct: ct);
+
+    public Task<ApiResult<ReactionWorkupOptionsDto>> GetReactionWorkupOptionsAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionWorkupOptionsDto>(HttpMethod.Get, $"api/reaction-investigations/{id}/workup-specimens", ct: ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> AttachReactionPreSpecimenAsync(long id, long specimenId, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/pre-specimen", new AttachWorkupSpecimenRequest(specimenId), ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> AttachReactionPostSpecimenAsync(long id, long specimenId, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/post-specimen", new AttachWorkupSpecimenRequest(specimenId), ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> AccessionReactionPostSpecimenAsync(long id, AccessionPostTransfusionSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/post-specimen/accession", req, ct);
+
+    public Task<ApiResult<ReactionWorkupSettingsDto>> GetReactionWorkupSettingsAsync(CancellationToken ct = default) =>
+        SendAsync<ReactionWorkupSettingsDto>(HttpMethod.Get, "api/admin/reaction-workup-settings", ct: ct);
+
+    public Task<ApiResult<ReactionWorkupSettingsDto>> SaveReactionWorkupSettingsAsync(SaveReactionWorkupSettingsRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionWorkupSettingsDto>(HttpMethod.Put, "api/admin/reaction-workup-settings", req, ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> ReopenReactionInvestigationAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/reopen", new ReopenReactionInvestigationRequest(reason), ct);
 
     public Task<ApiResult<ReactionInvestigationDto>> RecordCberNotificationAsync(long id, CancellationToken ct = default) =>
         SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/cber-notified", ct: ct);
@@ -927,11 +1187,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<DeviationDto>>> GetDeviationsAsync(CancellationToken ct = default) =>
         SendAsync<List<DeviationDto>>(HttpMethod.Get, "api/deviations", ct: ct);
 
+    public Task<ApiResult<List<DeviationDto>>> GetDeviationsForRecordAsync(string contextType, long contextId, CancellationToken ct = default) =>
+        SendAsync<List<DeviationDto>>(HttpMethod.Get, $"api/deviations?contextType={Uri.EscapeDataString(contextType)}&contextId={contextId}", ct: ct);
+
     public Task<ApiResult<DeviationDto>> CreateDeviationAsync(CreateDeviationRequest req, CancellationToken ct = default) =>
         SendAsync<DeviationDto>(HttpMethod.Post, "api/deviations", req, ct);
 
-    public Task<ApiResult<DeviationDto>> UpdateDeviationStatusAsync(long id, DeviationStatus status, string? correctiveAction = null, CancellationToken ct = default) =>
-        SendAsync<DeviationDto>(HttpMethod.Post, $"api/deviations/{id}/status", new { status, correctiveAction }, ct);
+    public Task<ApiResult<DeviationDto>> UpdateDeviationStatusAsync(long id, DeviationStatus status, string? correctiveAction = null, CancellationToken ct = default,
+        DeviationInvestigationUpdate? investigation = null) =>
+        SendAsync<DeviationDto>(HttpMethod.Post, $"api/deviations/{id}/status", new { status, correctiveAction, investigation }, ct);
 
     // ---- Admin: Tests ----
     public Task<ApiResult<List<TestDefinitionDto>>> GetAdminTestsAsync(bool includeInactive = true, CancellationToken ct = default) =>
@@ -956,6 +1220,9 @@ public sealed class BloodBankApiClient
         SendAsync<TestDefinitionDto>(HttpMethod.Post, $"api/admin/tests/{id}/clone", new CloneRequest(newCode), ct);
 
     // ---- Admin: Blood attributes ----
+    public Task<ApiResult<List<AntibodyPanelLotSupplyItemDto>>> GetAntibodyPanelLotSupplyAsync(CancellationToken ct = default) =>
+        SendAsync<List<AntibodyPanelLotSupplyItemDto>>(HttpMethod.Get, "api/admin/antibody-panel-lots/supply", ct: ct);
+
     public Task<ApiResult<List<AntibodyPanelLotListItemDto>>> GetAdminAntibodyPanelLotsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<AntibodyPanelLotListItemDto>>(HttpMethod.Get, $"api/admin/antibody-panel-lots?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 
@@ -982,6 +1249,9 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<AntibodyPanelLotListItemDto>> ActivateAntibodyPanelLotAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<AntibodyPanelLotListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<AntibodyPanelLotDetailDto>> CorrectAntibodyPanelLotAntigramAsync(long id, CorrectAntibodyPanelLotAntigramRequest request, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelLotDetailDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/antigram", request, ct);
 
     public Task<ApiResult<AntibodyPanelLotListItemDto>> DeactivateAntibodyPanelLotAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<AntibodyPanelLotListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
@@ -1186,8 +1456,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ExceptionDefinitionDto>> UpdateAdminExceptionAsync(long id, SaveExceptionDefinitionRequest req, CancellationToken ct = default) =>
         SendAsync<ExceptionDefinitionDto>(HttpMethod.Put, $"api/admin/exceptions/{id}", req, ct);
 
-    public Task<ApiResult<ExceptionDefinitionDto>> SetAdminExceptionActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<ExceptionDefinitionDto>(HttpMethod.Post, $"api/admin/exceptions/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<ExceptionDefinitionDto>> SetAdminExceptionActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<ExceptionDefinitionDto>(HttpMethod.Post, $"api/admin/exceptions/{id}/{(active ? "activate" : "deactivate")}", new ExceptionDefinitionActiveRequest(reason), ct);
 
     public Task<ApiResult<List<CodedCommentDefinitionDto>>> GetAdminCodedCommentsAsync(
         bool includeInactive = true, CommentPage? page = null, CancellationToken ct = default)
@@ -1221,6 +1491,44 @@ public sealed class BloodBankApiClient
         SendAsync<OrderCancellationReasonDto>(
             HttpMethod.Post,
             $"api/admin/order-cancellation-reasons/{id}/{(active ? "activate" : "deactivate")}",
+            ct: ct);
+
+    public Task<ApiResult<List<ReactionCatalogEntryDto>>> GetAdminReactionCatalogAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReactionCatalogEntryDto>>(HttpMethod.Get, "api/admin/reaction-catalog?includeInactive=true", ct: ct);
+
+    public Task<ApiResult<ReactionCatalogEntryDto>> CreateAdminReactionCatalogEntryAsync(SaveReactionCatalogEntryRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionCatalogEntryDto>(HttpMethod.Post, "api/admin/reaction-catalog", req, ct);
+
+    public Task<ApiResult<ReactionCatalogEntryDto>> UpdateAdminReactionCatalogEntryAsync(long id, SaveReactionCatalogEntryRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionCatalogEntryDto>(HttpMethod.Put, $"api/admin/reaction-catalog/{id}", req, ct);
+
+    public Task<ApiResult<ReactionCatalogEntryDto>> SetAdminReactionCatalogEntryActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ReactionCatalogEntryDto>(HttpMethod.Post, $"api/admin/reaction-catalog/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    /// <summary>OCD-057: the active reaction and treatment lists, for concluding an investigation.</summary>
+    public Task<ApiResult<List<ReactionCatalogEntryDto>>> GetReactionCatalogAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReactionCatalogEntryDto>>(HttpMethod.Get, "api/reference/reaction-catalog", ct: ct);
+
+    public Task<ApiResult<List<SpecimenRejectionReasonDto>>> GetAdminSpecimenRejectionReasonsAsync(
+        bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<SpecimenRejectionReasonDto>>(
+            HttpMethod.Get,
+            $"api/admin/specimen-rejection-reasons?includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            ct: ct);
+
+    public Task<ApiResult<SpecimenRejectionReasonDto>> CreateAdminSpecimenRejectionReasonAsync(
+        SaveSpecimenRejectionReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenRejectionReasonDto>(HttpMethod.Post, "api/admin/specimen-rejection-reasons", req, ct);
+
+    public Task<ApiResult<SpecimenRejectionReasonDto>> UpdateAdminSpecimenRejectionReasonAsync(
+        long id, SaveSpecimenRejectionReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenRejectionReasonDto>(HttpMethod.Put, $"api/admin/specimen-rejection-reasons/{id}", req, ct);
+
+    public Task<ApiResult<SpecimenRejectionReasonDto>> SetAdminSpecimenRejectionReasonActiveAsync(
+        long id, bool active, CancellationToken ct = default) =>
+        SendAsync<SpecimenRejectionReasonDto>(
+            HttpMethod.Post,
+            $"api/admin/specimen-rejection-reasons/{id}/{(active ? "activate" : "deactivate")}",
             ct: ct);
 
     public Task<ApiResult<List<UnitDiscardReasonDto>>> GetAdminUnitDiscardReasonsAsync(
@@ -1314,6 +1622,30 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<LabelLayoutView>> SaveSpecimenLabelLayoutAsync(LabelLayoutDocument document, CancellationToken ct = default) =>
         SendAsync<LabelLayoutView>(HttpMethod.Put, "api/admin/label-layouts/specimen", document, ct);
 
+    public Task<ApiResult<List<SpecimenLabelDesignListItemDto>>> GetSpecimenLabelDesignsAsync(CancellationToken ct = default) =>
+        SendAsync<List<SpecimenLabelDesignListItemDto>>(HttpMethod.Get, "api/admin/specimen-label-designs", ct: ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> GetSpecimenLabelDesignAsync(long id, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Get, $"api/admin/specimen-label-designs/{id}", ct: ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> CreateSpecimenLabelDesignAsync(CreateSpecimenLabelDesignRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Post, "api/admin/specimen-label-designs", req, ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> SaveSpecimenLabelDesignAsync(long id, SaveSpecimenLabelDesignRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Put, $"api/admin/specimen-label-designs/{id}", req, ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> MakeSpecimenLabelDesignDefaultAsync(long id, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Post, $"api/admin/specimen-label-designs/{id}/default", ct: ct);
+
+    public Task<ApiResult<SpecimenLabelDesignDto>> SetSpecimenLabelDesignActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelDesignDto>(HttpMethod.Post, $"api/admin/specimen-label-designs/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<SpecimenLabelTestPrintResultVm>> TestPrintSpecimenLabelDesignAsync(long id, SpecimenLabelTestPrintVm req, CancellationToken ct = default) =>
+        SendAsync<SpecimenLabelTestPrintResultVm>(HttpMethod.Post, $"api/admin/specimen-label-designs/{id}/test-print", req, ct);
+
+    public Task<ApiResult<List<SpecimenLabelDesignListItemDto>>> GetPrintableSpecimenLabelDesignsAsync(CancellationToken ct = default) =>
+        SendAsync<List<SpecimenLabelDesignListItemDto>>(HttpMethod.Get, "api/print/specimen-label-designs", ct: ct);
+
     public Task<ApiResult<LabelLayoutView>> GetPtagLabelLayoutAsync(CancellationToken ct = default) =>
         SendAsync<LabelLayoutView>(HttpMethod.Get, "api/admin/label-layouts/ptag", ct: ct);
 
@@ -1341,6 +1673,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<AutoThawProductDto>> CreateAdminAutoThawProductAsync(SaveAutoThawProductRequest req, CancellationToken ct = default) =>
         SendAsync<AutoThawProductDto>(HttpMethod.Post, "api/admin/auto-thaw-products", req, ct);
 
+    public Task<ApiResult<AutoThawProductDto>> SetAdminAutoThawShelfLifeAsync(long id, SetAutoThawShelfLifeRequest req, CancellationToken ct = default) =>
+        SendAsync<AutoThawProductDto>(HttpMethod.Put, $"api/admin/auto-thaw-products/{id}/shelf-life", req, ct);
+
     public Task<ApiResult<AutoThawProductDto>> SetAdminAutoThawProductActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<AutoThawProductDto>(HttpMethod.Post, $"api/admin/auto-thaw-products/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
@@ -1366,8 +1701,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<InventoryLocationAdminDto>> UpdateAdminInventoryLocationAsync(long id, SaveInventoryLocationRequest req, CancellationToken ct = default) =>
         SendAsync<InventoryLocationAdminDto>(HttpMethod.Put, $"api/admin/inventory-locations/{id}", req, ct);
 
-    public Task<ApiResult<InventoryLocationAdminDto>> SetAdminInventoryLocationActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<InventoryLocationAdminDto>(HttpMethod.Post, $"api/admin/inventory-locations/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<InventoryLocationAdminDto>> SetAdminInventoryLocationActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<InventoryLocationAdminDto>(HttpMethod.Post, $"api/admin/inventory-locations/{id}/{(active ? "activate" : "deactivate")}", new InventoryLocationActiveRequest(reason), ct);
 
     // ---- Admin: Facility policy ----
     public Task<ApiResult<List<FacilityPolicyDto>>> GetAdminFacilityPoliciesAsync(CancellationToken ct = default) =>
@@ -1410,8 +1745,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<CompatibilityRuleDto>> UpdateAdminCompatibilityRuleAsync(long id, SaveCompatibilityRuleRequest req, CancellationToken ct = default) =>
         SendAsync<CompatibilityRuleDto>(HttpMethod.Put, $"api/admin/compatibility-rules/{id}", req, ct);
 
-    public Task<ApiResult<CompatibilityRuleDto>> SetAdminCompatibilityRuleActiveAsync(long id, bool active, CancellationToken ct = default) =>
-        SendAsync<CompatibilityRuleDto>(HttpMethod.Post, $"api/admin/compatibility-rules/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+    public Task<ApiResult<CompatibilityRuleDto>> SetAdminCompatibilityRuleActiveAsync(long id, bool active, string? reason, CancellationToken ct = default) =>
+        SendAsync<CompatibilityRuleDto>(HttpMethod.Post, $"api/admin/compatibility-rules/{id}/{(active ? "activate" : "deactivate")}", new ReasonOnlyRequest(reason), ct);
 
     // ---- Admin: Test/service billing ----
     public Task<ApiResult<List<TestServiceBillingDto>>> GetAdminTestServiceBillingsAsync(bool includeInactive = true, CancellationToken ct = default) =>
@@ -1548,6 +1883,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SupplierOrderDto>> ReceiveSupplierOrderAsync(long id, ReceiveSupplierOrderRequest req, CancellationToken ct = default) =>
         SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/receive", req, ct);
 
+    public Task<ApiResult<SupplierOrderDto>> RecordSupplierOrderFollowUpAsync(long id, SupplierOrderFollowUpRequest req, CancellationToken ct = default) =>
+        SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/follow-up", req, ct);
+
     public Task<ApiResult<SupplierOrderDto>> CancelSupplierOrderAsync(long id, CancelSupplierOrderRequest req, CancellationToken ct = default) =>
         SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/cancel", req, ct);
 
@@ -1575,6 +1913,42 @@ public sealed class BloodBankApiClient
         }
     }
 
+    public Task<ApiResult<List<string>>> GetSpecimenStoragePlacesAsync(CancellationToken ct = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, "api/specimens/storage-places", ct: ct);
+
+    public Task<ApiResult<List<TubeInPlaceDto>>> GetTubesInPlaceAsync(string location, CancellationToken ct = default) =>
+        SendAsync<List<TubeInPlaceDto>>(HttpMethod.Get, $"api/specimens/stored?location={Uri.EscapeDataString(location)}", ct: ct);
+
+    public Task<ApiResult<StoredSpecimenDto>> StoreSpecimenAsync(StoreSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<StoredSpecimenDto>(HttpMethod.Post, "api/specimens/store", req, ct);
+
+    public Task<ApiResult<List<TubeInPlaceDto>>> GetTubesDueForDiscardAsync(CancellationToken ct = default) =>
+        SendAsync<List<TubeInPlaceDto>>(HttpMethod.Get, "api/specimens/due-for-discard", ct: ct);
+
+    public Task<ApiResult<DiscardedSpecimenDto>> DiscardSpecimenAsync(DiscardSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<DiscardedSpecimenDto>(HttpMethod.Post, "api/specimens/discard", req, ct);
+
+    public Task<ApiResult<OrderTimelineDto>> GetOrderTimelineAsync(long patientId, long orderId, CancellationToken ct = default) =>
+        SendAsync<OrderTimelineDto>(HttpMethod.Get, $"api/patients/{patientId}/orders/{orderId}/timeline", ct: ct);
+
+    public Task<ApiResult<SpecimenTimelineDto>> GetSpecimenTimelineAsync(long specimenId, CancellationToken ct = default) =>
+        SendAsync<SpecimenTimelineDto>(HttpMethod.Get, $"api/specimens/{specimenId}/timeline", ct: ct);
+
+    public Task<ApiResult<List<TimelineEventDto>>> GetPatientTimelineAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<TimelineEventDto>>(HttpMethod.Get, $"api/patients/{patientId}/timeline", ct: ct);
+
+    public Task<ApiResult<BloodOrderProgressDto>> GetBloodOrderProgressAsync(long orderId, CancellationToken ct = default) =>
+        SendAsync<BloodOrderProgressDto>(HttpMethod.Get, $"api/blood-orders/{orderId}/progress", ct: ct);
+
+    public Task<ApiResult<List<BloodOrderToPrepareDto>>> GetBloodOrdersToPrepareAsync(CancellationToken ct = default) =>
+        SendAsync<List<BloodOrderToPrepareDto>>(HttpMethod.Get, "api/blood-orders/to-prepare", ct: ct);
+
+    public Task<ApiResult<LookupResultDto>> GetRecentPatientsAsync(CancellationToken ct = default) =>
+        SendAsync<LookupResultDto>(HttpMethod.Get, "api/lookup/recent", ct: ct);
+
+    public Task<ApiResult<LookupResultDto>> LookupAsync(LookupRequest req, CancellationToken ct = default) =>
+        SendAsync<LookupResultDto>(HttpMethod.Post, "api/lookup", req, ct);
+
     public Task<ApiResult<List<ProductIndicationResultDto>>> CheckTransfusionCriteriaAsync(long patientId, PbmCheckRequest req, CancellationToken ct = default) =>
         SendAsync<List<ProductIndicationResultDto>>(HttpMethod.Post, $"api/patients/{patientId}/pbm-check", req, ct);
 
@@ -1594,6 +1968,49 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<TransfusionIndicationCriterionDto>> SetTransfusionCriterionActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<TransfusionIndicationCriterionDto>(HttpMethod.Post, $"api/admin/transfusion-criteria/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<LoadDraftCriteriaResultDto>> LoadDraftTransfusionCriteriaAsync(CancellationToken ct = default) =>
+        SendAsync<LoadDraftCriteriaResultDto>(HttpMethod.Post, "api/admin/transfusion-criteria/load-drafts", ct: ct);
+
+    public Task<ApiResult<List<TransportContainerDto>>> GetTransportContainersAsync(CancellationToken ct = default) =>
+        SendAsync<List<TransportContainerDto>>(HttpMethod.Get, "api/admin/transport-containers", ct: ct);
+
+    public Task<ApiResult<List<TransportContainerDto>>> GetActiveTransportContainersAsync(CancellationToken ct = default) =>
+        SendAsync<List<TransportContainerDto>>(HttpMethod.Get, "api/transport-containers", ct: ct);
+
+    public Task<ApiResult<TransportContainerDto>> SaveTransportContainerAsync(long? id, SaveTransportContainerRequest req, CancellationToken ct = default) =>
+        id is long existing
+            ? SendAsync<TransportContainerDto>(HttpMethod.Put, $"api/admin/transport-containers/{existing}", req, ct)
+            : SendAsync<TransportContainerDto>(HttpMethod.Post, "api/admin/transport-containers", req, ct);
+
+    public Task<ApiResult<TransportContainerDto>> SetTransportContainerActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<TransportContainerDto>(HttpMethod.Post, $"api/admin/transport-containers/{id}/{(active ? "activate" : "deactivate")}", new ConfigActiveRequest(reason), ct);
+
+    public Task<ApiResult<MtpPackSummaryDto>> PackMtpAsync(long activationId, PackMtpRequest req, CancellationToken ct = default) =>
+        SendAsync<MtpPackSummaryDto>(HttpMethod.Post, $"api/mtp/{activationId}/packs", req, ct);
+
+    public Task<ApiResult<List<MtpPackSummaryDto>>> GetMtpPackRecordsAsync(long activationId, CancellationToken ct = default) =>
+        SendAsync<List<MtpPackSummaryDto>>(HttpMethod.Get, $"api/mtp/{activationId}/packs", ct: ct);
+
+    public Task<ApiResult<MtpPackReportDto>> GetMtpPackReportAsync(long packRecordId, CancellationToken ct = default) =>
+        SendAsync<MtpPackReportDto>(HttpMethod.Get, $"api/mtp/pack-records/{packRecordId}/report", ct: ct);
+
+    public Task<ApiResult<bool>> RecordMtpPackPrintedAsync(long packRecordId, CancellationToken ct = default) =>
+        SendAsync<bool>(HttpMethod.Post, $"api/mtp/pack-records/{packRecordId}/printed", ct: ct);
+
+    public Task<ApiResult<List<MtpPackDefinitionDto>>> GetMtpPacksAsync(CancellationToken ct = default) =>
+        SendAsync<List<MtpPackDefinitionDto>>(HttpMethod.Get, "api/admin/mtp-packs", ct: ct);
+
+    public Task<ApiResult<List<MtpPackDefinitionDto>>> GetActiveMtpPacksAsync(CancellationToken ct = default) =>
+        SendAsync<List<MtpPackDefinitionDto>>(HttpMethod.Get, "api/mtp/packs", ct: ct);
+
+    public Task<ApiResult<MtpPackDefinitionDto>> SaveMtpPackAsync(long? id, SaveMtpPackRequest req, CancellationToken ct = default) =>
+        id is long existing
+            ? SendAsync<MtpPackDefinitionDto>(HttpMethod.Put, $"api/admin/mtp-packs/{existing}", req, ct)
+            : SendAsync<MtpPackDefinitionDto>(HttpMethod.Post, "api/admin/mtp-packs", req, ct);
+
+    public Task<ApiResult<MtpPackDefinitionDto>> SetMtpPackActiveAsync(long id, bool active, string reason, CancellationToken ct = default) =>
+        SendAsync<MtpPackDefinitionDto>(HttpMethod.Post, $"api/admin/mtp-packs/{id}/{(active ? "activate" : "deactivate")}", new ConfigActiveRequest(reason), ct);
 
     public Task<ApiResult<MfaStatusDto>> GetMfaStatusAsync(CancellationToken ct = default) =>
         SendAsync<MfaStatusDto>(HttpMethod.Get, "api/account/mfa", ct: ct);
@@ -1657,11 +2074,72 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<StorageTemperatureReadingDto>>> GetOpenTemperatureExcursionsAsync(CancellationToken ct = default) =>
         SendAsync<List<StorageTemperatureReadingDto>>(HttpMethod.Get, "api/storage-temps/excursions", ct: ct);
 
+    // Equipment register (Cycle 708).
+    public Task<ApiResult<List<EquipmentDto>>> GetEquipmentAsync(bool includeInactive = false, CancellationToken ct = default) =>
+        SendAsync<List<EquipmentDto>>(HttpMethod.Get, $"api/equipment?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<List<EquipmentCheckDueDto>>> GetEquipmentUpcomingAsync(int days, CancellationToken ct = default) =>
+        SendAsync<List<EquipmentCheckDueDto>>(HttpMethod.Get, $"api/equipment/upcoming?days={days}", ct: ct);
+
+    public Task<ApiResult<List<EquipmentCheckDueDto>>> GetEquipmentDueAsync(CancellationToken ct = default) =>
+        SendAsync<List<EquipmentCheckDueDto>>(HttpMethod.Get, "api/equipment/due", ct: ct);
+
+    public Task<ApiResult<List<EquipmentCheckRecordDto>>> GetEquipmentRecordsAsync(long equipmentId, int take = 500, CancellationToken ct = default) =>
+        SendAsync<List<EquipmentCheckRecordDto>>(HttpMethod.Get, $"api/equipment/{equipmentId}/records?take={take}", ct: ct);
+
+    public Task<ApiResult<List<EquipmentResultDto>>> GetEquipmentResultsAsync(long equipmentId, int take = 200, CancellationToken ct = default) =>
+        SendAsync<List<EquipmentResultDto>>(HttpMethod.Get, $"api/equipment/{equipmentId}/results?take={take}", ct: ct);
+
+    public Task<ApiResult<EquipmentDto>> CreateEquipmentAsync(SaveEquipmentRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, "api/equipment", request, ct);
+
+    public Task<ApiResult<EquipmentDto>> RetireEquipmentAsync(long equipmentId, string? reason, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/{equipmentId}/deactivate", new { Reason = reason }, ct);
+
+    public Task<ApiResult<EquipmentDto>> RestoreEquipmentAsync(long equipmentId, string? reason, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/{equipmentId}/restore", new { Reason = reason }, ct);
+
+    public Task<ApiResult<EquipmentDto>> RetireEquipmentCheckAsync(long checkId, string? reason, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/checks/{checkId}/retire", new { Reason = reason }, ct);
+
+    public Task<ApiResult<EquipmentDto>> UpdateEquipmentAsync(long equipmentId, UpdateEquipmentRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Put, $"api/equipment/{equipmentId}", request, ct);
+
+    public Task<ApiResult<EquipmentDto>> UpdateEquipmentCheckAsync(long checkId, UpdateEquipmentCheckRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Put, $"api/equipment/checks/{checkId}", request, ct);
+
+    public Task<ApiResult<EquipmentDto>> AddEquipmentCheckAsync(long equipmentId, SaveEquipmentCheckRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/{equipmentId}/checks", request, ct);
+
+    public Task<ApiResult<EquipmentCheckRecordDto>> RecordEquipmentCheckAsync(long checkId, RecordEquipmentCheckRequest request, CancellationToken ct = default) =>
+        SendAsync<EquipmentCheckRecordDto>(HttpMethod.Post, $"api/equipment/checks/{checkId}/records", request, ct);
+
+    public Task<ApiResult<EquipmentDto>> SetEquipmentInServiceAsync(long equipmentId, bool inService, string? reason, CancellationToken ct = default) =>
+        SendAsync<EquipmentDto>(HttpMethod.Post, $"api/equipment/{equipmentId}/service", new { InService = inService, Reason = reason }, ct);
+
+    public Task<ApiResult<ReagentLotDto>> CorrectReagentLotAsync(long lotId, CorrectReagentLotRequest request, CancellationToken ct = default) =>
+        SendAsync<ReagentLotDto>(HttpMethod.Put, $"api/reagents/lots/{lotId}", request, ct);
+
+    public Task<ApiResult<ReagentDto>> RenameReagentAsync(long id, string name, string? reason, CancellationToken ct = default) =>
+        SendAsync<ReagentDto>(HttpMethod.Put, $"api/reagents/{id}/name", new RenameReagentRequest(name, reason), ct);
+
+    public Task<ApiResult<ReagentDto>> SetReagentActiveAsync(long id, bool active, string? reason, CancellationToken ct = default) =>
+        SendAsync<ReagentDto>(HttpMethod.Post, $"api/reagents/{id}/active", new ReagentActiveRequest(active, reason), ct);
+
     public Task<ApiResult<List<ReagentDto>>> GetReagentsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentDto>>(HttpMethod.Get, "api/reagents", ct: ct);
 
     public Task<ApiResult<ReagentDto>> SaveReagentAsync(SaveReagentRequest req, CancellationToken ct = default) =>
         SendAsync<ReagentDto>(HttpMethod.Post, "api/reagents", req, ct);
+
+    public Task<ApiResult<ReagentDto>> SetReagentTestsAsync(long id, string? testCodes, CancellationToken ct = default) =>
+        SendAsync<ReagentDto>(HttpMethod.Put, $"api/reagents/{id}/tests", new SetReagentTestsRequest(testCodes), ct);
+
+    public Task<ApiResult<ReagentLotResultDto>> ReviewReagentLotResultAsync(long lotId, long resultId, string note, CancellationToken ct = default) =>
+        SendAsync<ReagentLotResultDto>(HttpMethod.Post, $"api/reagents/lots/{lotId}/results/{resultId}/review", new ReasonRequestVm(note), ct);
+
+    public Task<ApiResult<List<ReagentLotResultDto>>> GetReagentLotResultsAsync(long lotId, CancellationToken ct = default) =>
+        SendAsync<List<ReagentLotResultDto>>(HttpMethod.Get, $"api/reagents/lots/{lotId}/results", ct: ct);
 
     public Task<ApiResult<List<ReagentLotDto>>> GetReagentLotsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentLotDto>>(HttpMethod.Get, "api/reagents/lots", ct: ct);
@@ -1684,11 +2162,14 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<ReagentQcWorkItemDto>>> GetReagentQcWorklistAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentQcWorkItemDto>>(HttpMethod.Get, "api/reagents/worklist", ct: ct);
 
-    public Task<ApiResult<List<StockParBoardRowDto>>> GetStockParAsync(CancellationToken ct = default) =>
-        SendAsync<List<StockParBoardRowDto>>(HttpMethod.Get, "api/inventory/par", ct: ct);
+    public Task<ApiResult<List<ReagentDailyQcDto>>> GetRecentReagentQcAsync(int days = 14, CancellationToken ct = default) =>
+        SendAsync<List<ReagentDailyQcDto>>(HttpMethod.Get, $"api/reagents/qc?days={days}", ct: ct);
 
-    public Task<ApiResult<StockParBoardRowDto>> SaveStockParAsync(SaveStockParRequest req, CancellationToken ct = default) =>
-        SendAsync<StockParBoardRowDto>(HttpMethod.Post, "api/inventory/par", req, ct);
+    public Task<ApiResult<List<MinimumStockRowDto>>> GetMinimumStockAsync(CancellationToken ct = default) =>
+        SendAsync<List<MinimumStockRowDto>>(HttpMethod.Get, "api/inventory/minimum-stock", ct: ct);
+
+    public Task<ApiResult<MinimumStockRowDto>> SaveMinimumStockAsync(SaveMinimumStockRequest req, CancellationToken ct = default) =>
+        SendAsync<MinimumStockRowDto>(HttpMethod.Post, "api/inventory/minimum-stock", req, ct);
 
     // ---- Admin: Modification rules ----
     public Task<ApiResult<List<ModificationRuleDto>>> GetAdminModificationRulesAsync(bool includeInactive = true, CancellationToken ct = default) =>
@@ -1735,6 +2216,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<LicensedIsbtCatalogImportResult>> ImportLicensedIsbtCatalogAsync(
         LicensedIsbtCatalogImportRequest req, CancellationToken ct = default) =>
         SendAsync<LicensedIsbtCatalogImportResult>(HttpMethod.Post, "api/admin/isbt-product-codes/import-licensed", req, ct);
+
+    public Task<ApiResult<IsbtReadinessDto>> GetIsbtReadinessAsync(CancellationToken ct = default) =>
+        SendAsync<IsbtReadinessDto>(HttpMethod.Get, "api/admin/isbt-product-codes/readiness", ct: ct);
 
     public Task<ApiResult<List<IccbbaExtractFileDto>>> GetAdminIsbtExtractsAsync(CancellationToken ct = default) =>
         SendAsync<List<IccbbaExtractFileDto>>(HttpMethod.Get, "api/admin/isbt-product-codes/extracts", ct: ct);
@@ -1819,11 +2303,27 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<InterfaceDataItemDto>>> GetAdminHl7AllDataItemsAsync(CancellationToken ct = default) =>
         SendAsync<List<InterfaceDataItemDto>>(HttpMethod.Get, "api/admin/hl7/data-items/all", ct: ct);
 
-    public Task<ApiResult<InterfaceTranslationTableDto>> GetAdminHl7TranslationsAsync(string dataItemKey, CancellationToken ct = default) =>
+    public Task<ApiResult<InterfaceTranslationTableDto>> GetAdminHl7TranslationsAsync(string dataItemKey, long? endpointId = null, CancellationToken ct = default) =>
         SendAsync<InterfaceTranslationTableDto>(
             HttpMethod.Get,
-            $"api/admin/hl7/translations?dataItemKey={Uri.EscapeDataString(dataItemKey)}",
+            $"api/admin/hl7/translations?dataItemKey={Uri.EscapeDataString(dataItemKey)}{(endpointId is { } e ? $"&endpointId={e}" : "")}",
             ct: ct);
+
+    public Task<ApiResult<List<InterfaceTranslationFieldDto>>> GetAdminHl7TranslationFieldsAsync(CancellationToken ct = default) =>
+        SendAsync<List<InterfaceTranslationFieldDto>>(HttpMethod.Get, "api/admin/hl7/translations/fields", ct: ct);
+
+    public Task<ApiResult<InterfaceTranslationCheckDto>> CheckAdminHl7TranslationAsync(
+        string dataItemKey, string value, bool inbound, long? endpointId, CancellationToken ct = default) =>
+        SendAsync<InterfaceTranslationCheckDto>(
+            HttpMethod.Get,
+            $"api/admin/hl7/translations/check?dataItemKey={Uri.EscapeDataString(dataItemKey)}&value={Uri.EscapeDataString(value)}&inbound={inbound.ToString().ToLowerInvariant()}{(endpointId is { } e ? $"&endpointId={e}" : "")}",
+            ct: ct);
+
+    public Task<ApiResult<List<InterfaceUnmappedValueDto>>> GetAdminHl7UnmappedValuesAsync(bool openOnly = true, CancellationToken ct = default) =>
+        SendAsync<List<InterfaceUnmappedValueDto>>(HttpMethod.Get, $"api/admin/hl7/translations/unmapped?openOnly={openOnly.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<InterfaceUnmappedValueDto>> DismissAdminHl7UnmappedValueAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<InterfaceUnmappedValueDto>(HttpMethod.Post, $"api/admin/hl7/translations/unmapped/{id}/dismiss", new ReasonOnlyRequest(reason), ct);
 
     public Task<ApiResult<InterfaceTranslationTableDto>> SaveAdminHl7TranslationsAsync(
         string dataItemKey, SaveInterfaceTranslationsRequest req, CancellationToken ct = default) =>
@@ -1834,6 +2334,16 @@ public sealed class BloodBankApiClient
             ct);
 
     // ---- Admin: Instrument interfaces ----
+    public Task<ApiResult<List<InstrumentTranslationFieldDto>>> GetAdminInstrumentTranslationFieldsAsync(CancellationToken ct = default) =>
+        SendAsync<List<InstrumentTranslationFieldDto>>(HttpMethod.Get, "api/admin/instruments/translation-fields", ct: ct);
+
+    public Task<ApiResult<InstrumentTranslationCheckDto>> CheckAdminInstrumentTranslationAsync(
+        long id, string key, string value, string? context, CancellationToken ct = default) =>
+        SendAsync<InstrumentTranslationCheckDto>(
+            HttpMethod.Get,
+            $"api/admin/instruments/{id}/translations/check?key={Uri.EscapeDataString(key)}&value={Uri.EscapeDataString(value)}{(string.IsNullOrWhiteSpace(context) ? "" : $"&context={Uri.EscapeDataString(context)}")}",
+            ct: ct);
+
     public Task<ApiResult<List<InstrumentDataItemDto>>> GetAdminInstrumentDataItemsAsync(CancellationToken ct = default) =>
         SendAsync<List<InstrumentDataItemDto>>(HttpMethod.Get, "api/admin/instruments/data-items", ct: ct);
 
@@ -1864,6 +2374,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<InstrumentMessageDetailDto>> GetInstrumentMessageAsync(long id, CancellationToken ct = default) =>
         SendAsync<InstrumentMessageDetailDto>(HttpMethod.Get, $"api/instruments/messages/{id}", ct: ct);
 
+    public Task<ApiResult<List<InstrumentMessageSummaryDto>>> GetOpenInstrumentFailuresAsync(CancellationToken ct = default) =>
+        SendAsync<List<InstrumentMessageSummaryDto>>(HttpMethod.Get, "api/instruments/messages/failed", ct: ct);
+
+    public Task<ApiResult<InstrumentMessageSummaryDto>> ResolveInstrumentMessageAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<InstrumentMessageSummaryDto>(HttpMethod.Post, $"api/instruments/messages/{id}/resolve", new ReasonRequestVm(reason), ct);
+
+    public Task<ApiResult<object>> ReleaseHeldInstrumentResultAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<object>(HttpMethod.Post, $"api/instruments/messages/{id}/release", new ReasonRequestVm(reason), ct);
+
     public Task<ApiResult<object>> ReplayInstrumentMessageAsync(long id, CancellationToken ct = default) =>
         SendAsync<object>(HttpMethod.Post, $"api/instruments/messages/{id}/replay", ct: ct);
 
@@ -1877,6 +2396,18 @@ public sealed class BloodBankApiClient
         SendAsync<EchoSimulatorSendResultDto>(HttpMethod.Post, "api/instruments/simulator/send", req, ct);
 
     // ---- Admin: Users & roles ----
+    public Task<ApiResult<IssueRequestDto>> RequestIssueAsync(long allocationId, IssueRequestRequest req, CancellationToken ct = default) =>
+        SendAsync<IssueRequestDto>(HttpMethod.Post, $"api/allocations/{allocationId}/issue-request", req, ct);
+
+    public Task<ApiResult<bool>> CancelIssueRequestAsync(long allocationId, CancelIssueRequestRequest req, CancellationToken ct = default) =>
+        SendAsync<bool>(HttpMethod.Post, $"api/allocations/{allocationId}/issue-request/cancel", req, ct);
+
+    public Task<ApiResult<AccessReviewDto>> GetLastAccessReviewAsync(CancellationToken ct = default) =>
+        SendAsync<AccessReviewDto>(HttpMethod.Get, "api/admin/users/access-review", ct: ct);
+
+    public Task<ApiResult<AccessReviewDto>> RecordAccessReviewAsync(RecordAccessReviewRequest req, CancellationToken ct = default) =>
+        SendAsync<AccessReviewDto>(HttpMethod.Post, "api/admin/users/access-review", req, ct);
+
     public Task<ApiResult<List<AdminUserDto>>> GetAdminUsersAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<AdminUserDto>>(HttpMethod.Get, $"api/admin/users?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 

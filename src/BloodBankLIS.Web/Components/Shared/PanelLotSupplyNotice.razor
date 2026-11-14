@@ -1,0 +1,27 @@
+@* Panel lots to replace soon, or a kind of lot with none current (Cycle 707): on the panel lots page and the antibody worklist. *@
+@using BloodBankLIS.Application.Immunohematology
+
+@if (Items.Count > 0)
+{
+    var act = Items.Any(i => i.NeedsAction);
+    <div class="alert @(act ? "alert-warning" : "alert-info")" style="margin:.75rem 0;" data-panel-supply>
+        <strong>@(act ? "Panel lots to replace" : "Panel lots expiring soon")</strong>
+        <ul style="margin:.25rem 0 0;">
+            @foreach (var item in Items)
+            {
+                <li data-panel-supply-item="@item.Kind" data-needs-action="@(item.NeedsAction ? "true" : "false")">@item.Message</li>
+            }
+        </ul>
+        @if (act)
+        {
+            <div class="muted" style="margin-top:.25rem;">@Advice</div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<AntibodyPanelLotSupplyItemDto> Items { get; set; } = [];
+
+    /// <summary>What to do, worded for the page it is on.</summary>
+    [Parameter] public string Advice { get; set; } = "Order the next lot and enter it here (New lot) when it arrives.";
+}

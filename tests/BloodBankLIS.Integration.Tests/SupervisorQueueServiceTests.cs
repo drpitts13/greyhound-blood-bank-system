@@ -122,6 +122,7 @@ public class SupervisorQueueServiceTests : IClassFixture<SqliteContextFactory>
             _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
             SecondVerifier: "tech2",
+            Appearance: UnitAppearance.Acceptable,
             ReceiveTemperatureCelsius: 4.0m);
 
     [Fact]
@@ -158,6 +159,50 @@ public class SupervisorQueueServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Release", row.NextAction);
         Assert.Contains(unitNumber, row.Title, StringComparison.Ordinal);
         Assert.Equal($"/inventory/units/{received.Unit.Id}", row.Href);
+    }
+
+    // TEST-BB-464: a missing unit waits on the supervisor queue to be located, with its reason and last location; it
+    // leaves the queue once located, and the queue does not show it without inventory.release.
+    [Fact]
+    public async Task List_WithInventoryRelease_IncludesMissingUnit_UntilLocated()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var inventory = CreateInventory(
+            context,
+            new FixedPermissionEvaluator(2, PermissionCodes.InventoryReceive, PermissionCodes.InventoryRelease));
+        var unitNumber = $"U-SUPM{Guid.NewGuid():N}"[..16];
+        var received = await inventory.ReceiveUnitAsync(NewUnitRequest(unitNumber, productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+        Assert.True((await inventory.MarkMissingAsync(received.Unit!.Id, "Not found in stock count at FRIDGE-1")).Succeeded);
+
+        var queue = await CreateService(
+                _factory.CurrentUser,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.InventoryRelease),
+                inventory: inventory)
+            .ListAsync();
+        Assert.True(queue.Succeeded, queue.Error);
+        var row = Assert.Single(queue.Value!, i => i.ContextId == received.Unit.Id);
+        Assert.Equal(SupervisorQueueRule.KindDiscrepancy, row.Kind);
+        Assert.Equal("Locate", row.NextAction);
+        Assert.Equal($"Missing — {unitNumber}", row.Title);
+        Assert.Contains("Not found in stock count at FRIDGE-1", row.Detail, StringComparison.Ordinal);
+        Assert.Contains("Last recorded at", row.Detail, StringComparison.Ordinal);
+
+        var verifyOnly = await CreateService(
+                _factory.CurrentUser,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultVerify),
+                inventory: inventory)
+            .ListAsync();
+        Assert.DoesNotContain(verifyOnly.Value!, i => i.Kind == SupervisorQueueRule.KindDiscrepancy);
+
+        Assert.True((await inventory.LocateMissingAsync(received.Unit.Id, "Back of FRIDGE-1")).Succeeded);
+        var after = await CreateService(
+                _factory.CurrentUser,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.InventoryRelease),
+                inventory: inventory)
+            .ListAsync();
+        Assert.DoesNotContain(after.Value!, i => i.ContextId == received.Unit.Id && i.Kind == SupervisorQueueRule.KindDiscrepancy);
     }
 
     [Fact]

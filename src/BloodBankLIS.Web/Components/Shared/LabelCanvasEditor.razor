@@ -1,0 +1,315 @@
+@* The label canvas shared by the specimen label designer and the P-tag designer: a palette of elements, the label at
+   scale, and the selected element's settings. Elements are placed by drag, click, X/Y, or the arrow keys. *@
+
+<div class="designer">
+    <div>
+        <div class="muted" style="margin-bottom:.35rem;">Elements</div>
+        @foreach (var option in Palette)
+        {
+            <button type="button" class="palette" draggable="@(ReadOnly ? "false" : "true")" disabled="@ReadOnly"
+                    data-palette="@option.Key"
+                    @ondragstart="() => ArmPalette(option)"
+                    @ondragend="DisarmPalette"
+                    @onclick="() => Add(option)">
+                @option.Label
+            </button>
+        }
+        @PaletteFooter
+    </div>
+
+    <div class="canvas-cell">
+        @* Focusable so the arrow keys nudge the selected element (Shift: 10 dots) and Delete removes it. *@
+        <div class="canvas-wrap @(_paletteArmed ? "placing" : null)" tabindex="0" data-label-canvas
+             style="width:@(CanvasWidth)px;height:@(CanvasHeight)px;"
+             @onpointermove="Move"
+             @onpointerup="EndMove"
+             @onkeydown="OnKey"
+             @ondragover:preventDefault
+             @ondrop="Drop">
+            @{ var overlapping = Overlapping; }
+            @for (var i = 0; i < Fields.Count; i++)
+            {
+                var field = Fields[i];
+                var index = i;
+                var clash = overlapping.Contains(index) ? "overlap" : null;
+                if (SampleData && field.Barcode)
+                {
+                    <button type="button" class="placed barcode @(index == _selected ? "selected" : null) @clash" data-placed="@field.Key"
+                            title="@LabelFields.Caption(field.Key) barcode, about @SpecimenLabelDesignRules.InchesText(BarcodeWidth(field)) in wide"
+                            style="left:@Px(field.X)px;top:@Px(field.Y)px;width:@Px(BarcodeWidth(field))px;height:@Px(BarcodeHeight(field))px;"
+                            @onpointerdown="e => BeginMove(index, e)"
+                            @onpointerdown:stopPropagation>
+                        <span class="bars"></span>
+                        @if (field.BarcodeText)
+                        {
+                            <span class="digits">@LabelFields.Sample(field)</span>
+                        }
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="placed @(index == _selected ? "selected" : null) @clash" data-placed="@field.Key"
+                            style="left:@Px(field.X)px;top:@Px(field.Y)px;font-weight:@(field.Bold ? "700" : "500");@(SampleData ? $"font-size:{Math.Max(6, field.FontHeight * Scale * 0.8):0.#}px;" : null)"
+                            @onpointerdown="e => BeginMove(index, e)"
+                            @onpointerdown:stopPropagation>
+                        @(field.Barcode ? "▮ " : "")@(SampleData ? LabelFields.Sample(field) : Preview(field))
+                    </button>
+                }
+            }
+        </div>
+        <p class="muted" style="margin-top:.35rem;">@Caption</p>
+    </div>
+
+    <div>
+        <div class="muted" style="margin-bottom:.35rem;">Selected element</div>
+        @if (Selected is null)
+        {
+            <p class="muted">Select an element on the label.</p>
+        }
+        else
+        {
+            <div class="field"><label>Element</label><div data-selected-caption>@LabelFields.Caption(Selected.Key)@(Selected.Barcode ? " (barcode)" : "")</div></div>
+            <div class="form-row">
+                <div class="field"><label>X (dots)</label><input type="number" min="0" max="@WidthDots" data-selected-x disabled="@ReadOnly" @bind="Selected.X" @bind:after="ClampSelected" /></div>
+                <div class="field"><label>Y (dots)</label><input type="number" min="0" max="@HeightDots" data-selected-y disabled="@ReadOnly" @bind="Selected.Y" @bind:after="ClampSelected" /></div>
+            </div>
+            <div class="field"><label>@(Selected.Barcode ? "Bar height (dots)" : "Font size (dots)")</label>
+                <input type="number" min="8" max="120" disabled="@ReadOnly" @bind="Selected.FontHeight" @bind:after="ClampSelected" />
+            </div>
+            @if (!Selected.Barcode)
+            {
+                <label class="flex" style="gap:.35rem;margin:.5rem 0;">
+                    <input type="checkbox" disabled="@ReadOnly" @bind="Selected.Bold" @bind:after="Changed.InvokeAsync" /> Bold
+                </label>
+            }
+            @if (AllowBarcode(Selected))
+            {
+                <label class="flex" style="gap:.35rem;margin:.5rem 0;">
+                    <input type="checkbox" disabled="@ReadOnly" data-selected-barcode @bind="Selected.Barcode" @bind:after="Changed.InvokeAsync" /> Barcode
+                </label>
+                @if (Selected.Barcode && ShowBarcodeOptions)
+                {
+                    <div class="field"><label>Bar width</label>
+                        <select disabled="@ReadOnly" data-selected-module @bind="Selected.ModuleWidth" @bind:after="Changed.InvokeAsync">
+                            @for (var w = 1; w <= 4; w++)
+                            {
+                                <option value="@w">@w @(w == 1 ? "(narrowest)" : w == 4 ? "(widest)" : "")</option>
+                            }
+                        </select>
+                    </div>
+                    <label class="flex" style="gap:.35rem;margin:.5rem 0;">
+                        <input type="checkbox" disabled="@ReadOnly" @bind="Selected.BarcodeText" @bind:after="Changed.InvokeAsync" /> Digits under the barcode
+                    </label>
+                    <p class="muted">About @SpecimenLabelDesignRules.InchesText(BarcodeWidth(Selected)) in wide for a @SpecimenLabelDesignRules.SampleBarcodeLength-character specimen ID.</p>
+                }
+            }
+            @if (Selected.Key == LabelFields.StaticText)
+            {
+                <div class="field"><label>Text</label>
+                    <input disabled="@ReadOnly" @bind="Selected.StaticText" @bind:after="Changed.InvokeAsync" />
+                </div>
+            }
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.75rem;" disabled="@ReadOnly" @onclick="RemoveSelected">Remove</button>
+            <p class="muted" style="margin-top:.5rem;">Arrow keys move it on the label (Shift: 10 dots). Delete removes it.</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<PlacedLabelField> Fields { get; set; } = [];
+    [Parameter] public int WidthDots { get; set; }
+    [Parameter] public int HeightDots { get; set; }
+    [Parameter] public double Scale { get; set; } = 1;
+    [Parameter] public IReadOnlyList<LabelFieldOption> Palette { get; set; } = [];
+    [Parameter] public Func<PlacedLabelField, bool> AllowBarcode { get; set; } = _ => false;
+    // The specimen label designer draws sample data at printed size and offers the barcode's bar width and digits.
+    [Parameter] public bool SampleData { get; set; }
+    [Parameter] public bool ShowBarcodeOptions { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string? Caption { get; set; }
+    [Parameter] public RenderFragment? PaletteFooter { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+
+    private int? _selected;
+    private string? _dragKey;
+    private bool _paletteArmed;
+    private int? _moving;
+    private double _startClientX;
+    private double _startClientY;
+    private int _startX;
+    private int _startY;
+
+    // Elements whose estimated printed boxes overlap another's (the specimen designer only), outlined in red.
+    private HashSet<int> Overlapping => SampleData
+        ? SpecimenLabelDesignRules.Overlaps(Fields).SelectMany(p => new[] { p.A, p.B }).ToHashSet()
+        : [];
+
+    private PlacedLabelField? Selected =>
+        _selected is int i && i >= 0 && i < Fields.Count ? Fields[i] : null;
+
+    private int CanvasWidth => (int)(WidthDots * Scale);
+    private int CanvasHeight => (int)(HeightDots * Scale);
+
+    private string Px(int dots) => (dots * Scale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static int BarcodeWidth(PlacedLabelField field) =>
+        SpecimenLabelDesignRules.EstimateBarcodeWidth(SpecimenLabelDesignRules.SampleBarcodeLength, field.ModuleWidth);
+
+    private static int BarcodeHeight(PlacedLabelField field) =>
+        Math.Max(field.FontHeight, SpecimenLabelDesignRules.MinBarcodeHeight) + (field.BarcodeText ? SpecimenLabelDesignRules.BarcodeTextHeight : 0);
+
+    /// <summary>Clears the selection when the fields are replaced (another page, a reset, a reload).</summary>
+    public void ClearSelection() => _selected = null;
+
+    private void ArmPalette(LabelFieldOption option)
+    {
+        _dragKey = option.Key;
+        _paletteArmed = true;
+    }
+
+    private void DisarmPalette() => _paletteArmed = false;
+
+    private async Task Add(LabelFieldOption option)
+    {
+        if (ReadOnly)
+        {
+            return;
+        }
+
+        Fields.Add(NewField(option, 16, Math.Min(HeightDots - 20, 16 + (Fields.Count * 28))));
+        _selected = Fields.Count - 1;
+        await Changed.InvokeAsync();
+    }
+
+    private async Task Drop(DragEventArgs e)
+    {
+        _paletteArmed = false;
+        if (ReadOnly || _dragKey is null)
+        {
+            return;
+        }
+
+        var option = Palette.FirstOrDefault(o => o.Key == _dragKey) ?? new LabelFieldOption(_dragKey, _dragKey, false);
+        Fields.Add(NewField(option, (int)(e.OffsetX / Scale), (int)(e.OffsetY / Scale)));
+        _selected = Fields.Count - 1;
+        _dragKey = null;
+        await Changed.InvokeAsync();
+    }
+
+    private PlacedLabelField NewField(LabelFieldOption option, int x, int y) => new()
+    {
+        Key = option.Key,
+        X = Math.Clamp(x, 0, Math.Max(0, WidthDots - 8)),
+        Y = Math.Clamp(y, 0, Math.Max(0, HeightDots - 8)),
+        FontHeight = SampleData ? Math.Clamp(HeightDots / 7, 14, 28) : 28,
+        Barcode = option.AllowBarcode && AllowBarcode(new PlacedLabelField { Key = option.Key }) && option.Key is LabelFields.Accession or LabelFields.PtagId,
+        ModuleWidth = WidthDots < 406 ? 1 : 2,
+        StaticText = option.Key == LabelFields.StaticText ? "Text" : null
+    };
+
+    private void BeginMove(int index, PointerEventArgs e)
+    {
+        _selected = index;
+        if (ReadOnly)
+        {
+            return;
+        }
+
+        _moving = index;
+        _startClientX = e.ClientX;
+        _startClientY = e.ClientY;
+        _startX = Fields[index].X;
+        _startY = Fields[index].Y;
+    }
+
+    private void Move(PointerEventArgs e)
+    {
+        if (_moving is not int index || index >= Fields.Count)
+        {
+            return;
+        }
+
+        var field = Fields[index];
+        field.X = Math.Clamp(_startX + (int)((e.ClientX - _startClientX) / Scale), 0, Math.Max(0, WidthDots - 8));
+        field.Y = Math.Clamp(_startY + (int)((e.ClientY - _startClientY) / Scale), 0, Math.Max(0, HeightDots - 8));
+    }
+
+    private async Task EndMove()
+    {
+        if (_moving is null)
+        {
+            return;
+        }
+
+        _moving = null;
+        await Changed.InvokeAsync();
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (ReadOnly || Selected is not { } field)
+        {
+            return;
+        }
+
+        var step = e.ShiftKey ? 10 : 1;
+        switch (e.Key)
+        {
+            case "ArrowLeft": field.X -= step; break;
+            case "ArrowRight": field.X += step; break;
+            case "ArrowUp": field.Y -= step; break;
+            case "ArrowDown": field.Y += step; break;
+            case "Delete":
+                await RemoveSelected();
+                return;
+            default:
+                return;
+        }
+
+        await ClampSelected();
+    }
+
+    private async Task ClampSelected()
+    {
+        if (Selected is { } field)
+        {
+            field.X = Math.Clamp(field.X, 0, Math.Max(0, WidthDots - 8));
+            field.Y = Math.Clamp(field.Y, 0, Math.Max(0, HeightDots - 8));
+            field.FontHeight = Math.Clamp(field.FontHeight, 8, 120);
+        }
+
+        await Changed.InvokeAsync();
+    }
+
+    private async Task RemoveSelected()
+    {
+        if (_selected is int index && index >= 0 && index < Fields.Count)
+        {
+            Fields.RemoveAt(index);
+            _selected = null;
+            await Changed.InvokeAsync();
+        }
+    }
+
+    private static string Preview(PlacedLabelField field) =>
+        field.Key == LabelFields.StaticText && !string.IsNullOrWhiteSpace(field.StaticText)
+            ? field.StaticText!
+            : LabelFields.Caption(field.Key);
+}
+
+<style>
+    .designer { display: grid; grid-template-columns: 180px minmax(0, 1fr) 220px; gap: 1rem; align-items: start; }
+    .designer .canvas-cell { overflow-x: auto; }
+    /* A narrow window stacks the palette, the label, and the settings rather than pushing the settings off the card. */
+    @@media (max-width: 1180px) { .designer { grid-template-columns: minmax(0, 1fr); } }
+    .palette { display: block; width: 100%; text-align: left; margin-bottom: .35rem; }
+    .canvas-wrap { position: relative; background: #fff; border: 1px solid #c5ccd6; overflow: hidden; outline: none; }
+    .canvas-wrap:focus-visible { box-shadow: 0 0 0 3px rgba(29, 78, 137, .35); }
+    .placed { position: absolute; background: rgba(255,255,255,.92); border: 1px dashed #8aa; padding: 0 3px; font-size: 12px; line-height: 1.05; cursor: grab; max-width: 98%; white-space: nowrap; overflow: hidden; }
+    .placed.selected { border: 2px solid #1d4e89; background: #f3f7fb; }
+    .placed.overlap { border: 2px solid var(--bb-stop); }
+    .placed.barcode { display: flex; flex-direction: column; padding: 0; max-width: none; background: #fff; }
+    .placed.barcode .bars { flex: 1; background: repeating-linear-gradient(90deg, #111 0 2px, #fff 2px 3px, #111 3px 4px, #fff 4px 6px); }
+    .placed.barcode .digits { font-size: 10px; text-align: center; }
+    .placing .placed { pointer-events: none; }
+</style>

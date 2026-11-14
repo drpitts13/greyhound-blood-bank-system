@@ -25,6 +25,16 @@ public class Hl7MapperTests
         Assert.Equal(Sex.Female, data.Sex);
     }
 
+    // TEST-BB-610: PID-21 (Mother's Identifier) maps to the mother's MRN; empty stays null.
+    [Fact]
+    public void AdtMapper_ReadsTheMothersIdentifier()
+    {
+        var pid = "PID|1||MRN900^^^HOSP^MR||Rivera^Baby Girl||20260529|F" + new string('|', 13) + "MRN-MOM^^^HOSP^MR";
+        var message = Hl7Parser.Parse("MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|C2|P|2.5\r" + pid);
+        Assert.Equal("MRN-MOM", Hl7AdtMapper.Map(message).MotherMrn);
+        Assert.Null(Hl7AdtMapper.Map(Hl7Parser.Parse("MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|C3|P|2.5\rPID|1||MRN901^^^HOSP^MR||Doe^Jo||19800101|M")).MotherMrn);
+    }
+
     [Theory]
     [InlineData("M", Sex.Male)]
     [InlineData("F", Sex.Female)]
@@ -53,6 +63,23 @@ public class Hl7MapperTests
         Assert.Equal(OrderType.TypeAndScreen, data.OrderType);
         Assert.Equal(OrderPriority.Routine, data.Priority);
         Assert.Null(data.OrderingProviderId);
+        Assert.Null(data.NeededByUtc);
+    }
+
+    // TEST-BB-630: the timing start date/time (TQ1-7) is the order's needed-by time.
+    [Fact]
+    public void OrmMapper_ReadsTheNeededByTime()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|C9|P|2.5\r" +
+            "PID|1||MRN777^^^HOSP^MR||Smith^Jane\r" +
+            "ORC|NW|PLACER-200\r" +
+            "TQ1|1||||||20260530140000\r" +
+            "OBR|1|PLACER-200||TS^Type and Screen");
+
+        var data = Hl7OrmMapper.Map(message);
+
+        Assert.Equal(new DateTime(2026, 5, 30, 14, 0, 0, DateTimeKind.Utc), data.NeededByUtc);
     }
 
     [Theory]
@@ -156,6 +183,22 @@ public class Hl7MapperTests
         Assert.Equal(350m, data.VolumeTransfused);
         Assert.Equal("4W Oncology", data.Location);
         Assert.Equal("Nurse, Pat", data.Transfusionist);
+    }
+
+    // End-user testing pass 62: a stated UTC offset and the seconds were ignored; a time without an offset is UTC (OCD-088).
+    [Fact]
+    public void BpamMapper_TimestampsHonourTheOffsetAndSeconds()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20261113120000||RAS^O17|C4Z|P|2.5\r" +
+            "PID|1||MRN900^^^HOSP^MR||Blood^Pat\r" +
+            "PV1||I|4W Oncology\r" +
+            "RXA|0|1|20261113070015-0500|202611130755|CODE^RBC|350||||12345^Nurse^Pat|||||W0001-00");
+
+        var data = Hl7BpamMapper.Map(message);
+        Assert.Equal(new DateTime(2026, 11, 13, 12, 0, 15, DateTimeKind.Utc), data.StartUtc);
+        Assert.Equal(DateTimeKind.Utc, data.StartUtc!.Value.Kind);
+        Assert.Equal(new DateTime(2026, 11, 13, 7, 55, 0, DateTimeKind.Utc), data.StopUtc);
     }
 
     [Fact]

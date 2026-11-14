@@ -1,7 +1,10 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -17,14 +20,27 @@ public sealed class PatientService
     private const int NameMaxLength = 100;
 
     private readonly IRepository<Patient> _patients;
+    private readonly FacilityPolicyService? _policy;
     private readonly IRepository<PatientIdentifier>? _identifiers;
     private readonly PatientHistoricalAliasWriter? _aliasWriter;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly SpecimenService _specimens;
+    private readonly AlertService? _alerts;
+    private readonly IRepository<Specimen>? _specimenRows;
     private readonly IAuditWriter? _audit;
     private readonly ICurrentUser? _currentUser;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
+    private readonly IRepository<AntibodyHistory>? _antibodies;
+    private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<Encounter>? _encounters;
+
+    private readonly IRepository<PatientDuplicateDismissal>? _dismissals;
+
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
 
     public PatientService(
         IRepository<Patient> patients,
@@ -35,8 +51,28 @@ public sealed class PatientService
         ICurrentUser? currentUser = null,
         IPermissionEvaluator? permissions = null,
         IRepository<PatientIdentifier>? identifiers = null,
-        PatientHistoricalAliasWriter? aliasWriter = null)
+        PatientHistoricalAliasWriter? aliasWriter = null,
+        IRepository<PatientBloodTypeHistory>? bloodTypes = null,
+        IRepository<AntibodyHistory>? antibodies = null,
+        IRepository<SpecialTransfusionRequirement>? requirements = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        IRepository<Encounter>? encounters = null,
+        IRepository<PatientDuplicateDismissal>? dismissals = null,
+        FacilityPolicyService? policy = null,
+        AlertService? alerts = null,
+        IRepository<Specimen>? specimenRows = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
+        _alerts = alerts;
+        _specimenRows = specimenRows;
+        _policy = policy;
+        _dismissals = dismissals;
+        _encounters = encounters;
+        _requirementDefinitions = requirementDefinitions;
+        _bloodTypes = bloodTypes;
+        _antibodies = antibodies;
+        _requirements = requirements;
         _patients = patients;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -63,11 +99,41 @@ public sealed class PatientService
                 .Select(PatientAliasDto.From)
                 .ToList());
 
+        var now = _clock.UtcNow;
+        var currentTypes = _bloodTypes is null
+            ? Array.Empty<PatientBloodTypeHistory>().ToLookup(t => t.PatientId)
+            : (await _bloodTypes.ListAsync(t => t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
+        var antibodies = _antibodies is null
+            ? Array.Empty<AntibodyHistory>().ToLookup(a => a.PatientId)
+            : (await _antibodies.ListAsync(a => a.IsActive, ct)).ToLookup(a => a.PatientId);
+        var requirements = _requirements is null
+            ? Array.Empty<SpecialTransfusionRequirement>().ToLookup(r => r.PatientId)
+            : (await _requirements.ListAsync(r => r.IsActive, ct)).ToLookup(r => r.PatientId);
+        var informational = _requirementDefinitions is null
+            ? null
+            : PatientBloodBankFlags.InformationalIds(await _requirementDefinitions.ListAsync(ct));
+        var openVisits = _encounters is null
+            ? Array.Empty<Encounter>().ToLookup(e => e.PatientId)
+            : (await _encounters.ListAsync(e => e.Status == EncounterStatus.Active && e.DischargeUtc == null, ct)).ToLookup(e => e.PatientId);
+
         return patients
             .OrderBy(p => p.LastName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(p => p.FirstName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
-            .Select(p => PatientDto.From(p, byPatient.GetValueOrDefault(p.Id)))
+            .Select(p => PatientDto.From(p, byPatient.GetValueOrDefault(p.Id)) with
+            {
+                CurrentBloodType = PatientBloodBankFlags.CurrentBloodType(currentTypes[p.Id]),
+                ActiveAntibodies = PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
+                ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now, informational),
+                InformationalNotes = PatientBloodBankFlags.NotesInEffect(requirements[p.Id], now, informational)
+            })
+            .Select(d =>
+            {
+                var (visit, otherOpen) = CurrentVisit.For(openVisits[d.Id]);
+                return visit is null
+                    ? d
+                    : d with { CurrentVisitNumber = visit.VisitNumber, CurrentVisitWhere = CurrentVisit.Where(visit), OtherOpenVisits = otherOpen };
+            })
             .ToList();
     }
 
@@ -92,8 +158,11 @@ public sealed class PatientService
         // Spelled out rather than calling IsHistoricalAlias: the database cannot run a C# method,
         // and the untranslatable query stopped every patient chart from opening.
         var rows = await _identifiers.ListAsync(i => i.PatientId == patientId
+            && i.IsActive
             && (i.IdentifierType == IdentityTokenType.PriorFullName
-                || i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber), ct);
+                || i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber
+                || i.IdentifierType == IdentityTokenType.Other
+                || i.IdentifierType == IdentityTokenType.AccountNumber), ct);
         return rows
             .OrderBy(a => a.IdentifierType)
             .ThenBy(a => a.Value, StringComparer.OrdinalIgnoreCase)
@@ -118,6 +187,402 @@ public sealed class PatientService
             newValue: new { PatientId = patientId },
             reason: "Patient record opened.");
         await _unitOfWork.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Active patients who may be the person being registered (<see cref="PossibleDuplicatePatientRule"/>), so the
+    /// registrar can open the existing chart instead of making a second one. Needs the same permission as registering.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<PatientDto>>> ListPossibleDuplicatesAsync(
+        string? lastName, string? firstName, DateOnly dateOfBirth, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return OperationResult<IReadOnlyList<PatientDto>>.Fail(denied.Error ?? "Not permitted.");
+        }
+
+        var matches = await FindPossibleDuplicatePatientsAsync(lastName, firstName, dateOfBirth, ct);
+        return OperationResult<IReadOnlyList<PatientDto>>.Ok(matches.Select(p => PatientDto.From(p)).ToList());
+    }
+
+    /// <summary>
+    /// Pairs of active charts that may be one person, by the same rule as registration, including patients registered
+    /// by ADT. Each comes with its blood bank flags (type, antibodies, requirements) so staff can judge which chart
+    /// holds the history before merging. Read-only; merging stays on the chart (patient.merge).
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>> ListPossibleDuplicatePairsAsync(CancellationToken ct = default)
+    {
+        if (_permissions is not null)
+        {
+            var auth = PatientAuthorizationRule.EvaluateMerge(
+                await _permissions.HasPermissionAsync(_currentUser?.UserName ?? string.Empty, PermissionCodes.PatientMerge, ct));
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Fail(auth.Message);
+            }
+        }
+
+        return OperationResult<IReadOnlyList<PossibleDuplicatePairDto>>.Ok(await ComputePossibleDuplicatePairsAsync(ct));
+    }
+
+    /// <summary>
+    /// The charts this one may duplicate (same pairs as the report, dismissed pairs left out), each with its blood bank
+    /// flags, so whoever opens the chart sees that the history may be on another one. End-user testing pass 47: an EHR
+    /// registration created a second chart for Riley Demo-Multi, with no blood type, and the chart said nothing.
+    /// </summary>
+    public async Task<IReadOnlyList<PossibleDuplicateOfDto>> PossibleDuplicatesOfAsync(long patientId, CancellationToken ct = default) =>
+        (await ComputePossibleDuplicatePairsAsync(ct))
+            .Where(p => p.First.Id == patientId || p.Second.Id == patientId)
+            .Select(p => new PossibleDuplicateOfDto(p.First.Id == patientId ? p.Second : p.First, p.Reason))
+            .ToList();
+
+    private async Task<IReadOnlyList<PossibleDuplicatePairDto>> ComputePossibleDuplicatePairsAsync(CancellationToken ct)
+    {
+        var active = (await ListDtosAsync(ct)).Where(p => p.Status != PatientStatus.Merged && !p.Unidentified).ToList();
+        var reasons = new Dictionary<(long, long), List<string>>();
+        void AddPair(PatientDto a, PatientDto b, string reason)
+        {
+            var (first, second) = Older(a, b);
+            var key = (first.Id, second.Id);
+            if (!reasons.TryGetValue(key, out var list))
+            {
+                reasons[key] = list = new List<string>();
+            }
+
+            if (!list.Contains(reason))
+            {
+                list.Add(reason);
+            }
+        }
+
+        foreach (var sameBirthday in active.GroupBy(p => p.DateOfBirth))
+        {
+            var group = sameBirthday.ToList();
+            for (var i = 0; i < group.Count; i++)
+            {
+                for (var j = i + 1; j < group.Count; j++)
+                {
+                    if (PossibleDuplicatePatientRule.IsPossibleDuplicate(
+                            group[i].LastName, group[i].FirstName, group[i].DateOfBirth,
+                            group[j].LastName, group[j].FirstName, group[j].DateOfBirth))
+                    {
+                        AddPair(group[i], group[j], PossibleDuplicatePatientRule.SameNameAndBirthday);
+                    }
+                }
+            }
+        }
+
+        // The same identifier from another system (an enterprise id) on two active charts is the same person's id.
+        if (_identifiers is not null)
+        {
+            var byId = active.ToDictionary(p => p.Id);
+            var shared = (await _identifiers.ListAsync(i => i.IsActive && i.IdentifierType == IdentityTokenType.Other, ct))
+                .Where(i => byId.ContainsKey(i.PatientId))
+                .GroupBy(i => i.Value.Trim().ToUpperInvariant());
+            foreach (var group in shared)
+            {
+                var owners = group.Select(i => i.PatientId).Distinct().Select(id => byId[id]).ToList();
+                for (var i = 0; i < owners.Count; i++)
+                {
+                    for (var j = i + 1; j < owners.Count; j++)
+                    {
+                        // The chart that first held it names the authority; a later chart's copy is marked "also on".
+                        var sample = group.OrderBy(i => i.Id).First();
+                        AddPair(owners[i], owners[j], PossibleDuplicatePatientRule.SharedIdentifier(sample.Value, sample.AssigningAuthority));
+                    }
+                }
+            }
+        }
+
+        var byPatientId = active.ToDictionary(p => p.Id);
+        // A pair a reviewer found to be different people stays off while nothing new links them.
+        var dismissed = _dismissals is null
+            ? new Dictionary<(long, long), string>()
+            : (await _dismissals.ListAsync(ct)).ToDictionary(d => (d.FirstPatientId, d.SecondPatientId), d => d.ReviewedReasons);
+        var pairs = reasons
+            .Select(kv => new PossibleDuplicatePairDto(byPatientId[kv.Key.Item1], byPatientId[kv.Key.Item2], string.Join("; ", kv.Value)))
+            .Where(pair => !dismissed.TryGetValue(OrderedKey(pair.First.Id, pair.Second.Id), out var reviewed)
+                || !PossibleDuplicatePatientRule.StillDismissed(pair.Reason, reviewed))
+            .ToList();
+        return pairs.OrderBy(p => p.First.LastName, StringComparer.OrdinalIgnoreCase).ThenBy(p => p.First.MedicalRecordNumber).ToList();
+
+        static (PatientDto First, PatientDto Second) Older(PatientDto a, PatientDto b) =>
+            (a.CreatedUtc, a.Id).CompareTo((b.CreatedUtc, b.Id)) <= 0 ? (a, b) : (b, a);
+    }
+
+    private static (long, long) OrderedKey(long a, long b) => a < b ? (a, b) : (b, a);
+
+    /// <summary>
+    /// Records that a listed pair are different people, with the reason (patient.merge; audited). The pair leaves the
+    /// report until a new reason links the two charts.
+    /// </summary>
+    public async Task<OperationResult<PossibleDuplicatePairDto>> DismissPossibleDuplicateAsync(
+        DismissPossibleDuplicateRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (_dismissals is null)
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail("Duplicate review is not configured.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail("Say why these charts are different people.");
+        }
+
+        var listed = await ListPossibleDuplicatePairsAsync(ct);
+        if (!listed.Succeeded)
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail(listed.Error ?? "Not authorized.");
+        }
+
+        var key = OrderedKey(request.FirstPatientId, request.SecondPatientId);
+        var pair = listed.Value!.FirstOrDefault(p => OrderedKey(p.First.Id, p.Second.Id) == key);
+        if (pair is null)
+        {
+            return OperationResult<PossibleDuplicatePairDto>.Fail("These two charts are not on the Possible duplicates list.");
+        }
+
+        var now = _clock.UtcNow;
+        var user = _currentUser?.UserName ?? "system";
+        var existing = await _dismissals.FirstOrDefaultAsync(d => d.FirstPatientId == key.Item1 && d.SecondPatientId == key.Item2, ct);
+        if (existing is null)
+        {
+            await _dismissals.AddAsync(new PatientDuplicateDismissal
+            {
+                FirstPatientId = key.Item1,
+                SecondPatientId = key.Item2,
+                ReviewedReasons = pair.Reason ?? string.Empty,
+                Reason = request.Reason.Trim(),
+                DismissedBy = user,
+                DismissedUtc = now
+            }, ct);
+        }
+        else
+        {
+            existing.ReviewedReasons = pair.Reason ?? string.Empty;
+            existing.Reason = request.Reason.Trim();
+            existing.DismissedBy = user;
+            existing.DismissedUtc = now;
+            _dismissals.Update(existing);
+        }
+
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            pair.First.Id,
+            newValue: new
+            {
+                NotDuplicateOf = pair.Second.MedicalRecordNumber,
+                pair.First.MedicalRecordNumber,
+                ListedBecause = pair.Reason
+            },
+            reason: $"Not the same person as {pair.Second.MedicalRecordNumber}: {request.Reason.Trim()}");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<PossibleDuplicatePairDto>.Ok(pair);
+    }
+
+    private async Task<List<Patient>> FindPossibleDuplicatePatientsAsync(
+        string? lastName, string? firstName, DateOnly dateOfBirth, CancellationToken ct)
+    {
+        if (dateOfBirth == default)
+        {
+            return [];
+        }
+
+        // Unidentified charts share a placeholder name and an estimated birth date; they are never a name match.
+        var sameBirthday = await _patients.ListAsync(p => p.DateOfBirth == dateOfBirth && p.Status != PatientStatus.Merged && !p.Unidentified, ct);
+        return sameBirthday
+            .Where(p => PossibleDuplicatePatientRule.IsPossibleDuplicate(lastName, firstName, dateOfBirth, p.LastName, p.FirstName, p.DateOfBirth))
+            .OrderBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string DescribeForMatch(Patient p) =>
+        $"MRN {p.MedicalRecordNumber} ({p.LastName}, {p.FirstName}, born {p.DateOfBirth:yyyy-MM-dd})";
+
+    /// <summary>The patient's linked mother and the infants linked to the patient, with current ABO/Rh and active antibodies.</summary>
+    public async Task<PatientFamilyDto?> GetFamilyAsync(long patientId, CancellationToken ct = default)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var mother = patient.MotherPatientId is long motherId ? await _patients.GetByIdAsync(motherId, ct) : null;
+        var infants = (await _patients.ListAsync(p => p.MotherPatientId == patientId && p.Status != PatientStatus.Merged, ct))
+            .OrderBy(p => p.DateOfBirth)
+            .ToList();
+        var ids = infants.Select(i => i.Id).Append(mother?.Id ?? 0).Where(i => i > 0).ToList();
+        var types = _bloodTypes is null
+            ? Array.Empty<PatientBloodTypeHistory>().ToLookup(t => t.PatientId)
+            : (await _bloodTypes.ListAsync(t => ids.Contains(t.PatientId) && t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
+        var antibodies = _antibodies is null
+            ? Array.Empty<AntibodyHistory>().ToLookup(a => a.PatientId)
+            : (await _antibodies.ListAsync(a => ids.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
+        FamilyMemberDto Member(Patient p) => new(
+            p.Id, p.MedicalRecordNumber, $"{p.LastName}, {p.FirstName}", p.DateOfBirth, p.Sex,
+            PatientBloodBankFlags.CurrentBloodType(types[p.Id]),
+            PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
+            types[p.Id].Where(t => t.IsCurrent && t.InvalidatedUtc is null).OrderByDescending(t => t.Id).Select(t => (RhType?)t.RhD).FirstOrDefault());
+
+        return new PatientFamilyDto(mother is null ? null : Member(mother), infants.Select(Member).ToList());
+    }
+
+    /// <summary>Links the infant's chart to the mother's chart by her MRN (<see cref="MotherInfantLinkRule"/>); audited.</summary>
+    public async Task<OperationResult<Patient>> LinkMotherAsync(long infantId, LinkMotherRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateWrite, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var infant = await _patients.GetByIdAsync(infantId, ct);
+        if (infant is null)
+        {
+            return OperationResult<Patient>.Fail($"No patient {infantId}.");
+        }
+
+        var mrn = request.MotherMrn?.Trim() ?? string.Empty;
+        var mother = mrn.Length == 0 ? null : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == mrn, ct);
+        var check = MotherInfantLinkRule.Evaluate(infant.Id, infant.Status, infant.DateOfBirth, mother?.Id, mother?.Status, mother?.DateOfBirth, mother?.MotherPatientId);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(check.Message);
+        }
+
+        if (infant.MotherPatientId == mother!.Id)
+        {
+            return OperationResult<Patient>.Fail($"This chart is already linked to {mother.MedicalRecordNumber}.");
+        }
+
+        var previous = infant.MotherPatientId;
+        infant.MotherPatientId = mother.Id;
+        _patients.Update(infant);
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            infant.Id,
+            oldValue: new { MotherPatientId = previous },
+            newValue: new { MotherPatientId = mother.Id, MotherMrn = mother.MedicalRecordNumber },
+            reason: $"Mother linked: {mother.MedicalRecordNumber}.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Patient>.Ok(infant);
+    }
+
+    /// <summary>Removes the mother link with a reason (linked to the wrong chart); the earlier link stays in the audit trail.</summary>
+    public async Task<OperationResult<Patient>> UnlinkMotherAsync(long infantId, UnlinkMotherRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateWrite, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return OperationResult<Patient>.Fail("Give a reason to remove the mother link.");
+        }
+
+        var infant = await _patients.GetByIdAsync(infantId, ct);
+        if (infant?.MotherPatientId is not long motherId)
+        {
+            return OperationResult<Patient>.Fail("This chart has no mother linked.");
+        }
+
+        infant.MotherPatientId = null;
+        _patients.Update(infant);
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            infant.Id,
+            oldValue: new { MotherPatientId = motherId },
+            newValue: new { MotherPatientId = (long?)null },
+            reason: $"Mother link removed: {request.Reason.Trim()}");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Patient>.Ok(infant);
+    }
+
+    /// <summary>Unidentified patients not yet merged into an identified chart, oldest first.</summary>
+    public async Task<IReadOnlyList<PatientDto>> ListUnidentifiedAsync(CancellationToken ct = default)
+    {
+        var hours = _policy is null
+            ? UnidentifiedPatientRule.DefaultReminderHours
+            : await _policy.GetUnidentifiedReminderHoursAsync(ct);
+        var now = _clock.UtcNow;
+        return (await _patients.ListAsync(p => p.Unidentified && p.Status != PatientStatus.Merged, ct))
+            .OrderBy(p => p.CreatedUtc)
+            .Select(p => PatientDto.From(p) with
+            {
+                UnidentifiedPastReminder = UnidentifiedPatientRule.IsPastReminder(p.CreatedUtc, now, hours)
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Registers an unidentified emergency patient in one step: the temporary MRN and name come from the date and the
+    /// day's next number (UNK-20261108-01, UNIDENTIFIED, TRAUMA 20261108-01), the birth date from the estimated age.
+    /// No duplicate check: the chart is merged into the identified patient's once known.
+    /// </summary>
+    public async Task<OperationResult<Patient>> CreateUnidentifiedAsync(CreateUnidentifiedPatientRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(PatientAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var check = UnidentifiedPatientRule.Evaluate(request.Sex, request.EstimatedAgeYears);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(check.Message);
+        }
+
+        var now = _clock.UtcNow;
+        var prefix = UnidentifiedPatientRule.DayPrefix(now);
+        var taken = (await _patients.ListAsync(p => p.MedicalRecordNumber.StartsWith(prefix), ct))
+            .Select(p => p.MedicalRecordNumber)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var sequence = taken.Count + 1;
+        while (taken.Contains(UnidentifiedPatientRule.Mrn(now, sequence)))
+        {
+            sequence++;
+        }
+
+        var patient = new Patient
+        {
+            MedicalRecordNumber = UnidentifiedPatientRule.Mrn(now, sequence),
+            LastName = UnidentifiedPatientRule.LastName,
+            FirstName = UnidentifiedPatientRule.FirstName(now, sequence),
+            DateOfBirth = UnidentifiedPatientRule.EstimatedBirthDate(DateOnly.FromDateTime(now), request.EstimatedAgeYears!.Value),
+            Sex = request.Sex!.Value,
+            Unidentified = true,
+            Comment = NormalizeComment(string.IsNullOrWhiteSpace(request.Note)
+                ? $"Unidentified; estimated age {request.EstimatedAgeYears} years."
+                : $"Unidentified; estimated age {request.EstimatedAgeYears} years. {request.Note.Trim()}")
+        };
+        await _patients.AddAsync(patient, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit?.Record(
+            AuditEventType.PatientAccess,
+            nameof(Patient),
+            patient.Id,
+            newValue: new { patient.MedicalRecordNumber, patient.LastName, patient.FirstName, patient.DateOfBirth, patient.Sex, request.EstimatedAgeYears, Unidentified = true },
+            reason: $"Unidentified patient registered ({patient.MedicalRecordNumber}, estimated age {request.EstimatedAgeYears}).");
+        if (_audit is not null)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return OperationResult<Patient>.Ok(patient);
     }
 
     public async Task<OperationResult<Patient>> CreateAsync(CreatePatientRequest request, CancellationToken ct = default)
@@ -161,7 +626,7 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail("Date of birth is required.");
         }
 
-        var today = DateOnly.FromDateTime(_clock.UtcNow);
+        var today = FacilityDay.Of(_clock.UtcNow, _facilityTimeZone);
         if (request.DateOfBirth > today)
         {
             return OperationResult<Patient>.Fail("Date of birth cannot be in the future.");
@@ -171,6 +636,17 @@ public sealed class PatientService
         if (duplicate is not null)
         {
             return OperationResult<Patient>.Fail("A patient with this medical record number already exists.");
+        }
+
+        // Another chart for the same person splits the ABO/Rh and antibody history; every possible match must be
+        // confirmed as a different person before a new chart is made.
+        var possible = await FindPossibleDuplicatePatientsAsync(lastName, firstName, request.DateOfBirth, ct);
+        var confirmed = new HashSet<string>(
+            (request.ConfirmedDifferentFromMrns ?? []).Select(m => m.Trim()), StringComparer.OrdinalIgnoreCase);
+        var unconfirmed = possible.Where(p => !confirmed.Contains(p.MedicalRecordNumber)).ToList();
+        if (unconfirmed.Count > 0)
+        {
+            return OperationResult<Patient>.Fail(PossibleDuplicatePatientRule.Message(unconfirmed.Select(DescribeForMatch)));
         }
 
         var patient = new Patient
@@ -197,9 +673,12 @@ public sealed class PatientService
                 patient.FirstName,
                 patient.MiddleName,
                 patient.DateOfBirth,
-                patient.Sex
+                patient.Sex,
+                ConfirmedDifferentFrom = possible.Count == 0 ? null : possible.Select(p => p.MedicalRecordNumber).ToList()
             },
-            reason: "Patient created.");
+            reason: possible.Count == 0
+                ? "Patient created."
+                : $"Patient created; confirmed a different person from possible duplicate(s) {string.Join(", ", possible.Select(p => p.MedicalRecordNumber))}.");
         if (_audit is not null)
         {
             await _unitOfWork.SaveChangesAsync(ct);
@@ -259,7 +738,17 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail("Date of birth is required.");
         }
 
-        var today = DateOnly.FromDateTime(_clock.UtcNow);
+        if (!string.IsNullOrWhiteSpace(request.Race) && !PatientDemographicCodes.IsRace(request.Race))
+        {
+            return OperationResult<Patient>.Fail($"'{request.Race.Trim()}' is not a race on the list.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Ethnicity) && !PatientDemographicCodes.IsEthnicity(request.Ethnicity))
+        {
+            return OperationResult<Patient>.Fail($"'{request.Ethnicity.Trim()}' is not an ethnicity on the list.");
+        }
+
+        var today = FacilityDay.Of(_clock.UtcNow, _facilityTimeZone);
         if (request.DateOfBirth > today)
         {
             return OperationResult<Patient>.Fail("Date of birth cannot be in the future.");
@@ -275,6 +764,14 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail(reasonRule.Message);
         }
 
+        var identityChanges = PatientIdentityChangeRule.Changes(
+            patient.DateOfBirth, request.DateOfBirth, patient.Sex.ToString(), request.Sex.ToString());
+        var identityReason = PatientIdentityChangeRule.EvaluateReason(identityChanges.Count > 0, request.NameChangeReason);
+        if (identityReason.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(identityReason.Message);
+        }
+
         var previous = new
         {
             patient.LastName,
@@ -284,7 +781,9 @@ public sealed class PatientService
             patient.Sex,
             patient.Status,
             patient.RecentPregnancyUtc,
-            patient.Comment
+            patient.Comment,
+            patient.Race,
+            patient.Ethnicity
         };
 
         var pregnancyChanged = patient.RecentPregnancyUtc != request.RecentPregnancyUtc;
@@ -306,6 +805,15 @@ public sealed class PatientService
         patient.Status = request.Status;
         patient.RecentPregnancyUtc = request.RecentPregnancyUtc;
         patient.Comment = NormalizeComment(request.Comment);
+        if (request.Race is not null)
+        {
+            patient.Race = string.IsNullOrWhiteSpace(request.Race) ? null : PatientDemographicCodes.NormalizeRace(request.Race);
+        }
+
+        if (request.Ethnicity is not null)
+        {
+            patient.Ethnicity = string.IsNullOrWhiteSpace(request.Ethnicity) ? null : PatientDemographicCodes.NormalizeEthnicity(request.Ethnicity);
+        }
 
         _patients.Update(patient);
         _audit?.Record(
@@ -323,13 +831,31 @@ public sealed class PatientService
                 patient.Status,
                 patient.RecentPregnancyUtc,
                 patient.Comment,
+                patient.Race,
+                patient.Ethnicity,
                 ArchivedPriorName = archivedName,
-                NameChangeReason = nameChanged ? request.NameChangeReason?.Trim() : null
+                NameChangeReason = nameChanged || identityChanges.Count > 0 ? request.NameChangeReason?.Trim() : null
             },
             reason: nameChanged
                 ? $"Patient name changed: {request.NameChangeReason!.Trim()}"
-                : "Patient demographics updated.");
+                : identityChanges.Count > 0
+                    ? $"Patient {string.Join(" and ", identityChanges)}: {request.NameChangeReason!.Trim()}"
+                    : "Patient demographics updated.");
         await _unitOfWork.SaveChangesAsync(ct);
+
+        if (identityChanges.Count > 0 && _alerts is not null)
+        {
+            var now = _clock.UtcNow;
+            var tubes = _specimenRows is null
+                ? []
+                : (await _specimenRows.ListAsync(s => s.PatientId == patient.Id
+                        && (s.Status == SpecimenStatus.Accepted || s.Status == SpecimenStatus.Received || s.Status == SpecimenStatus.Collected)
+                        && (s.ExpiresUtc == null || s.ExpiresUtc > now), ct))
+                    .OrderBy(s => s.CollectedUtc).Select(s => s.AccessionNumber).ToList();
+            await _alerts.RaiseAsync(PatientIdentityChangeRule.Alert(
+                patient.Id, patient.MedicalRecordNumber, $"{patient.LastName}, {patient.FirstName}", identityChanges, tubes,
+                $"{now:yyyyMMddHHmmss}", _currentUser?.UserName ?? "Someone", request.NameChangeReason), ct);
+        }
 
         if (pregnancyChanged)
         {
@@ -339,9 +865,13 @@ public sealed class PatientService
         return OperationResult<Patient>.Ok(patient);
     }
 
+    // Prior names and MRNs, and identifiers other systems use for the patient (Cycle 520).
     private static bool IsHistoricalAlias(PatientIdentifier identifier) =>
-        identifier.IdentifierType is IdentityTokenType.PriorFullName
-            or IdentityTokenType.PriorMedicalRecordNumber;
+        identifier.IsActive
+        && identifier.IdentifierType is IdentityTokenType.PriorFullName
+            or IdentityTokenType.PriorMedicalRecordNumber
+            or IdentityTokenType.Other
+            or IdentityTokenType.AccountNumber;
 
     private async Task<OperationResult<Patient>?> RejectUnauthorizedAsync(
         Func<bool, RuleResult> evaluate, CancellationToken ct)

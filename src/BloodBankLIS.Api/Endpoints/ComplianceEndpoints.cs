@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -61,6 +62,14 @@ public static class ComplianceEndpoints
 
     private static void MapReactions(WebApplication app)
     {
+        // A reaction noticed after the transfusion can be reported by whoever documents transfusions as well as by
+        // investigators; the service checks either permission, matching who can report a reaction at the bedside.
+        app.MapPost("/api/reaction-investigations/report", async (ReportLateReactionRequest request, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ReportLateAsync(request, ct), r => ReactionInvestigationDto.From(r)))
+            .WithTags("Reactions")
+            .RequireAuthenticatedUser()
+            .RequireAnyPermission(PermissionCodes.TransfusionDocument, PermissionCodes.ReactionInvestigate);
+
         var group = app.MapGroup("/api/reaction-investigations").WithTags("Reactions")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.ReactionInvestigate);
@@ -77,11 +86,33 @@ public static class ComplianceEndpoints
         group.MapPut("/{id:long}", async (long id, UpdateReactionInvestigationRequest request, ReactionInvestigationService service, CancellationToken ct) =>
             EndpointResults.From(await service.UpdateAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
 
+        group.MapPost("/{id:long}/reopen", async (long id, ReopenReactionInvestigationRequest request, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ReopenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
+
         group.MapPost("/{id:long}/cber-notified", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
             EndpointResults.From(await service.RecordCberNotificationAsync(id, ct), r => ReactionInvestigationDto.From(r)));
 
         group.MapPost("/{id:long}/written-report", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
             EndpointResults.From(await service.RecordWrittenReportAsync(id, ct), r => ReactionInvestigationDto.From(r)));
+
+        group.MapGet("/{id:long}/report", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.GetReportAsync(id, ct), r => r));
+
+        group.MapPost("/{id:long}/report/printed", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.RecordReportPrintedAsync(id, ct), r => ReactionInvestigationDto.From(r)));
+
+        // The specimen workup: each specimen gets its Test Group as a reaction workup order, resulted on the bench.
+        group.MapGet("/{id:long}/workup-specimens", async (long id, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListOptionsAsync(id, ct), o => o));
+
+        group.MapPost("/{id:long}/pre-specimen", async (long id, AttachWorkupSpecimenRequest request, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.AttachPreTransfusionSpecimenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
+
+        group.MapPost("/{id:long}/post-specimen", async (long id, AttachWorkupSpecimenRequest request, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.AttachPostTransfusionSpecimenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
+
+        group.MapPost("/{id:long}/post-specimen/accession", async (long id, AccessionPostTransfusionSpecimenRequest request, ReactionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.AccessionPostTransfusionSpecimenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
     }
 
     private static void MapDeviations(WebApplication app)
@@ -90,22 +121,22 @@ public static class ComplianceEndpoints
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.DeviationManage);
 
-        group.MapGet("/", async (DeviationService service, CancellationToken ct) =>
-            Results.Ok((await service.ListAsync(ct)).Select(DeviationDto.From)));
+        group.MapGet("/", async (string? contextType, long? contextId, DeviationService service, CancellationToken ct) =>
+            Results.Ok(await service.ListDtosAsync(contextType, contextId, ct)));
 
         group.MapPost("/", async (CreateDeviationRequest request, DeviationService service, CancellationToken ct) =>
             EndpointResults.Created(await service.CreateAsync(request, ct),
                 d => ($"/api/deviations/{d.Id}", (object)DeviationDto.From(d))));
 
         group.MapPost("/{id:long}/status", async (long id, DeviationStatusBody request, DeviationService service, CancellationToken ct) =>
-            EndpointResults.From(await service.UpdateStatusAsync(id, request.Status, request.CorrectiveAction, ct), DeviationDto.From));
+            EndpointResults.From(await service.UpdateStatusAsync(id, request.Status, request.CorrectiveAction, ct, request.Investigation), DeviationDto.From));
     }
 
     private static void MapShiftHandoffs(WebApplication app)
     {
         var group = app.MapGroup("/api/shift-handoffs").WithTags("ShiftHandoff")
             .RequireAuthenticatedUser()
-            .RequirePermission(PermissionCodes.AuditRead);
+            .RequirePermission(PermissionCodes.ShiftHandoff);
 
         group.MapGet("/", async (ShiftHandoffService service, CancellationToken ct) =>
             Results.Ok(await service.ListRecentAsync(ct: ct)));
@@ -115,6 +146,10 @@ public static class ComplianceEndpoints
             var open = await service.GetLatestOpenAsync(ct);
             return open is null ? Results.NoContent() : Results.Ok(open);
         });
+
+        // What a handoff recorded now would carry; nothing is saved.
+        group.MapGet("/preview", async (ShiftHandoffService service, CancellationToken ct) =>
+            EndpointResults.From(await service.PreviewAsync(ct), d => d));
 
         group.MapPost("/", async (CreateShiftHandoffRequest request, ShiftHandoffService service, CancellationToken ct) =>
             EndpointResults.Created(await service.CreateAsync(request, ct),
@@ -126,6 +161,24 @@ public static class ComplianceEndpoints
 
     private static void MapSupervisorQueue(WebApplication app)
     {
+        app.MapPost("/api/overrides/{id:long}/review", async (long id, ReviewOverrideRequest request, OverrideReviewService service, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await service.ReviewAsync(id, request, ct), d => d))
+            .WithTags("Supervisor")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.OverrideApprove);
+        app.MapGet("/api/overrides/pending-review", async (OverrideReviewService service, CancellationToken ct) =>
+                Results.Ok(await service.ListPendingAsync(ct)))
+            .WithTags("Supervisor")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.OverrideApprove);
+
+        // OCD-083 option B: review a transfusion the EHR reported over a unit's status (the service checks the permission).
+        app.MapPost("/api/transfusions/{id:long}/report-review", async (long id, ReviewTransfusionReportRequest request, TransfusionReportReviewService service, CancellationToken ct) =>
+                EndpointResults.From(await service.ReviewAsync(id, request, ct), d => d))
+            .WithTags("Supervisor")
+            .RequireAuthenticatedUser()
+            .RequireAnyPermission(PermissionCodes.InventoryRelease, PermissionCodes.OverrideApprove);
+
         app.MapGet("/api/supervisor-queue", async (SupervisorQueueService service, CancellationToken ct) =>
                 EndpointResults.From(await service.ListAsync(ct), items => items))
             .WithTags("SupervisorQueue")
@@ -140,9 +193,56 @@ public static class ComplianceEndpoints
             .WithTags("Compliance")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.AuditRead);
+
+        // The paper copy for an outage: the people who issue blood print it before or as the system goes down.
+        app.MapGet("/api/compliance/downtime-patients", async (
+                long? patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                Results.Ok(await service.GetAsync(patientId, ct)))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueCreate);
+        // The patient's antibody card, printed by the bench that identified the antibody (audited).
+        app.MapGet("/api/patients/{patientId:long}/antibody-card", async (
+                long patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                await service.GetAntibodyCardAsync(patientId, ct) is { } card ? Results.Ok(card) : Results.NotFound())
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.ResultEnter);
+        app.MapPost("/api/patients/{patientId:long}/antibody-card/printed", async (
+                long patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                EndpointResults.From(await service.RecordAntibodyCardPrintedAsync(patientId, ct), d => d))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.ResultEnter);
+        app.MapPost("/api/compliance/downtime-patients/printed", async (
+                long? patientId, DowntimePatientSummaryService service, CancellationToken ct) =>
+                Results.Ok(await service.RecordPrintedAsync(patientId, ct)))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueCreate);
+
+        // Recorded outages (Cycle 662): read by anyone who issues; recorded and ended by those who back-enter paper issues.
+        app.MapGet("/api/compliance/downtime-episodes", async (
+                DowntimeEpisodeService service, CancellationToken ct) =>
+                Results.Ok(await service.ListAsync(ct)))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueCreate);
+        app.MapPost("/api/compliance/downtime-episodes", async (
+                RecordDowntimeEpisodeRequest request, DowntimeEpisodeService service, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await service.RecordAsync(request, ct), d => d))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueDowntimeBackEntry);
+        app.MapPost("/api/compliance/downtime-episodes/{id:long}/end", async (
+                long id, EndDowntimeEpisodeRequest request, DowntimeEpisodeService service, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await service.EndAsync(id, request, ct), d => d))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.IssueDowntimeBackEntry);
     }
 }
 
 public sealed record ReasonBody(string Reason);
 
-public sealed record DeviationStatusBody(DeviationStatus Status, string? CorrectiveAction = null);
+public sealed record DeviationStatusBody(DeviationStatus Status, string? CorrectiveAction = null, DeviationInvestigationUpdate? Investigation = null);

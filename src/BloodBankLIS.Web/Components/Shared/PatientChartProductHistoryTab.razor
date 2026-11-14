@@ -1,4 +1,5 @@
 @inject UserSession Session
+@inject BloodBankApiClient Api
 
     <div class="bb-card">
     <div class="bb-card-title"><h3>Product history</h3></div>
@@ -56,6 +57,7 @@
                 @(_showAllColumns ? "Show key columns only" : "Show all details (19 more)")
             </button>
         </div>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Date/time</th><th>Event</th><th>Unit / product</th><th>Unit type</th><th>Location</th><th>Performed by</th><th>Compatibility</th><th>Disposition</th></tr></thead>
                 @foreach (var h in Rows)
@@ -63,7 +65,7 @@
                     @* One record per tbody: the facts, any details, then the row's actions on a line underneath. *@
                     <tbody class="record">
                     <tr class="@HistoryRowClass(h)">
-                        <td class="nowrap">@h.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@h.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td><strong>@h.EventType</strong></td>
                         <td>
                             @if (h.UnitId is long historyUnitId)
@@ -80,7 +82,16 @@
                         <td>@(h.IssuedToLocation ?? "—")</td>
                         <td>@(string.IsNullOrWhiteSpace(h.PerformedBy) ? "—" : h.PerformedBy)</td>
                         <td>@(h.CompatibilityStatus ?? "—")</td>
-                        <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }</td>
+                        <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }@if (h.ReactionInvestigationOpenAtIssueId is long reactionAtIssue)
+                            {
+                                @* Cycle 634: recorded at issue, so a review finds units given while a reaction was being investigated. *@
+                                <span class="badge badge-amber" title="Issued while reaction investigation #@reactionAtIssue was open or under review" data-history-reaction-at-issue>Issued during reaction #@reactionAtIssue</span>
+                            }
+                            @* Cycle 676: how the issue was entered, kept on the issue and in the audit, said on the record. *@
+                            @foreach (var note in h.EntryNotes ?? [])
+                            {
+                                <span class="sub" data-history-entry-note>@note</span>
+                            }</td>
                     </tr>
                     @if (_showAllColumns)
                     {
@@ -88,15 +99,15 @@
                         <tr class="@HistoryRowClass(h)">
                             <td colspan="8" class="bb-facts" style="padding-top:0;">
                                 <ul>
-                                    <li>Issue type: @(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : h.IssueType)</li>
+                                    <li>Issue type: @(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : Ui.CodeNameText(h.IssueType))</li>
                                     <li>Release reason: @(string.IsNullOrWhiteSpace(h.EmergencyReleaseReason) ? "—" : h.EmergencyReleaseReason)</li>
                                     <li>Second verifier: @(string.IsNullOrWhiteSpace(h.SecondVerifier) ? "—" : h.SecondVerifier)</li>
                                     <li>Authorized by: @(string.IsNullOrWhiteSpace(h.EmergencyReleaseAuthorizer) ? "—" : h.EmergencyReleaseAuthorizer)</li>
                                     <li>Appearance: @(string.IsNullOrWhiteSpace(h.IssueAppearance) ? "—" : h.IssueAppearance)</li>
                                     <li>Ward appearance: @(string.IsNullOrWhiteSpace(h.WardAppearance) ? "—" : h.WardAppearance)</li>
                                     <li>P-tag: <span class="mono">@(string.IsNullOrWhiteSpace(h.PtagCode) ? "—" : h.PtagCode)</span></li>
-                                    <li>XM at issue: @(string.IsNullOrWhiteSpace(h.IssueCrossmatchStatus) ? "—" : h.IssueCrossmatchStatus)</li>
-                                    <li>Expires: @(h.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</li>
+                                    <li>Crossmatch at issue: @(string.IsNullOrWhiteSpace(h.IssueCrossmatchStatus) ? "—" : Enum.TryParse<CrossmatchClinicalStatus>(h.IssueCrossmatchStatus, out var xm) ? ReadyToIssueFormCue.CrossmatchStatusLabel(xm) : h.IssueCrossmatchStatus)</li>
+                                    <li>Expires: @(h.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</li>
                                     <li>Visit: <span class="mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</span></li>
                                     <li>Order: <span class="mono">@(h.OrderNumber ?? "—")</span></li>
                                     <li>Specimen: <span class="mono">@(h.AccessionNumber ?? "—")</span></li>
@@ -118,28 +129,51 @@
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(inventoryUnitId)">Open unit</a>
                                 }
+                                @if (CanReportReaction(h) && _reportRow != h)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginReport(h)">Report reaction</button>
+                                }
                                 @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
-                                    @if (h.EventType == PatientProductHistoryEventType.Issued && OnMarkTransfused.HasDelegate && Session.Has(PermissionCodes.TransfusionDocument))
+                                    @if (h.EventType == PatientProductHistoryEventType.Issued && Session.Has(PermissionCodes.TransfusionDocument))
                                     {
-                                        @if (_confirmIssueId == historyIssueId)
-                                        {
-                                            <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => ConfirmTransfusedAsync(historyIssueId)">Confirm transfused</button>
-                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _confirmIssueId = null">Cancel</button>
-                                        }
-                                        else
-                                        {
-                                            <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => _confirmIssueId = historyIssueId">Transfuse</button>
-                                        }
+                                        @* The full bedside form: identifiers, unit scan, verifier, and expiration are all checked there. *@
+                                        <a class="btn btn-secondary btn-sm" href="@($"/issuing?desk=transfuse&issueId={historyIssueId}")">Document transfusion</a>
+                                    }
+                                    @if (h.EventType == PatientProductHistoryEventType.TransfusionStarted
+                                         && (Session.Has(PermissionCodes.TransfusionComplete) || Session.Has(PermissionCodes.TransfusionDocument)))
+                                    {
+                                        <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=transfuse&issueId={historyIssueId}")">Complete transfusion</a>
                                     }
                                 }
                             </div>
+                            @if (_reportRow is not null && _reportRow == h)
+                            {
+                                @* A reaction noticed after the transfusion was documented without one opens the same investigation. *@
+                                <div class="alert alert-warning" style="margin-top:.5rem;" data-scroll-on-show>
+                                    <strong>Report a reaction to this transfusion</strong>
+                                    <div class="form-row" style="margin-top:.5rem;">
+                                        <div class="field"><label>What was seen, and who reported it</label>
+                                            <input @bind="_reportDescription" @bind:event="oninput" placeholder="e.g. Fever 39.2 °C and chills 6 hours after; reported by RN Lee" />
+                                        </div>
+                                        <div class="field"><label>Onset (optional)</label>
+                                            <input type="datetime-local" @bind="_reportOnsetLocal" />
+                                        </div>
+                                    </div>
+                                    <Outcome Value="_reportFb" />
+                                    <div class="flex gap">
+                                        <button type="button" class="btn btn-danger btn-sm" disabled="@(_reporting || string.IsNullOrWhiteSpace(_reportDescription))" @onclick="ReportAsync">Open investigation</button>
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _reportRow = null">Cancel</button>
+                                    </div>
+                                </div>
+                            }
                         </td>
                     </tr>
                     </tbody>
                 }
         </table>
+        </div>
     }
 </div>
 
@@ -147,19 +181,49 @@
     [Parameter] public long PatientId { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public IReadOnlyList<PatientProductHistoryRowDto> Rows { get; set; } = [];
-    [Parameter] public EventCallback<long> OnMarkTransfused { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public Feedback? Feedback { get; set; }
-
-    private long? _confirmIssueId;
 
     // Most reviews need only the key columns; the other 19 are one click away.
     private bool _showAllColumns;
 
-    private async Task ConfirmTransfusedAsync(long issueId)
+    /// <summary>Called after a late reaction report so the chart reloads the history.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    // The transfused row being reported on (its Issued row shares the issue id, so the row itself is tracked).
+    private PatientProductHistoryRowDto? _reportRow;
+    private string? _reportDescription;
+    private DateTime? _reportOnsetLocal;
+    private Feedback? _reportFb;
+    private bool _reporting;
+
+    private bool CanReportReaction(PatientProductHistoryRowDto h) =>
+        !h.ReactionSuspected
+        && h.IssueId is not null
+        && h.EventType is PatientProductHistoryEventType.Transfused or PatientProductHistoryEventType.PartiallyTransfused
+        && (Session.Has(PermissionCodes.TransfusionDocument) || Session.Has(PermissionCodes.ReactionInvestigate));
+
+    private void BeginReport(PatientProductHistoryRowDto row)
     {
-        _confirmIssueId = null;
-        await OnMarkTransfused.InvokeAsync(issueId);
+        _reportRow = row;
+        _reportDescription = null;
+        _reportOnsetLocal = null;
+        _reportFb = null;
+    }
+
+    private async Task ReportAsync()
+    {
+        if (_reportRow?.IssueId is not long issueId) return;
+        _reporting = true;
+        var onset = _reportOnsetLocal is DateTime local ? DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime() : (DateTime?)null;
+        var r = await Api.ReportLateReactionAsync(new ReportLateReactionRequest(issueId, _reportDescription, onset));
+        _reporting = false;
+        _reportFb = r.ToFeedback("Reaction investigation opened. The remainder of the unit is held and the investigation is on Reactions.");
+        if (r.Succeeded)
+        {
+            _reportRow = null;
+            await OnChanged.InvokeAsync();
+        }
     }
 
     private static string HistoryRowClass(PatientProductHistoryRowDto h)

@@ -8,12 +8,27 @@ public sealed record InstrumentConnectionDto(string? IpAddress, int Port, bool I
 
 public sealed record InstrumentFieldMappingDto(string DataItemKey, string AstmPath, bool IsRequired, string? DisplayName = null);
 
-public sealed record InstrumentTestMappingDto(
-    string InstrumentCode,
-    string ApplicationCode,
-    InstrumentMappingKind Kind,
+/// <summary>One instrument translation row; <paramref name="Context"/> limits a value row to one LIS test.</summary>
+public sealed record InstrumentTranslationDto(
+    string DataItemKey,
+    string InstrumentValue,
+    string LocalValue,
     InterfaceTranslationDirection Direction,
-    int SortOrder);
+    int SortOrder,
+    string? Context = null,
+    string? Description = null);
+
+/// <summary>A translation field an instrument can fill, with the local values it may use (empty for any value).</summary>
+public sealed record InstrumentTranslationFieldDto(
+    string Key,
+    string DisplayName,
+    string Description,
+    bool Outbound,
+    bool AllowsContext,
+    IReadOnlyList<InterfaceLocalValueDto> LocalValues);
+
+/// <summary>What an instrument would do with a value, using its saved translations.</summary>
+public sealed record InstrumentTranslationCheckDto(string Input, string Output, bool Translated, string? Context, string? Note);
 
 public sealed record InstrumentRuleDto(
     string Name,
@@ -33,7 +48,7 @@ public sealed record InstrumentInterfaceDto(
     string? InterpretationAnalyteCodes,
     InstrumentConnectionDto Connection,
     IReadOnlyList<InstrumentFieldMappingDto> FieldMappings,
-    IReadOnlyList<InstrumentTestMappingDto> TestMappings,
+    IReadOnlyList<InstrumentTranslationDto> Translations,
     IReadOnlyList<InstrumentRuleDto> Rules);
 
 public sealed record SaveInstrumentInterfaceRequest(
@@ -42,7 +57,7 @@ public sealed record SaveInstrumentInterfaceRequest(
     string? ChangeReason,
     InstrumentConnectionDto Connection,
     IReadOnlyList<InstrumentFieldMappingDto>? FieldMappings,
-    IReadOnlyList<InstrumentTestMappingDto>? TestMappings,
+    IReadOnlyList<InstrumentTranslationDto>? Translations,
     IReadOnlyList<InstrumentRuleDto>? Rules,
     InstrumentInterpretationMatch InterpretationMatch = InstrumentInterpretationMatch.AnalyteEqualsAssay,
     string? InterpretationAnalyteCodes = null);
@@ -76,7 +91,17 @@ public sealed record InstrumentMessageSummaryDto(
     DateTime? ProcessedUtc,
     string? SpecimenId,
     string? PatientId,
-    string? ErrorDetail);
+    string? ErrorDetail,
+    DateTime? ResolvedUtc = null,
+    string? ResolvedBy = null,
+    string? ResolutionNote = null)
+{
+    /// <summary>A failed message nobody has replayed successfully or resolved yet.</summary>
+    public bool OpenFailure => Status == InstrumentMessageStatus.Failed && ResolvedUtc is null;
+
+    /// <summary>An open failure whose result an instrument error code held: review it, then release or re-run.</summary>
+    public bool Held => BloodBankLIS.Domain.Rules.InstrumentMessageFollowUpRule.IsHeld(Status, ResolvedUtc, ErrorDetail);
+}
 
 public sealed record InstrumentParsedFieldDto(string DataItem, string? Value);
 
@@ -101,6 +126,16 @@ public sealed record EchoSimulatorPreviewRequest(
 
 public sealed record EchoSimulatorPreviewDto(string Assay, string RawMessage, IReadOnlyList<string> Records);
 
-public sealed record EchoSimulatorSendRequest(long InterfaceId, EchoSimulatorPreviewRequest Preview);
+/// <summary>
+/// A simulated send. With <paramref name="RawMessage"/> (the previewed message), exactly that message is sent; without
+/// it, a new randomized message is generated (end-user testing, 2026-11-12: Send generated new values, so what posted
+/// differed from the preview the user had just read).
+/// </summary>
+public sealed record EchoSimulatorSendRequest(long InterfaceId, EchoSimulatorPreviewRequest Preview, string? RawMessage = null)
+{
+    /// <summary>The previewed message as ASTM records (one per line in the preview, CR-terminated on the wire).</summary>
+    public static string ToWire(string preview) =>
+        string.Join('\r', preview.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)) + "\r";
+}
 
 public sealed record EchoSimulatorSendResultDto(bool Sent, string? Error, long? MessageLogId, string RawMessage);

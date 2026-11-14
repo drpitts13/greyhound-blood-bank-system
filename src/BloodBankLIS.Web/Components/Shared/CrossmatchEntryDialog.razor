@@ -1,4 +1,4 @@
-@using BloodBankLIS.Domain.Entities.Configuration
+﻿@using BloodBankLIS.Domain.Entities.Configuration
 @inject BloodBankApiClient Api
 
 <div class="bb-dialog-backdrop">
@@ -37,6 +37,7 @@
                 <div class="field">
                     <label>Result</label>
                     <select @bind="_result">
+                        <option value="@CrossmatchResult.NotPerformed">— Select —</option>
                         <option value="@CrossmatchResult.Compatible">Compatible</option>
                         <option value="@CrossmatchResult.Incompatible">Incompatible</option>
                     </select>
@@ -45,6 +46,10 @@
             @if (_definition is not null)
             {
                 <CrossmatchReactionFields Subtests="_definition.PanelSubtests" Values="_reactions" ValuesChanged="OnReactionsChanged" />
+                @if (_interpretationNote is not null)
+                {
+                    <p class="muted" style="margin-top:.35rem;">@_interpretationNote</p>
+                }
             }
         }
         <div class="flex gap" style="margin-top:1rem;">
@@ -64,11 +69,13 @@
     private bool _loading = true;
     private bool _locked;
     private string? _testCode;
-    private CrossmatchResult _result = CrossmatchResult.Compatible;
+    // Starts unchosen: filled in from the reactions or chosen, never assumed Compatible.
+    private CrossmatchResult _result = CrossmatchResult.NotPerformed;
     private Feedback? _feedback;
     private List<CrossmatchTestOptionDto> _tests = [];
     private TestDefinitionForEntryDto? _definition;
     private Dictionary<string, string> _reactions = new(StringComparer.OrdinalIgnoreCase);
+    private string? _interpretationNote;
 
     protected override async Task OnInitializedAsync()
     {
@@ -99,6 +106,7 @@
     {
         _testCode = e.Value?.ToString();
         _reactions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _interpretationNote = null;
         _definition = null;
         await LoadDefinitionAsync();
     }
@@ -106,6 +114,15 @@
     private Task OnReactionsChanged(Dictionary<string, string> values)
     {
         _reactions = values;
+        var suggested = ReactionInterpretationSuggestion.SuggestCrossmatch(_definition?.PanelSubtests ?? [], _reactions);
+        if (suggested is CrossmatchResult result)
+        {
+            _result = result;
+        }
+
+        _interpretationNote = suggested is null
+            ? ReactionInterpretationSuggestion.NoMatchNote
+            : ReactionInterpretationSuggestion.FilledNote;
         return Task.CompletedTask;
     }
 

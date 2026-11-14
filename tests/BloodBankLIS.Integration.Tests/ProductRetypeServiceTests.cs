@@ -111,9 +111,27 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             unitNumber, type.Id, abo, rh, _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(receive.Succeeded, receive.Error);
         return (type.Id, receive.Unit!.Id);
+    }
+
+    // TEST-BB-1007: a scanned ISBT 128 DIN ("=" + 13 characters + 2 flags) is received under its 13-character DIN, so the
+    // issue desk and bedside find it; a scan that is not a DIN is refused (end-user testing, 2026-11-12: it was stored
+    // with the "=" and the flags).
+    [Fact]
+    public async Task Receive_ScannedDin_IsStoredAsTheDin()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("=W00002612345600", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        Assert.Equal("W000026123456", (await context.BloodUnits.FindAsync(unitId))!.UnitNumber);
+
+        var type = await context.ProductTypes.FirstAsync();
+        var refused = await Inventory(context).ReceiveUnitAsync(new ReceiveUnitRequest(
+            "=<E0336V00", type.Id, AboGroup.O, RhType.Positive, _factory.Clock.UtcNow.AddDays(30),
+            Isbt128ProductCode: "E0206", SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
+        Assert.False(refused.Succeeded);
+        Assert.Contains("could not be read as an ISBT 128 DIN", refused.Error);
     }
 
     [Fact]
@@ -342,7 +360,7 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             ProductTypeId: type.Id,
             ReleaseToAvailable: true,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);

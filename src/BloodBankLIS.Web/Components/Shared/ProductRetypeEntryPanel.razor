@@ -1,4 +1,4 @@
-@inject BloodBankApiClient Api
+﻿@inject BloodBankApiClient Api
 @inject UserSession Session
 
 <div class="stack">
@@ -18,8 +18,8 @@
             <h4>ABO retype</h4>
             <p>
                 <strong>@ProductRetypeEntryCopy.Format(Detail.Latest!.InterpretedAbo, Detail.Latest.InterpretedRh)</strong>
-                <span class="@Ui.Badge(Detail.Latest.Status)">@Detail.Latest.Status</span>
-                entered by @Detail.Latest.EnteredBy at @Detail.Latest.EnteredUtc.ToString("yyyy-MM-dd HH:mm")
+                <span class="@Ui.Badge(Detail.Latest.Status)">@Ui.EnumText(Detail.Latest.Status)</span>
+                entered by @Detail.Latest.EnteredBy at @Detail.Latest.EnteredUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                 @if (!string.IsNullOrWhiteSpace(Detail.Latest.VerifiedBy))
                 {
                     <span> · verified by @Detail.Latest.VerifiedBy</span>
@@ -27,6 +27,7 @@
             </p>
             @if (Detail.Latest.CellReactions is { Count: > 0 })
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Cell</th><th>Reaction</th></tr></thead>
                     <tbody>
@@ -39,6 +40,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             else if (!string.IsNullOrWhiteSpace(Detail.Latest.DisplayValue))
             {
@@ -109,8 +111,10 @@
     /// </summary>
     [Parameter] public bool EntryInDialog { get; set; }
 
-    private AboGroup _abo = AboGroup.Unknown;
-    private RhType _rh = RhType.Unknown;
+    // The interpretation and every reading start unchosen: a retype confirms the label only from what was read,
+    // so nothing is taken from the label or assumed negative.
+    private AboGroup? _abo;
+    private RhType? _rh;
     private Dictionary<string, string> _subtests = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _optionalPerformed = new(StringComparer.OrdinalIgnoreCase);
     private bool _busy;
@@ -131,15 +135,16 @@
     private RenderFragment EntryForm => @<div>
         <div class="form-row">
             <div class="field"><label>Interpreted ABO</label>
-                <select @bind="_abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+                <select @bind="_abo"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
             </div>
             @if (Detail.AntiDRequired)
             {
                 <div class="field"><label>Interpreted Rh(D)</label>
-                    <select @bind="_rh">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+                    <select @bind="_rh"><option value="">— Select —</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
                 </div>
             }
         </div>
+        <div class="table-scroll">
         <table class="bb" style="margin-top:.5rem;">
             <thead><tr><th>Subtest</th><th>Reaction</th><th></th></tr></thead>
             <tbody>
@@ -151,10 +156,11 @@
                         <td>@st.Label</td>
                         <td>
                             <select value="@GetSubtest(st.Code)" @onchange="e => SetSubtest(st.Code, e)" disabled="@(!performed)">
-                                @if (optional) { <option value="NT">NT</option> }
+                                @if (optional && !performed) { <option value="NT">NT</option> }
+                                else { <option value="">—</option> }
                                 @foreach (var grade in Detail.GradeChoices)
                                 {
-                                    <option value="@grade">@grade</option>
+                                    <option value="@grade">@Ui.EnumText(grade)</option>
                                 }
                             </select>
                         </td>
@@ -170,6 +176,7 @@
                 }
             </tbody>
         </table>
+        </div>
         <Outcome Value="_fb" />
         <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="SaveAsync">Record retype</button>
     </div>;
@@ -182,14 +189,14 @@
         }
 
         _boundUnitId = Detail.UnitId;
-        _abo = Detail.LabeledAbo;
-        _rh = Detail.LabeledRh;
+        _abo = null;
+        _rh = null;
         _fb = null;
         _entryOpen = false;
         _optionalPerformed.Clear();
         _subtests = Detail.Subtests.ToDictionary(
             s => s.Code,
-            s => s.Required ? (Detail.GradeChoices.FirstOrDefault() ?? "0") : "NT",
+            s => s.Required ? string.Empty : "NT",
             StringComparer.OrdinalIgnoreCase);
     }
 
@@ -213,7 +220,7 @@
             _optionalPerformed.Add(code);
             if (!_subtests.TryGetValue(code, out var current) || current == "NT")
             {
-                _subtests[code] = Detail.GradeChoices.FirstOrDefault() ?? "0";
+                _subtests[code] = string.Empty;
             }
         }
         else
@@ -225,12 +232,28 @@
 
     private async Task SaveAsync()
     {
+        var missing = ReactionInterpretationSuggestion.MissingReadingsMessage(Detail.Subtests
+            .Where(st => (st.Required || IsOptionalPerformed(st.Code)) && string.IsNullOrWhiteSpace(GetSubtest(st.Code)))
+            .Select(st => st.Label)
+            .ToList());
+        if (missing is not null)
+        {
+            _fb = Feedback.Fail(missing);
+            return;
+        }
+
+        if (_abo is null || (Detail.AntiDRequired && _rh is null))
+        {
+            _fb = Feedback.Fail(Detail.AntiDRequired ? "Choose the interpreted ABO and Rh(D)." : "Choose the interpreted ABO.");
+            return;
+        }
+
         _busy = true;
         var payload = _subtests
             .Where(kv => !string.Equals(kv.Value, "NT", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
         var req = new RecordProductRetypeRequest(
-            _abo,
+            _abo.Value,
             Detail.AntiDRequired ? _rh : null,
             payload);
         var r = await Api.RecordUnitRetypeAsync(Detail.UnitId, req);

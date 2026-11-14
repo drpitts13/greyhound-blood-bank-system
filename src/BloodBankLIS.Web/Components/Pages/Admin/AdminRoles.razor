@@ -29,6 +29,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Role</th><th>Description</th><th>Level</th><th>Permissions</th><th></th></tr></thead>
             <tbody>
@@ -49,6 +50,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -72,7 +74,7 @@
             </div>
         </div>
 
-        <div class="field"><label>Change reason (optional)</label><input @bind="_changeReason" /></div>
+        <div class="field"><label>Change reason (required to change permissions or security level)</label><input @bind="_changeReason" /></div>
 
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>

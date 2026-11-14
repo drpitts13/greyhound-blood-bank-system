@@ -13,10 +13,10 @@
             <div class="form-row">
                 <div class="field"><label>Visit number</label><input @bind="NewVisitNumber" @bind:after="() => NewVisitNumberChanged.InvokeAsync(NewVisitNumber)" class="mono" placeholder="VIS-2026-100" /></div>
                 <div class="field"><label>Type</label>
-                    <select @bind="NewVisitType" @bind:after="() => NewVisitTypeChanged.InvokeAsync(NewVisitType)">@foreach (var t in Enum.GetValues<EncounterType>()) { <option value="@t">@t</option> }</select>
+                    <select @bind="NewVisitType" @bind:after="() => NewVisitTypeChanged.InvokeAsync(NewVisitType)">@foreach (var t in Enum.GetValues<EncounterType>()) { <option value="@t">@Ui.EnumText(t)</option> }</select>
                 </div>
                 <div class="field"><label>Status</label>
-                    <select @bind="NewVisitStatus" @bind:after="() => NewVisitStatusChanged.InvokeAsync(NewVisitStatus)">@foreach (var s in Enum.GetValues<EncounterStatus>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="NewVisitStatus" @bind:after="() => NewVisitStatusChanged.InvokeAsync(NewVisitStatus)">@foreach (var s in Enum.GetValues<EncounterStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                 </div>
                 <div class="field"><label>Admit (local)</label><input type="datetime-local" @bind="NewVisitAdmit" @bind:after="() => NewVisitAdmitChanged.InvokeAsync(NewVisitAdmit)" /></div>
                 <div class="field"><label>Current location</label><input @bind="NewVisitLocation" @bind:after="() => NewVisitLocationChanged.InvokeAsync(NewVisitLocation)" /></div>
@@ -39,6 +39,7 @@
     else if (Encounters.Count == 0) { <div class="empty">No visits on record.</div> }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Visit #</th><th>Type</th><th>Admit</th><th>Discharge</th><th>Location</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -46,20 +47,21 @@
                 {
                     <tr class="@(v.Status == EncounterStatus.Active ? "row-active" : "")">
                         <td class="mono">
-                            <a href="@($"/patients/{PatientId}?tab=orders")"><strong>@v.VisitNumber</strong></a>
+                            <a href="@PatientChartUrls.VisitOrders(PatientId, v.Id)" title="This visit's orders"><strong>@v.VisitNumber</strong></a>
                         </td>
-                        <td>@v.EncounterType</td>
-                        <td class="nowrap">@(v.AdmitUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
-                        <td class="nowrap">@(v.DischargeUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td>@Ui.EnumText(v.EncounterType)</td>
+                        <td class="nowrap">@(v.AdmitUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td class="nowrap">@(v.DischargeUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                         <td>@(v.CurrentLocation ?? v.AdmissionLocation ?? "—")</td>
-                        <td><span class="@(v.Status == EncounterStatus.Active ? "badge badge-green" : "badge")">@v.Status</span></td>
+                        <td><span class="@(v.Status == EncounterStatus.Active ? "badge badge-green" : "badge")">@Ui.EnumText(v.Status)</span></td>
                         <td class="right nowrap">
-                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{PatientId}?tab=orders")">Open Orders</a>
+                            <a class="btn btn-ghost btn-sm" href="@PatientChartUrls.VisitOrders(PatientId, v.Id)">Open Orders</a>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 

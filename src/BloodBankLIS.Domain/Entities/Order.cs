@@ -95,6 +95,9 @@ public class Order : BaseEntity
 
     public DateTime OrderedUtc { get; set; }
 
+    /// <summary>When the requester needs it (surgery start, scheduled transfusion); null when not given.</summary>
+    public DateTime? NeededByUtc { get; set; }
+
 
 
     public string? FillerOrderNumber { get; set; }

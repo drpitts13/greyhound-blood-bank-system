@@ -46,6 +46,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr><th>Code</th><th>Name</th><th>Type</th><th>Department</th><th>Range °C</th><th>Last reading</th><th>Units stored</th><th>Status</th><th></th></tr>
@@ -60,7 +61,7 @@
                         <td>@TypeText(d.LocationType)</td>
                         <td>@d.Department</td>
                         <td class="mono">@RangeText(d.StorageTempMinC, d.StorageTempMaxC)</td>
-                        <td>@(t?.LastReadingC is decimal c ? $"{c} °C · {t.LastReadingUtc:yyyy-MM-dd HH:mm}" : "—")</td>
+                        <td>@(t?.LastReadingC is decimal c ? $"{c} °C · {t.LastReadingUtc?.ToLocalTime():yyyy-MM-dd HH:mm}" : "—")</td>
                         <td>@(t?.UnitsStored ?? 0)</td>
                         <td>@if (d.IsActive) { <span>Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
                         <td class="right nowrap">
@@ -84,7 +85,7 @@
                                 }
                                 else
                                 {
-                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SetActiveAsync(d, true)">Activate</button>
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => { _confirmActivate = d; _changeReason = string.Empty; }">Activate</button>
                                 }
                             }
                         </td>
@@ -92,6 +93,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -100,9 +102,22 @@
     <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>Deactivate @_confirm.Code?</h2>
         <p>@_confirm.NameLabel will no longer appear on Storage temperatures or accept readings. Its temperature history stays on the report.</p>
+        <div class="field" style="max-width:32rem;"><label>Reason</label><input @bind="_changeReason" @bind:event="oninput" placeholder="e.g. Fridge retired after failed validation" /></div>
         <div class="flex gap">
-            <button class="btn btn-danger" disabled="@_busy" @onclick="() => SetActiveAsync(_confirm, false)">Deactivate</button>
+            <button class="btn btn-danger" disabled="@(_busy || !HasReason)" @onclick="() => SetActiveAsync(_confirm, false)">Deactivate</button>
             <button class="btn btn-ghost" @onclick="() => _confirm = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_confirmActivate is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        <h2>Activate @_confirmActivate.Code?</h2>
+        <div class="field" style="max-width:32rem;"><label>Reason</label><input @bind="_changeReason" @bind:event="oninput" placeholder="e.g. Fridge back in service after repair and validation" /></div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@(_busy || !HasReason)" @onclick="() => SetActiveAsync(_confirmActivate, true)">Activate</button>
+            <button class="btn btn-ghost" @onclick="() => _confirmActivate = null">Cancel</button>
         </div>
     </div>
 }
@@ -130,8 +145,12 @@
             <div class="field"><label>Max °C</label><input type="number" step="0.1" @bind="_draft.MaxC" placeholder="@(_editing is null ? "Type default" : null)" /></div>
             <div class="field" style="flex:2;"><label>Notes</label><input @bind="_draft.Notes" placeholder="Make, model, serial, asset tag" /></div>
         </div>
+        @if (_editing is not null)
+        {
+            <div class="field" style="max-width:32rem;"><label>Reason for the change</label><input @bind="_changeReason" @bind:event="oninput" placeholder="e.g. Range corrected to the validated 1–6 °C" /></div>
+        }
         <div class="flex gap">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-primary" disabled="@(_busy || (_editing is not null && !HasReason))" @onclick="SaveAsync">Save</button>
             <button class="btn btn-ghost" @onclick="() => { _draft = null; _editing = null; }">Cancel</button>
         </div>
     </div>
@@ -154,6 +173,9 @@
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private InventoryLocationAdminDto? _confirmActivate;
+    private string _changeReason = string.Empty;
+    private bool HasReason => _changeReason.Trim().Length >= StorageLocationChangeReasonRule.MinimumLength;
 
     private IEnumerable<InventoryLocationAdminDto> Filtered => _devices
         .Where(d => _includeInactive || d.IsActive)
@@ -227,7 +249,7 @@
                     e.AllowsIssue, e.AllowsRemoteIssue, e.AllowsElectronicIssue, e.RequiresSecondVerifier, e.IsSatellite,
                     e.AllowsRbc, e.AllowsPlasma, e.AllowsPlatelets, e.AllowsCryo, e.AllowsWholeBlood,
                     _draft.MinC, _draft.MaxC, e.DefaultInTransitHours, _draft.Notes,
-                    ApplyTypeDefaults: false, TimeOutGoverned: e.TimeOutGoverned));
+                    ApplyTypeDefaults: false, TimeOutGoverned: e.TimeOutGoverned, Reason: _changeReason));
             }
             else
             {
@@ -257,9 +279,11 @@
         _busy = true;
         try
         {
-            var r = await Api.SetAdminInventoryLocationActiveAsync(d.Id, active);
+            var r = await Api.SetAdminInventoryLocationActiveAsync(d.Id, active, _changeReason);
             _feedback = r.ToFeedback(active ? $"{d.Code} activated." : $"{d.Code} deactivated.");
             _confirm = null;
+            _confirmActivate = null;
+            if (r.Succeeded) _changeReason = string.Empty;
             if (r.Succeeded) await LoadAsync();
         }
         finally

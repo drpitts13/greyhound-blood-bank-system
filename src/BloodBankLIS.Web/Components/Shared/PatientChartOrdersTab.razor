@@ -32,7 +32,7 @@
                 <p class="form-step">1. Visit</p>
                 <div class="form-row">
                     <div class="field"><label>Visit</label>
-                        <select @bind="NewOrderEncounterId" @bind:after="() => NewOrderEncounterIdChanged.InvokeAsync(NewOrderEncounterId)">
+                        <select @bind="NewOrderEncounterId" @bind:after="OnNewOrderVisitChangedAsync">
                             @foreach (var v in Encounters)
                             {
                                 <option value="@v.Id">@v.VisitNumber</option>
@@ -40,15 +40,33 @@
                         </select>
                     </div>
                     <div class="field"><label>Priority</label>
-                        <select @bind="NewOrderPriority" @bind:after="() => NewOrderPriorityChanged.InvokeAsync(NewOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                        <select @bind="NewOrderPriority" @bind:after="() => NewOrderPriorityChanged.InvokeAsync(NewOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@Ui.EnumText(p)</option> }</select>
+                    </div>
+                    <div class="field"><label>Needed by (optional)</label>
+                        <input type="datetime-local" @bind="NewOrderNeededBy" @bind:after="() => NewOrderNeededByChanged.InvokeAsync(NewOrderNeededBy)" data-order-needed-by />
                     </div>
                     <div class="field"><label>Ordering location</label>
-                        <select @bind="NewOrderLocationId" @bind:after="() => NewOrderLocationIdChanged.InvokeAsync(NewOrderLocationId)">
+                        <select @bind="NewOrderLocationId" @bind:after="() => NewOrderLocationIdChanged.InvokeAsync(NewOrderLocationId)" data-order-location>
+                            @if (NewOrderLocationId <= 0)
+                            {
+                                <option value="0">Choose the ordering location</option>
+                            }
                             @foreach (var l in OrderingLocations)
                             {
                                 <option value="@l.Id">@l.DisplayName (@l.Code)</option>
                             }
                         </select>
+                        @if (OrderVisitDefaults.VisitLocation(NewOrderVisit) is { } visitPlace)
+                        {
+                            @if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is long fromVisit && fromVisit == NewOrderLocationId)
+                            {
+                                <span class="sub" data-order-location-from-visit>From the visit (@visitPlace)</span>
+                            }
+                            else if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is null)
+                            {
+                                <span class="sub" data-order-location-unmatched>The visit says @visitPlace, which is not one ordering location; choose it here.</span>
+                            }
+                        }
                     </div>
                     <div class="field"><label>Ordering provider</label>
                         <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
@@ -60,6 +78,13 @@
                                            ItemValue="@ProviderItemValue"
                                            Clearable="true"
                                            Placeholder="Type to search providers..." />
+                        @if (NewOrderProviderId is null && OrderVisitDefaults.AttendingFor(NewOrderVisit, Providers) is { } attending)
+                        {
+                            <div class="sub" data-attending-suggestion>
+                                Visit attending: @FormatProvider(attending)
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnNewProviderChanged(attending.Id)" title="Use only if this provider ordered it">Use</button>
+                            </div>
+                        }
                     </div>
                 </div>
                 <p class="form-step">2. Order</p>
@@ -99,6 +124,15 @@
                                 <label class="checkbox-item">
                                     <input type="checkbox" checked="@NewOrderProductTypeIds.Contains(pt.Id)" @onchange="e => OnToggleNewOrderProduct.InvokeAsync((pt.Id, e))" />
                                     @pt.ChoiceLabel
+                                    @if (NewOrderProductTypeIds.Contains(pt.Id))
+                                    {
+                                        @* Units of this product (end-user testing, 2026-11-12: one checkbox could order only one unit). *@
+                                        <span class="flex" style="gap:.25rem;align-items:center;margin-left:.5rem;" @onclick:stopPropagation="true">
+                                            <input type="number" min="1" max="@MaxUnitsPerProduct" style="width:4.5rem;" value="@NewOrderProductUnits.GetValueOrDefault(pt.Id, 1)"
+                                                   @onchange="e => SetUnits(pt.Id, e.Value)" data-order-units="@pt.Id" aria-label="Units of @pt.ChoiceLabel" />
+                                            <span class="muted">units</span>
+                                        </span>
+                                    }
                                 </label>
                             }
                         </div>
@@ -131,21 +165,33 @@
                                 {
                                     @foreach (var t in SpecimenTypes)
                                     {
-                                        <option value="@t.Code">@t.Code — @t.Description</option>
+                                        <option value="@t.Code">@t.Code — @t.Description@(SuitsAllSelected(t.Code) ? " ✓ suits the selected tests" : "")</option>
                                     }
                                 }
                             </select>
+                            @if (AcceptedSpecimenTypes.OrderNote(SpecimenTypeOrderHint.Selected(TestDefs, NewOrderTestCodes)) is { } typeNote)
+                            {
+                                <span class="sub" data-order-specimen-note>@typeNote</span>
+                            }
                         </div>
-                        <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
+                        <div class="field"><label>Collected</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
                         @if (AccessionPreviewExpires is { } preview)
                         {
                             <div class="field"><label>Expires (preview)</label>
-                                <input value="@preview.ToString("yyyy-MM-dd HH:mm")" disabled />
+                                <input value="@LocalEntry.FromUtc(preview).ToString("yyyy-MM-dd HH:mm")" disabled />
                             </div>
                         }
                         <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="OrderAcc.ValidityHours" /></div>
-                        <div class="field"><label>Identifier 1 (MRN)</label><input @bind="OrderAcc.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
-                        <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="OrderAcc.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
+                        <div class="field"><label>Patient ID 1 (MRN) on the tube</label>
+                            <input @bind="OrderAcc.Identifier1Value" @bind:event="oninput" placeholder="Scan or type from the tube label" autocomplete="off" />
+                            <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@OrderAcc.Identifier1Value" Patient="Patient" />
+                        </div>
+                        <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd) on the tube</label>
+                            <input @bind="OrderAcc.Identifier2Value" @bind:event="oninput" placeholder="From the tube label" autocomplete="off" />
+                            <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@OrderAcc.Identifier2Value" Patient="Patient" />
+                        </div>
+                        <div class="field"><label>Collected by</label><input @bind="OrderAcc.Collector" placeholder="Who drew the specimen" /></div>
+                        <div class="field"><label>Draw location</label><input @bind="OrderAcc.DrawLocation" placeholder="Ward or unit" /></div>
                     </div>
                     <div class="field">
                         <label>Specimen comment</label>
@@ -226,16 +272,38 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Date/time / visit</th><th>Type / source</th><th>Order</th><th>Priority</th><th>Location / provider</th><th>Specimen</th><th>Status / result</th><th>Comment</th></tr></thead>
+            <thead><tr><th>Date/time / visit</th><th>Order</th><th>Priority</th><th>Location / provider</th><th>Specimen</th><th>Status / result</th><th>Comment</th></tr></thead>
                 @foreach (var o in Orders)
                 {
                     @* One record per tbody: the facts, the row's actions on a line underneath, then any open form. *@
                     <tbody class="record">
                     <tr class="@OrderRowClass(o)">
-                        <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span></td>
-                        <td>@o.OrderCategory<span class="sub">@o.Source</span></td>
+                        <td class="nowrap">@o.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span>
+                            @if (o.NeededByUtc is DateTime orderNeededBy)
+                            {
+                                @* Worded and coloured as on the worklists: red once passed, amber inside the facility's warning window. *@
+                                <span class="@(o.NeededByPassed ? "badge badge-red" : o.NeededBySoon ? "badge badge-amber" : "sub")" data-order-needed-by-shown>needed by @orderNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(o.NeededByPassed ? " (passed)" : o.NeededInMinutes is int orderIn ? $" (in {orderIn} min)" : "")</span>
+                            }
+                            @if (o.IsActive && Session.Has(PermissionCodes.PatientWrite))
+                            {
+                                @if (_neededByEditId == o.Id)
+                                {
+                                    <span class="flex gap" style="display:inline-flex;align-items:center;">
+                                        <input type="datetime-local" @bind="_neededByEdit" data-order-needed-by-edit />
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => SaveNeededByAsync(o)">Save</button>
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _neededByEditId = null">Cancel</button>
+                                    </span>
+                                    <Outcome Value="_neededByFb" />
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginNeededBy(o)" data-order-needed-by-change>@(o.NeededByUtc is null ? "Set needed by" : "Change")</button>
+                                }
+                            }
+                        </td>
                         <td>
-                            <div class="muted mono" style="margin-bottom:.15rem;">@o.OrderNumber</div>
+                            @* Order number, then what kind of order and where it came from (a column of its own made the chart too wide). *@
+                            <div class="muted" style="margin-bottom:.15rem;"><span class="mono">@o.OrderNumber</span> · @o.OrderCategory · @o.Source</div>
                             @foreach (var line in o.Lines)
                             {
                                 <div>@line.LineName <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
@@ -244,7 +312,7 @@
                             {
                                 <div class="muted">
                                     Action: @action.ActionName
-                                    <span class="@Ui.Badge(action.Status)">@action.Status</span>
+                                    <span class="@Ui.Badge(action.Status)">@Ui.EnumText(action.Status)</span>
                                     @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive && action.Status == OrderActionStatus.Pending)
                                     {
                                         <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnRemoveAction.InvokeAsync((o.Id, action.Id))">Remove</button>
@@ -262,7 +330,7 @@
                                 </div>
                             }
                         </td>
-                        <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@o.Priority</span> } else { @o.Priority }</td>
+                        <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@Ui.EnumText(o.Priority)</span> } else { @o.Priority }</td>
                         <td>@o.OrderingLocationName<span class="sub">@(o.OrderingProvider ?? "—")</span></td>
                         <td class="mono">
                             @(o.AccessionNumber ?? "—")
@@ -274,12 +342,12 @@
                             }
                         </td>
                         <td>
-                            <span class="@Ui.Badge(o.Status)">@o.Status</span>
+                            <span class="@Ui.Badge(o.Status)">@Ui.EnumText(o.Status)</span>
                             @if (o.Status == OrderStatus.Cancelled && !string.IsNullOrWhiteSpace(o.CancellationReason))
                             {
                                 <div class="muted">@(string.IsNullOrWhiteSpace(o.CancellationReasonCode) ? o.CancellationReason : $"{o.CancellationReasonCode} — {o.CancellationReason}")</div>
                             }
-                            <span class="sub">@(o.CurrentResultValue ?? o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")</span>
+                            <span class="sub">@(o.CurrentResultValue is not null ? ResultValueText.For(o.CurrentResultValue) : o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")</span>
                             @if (o.HasPostedInterfaceOrInstrumentValue)
                             {
                                 <span class="badge badge-amber">@(o.CurrentResultSource)</span>
@@ -288,8 +356,9 @@
                         <td>@(string.IsNullOrWhiteSpace(o.Comment) ? "—" : o.Comment)</td>
                     </tr>
                     <tr class="row-actions @OrderRowClass(o)">
-                        <td colspan="8">
+                        <td colspan="7">
                             <div class="row-actions-bar">
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ToggleOrderHistory(o.Id)" data-order-history-toggle>@(_orderHistoryId == o.Id ? "Hide history" : "History")</button>
                                 @if (CanVerifyPostedOrderResult(o))
                                 {
                                     <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnVerify.InvokeAsync(o)">Verify</button>
@@ -310,10 +379,16 @@
                             </div>
                         </td>
                     </tr>
+                    @if (_orderHistoryId == o.Id && Patient is not null)
+                    {
+                        <tr><td colspan="7">
+                            <OrderTimelinePanel PatientId="Patient.Id" OrderId="o.Id" OrderNumber="@o.OrderNumber" OnClose="() => _orderHistoryId = null" />
+                        </td></tr>
+                    }
                     @if (LinkingOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Link specimen to order <span class="mono">@o.OrderNumber</span>. Tests on this order will appear on the worklist for the selected specimen.</p>
                                     <div class="flex gap" style="align-items:end;">
@@ -323,7 +398,7 @@
                                                 <option value="0">— Select —</option>
                                                 @foreach (var s in SpecimensFor(o))
                                                 {
-                                                    <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm"))</option>
+                                                    <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))</option>
                                                 }
                                             </select>
                                         </div>
@@ -338,8 +413,16 @@
                                         <p class="muted" style="margin:.5rem 0 0;">
                                             @(o.Lines.Any(l => l.LineCategory == OrderCategory.Product)
                                                 ? "No active specimens with a completed type and screen are available."
-                                                : "No accepted, non-expired specimens are available. Accession a specimen first.")
+                                                : TubeOnItsWay is null ? "No accepted, non-expired specimens are available. Accession a specimen first." : "No accepted, non-expired specimens are available.")
                                         </p>
+                                        @if (TubeOnItsWay is { } tube)
+                                        {
+                                            @* A tube already drawn or received: link it once accepted, rather than drawing again (Cycle 652). *@
+                                            <p class="muted" style="margin:.25rem 0 0;" data-link-tube-awaiting>
+                                                @CurrentSpecimenBanner.OnItsWayText(tube, t => t.ToLocalTime()) @(o.Lines.Any(l => l.LineCategory == OrderCategory.Product) ? "Then complete its type and screen and link it here." : "Then link it here.")
+                                                <a href="@BloodOrderPreparationRule.ReceiveTubeHref">Pending specimens</a>
+                                            </p>
+                                        }
                                     }
                                 </div>
                             </td>
@@ -348,7 +431,7 @@
                     @if (AllocatingOrderId == o.Id && Session.Has(PermissionCodes.CompatibilityAllocate))
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Allocate a compatible unit to order <span class="mono">@o.OrderNumber</span>.</p>
                                     <div class="flex gap" style="align-items:end;flex-wrap:wrap;">
@@ -371,7 +454,7 @@
                     @if (AddingActionOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Eligible modifications for the allocated unit on order <span class="mono">@o.OrderNumber</span>.</p>
                                     @if (EligibleModifications.Count == 0)
@@ -401,7 +484,7 @@
                     @if (EditingOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Editing order <span class="mono">@o.OrderNumber</span></p>
                                     <div class="form-row">
@@ -414,7 +497,7 @@
                                             </select>
                                         </div>
                                         <div class="field"><label>Priority</label>
-                                            <select @bind="EditOrderPriority" @bind:after="() => EditOrderPriorityChanged.InvokeAsync(EditOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                                            <select @bind="EditOrderPriority" @bind:after="() => EditOrderPriorityChanged.InvokeAsync(EditOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@Ui.EnumText(p)</option> }</select>
                                         </div>
                                         <div class="field"><label>Ordering location</label>
                                             <select @bind="EditOrderLocationId" @bind:after="() => EditOrderLocationIdChanged.InvokeAsync(EditOrderLocationId)">
@@ -489,7 +572,7 @@
                                             else
                                             {
                                                 <div class="form-row">
-                                                    <div class="field"><label>Authorized by</label><input @bind="EditAuthorizedBy" @bind:after="() => EditAuthorizedByChanged.InvokeAsync(EditAuthorizedBy)" placeholder="@Session.UserName" /></div>
+                                                    <AuthorizerField Value="@EditAuthorizedBy" ValueChanged="v => { EditAuthorizedBy = v; return EditAuthorizedByChanged.InvokeAsync(v); }" />
                                                     <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="EditOverrideReason" @bind:after="() => EditOverrideReasonChanged.InvokeAsync(EditOverrideReason)" /></div>
                                                 </div>
                                             }
@@ -511,6 +594,9 @@
 </div>
 
 @code {
+    // The chart patient, for the live match hint under the tube-label identifiers.
+    [Parameter] public PatientDto? Patient { get; set; }
+
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public bool ShowAddOrder { get; set; }
@@ -523,6 +609,12 @@
     [Parameter] public IReadOnlyList<ProductTypeDto> ProductTypes { get; set; } = [];
     [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
     [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
+    // Every specimen on the chart, to name a tube drawn or received and not yet accepted when none can be linked.
+    [Parameter] public IEnumerable<SpecimenDto> AllSpecimens { get; set; } = [];
+
+    private CurrentSpecimenBanner.Fact? TubeOnItsWay => CurrentSpecimenBanner.TubeOnItsWay(
+        AllSpecimens.Where(s => s.DiscardedUtc is null).Select(s => new CurrentSpecimenBanner.Fact(s.AccessionNumber, s.Status, s.CollectedUtc, s.ExpiresUtc)),
+        DateTime.UtcNow);
     [Parameter] public IReadOnlyList<PatientAllocationRowDto> Allocations { get; set; } = [];
     [Parameter] public IReadOnlyList<CompatibleUnitDto> CompatibleUnits { get; set; } = [];
     [Parameter] public long? AllocatingOrderId { get; set; }
@@ -534,6 +626,17 @@
     [Parameter] public HashSet<string> NewOrderTestCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<string> NewOrderGrouperCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<long> NewOrderProductTypeIds { get; set; } = [];
+
+    /// <summary>Units wanted for each checked product (1 when not set); the parent builds that many product lines.</summary>
+    [Parameter] public Dictionary<long, int> NewOrderProductUnits { get; set; } = [];
+
+    public const int MaxUnitsPerProduct = 20;
+
+    private void SetUnits(long productTypeId, object? value)
+    {
+        var units = int.TryParse(value?.ToString(), out var n) ? Math.Clamp(n, 1, MaxUnitsPerProduct) : 1;
+        NewOrderProductUnits[productTypeId] = units;
+    }
     [Parameter] public HashSet<string> EditOrderTestCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<string> EditOrderGrouperCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<long> EditOrderProductTypeIds { get; set; } = [];
@@ -543,6 +646,63 @@
     [Parameter] public long NewOrderEncounterId { get; set; }
     [Parameter] public EventCallback<long> NewOrderEncounterIdChanged { get; set; }
     [Parameter] public OrderPriority NewOrderPriority { get; set; } = OrderPriority.Routine;
+    [Parameter] public DateTime? NewOrderNeededBy { get; set; }
+    // A needed-by change saved here: the chart reloads the orders.
+    [Parameter] public EventCallback OnNeededByChanged { get; set; }
+    [Inject] private BloodBankApiClient NeededByApi { get; set; } = default!;
+    private long? _neededByEditId;
+    // The order whose history is open under its row (one at a time).
+    private long? _orderHistoryId;
+
+    /// <summary>
+    /// An order number whose history opens once its order is loaded (the find box, Blood orders to prepare). Applied
+    /// once per number, so closing the history keeps it closed.
+    /// </summary>
+    [Parameter] public string? OpenHistoryOrderNumber { get; set; }
+    private string? _appliedHistoryOrderNumber;
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(OpenHistoryOrderNumber)
+            || string.Equals(OpenHistoryOrderNumber, _appliedHistoryOrderNumber, StringComparison.OrdinalIgnoreCase)
+            || Loading || Orders.Count == 0)
+        {
+            return;
+        }
+
+        _appliedHistoryOrderNumber = OpenHistoryOrderNumber;
+        if (OrderHistoryLinkRule.HistoryToOpen(Orders.Select(o => (o.Id, o.OrderNumber)), OpenHistoryOrderNumber) is long id)
+        {
+            _orderHistoryId = id;
+        }
+    }
+
+    private void ToggleOrderHistory(long orderId) => _orderHistoryId = _orderHistoryId == orderId ? null : orderId;
+    private DateTime? _neededByEdit;
+    private Feedback? _neededByFb;
+
+    private void BeginNeededBy(PatientOrderDto order)
+    {
+        _neededByEditId = order.Id;
+        _neededByEdit = order.NeededByUtc?.ToLocalTime();
+        _neededByFb = null;
+    }
+
+    // Entered in local time; an empty field clears the time.
+    private async Task SaveNeededByAsync(PatientOrderDto order)
+    {
+        var utc = _neededByEdit is DateTime local ? DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime() : (DateTime?)null;
+        var r = await NeededByApi.SetOrderNeededByAsync(order.PatientId, order.Id, new SetOrderNeededByRequest(utc));
+        if (r.Succeeded)
+        {
+            _neededByEditId = null;
+            await OnNeededByChanged.InvokeAsync();
+            return;
+        }
+
+        _neededByFb = r.ToFeedback();
+    }
+    [Parameter] public EventCallback<DateTime?> NewOrderNeededByChanged { get; set; }
     [Parameter] public EventCallback<OrderPriority> NewOrderPriorityChanged { get; set; }
     [Parameter] public long NewOrderLocationId { get; set; }
     [Parameter] public EventCallback<long> NewOrderLocationIdChanged { get; set; }
@@ -613,6 +773,19 @@
     [Parameter] public EventCallback OnSaveEdit { get; set; }
     [Parameter] public EventCallback OnAccessionNowAfter { get; set; }
 
+    private EncounterDto? NewOrderVisit => Encounters.FirstOrDefault(v => v.Id == NewOrderEncounterId);
+
+    // A different visit brings its own ordering location when it names exactly one.
+    private async Task OnNewOrderVisitChangedAsync()
+    {
+        await NewOrderEncounterIdChanged.InvokeAsync(NewOrderEncounterId);
+        if (OrderVisitDefaults.LocationFor(NewOrderVisit, OrderingLocations) is long location && location != NewOrderLocationId)
+        {
+            NewOrderLocationId = location;
+            await NewOrderLocationIdChanged.InvokeAsync(location);
+        }
+    }
+
     private async Task OnNewProviderChanged(long? value)
     {
         NewOrderProviderId = value;
@@ -681,13 +854,19 @@
     }
 
     private DateTime? AccessionPreviewExpires =>
-        SpecimenTypeOrderHint.PreviewExpiresUtc(OrderAcc.CollectedLocal, OrderAcc.SpecimenType, SpecimenTypes);
+        SpecimenTypeOrderHint.PreviewExpiresUtc(LocalEntry.ToUtc(OrderAcc.CollectedLocal), OrderAcc.SpecimenType, SpecimenTypes);
 
     private string? AccessionMismatch =>
         SpecimenTypeOrderHint.MismatchWarning(TestDefs, NewOrderTestCodes, OrderAcc.SpecimenType);
 
     private string? LinkExistingMismatch =>
         SpecimenTypeOrderHint.MismatchWarning(TestDefs, NewOrderTestCodes, SelectedOrLatestSpecimenType);
+
+    private bool SuitsAllSelected(string code)
+    {
+        var (types, restricted) = AcceptedSpecimenTypes.Common(SpecimenTypeOrderHint.Selected(TestDefs, NewOrderTestCodes));
+        return restricted && types.Contains(code.ToUpperInvariant());
+    }
 
     private string? SelectedOrLatestSpecimenType
     {

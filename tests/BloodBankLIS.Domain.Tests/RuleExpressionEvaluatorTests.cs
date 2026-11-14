@@ -146,4 +146,17 @@ public class RuleExpressionEvaluatorTests
     {
         Assert.True(Eval("order.hasTest('TS')"));
     }
+
+    // TEST-BB-1001: a value that is not a number never matches a comparison with a number (it had been compared as text,
+    // so "2+" was between 1 and 20); text compared with text still orders as text.
+    [Fact]
+    public void NonNumericText_DoesNotCompareWithANumber()
+    {
+        var facts = Facts().Set("x", "2+");
+        Assert.False(Eval("x >= 1", facts));
+        Assert.False(Eval("x < 20", facts));
+        Assert.True(Eval("Facts.x = '2+'".Replace("Facts.", ""), facts));
+        Assert.True(Eval("x >= 1", Facts().Set("x", "15")));
+        Assert.True(Eval("patient.abo < 'B'"));
+    }
 }

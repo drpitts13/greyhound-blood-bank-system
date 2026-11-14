@@ -119,6 +119,14 @@ public sealed class ExpiredSpecimenOrderService
                 continue;
             }
 
+            // A transfusion reaction workup is ordered on the retained pre-transfusion tube, often past its crossmatch
+            // expiry, on purpose. End-user testing pass 38: the sweep cancelled RXN-1-PRE 30 seconds after it was ordered,
+            // so the workup could never be resulted. It stays open; the investigation decides when it is done.
+            if (ExpiredSpecimenOrderDisposition.KeepsExpiredSpecimen(order.OrderType))
+            {
+                continue;
+            }
+
             var lines = await _orderLines.ListAsync(l => l.OrderId == order.Id, ct);
             var requiresCrossmatch = await ProductRequiresCrossmatchAsync(lines, ct);
             var pendingCrossmatch = ExpiredSpecimenOrderDisposition.IsPendingCrossmatchOrder(

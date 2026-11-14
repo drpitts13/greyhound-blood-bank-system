@@ -1,4 +1,4 @@
-# Starts the Greyhound Blood Bank LIS API and Web UI, then opens the browser.
+# Starts the HemoCore API and Web UI, then opens the browser.
 # The API stays in the background only while the UI is running; closing the
 # browser, choosing Exit, or closing this window stops both processes.
 $ErrorActionPreference = "Stop"
@@ -200,7 +200,7 @@ function Add-ProcessToJob {
     }
 }
 
-Write-Host "Starting Greyhound Blood Bank LIS..."
+Write-Host "Starting HemoCore..."
 Write-Host "  Logs: $logDir"
 
 # Clear prior redirected logs so crash detection is for this run only.
@@ -261,7 +261,7 @@ try {
             }
 
             Start-Process $webUrl
-            Write-Host "Greyhound Blood Bank LIS is running at $webUrl" -ForegroundColor Green
+            Write-Host "HemoCore is running at $webUrl" -ForegroundColor Green
             Write-Host "Close the browser, choose Exit, or close this window to stop the API." -ForegroundColor DarkGray
 
             if (-not $webProc.HasExited) {

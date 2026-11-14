@@ -1,9 +1,9 @@
-@page "/issuing"
+﻿@page "/issuing"
 @using Microsoft.AspNetCore.Components
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Issue &amp; Transfuse &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Issue &amp; Transfuse &middot; HemoCore</PageTitle>
 
 <h1>Issue &amp; Transfuse</h1>
 @if (QueryPatientId is long chartPatientId)
@@ -44,21 +44,144 @@
         <button type="button" class="btn btn-sm @DeskClass("issue")" @onclick='() => SelectDesk("issue")'>Issue</button>
         <button type="button" class="btn btn-sm @DeskClass("receipt")" @onclick='() => SelectDesk("receipt")'>Ward receipt</button>
         <button type="button" class="btn btn-sm @DeskClass("return")" @onclick='() => SelectDesk("return")'>Return</button>
-        <button type="button" class="btn btn-sm @DeskClass("transfuse")" @onclick='() => SelectDesk("transfuse")'>Document transfusion</button>
+        <button type="button" class="btn btn-sm @DeskClass("transfuse")" @onclick='() => SelectDesk("transfuse")'>Transfusion</button>
     </div>
 </div>
+
+@if (_activeMtp.Count > 0)
+{
+    @* Every active massive transfusion protocol stays in view on every desk until someone closes it. *@
+    <div class="alert alert-danger" role="status" style="margin-top:.75rem;">
+        <strong>Massive transfusion protocol active</strong>
+        <Outcome Value="_mtpBoardFb" />
+        @foreach (var mtp in _activeMtp)
+        {
+            <div style="margin-top:.5rem;">
+                <strong>@mtp.PatientName</strong> @(mtp.MedicalRecordNumber is null ? "" : $"({mtp.MedicalRecordNumber})")
+                &middot; MTP #@mtp.Id, @mtp.MinutesActive min &middot; called by @mtp.RequestedBy &middot; @mtp.Reason
+                @if (!string.IsNullOrWhiteSpace(mtp.IdleNotice))
+                {
+                    <div data-mtp-idle><span class="badge badge-amber">Still open</span> @mtp.IdleNotice</div>
+                }
+                <div class="muted">
+                    @if (mtp.Counts.Count == 0)
+                    {
+                        <span>No units issued yet.</span>
+                    }
+                    else
+                    {
+                        @string.Join(" · ", mtp.Counts.Select(c => $"{ComponentLabel(c.ComponentClass)} {c.Issued} issued" + (c.Returned > 0 ? $", {c.Returned} returned" : "") + (c.Transfused > 0 ? $", {c.Transfused} transfused" : "")))
+                    }
+                </div>
+                @if (mtp.Pack is { } pack)
+                {
+                    @* Guidance only: the pack never blocks or adds a unit. *@
+                    <div>
+                        Pack <span class="mono">@pack.Code</span>: round @pack.CurrentRound
+                        @(pack.CompletedRounds > 0 ? $"({pack.CompletedRounds} complete)" : "")
+                        &middot; @string.Join(" · ", pack.Components.Select(c => $"{ComponentLabel(c.ComponentClass)} {c.InCurrentRound}/{c.PerRound}"))
+                    </div>
+                }
+                @if (_mtpPackRecords.TryGetValue(mtp.Id, out var packed) && packed.Count > 0)
+                {
+                    <div>
+                        Packs sent:
+                        @foreach (var pr in packed)
+                        {
+                            <a class="btn btn-ghost btn-sm" href="@($"/mtp/pack-records/{pr.Id}")">
+                                Pack @pr.PackNumber · @pr.ContainerName@(pr.ContainerLabel is null ? "" : $" {pr.ContainerLabel}") · @pr.UnitCount unit@(pr.UnitCount == 1 ? "" : "s") · @pr.TemperatureC.ToString("0.0") °C@(pr.TemperatureOutsideRange ? " (out of range)" : "")
+                            </a>
+                        }
+                    </div>
+                }
+                @if (_packingMtpId == mtp.Id)
+                {
+                    var unpacked = mtp.Units.Where(u => u.IssueStatus == IssueStatus.Issued && u.PackRecordId is null).ToList();
+                    <div class="bb-card" style="margin-top:.5rem;">
+                        <strong>Record a pack for MTP #@mtp.Id</strong>
+                        @if (_containers.Count == 0)
+                        {
+                            <p class="muted">No transport containers are set up. An administrator adds them under Admin › Transport Containers.</p>
+                        }
+                        else
+                        {
+                            <div class="form-row" style="margin-top:.5rem;">
+                                <div class="field"><label>Container</label>
+                                    <select @bind="_packContainerId">
+                                        <option value="">Choose…</option>
+                                        @foreach (var tc in _containers)
+                                        {
+                                            <option value="@tc.Id">@tc.Name (@tc.RangeText)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="field"><label>Which one (optional)</label><input @bind="_packContainerLabel" placeholder="e.g. Cooler 3" /></div>
+                                <div class="field"><label>Temperature °C</label><input type="number" step="0.1" @bind="_packTemperature" placeholder="Read it now" /></div>
+                                <div class="field" style="flex:2;"><label>Comment</label><input @bind="_packComment" placeholder="Optional" /></div>
+                            </div>
+                            @if (unpacked.Count == 0)
+                            {
+                                <p class="muted">Every unit issued under this protocol is already in a pack. Issue more units first.</p>
+                            }
+                            else
+                            {
+                                <div class="muted">Units issued under this protocol and not yet packed:</div>
+                                @foreach (var u in unpacked)
+                                {
+                                    <label class="flex" style="gap:.35rem;margin-top:.25rem;">
+                                        <input type="checkbox" checked="@_packIssueIds.Contains(u.IssueId)" @onchange="e => TogglePackUnit(u.IssueId, (bool)(e.Value ?? false))" />
+                                        <span class="mono">@u.UnitNumber</span> · @u.ProductName · @u.BloodType
+                                    </label>
+                                }
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => { foreach (var u in unpacked) _packIssueIds.Add(u.IssueId); }">Select all @unpacked.Count</button>
+                            }
+                            <div class="flex gap" style="margin-top:.5rem;">
+                                <button type="button" class="btn btn-sm btn-primary" disabled="@(_busy || _packIssueIds.Count == 0)" @onclick="() => RecordPackAsync(mtp)">Record pack</button>
+                                <button type="button" class="btn btn-sm btn-ghost" @onclick="() => _packingMtpId = null">Cancel</button>
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="flex gap" style="flex-wrap:wrap;align-items:end;margin-top:.35rem;">
+                    @if (Session.Has(PermissionCodes.IssueCreate))
+                    {
+                        <button type="button" class="btn btn-sm btn-danger" @onclick="() => IssueUnderMtpAsync(mtp)">Issue under this MTP</button>
+                        <button type="button" class="btn btn-sm btn-secondary" @onclick="() => StartPacking(mtp)">Pack a cooler…</button>
+                    }
+                    @if (Session.Has(PermissionCodes.IssueEmergencyRelease))
+                    {
+                        @if (_closingMtpId == mtp.Id)
+                        {
+                            <div class="field" style="min-width:16rem;margin:0;">
+                                <label>Why is it ending?</label>
+                                <input @bind="_mtpCloseReason" placeholder="e.g. Bleeding controlled; protocol stood down" />
+                            </div>
+                            <button type="button" class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => CloseMtpAsync(mtp)">Close MTP</button>
+                            <button type="button" class="btn btn-sm btn-ghost" @onclick="() => _closingMtpId = null">Cancel</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-sm btn-ghost" @onclick="() => { _closingMtpId = mtp.Id; _mtpCloseReason = null; }">Close…</button>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
 
 @if (Session.Has(PermissionCodes.IssueCreate) && _desk == "second")
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Second ABO/Rh due</h3></div>
-        <p class="muted">Patients with reserved units who still need a concordant historical or second-sample type before routine red-cell issue (AABB 5.14 / CAP TRM.40650).</p>
+        <p class="muted">Patients with reserved units who still need a concordant historical or second-sample type before routine red-cell issue (AABB 5.14 / CAP TRM.40650). The second type must come from a separately collected specimen. Each row says whether an ABO/Rh is already ordered, or orders one.</p>
         @if (_secondAboItems.Count == 0)
         {
             <div class="muted">No reserved units waiting on a second ABO/Rh.</div>
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -66,6 +189,7 @@
                         <th>MRN</th>
                         <th>Current type</th>
                         <th>Reserved</th>
+                        <th>ABO/Rh order</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -76,10 +200,25 @@
                             <td class="mono">@row.MedicalRecordNumber</td>
                             <td class="mono">@row.CurrentAboRh</td>
                             <td>@row.ReservedUnitCount</td>
+                            <td class="nowrap" data-second-abo-next="@row.PatientId">
+                                @if (row.AboOrderNumber is { } aboOrder)
+                                {
+                                    <span class="muted">Ordered</span> <a class="mono" href="@PatientChartUrls.Order(row.PatientId, aboOrder)">@aboOrder</a>
+                                }
+                                else if (Session.Has(PermissionCodes.PatientWrite))
+                                {
+                                    <a class="btn btn-primary btn-sm" href="@PatientChartUrls.OrderAboRh(row.PatientId)">Order ABO/Rh</a>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-amber">Not ordered</span>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -88,13 +227,70 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Ready to issue</h3></div>
-        <p class="muted">Reserved units waiting to issue. Issue on the row fills the issue form with the unit, MRN, and date of birth. Marks on the row are repeated on that form.</p>
+        <p class="muted">Reserved units waiting to issue. Issue on the row fills the issue form with the unit and patient. Scan or type the two patient identifiers from the wristband or requisition, unless your facility pre-fills them. Marks on the row are repeated on that form.</p>
         @if (_readyItems.Count == 0)
         {
             <div class="muted">No reserved units waiting to issue.</div>
         }
         else
         {
+            <p role="status"><strong>@ReadyToIssueAttentionRule.Summary(_readyItems)</strong></p>
+            @* A notice every row shares is a facility setting: said once here, not repeated on each row. *@
+            @if (ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice(_readyItems) is { } sharedExm)
+            {
+                <div class="alert alert-info" data-ready-shared-exm>@sharedExm</div>
+            }
+            <Outcome Value="_releaseReadyFb" />
+            @if (Session.Has(PermissionCodes.CompatibilityAllocate) && ReadyToIssueAttentionRule.ReleaseCandidates(_readyItems, DateTime.UtcNow) is { Count: > 0 } candidates)
+            {
+                <div class="alert alert-info" data-release-review>
+                    @if (!_reviewingRelease)
+                    {
+                        <span>@candidates.Count reserved @(candidates.Count == 1 ? "unit is" : "units are") past @(candidates.Count == 1 ? "its" : "their") reservation, or @(candidates.Count == 1 ? "has" : "have") an expired crossmatch on an expired specimen.</span>
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => BeginReleaseReview(candidates)" data-release-review-open>Review and release to stock</button>
+                        @if (ReadyToIssueAttentionRule.CountHeldByWardRequest(_readyItems, DateTime.UtcNow) is var held && held > 0)
+                        {
+                            <div class="sub" data-release-held-by-request>@held more @(held == 1 ? "is" : "are") past @(held == 1 ? "its" : "their") reservation but requested by the ward: cancel the ward request on the row (with a reason) to release @(held == 1 ? "it" : "them").</div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="muted">Untick any unit the patient still needs. A unit reserved for an order still open starts unticked: tick it only once you know the order no longer needs it. Each ticked unit is released to stock with this reason and audited on its own.</div>
+                        <div class="table-scroll">
+                        <table class="bb" style="margin:.4rem 0;">
+                            <thead><tr><th></th><th>Unit</th><th>Patient</th><th>Why offered</th><th>Still wanted?</th></tr></thead>
+                            <tbody>
+                                @foreach (var c in candidates)
+                                {
+                                    <tr data-release-row="@c.UnitNumber">
+                                        <td><input type="checkbox" checked="@_releaseChosen.Contains(c.AllocationId)" @onchange="e => ToggleReleaseChoice(c.AllocationId, e)" data-release-choice /></td>
+                                        <td class="mono">@c.UnitNumber <span class="sub">@c.ProductName</span></td>
+                                        <td>@(c.PatientDisplayName ?? "—") <span class="sub mono">@c.MedicalRecordNumber</span></td>
+                                        <td>@ReadyToIssueAttentionRule.ReleaseReason(c, DateTime.UtcNow)</td>
+                                        <td>
+                                            @if (ReadyToIssueAttentionRule.StillWanted(c) is { } wanted)
+                                            {
+                                                <span class="badge badge-amber" data-release-still-wanted>@wanted</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="muted">—</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        </div>
+                        <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
+                            <div class="field" style="flex:1;min-width:14rem;"><label>Reason</label><input @bind="_releaseBatchReason" @bind:event="oninput" placeholder="e.g. Reservations ended, transfusion not needed" data-release-reason /></div>
+                            <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || _releaseChosen.Count == 0 || string.IsNullOrWhiteSpace(_releaseBatchReason))" @onclick="ReleaseChosenAsync" data-release-submit>Release @_releaseChosen.Count to stock</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _reviewingRelease = false">Cancel</button>
+                        </div>
+                    }
+                </div>
+            }
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -118,7 +314,7 @@
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
                             </td>
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
                             <td>@(string.IsNullOrWhiteSpace(row.StorageLocationName) ? "—" : row.StorageLocationName)</td>
@@ -128,11 +324,12 @@
                                 @(row.LatestCrossmatchResult is CrossmatchResult readyXm ? readyXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime crossmatchExpires)
                                 {
-                                    <div class="muted">@crossmatchExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@crossmatchExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                @if (!string.IsNullOrWhiteSpace(row.ElectronicCrossmatchNotice))
+                                @if (!string.IsNullOrWhiteSpace(row.ElectronicCrossmatchNotice)
+                                    && ReadyToIssueAttentionRule.SharedElectronicCrossmatchNotice(_readyItems) is null)
                                 {
-                                    <div class="muted">@row.ElectronicCrossmatchNotice</div>
+                                    <div class="muted" data-ready-row-exm>@row.ElectronicCrossmatchNotice</div>
                                 }
                             </td>
                             <td><span class="@Ui.Badge(row.DisplayStatus)">@Ui.StatusLabel(row.DisplayStatus)</span></td>
@@ -144,6 +341,38 @@
                                 @SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)
                             </td>
                             <td class="right nowrap">
+                                @if (row.IssueRequestedUtc is DateTime requestedAt)
+                                {
+                                    <span class="badge badge-blue" title="Requested @requestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @row.IssueRequestedBy" data-ready-requested>Requested → @row.IssueRequestedTo @ClockText.Short(requestedAt)</span>
+                                    @* Pass 56: a request the desk cannot fill (crossmatch expired, reservation ended) could only be cancelled from the chart. *@
+                                    @if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        @if (_cancellingRequestId == row.AllocationId)
+                                        {
+                                            <input style="width:12rem;" @bind="_cancelRequestReason" @bind:event="oninput" placeholder="Why cancel the request?" data-ready-cancel-request-reason />
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelRequestReason))" @onclick="() => CancelWardRequestAsync(row)" data-ready-cancel-request-submit>Cancel request</button>
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _cancellingRequestId = null">Keep</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => { _cancellingRequestId = row.AllocationId; _cancelRequestReason = string.Empty; }" data-ready-cancel-request>Cancel request…</button>
+                                        }
+                                    }
+                                }
+                                @if (row.OpenReactionInvestigationId is long readyReaction)
+                                {
+                                    <span class="badge badge-red" title="A transfusion reaction is under investigation for this patient (#@readyReaction)" data-ready-reaction-open>Reaction under investigation</span>
+                                }
+                                @if (row.NeededByUtc is DateTime readyNeededBy)
+                                {
+                                    @* When the order this unit is reserved for is needed: red once passed, amber inside the facility's window. *@
+                                    <span class="@(row.NeededByPassed ? "badge badge-red" : row.NeededBySoon ? "badge badge-amber" : "badge badge-gray")"
+                                          title="Needed by @readyNeededBy.ToLocalTime().ToString("yyyy-MM-dd HH:mm") for order @row.OrderNumber" data-ready-needed-by>Needed @ClockText.Short(readyNeededBy)@(row.NeededByPassed ? " (passed)" : row.NeededInMinutes is int readyIn ? $" (in {readyIn} min)" : "")</span>
+                                }
+                                @if (row.ExpiresBeforeNeeded)
+                                {
+                                    <span class="badge badge-amber" title="The crossmatch or its specimen expires before the order is needed: issue before then, or draw a new specimen" data-ready-expires-before-needed>Expires before needed-by</span>
+                                }
                                 @if (row.OpenAntibodyWorkup)
                                 {
                                     <span class="badge badge-amber" title="@row.OpenAntibodyWorkupNotice">Open ABID</span>
@@ -160,9 +389,19 @@
                                 {
                                     <span class="badge badge-amber">Expires soon</span>
                                 }
+                                @if (ReadyToIssueAttentionRule.ReservationLapsed(row, DateTime.UtcNow))
+                                {
+                                    <span class="badge badge-amber" title="The reservation was set to end at @row.ReservationExpiresUtc!.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm"). The unit stays held for this patient until it is issued or released." data-reservation-ended>Reservation ended @row.ReservationExpiresUtc!.Value.ToLocalTime().ToString("MM-dd HH:mm")</span>
+                                }
                                 @if (row.CrossmatchBlocksRoutineIssue)
                                 {
                                     <span class="badge badge-red" title="@row.CrossmatchNotice">Crossmatch</span>
+                                    @* The badge said what was wrong but not where to fix it (end-user testing, 2026-11-12): repeat the
+                                       crossmatch for this patient and unit, on a current specimen. *@
+                                    @if (!row.SpecimenBlocksIssue && Session.Has(PermissionCodes.CompatibilityCrossmatch))
+                                    {
+                                        <a class="btn btn-ghost btn-sm" href="@($"/compatibility?patientId={row.PatientId}&bloodUnitId={row.BloodUnitId}")" title="@row.CrossmatchNotice" data-ready-recrossmatch>Repeat crossmatch</a>
+                                    }
                                 }
                                 else if (!string.IsNullOrWhiteSpace(row.CrossmatchNotice))
                                 {
@@ -187,7 +426,11 @@
                                 @if (row.SpecimenBlocksIssue)
                                 {
                                     <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>
-                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">New specimen</a>
+                                    <a class="btn btn-ghost btn-sm" href="@BloodOrderPreparationRule.CollectSpecimenHref(row.PatientId)" data-ready-new-specimen>New specimen</a>
+                                    @if (row.PreSpecimenEmergencyAllowed && Session.Has(PermissionCodes.IssueEmergencyRelease))
+                                    {
+                                        <button type="button" class="btn btn-secondary btn-sm" title="@row.SpecimenBlockReason" @onclick="() => SelectEmergencyIssue(row)">Emergency</button>
+                                    }
                                 }
                                 else if (row.UnitOutdated)
                                 {
@@ -215,11 +458,31 @@
                                 {
                                     <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectReadyToIssue(row)">Issue</button>
                                 }
+                                @if (ReadyToIssueAttentionRule.ReleaseReason(row, DateTime.UtcNow) is not null && Session.Has(PermissionCodes.CompatibilityAllocate))
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginReleaseReady(row)">Release</button>
+                                }
                             </td>
                         </tr>
+                        @if (_releasingReadyId == row.AllocationId)
+                        {
+                            <tr>
+                                <td colspan="10">
+                                    <div class="alert alert-info" style="margin:.25rem 0;">
+                                        <div class="muted">Release <span class="mono">@row.UnitNumber</span> from @(row.PatientDisplayName ?? "this patient") back to stock (@ReadyToIssueAttentionRule.ReleaseReason(row, DateTime.UtcNow)). If the patient still needs it, reserve it again from the chart.</div>
+                                        <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-top:.35rem;">
+                                            <div class="field" style="flex:1;min-width:14rem;"><label>Reason</label><input @bind="_releaseReadyReason" @bind:event="oninput" placeholder="e.g. Reservation ended, transfusion not needed" /></div>
+                                            <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_releaseReadyReason))" @onclick="() => ReleaseReadyAsync(row)">Release to stock</button>
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _releasingReadyId = null">Cancel</button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -228,13 +491,14 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Retrospective crossmatch due</h3></div>
-        <p class="muted">Emergency and massive-transfusion issues stay here until a compatible crossmatch is recorded.</p>
+        <p class="muted">Emergency and massive-transfusion issues stay here until a compatible crossmatch is recorded. An incompatible result is listed first and raises a critical alert.</p>
         @if (_retroItems.Count == 0)
         {
             <div class="muted">No retrospective crossmatches pending.</div>
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -258,27 +522,41 @@
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
                             <td>
                                 @(row.AccessionNumber ?? "—")
                                 <div>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</div>
+                                @if (row.SpecimenId is null || row.SpecimenExpired)
+                                {
+                                    @* OCD-053: released before a usable specimen; the retrospective crossmatch needs one. *@
+                                    <span class="badge badge-red">@(row.SpecimenId is null ? "No specimen on file: collect one" : "Specimen expired: collect a new one")</span>
+                                    <a class="btn btn-ghost btn-sm" href="@BloodOrderPreparationRule.CollectSpecimenHref(row.PatientId)">Accession</a>
+                                }
                             </td>
                             <td>
                                 @(row.LatestCrossmatchResult is CrossmatchResult retroXm ? retroXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime retroXmExpires)
                                 {
-                                    <div class="muted">@retroXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@retroXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                @if (row.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible)
+                                {
+                                    <span class="badge badge-red">Incompatible after release</span>
+                                    <span class="sub">See the critical alert; record who was told when acknowledging it.</span>
+                                }
+                                else
+                                {
+                                    <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                }
                             </td>
-                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>@IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)</td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td class="nowrap">
-                                @row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")
-                                <span class="sub">Due @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
+                                @row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                <span class="sub">Due @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
@@ -294,6 +572,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -301,7 +580,7 @@
 @if (Session.Has(PermissionCodes.IssueCreate) && _desk == "transit")
 {
     <div class="bb-card">
-        <div class="bb-card-title"><h3>In transit to ward</h3></div>
+        <div class="bb-card-title"><h3>In transit to ward</h3><a class="btn btn-secondary btn-sm" href="/issuing/cooler-check" data-cooler-check-link>Check a cooler</a></div>
         <p class="muted">Issued units stay here until the receiving location acknowledges custody.</p>
         @if (_inTransitItems.Count == 0)
         {
@@ -309,6 +588,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -328,11 +608,20 @@
                     @foreach (var row in _inTransitItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span>
+                                @if (row.IssuedUnderEarlierMrn is { } earlierMrn)
+                                {
+                                    <span class="badge badge-amber" data-issued-under-earlier title="The wristband or unit tag may still show the earlier MRN">Issued under @earlierMrn</span>
+                                }
+                            </td>
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                @if (row.UnitRecalled)
+                                {
+                                    <span class="badge badge-red" title="@(row.RecallReason ?? "Recalled")" data-transit-recalled>Recalled: do not accept, return it</span>
+                                }
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
@@ -347,18 +636,25 @@
                                 @(row.LatestCrossmatchResult is CrossmatchResult transitXm ? transitXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime transitXmExpires)
                                 {
-                                    <div class="muted">@transitXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@transitXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>
+                                @IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)
+                                @CoolerCheckBadge(row.CoolerId)
+                            </td>
                             <td>@(row.IssuedToLocation ?? "—")<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td class="nowrap">
-                                @row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")
-                                <span class="sub">Due @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
+                                @row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                <span class="sub">Due @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
+                                }
+                                @if (row.DowntimeBackEntry)
+                                {
+                                    <span class="badge badge-blue" title="Issued on paper during downtime. Back-enter the receipt from the paper record.">Back-enter receipt</span>
                                 }
                             </td>
                             <td>
@@ -371,6 +667,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -380,12 +677,17 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Issued units</h3></div>
         <p class="muted">Units still issued, including after ward receipt. Return, Receive, and Document on the row open the matching form.</p>
+        @if (_outstandingItems.Count(r => r.TransfusionCompletionOverdue) is var completionOverdue and > 0)
+        {
+            <div class="alert alert-warning" data-completion-overdue>@(completionOverdue == 1 ? "1 transfusion was" : $"{completionOverdue} transfusions were") started and not completed within the facility's reminder hours. @(completionOverdue == 1 ? "It is" : "They are") listed first: record the stop time, volume, and outcome with <strong>Complete</strong>, or check whether @(completionOverdue == 1 ? "it is" : "they are") still running.</div>
+        }
         @if (_outstandingItems.Count == 0)
         {
             <div class="muted">No outstanding issued units.</div>
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -406,11 +708,16 @@
                     @foreach (var row in _outstandingItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span>
+                                @if (row.IssuedUnderEarlierMrn is { } earlierMrn)
+                                {
+                                    <span class="badge badge-amber" data-issued-under-earlier title="The wristband or unit tag may still show the earlier MRN">Issued under @earlierMrn</span>
+                                }
+                            </td>
                             <td>
                                 <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
                                 <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
-                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—")</span>
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
@@ -425,15 +732,15 @@
                                 @(row.LatestCrossmatchResult is CrossmatchResult issuedXm ? issuedXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime issuedXmExpires)
                                 {
-                                    <div class="muted">@issuedXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <div class="muted">@issuedXmExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                                 }
-                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
+                                <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>@IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)</td>
                             <td>
                                 @if (row.WardReceivedUtc is DateTime received)
                                 {
-                                    <span>@received.ToString("yyyy-MM-dd HH:mm") @(row.WardReceivedBy ?? "")</span>
+                                    <span>@received.ToLocalTime().ToString("yyyy-MM-dd HH:mm") @(row.WardReceivedBy ?? "")</span>
                                 }
                                 else
                                 {
@@ -442,25 +749,44 @@
                                 <span class="sub">Appearance: @(string.IsNullOrWhiteSpace(row.WardAppearance) ? "—" : row.WardAppearance)</span>
                             </td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
-                            <td><span class="nowrap">@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</span><span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span></td>
+                            <td>
+                                <span class="nowrap">@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                @if (row.TransfusionStartedUtc is DateTime transfusingSince)
+                                {
+                                    <span class="badge @(row.TransfusionCompletionOverdue ? "badge-red" : "badge-amber")">Transfusing since @ClockText.Short(transfusingSince)@(row.TransfusionCompletionOverdue ? " · completion overdue" : "")</span>
+                                }
+                                else
+                                {
+                                    <span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span>
+                                }
+                                @if (row.OpenReactionInvestigationId is long reactionOpen)
+                                {
+                                    <span class="badge badge-red" title="A transfusion reaction is under investigation for this patient (#@reactionOpen)" data-issued-reaction-open>Reaction under investigation</span>
+                                }
+                                @if (row.UnitRecalled)
+                                {
+                                    <span class="badge badge-red" title="@(row.RecallReason ?? "Recalled")" data-issued-recalled>Recalled: do not transfuse, return it</span>
+                                }
+                            </td>
                             <td class="right nowrap">
-                                @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
+                                @if (IssueRun.NextStepForIssued(row) == IssuedNextStep.ReceiveOnWard && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
                                 }
-                                @if (Session.Has(PermissionCodes.IssueReturn))
+                                @if (Session.Has(PermissionCodes.IssueReturn) && row.TransfusionStartedUtc is null)
                                 {
                                     <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
                                 }
-                                @if (row.WardReceivedUtc is not null && Session.Has(PermissionCodes.TransfusionDocument))
+                                @if (IssueRun.NextStepForIssued(row) != IssuedNextStep.ReceiveOnWard && CanRecordTransfusion)
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">Document</button>
+                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">@(row.TransfusionStartedUtc is null ? "Start / document" : "Complete")</button>
                                 }
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -480,27 +806,48 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Unit</th><th>Patient</th><th>Issued</th><th>Due</th></tr></thead>
+                <thead><tr><th>Unit</th><th>Patient</th><th>Issued</th><th>Due</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var row in _dispositionItems)
                     {
-                        <tr>
+                        @* The next step from the row, as on Issued units, so the unit is not looked up again (Cycle 611). *@
+                        var issued = _outstandingItems.FirstOrDefault(i => i.IssueId == row.IssueId);
+                        <tr data-disposition-row="@row.IssueId">
                             <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
                             <td>@row.PatientLabel</td>
-                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@row.DueUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.DueUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") <span class="muted" data-past-due>@AlertInboxView.OpenFor(row.DueUtc, DateTime.UtcNow) past due</span></td>
+                            <td class="right nowrap">
+                                @if (issued is not null)
+                                {
+                                    @if (IssueRun.NextStepForIssued(issued) == IssuedNextStep.ReceiveOnWard && Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(issued.IssueId, issued.ProductName, issued.UnitExpiresUtc, issued.UnitBloodType, issued.SpecimenAccession, issued.CrossmatchExpiresUtc, issued.LatestCrossmatchResult, issued.IssuedTo, issued.CoolerId, issued.IssuedToLocation, issued.IssuedBy, issued.EmergencyReleaseDetails, issued.SecondVerifier, issued.EmergencyReleaseAuthorizer, issued.IssueAppearance, issued.PtagCode, issued.CrossmatchStatus)">Receive</button>
+                                    }
+                                    @if (Session.Has(PermissionCodes.IssueReturn) && issued.TransfusionStartedUtc is null)
+                                    {
+                                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(issued)">Return</button>
+                                    }
+                                    @if (IssueRun.NextStepForIssued(issued) != IssuedNextStep.ReceiveOnWard && CanRecordTransfusion)
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(issued)">@(issued.TransfusionStartedUtc is null ? "Document transfusion" : "Complete")</button>
+                                    }
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
 
 @if (_desk == "issue")
 {
-<div class="bb-card" @ref="_issueForm" tabindex="-1">
+<div class="bb-card" @ref="_issueForm" tabindex="-1" data-enter-flow>
     <div class="bb-card-title"><h3>Issue a unit</h3></div>
     @if (!Session.Has(PermissionCodes.IssueCreate))
     {
@@ -509,31 +856,110 @@
     else
     {
         <Outcome Value="_issueFb" RequiresSignature="true" />
+        @if (IssueOpenReaction is { } issueReaction)
+        {
+            @* OCD-078 (decided): issuing another unit is an override with the reason and who authorized it, reviewed later. *@
+            <div class="alert alert-warning" data-issue-reaction-open>
+                <strong>A transfusion reaction is under investigation for this patient</strong>
+                (#@issueReaction.Id, reported @ClockText.Short(issueReaction.ReportedUtc)). Issue another unit only if the
+                physician has decided to continue: the issue asks for an override with the reason and who authorized it.
+            </div>
+        }
+        @if (Session.Has(PermissionCodes.IssueDowntimeBackEntry))
+        {
+            @* OCD-054: an issue made on paper during downtime, judged as of the paper record's time. *@
+            <label class="flex" style="margin-bottom:.5rem;"><input type="checkbox" @bind="_issue.DowntimeBackEntry" @bind:after="OnBackEntryToggledAsync" />&nbsp;Downtime back-entry from a paper issue record</label>
+            @if (_issue.DowntimeBackEntry)
+            {
+                <div class="alert alert-info">
+                    Expiration is checked as of the time on the paper record, so a unit or specimen that has expired since can be entered. Every other check still applies. Type the unit number from the paper record in place of a scan.
+                </div>
+                @* Cycle 662: the recorded outage, so the window and the reason need not be remembered or retyped. *@
+                @if (_backEntryOutage is { } outage)
+                {
+                    <div class="muted" data-backentry-outage="@outage.Id">
+                        Outage #@outage.Id: @outage.Description, @outage.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") to
+                        @(outage.EndedUtc is { } end ? end.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "now (still down)").
+                    </div>
+                }
+                else if (_downtimeEpisodes.Count == 0)
+                {
+                    <div class="muted" data-backentry-no-outage>No outage is recorded. <a href="/downtime">Record it</a> so the paper times can be checked against it.</div>
+                }
+                @if (_backEntryOutsideWarning is not null)
+                {
+                    <div class="alert alert-warning" data-backentry-outside>
+                        @_backEntryOutsideWarning
+                        <div class="field" style="margin-top:.5rem;"><label>Reason the time is outside the outage (required)</label>
+                            <input @bind="_issue.OutsideOutageReason" @bind:event="oninput" maxlength="500" placeholder="e.g. Paper record from the network outage before this one was recorded" data-backentry-outside-reason />
+                        </div>
+                    </div>
+                }
+                <div class="form-row">
+                    <div class="field"><label>Issued at (from paper record)</label>
+                        <input type="datetime-local" @bind="_issue.BackEntryLocalTime" @bind:after="OnBackEntryTimeChanged" data-backentry-time />
+                    </div>
+                    <div class="field"><label>Unit number on the paper record</label>
+                        <input @bind="_issue.BackEntryDin" autocomplete="off" placeholder="DIN as written on the record" />
+                    </div>
+                    <div class="field"><label>Reason</label>
+                        <input @bind="_issue.LateEntryReason" placeholder="e.g. Issued on paper during LIS downtime" data-backentry-reason />
+                    </div>
+                </div>
+            }
+        }
         <div class="form-row">
             <div class="field"><label>Unit number</label>
-                <UnitPickerComboBox Scope="UnitPickerScope.Issuable" @bind-Value="_issue.BloodUnitId" />
+                <UnitPickerComboBox @key="_issue.DowntimeBackEntry" Scope="@(_issue.DowntimeBackEntry ? UnitPickerScope.DowntimeBackEntry : UnitPickerScope.Issuable)" @bind-Value="_issue.BloodUnitId" @bind-Value:after="OnIssueUnitPickedAsync" />
+                @if (!string.IsNullOrWhiteSpace(_issueUnitNotice))
+                {
+                    <div class="muted" style="color:var(--bb-danger, #a12);" data-unit-reserved-for>@_issueUnitNotice</div>
+                }
             </div>
             <div class="field"><label>Patient</label>
                 <FilterableComboBox TItem="PatientDto" TValue="long?"
                     Items="_patients"
                     @bind-Value="IssuePatientId"
                     @bind-Value:after="OnIssuePatientChangedAsync"
-                    DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                    DisplayText="@(p => p.PickerLabel)"
                     ItemValue="@(p => p.Id)"
                     SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
                     Clearable="true"
                     Placeholder="Search MRN or name" />
+                @if (CanRegisterUnidentified && !_showUnidentified)
+                {
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showUnidentified = true" data-issue-unidentified
+                            title="Emergency patient without identification: register with a temporary MRN and choose them here">Unidentified patient…</button>
+                }
             </div>
             <div class="field"><label>Issued to (person)</label><input @bind="_issue.IssuedTo" /></div>
-            <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" /></div>
+            <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" @bind:event="oninput" />
+                @if (string.IsNullOrWhiteSpace(_issue.IssuedToLocation) && _prefilledRow?.PatientVisitLocation is { Length: > 0 } visitLocation && _prefilledRow.BloodUnitId == _issue.BloodUnitId)
+                {
+                    <div class="sub" data-visit-location>
+                        Patient's visit: @visitLocation
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _issue.IssuedToLocation = visitLocation" title="Confirm the patient is still there; a visit location can lag behind a move to theatre or imaging">Use it</button>
+                    </div>
+                }
+            </div>
             <div class="field"><label>Cooler / transport id</label><input @bind="_issue.CoolerId" placeholder="Optional cooler checkout" /></div>
             <div class="field"><label>Issue type</label>
-                <select @bind="_issue.IssueType">@foreach (var t in AllowedIssueTypes) { <option value="@t">@t</option> }</select>
+                <select @bind="_issue.IssueType">@foreach (var t in AllowedIssueTypes) { <option value="@t">@Ui.EnumText(t)</option> }</select>
             </div>
         </div>
+        @if (_showUnidentified)
+        {
+            <UnidentifiedPatientRegister OnRegistered="UseUnidentifiedAsync" OnCancel="() => _showUnidentified = false" />
+        }
         <div class="form-row">
-            <div class="field"><label>Patient ID 1 (MRN)</label><input @bind="_issue.PatientIdentifier1Value" /></div>
-            <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label><input @bind="_issue.PatientIdentifier2Value" /></div>
+            <div class="field"><label>Patient ID 1 (MRN)</label>
+                <input @bind="_issue.PatientIdentifier1Value" @bind:event="oninput" autocomplete="off" placeholder="Scan wristband or type" data-enter-step />
+                <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@_issue.PatientIdentifier1Value" Patient="IssuePatient" />
+            </div>
+            <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
+                <input @bind="_issue.PatientIdentifier2Value" @bind:event="oninput" autocomplete="off" placeholder="From wristband or requisition" data-enter-step />
+                <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@_issue.PatientIdentifier2Value" Patient="IssuePatient" />
+            </div>
             <div class="field"><label>Second verifier</label>
                 <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
                     Items="SecondVerifierChoices"
@@ -545,15 +971,52 @@
                     Placeholder="Different active user" />
             </div>
         </div>
+        @if (_issue.IssueType == IssueType.MassiveTransfusion && _issue.PatientId > 0)
+        {
+            @if (IssueMtp is { } activeMtp)
+            {
+                <div class="alert alert-info" style="margin-top:.5rem;">
+                    Issuing under <strong>MTP #@activeMtp.Id</strong>, active @activeMtp.MinutesActive min, called by @activeMtp.RequestedBy: @activeMtp.Reason.
+                    <button type="button" class="btn btn-sm btn-ghost" @onclick="() => UseMtpReason(activeMtp)">Use as override reason</button>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning" style="margin-top:.5rem;">
+                    <strong>No massive transfusion protocol is active for this patient.</strong>
+                    Record who called it and why before issuing under MTP.
+                    @if (Session.Has(PermissionCodes.IssueEmergencyRelease))
+                    {
+                        <div class="form-row" style="margin-top:.5rem;">
+                            <div class="field"><label>Called by (clinician)</label><input @bind="_mtpRequestedBy" placeholder="e.g. Dr. Rivera, trauma" /></div>
+                            <div class="field"><label>Reason</label><input @bind="_mtpReason" placeholder="e.g. Hemorrhagic shock" /></div>
+                            <div class="field"><label>Location</label><input @bind="_mtpLocation" placeholder="Optional, e.g. ED trauma 1" /></div>
+                            @if (_mtpPacks.Count > 0)
+                            {
+                                <div class="field"><label>Pack (optional)</label>
+                                    <select @bind="_mtpPackId">
+                                        <option value="">No pack</option>
+                                        @foreach (var pk in _mtpPacks)
+                                        {
+                                            <option value="@pk.Id">@pk.Name (@pk.Summary)</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger" disabled="@_busy" @onclick="ActivateMtpAsync">Activate MTP</button>
+                    }
+                    <Outcome Value="_mtpFb" />
+                </div>
+            }
+        }
         <div class="flex gap" style="flex-wrap:wrap;margin:.5rem 0 1rem;">
-            <div class="field" style="min-width:14rem;">
-                <label>Appearance at issue</label>
-                <select @bind="_issue.Appearance">
-                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                </select>
-            </div>
+            <AppearanceSelect Label="Appearance at issue" Style="min-width:14rem;" @bind-Value="_issue.Appearance" />
         </div>
-        <UnitScanVerificationPanel Scan="_issueScan" />
+        @if (!_issue.DowntimeBackEntry)
+        {
+            <UnitScanVerificationPanel Scan="_issueScan" />
+        }
         @if (_ptagRequired)
         {
             <div class="alert alert-warning" style="margin-top:.75rem;">
@@ -588,6 +1051,12 @@
                 </ul>
             </div>
         }
+        @foreach (var info in _issueInfoRequirements)
+        {
+            <div class="alert alert-info" style="margin-top:.75rem;" data-special-requirement-banner>
+                <strong>@(info.Name ?? info.Code):</strong> @(info.Instruction ?? info.Reason)
+            </div>
+        }
         @if (_issueAckRequirements.Count > 0)
         {
             <div class="alert alert-warning" style="margin-top:.75rem;">
@@ -608,7 +1077,7 @@
             {
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Override reason</label><input @bind="_overrideReason" /></div>
-                    <div class="field"><label>Authorized by</label><input @bind="_authorizedBy" /></div>
+                    <AuthorizerField @bind-Value="_authorizedBy" />
                     <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" placeholder="e.g. I authorize emergency release" /></div>
                     <div class="field"><label>Password / PIN</label><input type="password" @bind="_signatureSecret" /></div>
                 </div>
@@ -624,10 +1093,64 @@
             <button class="btn btn-primary" disabled="@(_busy || _issue.BloodUnitId is null || _issue.PatientId <= 0 || PtagScanMissing)" @onclick="IssueAsync">Issue unit</button>
         }
 
+        @if (_issue.PatientId > 0 && (_issuedThisRun.Count > 0 || NextInRun.Count > 0))
+        {
+            @* Several units for one patient: the form keeps the patient, identifiers, destination, and cooler. *@
+            <div class="bb-card" style="margin-top:1rem;" data-issue-run>
+                <div class="bb-card-title"><h3>This patient's units</h3></div>
+                @if (_issuedThisRun.Count > 0)
+                {
+                    <div><strong>Issued now (@_issuedThisRun.Count)</strong></div>
+                    <div class="table-scroll">
+                    <table class="bb">
+                        <thead><tr><th>Unit</th><th>Product</th><th>To</th><th>Cooler</th><th>Issued</th></tr></thead>
+                        <tbody>
+                            @foreach (var done in _issuedThisRun)
+                            {
+                                <tr>
+                                    <td class="mono">@done.UnitNumber</td>
+                                    <td>@done.ProductName</td>
+                                    <td>@done.Destination</td>
+                                    <td class="mono">@done.CoolerId</td>
+                                    <td class="nowrap">@done.IssuedLocal.ToString("HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+                    @foreach (var cooler in _issuedThisRun.Select(d => d.CoolerId?.Trim()).Where(c => !string.IsNullOrEmpty(c)).Distinct(StringComparer.OrdinalIgnoreCase))
+                    {
+                        <a class="btn btn-ghost btn-sm" style="margin-top:.5rem;" href="@($"/issuing/cooler-check?cooler={Uri.EscapeDataString(cooler!)}")" data-cooler-check-run>Check cooler @cooler before it leaves</a>
+                    }
+                }
+                @if (NextInRun.Count > 0)
+                {
+                    <div style="margin-top:.5rem;"><strong>Ready next</strong> <span class="muted">Patient, identifiers, destination, and cooler stay filled in. Scan the next unit and record its appearance.</span></div>
+                    <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                        @foreach (var next in NextInRun)
+                        {
+                            var row = next;
+                            <button type="button" class="btn @(row == NextInRun[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => IssueNextInRun(row)">
+                                Issue next: <span class="mono">@row.UnitNumber</span> @row.ProductName
+                            </button>
+                        }
+                    </div>
+                }
+                else if (_issuedThisRun.Count > 0)
+                {
+                    <div class="muted" style="margin-top:.5rem;">No other reserved unit for this patient is ready for routine issue.</div>
+                }
+                @if (HeldBackInRun > 0)
+                {
+                    <div class="muted" style="margin-top:.35rem;">@HeldBackInRun other reserved unit(s) for this patient need attention first; see Ready to issue.</div>
+                }
+            </div>
+        }
+
         @if (_lastIssue is not null)
         {
             <div class="alert alert-success" style="margin-top:1rem;">
-                Issue <strong>#@_lastIssue.Id</strong> created for unit @_lastIssue.BloodUnitId &middot; <span class="badge badge-amber">@_lastIssue.Status</span>
+                Issue <strong>#@_lastIssue.Id</strong> created for unit @_lastIssue.BloodUnitId &middot; <span class="badge badge-amber">@Ui.EnumText(_lastIssue.Status)</span>
                 <div class="flex gap" style="margin-top:.65rem;flex-wrap:wrap;">
                     @if (Session.Has(PermissionCodes.PrintLabel))
                     {
@@ -645,7 +1168,7 @@
 
 @if (_desk == "receipt")
 {
-<div class="bb-card">
+<div class="bb-card" tabindex="-1" data-enter-flow>
     <div class="bb-card-title"><h3>Ward receipt</h3></div>
     <p class="muted">The receiving location must acknowledge custody before transfusion can be documented (SoftBank remote-issue receipt).</p>
     @if (!Session.Has(PermissionCodes.TransfusionDocument))
@@ -656,24 +1179,64 @@
     {
         <Outcome Value="_wardFb" />
         <div class="form-row">
-            <div class="field"><label>Unit number</label><input class="mono" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" placeholder="Type or scan, or Receive from a list" /></div>
-            <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
-            <div class="field"><label>Appearance at receipt</label>
-                <select @bind="_wardAppearance">
-                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                </select>
-            </div>
+            <div class="field"><label>Unit number</label><input class="mono" @ref="_wardUnitInput" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" data-desk-unit="receipt" placeholder="Type or scan, or Receive from a list" data-enter-step autocomplete="off" /></div>
+            <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" data-enter-step /></div>
+            <AppearanceSelect Label="Appearance at receipt" @bind-Value="_wardAppearance" />
         </div>
         <UnitScanVerificationPanel Scan="_wardScan"
             Title="Ward receipt scan"
             Help="Scan the unit label at the receiving location. Required for ISBT-labeled units (SoftBank remote-issue chain)." />
+        <PaperRecordDinField @bind-Value="_wardBackEntryDin" TimeLabel="Received at (from paper record)" @bind-Time="_wardBackEntryTime" />
         <div class="flex gap" style="margin-top:.75rem;">
-            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RecordWardReceiptAsync">Acknowledge receipt</button>
-            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadIssueAsync">Check status</button>
+            <button class="btn btn-primary btn-sm" disabled="@(_busy || _wardIssueId == 0)" @onclick="RecordWardReceiptAsync" data-ward-submit>Acknowledge receipt</button>
+            <button class="btn btn-ghost btn-sm" disabled="@(_busy || _wardIssueId == 0)" @onclick="LoadIssueAsync">Check status</button>
         </div>
         @if (!string.IsNullOrWhiteSpace(_wardProductName) || !string.IsNullOrWhiteSpace(_wardExpirationNotice) || !string.IsNullOrWhiteSpace(_wardUnitTypeNotice) || !string.IsNullOrWhiteSpace(_wardSpecimenNotice) || !string.IsNullOrWhiteSpace(_wardCrossmatchNotice) || !string.IsNullOrWhiteSpace(_wardIssuedToNotice) || !string.IsNullOrWhiteSpace(_wardCoolerNotice) || !string.IsNullOrWhiteSpace(_wardLocationNotice) || !string.IsNullOrWhiteSpace(_wardIssuedByNotice) || !string.IsNullOrWhiteSpace(_wardSecondVerifierNotice))
         {
             <FactList Facts="@(new string?[] { _wardExpirationNotice, _wardUnitTypeNotice, _wardSpecimenNotice, _wardCrossmatchNotice, _wardIssuedToNotice, _wardCoolerNotice, _wardLocationNotice, _wardIssuedByNotice, _wardSecondVerifierNotice })" Style="margin-top:.75rem;">Receiving @if (!string.IsNullOrWhiteSpace(_wardProductName)) { <strong>@_wardProductName</strong> }</FactList>
+        }
+        @if (_wardReceivedRun.Count > 0 || NextToReceive.Count > 0)
+        {
+            @* A cooler or several units for one patient: received by stays; each unit is still scanned and inspected. *@
+            <div class="bb-card" style="margin-top:1rem;" data-receipt-run>
+                <div class="bb-card-title"><h3>@ReceiptRunTitle</h3></div>
+                @if (_wardReceivedRun.Count > 0)
+                {
+                <div class="table-scroll">
+                <table class="bb">
+                    <thead><tr><th>Unit</th><th>Product</th><th>Received by</th><th>Received</th></tr></thead>
+                    <tbody>
+                        @foreach (var done in _wardReceivedRun)
+                        {
+                            <tr>
+                                <td class="mono">@done.UnitNumber</td>
+                                <td>@done.ProductName</td>
+                                <td>@done.ReceivedBy</td>
+                                <td class="nowrap">@done.ReceivedLocal.ToString("HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+                }
+                @if (NextToReceive.Count > 0)
+                {
+                    <div style="margin-top:.5rem;"><strong>Still to receive (@NextToReceive.Count)</strong> <span class="muted">Received by stays filled in. Scan each unit and record its appearance.</span></div>
+                    <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                        @foreach (var next in NextToReceive)
+                        {
+                            var row = next;
+                            <button type="button" class="btn @(row == NextToReceive[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => ReceiveNext(row)">
+                                Receive next: <span class="mono">@row.UnitNumber</span> @row.ProductName
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="muted" style="margin-top:.5rem;">Every unit that went out with these has been received.</div>
+                }
+            </div>
         }
         @if (!string.IsNullOrWhiteSpace(_wardReleaseReason))
         {
@@ -701,7 +1264,7 @@
                 Issue <strong>@_wardIssue.Id</strong> · @_wardIssue.Status
                 @if (_wardIssue.WardReceivedUtc is not null)
                 {
-                    <span> · received @_wardIssue.WardReceivedUtc.Value.ToString("yyyy-MM-dd HH:mm") by @_wardIssue.WardReceivedBy · @_wardIssue.WardAppearance</span>
+                    <span> · received @_wardIssue.WardReceivedUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @_wardIssue.WardReceivedBy · @_wardIssue.WardAppearance</span>
                 }
                 else
                 {
@@ -729,7 +1292,7 @@
         {
             <Outcome Value="_returnFb" />
             <div class="form-row">
-                <div class="field"><label>Unit number</label><input class="mono" @bind="_returnUnitLookup" @bind:after="LookUpReturnUnitAsync" placeholder="Type or scan, or Return from Issued units" /></div>
+                <div class="field"><label>Unit number</label><input class="mono" @ref="_returnUnitInput" @bind="_returnUnitLookup" @bind:after="LookUpReturnUnitAsync" data-desk-unit="return" placeholder="Type or scan, or Return from Issued units" /></div>
                 <div class="field"><label>Reason</label><input @bind="_returnReason" @bind:event="oninput" /></div>
                 <div class="field"><label>Destination</label>
                     <select @bind="_returnDestination">
@@ -738,7 +1301,6 @@
                             <option value="@UnitStatus.Available">Available</option>
                         }
                         <option value="@UnitStatus.Quarantine">Quarantine</option>
-                        <option value="@UnitStatus.Discarded">Disposed</option>
                     </select>
                 </div>
                 @if (_returnUnitNumber is not null)
@@ -774,11 +1336,58 @@
                     }
                 }
             </div>
-            <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. The storage device decides the return-to-available window. A governed device cannot be declared acceptable after that window. An exempt device does not fail the window.</p>
-            <label class="checkbox-item"><input type="checkbox" @bind="_returnTempOk" @bind:after="SyncReturnDestination" /> Temperature acceptable</label>
-            <label class="checkbox-item"><input type="checkbox" @bind="_returnSealOk" @bind:after="SyncReturnDestination" /> Seal intact</label>
-            <label class="checkbox-item"><input type="checkbox" @bind="_returnVisualOk" @bind:after="SyncReturnDestination" /> Visual inspection acceptable</label>
-            <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_returnReason))" @onclick="ReturnAsync">Return unit</button>
+            <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. A unit to be thrown away goes to Quarantine; discard it on the unit page with a discard reason. The storage device decides the return-to-available window. A governed device cannot be declared acceptable after that window. An exempt device does not fail the window.</p>
+            <InspectionAnswer Label="Temperature" @bind-Value="_returnTempOk" @bind-Value:after="SyncReturnDestination" />
+            <InspectionAnswer Label="Seal" YesText="Intact" NoText="Broken" @bind-Value="_returnSealOk" @bind-Value:after="SyncReturnDestination" />
+            <InspectionAnswer Label="Visual inspection" @bind-Value="_returnVisualOk" @bind-Value:after="SyncReturnDestination" />
+            @if (ReturnInspectionMissing)
+            {
+                <p class="muted">Answer all three inspections before the unit can go back to available stock. Choose Quarantine to return it without them.</p>
+            }
+            <button class="btn btn-secondary" disabled="@(_busy || _returnIssueId == 0 || string.IsNullOrWhiteSpace(_returnReason) || ReturnInspectionMissing)" @onclick="ReturnAsync" data-return-submit>Return unit</button>
+            @if (_returnRun.Count > 0 || NextToReturn.Count > 0)
+            {
+                @* A cooler coming back: the reason stays; each unit is still inspected on its own. *@
+                <div class="bb-card" style="margin-top:1rem;" data-return-run>
+                    <div class="bb-card-title"><h3>@ReturnRunTitle</h3></div>
+                    @if (_returnRun.Count > 0)
+                    {
+                        <div class="table-scroll">
+                        <table class="bb">
+                            <thead><tr><th>Unit</th><th>Product</th><th>Returned to</th><th>Returned</th></tr></thead>
+                            <tbody>
+                                @foreach (var done in _returnRun)
+                                {
+                                    <tr>
+                                        <td class="mono">@done.UnitNumber</td>
+                                        <td>@done.ProductName</td>
+                                        <td>@done.Destination</td>
+                                        <td class="nowrap">@done.ReturnedLocal.ToString("HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        </div>
+                    }
+                    @if (NextToReturn.Count > 0)
+                    {
+                        <div style="margin-top:.5rem;"><strong>Still out (@NextToReturn.Count)</strong> <span class="muted">The reason stays filled in. Answer temperature, seal, and visual inspection for each unit.</span></div>
+                        <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                            @foreach (var next in NextToReturn)
+                            {
+                                var row = next;
+                                <button type="button" class="btn @(row == NextToReturn[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => ReturnNext(row)" data-return-next>
+                                    Return next: <span class="mono">@row.UnitNumber</span> @row.ProductName
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="muted" style="margin-top:.5rem;">Nothing else from this shipment can be returned.</div>
+                    }
+                </div>
+            }
             @if (_lastReturn is not null)
             {
                 <p class="muted" style="margin-top:.75rem;">
@@ -790,6 +1399,13 @@
                         <a href="@($"/patients/{returnedPatientId}?tab=products")">Open chart · Products</a>
                     }
                 </p>
+                @if (_lastReturn.ReserveAgainHref is string reserveAgain && Session.Has(PermissionCodes.CompatibilityAllocate))
+                {
+                    <p class="muted" style="margin:0;">
+                        The unit is back in stock and no longer reserved for this patient.
+                        <a class="btn btn-secondary btn-sm" href="@reserveAgain">Reserve again for this patient</a>
+                    </p>
+                }
             }
         }
     </div>
@@ -797,19 +1413,40 @@
 
 @if (_desk == "transfuse")
 {
-    <div class="bb-card">
-        <div class="bb-card-title"><h3>Document transfusion</h3></div>
-        @if (!Session.Has(PermissionCodes.TransfusionDocument))
+    <div class="bb-card" tabindex="-1" data-enter-flow>
+        <div class="bb-card-title"><h3>@(_txStartedUtc is null ? "Start or document transfusion" : "Complete transfusion")</h3></div>
+        @if (!CanRecordTransfusion)
         {
-            <div class="muted">No permission to document transfusions.</div>
+            <div class="muted">No permission to record transfusions.</div>
         }
         else
         {
             <Outcome Value="_txFb" />
+            @if (TxOpenReaction is { } openReaction)
+            {
+                @* OCD-078 (decided): starting another unit needs the reason and who authorized it; reviewed by a supervisor. *@
+                <div class="alert alert-warning" data-tx-reaction-open>
+                    <strong>A transfusion reaction is under investigation for this patient</strong>
+                    (#@openReaction.Id, reported @ClockText.Short(openReaction.ReportedUtc)). Start another unit only if the
+                    physician has decided to continue, and record why and who decided.
+                    @if (Session.Has(PermissionCodes.ReactionInvestigate))
+                    {
+                        <a href="@($"/reactions?id={openReaction.Id}")">Open investigation #@openReaction.Id</a>
+                    }
+                    <div class="form-row" style="margin-top:.5rem;">
+                        <div class="field"><label>Reason to continue (required)</label>
+                            <input @bind="_txOverrideReason" @bind:event="oninput" maxlength="500" placeholder="e.g. Physician reviewed; mild febrile reaction, continue" data-tx-reaction-reason />
+                        </div>
+                        <div class="field"><label>Authorized by (required)</label>
+                            <input @bind="_txAuthorizedBy" @bind:event="oninput" maxlength="100" placeholder="Physician who decided" data-tx-reaction-authorizer />
+                        </div>
+                    </div>
+                </div>
+            }
             <div class="form-row">
-                <div class="field"><label>Unit number</label><input class="mono" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" placeholder="Type or scan, or Document from Issued units" /></div>
+                <div class="field"><label>Unit number</label><input class="mono" @ref="_txUnitInput" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" data-desk-unit="transfuse" placeholder="Type or scan, or Document from Issued units" data-enter-step autocomplete="off" /></div>
                 <div class="field"><label>Disposition</label>
-                    <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@d</option> }</select>
+                    <select @bind="_txDisposition" data-tx-disposition><option value="">— Answer when finishing —</option>@foreach (var d in Enum.GetValues<TransfusionDisposition>().Where(d => d != TransfusionDisposition.Returned)) { <option value="@d">@Ui.EnumText(d)</option> }</select>
                 </div>
                 <div class="field"><label>Volume transfused (mL)</label><input type="number" @bind="_txVolume" /></div>
                 <div class="field"><label>Transfusionist</label><input @bind="_txTransfusionist" /></div>
@@ -828,6 +1465,10 @@
             @if (!string.IsNullOrWhiteSpace(_txProductName) || !string.IsNullOrWhiteSpace(_txExpirationNotice) || !string.IsNullOrWhiteSpace(_txUnitTypeNotice) || !string.IsNullOrWhiteSpace(_txSpecimenNotice) || !string.IsNullOrWhiteSpace(_txCrossmatchNotice) || !string.IsNullOrWhiteSpace(_txIssuedToNotice) || !string.IsNullOrWhiteSpace(_txCoolerNotice) || !string.IsNullOrWhiteSpace(_txLocationNotice) || !string.IsNullOrWhiteSpace(_txIssuedByNotice) || !string.IsNullOrWhiteSpace(_txSecondVerifierNotice))
             {
                 <FactList Facts="@(new string?[] { _txExpirationNotice, _txUnitTypeNotice, _txSpecimenNotice, _txCrossmatchNotice, _txIssuedToNotice, _txCoolerNotice, _txLocationNotice, _txIssuedByNotice, _txSecondVerifierNotice })">Documenting @if (!string.IsNullOrWhiteSpace(_txProductName)) { <strong>@_txProductName</strong> }</FactList>
+            }
+            @if (!string.IsNullOrWhiteSpace(_txEarlierIdentityNotice))
+            {
+                <div class="alert alert-warning" data-tx-earlier-identity>@_txEarlierIdentityNotice</div>
             }
             @if (!string.IsNullOrWhiteSpace(_txReleaseReason))
             {
@@ -854,14 +1495,65 @@
                 <p class="muted">@_txWardAppearance</p>
             }
             <div class="form-row">
-                <div class="field"><label>Patient ID 1 (MRN)</label><input @bind="_txPatientIdentifier1" /></div>
-                <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label><input @bind="_txPatientIdentifier2" /></div>
+                <div class="field"><label>Patient ID 1 (MRN)</label>
+                    <input @bind="_txPatientIdentifier1" @bind:event="oninput" autocomplete="off" placeholder="Scan wristband or type" data-enter-step />
+                    <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@_txPatientIdentifier1" Patient="_txPatient" />
+                </div>
+                <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
+                    <input @bind="_txPatientIdentifier2" @bind:event="oninput" autocomplete="off" placeholder="From wristband" data-enter-step />
+                    <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@_txPatientIdentifier2" Patient="_txPatient" />
+                </div>
             </div>
-            <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
+            @* Optional vitals: before, while the transfusion is not yet started; after, when it is finished or documented. *@
+            @if (_txStartedUtc is null)
+            {
+                <TransfusionVitalsFields Draft="_txPreVitals" Key="before" Title="Vital signs before the transfusion (optional)" />
+            }
+            <TransfusionVitalsFields Draft="_txPostVitals" Key="after" Title="Vital signs after the transfusion (optional; when finishing)" />
+            @* Asked, never assumed: an unticked box recorded "no reaction" without anyone answering (Cycle 596). *@
+            <div class="field" style="max-width:320px;"><label>Transfusion reaction suspected?</label>
+                @* Bound through text: a select cannot bind a yes/no answer directly (the binder expects a checkbox's true or
+                   false), so neither option ever took and every finish was refused (Cycle 624). *@
+                <select @bind="TxReactionChoice" data-tx-reaction>
+                    <option value="">— Answer when finishing —</option>
+                    <option value="no">No reaction</option>
+                    <option value="yes">Yes, reaction suspected</option>
+                </select>
+            </div>
             <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with matching patient identifiers." />
-            <div style="margin-top:.75rem;">
-                <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document</button>
-            </div>
+            <PaperRecordDinField @bind-Value="_txBackEntryDin" />
+            @if (_txStartedUtc is DateTime txStarted)
+            {
+                <div class="alert alert-info" style="margin-top:.75rem;">
+                    Transfusion started at @txStarted.ToLocalTime().ToString("yyyy-MM-dd HH:mm"). The patient was identified then.
+                    Set the disposition, volume, and any suspected reaction, then complete it when it ends.
+                </div>
+                @* End-user testing pass 65: completing a transfusion charted later stamped "now" as the stop, so one started a
+                   week earlier was recorded as running seven days. The stop time is entered from the chart. *@
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Stopped at</label><input type="datetime-local" @bind="_txStopLocal" data-tx-stop /></div>
+                </div>
+                @if (_txStopLocal is null && DateTime.UtcNow - txStarted > TimeSpan.FromHours(6))
+                {
+                    <p class="sub" data-tx-stop-hint>Started @ClockText.Short(txStarted). Enter when it stopped from the transfusion record; left blank, the stop is recorded as now.</p>
+                }
+                <div style="margin-top:.75rem;">
+                    <button class="btn btn-primary" disabled="@(_busy || _txIssueId == 0)" @onclick="CompleteTransfusionAsync" data-tx-complete>Complete transfusion</button>
+                </div>
+            }
+            else
+            {
+                <p class="muted" style="margin-top:.75rem;">Start records the bedside check when the unit is spiked; complete it when it ends. Document records start and finish together, for a transfusion charted afterwards.</p>
+                @* For Document (charted afterwards): the times from the transfusion record; blank means now (pass 65). *@
+                <div class="form-row">
+                    <div class="field"><label>Started at (for Document)</label><input type="datetime-local" @bind="_txStartLocal" data-tx-start-time /></div>
+                    <div class="field"><label>Stopped at (for Document)</label><input type="datetime-local" @bind="_txStopLocal" data-tx-stop /></div>
+                </div>
+                <div class="flex gap" style="margin-top:.5rem;">
+                    <button class="btn btn-primary" disabled="@(_busy || _txIssueId == 0)" @onclick="StartTransfusionAsync" data-tx-start>Start transfusion</button>
+                    <button class="btn btn-secondary" disabled="@(_busy || _txIssueId == 0)" @onclick="DocumentTransfusionAsync" data-tx-document>Document start and finish</button>
+                </div>
+            }
             @if (_lastTransfusion is not null)
             {
                 <p class="muted" style="margin-top:.75rem;">
@@ -874,6 +1566,49 @@
                 <div class="alert alert-warning" style="margin-top:.75rem;">
                     Reaction workup opened.
                     <a href="@($"/reactions?id={reactionId}")">Open investigation #@reactionId</a>
+                </div>
+            }
+            @if (_txRun.Count > 0 || NextAtBedside.Count > 0)
+            {
+                @* Several units for one patient at the bedside: the transfusionist and identifiers stay; each unit is scanned. *@
+                <div class="bb-card" style="margin-top:1rem;" data-bedside-run>
+                    <div class="bb-card-title"><h3>This patient at the bedside</h3></div>
+                    @if (_txRun.Count > 0)
+                    {
+                    <div class="table-scroll">
+                    <table class="bb">
+                        <thead><tr><th>Unit</th><th>Product</th><th>Done</th><th>At</th></tr></thead>
+                        <tbody>
+                            @foreach (var done in _txRun)
+                            {
+                                <tr>
+                                    <td class="mono">@done.UnitNumber</td>
+                                    <td>@done.ProductName</td>
+                                    <td>@done.Action</td>
+                                    <td class="nowrap">@done.AtLocal.ToString("HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+                    }
+                    @if (NextAtBedside.Count > 0)
+                    {
+                        <div style="margin-top:.5rem;"><strong>Next at the bedside</strong> <span class="muted">Transfusionist and patient identifiers stay filled in. Scan each unit; the second verifier, volume, and reaction are asked again.</span></div>
+                        <div class="flex gap" style="flex-wrap:wrap;margin-top:.35rem;">
+                            @foreach (var next in NextAtBedside)
+                            {
+                                var row = next;
+                                <button type="button" class="btn @(row == NextAtBedside[0] ? "btn-primary" : "btn-secondary") btn-sm" disabled="@_busy" @onclick="() => NextBedsideUnit(row)">
+                                    @(row.TransfusionStartedUtc is null ? "Start next" : "Complete"): <span class="mono">@row.UnitNumber</span> @row.ProductName
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="muted" style="margin-top:.5rem;">No other unit received on the ward for this patient is waiting.</div>
+                    }
                 </div>
             }
         }
@@ -892,6 +1627,8 @@
 
     private IssueModel _issue = new();
     private List<SpecialRequirementDto> _issueAckRequirements = new();
+    // Informational requirements for the patient being issued to: shown, never enforced.
+    private List<SpecialRequirementDto> _issueInfoRequirements = new();
     private HashSet<string> _issueAcks = new(StringComparer.OrdinalIgnoreCase);
     private Feedback? _issueFb;
     private Feedback? _ptagFb;
@@ -923,18 +1660,26 @@
     private string? _wardPtagNotice;
     private string? _wardCrossmatchStatusNotice;
     private string _wardReceivedBy = string.Empty;
-    private UnitAppearance _wardAppearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _wardAppearance;
     private Feedback? _wardFb;
     private IssueDto? _wardIssue;
 
     private long _returnIssueId;
     private string _returnReason = string.Empty;
-    private bool _returnTempOk = true;
-    private bool _returnSealOk = true;
-    private bool _returnVisualOk = true;
+    // OCD-040: null = not answered. Start answered only when the facility defaults inspections to acceptable.
+    private bool _inspectionDefault;
+    private bool? _returnTempOk;
+    private bool? _returnSealOk;
+    private bool? _returnVisualOk;
+    private bool? InspectionStart => _inspectionDefault ? true : null;
+
+    private bool ReturnInspectionMissing =>
+        _returnDestination == UnitStatus.Available
+        && !ReturnInspectionRule.AllAnswered(_returnTempOk, _returnSealOk, _returnVisualOk);
     private bool _returnTimeOutAcceptable = true;
     private UnitStatus _returnDestination = UnitStatus.Available;
-    private bool ReturnCanBeAvailable => _returnTempOk && _returnSealOk && _returnVisualOk && _returnTimeOutAcceptable;
+    private bool ReturnCanBeAvailable =>
+        _returnTempOk != false && _returnSealOk != false && _returnVisualOk != false && _returnTimeOutAcceptable;
     private Feedback? _returnFb;
 
     private long _txIssueId;
@@ -949,24 +1694,207 @@
     private string? _txIssuedByNotice;
     private string? _txSecondVerifierNotice;
     private string? _txReleaseReason;
+    private string? _txEarlierIdentityNotice;
     private string? _txReleaseAuthorizer;
     private string? _txIssueAppearance;
     private string? _txPtagNotice;
     private string? _txCrossmatchStatusNotice;
     private string? _txWardAppearance;
-    private TransfusionDisposition _txDisposition = TransfusionDisposition.Completed;
+    // How the transfusion ended is asked per unit, never assumed Completed (Cycle 597). Returned is the return workflow.
+    private TransfusionDisposition? _txDisposition;
     private decimal? _txVolume;
     private string? _txTransfusionist;
     private string? _txSecondVerifier;
-    private bool _txReaction;
+    private bool? _txReaction;
+
+    private string TxReactionChoice
+    {
+        get => _txReaction switch { true => "yes", false => "no", null => string.Empty };
+        set => _txReaction = value switch { "yes" => true, "no" => false, _ => null };
+    }
+
+    // Bedside actions for one patient since that patient's first unit here; finished units are not offered again.
+    private sealed record BedsideInRun(long IssueId, string UnitNumber, string? ProductName, string Action, bool Finished, DateTime AtLocal);
+    private readonly List<BedsideInRun> _txRun = new();
+    private long _txRunPatientId;
+
+    // The open reaction investigation for the patient on the issue form, from the reserved units (Cycle 627).
+    private (long Id, DateTime ReportedUtc)? IssueOpenReaction =>
+        _issue.PatientId is long issuePatient and > 0
+        && _readyItems.FirstOrDefault(r => r.PatientId == issuePatient && r.OpenReactionInvestigationId is not null) is
+            { OpenReactionInvestigationId: long reactionId, OpenReactionReportedUtc: DateTime reported }
+            ? (reactionId, reported)
+            : null;
+
+    // The open reaction investigation for the patient at this bedside: the chosen unit's patient, or, once a finished
+    // unit has left the form, the bedside run's patient (Cycle 626).
+    private (long Id, DateTime ReportedUtc)? TxOpenReaction
+    {
+        get
+        {
+            var patientId = _outstandingItems.FirstOrDefault(r => r.IssueId == _txIssueId)?.PatientId
+                ?? (_txRunPatientId != 0 ? _txRunPatientId : null);
+            var row = patientId is long id
+                ? _outstandingItems.FirstOrDefault(r => r.PatientId == id && r.OpenReactionInvestigationId is not null)
+                : null;
+            return row is { OpenReactionInvestigationId: long reactionId, OpenReactionReportedUtc: DateTime reported }
+                ? (reactionId, reported)
+                : null;
+        }
+    }
+
+    // Before the first action, the unit on the form decides the patient, so the other units at the bedside show at once.
+    private IReadOnlyList<OutstandingIssueWorkItemDto> NextAtBedside => _txRun.Count > 0
+        ? IssueRun.NextAtBedside(_outstandingItems, _txRunPatientId, _txIssueId,
+            _txRun.Where(r => r.Finished).Select(r => r.IssueId).ToList())
+        : _outstandingItems.FirstOrDefault(r => r.IssueId == _txIssueId) is { } selected
+            ? IssueRun.NextAtBedside(_outstandingItems, selected.PatientId, _txIssueId, [])
+            : [];
+
+    /// <summary>Records a bedside action for the run and clears what belongs to one unit.</summary>
+    private void AddToBedsideRun(string action, bool finished)
+    {
+        var row = _outstandingItems.FirstOrDefault(r => r.IssueId == _txIssueId);
+        var patientId = row?.PatientId ?? _txPatient?.Id ?? 0;
+        if (patientId != _txRunPatientId)
+        {
+            _txRun.Clear();
+            _txRunPatientId = patientId;
+        }
+
+        _txRun.Add(new BedsideInRun(_txIssueId, row?.UnitNumber ?? _txUnitLookup, row?.ProductName ?? _txProductName, action, finished, DateTime.Now));
+        _txScan.Clear();
+        _txSecondVerifier = null;
+        _txVolume = null;
+        _txReaction = null;
+        _txDisposition = null;
+    }
+
+    // A finished unit leaves the form (Cycle 624): the next scan or Next button chooses another; the patient, the
+    // transfusionist, and the identifiers entered at this bedside stay. Unit number takes the focus.
+    private readonly TransfusionVitalsFields.VitalsDraft _txPreVitals = new();
+    private readonly TransfusionVitalsFields.VitalsDraft _txPostVitals = new();
+
+    private void ClearTransfusionUnit()
+    {
+        _txIssueId = 0;
+        _txStartLocal = null;
+        _txStopLocal = null;
+        _txPreVitals.Clear();
+        _txPostVitals.Clear();
+        // Each unit is its own decision to continue (OCD-078).
+        _txOverrideReason = null;
+        _txAuthorizedBy = null;
+        _txUnitLookup = string.Empty;
+        _txProductName = null;
+        _txExpirationNotice = null;
+        _txUnitTypeNotice = null;
+        _txSpecimenNotice = null;
+        _txCrossmatchNotice = null;
+        _txIssuedToNotice = null;
+        _txCoolerNotice = null;
+        _txLocationNotice = null;
+        _txIssuedByNotice = null;
+        _txSecondVerifierNotice = null;
+        _txReleaseReason = null;
+        _txEarlierIdentityNotice = null;
+        _txReleaseAuthorizer = null;
+        _txIssueAppearance = null;
+        _txPtagNotice = null;
+        _txCrossmatchStatusNotice = null;
+        _txWardAppearance = null;
+        _focusUnitFor = "transfuse";
+    }
+
+    private void NextBedsideUnit(OutstandingIssueWorkItemDto row)
+    {
+        // Same patient: the identifiers already entered at this bedside stay.
+        var (id1, id2, transfusionist) = (_txPatientIdentifier1, _txPatientIdentifier2, _txTransfusionist);
+        var samePatient = row.PatientId == (_txPatient?.Id ?? _txRunPatientId);
+        SelectTransfusionIssue(row);
+        if (samePatient)
+        {
+            (_txPatientIdentifier1, _txPatientIdentifier2, _txTransfusionist) = (id1, id2, transfusionist);
+        }
+
+        _txFb = null;
+        _openedReactionId = null;
+    }
     private string? _txPatientIdentifier1;
     private string? _txPatientIdentifier2;
+    private PatientDto? _txPatient;
+
+    // OCD-039: identifier fields start empty unless the facility allows pre-fill. A failed read keeps them empty.
+    private bool _prefillIdentifiers;
+
     private Feedback? _txFb;
     private TransfusionEventDto? _lastTransfusion;
+    // Set when the selected issue's transfusion was started at the bedside and is not yet completed.
+    private DateTime? _txStartedUtc;
+    // Times typed from the transfusion record, local (pass 65); blank means now.
+    private DateTime? _txStartLocal;
+    private DateTime? _txStopLocal;
+
+    private bool CanRecordTransfusion =>
+        Session.Has(PermissionCodes.TransfusionDocument)
+        || Session.Has(PermissionCodes.TransfusionStart)
+        || Session.Has(PermissionCodes.TransfusionComplete);
     private long? _openedReactionId;
+    private const string ReactionAnswerRequired = IssuingService.ReactionAnswerRequired;
     private readonly UnitScanModel _issueScan = new();
+    private string? _wardBackEntryDin;
+    private DateTime? _wardBackEntryTime;
+    private string? _txBackEntryDin;
     private readonly UnitScanModel _txScan = new();
     private readonly UnitScanModel _wardScan = new();
+
+    // Units received at the ward that went out together (same patient and cooler, or same destination without one).
+    private sealed record ReceivedInRun(long IssueId, string UnitNumber, string? ProductName, string ReceivedBy, DateTime ReceivedLocal);
+    private readonly List<ReceivedInRun> _wardReceivedRun = new();
+    private long _wardRunPatientId;
+    private string? _wardRunCooler;
+    private string? _wardRunDestination;
+
+    // Before the first receipt, the unit on the form decides the shipment, so the rest of the cooler shows at once.
+    private IReadOnlyList<InTransitWorkItemDto> NextToReceive => _wardReceivedRun.Count > 0
+        ? IssueRun.NextToReceive(_inTransitItems, _wardRunPatientId, _wardRunCooler, _wardRunDestination,
+            _wardReceivedRun.Select(r => r.IssueId).ToList())
+        : _inTransitItems.FirstOrDefault(r => r.IssueId == _wardIssueId) is { } selected
+            ? IssueRun.NextToReceive(_inTransitItems, selected.PatientId, selected.CoolerId, selected.IssuedToLocation, [selected.IssueId])
+            : [];
+
+    private string ReceiptRunTitle => _wardReceivedRun.Count > 0
+        ? string.IsNullOrWhiteSpace(_wardRunCooler) ? "Received for this patient" : CoolerName(_wardRunCooler)
+        : _inTransitItems.FirstOrDefault(r => r.IssueId == _wardIssueId)?.CoolerId is { Length: > 0 } cooler
+            ? $"Also in {CoolerName(cooler)}"
+            : "Also for this patient and destination";
+
+    // Labels such as "Cooler 1" already say so.
+    private static string CoolerName(string cooler) =>
+        cooler.Trim().StartsWith("cooler", StringComparison.OrdinalIgnoreCase) ? cooler.Trim() : $"cooler {cooler.Trim()}";
+
+    private void AddToReceiptRun(InTransitWorkItemDto received, string receivedBy)
+    {
+        var sameRun = _wardReceivedRun.Count > 0
+            && received.PatientId == _wardRunPatientId
+            && string.Equals(received.CoolerId ?? string.Empty, _wardRunCooler ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        if (!sameRun)
+        {
+            _wardReceivedRun.Clear();
+            _wardRunPatientId = received.PatientId;
+            _wardRunCooler = string.IsNullOrWhiteSpace(received.CoolerId) ? null : received.CoolerId.Trim();
+            _wardRunDestination = received.IssuedToLocation;
+        }
+
+        _wardReceivedRun.Add(new ReceivedInRun(
+            received.IssueId, received.UnitNumber ?? $"#{received.BloodUnitId}", received.ProductName, receivedBy, DateTime.Now));
+    }
+
+    private void ReceiveNext(InTransitWorkItemDto row)
+    {
+        SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus);
+        _wardFb = null;
+    }
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<PatientDto> _patients = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
@@ -976,6 +1904,135 @@
     private List<SecondAboWorkItemDto> _secondAboItems = new();
     private List<ReadyToIssueWorkItemDto> _readyItems = new();
     private ReadyToIssueWorkItemDto? _prefilledRow;
+    private long? _releasingReadyId;
+    private string _releaseReadyReason = string.Empty;
+    private Feedback? _releaseReadyFb;
+
+    // Release to stock review: the offered rows ticked, except a unit reserved for an open order, which takes a deliberate
+    // tick (Cycle 620); the bench unticks anything else the patient still needs.
+    private bool _reviewingRelease;
+    private readonly HashSet<long> _releaseChosen = new();
+    private string _releaseBatchReason = string.Empty;
+
+    private void BeginReleaseReview(IReadOnlyList<ReadyToIssueWorkItemDto> candidates)
+    {
+        _releaseChosen.Clear();
+        _releaseChosen.UnionWith(candidates.Where(c => ReadyToIssueAttentionRule.StillWanted(c) is null).Select(c => c.AllocationId));
+        _releaseBatchReason = string.Empty;
+        _reviewingRelease = true;
+    }
+
+    private void ToggleReleaseChoice(long allocationId, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            _releaseChosen.Add(allocationId);
+        }
+        else
+        {
+            _releaseChosen.Remove(allocationId);
+        }
+    }
+
+    private async Task ReleaseChosenAsync()
+    {
+        _busy = true;
+        var r = await Api.ReleaseAllocationsAsync(new ReleaseAllocationsRequest(_releaseChosen.ToList(), _releaseBatchReason.Trim()));
+        _busy = false;
+        if (r.Succeeded && r.Value is { } outcomes)
+        {
+            var failed = outcomes.Where(o => !o.Released).ToList();
+            var released = outcomes.Count - failed.Count;
+            _releaseReadyFb = failed.Count == 0
+                ? Feedback.Succeed($"{released} {(released == 1 ? "unit" : "units")} released to stock.")
+                : Feedback.Fail($"{released} released; {failed.Count} not released: {string.Join("; ", failed.Select(f => f.Error))}");
+            _reviewingRelease = false;
+            await LoadWorklistsAsync();
+        }
+        else
+        {
+            _releaseReadyFb = r.ToFeedback();
+        }
+    }
+
+    private void BeginReleaseReady(ReadyToIssueWorkItemDto row)
+    {
+        _releasingReadyId = row.AllocationId;
+        _releaseReadyReason = string.Empty;
+        _releaseReadyFb = null;
+    }
+
+    /// <summary>A reservation past its end goes back to stock through the same release as the chart, with a reason.</summary>
+    private long? _cancellingRequestId;
+    private string _cancelRequestReason = string.Empty;
+
+    private async Task CancelWardRequestAsync(ReadyToIssueWorkItemDto row)
+    {
+        _busy = true;
+        var r = await Api.CancelIssueRequestAsync(row.AllocationId, new CancelIssueRequestRequest(_cancelRequestReason.Trim()));
+        _busy = false;
+        _releaseReadyFb = r.ToFeedback($"Ward request for {row.UnitNumber} cancelled. The unit stays reserved until issued or released.");
+        if (r.Succeeded)
+        {
+            _cancellingRequestId = null;
+            _cancelRequestReason = string.Empty;
+            await LoadWorklistsAsync();
+        }
+    }
+
+    private async Task ReleaseReadyAsync(ReadyToIssueWorkItemDto row)
+    {
+        _busy = true;
+        var r = await Api.ReleaseAllocationAsync(row.AllocationId, _releaseReadyReason.Trim());
+        _busy = false;
+        _releaseReadyFb = r.ToFeedback($"Unit {row.UnitNumber} released to stock.");
+        if (r.Succeeded)
+        {
+            _releasingReadyId = null;
+            _releaseReadyReason = string.Empty;
+            await LoadWorklistsAsync();
+        }
+    }
+
+    // Units issued to the patient on the form since that patient was chosen.
+    private sealed record IssuedInRun(long BloodUnitId, string UnitNumber, string? ProductName, string? Destination, string? CoolerId, DateTime IssuedLocal);
+    private readonly List<IssuedInRun> _issuedThisRun = new();
+    private long _runPatientId;
+
+    private IReadOnlyList<ReadyToIssueWorkItemDto> NextInRun => _issue.PatientId <= 0
+        ? []
+        : IssueRun.NextForPatient(_readyItems, _issue.PatientId, _issue.BloodUnitId, _issuedThisRun.Select(i => i.BloodUnitId).ToList());
+
+    private int HeldBackInRun => _issue.PatientId <= 0
+        ? 0
+        : IssueRun.HeldBackForPatient(_readyItems, _issue.PatientId, _issue.BloodUnitId, _issuedThisRun.Select(i => i.BloodUnitId).ToList());
+
+    /// <summary>Records the issue in this patient's run and clears what belongs to one unit only.</summary>
+    private void AddToRun(IssueDto issued)
+    {
+        ResetRunIfOtherPatient(issued.PatientId);
+        var ready = _readyItems.FirstOrDefault(r => r.BloodUnitId == issued.BloodUnitId);
+        _issuedThisRun.Add(new IssuedInRun(
+            issued.BloodUnitId,
+            ready?.UnitNumber ?? $"#{issued.BloodUnitId}",
+            ready?.ProductName,
+            issued.IssuedToLocation ?? issued.IssuedTo,
+            _issue.CoolerId,
+            issued.IssuedUtc.ToLocalTime()));
+        // The next unit is scanned and selected afresh; identity, destination, and cooler stay.
+        _issue.BloodUnitId = null;
+        _issueScan.Clear();
+    }
+
+    private void IssueNextInRun(ReadyToIssueWorkItemDto row)
+    {
+        if (row.PatientId != _issue.PatientId) return;
+        _issue.BloodUnitId = row.BloodUnitId;
+        _issue.Appearance = null;
+        _prefilledRow = row;
+        _issueFb = null;
+        _focusIssueForm = true;
+    }
 
     private ReadyToIssueWorkItemDto? ActivePrefill =>
         _prefilledRow is { } row
@@ -990,6 +2047,7 @@
     [SupplyParameterFromQuery(Name = "patientId")] public long? QueryPatientId { get; set; }
     [SupplyParameterFromQuery(Name = "bloodUnitId")] public long? QueryBloodUnitId { get; set; }
     [SupplyParameterFromQuery(Name = "desk")] public string? DeskQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "issueId")] public long? QueryIssueId { get; set; }
     private string? _returnUnitNumber;
     private string? _returnProductName;
     private string? _returnExpirationNotice;
@@ -1012,6 +2070,56 @@
     private long? _returnPatientId;
     private ReturnDto? _lastReturn;
 
+    // Units returned together (same patient and cooler, or same destination without one); the reason carries over.
+    private sealed record ReturnedInRun(long IssueId, string UnitNumber, string? ProductName, UnitStatus Destination, DateTime ReturnedLocal);
+    private readonly List<ReturnedInRun> _returnRun = new();
+    private long _returnRunPatientId;
+    private string? _returnRunCooler;
+    private string? _returnRunDestination;
+
+    // Before the first return, the unit on the form decides the shipment, so the rest of the cooler shows at once.
+    private IReadOnlyList<OutstandingIssueWorkItemDto> NextToReturn => _returnRun.Count > 0
+        ? IssueRun.NextToReturn(_outstandingItems, _returnRunPatientId, _returnRunCooler, _returnRunDestination,
+            _returnRun.Select(r => r.IssueId).ToList())
+        : _returnUnitNumber is not null && _outstandingItems.FirstOrDefault(r => r.IssueId == _returnIssueId) is { } selected
+            ? IssueRun.NextToReturn(_outstandingItems, selected.PatientId, selected.CoolerId, selected.IssuedToLocation, [selected.IssueId])
+            : [];
+
+    private string ReturnRunTitle
+    {
+        get
+        {
+            var cooler = _returnRun.Count > 0
+                ? _returnRunCooler
+                : _outstandingItems.FirstOrDefault(r => r.IssueId == _returnIssueId)?.CoolerId;
+            return string.IsNullOrWhiteSpace(cooler) ? "Returned for this patient" : CoolerName(cooler);
+        }
+    }
+
+    private void ReturnNext(OutstandingIssueWorkItemDto row)
+    {
+        var reason = _returnReason;
+        SelectReturnIssue(row);
+        _returnReason = reason;
+        _returnFb = null;
+    }
+
+    // An unidentified emergency patient can be registered without leaving the issue form (emergency release only).
+    private bool _showUnidentified;
+
+    private bool CanRegisterUnidentified =>
+        Session.Has(PermissionCodes.PatientWrite) && Session.Has(PermissionCodes.IssueEmergencyRelease);
+
+    private async Task UseUnidentifiedAsync(PatientDto patient)
+    {
+        _patients.Insert(0, patient);
+        _showUnidentified = false;
+        IssuePatientId = patient.Id;
+        _issue.IssueType = UnidentifiedPatientRule.IssueTypeFor(_issue.IssueType);
+
+        await OnIssuePatientChangedAsync();
+    }
+
     private long? IssuePatientId
     {
         get => _issue.PatientId == 0 ? null : _issue.PatientId;
@@ -1032,7 +2140,189 @@
         builder.CloseElement();
     };
 
-    private void SelectDesk(string desk) => _desk = desk;
+    private void SelectDesk(string desk)
+    {
+        _desk = desk;
+        _focusUnitFor = desk;
+    }
+
+    // Ward receipt, Return, and Transfusion start from a scanned unit: opened from their desk button or a ?desk= link,
+    // the cursor waits in Unit number so the first scan lands there (Cycle 622). Opened from a row, the unit is already
+    // filled and the focus is left alone.
+    private ElementReference _wardUnitInput;
+    private ElementReference _returnUnitInput;
+    private ElementReference _txUnitInput;
+    private string? _focusUnitFor;
+
+    // The issue form takes the focus once it has rendered: from a Ready to issue row the desk changes in the same click,
+    // so focusing at once reached a form not yet on the page and threw (Cycle 627).
+    private bool _focusIssueForm;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusIssueForm && _desk == "issue" && _issueForm.Context is not null)
+        {
+            _focusIssueForm = false;
+            try
+            {
+                await _issueForm.FocusAsync();
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+            {
+                // The circuit is going away: nothing to focus.
+            }
+        }
+
+        if (_focusUnitFor is not { } desk || desk != _desk)
+        {
+            return;
+        }
+
+        _focusUnitFor = null;
+        var (input, filled) = desk switch
+        {
+            "receipt" => (_wardUnitInput, !string.IsNullOrWhiteSpace(_wardUnitLookup)),
+            "return" => (_returnUnitInput, !string.IsNullOrWhiteSpace(_returnUnitLookup)),
+            "transfuse" => (_txUnitInput, !string.IsNullOrWhiteSpace(_txUnitLookup)),
+            _ => (default(ElementReference), true)
+        };
+        if (filled || input.Context is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await input.FocusAsync(preventScroll: true);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            // Not rendered (no permission for that desk) or the circuit is going away: nothing to focus.
+        }
+    }
+
+    private List<MtpActivationDto> _activeMtp = new();
+    private Feedback? _mtpFb;
+    private Feedback? _mtpBoardFb;
+    private string? _mtpRequestedBy;
+    private string? _mtpReason;
+    private string? _mtpLocation;
+    private long? _mtpPackId;
+    private List<MtpPackDefinitionDto> _mtpPacks = new();
+    private long? _closingMtpId;
+    private Dictionary<long, List<MtpPackSummaryDto>> _mtpPackRecords = new();
+    private List<TransportContainerDto> _containers = new();
+    private long? _packingMtpId;
+    private long? _packContainerId;
+    private string? _packContainerLabel;
+    private decimal? _packTemperature;
+    private string? _packComment;
+    private HashSet<long> _packIssueIds = new();
+    private string? _mtpCloseReason;
+
+    private MtpActivationDto? IssueMtp => _activeMtp.FirstOrDefault(m => m.PatientId == _issue.PatientId);
+
+    private static string ComponentLabel(ComponentClass c) => c switch
+    {
+        ComponentClass.RedBloodCells => "Red cells",
+        ComponentClass.WholeBlood => "Whole blood",
+        ComponentClass.Cryoprecipitate => "Cryo",
+        _ => c.ToString()
+    };
+
+    private async Task LoadActiveMtpAsync()
+    {
+        var active = await Api.GetActiveMtpAsync();
+        if (active.Succeeded) _activeMtp = active.Value ?? new();
+        var packs = await Api.GetActiveMtpPacksAsync();
+        if (packs.Succeeded) _mtpPacks = packs.Value ?? new();
+        _mtpPackRecords = new();
+        foreach (var mtp in _activeMtp)
+        {
+            var records = await Api.GetMtpPackRecordsAsync(mtp.Id);
+            if (records.Succeeded) _mtpPackRecords[mtp.Id] = records.Value ?? new();
+        }
+    }
+
+    // Nothing is pre-ticked and the temperature starts blank: the tech records what is actually in the container.
+    private async Task StartPacking(MtpActivationDto mtp)
+    {
+        _packingMtpId = mtp.Id;
+        _packContainerId = null;
+        _packContainerLabel = null;
+        _packTemperature = null;
+        _packComment = null;
+        _packIssueIds = new();
+        var containers = await Api.GetActiveTransportContainersAsync();
+        if (containers.Succeeded) _containers = containers.Value ?? new();
+    }
+
+    private void TogglePackUnit(long issueId, bool on)
+    {
+        if (on) _packIssueIds.Add(issueId);
+        else _packIssueIds.Remove(issueId);
+    }
+
+    private async Task RecordPackAsync(MtpActivationDto mtp)
+    {
+        _busy = true;
+        var r = await Api.PackMtpAsync(mtp.Id, new PackMtpRequest(
+            _packContainerId ?? 0, _packContainerLabel, _packTemperature, _packIssueIds.ToList(), _packComment));
+        _busy = false;
+        _mtpBoardFb = r.ToFeedback(r.Value is { } pack ? $"Pack {pack.PackNumber} recorded for MTP #{mtp.Id}. Open it from Packs sent to print the report." : "Pack recorded.");
+        if (r.Succeeded)
+        {
+            _packingMtpId = null;
+            await LoadActiveMtpAsync();
+        }
+    }
+
+    private async Task IssueUnderMtpAsync(MtpActivationDto mtp)
+    {
+        _desk = "issue";
+        _issue.IssueType = IssueType.MassiveTransfusion;
+        _issue.PatientId = mtp.PatientId;
+        _overrideOn = true;
+        await OnIssuePatientChangedAsync();
+    }
+
+    // An explicit click, never a silent default: the reason text names the activation it came from.
+    private void UseMtpReason(MtpActivationDto mtp)
+    {
+        _overrideOn = true;
+        _overrideReason = $"MTP #{mtp.Id}: {mtp.Reason}";
+    }
+
+    private async Task ActivateMtpAsync()
+    {
+        _busy = true;
+        var r = await Api.ActivateMtpAsync(_issue.PatientId, new ActivateMtpRequest(_mtpRequestedBy, _mtpReason, _mtpLocation, _mtpPackId));
+        _busy = false;
+        _mtpFb = r.ToFeedback("Massive transfusion protocol activated.");
+        if (r.Succeeded)
+        {
+            _mtpRequestedBy = null;
+            _mtpReason = null;
+            _mtpLocation = null;
+            _mtpPackId = null;
+            _overrideOn = true;
+            await LoadActiveMtpAsync();
+        }
+    }
+
+    private async Task CloseMtpAsync(MtpActivationDto mtp)
+    {
+        _busy = true;
+        var r = await Api.CloseMtpAsync(mtp.Id, new CloseMtpRequest(_mtpCloseReason));
+        _busy = false;
+        _mtpBoardFb = r.ToFeedback($"MTP #{mtp.Id} closed. Its units stay on the record.");
+        if (r.Succeeded)
+        {
+            _closingMtpId = null;
+            _mtpCloseReason = null;
+            await LoadActiveMtpAsync();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -1044,6 +2334,12 @@
                 || Session.Has(PermissionCodes.TransfusionDocument),
             QueryPatientId is not null || QueryBloodUnitId is not null,
             _desk);
+        _focusUnitFor = _desk;
+
+        var prefill = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.PrefillPatientIdentifiers);
+        _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;
+        var inspectionDefault = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.InspectionDefaultAcceptable);
+        _inspectionDefault = inspectionDefault.Succeeded && inspectionDefault.Value?.Enabled == true;
 
         if (Session.HasAny(PermissionCodes.PrintLabel, PermissionCodes.IssueCreate, PermissionCodes.TransfusionDocument))
         {
@@ -1066,6 +2362,49 @@
             _issue.PatientId = patientId;
             await OnIssuePatientChangedAsync();
         }
+        else if (QueryBloodUnitId is not null)
+        {
+            // From the unit page: the reservation brings the patient, as if the unit had been scanned here.
+            await OnIssueUnitPickedAsync();
+        }
+
+        // From the chart: open bedside documentation for that issue, with every check the form applies.
+        if (QueryIssueId is long issueId && _desk == "transfuse")
+        {
+            if (_outstandingItems.FirstOrDefault(i => i.IssueId == issueId) is { } row)
+            {
+                SelectTransfusionIssue(row);
+            }
+            else
+            {
+                _txFb = Feedback.Fail($"Issue #{issueId} is not waiting for transfusion documentation. It may already be documented or returned.");
+            }
+        }
+
+        // From the unit page: open ward receipt or return for that issue.
+        if (QueryIssueId is long receiptIssueId && _desk == "receipt")
+        {
+            if (_inTransitItems.FirstOrDefault(i => i.IssueId == receiptIssueId) is { } t)
+            {
+                SelectWardIssue(t.IssueId, t.ProductName, t.UnitExpiresUtc, t.UnitBloodType, t.SpecimenAccession, t.CrossmatchExpiresUtc, t.LatestCrossmatchResult, t.IssuedTo, t.CoolerId, t.IssuedToLocation, t.IssuedBy, t.EmergencyReleaseDetails, t.SecondVerifier, t.EmergencyReleaseAuthorizer, t.IssueAppearance, t.PtagCode, t.CrossmatchStatus);
+            }
+            else
+            {
+                _wardFb = Feedback.Fail($"Issue #{receiptIssueId} is not waiting for ward receipt. It may already be received or returned.");
+            }
+        }
+
+        if (QueryIssueId is long returnIssueId && _desk == "return")
+        {
+            if (_outstandingItems.FirstOrDefault(i => i.IssueId == returnIssueId) is { } r && IssueRun.CanReturn(r))
+            {
+                SelectReturnIssue(r);
+            }
+            else
+            {
+                _returnFb = Feedback.Fail($"Issue #{returnIssueId} cannot be returned here. Its transfusion may have started, or it was already returned.");
+            }
+        }
     }
 
     private async Task SelectReadyToIssue(ReadyToIssueWorkItemDto row)
@@ -1086,17 +2425,56 @@
 
     private async Task PrefillReadyIssueAsync(ReadyToIssueWorkItemDto row)
     {
+        ResetRunIfOtherPatient(row.PatientId);
         _issue.BloodUnitId = row.BloodUnitId;
         _issue.PatientId = row.PatientId;
-        _issue.PatientIdentifier1Value = row.MedicalRecordNumber;
-        _issue.PatientIdentifier2Value = row.DateOfBirth;
+        (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value) = PatientIdentifierEntryRule.Prefill(
+            _prefillIdentifiers, row.MedicalRecordNumber, DateOnly.TryParse(row.DateOfBirth, out var dob) ? dob : null);
         _prefilledRow = row;
+        // The ward said where the unit goes; keep anything already typed.
+        if (!string.IsNullOrWhiteSpace(row.IssueRequestedTo) && string.IsNullOrWhiteSpace(_issue.IssuedToLocation))
+        {
+            _issue.IssuedToLocation = row.IssueRequestedTo;
+        }
+
         await LoadIssueRequirementsAsync();
-        await _issueForm.FocusAsync();
+        _focusIssueForm = true;
+    }
+
+    private string? _issueUnitNotice;
+
+    /// <summary>A unit picked or scanned without going through Ready to issue still brings its reservation's patient.</summary>
+    private async Task OnIssueUnitPickedAsync()
+    {
+        _issueUnitNotice = null;
+        if (_issue.DowntimeBackEntry) return;
+        var (fill, notice) = IssueRun.ForPickedUnit(_readyItems, _issue.BloodUnitId, _issue.PatientId);
+        _issueUnitNotice = notice;
+        if (fill is not null && (fill.PatientId != _issue.PatientId || _prefilledRow?.BloodUnitId != fill.BloodUnitId))
+        {
+            var samePatient = fill.PatientId == _issue.PatientId;
+            var (id1, id2) = (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value);
+            await PrefillReadyIssueAsync(fill);
+            // Identifiers already entered for this patient stay.
+            if (samePatient) (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value) = (id1, id2);
+        }
+    }
+
+    private PatientDto? IssuePatient => _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
+
+    private void ResetRunIfOtherPatient(long patientId)
+    {
+        if (_runPatientId != patientId)
+        {
+            _issuedThisRun.Clear();
+            _runPatientId = patientId;
+        }
     }
 
     private async Task OnIssuePatientChangedAsync()
     {
+        ResetRunIfOtherPatient(_issue.PatientId);
+        _issueUnitNotice = IssueRun.ForPickedUnit(_readyItems, _issue.BloodUnitId, _issue.PatientId).Notice;
         var patient = _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
         if (patient is null)
         {
@@ -1106,8 +2484,8 @@
             return;
         }
 
-        _issue.PatientIdentifier1Value = patient.MedicalRecordNumber;
-        _issue.PatientIdentifier2Value = patient.DateOfBirth.ToString("yyyy-MM-dd");
+        (_issue.PatientIdentifier1Value, _issue.PatientIdentifier2Value) = PatientIdentifierEntryRule.Prefill(
+            _prefillIdentifiers, patient.MedicalRecordNumber, patient.DateOfBirth);
         await LoadIssueRequirementsAsync();
     }
 
@@ -1172,7 +2550,12 @@
     private async Task LookUpTransfusionUnitAsync()
     {
         if (await FindIssueForUnitAsync(_txUnitLookup, f => _txFb = f) is not long issueId) return;
-        if (_outstandingItems.FirstOrDefault(r => r.IssueId == issueId) is { } row) SelectTransfusionIssue(row);
+        // During a bedside run a scanned unit is the next one, as the run's Next button: the same patient's identifiers stay.
+        if (_outstandingItems.FirstOrDefault(r => r.IssueId == issueId) is { } row)
+        {
+            if (_txRun.Count > 0) NextBedsideUnit(row);
+            else SelectTransfusionIssue(row);
+        }
         else _txFb = Feedback.Fail($"Unit {_txUnitLookup.Trim()} is not currently issued, so there is no transfusion to document.");
     }
 
@@ -1187,7 +2570,9 @@
         _wardSpecimenNotice = ReadyToIssueFormCue.SpecimenAccessionNotice(specimenAccession);
         _wardCrossmatchNotice = ReadyToIssueFormCue.CrossmatchWorklistNotice(latestCrossmatchResult, crossmatchExpiresUtc);
         _wardIssuedToNotice = ReadyToIssueFormCue.IssuedToNotice(issuedTo);
-        _wardCoolerNotice = ReadyToIssueFormCue.CoolerNotice(coolerId);
+        var coolerCheck = CoolerCheckFor(coolerId);
+        _wardCoolerNotice = ReadyToIssueFormCue.CoolerCheckNotice(
+            coolerId, _openCoolers is not null, coolerCheck?.LastCheckedUtc?.ToLocalTime(), coolerCheck?.LastCheckReady);
         _wardLocationNotice = ReadyToIssueFormCue.IssuedToLocationNotice(issuedToLocation);
         _wardIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(issuedBy);
         _wardSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(secondVerifier);
@@ -1225,9 +2610,15 @@
         _returnWardAppearance = ReadyToIssueFormCue.WardAppearanceNotice(row.WardAppearance);
         _returnPatientName = row.PatientDisplayName;
         _returnPatientId = row.PatientId;
-        _returnTempOk = true;
-        _returnSealOk = true;
-        _returnVisualOk = true;
+        // A unit from another shipment starts a new run.
+        if (_returnRun.Count > 0 && IssueRun.NextToReturn([row], _returnRunPatientId, _returnRunCooler, _returnRunDestination, []).Count == 0)
+        {
+            _returnRun.Clear();
+        }
+
+        _returnTempOk = InspectionStart;
+        _returnSealOk = InspectionStart;
+        _returnVisualOk = InspectionStart;
         _returnDestination = row.StorageTimeOutAcceptable ? UnitStatus.Available : UnitStatus.Quarantine;
     }
 
@@ -1238,15 +2629,19 @@
             return;
         }
 
-        _returnDestination = _returnSealOk && _returnVisualOk
-            ? UnitStatus.Quarantine
-            : UnitStatus.Discarded;
+        _returnDestination = UnitStatus.Quarantine;
     }
 
     private void SelectTransfusionIssue(OutstandingIssueWorkItemDto row)
     {
         _desk = "transfuse";
         _txIssueId = row.IssueId;
+        // The reaction answer and the disposition belong to one unit.
+        _txReaction = null;
+        _txDisposition = null;
+        _txStartLocal = null;
+        _txStopLocal = null;
+        _txStartedUtc = row.TransfusionStartedUtc;
         _txUnitLookup = row.UnitNumber ?? string.Empty;
         _txProductName = row.ProductName;
         _txExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(row.UnitExpiresUtc);
@@ -1259,14 +2654,46 @@
         _txIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(row.IssuedBy);
         _txSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(row.SecondVerifier);
         _txReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(row.EmergencyReleaseDetails);
+        _txEarlierIdentityNotice = IssuedUnderEarlierIdentityRule.BedsideNotice(row.IssuedUnderEarlierMrn, row.MedicalRecordNumber);
         _txReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(row.EmergencyReleaseAuthorizer);
         _txIssueAppearance = ReadyToIssueFormCue.IssueAppearanceNotice(row.IssueAppearance);
         _txPtagNotice = ReadyToIssueFormCue.PtagNotice(row.PtagCode);
         _txCrossmatchStatusNotice = ReadyToIssueFormCue.CrossmatchStatusNotice(row.CrossmatchStatus);
         _txWardAppearance = ReadyToIssueFormCue.WardAppearanceNotice(row.WardAppearance);
-        _txPatientIdentifier1 = row.MedicalRecordNumber;
-        _txPatientIdentifier2 = row.DateOfBirth;
+        _txPatient = _patients.FirstOrDefault(p => p.Id == row.PatientId);
+        (_txPatientIdentifier1, _txPatientIdentifier2) = PatientIdentifierEntryRule.Prefill(
+            _prefillIdentifiers, row.MedicalRecordNumber, DateOnly.TryParse(row.DateOfBirth, out var dob) ? dob : null);
     }
+
+    // Coolers in transit with their latest check before dispatch; null when not loaded (no issue.create), so nothing is claimed.
+    private List<OpenCoolerDto>? _openCoolers;
+
+    private OpenCoolerDto? CoolerCheckFor(string? coolerId) =>
+        string.IsNullOrWhiteSpace(coolerId)
+            ? null
+            : _openCoolers?.FirstOrDefault(c => string.Equals(c.CoolerId.Trim(), coolerId.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private RenderFragment CoolerCheckBadge(string? coolerId) => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(coolerId) || _openCoolers is null)
+        {
+            return;
+        }
+
+        var check = CoolerCheckFor(coolerId);
+        var (css, text) = check?.LastCheckedUtc is null
+            ? ("badge-gray", "Cooler not checked")
+            : check.LastCheckReady == true ? ("badge-green", "Cooler checked") : ("badge-amber", "Cooler differences");
+        builder.OpenElement(0, "a");
+        builder.AddAttribute(1, "class", $"badge {css}");
+        builder.AddAttribute(2, "href", $"/issuing/cooler-check?cooler={Uri.EscapeDataString(coolerId.Trim())}");
+        builder.AddAttribute(3, "title", check?.LastCheckedUtc is DateTime at
+            ? $"Checked {at.ToLocalTime():yyyy-MM-dd HH:mm}{(string.IsNullOrWhiteSpace(check.LastCheckSummary) ? "" : $": {check.LastCheckSummary}")}"
+            : "Open the cooler check");
+        builder.AddAttribute(4, "data-cooler-check-badge", true);
+        builder.AddContent(5, text);
+        builder.CloseElement();
+    };
 
     private static RenderFragment AntibodyCell(bool hasHistory, string? summary) => builder =>
     {
@@ -1288,6 +2715,11 @@
     };
 
     // "NotCrossmatchedEmergency" -> "Not Crossmatched Emergency", so a long status can wrap in a narrow column.
+    // The issue's crossmatch status changes to Incompatible when a later crossmatch is incompatible,
+    // so that value is not labeled as the status at issue.
+    private static string CrossmatchStatusLine(CrossmatchClinicalStatus status) =>
+        status == CrossmatchClinicalStatus.Incompatible ? "Incompatible after release" : $"At issue: {Words(status)}";
+
     private static string Words(object value) =>
         System.Text.RegularExpressions.Regex.Replace(value.ToString() ?? "", "(?<=[a-z])(?=[A-Z])", " ");
 
@@ -1316,7 +2748,7 @@
         {
             builder.OpenElement(0, "span");
             builder.AddAttribute(1, "class", expired ? "badge badge-red" : "muted");
-            builder.AddContent(2, expires.ToString("yyyy-MM-dd HH:mm"));
+            builder.AddContent(2, expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm"));
             builder.CloseElement();
         }
         else
@@ -1331,6 +2763,7 @@
     private async Task LoadIssueRequirementsAsync()
     {
         _issueAckRequirements = [];
+        _issueInfoRequirements = [];
         _issueAcks.Clear();
         if (_issue.PatientId <= 0)
         {
@@ -1341,6 +2774,7 @@
         _issueAckRequirements = rows
             .Where(r => r.IsClinicallyActive && r.EnforcementKind == SpecialRequirementEnforcementKind.RequireIssueAcknowledgment)
             .ToList();
+        _issueInfoRequirements = rows.Where(r => r.IsClinicallyActive && r.IsInformational).ToList();
     }
 
     private void ToggleIssueAck(string? code, bool on)
@@ -1362,12 +2796,15 @@
 
     private async Task LoadWorklistsAsync()
     {
+        await LoadActiveMtpAsync();
         if (Session.Has(PermissionCodes.IssueCreate))
         {
             var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
             if (retro.Succeeded) _retroItems = retro.Value ?? new();
             var transit = await Api.GetInTransitIssuesAsync();
             if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
+            var coolers = await Api.GetOpenCoolersAsync();
+            _openCoolers = coolers.Succeeded ? coolers.Value ?? new() : null;
             var secondAbo = await Api.GetPendingSecondAboAsync();
             if (secondAbo.Succeeded) _secondAboItems = secondAbo.Value ?? new();
             var ready = await Api.GetReadyToIssueAllocationsAsync();
@@ -1401,7 +2838,75 @@
         CoolerId: string.IsNullOrWhiteSpace(_issue.CoolerId) ? null : _issue.CoolerId.Trim(),
         Appearance: _issue.Appearance,
         AcknowledgedSpecialRequirementCodes: _issueAcks.ToList(),
-        PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim());
+        PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim(),
+        IssuedUtc: _issue.DowntimeBackEntry && _issue.BackEntryLocalTime is DateTime paper
+            ? DateTime.SpecifyKind(paper, DateTimeKind.Local).ToUniversalTime()
+            : null,
+        LateEntryReason: _issue.DowntimeBackEntry && !string.IsNullOrWhiteSpace(_issue.LateEntryReason) ? _issue.LateEntryReason.Trim() : null,
+        DowntimeBackEntry: _issue.DowntimeBackEntry,
+        BackEntryDin: _issue.DowntimeBackEntry ? _issue.BackEntryDin : null,
+        OutsideOutageReason: _issue.DowntimeBackEntry && _backEntryOutsideWarning is not null && !string.IsNullOrWhiteSpace(_issue.OutsideOutageReason)
+            ? _issue.OutsideOutageReason.Trim()
+            : null);
+
+    private async Task OnBackEntryToggledAsync()
+    {
+        // The two pickers list different units, so a unit picked under one is not carried to the other.
+        _issue.BloodUnitId = null;
+        _issue.BackEntryLocalTime = null;
+        _issue.BackEntryDin = null;
+        _issue.LateEntryReason = null;
+        _issue.OutsideOutageReason = null;
+        _backEntryOutsideWarning = null;
+        _backEntryOutage = null;
+        if (!_issue.DowntimeBackEntry)
+        {
+            return;
+        }
+
+        // Cycle 662: offer the open outage, else the latest, and carry it as the reason.
+        var r = await Api.GetDowntimeEpisodesAsync();
+        _downtimeEpisodes = r.Value ?? new();
+        _backEntryOutage = _downtimeEpisodes.OrderBy(e => e.EndedUtc is null ? 0 : 1).ThenByDescending(e => e.StartedUtc).FirstOrDefault();
+        _issue.LateEntryReason = _backEntryOutage?.BackEntryReason;
+    }
+
+    /// <summary>
+    /// The paper time picks the outage it falls in and that outage's reason (unless the reason was typed); outside every
+    /// recorded outage it asks for the reason, which the server requires (OCD-081). With no outage recorded there is
+    /// nothing to check.
+    /// </summary>
+    private void OnBackEntryTimeChanged()
+    {
+        _backEntryOutsideWarning = null;
+        if (_issue.BackEntryLocalTime is not { } local || _downtimeEpisodes.Count == 0)
+        {
+            return;
+        }
+
+        var paper = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
+        var covering = _downtimeEpisodes
+            .Where(e => e.StartedUtc <= paper && (e.EndedUtc is null || paper <= e.EndedUtc))
+            .OrderByDescending(e => e.StartedUtc)
+            .FirstOrDefault();
+        var reasonWasOffered = string.IsNullOrWhiteSpace(_issue.LateEntryReason)
+            || _downtimeEpisodes.Any(e => e.BackEntryReason == _issue.LateEntryReason);
+        if (covering is null)
+        {
+            _backEntryOutsideWarning = "The time on the paper record is outside every recorded outage. Check the record's date and time; if it is right, say why.";
+            return;
+        }
+
+        _backEntryOutage = covering;
+        if (reasonWasOffered)
+        {
+            _issue.LateEntryReason = covering.BackEntryReason;
+        }
+    }
+
+    private List<DowntimeEpisodeDto> _downtimeEpisodes = new();
+    private DowntimeEpisodeDto? _backEntryOutage;
+    private string? _backEntryOutsideWarning;
 
     private async Task IssueAsync()
     {
@@ -1410,6 +2915,7 @@
         _issueFb = r.ToFeedback("Unit issued.");
         if (r.Succeeded)
         {
+            AddToRun(r.Value!);
             _lastIssue = r.Value;
             _wardIssueId = r.Value!.Id;
             _txIssueId = r.Value.Id;
@@ -1417,6 +2923,7 @@
             await LoadWorklistsAsync();
             _ptagFb = null;
             _ptagScan = string.Empty; // a P-tag belongs to one issue
+            _issue.Appearance = null; // the next unit gets its own look (OCD-040)
             _ptagJobId = null;
         }
         _busy = false;
@@ -1483,10 +2990,11 @@
             return;
         }
 
-        var r = await Api.IssueUnitAsync(BuildRequest(_overrideReason, string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy), sig.Value.Id);
+        var r = await Api.IssueUnitAsync(BuildRequest(_overrideReason, _authorizedBy.Trim()), sig.Value.Id);
         _issueFb = r.ToFeedback("Unit issued under override.");
         if (r.Succeeded)
         {
+            AddToRun(r.Value!);
             _lastIssue = r.Value;
             _wardIssueId = r.Value!.Id;
             _txIssueId = r.Value.Id;
@@ -1495,6 +3003,7 @@
             await LoadWorklistsAsync();
             _ptagFb = null;
             _ptagScan = string.Empty; // a P-tag belongs to one issue
+            _issue.Appearance = null; // the next unit gets its own look (OCD-040)
             _ptagJobId = null;
         }
         _busy = false;
@@ -1512,19 +3021,50 @@
     private async Task RecordWardReceiptAsync()
     {
         _busy = true;
+        var receiving = _inTransitItems.FirstOrDefault(r => r.IssueId == _wardIssueId);
+        var receivedBy = string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy;
         var r = await Api.RecordWardReceiptAsync(_wardIssueId, new WardReceiptRequest(
             string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy,
             _wardAppearance == UnitAppearance.Acceptable,
             _wardScan.ToRequest(),
-            _wardAppearance));
+            _wardAppearance,
+            BackEntryDin: string.IsNullOrWhiteSpace(_wardBackEntryDin) ? null : _wardBackEntryDin.Trim(),
+            ReceivedUtc: _wardBackEntryTime is DateTime paperTime ? DateTime.SpecifyKind(paperTime, DateTimeKind.Local).ToUniversalTime() : null));
         _busy = false;
         _wardFb = r.ToFeedback("Ward receipt recorded.");
         if (r.Succeeded)
         {
+            if (receiving is not null) AddToReceiptRun(receiving, receivedBy);
             _wardIssue = r.Value;
             _wardScan.Clear();
+            _wardAppearance = null;
+            ClearWardUnit();
             await LoadWorklistsAsync();
+            // Ready for the next unit in the cooler: the field is empty and takes the scan (Cycle 623).
+            _focusUnitFor = "receipt";
         }
+    }
+
+    // The unit on the receipt form, cleared once it is received; who received it stays for the rest of the cooler.
+    private void ClearWardUnit()
+    {
+        _wardIssueId = 0;
+        _wardUnitLookup = string.Empty;
+        _wardProductName = null;
+        _wardExpirationNotice = null;
+        _wardUnitTypeNotice = null;
+        _wardSpecimenNotice = null;
+        _wardCrossmatchNotice = null;
+        _wardIssuedToNotice = null;
+        _wardCoolerNotice = null;
+        _wardLocationNotice = null;
+        _wardIssuedByNotice = null;
+        _wardSecondVerifierNotice = null;
+        _wardReleaseReason = null;
+        _wardReleaseAuthorizer = null;
+        _wardIssueAppearance = null;
+        _wardPtagNotice = null;
+        _wardCrossmatchStatusNotice = null;
     }
 
     private async Task ReturnAsync()
@@ -1543,10 +3083,24 @@
             _returnSealOk,
             _returnVisualOk,
             Destination: _returnDestination));
-        _returnFb = r.ToFeedback("Unit returned.");
+        _returnFb = r.Succeeded && r.Value is { RetypePending: true }
+            ? Feedback.Succeed("Unit returned. Its ABO/Rh retype is not confirmed yet, so it went back to Received. Record the retype before it can be allocated or issued.")
+            : r.ToFeedback("Unit returned.");
         if (r.Succeeded)
         {
             _lastReturn = r.Value;
+            if (_outstandingItems.FirstOrDefault(i => i.IssueId == _returnIssueId) is { } returned)
+            {
+                if (_returnRun.Count == 0)
+                {
+                    (_returnRunPatientId, _returnRunCooler, _returnRunDestination) = (returned.PatientId, returned.CoolerId, returned.IssuedToLocation);
+                }
+
+                _returnRun.Add(new ReturnedInRun(returned.IssueId, returned.UnitNumber ?? _returnUnitLookup, returned.ProductName,
+                    r.Value?.RetypePending == true ? UnitStatus.Received : _returnDestination, DateTime.Now));
+            }
+
+            var keepReason = _returnReason;
             _returnUnitNumber = null;
             _returnProductName = null;
             _returnExpirationNotice = null;
@@ -1567,36 +3121,134 @@
             _returnTimeOutAcceptable = true;
             _returnWardAppearance = null;
             _returnPatientName = null;
-            _returnReason = string.Empty;
-            _returnTempOk = true;
-            _returnSealOk = true;
-            _returnVisualOk = true;
+            _returnTempOk = InspectionStart;
+            _returnSealOk = InspectionStart;
+            _returnVisualOk = InspectionStart;
             _returnDestination = UnitStatus.Available;
+            _returnIssueId = 0;
+            _returnUnitLookup = string.Empty;
             await LoadWorklistsAsync();
+            // The reason stays while more of the shipment is out; each unit is inspected again.
+            _returnReason = NextToReturn.Count > 0 ? keepReason : string.Empty;
+            // Ready for the next unit: the field is empty and takes the scan (Cycle 623).
+            _focusUnitFor = "return";
         }
         _busy = false;
     }
 
-    private async Task DocumentTransfusionAsync()
+    private string? _txOverrideReason;
+    private string? _txAuthorizedBy;
+
+    /// <summary>The OCD-078 override, sent only while a reaction is under investigation for the patient.</summary>
+    private (string? Reason, string? AuthorizedBy) TxOverride => TxOpenReaction is null
+        ? (null, null)
+        : (string.IsNullOrWhiteSpace(_txOverrideReason) ? null : _txOverrideReason.Trim(),
+            string.IsNullOrWhiteSpace(_txAuthorizedBy) ? null : _txAuthorizedBy.Trim());
+
+    private async Task StartTransfusionAsync()
     {
         _busy = true;
+        var r = await Api.StartTransfusionAsync(_txIssueId, new StartTransfusionRequest(
+            Transfusionist: string.IsNullOrWhiteSpace(_txTransfusionist) ? null : _txTransfusionist,
+            BedsideScan: _txScan.ToRequest(),
+            SecondVerifier: _txSecondVerifier,
+            PatientIdentifier1Value: _txPatientIdentifier1,
+            PatientIdentifier2Value: _txPatientIdentifier2,
+            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim(),
+            OverrideReason: TxOverride.Reason,
+            AuthorizedBy: TxOverride.AuthorizedBy,
+            PreVitals: _txPreVitals.ToVitals()));
+        _busy = false;
+        _txFb = r.ToFeedback("Transfusion started. Complete it here when it ends.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            AddToBedsideRun("Started", finished: false);
+            _txStartedUtc = r.Value.StartUtc;
+            await LoadWorklistsAsync();
+        }
+    }
+
+    private async Task CompleteTransfusionAsync()
+    {
+        if (_txReaction is null)
+        {
+            _txFb = Feedback.Fail(ReactionAnswerRequired);
+            return;
+        }
+
+        if (_txDisposition is null)
+        {
+            _txFb = Feedback.Fail(IssuingService.DispositionRequired);
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.CompleteTransfusionAsync(_txIssueId, new CompleteTransfusionRequest(
+            _txDisposition,
+            StopUtc: _txStopLocal is DateTime stop ? LocalEntry.ToUtc(stop) : null,
+            VolumeTransfused: _txVolume, ReactionSuspected: _txReaction, PostVitals: _txPostVitals.ToVitals()));
+        _busy = false;
+        _txFb = r.ToFeedback("Transfusion completed.");
+        _openedReactionId = null;
+        var reactionReported = _txReaction == true;
+        if (r.Succeeded && r.Value is not null)
+        {
+            AddToBedsideRun($"Completed ({_txDisposition})", finished: true);
+            _lastTransfusion = r.Value;
+            _txStartedUtc = null;
+            ClearTransfusionUnit();
+            await LoadWorklistsAsync();
+            if (reactionReported)
+            {
+                var cases = await Api.GetReactionInvestigationsAsync();
+                _openedReactionId = cases.Value?.FirstOrDefault(x => x.TransfusionEventId == r.Value.Id)?.Id;
+            }
+        }
+    }
+
+    private async Task DocumentTransfusionAsync()
+    {
+        if (_txReaction is null)
+        {
+            _txFb = Feedback.Fail(ReactionAnswerRequired);
+            return;
+        }
+
+        if (_txDisposition is null)
+        {
+            _txFb = Feedback.Fail(IssuingService.DispositionRequired);
+            return;
+        }
+
+        _busy = true;
         var r = await Api.DocumentTransfusionAsync(_txIssueId, new DocumentTransfusionRequest(
-            _txDisposition, VolumeTransfused: _txVolume,
+            _txDisposition,
+            StartUtc: _txStartLocal is DateTime start ? LocalEntry.ToUtc(start) : null,
+            StopUtc: _txStopLocal is DateTime stop ? LocalEntry.ToUtc(stop) : null,
+            VolumeTransfused: _txVolume,
             Transfusionist: string.IsNullOrWhiteSpace(_txTransfusionist) ? null : _txTransfusionist,
             ReactionSuspected: _txReaction,
             BedsideScan: _txScan.ToRequest(),
             SecondVerifier: _txSecondVerifier,
             PatientIdentifier1Value: _txPatientIdentifier1,
-            PatientIdentifier2Value: _txPatientIdentifier2));
+            PatientIdentifier2Value: _txPatientIdentifier2,
+            BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim(),
+            OverrideReason: TxOverride.Reason,
+            AuthorizedBy: TxOverride.AuthorizedBy,
+            PreVitals: _txPreVitals.ToVitals(),
+            PostVitals: _txPostVitals.ToVitals()));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;
+        var reactionReported = _txReaction == true;
         if (r.Succeeded)
         {
+            AddToBedsideRun($"Documented ({_txDisposition})", finished: true);
             _lastTransfusion = r.Value;
+            ClearTransfusionUnit();
             await LoadWorklistsAsync();
         }
-        if (_txReaction && r.Succeeded && r.Value is not null)
+        if (reactionReported && r.Succeeded && r.Value is not null)
         {
             var cases = await Api.GetReactionInvestigationsAsync();
             var opened = cases.Value?.FirstOrDefault(x => x.TransfusionEventId == r.Value.Id);
@@ -1616,8 +3268,13 @@
         public string? IssuedTo { get; set; }
         public string? IssuedToLocation { get; set; }
         public IssueType IssueType { get; set; } = IssueType.Standard;
-        public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
+        public UnitAppearance? Appearance { get; set; }
         public string? SecondVerifier { get; set; }
         public string? CoolerId { get; set; }
+        public bool DowntimeBackEntry { get; set; }
+        public DateTime? BackEntryLocalTime { get; set; }
+        public string? BackEntryDin { get; set; }
+        public string? LateEntryReason { get; set; }
+        public string? OutsideOutageReason { get; set; }
     }
 }

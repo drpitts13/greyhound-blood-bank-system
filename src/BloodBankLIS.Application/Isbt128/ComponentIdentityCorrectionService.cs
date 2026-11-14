@@ -32,6 +32,9 @@ public sealed class ComponentIdentityCorrectionService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public ComponentIdentityCorrectionService(
         IInventoryRepository inventory,
         IRepository<BloodComponentIdentityCorrection> corrections,
@@ -40,8 +43,10 @@ public sealed class ComponentIdentityCorrectionService
         IClock clock,
         ICurrentUser user,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _inventory = inventory;
         _corrections = corrections;
         _lookups = lookups;
@@ -98,7 +103,7 @@ public sealed class ComponentIdentityCorrectionService
             var productValidation = ProductCodeLookupValidator.Validate(
                 request.CorrectedValue,
                 productLookup,
-                DateOnly.FromDateTime(_clock.UtcNow));
+                FacilityDay.Of(_clock.UtcNow, _facilityTimeZone));
             if (!productValidation.Success)
                 return OperationResult<BloodComponentIdentityCorrection>.Fail(productValidation.Error!);
 

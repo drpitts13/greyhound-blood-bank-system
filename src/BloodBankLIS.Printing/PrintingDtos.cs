@@ -9,6 +9,13 @@ public sealed record PrintRequest(
     string? TemplateCode = null,
     string? TargetPrinter = null);
 
+/// <summary>Labels for aliquots split from a specimen: how many, on which aliquot design (the default when none).</summary>
+public sealed record PrintAliquotLabelsRequest(
+    int Count,
+    LabelFormat Format = LabelFormat.Zpl,
+    string? TemplateCode = null,
+    string? TargetPrinter = null);
+
 /// <summary>Read model for a print job (rendered output included on single-job reads).</summary>
 public sealed record PrintJobDto(
     long Id,
@@ -28,6 +35,9 @@ public sealed record PrintJobDto(
     string? DeliveryError,
     bool HasPdf)
 {
+    /// <summary>The printed record as staff know it (accession, unit number, unit and patient); null when not named.</summary>
+    public string? ContextName { get; init; }
+
     public static PrintJobDto Summary(PrintJob j) => new(
         j.Id, j.JobType, j.TemplateCode, j.Format, j.TargetPrinter, j.ContextType, j.ContextId,
         j.Status, j.IsReprint, j.ReprintReason, j.PrintedBy, j.PrintedUtc, null,

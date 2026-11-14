@@ -13,6 +13,9 @@ public sealed class ReportGrid
 {
     public IReadOnlyList<string> Columns { get; init; } = Array.Empty<string>();
 
+    /// <summary>Headings to show for <see cref="Columns"/> (field names, pass 50); empty means show the codes.</summary>
+    public IReadOnlyList<string> ColumnLabels { get; init; } = Array.Empty<string>();
+
     public IReadOnlyList<IReadOnlyList<string?>> Rows { get; init; } = Array.Empty<IReadOnlyList<string?>>();
 
     public bool Truncated { get; init; }
@@ -55,6 +58,9 @@ public sealed class ReportResultDto
     public long? ReportId { get; init; }
     public string Name { get; init; } = string.Empty;
     public IReadOnlyList<string> Columns { get; init; } = Array.Empty<string>();
+
+    /// <summary>Headings to show for <see cref="Columns"/> (field names, pass 50); empty means show the codes.</summary>
+    public IReadOnlyList<string> ColumnLabels { get; init; } = Array.Empty<string>();
     public IReadOnlyList<IReadOnlyList<string?>> Rows { get; init; } = Array.Empty<IReadOnlyList<string?>>();
     public bool Truncated { get; init; }
 }

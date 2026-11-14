@@ -1,4 +1,4 @@
-@page "/patients/{Id:long}"
+﻿@page "/patients/{Id:long}"
 @using BloodBankLIS.Application.Admin
 @using BloodBankLIS.Application.Immunohematology
 @using BloodBankLIS.Application.Issuing
@@ -11,7 +11,7 @@
 @inject NavigationManager Nav
 
 @* MRN, not the name, so open charts are told apart without putting names in tab titles, history or screen shares. *@
-<PageTitle>@(_patient is null ? "Patient" : $"Chart {_patient.MedicalRecordNumber}") &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>@(_patient is null ? "Patient" : $"Chart {_patient.MedicalRecordNumber}") &middot; HemoCore</PageTitle>
 
 @if (_loading)
 {
@@ -26,6 +26,8 @@ else
 {
     <PatientChartHeader
         Patient="_patient"
+        Encounters="_encounters"
+        VisitsLoaded="_visitsLoaded"
         CurrentType="_currentType"
         TypeHistory="_typeHistory"
         RequireSecondAbo="_requireSecondAbo"
@@ -44,6 +46,7 @@ else
         @bind-MergeReason="_mergeReason"
         @bind-UnmergeReason="_unmergeReason"
         HasRecordedReaction="_productHistory.Any(h => h.ReactionSuspected)"
+        OpenReaction="_openReaction"
         AntibodyHistory="_antibodyHistory"
         ActiveSpecialRequirements="ActiveSpecialRequirements"
         Specimens="_specimens"
@@ -55,8 +58,22 @@ else
         OnCancelMerge="() => _showMerge = false"
         OnUnmerge="UnmergeAsync" />
 
+    @* End-user testing pass 47: a second chart for the same person said nothing of the history on the first. *@
+    @foreach (var dup in _possibleDuplicates)
+    {
+        <div class="alert alert-warning" data-possible-duplicate>
+            <strong>Possible duplicate chart:</strong>
+            <a href="@($"/patients/{dup.Other.Id}")">@dup.Other.LastName, @dup.Other.FirstName (@dup.Other.MedicalRecordNumber)</a>
+            @(string.IsNullOrWhiteSpace(dup.Reason) ? "" : $"({dup.Reason})").
+            @if (!string.IsNullOrWhiteSpace(dup.Other.CurrentBloodType) || dup.Other.ActiveAntibodies is { Count: > 0 })
+            {
+                <span> That chart holds blood bank history: @(dup.Other.CurrentBloodType ?? "no type")@(dup.Other.ActiveAntibodies is { Count: > 0 } abs ? $", {string.Join(", ", abs)}" : "").</span>
+            }
+            If they are the same person, merge the charts (Merge duplicate) before testing or issue; if not, dismiss the pair on Possible duplicates.
+        </div>
+    }
     <PatientWorkflowRibbon Steps="WorkflowSteps" OnStepSelected="OpenWorkflowStepAsync" />
-    <PatientChartTabBar Current="_tab" OnSelect="SelectTab" />
+    <PatientChartTabBar Current="@_tab" OnSelect="SelectTab" />
 
     @if (_tab == "overview")
     {
@@ -83,10 +100,13 @@ else
             @bind-TypeRh="_typeRh"
             @bind-TypeSubgroup="_typeSubgroup"
             @bind-TypeReason="_typeReason"
+            @bind-TypeDocumentation="_typeDocumentation"
+            @bind-TypeDocumentationReference="_typeDocumentationReference"
             SrDeactivateId="_srDeactivateId"
             @bind-SrDeactivateReason="_srDeactivateReason"
             @bind-SrDefinitionId="_srDefinitionId"
             @bind-SrAntigen="_srAntigen"
+            @bind-SrStartDate="_srStartDate"
             @bind-SrEndDate="_srEndDate"
             @bind-SrReason="_srReason"
             RecentPregnancyUtc="_patient?.RecentPregnancyUtc"
@@ -96,6 +116,12 @@ else
             @bind-AbCatalogId="_abCatalogId"
             @bind-AbStatus="_abStatus"
             @bind-AbComment="_abComment"
+            @bind-AbFacility="_abFacility"
+            @bind-AbIdentifiedOn="_abIdentifiedOn"
+            @bind-AbReportKind="_abReportKind"
+            @bind-AbReportDocumentation="_abReportDocumentation"
+            OnAntibodyConfirmed="LoadAsync"
+            RhDVariant="@(_patient?.RhDVariant ?? RhDVariant.None)"
             @bind-AgCatalogId="_agCatalogId"
             @bind-AgResult="_agResult"
             OnRecordType="RecordTypeAsync"
@@ -109,6 +135,7 @@ else
             OnCancelDeactivateAb="CancelDeactivate"
             OnAddAntibody="AddAntibodyAsync"
             OnSaveAntigen="SaveAntigenProfileAsync" />
+        <LinkedDeviations ContextType="@DeviationRecordTypes.Patient" ContextId="Id" Noun="patient" />
     }
 
     @if (_tab == "visits")
@@ -153,7 +180,7 @@ else
                                 <option value="@AboRhHistoryResolution.Replace">Replace with current result</option>
                             </select>
                         </div>
-                        <div class="field"><label>Authorized by</label><input @bind="_deltaAuthorizedBy" placeholder="@Session.UserName" /></div>
+                        <AuthorizerField @bind-Value="_deltaAuthorizedBy" />
                     </div>
                     <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" @bind:event="oninput" /></div>
                     <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" @bind:event="oninput" /></div>
@@ -166,6 +193,8 @@ else
             </div>
         }
         <PatientChartOrdersTab
+            Patient="_patient"
+            OpenHistoryOrderNumber="@OrderQuery"
             Busy="_busy"
             Loading="_ordersLoading"
             ShowAddOrder="_showAddOrder"
@@ -178,6 +207,7 @@ else
             ProductTypes="_productTypes"
             SpecimenTypes="_specimenTypes"
             LinkableSpecimens="LinkableSpecimens"
+            AllSpecimens="_specimens"
             Allocations="_allocations"
             CompatibleUnits="_compatibleUnits"
             AllocatingOrderId="_allocatingOrderId"
@@ -189,6 +219,7 @@ else
             NewOrderTestCodes="_newOrderTestCodes"
             NewOrderGrouperCodes="_newOrderGrouperCodes"
             NewOrderProductTypeIds="_newOrderProductTypeIds"
+            NewOrderProductUnits="_newOrderProductUnits"
             EditOrderTestCodes="_editOrderTestCodes"
             EditOrderGrouperCodes="_editOrderGrouperCodes"
             EditOrderProductTypeIds="_editOrderProductTypeIds"
@@ -197,6 +228,8 @@ else
             OnAccessionNowAfter="OnNewOrderAccessionNowChanged"
             @bind-NewOrderEncounterId="_newOrderEncounterId"
             @bind-NewOrderPriority="_newOrderPriority"
+            @bind-NewOrderNeededBy="_newOrderNeededBy"
+            OnNeededByChanged="LoadOrdersAsync"
             @bind-NewOrderLocationId="_newOrderLocationId"
             @bind-NewOrderProviderId="_newOrderProviderId"
             @bind-NewOrderSpecimenId="_newOrderSpecimenId"
@@ -247,13 +280,18 @@ else
 
     @if (_tab == "specimens")
     {
+        <WaitingOrderLinkPrompt Specimen="_acceptedSpecimen" OnLinked="OnWaitingOrdersLinkedAsync" />
         <PatientChartSpecimensTab
+            Patient="_patient"
             ShowAccession="_showAccession"
+            CollectorRequired="_collectorRequired"
             Feedback="_accessionFb"
             EditFeedback="_editFb"
             Accession="_acc"
             Edit="_edit"
             SpecimenTypes="_specimenTypes"
+            Orders="_orders"
+            TestDefs="_testDefs"
             Specimens="_specimens"
             SelectedId="_selectedSpecimen?.Id"
             EditId="_editId"
@@ -262,12 +300,14 @@ else
             @bind-RelabelReason="_relabelReason"
             RejectId="_rejectId"
             @bind-RejectReason="_rejectReason"
+            @bind-RejectComment="_rejectComment"
             SpecimenWorklist="_specimenWorklist"
             OpenAbidWorkups="OpenAbidWorkups"
             AbidHref="@AbidHref()"
             Busy="_busy"
             ResultDetail="RenderResults"
-            OnToggleAccession="() => _showAccession = !_showAccession"
+            Encounters="_encounters"
+            OnToggleAccession="ToggleAccession"
             OnAccession="AccessionAsync"
             OnSelect="SelectSpecimen"
             OnBeginEdit="BeginEdit"
@@ -280,9 +320,11 @@ else
             OnReject="RejectAsync"
             OnCancelReject="() => _rejectId = null"
             OnReceive="ReceiveSpecimenAsync"
+            ReceiveByScanOnly="_receiptByScanOnly"
             OnAccept="AcceptSpecimenAsync"
             OnOpenOrders="OpenAddOrderWithAccessionAsync"
-            ExceptionMinLevel="_specimenExpMinLevel" />
+            ExceptionMinLevel="_specimenExpMinLevel"
+            OpenHistoryId="SpecimenQuery" />
     }
 
     @if (_tab == "tests")
@@ -290,7 +332,7 @@ else
         <PatientChartTestsTab
             Busy="_busy"
             Loading="_testsLoading"
-            StatusFilter="_testStatusFilter"
+            StatusFilter="@_testStatusFilter"
             StatusFilterChanged="OnTestStatusFilterChanged"
             @bind-Search="_testSearch"
             Items="_testWorklist"
@@ -301,6 +343,21 @@ else
             OnResultSaved="OnTestResultSaved" />
     }
 
+
+    @if (_tab == "timeline")
+    {
+        <PatientChartTimelineTab PatientId="Id" />
+    }
+
+    @if (_tab == "dat-elution")
+    {
+        <PatientChartDatElutionTab PatientId="Id" />
+    }
+
+    @if (_tab == "rhig")
+    {
+        <PatientChartRhigTab PatientId="Id" />
+    }
 
     @if (_tab == "test-history")
     {
@@ -316,9 +373,11 @@ else
     @if (_tab == "products")
     {
         <PatientChartProductsTab
+            OnAllocationsChanged="LoadAllocationsAsync"
             PatientId="Id"
             Busy="_busy"
             ShowAllocate="_showAllocate"
+            ReservedThisRun="_reservedThisRun"
             AllocFeedback="_allocFb"
             AllocLoading="_allocLoading"
             Allocations="_allocations"
@@ -328,9 +387,13 @@ else
             IssuingAllocation="_issuingAllocation"
             IssueFeedback="_issueFb"
             @bind-IssueLocalDateTime="_issueLocalDateTime"
+            @bind-IssueLocalDateTime:after="() => _issueTimeEdited = true"
+            IssueTimeEdited="_issueTimeEdited"
+            @bind-LateEntryReason="_issueLateEntryReason"
             @bind-IssueLocation="_issueLocation"
             @bind-IssueIssuedTo="_issueIssuedTo"
             @bind-IssueId1="_issueId1"
+            Patient="_patient"
             @bind-IssueId2="_issueId2"
             @bind-IssueSecondVerifier="_issueSecondVerifier"
             @bind-IssueComment="_issueComment"
@@ -352,10 +415,11 @@ else
             LinkableSpecimens="LinkableSpecimens"
             AllocatableOrders="_allocatableOrders"
             AllocOrderId="_allocatingOrderId ?? 0"
+            OrderProgress="_orderProgress"
+            FromBloodOrders="ReserveOrderQuery is not null"
             OnAllocOrderPicked="OnAllocOrderPicked"
             ShowIssuedTransfused="_showIssuedTransfused"
             OnToggleIssuedTransfused="ToggleShowIssuedTransfusedAsync"
-            OnMarkTransfused="MarkTransfusedAsync"
             CompatUnitsLoading="_compatUnitsLoading"
             CompatUnitsError="@_compatUnitsError"
             CompatibleUnits="_compatibleUnits"
@@ -390,42 +454,13 @@ else
 
     @if (_tab == "history")
     {
-        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" Busy="_busy" Feedback="_allocFb" />
+        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" Busy="_busy" Feedback="_allocFb" OnChanged="LoadProductHistoryAsync" />
     }
 
     @if (_autoThawRow is not null)
     {
-        <div class="bb-dialog-backdrop">
-            <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="auto-thaw-title" @onclick:stopPropagation="true">
-                <h2 id="auto-thaw-title" style="margin:0;">Auto thaw @AutoThawCode(_autoThawRow)?</h2>
-                <p class="muted">
-                    @if (_autoThawAsk)
-                    {
-                        <text>Thaw this product now? The product code stays @AutoThawCode(_autoThawRow). Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</text>
-                    }
-                    else
-                    {
-                        <text>Thaw @_autoThawRow.UnitNumber in place. The product code stays @AutoThawCode(_autoThawRow) and expiration becomes 24 hours after the thaw date and time.</text>
-                    }
-                </p>
-                <div class="field">
-                    <label>Thaw date/time</label>
-                    <input type="datetime-local" @bind="_autoThawLocal" />
-                </div>
-                <div class="flex gap" style="margin-top:.75rem;">
-                    @if (_autoThawAsk)
-                    {
-                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Yes</button>
-                        <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="DeclineAutoThawAsync">No</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Auto thaw</button>
-                        <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CancelAutoThaw">Cancel</button>
-                    }
-                </div>
-            </div>
-        </div>
+        <AutoThawDialog Row="_autoThawRow" Ask="_autoThawAsk" Busy="_busy" @bind-ThawLocal="_autoThawLocal" @bind-OpenSystem="_autoThawOpenSystem"
+                        OnConfirm="ConfirmAutoThawAsync" OnDismiss="DismissAutoThawAsync" />
     }
 
     @if (_cancellingOrder is not null)
@@ -474,6 +509,34 @@ else
     [Parameter] public long Id { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
     [SupplyParameterFromQuery(Name = "panel")] public string? PanelQuery { get; set; }
+    // From Possible duplicates: the merge form opens naming the other chart; the reason and confirmation are still the user's.
+    [SupplyParameterFromQuery(Name = "mergeMrn")] public string? MergeMrnQuery { get; set; }
+    private bool _mergeQueryApplied;
+    [SupplyParameterFromQuery(Name = "specimen")] public long? SpecimenQuery { get; set; }
+    // panel=typeandscreen: the new-order form with the type and screen chosen, on this accepted tube.
+    [SupplyParameterFromQuery(Name = "tnsSpecimen")] public long? TypeAndScreenSpecimenQuery { get; set; }
+    // Links into Orders carry their context: an order number to search for, or the visit to filter by.
+    [SupplyParameterFromQuery(Name = "order")] public string? OrderQuery { get; set; }
+    // From Blood orders to prepare: open the reserve form with this order (and specimen) already chosen.
+    [SupplyParameterFromQuery(Name = "reserveOrder")] public long? ReserveOrderQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "reserveSpecimen")] public long? ReserveSpecimenQuery { get; set; }
+    private bool _reserveQueryApplied;
+    private BloodOrderProgressDto? _orderProgress;
+
+    private async Task LoadOrderProgressAsync()
+    {
+        _orderProgress = null;
+        if (_allocatingOrderId is long orderId && Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            var r = await Api.GetBloodOrderProgressAsync(orderId);
+            _orderProgress = r.Succeeded ? r.Value : null;
+        }
+    }
+    [SupplyParameterFromQuery(Name = "visit")] public long? VisitQuery { get; set; }
+    // From a reaction investigation: the special requirement form starts naming it, and the requirement is linked to it.
+    [SupplyParameterFromQuery(Name = "reaction")] public long? ReactionQuery { get; set; }
+    private long? _srReactionId;
+    private bool _reactionQueryApplied;
 
     private bool _loading = true;
     private string? _error;
@@ -493,6 +556,11 @@ else
     private ElectronicCrossmatchEligibilityDto? _exm;
     private List<BloodTypeDto> _typeHistory = new();
     private bool _requireSecondAbo = true;
+
+    // OCD-039: identifier fields start empty unless the facility allows pre-fill. A failed read keeps them empty.
+    private bool _prefillIdentifiers;
+    private bool _receiptByScanOnly;
+    private bool _blockAboSelfVerify = true;
     private List<AntibodyDto> _antibodyHistory = new();
     private List<AntibodyIdWorkupListItemDto> _abidWorkups = new();
 
@@ -516,6 +584,7 @@ else
     private List<SpecialRequirementDefinitionDto> _srCatalog = new();
     private Feedback? _srFb;
     private long _srDefinitionId;
+    private DateTime? _srStartDate = DateTime.Today;
     private DateTime? _srEndDate;
     private string? _srAntigen;
     private string _srReason = string.Empty;
@@ -537,6 +606,8 @@ else
     private List<EncounterDto> _encounters = new();
     private List<PatientOrderDto> _orders = new();
     private List<PatientProductHistoryRowDto> _productHistory = new();
+    // A reaction still under investigation (Cycle 632); null when none or not readable.
+    private OpenReactionInvestigationDto? _openReaction;
     private bool _visitsLoaded;
     private bool _ordersLoaded;
     private bool _historyLoaded;
@@ -568,12 +639,14 @@ else
     private HashSet<string> _editOrderGrouperCodes = new(StringComparer.OrdinalIgnoreCase);
     private List<TestGrouperListItemDto> _testGroupers = new();
     private HashSet<long> _newOrderProductTypeIds = new();
+    private readonly Dictionary<long, int> _newOrderProductUnits = new();
     private long? _addingActionOrderId;
     private List<EligibleModificationDto> _eligibleMods = new();
     private long _selectedEligibleRuleId;
     private long _eligibleModUnitId;
     private OrderPriority _newOrderPriority = OrderPriority.Routine;
     private long _newOrderLocationId;
+    private List<PossibleDuplicateOfDto> _possibleDuplicates = new();
     private long? _newOrderProviderId;
     private long? _editingOrderId;
     private PatientOrderDto? _cancellingOrder;
@@ -591,6 +664,8 @@ else
     private long _newOrderSpecimenId;
     private bool _newOrderAccessionNow;
     private string? _newOrderComment;
+    // Entered in local time on the form; sent as UTC.
+    private DateTime? _newOrderNeededBy;
     private string? _editOrderComment;
     private PatientAccessionForm _orderAcc = new();
 
@@ -602,10 +677,12 @@ else
         LinkableSpecimens.Where(s => s.HasCompletedTypeAndScreen);
 
     // manual blood type
-    private AboGroup _typeAbo = AboGroup.O;
-    private RhType _typeRh = RhType.Positive;
+    private AboGroup? _typeAbo;
+    private RhType? _typeRh;
     private AboSubgroup _typeSubgroup = AboSubgroup.Unknown;
     private string _typeReason = string.Empty;
+    private ManualTypeDocumentation _typeDocumentation = ManualTypeDocumentation.NotDocumented;
+    private string _typeDocumentationReference = string.Empty;
     private Feedback? _typeFb;
 
     // antibody add / deactivate
@@ -613,6 +690,10 @@ else
     private long? _abCatalogId;
     private AntibodyStatus _abStatus = AntibodyStatus.Identified;
     private string? _abComment;
+    private string? _abFacility;
+    private DateOnly? _abIdentifiedOn;
+    private OutsideReportKind? _abReportKind;
+    private string? _abReportDocumentation;
     private Feedback? _antibodyFb;
     private List<AntigenProfileDto> _antigenProfiles = new();
     private long? _agCatalogId;
@@ -628,6 +709,7 @@ else
     private Feedback? _accessionFb;
     private long? _rejectId;
     private string _rejectReason = string.Empty;
+    private string _rejectComment = string.Empty;
     private long? _editId;
     private long? _relabelId;
     private string _relabelBarcode = string.Empty;
@@ -647,8 +729,9 @@ else
     private List<ResolvedPanelSubtestDto> _panelSubtests = new();
     private Dictionary<string, string> _subtestValues = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, bool> _optionalSubtestPerformed = new(StringComparer.OrdinalIgnoreCase);
-    private AboGroup _resAbo = AboGroup.O;
-    private RhType _resRh = RhType.Positive;
+    // The chart's ABO/Rh panel starts unchosen, reactions blank: nothing is assumed (Cycle 592).
+    private AboGroup? _resAbo;
+    private RhType? _resRh;
     private string _resValue = string.Empty;
     private long? _correctId;
     private string _correctValue = string.Empty;
@@ -692,6 +775,7 @@ else
     private PatientAllocationRowDto? _crossmatchRow;
     private bool _autoThawAsk;
     private DateTime _autoThawLocal;
+    private bool _autoThawOpenSystem;
     private List<CompatibleUnitDto> _compatibleUnits = new();
     private List<AllocatableOrderDto> _allocatableOrders = new();
     private bool _compatUnitsLoading;
@@ -713,6 +797,9 @@ else
     private Feedback? _ptagFb;
     private Feedback? _issueFb;
     private DateTime _issueLocalDateTime = DateTime.Now;
+    private string? _issueLateEntryReason;
+    // Only a time the user typed is sent; an untouched form uses the server's time when Issue is pressed.
+    private bool _issueTimeEdited;
     private string _issueLocation = string.Empty;
     private string _issueIssuedTo = string.Empty;
     private string _issueComment = string.Empty;
@@ -724,7 +811,7 @@ else
     private string _issueId1 = string.Empty;
     private string _issueId2 = string.Empty;
     private string? _issueSecondVerifier;
-    private UnitAppearance _issueAppearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _issueAppearance;
     private readonly UnitScanModel _issueScan = new();
     private List<DirectoryUserDto> _directoryUsers = new();
 
@@ -745,7 +832,7 @@ else
 
     private static readonly HashSet<string> KnownTabs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "overview", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "products", "history"
+        "overview", "timeline", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "rhig", "products", "history"
     };
 
     private string? _appliedTabQuery;
@@ -779,13 +866,52 @@ else
         }
 
         await LoadAsync();
-        // Re-apply whenever ?tab= changes so in-chart links (Visits → Orders, etc.) switch tabs every time.
+        // Re-apply whenever the link changes (tab, order, or visit) so in-chart links (Visits → Orders, etc.) land on
+        // what they name every time.
+        var tabLink = $"{TabQuery}|{OrderQuery}|{VisitQuery}";
         if (!string.IsNullOrWhiteSpace(TabQuery)
             && KnownTabs.Contains(TabQuery)
-            && !string.Equals(_appliedTabQuery, TabQuery, StringComparison.OrdinalIgnoreCase))
+            && !string.Equals(_appliedTabQuery, tabLink, StringComparison.OrdinalIgnoreCase))
         {
-            _appliedTabQuery = TabQuery;
-            await SelectTab(TabQuery.Trim().ToLowerInvariant());
+            _appliedTabQuery = tabLink;
+            var tab = TabQuery.Trim().ToLowerInvariant();
+            if (tab == "orders" && (OrderQuery is not null || VisitQuery is not null))
+            {
+                _orderSearch = OrderQuery?.Trim() ?? string.Empty;
+                _orderVisitFilter = VisitQuery ?? 0;
+                _ordersLoaded = false;
+            }
+
+            await SelectTab(tab);
+        }
+
+        if (!_reactionQueryApplied && ReactionQuery is long reactionId)
+        {
+            _reactionQueryApplied = true;
+            _srReactionId = reactionId;
+            _srReason = $"After reaction investigation {reactionId}: ";
+            await SelectTab("overview");
+        }
+
+        if (!_mergeQueryApplied && !string.IsNullOrWhiteSpace(MergeMrnQuery) && CanMergePatients)
+        {
+            _mergeQueryApplied = true;
+            _mergeMrn = MergeMrnQuery.Trim();
+            _showMerge = true;
+            _editingDemographics = false;
+        }
+
+        if (!_reserveQueryApplied && ReserveOrderQuery is long reserveOrderId && Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            _reserveQueryApplied = true;
+            await OpenReserveForOrderAsync(reserveOrderId, ReserveSpecimenQuery);
+        }
+
+        if (!_panelFromQueryApplied
+            && string.Equals(PanelQuery, "typeandscreen", StringComparison.OrdinalIgnoreCase))
+        {
+            _panelFromQueryApplied = true;
+            await OpenAddOrderForTypeAndScreenAsync(TypeAndScreenSpecimenQuery);
         }
 
         if (!_panelFromQueryApplied
@@ -793,6 +919,30 @@ else
         {
             _panelFromQueryApplied = true;
             await OpenAddOrderWithAccessionAsync();
+        }
+
+        // From a "collect a specimen" next step (Ready to issue, Retrospective, Blood orders to prepare): the accession
+        // form open, with the waiting orders it will link. Without accession permission the Specimens tab opens as before.
+        if (!_panelFromQueryApplied
+            && string.Equals(PanelQuery, "specimen", StringComparison.OrdinalIgnoreCase)
+            && Session.Has(PermissionCodes.SpecimenAccession))
+        {
+            _panelFromQueryApplied = true;
+            await SelectTab("specimens");
+            if (!_showAccession)
+            {
+                ToggleAccession();
+            }
+        }
+
+        // From Second ABO/Rh due: the add-order form with ABO/Rh ticked. The visit, location, and specimen stay the
+        // user's; the board tells them it must come from a separate draw.
+        if (!_panelFromQueryApplied
+            && string.Equals(PanelQuery, "abo-rh", StringComparison.OrdinalIgnoreCase)
+            && Session.Has(PermissionCodes.PatientWrite))
+        {
+            _panelFromQueryApplied = true;
+            await OpenAddOrderForAboRhAsync();
         }
     }
 
@@ -804,10 +954,12 @@ else
         _patient = p.Value;
 
         _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
+        _possibleDuplicates = (await Api.GetPossibleDuplicatesOfAsync(Id)).Value ?? new();
         _exm = (await Api.GetPatientElectronicCrossmatchEligibilityAsync(Id)).Value;
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
         await LoadSecondAboPolicyAsync();
         _antibodyHistory = (await Api.GetAntibodyHistoryAsync(Id)).Value ?? new();
+        _openReaction = (await Api.GetReactionUnderInvestigationAsync(Id)).Value?.FirstOrDefault();
         if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
         {
             _abidWorkups = (await Api.GetAntibodyIdWorkupsAsync(Id)).Value ?? new();
@@ -816,6 +968,8 @@ else
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(Id)).Value ?? new();
         _specimenTypes = (await Api.GetReferenceSpecimenTypesAsync()).Value ?? new();
+        var collectorPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenCollector);
+        _collectorRequired = collectorPolicy.Succeeded && collectorPolicy.Value?.Enabled == true;
         _specialRequirements = (await Api.GetSpecialRequirementsAsync(Id)).Value ?? new();
         _srCatalog = (await Api.GetReferenceSpecialRequirementsAsync()).Value ?? new();
         if (_srDefinitionId == 0 && _srCatalog.Count > 0)
@@ -862,7 +1016,7 @@ else
             }
 
             steps.Add(new("issue", 0, "Issue / Transfuse", issued, false,
-                issued ? "Issued — mark transfused when given" : "Issue compatible units"));
+                issued ? "Issued — document the transfusion at the bedside" : "Issue compatible units"));
             var current = steps.FindIndex(s => !s.Complete);
             if (current < 0)
             {
@@ -996,6 +1150,7 @@ else
         ProductAllocationDisplayStatus.ReadyForIssue => "Ready for Issue",
         ProductAllocationDisplayStatus.Exception => "Exception",
         ProductAllocationDisplayStatus.Reserved => "Reserved",
+        ProductAllocationDisplayStatus.CrossmatchExpired => "Crossmatch expired",
         _ => status.ToString()
     };
 
@@ -1017,10 +1172,14 @@ else
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
     }
 
+    // Units reserved for the order on the panel since it was opened or the order was changed.
+    private readonly List<string> _reservedThisRun = new();
+
     private async Task ToggleAllocatePanel()
     {
         _showAllocate = !_showAllocate;
         _allocFb = null;
+        _reservedThisRun.Clear();
         if (_showAllocate)
         {
             await EnsureWorkspaceRefsAsync();
@@ -1042,26 +1201,38 @@ else
 
     private void RefreshAllocatableOrdersFromChart()
     {
-        _allocatableOrders = _orders
-            .Where(o => o.IsActive)
-            .SelectMany(o => o.Lines
-                .Where(l => l.LineCategory == OrderCategory.Product && l.ProductTypeId is > 0)
-                .Select(l => new AllocatableOrderDto(
-                    o.Id,
-                    Id,
-                    string.Empty,
-                    string.Empty,
-                    o.OrderNumber,
-                    l.LineName,
-                    l.ProductTypeId!.Value,
-                    o.SpecimenId,
-                    o.AccessionNumber,
-                    o.OrderedUtc)))
-            .ToList();
+        _allocatableOrders = ChartAllocatableOrders.From(_orders, Id);
     }
 
-    private Task OnAllocOrderPicked(long? orderId)
+    // The reserve form opened on the chosen order; its own specimen first, else the one the worklist found usable.
+    private async Task OpenReserveForOrderAsync(long orderId, long? specimenId)
     {
+        if (!_ordersLoaded)
+        {
+            await LoadOrdersAsync();
+        }
+
+        if (!_showAllocate)
+        {
+            await ToggleAllocatePanel();
+        }
+
+        await OnAllocOrderPicked(orderId);
+        if (_allocatingOrderId == orderId && _allocSpecimenId <= 0 && specimenId is long usable)
+        {
+            _allocSpecimenId = usable;
+        }
+    }
+
+    private async Task OnAllocOrderPicked(long? orderId)
+    {
+        await PickAllocOrderAsync(orderId);
+        await LoadOrderProgressAsync();
+    }
+
+    private Task PickAllocOrderAsync(long? orderId)
+    {
+        if ((orderId is > 0 ? orderId : null) != _allocatingOrderId) _reservedThisRun.Clear();
         _allocatingOrderId = orderId is > 0 ? orderId : null;
         var order = _orders.FirstOrDefault(o => o.Id == _allocatingOrderId);
         if (order is not null)
@@ -1080,7 +1251,7 @@ else
         _showAllocOverride = _selectedUnit?.AntigenNegFlag is not null;
         if (_showAllocOverride && string.IsNullOrWhiteSpace(_allocAuthorizedBy))
         {
-            _allocAuthorizedBy = Session.UserName ?? string.Empty;
+            _allocAuthorizedBy = string.Empty;
         }
     }
 
@@ -1103,17 +1274,21 @@ else
         _issueFb = null;
         _showIssueOverride = false;
         _issueLocalDateTime = DateTime.Now;
-        _issueLocation = string.Empty;
+        _issueLateEntryReason = null;
+        _issueTimeEdited = false;
+        // The ward said where the unit goes when it asked for it.
+        _issueLocation = a.IssueRequestedTo ?? string.Empty;
         _issueIssuedTo = string.Empty;
         _issueComment = string.Empty;
         _issueOverrideReason = string.Empty;
-        _issueAuthorizedBy = Session.UserName ?? string.Empty;
+        _issueAuthorizedBy = string.Empty;
         _issueSignatureMeaning = "I authorize issue override";
         _issueSignatureSecret = string.Empty;
-        _issueId1 = _patient?.MedicalRecordNumber ?? string.Empty;
-        _issueId2 = _patient?.DateOfBirth.ToString("yyyy-MM-dd") ?? string.Empty;
+        var (id1, id2) = PatientIdentifierEntryRule.Prefill(_prefillIdentifiers, _patient?.MedicalRecordNumber, _patient?.DateOfBirth);
+        _issueId1 = id1 ?? string.Empty;
+        _issueId2 = id2 ?? string.Empty;
         _issueSecondVerifier = string.Empty;
-        _issueAppearance = UnitAppearance.Acceptable;
+        _issueAppearance = null;
         _issueScan.Clear();
         _issueAcks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
@@ -1149,7 +1324,9 @@ else
 
     private IssueUnitRequest BuildPatientIssueRequest(string? overrideReason, string? authorizedBy)
     {
-        var issuedUtc = DateTime.SpecifyKind(_issueLocalDateTime, DateTimeKind.Local).ToUniversalTime();
+        DateTime? issuedUtc = _issueTimeEdited
+            ? DateTime.SpecifyKind(_issueLocalDateTime, DateTimeKind.Local).ToUniversalTime()
+            : null;
         return new IssueUnitRequest(
             _issuingAllocation!.BloodUnitId,
             Id,
@@ -1169,7 +1346,8 @@ else
             VerifiedScan: _issueScan.ToRequest(),
             Appearance: _issueAppearance,
             AcknowledgedSpecialRequirementCodes: _issueAcks.ToList(),
-            PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim());
+            PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim(),
+            LateEntryReason: string.IsNullOrWhiteSpace(_issueLateEntryReason) ? null : _issueLateEntryReason.Trim());
     }
 
     private bool ValidateIssueForm()
@@ -1202,6 +1380,7 @@ else
     }
 
     private bool _ptagRequired;
+    private bool _collectorRequired;
     private bool _ptagRequiredLoaded;
     private string _ptagScan = string.Empty;
     private Feedback? _ptagPrepareFb;
@@ -1297,7 +1476,7 @@ else
             return;
         }
 
-        var authorizedBy = string.IsNullOrWhiteSpace(_issueAuthorizedBy) ? Session.UserName : _issueAuthorizedBy.Trim();
+        var authorizedBy = _issueAuthorizedBy.Trim();
         var r = await Api.IssueUnitAsync(
             BuildPatientIssueRequest(_issueOverrideReason.Trim(), authorizedBy),
             sig.Value.Id);
@@ -1348,7 +1527,7 @@ else
             _showAllocOverride = true;
             if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
             {
-                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+                _allocAuthorizedBy = string.Empty;
             }
 
             _allocFb = Feedback.Fail("An override reason and authorizer are required to reserve a unit that is not antigen-negative.");
@@ -1373,7 +1552,7 @@ else
             _showAllocOverride = true;
             if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
             {
-                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+                _allocAuthorizedBy = string.Empty;
             }
 
             _allocFb = r.ToFeedback();
@@ -1387,14 +1566,16 @@ else
 
         if (r.Succeeded)
         {
-            _showAllocate = false;
+            // The panel stays on the same order, visit, and specimen for the next unit; the unit and any override clear.
+            if (_selectedUnit is not null) _reservedThisRun.Add(_selectedUnit.UnitNumber);
             _showAllocOverride = false;
             _allocOverrideReason = string.Empty;
             _allocAuthorizedBy = string.Empty;
-            _allocatingOrderId = null;
             _selectedUnitId = null;
             _selectedUnit = null;
+            await LoadCompatibleUnitsAsync();
             await LoadAllocationsAsync();
+            await LoadOrderProgressAsync();
             _testsLoaded = false;
             if (r.Value?.AutoThawEligible == true)
             {
@@ -1431,7 +1612,23 @@ else
         _autoThawLocal = LocalMinuteNow();
     }
 
-    private void CancelAutoThaw() => _autoThawRow = null;
+    // No declines the thaw when asked after reserving; Cancel only closes the prompt.
+    private Task DismissAutoThawAsync()
+    {
+        if (_autoThawAsk)
+        {
+            return DeclineAutoThawAsync();
+        }
+
+        CancelAutoThaw();
+        return Task.CompletedTask;
+    }
+
+    private void CancelAutoThaw()
+    {
+        _autoThawRow = null;
+        _autoThawOpenSystem = false;
+    }
 
     private async Task ConfirmAutoThawAsync()
     {
@@ -1442,7 +1639,7 @@ else
 
         var thawUtc = DateTime.SpecifyKind(_autoThawLocal, DateTimeKind.Local).ToUniversalTime();
         _busy = true;
-        var result = await Api.ApplyAutoThawAsync(Id, _autoThawRow.AllocationId, thawUtc);
+        var result = await Api.ApplyAutoThawAsync(Id, _autoThawRow.AllocationId, thawUtc, openSystem: _autoThawOpenSystem);
         _busy = false;
         if (!result.Succeeded || result.Value is null)
         {
@@ -1451,6 +1648,7 @@ else
         }
 
         _autoThawRow = null;
+        _autoThawOpenSystem = false;
         await LoadAllocationsAsync();
         _allocFb = result.Value.PrintSucceeded
             ? Feedback.Succeed($"Auto thawed. Product ID tag sent to the printer. Expiration is {result.Value.ExpiresUtc.ToLocalTime():yyyy-MM-dd HH:mm}.")
@@ -1483,9 +1681,6 @@ else
         return new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Local);
     }
 
-    private static string AutoThawCode(PatientAllocationRowDto row) =>
-        string.IsNullOrWhiteSpace(row.AutoThawProductCode) ? row.ProductCode : row.AutoThawProductCode;
-
     private async Task BeginAllocateOnOrderAsync(PatientOrderDto order)
     {
         if (_allocatingOrderId == order.Id)
@@ -1512,19 +1707,6 @@ else
     {
         _showIssuedTransfused = !_showIssuedTransfused;
         await LoadAllocationsAsync();
-    }
-
-    private async Task MarkTransfusedAsync(long issueId)
-    {
-        _busy = true;
-        var r = await Api.MarkIssueTransfusedAsync(issueId);
-        _busy = false;
-        _allocFb = r.ToFeedback("Unit marked transfused.");
-        if (r.Succeeded)
-        {
-            await LoadAllocationsAsync();
-            if (_historyLoaded) await LoadProductHistoryAsync();
-        }
     }
 
     private void ToggleTestEntry(long orderLineId) =>
@@ -1580,6 +1762,18 @@ else
             if (!_visitsLoaded) await LoadVisitsAsync();
             if (_encounters.Count == 0) SuggestVisit();
             if (_encounters.Count > 0 && _newOrderEncounterId == 0) _newOrderEncounterId = _encounters[0].Id;
+            // The chosen visit's own location, when it names exactly one ordering location. When the visit names a place
+            // that is not one ordering location, none is chosen: the first on the list had been, unnoticed (end-user
+            // testing pass 44: an oncology patient's order defaulted to the Emergency Department).
+            var visit = _encounters.FirstOrDefault(v => v.Id == _newOrderEncounterId);
+            if (OrderVisitDefaults.LocationFor(visit, _orderingLocations) is long visitLocation)
+            {
+                _newOrderLocationId = visitLocation;
+            }
+            else if (OrderVisitDefaults.VisitLocation(visit) is not null)
+            {
+                _newOrderLocationId = 0;
+            }
             _newOrderAccessionNow = false;
             _orderAcc = new();
         }
@@ -1607,6 +1801,56 @@ else
         }
     }
 
+    // From Blood orders to prepare (end-user testing, 2026-11-12): a tube accepted for a blood order with no type and
+    // screen ordered on it. The grouper that orders ABO/Rh and the antibody screen is chosen and the tube selected, so
+    // Save orders them on it; the user still chooses the visit, location and priority and saves.
+    private async Task OpenAddOrderForTypeAndScreenAsync(long? specimenId)
+    {
+        await SelectTab("orders");
+        if (!_showAddOrder)
+        {
+            await ToggleAddOrder();
+        }
+
+        var grouper = _testGroupers.FirstOrDefault(g =>
+            g.MemberTestCodes.Contains(PatientChartUrls.AboRhTestCode, StringComparer.OrdinalIgnoreCase)
+            && g.MemberTestCodes.Contains("ABSC", StringComparer.OrdinalIgnoreCase)
+            && g.MemberTestCodes.Count == 2);
+        if (grouper is not null)
+        {
+            _newOrderGrouperCodes.Add(grouper.Code);
+            foreach (var code in grouper.MemberTestCodes)
+            {
+                _newOrderTestCodes.Add(code);
+            }
+        }
+
+        _newOrderAccessionNow = false;
+        if (specimenId is long id && _specimens.Any(s => s.Id == id))
+        {
+            _newOrderSpecimenId = id;
+        }
+    }
+
+    private async Task OpenAddOrderForAboRhAsync()
+    {
+        await SelectTab("orders");
+        if (!_showAddOrder)
+        {
+            await ToggleAddOrder();
+        }
+
+        if (_testDefs.FirstOrDefault(t => t.Code.Equals(PatientChartUrls.AboRhTestCode, StringComparison.OrdinalIgnoreCase)) is { } abo)
+        {
+            _newOrderTestCodes.Add(abo.Code);
+        }
+
+        // The second type must come from a separately collected specimen: start on a new tube rather than auto-linking
+        // the most recent accepted one, which would type the same tube again (end-user testing pass 44).
+        _newOrderAccessionNow = true;
+        OnNewOrderAccessionNowChanged();
+    }
+
     private async Task AddVisitAsync()
     {
         if (string.IsNullOrWhiteSpace(_newVisitNumber))
@@ -1617,8 +1861,9 @@ else
             return;
         }
         _busy = true;
+        // The admit time is typed in local time (it defaults to the local clock); pass 58: it was stamped as UTC unconverted.
         DateTime? admit = _newVisitAdmit.HasValue
-            ? DateTime.SpecifyKind(_newVisitAdmit.Value, DateTimeKind.Utc)
+            ? LocalEntry.ToUtc(_newVisitAdmit.Value)
             : null;
 
         var req = new CreateEncounterRequest(
@@ -1772,11 +2017,14 @@ else
         else _editOrderProductTypeIds.Remove(productTypeId);
     }
 
-    private static List<OrderLineInputDto> BuildLineInputs(IEnumerable<string> testCodes, IEnumerable<long> productTypeIds)
+    private static List<OrderLineInputDto> BuildLineInputs(
+        IEnumerable<string> testCodes, IEnumerable<long> productTypeIds, IReadOnlyDictionary<long, int>? units = null)
     {
+        // One product line per unit wanted: the blood order counts its units by its product lines.
         var lines = testCodes
             .Select(code => new OrderLineInputDto(OrderCategory.Test, code, null))
-            .Concat(productTypeIds.Select(id => new OrderLineInputDto(OrderCategory.Product, null, id)))
+            .Concat(productTypeIds.SelectMany(id => Enumerable.Repeat(
+                new OrderLineInputDto(OrderCategory.Product, null, id), Math.Max(1, units?.GetValueOrDefault(id, 1) ?? 1))))
             .ToList();
         return lines;
     }
@@ -1833,7 +2081,7 @@ else
     {
         if (_newOrderEncounterId <= 0) { _orderFb = Feedback.Fail("Select a visit."); return; }
         if (_newOrderLocationId <= 0) { _orderFb = Feedback.Fail("Select an ordering location."); return; }
-        var lines = BuildLineInputs(_newOrderTestCodes, _newOrderProductTypeIds);
+        var lines = BuildLineInputs(_newOrderTestCodes, _newOrderProductTypeIds, _newOrderProductUnits);
         if (lines.Count == 0) { _orderFb = Feedback.Fail("Select at least one test or product."); return; }
 
         // Check criteria before anything is saved, so a missing reason never leaves a specimen behind.
@@ -1869,11 +2117,15 @@ else
                 accessionNumber,
                 Id,
                 string.IsNullOrWhiteSpace(_orderAcc.SpecimenType) ? "EDTA" : _orderAcc.SpecimenType,
-                DateTime.SpecifyKind(_orderAcc.CollectedLocal, DateTimeKind.Utc),
+                LocalEntry.ToUtc(_orderAcc.CollectedLocal),
                 ValidityHours: _orderAcc.ValidityHours,
                 Identifier1Value: string.IsNullOrWhiteSpace(_orderAcc.Identifier1Value) ? null : _orderAcc.Identifier1Value,
                 Identifier2Value: string.IsNullOrWhiteSpace(_orderAcc.Identifier2Value) ? null : _orderAcc.Identifier2Value,
-                Comment: string.IsNullOrWhiteSpace(_orderAcc.Comment) ? null : _orderAcc.Comment);
+                Collector: string.IsNullOrWhiteSpace(_orderAcc.Collector) ? null : _orderAcc.Collector.Trim(),
+                DrawLocation: string.IsNullOrWhiteSpace(_orderAcc.DrawLocation) ? null : _orderAcc.DrawLocation.Trim(),
+                Comment: string.IsNullOrWhiteSpace(_orderAcc.Comment) ? null : _orderAcc.Comment,
+                // The tube belongs to the visit the order is placed on.
+                EncounterId: _newOrderEncounterId > 0 ? _newOrderEncounterId : null);
             var acc = await Api.AccessionSpecimenAsync(accReq);
             if (!acc.Succeeded || acc.Value is null)
             {
@@ -1900,7 +2152,8 @@ else
             null,
             specimenId,
             string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment,
-            Indications: _newOrderProductTypeIds.Count > 0 ? PbmInputs() : null);
+            Indications: _newOrderProductTypeIds.Count > 0 ? PbmInputs() : null,
+            NeededByUtc: _newOrderNeededBy is DateTime localNeeded ? DateTime.SpecifyKind(localNeeded, DateTimeKind.Local).ToUniversalTime() : null);
         var r = await Api.CreatePatientOrderAsync(Id, req);
         _busy = false;
         if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
@@ -1916,12 +2169,14 @@ else
         _newOrderTestCodes.Clear();
         _newOrderGrouperCodes.Clear();
         _newOrderProductTypeIds.Clear();
+        _newOrderProductUnits.Clear();
         _pbmResults.Clear();
         _pbmIndication.Clear();
         _pbmReason.Clear();
         _newOrderSpecimenId = 0;
         _newOrderAccessionNow = false;
         _newOrderComment = null;
+        _newOrderNeededBy = null;
         _orderAcc = new();
         _ordersLoaded = false;
         await LoadOrdersAsync();
@@ -2079,7 +2334,7 @@ else
             _editOrderProviderId is > 0 ? _editOrderProviderId : null,
             NeedsOrderXmOverride ? _editOverrideReason.Trim() : null,
             NeedsOrderXmOverride
-                ? (string.IsNullOrWhiteSpace(_editAuthorizedBy) ? Session.UserName : _editAuthorizedBy.Trim())
+                ? _editAuthorizedBy.Trim()
                 : null,
             string.IsNullOrWhiteSpace(_editOrderComment) ? null : _editOrderComment);
         var r = await Api.UpdatePatientOrderAsync(Id, _editingOrderId.Value, req);
@@ -2117,7 +2372,8 @@ else
     private bool CanVerifyPostedOrderResult(PatientOrderDto o) =>
         o.HasPostedInterfaceOrInstrumentValue
         && Session.Has(PermissionCodes.ResultVerify)
-        && !(string.Equals(o.CurrentResultTestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
+        && !(_blockAboSelfVerify
+            && string.Equals(o.CurrentResultTestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
             && string.Equals(o.CurrentResultEnteredBy, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
     private async Task VerifyPostedOrderResultAsync(PatientOrderDto o)
@@ -2203,11 +2459,18 @@ else
 
     private async Task RecordTypeAsync()
     {
+        if (_typeAbo is not AboGroup abo || _typeRh is not RhType rh)
+        {
+            _typeFb = Feedback.Fail("Choose the ABO and Rh(D) to record.");
+            return;
+        }
+
         _busy = true;
-        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(_typeAbo, _typeRh, _typeReason, _typeSubgroup));
+        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(abo, rh, _typeReason, _typeSubgroup,
+            _typeDocumentation, string.IsNullOrWhiteSpace(_typeDocumentationReference) ? null : _typeDocumentationReference));
         _busy = false;
         _typeFb = r.ToFeedback("Blood type recorded.");
-        if (r.Succeeded) { _typeReason = string.Empty; await LoadAsync(); }
+        if (r.Succeeded) { _typeAbo = null; _typeRh = null; _typeReason = string.Empty; _typeDocumentation = ManualTypeDocumentation.NotDocumented; _typeDocumentationReference = string.Empty; await LoadAsync(); }
     }
 
     private static string AbidNextLabel(AntibodyIdWorkupListItemDto workup) =>
@@ -2222,10 +2485,12 @@ else
     {
         if (_abCatalogId is null || OpenAbidWorkups.Count > 0) return;
         _busy = true;
-        var r = await Api.AddAntibodyAsync(Id, new AddAntibodyRequest(_abCatalogId, null, _abStatus, string.IsNullOrWhiteSpace(_abComment) ? null : _abComment));
+        var r = await Api.AddAntibodyAsync(Id, new AddAntibodyRequest(_abCatalogId, null, _abStatus, string.IsNullOrWhiteSpace(_abComment) ? null : _abComment,
+            string.IsNullOrWhiteSpace(_abFacility) ? null : _abFacility, string.IsNullOrWhiteSpace(_abFacility) ? null : _abIdentifiedOn,
+            string.IsNullOrWhiteSpace(_abFacility) ? null : _abReportKind, string.IsNullOrWhiteSpace(_abFacility) ? null : _abReportDocumentation));
         _busy = false;
         _antibodyFb = r.ToFeedback("Antibody added.");
-        if (r.Succeeded) { _abCatalogId = null; _abComment = null; await LoadAsync(); }
+        if (r.Succeeded) { _abCatalogId = null; _abComment = null; _abFacility = null; _abIdentifiedOn = null; _abReportKind = null; _abReportDocumentation = null; await LoadAsync(); }
     }
 
     private async Task SaveAntigenProfileAsync()
@@ -2271,18 +2536,33 @@ else
         var type = selected is null
             ? SpecialTransfusionRequirementType.Other
             : SpecialRequirementCatalog.TypeFor(selected.Code) ?? SpecialTransfusionRequirementType.Other;
-        DateTime? expires = _srEndDate is { } end
-            ? DateTime.SpecifyKind(end.Date, DateTimeKind.Utc)
-            : null;
+        // Facility dates: the server takes them as facility midnight, so the requirement stops applying on the end date.
         var r = await Api.AddSpecialRequirementAsync(Id, new AddSpecialRequirementRequest(
             type,
             _srReason,
             string.IsNullOrWhiteSpace(_srAntigen) ? null : _srAntigen,
-            ExpiresUtc: expires,
-            RequirementDefinitionId: _srDefinitionId == 0 ? null : _srDefinitionId));
+            RequirementDefinitionId: _srDefinitionId == 0 ? null : _srDefinitionId,
+            ReactionInvestigationId: _srReactionId,
+            StartDate: DateOnly.FromDateTime(_srStartDate ?? DateTime.Today),
+            EndDate: _srEndDate is { } end ? DateOnly.FromDateTime(end) : null));
         _busy = false;
         _srFb = r.ToFeedback("Special requirement added.");
-        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; _srEndDate = null; await LoadAsync(); }
+        if (r.Succeeded)
+        {
+            _srReason = string.Empty; _srAntigen = null; _srStartDate = DateTime.Today; _srEndDate = null; _srReactionId = null;
+            await LoadAsync();
+            // Units reserved before the requirement are checked now, not first at issue.
+            await LoadAllocationsAsync();
+            var unmet = _allocations.Where(a => !string.IsNullOrWhiteSpace(a.SpecialRequirementNotice)).ToList();
+            if (unmet.Count > 0 && _srFb is { Success: true } added)
+            {
+                _srFb = added with
+                {
+                    Warnings = [.. added.Warnings, .. unmet.Select(a => new RuleMessage(
+                        "ISS-SPECIAL-REQ", $"Reserved unit {a.UnitNumber} does not meet it: {a.SpecialRequirementNotice} See Products."))]
+                };
+            }
+        }
     }
 
     private void BeginDeactivateSr(SpecialRequirementDto r)
@@ -2374,6 +2654,8 @@ else
             MiddleName = _patient.MiddleName,
             DateOfBirth = _patient.DateOfBirth,
             Sex = _patient.Sex,
+            Race = _patient.Race ?? string.Empty,
+            Ethnicity = _patient.Ethnicity ?? string.Empty,
             Status = _patient.Status == PatientStatus.Inactive ? PatientStatus.Inactive : PatientStatus.Active,
             Comment = _patient.Comment
         };
@@ -2393,7 +2675,9 @@ else
             _demo.Status,
             RecentPregnancyUtc: _patient.RecentPregnancyUtc,
             Comment: _demo.Comment,
-            NameChangeReason: string.IsNullOrWhiteSpace(_demo.NameChangeReason) ? null : _demo.NameChangeReason));
+            NameChangeReason: string.IsNullOrWhiteSpace(_demo.NameChangeReason) ? null : _demo.NameChangeReason,
+            Race: _demo.Race,
+            Ethnicity: _demo.Ethnicity));
         _busy = false;
         _demoFb = r.ToFeedback("Demographics updated.");
         if (r.Succeeded)
@@ -2431,24 +2715,100 @@ else
         var r = await Api.AcceptSpecimenAsync(specimenId);
         _busy = false;
         _accessionFb = r.ToFeedback("Specimen accepted for testing.");
-        if (r.Succeeded) await LoadAsync();
+        if (r.Succeeded)
+        {
+            _acceptedSpecimen = r.Value;
+            await LoadAsync();
+        }
+    }
+
+    // The tube just accepted on this chart, offered to the waiting orders it suits.
+    private SpecimenDto? _acceptedSpecimen;
+
+    private async Task OnWaitingOrdersLinkedAsync((string Message, bool Succeeded) outcome)
+    {
+        _accessionFb = outcome.Succeeded ? Feedback.Succeed(outcome.Message) : Feedback.Fail(outcome.Message);
+        _acceptedSpecimen = null;
+        _ordersLoaded = false;
+        _testsLoaded = false;
+        await LoadOrdersAsync();
+        await LoadAsync();
+    }
+
+    private void ToggleAccession()
+    {
+        _showAccession = !_showAccession;
+        if (_showAccession)
+        {
+            // Start on the patient's only open visit; with several open, the user chooses.
+            _acc.EncounterId = CurrentVisit.DefaultForNewTube(_encounters) ?? 0;
+            // Start on the tube type the waiting orders accept, when the current one would not serve them.
+            if (SpecimenTypeOrderHint.AccessionTypeFor(_orders, _testDefs, _acc.SpecimenType, _specimenTypes) is { } type)
+            {
+                _acc.SpecimenType = type;
+            }
+        }
     }
 
     private async Task AccessionAsync()
     {
         _busy = true;
         var req = new AccessionSpecimenRequest(_acc.AccessionNumber, Id, _acc.SpecimenType,
-            DateTime.SpecifyKind(_acc.CollectedLocal, DateTimeKind.Utc), ValidityHours: _acc.ValidityHours,
+            LocalEntry.ToUtc(_acc.CollectedLocal), ValidityHours: _acc.ValidityHours,
             Identifier1Value: string.IsNullOrWhiteSpace(_acc.Identifier1Value) ? null : _acc.Identifier1Value,
             Identifier2Value: string.IsNullOrWhiteSpace(_acc.Identifier2Value) ? null : _acc.Identifier2Value,
+            Collector: string.IsNullOrWhiteSpace(_acc.Collector) ? null : _acc.Collector.Trim(),
+            DrawLocation: string.IsNullOrWhiteSpace(_acc.DrawLocation) ? null : _acc.DrawLocation.Trim(),
             Comment: string.IsNullOrWhiteSpace(_acc.Comment) ? null : _acc.Comment,
-            AcceptImmediately: _acc.AcceptImmediately);
+            AcceptImmediately: _acc.AcceptImmediately,
+            EncounterId: _acc.EncounterId > 0 ? _acc.EncounterId : null);
+        // Chosen before the call: the waiting orders the new tube serves, linked once it exists (each link is validated and audited).
+        var toLink = _acc.AcceptImmediately
+            ? SpecimenTypeOrderHint.LinkableOnAccession(_orders, _testDefs, _acc.SpecimenType, _acc.EncounterId)
+                .Where(o => !_acc.SkipLinkOrderIds.Contains(o.Id))
+                .ToList()
+            : [];
         var r = await Api.AccessionSpecimenAsync(req);
+        var linked = new List<string>();
+        var failed = new List<string>();
+        if (r.Succeeded && r.Value is { } specimen)
+        {
+            foreach (var order in toLink)
+            {
+                var link = await Api.LinkPatientOrderSpecimenAsync(Id, order.Id, new LinkOrderSpecimenRequest(specimen.Id));
+                if (link.Succeeded)
+                {
+                    linked.Add(order.OrderNumber);
+                }
+                else
+                {
+                    failed.Add($"{order.OrderNumber}: {link.Error}");
+                }
+            }
+        }
+
         _busy = false;
         _accessionFb = r.ToFeedback(_acc.AcceptImmediately
-            ? "Specimen accessioned."
+            ? "Specimen accessioned." + (linked.Count > 0 ? $" Linked to {string.Join(", ", linked)}." : string.Empty)
             : "Specimen collected. Receive it on the pending-specimens worklist.");
-        if (r.Succeeded) { _acc = new(); _showAccession = false; await LoadAsync(); }
+        if (failed.Count > 0)
+        {
+            _accessionFb = Feedback.Fail($"Specimen accessioned, but not linked to {string.Join("; ", failed)}. Link it from the Orders tab.");
+        }
+
+        if (r.Succeeded)
+        {
+            _acc = new();
+            _showAccession = false;
+            if (linked.Count > 0)
+            {
+                _ordersLoaded = false;
+                _testsLoaded = false;
+                await LoadOrdersAsync();
+            }
+
+            await LoadAsync();
+        }
     }
 
     private void BeginReject(SpecimenDto s)
@@ -2457,6 +2817,7 @@ else
         _relabelId = null;
         _rejectId = s.Id;
         _rejectReason = string.Empty;
+        _rejectComment = string.Empty;
     }
 
     private void BeginRelabel(SpecimenDto s)
@@ -2497,7 +2858,10 @@ else
             return;
         }
 
-        var policyExpires = SpecimenTypeOrderHint.PreviewExpiresUtc(s.CollectedUtc, s.SpecimenType, _specimenTypes)
+        // The server's policy expiration (including the alloimmunization-risk window), as the save will compute it.
+        var preview = await Api.PreviewSpecimenExpirationAsync(Id, s.SpecimenType, s.CollectedUtc);
+        var policyExpires = (preview.Succeeded ? preview.Value?.PolicyExpiresUtc : null)
+            ?? SpecimenTypeOrderHint.PreviewExpiresUtc(s.CollectedUtc, s.SpecimenType, _specimenTypes)
             ?? s.ExpiresUtc
             ?? s.CollectedUtc.AddHours(SpecimenValidityPolicy.DefaultStandardHours);
         var hours = Math.Max(1, (int)Math.Round((policyExpires - s.CollectedUtc).TotalHours));
@@ -2508,16 +2872,16 @@ else
         _editFb = null;
         _edit = new PatientSpecimenEditForm
         {
-            CollectedLocal = s.CollectedUtc,
-            ExpiresLocal = s.ExpiresUtc ?? policyExpires,
+            CollectedLocal = LocalEntry.FromUtc(s.CollectedUtc),
+            ExpiresLocal = LocalEntry.FromUtc(s.ExpiresUtc ?? policyExpires),
             SpecimenType = s.SpecimenType,
             PolicyHours = hours,
-            PolicyExpires = policyExpires,
+            PolicyExpires = LocalEntry.FromUtc(policyExpires),
             Barcode = s.Barcode,
             DrawLocation = s.DrawLocation,
             Collector = s.Collector,
             Comment = s.Comment,
-            AuthorizedBy = Session.UserName
+            AuthorizedBy = string.Empty
         };
 
         var exc = await Api.GetExceptionDefinitionAsync(SpecimenExpirationOverrideRule.Code);
@@ -2546,21 +2910,26 @@ else
                 _editFb = Feedback.Fail("An override comment is required when changing specimen expiration from the policy-computed value.");
                 return;
             }
+
+            // OCD-041: the authorizer is named by the user (Me fills it on request), never filled in for them.
+            if (string.IsNullOrWhiteSpace(_edit.AuthorizedBy))
+            {
+                _editFb = Feedback.Fail("Name who authorized the expiration override, or choose Me if you authorized it.");
+                return;
+            }
         }
 
         _busy = true;
         var r = await Api.UpdateSpecimenAsync(specimenId, new UpdateSpecimenRequest(
-            DateTime.SpecifyKind(_edit.CollectedLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_edit.CollectedLocal),
             string.IsNullOrWhiteSpace(_edit.Barcode) ? null : _edit.Barcode,
             string.IsNullOrWhiteSpace(_edit.DrawLocation) ? null : _edit.DrawLocation,
             string.IsNullOrWhiteSpace(_edit.Collector) ? null : _edit.Collector,
             ValidityHours: null,
             string.IsNullOrWhiteSpace(_edit.Comment) ? null : _edit.Comment,
-            DateTime.SpecifyKind(_edit.ExpiresLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_edit.ExpiresLocal),
             NeedsSpecimenExpiryOverride ? _edit.OverrideReason.Trim() : null,
-            NeedsSpecimenExpiryOverride
-                ? (string.IsNullOrWhiteSpace(_edit.AuthorizedBy) ? Session.UserName : _edit.AuthorizedBy.Trim())
-                : null));
+            NeedsSpecimenExpiryOverride ? _edit.AuthorizedBy.Trim() : null));
         _busy = false;
         _editFb = r.ToFeedback("Specimen updated.");
         if (r.Succeeded)
@@ -2574,7 +2943,7 @@ else
     private async Task RejectAsync(long specimenId)
     {
         _busy = true;
-        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason);
+        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason, _rejectComment);
         _busy = false;
         _accessionFb = r.ToFeedback("Specimen rejected.");
         if (r.Succeeded) { _rejectId = null; await LoadAsync(); }
@@ -2617,7 +2986,7 @@ else
     {
         _subtestValues = _panelSubtests.ToDictionary(
             s => s.SubtestCode,
-            s => !s.Required ? "NT" : (s.Choices.FirstOrDefault()?.Code ?? "0"),
+            s => !s.Required ? "NT" : string.Empty,
             StringComparer.OrdinalIgnoreCase);
         _optionalSubtestPerformed = _panelSubtests
             .Where(s => !s.Required)
@@ -2640,9 +3009,23 @@ else
 
     private async Task EnterAboRhAsync(long specimenId)
     {
+        var missing = ReactionInterpretationSuggestion.MissingReadingsMessage(
+            ReactionInterpretationSuggestion.MissingReadings(_panelSubtests, _subtestValues));
+        if (missing is not null)
+        {
+            _resultFb = Feedback.Fail(missing);
+            return;
+        }
+
+        if (_resAbo is not AboGroup abo || _resRh is not RhType rh)
+        {
+            _resultFb = Feedback.Fail("Choose the interpreted ABO and Rh(D).");
+            return;
+        }
+
         _busy = true;
         var subtests = BuildAboRhSubtests();
-        var r = await Api.EnterAboRhAsync(new EnterAboRhRequest(specimenId, _resAbo, _resRh, subtests));
+        var r = await Api.EnterAboRhAsync(new EnterAboRhRequest(specimenId, abo, rh, subtests));
         _busy = false;
         _resultFb = r.Succeeded && r.Value is not null
             ? r.ToFeedback(ResultSourceEntryCopy.PanelEntered(r.Value.Source))
@@ -2693,7 +3076,8 @@ else
     }
 
     private bool IsAboSelfVerifyBlocked(TestResultDto r) =>
-        r.Status is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
+        _blockAboSelfVerify
+        && r.Status is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && string.Equals(r.TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(r.EnteredBy)
         && string.Equals(r.EnteredBy, Session.UserName, StringComparison.OrdinalIgnoreCase);
@@ -2766,7 +3150,7 @@ else
 
         var req = new VerifyResultRequest(
             _deltaOverrideReason.Trim(),
-            string.IsNullOrWhiteSpace(_deltaAuthorizedBy) ? Session.UserName : _deltaAuthorizedBy.Trim(),
+            _deltaAuthorizedBy.Trim(),
             _deltaHistoryResolution,
             sig.Value.Id);
         var r = await Api.VerifyResultAsync(_deltaOverrideResultId.Value, req, sig.Value.Id);
@@ -2880,6 +3264,15 @@ else
         {
             _requireSecondAbo = policy.Value.Enabled;
         }
+
+        var prefill = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.PrefillPatientIdentifiers);
+        _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;
+        var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
+        _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
+
+        // A failed read keeps the block on; the server makes the final call either way.
+        var aboSelfVerify = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.BlockAboSelfVerify);
+        _blockAboSelfVerify = !aboSelfVerify.Succeeded || aboSelfVerify.Value?.Enabled != false;
     }
 
     private RenderFragment RenderResults(SpecimenDto s) => __builder =>
@@ -2910,7 +3303,7 @@ else
                                     <option value="@AboRhHistoryResolution.Replace">Replace with current result</option>
                                 </select>
                             </div>
-                            <div class="field"><label>Authorized by</label><input @bind="_deltaAuthorizedBy" placeholder="@Session.UserName" /></div>
+                            <AuthorizerField @bind-Value="_deltaAuthorizedBy" />
                         </div>
                         <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" @bind:event="oninput" /></div>
                         <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" @bind:event="oninput" /></div>
@@ -2928,6 +3321,7 @@ else
             }
             else
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Test</th><th>Value</th><th>Ver.</th><th>Status</th><th>Source</th><th>Verified by</th><th></th></tr></thead>
                     <tbody>
@@ -2935,10 +3329,16 @@ else
                         {
                             <tr>
                                 <td class="mono">@r.TestCode</td>
-                                <td>@DisplayResultValue(r)</td>
+                                <td>
+                                    @DisplayResultValue(r)
+                                    @if (r.ReagentLots is { Count: > 0 } lots)
+                                    {
+                                        <div class="muted" style="font-size:.85em;" title="Reagent lots open for this test when it was entered" data-result-lots>Lots: @string.Join(", ", lots)</div>
+                                    }
+                                </td>
                                 <td>@r.Version</td>
-                                <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
-                                <td>@r.Source</td>
+                                <td><span class="@Ui.Badge(r.Status)">@Ui.EnumText(r.Status)</span></td>
+                                <td>@Ui.EnumText(r.Source)</td>
                                 <td>@r.VerifiedBy</td>
                                 <td class="right">
                                     @if (CanSubmitForVerification(r))
@@ -3001,18 +3401,18 @@ else
                                         <details>
                                             <summary class="muted">@priors.Count prior version@(priors.Count == 1 ? "" : "s") retained</summary>
                                             <table class="bb" style="margin-top:.35rem;">
-                                                <thead><tr><th>Ver.</th><th>Value</th><th>Status</th><th>Source</th><th>Reason</th><th>Who</th><th>When (UTC)</th></tr></thead>
+                                                <thead><tr><th>Ver.</th><th>Value</th><th>Status</th><th>Source</th><th>Reason</th><th>Who</th><th>When</th></tr></thead>
                                                 <tbody>
                                                 @foreach (var p in priors)
                                                 {
                                                     <tr>
                                                         <td>@p.Version</td>
                                                         <td>@DisplayResultValue(p)</td>
-                                                        <td><span class="@Ui.Badge(p.Status)">@p.Status</span></td>
-                                                        <td>@p.Source</td>
+                                                        <td><span class="@Ui.Badge(p.Status)">@Ui.EnumText(p.Status)</span></td>
+                                                        <td>@Ui.EnumText(p.Source)</td>
                                                         <td>@VersionReason(p)</td>
                                                         <td>@(p.InvalidatedBy ?? p.VerifiedBy ?? p.EnteredBy)</td>
-                                                        <td class="mono">@(p.InvalidatedUtc ?? p.VerifiedUtc ?? p.EnteredUtc)</td>
+                                                        <td class="mono">@(((DateTime?)(p.InvalidatedUtc ?? p.VerifiedUtc ?? p.EnteredUtc)) is DateTime when ? when.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "")</td>
                                                     </tr>
                                                 }
                                                 </tbody>
@@ -3024,6 +3424,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             }
 
             @if (Session.Has(PermissionCodes.ResultEnter) && s.Status == SpecimenStatus.Accepted)
@@ -3038,9 +3439,10 @@ else
                     {
                     <p class="muted">@ResultSourceEntryCopy.PanelHint</p>
                     <div class="form-row">
-                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
-                        <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh">@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }</select></div>
+                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
+                        <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh"><option value="">— Select —</option>@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }</select></div>
                     </div>
+                    <div class="table-scroll">
                     <table class="bb" style="margin-top:.5rem;">
                         <thead><tr><th>Subtest</th><th>Reaction</th><th></th></tr></thead>
                         <tbody>
@@ -3052,7 +3454,7 @@ else
                                     <td>@st.Label</td>
                                     <td>
                                         <select value="@GetSubtestValue(st.SubtestCode)" @onchange="e => SetSubtestValue(st.SubtestCode, e)" disabled="@(!performed)">
-                                            @if (optional) { <option value="NT">NT</option> }
+                                            @if (optional) { <option value="NT">NT</option> } else { <option value="">—</option> }
                                             @foreach (var c in st.Choices)
                                             {
                                                 <option value="@c.Code">@c.Label</option>
@@ -3069,6 +3471,7 @@ else
                             }
                         </tbody>
                     </table>
+                    </div>
                     <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="() => EnterAboRhAsync(s.Id)">Enter @_panelTestCode panel</button>
                     }
                     <hr style="margin:.75rem 0;border:none;border-top:1px solid var(--bb-border);" />

@@ -46,6 +46,7 @@ public static class AppBreadcrumbTrail
         ["charge-rules"] = "Charge Rules",
         ["compatibility-rules"] = "Compatibility Tables",
         ["crossmatch-settings"] = "Crossmatch Settings",
+        ["reaction-workup"] = "Reaction Workup",
         ["exceptions"] = "Exceptions",
         ["facility-policies"] = "Facility Policy",
         ["modification-rules"] = "Modification Rules",
@@ -71,6 +72,7 @@ public static class AppBreadcrumbTrail
         ["tests"] = "Tests",
         ["test-history"] = "Test History",
         ["dat-elution"] = "DAT / Elution",
+        ["rhig"] = "RhIG",
         ["products"] = "Products",
         ["history"] = "Product History"
     };
@@ -146,6 +148,14 @@ public static class AppBreadcrumbTrail
             {
                 crumbs.Add(new("Modify Products", null));
             }
+            else if (parts.Length >= 2 && parts[1].Equals("move", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Move units", null));
+            }
+            else if (parts.Length >= 2 && parts[1].Equals("count", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Stock count", null));
+            }
             else if (parts.Length >= 2 && parts[1].Equals("units", StringComparison.OrdinalIgnoreCase))
             {
                 crumbs.Add(new("Unit", null));
@@ -188,6 +198,22 @@ public static class AppBreadcrumbTrail
                 && parts.Length >= 2 && parts[1].Equals("simulator", StringComparison.OrdinalIgnoreCase))
             {
                 crumbs.Add(new("Simulator", null));
+                return Finalize(crumbs);
+            }
+
+            if (parts[0].Equals("reactions", StringComparison.OrdinalIgnoreCase)
+                && parts.Length >= 3 && long.TryParse(parts[1], out var reactionId)
+                && parts[2].Equals("report", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new($"Investigation #{reactionId}", $"/reactions?id={reactionId}"));
+                crumbs.Add(new("Report", null));
+                return Finalize(crumbs);
+            }
+
+            if (parts[0].Equals("downtime", StringComparison.OrdinalIgnoreCase)
+                && parts.Length >= 2 && parts[1].Equals("patients", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Patient summary", null));
                 return Finalize(crumbs);
             }
 

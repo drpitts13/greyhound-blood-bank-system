@@ -1,4 +1,4 @@
-namespace BloodBankLIS.Domain.Rules;
+﻿namespace BloodBankLIS.Domain.Rules;
 
 public enum FacilityPolicyValueKind
 {
@@ -15,7 +15,9 @@ public sealed record FacilityPolicyDefinition(
     string DefaultValue,
     string Citation,
     int? MinInclusive = null,
-    int? MaxInclusive = null);
+    int? MaxInclusive = null,
+    // Decided to be used, but the value is the facility's to enter (Cycle 677): still at the default, it is "to enter".
+    bool AwaitingEntryAtDefault = false);
 
 /// <summary>
 /// SoftBank / SafeTrace facility-parameter catalog. Values live in <c>SystemSettings</c>;
@@ -23,6 +25,14 @@ public sealed record FacilityPolicyDefinition(
 /// </summary>
 public static class FacilityPolicyCatalog
 {
+    /// <summary>
+    /// A setting decided to be used whose value the facility has not entered yet: still at its "not set" default
+    /// (Cycle 677). Listed on Facility Policies and counted on the administrator's home card until entered.
+    /// </summary>
+    public static bool AwaitsEntry(FacilityPolicyDefinition definition, string? value) =>
+        definition.AwaitingEntryAtDefault
+        && string.Equals((value ?? definition.DefaultValue).Trim(), definition.DefaultValue, StringComparison.OrdinalIgnoreCase);
+
     public static IReadOnlyList<FacilityPolicyDefinition> All { get; } =
     [
         new(FacilityPolicyKeys.SpecimenAlloimmunizationHours, "Specimen", "Alloimmunization specimen hours",
@@ -40,9 +50,15 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.RequireWardReceipt, "Transfusion", "Require ward receipt",
             "Receiving location must acknowledge the unit before transfusion documentation.",
             FacilityPolicyValueKind.Boolean, "true", "AABB 5.28 / SoftBank remote issue"),
+        new(FacilityPolicyKeys.TransfusionCompletionReminderHours, "Transfusion", "Transfusion completion reminder hours",
+            "Hours after a transfusion is started at the bedside when, if it has not been completed, a reminder alert asks for the stop time, volume, and outcome. A documentation reminder, not an infusion time limit. 0 turns it off.",
+            FacilityPolicyValueKind.Integer, "6", "Facility SOP", 0, 24),
         new(FacilityPolicyKeys.RetrospectiveCrossmatchDueHours, "Issue", "Retrospective XM due hours",
             "Hours after uncrossmatched emergency or MTP issue when retrospective testing is due.",
             FacilityPolicyValueKind.Integer, "24", "21 CFR 606.151(b)", 1, 72),
+        new(FacilityPolicyKeys.SendFinalResultsAutomatically, "Interface", "Send verified results to the EHR automatically",
+            "When true, a result is queued for the EHR as soon as it is verified, when an outbound results interface is enabled. When false, a first final result is sent from the HL7 page on request. Corrections and withdrawals always go automatically (OCD-049).",
+            FacilityPolicyValueKind.Boolean, "true", "OCD-086 / OCD-049"),
         new(FacilityPolicyKeys.InTransitDueHours, "Issue", "In-transit receipt due hours",
             "Hours after issue when ward receipt of a cooler is due.",
             FacilityPolicyValueKind.Integer, "4", "AABB 5.1.8 / 21 CFR 606.160", 1, 24),
@@ -83,7 +99,7 @@ public static class FacilityPolicyCatalog
             "Optional. When true, directed-to-allogeneic conversion requires a distinct directory user.",
             FacilityPolicyValueKind.Boolean, "true", "AABB 5.4 / 21 CFR 606.160 / OCD-008"),
         new(FacilityPolicyKeys.ExpectedArrivalDueHours, "Inventory", "Expected arrival due hours",
-            "Hours after packing-list expect when inbound arrival is due.",
+            "Hours after packing-list expect, or after a supplier order is submitted, when inbound arrival is due.",
             FacilityPolicyValueKind.Integer, "24", "AABB 5.6", 1, 168),
         new(FacilityPolicyKeys.NearExpiryWarningHours, "Inventory", "Near-expiry warning hours",
             "Hours before expiration when the near-expiry worklist includes the unit.",
@@ -94,6 +110,45 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.BlockAboSelfVerify, "Result", "Block ABO/Rh self-verify",
             "When true, the user who entered a patient ABO/Rh cannot verify it. Default on. MarkComplete does not auto-verify ABO/Rh.",
             FacilityPolicyValueKind.Boolean, "true", "Facility SOP / OCD-013"),
+        new(FacilityPolicyKeys.AllowBatchVerify, "Result", "Allow batch verification",
+            "When true, a person other than the one who entered them may verify several eligible results at once: plainly Negative antibody screens and DATs, and ABO/Rh results matching the historical type, on patients with no antibody history or special requirement in effect. Each still passes the normal verification checks. Default off; the medical director turns it on.",
+            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-061"),
+        new(FacilityPolicyKeys.RequireSpecimenCollector, "Specimen", "Require the collector before accepting a tube",
+            "When true, a specimen is accepted for testing only when who collected it (the collector on the label) is recorded. Collecting and receiving are not blocked; record the collector on the specimen, then accept. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-064"),
+        new(FacilityPolicyKeys.SpecimenRetentionDays, "Specimen", "Specimen retention days",
+            "Days a stored patient tube is kept after its expiration before Store tubes lists it as due for discard. A tube on an unfinished order or an open reaction investigation is never discarded. 0 means no period is set: nothing is listed and each discard needs a reason. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-070", 0, 3650, AwaitingEntryAtDefault: true),
+        new(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, "Order", "Warn before a blood order's needed-by time (minutes)",
+            "Blood orders to prepare marks an order whose units are not all reserved as needed soon when its needed-by time (a surgery start or scheduled transfusion) is this many minutes away or less, and the home card counts them. A time that has passed is always marked. 0 means off. Changes no priority or check. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-075", 0, 1440),
+        new(FacilityPolicyKeys.MtpIdleReminderMinutes, "Issue", "Massive transfusion protocol open reminder (minutes)",
+            "Minutes with no unit issued under an open massive transfusion protocol after which an alert asks for it to be closed if the bleeding is controlled (while it is open, massive-transfusion issue stays available for the patient). A reminder: it closes nothing and stops no issue. 0 turns it off. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "240", "Medical director / OCD-076", 0, 1440),
+        new(FacilityPolicyKeys.UnidentifiedReminderHours, "Patient", "Unidentified patient chart reminder (hours)",
+            "Hours an unidentified emergency chart may stay open before the Unidentified patients home card names it and asks for it to be merged into the identified patient's chart. Until then the type and antibody history are split across two charts. A reminder: it blocks nothing and merges nothing. 0 turns it off. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "24", "Medical director / OCD-077", 0, 720),
+        new(FacilityPolicyKeys.RhigMlPerVial, "RhIG", "RhIG dose: mL of fetal whole blood per vial",
+            "The fetal whole blood (mL) one RhIG vial covers, from the product insert and your procedure. With the RhIG dose maternal blood volume and rounding settings, the RhIG evaluation calculates the vials from a fetal bleed quantitation; the reviewer confirms them. 0 means not set: no dose is calculated. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 100, AwaitingEntryAtDefault: true),
+        new(FacilityPolicyKeys.RhigMaternalBloodVolumeMl, "RhIG", "RhIG dose: maternal blood volume (mL)",
+            "The maternal blood volume (mL) the fetal bleed is calculated against: fetal whole blood = % fetal cells × this volume. 0 means not set: no dose is calculated. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 10000, AwaitingEntryAtDefault: true),
+        new(FacilityPolicyKeys.RhigDoseRounding, "RhIG", "RhIG dose: rounding",
+            "How the calculated vials are rounded: 1 = round up; 2 = round to the nearest, then add one vial; 3 = round up, then add one vial. 0 means not set: no dose is calculated. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-069", 0, 3, AwaitingEntryAtDefault: true),
+        new(FacilityPolicyKeys.RhigAdministrationWindowHours, "RhIG", "RhIG: give within (hours of the event)",
+            "Hours after the delivery or other event within which RhIG is to be given. The RhIG queue shows each open candidate's give-by time and marks one past it. A reminder: it blocks nothing. 0 means not set: no give-by time is shown. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-087", 0, 336, AwaitingEntryAtDefault: true),
+        new(FacilityPolicyKeys.LookbackNotifyWithinDays, "Lookback", "Lookback: notify the physician within (days)",
+            "Days after a lookback notification is opened within which the recipient's physician is to be notified. The lookback list shows each open notification's notify-by date and marks one past it. A reminder: it blocks nothing. 0 means not set: no notify-by date is shown. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "0", "Medical director / OCD-089", 0, 365, AwaitingEntryAtDefault: true),
+        new(FacilityPolicyKeys.NeonatalRulesEnabled, "Neonatal", "Neonatal pretransfusion testing rules",
+            "When true, an infant under the neonatal age limit is tested under the neonatal rules: a specimen collected during a visit stays valid for the admission (until discharge or the age limit). Default off: the medical director confirms the rules against the current AABB Standards before turning them on.",
+            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-074"),
+        new(FacilityPolicyKeys.NeonatalAgeLimitDays, "Neonatal", "Neonatal age limit (days)",
+            "Infants younger than this many days are under the neonatal rules (four months is the usual limit; 120 days by default). Only used when the neonatal rules are on.",
+            FacilityPolicyValueKind.Integer, "120", "Medical director / OCD-074", 1, 365),
         new(FacilityPolicyKeys.RetentionYears, "Records", "Record retention years",
             "Minimum product record retention. Automated purge is not performed.",
             FacilityPolicyValueKind.Integer, "10", "21 CFR 606.160(d) / CAP TRM.42120", 5, 30),
@@ -127,6 +182,9 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.RequireModificationSupplyLot, "Modification", "Require supply lot",
             "When true, a modification requires a supply lot. Default off.",
             FacilityPolicyValueKind.Boolean, "false", "Facility SOP"),
+        new(FacilityPolicyKeys.RequireIrradiationRecord, "Modification", "Require irradiator and dose indicator",
+            "When true, an irradiation requires the irradiator used and a confirmed dose indicator check. Default off. An indicator reported as not confirmed is refused either way.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility SOP / OCD-067"),
         new(FacilityPolicyKeys.MfaEnabled, "Security", "Enable authenticator-app sign-in",
             "When true, users can set up an authenticator app, and anyone who has set one up enters a code at sign-in. When false, no code is asked and setup is unavailable. Default off.",
             FacilityPolicyValueKind.Boolean, "false", "Facility security policy / OCD-037"),
@@ -144,8 +202,21 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
         new(FacilityPolicyKeys.PbmRequireJustification, "Order", "Require a reason for orders outside criteria",
             "When true (and evaluation is on), a manual product order outside the criteria needs a selected indication or a written reason before it is saved. Interface orders are recorded, never stopped. Default off.",
-            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)")
+            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
+        new(FacilityPolicyKeys.PrefillPatientIdentifiers, "Issue", "Pre-fill patient identifiers at issue and bedside",
+            "When true, the issue forms and bedside transfusion documentation start with the patient's MRN and date of birth already entered, and staff confirm them visually. When false, staff scan or type both identifiers from the wristband or requisition, so the two-identifier check compares what was read with the record. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-039"),
+        new(FacilityPolicyKeys.RequireSpecimenReceiptByScan, "Specimen", "Receive specimens by scan only",
+            "When true, a specimen is received only by scanning the tube's accession or label barcode, so the tube received is the one in hand. Receive from a worklist or chart row is refused. When false, either way is allowed and the record shows which was used. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-056"),
+        new(FacilityPolicyKeys.InspectionDefaultAcceptable, "Inventory", "Start unit inspections as acceptable",
+            "When true, return inspections (temperature, seal, visual) and unit appearance at issue, ward receipt, and delivery receipt start as acceptable, and a return that leaves an inspection unanswered counts it as acceptable. When false, staff must answer each inspection and the server refuses a return with an unanswered inspection. Time out of storage is always computed. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-040")
     ];
+
+    /// <summary>The catalog default of a yes/no policy; true for a key the catalog does not define.</summary>
+    public static bool BoolDefault(string key) =>
+        !bool.TryParse(Find(key)?.DefaultValue, out var value) || value;
 
     public static FacilityPolicyDefinition? Find(string key) =>
         All.FirstOrDefault(d => string.Equals(d.Key, key, StringComparison.Ordinal));

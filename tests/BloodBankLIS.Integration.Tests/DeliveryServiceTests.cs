@@ -284,7 +284,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
             false,
             productTypeId,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
 
         Assert.False(result.Succeeded);
         Assert.Contains("delivery", result.Error, StringComparison.OrdinalIgnoreCase);
@@ -329,6 +329,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
             _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
             SecondVerifier: "tech2",
+            Appearance: UnitAppearance.Acceptable,
             ReceiveTemperatureCelsius: 4.0m,
             DeliveryId: deliveryId);
 

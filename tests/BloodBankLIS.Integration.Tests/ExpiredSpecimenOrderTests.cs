@@ -95,6 +95,27 @@ public class ExpiredSpecimenOrderTests : IClassFixture<SqliteContextFactory>
         Assert.True(await c.OrderSpecimens.AnyAsync(os => os.OrderId == order.Id && os.SpecimenId == specimen.Id));
     }
 
+    // TEST-BB-1054: a transfusion reaction workup on the retained (expired) pre-transfusion tube is neither cancelled nor
+    // unlinked by the expiry sweep (end-user testing pass 38: RXN-1-PRE was cancelled 30 seconds after it was ordered).
+    [Fact]
+    public async Task ReactionWorkup_OnAnExpiredTube_StaysOpenAndLinked()
+    {
+        await using var c = _factory.Create();
+        var chart = await SeedChartAsync(c);
+        var specimen = await AddSpecimenAsync(c, chart, expired: true);
+        var order = await AddOrderAsync(c, chart, "RXN-T-PRE", OrderType.TransfusionReactionWorkup, OrderStatus.New);
+        await AddLineAsync(c, order, OrderCategory.Test, OrderType.TransfusionReactionWorkup, "DAT", "Direct antiglobulin test");
+        await LinkAsync(c, order, specimen, primary: true);
+
+        var result = await Service(c).ProcessAsync();
+
+        Assert.Equal(0, result.OrdersCancelled);
+        Assert.Equal(0, result.CrossmatchOrdersUnlinked);
+        Assert.Equal(OrderStatus.New, (await c.Orders.SingleAsync(o => o.Id == order.Id)).Status);
+        Assert.True(await c.OrderSpecimens.AnyAsync(os => os.OrderId == order.Id && os.SpecimenId == specimen.Id));
+        Assert.True(await c.OrderLines.AnyAsync(l => l.OrderId == order.Id && l.IsActive));
+    }
+
     [Fact]
     public async Task VerifiedLine_StaysActive_WhenTheOrderIsCancelled()
     {

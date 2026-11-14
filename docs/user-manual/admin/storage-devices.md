@@ -20,7 +20,7 @@ Once saved and active, the device appears on Storage temperatures and can take r
 
 ## Edit a device
 
-**Edit** changes the name, department, range, and notes. Storage class, issue, and time-out settings are kept as they are. A range change applies to new readings only; past readings keep the range that was in force when they were taken.
+**Edit** changes the name, department, range, and notes, and asks for the reason for the change. Activating or deactivating a device also asks why. Storage class, issue, and time-out settings are kept as they are. A range change applies to new readings only; past readings keep the range that was in force when they were taken.
 
 ## Deactivate a device
 

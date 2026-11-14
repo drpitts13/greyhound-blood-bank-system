@@ -27,6 +27,9 @@ public sealed class ImmunohematologyService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationFinding>? _findings;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public ImmunohematologyService(
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<AntibodyHistory> antibodies,
@@ -39,8 +42,10 @@ public sealed class ImmunohematologyService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IRepository<AntibodyIdentificationFinding>? findings = null)
+        IRepository<AntibodyIdentificationFinding>? findings = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
         _antigenProfiles = antigenProfiles;
@@ -72,11 +77,19 @@ public sealed class ImmunohematologyService
     /// writes a named audit event in addition to appending append-only history.
     /// </summary>
     public async Task<OperationResult<PatientBloodTypeHistory>> RecordBloodTypeManualAsync(
-        long patientId, AboGroup abo, RhType rhD, string reason, AboSubgroup aboSubgroup = AboSubgroup.Unknown, CancellationToken ct = default)
+        long patientId, AboGroup abo, RhType rhD, string reason, AboSubgroup aboSubgroup = AboSubgroup.Unknown,
+        ManualTypeDocumentation documentation = ManualTypeDocumentation.NotDocumented, string? documentationReference = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
             return OperationResult<PatientBloodTypeHistory>.Fail("A reason is required to manually record ABO/Rh.");
+        }
+
+        var documented = ManualBloodTypeDocumentationRule.Evaluate(documentation, documentationReference);
+        if (documented.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<PatientBloodTypeHistory>.Fail($"{documented.Code}: {documented.Message}");
         }
 
         var denied = await RejectUnauthorizedAsync<PatientBloodTypeHistory>(
@@ -111,7 +124,9 @@ public sealed class ImmunohematologyService
             AboSubgroup = resolvedSubgroup,
             Source = BloodTypeSource.ManualEntry,
             IsCurrent = true,
-            Reason = reason
+            Reason = reason,
+            ManualDocumentation = documentation,
+            ManualDocumentationReference = documentation == ManualTypeDocumentation.NotDocumented ? null : documentationReference!.Trim()
         };
         await _bloodTypes.AddAsync(entry, ct);
 
@@ -120,7 +135,7 @@ public sealed class ImmunohematologyService
             nameof(PatientBloodTypeHistory),
             patientId,
             oldValue: current is null ? null : new { current.Abo, current.RhD },
-            newValue: new { entry.Abo, entry.RhD, entry.Source },
+            newValue: new { entry.Abo, entry.RhD, entry.Source, entry.ManualDocumentation, entry.ManualDocumentationReference },
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -278,8 +293,23 @@ public sealed class ImmunohematologyService
         return OperationResult<AntigenProfile>.Ok(existing, warnings);
     }
 
+    public Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
+        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment, CancellationToken ct = default) =>
+        AddAntibodyAsync(patientId, bloodAttributeDefinitionId, specificity, status, comment, null, null, null, null, ct);
+
+    public Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
+        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment,
+        string? reportingFacility, DateOnly? identifiedOn, CancellationToken ct = default) =>
+        AddAntibodyAsync(patientId, bloodAttributeDefinitionId, specificity, status, comment, reportingFacility, identifiedOn, null, null, ct);
+
+    /// <summary>
+    /// Adds an antibody to the patient's history; an outside report keeps the reporting facility and the date identified
+    /// there (<see cref="OutsideAntibodyReportRule"/>). Audited with both.
+    /// </summary>
     public async Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
-        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment, CancellationToken ct = default)
+        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment,
+        string? reportingFacility, DateOnly? identifiedOn, OutsideReportKind? reportKind, string? reportDocumentation,
+        CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync<AntibodyHistory>(
             PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateAntibodyAdd, ct);
@@ -299,6 +329,13 @@ public sealed class ImmunohematologyService
         if (openWorkupGate.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<AntibodyHistory>.Fail(openWorkupGate.Message);
+        }
+
+        var outside = OutsideAntibodyReportRule.Evaluate(
+            reportingFacility, identifiedOn, FacilityDay.Of(_clock.UtcNow, _facilityTimeZone), reportKind, reportDocumentation);
+        if (outside.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<AntibodyHistory>.Fail(outside.Message);
         }
 
         string resolvedSpecificity;
@@ -330,7 +367,11 @@ public sealed class ImmunohematologyService
             AntibodySpecificity = resolvedSpecificity,
             Status = status,
             Comment = comment,
-            IsActive = true
+            IsActive = true,
+            ReportingFacility = string.IsNullOrWhiteSpace(reportingFacility) ? null : reportingFacility.Trim(),
+            IdentifiedOn = string.IsNullOrWhiteSpace(reportingFacility) ? null : identifiedOn,
+            ReportKind = string.IsNullOrWhiteSpace(reportingFacility) ? null : reportKind,
+            ReportDocumentation = string.IsNullOrWhiteSpace(reportingFacility) ? null : reportDocumentation?.Trim()
         };
 
         await _antibodies.AddAsync(antibody, ct);
@@ -345,11 +386,128 @@ public sealed class ImmunohematologyService
                 antibody.PatientId,
                 antibody.AntibodySpecificity,
                 antibody.Status,
-                antibody.BloodAttributeDefinitionId
+                antibody.BloodAttributeDefinitionId,
+                antibody.ReportingFacility,
+                antibody.IdentifiedOn,
+                antibody.ReportKind,
+                antibody.ReportDocumentation
             },
-            reason: string.IsNullOrWhiteSpace(comment) ? "Antibody recorded." : comment.Trim());
+            reason: string.IsNullOrWhiteSpace(comment)
+                ? OutsideAntibodyReportRule.SourceLabel(antibody.ReportingFacility, antibody.IdentifiedOn) is { } source ? $"Antibody recorded. {source}." : "Antibody recorded."
+                : comment.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
 
+        return OperationResult<AntibodyHistory>.Ok(antibody);
+    }
+
+    /// <summary>
+    /// OCD-069: records (or clears, with None) a weak D or partial D for the patient, with a reason; audited with the old
+    /// and new value. The RhIG evaluation treats it as Rh negative.
+    /// </summary>
+    public async Task<OperationResult<Patient>> SetRhDVariantAsync(long patientId, RhDVariant variant, string? reason, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync<Patient>(
+            PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateAntibodyAdd, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var patientGate = await RejectMergedOrMissingPatientAsync<Patient>(patientId, ct);
+        if (patientGate is not null)
+        {
+            return patientGate;
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<Patient>.Fail("Give the reason, for example the test that found it.");
+        }
+
+        if (!Enum.IsDefined(variant))
+        {
+            return OperationResult<Patient>.Fail("Choose weak D, partial D, or none.");
+        }
+
+        var patient = (await _patients.GetByIdAsync(patientId, ct))!;
+        if (patient.RhDVariant == variant)
+        {
+            return OperationResult<Patient>.Fail("That is already recorded.");
+        }
+
+        var old = patient.RhDVariant;
+        patient.RhDVariant = variant;
+        _patients.Update(patient);
+        _audit.Record(AuditEventType.Update, nameof(Patient), patient.Id,
+            oldValue: new { RhDVariant = old }, newValue: new { patient.RhDVariant }, reason: reason.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Patient>.Ok(patient);
+    }
+
+    /// <summary>
+    /// OCD-073: active outside antibody reports this laboratory has not yet confirmed, oldest first, for the bench that
+    /// confirms them. Merged-away charts are left out (their history moved to the surviving chart).
+    /// </summary>
+    public async Task<IReadOnlyList<OutsideAntibodyToConfirmDto>> ListOutsideToConfirmAsync(CancellationToken ct = default)
+    {
+        var rows = await _antibodies.ListAsync(a => a.IsActive && a.ReportingFacility != null && a.ConfirmedUtc == null, ct);
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var patientIds = rows.Select(a => a.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return rows
+            .Where(a => patients.TryGetValue(a.PatientId, out var p) && p.Status != PatientStatus.Merged)
+            .OrderBy(a => a.CreatedUtc)
+            .Select(a =>
+            {
+                var p = patients[a.PatientId];
+                return new OutsideAntibodyToConfirmDto(a.Id, a.PatientId, p.MedicalRecordNumber, $"{p.LastName}, {p.FirstName}",
+                    a.AntibodySpecificity, a.ReportingFacility!, a.IdentifiedOn, a.CreatedUtc, a.CreatedBy,
+                    !string.IsNullOrWhiteSpace(a.ReportDocumentation));
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// OCD-073: this laboratory confirms an antibody reported by another facility, naming the testing here that did;
+    /// the chart then reads "confirmed here". Audited. The antibody counted for selection before and after.
+    /// </summary>
+    public async Task<OperationResult<AntibodyHistory>> ConfirmOutsideAntibodyAsync(long antibodyId, string? note, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync<AntibodyHistory>(
+            PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateAntibodyAdd, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var antibody = await _antibodies.GetByIdAsync(antibodyId, ct);
+        if (antibody is null)
+        {
+            return OperationResult<AntibodyHistory>.Fail("Antibody record not found.");
+        }
+
+        var check = OutsideAntibodyReportRule.EvaluateConfirm(antibody.ReportingFacility, antibody.ConfirmedUtc, antibody.IsActive, note);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<AntibodyHistory>.Fail(check.Message);
+        }
+
+        antibody.ConfirmedUtc = _clock.UtcNow;
+        antibody.ConfirmedBy = _currentUser.UserName;
+        antibody.ConfirmationNote = note!.Trim();
+        _antibodies.Update(antibody);
+        _audit.Record(
+            AuditEventType.Antibody,
+            nameof(AntibodyHistory),
+            antibody.Id,
+            oldValue: new { ConfirmedUtc = (DateTime?)null },
+            newValue: new { antibody.PatientId, antibody.AntibodySpecificity, antibody.ReportingFacility, antibody.ConfirmedUtc, antibody.ConfirmedBy },
+            reason: $"Outside report confirmed here: {antibody.ConfirmationNote}");
+        await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<AntibodyHistory>.Ok(antibody);
     }
 

@@ -165,6 +165,18 @@ public sealed class InterfaceTransfusionService
         var trackedUnit = await _inventory.GetUnitAsync(unit.Id, ct)
             ?? throw new InvalidOperationException("Unit not found.");
 
+        // OCD-083 (decided 2026-11-11, option B): a unit the blood bank no longer has as issued (recalled, quarantined,
+        // reported damaged or missing after it was issued) has its transfusion recorded, keeps its status, and is flagged
+        // for a supervisor's review. Any other status is still refused.
+        var reportedOver = trackedUnit.Status is UnitStatus.Recalled or UnitStatus.Quarantine or UnitStatus.Damaged or UnitStatus.Missing
+            ? trackedUnit.Status
+            : (UnitStatus?)null;
+        if (reportedOver is null && trackedUnit.Status is not (UnitStatus.Issued or UnitStatus.TransfusionStarted))
+        {
+            throw new InvalidOperationException(
+                $"Unit {unitKey} is {trackedUnit.Status} in the blood bank; the transfusion message is held for review and not recorded.");
+        }
+
         var transfusion = new TransfusionEvent
         {
             IssueId = issue.Id,
@@ -180,9 +192,32 @@ public sealed class InterfaceTransfusionService
             Location = request.Location,
             PatientIdentificationMethod = "HL7-BPAM",
             UnitIdentificationMethod = "HL7-BPAM",
-            WorkstationId = _currentUser.Workstation
+            WorkstationId = _currentUser.Workstation,
+            UnitStatusAtReport = reportedOver
         };
         await _transfusions.AddAsync(transfusion, ct);
+
+        if (reportedOver is UnitStatus over)
+        {
+            issue.Status = IssueStatus.Transfused;
+            trackedUnit.TransfusionReportedUtc = now;
+            _audit.Record(
+                AuditEventType.Transfusion,
+                nameof(BloodUnit),
+                trackedUnit.Id,
+                oldValue: new { Status = over, IssueStatus = IssueStatus.Issued },
+                newValue: new { Status = over, IssueStatus = IssueStatus.Transfused, Source = "HL7-BPAM", Path = "TransfusedOverStatus", request.ReactionSuspected },
+                reason: $"Transfusion reported by the EHR for a unit that is {over} in the blood bank; recorded and flagged for review (OCD-083).");
+            await _unitOfWork.SaveChangesAsync(ct);
+            if (request.ReactionSuspected)
+            {
+                await _reactions.OpenForTransfusionAsync(transfusion, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+
+            await TryCaptureAsync(issue.Id, transfusion.FinalDisposition, ct);
+            return $"Transfusion for unit {unitKey} recorded from BPAM; the unit is {over} in the blood bank and is flagged for review (OCD-083).";
+        }
 
         var terminal = transfusion.FinalDisposition == TransfusionDisposition.Stopped
             ? UnitStatus.TransfusionStopped
@@ -248,6 +283,13 @@ public sealed class InterfaceTransfusionService
     private void AppendStatus(BloodUnit unit, UnitStatus toStatus, string reason, DateTime whenUtc, string relatedType, long relatedId)
     {
         var fromStatus = unit.Status;
+        // Cycle 695: as on the issuing paths (Cycle 694), a step the status rules do not allow stops the message.
+        if (!InventoryStatusTransition.IsAllowed(fromStatus, toStatus))
+        {
+            throw new InvalidOperationException(
+                $"Status change from {fromStatus} to {toStatus} is not allowed for {unit.UnitNumber} ({relatedType} {relatedId}).");
+        }
+
         unit.Status = toStatus;
         _inventory.AddStatusHistory(new InventoryStatusHistory
         {

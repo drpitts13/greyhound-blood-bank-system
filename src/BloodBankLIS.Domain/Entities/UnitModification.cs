@@ -35,6 +35,12 @@ public class UnitModification : BaseEntity
     /// <summary>Optional supply lot. Empty when none was recorded.</summary>
     public string? SupplyLot { get; set; }
 
+    /// <summary>The device used (irradiator, cell washer, thawer). Empty when none was recorded.</summary>
+    public string? DeviceId { get; set; }
+
+    /// <summary>Irradiation only: whether the dose indicator confirmed irradiation. Null when not recorded.</summary>
+    public bool? IndicatorConfirmed { get; set; }
+
     public string PerformedBy { get; set; } = "system";
 
     public DateTime PerformedUtc { get; set; }

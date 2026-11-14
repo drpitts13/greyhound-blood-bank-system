@@ -17,3 +17,16 @@ Edit a live interface only when you can watch the next message. A bad map files 
 > Warning. Activating an interface that points at a production host sends and accepts real messages. Confirm the host and the port before you activate. A training system must not point at the clinical interface engine.
 
 Vendor presets are a starting map, not a validation. Compare the preset with the specification you received from the sending system before you go live.
+
+> Patient identifiers. When the EHR sends several identifiers in PID-3, the LIS uses the one typed `MR` (CX.5) as the medical record number, or the first when none is typed, and keeps the others on the chart as **External ID** or **Account** entries, which search finds. If an identifier is already on another chart, the message is still accepted; the new chart's copy is marked "also on" the other MRN, the acknowledgment says it is a possible duplicate, and the pair appears on **Possible duplicates**. Map the MRN to a different field only if the EHR does not type its identifiers.
+
+## Read-only FHIR API
+
+Besides HL7 v2, the system offers a read-only FHIR R4 API at `/fhir` for the EHR. It cannot create, change, or delete anything.
+
+- It serves the patient, the current ABO/Rh and active antibodies, verified test results, special transfusion requirements, orders, and blood product status. A superseded blood type, a retired antibody, or an unverified result is never sent. A corrected result is sent as corrected; a result that was invalidated after verification reads as entered in error. Each order with verified results is also a report (DiagnosticReport, category Blood Bank) listing them: partial until every test on the order is verified, then final, or corrected. Results and reports name their tube (Specimen): accession, type, collection, and whether it is usable, rejected (with the reason), expired, or cancelled, with the time it stops being valid for testing.
+- The caller must be signed in. Every read that returns a patient's data is recorded in the audit trail as a patient access, marked FHIR.
+- Codes use this system's own code systems with readable text. A test result also carries the test's LOINC code when one is recorded on Admin › Tests (none are pre-filled). Numeric results carry units, the reference range, and the flag. Other SNOMED CT or LOINC mappings, and how the EHR authenticates, must be agreed with your interface team before go-live.
+- `/fhir/metadata` lists what the API supports.
+
+> Mother's identifier. For a newborn, the ADT feed can send the mother's MRN in PID-21 (data item **Mother's medical record number**). When the infant's chart has no mother linked and the mother is registered here, the charts are linked automatically and the acknowledgment says so. An unregistered mother, a link the checks refuse (for example a mother born after the infant), or a different mother already linked by staff only adds a note to the message; a link is never replaced by the feed.

@@ -15,3 +15,7 @@ routes:
 Return rules decide whether a unit that comes back unused can be returned to available stock, and under what temperature and seal checks. Loosening a return rule lets the issue desk restock a unit your procedure says must be discarded. Tighten a rule only when the medical director has agreed, and say so in the reason.
 
 Attributes you add here become available on modification rules and on the unit chart. An attribute that is not defined cannot be recorded, so the special-requirement check cannot see it.
+
+## Attributes the requirements check
+
+A patient's requirement for irradiated (or leukoreduced, washed, volume-reduced) units is met by the product's **Attributes**, not by its name. The starter products carry the attributes their names state; check them for any product you add. CMV-negative and HbS-negative are met by the unit's own test (Unit › Attributes › Unit tests) or its product code.

@@ -13,4 +13,10 @@ public class AntibodyPanelCell : BaseEntity
     public PanelCellRole Role { get; set; } = PanelCellRole.Panel;
 
     public int SortOrder { get; set; }
+
+    /// <summary>
+    /// Set when the lot's antigram was corrected before any workup used the lot: the cell is kept for the record
+    /// (nothing is deleted) and every reader leaves it out.
+    /// </summary>
+    public DateTime? SupersededUtc { get; set; }
 }

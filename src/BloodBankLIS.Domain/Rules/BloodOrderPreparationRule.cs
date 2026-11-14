@@ -1,0 +1,90 @@
+namespace BloodBankLIS.Domain.Rules;
+
+/// <summary>
+/// What a blood (product) order still needs from the bench: each active product line is one unit; a unit reserved on the
+/// order or already issued on it counts toward it. The next step is to collect a specimen when the patient has no usable
+/// one, otherwise to reserve the units still needed. Nothing here decides compatibility; reserving runs its own checks.
+/// </summary>
+public static class BloodOrderPreparationRule
+{
+    public static int Remaining(int requested, int reserved, int issued) => Math.Max(0, requested - reserved - issued);
+
+    /// <summary>What the reserve form says about the chosen order: how many more units it needs, or that it is covered.</summary>
+    public static string ReserveProgress(int requested, int remaining) =>
+        requested <= 0
+            ? "This order has no units ordered."
+            : remaining <= 0
+                ? $"All {requested} {(requested == 1 ? "unit" : "units")} for this order {(requested == 1 ? "is" : "are")} reserved or issued."
+                : $"{remaining} more {(remaining == 1 ? "unit" : "units")} needed for this order ({requested - remaining} of {requested} reserved or issued).";
+
+    /// <summary>
+    /// The downtime sheet line for an order still to prepare: "ORD-1 (Stat): 2 × Red cells, 2 still needed, needed by
+    /// 2026-11-08 10:00 UTC".
+    /// </summary>
+    public static string DowntimeLine(string orderNumber, string priority, string products, int remaining, DateTime? neededByUtc) =>
+        $"{orderNumber} ({priority}): {products}, {remaining} still needed"
+        + (neededByUtc is DateTime needed ? $", needed by {needed:yyyy-MM-dd HH:mm} UTC" : string.Empty);
+
+    /// <summary>
+    /// Where the next step opens on the patient's chart: the specimens with the accession form open to collect one (also
+    /// when the usable specimen expires before the order is needed), or the reserve form with the order (and the usable
+    /// specimen) already chosen.
+    /// </summary>
+    public static string CollectSpecimenHref(long patientId) => $"/patients/{patientId}?tab=specimens&panel=specimen";
+
+    /// <summary>Pending specimens, where a drawn tube is scanned to receive it.</summary>
+    public const string ReceiveTubeHref = "/test-worklist?tab=specimens";
+
+    /// <summary>
+    /// A tube already drawn and on its way stands in for collecting one: when the patient has no usable specimen, or the
+    /// usable one expires before the order is needed, and a collected tube (not yet received, still in date, lasting to
+    /// the needed-by time) exists, the next step is to receive it rather than draw again.
+    /// </summary>
+    public static bool ReceiveInstead(bool hasUsableSpecimen, bool specimenExpiresBeforeNeeded, string? tubeAwaitingReceipt) =>
+        !string.IsNullOrWhiteSpace(tubeAwaitingReceipt) && (!hasUsableSpecimen || specimenExpiresBeforeNeeded);
+
+    /// <summary>
+    /// The chart's new-order form with the type and screen chosen and the accepted tube selected, so saving orders it on
+    /// that tube (end-user testing, 2026-11-12: a tube accepted for a blood order had no type and screen ordered on it,
+    /// and "Finish type and screen" opened an empty Tests tab).
+    /// </summary>
+    public static string OrderTypeAndScreenHref(long patientId, long specimenId) =>
+        $"/patients/{patientId}?tab=orders&panel=typeandscreen&tnsSpecimen={specimenId}";
+
+    public static string NextStepHref(long patientId, long orderId, long? usableSpecimenId, bool typeAndScreenComplete = true,
+        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null, bool typeAndScreenOrdered = true) =>
+        ReceiveInstead(usableSpecimenId is not null, specimenExpiresBeforeNeeded, tubeAwaitingReceipt)
+            ? ReceiveTubeHref
+            : usableSpecimenId is not long specimenId || specimenExpiresBeforeNeeded
+            ? CollectSpecimenHref(patientId)
+            : typeAndScreenComplete
+                ? $"/patients/{patientId}?tab=products&reserveOrder={orderId}&reserveSpecimen={specimenId}"
+                : typeAndScreenOrdered
+                    ? $"/patients/{patientId}?tab=tests"
+                    : OrderTypeAndScreenHref(patientId, specimenId);
+
+    /// <summary>
+    /// "Collect a specimen", "Collect a new specimen" (the usable one expires before the order is needed, so units
+    /// crossmatched on it could not be issued then), "Finish type and screen" (a usable specimen whose ABO/Rh and antibody
+    /// screen are not both verified yet: units are reserved on a specimen with a completed type and screen), "Reserve 2
+    /// units", or null when nothing is left to prepare. Guidance only: reserving stays possible from the chart.
+    /// </summary>
+    public static string? NextStep(int remaining, bool hasUsableSpecimen, bool typeAndScreenComplete = true,
+        bool specimenExpiresBeforeNeeded = false, string? tubeAwaitingReceipt = null, bool typeAndScreenOrdered = true,
+        string? specimenAccession = null) =>
+        remaining <= 0
+            ? null
+            : ReceiveInstead(hasUsableSpecimen, specimenExpiresBeforeNeeded, tubeAwaitingReceipt)
+                ? $"Receive tube {tubeAwaitingReceipt!.Trim()}"
+            : !hasUsableSpecimen
+                ? "Collect a specimen"
+                : specimenExpiresBeforeNeeded
+                    ? "Collect a new specimen"
+                : !typeAndScreenComplete
+                    ? typeAndScreenOrdered
+                        ? "Finish type and screen"
+                        : string.IsNullOrWhiteSpace(specimenAccession)
+                            ? "Order type and screen"
+                            : $"Order type and screen on {specimenAccession.Trim()}"
+                    : $"Reserve {remaining} {(remaining == 1 ? "unit" : "units")}";
+}

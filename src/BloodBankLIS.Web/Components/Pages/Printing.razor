@@ -2,7 +2,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Printing &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Printing &middot; HemoCore</PageTitle>
 
 <h1>Label &amp; Tag Printing</h1>
 @if (!CanPrint)
@@ -21,7 +21,25 @@
                 <select @bind="_specFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
         </div>
-        <button class="btn btn-primary" disabled="@(_busy || !CanPrint)" @onclick="PrintSpecimenAsync">Print</button>
+        @if (_specDesigns.Count > 0)
+        {
+            @* The label designs from Administration › Specimen labels; an aliquot design prints one label per aliquot. *@
+            <div class="form-row">
+                <div class="field"><label>Label design</label>
+                    <select @bind="_specDesignCode" data-spec-design>
+                        @foreach (var d in _specDesigns)
+                        {
+                            <option value="@d.Code">@d.Name@(d.Purpose == SpecimenLabelPurpose.Aliquot ? " (aliquot)" : "")@(d.IsDefault ? " · default" : "")</option>
+                        }
+                    </select>
+                </div>
+                @if (SpecDesignIsAliquot)
+                {
+                    <div class="field"><label>Aliquots</label><input type="number" min="1" max="50" data-aliquot-count @bind="_aliquotCount" /></div>
+                }
+            </div>
+        }
+        <button class="btn btn-primary" disabled="@(_busy || !CanPrint)" @onclick="PrintSpecimenAsync">@(SpecDesignIsAliquot ? $"Print {_aliquotCount} aliquot label{(_aliquotCount == 1 ? "" : "s")}" : "Print")</button>
     </div>
 
     <div class="bb-card">
@@ -56,7 +74,7 @@
     <div class="bb-card">
         <Outcome Value="_outputFb" />
         <div class="bb-card-title"><h3>Rendered output &middot; job #@_lastJob.Id</h3>
-            <span class="@Ui.Badge(_lastJob.Status)">@_lastJob.Status</span>
+            <span class="@Ui.Badge(_lastJob.Status)">@Ui.EnumText(_lastJob.Status)</span>
             <span class="muted">@_lastJob.DeliveryStatus</span>
         </div>
         @if (!string.IsNullOrEmpty(_lastJob.DeliveryError))
@@ -128,27 +146,29 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Id</th><th>Type</th><th>Template</th><th>Format</th><th>Context</th><th>Status</th><th>By</th><th></th></tr></thead>
+            <thead><tr><th>Printed</th><th>Type</th><th>Template</th><th>Format</th><th>For</th><th>Status</th><th>By</th><th></th></tr></thead>
             <tbody>
                 @foreach (var j in _jobs)
                 {
                     <tr>
-                        <td>@j.Id</td>
-                        <td>@j.JobType @(j.IsReprint ? "(reprint)" : "")</td>
+                        @* End-user testing pass 32: the list showed internal ids ("Specimen#16") and code names. *@
+                        <td class="nowrap">@(j.PrintedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td>@Ui.EnumText(j.JobType) @(j.IsReprint ? "(reprint)" : "")</td>
                         <td class="mono">@j.TemplateCode</td>
-                        <td>@j.Format</td>
+                        <td>@Ui.EnumText(j.Format)</td>
                         <td class="muted">
                             @if (ContextHref(j) is { } href)
                             {
-                                <a href="@href">@j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")</a>
+                                <a href="@href">@(j.ContextName ?? Ui.CodeNameText(j.ContextType ?? ""))</a>
                             }
                             else
                             {
-                                @j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")
+                                @(j.ContextName ?? Ui.CodeNameText(j.ContextType ?? ""))
                             }
                         </td>
-                        <td><span class="@Ui.Badge(j.Status)">@j.Status</span></td>
+                        <td><span class="@Ui.Badge(j.Status)">@Ui.EnumText(j.Status)</span></td>
                         <td>@j.PrintedBy</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewJobAsync(j.Id)">View</button>
@@ -171,12 +191,19 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
 @code {
     private string _specimenAccession = string.Empty;
     private LabelFormat _specFormat = LabelFormat.Pdf;
+    private List<SpecimenLabelDesignListItemDto> _specDesigns = new();
+    private string? _specDesignCode;
+    private int _aliquotCount = 2;
+
+    private bool SpecDesignIsAliquot =>
+        _specDesigns.FirstOrDefault(d => d.Code == _specDesignCode)?.Purpose == SpecimenLabelPurpose.Aliquot;
     private Feedback? _specFb;
     private Feedback? _outputFb;
     private bool CanPrint => Session.Has(PermissionCodes.PrintLabel);
@@ -234,6 +261,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var designs = await Api.GetPrintableSpecimenLabelDesignsAsync();
+        if (designs.Succeeded && designs.Value is not null)
+        {
+            _specDesigns = designs.Value;
+            _specDesignCode = _specDesigns.FirstOrDefault(d => d.IsDefault && d.Purpose == SpecimenLabelPurpose.Tube)?.Code
+                ?? _specDesigns.FirstOrDefault()?.Code;
+        }
+
         if (IssueId is long issueId)
         {
             // Links from an issue pass its id; show the unit number on the bag and keep printing that exact issue.
@@ -317,7 +352,16 @@
             return;
         }
 
-        var r = await Api.PrintSpecimenLabelAsync(specimen.Value.Id, new PrintRequestVm(_specFormat));
+        if (SpecDesignIsAliquot)
+        {
+            var aliquots = await Api.PrintSpecimenAliquotLabelsAsync(specimen.Value.Id, new PrintAliquotLabelsVm(_aliquotCount, _specFormat, _specDesignCode));
+            _busy = false;
+            _specFb = aliquots.ToFeedback($"{aliquots.Value?.Count ?? _aliquotCount} aliquot labels queued, one print job each.");
+            if (aliquots.Succeeded) { await ShowJobAsync(aliquots.Value?.LastOrDefault()); await LoadJobsAsync(); }
+            return;
+        }
+
+        var r = await Api.PrintSpecimenLabelAsync(specimen.Value.Id, new PrintRequestVm(_specFormat, _specDesignCode));
         _busy = false;
         _specFb = r.ToFeedback("Specimen label queued.");
         if (r.Succeeded) { await ShowJobAsync(r.Value); await LoadJobsAsync(); }

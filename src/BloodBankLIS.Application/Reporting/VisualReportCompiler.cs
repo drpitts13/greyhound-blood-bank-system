@@ -15,7 +15,8 @@ public static class VisualReportCompiler
         IReadOnlyList<ReportField> fields,
         IReadOnlyList<IReadOnlyDictionary<string, string?>> rows,
         IReadOnlyDictionary<string, string?>? parameters,
-        int maxRows)
+        int maxRows,
+        TimeZoneInfo? zone = null)
     {
         var fieldByCode = fields.ToDictionary(f => f.Code, StringComparer.OrdinalIgnoreCase);
         var validation = Validate(layout, fieldByCode);
@@ -25,7 +26,7 @@ public static class VisualReportCompiler
         var filtered = new List<IReadOnlyDictionary<string, string?>>();
         foreach (var row in rows)
         {
-            if (Matches(row, layout.Filters, fieldByCode, parameters))
+            if (Matches(row, layout.Filters, fieldByCode, parameters, zone ?? TimeZoneInfo.Utc))
                 filtered.Add(row);
         }
 
@@ -62,9 +63,16 @@ public static class VisualReportCompiler
         if (truncated)
             output = output.Take(maxRows).ToList();
 
+        if (zone is not null)
+        {
+            // End-user testing pass 50: the page showed "occurred_utc" and "2026-11-12T06:52:03Z"; staff read local times.
+            output = output.Select(row => (IReadOnlyList<string?>)row.Select((cell, i) => IsDateColumn(columns[i], layout, fieldByCode) ? LocalText(cell, zone) : cell).ToList()).ToList();
+        }
+
         return OperationResult<ReportGrid>.Ok(new ReportGrid
         {
             Columns = columns,
+            ColumnLabels = columns.Select(column => fieldByCode.TryGetValue(column, out var f) && !string.IsNullOrWhiteSpace(f.Label) ? f.Label : column).ToList(),
             Rows = output,
             Truncated = truncated
         });
@@ -99,12 +107,12 @@ public static class VisualReportCompiler
             if (!string.IsNullOrWhiteSpace(aggregate.Field) && !fields.ContainsKey(aggregate.Field))
                 return $"Unknown field '{aggregate.Field}'.";
 
-            if (aggregate.Function == ReportAggregateFunction.Sum
+            if (aggregate.Function is ReportAggregateFunction.Sum or ReportAggregateFunction.Average
                 && aggregate.Field is not null
                 && fields.TryGetValue(aggregate.Field, out var field)
                 && field.Kind != ReportValueKind.Number)
             {
-                return $"Sum requires a numeric field. '{field.Label}' is not numeric.";
+                return $"{(aggregate.Function == ReportAggregateFunction.Sum ? "Sum" : "Average")} requires a numeric field. '{field.Label}' is not numeric.";
             }
 
             var name = OutputName(aggregate);
@@ -133,6 +141,7 @@ public static class VisualReportCompiler
             ReportAggregateFunction.Sum => $"Sum of {aggregate.Field}",
             ReportAggregateFunction.Min => $"Min of {aggregate.Field}",
             ReportAggregateFunction.Max => $"Max of {aggregate.Field}",
+            ReportAggregateFunction.Average => $"Average of {aggregate.Field}",
             _ => aggregate.Function.ToString()
         };
     }
@@ -141,7 +150,8 @@ public static class VisualReportCompiler
         IReadOnlyDictionary<string, string?> row,
         IReadOnlyList<ReportFilter> filters,
         IReadOnlyDictionary<string, ReportField> fields,
-        IReadOnlyDictionary<string, string?>? parameters)
+        IReadOnlyDictionary<string, string?>? parameters,
+        TimeZoneInfo zone)
     {
         foreach (var filter in filters)
         {
@@ -162,7 +172,10 @@ public static class VisualReportCompiler
                 return false;
 
             var cell = Value(row, filter.Field);
-            if (!MatchOne(field.Kind, filter.Operator, cell, value, valueTo))
+            var matched = field.Kind == ReportValueKind.Date && filter.Operator is ReportFilterOperator.Before or ReportFilterOperator.After or ReportFilterOperator.Between
+                ? MatchDate(filter.Operator, cell, value, valueTo, zone)
+                : MatchOne(field.Kind, filter.Operator, cell, value, valueTo);
+            if (!matched)
                 return false;
         }
 
@@ -188,6 +201,86 @@ public static class VisualReportCompiler
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Date filters. A date with no time is a whole day in the facility's time zone, so "To 2026-11-12" includes
+    /// everything that day (end-user testing pass 50: it stopped at midnight UTC that morning, so a one-day range and
+    /// the Today preset returned nothing). A blank bound is open. A row with no date does not match a date range.
+    /// </summary>
+    public static bool MatchDate(ReportFilterOperator op, string? cell, string? value, string? valueTo, TimeZoneInfo zone)
+    {
+        if (!TryParseDate(cell, out var cellDate))
+            return false;
+        var at = IsDateOnly(cell) ? DayStartUtc(DateOnly.ParseExact(cell!.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture), zone) : ToUtc(cellDate);
+
+        switch (op)
+        {
+            case ReportFilterOperator.Before:
+                return !TryBound(value, zone, end: false, out var before) || at < before;
+            case ReportFilterOperator.After:
+                return !TryBound(value, zone, end: true, out var after) || at >= after;
+            case ReportFilterOperator.Between:
+                var fromOk = !TryBound(value, zone, end: false, out var from) || at >= from;
+                var toOk = !TryBound(valueTo, zone, end: true, out var to) || at < to;
+                return fromOk && toOk;
+            default:
+                return false;
+        }
+    }
+
+    // The start of the day (or, for end, the start of the next day); a value with a time is that instant (end: just after it).
+    private static bool TryBound(string? text, TimeZoneInfo zone, bool end, out DateTime utc)
+    {
+        utc = default;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        if (IsDateOnly(text))
+        {
+            var day = DateOnly.ParseExact(text.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            utc = DayStartUtc(end ? day.AddDays(1) : day, zone);
+            return true;
+        }
+
+        if (!TryParseDate(text, out var parsed))
+            return false;
+        utc = end ? ToUtc(parsed).AddTicks(1) : ToUtc(parsed);
+        return true;
+    }
+
+    private static bool IsDateOnly(string? text) =>
+        text is not null && DateOnly.TryParseExact(text.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+
+    private static DateTime DayStartUtc(DateOnly day, TimeZoneInfo zone)
+    {
+        var local = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        while (zone.IsInvalidTime(local))
+            local = local.AddHours(1);
+        return TimeZoneInfo.ConvertTimeToUtc(local, zone);
+    }
+
+    private static DateTime ToUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    };
+
+    private static bool IsDateColumn(string column, ReportLayout layout, IReadOnlyDictionary<string, ReportField> fields)
+    {
+        if (fields.TryGetValue(column, out var field))
+            return field.Kind == ReportValueKind.Date;
+        var aggregate = layout.Aggregates.FirstOrDefault(a => string.Equals(OutputName(a), column, StringComparison.OrdinalIgnoreCase));
+        return aggregate is { Function: ReportAggregateFunction.Min or ReportAggregateFunction.Max, Field: not null }
+            && fields.TryGetValue(aggregate.Field, out var aggregated) && aggregated.Kind == ReportValueKind.Date;
+    }
+
+    // A stored instant shown as the facility's local time; a date with no time stays as it is.
+    public static string? LocalText(string? cell, TimeZoneInfo zone)
+    {
+        if (string.IsNullOrWhiteSpace(cell) || IsDateOnly(cell) || !TryParseDate(cell, out var parsed))
+            return cell;
+        return TimeZoneInfo.ConvertTimeFromUtc(ToUtc(parsed), zone).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
     }
 
     private static int Compare(ReportValueKind kind, string? left, string? right)
@@ -227,6 +320,12 @@ public static class VisualReportCompiler
                     .Select(value => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number) ? number : 0m)
                     .Sum();
                 return sum.ToString("0.##", CultureInfo.InvariantCulture);
+            case ReportAggregateFunction.Average:
+                var numbers = list.Select(row => Value(row, aggregate.Field))
+                    .Select(value => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number) ? number : (decimal?)null)
+                    .OfType<decimal>()
+                    .ToList();
+                return numbers.Count == 0 ? null : numbers.Average().ToString("0.#", CultureInfo.InvariantCulture);
             case ReportAggregateFunction.Min:
             case ReportAggregateFunction.Max:
                 var kind = aggregate.Field is not null && fields.TryGetValue(aggregate.Field, out var field)

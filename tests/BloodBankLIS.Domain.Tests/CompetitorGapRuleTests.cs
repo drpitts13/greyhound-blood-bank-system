@@ -25,6 +25,49 @@ public class CompetitorGapRuleTests
         Assert.Contains(items, item => item.Kind == ReagentQcWorklistRule.Unreviewed);
     }
 
+    // TEST-BB-1048: daily reagent QC is counted on the facility's day when it is given: QC on the bench's yesterday is
+    // overdue today though the UTC dates match (end-user testing pass 35).
+    [Fact]
+    public void Worklist_CountsQcOnTheFacilityDay()
+    {
+        var now = new DateTime(2026, 11, 12, 1, 0, 0, DateTimeKind.Utc);
+        ReagentQcLotFact[] lots = [new ReagentQcLotFact(1, "L1", ReagentLotState.Opened, now.AddDays(10))];
+        ReagentQcFact[] qc = [new ReagentQcFact(9, 1, new DateTime(2026, 11, 11), true, "lead")];
+        Assert.Contains(ReagentQcWorklistRule.Evaluate(lots, qc, now, facilityToday: new DateTime(2026, 11, 12)), i => i.Kind == ReagentQcWorklistRule.Overdue);
+        Assert.DoesNotContain(ReagentQcWorklistRule.Evaluate(lots, qc, now, facilityToday: new DateTime(2026, 11, 11)), i => i.Kind == ReagentQcWorklistRule.Overdue);
+    }
+
+    // TEST-BB-558: a failed QC stands only while it is the open lot's latest QC; an expired lot is flagged to close
+    // instead of asking for daily QC.
+    [Fact]
+    public void Worklist_FailedOnlyWhileLatest_AndExpiredLotsFlagged()
+    {
+        var now = new DateTime(2026, 10, 16, 12, 0, 0, DateTimeKind.Utc);
+        ReagentQcLotFact[] lots =
+        [
+            new(1, "PASSED-AFTER", ReagentLotState.Opened, now.AddDays(10)),
+            new(2, "CLOSED", ReagentLotState.Closed, now.AddDays(10)),
+            new(3, "EXPIRED", ReagentLotState.Opened, now.AddHours(-1)),
+            new(4, "STILL-FAILED", ReagentLotState.Opened, now.AddDays(10))
+        ];
+        ReagentQcFact[] qc =
+        [
+            new(10, 1, now.AddDays(-2), false, "lead"),
+            new(11, 1, now, true, "lead"),
+            new(20, 2, now.AddDays(-1), false, "lead"),
+            new(40, 4, now.AddDays(-1), true, "lead"),
+            new(41, 4, now, false, "lead")
+        ];
+
+        var items = ReagentQcWorklistRule.Evaluate(lots, qc, now);
+
+        Assert.Equal([41L], items.Where(i => i.Kind == ReagentQcWorklistRule.Failed).Select(i => i.QcId!.Value));
+        var expired = Assert.Single(items, i => i.Kind == ReagentQcWorklistRule.Expired);
+        Assert.Equal(3, expired.LotId);
+        Assert.Contains("close it and open a new lot", expired.Message);
+        Assert.DoesNotContain(items, i => i.LotId == 3 && i.Kind == ReagentQcWorklistRule.Overdue);
+    }
+
     [Fact]
     public void ResultGate_StaysOpenUnlessPolicyAndWorkAreBothOn()
     {
@@ -45,10 +88,10 @@ public class CompetitorGapRuleTests
     }
 
     [Fact]
-    public void ParShortfall_IsTheGapBelowTheMinimum()
+    public void MinimumStockShortfall_IsTheGapBelowTheMinimum()
     {
-        Assert.Equal(2, StockParRule.Shortfall(1, 3));
-        Assert.Equal(0, StockParRule.Shortfall(4, 3));
+        Assert.Equal(2, MinimumStockRule.Shortfall(1, 3));
+        Assert.Equal(0, MinimumStockRule.Shortfall(4, 3));
     }
 
     [Fact]

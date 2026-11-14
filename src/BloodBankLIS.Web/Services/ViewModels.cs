@@ -6,6 +6,17 @@ namespace BloodBankLIS.Web.Services;
 // View models for API responses whose source records live in the Api/Printing projects
 // (not referenced by the UI). Shapes mirror the JSON the API emits.
 
+/// <summary>An outbound message not yet acknowledged, with why it has not gone (Cycle 660).</summary>
+public sealed record Hl7OutboundWaitingVm(
+    long Id,
+    string MessageType,
+    string ControlId,
+    DateTime QueuedUtc,
+    int RetryCount,
+    int MaxRetries,
+    string Reason,
+    bool Stuck);
+
 public sealed record Hl7MessageVm(
     long Id,
     Hl7Direction Direction,
@@ -53,7 +64,11 @@ public sealed record Hl7ErrorVm(
     long? EndpointId = null,
     bool? ReplayAllowed = null,
     bool? RetriesExhausted = null,
-    bool? ControlAlreadyApplied = null);
+    bool? ControlAlreadyApplied = null,
+    string? ResolvedBy = null,
+    DateTime? ResolvedUtc = null,
+    string? ResolutionNote = null,
+    DateTime? QueuedUtc = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 
@@ -77,7 +92,8 @@ public sealed record PrintJobVm(
     string? RenderedZpl,
     PrintDeliveryStatus DeliveryStatus,
     string? DeliveryError,
-    bool HasPdf);
+    bool HasPdf,
+    string? ContextName = null);
 
 public sealed record DeliverPrintRequestVm(long? PdfPrinterId = null, long? ZebraPrinterId = null);
 
@@ -94,7 +110,8 @@ public sealed record AuditEventVm(
     string? OldValueJson,
     string? NewValueJson,
     string? Reason,
-    long? SignatureId);
+    long? SignatureId,
+    string? EntityName = null);
 
 public sealed record AuditPageVm(int Total, int Skip, int Take, List<AuditEventVm> Items);
 
@@ -154,6 +171,12 @@ public sealed record DatabaseBackupStatusVm(
 
 public sealed record DiscardCodedUnitRequestVm(string ReasonCode, string? Comment = null, string? SecondVerifier = null);
 public sealed record PrintRequestVm(LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
+
+public sealed record SpecimenLabelTestPrintVm(BloodBankLIS.Application.Printing.LabelLayoutDocument Document, LabelFormat Format = LabelFormat.Pdf, long? PdfPrinterId = null, long? ZebraPrinterId = null);
+
+public sealed record SpecimenLabelTestPrintResultVm(LabelFormat Format, string? Zpl, string? PdfBase64, string? SentTo);
+
+public sealed record PrintAliquotLabelsVm(int Count, LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
 
 public sealed record PtagIdRequiredVm(bool Required);
 

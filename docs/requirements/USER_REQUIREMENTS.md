@@ -72,7 +72,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-064 | Merging a duplicate patient into a survivor from the workspace is limited to staff with patient.merge. | P1 | FRS-BB-098 |
 | URS-BB-065 | Staff can see retained prior result versions (original value, status, source, reason, who, when) on the patient result panel, and an invalidated correction is not shown as the current result. | P0 | FRS-BB-099 |
 | URS-BB-066 | Creating an order from the workspace is limited to staff with patient.write. | P1 | FRS-BB-100 |
-| URS-BB-067 | Staff can see retained prior released result versions on the patient Test History tab, not only the current verified row. | P0 | FRS-BB-101 |
+| URS-BB-067 | Staff can see retained prior released result versions on the patient Test History tab, not only the current verified row. | P0 | FRS-BB-101, FRS-BB-619 |
 | URS-BB-068 | Creating or updating a directory user, assigning roles, or creating or updating a role catalog entry is limited to staff with admin.users.manage or admin.roles.manage. | P6 | FRS-BB-102, FRS-BB-139 |
 | URS-BB-069 | Documenting a transfusion through the interface service (not inbound BPAM) is limited to staff with transfusion.document. | P0 | FRS-BB-103 |
 | URS-BB-070 | Staff can find create/update of subtest, blood-attribute, and reflex-rule catalogs as TestChange, because those definitions change calculated results, antibody/antigen history, and reflex-added tests. | P3 | FRS-BB-104 |
@@ -342,7 +342,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-334 | Staff can receive a collected specimen into the blood bank and accept a received specimen before testing, from a pending-specimens worklist. | P0 | FRS-BB-369 |
 | URS-BB-335 | Staff ending a shift can record a handoff packet with a required note and a snapshot of the current bench queues, and the incoming technologist can acknowledge it. | P1 | FRS-BB-370 |
 | URS-BB-336 | Staff can change a specimen barcode only through a controlled relabel that requires a reason; collection metadata edit does not change the barcode. | P0 | FRS-BB-371 |
-| URS-BB-337 | Supervisors can open one worklist of antibody-identification reviews, posted results awaiting verification, and quarantined units awaiting release for the permissions they already have. | P1 | FRS-BB-372 |
+| URS-BB-337 | Supervisors can open one worklist of antibody-identification reviews, posted results awaiting verification, and quarantined units awaiting release for the permissions they already have. | P1 | FRS-BB-372, FRS-BB-599, FRS-BB-618, FRS-BB-634 |
 | URS-BB-338 | Staff changing a patient's name must give a reason, and the previous name remains searchable as a historical alias. | P0 | FRS-BB-373 |
 | URS-BB-339 | When an inbound ADT changes a patient's stated name, the previous name remains as a searchable historical alias. | P0 | FRS-BB-374 |
 | URS-BB-340 | Staff who merged the wrong patient records can undo that merge, and the history returns to the duplicate, when nothing new has been done on the survivor since the merge. | P0 | FRS-BB-375 |
@@ -396,7 +396,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-388 | Staff placing or editing an order can select a product by its code and still read a blank name as the product id. | P1 | FRS-BB-423 |
 | URS-BB-389 | Staff returning a unit cannot declare time out of a governed storage device acceptable after the return-to-available window. An exempt device does not fail that window. | P1 | FRS-BB-424 |
 | URS-BB-390 | Staff cannot release a modification result from quarantine until the scanned unit number matches that result. Other quarantine releases do not require that scan. | P1 | FRS-BB-425 |
-| URS-BB-391 | Staff can record reagent lots and daily QC, and a different person reviews the row. Overdue, failed, and unreviewed rows stay visible. Patient resulting stays open unless facility policy is turned on. | P1 | FRS-BB-426 |
+| URS-BB-391 | Staff can record reagent lots and daily QC, and a different person reviews the row. Overdue, failed, and unreviewed rows stay visible. Patient resulting stays open unless facility policy is turned on. | P1 | FRS-BB-426, FRS-BB-628, FRS-BB-629, FRS-BB-630 |
 | URS-BB-392 | Staff can see issued units past the final-disposition window that have no transfusion document, return, or discard. The board warns and does not block issue or documentation. | P1 | FRS-BB-427 |
 | URS-BB-393 | Staff can record an optional supply description and lot on a modification and read them on modification history. A facility policy can require the lot and ships off. | P1 | FRS-BB-428 |
 | URS-BB-394 | Staff can apply one modification rule and one reason to several units. If any unit is ineligible, none are modified. | P1 | FRS-BB-429 |
@@ -414,11 +414,447 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-406 | Inventory staff can log storage temperatures per location, see when a reading is outside the range, and have the excursion investigated. | P3 | FRS-BB-441 |
 | URS-BB-407 | Inventory and quality staff can report wastage by month, product, and a coded discard reason. | P4 | FRS-BB-442 |
 | URS-BB-408 | Transfusion service leadership can review crossmatch-to-transfusion utilization by ordering location and provider. | P7 | FRS-BB-443 |
-| URS-BB-409 | Staff are told in the app about temperature excursions, expired units, par shortfalls, near-expiry units, and reagent QC work without opening each worklist. | P7 | FRS-BB-444 |
+| URS-BB-409 | Staff are told in the app about temperature excursions, expired units, minimum stock shortfalls, near-expiry units, and reagent QC work without opening each worklist. | P7 | FRS-BB-444, FRS-BB-621 |
 | URS-BB-410 | Staff can export report results and the audit trail as CSV for other systems, without opening the file executing a formula. | P8 | FRS-BB-445 |
-| URS-BB-411 | Inventory staff can turn the par shortfall into a signed supplier order, send it as a file, and link the delivery that fills it. | P7 | FRS-BB-446 |
+| URS-BB-411 | Inventory staff can turn the minimum stock shortfall into a signed supplier order, send it as a file, and link the delivery that fills it. | P7 | FRS-BB-446, FRS-BB-603 |
 | URS-BB-412 | The facility has verified database backups on a schedule and on demand, is told when a backup fails or is overdue, and can reconcile a restore against a manifest. | P3 | FRS-BB-447 |
 | URS-BB-413 | Users with administrative or override-approval rights can be required to sign in with a second factor from an authenticator app. | P6 | FRS-BB-448 |
 | URS-BB-414 | Units stored through a sustained temperature excursion are taken out of use automatically. | P0 | FRS-BB-449 |
 | URS-BB-415 | The facility decides whether MFA is used and who must use it; required users cannot sign in without it. | P6 | FRS-BB-450 |
 | URS-BB-416 | The transfusion service can compare product orders with facility-approved transfusion criteria and review orders outside them. | P7 | FRS-BB-451 |
+| URS-BB-417 | Staff can scan or type any patient, unit, specimen, or order identifier from one place on every screen and reach that record without first choosing the right page. | P9 | FRS-BB-452 |
+| URS-BB-418 | Staff can see a patient's visits, orders, specimens, results and corrections, antibodies, requirements, and product and transfusion events in one chronological view, with safety-relevant events marked. | P9 | FRS-BB-453 |
+| URS-BB-419 | Staff can see the full history of one specimen (collection, receipt, acceptance or rejection, relabel, overrides, results, and the crossmatches and reservations that used it) with who did each step and where. | P4 | FRS-BB-454 |
+| URS-BB-420 | The home screen leads with the signed-in user's desk and puts overdue and safety work first, without hiding any permitted queue. | P9 | FRS-BB-455 |
+| URS-BB-421 | At issue and at the bedside, the two patient identifiers are read from the patient wristband or requisition rather than copied from the record, unless the facility chooses otherwise. | P1 | FRS-BB-456 |
+| URS-BB-422 | A unit or patient chosen for staff on a form is shown by its real identifier (unit number, name and MRN), never by an internal record number, and is never swapped for a different record without the user choosing it. | P1 | FRS-BB-457 |
+| URS-BB-423 | At issue, ward receipt, and the bedside, staff can scan or type each identifier and unit-label field in turn without the mouse, and a scanner's Enter never performs the issue, receipt, or documentation. | P9 | FRS-BB-458 |
+| URS-BB-424 | A returned unit goes back to available stock only after a person records its temperature, seal, and visual inspection, and every override names who authorized it rather than defaulting to the user. | P0 | FRS-BB-459 |
+| URS-BB-425 | A unit's appearance at issue, ward receipt, and receipt into inventory is what a person saw on the bag, not a default. | P0 | FRS-BB-460 |
+| URS-BB-426 | Alloantibodies identified in an eluate become part of the patient's antibody history after a second person verifies them, so they protect later unit selection, while autoantibody and nonspecific eluate reactivity does not. | P2 | FRS-BB-461 |
+| URS-BB-427 | Administrators can see how far the facility is from running on a licensed ICCBBA catalog, and exactly which products and units still rely on placeholder or unknown codes. | P5 | FRS-BB-462 |
+| URS-BB-428 | The transfusion committee can start from an unverified draft set of transfusion indications, and no draft can take effect until the committee has reviewed it. | P7 | FRS-BB-463 |
+| URS-BB-429 | The EHR can read a patient's current blood type, antibodies, transfusion requirements, orders, and blood product status from the LIS without being able to change them, and every such read is traceable. | P8 | FRS-BB-464 |
+| URS-BB-430 | An emergency release can never send red cells that are ABO-incompatible with a patient's established blood group, whatever override is entered. | P1 | FRS-BB-465 |
+| URS-BB-431 | When a screen or interface sends a request the system cannot read, the user or interface team is told in plain words which value was wrong, and nothing internal is revealed. | P6 | FRS-BB-466 |
+| URS-BB-432 | A unit that still needs its ABO/Rh retype never reappears as available stock without that retype, and a unit whose retype proved its label wrong cannot be issued at all. | P1 | FRS-BB-467 |
+| URS-BB-433 | When a massive transfusion protocol is called, the blood bank records who called it and why, sees every unit issued under it as it happens, and records when and why it ended. | P1 | FRS-BB-468 |
+| URS-BB-434 | The facility can define its massive transfusion packs, and during a protocol the issue desk sees which round it is on and what each component still needs, without the system ever choosing or blocking a unit. | P7 | FRS-BB-469 |
+| URS-BB-435 | Each container sent during a massive transfusion protocol is recorded (container, temperature, who packed it, when, which units) and a printed sheet travels with it that the receiving clinicians and ordering provider complete by hand. | P1 | FRS-BB-470 |
+| URS-BB-436 | Once a reaction investigation is signed and closed, what was signed cannot change unless someone reopens it with a recorded reason and signs it again. | P4 | FRS-BB-471 |
+| URS-BB-437 | A transfusion can only be recorded with the bedside checks performed at the time, never by a shortcut that assumes them, and its recorded times and volume make sense. | P1 | FRS-BB-473 |
+| URS-BB-438 | Only bench staff can hand off or accept the open work of a shift, a handoff can only be addressed to a real active colleague, and an active massive transfusion is never missed at change of shift. | P5 | FRS-BB-474 |
+| URS-BB-439 | An issue recorded after the fact (for example after downtime) says so, with a reason and both the stated and the actual entry time; an issue cannot be dated in the future. | P5 | FRS-BB-475 |
+| URS-BB-440 | Every override (emergency release, warning override) is reviewed after the fact by a second person, and the review is recorded. | P4 | FRS-BB-476 |
+| URS-BB-441 | A blood type that came from a result later found invalid (for example wrong blood in tube) never stays the patient's type or counts as evidence, and a specimen cannot be rejected while results from it are still in use. | P1 | FRS-BB-477 |
+| URS-BB-442 | A specimen is rejected with a coded reason from a facility-maintained list, so rejections can be counted by cause; a free-text comment is added when the reason needs one. | P2 | FRS-BB-478 |
+| URS-BB-443 | Supervisors can count specimen rejections by cause, month, draw location, and collector, and list each rejection with who rejected it and when. | P2 | FRS-BB-479 |
+| URS-BB-444 | When a crossmatch done after an emergency or massive-transfusion release is incompatible, the blood bank is alerted at once with the patient, the unit, and whether the unit is issued, being transfused, or transfused, and the acknowledgement records who handled it. | P1 | FRS-BB-480 |
+| URS-BB-445 | The person named as authorizing an override is suggested from, and checked against, the ordering-provider and user directory, and the reviewer sees whether the name was a known person, without ever blocking an emergency. | P2 | FRS-BB-481 |
+| URS-BB-446 | An override made while issuing under a massive transfusion protocol is recorded and reviewed as a massive-transfusion release, distinct from an emergency release and from an ordinary warning override. | P2 | FRS-BB-482 |
+| URS-BB-447 | Returning a unit never disposes of it; disposal always goes through the discard step with its permission, coded reason, and second verifier. | P1 | FRS-BB-483 |
+| URS-BB-448 | After a unit is returned to stock, the user is told it is no longer reserved for the patient and can reserve it again for that patient in one step, with every reservation check still applied. | P3 | FRS-BB-484 |
+| URS-BB-449 | A transfusion is judged against the unit at the time it started: one that started while the unit was in date can be documented after the unit expires, and a start time before the unit was issued is refused. | P1 | FRS-BB-485 |
+| URS-BB-450 | A transfusion can be started at the bedside when the unit is spiked, with the identity checks done then, and completed later with stop time, volume, outcome, and any suspected reaction; while it runs the unit shows as transfusing. | P1 | FRS-BB-486 |
+| URS-BB-451 | A transfusion started at the bedside and not completed within the facility reminder hours is flagged so the record gets finished. | P2 | FRS-BB-487, FRS-BB-617 |
+| URS-BB-452 | The patient chart and timeline show a transfusion that is running as running, never as transfused, and offer to complete it. | P1 | FRS-BB-488 |
+| URS-BB-453 | Reports, lookback, unit activity, and utilization never report a running transfusion with an outcome it has not had. | P2 | FRS-BB-489 |
+| URS-BB-454 | At accession the two patient identifiers are the ones read from the tube label and are checked against the record; who drew the specimen and where are recorded. | P1 | FRS-BB-490 |
+| URS-BB-455 | A tube arriving in the blood bank can be received by scanning its accession or label barcode, so the tube in hand is the one received, without picking a row. | P2 | FRS-BB-491 |
+| URS-BB-456 | A received tube can be accepted by scanning it, as a deliberate mode, and the pending list shows how long each tube took from draw to receipt or has been waiting since draw. | P3 | FRS-BB-492 |
+| URS-BB-457 | Correcting a verified ABO/Rh result takes the blood type recorded from it out of use at once; the corrected type applies only once the correction is verified. | P1 | FRS-BB-493 |
+| URS-BB-458 | The second ABO/Rh determination required before red-cell issue and for electronic crossmatch comes from a separate specimen; a repeat test of the same tube does not count. | P1 | FRS-BB-494 |
+| URS-BB-459 | The shift handoff tells the incoming shift how many transfusions are running, how many are overdue for completion, and how many emergency releases came back incompatible on the retrospective crossmatch. | P2 | FRS-BB-495 |
+| URS-BB-460 | A hand-recorded ABO/Rh counts as an ABO/Rh determination only when it is documented from a previous blood bank system or a documented outside source, and the record it came from is named. | P1 | FRS-BB-496 |
+| URS-BB-461 | The chart's blood type history says where each type came from, marks retired types with the reason, and says which types do not count as an ABO/Rh determination. | P2 | FRS-BB-497 |
+| URS-BB-462 | A result sent to the EHR says whether it is final, a correction, or withdrawn as wrong, so the EHR does not keep showing a corrected or invalidated value as final. | P1 | FRS-BB-498 |
+| URS-BB-463 | When a verified result is corrected or invalidated, the EHR is updated automatically, without anyone having to remember to send it. | P1 | FRS-BB-499 |
+| URS-BB-464 | When a reserved unit expires, its reservation ends and the alert says how many expired units were reserved for patients, so a replacement is reserved instead of the team believing blood is still held. | P1 | FRS-BB-500 |
+| URS-BB-465 | A reserved unit whose only compatible crossmatch has expired is not shown as ready for issue on the patient chart or the issue desk. | P1 | FRS-BB-501 |
+| URS-BB-466 | The dashboard says how many reserved units need a new crossmatch, so they are repeated before the ward asks for the blood. | P2 | FRS-BB-502 |
+| URS-BB-467 | On the Ready to issue board, the units that can be issued now are listed first, with a line saying how many can be issued and how many need attention. | P2 | FRS-BB-503 |
+| URS-BB-468 | A crossmatch cannot be recorded on an expired specimen, and when a reserved unit's crossmatch has expired the chart tells the user to repeat it on a current specimen and offers the crossmatch. | P1 | FRS-BB-504 |
+| URS-BB-469 | After emergency release, the retrospective crossmatch can be recorded on the pre-transfusion specimen after it expires, as an exception with a reason and an authorizer that goes to supervisor review. | P1 | FRS-BB-505 |
+| URS-BB-470 | A result arriving from an instrument or the HL7 interface is refused on a specimen that manual entry would refuse, including when it re-sends or replaces an earlier result. | P1 | FRS-BB-506 |
+| URS-BB-471 | A verified result can be corrected, and the correction verified, after its specimen has expired, so a wrong value on the record can always be fixed. | P1 | FRS-BB-507 |
+| URS-BB-472 | A result waiting for verification whose specimen expires soon says by when it must be verified and is listed ahead of other routine work, so it is not lost when the specimen expires. A pending correction can be worked from the worklist after the specimen expires. | P1 | FRS-BB-508 |
+| URS-BB-473 | The dashboard says how many pending results must be verified before their specimen expires. | P2 | FRS-BB-509 |
+| URS-BB-474 | The shift handoff records how many pending results must be verified before their specimen expires, so the next shift verifies them in time. | P2 | FRS-BB-510 |
+| URS-BB-475 | The patient chart's Tests tab shows the same verify-before deadline as the worklist. | P3 | FRS-BB-511 |
+| URS-BB-476 | The patient chart says a second ABO/Rh is on file only when issue would accept it, so staff are not told a second specimen is unnecessary when it is needed. | P1 | FRS-BB-512 |
+| URS-BB-477 | On the unit chart, an issued unit is offered back to Available only when the facility return window and the storage location allow it, exactly as the return itself decides. | P2 | FRS-BB-514 |
+| URS-BB-478 | When a specimen is edited on the chart, the expiration it proposes, and whether an override is needed, follow the same policy as the save, including the shorter window for a patient recently transfused or pregnant. An override's authorizer is always named by the user. | P1 | FRS-BB-515 |
+| URS-BB-479 | A unit near expiry that is reserved for a patient says so, names the patient, and says to issue it first or reserve a replacement, before it expires. | P1 | FRS-BB-518 |
+| URS-BB-480 | Changing an override exception (who may override a safety rule, whether it can be overridden, or switching it on or off) records why. | P1 | FRS-BB-520 |
+| URS-BB-481 | Adding, changing, or switching a rule in the compatibility table in use records why; a draft table can be built freely. | P2 | FRS-BB-521 |
+| URS-BB-482 | The issue gate follows the active compatibility table: a medical director can make a rule stricter for a component class there (for example platelet ABO mismatch a hard stop), and the table can never make a rule weaker than the built-in one. | P1 | FRS-BB-522 |
+| URS-BB-483 | Changing who may do what (a user's roles, a role's permissions or security level) and letting someone act again (activating or unlocking an account) records why and what was there before. | P1 | FRS-BB-524 |
+| URS-BB-484 | Emergency or massive-transfusion release can go ahead before a specimen is drawn, limited to group O red cells and group AB or A plasma, as an authorized override, and staff are prompted to collect a pre-transfusion specimen. | P1 | FRS-BB-525 |
+| URS-BB-485 | An override authorizer who is not in the directory is never refused, and can be added to the directory as an outside provider so later overrides they authorize are recognized. | P2 | FRS-BB-528 |
+| URS-BB-486 | An issue made on paper during downtime can be entered afterwards by a role that allows it, judged as of the time on the paper record, even if the unit or specimen has expired since. | P1 | FRS-BB-529 |
+| URS-BB-487 | A facility can require that specimens are received only by scanning the tube in hand. | P2 | FRS-BB-530 |
+| URS-BB-488 | Every facility setting the system reads is listed on Facility Policies, and the default it uses when the setting has never been saved is the default the page shows. | P1 | FRS-BB-534 |
+| URS-BB-489 | For every closed interface error, staff can see who closed it, when, and why, whether it was closed by hand, by a replay, or by a later send. | P2 | FRS-BB-536 |
+| URS-BB-490 | A transfusion reaction noticed after the transfusion was documented without one can be reported and investigated like one reported at the bedside. | P1 | FRS-BB-539 |
+| URS-BB-491 | A quarantined unit goes back to stock only when the reason it is held allows it, and the quarantine board says what to do with each unit. | P1 | FRS-BB-543 |
+| URS-BB-492 | When a reaction investigation closes, the provider records the reaction concluded and the treatment for future transfusions, each chosen from an admin list that always offers No reaction and No treatment. | P1 | FRS-BB-546 |
+| URS-BB-493 | Staff can put special requirements on a patient chart, chosen from admin tables of unit typings, unit modifications, informational notes, and issue procedures. Typings and modifications apply to one unit category and are enforced at selection and issue; informational ones show as a banner. Each has a start date and an optional end date, on and after which it no longer applies. | P1 | FRS-BB-549, FRS-BB-550 |
+| URS-BB-494 | Issuing several units to one patient (a cooler, an MTP round, a multi-unit order) does not require choosing the patient and destination again for each unit, and the desk offers the next unit; receiving them at the ward offers the rest of the cooler, and the bedside offers the next unit to start or complete. | P2 | FRS-BB-553, FRS-BB-554, FRS-BB-556, FRS-BB-557, FRS-BB-558, FRS-BB-559, FRS-BB-560, FRS-BB-565 |
+| URS-BB-495 | When a unit is issued to or returned from a patient, the EHR is told, so bedside administration can match the unit it scans to the issue. | P2 | FRS-BB-555 |
+| URS-BB-496 | Units nearing expiry are on the home screen of whoever handles inventory or issue, with the ones reserved for a patient called out. | P2 | FRS-BB-561, FRS-BB-562 |
+| URS-BB-497 | Units still held for a patient after their reservation has ended are visible and can be released back to stock from the issue desk, with a reason. | P2 | FRS-BB-563 |
+| URS-BB-498 | Minimum stock shows, beside each product's stock, how many open product orders are waiting for a unit, so staff see when demand outruns what is on the shelf. | P2 | FRS-BB-564 |
+| URS-BB-499 | On the test worklist and the chart Tests tab, a result already entered and waiting for verification is shown as Verify, whoever or whatever entered it, so the second technologist finds it without opening each row. | P2 | FRS-BB-566, FRS-BB-567 |
+| URS-BB-500 | The shift handoff tells the next shift how many results wait for verification, how many reservations are past their end time, and how many units are near expiry (and reserved). | P2 | FRS-BB-568 |
+| URS-BB-501 | Before or at the start of an outage, the issue bench can print one sheet listing every patient the blood bank is working for, with what it needs to issue safely on paper: blood type and whether a second determination is on file, antibodies, special requirements, current specimens, and reserved and issued units. The print is audited. | P1 | FRS-BB-569, FRS-BB-573 |
+| URS-BB-502 | After an outage, the downtime snapshot shows the results entered from paper that still wait for verification (and how many must be verified before their specimen expires), and reservations past their end time, with a link to each queue. | P2 | FRS-BB-570 |
+| URS-BB-503 | The bench can scan a tube to see only that tube's pending tests, with the first one opened for entry, and after accepting a tube is offered its tests as the next step. | P2 | FRS-BB-571, FRS-BB-572 |
+| URS-BB-504 | A user who verifies results sees on the home screen how many results wait for them to verify, and how many of those are due before their specimen expires, with one click to that list. | P2 | FRS-BB-574 |
+| URS-BB-505 | The patient list shows each patient's current ABO/Rh, active antibodies, and how many special requirements are in effect, so the right patient and their risks are seen before the chart is opened. | P2 | FRS-BB-575, FRS-BB-576, FRS-BB-577, FRS-BB-578 |
+| URS-BB-506 | Wherever a unit is reserved for a patient, the patient's special requirements are shown and checked, so a unit that cannot be issued to them is not reserved for them. | P1 | FRS-BB-579, FRS-BB-580, FRS-BB-605 |
+| URS-BB-507 | A transfusion reaction workup tests a pre-transfusion specimen and a post-transfusion specimen. A setting maps each specimen to a Test Group; the investigator chooses or accessions each specimen on the investigation, its group is ordered on it, the tests are resulted and verified on the bench, and the investigation closes only when all of them are verified. | P1 | FRS-BB-581, FRS-BB-582, FRS-BB-583, FRS-BB-584, FRS-BB-586, FRS-BB-598 |
+| URS-BB-508 | A transfusion reaction investigation can be printed on one sheet for review by the medical director and for the record, with the bedside transfusion record, the workup and its results, and the conclusion; the print is audited. | P2 | FRS-BB-585 |
+| URS-BB-509 | When a tube is rejected, the bench is told which open orders now need a new specimen, and their lines say Recollect with the reason and offer accessioning a new tube. | P2 | FRS-BB-587, FRS-BB-588, FRS-BB-600, FRS-BB-632 |
+| URS-BB-510 | Inventory staff can move a batch of units to one location by scanning each unit, without opening each unit, with the same checks and audit as a single transfer. | P2 | FRS-BB-589 |
+| URS-BB-511 | Inventory staff can count a storage location by scanning its units and see what is missing, misplaced, or on a shelf against its record; the finished count is audited. | P2 | FRS-BB-590, FRS-BB-591, FRS-BB-595 |
+| URS-BB-512 | Issuing staff can check a cooler before it leaves by scanning the units packed in it, and are shown any unit issued under another cooler or not issued at all; the finished check is audited. | P1 | FRS-BB-592, FRS-BB-593, FRS-BB-596, FRS-BB-597 |
+| URS-BB-513 | Issuing staff can return the units of a cooler that comes back without re-finding each unit or retyping the reason, while every unit is still inspected on its own. | P2 | FRS-BB-594 |
+| URS-BB-514 | When a patient is registered, staff are shown any active patient who may be the same person under another MRN, can open that chart instead, and must confirm a different person before a second chart is made; the confirmation is recorded. | P1 | FRS-BB-601, FRS-BB-602 |
+| URS-BB-515 | A technologist can move from test to test on the worklist from the keyboard, with the cursor in the result entry, without any key saving or verifying a result. | P2 | FRS-BB-604 |
+| URS-BB-516 | Inventory staff can see the expired units still recorded on a shelf and discard each by scanning it, with the expired reason and the usual discard checks, without opening each unit. | P2 | FRS-BB-606, FRS-BB-607, FRS-BB-608 |
+| URS-BB-517 | Inventory staff can pack a return shipment to the supplier by giving the reason once and scanning each unit, with each return audited, and print the list of units returned. A unit's recorded return or missing reason is never replaced by a repeat action. | P2 | FRS-BB-609, FRS-BB-610 |
+| URS-BB-518 | Supervisors can report test turnaround (minutes from order, and from tube receipt, to verification) per result and by month, priority, and test, with the average and longest, to see whether STAT work meets the facility's targets. | P3 | FRS-BB-611 |
+| URS-BB-519 | A technologist can print, from the chart, a wallet card for a patient with clinically significant antibodies or special requirements, showing their blood type, antibodies, and requirements, so another hospital knows before transfusing; the print is audited. | P2 | FRS-BB-612 |
+| URS-BB-520 | Administrators can review user access periodically: see when each person last signed in, find active accounts not used for a chosen number of days, and record the review (what was checked and decided) with the accounts and roles it covered. | P2 | FRS-BB-613 |
+| URS-BB-521 | Ward staff can ask the blood bank to issue a reserved unit now, saying where it should go; the issue desk sees requested units first with the destination filled in, and the request and any cancellation (with a reason) are audited. | P1 | FRS-BB-614, FRS-BB-615, FRS-BB-616, FRS-BB-633 |
+| URS-BB-522 | Staff placing an order in the chart start from the visit: its ordering location is filled in when the visit names one, and its attending provider is offered, so the order is not attributed to an arbitrary location or provider. | P1 | FRS-BB-620 |
+| URS-BB-523 | Links between chart tabs and from the worklist land on what they name (the tube, the order, the visit's orders), so staff do not search for it again. | P1 | FRS-BB-622 |
+| URS-BB-524 | A deviation is closed only with its corrective action recorded, a recorded corrective action is never blanked, and the deviation list shows what happened, who reported it, how long it has been open, and the most severe open items first. | P1 | FRS-BB-623, FRS-BB-624, FRS-BB-625, FRS-BB-626, FRS-BB-627 |
+| URS-BB-525 | When the medical director allows it, a person other than the one who entered them can verify several routine results at once (plain negative antibody screens and DATs, ABO/Rh matching history), while every other result is verified one at a time and each verified result stays individually audited. | P1 | FRS-BB-631 |
+| URS-BB-526 | Staff reviewing the audit trail can find a record's trail by scanning or typing its identifier (DIN, MRN, accession, order number) instead of an internal id, and open a unit's trail from the unit page. | P2 | FRS-BB-635 |
+| URS-BB-527 | Staff placing an order are warned when a test on it is already ordered and still open for the patient, naming that order, so duplicate testing and extra draws are avoided without blocking a repeat that is intended. | P1 | FRS-BB-636 |
+| URS-BB-528 | Staff opening a patient chart see the current visit (number, patient type, location, attending) in the header, and are told when more than one visit is open or none is. | P2 | FRS-BB-637 |
+| URS-BB-529 | Staff can scan or type a visit or account number (from a requisition or wristband), or another recorded patient identifier, in the top-bar find box to open that patient, landing on that visit's orders and seeing whether the visit is still open. | P2 | FRS-BB-638 |
+| URS-BB-530 | Staff finding a patient on the patient list or in the find box see where the patient is now (patient type and location of the current open visit), whether another visit is open, or that none is, so similar names can be told apart and blood goes to the right place. | P2 | FRS-BB-639 |
+| URS-BB-531 | Staff choosing a patient at issue, crossmatch, or unit receipt see where the patient is (current open visit) in the patient picker, after the name and MRN, so the right patient is chosen and the destination is confirmed. | P2 | FRS-BB-640 |
+| URS-BB-532 | Staff who keep or issue stock see on the home screen which products are below their minimum stock level, and by how much, without opening the Minimum stock page. | P2 | FRS-BB-641 |
+| URS-BB-533 | The shift handoff tells the incoming shift how many products are below their minimum stock level, recorded with the handoff. | P2 | FRS-BB-642 |
+| URS-BB-534 | Staff managing stock see how much of a shortage is already on submitted supplier orders that have not arrived, and a new supplier order drafts only what is still to order, so blood is not ordered twice. | P2 | FRS-BB-643 |
+| URS-BB-535 | Staff managing stock see when a submitted supplier order has not arrived in the expected window, on the order, on Minimum stock, and on the home card, so a late delivery is chased before the shortage bites. | P2 | FRS-BB-644 |
+| URS-BB-536 | An open alert says what is true now: a condition that still holds but changes (a shortage now on order, an order now late) updates the same alert rather than leaving its first wording or raising a second one, and a shortage covered by orders on time is information, not a warning. | P2 | FRS-BB-645 |
+| URS-BB-537 | An alert someone acknowledged is shown again, open, when its condition becomes more severe (a covered shortage whose order is now late), so the change is not hidden behind the earlier acknowledgement, and that acknowledgement stays on record. | P2 | FRS-BB-646 |
+| URS-BB-538 | A facility can require that a blood bank tube is accepted for testing only when who collected it is recorded, without blocking collection or receipt, and the accession form says so. | P2 | FRS-BB-647 |
+| URS-BB-539 | A tube accessioned for a patient is linked to the visit it was drawn on (the order's visit, or the patient's only open visit), so visit-based checks and views count it, and it is never linked to another patient's visit. | P2 | FRS-BB-648 |
+| URS-BB-540 | Staff accessioning a tube in the chart choose the visit it was drawn on, starting on the patient's only open visit and asked to choose when several are open, and see each tube's visit on the Specimens list. | P2 | FRS-BB-649 |
+| URS-BB-541 | An administrator can define a numeric blood bank test with units, decimal places, a reportable range, a reference range, and critical limits, all optional and the facility's own. | P2 | FRS-BB-650 |
+| URS-BB-542 | Staff entering a numeric result are refused a value outside the reportable range or with too many decimals, see it flagged L, H, LL, or HH against the reference range and critical limits, and are warned of a critical value; the flag is stored and sent to the EHR. | P1 | FRS-BB-651 |
+| URS-BB-543 | An administrator can define a titer test (doubling dilution series, the phase read, the weakest grade counting toward the endpoint, and whether a score is calculated), and staff enter a reaction per dilution and get the endpoint and score worked out, with a warning when a reaction follows a negative dilution. | P1 | FRS-BB-652 |
+| URS-BB-544 | Staff see a titer as 1:n and, on Test History, how it changed from the previous titer of the same test, in dilution steps; the EHR receives the titer as 1:n. | P2 | FRS-BB-653 |
+| URS-BB-545 | The catalog ships example tests that show these result types and other common workups (antibody and ABO titers, fetal bleed quantitation, DAT with IgG and C3, elution, weak D panel, Rh/Kell phenotype) as inactive drafts for the medical director to review and activate. | P2 | FRS-BB-654 |
+| URS-BB-546 | The EHR receives a numeric result's reference range with the value, units, and flag, so the result reads the same there as in the laboratory. | P2 | FRS-BB-655 |
+| URS-BB-547 | An administrator can record the LOINC code of each test, chosen by the interface team, so the EHR receives a standard code with each result beside the local test code. | P2 | FRS-BB-656 |
+| URS-BB-548 | An interface administrator can translate coded values (test and grouper procedure codes, race, ethnicity, patient class, sex, result flags and interpretations, and other LIS fields) between the LIS and the EHR, inbound, outbound, or both, for all interfaces or as one interface's overrides, with a reason for each change. | P1 | FRS-BB-657, FRS-BB-658 |
+| URS-BB-549 | An order code from the EHR resolves to a test or a test grouper (the grouper winning when both match), its results go back under the grouper's procedure code, and an order code with no translation is held as an interface error instead of being filed. | P1 | FRS-BB-659 |
+| URS-BB-550 | The patient's race and ethnicity and the visit's patient class are received from and sent to the EHR through the translations, shown and edited on the chart; values no translation covers are listed for the interface team to translate or dismiss. | P2 | FRS-BB-660, FRS-BB-661 |
+| URS-BB-551 | An interface administrator can load translation rows from a spreadsheet or CSV file supplied by the EHR team, see which lines could not be read, and export a field's rows, without bypassing the review, reason, and audit of a save. | P2 | FRS-BB-662 |
+| URS-BB-552 | An instrument administrator can translate, for each instrument, the order and result test codes, subtest codes, result values, interpretations, and error codes between the instrument and the LIS, with a reason, history, import, and export. | P1 | FRS-BB-663, FRS-BB-664 |
+| URS-BB-553 | An instrument result whose test or subtest code has no translation, or whose test is not ordered on the specimen, is not filed (and never filed against another test); it waits in instrument failures and the code is listed for the interface team. | P1 | FRS-BB-665 |
+| URS-BB-554 | An instrument error or flag code holds the result for review, posts it with the flag shown to the verifier, or is ignored, as each instrument's error code table sets for that code, with the code's meaning recorded and shown. | P1 | FRS-BB-666, FRS-BB-668 |
+| URS-BB-555 | A result an instrument error code held can be posted after review, by someone who may verify results, with the reason recorded, so it is not retyped by hand; it still needs verification. | P1 | FRS-BB-667 |
+| URS-BB-556 | Staff see from the home screen how many instrument results are held for an instrument error code, and can list just the open failures or just the held results, so a held result is reviewed without opening every failed message. | P2 | FRS-BB-669 |
+| URS-BB-557 | Each manual result records the reagent lots in use for its test without extra steps, and staff can list every result tested with a lot (for a lot that fails QC or is recalled). | P1 | FRS-BB-670 |
+| URS-BB-558 | The chart and the test worklist show the reagent lots recorded with each result, and the person entering a manual result is told when a reagent used for the test has no open lot or a recorded lot has no passed QC today, without being stopped. | P2 | FRS-BB-671, FRS-BB-672 |
+| URS-BB-559 | When a reagent lot fails QC, staff are told how many results were tested with it since it last passed and can open exactly those results from the alert or the QC worklist. | P1 | FRS-BB-673 |
+| URS-BB-560 | A verifier can record, result by result, that a result tested with a lot that failed QC was reviewed and what was found or done, so the remaining work is visible and the review is on record. | P1 | FRS-BB-674 |
+| URS-BB-561 | The EHR can read verified blood bank test results through the FHIR API, coded with the test's LOINC code where the laboratory has recorded one, with numeric values, units, reference range, and flag, and with corrections and withdrawals marked. | P2 | FRS-BB-675 |
+| URS-BB-562 | An administrator can let a test accept more than one specimen type, with one preferred type that prefills accession, so a specimen of any accepted type can be resulted without an override; order entry shows which types the selected tests accept and whether one tube suits them all. | P2 | FRS-BB-676, FRS-BB-677 |
+| URS-BB-563 | The EHR can read each blood bank order's verified results as one report, marked partial until every test on the order is verified, then final, or corrected after a verified correction. | P2 | FRS-BB-678 |
+| URS-BB-564 | The EHR can see which tube each blood bank result and report came from, and the tube's state (usable, rejected with its reason, expired, cancelled) and the time it stops being valid for testing. | P2 | FRS-BB-679 |
+| URS-BB-565 | The shift handoff tells the next shift about open instrument failures (and results held for review), reagent lots whose QC failed (and results still to review), open HL7 errors, and unmapped interface values. | P2 | FRS-BB-680, FRS-BB-681 |
+| URS-BB-566 | The person handing over sees what the handoff will carry while writing the note, before recording it. | P2 | FRS-BB-682 |
+| URS-BB-567 | Each queue in a shift handoff opens the board where it is worked, safety items first, so the incoming technologist goes straight from the handoff to the work; the home screen names the open handoff's urgent items. | P2 | FRS-BB-683, FRS-BB-684 |
+| URS-BB-568 | The reagent QC worklist reflects each lot's current state: a failure stays only until the lot passes again or is closed, and an expired lot still open is flagged to close and replace, including at result entry. | P1 | FRS-BB-685 |
+| URS-BB-569 | A reagent lot cannot be received already expired or under a lot number still in use for that reagent, cannot be opened or tested once expired, and opening and closing a lot are audited; the lot list shows how many days each lot has left. | P1 | FRS-BB-686 |
+| URS-BB-570 | When a reagent lot in use is within a week of expiry and no later lot of that reagent has been received, the bench is told to receive the next lot before testing must stop. | P2 | FRS-BB-687 |
+| URS-BB-571 | Accessioning a specimen from the patient's Specimens tab names the open test orders still waiting for a specimen and the tube types they accept, starts on a type that suits them, and warns when the chosen type does not. | P2 | FRS-BB-688 |
+| URS-BB-572 | A tube accessioned and accepted from the Specimens tab can be linked in the same step to the waiting test orders it suits, so their tests reach the worklist without a separate link for each order. | P2 | FRS-BB-689 |
+| URS-BB-573 | When a collected tube is accepted later (pending-specimens worklist or the chart), the application offers to link it to the waiting test orders it suits in one click. | P2 | FRS-BB-690 |
+| URS-BB-574 | A modification records the device it was performed on (irradiator, cell washer, thawer); an irradiation records whether the dose indicator confirmed it, never records a unit as irradiated when the indicator did not, and can be required by facility policy to name the irradiator and confirm the indicator. | P1 | FRS-BB-691 |
+| URS-BB-575 | A product thawed in place expires after the thawed shelf life configured for its product code (not one fixed period for every product), never later than its frozen expiration, and the thaw prompt states that shelf life. | P1 | FRS-BB-692 |
+| URS-BB-576 | A test added by a reflex rule records the verified result that added it, is marked on the worklist with that result, and the bench is told when a verify adds one. | P2 | FRS-BB-693 |
+| URS-BB-577 | When the result that added a reflex test is later invalidated, or corrected to a value that no longer matches, the reflex test on the worklist says so and asks the bench to check whether it is still needed; it is not cancelled automatically. | P2 | FRS-BB-694 |
+| URS-BB-578 | When the EHR sends several patient identifiers, the LIS files the patient under the one typed as the medical record number, not simply the first, and keeps the others (enterprise id, account, other facilities' numbers) so the patient can be found by them. | P1 | FRS-BB-695 |
+| URS-BB-579 | A chart that arrives from the EHR with an identifier already on another chart is accepted, marked as a possible duplicate of that chart (on the chart, in the acknowledgment, in the audit), and paired on the Possible duplicates report with the reason; charts show their identifiers from other systems. | P1 | FRS-BB-696 |
+| URS-BB-580 | An identifier marked as also on another chart opens that chart in one click, and merging the two charts leaves one copy of the identifier on the surviving chart. | P2 | FRS-BB-697 |
+| URS-BB-581 | Whoever merges charts sees on the home screen how many charts may be duplicates, with pairs that share an identifier from another system called out, so a duplicate registered by the EHR is reviewed rather than found by chance. | P2 | FRS-BB-698 |
+| URS-BB-582 | A reviewer can record, with a reason, that two charts on the Possible duplicates list are different people; the pair leaves the list (and the home count) until something new links the two charts. | P2 | FRS-BB-699 |
+| URS-BB-583 | The blood bank can record an Rh immune globulin evaluation for a pregnancy event on the patient's chart (infant Rh, fetal bleed screen and quantitation, candidacy, vials recommended), see the facts on file beside it, and have a supervisor complete it; candidacy and dosing follow the facility procedure. | P2 | FRS-BB-700 |
+| URS-BB-584 | Open RhIG evaluations across all patients are listed in one place and counted on the home screen, with those ready to complete called out, so none is left unfinished on a chart. | P2 | FRS-BB-701 |
+| URS-BB-585 | The RhIG actually given (lot, vials, time, by whom) is recorded on the completed evaluation, so an RhIG lot can be traced to the patients who received it; a dose that differs from the recommendation is noted; a candidate not yet given RhIG stays on the RhIG list. | P2 | FRS-BB-702 |
+| URS-BB-586 | For a recall, the blood bank can find every patient given an RhIG lot, and the patient timeline shows RhIG evaluations and doses with the other blood bank events. | P2 | FRS-BB-703 |
+| URS-BB-587 | The shift handoff carries the RhIG evaluations still needing work, and how many are waiting to be given, linked to the RhIG list. | P2 | FRS-BB-704 |
+| URS-BB-588 | Scanning an RhIG lot into the top-bar lookup opens who received it, as scanning any other identifier opens its record. | P3 | FRS-BB-705 |
+| URS-BB-589 | The downtime patient sheet includes patients with an RhIG evaluation still needing work and says what is outstanding, so a dose due during an outage is not missed. | P2 | FRS-BB-706 |
+| URS-BB-590 | The blood bank records by scan where each tube is stored (rack, shelf, position), sees it on the chart, and keeps every earlier place when a tube is moved, so a tube can be found again for repeat testing or a reaction workup. | P2 | FRS-BB-707 |
+| URS-BB-591 | Where a tube is stored is shown where it is being looked for: on the top-bar lookup and on a transfusion reaction investigation's workup tubes. | P3 | FRS-BB-708 |
+| URS-BB-592 | Scanning a rack or shelf shows every tube recorded there now, so the place can be checked against the system and a tube found in it. | P3 | FRS-BB-709 |
+| URS-BB-593 | One storage place is one place however it is typed or scanned ("Rack 3", "rack3", "RACK-3"), and the places already in use are offered, so tubes are not split across misspelled places. | P3 | FRS-BB-710 |
+| URS-BB-594 | RhIG evaluations ready for a verifier appear on the Supervisor queue with the other work a technologist cannot finish alone. | P3 | FRS-BB-711 |
+| URS-BB-595 | When the last test on a tube is done and the tube has not been put away, the bench is offered to store it, with the tube carried to Store tubes. | P3 | FRS-BB-712 |
+| URS-BB-596 | Stored tubes are discarded by scan, with a list of tubes past the facility's retention period; a tube still needed for an unfinished order or an open reaction investigation is kept, and an early discard needs a reason. | P2 | FRS-BB-713 |
+| URS-BB-597 | Whoever stores tubes sees on the home screen how many stored tubes are due for discard, one click from the list. | P3 | FRS-BB-714 |
+| URS-BB-598 | An unidentified emergency patient is registered in one step with a temporary identity, so testing and emergency release can start, and is merged into the identified patient's chart once known, with everything recorded on it. | P1 | FRS-BB-715 |
+| URS-BB-599 | During emergency release, an unidentified patient is registered from the issue form and chosen there, without leaving the issue. | P1 | FRS-BB-716 |
+| URS-BB-600 | Reserved units no longer needed (reservation ended, or crossmatch and specimen expired) are offered for release to stock together, reviewed and released with one reason, each audited. | P2 | FRS-BB-717 |
+| URS-BB-601 | Units are shipped to another facility by scan, with the receiving facility kept on each unit, so a recall or lookback names who to notify. | P2 | FRS-BB-718 |
+| URS-BB-602 | Recent shipments to other facilities are listed with their units, so what was sent where can be answered and the packing list printed again; facilities already shipped to are offered. | P3 | FRS-BB-719 |
+| URS-BB-603 | An antibody reported by another facility is recorded with that facility and the date identified there, and the chart and antibody card show it as an outside report. | P2 | FRS-BB-720 |
+| URS-BB-604 | An infant's chart is linked to the mother's chart, so each shows the other's ABO/Rh and antibodies, with maternal antibodies noted on the infant's chart. | P2 | FRS-BB-721 |
+| URS-BB-605 | A delivery RhIG evaluation is offered the linked newborn's Rh from the chart, confirmed with one click; Link mother is offered on infants' charts. | P3 | FRS-BB-722 |
+| URS-BB-606 | A newborn registered by the EHR with the mother's identifier is linked to the mother's chart automatically, without replacing a link made by staff. | P2 | FRS-BB-723 |
+| URS-BB-607 | A shipment reference scanned or typed into the top-bar lookup opens that shipment; a shipped unit's lookup line and an outside antibody's timeline entry say where they went or came from. | P3 | FRS-BB-724 |
+| URS-BB-608 | The top-bar lookup offers the user's recently opened charts as soon as it is focused, so returning to a patient needs no search. | P3 | FRS-BB-725 |
+| URS-BB-609 | The shift handoff names unidentified patients still to be merged (as urgent) and stored tubes due for discard. | P2 | FRS-BB-726 |
+| URS-BB-610 | When units issued under an earlier identity (an unidentified patient's temporary MRN) are still out after a merge, the chart and the identify step warn that the wristband may differ from the chart. | P1 | FRS-BB-727 |
+| URS-BB-611 | A unit issued under an earlier MRN is marked on the In transit and Issued units boards and on the transfusion form, where the wristband is checked. | P1 | FRS-BB-728 |
+| URS-BB-612 | The bench sees, across patients, every open blood order whose units are not all reserved, rush first, with what is still needed and the next step (collect a specimen or reserve units). | P1 | FRS-BB-729 |
+| URS-BB-613 | Reserve N units from Blood orders to prepare opens the patient's reserve form with the order and a usable specimen already chosen. | P2 | FRS-BB-730 |
+| URS-BB-614 | An order records when it is needed (surgery start, scheduled transfusion), entered on the chart or received from the EHR, and blood orders are prepared by it, with a passed time flagged. | P2 | FRS-BB-731 |
+| URS-BB-615 | An open order's needed-by time is changed or cleared from the chart when a surgery moves, with the earlier time kept in the audit trail. | P3 | FRS-BB-732 |
+| URS-BB-616 | The shift handoff names the blood orders still to prepare, urgent when a needed-by time has passed. | P2 | FRS-BB-733 |
+| URS-BB-617 | The downtime patient sheet lists each patient's blood orders still to prepare, with what is needed and by when, and includes patients whose only open work is such an order. | P2 | FRS-BB-734 |
+| URS-BB-618 | The reserve form says how many more units the chosen order needs, updated after each reservation, and when it is covered (with the way back to the worklist when it came from there). | P3 | FRS-BB-735 |
+| URS-BB-619 | Supervisors can report blood order turnaround: minutes from order to the first unit reserved and issued, whether a unit was ready by the needed-by time, and averages by month and priority. | P3 | FRS-BB-736 |
+| URS-BB-620 | From an order on the chart, staff can open the order's history: placed, each audited change with who and where, a passed needed-by time while open, its specimens, results, and its units from reservation to transfusion. | P2 | FRS-BB-737 |
+| URS-BB-621 | An order number found in the find box, or chosen on Blood orders to prepare, opens that order's history on the chart without a further click. | P3 | FRS-BB-738 |
+| URS-BB-622 | Blood orders to prepare shows each patient's active special transfusion requirements, so the technologist knows what the units must be before opening the chart. | P2 | FRS-BB-739 |
+| URS-BB-623 | A patient's special transfusion requirement reads the same on every screen and printout, in plain words, with the antigen named. | P3 | FRS-BB-740 |
+| URS-BB-624 | No button, field, or table runs past the edge of its card at a normal window width; a table too wide for its card scrolls inside it. | P3 | FRS-BB-741 |
+| URS-BB-625 | When the facility sets a warning window, blood orders whose needed-by time is that close are marked as needed soon, with the minutes left, before the time passes. | P2 | FRS-BB-742 |
+| URS-BB-626 | The shift handoff names the blood orders needed soon (within the facility's warning window), so the incoming shift sees them before their time passes. | P2 | FRS-BB-743 |
+| URS-BB-627 | The issue desk shows when the order a reserved unit is for is needed, marks it passed or needed soon, and lists the most pressing first among units in the same state. | P2 | FRS-BB-744 |
+| URS-BB-628 | When a blood order's specimen, or the crossmatch on a reserved unit, stops being valid before the order's needed-by time, the worklist and the issue desk say so, so a new specimen is drawn in time. | P2 | FRS-BB-745 |
+| URS-BB-629 | When no usable specimen lasts until a blood order's needed-by time, the worklist's next step is to collect a new specimen rather than reserve units that could not be issued then. | P2 | FRS-BB-746 |
+| URS-BB-630 | Scanning a transport cooler's label in the find box finds the cooler while its units are in transit and opens the cooler check with it. | P3 | FRS-BB-747 |
+| URS-BB-631 | Every page opens and says there is nothing to show, rather than failing, when the server has no data for it or cannot answer. | P2 | FRS-BB-748 |
+| URS-BB-632 | On the patient's Orders tab an open order's needed-by time reads as on the worklists: marked once it has passed, and needed soon with the minutes left inside the facility's warning window. | P3 | FRS-BB-749 |
+| URS-BB-633 | The chart's antibody warning says which antibodies are known only from another facility's report, as the downtime sheet does. | P2 | FRS-BB-750 |
+| URS-BB-634 | Wherever a patient's antibodies are listed in brief (patient list, find box, Blood orders to prepare, downtime sheet), one known only from another facility's report names that facility. | P3 | FRS-BB-751 |
+| URS-BB-635 | The issue desk, the bench worklist, and the reaction investigation word a patient's antibodies as the chart does, naming an antibody known only from another facility's report. | P2 | FRS-BB-752 |
+| URS-BB-636 | When a special requirement stops a reservation or an issue, the message names the requirement as the chart does, not by its catalog code. | P2 | FRS-BB-753 |
+| URS-BB-637 | On the chart's reserve form, each order is offered once per product, and once an order is chosen only compatible units of that order's product are offered, with how many are in stock. | P2 | FRS-BB-754 |
+| URS-BB-638 | A notice that applies to every unit on the issue desk's board (a facility setting) is said once, not repeated on each row. | P3 | FRS-BB-755 |
+| URS-BB-639 | Dropdown choices, status badges, and status columns read as words ("Emergency release", "In process", "On hold"), never as code names. | P3 | FRS-BB-756 |
+| URS-BB-640 | At result entry, a required reaction starts blank, and a result cannot be saved until every required reaction has been entered; no reaction is recorded as negative unless the technologist chose it. | P1 | FRS-BB-757 |
+| URS-BB-641 | A crossmatch result starts unchosen on every entry screen, and a crossmatch with a positive reaction cannot be recorded as Compatible. | P1 | FRS-BB-758 |
+| URS-BB-642 | No ABO/Rh interpretation or reaction is pre-filled on a typing form: bench result entry, the chart's ABO/Rh panel, and a unit retype (which must never take its interpretation from the label it confirms) start unchosen and refuse to save until entered. A check-cells reading is never counted toward a crossmatch suggestion. | P1 | FRS-BB-759 |
+| URS-BB-643 | A blood type recorded by hand on the chart, and a unit's ABO/Rh entered at delivery receipt, start unchosen; a unit's type is never carried from the previous unit. | P1 | FRS-BB-760 |
+| URS-BB-644 | Antibody identification panel reactions: a changed grade is audited with the grade it replaced; saving unchanged grades changes nothing, and does not clear an interpretation or supervisor review. | P2 | FRS-BB-761 |
+| URS-BB-645 | An electronic crossmatch is recorded only against a specimen that is accepted, in date, and has its own verified negative antibody screen; eligibility shown on screens requires such a current specimen. The screen is read from results, never attested on a pre-ticked box. | P1 | FRS-BB-762 |
+| URS-BB-646 | Finishing a transfusion (complete or document) requires an explicit answer to whether a reaction is suspected; "no reaction" is never recorded by default. | P1 | FRS-BB-763 |
+| URS-BB-647 | Finishing a transfusion requires choosing how it ended (completed, stopped, or wasted); Completed is never recorded by default. | P2 | FRS-BB-764 |
+| URS-BB-648 | When units expire while reserved for patients, the alert names each unit and patient and opens the blood orders to prepare, so replacements are reserved without searching. | P2 | FRS-BB-765 |
+| URS-BB-649 | An order that needs units again because its reserved unit expired says so on Blood orders to prepare, naming the unit. | P3 | FRS-BB-766 |
+| URS-BB-650 | Patient, order, and specimen timelines say in words what became of each reservation, including the reason when it was released or ended by the unit's expiry. | P3 | FRS-BB-767 |
+| URS-BB-651 | An open massive transfusion protocol with no unit issued under it for the facility reminder time prompts staff to close it (banner and alert), without closing it or stopping issue. | P2 | FRS-BB-768 |
+| URS-BB-652 | Every time shown on a screen is in the workstation's local time (a specimen's expiry above all); a date that is a date, not a moment, keeps its day. | P1 | FRS-BB-769 |
+| URS-BB-653 | The Inventory search lists units still in stock by default, and a scanned or typed unit number finds any unit whatever its status. | P3 | FRS-BB-770 |
+| URS-BB-654 | Discarding from the Near expiry board uses the same coded reason, comment, and second verifier as the unit page, after the actions that use the unit. | P2 | FRS-BB-771 |
+| URS-BB-655 | On the Retype board, scanning a unit label opens that unit's retype entry. | P3 | FRS-BB-772 |
+| URS-BB-656 | Each overdue final-disposition row offers the next step for that unit (document, complete, return, receive) without looking it up again. | P3 | FRS-BB-773 |
+| URS-BB-657 | The final-disposition home card and board say how long the oldest unit, and each unit, has been past its window. | P3 | FRS-BB-774 |
+| URS-BB-658 | The second ABO/Rh board says for each patient whether an ABO/Rh is already ordered, or orders one, and the home card names patients with nothing ordered. | P2 | FRS-BB-775 |
+| URS-BB-659 | Unidentified patient charts left open past a facility reminder are named on the home screen with the oldest age, and each chart on Patients shows how long it has been open. | P3 | FRS-BB-776 |
+| URS-BB-660 | Tubes due for discard are listed by place, so each rack or shelf is visited once, with how long each tube is past its date. | P3 | FRS-BB-777 |
+| URS-BB-661 | The HL7 error queue and its home card say how long each error, and the oldest, has waited. | P2 | FRS-BB-778 |
+| URS-BB-662 | Instrument messages show their date when not from today, and open failures (and the home card) say how long they have waited. | P2 | FRS-BB-779 |
+| URS-BB-663 | A short time shown on a badge or status line names its day when it is not today. | P2 | FRS-BB-780 |
+| URS-BB-664 | Every "collect a specimen" next step opens the patient's accession form, not only the Specimens tab. | P3 | FRS-BB-781 |
+| URS-BB-665 | Release to stock never pre-selects a unit reserved for an order that is still open. | P2 | FRS-BB-782 |
+| URS-BB-666 | Ward receipt, Return, and Transfusion take a scan as soon as they open. | P3 | FRS-BB-783 |
+| URS-BB-667 | After a ward receipt or return is recorded, the form is ready for the next unit's scan and cannot resend the last one. | P2 | FRS-BB-784 |
+| URS-BB-668 | The bedside reaction question takes the answer chosen, and after a transfusion is finished the form is ready for the patient's next unit. | P1 | FRS-BB-785 |
+| URS-BB-669 | The bedside is warned before starting another unit for a patient whose transfusion reaction is under investigation. | P1 | FRS-BB-786 |
+| URS-BB-670 | The issuing desk is warned, before a unit leaves the bank, that the patient has a transfusion reaction under investigation. | P1 | FRS-BB-787 |
+| URS-BB-671 | Moving the cursor to a field that a click has just revealed never fails the click. | P2 | FRS-BB-788 |
+| URS-BB-672 | The shift handoff tells the next shift about reactions under investigation for patients with units out or reserved. | P2 | FRS-BB-789 |
+| URS-BB-673 | The reactions list and home card say when an open case's patient still has units issued or reserved. | P2 | FRS-BB-790 |
+| URS-BB-674 | The patient chart says, on every tab, when a transfusion reaction is under investigation for the patient. | P1 | FRS-BB-791 |
+| URS-BB-675 | A unit's expiration, and every other stored time, is shown in the workstation's local time unless labelled UTC; every yes/no choice takes the answer chosen. | P1 | FRS-BB-792 |
+| URS-BB-676 | An issue records whether the patient's transfusion reaction was under investigation at the time, and the patient's product history shows it. | P2 | FRS-BB-793 |
+| URS-BB-677 | A reaction investigation lists the units issued to the patient while it was open. | P2 | FRS-BB-794 |
+| URS-BB-678 | The reaction report states the units issued while the investigation was open, or that there were none. | P3 | FRS-BB-795 |
+| URS-BB-679 | Pending specimens takes a tube scan as soon as it opens and after the scan mode changes. | P3 | FRS-BB-796 |
+| URS-BB-680 | Rejecting a tube offers the step to collect a new one for the patient. | P2 | FRS-BB-797 |
+| URS-BB-681 | Choosing to reject a tube puts the cursor on the rejection reason. | P3 | FRS-BB-798 |
+| URS-BB-682 | Opening an antibody workup does not ask for a panel lot when only one is in date, and says why it cannot open one when none is. | P3 | FRS-BB-799 |
+| URS-BB-683 | A technologist reading a panel phase can set the cells left negative in one step, and sees which were set that way before saving. | P3 | FRS-BB-800 |
+| URS-BB-684 | The development data has an antibody identification in progress, so the workup can be walked without opening one. | P3 | FRS-BB-801 |
+| URS-BB-685 | A specificity typed into the interpretation is shown as it will post: the catalog antibody when the text names one, or plainly marked as outside the catalog. | P2 | FRS-BB-802 |
+| URS-BB-686 | Supervisor review of an antibody workup is offered only when there is an interpretation to review, and tells the technologist who recorded it that another supervisor must accept it. | P2 | FRS-BB-803 |
+| URS-BB-687 | Completing an antibody workup is offered only when it can complete; otherwise the card says whether it waits for the interpretation, for supervisor review, or for a new interpretation after a rejection. | P2 | FRS-BB-804 |
+| URS-BB-688 | The shift handoff tells the next shift how many antibody workups are still open and how many wait for supervisor review. | P2 | FRS-BB-805 |
+| URS-BB-689 | The home screen shows open antibody workups to those who record or review them, and names the workups that need more than their next routine step. | P2 | FRS-BB-806 |
+| URS-BB-690 | Opening Modify Products from the menu puts the cursor in the source unit field so the first scan lands, without covering the page with the unit list. | P3 | FRS-BB-807 |
+| URS-BB-691 | Opening Compatibility for a patient puts the cursor in the crossmatch unit field so the unit can be scanned straight away. | P3 | FRS-BB-808 |
+| URS-BB-692 | Blood orders to prepare do not ask for a new draw while a tube for the patient is already drawn and on its way; they ask for it to be received. | P2 | FRS-BB-809 |
+| URS-BB-693 | The chart header's no-current-specimen warning names a tube already drawn or received for the patient, so staff receive or accept it rather than drawing again. | P2 | FRS-BB-810 |
+| URS-BB-694 | Linking a specimen to an order, with nothing yet linkable, names a tube already drawn or received for the patient instead of only saying to accession one. | P3 | FRS-BB-811 |
+| URS-BB-695 | The chart header warns about electronic crossmatch only when it concerns this patient; a facility-wide switch-off is shown quietly, not as a warning on every chart. | P3 | FRS-BB-812 |
+| URS-BB-696 | A test ordered from the EHR that repeats one the patient already has open is brought to the blood bank's attention, as it is for orders entered at the bench. | P2 | FRS-BB-813 |
+| URS-BB-697 | Specimen and crossmatch expiry, ward receipt, reaction reporting, alert, and deviation times read in local time everywhere they are shown, as every other time does. | P1 | FRS-BB-814 |
+| URS-BB-698 | Many alerts of one kind raised together read as one item in the inbox and can be acknowledged together, without hiding the alerts that stand alone. | P3 | FRS-BB-815 |
+| URS-BB-699 | An administrator can design specimen labels for tubes and for aliquots, each its own label size, placing the barcode and patient and specimen data on a canvas that represents the label, and keep several designs with one default per purpose. | P2 | FRS-BB-816, FRS-BB-817 |
+| URS-BB-700 | The print desk can print a specimen label on any active design, and print one label per aliquot on an aliquot design. | P2 | FRS-BB-818 |
+| URS-BB-701 | An administrator can test print a specimen label design as it stands, saved or not, on screen or on a printer, without a real specimen and without a label that could pass for a patient. | P2 | FRS-BB-819 |
+| URS-BB-702 | The label designer says when elements would overlap or text would run off the label when printed, and shows which ones. | P3 | FRS-BB-820 |
+| URS-BB-703 | Results and charges that have not gone out to the EHR or billing are visible with why, and the home screen says when any have waited too long. | P2 | FRS-BB-821 |
+| URS-BB-704 | The shift handoff tells the next shift how many outbound results and charges have not gone out. | P3 | FRS-BB-822 |
+| URS-BB-705 | The blood bank records each outage worked on paper (start, end, what was down), so back-entry after recovery does not depend on anyone remembering the window, and paper times outside it are questioned. | P2 | FRS-BB-823 |
+| URS-BB-706 | An outage left open after the system returns is surfaced on the home screen and the shift handoff until someone ends it. | P2 | FRS-BB-824 |
+| URS-BB-707 | A specimen tube label always carries at least two patient identifiers; a design that does not cannot be saved or print new tube labels (OCD-080). | P1 | FRS-BB-825 |
+| URS-BB-708 | A downtime back-entry dated outside every recorded outage is entered only with a reason, kept with the issue (OCD-081). | P2 | FRS-BB-826 |
+| URS-BB-709 | Issuing or starting another unit while the patient's transfusion reaction is under investigation needs an override with the reason and who authorized it, reviewed later (OCD-078). | P1 | FRS-BB-827 |
+| URS-BB-710 | A product thawed in an open system, or a pooled product, expires by its own thawed shelf life, and is not thawed until that shelf life is set (OCD-068). | P1 | FRS-BB-828 |
+| URS-BB-711 | A shipment of units to another facility records the container, the packing temperature, who packed it and who receives it (OCD-072). | P2 | FRS-BB-829 |
+| URS-BB-712 | An antibody reported by another facility is recorded with how the report was documented, is used for selection at once, and is shown as not yet confirmed until this laboratory confirms it (OCD-073). | P1 | FRS-BB-830 |
+| URS-BB-713 | The bench sees which outside antibody reports are waiting for this laboratory to confirm them, from the home screen (OCD-073). | P2 | FRS-BB-831 |
+| URS-BB-714 | An RhIG evaluation suggests the candidacy from the facts on file and calculates the vials from the fetal bleed quantitation with the facility's settings; the reviewer confirms both (OCD-069). | P2 | FRS-BB-832 |
+| URS-BB-715 | When the facility turns on the neonatal rules, an infant's specimen collected during a visit is valid for the admission (OCD-074). | P2 | FRS-BB-833 |
+| URS-BB-716 | During an infant's admission under the neonatal rules, the ABO/Rh tested on the admission specimen is not repeated for routine red-cell issue (OCD-074). | P2 | FRS-BB-834 |
+| URS-BB-717 | During an infant's admission under the neonatal rules, group O red cells are issued without a crossmatch when the infant's antibody screen is negative (OCD-074). | P2 | FRS-BB-835 |
+| URS-BB-718 | A weak D or partial D can be recorded for a patient and is treated as Rh negative when RhIG candidacy is suggested (OCD-069). | P2 | FRS-BB-836 |
+| URS-BB-719 | The patient's product history says how each issue was entered: late, from a downtime paper record, outside every recorded outage, or to an infant without a crossmatch. | P3 | FRS-BB-837 |
+| URS-BB-720 | Settings decided as policy but not yet entered are visible to administrators until entered. | P3 | FRS-BB-838 |
+| URS-BB-721 | An outside antibody report is confirmed without retyping when this laboratory's reviewed antibody identification identifies the same antibody (OCD-073). | P3 | FRS-BB-839 |
+| URS-BB-722 | The shift handoff tells the next shift how many units are overdue for a final disposition and how many outside antibody reports wait to be confirmed. | P3 | FRS-BB-840 |
+| URS-BB-723 | The patient timeline shows an outside antibody's confirmation here, an infant's admission specimen, and how each issue was entered. | P3 | FRS-BB-841 |
+| URS-BB-724 | The open RhIG list shows each evaluation's suggested decision and calculated dose beside what was recorded. | P3 | FRS-BB-842 |
+| URS-BB-725 | A shipped unit's page shows how it was packed and the receiving contact, and a recall notification for a shipped unit names that contact. | P3 | FRS-BB-843 |
+| URS-BB-726 | Print packing list gives a sheet for the one shipment (its facility, reference, packing details, receiving contact and units, with spaces for the receiver), not a print of the Ship units page. | P2 | FRS-BB-844 |
+| URS-BB-727 | Active auto-thaw codes without an open-system or pooled thawed shelf life are named on the settings-to-enter home card, on Facility Policies and on Auto thaw products, before a thaw is refused for them. | P2 | FRS-BB-845 |
+| URS-BB-728 | The thaw prompt states the shelf life that will apply for an open-system thaw and a pool, and refuses before confirming when that time is not set. | P2 | FRS-BB-846 |
+| URS-BB-729 | Return to supplier lists recent returns and prints a return list for one return (reason, who and when, suppliers, units, spaces for the courier or supplier), not a print of the page. | P2 | FRS-BB-847 |
+| URS-BB-730 | A recall by DIN recalls every component still here even when another component of the donation cannot be recalled (returned to the supplier, modified, expired), and names those with why. | P1 | FRS-BB-848 |
+| URS-BB-731 | Recalled units not yet pulled are listed on an Inventory board and counted on a home card, with the recall reason, when and by whom, and whether the unit was issued. | P1 | FRS-BB-849 |
+| URS-BB-732 | The shift handoff counts recalled units not yet pulled, urgent, opening the Recalled board, and keeps the count. | P2 | FRS-BB-850 |
+| URS-BB-733 | A recalled unit found is scanned on the Recalled board to quarantine it for the recall, without opening its unit page. | P2 | FRS-BB-851 |
+| URS-BB-734 | A unit recalled after it was issued is flagged on the issued list, refused at the bedside with the recall named, and returns to quarantine for the recall, never to stock. | P1 | FRS-BB-852 |
+| URS-BB-735 | A unit recalled on its way to the ward is flagged on In transit and its ward receipt is refused with the recall named. | P1 | FRS-BB-853 |
+| URS-BB-736 | A recalled unit on the ward is returned through Issue & Transfuse, not quarantined behind its open issue, and a unit quarantined while out stays in quarantine when its issue is returned. | P1 | FRS-BB-854 |
+| URS-BB-737 | A unit reported damaged or missing while issued does not return to stock; no issuing step writes a status change the status rules do not allow. | P1 | FRS-BB-855 |
+| URS-BB-738 | An EHR transfusion message for a unit no longer issued in the blood bank is held for review, not recorded over its status. | P1 | FRS-BB-856 |
+| URS-BB-739 | A unit found by the top-bar lookup says why it is out of routine use (the recorded reason or where it was shipped). | P3 | FRS-BB-857 |
+| URS-BB-740 | The issue gate's refusal for a unit status that cannot be issued says why and what to do next. | P3 | FRS-BB-858 |
+| URS-BB-741 | The Recalled units to pull card says how long the oldest recall has waited and how many units are on the ward. | P3 | FRS-BB-859 |
+| URS-BB-742 | The patient chart says when the patient received a unit from a recalled donation whose recipient notification is still open (for those who work lookback). | P2 | FRS-BB-860 |
+| URS-BB-743 | OCD-083 option B: an EHR transfusion for a unit recalled, quarantined, damaged or missing is recorded, the unit keeps its status, and a supervisor reviews it from the supervisor queue. | P1 | FRS-BB-861 |
+| URS-BB-744 | A transfusion reported over a unit's status says so on the patient's product history and timeline (with its review), and the supervisor card counts those waiting. | P2 | FRS-BB-862 |
+| URS-BB-745 | A recall notifies the recipient of a component the EHR reported transfused over its status, and does not recall that component. | P1 | FRS-BB-863 |
+| URS-BB-746 | A unit the EHR reported transfused over its status cannot be released, located, inspected, discarded or expired back into another status, and is not on the Quarantine or Discrepancy boards. | P1 | FRS-BB-864 |
+| URS-BB-747 | The unit's Status history says when its transfusion was reported over its status, and the review. | P3 | FRS-BB-865 |
+| URS-BB-748 | An antibody panel lot's antigram can be imported from a CSV or Excel file in a documented layout (filling the New lot form, nothing saved until Create), entered by hand, and downloaded as CSV with a blank template. | P2 | FRS-BB-866 |
+| URS-BB-749 | An antibody panel lot's antigram can be corrected, with a reason, only before any workup uses the lot; the replaced cells are kept and the change audited before and after. Once a workup uses the lot the correction is refused and the lot is withdrawn and recreated instead. | P2 | FRS-BB-867 |
+| URS-BB-750 | Panel lots expiring within the reagent warning window with no later lot of their kind, and no current primary panel lot (or no current selected-cell lot once one was used), are shown on the panel lots page, the antibody worklist and a home card, so the next lot is entered in time. | P3 | FRS-BB-868 |
+| URS-BB-751 | Bench equipment is registered with the checks the facility schedules for each (interval set by the facility), each check is recorded passed or failed by the signed-in user, the checks due now are listed, and equipment is taken out of service and returned with a reason; all audited. | P2 | FRS-BB-869 |
+| URS-BB-752 | Equipment checks to do are counted on a home card, and a modification whose device is registered equipment out of service or retired is refused. | P2 | FRS-BB-870 |
+| URS-BB-753 | The shift handoff records the equipment checks to do (failed or overdue counted apart) and the equipment out of service, each linking to Equipment. | P3 | FRS-BB-871 |
+| URS-BB-754 | Each piece of equipment's check history (every check performed, including checks no longer scheduled) is shown and downloaded as a CSV log for inspection. | P3 | FRS-BB-872 |
+| URS-BB-755 | Equipment details and a scheduled check's name, interval and instructions can be changed with a reason, audited, keeping the check's records; the code does not change. | P3 | FRS-BB-873 |
+| URS-BB-756 | A reagent code is used once in the register; a reagent is renamed with a reason, retired with a reason once no lot is received or open, and restored; all audited. | P3 | FRS-BB-874 |
+| URS-BB-757 | A received or open reagent lot's number or expiry entered wrongly is corrected with a reason, audited before and after; a closed lot is not corrected. | P3 | FRS-BB-875 |
+| URS-BB-758 | On the Equipment page a check is stopped, and equipment retired and restored, each with a reason; retired equipment is listed on request. | P3 | FRS-BB-876 |
+| URS-BB-759 | The Equipment page lists checks on equipment in service falling due within 7, 30 or 90 days, soonest first. | P3 | FRS-BB-877 |
+| URS-BB-760 | From the bench worklist, a tube is accessioned for an order waiting for one and linked to it in one step (no second order); stored panel results read as types and reactions, not stored data; an ABO/Rh saved for a second person's verification is labelled so. | P2 | FRS-BB-878 |
+| URS-BB-761 | A blood order whose accepted tube has no type and screen ordered says to order one on that tube and opens the order prefilled; a unit whose crossmatch expired is crossmatched again on a current linked specimen from the issue desk, and a specimen not linked to the order is refused by name. | P1 | FRS-BB-879 |
+| URS-BB-762 | Bedside vital signs (temperature, pulse, blood pressure, respiratory rate) are optionally recorded before and after a transfusion, mistyped values refused, kept on the transfusion record, and shown in the reaction case and report with the temperature change. | P2 | FRS-BB-880 |
+| URS-BB-763 | Instrument reaction grades post as the analyzer sent them; a rule comparing a value with a number never matches text that is not a number; two instrument readings for one panel subtest that differ are both shown to the verifier. | P1 | FRS-BB-881 |
+| URS-BB-764 | RhIG lots are registered as received (lot, product, expiry, vials) and retired with a reason; once any is registered, RhIG given must name a registered, active lot in date when given, and vials given are counted. | P1 | FRS-BB-882 |
+| URS-BB-765 | An inbound HL7 message from a sender with no interface endpoint set up uses the translations for all interfaces. | P2 | FRS-BB-883 |
+| URS-BB-766 | Daily reagent QC for all open lots is entered on one table and recorded in one step, with the last expected value offered on request and failures named. | P2 | FRS-BB-884 |
+| URS-BB-767 | A unit received with a scanned ISBT 128 DIN is stored under its 13-character DIN. | P1 | FRS-BB-885 |
+| URS-BB-768 | A divided unit is identified by scan in a stock count, a move, or a cooler check from its unit number followed by its product code label. | P1 | FRS-BB-886 |
+| URS-BB-769 | A unit is not received into a storage location that does not take its component, and a stock count marks a unit recorded in such a location. | P1 | FRS-BB-887 |
+| URS-BB-770 | The crossmatch status at issue is shown in words on the ward receipt, return, transfusion and retrospective crossmatch forms and the chart's product history. | P3 | FRS-BB-888 |
+| URS-BB-771 | Antigen names on the antigram read as written: case kept (C and c) and Fya, Jkb for codes stored in capitals; DAT choices and workup status read in words. | P1 | FRS-BB-889 |
+| URS-BB-772 | Antibody identification assistance states, for a possible specificity, the reactive antigen-positive and non-reactive antigen-negative cells and the probability of the pattern by chance. | P2 | FRS-BB-890 |
+| URS-BB-773 | A DAT workup records the polyspecific, anti-IgG, anti-C3 and control reactions with grades, refusing grades that do not match the DAT result. | P1 | FRS-BB-891 |
+| URS-BB-774 | The chart's DAT / Elution tab opens for a patient with workups on file. | P1 | FRS-BB-892 |
+| URS-BB-775 | Coolers in transit show their ward receipt due time and are marked overdue once it passes. | P2 | FRS-BB-893 |
+| URS-BB-776 | An instrument result whose patient ID is not the specimen's patient is not posted and waits for review. | P1 | FRS-BB-894 |
+| URS-BB-777 | The instrument simulator sends the message it previewed. | P3 | FRS-BB-895 |
+| URS-BB-778 | A verified result is sent to the EHR automatically when an outbound results interface is enabled, unless the facility turns this off. | P1 | FRS-BB-896 |
+| URS-BB-779 | The crossmatch and transfusion counts for the C:T ratio are reported by month and product. | P2 | FRS-BB-897 |
+| URS-BB-780 | Billing trigger, result status and result source read in words. | P3 | FRS-BB-898 |
+| URS-BB-781 | The downtime patient summary and antibody card state the antigen-negative red cells the issue check requires for the patient's clinically significant antibodies. | P1 | FRS-BB-899 |
+| URS-BB-782 | A successful patient merge is confirmed on the chart. | P3 | FRS-BB-900 |
+| URS-BB-783 | A modification records where its result goes; a thawed unit is never left in or sent to a freezer. | P1 | FRS-BB-901 |
+| URS-BB-784 | Units offered for a patient show their product, and the compatible count is given by product. | P2 | FRS-BB-902 |
+| URS-BB-785 | A supplier order can be started for a patient and carry lines with Rh, special requirements and the patient they are for, exported for the supplier. | P1 | FRS-BB-903 |
+| URS-BB-786 | Seeded products carry the attributes their names state, so special requirements can be met. | P1 | FRS-BB-904 |
+| URS-BB-787 | A unit reserved without a blood order can be crossmatched against the patient's one open blood order; otherwise the user is told how to proceed. | P2 | FRS-BB-905 |
+| URS-BB-788 | A blood order placed on the chart can ask for more than one unit of a product. | P1 | FRS-BB-906 |
+| URS-BB-789 | A reaction investigation records the bag culture and the blood supplier notification, and lists the other units from the implicated donation. | P1 | FRS-BB-907 |
+| URS-BB-790 | A DIN lookback names each component's product and current location. | P2 | FRS-BB-908 |
+| URS-BB-791 | The shift handoff hands over units a ward has asked to be sent, as urgent. | P2 | FRS-BB-909 |
+| URS-BB-792 | The RhIG queue shows when each open candidate's RhIG is to be given by, from a facility window, and marks one past it. | P1 | FRS-BB-910 |
+| URS-BB-793 | After a storage temperature excursion the units stored at the location can be listed from the excursion; inventory can be searched by location. | P1 | FRS-BB-911 |
+| URS-BB-794 | Deviations name their related record (unit number, patient, accession, location and reading), not an internal id. | P3 | FRS-BB-912 |
+| URS-BB-795 | A storage excursion warns when the units stored there will be quarantined automatically. | P1 | FRS-BB-913 |
+| URS-BB-796 | Units quarantined by one storage temperature excursion can be released together after review, with one second verifier, each audited; the quarantine board names reasons in words. | P2 | FRS-BB-914 |
+| URS-BB-797 | Results tested with a reagent lot while its QC was failing stay to review after a repeat QC passes, until each is reviewed; stored ABO/Rh values read as the type. | P1 | FRS-BB-915 |
+| URS-BB-798 | An order cancelled or discontinued by the EHR is refused while units are reserved for it; otherwise it keeps the EHR's reason and cancels only test lines without a verified result. | P1 | FRS-BB-916 |
+| URS-BB-799 | A quarantined unit is not released while its storage location is still out of range. | P1 | FRS-BB-917 |
+| URS-BB-800 | A unit reserved on the Compatibility page is linked to the patient's open order for the product; time columns are labelled as what they show. | P2 | FRS-BB-918 |
+| URS-BB-801 | A reserved unit released from quarantine stays reserved; only a quarantined unit can be released. | P1 | FRS-BB-919 |
+| URS-BB-802 | A phased antibody screen reads as cell and phase ("Cell1 AHG:1+"), not its stored key. | P3 | FRS-BB-920 |
+| URS-BB-803 | The instrument simulator's result records place the completion time and instrument where the instrument does (ASTM E1394 R.13, R.14). | P2 | FRS-BB-921 |
+| URS-BB-804 | An instrument result keeps the analyzer and completion time, and the verifier sees them and any instrument flag on the Test worklist. | P1 | FRS-BB-922 |
+| URS-BB-805 | The supervisor queue names quarantine reasons in words, offers release only where the quarantine board allows it, and names an override's unit and patient. | P2 | FRS-BB-923 |
+| URS-BB-806 | The print job list names what each label was for and when it was printed, not internal ids. | P3 | FRS-BB-924 |
+| URS-BB-807 | The downtime patient summary names an unverified ABO/Rh result that disagrees with the type on file, marks lapsed reservations, and gives order priority in words. | P1 | FRS-BB-925 |
+| URS-BB-808 | The demo data links its crossmatches to their orders, so blood utilization shows ordering location and provider. | P3 | FRS-BB-926 |
+| URS-BB-809 | Equipment check due dates and daily reagent QC count the facility's calendar days, not UTC days. | P1 | FRS-BB-927 |
+| URS-BB-810 | A RhIG lot and an antibody panel lot are good through their expiry date on the facility's calendar. | P1 | FRS-BB-928 |
+| URS-BB-811 | The top-bar lookup finds a reagent lot by its number and opens it on Reagent QC; order hits read in words. | P2 | FRS-BB-929 |
+| URS-BB-812 | The post-transfusion tube of a reaction investigation can be accessioned from the investigation with the identifiers on its label. | P1 | FRS-BB-930 |
+| URS-BB-813 | A transfusion reaction workup on an expired pre-transfusion tube is not cancelled by the specimen expiry sweep. | P1 | FRS-BB-931 |
+| URS-BB-814 | After a result is saved, the worklist opens a test still open on the same tube or for the same patient before moving to another patient. | P3 | FRS-BB-932 |
+| URS-BB-815 | A test comment is saved only when it changed; clearing it says so. | P3 | FRS-BB-933 |
+| URS-BB-816 | The dashboard's temperature excursions count only those still out of range; an excursion back in range says so. | P2 | FRS-BB-934 |
+| URS-BB-817 | Issue, receipt, return and transfusion forms give unit and crossmatch expiry in local time, as the lists do; issue type and appearance read in words. | P2 | FRS-BB-935 |
+| URS-BB-818 | A date of birth or sex changed by the EHR on a patient the blood bank holds raises a warning naming the patient's current tubes. | P1 | FRS-BB-936 |
+| URS-BB-819 | Changing a patient's date of birth or sex on the chart requires a reason and alerts the blood bank like an EHR change. | P1 | FRS-BB-937 |
+| URS-BB-820 | A new order picks no ordering location by itself when the visit's place matches none; the second ABO/Rh order starts on a new specimen. | P2 | FRS-BB-938 |
+| URS-BB-821 | A follow-up with the supplier on an overdue order is recorded, with a promised arrival that becomes its due time. | P2 | FRS-BB-939 |
+| URS-BB-822 | The in-transit list leaves out units whose transfusion has been documented. | P3 | FRS-BB-940 |
+| URS-BB-823 | A chart that may duplicate another says so, naming the other chart and its blood bank history. | P1 | FRS-BB-941 |
+| URS-BB-824 | The audit trail's date filters count local days, and its rows name patients, units, specimens and orders. | P3 | FRS-BB-942 |
+| URS-BB-825 | The temperature history report and the Utilization report take local dates. | P3 | FRS-BB-943 |
+| URS-BB-826 | Report date filters include the whole of the To day in local time, and report results show local times under column names. | P2 | FRS-BB-944 |
+| URS-BB-827 | Report month columns are the facility's local months, and seeded discards carry a discard date. | P3 | FRS-BB-945 |
+| URS-BB-828 | The RhIG queue says when no give-by time is shown because the facility window is not set, and how long ago the event was. | P2 | FRS-BB-946 |
+| URS-BB-829 | The instrument session log hides routine listener starts, shows a listener that could not start, and filters to warnings and errors or one instrument. | P3 | FRS-BB-947 |
+| URS-BB-830 | Discard expired says whether a second verifier is required before the first scan, and holds a scan with none chosen. | P3 | FRS-BB-948 |
+| URS-BB-831 | The Expired on shelf card says how long the oldest unit has been expired and where the units are. | P3 | FRS-BB-949 |
+| URS-BB-832 | Ready to issue lets the desk cancel a ward request with a reason, and says when a lapsed unit is held only by a ward request. | P2 | FRS-BB-950 |
+| URS-BB-833 | Dates and times are typed in local time on every form (specimen collection and expiry, RhIG event and given, reagent lot expiry, delivery order and unit expiry). | P1 | FRS-BB-951 |
+| URS-BB-834 | A reaction investigation lists every step still due before close, not only the next one. | P2 | FRS-BB-952 |
+| URS-BB-835 | An ADT message never moves another patient's visit to the patient it names; it is refused with nothing applied. | P1 | FRS-BB-953 |
+| URS-BB-836 | An order message naming another patient's order number is refused with nothing applied: it neither cancels that order nor is skipped as already existing. | P1 | FRS-BB-954 |
+| URS-BB-837 | HL7 message times are read with their stated UTC offset and seconds; a merged-away MRN on a transfusion message is followed to the surviving chart. | P1 | FRS-BB-955 |
+| URS-BB-838 | The instrument simulator stamps results with the local clock, as an analyzer does. | P3 | FRS-BB-956 |
+| URS-BB-839 | Reagent QC alerts name the kind of work in words. | P3 | FRS-BB-957 |
+| URS-BB-840 | A transfusion charted afterwards takes its start and stop times from the record, not the time it is charted. | P1 | FRS-BB-958 |
+| URS-BB-841 | Open lookback notifications show when they were opened and how long they have waited, and a notify-by date once the facility sets one. | P2 | FRS-BB-959 |
+| URS-BB-842 | Recipient traceback names units with no DIN recorded and does not report "none found" for donations it could not search. | P1 | FRS-BB-960 |
+| URS-BB-843 | Search results, timelines, the supervisor queue and refusal messages show times in local time. | P2 | FRS-BB-961 |
+| URS-BB-844 | "Today" for a patient's age, a date of birth, an RhIG lot's expiry, an outside antibody report, and ISBT product-code retirement is the facility's day. | P2 | FRS-BB-962 |
+| URS-BB-845 | The shift handoff carries the day's reagent QC still to do and QC to review. | P2 | FRS-BB-963 |
+| URS-BB-846 | The shift handoff carries second ABO/Rh due and the supervisor queue. | P3 | FRS-BB-964 |
+| URS-BB-847 | A cooler shows what its last finished check found, who did it and when, on its badge and on the cooler check. | P2 | FRS-BB-965 |
+| URS-BB-848 | A deviation records its root cause and FDA reportability determination (BPDR), with the report date and number. | P2 | FRS-BB-966 |
+| URS-BB-849 | Equipment names the tests it is used for, and the test worklist warns when such equipment is out of service or overdue for a check. | P2 | FRS-BB-967 |
+| URS-BB-850 | A hand-entered result records the equipment used for its test and its condition, warning when it was out of service or due a check. | P2 | FRS-BB-968 |
+| URS-BB-851 | Equipment lists the results tested on it, with patient, specimen and its condition then. | P2 | FRS-BB-969 |
+| URS-BB-852 | No date default or check takes "today" from the UTC date. | P3 | FRS-BB-970 |

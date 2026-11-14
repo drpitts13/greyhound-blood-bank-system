@@ -1,4 +1,4 @@
-namespace BloodBankLIS.Domain.Rules;
+﻿namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Pure evaluation of specimen expiration. Reads no clock or database; the
@@ -24,12 +24,12 @@ public static class SpecimenExpirationRule
 
         if (nowUtc >= expiresUtc.Value)
         {
-            return RuleResult.HardStop(ExpiredCode, $"Specimen expired at {expiresUtc.Value:u}.");
+            return RuleResult.HardStop(ExpiredCode, $"Specimen expired at {ClinicalTimeText.Local(expiresUtc.Value)}.");
         }
 
         if (expiresUtc.Value - nowUtc <= nearExpiryWindow)
         {
-            return RuleResult.Warning(NearExpiryCode, $"Specimen expires soon, at {expiresUtc.Value:u}.");
+            return RuleResult.Warning(NearExpiryCode, $"Specimen expires soon, at {ClinicalTimeText.Local(expiresUtc.Value)}.");
         }
 
         return RuleResult.Pass(ExpiredCode);

@@ -10,7 +10,7 @@ routes:
 
 ![Printing](figures/printing.png)
 
-**Printing** produces specimen labels, component labels, and compatibility tags (P-tags). You can also open it from a specimen, a unit, or an issue, with that record already selected.
+**Printing** produces specimen labels, component labels, and compatibility tags (P-tags). You can also open it from a specimen, a unit, or an issue, with that record already selected. For a specimen label, choose the **Label design** (the default tube design is chosen for you; designs are made under Administration › [Specimen labels](specimen-label)). Choose an aliquot design and enter how many aliquots to print one "Aliquot n of N" label for each; each is its own print job, and each aliquot's barcode is the parent specimen ID.
 
 ## What you are printing
 
@@ -23,3 +23,5 @@ A compatibility tag printed at issue carries the patient, the unit, and the cros
 Reprint requires a reason and the reprint permission. The reason is audited. Reprint when the label is damaged or lost. Do not reprint onto a different specimen or unit. If the identifiers on the label are wrong, fix the record first, then print again, or reject the specimen and start over.
 
 Jobs stay in the queue on this screen so you can see what was sent and open the preview again.
+
+**Print jobs** lists the newest first: when it was printed, the kind of label, template, format, what it was **for** (the specimen's accession, the unit number, or for a compatibility tag the unit and the patient it was issued to), status, and who printed it.

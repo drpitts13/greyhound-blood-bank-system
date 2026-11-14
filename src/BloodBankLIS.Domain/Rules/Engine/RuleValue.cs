@@ -208,6 +208,13 @@ public sealed class RuleValue
             return true;
         }
 
+        // Compared with a number, a value that is not a number does not match either way (end-user testing, 2026-11-12:
+        // an instrument grade "2+" compared as text with 1 and 20 matched "1 to 20" and every positive reaction posted as 1+).
+        if (left.Kind == RuleValueKind.Number || right.Kind == RuleValueKind.Number)
+        {
+            return false;
+        }
+
         comparison = string.Compare(
             (left.AsText() ?? string.Empty).Trim(),
             (right.AsText() ?? string.Empty).Trim(),

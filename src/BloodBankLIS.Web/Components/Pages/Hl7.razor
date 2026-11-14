@@ -1,7 +1,7 @@
 @page "/hl7"
 @inject BloodBankApiClient Api
 
-<PageTitle>HL7 Interface &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>HL7 Interface &middot; HemoCore</PageTitle>
 
 <h1>HL7 Interface</h1>
 <p class="muted">Operational view of the HL7 v2.x message log.</p>
@@ -27,6 +27,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -39,6 +40,7 @@
                     <th>Error</th>
                     <th>Detail</th>
                     <th>Retries</th>
+                    <th>Waiting</th>
                     <th></th>
                 </tr>
             </thead>
@@ -64,6 +66,7 @@
                         <td>@e.ErrorType</td>
                         <td>@e.ErrorDetail</td>
                         <td>@e.RetryCount</td>
+                        <td class="nowrap" data-error-waiting="@e.Id" title="@e.QueuedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")">@(e.QueuedUtc is { } queued ? AlertInboxView.OpenFor(queued, DateTime.UtcNow) : "—")</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
                             @if (e.Direction is null or Hl7Direction.Inbound)
@@ -98,6 +101,7 @@
                 }
             </tbody>
         </table>
+        </div>
         @if (_resolveId is not null)
         {
             <div @key="_resolveId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
@@ -108,7 +112,69 @@
             </div>
         }
     }
+    @if (_resolvedErrors.Count > 0)
+    {
+        @* Who closed each error and why: a reason given by hand, or the replay or resend that delivered it. *@
+        <details style="margin-top:1rem;">
+            <summary>Recently resolved (@_resolvedErrors.Count)</summary>
+            <div class="table-scroll">
+            <table class="bb" style="margin-top:.5rem;">
+                <thead><tr><th>Resolved</th><th>By</th><th>Message</th><th>Error</th><th>Why</th></tr></thead>
+                <tbody>
+                    @foreach (var r in _resolvedErrors)
+                    {
+                        <tr>
+                            <td class="nowrap">@(r.ResolvedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td>@(r.ResolvedBy ?? "—")</td>
+                            <td>@(string.IsNullOrEmpty(r.MessageType) ? $"#{r.Hl7MessageId}" : $"{r.MessageType}{(string.IsNullOrEmpty(r.TriggerEvent) ? "" : $"^{r.TriggerEvent}")}")<span class="sub mono">@r.MessageControlId</span></td>
+                            <td>@r.ErrorType<span class="sub">@r.ErrorDetail</span></td>
+                            <td>@(r.ResolutionNote ?? "Not recorded (resolved before notes were kept)")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        </details>
+    }
 </div>
+
+@* Results and charges that have not gone out: none of them is an error, so they never reached the error queue (Cycle 660). *@
+@if (_waiting.Count > 0)
+{
+    <div class="bb-card" data-outbound-waiting>
+        <div class="bb-card-title"><h3>Waiting to send (@_waiting.Count)</h3></div>
+        <p class="muted">Outbound messages not yet acknowledged. Those waiting longer than @((int)OutboundMessageWaitRule.StuckAfter.TotalMinutes) minutes will not go by themselves.</p>
+        <div class="table-scroll">
+        <table class="bb">
+            <thead><tr><th>Message</th><th>Control id</th><th>Waiting</th><th>Why</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var w in _waiting)
+                {
+                    <tr data-waiting="@w.Id">
+                        <td>@w.MessageType</td>
+                        <td class="mono">@w.ControlId</td>
+                        <td class="nowrap" title="@w.QueuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")">
+                            @if (w.Stuck)
+                            {
+                                <span class="badge badge-amber">@AlertInboxView.OpenFor(w.QueuedUtc, DateTime.UtcNow)</span>
+                            }
+                            else
+                            {
+                                @AlertInboxView.OpenFor(w.QueuedUtc, DateTime.UtcNow)
+                            }
+                        </td>
+                        <td>@w.Reason</td>
+                        <td class="right">
+                            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(w.Id)">Send</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(w.Id)">View</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </div>
+}
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Submit inbound message</h3></div>
@@ -148,6 +214,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Patient</th><th>MRN</th><th>Order / test / unit</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
             <tbody>
@@ -155,7 +222,7 @@
                 {
                     <tr>
                         <td>@m.Id</td>
-                        <td>@m.Direction</td>
+                        <td>@Ui.EnumText(m.Direction)</td>
                         <td>@m.MessageType@(string.IsNullOrEmpty(m.TriggerEvent) ? "" : $"^{m.TriggerEvent}")</td>
                         <td>
                             @if (m.PatientId is long patientId)
@@ -170,8 +237,9 @@
                         <td class="mono">@(m.PatientMrn ?? "—")</td>
                         <td class="mono">@FormatContext(m.PlacerOrderNumber, m.TestCode, m.UnitNumber)</td>
                         <td class="mono">@m.MessageControlId</td>
-                        <td class="nowrap">@m.ReceivedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td><span class="@Ui.Badge(m.Status)">@m.Status</span></td>
+                        <td class="nowrap">@m.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        @* An outbound message the LIS has written but not yet sent is queued, not received. *@
+                        <td><span class="@Ui.Badge(m.Status)">@(m.Direction == Hl7Direction.Outbound && m.Status == Hl7MessageStatus.Received ? "Queued" : Ui.EnumText(m.Status))</span></td>
                         <td class="mono">@m.AckCode</td>
                         <td class="right nowrap">
                             @if (m.PatientId is long logChartId)
@@ -225,6 +293,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
     @if (_detail is not null && _viewId is long viewedId && !_messages.Any(m => m.Id == viewedId))
     {
@@ -250,6 +319,7 @@
 
     private List<Hl7MessageVm> _messages = new();
     private List<Hl7ErrorVm> _errors = new();
+    private List<Hl7ErrorVm> _resolvedErrors = new();
     private bool _loading = true;
     private bool _busy;
     private long? _viewId;
@@ -278,6 +348,10 @@
         var errors = await Api.GetHl7ErrorsAsync();
         _messages = messages.Value ?? new();
         _errors = errors.Value ?? new();
+        var waiting = await Api.GetHl7OutboundWaitingAsync();
+        _waiting = waiting.Value ?? new();
+        var resolved = await Api.GetResolvedHl7ErrorsAsync();
+        _resolvedErrors = resolved.Value ?? new();
         // A refused or failed load must not look like an empty log.
         _logFb = !messages.Succeeded ? messages.ToFeedback() : !errors.Succeeded ? errors.ToFeedback() : null;
         _loading = false;
@@ -354,6 +428,8 @@
         var text = string.Join(" · ", parts);
         return string.IsNullOrEmpty(text) ? "—" : text;
     }
+
+    private List<Hl7OutboundWaitingVm> _waiting = new();
 
     private async Task SendAsync(long id)
     {

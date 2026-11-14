@@ -10,7 +10,7 @@ routes:
 
 ![Enter units](figures/delivery-receive.png)
 
-This screen books the physical units on a delivery into inventory. Work one unit at a time. Confirm the unit number, product code, ABO and Rh, and expiration against the bag and the packing list. A mismatch is a reason to stop, not a reason to type what the paperwork says if the bag says something else.
+This screen books the physical units on a delivery into inventory. Work one unit at a time. Confirm the unit number, product code, ABO and Rh, and expiration against the bag and the packing list. A mismatch is a reason to stop, not a reason to type what the paperwork says if the bag says something else. ABO and Rh(D) start at **— Select —** for every unit: read them from the bag. They are not carried over from the unit before (the product, location, expiration, and temperature are), and receiving without them is refused.
 
 Record appearance and temperature when the form asks. Facility policy can require a second person to verify the receipt. That person signs in as the second verifier. You cannot verify your own receipt when the policy requires two people.
 

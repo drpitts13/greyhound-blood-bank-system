@@ -28,7 +28,13 @@ Scope for the project: inbound **ADT** (demographics/encounter), **ORM/OML** (or
 
 Field mappings live on each `InterfaceEndpoint` as `InterfaceFieldMappings` rows (data item key → HL7 path such as `PID-3-1`). Admin **Interface Setup** (`/admin/hl7`) can apply an EHR/billing vendor preset (Epic, Cerner, Meditech, Epic Resolute, Cerner Patient Accounting) or edit paths by hand. Inbound ADT/ORM/BPAM mappers and outbound ORU/DFT builders read those paths; catalog defaults match the original hard-coded locations when no rows are stored.
 
+### 2.0 Value translations
+
+Coded values are translated by `InterfaceValueTranslation` rows (Admin › HL7 › Translations): data item key, local value, external value, direction (Inbound, Outbound, Both), and an optional interface. Rows for one interface win over all-interfaces rows for the same key, direction, and value. `Procedure.Code` is shared by inbound OBR-4 (`Order.TestCode`) and outbound result OBR-4 (`TestResult.ObrTestCode`); those keys fall back to it when they have no matching row of their own. Inbound, a procedure code that matches both a grouper and a test resolves to the grouper, whose tests are ordered with `OrderLine.GrouperCode` set; a code that resolves to no active test or grouper is an `HL7-ORDER-CODE` mapping error. Outbound, a result whose line has a grouper with an outbound translation is sent with that code in OBR-4 (OBX-3 stays the test). Each message's untranslated values (on keys that have rows, and always order codes) are logged in `InterfaceUnmappedValues` for the interface team; a saved translation resolves them. Outbound PID-10-1, PID-22-1, BPS PV1-2, and OBX-8 (abnormal flag, else interpretation) are translated.
+
 ### 2.1 Inbound ADT (A01 admit, A04 register, A08 update)
+PID-3 may repeat (MRN, enterprise id, account, other facilities). With the default MRN path `PID-3-1`, the MRN is the repetition whose identifier type (CX.5) is `MR`; when no repetition is typed, the first is used. The same choice is made for orders, results, dispense requests, and BPAM. An ADT keeps the other repetitions as alternate identifiers (type `AN` as an account number, others as external ids with their CX.4 authority and CX.5 type), audited, and searchable. An endpoint that maps the MRN to another path is read as mapped.
+
 Default catalog (customizable per endpoint):
 | Data item | Default HL7 |
 |---|---|
@@ -36,6 +42,9 @@ Default catalog (customizable per endpoint):
 | `Patient.LastName` / `FirstName` / `MiddleName` | `PID-5-1` / `PID-5-2` / `PID-5-3` |
 | `Patient.DateOfBirth` | `PID-7` |
 | `Patient.Sex` | `PID-8` |
+| `Patient.Race` | `PID-10-1` (translated; stored only when it is on the local list) |
+| `Patient.Ethnicity` | `PID-22-1` (translated; stored only when it is on the local list) |
+| `Encounter.PatientClass` | `PV1-2` (translated to the visit type; Unknown on a new visit when not translated) |
 | `Encounter.AccountNumber` | `PID-18-1` |
 | `Encounter.VisitNumber` | `PV1-19-1` |
 | `Encounter.CurrentLocation` | `PV1-3-1` |
@@ -54,7 +63,7 @@ Action: upsert patient demographics and visit. Demographics updates never overwr
 Action: create or cancel the order through `OrderService` (same safety checks as the UI).
 
 ### 2.3 Outbound ORU (results)
-Builds `MSH + PID + OBR + OBX` from a verified `TestResult` using the enabled Results outbound endpoint's MSH identity and field map. Stored in `HL7Messages` with direction Outbound.
+Builds `MSH + PID + OBR + OBX` from a released `TestResult` using the enabled Results outbound endpoint's MSH identity and field map. Stored in `HL7Messages` with direction Outbound. Queued on request (`POST /api/hl7/outbound/results/{id}`) for a first final result. A verified correction (C) and a verified result that was invalidated (W) are queued automatically when an enabled outbound Results endpoint exists (OCD-049, Cycle 316); a failure to queue leaves the clinical change in place and warns the user (`RES-EHR-NOT-SENT`). OBX-11 (table 0085) is F for a verified first version, C for a verified correction (later version), and W for a result that had been verified and was then invalidated, so the EHR replaces or withdraws the earlier value (Cycle 315). Unverified results are never sent.
 
 ### 2.3a Inbound ORU (unverified results)
 Default catalog (customizable per endpoint):
@@ -77,6 +86,21 @@ Triggered when charge capture creates a `BillingEvent`. Builds `MSH + EVN + PID 
 Thin blood-product administration intake (not IHE/Epic certification). Mapped fields include patient MRN, unit number/DIN, start/stop, volume, location (`PV1-3-1`), transfusionist (`RXA-10` XCN), and reaction flag. When an issued unit for that patient can be matched, a `TransfusionEvent` is documented with `PatientIdentificationMethod` / `UnitIdentificationMethod` `HL7-BPAM`; otherwise the message is NAK/`AE` and queued. Patient product history shows that source plus the loaded volume, location, and transfusionist so staff do not re-key the administration on Issuing. Demo seed `MRN0009` / `W000123BPAM001` is this RAS path.
 
 ---
+
+### 2.6 Inbound dispense request (OMB^O27, OCD-063)
+The EHR may ask for a reserved unit to be sent now with an HL7 v2.5 OMB^O27 on the blood-product (Bpam) interface. It becomes the same issue request a ward makes in the LIS; it never issues a unit. Default field mapping (editable per interface under data items):
+
+| Data item | Default | Meaning |
+|---|---|---|
+| Patient MRN | `PID-3-1` | Patient, following merges |
+| Dispense request: order control | `ORC-1` | `NW` or `XO` requests; `CA`, `OC`, or `DC` withdraws an open request |
+| Dispense request: placer order | `ORC-2-1` | Used when no DIN is sent: the order must have exactly one unit reserved for the patient |
+| Dispense request: deliver to | `BPO-14-1` | Requested dispense-to location |
+| Dispense request: patient location | `PV1-3-1` | Used when BPO-14 is empty |
+| Dispense request: unit (DIN) | none | Not part of a standard OMB; map it if your EHR names the unit |
+| Dispense request: requested by | `ORC-12` | Shown as "EHR (HL7): name" |
+
+Refused to the error queue with the reason: no reserved unit matches, several match, the order is not on the patient, no destination, or a different destination is already requested. The same destination again is acknowledged without change. **Confirm with the EHR team** that their message matches this mapping, or adjust the mapping, and send a sample.
 
 ## 3. ACK/NAK handling
 

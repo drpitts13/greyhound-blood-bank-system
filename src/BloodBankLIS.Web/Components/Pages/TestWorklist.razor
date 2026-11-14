@@ -2,10 +2,38 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Test Worklist &middot; HemoCore</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests. Expand a row to enter results, or Verify a posted instrument value without re-keying it.</p>
+<p class="muted">Pending patient tests. Expand a row to enter results, or Verify a value already entered (by a colleague, the instrument, or the interface) without re-keying it.</p>
+@if (_qcBlock is not null)
+{
+    @* The same stop Save gives, shown before anything is keyed. *@
+    <div class="alert alert-danger" data-reagent-qc-block>
+        <strong>@_qcBlock.Message</strong>
+        <ul style="margin:.35rem 0 .35rem 1.1rem;padding:0;">
+            @foreach (var item in _qcBlock.Work)
+            {
+                <li>@item.Kind: lot @item.LotNumber. @item.Message</li>
+            }
+        </ul>
+        <a class="btn btn-secondary btn-sm" href="/reagents">Open Reagent QC</a>
+    </div>
+}
+@if (EquipmentNotices.Count > 0)
+{
+    @* Pass 74: equipment the listed tests use that is out of service or overdue for a check. Information only. *@
+    <div class="alert alert-warning" data-equipment-notice>
+        <strong>Equipment for tests on this list needs attention</strong>
+        <ul style="margin:.35rem 0 .35rem 1.1rem;padding:0;">
+            @foreach (var line in EquipmentNotices)
+            {
+                <li><span class="mono">@line.EquipmentCode</span> @line.EquipmentName (@string.Join(", ", line.Tests)): @line.Problem</li>
+            }
+        </ul>
+        <a class="btn btn-secondary btn-sm" href="/equipment">Open Equipment</a>
+    </div>
+}
 <details class="bb-help">
     <summary>About this worklist</summary>
     <ul>
@@ -18,6 +46,21 @@
 </details>
 
 <Outcome Value="_fb" />
+@if (_finishedTube is not null)
+{
+    <div class="alert alert-info flex gap" style="align-items:center;" data-tube-finished>
+        <span>Every test on tube <span class="mono">@_finishedTube</span> is done. Put it away so it can be found for repeat testing.</span>
+        <a class="btn btn-primary btn-sm" href="@($"/specimens/store?tube={Uri.EscapeDataString(_finishedTube)}")">Store tube</a>
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _finishedTube = null">Dismiss</button>
+    </div>
+}
+@if (_reflexNote is not null)
+{
+    <div class="alert alert-info flex gap" style="align-items:center;" data-reflex-added>
+        <span>@_reflexNote</span>
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _reflexNote = null">Dismiss</button>
+    </div>
+}
 
 <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
     <button type="button" class="btn @TabClass("tests")" @onclick='() => SelectTab("tests")'>Patient tests</button>
@@ -36,19 +79,121 @@
         <button class="btn btn-secondary btn-sm" @onclick="LoadAsync">Refresh</button>
     </div>
 
+    @if (!_loading && _items.Count > 0 && (Session.Has(PermissionCodes.ResultVerify) || RecollectCount > 0 || _show == ShowRecollect || NoSpecimenCount > 0 || _show == ShowNoSpecimen))
+    {
+        <div class="flex gap" role="group" aria-label="Show" style="margin-bottom:.5rem;">
+            <button type="button" class="btn btn-sm @(_show == ShowAll ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowAll ? "true" : "false")" @onclick="() => _show = ShowAll">All (@_items.Count)</button>
+            @if (Session.Has(PermissionCodes.ResultVerify))
+            {
+                <button type="button" class="btn btn-sm @(_show == ShowVerify ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowVerify ? "true" : "false")" @onclick="() => _show = ShowVerify" data-to-verify>To verify (@TestWorklistView.ToVerify(_items, Session.UserName).Count)</button>
+            }
+            @if (RecollectCount > 0 || _show == ShowRecollect)
+            {
+                <button type="button" class="btn btn-sm @(_show == ShowRecollect ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowRecollect ? "true" : "false")" @onclick="() => _show = ShowRecollect" data-recollect>Recollect (@RecollectCount)</button>
+            }
+            @if (NoSpecimenCount > 0 || _show == ShowNoSpecimen)
+            {
+                <button type="button" class="btn btn-sm @(_show == ShowNoSpecimen ? "btn-primary" : "btn-secondary")" aria-pressed="@(_show == ShowNoSpecimen ? "true" : "false")" @onclick="() => _show = ShowNoSpecimen" title="Ordered, no tube yet: collect or accession the specimen. STAT and urgent orders first." data-no-specimen>No specimen (@NoSpecimenCount)</button>
+            }
+        </div>
+    }
+
+    @if (_show == ShowVerify && _batch is { Enabled: true } && (_batch.Candidates.Count > 0 || _batchOutcome is not null))
+    {
+        @* OCD-061: eligible routine results verified together; the server decides eligibility again and runs every check. *@
+        <div class="bb-card" data-batch-verify style="margin-bottom:.75rem;">
+            <div class="bb-card-title"><h3>Verify in a batch</h3></div>
+            <p class="muted" style="margin-top:0;">Plainly Negative antibody screens and DATs, and ABO/Rh results matching the patient's history, entered by someone else, on patients with no antibody history or special requirement. Anything else is verified one at a time below.</p>
+            @if (_batchOutcome is not null)
+            {
+                <div class="@(_batchOutcome.Skipped.Count == 0 ? "alert alert-success" : "alert alert-warning")" data-batch-outcome>
+                    Verified @_batchOutcome.Verified.Count.
+                    @if (_batchOutcome.Skipped.Count > 0)
+                    {
+                        <span>Not verified @_batchOutcome.Skipped.Count:</span>
+                        <ul style="margin:.25rem 0 0 1.1rem;padding:0;">
+                            @foreach (var s in _batchOutcome.Skipped)
+                            {
+                                <li>@(s.Label ?? $"Result {s.ResultId}"): @s.Reason</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+            @if (_batch.Candidates.Count > 0)
+            {
+                <div class="table-scroll">
+                <table class="bb">
+                    <thead><tr><th><input type="checkbox" checked="@(_batchSelected.Count == _batch.Candidates.Count)" @onchange="ToggleAllBatch" aria-label="Select all" /></th><th>Patient / MRN</th><th>Test</th><th>Result</th><th>Accession</th><th>Entered by</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in _batch.Candidates)
+                        {
+                            <tr>
+                                <td><input type="checkbox" checked="@_batchSelected.Contains(c.ResultId)" @onchange="e => ToggleBatch(c.ResultId, e)" aria-label="Select @c.TestCode for @c.Mrn" /></td>
+                                <td>@c.PatientName <span class="sub mono">@c.Mrn</span></td>
+                                <td class="mono">@c.TestCode</td>
+                                <td><strong>@c.Value</strong></td>
+                                <td class="mono">@(c.AccessionNumber ?? "—")</td>
+                                <td>@(c.EnteredBy ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" style="margin-top:.5rem;" disabled="@(_busy || _batchSelected.Count == 0)" @onclick="BatchVerifyAsync" data-batch-verify-button>Verify @_batchSelected.Count selected</button>
+            }
+        </div>
+    }
+
+    @if (!_loading && _items.Count > 0)
+    {
+        <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-bottom:.5rem;">
+            <div class="field" style="max-width:20rem;margin:0;">
+                <label>Scan a tube to work its tests</label>
+                <input @bind="_tubeScan" @bind:event="oninput" @onkeydown="OnTubeScanKey" placeholder="Scan the label or type the accession" autocomplete="off" data-tube-scan />
+            </div>
+            @if (_tube.Length > 0)
+            {
+                var onTube = TestWorklistView.ForTube(_items, _tube).Count;
+                <span class="badge badge-blue" data-tube-filter>Tube <span class="mono">@TestWorklistView.TubeLabel(_items, _tube)</span>: @onTube @(onTube == 1 ? "test" : "tests")</span>
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="ClearTube">Show all tubes</button>
+            }
+        </div>
+    }
+
     @if (_loading)
     {
         <div class="loading">Loading worklist...</div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0 && _tube.Length > 0)
+    {
+        <div class="empty" data-tube-empty>
+            No pending @(_show == ShowVerify ? "results to verify" : "tests") on tube <span class="mono">@_tube</span>. A tube that is not yet accepted is on the Specimens tab;
+            an order not linked to it is linked from the chart's Orders tab.
+        </div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0 && _show == ShowRecollect)
+    {
+        <div class="empty">No test is waiting for a new specimen.</div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0 && _show == ShowNoSpecimen)
+    {
+        <div class="empty">Every pending test has a tube.</div>
+    }
+    else if (_items.Count > 0 && ShownItems.Count == 0)
+    {
+        <div class="empty">Nothing is waiting for you to verify. Results you entered yourself are verified by someone else.</div>
     }
     else if (_items.Count == 0)
     {
         <div class="empty">
             No pending tests on this bench. Orders without a linked accepted specimen do not appear here.
-            Open the patient chart Tests tab to teach the sequence, or Accession and link on Orders.
+            Open the patient chart Tests tab to teach the sequence, or use Accession on the row to take a tube for the order (it links the waiting orders it serves).
         </div>
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -65,7 +210,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var item in _items)
+                @foreach (var item in ShownItems)
                 {
                     <tr class="@RowClass(item)">
                         <td><a href="@($"/patients/{item.PatientId}?tab=tests")">@item.PatientName</a><span class="sub mono">@item.Mrn</span></td>
@@ -80,13 +225,14 @@
                                 <span class="muted">None</span>
                             }
                         </td>
-                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
+                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span>@if (item.ReactionWorkup) { <a class="badge badge-red" style="margin-left:.35rem;" href="@item.ReactionHref" title="This test is part of a transfusion reaction workup; the investigation closes only when it is verified" data-reaction-workup>Reaction workup</a> }@if (item.ReflexFrom is not null) { <span class="badge @(item.ReflexTriggerNotice is null ? "badge-blue" : "badge-amber")" style="margin-left:.35rem;" title="Added by a reflex rule when this result was verified" data-reflex-from>Reflex from @item.ReflexFrom</span> }@if (item.ReflexTriggerNotice is not null) { <div class="sub" style="color:var(--bb-warn,#a15c00);" data-reflex-trigger-changed>@item.ReflexTriggerNotice</div> }</td>
                         <td>
                             <span class="mono">@item.OrderNumber</span>
                             <span class="sub mono">@(item.AccessionNumber ?? "—")</span>
                             @if (item.SpecimenExpiresUtc is DateTime expires)
                             {
-                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                <VerificationDeadlineBadge Item="item" />
                             }
                             else
                             {
@@ -108,29 +254,37 @@
                         <td>
                             @if (item.CurrentResultStatus is not null)
                             {
-                                <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@item.CurrentResultStatus</span>
+                                <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@Ui.EnumText(item.CurrentResultStatus.Value)</span>
                             }
                             else
                             {
                                 <span class="badge badge-gray">Pending</span>
                             }
-                            <span class="sub mono">@(item.CurrentResultValue ?? "—")</span>
+                            <span class="sub mono">@ResultValueText.For(item.CurrentResultValue)</span>
                             @if (item.AboRhDeltaHold)
                             {
                                 <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
                             }
-                            <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")</span>
+                            <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")@if (item.CurrentResultSourceDetail is { } sourceDetail) { <span data-worklist-source-detail> · @sourceDetail</span> }</span>
+                            @if (item.CurrentResultReagentLots is { Count: > 0 } lots)
+                            {
+                                <span class="sub" title="Reagent lots open for this test when the result was entered" data-worklist-lots>Lots: @string.Join(", ", lots)</span>
+                            }
+                            @if (item.CurrentResultEquipment is { Count: > 0 } usedEquipment)
+                            {
+                                <span class="sub" title="Equipment used for this test when the result was entered" data-worklist-equipment>Equipment: @string.Join(", ", usedEquipment)</span>
+                            }
                         </td>
                         <td>
                             @if (IsRush(item.Priority))
                             {
-                                <span class="badge badge-red">@item.Priority</span>
+                                <span class="badge badge-red">@Ui.EnumText(item.Priority)</span>
                             }
                             else
                             {
                                 @item.Priority
                             }
-                            <span class="sub nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</span>
+                            <span class="sub nowrap">@item.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
                         <td class="right nowrap">
@@ -143,21 +297,23 @@
                             {
                                 <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                             }
-                            <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => ToggleEntry(item.OrderLineId)">
-                                @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
+                            <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => ToggleEntry(item.OrderLineId)"
+                                    data-bench-toggle data-bench-open="@(_expandedLineId == item.OrderLineId ? "true" : "false")">
+                                @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabelFor(Session.UserName))
                             </button>
                         </td>
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="10">
+                        <tr data-bench-entry><td colspan="10">
                             <TestLineCommentEditor WorkItem="item" />
-                            <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
+                            <div data-bench-result><TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" /></div>
                         </td></tr>
                     }
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 }
@@ -169,11 +325,40 @@
         <h3>Pending specimens</h3>
         <button class="btn btn-secondary btn-sm" @onclick="LoadPendingSpecimensAsync">Refresh</button>
     </div>
-    <p class="muted">Collected tubes waiting for receipt, and received tubes waiting for acceptance. Result entry and order linking still require Accepted. An expired tube cannot be received or accepted — reject it. Scan or type an accession to filter.</p>
-    <div class="field" style="max-width:20rem;margin-bottom:.75rem;">
-        <label>Accession / barcode</label>
-        <input @bind="_specimenScan" @bind:event="oninput" placeholder="Scan accession" />
+    <p class="muted">Collected tubes waiting for receipt, and received tubes waiting for acceptance. Result entry and order linking still require Accepted. An expired tube cannot be received or accepted — reject it. Scan a tube to receive it: the scan picks the specimen, so the tube in hand is the one received. Typing filters the list.</p>
+    <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem;">
+        <div class="field" style="max-width:20rem;margin:0;">
+            <label>Scan tube to @(_scanAccepts ? "accept" : "receive")</label>
+            <input @ref="_specimenScanInput" @bind="_specimenScan" @bind:event="oninput" @onkeydown="OnSpecimenScanKeyAsync" placeholder="Scan accession or label barcode" autocomplete="off" data-specimen-scan />
+        </div>
+        <div role="radiogroup" aria-label="What a scan does" class="flex gap" style="align-items:center;">
+            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@(!_scanAccepts)" @onchange="() => SetScanMode(false)" data-scan-mode="receive" /> Receive</label>
+            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@_scanAccepts" @onchange="() => SetScanMode(true)" data-scan-mode="accept" /> Accept</label>
+        </div>
     </div>
+
+    @if (_rejectedTube is { } rejected)
+    {
+        @* Cycle 638: a rejected tube means the patient needs a new one; the step opens the accession form (Cycle 619). *@
+        <div class="alert alert-warning flex gap" style="align-items:center;flex-wrap:wrap;" data-rejected-next>
+            <span>Tube <span class="mono">@rejected.AccessionNumber</span> rejected. @rejected.PatientName (<span class="mono">@rejected.Mrn</span>) needs a new specimen.</span>
+            <a class="btn btn-primary btn-sm" href="@BloodOrderPreparationRule.CollectSpecimenHref(rejected.PatientId)">Collect a new specimen</a>
+        </div>
+    }
+
+    @if (_acceptedTube is { Length: > 0 } accepted)
+    {
+        var waiting = TestWorklistView.ForTube(_items, accepted).Count;
+        <div class="alert alert-info flex gap" style="align-items:center;flex-wrap:wrap;" data-accepted-next>
+            <span>Tube <span class="mono">@accepted</span> accepted. @(waiting == 0 ? "No tests are waiting on it yet." : $"{waiting} {(waiting == 1 ? "test is" : "tests are")} waiting on it.")</span>
+            @if (waiting > 0)
+            {
+                <button type="button" class="btn btn-primary btn-sm" @onclick="() => StartTesting(accepted)">Start testing</button>
+            }
+        </div>
+    }
+
+    <WaitingOrderLinkPrompt Specimen="_acceptedSpecimen" OnLinked="OnWaitingOrdersLinkedAsync" />
 
     @if (_specimensLoading)
     {
@@ -185,6 +370,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -202,33 +388,58 @@
                 @foreach (var row in VisiblePendingSpecimens)
                 {
                     <tr>
-                        <td class="nowrap"><a href="@($"/patients/{row.PatientId}?tab=specimens")">@row.PatientName</a></td>
+                        <td class="nowrap"><a href="@PatientChartUrls.Specimen(row.PatientId, row.SpecimenId)">@row.PatientName</a></td>
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.AccessionNumber</td>
                         <td>@row.SpecimenType</td>
-                        <td class="nowrap">@row.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@row.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@if (!string.IsNullOrWhiteSpace(row.TransitNote)) { <span class="sub">@row.TransitNote</span> }</td>
                         <td class="nowrap">
-                            @(row.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            @(row.ExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")
                             @if (row.IsExpired)
                             {
                                 <span class="badge badge-red">Expired</span>
                             }
                         </td>
-                        <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                        <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
                         <td class="right nowrap">
-                            @if (row.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
+                            @if (row.IsExpired)
                             {
-                                <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => ReceivePendingAsync(row.SpecimenId)">Receive</button>
+                                @* An expired tube can no longer be received or accepted; say what to do instead of showing a dead button. *@
+                                <span class="badge badge-red" title="The tube expired before it was accepted. Reject it and request a new specimen.">@PendingSpecimenAttentionRule.ExpiredNextStep</span>
                             }
-                            @if (row.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
+                            else if (row.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
                             {
-                                <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => AcceptPendingAsync(row.SpecimenId)">Accept</button>
+                                @if (_receiptByScanOnly)
+                                {
+                                    <span class="sub" title="Your facility requires receipt by scan">Scan to receive</span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceivePendingAsync(row.SpecimenId)">Receive</button>
+                                }
+                            }
+                            else if (row.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
+                            {
+                                @if (_collectorRequired && string.IsNullOrWhiteSpace(row.Collector))
+                                {
+                                    @* The facility requires the collector before acceptance (OCD-064): record it from the label here. *@
+                                    <span class="flex" style="display:inline-flex;gap:.25rem;" data-collector-needed>
+                                        <input style="width:9rem;" placeholder="Collector on label" aria-label="Collector on the label"
+                                               value="@CollectorDraft(row.SpecimenId)" @oninput="e => _collectorDrafts[row.SpecimenId] = e.Value?.ToString() ?? string.Empty" />
+                                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(CollectorDraft(row.SpecimenId)))"
+                                                @onclick="() => RecordCollectorAsync(row.SpecimenId)">Save collector</button>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => AcceptPendingAsync(row.SpecimenId)">Accept</button>
+                                }
                             }
                             @if (Session.Has(PermissionCodes.SpecimenReject) && _rejectingSpecimenId != row.SpecimenId)
                             {
-                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => _rejectingSpecimenId = row.SpecimenId">Reject</button>
+                                <button class="btn @(row.IsExpired ? "btn-danger" : "btn-ghost") btn-sm" disabled="@_busy" @onclick="() => _rejectingSpecimenId = row.SpecimenId">Reject</button>
                             }
-                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">Chart</a>
+                            <a class="btn btn-ghost btn-sm" href="@PatientChartUrls.Specimen(row.PatientId, row.SpecimenId)" title="This tube on the patient's chart">Chart</a>
                         </td>
                     </tr>
                     @if (_rejectingSpecimenId == row.SpecimenId && Session.Has(PermissionCodes.SpecimenReject))
@@ -236,9 +447,9 @@
                         <tr>
                             <td colspan="8">
                                 <div class="flex gap" style="flex-wrap:wrap;">
-                                    <input @bind="_rejectReason" @bind:event="oninput" placeholder="Rejection reason" style="flex:1;" />
+                                    <SpecimenRejectReasonPicker @bind-Code="_rejectReason" @bind-Comment="_rejectComment" />
                                     <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_rejectReason))" @onclick="() => RejectPendingAsync(row.SpecimenId)">Confirm reject</button>
-                                    <button class="btn btn-secondary btn-sm" @onclick="() => { _rejectingSpecimenId = null; _rejectReason = string.Empty; }">Cancel</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => { _rejectingSpecimenId = null; _rejectReason = string.Empty; _rejectComment = string.Empty; }">Cancel</button>
                                 </div>
                             </td>
                         </tr>
@@ -246,6 +457,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 }
@@ -272,6 +484,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -304,7 +517,7 @@
                             }
                         </td>
                         <td><strong>@Ui.BloodType(item.Abo, item.RhD)</strong></td>
-                        <td class="nowrap">@item.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@item.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
                             <span class="@Ui.Badge(item.Status)">@Ui.StatusLabel(item.Status)</span>
                             @if (item.Expired)
@@ -319,6 +532,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 }
@@ -326,6 +540,35 @@
 @code {
     private string _tab = "tests";
     private List<TestWorkItemDto> _items = new();
+    // Only the lines this user can verify now (a colleague's, the instrument's, or the interface's result).
+    // Which lines Patient tests shows: all, those this user can verify now, or those waiting for a new specimen.
+    private const string ShowAll = "all";
+    private const string ShowVerify = "verify";
+    private const string ShowRecollect = "recollect";
+    private const string ShowNoSpecimen = "nospecimen";
+    private string _show = ShowAll;
+
+    private int RecollectCount => TestWorklistView.Recollect(_items).Count;
+    private int NoSpecimenCount => TestWorklistView.NoSpecimen(_items).Count;
+    // The tube in hand: only its lines are shown (normalized accession; empty for all tubes).
+    private string _tube = string.Empty;
+    private string _tubeScan = string.Empty;
+    // The tube accepted last on the Specimens tab, offered as the next thing to test.
+    private string? _acceptedTube;
+    private IReadOnlyList<TestWorkItemDto> ShownItems => TestWorklistView.ForTube(
+        _show switch
+        {
+            ShowVerify => TestWorklistView.ToVerify(_items, Session.UserName),
+            ShowRecollect => TestWorklistView.Recollect(_items),
+            ShowNoSpecimen => TestWorklistView.NoSpecimen(_items),
+            _ => _items
+        }, _tube);
+
+    [SupplyParameterFromQuery(Name = "accession")]
+    public string? AccessionQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "show")]
+    public string? ShowQuery { get; set; }
     private bool _loading = true;
     private long? _expandedLineId;
     private Feedback? _fb;
@@ -338,8 +581,33 @@
     private bool _specimensLoaded;
     private bool _busy;
     private string _specimenScan = string.Empty;
+    // OCD-056: when the facility requires receipt by scan, rows offer no Receive button.
+    private bool _receiptByScanOnly;
+    // Facility policy Specimen.RequireCollector (OCD-064) and collectors being typed for received tubes.
+    private bool _collectorRequired;
+    private readonly Dictionary<long, string> _collectorDrafts = new();
+
+    private string CollectorDraft(long specimenId) => _collectorDrafts.GetValueOrDefault(specimenId, string.Empty);
+
+    private async Task RecordCollectorAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.RecordSpecimenCollectorAsync(specimenId, CollectorDraft(specimenId));
+        _busy = false;
+        _fb = r.ToFeedback("Collector recorded. The tube can be accepted.");
+        if (r.Succeeded)
+        {
+            _collectorDrafts.Remove(specimenId);
+            await LoadPendingSpecimensAsync();
+        }
+    }
+    // What a scan does on the pending list: receive (default) or accept. Accepting is a deliberate mode.
+    private bool _scanAccepts;
     private long? _rejectingSpecimenId;
+    // The tube just rejected, offered with the step to collect a new one (Cycle 638).
+    private PendingSpecimenWorkItemDto? _rejectedTube;
     private string _rejectReason = string.Empty;
+    private string _rejectComment = string.Empty;
 
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabQuery { get; set; }
@@ -364,6 +632,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _show = ShowQuery?.Trim().ToLowerInvariant() switch
+        {
+            ShowVerify => ShowVerify,
+            ShowRecollect => ShowRecollect,
+            ShowNoSpecimen => ShowNoSpecimen,
+            _ => ShowAll
+        };
+        _tube = TestWorklistView.NormalizeTube(AccessionQuery);
+        var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
+        _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
+        var collectorPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenCollector);
+        _collectorRequired = collectorPolicy.Succeeded && collectorPolicy.Value?.Enabled == true;
+        await LoadQcBlockAsync();
         if (string.Equals(TabQuery, "retype", StringComparison.OrdinalIgnoreCase))
         {
             _tab = "retype";
@@ -372,15 +653,69 @@
         else if (string.Equals(TabQuery, "specimens", StringComparison.OrdinalIgnoreCase))
         {
             _tab = "specimens";
+            _focusSpecimenScan = true;
             await LoadPendingSpecimensAsync();
         }
 
         await LoadAsync();
     }
 
+    // Facility policy can block patient resulting while reagent QC is overdue, failed, or unreviewed.
+    private ReagentQcResultBlock? _qcBlock;
+
+    private List<EquipmentDto> _equipment = new();
+
+    private IReadOnlyList<EquipmentTestNotice.Line> EquipmentNotices =>
+        _equipment.Count == 0 ? [] : EquipmentTestNotice.For(_equipment, _items.Select(i => i.TestCode));
+
+    private async Task LoadQcBlockAsync()
+    {
+        var equipment = await Api.GetEquipmentAsync();
+        _equipment = equipment.Succeeded ? equipment.Value ?? new() : new();
+
+        var policy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen);
+        if (!policy.Succeeded || policy.Value?.Enabled != true)
+        {
+            _qcBlock = null;
+            return;
+        }
+
+        var work = await Api.GetReagentQcWorklistAsync();
+        _qcBlock = work.Succeeded && work.Value is not null ? ReagentQcResultBlock.For(true, work.Value) : null;
+    }
+
+    // Pending specimens works by scanning: opened (from its tab or the home card) or with the scan mode changed, the scan
+    // field takes the focus, so the next tube is not scanned into the page or a radio button (Cycle 637).
+    private ElementReference _specimenScanInput;
+    private bool _focusSpecimenScan;
+
+    private void SetScanMode(bool accepts)
+    {
+        _scanAccepts = accepts;
+        _focusSpecimenScan = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusSpecimenScan || _tab != "specimens" || _specimenScanInput.Context is null)
+        {
+            return;
+        }
+
+        _focusSpecimenScan = false;
+        try
+        {
+            await _specimenScanInput.FocusAsync(preventScroll: true);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+        }
+    }
+
     private async Task SelectTab(string tab)
     {
         _tab = tab;
+        _focusSpecimenScan = tab == "specimens";
         if (tab == "retype" && !_retypesLoaded)
         {
             await LoadRetypesAsync();
@@ -405,7 +740,69 @@
             return;
         }
 
+        var before = _items;
         _items = r.Value ?? new();
+        // After the first load, reflex lines that just appeared (a verify here added them) are named for the bench.
+        if (_loadedOnce)
+        {
+            _reflexNote = TestWorklistView.NewReflexNote(before, _items) ?? _reflexNote;
+        }
+
+        _loadedOnce = true;
+        await LoadBatchAsync();
+    }
+
+    private bool _loadedOnce;
+    private string? _finishedTube;
+    private string? _reflexNote;
+
+    // Batch verification candidates, for verifiers only; every candidate starts selected.
+    private BatchVerifyCandidatesDto? _batch;
+    private HashSet<long> _batchSelected = new();
+    private BatchVerifyOutcomeDto? _batchOutcome;
+
+    private async Task LoadBatchAsync()
+    {
+        if (!Session.Has(PermissionCodes.ResultVerify))
+        {
+            _batch = null;
+            return;
+        }
+
+        var r = await Api.GetBatchVerifyCandidatesAsync();
+        _batch = r.Succeeded ? r.Value : null;
+        _batchSelected = _batch?.Candidates.Select(c => c.ResultId).ToHashSet() ?? new();
+    }
+
+    private void ToggleBatch(long resultId, ChangeEventArgs e)
+    {
+        if (e.Value is true) _batchSelected.Add(resultId);
+        else _batchSelected.Remove(resultId);
+    }
+
+    private void ToggleAllBatch(ChangeEventArgs e) =>
+        _batchSelected = e.Value is true ? _batch?.Candidates.Select(c => c.ResultId).ToHashSet() ?? new() : new();
+
+    private async Task BatchVerifyAsync()
+    {
+        if (_busy || _batchSelected.Count == 0) return;
+        _busy = true;
+        try
+        {
+            var r = await Api.BatchVerifyAsync(_batchSelected.ToList());
+            if (!r.Succeeded)
+            {
+                _fb = r.ToFeedback();
+                return;
+            }
+
+            _batchOutcome = r.Value;
+            await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task LoadRetypesAsync()
@@ -440,6 +837,33 @@
         _pendingSpecimens = r.Value ?? new();
     }
 
+    // A scanner ends with Enter: receive the tube the scan names, then clear the field for the next tube.
+    private async Task OnSpecimenScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_specimenScan) || _busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = _scanAccepts
+            ? await Api.AcceptSpecimenByScanAsync(_specimenScan)
+            : await Api.ReceiveSpecimenByScanAsync(_specimenScan);
+        _busy = false;
+        var verb = _scanAccepts ? "Accepted" : "Received";
+        _fb = r.ToFeedback(r.Value is null ? $"{verb}." : $"{verb} {r.Value.AccessionNumber}. Scan the next tube.");
+        if (r.Succeeded)
+        {
+            _rejectedTube = null;
+            _specimenScan = string.Empty;
+            await LoadPendingSpecimensAsync();
+            if (_scanAccepts)
+            {
+                await OfferTestingAsync(r.Value?.AccessionNumber);
+            }
+        }
+    }
+
     private async Task ReceivePendingAsync(long specimenId)
     {
         _busy = true;
@@ -455,21 +879,85 @@
         var r = await Api.AcceptSpecimenAsync(specimenId);
         _busy = false;
         _fb = r.ToFeedback("Specimen accepted for testing.");
-        if (r.Succeeded) await LoadPendingSpecimensAsync();
+        if (r.Succeeded)
+        {
+            _acceptedSpecimen = r.Value;
+            await LoadPendingSpecimensAsync();
+            await OfferTestingAsync(r.Value?.AccessionNumber);
+        }
+    }
+
+    // The accepted tube, offered to the patient's waiting orders it suits.
+    private SpecimenDto? _acceptedSpecimen;
+
+    private async Task OnWaitingOrdersLinkedAsync((string Message, bool Succeeded) outcome)
+    {
+        _fb = outcome.Succeeded ? Feedback.Succeed(outcome.Message) : Feedback.Fail(outcome.Message);
+        await LoadAsync();
     }
 
     private async Task RejectPendingAsync(long specimenId)
     {
         _busy = true;
-        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason);
+        var rejecting = _pendingSpecimens.FirstOrDefault(p => p.SpecimenId == specimenId);
+        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason, _rejectComment);
         _busy = false;
         _fb = r.ToFeedback("Specimen rejected.");
         if (r.Succeeded)
         {
+            _rejectedTube = rejecting;
             _rejectingSpecimenId = null;
             _rejectReason = string.Empty;
+            _rejectComment = string.Empty;
             await LoadPendingSpecimensAsync();
         }
+    }
+
+    // After a tube is accepted its tests are the next work: reload the list so the count is current.
+    private async Task OfferTestingAsync(string? accession)
+    {
+        _acceptedTube = string.IsNullOrWhiteSpace(accession) ? null : TestWorklistView.NormalizeTube(accession);
+        if (_acceptedTube is not null)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private void StartTesting(string accession)
+    {
+        _tab = "tests";
+        _show = ShowAll;
+        _acceptedTube = null;
+        _acceptedSpecimen = null;
+        ShowTube(accession);
+    }
+
+    // A scanner ends with Enter: show that tube's tests and open the first one that can take a result.
+    private void OnTubeScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_tubeScan))
+        {
+            return;
+        }
+
+        ShowTube(_tubeScan);
+        _tubeScan = string.Empty;
+    }
+
+    private void ShowTube(string accession)
+    {
+        _tube = TestWorklistView.NormalizeTube(accession);
+        var first = TestWorklistView.FirstToWork(ShownItems);
+        _expandedLineId = first?.OrderLineId;
+        _fb = first is null
+            ? null
+            : Feedback.Succeed($"Tube {TestWorklistView.TubeLabel(_items, _tube)}: {ShownItems.Count} {(ShownItems.Count == 1 ? "test" : "tests")}. Opened {first.TestName}.");
+    }
+
+    private void ClearTube()
+    {
+        _tube = string.Empty;
+        _expandedLineId = null;
     }
 
     private void ToggleEntry(long orderLineId) =>
@@ -478,20 +966,19 @@
     private async Task OnResultSaved()
     {
         var savedLineId = _expandedLineId;
-        var previousOrder = _items.Select(i => i.OrderLineId).ToList();
+        var savedItem = _items.FirstOrDefault(i => i.OrderLineId == savedLineId);
+        // Follow the rows as shown, so with a tube scanned the next test is on the same tube.
+        var previousOrder = ShownItems.Select(i => i.OrderLineId).ToList();
         _expandedLineId = null;
         await LoadAsync();
 
         // Open the next test below the one just saved, so the bench can key results row after row
         // without an extra click each time. Rows that cannot take a result yet are skipped.
-        var next = savedLineId is long savedId
-            ? previousOrder
-                .SkipWhile(id => id != savedId)
-                .Skip(1)
-                .Select(id => _items.FirstOrDefault(i => i.OrderLineId == id))
-                .FirstOrDefault(i => i is { CanEnterResults: true, NeedsSpecimenLink: false })
-            : null;
+        var next = TestWorklistView.NextToEnter(savedItem, previousOrder, _items);
         _expandedLineId = next?.OrderLineId;
+
+        // The tube's last line is done and the tube was never put away: offer to store it.
+        _finishedTube = TestWorklistView.TubeFinished(savedItem, _items) ?? _finishedTube;
 
         // The row's own confirmation disappears when it collapses, so confirm at page level.
         if (_fb is null || _fb.Success)

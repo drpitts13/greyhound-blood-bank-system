@@ -1,0 +1,65 @@
+using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
+
+namespace BloodBankLIS.Application.Tests;
+
+// TEST-BB-503: the chart header shows the latest open visit, counts other open visits, and describes the visit with
+// only what is recorded.
+public class CurrentVisitTests
+{
+    private static readonly DateTime T = new(2026, 11, 6, 8, 0, 0, DateTimeKind.Utc);
+
+    private static EncounterDto Visit(long id, int hoursAgo, EncounterStatus status = EncounterStatus.Active, bool discharged = false,
+        EncounterType type = EncounterType.Inpatient, string? location = "ICU 4", string? attending = "Dr. Smith") =>
+        new(id, 1, $"V{id}", null, type, status, T.AddHours(-hoursAgo), discharged ? T : null, null, attending, "ED", location,
+            null, null, null, null, T, "test");
+
+    [Fact]
+    public void Picks_TheLatestOpenVisit_AndCountsTheOthers()
+    {
+        var (visit, others) = CurrentVisit.For([Visit(1, 48), Visit(2, 5), Visit(3, 1, discharged: true), Visit(4, 2, EncounterStatus.Cancelled)]);
+        Assert.Equal(2, visit!.Id);
+        Assert.Equal(1, others);
+
+        var (none, zero) = CurrentVisit.For([Visit(3, 1, EncounterStatus.Discharged, discharged: true)]);
+        Assert.Null(none);
+        Assert.Equal(0, zero);
+    }
+
+    [Fact]
+    public void Describe_UsesOnlyWhatIsRecorded()
+    {
+        Assert.Equal("Inpatient · ICU 4 · Attending Dr. Smith", CurrentVisit.Describe(Visit(1, 1)));
+        Assert.Equal("ED", CurrentVisit.Describe(Visit(1, 1, type: EncounterType.Unknown, location: null, attending: " ")));
+    }
+
+    // TEST-BB-505: stored visits are chosen the same way; "where" leaves out the attending and what is not recorded.
+    [Fact]
+    public void StoredVisits_PickTheSameVisit_AndSayWhereThePatientIs()
+    {
+        var older = new Encounter { Id = 1, VisitNumber = "V1", Status = EncounterStatus.Active, AdmitUtc = T.AddDays(-2), EncounterType = EncounterType.Inpatient, AdmissionLocation = "ED", AttendingProvider = "Dr. Smith" };
+        var newer = new Encounter { Id = 2, VisitNumber = "V2", Status = EncounterStatus.Active, AdmitUtc = T.AddHours(-1), EncounterType = EncounterType.Unknown, CurrentLocation = " " };
+        var (visit, others) = CurrentVisit.For([older, newer]);
+        Assert.Same(newer, visit);
+        Assert.Equal(1, others);
+
+        Assert.Equal("Inpatient · ED", CurrentVisit.Where(older));
+        Assert.Equal(string.Empty, CurrentVisit.Where(newer));
+    }
+
+    // TEST-BB-515: a new tube starts on the only open visit; with several open, or none, nothing is chosen. Choices leave
+    // out cancelled visits and list open ones first; each reads with its state.
+    [Fact]
+    public void NewTube_StartsOnTheOnlyOpenVisit_AndListsChoicesOpenFirst()
+    {
+        Assert.Equal(2, CurrentVisit.DefaultForNewTube([Visit(1, 48, discharged: true), Visit(2, 5)]));
+        Assert.Null(CurrentVisit.DefaultForNewTube([Visit(1, 48), Visit(2, 5)]));
+        Assert.Null(CurrentVisit.DefaultForNewTube([Visit(1, 48, EncounterStatus.Discharged, discharged: true)]));
+
+        var choices = CurrentVisit.ChoicesForNewTube([Visit(1, 48, discharged: true), Visit(2, 5), Visit(3, 1, EncounterStatus.Cancelled)]);
+        Assert.Equal([2L, 1L], choices.Select(v => v.Id));
+        Assert.Equal("V2 · Inpatient · ICU 4 · open", CurrentVisit.ChoiceLabel(choices[0]));
+        Assert.Equal($"V1 · Inpatient · ICU 4 · discharged {T:yyyy-MM-dd}", CurrentVisit.ChoiceLabel(choices[1]));
+    }
+}

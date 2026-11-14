@@ -1,0 +1,159 @@
+@page "/inventory/minimum-stock"
+@* Old address, kept so links in alerts raised before the rename still open this page. *@
+@page "/inventory/par"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject IJSRuntime Js
+
+<PageTitle>Minimum stock &middot; HemoCore</PageTitle>
+
+<h1>Minimum stock</h1>
+<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. <strong>Open orders</strong> counts product orders for that product still waiting for a unit (any ABO; each wants at least one). Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
+<Outcome Value="_feedback" />
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>On hand</h3></div>
+    @if (_rows.Count == 0)
+    {
+        <div class="muted">No minimum stock levels are configured.</div>
+    }
+    else
+    {
+        @if (ShortCount > 0)
+        {
+            <p class="text-error" style="margin:0 0 .5rem;">
+                @ShortCount below minimum.
+                @if (Session.Has(PermissionCodes.InventoryReceive))
+                {
+                    <a class="btn btn-secondary btn-sm" style="margin-left:.5rem;" href="/inventory/orders">Order the shortfall</a>
+                }
+            </p>
+        }
+        <div class="table-scroll">
+        <table class="bb">
+            <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th title="Units on submitted supplier orders that have not arrived">On order</th><th title="Open product orders for this product, any ABO, still waiting for a unit">Open orders</th><th></th></tr></thead>
+            <tbody>
+                @* Shortages first, largest first, so what needs ordering is at the top. *@
+                @foreach (var row in _rows.OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo))
+                {
+                    <tr class="@(row.Shortfall > 0 ? "row-urgent" : null)">
+                        <td class="mono">@row.ProductCode</td>
+                        <td>@ProductName(row.ProductTypeId)</td>
+                        <td>@(row.Abo?.ToString() ?? "Any")</td>
+                        <td><a href="@OnHandUrl(row)" title="Show these units in Inventory">@row.OnHand</a></td>
+                        <td>@row.MinimumAvailable</td>
+                        <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
+                        <td data-on-order>
+                            @(row.OnOrder > 0 ? row.OnOrder.ToString() : "—")
+                            @if (row.OnOrderOverdue > 0)
+                            {
+                                <a class="badge badge-red" href="/inventory/orders" title="A submitted order is past its arrival time; chase the supplier" data-order-overdue>@row.OnOrderOverdue overdue</a>
+                            }
+                            @if (row.Shortfall > 0 && row.StillToOrder == 0)
+                            {
+                                <span class="badge badge-blue" title="The shortage is covered by submitted orders; receive them when they arrive">Covered by orders</span>
+                            }
+                            else if (row.Shortfall > 0 && row.OnOrder > 0)
+                            {
+                                <span class="badge badge-amber" title="Submitted orders cover part of the shortage">@row.StillToOrder still to order</span>
+                            }
+                        </td>
+                        <td>
+                            @(row.OpenOrders > 0 ? row.OpenOrders.ToString() : "—")
+                            @if (row.OpenOrdersExceedOnHand)
+                            {
+                                <span class="badge badge-amber" title="More open orders for this product than units on hand; each order wants at least one unit" data-orders-exceed>More orders than on hand</span>
+                            }
+                        </td>
+                        <td class="right">
+                            @if (Session.Has(PermissionCodes.AdminConfigEdit))
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => EditRow(row)">Change</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+</div>
+
+@if (Session.Has(PermissionCodes.AdminConfigEdit))
+{
+    <div class="bb-card" id="minimum-stock-form">
+        <div class="bb-card-title"><h3>Set a minimum</h3></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Product</label>
+                <select @bind="_productId">
+                    <option value="0">Select</option>
+                    @foreach (var product in _products)
+                    {
+                        <option value="@product.Id">@ProductTypeLabel.ForChoice(product.Id, product.ProductCode, product.Name)</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>ABO</label>
+                <select @bind="_abo">
+                    <option value="">Any</option>
+                    @foreach (var abo in Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Unknown))
+                    {
+                        <option value="@abo">@Ui.EnumText(abo)</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Minimum available</label><input type="number" min="0" @bind="_minimum" /></div>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="SaveAsync">Save minimum</button>
+    </div>
+}
+
+@code {
+    private List<MinimumStockRowDto> _rows = new();
+
+    // The same search the board counts with (Available, product, ABO when set), so the number opens its units.
+    private static string OnHandUrl(MinimumStockRowDto row) =>
+        $"/inventory?productTypeId={row.ProductTypeId}&status={UnitStatus.Available}" + (row.Abo is { } abo ? $"&abo={abo}" : "");
+    private List<ProductTypeDto> _products = new();
+    private Feedback? _feedback;
+    private long _productId;
+    private string _abo = string.Empty;
+    private int _minimum = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var products = await Api.GetProductTypesAsync();
+        if (products.Succeeded) _products = products.Value ?? new();
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        var rows = await Api.GetMinimumStockAsync();
+        if (rows.Succeeded) _rows = rows.Value ?? new();
+    }
+
+    private int ShortCount => _rows.Count(r => r.Shortfall > 0);
+
+    private string ProductName(long productTypeId) =>
+        _products.FirstOrDefault(p => p.Id == productTypeId)?.Name ?? "—";
+
+    /// <summary>Prefill the form from a row, so changing a minimum does not mean re-picking product and ABO.</summary>
+    private async Task EditRow(MinimumStockRowDto row)
+    {
+        _productId = row.ProductTypeId;
+        _abo = row.Abo?.ToString() ?? string.Empty;
+        _minimum = row.MinimumAvailable;
+        await Js.ScrollIntoViewAsync("minimum-stock-form");
+    }
+
+    private async Task SaveAsync()
+    {
+        AboGroup? abo = Enum.TryParse<AboGroup>(_abo, out var parsed) ? parsed : null;
+        var saved = await Api.SaveMinimumStockAsync(new SaveMinimumStockRequest(_productId, abo, _minimum));
+        _feedback = saved.ToFeedback("Minimum saved.");
+        if (saved.Succeeded) await ReloadAsync();
+    }
+}

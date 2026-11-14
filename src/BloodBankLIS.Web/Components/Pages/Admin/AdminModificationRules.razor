@@ -40,6 +40,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Modification Code</th><th>Source Product Code</th><th>Type</th><th>Target Product Code</th><th>Offset</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -67,6 +68,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -85,7 +87,7 @@
                 </select>
             </div>
             <div class="field"><label>Modification type</label>
-                <select @bind="_editing.ModificationType">@foreach (var t in Enum.GetValues<ModificationType>()) { <option value="@t">@t</option> }</select>
+                <select @bind="_editing.ModificationType">@foreach (var t in Enum.GetValues<ModificationType>()) { <option value="@t">@Ui.EnumText(t)</option> }</select>
             </div>
             <div class="field"><label>Target product</label>
                 <select @bind="_editing.TargetProductTypeId">

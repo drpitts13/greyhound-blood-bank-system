@@ -1,4 +1,5 @@
-@inject UserSession Session
+﻿@inject UserSession Session
+@inject BloodBankApiClient Api
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
@@ -24,6 +25,7 @@
                     </div>
                 }
             </p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
                 <tbody>
@@ -41,6 +43,7 @@
                     }
                 </tbody>
             </table>
+            </div>
             @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
             {
                 <div class="flex gap" style="margin-top:.85rem;">
@@ -58,20 +61,60 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Type</th><th>Subgroup</th><th>Source</th><th>Recorded</th></tr></thead>
                 <tbody>
                     @foreach (var t in TypeHistory)
                     {
-                        <tr>
-                            <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong>@if (t.IsCurrent) { <span class="sub">Current</span> }</td>
+                        <tr class="@(t.Invalidated ? "row-muted" : "")">
+                            <td>
+                                <strong style="@(t.Invalidated ? "text-decoration:line-through;" : "")">@Ui.BloodType(t.Abo, t.RhD)</strong>
+                                @if (t.IsCurrent) { <span class="sub">Current</span> }
+                                @if (t.Invalidated) { <span class="badge badge-red">Retired</span> }
+                            </td>
                             <td>@t.AboSubgroup</td>
-                            <td>@t.Source</td>
-                            <td>@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @(t.SourceLabel ?? t.Source.ToString())
+                                @if (t.Invalidated && !string.IsNullOrWhiteSpace(t.Reason)) { <span class="sub">@t.Reason</span> }
+                                @if (!t.CountsAsDetermination && !t.Invalidated) { <span class="sub">Does not count as an ABO/Rh determination</span> }
+                            </td>
+                            <td>@t.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub">@t.RecordedBy</span></td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
+        }
+
+        @* OCD-069: a weak D or partial D is a trait of the patient, kept across new typings; Rh negative for RhIG. *@
+        <div class="sub" style="margin-top:.5rem;" data-rhd-variant-line>
+            D variant: @VariantLabel(RhDVariant)
+            @if (Session.Has(PermissionCodes.ImmunoRecord) && !_editingVariant)
+            {
+                <button class="btn btn-ghost btn-sm" @onclick="() => { _editingVariant = true; _variant = RhDVariant; _variantReason = null; _variantFb = null; }" data-rhd-variant-change>Change</button>
+            }
+        </div>
+        @if (_editingVariant)
+        {
+            <div class="form-row" data-rhd-variant-form>
+                <div class="field"><label>D variant</label>
+                    <select @bind="_variant" data-rhd-variant-select>
+                        <option value="@RhDVariant.None">None</option>
+                        <option value="@RhDVariant.WeakD">Weak D</option>
+                        <option value="@RhDVariant.PartialD">Partial D</option>
+                    </select>
+                </div>
+                <div class="field" style="flex:2;"><label>Reason</label>
+                    <input @bind="_variantReason" @bind:event="oninput" maxlength="500" placeholder="e.g. Weak D on IAT, tube 2026-11-10" data-rhd-variant-reason />
+                </div>
+                <div class="field" style="align-self:end;">
+                    <button class="btn btn-primary btn-sm" disabled="@(Busy || _variant == RhDVariant || string.IsNullOrWhiteSpace(_variantReason))" @onclick="SaveVariantAsync" data-rhd-variant-save>Save</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="() => _editingVariant = false">Cancel</button>
+                </div>
+            </div>
+            <Outcome Value="_variantFb" />
+            <p class="muted">Weak D and partial D are treated as Rh negative when the RhIG evaluation suggests a decision (OCD-069).</p>
         }
 
         @if (Session.Has(PermissionCodes.ImmunoOverride))
@@ -97,10 +140,10 @@
             <Outcome Value="TypeFeedback" />
             <div class="form-row">
                 <div class="field"><label>ABO</label>
-                    <select @bind="TypeAbo" @bind:after="() => TypeAboChanged.InvokeAsync(TypeAbo)">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+                    <select @bind="TypeAbo" @bind:after="() => TypeAboChanged.InvokeAsync(TypeAbo)"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
                 </div>
                 <div class="field"><label>Rh(D)</label>
-                    <select @bind="TypeRh" @bind:after="() => TypeRhChanged.InvokeAsync(TypeRh)">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+                    <select @bind="TypeRh" @bind:after="() => TypeRhChanged.InvokeAsync(TypeRh)"><option value="">— Select —</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
                 </div>
                 @if (TypeAbo is AboGroup.A or AboGroup.AB)
                 {
@@ -114,6 +157,22 @@
                 }
             </div>
             <div class="field"><label>Reason (required)</label><input @bind="TypeReason" @bind:after="() => TypeReasonChanged.InvokeAsync(TypeReason)" /></div>
+            <div class="form-row">
+                <div class="field"><label>Documented source</label>
+                    <select @bind="TypeDocumentation" @bind:after="() => TypeDocumentationChanged.InvokeAsync(TypeDocumentation)">
+                        <option value="@ManualTypeDocumentation.NotDocumented">Not documented</option>
+                        <option value="@ManualTypeDocumentation.PreviousBloodBankSystem">Previous blood bank system</option>
+                        <option value="@ManualTypeDocumentation.OutsideSource">Documented outside source</option>
+                    </select>
+                </div>
+                @if (TypeDocumentation != ManualTypeDocumentation.NotDocumented)
+                {
+                    <div class="field" style="flex:1;"><label>Record or report (required)</label>
+                        <input @bind="TypeDocumentationReference" @bind:after="() => TypeDocumentationReferenceChanged.InvokeAsync(TypeDocumentationReference)" placeholder="e.g. legacy LIS record, or outside lab, date, report number" />
+                    </div>
+                }
+            </div>
+            <p class="muted">Only a type documented from a previous blood bank system or an outside source counts as one of the two ABO/Rh determinations needed for red-cell issue. An undocumented type is recorded but does not count.</p>
             <button class="btn btn-danger" disabled="@Busy" @onclick="OnRecordType">Record blood type</button>
         }
     </div>
@@ -136,29 +195,32 @@
         }
         else
         {
-            <table class="bb">
-                <thead><tr><th>Requirement</th><th>Level</th><th>Antigen</th><th>Reason</th><th>Effective</th><th>End date</th><th>Active</th><th></th></tr></thead>
-                <tbody>
-                    @foreach (var r in SpecialRequirements)
-                    {
-                        <tr>
-                            <td>@(r.Name ?? r.Code ?? r.RequirementType.ToString())</td>
-                            <td>@r.Level</td>
-                            <td class="mono">@r.AntigenCode</td>
-                            <td>@r.Reason</td>
-                            <td class="nowrap">@r.EffectiveUtc.ToString("yyyy-MM-dd")</td>
-                            <td class="nowrap">@(r.ExpiresUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
-                            <td>@(r.IsClinicallyActive ? "Yes" : "No")</td>
-                            <td class="right">
-                                @if (r.IsClinicallyActive && Session.Has(PermissionCodes.ImmunoOverride))
-                                {
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateSr.InvokeAsync(r)">End date</button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            @* This card is a narrow column on the Overview, so each requirement is a short block rather than a wide table row:
+               the name and antigen, then type and dates, then the reason, with End date on its own line underneath. *@
+            <div class="sr-list">
+                @foreach (var r in SpecialRequirements)
+                {
+                    <div class="sr-item" data-sr-item>
+                        <div class="sr-item-head">
+                            <strong>@SpecialRequirementLabel.Display(r.Name ?? r.Code, r.RequirementType, r.AntigenCode)</strong>
+                            <span class="badge @(r.IsClinicallyActive ? "badge-green" : "badge-gray")">@(r.IsClinicallyActive ? "Active" : "Not active")</span>
+                        </div>
+                        <span class="sub">
+                            @(r.CategoryLabel is { Length: > 0 } category ? category : r.Level?.ToString())
+                            · from @LocalDate(r.EffectiveUtc)@(r.ExpiresUtc is { } endUtc ? $" to {LocalDate(endUtc)}" : "")
+                        </span>
+                        <span class="sub">@r.Reason</span>
+                        @if (r.ReactionInvestigationId is long fromReaction)
+                        {
+                            <span class="sub"><a href="/reactions">From reaction investigation @fromReaction</a></span>
+                        }
+                        @if (r.IsClinicallyActive && Session.Has(PermissionCodes.ImmunoOverride))
+                        {
+                            <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateSr.InvokeAsync(r)" data-sr-end-date>End date</button>
+                        }
+                    </div>
+                }
+            </div>
         }
         @if (SrDeactivateId is not null)
         {
@@ -175,17 +237,32 @@
             <div class="form-row">
                 <div class="field"><label>Requirement</label>
                     <select @bind="SrDefinitionId" @bind:after="() => SrDefinitionIdChanged.InvokeAsync(SrDefinitionId)">
-                        @foreach (var d in SrCatalog)
+                        @foreach (var group in SrCatalog.GroupBy(d => d.Category).OrderBy(g => g.Key))
                         {
-                            <option value="@d.Id">@d.Name (@d.Level)</option>
+                            <optgroup label="@SpecialRequirementLabel.Category(group.Key)">
+                                @foreach (var d in group)
+                                {
+                                    <option value="@d.Id">@d.ChoiceLabel</option>
+                                }
+                            </optgroup>
                         }
                     </select>
                 </div>
-                @if (SelectedSrDefinition?.EnforcementKind == SpecialRequirementEnforcementKind.RequireAntigenNegative)
+                @if (SelectedSrDefinition is { EnforcementKind: SpecialRequirementEnforcementKind.RequireAntigenNegative } antigenDef
+                     && string.IsNullOrWhiteSpace(antigenDef.AntigenCode))
                 {
                     <div class="field"><label>Antigen code</label><input @bind="SrAntigen" @bind:after="() => SrAntigenChanged.InvokeAsync(SrAntigen)" placeholder="Required for antigen-negative" /></div>
                 }
+                <div class="field"><label>Start date</label><input type="date" @bind="SrStartDate" @bind:after="() => SrStartDateChanged.InvokeAsync(SrStartDate)" /></div>
                 <div class="field"><label>End date (optional)</label><input type="date" @bind="SrEndDate" @bind:after="() => SrEndDateChanged.InvokeAsync(SrEndDate)" /></div>
+                @if (SelectedSrDefinition?.Category == SpecialRequirementCategory.Informational)
+                {
+                    <div class="muted" style="grid-column:1/-1;">Shown as a banner on the chart and the issue desk: @SelectedSrDefinition.Instruction. Not enforced.</div>
+                }
+                else if (SelectedSrDefinition is { } chosen && chosen.Category is SpecialRequirementCategory.UnitTyping or SpecialRequirementCategory.UnitModification)
+                {
+                    <div class="muted" style="grid-column:1/-1;">Enforced for @(SpecialRequirementLabel.UnitCategory(chosen.Category, chosen.ComponentClass).ToLowerInvariant() is "all categories" ? "every unit" : SpecialRequirementLabel.UnitCategory(chosen.Category, chosen.ComponentClass) + " units") at selection and issue. Applies from the start date; no longer applies on and after the end date.</div>
+                }
                 <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="SrReason" @bind:after="() => SrReasonChanged.InvokeAsync(SrReason)" /></div>
             </div>
             <button class="btn btn-primary" disabled="@Busy" @onclick="OnAddSr">Add</button>
@@ -279,16 +356,48 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Specificity</th><th>Status</th><th>Active</th><th></th></tr></thead>
+                <thead><tr><th>Specificity</th><th>Status</th><th>Source</th><th>Active</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var a in AntibodyHistory)
                     {
                         <tr>
                             <td><strong>@a.AntibodySpecificity</strong></td>
-                            <td>@a.Status</td>
+                            <td>@Ui.EnumText(a.Status)</td>
+                            <td>
+                                @if (a.SourceLabel is { } source)
+                                {
+                                    <span class="badge badge-blue" data-antibody-outside>Outside report</span> <span class="sub">@source</span>
+                                    @if (a.ReportDocumentation is { } documented)
+                                    {
+                                        <span class="sub" data-antibody-documented>@(a.ReportKind == OutsideReportKind.Phone ? $"Phone report from {documented}, taken by {a.RecordedBy}" : $"Copy kept: {documented}")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="sub">Report not documented</span>
+                                    }
+                                    @* OCD-073: counts for selection now; this laboratory confirms it by its own testing. *@
+                                    @if (a.ConfirmedUtc is { } confirmed)
+                                    {
+                                        <span class="sub" data-antibody-confirmed>Confirmed here @confirmed.ToLocalTime().ToString("yyyy-MM-dd") by @a.ConfirmedBy: @a.ConfirmationNote</span>
+                                    }
+                                    else if (a.NeedsConfirmation)
+                                    {
+                                        <span class="badge badge-amber" data-antibody-unconfirmed>Not yet confirmed here</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="sub">@(a.PostedByCompletedWorkup ? "Antibody ID here" : "Recorded here")</span>
+                                }
+                            </td>
                             <td>@(a.IsActive ? "Yes" : "No")</td>
                             <td class="right">
+                                @if (a.NeedsConfirmation && Session.Has(PermissionCodes.ImmunoRecord))
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginConfirm(a.Id)" data-antibody-confirm="@a.Id">Confirm</button>
+                                }
                                 @if (a.IsActive && Session.Has(PermissionCodes.ImmunoOverride) && OpenAbidWorkups.Count == 0)
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateAb.InvokeAsync(a)">Deactivate</button>
@@ -298,6 +407,19 @@
                     }
                 </tbody>
             </table>
+            </div>
+        }
+
+        @if (_confirmId is long confirmId)
+        {
+            <div class="alert alert-info" data-antibody-confirm-form>
+                <div class="field"><label>Testing here that confirmed it</label>
+                    <input @bind="_confirmNote" @bind:event="oninput" maxlength="@OutsideAntibodyReportRule.MaxDocumentationLength" placeholder="e.g. Panel 2026-11-10, antibody ID workup #12" data-antibody-confirm-note />
+                </div>
+                <Outcome Value="_confirmFb" />
+                <button class="btn btn-primary btn-sm" disabled="@(Busy || _confirming || string.IsNullOrWhiteSpace(_confirmNote))" @onclick="() => ConfirmAsync(confirmId)" data-antibody-confirm-save>Confirm here</button>
+                <button class="btn btn-secondary btn-sm" @onclick="() => _confirmId = null">Cancel</button>
+            </div>
         }
 
         @if (DeactivateId is not null && OpenAbidWorkups.Count == 0)
@@ -328,10 +450,36 @@
                                         Placeholder="Select from catalog" />
                 </div>
                 <div class="field"><label>Status</label>
-                    <select @bind="AbStatus" @bind:after="() => AbStatusChanged.InvokeAsync(AbStatus)">@foreach (var s in Enum.GetValues<AntibodyStatus>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="AbStatus" @bind:after="() => AbStatusChanged.InvokeAsync(AbStatus)">@foreach (var s in Enum.GetValues<AntibodyStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                 </div>
             </div>
             <div class="field"><label>Comment</label><input @bind="AbComment" @bind:after="() => AbCommentChanged.InvokeAsync(AbComment)" /></div>
+            <div class="form-row">
+                <div class="field" style="flex:2;"><label>Reported by another facility (optional)</label>
+                    <input @bind="AbFacility" @bind:after="() => AbFacilityChanged.InvokeAsync(AbFacility)" maxlength="@OutsideAntibodyReportRule.MaxFacilityLength"
+                           placeholder="e.g. St. Mary's Hospital, from the patient's antibody card" data-antibody-facility />
+                </div>
+                <div class="field"><label>Identified there on</label>
+                    <input type="date" @bind="AbIdentifiedOn" @bind:after="() => AbIdentifiedOnChanged.InvokeAsync(AbIdentifiedOn)" disabled="@string.IsNullOrWhiteSpace(AbFacility)" data-antibody-identified-on />
+                </div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(AbFacility))
+            {
+                @* OCD-073: every outside report is documented. *@
+                <div class="form-row" data-antibody-report>
+                    <div class="field"><label>Documented by</label>
+                        <select @bind="AbReportKind" @bind:after="() => AbReportKindChanged.InvokeAsync(AbReportKind)" data-antibody-report-kind>
+                            <option value="">Choose…</option>
+                            <option value="@OutsideReportKind.Copy">A copy kept (card, letter)</option>
+                            <option value="@OutsideReportKind.Phone">A phone report</option>
+                        </select>
+                    </div>
+                    <div class="field" style="flex:2;"><label>@(AbReportKind == OutsideReportKind.Phone ? "Who called (name, role, number)" : "What the copy is and where it is kept")</label>
+                        <input @bind="AbReportDocumentation" @bind:after="() => AbReportDocumentationChanged.InvokeAsync(AbReportDocumentation)" maxlength="@OutsideAntibodyReportRule.MaxDocumentationLength" data-antibody-report-detail />
+                    </div>
+                </div>
+                <p class="muted">An outside report counts for product selection at once and shows as not yet confirmed here until this laboratory confirms it.</p>
+            }
             @if (OpenAbidWorkups.Count > 0)
             {
                 <p>Complete or void the open workup before adding antibody history from this card.</p>
@@ -348,6 +496,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Antigen</th><th>Code</th><th>Result</th><th>Source</th><th>Tested</th></tr></thead>
                 <tbody>
@@ -358,11 +507,12 @@
                             <td class="mono">@p.AntigenCode</td>
                             <td>@p.Result</td>
                             <td>@(p.SourceResultId is null ? "Chart" : "Verified result")</td>
-                            <td class="nowrap">@(p.TestedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td class="nowrap">@(p.TestedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
         @if (Session.Has(PermissionCodes.ImmunoRecord))
         {
@@ -396,7 +546,7 @@
                                         Placeholder="Select antigen" />
                 </div>
                 <div class="field"><label>Result</label>
-                    <select @bind="AgResult" @bind:after="() => AgResultChanged.InvokeAsync(AgResult)">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
+                    <select @bind="AgResult" @bind:after="() => AgResultChanged.InvokeAsync(AgResult)">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
                 </div>
             </div>
             <p class="muted">Result-sourced phenotypes stay in place. Changing one requires immuno.override.</p>
@@ -424,14 +574,19 @@
     [Parameter] public Feedback? SrFeedback { get; set; }
     [Parameter] public Feedback? AntibodyFeedback { get; set; }
     [Parameter] public Feedback? AntigenFeedback { get; set; }
-    [Parameter] public AboGroup TypeAbo { get; set; } = AboGroup.O;
-    [Parameter] public EventCallback<AboGroup> TypeAboChanged { get; set; }
-    [Parameter] public RhType TypeRh { get; set; } = RhType.Positive;
-    [Parameter] public EventCallback<RhType> TypeRhChanged { get; set; }
+    // A recorded type starts unchosen: never assumed O / Positive (Cycle 593).
+    [Parameter] public AboGroup? TypeAbo { get; set; }
+    [Parameter] public EventCallback<AboGroup?> TypeAboChanged { get; set; }
+    [Parameter] public RhType? TypeRh { get; set; }
+    [Parameter] public EventCallback<RhType?> TypeRhChanged { get; set; }
     [Parameter] public AboSubgroup TypeSubgroup { get; set; } = AboSubgroup.Unknown;
     [Parameter] public EventCallback<AboSubgroup> TypeSubgroupChanged { get; set; }
     [Parameter] public string TypeReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> TypeReasonChanged { get; set; }
+    [Parameter] public ManualTypeDocumentation TypeDocumentation { get; set; } = ManualTypeDocumentation.NotDocumented;
+    [Parameter] public EventCallback<ManualTypeDocumentation> TypeDocumentationChanged { get; set; }
+    [Parameter] public string TypeDocumentationReference { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> TypeDocumentationReferenceChanged { get; set; }
     [Parameter] public long? SrDeactivateId { get; set; }
     [Parameter] public string SrDeactivateReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> SrDeactivateReasonChanged { get; set; }
@@ -439,6 +594,12 @@
     [Parameter] public EventCallback<long> SrDefinitionIdChanged { get; set; }
     [Parameter] public string? SrAntigen { get; set; }
     [Parameter] public EventCallback<string?> SrAntigenChanged { get; set; }
+    // Facility calendar date of a stored instant; an end date shows the first day the requirement no longer applies.
+    private static string LocalDate(DateTime utc) =>
+        DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime().ToString("yyyy-MM-dd");
+
+    [Parameter] public DateTime? SrStartDate { get; set; }
+    [Parameter] public EventCallback<DateTime?> SrStartDateChanged { get; set; }
     [Parameter] public DateTime? SrEndDate { get; set; }
     [Parameter] public EventCallback<DateTime?> SrEndDateChanged { get; set; }
     [Parameter] public string SrReason { get; set; } = string.Empty;
@@ -454,6 +615,74 @@
     [Parameter] public EventCallback<AntibodyStatus> AbStatusChanged { get; set; }
     [Parameter] public string? AbComment { get; set; }
     [Parameter] public EventCallback<string?> AbCommentChanged { get; set; }
+    [Parameter] public OutsideReportKind? AbReportKind { get; set; }
+    [Parameter] public EventCallback<OutsideReportKind?> AbReportKindChanged { get; set; }
+    [Parameter] public string? AbReportDocumentation { get; set; }
+    [Parameter] public EventCallback<string?> AbReportDocumentationChanged { get; set; }
+    /// <summary>Raised after an outside report is confirmed, so the page reloads the antibody history.</summary>
+    [Parameter] public EventCallback OnAntibodyConfirmed { get; set; }
+
+    /// <summary>The weak D or partial D recorded for the patient (OCD-069).</summary>
+    [Parameter] public RhDVariant RhDVariant { get; set; }
+
+    private bool _editingVariant;
+    private RhDVariant _variant;
+    private string? _variantReason;
+    private Feedback? _variantFb;
+
+    private static string VariantLabel(RhDVariant v) => v switch
+    {
+        RhDVariant.WeakD => "weak D (treated as Rh negative for RhIG)",
+        RhDVariant.PartialD => "partial D (treated as Rh negative for RhIG)",
+        _ => "none recorded"
+    };
+
+    private async Task SaveVariantAsync()
+    {
+        var r = await Api.SetRhDVariantAsync(PatientId, _variant, _variantReason?.Trim() ?? string.Empty);
+        if (r.Succeeded)
+        {
+            _editingVariant = false;
+            await OnAntibodyConfirmed.InvokeAsync();
+        }
+        else
+        {
+            _variantFb = r.ToFeedback();
+        }
+    }
+
+    private long? _confirmId;
+    private string? _confirmNote;
+    private bool _confirming;
+    private Feedback? _confirmFb;
+
+    private void BeginConfirm(long id)
+    {
+        _confirmId = id;
+        _confirmNote = null;
+        _confirmFb = null;
+    }
+
+    private async Task ConfirmAsync(long id)
+    {
+        _confirming = true;
+        var r = await Api.ConfirmOutsideAntibodyAsync(id, _confirmNote?.Trim() ?? string.Empty);
+        _confirming = false;
+        if (r.Succeeded)
+        {
+            _confirmId = null;
+            await OnAntibodyConfirmed.InvokeAsync();
+        }
+        else
+        {
+            _confirmFb = r.ToFeedback();
+        }
+    }
+
+    [Parameter] public string? AbFacility { get; set; }
+    [Parameter] public EventCallback<string?> AbFacilityChanged { get; set; }
+    [Parameter] public DateOnly? AbIdentifiedOn { get; set; }
+    [Parameter] public EventCallback<DateOnly?> AbIdentifiedOnChanged { get; set; }
     [Parameter] public long? AgCatalogId { get; set; }
     [Parameter] public EventCallback<long?> AgCatalogIdChanged { get; set; }
     [Parameter] public AntigenResult AgResult { get; set; } = AntigenResult.Negative;

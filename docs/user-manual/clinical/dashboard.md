@@ -16,18 +16,56 @@ The dashboard is the first screen after you sign in. It is titled **Transfusion 
 
 **Your work** is the first row after you sign in. Each card is a queue you can already open, and the card opens that queue:
 
-- Ready to issue, second ABO/Rh, retrospective crossmatch, and in transit, when you can issue.
-- Outstanding issued units and final disposition, when you can issue, return, or document transfusion.
-- Pending tests, when you can enter results. Pending specimens, when you can accession.
-- Reaction investigations, when you can investigate reactions. A closed case is not in that count. A case that still needs fatality follow-up is named on the card, including after the investigation is closed.
-- Supervisor queue, when you can review antibody identification, verify results, or release quarantine.
-- Shift handoff, when you can read the audit trail. An open packet says it needs acknowledgment.
+- Near expiry, when you handle inventory or issue: units close to their expiration. The card notes how many are reserved for a patient; issue those first or reserve a replacement. It opens the Near expiry board in Inventory.
+- Recalled units to pull, when you can discard or release units: recalled units still recorded as Recalled, to quarantine or discard. The card says how long the oldest recall has waited and how many were issued when recalled (*on the ward*, returned through Issue & Transfuse). It opens the Recalled board on Inventory. Above zero it needs attention, before Expired on shelf. It is on the Issue desk and Supervisor desk.
+- Expired on shelf, when you can discard units: expired units still recorded on a shelf. The card says how long the oldest has been expired and where they are (the place, or how many places). It opens Discard expired, where you scan each one to discard it. Above zero it needs attention.
+- Below minimum stock, when you handle inventory or issue: products with fewer available units than their minimum, the largest shortfalls named with what is on hand (for example "RBC O: 2 of 6"). It opens Minimum stock. Any shortage needs attention.
+- Ready to issue, second ABO/Rh, retrospective crossmatch, and in transit, when you can issue. The Ready to issue card names how many reserved units need a new crossmatch because theirs has expired, how many expire soon (issue them first or reserve replacements), and how many are past their reservation (issue or release them). The In transit card names units past the arrival window and coolers out that were not checked before they left or were checked with differences. The Second ABO/Rh card names patients with no ABO/Rh ordered yet; those need a separate draw before their reserved units can be issued routinely.
+- Outstanding issued units and final disposition, when you can issue, return, or document transfusion. The Outstanding issued card names transfusions started and not completed within your facility's reminder hours. The Final disposition card names how long its oldest unit has been past the window (for example "oldest 3 d past due"); every unit on it is overdue, so a card with any unit sits under Needs attention.
+- Pending tests, when you can enter results. The card names how many results must be verified before their specimen expires, and how many tests need a new specimen because their tube was rejected. It also names STAT or urgent orders still waiting for a specimen. Results to verify, when you can verify: only the results you can verify now (not your own ABO/Rh entries), naming how many are due before their specimen expires; it opens the worklist on **To verify**. Reagent QC, when you can enter results: the reagent QC worklist, naming failed and overdue daily QC (which puts it under Needs attention); QC waiting for review is in the count. Pending specimens, when you can accession. The card names how many waiting tubes have expired and need rejecting, which puts it under Needs attention.
+- Reaction investigations, when you can investigate reactions. A closed case is not in that count. A case that still needs fatality follow-up is named on the card, including after the investigation is closed. So is an open case whose patient still has units issued or reserved (*with units out or reserved*): check with the physician before another unit goes. The card also names open cases still waiting for their post-transfusion specimen and open cases whose workup tests are not all verified.
+- Supervisor queue, when you can review antibody identification, verify results, or release quarantine. The card names results to verify before their specimen expires, missing or damaged units, and overrides to review.
+- Instrument failures, when you manage instrument interfaces: failed instrument messages nobody has replayed successfully or resolved, naming how many are held and how long the oldest has waited. HL7 errors, when you manage HL7: interface errors still open, naming how long the oldest has waited. HL7 outbound not sent, when you manage HL7: results and charges written for the EHR or billing that have waited more than 15 minutes without going out, naming the oldest and how many wait for an interface to be set up or have spent their retries; it is always under Needs attention when it has any.
+- Open deviations, when you manage deviations: every deviation not yet closed. The card names critical ones, which puts it under Needs attention.
+- Open RhIG evaluations, when you record immunohematology results or verify results: RhIG evaluations not yet completed, and completed candidates with no RhIG given recorded. The card says how many are ready to complete and how many are to give.
+- Antibody workups, when you record or review antibody identification: workups not yet completed or voided. It is on the Bench and Supervisor desks. The card names workups whose patient has units reserved or issued, whose interpretation must be redone after a later change, with a pending ABO/Rh or antigen correction, on a rejected, cancelled or expired specimen, or on a withdrawn or expired lot; any of these puts it under Needs attention. Reviews waiting are also counted on the Supervisor queue.
+- Outside antibodies to confirm, when you record antibody results: antibodies reported by another facility that this laboratory has not confirmed yet. The card says how long the oldest has waited and how many have no documented report, and opens the list on Antibody ID. It is on the Bench and Supervisor desks. Waiting is not overdue: the antibody already counts for product selection.
+- Panel lots to replace, when you enter panel lots or record antibody results: a primary panel or selected-cell lot that expires within 7 days (the reagent lots' warning window) with no later lot of its kind entered to follow it, or no active, unexpired primary panel lot at all (an antibody workup cannot be started without one). It names the soonest and opens Admin › Antibody panel lots, or the Antibody ID worklist for the bench. It is on the Bench and Supervisor desks. A lot expiring with a later lot already entered is shown on those pages but not counted.
+- Equipment checks to do, when you enter results: checks on equipment in service that failed, are overdue, are due today or were never done. It names failed and overdue checks (those need attention) and opens Equipment. It is on the Bench and Supervisor desks.
+- Blood orders to prepare, when you can reserve units: open blood orders whose units are not all reserved yet; the card says how many are rush and how many need a specimen.
+- Tubes due for discard, when you store tubes: stored tubes past your facility's keep-until date, which opens Store tubes with the list. It stays at zero until your facility sets a retention period.
+- Unidentified patients, when you can merge charts: emergency charts registered without identification and not yet merged into the identified patient's chart. Charts open past the facility reminder (24 hours by default) are named with the oldest age, which puts the card under Needs attention; newer charts stay in the count only.
+- Possible duplicates, when you can merge charts: pairs of charts that may be one person. Pairs that carry the same identifier from another system (for example an enterprise id sent by the EHR) are named, which puts the card under Needs attention.
+- Outage still open, when you can issue: a recorded outage nobody has ended. The card names what was down, how long it has been open and the paper issues back-entered in it, and opens Downtime Snapshot, where **End outage** closes it. While an outage is open, every later paper time counts as inside it, so the back-entry check cannot catch a wrong date; an open outage is always under Needs attention. It is on the Issue desk and Supervisor desks.
+- Shift handoff, when you can hand off a shift. An open packet says it needs acknowledgment.
+- Facility settings to enter, when you can edit configuration: settings decided as policy whose values are not entered yet (the RhIG dose settings, the specimen retention days), and active auto-thaw product codes without an open-system or pooled thawed shelf life, named on the card. It opens Facility Policies filtered to them. It is on the Supervisor desk.
 
 A retrospective count names how many items are past their stored due time. An in-transit count names how many units are past the arrival window. Those notes appear only when the number is above zero.
 
 A queue you cannot open is left off the row. A queue that does not load shows an em dash. That is not a zero. Opening a card does not issue, receive, verify, or close anything.
 
-Patients on file, available units, and units in quarantine stay on the next row. Charges waiting for review appear when you can see billing. Use a card or the sidebar to open the queue. The sidebar is the full map: Patient and Lab, Transfusion, Operations, and Administration. **Help** is always present.
+## Focus and what comes first
+
+**Focus** sets which desk the page leads with: **Bench**, **Issue desk**, **Supervisor**, or **Everything**. The first focus comes from your permissions. A user who can work only one desk starts on that desk, and anyone else starts on Everything. Change it with the buttons. The choice is remembered for you in this browser only.
+
+| Focus | Its queues |
+|---|---|
+| Bench | Pending specimens, pending tests, results to verify, reagent QC, second ABO/Rh, supervisor queue |
+| Issue desk | Ready to issue, second ABO/Rh, in transit, outstanding issued, retrospective crossmatch, final disposition, near expiry, expired on shelf, below minimum stock |
+| Supervisor | Supervisor queue, results to verify, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff, open deviations, near expiry, expired on shelf, below minimum stock |
+
+The page is arranged in this order:
+
+1. **Start here**: one link to the most urgent queue. When nothing is urgent, it links to the first focus queue that has work.
+2. **Needs attention**: any queue with an overdue or follow-up note, plus temperature excursions, reaction investigations, instrument failures, HL7 errors, expired units on a shelf, products below minimum stock, and an open shift handoff whenever they are above zero. These show **whatever the focus is**, so changing focus never hides them. The most urgent comes first: temperature excursions, reactions, retrospective crossmatch, in transit, second ABO/Rh with nothing ordered, instrument failures, HL7 errors, shift handoff, then near expiry with reserved units.
+3. **Queues with work**: focus queues above zero, in workflow order.
+4. **Could not load**: any queue whose count failed. It is never counted as clear. Open it to check.
+5. **Clear**: focus queues at zero, as small links.
+6. **Other desks**: queues outside the focus, folded. The heading counts their items.
+
+Every queue you can open is still on the page. Focus changes only the order and grouping.
+
+Patients on file, available units, and units in quarantine stay on the next row. Charges waiting for review appear when you can see billing. Use a card or the sidebar to open the queue. The sidebar is the full map, grouped under headers: Patients and Testing, Inventory, Transfusion, Quality and Review, Reports and Billing, Interfaces, and Administration. Click a header to open or fold it. The header for the screen you are on opens by itself. **Help** is always present at the bottom.
 
 ## Your access
 

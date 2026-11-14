@@ -8,7 +8,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime Js
 
-<PageTitle>Inventory &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Inventory &middot; HemoCore</PageTitle>
 
 <InventoryDeskRibbon Current="@(string.Equals(Board, "retype", StringComparison.OrdinalIgnoreCase) ? InventoryDeskRibbon.Desk.Retype : InventoryDeskRibbon.Desk.Inventory)" />
 
@@ -18,9 +18,17 @@
         @if (Session.Has(PermissionCodes.InventoryReceive))
         {
             <a class="btn btn-primary" href="/inventory/deliveries/new">New delivery</a>
+            <a class="btn btn-secondary" href="/inventory/return-to-supplier" data-return-to-supplier>Return to supplier</a>
+            <a class="btn btn-secondary" href="/inventory/ship-out" data-ship-out>Ship to facility</a>
+        }
+        @if (Session.Has(PermissionCodes.InventoryTransfer))
+        {
+            <a class="btn btn-secondary" href="/inventory/move" data-move-units>Move units</a>
+            <a class="btn btn-secondary" href="/inventory/count" data-stock-count>Stock count</a>
         }
         @if (Session.Has(PermissionCodes.InventoryDiscard))
         {
+            <a class="btn btn-secondary" href="/inventory/discard-expired" data-discard-expired>Discard expired</a>
             <button class="btn btn-secondary" disabled="@_busy" @onclick="ExpireDueAsync">Run expiration sweep</button>
         }
     </div>
@@ -36,6 +44,7 @@
     <button type="button" class="btn @BoardClass("quarantine")" @onclick='() => SelectBoard("quarantine")'>Quarantine</button>
     <button type="button" class="btn @BoardClass("discrepancy")" @onclick='() => SelectBoard("discrepancy")'>Discrepancy</button>
     <button type="button" class="btn @BoardClass("hold")" @onclick='() => SelectBoard("hold")'>Operational hold</button>
+    <button type="button" class="btn @BoardClass("recalled")" @onclick='() => SelectBoard("recalled")' data-board-recalled>Recalled@(_recalledItems.Count > 0 ? $" ({_recalledItems.Count})" : "")</button>
     <button type="button" class="btn @BoardClass("deliveries")" @onclick='() => SelectBoard("deliveries")'>Open deliveries</button>
 </div>
 
@@ -82,9 +91,9 @@
                             <td>@ProductName(row.ProductTypeId)</td>
                             <td class="mono">@(row.ShipmentId ?? "—")</td>
                             <td>@(row.SupplierLabel ?? "—")</td>
-                            <td>@row.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
-                                @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                                @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")
                                 @if (row.IsOutdated)
                                 {
                                     <span class="badge badge-red" title="This unit is outdated and cannot be received. Return it to the supplier.">Outdated</span>
@@ -121,11 +130,7 @@
                                         @if (!row.IsOutdated)
                                         {
                                         <div class="form-row">
-                                            <div class="field"><label>Appearance</label>
-                                                <select @bind="_arrivalAppearance">
-                                                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                                                </select>
-                                            </div>
+                                            <AppearanceSelect @bind-Value="_arrivalAppearance" />
                                             <div class="field"><label>Arrival notes</label>
                                                 <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
                                             </div>
@@ -147,7 +152,7 @@
                                                 </div>
                                             }
                                         </div>
-                                        @if (_arrivalAppearance != UnitAppearance.Acceptable)
+                                        @if (_arrivalAppearance is not null and not UnitAppearance.Acceptable)
                                         {
                                             <p class="muted" style="margin:.35rem 0 0;">This appearance is not received. Return the unit to the supplier.</p>
                                         }
@@ -182,6 +187,17 @@
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadRetypesAsync">Refresh</button>
         </div>
         <p class="muted">Received units need a front-type confirmation before they become Available. A match releases the unit; a mismatch quarantines it.</p>
+        @if (Session.HasAny(PermissionCodes.ResultEnter, PermissionCodes.ResultVerify) && _retypeItems.Count > 0)
+        {
+            <div class="field" style="max-width:24rem;">
+                <label>Scan a unit to retype</label>
+                <input @ref="_retypeScanInput" @bind="_retypeScan" @bind:event="oninput" @onkeydown="OnRetypeScanKey" placeholder="Scan the unit label or type, then Enter" autocomplete="off" data-retype-scan />
+            </div>
+            @if (_retypeScanMessage is not null)
+            {
+                <p class="muted" data-retype-scan-message>@_retypeScanMessage</p>
+            }
+        }
         <details class="bb-help">
             <summary>About retypes</summary>
             <ul>
@@ -200,6 +216,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -233,7 +250,7 @@
                                 }
                             </td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
-                            <td class="nowrap">@row.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@row.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 <span class="@Ui.Badge(row.Status)">@Ui.StatusLabel(row.Status)</span>
                                 @if (row.Expired)
@@ -269,6 +286,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -277,7 +295,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Near expiry</h3></div>
-        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
+        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Use them first: issue one reserved for a patient, or allocate it to an open order for its product. Discard only a unit that cannot be used, with a coded reason and a second verifier, as on the unit page.</p>
         @if (_nearExpiryItems.Count == 0)
         {
             <div class="muted">No units near expiry.</div>
@@ -300,23 +318,43 @@
                 @foreach (var row in _nearExpiryItems)
                 {
                     <tr>
-                        <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
+                        <td>
+                            <UnitLink Id="row.UnitId" Number="@row.UnitNumber" />
+                            @if (row.ReservedPatientId is long reservedPatientId)
+                            {
+                                <span class="sub">Reserved for <a href="@($"/patients/{reservedPatientId}?tab=products")">@row.ReservedPatientLabel</a></span>
+                            }
+                        </td>
                         <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                         <td>@ProductName(row.ProductTypeId)</td>
                         <td>@row.LocationLabel</td>
-                        <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                        <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
                         <td class="nowrap">
-                            @row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                            @row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                             <span class="badge badge-amber">Near expiry</span>
+                            @if (row.IsReserved)
+                            {
+                                <span class="badge badge-amber" title="@NearExpiryWorkItemDto.ReservedNextStep">Reserved</span>
+                            }
                         </td>
                         <td class="right nowrap">
+                            @{ var openOrders = _nearOpenOrdersByProduct.GetValueOrDefault(row.ProductTypeId); }
+                            @switch (IssueRun.ForNearExpiry(row.IsReserved, _nearReady.FirstOrDefault(r => r.BloodUnitId == row.UnitId), openOrders))
+                            {
+                                case NearExpiryNextStep.Issue:
+                                    <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=issue&bloodUnitId={row.UnitId}")" title="Issue it to the patient it is reserved for before it expires">Issue</a>
+                                    break;
+                                case NearExpiryNextStep.Allocate:
+                                    <a class="btn btn-secondary btn-sm" href="@InventoryUrls.Unit(row.UnitId, "actions")" title="Allocate it to an open order before it expires; compatibility is checked when you allocate">@openOrders open @(openOrders == 1 ? "order" : "orders") for this product</a>
+                                    break;
+                            }
+                            <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
                             @if (Session.Has(PermissionCodes.InventoryDiscard))
                             {
                                 <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ToggleNearExpiryDiscard(row.UnitId)">
                                     @(_discardingNearExpiryId == row.UnitId ? "Hide" : "Discard")
                                 </button>
                             }
-                            <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
                         </td>
                     </tr>
                     @if (_discardingNearExpiryId == row.UnitId && Session.Has(PermissionCodes.InventoryDiscard))
@@ -329,9 +367,19 @@
                                     </p>
                                     <Outcome Value="_actionFb" />
                                     <div class="flex gap" style="flex-wrap:wrap;align-items:flex-end;">
-                                        <div class="field" style="flex:1;min-width:12rem;">
+                                        <div class="field" style="min-width:14rem;">
                                             <label>Discard reason</label>
-                                            <input @bind="_nearExpiryDiscardReason" @bind:event="oninput" />
+                                            <select @bind="_nearExpiryDiscardReason" data-near-discard-reason>
+                                                <option value="">Select</option>
+                                                @foreach (var reason in _discardReasons)
+                                                {
+                                                    <option value="@reason.Code">@reason.Code — @reason.Text</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="field" style="flex:1;min-width:12rem;">
+                                            <label>Comment@(NearExpiryCommentRequired ? " (required)" : "")</label>
+                                            <input @bind="_nearExpiryDiscardComment" @bind:event="oninput" />
                                         </div>
                                         <div class="field" style="min-width:16rem;">
                                             <label>Second verifier</label>
@@ -344,7 +392,7 @@
                                                 Clearable="true"
                                                 Placeholder="Different active user" />
                                         </div>
-                                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_nearExpiryDiscardReason))" @onclick="() => DiscardNearExpiryAsync(row.UnitId)">Discard unit</button>
+                                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_nearExpiryDiscardReason) || (NearExpiryCommentRequired && string.IsNullOrWhiteSpace(_nearExpiryDiscardComment)))" @onclick="() => DiscardNearExpiryAsync(row.UnitId)">Discard unit</button>
                                     </div>
                                 </div>
                             </td>
@@ -362,6 +410,34 @@
     <div class="bb-card" id="quality-quarantine">
         <div class="bb-card-title"><h3>Quality quarantine</h3></div>
         <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product, the storage location name, the recorded volume, and any ABO/Rh retype mismatch. A unit with no volume says so. Release from the row with the same second-verifier gate as Manage.</p>
+        @if (Session.Has(PermissionCodes.InventoryRelease) && ExcursionReleasable.Count > 1)
+        {
+            @* End-user testing, 2026-11-12: a refrigerator excursion held 29 units, each to be released on its own row. *@
+            <div class="alert alert-info" data-excursion-release>
+                <strong>@ExcursionReleasable.Count units are held after a storage temperature excursion.</strong>
+                Once the excursion has been reviewed (see its deviation), release them together: each is released and audited as from its own row, with the same second verifier.
+                @if (_bulkExcursionOpen)
+                {
+                    <div class="field" style="min-width:16rem;max-width:22rem;margin-top:.5rem;">
+                        <label>Second verifier</label>
+                        <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                            Items="QuarantineVerifierChoices"
+                            @bind-Value="_releaseSecondVerifier"
+                            DisplayText="@(x => x.Label)"
+                            ItemValue="@(x => x.UserName)"
+                            SearchText="@(x => x.Label)"
+                            Clearable="true"
+                            Placeholder="Different active user" />
+                    </div>
+                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="ReleaseExcursionUnitsAsync" data-excursion-release-go>Release @ExcursionReleasable.Count units</button>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _bulkExcursionOpen = false">Cancel</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary btn-sm" style="margin-left:.5rem;" @onclick="() => { _bulkExcursionOpen = true; _releaseSecondVerifier = null; }" data-excursion-release-open>Release all after review</button>
+                }
+            </div>
+        }
         @if (_quarantineItems.Count == 0)
         {
             <div class="muted">No units in quality quarantine.</div>
@@ -380,6 +456,7 @@
                         <th>Reason</th>
                         <th>Notes</th>
                         <th>Expires</th>
+                        <th>Next step</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -395,7 +472,7 @@
                             <td>
                                 @if (row.RetypeMismatch && row.RetypeInterpretedAbo is AboGroup interp)
                                 {
-                                    <span class="badge badge-red" title="Labeled @Ui.BloodType(row.Abo, row.RhD)">Retype @Ui.BloodType(interp, row.RetypeInterpretedRh ?? RhType.Unknown)</span>
+                                    <span class="badge badge-red" title="Labeled @Ui.BloodType(row.Abo, row.RhD)">@(interp == AboGroup.Unknown ? "Retype not interpreted" : $"Retype {Ui.BloodType(interp, row.RetypeInterpretedRh ?? RhType.Unknown)}")</span>
                                 }
                                 else if (row.RetypeInterpretedAbo is AboGroup ok)
                                 {
@@ -406,11 +483,21 @@
                                     <span class="muted">—</span>
                                 }
                             </td>
-                            <td>@row.ReasonCode</td>
+                            <td>@Ui.EnumText(row.ReasonCode)</td>
                             <td>@(row.Notes ?? "—")</td>
-                            <td class="nowrap">@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @if (row.CanRelease)
+                                {
+                                    @row.NextStep
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red">@row.NextStep</span>
+                                }
+                            </td>
                             <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.InventoryRelease))
+                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.CanRelease)
                                 {
                                     <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ToggleQuarantineRelease(row.UnitId)">
                                         @(_releasingQuarantineId == row.UnitId ? "Hide" : "Release")
@@ -422,7 +509,7 @@
                         @if (_releasingQuarantineId == row.UnitId && Session.Has(PermissionCodes.InventoryRelease))
                         {
                             <tr>
-                                <td colspan="10">
+                                <td colspan="11">
                                     <div class="alert alert-info" style="margin:.25rem 0;">
                                         <p class="muted" style="margin:0 0 .5rem;">
                                             Release <span class="mono">@row.UnitNumber</span> with the same second-verifier gate as Manage. @row.ReleasePlaceSentence @row.VolumeLabel.
@@ -477,6 +564,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -496,24 +584,40 @@
                             <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
-                            <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                            <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
                             <td>@(row.Reason ?? "—")</td>
                             <td>@row.LocationLabel</td>
                             <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status == UnitStatus.Missing)
+                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status is UnitStatus.Missing or UnitStatus.Damaged)
                                 {
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => LocateMissingAsync(row.UnitId)">Locate</button>
-                                }
-                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status == UnitStatus.Damaged)
-                                {
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => InspectDamagedAsync(row.UnitId)">Inspect</button>
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => BeginDiscrepancy(row.UnitId)">
+                                        @(_discrepancyUnitId == row.UnitId ? "Hide" : row.Status == UnitStatus.Missing ? "Locate" : "Inspect")
+                                    </button>
                                 }
                                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
                             </td>
                         </tr>
+                        @if (_discrepancyUnitId == row.UnitId)
+                        {
+                            <tr>
+                                <td colspan="7">
+                                    <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
+                                        <div class="field" style="min-width:20rem;margin:0;">
+                                            <label>@(row.Status == UnitStatus.Missing ? "Where and how was it found?" : "What did the inspection show?")</label>
+                                            <input @bind="_discrepancyNote" @bind:event="oninput" placeholder="@(row.Status == UnitStatus.Missing ? "e.g. Back of shelf 2, OR satellite fridge" : "e.g. Port intact, small crease in overwrap, no leak")" />
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discrepancyNote))"
+                                                @onclick="() => row.Status == UnitStatus.Missing ? LocateMissingAsync(row.UnitId) : InspectDamagedAsync(row.UnitId)">
+                                            @(row.Status == UnitStatus.Missing ? "Record found, to quarantine" : "Record inspection, to quarantine")
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -529,6 +633,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -550,18 +655,87 @@
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td>@row.LocationLabel</td>
                             <td>@(row.HoldReason ?? "—")</td>
-                            <td>@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.InventoryRelease))
+                                @if (row.ExpiresUtc <= DateTime.UtcNow)
                                 {
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(row.UnitId)">Release from hold</button>
+                                    <span class="badge badge-red">@HoldReleaseRule.ExpiredNextStep</span>
+                                }
+                                else if (Session.Has(PermissionCodes.InventoryRelease))
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => BeginHoldRelease(row.UnitId)">@(_releasingHoldId == row.UnitId ? "Hide" : "Release from hold")</button>
                                 }
                                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
                             </td>
                         </tr>
+                        @if (_releasingHoldId == row.UnitId)
+                        {
+                            <tr>
+                                <td colspan="7">
+                                    <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
+                                        <div class="field" style="min-width:18rem;margin:0;"><label>How was the hold resolved?</label>
+                                            <input @bind="_holdReleaseReason" @bind:event="oninput" placeholder="e.g. Supplier paperwork received" />
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReleaseReason))" @onclick="() => ReleaseHoldAsync(row.UnitId)">Release from hold</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
+            </div>
+        }
+    </div>
+}
+
+@* Cycle 688: recalled units not yet pulled; each is quarantined, discarded or returned from its unit page. *@
+@if (_board == "recalled")
+{
+    <div class="bb-card" data-recalled-board>
+        <div class="bb-card-title"><h3>Recalled, not yet pulled</h3></div>
+        <p class="muted">Units recalled (from Lookback or a unit page) that are still recorded as Recalled. They cannot be issued. Find each one and scan it here: it is quarantined for the recall and leaves the list. Discard it, or return it to the supplier, from quarantine. A unit that was issued when it was recalled is on the ward: get it back and return it on Issue &amp; Transfuse, which closes its issue and quarantines it.</p>
+        @if (Session.Has(PermissionCodes.InventoryRelease) && _recalledItems.Count > 0)
+        {
+            <div class="field" style="max-width:24rem;">
+                <label>Scan a recalled unit you have found</label>
+                <input @bind="_recalledScan" @bind:event="oninput" @onkeydown="OnRecalledScanKeyAsync" placeholder="Scan, then the next" autocomplete="off" data-recalled-scan />
+            </div>
+            <Outcome Value="_recalledFb" />
+        }
+        @if (_recalledItems.Count == 0)
+        {
+            <div class="muted">No recalled units waiting to be pulled.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Unit</th><th>ABO/Rh</th><th>Product</th><th>Location</th><th>Recall reason</th><th>Recalled</th><th>Expires</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var row in _recalledItems)
+                    {
+                        <tr data-recalled-row="@row.UnitId">
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
+                            <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td>@(row.ProductCode ?? "—")</td>
+                            <td>
+                                @row.LocationLabel
+                                @if (row.WasStatus is UnitStatus.Issued or UnitStatus.TransfusionStarted)
+                                {
+                                    <span class="badge badge-red" data-recalled-on-ward>Was issued: on the ward</span>
+                                    <a class="sub" href="/issuing?desk=issued" data-recalled-return-link>Return it on Issue &amp; Transfuse</a>
+                                }
+                            </td>
+                            <td>@(row.RecallReason ?? "—")</td>
+                            <td class="nowrap">@(row.RecalledUtc is DateTime recalledUtc ? $"{recalledUtc.ToLocalTime():yyyy-MM-dd HH:mm}{(row.RecalledBy is null ? "" : $" by {row.RecalledBy}")}" : "—")</td>
+                            <td class="nowrap">@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right"><a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
         }
     </div>
 }
@@ -577,6 +751,7 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -597,8 +772,8 @@
                             <td class="mono"><a href="@($"/inventory/deliveries/{delivery.Id}")">@delivery.Id</a></td>
                             <td>@delivery.SupplierNameLabel</td>
                             <td class="mono">@(delivery.PackingListNumber ?? "—")</td>
-                            <td>@delivery.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@delivery.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@delivery.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@delivery.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@delivery.ExpectedQuantity</td>
                             <td>@delivery.ReceivedQuantity</td>
                             <td class="right"><a class="btn btn-primary btn-sm" href="@($"/inventory/deliveries/{delivery.Id}/receive")">Enter units</a></td>
@@ -606,6 +781,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -617,21 +793,25 @@
     <div class="form-row">
         <div class="field"><label>Unit number</label><input @bind="_searchUnit" @bind:event="oninput" @onkeydown="OnUnitSearchKey" placeholder="Type or scan, then Enter" /></div>
         <div class="field"><label>Status</label>
-            <select @bind="_searchStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<UnitStatus>()) { <option value="@s">@s</option> }</select>
+            <select @bind="_searchStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<UnitStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
         </div>
         <div class="field"><label>Product</label>
             <select @bind="_searchProductTypeId"><option value="">Any</option>@foreach (var p in _productTypes) { <option value="@p.Id">@p.ChoiceLabel</option> }</select>
         </div>
+        <div class="field"><label>Location</label>
+            @* End-user testing, 2026-11-12: after a refrigerator excursion the units stored there could not be listed. *@
+            <select @bind="_searchLocationId" data-inventory-location-filter><option value="">Any</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code @l.Name</option> }</select>
+        </div>
         <div class="field"><label>ABO</label>
-            <select @bind="_searchAbo"><option value="">Any</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+            <select @bind="_searchAbo"><option value="">Any</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
         </div>
         <div class="field"><label>Rh(D)</label>
-            <select @bind="_searchRh"><option value="">Any</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+            <select @bind="_searchRh"><option value="">Any</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
         </div>
         <div class="field">
             <label class="checkbox-item" style="margin-top:1.6rem;">
                 <input type="checkbox" @bind="_showIssuedTransfused" @bind:after="SearchAsync" />
-                Show issued/transfused
+                Include units no longer in stock (issued, transfused, discarded, modified, shipped)
             </label>
         </div>
     </div>
@@ -649,6 +829,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Unit #</th><th>Product</th><th>Name</th><th>ABO/Rh</th><th>Expires</th><th>Status</th><th>Location</th><th></th></tr></thead>
             <tbody>
@@ -660,7 +841,7 @@
                         <td>@ProductName(u.ProductTypeId)</td>
                         <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
                         <td class="nowrap">
-                            @u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                            @u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                             @if (u.ExpiresUtc < DateTime.UtcNow)
                             {
                                 <span class="badge badge-red">Expired</span>
@@ -682,6 +863,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 }
@@ -690,9 +872,12 @@
     private List<BloodUnitDto> _units = new();
     private List<ExpectedInboundWorkItemDto> _expectedItems = new();
     private List<NearExpiryWorkItemDto> _nearExpiryItems = new();
+    private List<ReadyToIssueWorkItemDto> _nearReady = new();
+    private readonly Dictionary<long, int> _nearOpenOrdersByProduct = new();
     private List<QuarantineWorkItemDto> _quarantineItems = new();
     private List<DiscrepancyWorkItemDto> _discrepancyItems = new();
     private List<OnHoldWorkItemDto> _onHoldItems = new();
+    private List<RecalledWorkItemDto> _recalledItems = new();
     private List<ProductRetypeWorkItemDto> _retypeItems = new();
     private bool _retypesLoading;
     private long? _expandedRetypeUnitId;
@@ -708,10 +893,11 @@
     private UnitStatus? _searchStatus;
     private AboGroup? _searchAbo;
     private long? _searchProductTypeId;
+    private long? _searchLocationId;
     private RhType? _searchRh;
 
     private List<OpenDeliveryDto> _openDeliveries = new();
-    private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _arrivalAppearance;
     private string? _arrivalVisualNotes;
     private string? _supplierReturnReason;
     private string? _arrivalSecondVerifier;
@@ -720,8 +906,15 @@
     private long? _confirmingExpectedId;
     private long? _releasingQuarantineId;
     private long? _discardingNearExpiryId;
+    // A coded reason from Admin › Discard reasons, a comment when the reason needs one, and a second verifier: the same
+    // discard as the unit page (Cycle 607; before, free text was sent as the reason code and the verifier as the comment).
     private string _nearExpiryDiscardReason = string.Empty;
+    private string _nearExpiryDiscardComment = string.Empty;
     private string? _nearExpiryDiscardVerifier;
+    private List<UnitDiscardReasonRefDto> _discardReasons = new();
+
+    private bool NearExpiryCommentRequired =>
+        _discardReasons.FirstOrDefault(r => r.Code == _nearExpiryDiscardReason)?.RequiresComment == true;
 
     private Feedback? _actionFb;
     private string? _releaseSecondVerifier;
@@ -738,17 +931,16 @@
 
     private string BoardClass(string board) => _board == board ? "btn-primary" : "btn-secondary";
 
+    private static readonly string[] Boards = ["search", "expected", "retype", "near", "quarantine", "discrepancy", "hold", "recalled", "deliveries"];
+
     private void SelectBoard(string board) => _board = board;
 
     protected override async Task OnInitializedAsync()
     {
-        if (string.Equals(Board, "retype", StringComparison.OrdinalIgnoreCase))
+        // A link may open any board on this page (the dashboard opens Near expiry, Retype, Quarantine).
+        if (Boards.FirstOrDefault(b => string.Equals(b, Board, StringComparison.OrdinalIgnoreCase)) is { } linked)
         {
-            _board = "retype";
-        }
-        else if (string.Equals(Board, "quarantine", StringComparison.OrdinalIgnoreCase))
-        {
-            _board = "quarantine";
+            _board = linked;
         }
 
         var policy = await Api.GetReceivePolicyAsync();
@@ -764,6 +956,7 @@
         var patients = await Api.GetPatientsAsync();
         if (patients.Succeeded) _patients = patients.Value ?? new();
         _searchProductTypeId = ProductTypeId;
+        _searchLocationId = LocationId;
         if (Enum.TryParse<AboGroup>(Abo, ignoreCase: true, out var abo)) _searchAbo = abo;
         if (Enum.TryParse<UnitStatus>(Status, ignoreCase: true, out var status)) _searchStatus = status;
         await SearchAsync();
@@ -772,6 +965,7 @@
         await LoadQuarantineAsync();
         await LoadDiscrepancyAsync();
         await LoadOnHoldAsync();
+        await LoadRecalledAsync();
         await LoadRetypesAsync();
         await ApplyBoardQueryAsync();
     }
@@ -782,12 +976,16 @@
     [SupplyParameterFromQuery]
     public long? UnitId { get; set; }
 
-    // Search prefill, so another page (Stock par) can link straight to the units it counted.
+    // Search prefill, so another page (Minimum stock) can link straight to the units it counted.
     [SupplyParameterFromQuery]
     public long? ProductTypeId { get; set; }
 
     [SupplyParameterFromQuery]
     public string? Abo { get; set; }
+
+    // The units stored at one location (for example after a temperature excursion).
+    [SupplyParameterFromQuery]
+    public long? LocationId { get; set; }
 
     [SupplyParameterFromQuery]
     public string? Status { get; set; }
@@ -878,7 +1076,8 @@
         var criteria = new InventorySearchCriteria(
             string.IsNullOrWhiteSpace(_searchUnit) ? null : _searchUnit, _searchStatus, _searchAbo, _searchRh,
             ProductTypeId: _searchProductTypeId,
-            ExcludeIssuedAndTransfused: !_showIssuedTransfused && _searchStatus is null);
+            LocationId: _searchLocationId,
+            Statuses: InventorySearchScope.Statuses(_searchUnit, _searchStatus, _showIssuedTransfused));
         var r = await Api.SearchUnitsAsync(criteria);
         _loading = false;
         if (r.Succeeded) _units = r.Value!;
@@ -901,6 +1100,20 @@
     {
         var r = await Api.GetNearExpiryUnitsAsync();
         if (r.Succeeded) _nearExpiryItems = r.Value ?? new();
+
+        // The next step for each row: a reserved unit's issue, or open orders an unreserved one could fill.
+        _nearReady = Session.Has(PermissionCodes.IssueCreate) && _nearExpiryItems.Any(u => u.IsReserved)
+            ? (await Api.GetReadyToIssueAllocationsAsync()).Value ?? new()
+            : new();
+        _nearOpenOrdersByProduct.Clear();
+        if (Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            foreach (var first in _nearExpiryItems.Where(u => !u.IsReserved).GroupBy(u => u.ProductTypeId).Select(g => g.First()))
+            {
+                var orders = await Api.GetUnitAllocatableOrdersAsync(first.UnitId);
+                if (orders.Succeeded) _nearOpenOrdersByProduct[first.ProductTypeId] = orders.Value?.Count ?? 0;
+            }
+        }
     }
 
     private async Task LoadQuarantineAsync()
@@ -921,6 +1134,38 @@
         if (r.Succeeded) _discrepancyItems = r.Value ?? new();
     }
 
+    private string _recalledScan = string.Empty;
+    private Feedback? _recalledFb;
+
+    // Cycle 690: Enter on the scan quarantines the scanned recalled unit for the recall; the board reloads.
+    private async Task OnRecalledScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_recalledScan) || _busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var scan = _recalledScan.Trim();
+        var r = await Api.PullRecalledByScanAsync(new PullRecalledByScanRequest(scan));
+        _busy = false;
+        _recalledScan = string.Empty;
+        _recalledFb = r.Succeeded && r.Value is not null
+            ? Feedback.Succeed($"{r.Value.UnitNumber} quarantined for the recall. Scan the next.")
+            : r.ToFeedback();
+        if (r.Succeeded)
+        {
+            await LoadRecalledAsync();
+            await LoadQuarantineAsync();
+        }
+    }
+
+    private async Task LoadRecalledAsync()
+    {
+        var r = await Api.GetRecalledUnitsAsync();
+        _recalledItems = r.Succeeded ? r.Value ?? new() : new();
+    }
+
     private async Task LoadOnHoldAsync()
     {
         if (!Session.Has(PermissionCodes.InventoryRelease))
@@ -939,6 +1184,42 @@
         var r = await Api.GetPendingRetypesAsync();
         _retypesLoading = false;
         if (r.Succeeded) _retypeItems = r.Value ?? new();
+    }
+
+    private string _retypeScan = string.Empty;
+    private string? _retypeScanMessage;
+    private ElementReference _retypeScanInput;
+    // After a retype is recorded the scan field takes the focus, ready for the next label (Cycle 610).
+    private bool _focusRetypeScan;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusRetypeScan || _retypeScanInput.Context is null) return;
+        _focusRetypeScan = false;
+        try
+        {
+            // Keep the recorded outcome in view rather than scrolling to the field.
+            await _retypeScanInput.FocusAsync(preventScroll: true);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    /// <summary>Enter on the board's scan opens that unit's retype entry (a unit already open stays open).</summary>
+    private async Task OnRetypeScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        var found = RetypeBoardScan.Find(_retypeScan, _retypeItems);
+        _retypeScanMessage = found.Message;
+        if (found.Row is { } row)
+        {
+            _retypeScan = string.Empty;
+            if (_expandedRetypeUnitId != row.UnitId)
+            {
+                await ToggleBoardRetype(row.UnitId);
+            }
+        }
     }
 
     private async Task ToggleBoardRetype(long unitId)
@@ -968,6 +1249,8 @@
         await Js.ScrollIntoViewAsync("inventory-top-outcome");
         _expandedRetypeUnitId = null;
         _boardRetypeDetail = null;
+        _retypeScanMessage = null;
+        _focusRetypeScan = true;
         await LoadRetypesAsync();
         await LoadQuarantineAsync();
         await SearchAsync();
@@ -979,28 +1262,63 @@
         _actionFb = null;
     }
 
-    private void ToggleNearExpiryDiscard(long unitId)
+    private async Task ToggleNearExpiryDiscard(long unitId)
     {
         _discardingNearExpiryId = _discardingNearExpiryId == unitId ? null : unitId;
         _nearExpiryDiscardReason = string.Empty;
+        _nearExpiryDiscardComment = string.Empty;
         _nearExpiryDiscardVerifier = null;
         _actionFb = null;
+        if (_discardingNearExpiryId is not null && _discardReasons.Count == 0)
+        {
+            var reasons = await Api.GetDiscardReasonsAsync();
+            if (reasons.Succeeded) _discardReasons = reasons.Value ?? new();
+        }
     }
 
     private async Task DiscardNearExpiryAsync(long id)
     {
         _busy = true;
-        var r = await Api.DiscardUnitAsync(id, _nearExpiryDiscardReason, _nearExpiryDiscardVerifier);
+        var r = await Api.DiscardUnitAsync(
+            id, _nearExpiryDiscardReason,
+            string.IsNullOrWhiteSpace(_nearExpiryDiscardComment) ? null : _nearExpiryDiscardComment.Trim(),
+            _nearExpiryDiscardVerifier);
         _busy = false;
         _actionFb = r.ToFeedback("Unit discarded.");
         if (r.Succeeded)
         {
             _discardingNearExpiryId = null;
             _nearExpiryDiscardReason = string.Empty;
+            _nearExpiryDiscardComment = string.Empty;
             _nearExpiryDiscardVerifier = null;
             await LoadNearExpiryAsync();
             await SearchAsync();
         }
+    }
+
+    private bool _bulkExcursionOpen;
+
+    private List<QuarantineWorkItemDto> ExcursionReleasable =>
+        _quarantineItems.Where(r => r.ReasonCode == UnitQuarantineReason.StorageTemperatureExcursion && r.CanRelease && !r.RequiresLabelScan).ToList();
+
+    private async Task ReleaseExcursionUnitsAsync()
+    {
+        _busy = true;
+        var released = 0;
+        var refused = new List<string>();
+        foreach (var row in ExcursionReleasable)
+        {
+            var r = await Api.ReleaseUnitAsync(row.UnitId, new ReleaseFromQuarantineRequest(_releaseSecondVerifier, null));
+            if (r.Succeeded) released++;
+            else refused.Add($"{row.UnitNumber}: {r.ToFeedback().Error ?? r.Error ?? "not released"}");
+        }
+
+        _busy = false;
+        _bulkExcursionOpen = refused.Count > 0;
+        _topFb = refused.Count == 0
+            ? Feedback.Succeed($"{released} units released from quarantine after the excursion review.")
+            : Feedback.Fail($"{released} released; not released: {string.Join("; ", refused)}");
+        await ReloadBoardsAsync();
     }
 
     private void ToggleQuarantineRelease(long unitId)
@@ -1056,7 +1374,9 @@
             _releaseSecondVerifier,
             requiresLabelScan ? _releaseScannedUnitNumber : null));
         _busy = false;
-        _actionFb = r.ToFeedback("Unit released from quarantine.");
+        _actionFb = r.Succeeded && r.Value is { Status: UnitStatus.Received }
+            ? Feedback.Succeed("Unit released from quarantine, but its ABO/Rh retype is not confirmed yet, so it went back to Received. Record the retype before it can be allocated or issued.")
+            : r.ToFeedback("Unit released from quarantine.");
         if (r.Succeeded)
         {
             _topFb = _actionFb;
@@ -1067,20 +1387,46 @@
         }
     }
 
+    private long? _releasingHoldId;
+    private string _holdReleaseReason = string.Empty;
+
+    private void BeginHoldRelease(long id)
+    {
+        _releasingHoldId = _releasingHoldId == id ? null : id;
+        _holdReleaseReason = string.Empty;
+    }
+
     private async Task ReleaseHoldAsync(long id)
     {
         _busy = true;
-        var r = await Api.ReleaseHoldAsync(id);
+        var r = await Api.ReleaseHoldAsync(id, _holdReleaseReason);
+        if (r.Succeeded)
+        {
+            _releasingHoldId = null;
+            _holdReleaseReason = string.Empty;
+        }
         _busy = false;
-        _topFb = r.ToFeedback("Unit released from operational hold.");
+        _topFb = r.Succeeded && r.Value is { Status: UnitStatus.Received }
+            ? Feedback.Succeed("Unit released from operational hold, but its ABO/Rh retype is not confirmed yet, so it went back to Received. Record the retype before it can be allocated or issued.")
+            : r.ToFeedback("Unit released from operational hold.");
         await Js.ScrollIntoViewAsync("inventory-top-outcome");
         if (r.Succeeded) await ReloadBoardsAsync();
+    }
+
+    private long? _discrepancyUnitId;
+    private string _discrepancyNote = string.Empty;
+
+    private void BeginDiscrepancy(long id)
+    {
+        _discrepancyUnitId = _discrepancyUnitId == id ? null : id;
+        _discrepancyNote = string.Empty;
     }
 
     private async Task LocateMissingAsync(long id)
     {
         _busy = true;
-        var r = await Api.LocateMissingAsync(id);
+        var r = await Api.LocateMissingAsync(id, _discrepancyNote);
+        if (r.Succeeded) { _discrepancyUnitId = null; _discrepancyNote = string.Empty; }
         _busy = false;
         _topFb = r.ToFeedback("Unit located into quarantine for inspection.");
         await Js.ScrollIntoViewAsync("inventory-top-outcome");
@@ -1090,7 +1436,8 @@
     private async Task InspectDamagedAsync(long id)
     {
         _busy = true;
-        var r = await Api.InspectDamagedAsync(id);
+        var r = await Api.InspectDamagedAsync(id, _discrepancyNote);
+        if (r.Succeeded) { _discrepancyUnitId = null; _discrepancyNote = string.Empty; }
         _busy = false;
         _topFb = r.ToFeedback("Damaged unit moved to quarantine for quality review.");
         await Js.ScrollIntoViewAsync("inventory-top-outcome");
@@ -1112,7 +1459,7 @@
             : "Arrival confirmed into quarantine.");
         if (r.Succeeded)
         {
-            _arrivalAppearance = UnitAppearance.Acceptable;
+            _arrivalAppearance = null;
             _arrivalVisualNotes = null;
             _arrivalSecondVerifier = null;
             _arrivalTemperatureCelsius = null;
@@ -1124,8 +1471,9 @@
     }
 
     private string? SupplierReturnReasonForExpected() =>
+        // An unrecorded appearance suggests no reason (as Acceptable does); a typed reason is still used.
         ReceiveAppearanceRule.SuggestedSupplierReturnReason(
-            _arrivalAppearance, _arrivalVisualNotes, _supplierReturnReason);
+            _arrivalAppearance ?? UnitAppearance.Acceptable, _arrivalVisualNotes, _supplierReturnReason);
 
     private async Task ReturnExpectedToSupplierAsync(long id)
     {
@@ -1142,7 +1490,7 @@
         _actionFb = r.ToFeedback("Unit returned to the supplier.");
         if (r.Succeeded)
         {
-            _arrivalAppearance = UnitAppearance.Acceptable;
+            _arrivalAppearance = null;
             _arrivalVisualNotes = null;
             _arrivalSecondVerifier = null;
             _arrivalTemperatureCelsius = null;

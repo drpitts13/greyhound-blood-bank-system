@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
@@ -30,7 +31,32 @@ public sealed record PatientAllocationRowDto(
     DateTime? UnitExpiresUtc = null,
     string? UnitBloodType = null,
     string? StorageLocationName = null,
-    DateTime? CrossmatchExpiresUtc = null);
+    DateTime? CrossmatchExpiresUtc = null,
+    // What an unissued reserved unit lacks for the patient's special requirements; null when it meets them.
+    string? SpecialRequirementNotice = null,
+    // The ward's open request to issue this unit, and where to.
+    DateTime? IssueRequestedUtc = null,
+    string? IssueRequestedTo = null,
+    // The thawed shelf life of the auto-thaw code, when the unit can be thawed in place.
+    int? AutoThawShelfLifeHours = null,
+    // Cycle 685: the code's open-system and pooled shelf lives (null when not set) and whether the unit is a pool, so the
+    // thaw prompt states the time that will apply and refuses before the thaw rather than after.
+    int? AutoThawOpenSystemShelfLifeHours = null,
+    int? AutoThawPooledShelfLifeHours = null,
+    bool AutoThawPooled = false);
+
+/// <summary>Cycle 685: what the thaw prompt says before Yes, for the open-system box as it stands.</summary>
+public static class AutoThawPreview
+{
+    public static (int? Hours, string? Refusal) For(PatientAllocationRowDto row, bool openSystem)
+    {
+        var code = string.IsNullOrWhiteSpace(row.AutoThawProductCode) ? row.ProductCode : row.AutoThawProductCode;
+        var (hours, result) = ThawedExpirationRule.ShelfLifeFor(
+            code, row.AutoThawShelfLifeHours ?? ThawedExpirationRule.DefaultHours, row.AutoThawOpenSystemShelfLifeHours,
+            row.AutoThawPooledShelfLifeHours, openSystem, row.AutoThawPooled);
+        return (hours, hours is null ? result.Message : null);
+    }
+}
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,
@@ -54,7 +80,7 @@ public sealed record CompatibleUnitDto(
     DateTime? CrossmatchExpiresUtc = null,
     CrossmatchResult? LatestCrossmatchResult = null);
 
-public sealed record EnsureManualCrossmatchLineRequest(string TestCode);
+public sealed record EnsureManualCrossmatchLineRequest(string TestCode, long? SpecimenId = null);
 
 public sealed record ManualCrossmatchLineDto(
     long OrderId,

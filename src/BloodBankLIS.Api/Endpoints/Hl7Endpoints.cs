@@ -66,7 +66,12 @@ public sealed record Hl7ErrorDto(
     long? EndpointId = null,
     bool? ReplayAllowed = null,
     bool? RetriesExhausted = null,
-    bool? ControlAlreadyApplied = null)
+    bool? ControlAlreadyApplied = null,
+    string? ResolvedBy = null,
+    DateTime? ResolvedUtc = null,
+    string? ResolutionNote = null,
+    // When the error was queued, so the queue and the home card say how long it has waited.
+    DateTime? QueuedUtc = null)
 {
     public static Hl7ErrorDto From(
         InterfaceErrorQueueItem e,
@@ -75,12 +80,13 @@ public sealed record Hl7ErrorDto(
         bool? replayAllowed = null)
     {
         Hl7MessageIdentity.TryRead(message?.RawMessage, out var identity);
-        return new(
+        return new Hl7ErrorDto(
             e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, message?.RetryCount ?? e.RetryCount, e.NextRetryUtc, e.Resolved,
             message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode,
             identity.MedicalRecordNumber, identity.DisplayName,
             message?.Direction, identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
-            patientId, message?.EndpointId, replayAllowed);
+            patientId, message?.EndpointId, replayAllowed)
+            with { ResolvedBy = e.ResolvedBy, ResolvedUtc = e.ResolvedUtc, ResolutionNote = e.ResolutionNote, QueuedUtc = e.CreatedUtc };
     }
 }
 
@@ -152,6 +158,21 @@ public static class Hl7Endpoints
         group.MapPost("/errors/{id:long}/resolve", async (long id, ReasonBody request, Hl7InboundProcessor processor, CancellationToken ct) =>
             EndpointResults.From(await processor.ResolveQueueItemAsync(id, request.Reason, ct), e => Hl7ErrorDto.From(e)));
 
+        // Recently closed errors with who closed them and why, for review (newest first).
+        group.MapGet("/errors/resolved", async (IRepository<InterfaceErrorQueueItem> repo, IRepository<Hl7MessageLog> logs, int? take, CancellationToken ct) =>
+        {
+            var limit = Math.Clamp(take ?? 50, 1, 200);
+            var resolved = (await repo.ListAsync(e => e.Resolved, ct))
+                .OrderByDescending(e => e.ResolvedUtc)
+                .ThenByDescending(e => e.Id)
+                .Take(limit)
+                .ToList();
+            var ids = resolved.Select(e => e.Hl7MessageId).Distinct().ToList();
+            var messages = ids.Count == 0 ? [] : await logs.ListAsync(m => ids.Contains(m.Id), ct);
+            var byId = messages.ToDictionary(m => m.Id);
+            return Results.Ok(resolved.Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId))).ToList());
+        });
+
         group.MapGet("/errors", async (
             IRepository<InterfaceErrorQueueItem> repo,
             IRepository<Hl7MessageLog> logs,
@@ -208,6 +229,10 @@ public static class Hl7Endpoints
         group.MapPost("/outbound/results/{resultId:long}", async (long resultId, Hl7OutboundService service, CancellationToken ct) =>
             EndpointResults.Created(await service.QueueResultMessageAsync(resultId, ct),
                 m => ($"/api/hl7/messages/{m.Id}", (object)Hl7MessageDto.From(m))));
+
+        // Outbound results and charges still waiting to go, with why (Cycle 660).
+        group.MapGet("/outbound/waiting", async (Hl7OutboundSender sender, CancellationToken ct) =>
+            Results.Ok(await sender.ListWaitingAsync(ct)));
 
         group.MapPost("/messages/{id:long}/send", async (long id, Hl7OutboundSender sender, CancellationToken ct) =>
             EndpointResults.From(await sender.SendOneAsync(id, ct), m => Hl7MessageDto.From(m)));

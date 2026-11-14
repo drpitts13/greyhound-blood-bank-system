@@ -45,6 +45,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Class</th><th>XM</th><th>Retype</th><th>Attributes</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -85,6 +86,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -96,7 +98,7 @@
             <div class="field"><label>Product code</label><input @bind="_editing.ProductCode" disabled="@(_editId is not null)" /></div>
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Component class</label>
-                <select value="@_editing.ComponentClass" @onchange="OnComponentClassChanged">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@c</option> }</select>
+                <select value="@_editing.ComponentClass" @onchange="OnComponentClassChanged">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@Ui.EnumText(c)</option> }</select>
             </div>
             <div class="field"><label>Category</label><input @bind="_editing.Category" /></div>
             <div class="field"><label>Shelf life (hours)</label><input type="number" @bind="_editing.DefaultShelfLifeHours" /></div>
@@ -121,6 +123,7 @@
                 <button type="button" class="btn btn-ghost btn-sm" @onclick="ResetAboRh">Reset to standard for this class</button>
             </div>
             <p class="muted">Checked cells may be issued. ABO is the same for every patient sex. Issue and allocation use this grid.</p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -145,11 +148,13 @@
                     }
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div style="margin:.8rem 0 1rem;">
             <h3 style="margin:0 0 .35rem;">Rh compatibility</h3>
             <p class="muted">Rh can differ by sex. Unknown and other sex use the Unknown/Other column.</p>
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -174,6 +179,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         </div>
 
         @if (_editing.RequiresRetype)

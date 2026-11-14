@@ -1,4 +1,4 @@
-namespace BloodBankLIS.Domain.Rules;
+﻿namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Electronic (computer) crossmatch is permitted only when its preconditions hold:
@@ -46,7 +46,7 @@ public static class ElectronicCrossmatchEligibilityRule
                 : RuleResult.HardStop(SecondTypeCode, "Electronic crossmatch requires two concordant ABO/Rh determinations."),
             antibodyScreenNegative
                 ? RuleResult.Pass(ScreenCode, "Current antibody screen is negative.")
-                : RuleResult.HardStop(ScreenCode, "Electronic crossmatch requires a negative antibody screen."),
+                : RuleResult.HardStop(ScreenCode, "Electronic crossmatch requires a verified negative antibody screen on a current specimen, and no positive screen on file."),
             hasAntibodyHistory
                 ? RuleResult.HardStop(HistoryCode, "Electronic crossmatch is not permitted with a history of clinically significant antibodies, including antibodies that are currently undetectable.")
                 : RuleResult.Pass(HistoryCode, "No clinically significant antibody history."),

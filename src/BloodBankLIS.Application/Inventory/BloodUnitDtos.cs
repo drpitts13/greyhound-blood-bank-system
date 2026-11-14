@@ -61,7 +61,18 @@ public sealed record BloodUnitDto(
     string? CollectionFacility = null,
     DateTime? CollectionDateTime = null,
     string? ProcessingFacilityCode = null,
-    long? DeliveryId = null)
+    long? DeliveryId = null,
+    // Shipped to another facility: where, when, and the outbound shipment reference.
+    string? ShippedToFacility = null,
+    DateTime? ShippedUtc = null,
+    string? OutboundShipmentReference = null,
+    // OCD-072: how the shipment was packed and who receives it (null for shipments before Cycle 668).
+    string? ShipContainer = null,
+    decimal? ShipPackingTemperatureC = null,
+    string? ShipPackedBy = null,
+    string? ShipReceivingContact = null,
+    // OCD-083: when the EHR reported this unit transfused while it was recalled, quarantined, damaged or missing.
+    DateTime? TransfusionReportedUtc = null)
 {
     public long? BloodSupplierId { get; init; }
 
@@ -90,7 +101,9 @@ public sealed record BloodUnitDto(
         u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
         u.ExpectedArrivalDueUtc, u.QuarantineReasonCode,
         u.Volume, u.DivisionCode, u.CollectionTypeCode,
-        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId);
+        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId,
+        u.ShippedToFacility, u.ShippedUtc, u.OutboundShipmentReference,
+        u.ShipContainer, u.ShipPackingTemperatureC, u.ShipPackedBy, u.ShipReceivingContact, u.TransfusionReportedUtc);
 }
 
 public sealed record ExpectedInboundWorkItemDto(
@@ -134,9 +147,24 @@ public sealed record NearExpiryWorkItemDto(
     RhType RhD,
     long ProductTypeId,
     long? CurrentLocationId = null,
-    string? CurrentLocationName = null)
+    string? CurrentLocationName = null,
+    // The patient whose reservation is on this unit, when there is one: issue it first or reserve a replacement.
+    long? ReservedPatientId = null,
+    string? ReservedPatientMrn = null,
+    string? ReservedPatientName = null)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public bool IsReserved => ReservedPatientId is not null;
+
+    /// <summary>"Name (MRN)", or the MRN or patient id alone when that is all that is recorded.</summary>
+    public string? ReservedPatientLabel => ReservedPatientId is not long id
+        ? null
+        : !string.IsNullOrWhiteSpace(ReservedPatientName)
+            ? string.IsNullOrWhiteSpace(ReservedPatientMrn) ? ReservedPatientName : $"{ReservedPatientName} ({ReservedPatientMrn})"
+            : !string.IsNullOrWhiteSpace(ReservedPatientMrn) ? ReservedPatientMrn : $"patient {id}";
+
+    public const string ReservedNextStep = "Issue it first or reserve a replacement.";
 
     public static NearExpiryWorkItemDto From(BloodUnit u, string? locationName = null) => new(
         u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId,
@@ -160,7 +188,10 @@ public sealed record QuarantineWorkItemDto(
     long? CurrentLocationId = null,
     string? CurrentLocationName = null,
     decimal? Volume = null,
-    bool RequiresLabelScan = false)
+    bool RequiresLabelScan = false,
+    // From QuarantineReleaseRule: what to do with the unit, and whether Release is allowed.
+    string? NextStep = null,
+    bool CanRelease = true)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
@@ -235,4 +266,25 @@ public sealed record OnHoldWorkItemDto(
         productCode ?? u.ProductType?.ProductCode,
         u.CurrentLocationId,
         string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
+}
+
+/// <summary>
+/// Cycle 688: a unit recalled and not yet pulled: still in Recalled status, waiting to be quarantined or discarded (a
+/// return to the supplier goes through quarantine). <see cref="WasStatus"/> is what it was when recalled (Issued means it is on the ward, not on a shelf).
+/// </summary>
+public sealed record RecalledWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    AboGroup Abo,
+    RhType RhD,
+    DateTime ExpiresUtc,
+    string? ProductCode,
+    long? CurrentLocationId,
+    string? CurrentLocationName,
+    string? RecallReason,
+    DateTime? RecalledUtc,
+    string? RecalledBy,
+    UnitStatus? WasStatus)
+{
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 }

@@ -11,11 +11,12 @@
 {
     <div class="bb-shell">
         <aside class="bb-sidebar">
-            <div class="bb-brand"><span class="dot"></span> Greyhound Blood Bank LIS</div>
+            <div class="bb-brand"><span class="dot"></span> HemoCore</div>
             <NavMenu />
             <div class="bb-user">
                 <div class="name">@Session.DisplayName</div>
                 <div class="role">@Session.UserName &middot; @Session.Workstation</div>
+                <TextSizeSelect />
                 <a class="btn btn-ghost btn-sm" style="padding-left:0;" href="/account/mfa">Authenticator</a>
                 @if (!Dev.Enabled)
                 {
@@ -37,6 +38,7 @@
             <header class="bb-topbar">
                 <AppBreadcrumb />
                 <div class="flex">
+                    <GlobalLookupBar />
                     <AlertBadge />
                     <a class="btn btn-secondary btn-sm" href="@HelpHref">Help for this page</a>
                     <span class="badge badge-gray">@Session.Workstation</span>
@@ -52,7 +54,7 @@ else if (IsPublicHelp)
 {
     <div class="bb-help-public">
         <header class="bb-help-public-bar">
-            <a href="/help">Greyhound Blood Bank LIS Help</a>
+            <a href="/help">HemoCore Help</a>
             <a class="btn btn-primary btn-sm" href="/login">Sign in</a>
         </header>
         <div class="bb-content">

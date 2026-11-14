@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Compatibility;
+﻿using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -25,7 +25,8 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
                 new EfRepository<TestResult>(c),
                 new EfRepository<TestDefinition>(c),
                 new EfRepository<AntibodyHistory>(c)),
-            new FacilityPolicyService(new EfRepository<SystemSetting>(c)));
+            new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
+            clock: _factory.Clock);
 
     [Fact]
     public async Task Assess_TwoConcordantTypesAndNegativeScreen_IsEligible()
@@ -59,11 +60,40 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
             });
         await SetElectronicXmAsync(c, enabled: true);
 
+        await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, patient.Id, _factory.Clock.UtcNow);
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.NotNull(dto);
         Assert.True(dto!.Eligible);
         Assert.True(dto.FacilityAllowsElectronicCrossmatch);
         Assert.All(dto.Criteria, criterion => Assert.True(criterion.Satisfied));
+    }
+
+    // TEST-BB-699: with two concordant types and no antibody screen on a current specimen, electronic crossmatch is not
+    // eligible, and the screen criterion says why (before: "no positive screen on file" passed with no screen at all).
+    [Fact]
+    public async Task Assess_NoCurrentScreen_IsNotEligible()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-EXM-NOSCR",
+            LastName = "Unscreened",
+            FirstName = "Xm",
+            DateOfBirth = new DateOnly(1988, 3, 1)
+        };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory { PatientId = patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, IsCurrent = false, Source = BloodTypeSource.TestResult },
+            new PatientBloodTypeHistory { PatientId = patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, IsCurrent = true, Source = BloodTypeSource.TestResult });
+        await SetElectronicXmAsync(c, enabled: true);
+
+        var dto = await Service(c).AssessAsync(patient.Id);
+
+        Assert.False(dto!.Eligible);
+        var screen = Assert.Single(dto.Criteria, x => x.Code == ElectronicCrossmatchEligibilityRule.ScreenCode);
+        Assert.False(screen.Satisfied);
+        Assert.Contains("verified negative antibody screen on a current specimen", screen.Detail);
     }
 
     [Fact]
@@ -219,6 +249,7 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
         });
         await SetElectronicXmAsync(c, enabled: true);
 
+        await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, patient.Id, _factory.Clock.UtcNow);
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.False(dto!.Eligible);
         Assert.Contains(dto.Criteria, r => r.Code == ElectronicCrossmatchEligibilityRule.HistoryCode && !r.Satisfied);
@@ -263,6 +294,7 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
         });
         await SetElectronicXmAsync(c, enabled: true);
 
+        await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, patient.Id, _factory.Clock.UtcNow);
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.False(dto!.Eligible);
         Assert.Contains(dto.Criteria, r => r.Code == ElectronicCrossmatchEligibilityRule.WorkupOpenCode && !r.Satisfied);

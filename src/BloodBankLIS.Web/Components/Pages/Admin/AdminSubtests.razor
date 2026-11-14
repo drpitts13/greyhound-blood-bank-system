@@ -44,6 +44,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Result type</th><th>Choices</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -67,6 +68,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -79,7 +81,7 @@
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Result type</label>
                 <select @bind="_editing.ResultType" @bind:after="OnResultTypeChanged">
-                    @foreach (var t in Enum.GetValues<SubtestResultType>()) { <option value="@t">@t</option> }
+                    @foreach (var t in Enum.GetValues<SubtestResultType>()) { <option value="@t">@Ui.EnumText(t)</option> }
                 </select>
             </div>
         </div>
@@ -97,6 +99,7 @@
                         <button type="button" class="btn btn-ghost btn-sm" @onclick="AddChoice">Add choice</button>
                     </div>
                 </div>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead>
                         <tr>
@@ -117,7 +120,7 @@
                                 {
                                     <td>
                                         <select @bind="row.Polarity">
-                                            @foreach (var p in Enum.GetValues<ReactionPolarity>()) { <option value="@p">@p</option> }
+                                            @foreach (var p in Enum.GetValues<ReactionPolarity>()) { <option value="@p">@Ui.EnumText(p)</option> }
                                         </select>
                                     </td>
                                 }
@@ -126,6 +129,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             </div>
         }
 

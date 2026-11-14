@@ -1,0 +1,147 @@
+using BloodBankLIS.Domain.Entities;
+
+namespace BloodBankLIS.Domain.Rules;
+
+/// <summary>
+/// Which reagent lots a result was tested with: the open, unexpired lots of every active reagent that lists the
+/// result's test. Recorded when a manual result is entered so a lot that later fails QC can be traced to its results.
+/// When two lots of one reagent are open, both are recorded (the bench may have used either).
+/// </summary>
+public static class ReagentLotUseRule
+{
+    public static IReadOnlyList<string> ParseTestCodes(string? codes) =>
+        (codes ?? string.Empty)
+            .Split([',', ';', ' ', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(c => c.ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>The list as stored: upper-case codes separated by ", ", or null when empty.</summary>
+    public static string? NormalizeTestCodes(string? codes)
+    {
+        var parsed = ParseTestCodes(codes);
+        return parsed.Count == 0 ? null : string.Join(", ", parsed);
+    }
+
+    public static bool UsedFor(Reagent reagent, string? testCode) =>
+        reagent.IsActive
+        && !string.IsNullOrWhiteSpace(testCode)
+        && ParseTestCodes(reagent.TestCodes).Contains(testCode.Trim().ToUpperInvariant());
+
+    /// <summary>
+    /// When a lot's latest QC failed, the results to review are those recorded with it after its last passed QC
+    /// before that failure (all of them when it never passed). Null when the latest QC passed or there is none.
+    /// </summary>
+    public static DateTime? ReviewSinceUtc(IEnumerable<ReagentDailyQc> lotQc, out bool failed)
+    {
+        var rows = lotQc.OrderBy(q => q.PerformedUtc).ThenBy(q => q.Id).ToList();
+        var latest = rows.LastOrDefault();
+        failed = latest is { Passed: false };
+        if (!failed)
+        {
+            return null;
+        }
+
+        return rows.LastOrDefault(q => q.Passed && q.PerformedUtc < latest!.PerformedUtc)?.PerformedUtc ?? DateTime.MinValue;
+    }
+
+    /// <summary>
+    /// Every period whose results need review because of a failed QC: from the lot's last passed QC before the failure
+    /// (the start of time when it never passed) to the first passed QC after it (open while none). A repeat QC that
+    /// passes ends the period but does not clear the results tested in it (end-user testing pass 26: a passing repeat
+    /// of the failed Anti-D lot would have dropped its five ABO/Rh results from review).
+    /// </summary>
+    public static IReadOnlyList<(DateTime FromUtc, DateTime? ToUtc)> ReviewWindows(IEnumerable<ReagentDailyQc> lotQc)
+    {
+        var rows = lotQc.OrderBy(q => q.PerformedUtc).ThenBy(q => q.Id).ToList();
+        var windows = new List<(DateTime FromUtc, DateTime? ToUtc)>();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].Passed)
+            {
+                continue;
+            }
+
+            var from = rows.Take(i).LastOrDefault(q => q.Passed)?.PerformedUtc ?? DateTime.MinValue;
+            DateTime? to = rows.Skip(i + 1).FirstOrDefault(q => q.Passed)?.PerformedUtc;
+            if (!windows.Contains((from, to)))
+            {
+                windows.Add((from, to));
+            }
+        }
+
+        return windows;
+    }
+
+    public static bool InReviewWindow(DateTime recordedUtc, IReadOnlyList<(DateTime FromUtc, DateTime? ToUtc)> windows) =>
+        windows.Any(w => recordedUtc > w.FromUtc && (w.ToUtc is not DateTime to || recordedUtc < to));
+
+    public const string ReviewCode = "REAGENT-LOT-REVIEW";
+
+    /// <summary>
+    /// Marking a result reviewed for a failed lot: only a result still to review (recorded with the lot after its last
+    /// passed QC, not yet reviewed), and only with a note saying what was found or done.
+    /// </summary>
+    public static RuleResult EvaluateReview(bool inReviewWindow, bool alreadyReviewed, string? note)
+    {
+        if (alreadyReviewed)
+        {
+            return RuleResult.HardStop(ReviewCode, "This result is already marked reviewed for this lot.");
+        }
+
+        if (!inReviewWindow)
+        {
+            return RuleResult.HardStop(ReviewCode, "Only a result tested with this lot between its last passed QC and a failed QC (until a repeat QC passed) needs this review.");
+        }
+
+        return string.IsNullOrWhiteSpace(note)
+            ? RuleResult.HardStop(ReviewCode, "Say what was found or done, for example that the test was repeated with another lot and agreed, or the result was corrected.")
+            : RuleResult.Pass(ReviewCode);
+    }
+
+    public const string NoOpenLotCode = "RES-REAGENT-NO-LOT";
+    public const string QcNotPassedCode = "RES-REAGENT-QC";
+
+    /// <summary>
+    /// Information for the person entering a manual result, never a stop: a reagent used for the test has no open lot
+    /// (so the result records none for it), or a recorded lot has no passed QC today. The Reagent QC worklist and the
+    /// facility policy that can block resulting are unchanged.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> EntryWarnings(
+        string? testCode,
+        IEnumerable<Reagent> reagents,
+        IReadOnlyList<ReagentLot> lotsInUse,
+        IReadOnlySet<long> lotsWithPassedQcToday,
+        IReadOnlyList<ReagentLot>? expiredOpenLots = null)
+    {
+        var results = new List<RuleResult>();
+        foreach (var reagent in reagents.Where(r => UsedFor(r, testCode)).OrderBy(r => r.Code, StringComparer.OrdinalIgnoreCase))
+        {
+            var lots = lotsInUse.Where(l => l.ReagentId == reagent.Id).ToList();
+            if (lots.Count == 0)
+            {
+                var expired = expiredOpenLots?.Where(l => l.ReagentId == reagent.Id).OrderByDescending(l => l.ExpiresUtc).FirstOrDefault();
+                results.Add(RuleResult.Warning(NoOpenLotCode, expired is not null
+                    ? $"{reagent.Code} lot {expired.LotNumber} expired {expired.ExpiresUtc:yyyy-MM-dd}, so this result records no {reagent.Code} lot. Close it and open a new lot on Reagent QC."
+                    : $"No open lot of {reagent.Code} is recorded for {testCode!.Trim().ToUpperInvariant()}, so this result records no {reagent.Code} lot. Open the lot in use on Reagent QC."));
+                continue;
+            }
+
+            foreach (var lot in lots.Where(l => !lotsWithPassedQcToday.Contains(l.Id)))
+            {
+                results.Add(RuleResult.Warning(QcNotPassedCode, $"{reagent.Code} lot {lot.LotNumber} has no passed QC recorded today."));
+            }
+        }
+
+        return results;
+    }
+
+    public static IReadOnlyList<ReagentLot> LotsInUse(string? testCode, IEnumerable<Reagent> reagents, IEnumerable<ReagentLot> lots, DateTime nowUtc)
+    {
+        var reagentIds = reagents.Where(r => UsedFor(r, testCode)).Select(r => r.Id).ToHashSet();
+        return lots
+            .Where(l => reagentIds.Contains(l.ReagentId) && l.State == ReagentLotState.Opened && l.ExpiresUtc > nowUtc)
+            .OrderBy(l => l.ReagentId).ThenBy(l => l.LotNumber, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+}

@@ -1,0 +1,9 @@
+@* A result waiting for verification whose specimen expires soon: verify before then, or it cannot be verified. *@
+@if (!string.IsNullOrWhiteSpace(Item.VerificationDeadlineNotice) && Item.SpecimenExpiresUtc is DateTime expires)
+{
+    <span class="badge badge-amber nowrap" title="@Item.VerificationDeadlineNotice">Verify before @ClockText.Short(expires)</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public TestWorkItemDto Item { get; set; } = default!;
+}

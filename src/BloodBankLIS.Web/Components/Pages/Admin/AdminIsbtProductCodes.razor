@@ -29,6 +29,45 @@
 
 <Outcome Value="_feedback" />
 
+@if (_readiness is { } ready)
+{
+    <div class="bb-card" style="border-left:4px solid @(ready.Ready ? "var(--bb-ok)" : "var(--bb-warn)");">
+        <div class="bb-card-title flex-between">
+            <h3>Licensed-code readiness</h3>
+            <span class="badge @(ready.Ready ? "badge-green" : "badge-amber")">@(ready.Ready ? "Ready" : "Not ready")</span>
+        </div>
+        <p>@ready.Summary</p>
+        <table class="table" style="max-width:40rem;">
+            <thead><tr><th>Catalog</th><th>Total</th><th>Licensed</th><th>Placeholder</th></tr></thead>
+            <tbody>
+                <tr><td>Product description codes</td><td>@ready.ProductCodes.Total</td><td>@ready.ProductCodes.Licensed</td><td>@ready.ProductCodes.Placeholder</td></tr>
+                <tr><td>ABO/RhD codes</td><td>@ready.AboRhdCodes.Total</td><td>@ready.AboRhdCodes.Licensed</td><td>@ready.AboRhdCodes.Placeholder</td></tr>
+                <tr><td>Collection types</td><td>@ready.CollectionTypes.Total</td><td>@ready.CollectionTypes.Licensed</td><td>@ready.CollectionTypes.Placeholder</td></tr>
+            </tbody>
+        </table>
+        <p class="muted">
+            Licensed versions loaded: @(ready.LicensedVersions.Count == 0 ? "none" : string.Join(", ", ready.LicensedVersions)).
+            Checked @ready.ProductTypesChecked active products and @ready.UnitsChecked on-hand units
+            (@ready.UnitsWithoutIsbtCodes without ISBT codes, which are not counted).
+        </p>
+        @if (ready.Problems.Count > 0)
+        {
+            <details class="bb-help">
+                <summary>@(ready.PlaceholderInUse + ready.UnknownInUse) in use without a licensed code@(ready.ProblemsTruncated ? $" (first {ready.Problems.Count} shown)" : "")</summary>
+                <table class="table">
+                    <thead><tr><th>Kind</th><th>Item</th><th>Problem</th></tr></thead>
+                    <tbody>
+                        @foreach (var item in ready.Problems)
+                        {
+                            <tr><td>@Ui.EnumText(item.Kind)</td><td><a href="@item.Href">@item.Label</a></td><td>@item.Problem</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </details>
+        }
+    </div>
+}
+
 @if (CanImport && _showImport)
 {
     <div class="bb-dialog-backdrop" @onclick="CloseImport">
@@ -110,6 +149,7 @@
     else
     {
         <p class="muted" style="margin-bottom:.5rem;">@Filtered.Count() of @_items.Count code(s)</p>
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -148,10 +188,12 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
 @code {
+    private IsbtReadinessDto? _readiness;
     private List<IsbtProductCodeDto> _items = new();
     private List<IccbbaExtractFileDto> _extracts = new();
     private readonly HashSet<string> _selectedDrop = new(StringComparer.OrdinalIgnoreCase);
@@ -202,6 +244,9 @@
 
     private async Task LoadAsync()
     {
+        var readiness = await Api.GetIsbtReadinessAsync();
+        _readiness = readiness.Succeeded ? readiness.Value : null;
+
         var r = await Api.GetAdminIsbtProductCodesAsync();
         _loading = false;
         if (r.Succeeded)

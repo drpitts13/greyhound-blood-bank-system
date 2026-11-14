@@ -10,7 +10,7 @@ routes:
 
 ![Exceptions](figures/admin-exceptions.png)
 
-**Exceptions** lists clinical warnings that can be overridden and the minimum security level required. A user needs both the relevant permission (such as issue override or emergency release) and a role whose security level meets this minimum.
+**Exceptions** lists clinical warnings that can be overridden and the minimum security level required. A user needs both the relevant permission (such as issue override or emergency release) and a role whose security level meets this minimum. Changing an exception, or activating or deactivating it, asks why (at least 8 characters); the reason is kept with the change history.
 
 Raising the level stops a role that used to override the warning. Lowering it lets a lower level override. Do that only when the medical director accepts the risk. The reason you type is the change-control note.
 

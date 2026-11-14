@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Entities;
+﻿using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
@@ -30,9 +30,16 @@ public sealed class InventoryActionResult
 
     public int AffectedCount { get; }
 
+    /// <summary>For an expiry sweep: reservations that ended because their unit expired.</summary>
+    public int ReservationsEnded { get; init; }
+
+    /// <summary>For an expiry sweep: each ended reservation as "{unit} for {MRN}", so the alert can name who needs a replacement.</summary>
+    public IReadOnlyList<string> ReservationsEndedFor { get; init; } = [];
+
     public static InventoryActionResult Ok(BloodUnit unit) => new(true, unit, null, null);
 
-    public static InventoryActionResult OkSweep(int affectedCount) => new(true, null, null, null, affectedCount);
+    public static InventoryActionResult OkSweep(int affectedCount, int reservationsEnded = 0, IReadOnlyList<string>? reservationsEndedFor = null) =>
+        new(true, null, null, null, affectedCount) { ReservationsEnded = reservationsEnded, ReservationsEndedFor = reservationsEndedFor ?? [] };
 
     public static InventoryActionResult Blocked(RuleEvaluation evaluation) => new(false, null, evaluation, null);
 

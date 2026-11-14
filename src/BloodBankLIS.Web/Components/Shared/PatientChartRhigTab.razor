@@ -1,0 +1,363 @@
+@* RhIG evaluations on the chart (OCD-069): the facts on file beside what the reviewer recorded. Nothing is decided or dosed here. *@
+@using BloodBankLIS.Application.Immunohematology
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h3>RhIG evaluations</h3>
+        @if (Session.Has(PermissionCodes.ImmunoRecord) && _form is null)
+        {
+            <button class="btn btn-primary btn-sm" @onclick="New" data-rhig-new>New evaluation</button>
+        }
+    </div>
+    <p class="muted" style="margin-top:0;">
+        Record a pregnancy event and what your RhIG procedure found: infant Rh, the fetal bleed screen and its
+        quantitation, whether the patient is a candidate, and the vials recommended. The application lists the facts on
+        file; candidacy and the dose follow your facility's procedure (OCD-069). A supervisor with result verification
+        completes the record.
+    </p>
+    <Outcome Value="_fb" />
+
+    @if (_form is not null)
+    {
+        <div class="bb-card" style="background:var(--bb-surface-2,transparent);" data-rhig-form>
+            <div class="form-row">
+                <div class="field"><label>Event</label>
+                    <select @bind="_form.Context">
+                        <option value="@RhigContext.Postpartum">Delivery (postpartum)</option>
+                        <option value="@RhigContext.Antepartum">Antepartum</option>
+                        <option value="@RhigContext.OtherExposure">Other exposure</option>
+                    </select>
+                </div>
+                <div class="field"><label>Event date and time</label><input type="datetime-local" @bind="_form.EventUtc" /></div>
+                <div class="field"><label>Infant Rh</label>
+                    <select @bind="_form.InfantRh">
+                        <option value="@RhType.Unknown">Not known</option>
+                        <option value="@RhType.Positive">Positive</option>
+                        <option value="@RhType.Negative">Negative</option>
+                    </select>
+                    @if (SuggestedInfantRh is RhType suggested && suggested != _form.InfantRh)
+                    {
+                        <div class="sub" data-rhig-infant-suggestion>
+                            Linked infant @SuggestedInfant!.Name (@SuggestedInfant.MedicalRecordNumber) is Rh @suggested.
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _form.InfantRh = suggested" data-rhig-use-infant>Use it</button>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field"><label>Fetal bleed screen</label>
+                    <select @bind="_form.FetalBleedScreen">
+                        <option value="@FetalBleedScreen.NotDone">Not done</option>
+                        <option value="@FetalBleedScreen.Negative">Negative</option>
+                        <option value="@FetalBleedScreen.Positive">Positive</option>
+                    </select>
+                </div>
+                @if (_form.FetalBleedScreen == FetalBleedScreen.Positive)
+                {
+                    <div class="field"><label>Fetal cells (%)</label><input type="number" step="0.001" min="0" max="100" @bind="_form.FetalBleedPercent" data-rhig-percent /></div>
+                }
+                <div class="field"><label>Decision</label>
+                    <select @bind="_form.Decision">
+                        <option value="@RhigDecision.Undetermined">Not yet decided</option>
+                        <option value="@RhigDecision.Candidate">Candidate</option>
+                        <option value="@RhigDecision.NotCandidate">Not a candidate</option>
+                    </select>
+                </div>
+                @if (_form.Decision == RhigDecision.Candidate)
+                {
+                    <div class="field"><label>Vials recommended</label><input type="number" min="1" max="50" @bind="_form.VialsRecommended" data-rhig-vials /></div>
+                }
+            </div>
+            <div class="field"><label>@(_form.Decision == RhigDecision.NotCandidate ? "Why not a candidate" : "Note")</label>
+                <input @bind="_form.DecisionNote" style="width:100%;" />
+            </div>
+            <div class="flex gap" style="margin-top:.5rem;">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+                <button class="btn btn-ghost" @onclick="() => _form = null">Cancel</button>
+            </div>
+        </div>
+    }
+
+    @if (_rows is null)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_rows.Count == 0)
+    {
+        <div class="empty">No RhIG evaluations on this chart.</div>
+    }
+    else
+    {
+        @foreach (var e in _rows)
+        {
+            <div class="bb-card" data-rhig-row="@e.Id">
+                <div class="flex-between">
+                    <strong>@ContextLabel(e.Context) · @e.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong>
+                    <span class="badge @(e.IsCompleted ? "badge-green" : "badge-amber")">@(e.IsCompleted ? $"Completed by {e.CompletedBy}" : "Open")</span>
+                </div>
+                <ul style="margin:.4rem 0;" data-rhig-facts>
+                    @foreach (var fact in e.Facts)
+                    {
+                        <li>@fact</li>
+                    }
+                </ul>
+                <div>
+                    <strong>Decision:</strong> @DecisionLabel(e)
+                    @if (!string.IsNullOrWhiteSpace(e.DecisionNote))
+                    {
+                        <span class="muted"> — @e.DecisionNote</span>
+                    }
+                </div>
+                @* OCD-069 (decided): the application suggests; the reviewer decides and records the decision and vials. *@
+                <div class="sub" data-rhig-suggestion>
+                    @if (e.IsCompleted && e.SuggestedDecision is null && e.VialsCalculated is null)
+                    {
+                        @("No suggestion or calculated dose was kept when this evaluation was completed.")
+                    }
+                    else if (e.IsCompleted)
+                    {
+                        @($"Suggested when completed: {SuggestionLabel(e.SuggestedDecision)}; calculated: {(e.VialsCalculated is int c ? $"{c} vial{(c == 1 ? "" : "s")}" : "none")}.")
+                        @if (e.DecisionDiffersFromSuggestion || e.VialsDifferFromCalculated)
+                        {
+                            <span class="badge badge-amber" data-rhig-differs>Differs from the suggestion</span>
+                        }
+                    }
+                    else
+                    {
+                        @e.SuggestionReason
+                        <br />
+                        <span data-rhig-dose>@e.DoseExplanation</span>
+                    }
+                </div>
+                <div class="sub">Recorded by @e.RecordedBy @e.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                @if (e.IsGiven)
+                {
+                    <div style="margin-top:.3rem;" data-rhig-given>
+                        <strong>Given:</strong> @e.GivenVials vial@(e.GivenVials == 1 ? "" : "s"), lot <span class="mono">@e.GivenLot</span>,
+                        @e.GivenUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @e.GivenBy
+                        @if (e.GivenDifference is { } difference)
+                        {
+                            <span class="badge badge-amber" style="margin-left:.35rem;">@difference</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(e.GivenNote))
+                        {
+                            <span class="muted"> — @e.GivenNote</span>
+                        }
+                    </div>
+                }
+                else if (e.AwaitsGiving && Session.Has(PermissionCodes.IssueCreate))
+                {
+                    @if (_givingId == e.Id)
+                    {
+                        <div class="form-row" style="margin-top:.4rem;" data-rhig-give-form>
+                            <div class="field"><label>RhIG lot</label><input @bind="_givenLot" @bind:event="oninput" placeholder="Scan or type the lot" autocomplete="off" list="rhig-lots" data-rhig-given-lot />
+                                @* Registered lots in date (Cycle 721); once any is registered, the lot given must be one of them. *@
+                                <datalist id="rhig-lots">
+                                    @foreach (var l in _rhigLots.Where(l => l.ExpiresOn >= DateOnly.FromDateTime(DateTime.Now)))
+                                    {
+                                        <option value="@l.LotNumber">@l.ProductName · exp @l.ExpiresOn.ToString("yyyy-MM-dd") · @l.VialsLeft left</option>
+                                    }
+                                </datalist>
+                            </div>
+                            <div class="field"><label>Vials given</label><input type="number" min="1" max="50" @bind="_givenVials" /></div>
+                            <div class="field"><label>Given at</label><input type="datetime-local" @bind="_givenUtc" /></div>
+                            <div class="field"><label>Note</label><input @bind="_givenNote" /></div>
+                        </div>
+                        @if (RhigEvaluationRule.GivenDifference(e.VialsRecommended, _givenVials) is { } preview)
+                        {
+                            <div class="alert alert-warning" style="margin-top:.3rem;">@preview</div>
+                        }
+                        <div class="flex gap" style="margin-top:.3rem;">
+                            <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_givenLot))" @onclick="() => RecordGivenAsync(e)">Record given</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => _givingId = null">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary btn-sm" style="margin-top:.4rem;" @onclick="() => BeginGive(e)" data-rhig-give>Record RhIG given</button>
+                    }
+                }
+                @if (!e.IsCompleted)
+                {
+                    <div class="flex gap" style="margin-top:.4rem;">
+                        @if (Session.Has(PermissionCodes.ImmunoRecord))
+                        {
+                            <button class="btn btn-secondary btn-sm" @onclick="() => Edit(e)">Edit</button>
+                            @if (e.SuggestedDecision is not null && (e.Decision != e.SuggestedDecision || (e.VialsCalculated is int calc && e.VialsRecommended != calc)))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => UseSuggestion(e)" data-rhig-use-suggestion>Use the suggestion</button>
+                            }
+                        }
+                        @if (Session.Has(PermissionCodes.ResultVerify))
+                        {
+                            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => CompleteAsync(e)" data-rhig-complete>Complete</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+
+    private List<RhigEvaluationDto>? _rows;
+    private RhigForm? _form;
+    private Feedback? _fb;
+    private bool _busy;
+
+    private sealed class RhigForm
+    {
+        public long? Id { get; set; }
+        public RhigContext Context { get; set; } = RhigContext.Postpartum;
+        // Typed in local time (pass 57); sent as UTC.
+        public DateTime EventUtc { get; set; } = LocalEntry.Now;
+        public RhType InfantRh { get; set; } = RhType.Unknown;
+        public FetalBleedScreen FetalBleedScreen { get; set; } = FetalBleedScreen.NotDone;
+        public decimal? FetalBleedPercent { get; set; }
+        public RhigDecision Decision { get; set; } = RhigDecision.Undetermined;
+        public int? VialsRecommended { get; set; }
+        public string? DecisionNote { get; set; }
+    }
+
+    // The mother's linked infants (Cycle 547): a delivery evaluation can take the newborn's Rh from the chart.
+    private IReadOnlyList<FamilyMemberDto> _infants = [];
+
+    private FamilyMemberDto? SuggestedInfant => _form is null ? null : _infants
+        .Where(i => i.CurrentRh is RhType rh && rh != RhType.Unknown && Math.Abs(i.DateOfBirth.DayNumber - DateOnly.FromDateTime(_form.EventUtc).DayNumber) <= 2)
+        .Take(2).ToList() is { Count: 1 } one ? one[0] : null;
+
+    private RhType? SuggestedInfantRh => _form is null ? null : MotherInfantLinkRule.SuggestInfantRh(
+        _form.Context, _form.EventUtc, _infants.Select(i => (i.DateOfBirth, i.CurrentRh)));
+
+    private List<RhigLotDto> _rhigLots = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+        _rhigLots = (await Api.GetRhigLotsAsync()).Value ?? new();
+        var family = await Api.GetPatientFamilyAsync(PatientId);
+        _infants = family.Succeeded ? family.Value?.Infants ?? [] : [];
+    }
+
+    private async Task LoadAsync()
+    {
+        var r = await Api.GetRhigEvaluationsAsync(PatientId);
+        _rows = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+
+    private long? _givingId;
+    private string _givenLot = string.Empty;
+    private int _givenVials = 1;
+    private DateTime _givenUtc = LocalEntry.Now;
+    private string? _givenNote;
+
+    // Starts on the vials recommended, so the usual case is a lot scan and Record given.
+    private void BeginGive(RhigEvaluationDto e)
+    {
+        _givingId = e.Id;
+        _givenLot = string.Empty;
+        _givenVials = e.VialsRecommended ?? 1;
+        _givenUtc = LocalEntry.Now;
+        _givenNote = null;
+    }
+
+    private async Task RecordGivenAsync(RhigEvaluationDto e)
+    {
+        _busy = true;
+        var r = await Api.RecordRhigGivenAsync(PatientId, e.Id, new RecordRhigGivenRequest(_givenLot, _givenVials, LocalEntry.ToUtc(_givenUtc), _givenNote));
+        _busy = false;
+        _fb = r.ToFeedback("RhIG given recorded.");
+        if (r.Succeeded)
+        {
+            _givingId = null;
+            await LoadAsync();
+        }
+    }
+
+    private void New() => _form = new RhigForm();
+
+    /// <summary>Opens the evaluation with the suggested decision and, for a candidate, the calculated vials; saving is the reviewer's.</summary>
+    private void UseSuggestion(RhigEvaluationDto e)
+    {
+        Edit(e);
+        _form!.Decision = e.SuggestedDecision ?? e.Decision;
+        if (_form.Decision == RhigDecision.Candidate && e.VialsCalculated is int vials)
+        {
+            _form.VialsRecommended = vials;
+        }
+    }
+
+    private static string SuggestionLabel(RhigDecision? suggested) => suggested switch
+    {
+        RhigDecision.Candidate => "candidate",
+        RhigDecision.NotCandidate => "not a candidate",
+        _ => "none"
+    };
+
+    private void Edit(RhigEvaluationDto e) => _form = new RhigForm
+    {
+        Id = e.Id,
+        Context = e.Context,
+        EventUtc = LocalEntry.FromUtc(e.EventUtc),
+        InfantRh = e.InfantRh,
+        FetalBleedScreen = e.FetalBleedScreen,
+        FetalBleedPercent = e.FetalBleedPercent,
+        Decision = e.Decision,
+        VialsRecommended = e.VialsRecommended,
+        DecisionNote = e.DecisionNote
+    };
+
+    private async Task SaveAsync()
+    {
+        if (_form is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.SaveRhigEvaluationAsync(PatientId, new SaveRhigEvaluationRequest(
+            _form.Id, _form.Context, LocalEntry.ToUtc(_form.EventUtc), _form.InfantRh, _form.FetalBleedScreen,
+            _form.FetalBleedPercent, _form.Decision, _form.VialsRecommended, _form.DecisionNote));
+        _busy = false;
+        _fb = r.ToFeedback("RhIG evaluation saved.");
+        if (r.Succeeded)
+        {
+            _form = null;
+            await LoadAsync();
+        }
+    }
+
+    private async Task CompleteAsync(RhigEvaluationDto e)
+    {
+        _busy = true;
+        var r = await Api.CompleteRhigEvaluationAsync(PatientId, e.Id);
+        _busy = false;
+        _fb = r.ToFeedback("RhIG evaluation completed.");
+        if (r.Succeeded)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private static string ContextLabel(RhigContext c) => c switch
+    {
+        RhigContext.Antepartum => "Antepartum",
+        RhigContext.Postpartum => "Delivery",
+        _ => "Other exposure"
+    };
+
+    private static string DecisionLabel(RhigEvaluationDto e) => e.Decision switch
+    {
+        RhigDecision.Candidate => e.VialsRecommended is int v ? $"Candidate, {v} vial{(v == 1 ? "" : "s")} recommended" : "Candidate",
+        RhigDecision.NotCandidate => "Not a candidate",
+        _ => "Not yet decided"
+    };
+}

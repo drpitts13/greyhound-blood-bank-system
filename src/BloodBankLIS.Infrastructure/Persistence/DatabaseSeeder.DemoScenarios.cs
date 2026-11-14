@@ -1,3 +1,5 @@
+﻿using System.Text.Json;
+using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -57,6 +59,563 @@ public static partial class DatabaseSeeder
         await SeedBillingCaptureScenarioAsync(context, ct);
         await SeedUnitAntigenTypingScenarioAsync(context, ct);
         await SeedPendingSpecimenReceiptScenarioAsync(context, ct);
+        await SeedMassiveTransfusionScenarioAsync(context, ct);
+        await SeedMultiUnitScenarioAsync(context, ct);
+        await SeedSpecialRequirementsScenarioAsync(context, ct);
+        await SeedMinimumStockLevelsAsync(context, ct);
+        await EnsureCoolerCheckDemoAsync(context, ct);
+        await EnsureStatOrderWithoutSpecimenAsync(context, ct);
+        await EnsurePossibleDuplicatePatientAsync(context, ct);
+        await EnsureSupplyDemoAsync(context, ct);
+        await EnsureOnOrderDemoAsync(context, ct);
+        await EnsureIssueRequestDemoAsync(context, ct);
+        await EnsureOrderingLocationMappingDemoAsync(context, ct);
+        await EnsureDeviationDemoAsync(context, ct);
+        await EnsureTiterDemoAsync(context, ct);
+        await EnsureInterfaceTranslationDemoAsync(context, ct);
+        await EnsureReagentLotDemoAsync(context, ct);
+        await EnsureRhigDemoAsync(context, ct);
+        await EnsureSpecimenStorageDemoAsync(context, ct);
+        await EnsureUnidentifiedPatientDemoAsync(context, ct);
+        await EnsureShipOutDemoAsync(context, ct);
+        await EnsureSupplierReturnDemoAsync(context, ct);
+        await EnsureEquipmentDemoAsync(context, ct);
+        await EnsureEquipmentTestCodesDemoAsync(context, ct);
+        await EnsureRecalledDemoAsync(context, ct);
+        await EnsureMotherInfantDemoAsync(context, ct);
+        await EnsureBloodOrderDemoAsync(context, ct);
+        await EnsureSurgeryOrderDemoAsync(context, ct);
+        await EnsureReactionNextUnitDemoAsync(context, ct);
+        await EnsureTubeAwaitingReceiptDemoAsync(context, ct);
+        await EnsureAntibodyWorkupInProgressDemoAsync(context, ct);
+        await EnsureSeededDiscardHistoryAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (end-user testing pass 51): the seeded discarded platelet
+    /// (W0001230001027, the third unit after the 24 by type) had no Discarded history, so the wastage reports showed
+    /// it with no discard date or month and a dated range left it out. Its discard is recorded at its expiry, as a
+    /// discard of an expired unit would be.
+    /// </summary>
+    private static async Task EnsureSeededDiscardHistoryAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var unit = await context.BloodUnits.FirstOrDefaultAsync(
+            u => u.UnitNumber == "W0001230001027" && u.Status == UnitStatus.Discarded && u.DiscardReasonCode == "EXPIRED", ct);
+        if (unit is null
+            || await context.InventoryStatusHistory.AnyAsync(h => h.BloodProductId == unit.Id && h.ToStatus == UnitStatus.Discarded, ct))
+        {
+            return;
+        }
+
+        context.InventoryStatusHistory.Add(new InventoryStatusHistory
+        {
+            BloodProductId = unit.Id,
+            FromStatus = UnitStatus.Available,
+            ToStatus = UnitStatus.Discarded,
+            FromLocationId = unit.CurrentLocationId,
+            ToLocationId = unit.CurrentLocationId,
+            Reason = unit.DiscardReason ?? "Expired before use",
+            ChangedBy = "tech1",
+            ChangedUtc = unit.ExpiresUtc.AddMinutes(30)
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (Cycle 642): a fresh accepted tube for Kellerman, Diane (MRN0004,
+    /// known anti-K) with an antibody-identification workup in progress on the teaching panel. IS is read negative on
+    /// every cell, AHG has the two K+ cells (2 and 5) at 2+ and the rest not yet read, and 37C is not read, so the
+    /// antigram, Rest 0 and assistance can be walked. Teaching reactions only; nothing is interpreted. Audited as the
+    /// service would audit opening it.
+    /// </summary>
+    private static async Task EnsureAntibodyWorkupInProgressDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string accession = "ACC-DEMO-ABID1";
+        if (await context.Specimens.IgnoreQueryFilters().AnyAsync(s => s.AccessionNumber == accession, ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0004", ct);
+        var visit = patient is null
+            ? null
+            : await context.Encounters.FirstOrDefaultAsync(e => e.PatientId == patient.Id && e.Status == EncounterStatus.Active, ct);
+        var lot = await context.AntibodyPanelLots.FirstOrDefaultAsync(l => l.LotNumber == "GHP-ABID-2026A" && l.IsActive, ct);
+        if (patient is null || visit is null || lot is null)
+        {
+            return;
+        }
+
+        var cells = await context.AntibodyPanelCells.Where(c => c.LotId == lot.Id && c.SupersededUtc == null).OrderBy(c => c.SortOrder).ToListAsync(ct);
+        if (cells.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var specimen = new Specimen
+        {
+            AccessionNumber = accession,
+            PatientId = patient.Id,
+            EncounterId = visit.Id,
+            SpecimenType = "EDTA",
+            Barcode = "SPC-" + accession,
+            CollectedUtc = now.AddHours(-2),
+            ReceivedUtc = now.AddMinutes(-90),
+            ExpiresUtc = now.AddHours(-2).AddDays(3),
+            DrawLocation = "6E Oncology",
+            Collector = "RN Demo",
+            Status = SpecimenStatus.Accepted,
+            Comment = "Demo: tube for an antibody identification in progress."
+        };
+        context.Specimens.Add(specimen);
+        await context.SaveChangesAsync(ct);
+
+        var workup = new AntibodyIdentificationWorkup
+        {
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            PrimaryLotId = lot.Id,
+            Status = AntibodyWorkupStatus.InProgress,
+            Comment = "Demo: IS read, AHG part read, 37C not read."
+        };
+        context.AntibodyIdentificationWorkups.Add(workup);
+        await context.SaveChangesAsync(ct);
+
+        context.AntibodyIdentificationWorkupLots.Add(new AntibodyIdentificationWorkupLot { WorkupId = workup.Id, LotId = lot.Id, IsPrimary = true });
+        foreach (var cell in cells)
+        {
+            context.AntibodyIdentificationReactions.Add(new AntibodyIdentificationReaction
+            {
+                WorkupId = workup.Id, CellId = cell.Id, PhaseCode = "IS", Strength = ReactionGrade.Negative
+            });
+            if (cell.CellNumber is "2" or "5")
+            {
+                context.AntibodyIdentificationReactions.Add(new AntibodyIdentificationReaction
+                {
+                    WorkupId = workup.Id, CellId = cell.Id, PhaseCode = "AHG", Strength = ReactionGrade.TwoPlus
+                });
+            }
+        }
+
+        context.AuditEvents.Add(new AuditEvent
+        {
+            EventType = AuditEventType.Antibody,
+            EntityType = nameof(AntibodyIdentificationWorkup),
+            EntityId = workup.Id,
+            UserName = "tech1",
+            Workstation = "DEMO-SEED",
+            OccurredUtc = now.AddMinutes(-60),
+            NewValueJson = JsonSerializer.Serialize(new { workup.PatientId, workup.PrimaryLotId, workup.SpecimenId, DemoData = true }),
+            Reason = "Antibody-identification workup opened."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (Cycle 638): a tube collected on the ward for Demo-Multi, Riley
+    /// (MRN0022, who needs a new specimen) and not yet received, so Pending specimens has a tube to scan, receive, or
+    /// reject on the development data. It ages like any tube: once past its expiry it can only be rejected.
+    /// </summary>
+    private static async Task EnsureTubeAwaitingReceiptDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string accession = "ACC-DEMO-RCV1";
+        if (await context.Specimens.IgnoreQueryFilters().AnyAsync(s => s.AccessionNumber == accession, ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0022", ct);
+        var visit = patient is null
+            ? null
+            : await context.Encounters.FirstOrDefaultAsync(e => e.PatientId == patient.Id && e.Status == EncounterStatus.Active, ct);
+        if (patient is null || visit is null)
+        {
+            return;
+        }
+
+        var collected = DateTime.UtcNow.AddMinutes(-25);
+        context.Specimens.Add(new Specimen
+        {
+            AccessionNumber = accession,
+            PatientId = patient.Id,
+            EncounterId = visit.Id,
+            SpecimenType = "EDTA",
+            Barcode = "SPC-" + accession,
+            CollectedUtc = collected,
+            ExpiresUtc = collected.AddDays(3),
+            DrawLocation = "ICU 4",
+            Collector = "RN Demo",
+            Status = SpecimenStatus.Collected,
+            Comment = "Demo: drawn on the ward, on its way to the blood bank."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Two quality records so Deviations has something to show: an open Major one (a unit found in the wrong
+    /// refrigerator) and a closed Minor one with its corrective action (a smudged tube label). Each is audited as the
+    /// service would audit it. Added once.
+    /// </summary>
+    private static async Task EnsureDeviationDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string marker = "Seed.DeviationDemo";
+        if (await context.SystemSettings.AnyAsync(s => s.Key == marker, ct))
+        {
+            return;
+        }
+
+        var unit = await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "W0001230000001", ct);
+        var specimen = await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0001", ct);
+        var now = DateTime.UtcNow;
+        var open = new Deviation
+        {
+            Title = "Unit found in the wrong refrigerator",
+            Description = "During the stock count, W0001230000001 was on the quarantine shelf of the main refrigerator, not the available shelf. Moved and checked; no issue affected.",
+            Severity = DeviationSeverity.Major,
+            Status = DeviationStatus.UnderReview,
+            ContextType = unit is null ? null : "BloodUnit",
+            ContextId = unit?.Id,
+            ReportedBy = "tech2",
+            ReportedUtc = now.AddHours(-30)
+        };
+        var closed = new Deviation
+        {
+            Title = "Tube label smudged at receipt",
+            Description = "ACC0001 label partly unreadable when received; relabeled under relabeling control before testing.",
+            Severity = DeviationSeverity.Minor,
+            Status = DeviationStatus.Closed,
+            ContextType = specimen is null ? null : "Specimen",
+            ContextId = specimen?.Id,
+            CorrectiveAction = "Label printer ribbon replaced; collection staff reminded to let labels dry before bagging.",
+            ReportedBy = "tech1",
+            ReportedUtc = now.AddDays(-3),
+            ClosedBy = "supervisor1",
+            ClosedUtc = now.AddDays(-2)
+        };
+        context.Deviations.AddRange(open, closed);
+        await context.SaveChangesAsync(ct);
+
+        foreach (var d in new[] { open, closed })
+        {
+            context.AuditEvents.Add(new AuditEvent
+            {
+                EventType = AuditEventType.Deviation,
+                EntityType = nameof(Deviation),
+                EntityId = d.Id,
+                UserName = d.ReportedBy,
+                Workstation = "DEMO-SEED",
+                OccurredUtc = d.ReportedUtc,
+                NewValueJson = JsonSerializer.Serialize(new { d.Title, d.Severity, Status = DeviationStatus.Open, d.ContextType, d.ContextId, DemoData = true }),
+                Reason = "Deviation created."
+            });
+        }
+
+        context.AuditEvents.Add(new AuditEvent
+        {
+            EventType = AuditEventType.Deviation,
+            EntityType = nameof(Deviation),
+            EntityId = open.Id,
+            UserName = "supervisor1",
+            Workstation = "DEMO-SEED",
+            OccurredUtc = open.ReportedUtc.AddHours(2),
+            OldValueJson = JsonSerializer.Serialize(new { Status = DeviationStatus.Open }),
+            NewValueJson = JsonSerializer.Serialize(new { open.Status, DemoData = true }),
+            Reason = "Deviation status updated."
+        });
+        context.AuditEvents.Add(new AuditEvent
+        {
+            EventType = AuditEventType.Deviation,
+            EntityType = nameof(Deviation),
+            EntityId = closed.Id,
+            UserName = closed.ClosedBy!,
+            Workstation = "DEMO-SEED",
+            OccurredUtc = closed.ClosedUtc!.Value,
+            OldValueJson = JsonSerializer.Serialize(new { Status = DeviationStatus.Open, CorrectiveAction = (string?)null }),
+            NewValueJson = JsonSerializer.Serialize(new { closed.Status, closed.CorrectiveAction, closed.ClosedBy, closed.ClosedUtc, DemoData = true }),
+            Reason = "Deviation status updated."
+        });
+        context.SystemSettings.Add(new SystemSetting { Key = marker, Value = "1", Description = "Demo deviations seeded once." });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// The demo ICU visits report their unit as "ICU 4" (as ADT would), so the Intensive Care Unit ordering location
+    /// carries that as its HL7 mapping code: an order placed for such a visit starts on ICU. Set only when empty.
+    /// </summary>
+    private static async Task EnsureOrderingLocationMappingDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var icu = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct);
+        if (icu is null || !string.IsNullOrWhiteSpace(icu.Hl7MappingCode)
+            || await context.OrderingLocations.AnyAsync(l => l.Hl7MappingCode == "ICU 4", ct))
+        {
+            return;
+        }
+
+        icu.Hl7MappingCode = "ICU 4";
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// The ward has asked for one of MRN0022's reserved units (W0001230009201) to be sent to ICU 4, so Ready to issue shows
+    /// a request first. Added once; a request that was issued or cancelled is not put back.
+    /// </summary>
+    private static async Task EnsureIssueRequestDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string marker = "Seed.IssueRequestDemo";
+        if (await context.SystemSettings.AnyAsync(s => s.Key == marker, ct))
+        {
+            return;
+        }
+
+        var allocation = await (
+            from a in context.Allocations
+            join u in context.BloodUnits on a.BloodProductId equals u.Id
+            where u.UnitNumber == "W0001230009201" && a.Status == AllocationStatus.Reserved
+            select a).FirstOrDefaultAsync(ct);
+        if (allocation is not null && allocation.IssueRequestedUtc is null)
+        {
+            allocation.IssueRequestedUtc = DateTime.UtcNow.AddMinutes(-10);
+            allocation.IssueRequestedBy = "RN Demo";
+            allocation.IssueRequestedTo = "ICU 4";
+        }
+
+        context.SystemSettings.Add(new SystemSetting { Key = marker, Value = "1", Description = "Demo issue request seeded once." });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A supplier order for five group O red cells, submitted and received against a delivery that brought three, so
+    /// the order shows 2 short; the delivery (packing list PL-DEMO-0001) is completed and its units are on the shelf.
+    /// Added once.
+    /// </summary>
+    private static async Task EnsureSupplyDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SupplierOrders.AnyAsync(o => o.OrderNumber == "SO-DEMO-001", ct))
+        {
+            return;
+        }
+
+        var supplier = await context.BloodSuppliers.FirstOrDefaultAsync(s => s.Code == "ARC", ct);
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (supplier is null || redCells is null || fridge is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var delivery = new BloodDelivery
+        {
+            BloodSupplierId = supplier.Id,
+            PackingListNumber = "PL-DEMO-0001",
+            OrderedUtc = now.AddDays(-1),
+            ReceivedUtc = now.AddHours(-3),
+            Status = DeliveryStatus.Completed,
+            CompletedUtc = now.AddHours(-2)
+        };
+        context.BloodDeliveries.Add(delivery);
+        await context.SaveChangesAsync(ct);
+        context.BloodDeliveryLines.Add(new BloodDeliveryLine { BloodDeliveryId = delivery.Id, ComponentClass = ComponentClass.RedBloodCells, ExpectedQuantity = 3 });
+        var units = Enumerable.Range(0, 3)
+            .Select(i => NewUnit(9301 + i, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(35 + i), 300m))
+            .ToList();
+        foreach (var unit in units)
+        {
+            unit.DeliveryId = delivery.Id;
+            unit.Supplier = supplier.Name;
+        }
+
+        context.BloodUnits.AddRange(units);
+        var order = new SupplierOrder
+        {
+            OrderNumber = "SO-DEMO-001",
+            BloodSupplierId = supplier.Id,
+            Status = SupplierOrderStatus.Received,
+            Notes = "Demo: five group O red cells ordered, three delivered.",
+            SubmittedBy = "supervisor1",
+            SubmittedUtc = now.AddDays(-1),
+            BloodDeliveryId = delivery.Id,
+            ReceivedUtc = now.AddHours(-2)
+        };
+        context.SupplierOrders.Add(order);
+        await context.SaveChangesAsync(ct);
+        context.SupplierOrderLines.Add(new SupplierOrderLine { SupplierOrderId = order.Id, ProductTypeId = redCells.Id, Abo = AboGroup.O, Quantity = 5 });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A supplier order for one group A red cell, submitted and not yet received, so Minimum stock shows it on order
+    /// against the group A shortage and a new order drafts only what is still to order. Added once.
+    /// </summary>
+    private static async Task EnsureOnOrderDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SupplierOrders.AnyAsync(o => o.OrderNumber == "SO-DEMO-002", ct))
+        {
+            return;
+        }
+
+        var supplier = await context.BloodSuppliers.FirstOrDefaultAsync(s => s.Code == "ARC", ct);
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        if (supplier is null || redCells is null)
+        {
+            return;
+        }
+
+        var order = new SupplierOrder
+        {
+            OrderNumber = "SO-DEMO-002",
+            BloodSupplierId = supplier.Id,
+            Status = SupplierOrderStatus.Submitted,
+            Notes = "Demo: one group A red cell ordered, not yet delivered.",
+            SubmittedBy = "supervisor1",
+            SubmittedUtc = DateTime.UtcNow.AddHours(-1)
+        };
+        context.SupplierOrders.Add(order);
+        await context.SaveChangesAsync(ct);
+        context.SupplierOrderLines.Add(new SupplierOrderLine { SupplierOrderId = order.Id, ProductTypeId = redCells.Id, Abo = AboGroup.A, Quantity = 1 });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A second chart for the multi-unit demo patient (MRN0022), as an ADT feed might register it (upper case, another
+    /// MRN, no blood bank history), so Possible duplicates and merging can be shown. Added once.
+    /// </summary>
+    private static async Task EnsurePossibleDuplicatePatientAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0024", ct)
+            || !await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0022", ct))
+        {
+            return;
+        }
+
+        context.Patients.Add(new Patient
+        {
+            MedicalRecordNumber = "MRN0024",
+            LastName = "DEMO-MULTI",
+            FirstName = "RILEY",
+            DateOfBirth = new DateOnly(1958, 11, 21),
+            Sex = Sex.Unknown,
+            Comment = "Demo: possible duplicate of MRN0022 (registered by ADT)."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A STAT type and screen for the special-requirements demo patient (MRN0023), ordered 20 minutes before seeding
+    /// with no tube yet, so the bench's No specimen view and the home Pending tests note can be shown. Added once.
+    /// </summary>
+    private static async Task EnsureStatOrderWithoutSpecimenAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Orders.AnyAsync(o => o.OrderNumber == "ORD0024", ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0023", ct);
+        if (patient is null)
+        {
+            return;
+        }
+
+        var encounter = await context.Encounters.Where(e => e.PatientId == patient.Id).OrderByDescending(e => e.Id).FirstOrDefaultAsync(ct);
+        var location = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct)
+            ?? await context.OrderingLocations.FirstOrDefaultAsync(ct);
+        if (encounter is null || location is null)
+        {
+            return;
+        }
+
+        var order = new Order
+        {
+            OrderNumber = "ORD0024",
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Stat,
+            Status = OrderStatus.New,
+            Source = OrderSource.Manual,
+            OrderedUtc = DateTime.UtcNow.AddMinutes(-20)
+        };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+        context.OrderLines.AddRange(
+            new OrderLine { OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type", TestCode = "ABORH", OrderType = OrderType.AboRh },
+            new OrderLine { OrderId = order.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", OrderType = OrderType.AntibodyScreen });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private const string CoolerCheckReasonPrefix = "Cooler check: ";
+
+    /// <summary>
+    /// Demo cooler checks so each state can be shown: Cooler M2 (multi-unit patient) checked with all units packed,
+    /// Cooler 1 (massive transfusion pack) checked with one unit not scanned, and CLR-TRAUMA-1 left unchecked. Written
+    /// once per cooler, as the cooler check writes them (one row per issue in the cooler), and marked as demo data.
+    /// </summary>
+    private static async Task EnsureCoolerCheckDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await SeedCoolerCheckAsync(context, "Cooler M2", missing: 0, ct);
+        await SeedCoolerCheckAsync(context, "Cooler 1", missing: 1, ct);
+    }
+
+    private static async Task SeedCoolerCheckAsync(BloodBankDbContext context, string cooler, int missing, CancellationToken ct)
+    {
+        var issues = await context.Issues
+            .Where(i => i.CoolerId == cooler && i.Status == IssueStatus.Issued && i.WardReceivedUtc == null)
+            .OrderBy(i => i.IssuedUtc)
+            .ToListAsync(ct);
+        if (issues.Count == 0)
+        {
+            return;
+        }
+
+        var issueIds = issues.Select(i => (long?)i.Id).ToList();
+        if (await context.AuditEvents.AnyAsync(
+                e => e.EntityType == nameof(Issue) && issueIds.Contains(e.EntityId) && e.Reason!.StartsWith(CoolerCheckReasonPrefix), ct))
+        {
+            return;
+        }
+
+        var unitIds = issues.Select(i => i.BloodProductId).ToList();
+        var numbers = await context.BloodUnits.Where(u => unitIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UnitNumber, ct);
+        var notPacked = issues.Take(missing).Select(i => numbers.GetValueOrDefault(i.BloodProductId) ?? $"unit {i.BloodProductId}").ToList();
+        var packed = issues.Count - notPacked.Count;
+        var reason = notPacked.Count == 0
+            ? $"{CoolerCheckReasonPrefix}{cooler}: all {issues.Count} units packed."
+            : $"{CoolerCheckReasonPrefix}{cooler}: {packed} of {issues.Count} packed, {notPacked.Count} missing, 0 issued to another cooler, 0 not issued, 0 unresolved scans.";
+        var checkedUtc = issues.Max(i => i.IssuedUtc).AddMinutes(2);
+        foreach (var issue in issues)
+        {
+            var unitNumber = numbers.GetValueOrDefault(issue.BloodProductId) ?? $"unit {issue.BloodProductId}";
+            context.AuditEvents.Add(new AuditEvent
+            {
+                EventType = AuditEventType.Issue,
+                EntityType = nameof(Issue),
+                EntityId = issue.Id,
+                UserName = issue.IssuedBy,
+                Workstation = "DEMO-SEED",
+                OccurredUtc = checkedUtc,
+                NewValueJson = JsonSerializer.Serialize(new
+                {
+                    Document = "Cooler check",
+                    Cooler = cooler,
+                    IssueId = issue.Id,
+                    BloodProductId = issue.BloodProductId,
+                    UnitNumber = unitNumber,
+                    Packed = !notPacked.Contains(unitNumber),
+                    Ready = notPacked.Count == 0,
+                    Missing = notPacked,
+                    DemoData = true
+                }),
+                Reason = reason
+            });
+        }
+
+        await context.SaveChangesAsync(ct);
     }
 
     // ---------------------------------------------------------------------
@@ -491,6 +1050,7 @@ public static partial class DatabaseSeeder
             return;
         }
 
+        var plateletStore = locations.GetValueOrDefault("PLT-1") ?? fridge;
         var now = DateTime.UtcNow;
         var serial = 1001;
         var units = new List<BloodUnit>();
@@ -500,9 +1060,9 @@ public static partial class DatabaseSeeder
             units.Add(NewUnit(serial++, redCells.Id, abo, rh, fridge.Id, now.AddDays(28), 300m));
             units.Add(NewUnit(serial++, plasma.Id, abo, rh, freezer.Id, now.AddDays(300), 250m));
 
-            // Platelets belong at room temperature with agitation; the location catalog has no
-            // such type, so the main refrigerator stands in for the demo.
-            units.Add(NewUnit(serial++, platelets.Id, abo, rh, fridge.Id, now.AddDays(4), 300m));
+            // Platelets belong at room temperature with agitation: the platelet incubator when it is in the
+            // catalog (end-user testing, 2026-11-12: they were seeded into the red-cell refrigerator).
+            units.Add(NewUnit(serial++, platelets.Id, abo, rh, plateletStore.Id, now.AddDays(4), 300m));
         }
 
         // A few units that are not simply available, so the worklists show real variety.
@@ -513,9 +1073,11 @@ public static partial class DatabaseSeeder
         quarantined.QuarantineReason = "Segment tubing damaged on receipt; pending supervisor review.";
         quarantined.QuarantineReasonCode = UnitQuarantineReason.VisualDefect;
 
-        var discarded = NewUnit(serial++, platelets.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(-1), 300m);
+        var discarded = NewUnit(serial++, platelets.Id, AboGroup.O, RhType.Positive, plateletStore.Id, now.AddDays(-1), 300m);
         discarded.Status = UnitStatus.Discarded;
-        discarded.DiscardReason = "Expired before issue.";
+        // Coded like a real discard, so the wastage report groups it under its reason.
+        discarded.DiscardReasonCode = "EXPIRED";
+        discarded.DiscardReason = "Expired before use";
 
         var expired = NewUnit(serial++, redCells.Id, AboGroup.AB, RhType.Negative, fridge.Id, now.AddDays(-3), 300m);
         expired.Status = UnitStatus.Expired;
@@ -1141,7 +1703,135 @@ public static partial class DatabaseSeeder
         context.Issues.Add(issue);
         await context.SaveChangesAsync(ct);
 
-        release.ContextId = issue.Id;
+        // Same convention as IssuingService: an issue override's context id is the unit.
+        release.ContextId = unit.Id;
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Demo only: an active massive transfusion protocol with two red cells and two plasma issued under it and one
+    /// recorded cooler, so the protocol banner and the pack report can be seen. The demo cooler has no temperature
+    /// range or validated hours (those come from a facility's own validation), and no pack definition is used.
+    /// Close the protocol on Issue &amp; Transfuse to clear the banner.
+    /// </summary>
+    private static async Task SeedMassiveTransfusionScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0021", ct))
+        {
+            return;
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var plasma = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "FFP", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        var freezer = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FREEZER-1", ct);
+        if (redCells is null || plasma is null || fridge is null || freezer is null)
+        {
+            return;
+        }
+
+        // The scenario brings its own units so it never takes stock another scenario relies on.
+        var now = DateTime.UtcNow;
+        var cells = new List<BloodUnit>
+        {
+            NewUnit(9101, redCells.Id, AboGroup.O, RhType.Negative, fridge.Id, now.AddDays(30), 300m),
+            NewUnit(9102, redCells.Id, AboGroup.O, RhType.Negative, fridge.Id, now.AddDays(31), 300m)
+        };
+        var plasmaUnits = new List<BloodUnit>
+        {
+            NewUnit(9103, plasma.Id, AboGroup.AB, RhType.Positive, freezer.Id, now.AddDays(300), 250m),
+            NewUnit(9104, plasma.Id, AboGroup.AB, RhType.Positive, freezer.Id, now.AddDays(301), 250m)
+        };
+        context.BloodUnits.AddRange(cells.Concat(plasmaUnits));
+        await context.SaveChangesAsync(ct);
+
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0021",
+            last: "Demo-Massive",
+            first: "Morgan",
+            dateOfBirth: new DateOnly(1979, 2, 14),
+            sex: Sex.Unknown,
+            visitNumber: "VIS-2026-021",
+            encounterType: EncounterType.Emergency,
+            currentLocation: "Trauma Bay 1",
+            accession: "ACC0021",
+            specimenType: "EDTA",
+            collectedUtc: now.AddMinutes(-50),
+            ct);
+
+        var activation = new MtpActivation
+        {
+            PatientId = visit.Patient.Id,
+            Status = MtpActivationStatus.Active,
+            RequestedBy = "Dr. Demo Trauma (demo)",
+            Reason = "Demo scenario: hemorrhage after motor vehicle collision",
+            Location = "Trauma Bay 1",
+            ActivatedUtc = now.AddMinutes(-45),
+            ActivatedBy = "tech2"
+        };
+        context.MtpActivations.Add(activation);
+
+        var cooler = await context.TransportContainers.FirstOrDefaultAsync(c => c.Code == "DEMO-COOLER", ct);
+        if (cooler is null)
+        {
+            cooler = new TransportContainer
+            {
+                Code = "DEMO-COOLER",
+                Name = "Demo cooler (not validated)",
+                ContainerType = TransportContainerType.Cooler,
+                Description = "Demo data only. Replace with your facility's validated containers.",
+                SortOrder = 10,
+                IsActive = true
+            };
+            context.TransportContainers.Add(cooler);
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        var pack = new MtpPackRecord
+        {
+            MtpActivationId = activation.Id,
+            PackNumber = 1,
+            TransportContainerId = cooler.Id,
+            ContainerLabel = "Cooler 1",
+            TemperatureC = 4.0m,
+            PackedUtc = now.AddMinutes(-38),
+            PackedBy = "tech2",
+            Comment = "Demo pack"
+        };
+        context.MtpPackRecords.Add(pack);
+        await context.SaveChangesAsync(ct);
+
+        var minute = 44;
+        foreach (var unit in cells.Concat(plasmaUnits))
+        {
+            unit.Status = UnitStatus.Issued;
+            var isCells = unit.ProductTypeId == redCells.Id;
+            context.Issues.Add(new Issue
+            {
+                BloodProductId = unit.Id,
+                PatientId = visit.Patient.Id,
+                EncounterId = visit.Encounter.Id,
+                IssuedUtc = now.AddMinutes(-minute),
+                IssuedBy = "tech2",
+                IssuedTo = "RN Demo",
+                IssuedToLocation = "Trauma Bay 1",
+                CoolerId = "Cooler 1",
+                InTransitDueUtc = now.AddHours(1),
+                IssueType = IssueType.MassiveTransfusion,
+                CrossmatchStatus = isCells ? CrossmatchClinicalStatus.NotCrossmatchedEmergency : CrossmatchClinicalStatus.NotPerformed,
+                EmergencyReleaseDetails = isCells ? "Demo scenario: uncrossmatched group O under MTP." : null,
+                TestsIncompleteAtIssue = isCells,
+                RetrospectiveCrossmatchDueUtc = isCells ? now.AddHours(23) : null,
+                Status = IssueStatus.Issued,
+                UnitExpirationAtIssueUtc = unit.ExpiresUtc,
+                MtpActivationId = activation.Id,
+                MtpPackRecordId = pack.Id
+            });
+            minute -= 1;
+        }
+
         await context.SaveChangesAsync(ct);
     }
 
@@ -1153,6 +1843,7 @@ public static partial class DatabaseSeeder
     {
         if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0006", ct))
         {
+            await EnsureReactionWorkupDemoAsync(context, ct);
             return;
         }
 
@@ -1304,6 +1995,229 @@ public static partial class DatabaseSeeder
             Status = ReactionInvestigationStatus.UnderReview,
             Findings = "Temperature rose 1.8C with rigors; DAT negative. Clerical check clear."
         });
+        await context.SaveChangesAsync(ct);
+        await EnsureReactionWorkupDemoAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases (Cycle 631): while MRN0006's reaction is still under review, another
+    /// red cell unit is ordered (ORD-RXN-NEXT) and an A+ unit (W000123RXN0001, its own) reserved for it, so the reaction warnings show on the
+    /// development data: Ready to issue and the Issue form, the Reactions list and home card, and the shift handoff.
+    /// The order number marks it as added; a later release does not bring the unit back.
+    /// </summary>
+    private static async Task EnsureReactionNextUnitDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string orderNumber = "ORD-RXN-NEXT";
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0006", ct);
+        var specimen = await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0014", ct);
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        if (patient is null || specimen is null || redCells is null || specimen.EncounterId is null)
+        {
+            return;
+        }
+
+        var existing = await context.Orders.IgnoreQueryFilters().FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, ct);
+        if (existing is not null)
+        {
+            await RepairReactionNextUnitAsync(context, existing, patient.Id, specimen, redCells.Id, ct);
+            return;
+        }
+
+        var investigation = await context.ReactionInvestigations.FirstOrDefaultAsync(
+            r => r.PatientId == patient.Id && r.Status != ReactionInvestigationStatus.Closed, ct);
+        var orderingLocation = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct);
+        if (investigation is null || orderingLocation is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var order = new Order
+        {
+            OrderNumber = orderNumber,
+            PatientId = patient.Id,
+            EncounterId = specimen.EncounterId.Value,
+            OrderingLocationId = orderingLocation.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Red Blood Cells",
+            OrderType = OrderType.Other,
+            ProductTypeId = redCells.Id,
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddMinutes(-30),
+            Comment = "Demo: another unit ordered while the reaction is under review."
+        };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.Add(new OrderLine
+        {
+            OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells",
+            ProductTypeId = redCells.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered
+        });
+        await ReserveReactionNextUnitAsync(context, order, patient.Id, specimen, redCells.Id, ct);
+    }
+
+    private const string ReactionNextUnitNumber = "W000123RXN0001";
+
+    // Its own unit, so no other demo loses the stock it expects.
+    private static async Task ReserveReactionNextUnitAsync(
+        BloodBankDbContext context, Order order, long patientId, Specimen specimen, long redCellsId, CancellationToken ct)
+    {
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        var now = DateTime.UtcNow;
+        var unit = new BloodUnit
+        {
+            UnitNumber = ReactionNextUnitNumber,
+            ProductTypeId = redCellsId,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(21),
+            CurrentLocationId = fridge?.Id,
+            Status = UnitStatus.Assigned,
+            CollectionFacility = "Regional Blood Center"
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync(ct);
+
+        context.Allocations.Add(new Allocation
+        {
+            BloodProductId = unit.Id,
+            PatientId = patientId,
+            EncounterId = specimen.EncounterId,
+            OrderId = order.Id,
+            SpecimenId = specimen.Id,
+            Status = AllocationStatus.Reserved,
+            AssignmentType = AssignmentType.Reservation,
+            AllocatedUtc = now.AddMinutes(-20),
+            AllocatedBy = "tech1",
+            ExpiresUtc = now.AddHours(24)
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// The first version of this demo reserved a spare A+ unit from stock, which on a development database could be
+    /// another demo's unit (the ISBT divide unit). That reservation is released and the unit put back, and the case gets
+    /// its own unit. Nothing else is touched; a unit the bench has released or issued is left as it is.
+    /// </summary>
+    private static async Task RepairReactionNextUnitAsync(
+        BloodBankDbContext context, Order order, long patientId, Specimen specimen, long redCellsId, CancellationToken ct)
+    {
+        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == ReactionNextUnitNumber, ct))
+        {
+            return;
+        }
+
+        var borrowed = await context.Allocations
+            .Where(a => a.OrderId == order.Id && a.Status == AllocationStatus.Reserved)
+            .ToListAsync(ct);
+        if (borrowed.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var allocation in borrowed)
+        {
+            allocation.Status = AllocationStatus.Released;
+            allocation.ReleaseReason = "Demo data corrected: the reaction demo now has its own unit.";
+            var unit = await context.BloodUnits.FirstOrDefaultAsync(u => u.Id == allocation.BloodProductId, ct);
+            if (unit is { Status: UnitStatus.Assigned })
+            {
+                unit.Status = UnitStatus.Available;
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+        await ReserveReactionNextUnitAsync(context, order, patientId, specimen, redCellsId, ct);
+    }
+
+    /// <summary>
+    /// Demo only, once on new and existing databases: the MRN0006 reaction's specimen workup. ACC0014, collected
+    /// before the issue, becomes the pre-transfusion specimen with its workup order ORD0016 (an ABO/Rh line added to
+    /// the DAT already there). A post-transfusion tube ACC0024, drawn an hour after the transfusion began, gets the
+    /// post-transfusion Test Group as order RXN-n-POST, unresulted, so resulting the workup on the bench can be shown.
+    /// </summary>
+    private static async Task EnsureReactionWorkupDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0006", ct);
+        var preTube = patient is null ? null : await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0014", ct);
+        var preOrder = await context.Orders.FirstOrDefaultAsync(o => o.OrderNumber == "ORD0016", ct);
+        var inv = patient is null ? null : await context.ReactionInvestigations.FirstOrDefaultAsync(r => r.PatientId == patient.Id, ct);
+        if (patient is null || preTube is null || preOrder is null || inv is null
+            || inv.PreTransfusionOrderId is not null || await context.Specimens.AnyAsync(s => s.AccessionNumber == "ACC0024", ct))
+        {
+            return;
+        }
+
+        var transfusion = await context.TransfusionEvents.FirstOrDefaultAsync(t => t.Id == inv.TransfusionEventId, ct);
+        var collected = (transfusion?.StartUtc ?? inv.ReportedUtc).AddHours(1);
+
+        if (!await context.OrderLines.AnyAsync(l => l.OrderId == preOrder.Id && l.TestCode == "ABORH", ct))
+        {
+            context.OrderLines.Add(new OrderLine
+            {
+                OrderId = preOrder.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type",
+                TestCode = "ABORH", OrderType = OrderType.AboRh, ResultStatus = ResultStatus.Pending
+            });
+        }
+
+        var postTube = new Specimen
+        {
+            AccessionNumber = "ACC0024",
+            PatientId = patient.Id,
+            EncounterId = preTube.EncounterId,
+            SpecimenType = "EDTA",
+            Barcode = "SPC-ACC0024",
+            CollectedUtc = collected,
+            ReceivedUtc = collected.AddMinutes(20),
+            ExpiresUtc = collected.AddDays(3),
+            Status = SpecimenStatus.Accepted,
+            Comment = $"Post-transfusion specimen for transfusion reaction investigation {inv.Id}."
+        };
+        context.Specimens.Add(postTube);
+        await context.SaveChangesAsync(ct);
+
+        var postOrder = new Order
+        {
+            OrderNumber = $"RXN-{inv.Id}-POST",
+            PatientId = patient.Id,
+            EncounterId = preOrder.EncounterId,
+            OrderingLocationId = preOrder.OrderingLocationId,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Transfusion reaction workup - post-transfusion",
+            OrderType = OrderType.TransfusionReactionWorkup,
+            TestCode = "ABORH",
+            Priority = OrderPriority.Stat,
+            Status = OrderStatus.New,
+            Source = OrderSource.Manual,
+            OrderedUtc = collected.AddMinutes(25),
+            Comment = $"Transfusion reaction investigation {inv.Id}: post-transfusion specimen."
+        };
+        context.Orders.Add(postOrder);
+        await context.SaveChangesAsync(ct);
+
+        var lines = new[]
+        {
+            ("ABORH", "ABO/Rh Type", OrderType.AboRh),
+            ("DAT", "Direct Antiglobulin Test", OrderType.DirectAntiglobulinTest),
+            ("ABSC", "Antibody Screen", OrderType.AntibodyScreen)
+        };
+        for (var i = 0; i < lines.Length; i++)
+        {
+            context.OrderLines.Add(new OrderLine
+            {
+                OrderId = postOrder.Id, LineNumber = i + 1, LineCategory = OrderCategory.Test, LineName = lines[i].Item2,
+                TestCode = lines[i].Item1, OrderType = lines[i].Item3, ResultStatus = ResultStatus.Pending
+            });
+        }
+
+        context.OrderSpecimens.Add(new OrderSpecimen { OrderId = postOrder.Id, SpecimenId = postTube.Id, IsPrimary = true });
+        inv.PreTransfusionSpecimenId = preTube.Id;
+        inv.PreTransfusionOrderId = preOrder.Id;
+        inv.PostTransfusionSpecimenId = postTube.Id;
+        inv.PostTransfusionOrderId = postOrder.Id;
         await context.SaveChangesAsync(ct);
     }
 
@@ -2610,6 +3524,246 @@ public static partial class DatabaseSeeder
         await context.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Demo only: starter minimum stock levels so the Minimum stock page has rows, including red cells with open orders.
+    /// Example numbers to change; a facility sets its own from usage.
+    /// </summary>
+    private static async Task SeedMinimumStockLevelsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.MinimumStockLevels.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var products = await context.ProductTypes
+            .Where(p => p.ProductCode == "RBC-LR" || p.ProductCode == "FFP" || p.ProductCode == "PLT-A")
+            .ToDictionaryAsync(p => p.ProductCode, ct);
+        void Level(string code, AboGroup? abo, int minimum)
+        {
+            if (products.TryGetValue(code, out var product))
+            {
+                context.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = product.Id, Abo = abo, MinimumAvailable = minimum });
+            }
+        }
+
+        Level("RBC-LR", AboGroup.O, 6);
+        Level("RBC-LR", AboGroup.A, 4);
+        Level("FFP", null, 4);
+        Level("PLT-A", null, 2);
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Demo only: one patient with six red cells at three steps, so the Issue &amp; Transfuse runs can be seen:
+    /// two crossmatched and ready to issue, two issued in one cooler and still in transit, and two received on the
+    /// ward and waiting at the bedside. Its own units; nothing another scenario uses.
+    /// </summary>
+    private static async Task SeedMultiUnitScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0022", ct))
+        {
+            await EnsureMultiUnitOrderSpecimenAsync(context, ct);
+            return;
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        var location = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct);
+        if (redCells is null || fridge is null || location is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0022",
+            last: "Demo-Multi",
+            first: "Riley",
+            dateOfBirth: new DateOnly(1958, 11, 21),
+            sex: Sex.Unknown,
+            visitNumber: "VIS-2026-022",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "ICU 4",
+            accession: "ACC0022",
+            specimenType: "EDTA",
+            collectedUtc: now.AddHours(-5),
+            ct);
+
+        var screenOrder = new Order
+        {
+            OrderNumber = "ORD0022",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.Completed,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddHours(-5),
+            ResultStatus = ResultStatus.Verified
+        };
+        var productOrder = new Order
+        {
+            OrderNumber = "ORD0023",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Red Blood Cells x6",
+            OrderType = OrderType.Other,
+            ProductTypeId = redCells.Id,
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddHours(-4),
+            FulfillmentStatus = FulfillmentStatus.Ordered
+        };
+        context.Orders.AddRange(screenOrder, productOrder);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.AddRange(
+            new OrderLine { OrderId = screenOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type", TestCode = "ABORH", OrderType = OrderType.AboRh, ResultStatus = ResultStatus.Verified },
+            new OrderLine { OrderId = screenOrder.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", OrderType = OrderType.AntibodyScreen, ResultStatus = ResultStatus.Verified },
+            new OrderLine { OrderId = productOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = redCells.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered });
+        // The red-cell order uses the same tube, so more units can be reserved and crossmatched in the demo.
+        context.OrderSpecimens.AddRange(
+            new OrderSpecimen { OrderId = screenOrder.Id, SpecimenId = visit.Specimen.Id, IsPrimary = true },
+            new OrderSpecimen { OrderId = productOrder.Id, SpecimenId = visit.Specimen.Id, IsPrimary = true });
+        context.TestResults.AddRange(
+            VerifiedResult(visit, screenOrder.Id, "ABORH", AboRhResultValue.Format(AboGroup.O, RhType.Positive), now.AddHours(-4)),
+            VerifiedResult(visit, screenOrder.Id, "ABSC", "Negative", now.AddHours(-4)));
+        // A historical type as well, so routine red-cell issue has its second determination.
+        context.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.HistoricalImport, IsCurrent = false },
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true });
+
+        var units = Enumerable.Range(0, 6)
+            .Select(i => NewUnit(9201 + i, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(20 + i), 300m))
+            .ToList();
+        context.BloodUnits.AddRange(units);
+        await context.SaveChangesAsync(ct);
+
+        var retypeTest = await context.TestDefinitions.FirstOrDefaultAsync(
+            t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct);
+        if (retypeTest is not null)
+        {
+            context.ProductRetypeResults.AddRange(units.Select(u => VerifiedLabelRetype(u, retypeTest, now)));
+        }
+
+        // Every unit was reserved and crossmatched compatible on today's specimen.
+        var allocations = units.Select((u, i) => new Allocation
+        {
+            BloodProductId = u.Id,
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderId = productOrder.Id,
+            SpecimenId = visit.Specimen.Id,
+            Status = i < 2 ? AllocationStatus.Reserved : AllocationStatus.Consumed,
+            AssignmentType = AssignmentType.Reservation,
+            AllocatedUtc = now.AddHours(-3).AddMinutes(i),
+            AllocatedBy = "tech1",
+            ExpiresUtc = now.AddHours(24)
+        }).ToList();
+        context.Allocations.AddRange(allocations);
+        context.Crossmatches.AddRange(units.Select(u => new Crossmatch
+        {
+            BloodProductId = u.Id,
+            PatientId = visit.Patient.Id,
+            SpecimenId = visit.Specimen.Id,
+            Method = CrossmatchMethod.Serologic,
+            Result = CrossmatchResult.Compatible,
+            PerformedUtc = now.AddHours(-2).AddMinutes(-30),
+            PerformedBy = "tech1",
+            ExpiresUtc = visit.Specimen.ExpiresUtc
+        }));
+        await context.SaveChangesAsync(ct);
+
+        // Units 1-2 stay reserved (Ready to issue). Units 3-4 went out in one cooler and are in transit. Units 5-6
+        // were received on the ward and wait at the bedside.
+        for (var i = 0; i < 2; i++)
+        {
+            units[i].Status = UnitStatus.Crossmatched;
+        }
+
+        for (var i = 2; i < 6; i++)
+        {
+            var received = i >= 4;
+            units[i].Status = UnitStatus.Issued;
+            var issuedUtc = received ? now.AddMinutes(-70 + i) : now.AddMinutes(-15 + i);
+            context.Issues.Add(new Issue
+            {
+                AllocationId = allocations[i].Id,
+                BloodProductId = units[i].Id,
+                PatientId = visit.Patient.Id,
+                EncounterId = visit.Encounter.Id,
+                OrderId = productOrder.Id,
+                IssuedUtc = issuedUtc,
+                IssuedBy = "tech2",
+                IssuedTo = "RN Demo",
+                IssuedToLocation = "ICU 4",
+                CoolerId = received ? "Cooler M1" : "Cooler M2",
+                InTransitDueUtc = issuedUtc.AddHours(1),
+                IssueType = IssueType.Standard,
+                CrossmatchStatus = CrossmatchClinicalStatus.Compatible,
+                Status = IssueStatus.Issued,
+                UnitExpirationAtIssueUtc = units[i].ExpiresUtc,
+                WardReceivedUtc = received ? issuedUtc.AddMinutes(12) : null,
+                WardReceivedBy = received ? "RN Demo" : null
+            });
+        }
+
+        await context.SaveChangesAsync(ct);
+        await EnsureMultiUnitOrderSpecimenAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Databases seeded before these were added get, once: the red-cell order linked to the tube, and two retyped
+    /// O+ red cells in stock, so reserving several units for the order can be shown.
+    /// </summary>
+    private static async Task EnsureMultiUnitOrderSpecimenAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var order = await context.Orders.FirstOrDefaultAsync(o => o.OrderNumber == "ORD0023", ct);
+        var specimen = await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0022", ct);
+        if (order is null || specimen is null)
+        {
+            return;
+        }
+
+        // Unlinked rows count too (the query filter hides them): once the demo tube expires, the expired-specimen sweep
+        // unlinks it, and adding the pair again broke the API at startup on the unique (order, specimen) index.
+        if (!await context.OrderSpecimens.IgnoreQueryFilters().AnyAsync(os => os.OrderId == order.Id, ct))
+        {
+            context.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = specimen.Id, IsPrimary = true });
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (redCells is not null && fridge is not null
+            && !await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W0001230009207", ct))
+        {
+            var now = DateTime.UtcNow;
+            var stock = new[]
+            {
+                NewUnit(9207, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(25), 300m),
+                NewUnit(9208, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(26), 300m)
+            };
+            context.BloodUnits.AddRange(stock);
+            await context.SaveChangesAsync(ct);
+            var retypeTest = await context.TestDefinitions.FirstOrDefaultAsync(
+                t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct);
+            if (retypeTest is not null)
+            {
+                context.ProductRetypeResults.AddRange(stock.Select(u => VerifiedLabelRetype(u, retypeTest, now)));
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
     // ---------------------------------------------------------------------
     // Shared helpers
     // ---------------------------------------------------------------------
@@ -2625,6 +3779,64 @@ public static partial class DatabaseSeeder
             u.Status == UnitStatus.Available
             && !context.Allocations.Any(a => a.BloodProductId == u.Id)
             && !context.Issues.Any(i => i.BloodProductId == u.Id));
+
+    /// <summary>
+    /// Demo only: one patient with special requirements in effect, so the requirement badges, chart banners, patient
+    /// pickers, and downtime summary can be shown. Irradiated and CMV-negative red cells (enforced) and a note to call
+    /// the transfusion service physician (informational), from the starter catalog entries. Typed O+ twice, with a
+    /// current specimen. Example data, not clinical policy; added once by MRN on new and existing databases.
+    /// </summary>
+    private static async Task SeedSpecialRequirementsScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0023", ct))
+        {
+            return;
+        }
+
+        var definitions = await context.SpecialRequirementDefinitions
+            .Where(d => d.Code == "IRRAD-RBC" || d.Code == "CMVNEG-RBC" || d.Code == "CALL-TSMD")
+            .ToDictionaryAsync(d => d.Code, ct);
+        if (definitions.Count < 3)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0023",
+            last: "Demo-Special",
+            first: "Avery",
+            dateOfBirth: new DateOnly(1969, 7, 9),
+            sex: Sex.Female,
+            visitNumber: "VIS-2026-023",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "ONC 6",
+            accession: "ACC0023",
+            specimenType: "EDTA",
+            collectedUtc: now.AddHours(-3),
+            ct);
+
+        context.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.HistoricalImport, IsCurrent = false },
+            new PatientBloodTypeHistory { PatientId = visit.Patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true, SpecimenId = visit.Specimen.Id });
+
+        SpecialTransfusionRequirement Requirement(string code, SpecialTransfusionRequirementType type, string reason) => new()
+        {
+            PatientId = visit.Patient.Id,
+            RequirementDefinitionId = definitions[code].Id,
+            RequirementType = type,
+            Reason = reason,
+            EffectiveUtc = now.AddDays(-14),
+            IsActive = true,
+            EnteredBy = "system"
+        };
+        context.SpecialTransfusionRequirements.AddRange(
+            Requirement("IRRAD-RBC", SpecialTransfusionRequirementType.Irradiated, "Demo: stem cell transplant candidate"),
+            Requirement("CMVNEG-RBC", SpecialTransfusionRequirementType.CmvNegative, "Demo: CMV-seronegative transplant candidate"),
+            Requirement("CALL-TSMD", SpecialTransfusionRequirementType.Other, "Demo: hematology request"));
+        await context.SaveChangesAsync(ct);
+    }
 
     private static async Task<DemoVisit> AddPatientVisitAsync(
         BloodBankDbContext context,
@@ -2710,7 +3922,7 @@ public static partial class DatabaseSeeder
                 Barcode = "SPC-ACC-PEND-COL",
                 CollectedUtc = now.AddHours(-1),
                 ReceivedUtc = null,
-                ExpiresUtc = now.AddDays(3),
+                ExpiresUtc = SpecimenValidityPolicy.ComputeExpiresUtc(now.AddHours(-1), alloimmunizationRisk: true),
                 Status = SpecimenStatus.Collected,
                 Collector = "Floor phlebotomy"
             },
@@ -2722,7 +3934,7 @@ public static partial class DatabaseSeeder
                 Barcode = "SPC-ACC-PEND-RCV",
                 CollectedUtc = now.AddHours(-2),
                 ReceivedUtc = now.AddMinutes(-20),
-                ExpiresUtc = now.AddDays(3),
+                ExpiresUtc = SpecimenValidityPolicy.ComputeExpiresUtc(now.AddHours(-2), alloimmunizationRisk: true),
                 Status = SpecimenStatus.Received,
                 Collector = "Floor phlebotomy"
             });

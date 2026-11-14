@@ -63,7 +63,70 @@ public static class ReportSeedCatalog
             ReportSourceCatalog.CrossmatchTransfusion,
             ["occurred_utc", "event_type", "unit_number", "product_name", "mrn", "detail"],
             filters: [DateRange("activity-range", "occurred_utc")],
-            sorts: [Sort("occurred_utc", ReportSortDirection.Descending)])
+            sorts: [Sort("occurred_utc", ReportSortDirection.Descending)]),
+        // End-user testing, 2026-11-12: the crossmatch-to-transfusion (C:T) ratio, a standard utilization measure, could
+        // not be read from any report. Divide crossmatches by transfusions for the month (and product).
+        Visual("RPT-XM-TX-BY-MONTH", "Crossmatches and transfusions by month",
+            "Count of crossmatches and of transfusions by month and product, for the crossmatch-to-transfusion (C:T) ratio.",
+            ReportSourceCatalog.CrossmatchTransfusion,
+            ["occurred_month", "product_name", "event_type"],
+            filters: [DateRange("activity-range", "occurred_utc")],
+            sorts: [Sort("occurred_month", ReportSortDirection.Descending), Sort("product_name"), Sort("event_type")],
+            groupBy: ["occurred_month", "product_name", "event_type"],
+            aggregates: [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "count" }]),
+        Visual("RPT-SPECIMEN-REJECTIONS", "Specimen rejections",
+            "Rejected specimens with the coded reason, draw location, collector, and who rejected them.",
+            ReportSourceCatalog.SpecimenRejections,
+            ["rejected_utc", "rejection_reason_code", "rejection_reason", "accession_number", "mrn", "draw_location", "collector", "rejected_by"],
+            filters: [DateRange("rejected-range", "rejected_utc")],
+            sorts: [Sort("rejected_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-REJECTIONS-BY-CAUSE", "Specimen rejections by cause",
+            "Count of rejected specimens by month, reason code, draw location, and collector.",
+            ReportSourceCatalog.SpecimenRejections,
+            ["rejected_month", "rejection_reason_code", "draw_location", "collector"],
+            filters: [DateRange("rejected-range", "rejected_utc")],
+            sorts: [Sort("rejected_month", ReportSortDirection.Descending), Sort("rejection_reason_code"), Sort("draw_location"), Sort("collector")],
+            groupBy: ["rejected_month", "rejection_reason_code", "draw_location", "collector"],
+            aggregates: [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "specimens" }]),
+        Visual("RPT-TAT", "Test turnaround",
+            "Verified results with the minutes from order, and from tube receipt, to verification.",
+            ReportSourceCatalog.TestTurnaround,
+            ["verified_utc", "priority", "test_code", "order_number", "accession_number", "mrn", "patient_name", "minutes_order_to_verify", "minutes_receipt_to_verify"],
+            filters: [DateRange("verified-range", "verified_utc")],
+            sorts: [Sort("verified_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-TAT-BY-PRIORITY", "Test turnaround by priority",
+            "Results verified, average and longest minutes from order to verification, by month, priority, and test.",
+            ReportSourceCatalog.TestTurnaround,
+            ["verified_month", "priority", "test_code"],
+            filters: [DateRange("verified-range", "verified_utc")],
+            sorts: [Sort("verified_month", ReportSortDirection.Descending), Sort("priority"), Sort("test_code")],
+            groupBy: ["verified_month", "priority", "test_code"],
+            aggregates:
+            [
+                new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "results" },
+                new ReportAggregate { Function = ReportAggregateFunction.Average, Field = "minutes_order_to_verify", Alias = "average minutes" },
+                new ReportAggregate { Function = ReportAggregateFunction.Max, Field = "minutes_order_to_verify", Alias = "longest minutes" }
+            ]),
+        Visual("RPT-BLOOD-ORDER-TAT", "Blood order turnaround",
+            "Blood orders with the minutes from order to the first unit reserved and issued, and whether a unit was ready by the needed-by time.",
+            ReportSourceCatalog.BloodOrderTurnaround,
+            ["ordered_utc", "priority", "order_number", "status", "units_ordered", "mrn", "patient_name", "minutes_order_to_reserve", "minutes_order_to_issue", "needed_by_utc", "ready_by_needed_by"],
+            filters: [DateRange("ordered-range", "ordered_utc")],
+            sorts: [Sort("ordered_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-BLOOD-ORDER-TAT-BY-PRIORITY", "Blood order turnaround by priority",
+            "Blood orders, average and longest minutes from order to the first unit reserved, and the average to first issue, by month and priority.",
+            ReportSourceCatalog.BloodOrderTurnaround,
+            ["ordered_month", "priority"],
+            filters: [DateRange("ordered-range", "ordered_utc")],
+            sorts: [Sort("ordered_month", ReportSortDirection.Descending), Sort("priority")],
+            groupBy: ["ordered_month", "priority"],
+            aggregates:
+            [
+                new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "orders" },
+                new ReportAggregate { Function = ReportAggregateFunction.Average, Field = "minutes_order_to_reserve", Alias = "average minutes to reserve" },
+                new ReportAggregate { Function = ReportAggregateFunction.Max, Field = "minutes_order_to_reserve", Alias = "longest minutes to reserve" },
+                new ReportAggregate { Function = ReportAggregateFunction.Average, Field = "minutes_order_to_issue", Alias = "average minutes to issue" }
+            ])
     ];
 
     private static ReportDefinition Visual(

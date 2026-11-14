@@ -1,0 +1,57 @@
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+@* Deviations linked to this record, for those who manage deviations; Record deviation opens the form already linked. *@
+@if (Session.Has(PermissionCodes.DeviationManage))
+{
+    <div class="bb-card" data-linked-deviations>
+        <div class="bb-card-title">
+            <h3>Deviations</h3>
+            <a class="btn btn-ghost btn-sm" href="@($"/deviations?contextType={Uri.EscapeDataString(ContextType)}&contextId={ContextId}")">Record deviation</a>
+        </div>
+        @if (_rows is null)
+        {
+            <div class="muted">@(_failed ? "Deviations could not be loaded." : "Loading…")</div>
+        }
+        else if (_rows.Count == 0)
+        {
+            <div class="muted">None linked to this @Noun.</div>
+        }
+        else
+        {
+            <ul style="margin:0;padding-left:1.1rem;">
+                @foreach (var d in _rows)
+                {
+                    <li>
+                        <a href="@($"/deviations?id={d.Id}")">#@d.Id @d.Title</a>
+                        <span class="badge @(d.Severity == DeviationSeverity.Critical ? "badge-red" : d.Severity == DeviationSeverity.Major ? "badge-amber" : "badge-gray")">@Ui.EnumText(d.Severity)</span>
+                        <span class="muted">@d.Status · reported @d.ReportedUtc.ToLocalTime().ToString("yyyy-MM-dd") by @d.ReportedBy</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string ContextType { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public long ContextId { get; set; }
+    [Parameter] public string Noun { get; set; } = "record";
+
+    private List<DeviationDto>? _rows;
+    private bool _failed;
+    private (string, long)? _loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Session.Has(PermissionCodes.DeviationManage) || ContextId <= 0 || _loadedFor == (ContextType, ContextId))
+        {
+            return;
+        }
+
+        _loadedFor = (ContextType, ContextId);
+        var result = await Api.GetDeviationsForRecordAsync(ContextType, ContextId);
+        _failed = !result.Succeeded;
+        _rows = result.Succeeded ? result.Value ?? new() : null;
+    }
+}

@@ -8,13 +8,30 @@
 <div class="flex-between">
     <h1>Auto thaw products</h1>
 </div>
-<p class="muted">ISBT product codes, such as E0707, that can be thawed in place when allocated. The code stays the same; expiration becomes 24 hours after the thaw time.</p>
+<p class="muted">ISBT product codes, such as E0707, that can be thawed in place when allocated. The code stays the same; expiration becomes the code's <strong>thawed shelf life</strong> after the thaw time, never later than the frozen expiration. Set each shelf life from your facility SOP and the product's circular of information (OCD-068); a new code starts at 24 hours.</p>
 
 <Outcome Value="_feedback" />
+
+@* Cycle 684: active codes waiting for an open-system or pooled shelf life; a thaw that needs one is refused. *@
+@if (AutoThawShelfLivesToEnter.Describe(_list) is { Count: > 0 } toEnter)
+{
+    <div class="alert alert-warning" data-thaw-to-enter>
+        <strong>@toEnter.Count @(toEnter.Count == 1 ? "code is" : "codes are") waiting for a thawed shelf life:</strong>
+        @string.Join("; ", toEnter). Until it is entered, a thaw that needs it is refused.
+        @if (!_toEnterOnly)
+        {
+            <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = true" data-thaw-to-enter-show>Show only these</button>
+        }
+    </div>
+}
 
 <div class="bb-card" style="margin-top:1rem;">
     <div class="flex gap" style="margin-bottom:.6rem;">
         <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+        @if (_toEnterOnly)
+        {
+            <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = false" data-thaw-show-all>Show all codes</button>
+        }
     </div>
 
     @if (_loading)
@@ -27,14 +44,38 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Product code</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Product code</th><th>Description</th><th>Thawed shelf life</th><th>Open system</th><th>Pooled</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var row in VisibleRows)
                 {
                     <tr>
                         <td class="mono">@row.ProductCode</td>
                         <td>@row.Description</td>
+                        <td data-thaw-shelf-life="@row.ProductCode">
+                            @if (_editingId == row.Id)
+                            {
+                                <div class="flex gap" style="align-items:center;flex-wrap:wrap;">
+                                    <label>Closed <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" style="width:6rem;" @bind="_editHours" data-edit-closed /> hours</label>
+                                    <label>Open system <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" style="width:6rem;" @bind="_editOpenHours" placeholder="not set" data-edit-open /> hours</label>
+                                    <label>Pooled <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" style="width:6rem;" @bind="_editPooledHours" placeholder="not set" data-edit-pooled /> hours</label>
+                                    <input placeholder="Reason for the change" @bind="_editReason" @bind:event="oninput" style="min-width:14rem;" />
+                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_editReason))" @onclick="() => SaveShelfLifeAsync(row.Id)">Save</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => _editingId = null">Cancel</button>
+                                </div>
+                            }
+                            else
+                            {
+                                @ThawedExpirationRule.Describe(row.ThawedShelfLifeHours)
+                                @if (CanEdit)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginEdit(row)">Change</button>
+                                }
+                            }
+                        </td>
+                        <td data-thaw-open="@row.ProductCode">@ShelfLifeText(row.OpenSystemShelfLifeHours)</td>
+                        <td data-thaw-pooled="@row.ProductCode">@ShelfLifeText(row.PooledShelfLifeHours)</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
                         <td class="right nowrap">
                             @if (row.IsActive && CanActivate)
@@ -50,6 +91,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -68,6 +110,10 @@
                     }
                 </select>
             </div>
+            <div class="field">
+                <label>Thawed shelf life (hours)</label>
+                <input type="number" min="1" max="@ThawedExpirationRule.MaxHours" @bind="_newHours" />
+            </div>
         </div>
         <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrEmpty(_productCode))" @onclick="AddAsync">Add</button>
     </div>
@@ -85,8 +131,17 @@
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
 
+    // From Facility Policies or the home card: only the active codes waiting for a shelf life.
+    [SupplyParameterFromQuery(Name = "show")] public string? Show { get; set; }
+
+    private bool _toEnterOnly;
+
+    protected override void OnParametersSet() => _toEnterOnly = string.Equals(Show, "to-enter", StringComparison.OrdinalIgnoreCase);
+
     private List<AutoThawProductDto> VisibleRows =>
-        (_includeInactive ? _list : _list.Where(row => row.IsActive))
+        (_toEnterOnly
+            ? _list.Where(row => row.IsActive && ThawedExpirationRule.TimesToEnter(row.OpenSystemShelfLifeHours, row.PooledShelfLifeHours).Count > 0)
+            : _includeInactive ? _list : _list.Where(row => row.IsActive))
             .OrderBy(row => row.ProductCode)
             .ToList();
 
@@ -115,12 +170,46 @@
     {
         if (string.IsNullOrWhiteSpace(_productCode)) return;
         _busy = true;
-        var r = await Api.CreateAdminAutoThawProductAsync(new SaveAutoThawProductRequest(_productCode));
+        var r = await Api.CreateAdminAutoThawProductAsync(new SaveAutoThawProductRequest(_productCode, _newHours));
         _busy = false;
         _feedback = r.Succeeded ? r.ToFeedback("Product code added.") : r.ToFeedback();
         if (r.Succeeded)
         {
             _productCode = string.Empty;
+            _newHours = ThawedExpirationRule.DefaultHours;
+            await LoadAsync();
+        }
+    }
+
+    private int _newHours = ThawedExpirationRule.DefaultHours;
+    private long? _editingId;
+    private int _editHours;
+    private int? _editOpenHours;
+    private int? _editPooledHours;
+    private string _editReason = string.Empty;
+
+    // OCD-068: not set means a thaw that needs it is refused, so say so rather than show a blank.
+    private static string ShelfLifeText(int? hours) =>
+        hours is int h ? ThawedExpirationRule.Describe(h) : "Not set (thaw refused)";
+
+    private void BeginEdit(AutoThawProductDto row)
+    {
+        _editingId = row.Id;
+        _editHours = row.ThawedShelfLifeHours;
+        _editOpenHours = row.OpenSystemShelfLifeHours;
+        _editPooledHours = row.PooledShelfLifeHours;
+        _editReason = string.Empty;
+    }
+
+    private async Task SaveShelfLifeAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.SetAdminAutoThawShelfLifeAsync(id, new SetAutoThawShelfLifeRequest(_editHours, _editReason, _editOpenHours, _editPooledHours));
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback("Thawed shelf life changed.") : r.ToFeedback();
+        if (r.Succeeded)
+        {
+            _editingId = null;
             await LoadAsync();
         }
     }

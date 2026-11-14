@@ -5,6 +5,7 @@ order: 50
 chapter: Patients and orders
 summary: Search by MRN or name, open the chart, and register a patient when you have permission to write demographics.
 routes:
+  - /patients/duplicates
   - /patients
 ---
 
@@ -12,11 +13,27 @@ routes:
 
 **Patients** is the directory. Search with the medical record number or the name. Historical names remain searchable after a legal name change, so a former name can still find the chart.
 
+Each row shows the patient's **Location**: the type and place of the current open visit (for example "Inpatient · ICU 4"), the same visit the chart header shows. **+1 more open** in amber means another visit is open too; check which one the work belongs to. **No open visit** means none is open. Use it to tell similar names apart and to confirm where blood is going.
+
+Each row also shows the patient's current **ABO/Rh** and **Alerts**: active antibodies in red, the number of special requirements in effect in amber, and informational notes in blue (notes are shown, never enforced). Use them to confirm you have the right patient and to see their risks before you open the chart; the chart has the details. The patient pickers on the Issue desk, Compatibility, and unit receipt show where the patient is, then the same type and alerts, after the name and MRN; a record merged into another chart says so.
+
 Open a row to go to the chart. The chart is the place for visits, orders, specimens, results, and products. Do not create a second chart because the first search missed a former name.
 
 ## Register a patient
 
 **Register patient** is available when your session includes patient write permission. Enter the MRN, date of birth, last name, first name, and sex. Middle name and a comment are optional. Coded comments for the patient page can fill the comment from the catalog.
+
+Once the names and date of birth are entered, the form shows any active patient who may be the same person under another MRN: the same date of birth with the same last name and first initial, or with first and last names swapped. If it is them, **Open chart** and use that record. A second chart splits the patient's ABO/Rh and antibody history. If it is a different person, tick **I checked: this is a different person**; **Register** stays unavailable until you do, and the registration records which charts you checked.
+
+## Unidentified patients
+
+For an emergency patient who cannot be identified yet (trauma, unconscious, no identification), choose **Unidentified patient** on Patients. Choose the sex (or Unknown) and enter an estimated age in years; a note such as where the patient arrived is optional. The system gives a temporary MRN and name, for example **UNK-20261108-01** and **UNIDENTIFIED, TRAUMA 20261108-01**, with the date and the day's number, and opens the chart. Use that MRN on the wristband and the first tube; testing, crossmatch, and emergency release work as for any patient. On the issue form, **Unidentified patient…** under Patient does the same without leaving the issue: the new patient is chosen and the issue type becomes Emergency release (Massive transfusion stays). The age is needed because product selection for patients who may become pregnant uses it, and an unknown sex is treated as not male.
+
+Unidentified charts are listed at the top of Patients until they are merged, and the home screen shows how many there are for those who merge charts. Each is listed with how long it has been open. A chart open longer than the facility reminder (Facility Policy › *Unidentified patient chart reminder (hours)*, 24 hours by default, OCD-077) is named on the home card ("1 not identified, oldest open 30 h"), which puts the card under Needs attention: until it is merged, the type and antibody history are split across two charts. The reminder blocks nothing. They are never offered as possible duplicates of each other. When the patient is identified (registered by the EHR or at the desk), open the unidentified chart, scan or type the identified patient's MRN in the banner with how they were identified, and choose **Merge into identified chart**. Everything recorded on the unidentified chart, including types, antibodies, specimens, units, and RhIG evaluations, moves to the identified chart, which opens. The merge can be undone like any other while nothing new has been recorded. If units issued under the temporary MRN are still out (not transfused or returned), the identified chart says so and names them: the patient's wristband may still show the temporary identity while the bedside check now uses the identified MRN, so make sure the wristband and the unit tags agree before transfusing. The naming convention is your facility's to confirm (OCD-071).
+
+## Possible duplicates
+
+With the patient merge permission, **Possible duplicates** on Patients lists pairs of active charts that may be one person by the same match, including patients registered by the EHR feed. Each chart shows its ABO/Rh, active antibodies, and special requirements, so you can see which one holds the blood bank history. **Keep this, merge … in** opens that chart with its merge form naming the other MRN; give the reason and confirm as for any merge. Charts that are different people stay on the list.
 
 The MRN is the primary identifier you will type at issue and at transfusion documentation. Display names are not identifiers. Two patients must not share an MRN.
 
@@ -25,3 +42,5 @@ The MRN is the primary identifier you will type at issue and at transfusion docu
 ## What you cannot do here
 
 Merging two charts is a supervisor action on the chart, not on this list. Correcting a name after registration is done on the chart and asks for a reason. See [The patient chart](patient-chart).
+
+Each pair says why it is listed: the same name and date of birth, or the same identifier from another system (for example an enterprise id) on both charts. Charts that share an identifier are listed even when their names differ. On the chart, such an identifier is shown in amber; select it to open the other chart in the patient list. After a merge the surviving chart keeps one copy of the identifier. If a listed pair are different people, use **Not the same person** on the pair and say why; the pair leaves the list and the home count, the decision is audited, and the pair returns if something new links the charts (for example an identifier they come to share).

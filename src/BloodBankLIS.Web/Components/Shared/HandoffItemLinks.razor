@@ -1,0 +1,22 @@
+@* A shift handoff's queues as links to where each is worked; urgent ones first, in red. *@
+@if (Items.Count == 0)
+{
+    <p class="muted" style="margin:.3rem 0 0;">Nothing open in the queues.</p>
+}
+else
+{
+    <ul style="list-style:none;padding:0;margin:.4rem 0 0;display:flex;flex-wrap:wrap;gap:.4rem;" data-handoff-items>
+        @foreach (var item in Items)
+        {
+            <li>
+                <a class="badge @(item.Urgent ? "badge-red" : "badge-gray")" href="@item.Href" style="text-decoration:none;" data-handoff-item="@item.Label">
+                    @item.Label: @item.Count@(item.Detail is null ? "" : $" ({item.Detail})")
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ShiftHandoffItem> Items { get; set; } = [];
+}

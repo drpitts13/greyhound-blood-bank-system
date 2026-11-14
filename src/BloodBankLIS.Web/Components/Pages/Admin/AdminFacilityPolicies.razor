@@ -16,8 +16,36 @@
 
 <Outcome Value="_feedback" />
 
+@* Cycle 677: settings decided to be used whose values are not entered yet. *@
+@if (_list.Count(p => p.AwaitsEntry) is var waitingCount && waitingCount > 0)
+{
+    <div class="alert alert-warning" data-settings-to-enter>
+        <strong>@waitingCount @(waitingCount == 1 ? "setting is" : "settings are") decided but not entered yet:</strong>
+        @string.Join("; ", _list.Where(p => p.AwaitsEntry).Select(p => p.DisplayName)).
+        Until a value is entered, what depends on it does not happen (for example, no RhIG dose is calculated).
+        @if (!_toEnterOnly)
+        {
+            <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = true" data-settings-to-enter-show>Show only these</button>
+        }
+    </div>
+}
+
+@* Cycle 684: thaw codes waiting for an open-system or pooled shelf life are entered on Auto thaw products. *@
+@if (_thawToEnter.Count > 0)
+{
+    <div class="alert alert-warning" data-thaw-to-enter>
+        <strong>@_thawToEnter.Count auto-thaw product @(_thawToEnter.Count == 1 ? "code is" : "codes are") waiting for a thawed shelf life:</strong>
+        @string.Join("; ", _thawToEnter). A thaw that needs a time not set is refused.
+        <a class="btn btn-ghost btn-sm" href="/admin/auto-thaw-products?show=to-enter" data-thaw-to-enter-link>Enter them on Auto thaw products</a>
+    </div>
+}
+
 <div class="flex gap" style="margin:1rem 0;flex-wrap:wrap;">
     <input style="flex:1;min-width:16rem;" placeholder="Filter by name, key, or citation" @bind="_filter" @bind:event="oninput" />
+    @if (_toEnterOnly)
+    {
+        <button class="btn btn-ghost btn-sm" @onclick="() => _toEnterOnly = false" data-settings-show-all>Show all settings</button>
+    }
 </div>
 
 @if (_loading)
@@ -30,6 +58,7 @@ else
     {
         <div class="bb-card" style="margin-bottom:1rem;">
             <div class="bb-card-title"><h3>@group.Key</h3></div>
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -70,6 +99,10 @@ else
                                 else
                                 {
                                     @p.Value
+                                    @if (p.AwaitsEntry)
+                                    {
+                                        <span class="badge badge-amber" data-setting-to-enter title="Decided to be used; the value is waiting to be entered.">Not set</span>
+                                    }
                                     @if (p.LegalHold)
                                     {
                                         <span class="badge badge-amber">Legal hold</span>
@@ -99,6 +132,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         </div>
     }
 }
@@ -108,6 +142,7 @@ else
     private bool _busy;
     private string _filter = string.Empty;
     private List<FacilityPolicyDto> _list = new();
+    private IReadOnlyList<string> _thawToEnter = [];
     private Feedback? _feedback;
     private long? _editId;
     private string _draftValue = string.Empty;
@@ -115,14 +150,20 @@ else
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
 
+    // From the home card: only the settings waiting to be entered.
+    [SupplyParameterFromQuery(Name = "show")] public string? Show { get; set; }
+
+    private bool _toEnterOnly;
+
+    protected override void OnParametersSet() => _toEnterOnly = string.Equals(Show, "to-enter", StringComparison.OrdinalIgnoreCase);
+
     private IEnumerable<FacilityPolicyDto> Filtered =>
-        string.IsNullOrWhiteSpace(_filter)
-            ? _list
-            : _list.Where(p =>
-                p.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || p.Key.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || p.Citation.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || p.Description.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+        (_toEnterOnly ? _list.Where(p => p.AwaitsEntry) : _list).Where(p =>
+            string.IsNullOrWhiteSpace(_filter)
+            || p.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.Key.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.Citation.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.Description.Contains(_filter, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -132,6 +173,8 @@ else
         var r = await Api.GetAdminFacilityPoliciesAsync();
         _list = r.Succeeded ? r.Value ?? new() : new();
         if (!r.Succeeded) _feedback = r.ToFeedback();
+        var thaw = await Api.GetAdminAutoThawProductsAsync(includeInactive: false);
+        _thawToEnter = thaw.Succeeded && thaw.Value is not null ? AutoThawShelfLivesToEnter.Describe(thaw.Value) : [];
         _loading = false;
     }
 

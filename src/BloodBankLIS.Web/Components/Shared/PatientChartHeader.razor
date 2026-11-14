@@ -1,5 +1,6 @@
-@inject UserSession Session
+﻿@inject UserSession Session
 @inject NavigationManager Nav
+@inject BloodBankApiClient Api
 
 <div class="flex-between" style="margin-bottom:1rem;flex-wrap:wrap;">
     <div>
@@ -8,19 +9,168 @@
             MRN <span class="mono">@Patient.MedicalRecordNumber</span>
             &middot; DOB @Patient.DateOfBirth.ToString("yyyy-MM-dd")
             &middot; @Patient.Sex
-            &middot; <span class="badge @(Patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@Patient.Status</span>
+            @if (PatientDemographicCodes.RaceLabel(Patient.Race) is { } race)
+            {
+                <span data-patient-race> &middot; @race</span>
+            }
+            @if (PatientDemographicCodes.EthnicityLabel(Patient.Ethnicity) is { } ethnicity)
+            {
+                <span data-patient-ethnicity> &middot; @ethnicity</span>
+            }
+            &middot; <span class="badge @(Patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@Ui.EnumText(Patient.Status)</span>
             @if (!string.IsNullOrWhiteSpace(Patient.Comment))
             {
                 <span> &middot; @Patient.Comment</span>
             }
         </div>
+        @if (Patient.Unidentified && Patient.Status != PatientStatus.Merged)
+        {
+            <div class="alert alert-warning" style="margin-top:.5rem;" data-unidentified-banner>
+                <strong>Unidentified patient.</strong> The name and MRN are temporary and the date of birth is estimated.
+                When the patient is identified, merge this chart into theirs so the type, antibodies, and units are in one chart.
+                @if (Session.Has(PermissionCodes.PatientMerge))
+                {
+                    <div class="form-row" style="margin-top:.4rem;align-items:flex-end;">
+                        <div class="field"><label>Identified patient's MRN</label><input @bind="_identifiedMrn" placeholder="Scan or type the MRN" data-identified-mrn /></div>
+                        <div class="field" style="flex:2;"><label>How identified</label><input @bind="_identifyReason" placeholder="For example: ID from family, matched to wristband" data-identify-reason /></div>
+                        <button class="btn btn-primary btn-sm" disabled="@_identifying" @onclick="IdentifyAsync" data-identify-submit>Merge into identified chart</button>
+                    </div>
+                    <Outcome Value="_identifyFb" />
+                }
+                else
+                {
+                    <span> Someone with the patient merge permission does this.</span>
+                }
+            </div>
+        }
+        @* Cycle 699: the patient received a unit from a recalled donation and the recipient notification is still open. *@
+        @if (_openLookback.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:.5rem;" data-chart-lookback>
+                <strong>Lookback: this patient received @(_openLookback.Count == 1 ? "a unit" : $"{_openLookback.Count} units") from a recalled donation.</strong>
+                The recipient notification is still open.
+                <div class="sub">
+                    @foreach (var n in _openLookback)
+                    {
+                        <span style="margin-right:.6rem;" data-chart-lookback-row>
+                            @if (n.UnitNumber is string unitNumber)
+                            {
+                                <a class="mono" href="@($"/inventory/units/{n.BloodProductId}")">@unitNumber</a>
+                            }
+                            donation <span class="mono">@n.Din</span> · @n.Status
+                        </span>
+                    }
+                    <a href="/lookback" data-chart-lookback-link>Open Lookback</a>
+                </div>
+            </div>
+        }
+        @if (_issuedUnderEarlier.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:.5rem;" data-issued-under-earlier>
+                <strong>@_issuedUnderEarlier.Count @(_issuedUnderEarlier.Count == 1 ? "unit is" : "units are") still out under @string.Join(", ", _issuedUnderEarlier.Select(i => i.IssuedUnder).Distinct(StringComparer.OrdinalIgnoreCase)).</strong>
+                The patient's wristband may still show that identity; the bedside check now uses MRN <span class="mono">@Patient.MedicalRecordNumber</span>.
+                Make sure the wristband and the unit tags agree before transfusing.
+                <div class="sub">
+                    @foreach (var i in _issuedUnderEarlier)
+                    {
+                        <span style="margin-right:.6rem;"><a class="mono" href="@($"/inventory/units/{i.BloodUnitId}")">@i.UnitNumber</a> issued @i.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? "" : $" to {i.IssuedToLocation}")</span>
+                    }
+                </div>
+            </div>
+        }
+        @if (_family is { } family)
+        {
+            <div class="muted" style="margin-top:.25rem;" data-family>
+                @if (family.Mother is { } mother)
+                {
+                    <span data-family-mother>Mother: <a href="@($"/patients/{mother.Id}")">@mother.Name</a> <span class="mono">@mother.MedicalRecordNumber</span>
+                        &middot; @(mother.CurrentBloodType ?? "type not on file")@(mother.ActiveAntibodies.Count > 0 ? $" · {string.Join(", ", mother.ActiveAntibodies)}" : "")</span>
+                    @if (Session.Has(PermissionCodes.PatientWrite) && !_unlinking)
+                    {
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _unlinking = true">Remove link</button>
+                    }
+                }
+                @if (family.Infants.Count > 0)
+                {
+                    <span data-family-infants>@(family.Mother is null ? "" : " · ")Infants:
+                        @foreach (var infant in family.Infants)
+                        {
+                            <a style="margin-left:.3rem;" href="@($"/patients/{infant.Id}")">@infant.Name</a>
+                            <span class="mono">@infant.MedicalRecordNumber</span>
+                            <span class="sub">(born @infant.DateOfBirth.ToString("yyyy-MM-dd"), @(infant.CurrentBloodType ?? "type not on file"))</span>
+                        }
+                    </span>
+                }
+                @if (family.Mother is null && Session.Has(PermissionCodes.PatientWrite) && Patient.Status != PatientStatus.Merged
+                     && MotherInfantLinkRule.OfferLink(Patient.DateOfBirth, DateOnly.FromDateTime(DateTime.Now)))
+                {
+                    @if (_linking)
+                    {
+                        <span class="flex gap" style="display:inline-flex;align-items:center;">
+                            <input @bind="_motherMrn" placeholder="Mother's MRN" style="max-width:12rem;" data-mother-mrn />
+                            <button type="button" class="btn btn-primary btn-sm" disabled="@_familyBusy" @onclick="LinkMotherAsync" data-mother-link>Link</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _linking = false">Cancel</button>
+                        </span>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _linking = true" data-mother-link-open>Link mother</button>
+                    }
+                }
+            </div>
+            @if (family.Mother is { ActiveAntibodies.Count: > 0 } antibodyMother)
+            {
+                <div class="alert alert-info" style="margin-top:.4rem;" data-maternal-antibodies>
+                    The mother has @string.Join(", ", antibodyMother.ActiveAntibodies) on record. Maternal antibodies can be present in the infant's blood.
+                </div>
+            }
+            @if (_unlinking)
+            {
+                <div class="flex gap" style="align-items:flex-end;margin-top:.4rem;">
+                    <div class="field" style="flex:1;"><label>Why remove the mother link?</label><input @bind="_unlinkReason" placeholder="e.g. Linked to the wrong chart" /></div>
+                    <button type="button" class="btn btn-secondary btn-sm" disabled="@_familyBusy" @onclick="UnlinkMotherAsync">Remove link</button>
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _unlinking = false">Cancel</button>
+                </div>
+            }
+            <Outcome Value="_familyFb" />
+        }
+        @if (VisitsLoaded)
+        {
+            var (visit, otherOpen) = CurrentVisit.For(Encounters);
+            <div class="muted" style="margin-top:.25rem;" data-current-visit>
+                @if (visit is null)
+                {
+                    <span>No open visit</span>
+                }
+                else
+                {
+                    <span>Current visit <a href="@PatientChartUrls.VisitOrders(Patient.Id, visit.Id)" class="mono" title="This visit's orders">@visit.VisitNumber</a></span>
+                    @if (CurrentVisit.Describe(visit) is { Length: > 0 } described)
+                    {
+                        <span> &middot; @described</span>
+                    }
+                    @if (otherOpen > 0)
+                    {
+                        <span class="badge badge-amber" style="margin-left:.35rem;" title="More than one visit is open; check which one this work belongs to">+@otherOpen more open</span>
+                    }
+                }
+            </div>
+        }
         @if (Patient.Aliases is { Count: > 0 })
         {
             <div class="muted" style="margin-top:.35rem;">
-                Historical aliases:
+                Other identifiers and aliases:
                 @foreach (var alias in Patient.Aliases)
                 {
-                    <span class="badge badge-gray" style="margin-right:.35rem;">@alias.KindLabel: @alias.Value</span>
+                    @if (alias.AlsoOnMrn is { } otherMrn)
+                    {
+                        <a class="badge badge-amber" style="margin-right:.35rem;" href="@($"/patients?q={Uri.EscapeDataString(otherMrn)}")"
+                           title="Another chart holds this identifier: possibly the same person. Opens that chart in the patient list." data-also-on="@otherMrn">@alias.KindLabel: @alias.Value</a>
+                    }
+                    else
+                    {
+                        <span class="badge badge-gray" style="margin-right:.35rem;">@alias.KindLabel: @alias.Value</span>
+                    }
                 }
             </div>
         }
@@ -29,9 +179,17 @@
         <div class="stat" style="text-align:center;padding:.6rem 1rem;">
             <div class="label">Blood type</div>
             <div class="value" style="font-size:1.4rem;">@(CurrentType is null ? "—" : Ui.BloodType(CurrentType.Abo, CurrentType.RhD))</div>
+            @if (Patient?.RhDVariant is RhDVariant.WeakD or RhDVariant.PartialD)
+            {
+                <div class="muted" style="font-size:.8rem;" data-rhd-variant>@(Patient.RhDVariant == RhDVariant.WeakD ? "Weak D" : "Partial D")</div>
+            }
             @if (RequireSecondAbo && SecondAboOnFile)
             {
                 <div class="muted" style="font-size:.8rem;">Second ABO on file</div>
+            }
+            else if (RequireSecondAbo && NeonatalTypeStands)
+            {
+                <div class="muted" style="font-size:.8rem;" data-neonatal-type title="@NeonatalTestingRule.AdmissionTypeMessage">Infant: stands for the admission</div>
             }
         </div>
         <div class="stat" style="text-align:center;padding:.6rem 1rem;">
@@ -43,7 +201,8 @@
             <div class="stat" style="text-align:center;padding:.6rem 1rem;">
                 <div class="label">Electronic XM</div>
                 <div class="value" style="font-size:1rem;">
-                    <span class="badge @(Exm.Eligible ? "badge-green" : "badge-amber")">@(Exm.Eligible ? "Eligible" : "Not eligible")</span>
+                    <span class="badge @(!Exm.FacilityAllowsElectronicCrossmatch ? "badge-gray" : Exm.Eligible ? "badge-green" : "badge-amber")"
+                          title="@(Exm.FacilityAllowsElectronicCrossmatch ? null : Exm.BlockingReason)" data-exm-badge>@ElectronicCrossmatchBanner.BadgeText(Exm.Eligible, Exm.FacilityAllowsElectronicCrossmatch)</span>
                 </div>
             </div>
         }
@@ -58,6 +217,14 @@
         @if (Session.Has(PermissionCodes.LookbackManage))
         {
             <a class="btn btn-secondary" href="@RecipientTraceHref">Recipient traceback</a>
+        }
+        @if (Session.Has(PermissionCodes.IssueCreate) && Patient.MergedIntoPatientId is null)
+        {
+            <a class="btn btn-secondary" href="@($"/downtime/patients?patientId={Patient.Id}")" title="Blood type, antibodies, special requirements, specimens, and units on one sheet" data-print-summary>Print summary</a>
+        }
+        @if (Session.Has(PermissionCodes.ResultEnter) && Patient.MergedIntoPatientId is null)
+        {
+            <a class="btn btn-secondary" href="@($"/patients/{Patient.Id}/antibody-card")" title="A card for the patient to carry: blood type, antibodies, and special requirements" data-antibody-card>Antibody card</a>
         }
         <a class="btn btn-secondary" href="/patients">Back to patients</a>
     </div>
@@ -78,7 +245,25 @@
                 <select @bind="Demo.Sex">
                     @foreach (var s in Enum.GetValues<Sex>())
                     {
-                        <option value="@s">@s</option>
+                        <option value="@s">@Ui.EnumText(s)</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Race</label>
+                <select @bind="Demo.Race">
+                    <option value="">Not recorded</option>
+                    @foreach (var r in PatientDemographicCodes.Races)
+                    {
+                        <option value="@r.Code">@r.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Ethnicity</label>
+                <select @bind="Demo.Ethnicity">
+                    <option value="">Not recorded</option>
+                    @foreach (var e in PatientDemographicCodes.Ethnicities)
+                    {
+                        <option value="@e.Code">@e.Label</option>
                     }
                 </select>
             </div>
@@ -94,10 +279,10 @@
             <CodedCommentField Page="CommentPage.Patient" @bind-Value="Demo.Comment" />
         </div>
         <div class="field">
-            <label>Name-change reason</label>
-            <input @bind="Demo.NameChangeReason" placeholder="Required when first, middle, or last name changes" />
+            <label>Reason for the change</label>
+            <input @bind="Demo.NameChangeReason" placeholder="Required when the name, date of birth or sex changes" />
         </div>
-        <p class="muted">MRN cannot be changed. Changing the name keeps the previous name as a historical alias and requires a reason. Later ADT messages may overwrite name, date of birth, and sex.</p>
+        <p class="muted">MRN cannot be changed. Changing the name keeps the previous name as a historical alias and requires a reason; changing the date of birth or sex also requires a reason and alerts the blood bank, naming the patient's current tubes. Later ADT messages may overwrite name, date of birth, and sex.</p>
         <div class="flex gap">
             <button class="btn btn-primary" disabled="@Busy" @onclick="OnSaveDemo">Save</button>
             <button class="btn btn-secondary" @onclick="OnCancelEdit">Cancel</button>
@@ -131,7 +316,7 @@
 {
     <div class="bb-card" style="margin-bottom:1rem;">
         <div class="bb-card-title"><h3>Merge a duplicate into this patient</h3></div>
-        <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History and antibody-identification workups are reassigned to this record and are not deleted. Merge HardStops if both records have an open workup.</p>
+        <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History and antibody-identification workups are reassigned to this record and are not deleted. The merge is refused if both records have an open workup.</p>
         <Outcome Value="MergeFeedback" />
         <div class="form-row">
             <div class="field"><label>Duplicate MRN</label><input @bind="MergeMrn" @bind:after="() => MergeMrnChanged.InvokeAsync(MergeMrn)" placeholder="MRN of the losing record" /></div>
@@ -142,6 +327,11 @@
             <button class="btn btn-secondary" @onclick="OnCancelMerge">Cancel</button>
         </div>
     </div>
+}
+else if (MergeFeedback is not null)
+{
+    @* End-user testing, 2026-11-12: the panel closes when the merge succeeds, so its confirmation was never seen. *@
+    <div data-merge-outcome><Outcome Value="MergeFeedback" /></div>
 }
 
 @if (AboDiscrepancyNotice is not null)
@@ -171,10 +361,25 @@
     <div class="alert @(SpecimenCue.BlocksIssue ? "alert-danger" : "alert-warning")">
         <strong>@SpecimenCue.Message</strong>
         The issue gate reads this specimen.
+        @if (SpecimenCue.AwaitingNote is { } awaitingNote)
+        {
+            <div data-chart-tube-awaiting>
+                @awaitingNote
+                <a href="@BloodOrderPreparationRule.ReceiveTubeHref">Pending specimens</a>
+            </div>
+        }
     </div>
 }
 
-@if (ReactionNotice is not null)
+@if (OpenReaction is { } underInvestigation)
+{
+    <div class="alert alert-danger" data-chart-reaction-open>
+        <strong>A transfusion reaction is under investigation for this patient</strong>
+        (#@underInvestigation.Id, reported @ClockText.Short(underInvestigation.ReportedUtc)). @ReactionHistoryBanner.UnderInvestigationAdvice
+        <a href="@($"/patients/{Patient.Id}?tab=history")">Product history</a>
+    </div>
+}
+else if (ReactionNotice is not null)
 {
     <div class="alert alert-warning">
         <strong>@ReactionNotice</strong>
@@ -184,23 +389,121 @@
 
 @if (AntibodyHistory.Count > 0)
 {
-    <div class="alert alert-warning">
+    <div class="alert alert-warning" data-header-antibodies>
         <strong>Antibody history:</strong>
-        @string.Join(", ", AntibodyHistory.Select(a => a.IsActive ? a.AntibodySpecificity : $"{a.AntibodySpecificity} (historical / currently undetectable)"))
+        @string.Join(", ", AntibodyHistory.Select(AntibodyLabel))
     </div>
 }
 
-@if (ActiveSpecialRequirements.Any())
+@* Informational requirements are a banner only; the rest are enforced at selection and issue. *@
+@foreach (var info in ActiveSpecialRequirements.Where(r => r.IsInformational))
 {
-    <div class="alert alert-warning">
+    <div class="alert alert-info" data-special-requirement-banner>
+        <strong>@(info.Name ?? info.Code):</strong> @(info.Instruction ?? info.Reason)
+    </div>
+}
+@if (ActiveSpecialRequirements.Any(r => !r.IsInformational))
+{
+    <div class="alert alert-warning" data-header-requirements>
         <strong>Special transfusion requirements:</strong>
-        @string.Join(", ", ActiveSpecialRequirements.Select(r => r.AntigenCode is null ? (r.Name ?? r.Code ?? r.RequirementType.ToString()) : $"{r.Name ?? r.Code} {r.AntigenCode}"))
+        @string.Join(", ", ActiveSpecialRequirements.Where(r => !r.IsInformational).Select(EnforcedLabel))
     </div>
 }
 
 @code {
+    private string _identifiedMrn = string.Empty;
+    private string _identifyReason = string.Empty;
+    private bool _identifying;
+    private Feedback? _identifyFb;
+
+    // The identified chart survives; open it, where everything from this chart now is.
+    private async Task IdentifyAsync()
+    {
+        _identifying = true;
+        var r = await Api.IdentifyPatientAsync(Patient.Id, new IdentifyPatientRequest(_identifiedMrn, _identifyReason));
+        _identifying = false;
+        if (r.Succeeded && r.Value is { } survivor)
+        {
+            Nav.NavigateTo($"/patients/{survivor.Id}", forceLoad: true);
+            return;
+        }
+
+        _identifyFb = r.ToFeedback();
+    }
+
     [Parameter, EditorRequired] public PatientDto Patient { get; set; } = default!;
+
+    // Mother and infant charts (information only): loaded when the chart changes.
+    private PatientFamilyDto? _family;
+    private long _familyFor;
+    private bool _linking;
+    private bool _unlinking;
+    private bool _familyBusy;
+    private string _motherMrn = string.Empty;
+    private string _unlinkReason = string.Empty;
+    private Feedback? _familyFb;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Patient.Id != _familyFor)
+        {
+            _familyFor = Patient.Id;
+            _linking = _unlinking = false;
+            _familyFb = null;
+            await LoadFamilyAsync();
+        }
+    }
+
+    private List<IssuedUnderEarlierIdentityDto> _issuedUnderEarlier = new();
+    private List<LookbackNotificationDto> _openLookback = new();
+
+    private async Task LoadFamilyAsync()
+    {
+        var r = await Api.GetPatientFamilyAsync(Patient.Id);
+        _family = r.Succeeded ? r.Value : null;
+        var issued = await Api.GetIssuedUnderEarlierIdentityAsync(Patient.Id);
+        _issuedUnderEarlier = issued.Succeeded ? issued.Value ?? new() : new();
+        // Cycle 699: only those who work lookback can read the notifications.
+        _openLookback = new();
+        if (Session.Has(PermissionCodes.LookbackManage))
+        {
+            var lookback = await Api.GetOpenLookbackNotificationsAsync();
+            _openLookback = lookback.Succeeded && lookback.Value is not null
+                ? lookback.Value.Where(n => n.PatientId == Patient.Id).ToList()
+                : new();
+        }
+    }
+
+    private async Task LinkMotherAsync()
+    {
+        _familyBusy = true;
+        var r = await Api.LinkMotherAsync(Patient.Id, new LinkMotherRequest(_motherMrn));
+        _familyBusy = false;
+        _familyFb = r.ToFeedback("Mother linked.");
+        if (r.Succeeded)
+        {
+            _linking = false;
+            _motherMrn = string.Empty;
+            await LoadFamilyAsync();
+        }
+    }
+
+    private async Task UnlinkMotherAsync()
+    {
+        _familyBusy = true;
+        var r = await Api.UnlinkMotherAsync(Patient.Id, new UnlinkMotherRequest(_unlinkReason));
+        _familyBusy = false;
+        _familyFb = r.ToFeedback("Mother link removed.");
+        if (r.Succeeded)
+        {
+            _unlinking = false;
+            _unlinkReason = string.Empty;
+            await LoadFamilyAsync();
+        }
+    }
     [Parameter] public BloodTypeDto? CurrentType { get; set; }
+    [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
+    [Parameter] public bool VisitsLoaded { get; set; }
     [Parameter] public IReadOnlyList<BloodTypeDto> TypeHistory { get; set; } = [];
     [Parameter] public bool RequireSecondAbo { get; set; } = true;
     [Parameter] public ElectronicCrossmatchEligibilityDto? Exm { get; set; }
@@ -221,8 +524,24 @@
     [Parameter] public string UnmergeReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> UnmergeReasonChanged { get; set; }
     [Parameter] public bool HasRecordedReaction { get; set; }
+    [Parameter] public BloodBankLIS.Application.Compliance.OpenReactionInvestigationDto? OpenReaction { get; set; }
     [Parameter] public IReadOnlyList<AntibodyDto> AntibodyHistory { get; set; } = [];
     [Parameter] public IEnumerable<SpecialRequirementDto> ActiveSpecialRequirements { get; set; } = [];
+
+    /// <summary>
+    /// "Anti-K", "Anti-E (historical / currently undetectable)", and for one known only from another facility's report
+    /// "Anti-Jka (reported by St. Mary's, identified 2025-02-01)", as the downtime sheet and antibody card say it.
+    /// </summary>
+    private static string AntibodyLabel(AntibodyDto a) =>
+        OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn, a.ConfirmedUtc is not null);
+
+    private static string EnforcedLabel(SpecialRequirementDto r)
+    {
+        var name = SpecialRequirementLabel.Display(r.Name ?? r.Code, r.RequirementType, r.AntigenCode);
+        return r.ComponentClass is { } c && !name.Contains(ComponentClassLabels.Label(c), StringComparison.OrdinalIgnoreCase)
+            ? $"{name} ({ComponentClassLabels.Label(c)})"
+            : name;
+    }
     [Parameter] public IReadOnlyList<SpecimenDto> Specimens { get; set; } = [];
     [Parameter] public EventCallback OnToggleEdit { get; set; }
     [Parameter] public EventCallback OnToggleMerge { get; set; }
@@ -235,23 +554,30 @@
     private CurrentSpecimenBanner.Cue SpecimenCue =>
         CurrentSpecimenBanner.Describe(
             Specimens.Select(s => new CurrentSpecimenBanner.Fact(s.AccessionNumber, s.Status, s.CollectedUtc, s.ExpiresUtc)),
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            t => t.ToLocalTime());
 
     private IReadOnlyList<SecondAboDeterminationRule.Determination> AboHistory =>
-        TypeHistory.Select(h => new SecondAboDeterminationRule.Determination(new AboRh(h.Abo, h.RhD), h.IsCurrent)).ToList();
+        BloodTypeDto.Determinations(TypeHistory);
 
     private bool SecondAboOnFile => SecondAboDeterminationRule.HasSecondConcordant(AboHistory);
 
-    private string? SecondAboNotice => SecondAboDeterminationRule.MissingCellularIssueNotice(RequireSecondAbo, AboHistory);
+    // OCD-074: an infant's type from this admission's specimen stands, as issue treats it.
+    private bool NeonatalTypeStands =>
+        TypeHistory.FirstOrDefault(t => t.IsCurrent && !t.Invalidated) is { SpecimenId: long specimenId }
+        && Specimens.FirstOrDefault(s => s.Id == specimenId) is { } specimen
+        && NeonatalTestingRule.AdmissionTypeStands(specimen.NeonatalAdmission, specimen.ExpiresUtc, DateTime.UtcNow);
+
+    private string? SecondAboNotice => NeonatalTypeStands ? null : SecondAboDeterminationRule.MissingCellularIssueNotice(RequireSecondAbo, AboHistory);
 
     private string? AboDiscrepancyNotice =>
-        IssueGate.PatientBannerNotice(TypeHistory.Select(h => (new AboRh(h.Abo, h.RhD), h.IsCurrent)));
+        IssueGate.PatientBannerNotice(BloodTypeDto.DiscrepancyInput(TypeHistory));
 
     private string? ReactionNotice => ReactionHistoryBanner.Notice(HasRecordedReaction);
 
     private string? ExmNotice => Exm is null
         ? null
-        : ElectronicCrossmatchBanner.Notice(Exm.Eligible, Exm.BlockingReason);
+        : ElectronicCrossmatchBanner.HeaderNotice(Exm.Eligible, Exm.FacilityAllowsElectronicCrossmatch, Exm.BlockingReason);
 
     private string RecipientTraceHref =>
         $"/lookback?mrn={Uri.EscapeDataString(Patient.MedicalRecordNumber)}";

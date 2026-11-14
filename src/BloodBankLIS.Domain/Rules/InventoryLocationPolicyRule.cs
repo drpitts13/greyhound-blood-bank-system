@@ -176,7 +176,8 @@ public static class InventoryLocationPolicyRule
             case LocationType.Refrigerator:
                 location.AllowsRbc = true;
                 location.AllowsWholeBlood = true;
-                location.AllowsPlasma = false;
+                // Thawed plasma is kept refrigerated (end-user testing, 2026-11-12: a thaw had no refrigerator to go to).
+                location.AllowsPlasma = true;
                 location.AllowsPlatelets = false;
                 location.AllowsCryo = false;
                 location.AllowsIssue = true;

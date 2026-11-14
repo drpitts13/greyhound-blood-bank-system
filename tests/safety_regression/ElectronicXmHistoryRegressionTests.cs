@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Compatibility;
+﻿using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
@@ -143,6 +143,7 @@ public class ElectronicXmHistoryRegressionTests : IClassFixture<SqliteContextFac
             Category = "Issue"
         });
         await c.SaveChangesAsync();
+        await ExmScreenSeed.AddVerifiedNegativeScreenAsync(c, patient.Id, _factory.Clock.UtcNow, specimen.Id);
 
         var eligibility = new ElectronicCrossmatchEligibilityService(
             new EfRepository<Patient>(c),

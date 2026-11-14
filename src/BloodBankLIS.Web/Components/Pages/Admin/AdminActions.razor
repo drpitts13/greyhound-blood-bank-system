@@ -35,6 +35,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Modification</th><th>Description</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -43,7 +44,7 @@
                     <tr>
                         <td class="mono">@row.Code</td>
                         <td>@row.Name</td>
-                        <td>@row.Category</td>
+                        <td>@Ui.EnumText(row.Category)</td>
                         <td>@(row.ModificationType?.ToString() ?? "—")</td>
                         <td>@(row.Description ?? "—")</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
@@ -68,6 +69,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 

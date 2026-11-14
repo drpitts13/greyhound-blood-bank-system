@@ -190,4 +190,36 @@ public class AdminConfigTests : IClassFixture<SqliteContextFactory>
         Assert.True(clone.Value.IsDraft);
         Assert.False(clone.Value.IsActive);
     }
+
+    // TEST-BB-521: numeric and titer settings round-trip through the admin service, inconsistent limits are refused, and
+    // only the part matching the result value type is kept.
+    [Fact]
+    public async Task NumericAndTiterSettings_RoundTrip_AndOnlyTheMatchingPartIsKept()
+    {
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var code = $"NUM{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var shape = new TestResultShapeDto("%", 2, 0, 100, 0, 0.3m, null, 5, TiterStartDilution: 1, TiterEndDilution: 64, TiterEndpointMinGrade: "1+");
+        var created = await service.CreateAsync(NewRequest(code) with { ResultValueType = ResultValueType.Numeric, ResultShape = shape });
+        Assert.True(created.Succeeded, created.Error);
+        var dto = created.Value!.ResultShape!;
+        Assert.Equal(("%", 2, 100m, 0.3m, 5m), (dto.ResultUnits, dto.DecimalPlaces, dto.ReportableHigh, dto.ReferenceHigh, dto.CriticalHigh));
+        Assert.Null(dto.TiterStartDilution);
+
+        var bad = await service.UpdateAsync(created.Value.Id, NewRequest(code, reason: "Tighten") with
+        {
+            ResultValueType = ResultValueType.Numeric, ResultShape = shape with { CriticalHigh = 0.1m }
+        });
+        Assert.False(bad.Succeeded);
+
+        var titer = await service.UpdateAsync(created.Value.Id, NewRequest(code, reason: "Now a titer") with
+        {
+            ResultValueType = ResultValueType.Titer, ResultShape = shape with { TiterScored = true }
+        });
+        Assert.True(titer.Succeeded, titer.Error);
+        var saved = await context.TestDefinitions.AsNoTracking().SingleAsync(t => t.Id == created.Value.Id);
+        Assert.Equal((1, 64, "1+", true), (saved.TiterStartDilution, saved.TiterEndDilution, saved.TiterEndpointMinGrade, saved.TiterScored));
+        Assert.Null(saved.ResultUnits);
+        Assert.Null(saved.CriticalHigh);
+    }
 }

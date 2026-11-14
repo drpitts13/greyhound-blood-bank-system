@@ -9,6 +9,17 @@ using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
 
+/// <summary>An outbound message not yet acknowledged: how long it has waited and why it has not gone.</summary>
+public sealed record OutboundWaitingItem(
+    long Id,
+    string MessageType,
+    string ControlId,
+    DateTime QueuedUtc,
+    int RetryCount,
+    int MaxRetries,
+    string Reason,
+    bool Stuck);
+
 /// <summary>
 /// Transmits queued outbound ORU/DFT messages over MLLP or a file-drop folder
 /// and records the ACK. <see cref="Hl7OutboundService"/> only persists the payload.
@@ -26,14 +37,20 @@ public sealed class Hl7OutboundSender
         IRepository<InterfaceEndpoint> endpoints,
         IRepository<InterfaceErrorQueueItem> errors,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IAuditWriter? audit = null)
     {
         _logs = logs;
         _endpoints = endpoints;
         _errors = errors;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _audit = audit;
     }
+
+    private readonly IAuditWriter? _audit;
+
+    public const string DeliveredResolutionNote = "Resolved: the message was delivered and acknowledged on a later send.";
 
     public const int DefaultMaxRetries = 5;
 
@@ -63,6 +80,33 @@ public sealed class Hl7OutboundSender
         }
 
         return sent;
+    }
+
+    /// <summary>
+    /// Outbound messages still waiting to go (queued, or a send failed), oldest first, each with why it has not gone and
+    /// whether it is stuck (waited past <see cref="Domain.Rules.OutboundMessageWaitRule.StuckAfter"/>). A charge withheld
+    /// because it was cancelled before sending is not waiting (Cycle 660).
+    /// </summary>
+    public async Task<IReadOnlyList<OutboundWaitingItem>> ListWaitingAsync(CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var pending = await _logs.ListAsync(
+            m => m.Direction == Hl7Direction.Outbound
+                 && (m.Status == Hl7MessageStatus.Received || m.Status == Hl7MessageStatus.Errored),
+            ct);
+        var items = new List<OutboundWaitingItem>();
+        foreach (var row in pending.Where(m => m.ErrorDetail != BillingService.UnsentDftWithheldDetail).OrderBy(m => m.ReceivedUtc))
+        {
+            var endpoint = await ResolveEndpointAsync(row, ct);
+            var hasInterface = endpoint is not null && endpoint.IsEnabled && CanSend(endpoint);
+            var max = EffectiveMaxRetries(endpoint);
+            items.Add(new OutboundWaitingItem(
+                row.Id, row.MessageType, row.MessageControlId, row.ReceivedUtc, row.RetryCount, max,
+                Domain.Rules.OutboundMessageWaitRule.Reason(hasInterface, row.Status == Hl7MessageStatus.Errored, row.RetryCount, max),
+                Domain.Rules.OutboundMessageWaitRule.IsStuck(row.ReceivedUtc, now)));
+        }
+
+        return items;
     }
 
     public async Task<OperationResult<Hl7MessageLog>> SendOneAsync(long messageId, CancellationToken ct = default)
@@ -215,7 +259,15 @@ public sealed class Hl7OutboundSender
             item.Resolved = true;
             item.ResolvedBy = "outbound";
             item.ResolvedUtc = now;
+            item.ResolutionNote = DeliveredResolutionNote;
             _errors.Update(item);
+            _audit?.Record(
+                AuditEventType.Interface,
+                nameof(InterfaceErrorQueueItem),
+                item.Id,
+                oldValue: new { Resolved = false, item.Hl7MessageId },
+                newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId, item.ResolutionNote },
+                reason: DeliveredResolutionNote);
         }
     }
 

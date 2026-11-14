@@ -49,7 +49,9 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestDefinition>(c),
             new EfRepository<TestGrouper>(c),
             _factory.Clock,
-            c);
+            c,
+            results: new EfRepository<TestResult>(c),
+            allocations: new EfRepository<Allocation>(c));
         return new(
             new EfRepository<Hl7MessageLog>(c),
             new EfRepository<InterfaceErrorQueueItem>(c),
@@ -72,7 +74,12 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             specimens: new EfRepository<Specimen>(c),
             currentUser: _factory.CurrentUser,
             audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            aliasWriter: new PatientHistoricalAliasWriter(new EfRepository<PatientIdentifier>(c)));
+            aliasWriter: new PatientHistoricalAliasWriter(new EfRepository<PatientIdentifier>(c)),
+            dispenseRequests: new InterfaceDispenseRequestService(
+                new EfRepository<Allocation>(c), new EfRepository<Order>(c), new EfRepository<BloodUnit>(c),
+                _factory.Clock, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c),
+            alerts: new AlertService(new EfRepository<Alert>(c), c, _factory.Clock, _factory.CurrentUser,
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)));
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -199,6 +206,108 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         pv1[6] = "12345^Adams^Amy";
         pv1[18] = visitNumber;
         return Adt(controlId, mrn, last, first, trigger) + "\rPV1|" + string.Join("|", pv1);
+    }
+
+    // TEST-BB-1036: an EHR cancel (ORC-1 CA) takes the chart's checks: refused while units are reserved for the order,
+    // then applied with the ORC-16 reason, cancelling only the test lines not yet verified (end-user testing pass 27).
+    [Fact]
+    public async Task OrmCancel_RefusedWhileUnitsReserved_KeepsReason_AndVerifiedLines()
+    {
+        long orderId, verifiedLineId, pendingLineId, allocationId;
+        await using (var setup = _factory.Create())
+        {
+            await Processor(setup).ProcessAsync(Adt("CTRL-CAX-ADT", "HL7-CAX", "Cancel", "Order"));
+            if (!await setup.OrderingLocations.AnyAsync(l => l.IsActive))
+            {
+                setup.OrderingLocations.Add(new OrderingLocation { Code = "ED", Name = "ED", IsActive = true });
+                await setup.SaveChangesAsync();
+            }
+
+            Assert.True((await Processor(setup).ProcessAsync(Orm("CTRL-CAX-NW", "HL7-CAX", "PLACER-CAX", "XM"))).Accepted);
+            var order = await setup.Orders.SingleAsync(o => o.OrderNumber == "PLACER-CAX");
+            var patient = await setup.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-CAX");
+            var screen = new OrderLine { OrderId = order.Id, LineNumber = 90, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", IsActive = true };
+            var type = new OrderLine { OrderId = order.Id, LineNumber = 91, LineCategory = OrderCategory.Test, LineName = "ABO/Rh", TestCode = "ABORH", IsActive = true };
+            setup.OrderLines.AddRange(screen, type);
+            var product = new ProductType { ProductCode = "RBC-CAX", Name = "Red cells" };
+            setup.ProductTypes.Add(product);
+            await setup.SaveChangesAsync();
+            var specimen = new Specimen { AccessionNumber = "ACC-CAX", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = _factory.Clock.UtcNow, Status = SpecimenStatus.Accepted };
+            setup.Specimens.Add(specimen);
+            var unit = new BloodUnit { UnitNumber = "U-CAX", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Crossmatched };
+            setup.BloodUnits.Add(unit);
+            await setup.SaveChangesAsync();
+            setup.TestResults.Add(new TestResult { OrderId = order.Id, SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = "ABSC", Value = "Negative", Status = ResultStatus.Verified, Source = ResultSource.Manual, EnteredUtc = _factory.Clock.UtcNow, EnteredBy = "tech", VerifiedUtc = _factory.Clock.UtcNow });
+            var allocation = new Allocation { BloodProductId = unit.Id, PatientId = patient.Id, OrderId = order.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow, AllocatedBy = "tech" };
+            setup.Allocations.Add(allocation);
+            await setup.SaveChangesAsync();
+            (orderId, verifiedLineId, pendingLineId, allocationId) = (order.Id, screen.Id, type.Id, allocation.Id);
+        }
+
+        string Cancel(string control) =>
+            $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|{control}|P|2.5\r" +
+            "PID|1||HL7-CAX^^^HOSP^MR||Order^Cancel\r" +
+            "ORC|CA|PLACER-CAX||||||||||||||PT^Patient discharged\r" +
+            "OBR|1|PLACER-CAX||XM^Service";
+
+        await using (var refused = _factory.Create())
+        {
+            var outcome = await Processor(refused).ProcessAsync(Cancel("CTRL-CAX-CA1"));
+            Assert.False(outcome.Accepted);
+            Assert.Contains("Units are reserved", outcome.AckMessage);
+            Assert.NotEqual(OrderStatus.Cancelled, (await refused.Orders.SingleAsync(o => o.Id == orderId)).Status);
+            var reserved = await refused.Allocations.SingleAsync(a => a.Id == allocationId);
+            reserved.Status = AllocationStatus.Released;
+            await refused.SaveChangesAsync();
+        }
+
+        await using (var cancel = _factory.Create())
+        {
+            Assert.True((await Processor(cancel).ProcessAsync(Cancel("CTRL-CAX-CA2"))).Accepted);
+        }
+
+        await using var verify = _factory.Create();
+        var cancelled = await verify.Orders.SingleAsync(o => o.Id == orderId);
+        Assert.Equal((OrderStatus.Cancelled, "Patient discharged"), (cancelled.Status, cancelled.CancellationReason));
+        Assert.True((await verify.OrderLines.SingleAsync(l => l.Id == verifiedLineId)).IsActive);
+        var pending = await verify.OrderLines.SingleAsync(l => l.Id == pendingLineId);
+        Assert.Equal((false, FulfillmentStatus.Cancelled), (pending.IsActive, pending.FulfillmentStatus));
+    }
+
+    // TEST-BB-1059: an ADT update that changes the date of birth raises a warning naming the patient's current tube; one
+    // that changes only the name raises none (end-user testing pass 42: the DOB changed with no word to anyone).
+    [Fact]
+    public async Task AdtDateOfBirthChange_IsRaised_WithTheCurrentTubes()
+    {
+        long patientId;
+        await using (var setup = _factory.Create())
+        {
+            Assert.True((await Processor(setup).ProcessAsync(Adt("CTRL-IDC-1", "HL7-IDC", "Change", "Dob"))).Accepted);
+            var patient = await setup.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-IDC");
+            setup.Specimens.Add(new Specimen
+            {
+                AccessionNumber = "ACC-IDC-1", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = _factory.Clock.UtcNow.AddHours(-2),
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(2), Status = SpecimenStatus.Accepted
+            });
+            await setup.SaveChangesAsync();
+            patientId = patient.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.True((await Processor(c).ProcessAsync(Adt("CTRL-IDC-2", "HL7-IDC", "Changed", "Dob", "A08"))).Accepted);
+            Assert.False(await c.Alerts.AnyAsync(a => a.Source == AlertRule.PatientIdentityChanged && a.Key.StartsWith($"IDCHANGE:{patientId}:")));
+            var newDob = "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|CTRL-IDC-3|P|2.5\r" +
+                "PID|1||HL7-IDC^^^HOSP^MR||Changed^Dob||19800110|M";
+            Assert.True((await Processor(c).ProcessAsync(newDob)).Accepted);
+        }
+
+        await using var verify = _factory.Create();
+        var alert = Assert.Single(await verify.Alerts.Where(a => a.Source == AlertRule.PatientIdentityChanged && a.Key.StartsWith($"IDCHANGE:{patientId}:")).ToListAsync());
+        Assert.Equal(AlertSeverity.Warning, alert.Severity);
+        Assert.Contains("date of birth 1980-01-01 → 1980-01-10", alert.Message);
+        Assert.Contains("ACC-IDC-1", alert.Message);
+        Assert.Equal(new DateOnly(1980, 1, 10), (await verify.Patients.SingleAsync(p => p.Id == patientId)).DateOfBirth);
     }
 
     private static string AdtMerge(string controlId, string survivorMrn, string priorMrn, string last, string first) =>
@@ -388,6 +497,46 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("CTRL-A1", ack.Get("MSA-2"));
     }
 
+    // TEST-BB-611: a newborn's ADT with PID-21 links the infant's chart to the registered mother (audited, noted in the
+    // ACK); an unregistered mother or a refused link only adds a note; a different existing link is never replaced.
+    [Fact]
+    public async Task InboundAdt_Pid21_LinksTheNewbornToTheMother()
+    {
+        static string Newborn(string control, string mrn, string motherMrn) =>
+            $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|{control}|P|2.5\r" +
+            $"PID|1||{mrn}^^^HOSP^MR||Rivera^Baby||20260529|F" + new string('|', 13) + $"{motherMrn}^^^HOSP^MR";
+
+        await using var context = _factory.Create();
+        var mother = new Patient { MedicalRecordNumber = "HL7-MOM-21", LastName = "Rivera", FirstName = "Ana", DateOfBirth = new DateOnly(1994, 3, 14), Sex = Sex.Female };
+        var other = new Patient { MedicalRecordNumber = "HL7-MOM-22", LastName = "Other", FirstName = "Mia", DateOfBirth = new DateOnly(1990, 1, 1), Sex = Sex.Female };
+        context.Patients.AddRange(mother, other);
+        await context.SaveChangesAsync();
+
+        var linked = await Processor(context).ProcessAsync(Newborn("CTRL-P21-1", "HL7-BABY-21", "HL7-MOM-21"));
+        Assert.True(linked.Accepted);
+        Assert.Contains("Mother HL7-MOM-21 linked.", linked.AckMessage);
+        var baby = await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-BABY-21");
+        Assert.Equal(mother.Id, baby.MotherPatientId);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityId == baby.Id && a.Reason == "Mother linked from ADT^A04 PID-21: HL7-MOM-21."));
+
+        // The same mother again is quiet; another mother is flagged and the link kept.
+        Assert.DoesNotContain("PID-21", (await Processor(context).ProcessAsync(Newborn("CTRL-P21-2", "HL7-BABY-21", "HL7-MOM-21"))).AckMessage);
+        var conflict = await Processor(context).ProcessAsync(Newborn("CTRL-P21-3", "HL7-BABY-21", "HL7-MOM-22"));
+        Assert.True(conflict.Accepted);
+        Assert.Contains("linked to another mother", conflict.AckMessage);
+        Assert.Equal(mother.Id, (await context.Patients.AsNoTracking().SingleAsync(p => p.Id == baby.Id)).MotherPatientId);
+
+        var unknown = await Processor(context).ProcessAsync(Newborn("CTRL-P21-4", "HL7-BABY-23", "HL7-MOM-NOPE"));
+        Assert.True(unknown.Accepted);
+        Assert.Contains("is not registered here", unknown.AckMessage);
+        Assert.Null((await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-BABY-23")).MotherPatientId);
+
+        // A "mother" born after the infant is refused, with a note; the message is still accepted.
+        var refused = await Processor(context).ProcessAsync(Newborn("CTRL-P21-5", "HL7-MOM-21", "HL7-BABY-23"));
+        Assert.True(refused.Accepted);
+        Assert.Contains("not linked", refused.AckMessage);
+    }
+
     [Fact]
     public async Task InboundAdt_WithPv1_CreatesVisitAndProvider()
     {
@@ -398,6 +547,25 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         var enc = await context.Encounters.FirstOrDefaultAsync(e => e.VisitNumber == "VIS-9001");
         Assert.NotNull(enc);
         Assert.Equal("12345", (await context.OrderingProviders.FirstOrDefaultAsync(p => p.Id == enc!.AttendingProviderId))!.ProviderId);
+    }
+
+    // End-user testing pass 60: an ADT for one patient naming another patient's visit moved the visit to it. It is refused
+    // (error queue), nothing applied; the owner's own message still updates it.
+    [Fact]
+    public async Task InboundAdt_VisitOfAnotherPatient_IsRefused()
+    {
+        await using var context = _factory.Create();
+        Assert.True((await Processor(context).ProcessAsync(AdtWithVisit("CTRL-VO-1", "HL7-VO-A", "Owner", "Ann", "VIS-VO-1"))).Accepted);
+        var owner = await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-VO-A");
+
+        var other = await Processor(context).ProcessAsync(AdtWithVisit("CTRL-VO-2", "HL7-VO-B", "Other", "Bea", "VIS-VO-1"));
+        Assert.False(other.Accepted);
+        Assert.Contains("ADT-VISIT-OTHER-PATIENT", other.AckMessage);
+        Assert.Equal(owner.Id, (await context.Encounters.AsNoTracking().SingleAsync(e => e.VisitNumber == "VIS-VO-1")).PatientId);
+        Assert.False(await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "HL7-VO-B"));
+        Assert.True(await context.InterfaceErrorQueue.AnyAsync(q => q.ErrorDetail.Contains("ADT-VISIT-OTHER-PATIENT")));
+
+        Assert.True((await Processor(context).ProcessAsync(AdtWithVisit("CTRL-VO-3", "HL7-VO-A", "Owner", "Ann", "VIS-VO-1"))).Accepted);
     }
 
     [Fact]
@@ -425,6 +593,43 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True(await verify.AuditEvents.AnyAsync(a =>
             a.EntityId == patients[0].Id
             && a.Reason == PatientHistoricalAliasRule.AdtArchiveReason));
+    }
+
+    [Fact]
+    public async Task InboundAdt_TakesTheMrRepetition_AndKeepsTheOthersAsExternalIdentifiers()
+    {
+        // TEST-BB-568
+        const string pid3 = "EPI-77001^^^EPI^PI~HL7-PID3^^^HOSP^MR~ACCT-9^^^HOSP^AN";
+        string Message(string control) =>
+            $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|{control}|P|2.5\r" +
+            $"PID|1||{pid3}||Pidthree^Pat||19800101|M";
+
+        await using (var setup = _factory.Create())
+        {
+            Assert.True((await Processor(setup).ProcessAsync(Message("CTRL-PID3-1"))).Accepted);
+            Assert.True((await Processor(setup).ProcessAsync(Message("CTRL-PID3-2"))).Accepted);
+        }
+
+        await using var context = _factory.Create();
+        Assert.False(await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "EPI-77001"));
+        var patient = await context.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-PID3");
+        var identifiers = await context.PatientIdentifiers.Where(i => i.PatientId == patient.Id).ToListAsync();
+        var external = Assert.Single(identifiers, i => i.IdentifierType == IdentityTokenType.Other);
+        Assert.Equal("EPI-77001", external.Value);
+        Assert.Equal("EPI PI", external.AssigningAuthority);
+        Assert.Single(identifiers, i => i.IdentifierType == IdentityTokenType.AccountNumber && i.Value == "ACCT-9");
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Patient) && a.EntityId == patient.Id && a.Reason != null && a.Reason.StartsWith("External identifiers recorded")));
+
+        // TEST-BB-569: a new chart arriving with the same enterprise id says it is a possible duplicate.
+        var second = await Processor(context).ProcessAsync(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A04|CTRL-PID3-3|P|2.5\r" +
+            "PID|1||EPI-77001^^^EPI^PI~HL7-PID3B^^^HOSP^MR||Other^Name||19900101|F");
+        Assert.True(second.Accepted);
+        Assert.Contains("Possible duplicate: EPI-77001 is also on HL7-PID3", second.AckMessage);
+        var newChart = await context.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-PID3B");
+        var copy = await context.PatientIdentifiers.SingleAsync(i => i.PatientId == newChart.Id && i.Value == "EPI-77001");
+        Assert.Equal("EPI PI, also on HL7-PID3", copy.AssigningAuthority);
     }
 
     [Fact]
@@ -650,6 +855,38 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("First", patient.LastName);
     }
 
+    // End-user testing pass 61: an order message naming another patient's order number is refused, nothing applied: a new
+    // order is not "already exists" for the wrong patient, and a cancel does not cancel the other patient's order.
+    [Fact]
+    public async Task InboundOrm_OrderOfAnotherPatient_IsRefused()
+    {
+        await using (var c1 = _factory.Create())
+        {
+            await Processor(c1).ProcessAsync(Adt("CTRL-PO-ADT1", "HL7-PO-A", "Owner", "Ann"));
+            await Processor(c1).ProcessAsync(Adt("CTRL-PO-ADT2", "HL7-PO-B", "Other", "Bea"));
+            if (!await c1.OrderingLocations.AnyAsync(l => l.Code == "ED"))
+            {
+                c1.OrderingLocations.Add(new OrderingLocation { Code = "ED", Name = "ED", IsActive = true });
+                await c1.SaveChangesAsync();
+            }
+
+            Assert.True((await Processor(c1).ProcessAsync(Orm("CTRL-PO-NW1", "HL7-PO-A", "PLACER-PO-1", "XM"))).Accepted);
+        }
+
+        await using var context = _factory.Create();
+        var duplicate = await Processor(context).ProcessAsync(Orm("CTRL-PO-NW2", "HL7-PO-B", "PLACER-PO-1", "XM"));
+        Assert.False(duplicate.Accepted);
+        Assert.Contains("ORM-PLACER-OTHER-PATIENT", duplicate.AckMessage);
+
+        var cancel = await Processor(context).ProcessAsync(Orm("CTRL-PO-CA", "HL7-PO-B", "PLACER-PO-1", "XM", "CA"));
+        Assert.False(cancel.Accepted);
+        Assert.Contains("ORM-PLACER-OTHER-PATIENT", cancel.AckMessage);
+
+        var order = await context.Orders.AsNoTracking().SingleAsync(o => o.OrderNumber == "PLACER-PO-1");
+        Assert.NotEqual(OrderStatus.Cancelled, order.Status);
+        Assert.Equal((await context.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "HL7-PO-A")).Id, order.PatientId);
+    }
+
     [Fact]
     public async Task InboundOrm_CreatesOrder_WhenPatientExists()
     {
@@ -801,6 +1038,11 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True(original.Resolved);
         Assert.False(string.IsNullOrWhiteSpace(original.ResolvedBy));
         Assert.NotNull(original.ResolvedUtc);
+        // TEST-BB-399: a replay that applies records why the error closed, and audits it.
+        Assert.Equal(Hl7InboundProcessor.ReplayResolutionNote, original.ResolutionNote);
+        Assert.True(await verify.AuditEvents.AnyAsync(e => e.EventType == AuditEventType.Interface
+            && e.EntityType == nameof(InterfaceErrorQueueItem) && e.EntityId == original.Id
+            && e.Reason == Hl7InboundProcessor.ReplayResolutionNote));
         Assert.True(await verify.Orders.AnyAsync(o => o.OrderNumber == "PLACER-FIX"));
     }
 
@@ -973,6 +1215,7 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         var row = await verify.InterfaceErrorQueue.SingleAsync(e => e.Id == errorId);
         Assert.True(row.Resolved);
+        Assert.Equal("Entered on the chart.", row.ResolutionNote);
         var still = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-RES");
         Assert.Equal("Corrected", still.LastName);
         Assert.Equal(1, await verify.Hl7Messages.CountAsync(m => m.MessageControlId == "CTRL-RESOLVE"));
@@ -1345,7 +1588,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
                 new EfRepository<InterfaceEndpoint>(context),
                 new EfRepository<InterfaceErrorQueueItem>(context),
                 context,
-                _factory.Clock);
+                _factory.Clock,
+                new AuditWriter(context, _factory.Clock, _factory.CurrentUser));
             var result = await sender.SendOneAsync(messageId);
             Assert.True(result.Succeeded, result.Error);
             Assert.Equal(Hl7MessageStatus.Acked, result.Value!.Status);
@@ -1359,6 +1603,11 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True(item.Resolved);
         Assert.Equal("outbound", item.ResolvedBy);
         Assert.NotNull(item.ResolvedUtc);
+        // TEST-BB-399: a later successful send records why the error closed, and audits it.
+        Assert.Equal(Hl7OutboundSender.DeliveredResolutionNote, item.ResolutionNote);
+        Assert.True(await verify.AuditEvents.AnyAsync(e => e.EventType == AuditEventType.Interface
+            && e.EntityType == nameof(InterfaceErrorQueueItem) && e.EntityId == item.Id
+            && e.Reason == Hl7OutboundSender.DeliveredResolutionNote));
         Assert.True(Hl7MessageIdentity.TryRead(
             (await verify.Hl7Messages.FindAsync(messageId))!.RawMessage, out var identity));
         Assert.Equal("PLACER-OUT", identity.PlacerOrderNumber);
@@ -1588,6 +1837,28 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Empty(await context.OrderSpecimens.Where(l => l.OrderId == order.Id).ToListAsync());
     }
 
+    // End-user testing pass 62: a transfusion message under an MRN merged into another chart found no issued unit; it now
+    // follows the merge, records on the surviving chart, and says so.
+    [Fact]
+    public async Task InboundRas_MergedMrn_RecordsOnTheSurvivingChart()
+    {
+        await using var context = _factory.Create();
+        var (survivor, unit) = await SeedIssuedUnitForBpamAsync(context, "HL7-BPAM-SURV", "W-BPAM-MERGE");
+        var merged = new Patient
+        {
+            MedicalRecordNumber = "HL7-BPAM-OLD", LastName = "Bpam", FirstName = "Iris",
+            DateOfBirth = new DateOnly(1985, 6, 2), Sex = Sex.Female, Status = PatientStatus.Merged, MergedIntoPatientId = survivor.Id
+        };
+        context.Patients.Add(merged);
+        await context.SaveChangesAsync();
+
+        var result = await Processor(context).ProcessAsync(Ras("CTRL-RAS-MRG", "HL7-BPAM-OLD", "W-BPAM-MERGE"));
+        Assert.True(result.Accepted, result.Log.ErrorDetail);
+        Assert.Contains("merged into HL7-BPAM-SURV", result.AckMessage);
+        var transfusion = await context.TransfusionEvents.SingleAsync(t => t.BloodProductId == unit.Id);
+        Assert.Equal(survivor.Id, transfusion.PatientId);
+    }
+
     [Fact]
     public async Task InboundRas_DocumentsTransfusionOnIssuedUnitWithoutRekey()
     {
@@ -1648,5 +1919,130 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         var again = await Processor(context).ProcessAsync(Ras("CTRL-RAS-BILL-2", "HL7-BPAM-BILL", "W-BPAM-BILL"));
         Assert.True(again.Accepted, again.Log.ErrorDetail);
         Assert.Equal(1, await context.BillingEvents.CountAsync(e => e.PatientId == patient.Id));
+    }
+
+    // TEST-BB-499 (OCD-063): an OMB^O27 from the EHR asks for a reserved unit to be sent now. It becomes the same issue
+    // request a ward makes in the LIS, never an issue; it is refused to the error queue when the unit cannot be
+    // identified without guessing; a cancel withdraws it.
+    private static string Omb(string controlId, string mrn, string control, string orderNumber, string? deliverTo, string patientLocation = "ICU 4") =>
+        $"MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20261106120000||OMB^O27|{controlId}|P|2.5\r" +
+        $"PID|1||{mrn}^^^HOSP^MR||Request^Rita\r" +
+        $"PV1||I|{patientLocation}\r" +
+        $"ORC|{control}|{orderNumber}||||||||||1234^Wells^Dana\r" +
+        $"BPO|1|RBC^Red cells||||||||||||{deliverTo}";
+
+    private async Task<(Patient Patient, List<Allocation> Reserved)> SeedReservedOnOrderAsync(BloodBankDbContext c, string key, int units)
+    {
+        var patient = new Patient { MedicalRecordNumber = $"HL7-OMB-{key}", LastName = "Request", FirstName = "Rita", DateOfBirth = new DateOnly(1970, 3, 3), Sex = Sex.Female };
+        var location = new OrderingLocation { Code = $"OMB-{key}", Name = "ICU", IsActive = true };
+        var product = new ProductType { ProductCode = $"RBC-OMB-{key}", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        c.Patients.Add(patient);
+        c.OrderingLocations.Add(location);
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var visit = new Encounter { PatientId = patient.Id, VisitNumber = $"V-OMB-{key}", Status = EncounterStatus.Active, AdmitUtc = _factory.Clock.UtcNow.AddDays(-1) };
+        c.Encounters.Add(visit);
+        await c.SaveChangesAsync();
+        var order = new Order
+        {
+            OrderNumber = $"ORD-OMB-{key}", PatientId = patient.Id, EncounterId = visit.Id, OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product, Priority = OrderPriority.Routine, OrderedUtc = _factory.Clock.UtcNow, Status = OrderStatus.InProcess
+        };
+        c.Orders.Add(order);
+        await c.SaveChangesAsync();
+        var reserved = new List<Allocation>();
+        for (var i = 1; i <= units; i++)
+        {
+            var unit = new BloodUnit
+            {
+                UnitNumber = $"W-OMB-{key}-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Allocated
+            };
+            c.BloodUnits.Add(unit);
+            await c.SaveChangesAsync();
+            var allocation = new Allocation
+            {
+                BloodProductId = unit.Id, PatientId = patient.Id, EncounterId = visit.Id, OrderId = order.Id,
+                Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddHours(-1), AllocatedBy = "tech1"
+            };
+            c.Allocations.Add(allocation);
+            reserved.Add(allocation);
+        }
+
+        await c.SaveChangesAsync();
+        return (patient, reserved);
+    }
+
+    [Fact]
+    public async Task DispenseRequest_RequestsTheOneReservedUnit_ThenACancelWithdrawsIt()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "ONE", units: 1);
+
+        var request = await Processor(c).ProcessAsync(Omb("CTRL-OMB-1", patient.MedicalRecordNumber, "NW", "ORD-OMB-ONE", "OR 3"));
+        Assert.True(request.Accepted, request.AckMessage);
+        await c.Entry(reserved[0]).ReloadAsync();
+        Assert.Equal("OR 3", reserved[0].IssueRequestedTo);
+        Assert.StartsWith("EHR (HL7)", reserved[0].IssueRequestedBy);
+        Assert.Equal(AllocationStatus.Reserved, reserved[0].Status);
+        Assert.Contains(c.AuditEvents.ToList(), e => e.EntityType == nameof(Allocation) && e.EntityId == reserved[0].Id && (e.Reason ?? string.Empty).Contains("CTRL-OMB-1"));
+
+        var cancel = await Processor(c).ProcessAsync(Omb("CTRL-OMB-2", patient.MedicalRecordNumber, "CA", "ORD-OMB-ONE", null));
+        Assert.True(cancel.Accepted, cancel.AckMessage);
+        await c.Entry(reserved[0]).ReloadAsync();
+        Assert.Null(reserved[0].IssueRequestedUtc);
+    }
+
+    [Fact]
+    public async Task DispenseRequest_UsesThePatientLocation_WhenNoDeliverToIsSent()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "PV1", units: 1);
+
+        var request = await Processor(c).ProcessAsync(Omb("CTRL-OMB-3", patient.MedicalRecordNumber, "NW", "ORD-OMB-PV1", null, patientLocation: "4W Med/Surg"));
+        Assert.True(request.Accepted, request.AckMessage);
+        await c.Entry(reserved[0]).ReloadAsync();
+        Assert.Equal("4W Med/Surg", reserved[0].IssueRequestedTo);
+    }
+
+    [Fact]
+    public async Task DispenseRequest_ForAnOrderWithSeveralUnits_GoesToTheErrorQueue_AndChangesNothing()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "TWO", units: 2);
+
+        var request = await Processor(c).ProcessAsync(Omb("CTRL-OMB-4", patient.MedicalRecordNumber, "NW", "ORD-OMB-TWO", "OR 3"));
+        Assert.False(request.Accepted);
+        Assert.Contains("2 reserved units", request.AckMessage);
+        Assert.True(await c.InterfaceErrorQueue.AnyAsync(e => e.Hl7MessageId == request.Log.Id && !e.Resolved));
+        foreach (var a in reserved)
+        {
+            await c.Entry(a).ReloadAsync();
+            Assert.Null(a.IssueRequestedUtc);
+        }
+    }
+
+    [Fact]
+    public async Task DispenseRequest_ByDin_PicksThatUnit_EvenWhenTheOrderHasSeveral()
+    {
+        await using var c = _factory.Create();
+        var (patient, reserved) = await SeedReservedOnOrderAsync(c, "DIN", units: 2);
+        var service = new InterfaceDispenseRequestService(
+            new EfRepository<Allocation>(c), new EfRepository<Order>(c), new EfRepository<BloodUnit>(c),
+            _factory.Clock, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c);
+
+        var text = await service.HandleAsync(new InterfaceDispenseRequest(patient.Id, false, "ORD-OMB-DIN", "W-OMB-DIN-2", "PACU", null, "CTRL-OMB-DIN"));
+        Assert.Contains("W-OMB-DIN-2", text);
+        foreach (var a in reserved)
+        {
+            await c.Entry(a).ReloadAsync();
+        }
+
+        Assert.Null(reserved[0].IssueRequestedUtc);
+        Assert.Equal("PACU", reserved[1].IssueRequestedTo);
+
+        var unknown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.HandleAsync(new InterfaceDispenseRequest(patient.Id, false, null, "W-NOT-RESERVED", "PACU", null, "CTRL-OMB-DIN2")));
+        Assert.Contains("No unit W-NOT-RESERVED is reserved", unknown.Message);
     }
 }

@@ -41,13 +41,14 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Started (UTC)</th><th>Trigger</th><th>File</th><th class="right">Size</th><th>Result</th><th>Manifest</th></tr></thead>
+                <thead><tr><th>Started</th><th>Trigger</th><th>File</th><th class="right">Size</th><th>Result</th><th>Manifest</th></tr></thead>
                 <tbody>
                     @foreach (var b in status.Recent)
                     {
                         <tr>
-                            <td class="nowrap">@b.StartedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td class="nowrap">@b.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
                             <td>@b.Trigger &middot; @b.RequestedBy</td>
                             <td>
                                 <span class="mono">@b.FileName</span>
@@ -71,6 +72,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

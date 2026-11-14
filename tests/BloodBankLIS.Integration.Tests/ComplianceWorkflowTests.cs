@@ -41,7 +41,33 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
             inventory,
             c, _factory.Clock, _factory.CurrentUser, audit,
             permissions,
-            withLocations ? new EfRepository<InventoryLocation>(c) : null);
+            withLocations ? new EfRepository<InventoryLocation>(c) : null,
+            withLocations ? new EfRepository<ProductType>(c) : null);
+    }
+
+    // TEST-BB-1028: a DIN lookback names each component's product and where it is now, to pull it in a recall
+    // (end-user testing pass 20).
+    [Fact]
+    public async Task FindByDin_NamesProductAndLocation()
+    {
+        await using var c = _factory.Create();
+        var din = $"W{Guid.NewGuid():N}"[..13].ToUpperInvariant();
+        var product = new ProductType { ProductCode = $"RBC-{din[..6]}", Name = "Lookback red cells", ComponentClass = ComponentClass.RedBloodCells };
+        var fridge = new InventoryLocation { Code = $"LB-{din[..6]}", Name = "Lookback fridge", LocationType = LocationType.Refrigerator };
+        c.ProductTypes.Add(product);
+        c.InventoryLocations.Add(fridge);
+        await c.SaveChangesAsync();
+        c.BloodUnits.Add(new BloodUnit
+        {
+            UnitNumber = $"{din}|E0336V00", Din = din, ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Available, CurrentLocationId = fridge.Id
+        });
+        await c.SaveChangesAsync();
+
+        var found = await Lookback(c, withLocations: true).FindByDinAsync(din);
+        Assert.True(found.Succeeded, found.Error);
+        var unit = Assert.Single(found.Value!.Units);
+        Assert.Equal(("Lookback red cells", $"LB-{din[..6]} Lookback fridge"), (unit.ProductName, unit.LocationName));
     }
 
     [Fact]
@@ -116,6 +142,142 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         Assert.Equal(UnitStatus.Recalled, (await verify.BloodUnits.FindAsync(availableId))!.Status);
         Assert.Equal(UnitStatus.Transfused, (await verify.BloodUnits.FindAsync(transfusedId))!.Status);
+    }
+
+    // TEST-BB-598: a recall of a DIN whose unit was shipped to another facility does not try to recall it here; it opens
+    // a notification naming that facility, once.
+    [Fact]
+    public async Task RecallByDin_ShippedUnit_NotifiesTheReceivingFacility()
+    {
+        const string din = "W000056565656";
+        long shippedId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType { ProductCode = "RBC-SHP", Name = "Shipped RBC", ComponentClass = ComponentClass.RedBloodCells };
+            c.ProductTypes.Add(productType);
+            await c.SaveChangesAsync();
+            var shipped = new BloodUnit
+            {
+                UnitNumber = "U-SHP-LB", ProductTypeId = productType.Id, Abo = AboGroup.O, RhD = RhType.Positive, Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.ShippedOut,
+                ShippedToFacility = "St. Mary's Hospital", ShippedUtc = _factory.Clock.UtcNow.AddDays(-1),
+                ShipReceivingContact = "St. Mary's blood bank, 555-0142"
+            };
+            c.BloodUnits.Add(shipped);
+            await c.SaveChangesAsync();
+            shippedId = shipped.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(recalled.Succeeded, recalled.Error);
+            var note = Assert.Single(recalled.Value!.Notifications, n => n.BloodProductId == shippedId);
+            Assert.Equal("St. Mary's Hospital", note.ShippedToFacility);
+            // TEST-BB-894: the notification names who received the shipment, so the recall knows whom to call.
+            Assert.Equal("St. Mary's blood bank, 555-0142", note.ShippedReceivingContact);
+            Assert.Null(note.PatientId);
+            Assert.True((await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive")).Succeeded);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.ShippedOut, (await verify.BloodUnits.FindAsync(shippedId))!.Status);
+        Assert.Equal(1, await verify.LookbackNotifications.CountAsync(n => n.BloodProductId == shippedId));
+    }
+
+    // TEST-BB-945 (Cycle 702, OCD-083): a unit the EHR reported transfused while it was quarantined is treated as
+    // transfused by a later recall: its recipient gets a notification, and the unit is not recalled (it is not here); it
+    // keeps its status and is not listed as "not recalled".
+    [Fact]
+    public async Task RecallByDin_ReportedTransfusedUnit_NotifiesItsRecipient()
+    {
+        const string din = "W000059595959";
+        long unitId, patientId, issueId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType { ProductCode = "RBC-LB-RPT", Name = "Reported RBC", ComponentClass = ComponentClass.RedBloodCells };
+            var patient = new Patient { MedicalRecordNumber = "MRN-LB-RPT", LastName = "Reported", FirstName = "Recipient", DateOfBirth = new DateOnly(1980, 3, 3) };
+            c.ProductTypes.Add(productType);
+            c.Patients.Add(patient);
+            await c.SaveChangesAsync();
+            var unit = new BloodUnit
+            {
+                UnitNumber = "U-LB-RPT", ProductTypeId = productType.Id, Abo = AboGroup.O, RhD = RhType.Positive, Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Quarantine,
+                TransfusionReportedUtc = _factory.Clock.UtcNow.AddDays(-1)
+            };
+            c.BloodUnits.Add(unit);
+            await c.SaveChangesAsync();
+            var issue = new Issue
+            {
+                BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddDays(-2), IssuedBy = "tech-test",
+                Status = IssueStatus.Transfused
+            };
+            c.Issues.Add(issue);
+            await c.SaveChangesAsync();
+            c.TransfusionEvents.Add(new TransfusionEvent
+            {
+                IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, StartUtc = _factory.Clock.UtcNow.AddDays(-1),
+                DocumentedBy = "hl7", UnitStatusAtReport = UnitStatus.Quarantine
+            });
+            await c.SaveChangesAsync();
+            (unitId, patientId, issueId) = (unit.Id, patient.Id, issue.Id);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(recalled.Succeeded, recalled.Error);
+            var note = Assert.Single(recalled.Value!.Notifications, n => n.BloodProductId == unitId);
+            Assert.Equal((patientId, issueId), (note.PatientId, note.IssueId));
+            Assert.DoesNotContain(recalled.Value.NotRecalled, n => n.BloodProductId == unitId);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Quarantine, (await verify.BloodUnits.FindAsync(unitId))!.Status);
+    }
+
+    // TEST-BB-911: a recall of a DIN recalls the component on the shelf even when another component of the donation was
+    // already returned to the supplier or has expired; those are left as they are and the report says why, instead of the
+    // whole recall failing and recalling nothing.
+    [Fact]
+    public async Task RecallByDin_RecallsTheShelf_WhenAnotherComponentCannotBeRecalled()
+    {
+        const string din = "W000058585858";
+        long shelfId, returnedId, expiredId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType { ProductCode = "RBC-LB-MIX", Name = "Recall mix RBC", ComponentClass = ComponentClass.RedBloodCells };
+            c.ProductTypes.Add(productType);
+            await c.SaveChangesAsync();
+            BloodUnit Unit(string number, UnitStatus status, int days) => new()
+            {
+                UnitNumber = number, ProductTypeId = productType.Id, Abo = AboGroup.O, RhD = RhType.Positive, Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(days), Status = status
+            };
+            var shelf = Unit("U-LB-MIX-A", UnitStatus.Available, 20);
+            var returned = Unit("U-LB-MIX-B", UnitStatus.ReturnedToSupplier, 20);
+            returned.SupplierReturnReason = "Short-dated";
+            var expired = Unit("U-LB-MIX-C", UnitStatus.Expired, -1);
+            c.BloodUnits.AddRange(shelf, returned, expired);
+            await c.SaveChangesAsync();
+            (shelfId, returnedId, expiredId) = (shelf.Id, returned.Id, expired.Id);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(recalled.Succeeded, recalled.Error);
+            var notRecalled = recalled.Value!.NotRecalled;
+            Assert.Equal(2, notRecalled.Count);
+            Assert.Contains(notRecalled, n => n.BloodProductId == returnedId && n.Why.Contains("returned to the supplier"));
+            Assert.Contains(notRecalled, n => n.BloodProductId == expiredId && n.Why.Contains("expired"));
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Recalled, (await verify.BloodUnits.FindAsync(shelfId))!.Status);
+        Assert.Equal(UnitStatus.ReturnedToSupplier, (await verify.BloodUnits.FindAsync(returnedId))!.Status);
+        Assert.Equal(UnitStatus.Expired, (await verify.BloodUnits.FindAsync(expiredId))!.Status);
     }
 
     [Fact]
@@ -608,6 +770,37 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         var updated = await service.UpdateStatusAsync(created.Value!.Id, DeviationStatus.Closed, "Retrained staff");
         Assert.True(updated.Succeeded);
         Assert.Equal(DeviationStatus.Closed, updated.Value!.Status);
+    }
+
+    // TEST-BB-1031: the deviation list names each related record (unit number, location and reading) instead of an
+    // internal id; a record it cannot name falls back to none (end-user testing pass 24).
+    [Fact]
+    public async Task Deviations_NameTheirRelatedRecords()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var product = new ProductType { ProductCode = $"RBC-DV-{key}", Name = "Deviation red cells", ComponentClass = ComponentClass.RedBloodCells };
+        var fridge = new InventoryLocation { Code = $"DV-{key}", Name = "Deviation fridge", LocationType = LocationType.Refrigerator };
+        c.ProductTypes.Add(product);
+        c.InventoryLocations.Add(fridge);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = $"U-DV-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Available };
+        c.BloodUnits.Add(unit);
+        var reading = new StorageTemperatureReading { InventoryLocationId = fridge.Id, ReadingC = 8.5m, ReadingUtc = _factory.Clock.UtcNow, RecordedBy = "tech" };
+        c.StorageTemperatureReadings.Add(reading);
+        await c.SaveChangesAsync();
+
+        var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
+        var service = new DeviationService(new EfRepository<Deviation>(c), c, _factory.Clock, _factory.CurrentUser, audit,
+            units: new EfRepository<BloodUnit>(c), readings: new EfRepository<StorageTemperatureReading>(c), locations: new EfRepository<InventoryLocation>(c));
+        var onUnit = await service.CreateAsync(new CreateDeviationRequest($"Unit {key}", "Wrong shelf", DeviationSeverity.Minor, "BloodUnit", unit.Id));
+        var onReading = await service.CreateAsync(new CreateDeviationRequest($"Temp {key}", "Excursion", DeviationSeverity.Major, "StorageTemperatureReading", reading.Id));
+        Assert.True(onUnit.Succeeded && onReading.Succeeded);
+
+        var list = await service.ListDtosAsync();
+        Assert.Equal($"U-DV-{key}", list.Single(d => d.Id == onUnit.Value!.Id).ContextName);
+        Assert.Equal($"DV-{key} 8.5 °C", list.Single(d => d.Id == onReading.Value!.Id).ContextName);
+        Assert.Equal($"U-DV-{key}", Assert.Single(await service.ListDtosAsync("BloodUnit", unit.Id)).ContextName);
     }
 
     [Fact]

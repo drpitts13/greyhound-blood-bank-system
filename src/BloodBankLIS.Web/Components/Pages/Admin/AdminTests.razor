@@ -48,6 +48,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr><th>Code</th><th>Name</th><th>Category</th><th>Value type</th><th>Ver</th><th>Status</th><th></th></tr>
@@ -58,7 +59,7 @@
                     <tr>
                         <td class="mono">@t.Code</td>
                         <td>@t.NameLabel</td>
-                        <td>@t.Category</td>
+                        <td>@Ui.EnumText(t.Category)</td>
                         <td>@DisplayValueType(t.ResultValueType)</td>
                         <td>@t.Version</td>
                         <td>@StatusBadge(t)</td>
@@ -73,6 +74,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -85,7 +87,7 @@
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Category</label>
                 <select @bind="_editing.Category">
-                    @foreach (var c in Enum.GetValues<TestCategory>()) { <option value="@c">@c</option> }
+                    @foreach (var c in Enum.GetValues<TestCategory>()) { <option value="@c">@Ui.EnumText(c)</option> }
                 </select>
             </div>
             <div class="field"><label>Result value type</label>
@@ -93,12 +95,69 @@
                     @foreach (var v in Enum.GetValues<ResultValueType>()) { <option value="@v">@DisplayValueType(v)</option> }
                 </select>
             </div>
+            <div class="field"><label>LOINC code (optional)</label>
+                <input @bind="_editing.LoincCode" placeholder="e.g. 882-1" data-loinc-code />
+                <span class="sub">Sent to the EHR with each result, beside the test code. Your interface team chooses it.</span>
+            </div>
+            @if (_editing.ResultValueType == ResultValueType.Numeric)
+            {
+                <div class="field" style="grid-column:1/-1;" data-numeric-settings>
+                    <label><strong>Numeric result</strong> (every limit is optional and the facility's own)</label>
+                    <div class="form-row" style="margin-top:.4rem;">
+                        <div class="field"><label>Units</label><input @bind="_editing.Shape.ResultUnits" placeholder="e.g. %" /></div>
+                        <div class="field"><label>Decimal places</label><input type="number" min="0" max="4" @bind="_editing.Shape.DecimalPlaces" /></div>
+                        <div class="field"><label>Reportable low</label><input type="number" step="any" @bind="_editing.Shape.ReportableLow" /></div>
+                        <div class="field"><label>Reportable high</label><input type="number" step="any" @bind="_editing.Shape.ReportableHigh" /></div>
+                        <div class="field"><label>Reference low</label><input type="number" step="any" @bind="_editing.Shape.ReferenceLow" /></div>
+                        <div class="field"><label>Reference high</label><input type="number" step="any" @bind="_editing.Shape.ReferenceHigh" /></div>
+                        <div class="field"><label>Critical low</label><input type="number" step="any" @bind="_editing.Shape.CriticalLow" /></div>
+                        <div class="field"><label>Critical high</label><input type="number" step="any" @bind="_editing.Shape.CriticalHigh" /></div>
+                    </div>
+                    <p class="muted" style="margin:.25rem 0 0;">Outside the reportable range is refused at entry; outside the reference range is flagged L or H; beyond a critical limit is flagged LL or HH and warns.</p>
+                </div>
+            }
+            @if (_editing.ResultValueType == ResultValueType.Titer)
+            {
+                <div class="field" style="grid-column:1/-1;" data-titer-settings>
+                    <label><strong>Titer</strong> (doubling dilutions; endpoint and scoring are the facility's, OCD-065)</label>
+                    <div class="form-row" style="margin-top:.4rem;">
+                        <div class="field"><label>First dilution (1:n)</label><input type="number" min="1" @bind="_editing.Shape.TiterStartDilution" /></div>
+                        <div class="field"><label>Last dilution (1:n)</label><input type="number" min="2" @bind="_editing.Shape.TiterEndDilution" /></div>
+                        <div class="field"><label>Read at phase</label>
+                            <select @bind="_editing.Shape.TiterPhaseCode">
+                                <option value="">(none)</option>
+                                @foreach (var phase in _catalogPhases)
+                                {
+                                    <option value="@phase.Code">@phase.Code — @phase.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field"><label>Endpoint: weakest grade that counts</label>
+                            <select @bind="_editing.Shape.TiterEndpointMinGrade">
+                                <option value="">Choose</option>
+                                @foreach (var grade in BloodBankLIS.Domain.Rules.TiterRule.Grades.Skip(1))
+                                {
+                                    <option value="@grade">@Ui.EnumText(grade)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field"><label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.Shape.TiterScored" /> Calculate a score</label></div>
+                    </div>
+                    @if (_editing.Shape.TiterStartDilution is int start && _editing.Shape.TiterEndDilution is int end)
+                    {
+                        var series = BloodBankLIS.Domain.Rules.TiterRule.Dilutions(start, end);
+                        <p class="muted" style="margin:.25rem 0 0;" data-titer-series>@(series.Count == 0
+                            ? "The last dilution must be the first doubled 1 to 13 times (for example 1 to 2048)."
+                            : $"{series.Count} dilutions: {string.Join(", ", series.Select(d => $"1:{d}"))}")</p>
+                    }
+                </div>
+            }
             @if (_editing.ResultValueType == ResultValueType.BloodAttribute)
             {
                 <div class="field">
                     <label>Scoped as</label>
                     <select @bind="_editing.BloodAttributeScopeKind">
-                        @foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }
+                        @foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@Ui.EnumText(k)</option> }
                     </select>
                 </div>
                 <div class="field" style="grid-column:1/-1;">
@@ -140,6 +199,7 @@
                     }
                     else
                     {
+                        <div class="table-scroll">
                         <table class="bb">
                             <thead><tr><th>Subtest</th><th>Type</th><th>Required</th><th>Phases</th><th>Order</th><th></th></tr></thead>
                             <tbody>
@@ -186,6 +246,7 @@
                                 }
                             </tbody>
                         </table>
+                        </div>
                     }
                 </div>
 
@@ -212,6 +273,7 @@
                         }
                         else if (LogicTableColumns.Any())
                         {
+                            <div class="table-scroll">
                             <table class="bb">
                                 <thead>
                                     @if (LogicColumnGroups.Any(g => g.Phases.Count > 0))
@@ -272,7 +334,7 @@
                                                 <select @bind="row.MatchMode">
                                                     @foreach (var mode in Enum.GetValues<InterpretationMatchMode>())
                                                     {
-                                                        <option value="@mode">@mode</option>
+                                                        <option value="@mode">@Ui.EnumText(mode)</option>
                                                     }
                                                 </select>
                                             </td>
@@ -294,6 +356,7 @@
                                     }
                                 </tbody>
                             </table>
+                            </div>
                         }
                         else
                         {
@@ -308,15 +371,28 @@
                 <textarea rows="3" @bind="_editing.AllowedResultValues"></textarea>
             </div>
             }
-            <div class="field"><label>Default / required specimen type</label>
-                <select @bind="_editing.RequiredSpecimenType">
+            <div class="field" data-test-specimen-types><label>Preferred specimen type</label>
+                <select value="@(AcceptedSpecimenTypes.Preferred(_editing.RequiredSpecimenType) ?? "")" @onchange="e => SetPreferredSpecimenType(e.Value?.ToString())">
                     <option value="">— Any —</option>
                     @foreach (var t in _catalogSpecimenTypes)
                     {
                         <option value="@t.Code">@t.Code — @t.Description</option>
                     }
                 </select>
-                <p class="muted" style="margin:.25rem 0 0;font-size:.85rem;">Prefills accession. Result entry is blocked if the specimen type does not match.</p>
+                @if (AcceptedSpecimenTypes.Preferred(_editing.RequiredSpecimenType) is { } preferredType)
+                {
+                    <div style="margin-top:.35rem;font-size:.9rem;">
+                        <span class="muted">Also accepted:</span>
+                        @foreach (var t in _catalogSpecimenTypes.Where(t => !string.Equals(t.Code, preferredType, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            <label style="margin-right:.6rem;white-space:nowrap;">
+                                <input type="checkbox" checked="@AcceptedSpecimenTypes.Parse(_editing.RequiredSpecimenType).Contains(t.Code.ToUpperInvariant())"
+                                       @onchange="e => ToggleAcceptedSpecimenType(t.Code, e.Value is true)" data-accept-type="@t.Code" /> @t.Code
+                            </label>
+                        }
+                    </div>
+                }
+                <p class="muted" style="margin:.25rem 0 0;font-size:.85rem;">The preferred type prefills accession. Result entry is blocked unless the specimen is the preferred type or one also accepted.</p>
             </div>
             <div class="field"><label>Testing method</label><input @bind="_editing.TestingMethod" /></div>
             <div class="field"><label>Performing department</label><input @bind="_editing.PerformingDepartment" /></div>
@@ -374,6 +450,33 @@
     private List<PhaseListItemDto> _catalogPhases = new();
     private List<BloodAttributeListItemDto> _catalogBloodAttributes = new();
     private List<SpecimenTypeListItemDto> _catalogSpecimenTypes = new();
+
+    // The stored list keeps the preferred type first, then the others in catalog order.
+    private void SetPreferredSpecimenType(string? code)
+    {
+        if (_editing is null) return;
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            _editing.RequiredSpecimenType = null;
+            return;
+        }
+
+        var others = AcceptedSpecimenTypes.Parse(_editing.RequiredSpecimenType).Skip(1)
+            .Where(c => !string.Equals(c, code, StringComparison.OrdinalIgnoreCase));
+        _editing.RequiredSpecimenType = AcceptedSpecimenTypes.Normalize(string.Join(",", new[] { code }.Concat(others)));
+    }
+
+    private void ToggleAcceptedSpecimenType(string code, bool accepted)
+    {
+        if (_editing is null) return;
+        var current = AcceptedSpecimenTypes.Parse(_editing.RequiredSpecimenType).ToList();
+        if (current.Count == 0) return;
+        var preferred = current[0];
+        var others = current.Skip(1).Where(c => !string.Equals(c, code, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (accepted) others.Add(code.ToUpperInvariant());
+        var ordered = _catalogSpecimenTypes.Select(t => t.Code.ToUpperInvariant()).Where(others.Contains);
+        _editing.RequiredSpecimenType = AcceptedSpecimenTypes.Normalize(string.Join(",", new[] { preferred }.Concat(ordered)));
+    }
     private bool _loading = true;
     private bool _includeInactive = true;
     private string _filter = string.Empty;
@@ -791,6 +894,8 @@
         public List<string> BloodAttributeScopeCodes { get; set; } = new();
         public BloodAttributeKind BloodAttributeScopeKind { get; set; } = BloodAttributeKind.Antigen;
         public bool ContributesToUnitBloodAttributes { get; set; }
+        public ShapeModel Shape { get; set; } = new();
+        public string? LoincCode { get; set; }
 
         public static EditModel From(TestDefinitionDto t) => new()
         {
@@ -817,7 +922,9 @@
             ContributesToCompatibility = t.ContributesToCompatibility,
             BloodAttributeScopeCodes = t.BloodAttributeScopeCodes.ToList(),
             BloodAttributeScopeKind = t.BloodAttributeScopeKind ?? BloodAttributeKind.Antigen,
-            ContributesToUnitBloodAttributes = t.ContributesToUnitBloodAttributes
+            ContributesToUnitBloodAttributes = t.ContributesToUnitBloodAttributes,
+            Shape = ShapeModel.From(t.ResultShape),
+            LoincCode = t.LoincCode
         };
 
         public void PruneUnassignedLogicExpectations()
@@ -848,7 +955,39 @@
             VerificationRequired, ContributesToAboRhHistory, ContributesToAntibodyHistory, ContributesToCompatibility,
             BloodAttributeScopeCodes,
             ResultValueType == ResultValueType.BloodAttribute ? BloodAttributeScopeKind : null,
-            ContributesToUnitBloodAttributes, reason);
+            ContributesToUnitBloodAttributes, reason, Shape.ToDto(), LoincCode);
         }
+    }
+
+    /// <summary>Numeric and titer settings as the form edits them.</summary>
+    private sealed class ShapeModel
+    {
+        public string? ResultUnits { get; set; }
+        public int? DecimalPlaces { get; set; }
+        public decimal? ReportableLow { get; set; }
+        public decimal? ReportableHigh { get; set; }
+        public decimal? ReferenceLow { get; set; }
+        public decimal? ReferenceHigh { get; set; }
+        public decimal? CriticalLow { get; set; }
+        public decimal? CriticalHigh { get; set; }
+        public int? TiterStartDilution { get; set; }
+        public int? TiterEndDilution { get; set; }
+        public string? TiterPhaseCode { get; set; }
+        public string? TiterEndpointMinGrade { get; set; }
+        public bool TiterScored { get; set; }
+
+        public static ShapeModel From(TestResultShapeDto? s) => s is null ? new() : new()
+        {
+            ResultUnits = s.ResultUnits, DecimalPlaces = s.DecimalPlaces,
+            ReportableLow = s.ReportableLow, ReportableHigh = s.ReportableHigh,
+            ReferenceLow = s.ReferenceLow, ReferenceHigh = s.ReferenceHigh,
+            CriticalLow = s.CriticalLow, CriticalHigh = s.CriticalHigh,
+            TiterStartDilution = s.TiterStartDilution, TiterEndDilution = s.TiterEndDilution,
+            TiterPhaseCode = s.TiterPhaseCode, TiterEndpointMinGrade = s.TiterEndpointMinGrade, TiterScored = s.TiterScored
+        };
+
+        public TestResultShapeDto ToDto() => new(
+            ResultUnits, DecimalPlaces, ReportableLow, ReportableHigh, ReferenceLow, ReferenceHigh, CriticalLow, CriticalHigh,
+            TiterStartDilution, TiterEndDilution, TiterPhaseCode, TiterEndpointMinGrade, TiterScored);
     }
 }

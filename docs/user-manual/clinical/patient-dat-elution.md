@@ -14,4 +14,24 @@ The **DAT / Elution** tab holds direct antiglobulin test and elution records for
 
 Enter the specimen, the method your procedure names, and the reactions you observed. Verify according to the same result rules as other blood bank tests: the specimen must be acceptable, the order must not be on hold, and you cannot verify your own patient ABO or Rh when that rule applies to the test.
 
-A positive DAT does not by itself add an antibody to the chart. Identification of a specificity is done through the antibody-identification workup, which posts identified antibodies only when the workup is completed and reviewed. Do not type a specificity into a comment and treat that comment as antibody history.
+A positive DAT does not by itself add an antibody to the chart. Do not type a specificity into a comment and treat that comment as antibody history.
+
+## Reagent grades
+
+Beside the DAT result, record the reaction with each reagent used: **Polyspecific**, **Anti-IgG**, **Anti-C3** and the **Control**, each graded 0 to 4+ (or *not tested*). The workup summary lists them, for example "Polyspecific 2+ · IgG 2+ · C3 0 · Control 0". Grades that do not match the result are refused: a Negative DAT with a reagent reacting, or a Positive DAT with reagents recorded and none reacting. A reacting control is shown as a warning; check the reagent's instructions before reporting the DAT. Grades are optional.
+
+## Working a DAT/elution workup
+
+1. **New workup**: choose the specimen, the DAT result and method, and the elution result. If you did not perform an elution, give the reason. Add a comment if needed.
+2. **Save** keeps the workup open. **Complete** records you as the person who completed it.
+3. **Eluate findings**: add one row for each thing the eluate showed:
+   - **Alloantibody**: pick the antibody from the list. It must be a catalog antibody so it can protect the patient once posted. A name that is not in the catalog is refused.
+   - **Autoantibody**, **Panreactive**, or **Nonspecific**: an optional description. These are recorded on the workup and never added to antibody history.
+
+   **Save findings** replaces the list. The earlier rows are kept in the record, not deleted.
+4. **Verify**: someone other than the person who completed the workup, with supervisor review permission, presses **Verify workup**. Each alloantibody that is not already on the patient's antibody history is then added to it as "Identified in eluate". From then on it drives antigen-negative unit selection like any other antibody. The workup shows **Posted to antibody history** or **Already on file** beside each finding.
+5. After verification the findings cannot change and the workup cannot be voided. If a posted antibody was wrong, inactivate it in the patient's antibody history with a reason.
+
+**Void** (before verification) needs a reason.
+
+Panel identification still has its own workup under [Antibody identification](antibody-identification), which posts antibodies when that workup is reviewed.

@@ -20,15 +20,21 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Overview** shows where the unit is, why it is quarantined or on hold if it is, and the receipt inspection (appearance, temperature, visual notes).
 
-**Actions** are the moves that are legal from the current status: quarantine, hold, release, transfer to another location, allocate to a patient order, discard, return to the supplier, or mark missing or damaged. Each action asks for the reason the rule requires. Discard and some releases need a higher permission than everyday receive and transfer. If the button is disabled, you either lack the permission or the unit status does not allow the move.
+**Actions** are the moves that are legal from the current status: quarantine, hold, release, transfer to another location, allocate to a patient order, discard, return to the supplier, or mark missing or damaged. Each action asks for the reason the rule requires. **Unit located** asks where and how the missing unit was found, and **Inspect into quarantine** asks what the inspection of a damaged unit showed; the note is kept with the earlier missing or damaged reason, and the unit goes to quarantine for review. Discard and some releases need a higher permission than everyday receive and transfer. If the button is disabled, you either lack the permission or the unit status does not allow the move. For an issued unit, **Change status** offers Available only when the unit is still inside the facility return window, or is stored in a location exempt from it; otherwise it offers Quarantine.
 
 **Discard** asks for a coded reason from the list an administrator keeps in Admin › Discard Reasons, plus an optional comment. A code marked comment required, such as Other, needs the comment before Discard is enabled. The unit stores the code, and the **Wastage by product and reason** report counts discards by month, product, and code.
 
+**Issued to.** When the unit is out of the bank, a banner names the patient, the destination, when and by whom it was issued, the cooler, and where it stands: in transit, received on the ward, or transfusing. It offers the next step: **Receive on ward**, **Start / document transfusion**, or **Complete transfusion**, and **Return** until the transfusion starts. Each opens Issue & Transfuse on that unit.
+
+**Reserved for.** When the unit is reserved for a patient, a banner under the header names the patient and the crossmatch. **Issue** opens the Issue form with the unit and patient filled, so a scan in the search bar can go straight to issuing. When routine issue is not yet possible, the banner says why (for example a second ABO/Rh or a crossmatch) and links to Ready to issue.
+
 **Attributes** lists antigens and modifications (irradiated, leukoreduced, and the others recorded on the unit). Antigen typing you performed is recorded with [Unit antigen typing](unit-antigen-typing) or on the retype tab.
 
-**History** is the status log. It is append-only. You cannot delete a prior status to tidy the story.
+**Unit tests** on the same tab records tests done on the unit after it arrived, such as CMV or HbS. Enter the test code and Negative or Positive. The latest result for each test is the unit's result. A patient requirement for CMV- or HbS-negative units is met by a Negative here or by the product code, so a later Positive takes the unit out of selection for that patient. Changing a recorded result keeps the earlier one, shown as Corrected, and asks for the reason. Recording the same result again is refused.
 
-**Retype** records the front type. A mismatch quarantines the unit. Do not release a mismatch from this tab. Release, if your medical director allows it at all, is a quarantine-release on the supervisor queue with the second verifier.
+**History** is the status log. It is append-only. You cannot delete a prior status to tidy the story. Each reservation reads "Reserved for {patient} · {what became of it}": still reserved, issued, released with the reason, or ended when the unit expired.
+
+**Retype** records the front type. The form starts with nothing chosen: the interpreted ABO and Rh(D) are not copied from the label you are confirming, and every reading is blank until you choose the reaction you read. Recording with a reading or the type missing is refused and names what is missing. A mismatch quarantines the unit. Do not release a mismatch from this tab. Release, if your medical director allows it at all, is a quarantine-release on the supervisor queue with the second verifier.
 
 ## Allocate
 

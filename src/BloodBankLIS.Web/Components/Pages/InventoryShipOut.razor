@@ -1,0 +1,272 @@
+@page "/inventory/ship-out"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Ship units &middot; HemoCore</PageTitle>
+
+<div class="flex-between">
+    <h1>Ship units to another facility</h1>
+    <div class="flex gap">
+        @if (RunShipmentKey is string runKey)
+        {
+            <a class="btn btn-ghost" href="@PackingListHref(runKey)" target="_blank" data-ship-run-packing-list>Print packing list</a>
+        }
+        else
+        {
+            <button type="button" class="btn btn-ghost" disabled>Print packing list</button>
+        }
+        <a class="btn btn-ghost" href="/inventory">Inventory</a>
+    </div>
+</div>
+<p class="muted">
+    Pack an outbound shipment (stock balancing, a patient transferred with blood): name the receiving facility, the
+    container, the packing temperature, who packed it and the receiving contact once, then scan each unit. Each scan ships that unit at once and leaves your inventory; the unit keeps
+    the facility, so a recall or lookback names who to notify. Only an unreserved, unexpired unit in stock ships; anything
+    else is refused with its reason. <strong>Print packing list</strong> opens the sheet that travels with the shipment: its
+    facility, reference, packing details and units, with spaces for the receiving blood bank.
+</p>
+
+@if (!Session.Has(PermissionCodes.InventoryReceive))
+{
+    <div class="muted">No permission to ship units.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="field" style="flex:2;">
+                <label>Shipped to (facility)</label>
+                <input @bind="_facility" @bind:event="oninput" maxlength="@ShipOutRule.MaxFacilityLength" placeholder="e.g. St. Mary's Hospital blood bank" list="ship-facilities" data-ship-facility />
+                <datalist id="ship-facilities">
+                    @foreach (var f in _facilities)
+                    {
+                        <option value="@f"></option>
+                    }
+                </datalist>
+            </div>
+            <div class="field">
+                <label>Shipment reference (optional)</label>
+                <input @bind="_reference" maxlength="@ShipOutRule.MaxReferenceLength" placeholder="Packing list or courier number" data-ship-reference />
+            </div>
+        </div>
+        @* OCD-072 (decided 2026-11-10): recorded once for the shipment, kept on every unit scanned into it. *@
+        <div class="form-row" style="align-items:flex-end;" data-ship-details>
+            <div class="field">
+                <label>Container</label>
+                <input @bind="_container" @bind:event="oninput" maxlength="@ShipOutRule.MaxContainerLength" list="ship-containers" placeholder="Cooler or box ID" data-ship-container />
+                <datalist id="ship-containers">
+                    @foreach (var c in _containers)
+                    {
+                        <option value="@c"></option>
+                    }
+                </datalist>
+            </div>
+            <div class="field">
+                <label>Packing temperature (°C)</label>
+                <input type="number" step="0.1" min="@ShipOutRule.MinTemperatureC" max="@ShipOutRule.MaxTemperatureC" @bind="_temperatureC" @bind:event="oninput" style="width:7rem;" data-ship-temperature />
+            </div>
+            <div class="field">
+                <label>Packed by</label>
+                <input @bind="_packedBy" @bind:event="oninput" maxlength="@ShipOutRule.MaxPackedByLength" data-ship-packed-by />
+            </div>
+            <div class="field" style="flex:2;">
+                <label>Receiving contact</label>
+                <input @bind="_receivingContact" @bind:event="oninput" maxlength="@ShipOutRule.MaxContactLength" placeholder="Name and phone at the receiving blood bank" data-ship-contact />
+            </div>
+        </div>
+        <div class="form-row" style="align-items:flex-end;">
+            <div class="field">
+                <label>Scan unit number</label>
+                <input @bind="_scan" @bind:event="oninput" @onkeydown="OnScanKeyAsync" disabled="@(!ReadyToScan)"
+                       placeholder="@(ReadyToScan ? "Scan, then the next" : "Fill in the shipment above first")" autocomplete="off" data-ship-scan />
+            </div>
+        </div>
+        <div class="field">
+            <label>Note (optional)</label>
+            <input @bind="_note" placeholder="e.g. Patient transfer, ED to St. Mary's ICU" />
+        </div>
+        <Outcome Value="_fb" />
+
+        @if (_run.Count > 0)
+        {
+            <h3 style="margin-top:1rem;">This shipment: @_run.Count(r => r.Unit is not null) shipped@(_run.Any(r => r.Unit is null) ? $", {_run.Count(r => r.Unit is null)} not shipped" : "")</h3>
+            <div class="table-scroll">
+            <table class="bb" data-ship-run>
+                <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>Expires</th><th>To</th><th>Result</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _run)
+                    {
+                        <tr>
+                            <td class="mono">@(row.Unit?.UnitNumber ?? row.Scan)</td>
+                            <td class="mono">@(row.Unit?.Isbt128ProductCode ?? row.Unit?.ProductCodeData ?? "—")</td>
+                            <td>@(row.Unit?.BloodType ?? "—")</td>
+                            <td class="nowrap">@(row.Unit?.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td>@row.Facility</td>
+                            <td>
+                                @if (row.Unit is not null)
+                                {
+                                    <span class="badge badge-gray">Shipped</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red">Not shipped</span> <span class="sub">@row.Error</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+
+    <div class="bb-card" data-recent-shipments>
+        <div class="bb-card-title"><h3>Recent shipments (@(string.IsNullOrWhiteSpace(ShipmentQuery) ? "30 days" : "past year"))</h3></div>
+        @if (_shipments.Count == 0)
+        {
+            <div class="empty">No units shipped to another facility in the last 30 days.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Facility</th><th>Reference</th><th>Shipped</th><th>Packing</th><th>Units</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var s in _shipments)
+                    {
+                        var key = ShipOutRule.ShipmentKey(s.Facility, s.Reference, s.FirstShippedUtc);
+                        <tr>
+                            <td>@s.Facility</td>
+                            <td class="mono">@(s.Reference ?? "—")</td>
+                            <td class="nowrap">@s.FirstShippedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td data-shipment-packing>
+                                @if (s.Container is not null)
+                                {
+                                    @($"{s.Container}, {s.PackingTemperatureC} °C, packed by {s.PackedBy}")
+                                    <span class="sub">Receiving: @s.ReceivingContact</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">Not recorded</span>
+                                }
+                            </td>
+                            <td>@s.Units.Count</td>
+                            <td class="right"><button type="button" class="btn btn-ghost btn-sm" @onclick="() => ToggleShipment(key)">@(_openShipment == key ? "Hide" : "Units")</button></td>
+                        </tr>
+                        @if (_openShipment == key)
+                        {
+                            <tr>
+                                <td colspan="6">
+                                    <table class="bb" data-shipment-units>
+                                        <thead><tr><th>Unit</th><th>Product code</th><th>ABO/Rh</th><th>Expires</th><th>Shipped</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var u in s.Units)
+                                            {
+                                                <tr>
+                                                    <td><UnitLink Id="u.Id" Number="@u.UnitNumber" /></td>
+                                                    <td class="mono">@(u.Isbt128ProductCode ?? u.ProductCodeData ?? "—")</td>
+                                                    <td>@u.BloodType</td>
+                                                    <td class="nowrap">@u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                    <td class="nowrap">@u.ShippedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                    <a class="btn btn-ghost btn-sm" href="@PackingListHref(key)" target="_blank" data-shipment-packing-list>Print packing list</a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<string> _facilities = new();
+    private List<OutboundShipmentDto> _shipments = new();
+    private string? _openShipment;
+
+    // From the lookup: a shipment reference opens with that shipment's units shown (searched over a year).
+    [SupplyParameterFromQuery(Name = "shipment")] public string? ShipmentQuery { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Whoever is shipping usually packed it; change it if someone else did.
+        _packedBy = Session.UserName ?? string.Empty;
+        var containers = await Api.GetActiveTransportContainersAsync();
+        _containers = containers.Value?.Select(c => c.Code).ToList() ?? new();
+        await LoadHistoryAsync();
+        if (!string.IsNullOrWhiteSpace(ShipmentQuery)
+            && _shipments.FirstOrDefault(s => string.Equals(s.Reference?.Trim(), ShipmentQuery.Trim(), StringComparison.OrdinalIgnoreCase)) is { } found)
+        {
+            _openShipment = ShipOutRule.ShipmentKey(found.Facility, found.Reference, found.FirstShippedUtc);
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        var f = await Api.GetShipFacilitiesAsync();
+        _facilities = f.Succeeded ? f.Value ?? new() : new();
+        var s = await Api.GetShipmentsAsync(string.IsNullOrWhiteSpace(ShipmentQuery) ? 30 : 366);
+        _shipments = s.Succeeded ? s.Value ?? new() : new();
+    }
+
+    private void ToggleShipment(string key) => _openShipment = _openShipment == key ? null : key;
+
+    // The shipment the latest unit of this run went into (a changed reference starts another shipment).
+    private string? RunShipmentKey => _run.FirstOrDefault(r => r.Unit is not null)?.Unit is { } u
+        ? ShipOutRule.ShipmentKey(u.ShippedToFacility, u.OutboundShipmentReference, u.ShippedUtc)
+        : null;
+
+    private static string PackingListHref(string key) => $"/inventory/ship-out/packing-list?key={Uri.EscapeDataString(key)}";
+
+    private string _facility = string.Empty;
+    private string _container = string.Empty;
+    private decimal? _temperatureC;
+    private string _packedBy = string.Empty;
+    private string _receivingContact = string.Empty;
+    private List<string> _containers = new();
+
+    private bool ReadyToScan => !string.IsNullOrWhiteSpace(_facility) && !string.IsNullOrWhiteSpace(_container)
+        && _temperatureC is not null && !string.IsNullOrWhiteSpace(_packedBy) && !string.IsNullOrWhiteSpace(_receivingContact);
+    private string? _reference;
+    private string? _note;
+    private string _scan = string.Empty;
+    private Feedback? _fb;
+    private bool _busy;
+
+    private sealed record RunRow(string Scan, string Facility, BloodUnitDto? Unit, string? Error);
+    // Newest first, so the unit just scanned is at the top.
+    private readonly List<RunRow> _run = new();
+
+    // A scanner ends with Enter: ship the scanned unit, record the outcome, clear for the next scan.
+    private async Task OnScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_scan) || !ReadyToScan || _busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var scan = _scan.Trim();
+        var facility = _facility.Trim();
+        var r = await Api.ShipOutByScanAsync(new ShipOutByScanRequest(scan, facility, _reference, _note,
+            _container.Trim(), _temperatureC, _packedBy.Trim(), _receivingContact.Trim()));
+        _busy = false;
+        _scan = string.Empty;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _run.Insert(0, new RunRow(scan, facility, r.Value, null));
+            _fb = Feedback.Succeed($"Shipped {r.Value.UnitNumber} to {facility}. Scan the next unit.");
+            await LoadHistoryAsync();
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+            _run.Insert(0, new RunRow(scan, facility, null, _fb.Error ?? string.Join(" ", _fb.HardStops.Select(h => h.Message))));
+        }
+    }
+}

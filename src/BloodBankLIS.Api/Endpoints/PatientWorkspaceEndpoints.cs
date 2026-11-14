@@ -42,6 +42,10 @@ public static class PatientWorkspaceEndpoints
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
+        // Read-only chronological view; opening the chart already records the patient access.
+        group.MapGet("/timeline", async (long patientId, PatientTimelineService service, CancellationToken ct) =>
+            Results.Ok(await service.GetAsync(patientId, ct)));
+
         group.MapGet("/orders", async (
             long patientId,
             long? encounterId,
@@ -63,9 +67,10 @@ public static class PatientWorkspaceEndpoints
 
         group.MapPost("/orders", async (long patientId, CreateOrderRequest request, OrderService service, CancellationToken ct) =>
         {
+            // Warnings (order rules, duplicate open tests) travel with the created order; they were dropped before.
             var result = await service.CreateAsync(patientId, request, ct);
             return result.Succeeded
-                ? Results.Created($"/api/patients/{patientId}/orders/{result.Value!.Id}", new { result.Value.Id })
+                ? EndpointResults.Created(result, o => ($"/api/patients/{patientId}/orders/{o.Id}", (object)new { o.Id }))
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
@@ -116,6 +121,26 @@ public static class PatientWorkspaceEndpoints
             var result = await service.RemoveActionAsync(patientId, orderId, orderActionId, ct);
             return result.Succeeded
                 ? Results.Ok(new { removed = true })
+                : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.PatientWrite);
+
+        // One order's history: placed, changes, specimens, results, and its units from reservation to transfusion.
+        group.MapGet("/orders/{orderId:long}/timeline", async (long patientId, long orderId, OrderTimelineService service, CancellationToken ct) =>
+            await service.GetAsync(patientId, orderId, ct) is { } timeline
+                ? Results.Ok(timeline)
+                : Results.NotFound(new { error = $"No order {orderId} for this patient." }));
+
+        // Surgery moved: change or clear an open order's needed-by time (the earlier time stays in the audit trail).
+        group.MapPut("/orders/{orderId:long}/needed-by", async (
+            long patientId,
+            long orderId,
+            SetOrderNeededByRequest request,
+            OrderService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.SetNeededByAsync(patientId, orderId, request, ct);
+            return result.Succeeded
+                ? Results.Ok(new { result.Value!.Id, result.Value.NeededByUtc })
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
@@ -249,7 +274,7 @@ public static class PatientWorkspaceEndpoints
             PrintService printing,
             CancellationToken ct) =>
         {
-            var thawed = await service.ApplyAsync(patientId, allocationId, request.ThawUtc, ct);
+            var thawed = await service.ApplyAsync(patientId, allocationId, request.ThawUtc, request.OpenSystem, ct);
             if (!thawed.Succeeded || thawed.Value is null)
             {
                 return Results.BadRequest(new { error = thawed.Error });
@@ -290,7 +315,7 @@ public static class PatientWorkspaceEndpoints
             CrossmatchAttachmentService service,
             CancellationToken ct) =>
         {
-            var line = await service.EnsureManualCrossmatchLineAsync(patientId, allocationId, request.TestCode, ct);
+            var line = await service.EnsureManualCrossmatchLineAsync(patientId, allocationId, request.TestCode, ct, request.SpecimenId);
             return line.Succeeded
                 ? Results.Ok(line.Value)
                 : Results.BadRequest(new { error = line.Error });

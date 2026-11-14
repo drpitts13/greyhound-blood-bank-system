@@ -90,6 +90,12 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
             return denied;
         }
 
+        var reason = StorageLocationChangeReasonRule.Evaluate(request.Reason);
+        if (reason.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<InventoryLocationAdminDto>.Blocked(new RuleEvaluation([reason]));
+        }
+
         var entity = await _locations.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -108,7 +114,7 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
 
         _locations.Update(entity);
         var dto = InventoryLocationAdminDto.From(entity);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, request.Reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<InventoryLocationAdminDto>.Ok(dto, validation);
     }
@@ -116,6 +122,7 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<InventoryLocationAdminDto>> SetActiveAsync(
         long id,
         bool active,
+        string? reason = null,
         CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(
@@ -125,6 +132,12 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         if (denied is not null)
         {
             return denied;
+        }
+
+        var why = StorageLocationChangeReasonRule.Evaluate(reason);
+        if (why.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<InventoryLocationAdminDto>.Blocked(new RuleEvaluation([why]));
         }
 
         var entity = await _locations.GetByIdAsync(id, ct);
@@ -150,7 +163,7 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         _locations.Update(entity);
         var dto = InventoryLocationAdminDto.From(entity);
         var action = active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate;
-        RecordChange(EntityType, entity.Id, 1, action, ToAuditType(action), old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, action, ToAuditType(action), old, dto, reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<InventoryLocationAdminDto>.Ok(dto, new RuleEvaluation([]));
     }
