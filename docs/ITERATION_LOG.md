@@ -23841,3 +23841,25 @@ On the running system with seeded data: Diane Kellerman's (MRN0004, anti-K) anti
 ### Tests
 
 - TEST-BB-1091, TEST-BB-1092, TEST-BB-1093; three deviation tests that closed a Major deviation now record a determination first. Full suite passed.
+
+## Iteration 799 — End-user testing pass 81: product modifications and the device's checks (2026-11-14)
+
+### How it was tested
+
+On Modify Products, unit W0001230009208 (O+ red cells, expiring 2026-12-02) was taken through Irradiate and Wash without saving. Irradiation offered E0332 with the expiry capped at the source's (28 days from modification would pass it), as expected.
+
+### Found and fixed
+
+1. **A device with an overdue check said nothing.** The seeded cell washer CW-01's daily check was last done 2026-11-10 and overdue; typing CW-01 as the wash device gave no sign of it, although the test worklist warns about equipment with checks needing action (pass 74). The page now says under the device field when a registered device has a check failed, overdue, due today or never done, as the code is typed. Information only, like the worklist: what to do is the facility's equipment procedure. Out-of-service equipment was already refused when saved.
+
+### Retested live
+
+- Wash on W0001230009208 with device cw-01: "CW-01: Daily check: Overdue 3 days (due 2026-11-11). Follow your equipment procedure before using it." Nothing was saved.
+
+### Noted
+
+- The seeded equipment has no irradiator, so the irradiator list on the page is empty in the demo data.
+
+### Tests
+
+- TEST-BB-1094. Full suite passed.

@@ -30,4 +30,23 @@ public class EquipmentTestNoticeTests
         Assert.Equal("ABSC, XM", EquipmentTestNotice.Normalize(" absc; xm ,ABSC "));
         Assert.Null(EquipmentTestNotice.Normalize("  "));
     }
+
+    // TEST-BB-1094 (end-user testing pass 81): the device named for a modification is flagged when a check needs action;
+    // matched case-insensitively; nothing for equipment in order, unregistered or out of service (refused when saved).
+    [Fact]
+    public void ForDevice_NamesChecksNeedingAction()
+    {
+        var washer = new EquipmentDto(2, "CW-01", "Cell washer", "Cell washer", "Bench 1", null, true, null, null, null,
+            [Check("Daily check", true, "Overdue 2 days (due 2026-11-12)"), Check("Monthly check", false, "Due 2026-12-01")]);
+        var fine = new EquipmentDto(3, "IRR-01", "Irradiator", "Irradiator", null, null, true, null, null, null,
+            [Check("Dose check", false, "Due 2027-01-10")]);
+        var down = new EquipmentDto(4, "TH-01", "Thawer", "Thawer", null, null, true, DateTime.UtcNow, "Leaking", "demo",
+            [Check("Daily check", true, "Failed")]);
+
+        Assert.Equal("Daily check: Overdue 2 days (due 2026-11-12)", EquipmentTestNotice.ForDevice([washer, fine, down], " cw-01 "));
+        Assert.Null(EquipmentTestNotice.ForDevice([washer, fine, down], "IRR-01"));
+        Assert.Null(EquipmentTestNotice.ForDevice([washer, fine, down], "TH-01"));
+        Assert.Null(EquipmentTestNotice.ForDevice([washer, fine, down], "OTHER"));
+        Assert.Null(EquipmentTestNotice.ForDevice([washer], null));
+    }
 }

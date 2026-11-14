@@ -28,7 +28,7 @@ You can record a supply description and lot with the modification. Both are opti
 
 ## Device and dose indicator
 
-Irradiation asks for the **Irradiator** (scan or type its id) and the **Dose indicator** reading: **Shows irradiated** or **Does not show irradiated**. Other one-to-one modifications (wash, thaw, volume reduction) take an optional **Device**. Both are stored on the modification, written to the audit record, and shown in the **Device** column of modification history. The irradiator stays filled for the next unit; the indicator is cleared, because it is read on each unit.
+Irradiation asks for the **Irradiator** (scan or type its id) and the **Dose indicator** reading: **Shows irradiated** or **Does not show irradiated**. Other one-to-one modifications (wash, thaw, volume reduction) take an optional **Device**. Both are stored on the modification, written to the audit record, and shown in the **Device** column of modification history. The irradiator stays filled for the next unit; the indicator is cleared, because it is read on each unit. When the device is registered under Equipment and one of its scheduled checks has failed, is overdue, is due today or was never done, the page says so under the field (for example *CW-01: Daily check: Overdue 3 days*); it does not block, because what to do is your equipment procedure. Equipment out of service is refused when saved.
 
 If the indicator does not show irradiated, the unit is not recorded as irradiated and nothing is changed: follow the irradiation SOP for that unit.
 

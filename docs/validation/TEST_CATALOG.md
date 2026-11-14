@@ -1102,5 +1102,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1091 | U | `Hl7MapperTests.FacilityLocalInterface_ReadsAndWritesLocalTimes` | URS-BB-856 / FRS-BB-974 |
 | TEST-BB-1092 | I | `SeederTests.Seed_LookbackNotifyWithin_NotSetBecomes84`, `FacilityPolicyAwaitsEntryTests.AwaitsEntry_OnlyForDecidedSettingsStillAtTheirDefault` | URS-BB-857 / FRS-BB-975 |
 | TEST-BB-1093 | I | `DeviationServiceTests.Close_MajorOrCritical_NeedsReportabilityDetermined` | URS-BB-858 / FRS-BB-976 |
+| TEST-BB-1094 | U | `EquipmentTestNoticeTests.ForDevice_NamesChecksNeedingAction` | URS-BB-859 / FRS-BB-977 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

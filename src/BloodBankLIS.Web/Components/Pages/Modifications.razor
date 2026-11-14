@@ -237,7 +237,7 @@
             var irradiate = _selectedRule.ModificationType == ModificationType.Irradiate;
             <div class="form-row" style="margin-top:.6rem;" data-modification-device>
                 <div class="field"><label>@(irradiate ? "Irradiator" : "Device (optional)")</label>
-                    <input @bind="_deviceId" placeholder="@(irradiate ? "Scan or type the irradiator" : "Cell washer, thawer, or other device")" autocomplete="off" list="modification-equipment" />
+                    <input @bind="_deviceId" @bind:event="oninput" placeholder="@(irradiate ? "Scan or type the irradiator" : "Cell washer, thawer, or other device")" autocomplete="off" list="modification-equipment" />
                     @* Registered equipment in service (Cycle 709); equipment out of service is refused when saved. *@
                     <datalist id="modification-equipment" data-modification-equipment>
                         @foreach (var e in _equipmentInService)
@@ -257,6 +257,12 @@
                     </div>
                 }
             </div>
+            @if (EquipmentTestNotice.ForDevice(_equipmentInService, _deviceId) is { } deviceDue)
+            {
+                <div class="alert alert-warning" style="margin-top:.4rem;" data-modification-device-due>
+                    @_deviceId?.Trim().ToUpperInvariant(): @deviceDue. Follow your equipment procedure before using it.
+                </div>
+            }
             @if (irradiate && _indicator == "no")
             {
                 <div class="alert alert-danger" style="margin-top:.4rem;">The unit will not be recorded as irradiated. Follow the irradiation SOP for this unit.</div>

@@ -46,4 +46,22 @@ public static class EquipmentTestNotice
 
         return lines.OrderBy(l => l.EquipmentCode).ToList();
     }
+
+    /// <summary>
+    /// The checks needing action on the device named for a modification (end-user testing pass 81: a cell washer whose
+    /// daily check was overdue said nothing when a unit was washed with it). Null when the code is not registered, the
+    /// equipment is out of service (refused when saved) or nothing is due. Information only.
+    /// </summary>
+    public static string? ForDevice(IEnumerable<EquipmentDto> equipment, string? deviceCode)
+    {
+        if (string.IsNullOrWhiteSpace(deviceCode))
+        {
+            return null;
+        }
+
+        var code = deviceCode.Trim().ToUpperInvariant();
+        var device = equipment.FirstOrDefault(e => e.InService && e.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        var due = device?.Checks.Where(c => c.IsActive && c.NeedsAction).ToList();
+        return due is { Count: > 0 } ? string.Join("; ", due.Select(c => $"{c.Name}: {c.StatusText}")) : null;
+    }
 }
