@@ -19,3 +19,5 @@ If the report was changed while you had it open, run it again. The file you expo
 To change columns or the query, you need report-design permission and the designer. Running permission is not design permission.
 
 Date filters count whole local days: a range from 2026-11-12 to 2026-11-12 includes everything that day, and **Today**, **Last 7 days**, **Last 30 days** and **Last month** are local days. Times and months (for example "Discard month") in the results are local, and columns are headed by their names (for example "Occurred") in the page and in exports. A row with no date is left out when a date range is set.
+
+SQL reports read the same reporting views; their month columns (for example *discarded_month*) are local months too. Other times in a view are stored UTC.

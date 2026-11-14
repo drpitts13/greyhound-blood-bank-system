@@ -33,6 +33,29 @@ public static class ReportViewSql
             execute($"DROP VIEW IF EXISTS {name}");
     }
 
+    /// <summary>
+    /// The year and month of a stored UTC time on the facility's calendar (end-user testing pass 78: the views took the
+    /// UTC month, so a discard at 21:00 on 31 October Eastern counted in November). SQLite reads the server's local
+    /// zone; SQL Server converts to the server's Windows time zone. Views are rebuilt at every start.
+    /// </summary>
+    public static string Month(string column, bool sqlServer)
+    {
+        if (!sqlServer)
+        {
+            return $"strftime('%Y-%m', {column}, 'localtime')";
+        }
+
+        var zone = TimeZoneInfo.Local.Id;
+        if (zone.Contains('/', StringComparison.Ordinal) && TimeZoneInfo.TryConvertIanaIdToWindowsId(zone, out var windows))
+        {
+            zone = windows;
+        }
+
+        return zone.Contains('\'', StringComparison.Ordinal) || zone.Contains('/', StringComparison.Ordinal)
+            ? $"CONVERT(varchar(7), {column}, 126)"
+            : $"CONVERT(varchar(7), (({column}) AT TIME ZONE 'UTC') AT TIME ZONE '{zone}', 126)";
+    }
+
     private static IEnumerable<(string Name, string Body)> Definitions(bool sqlServer)
     {
         var onHand = string.Join(", ", ReportInventoryScope.OnHand.Select(status => ((int)status).ToString(CultureInfo.InvariantCulture)));
@@ -44,12 +67,12 @@ public static class ReportViewSql
             $"{CaseEnum("c.Method", typeof(CrossmatchMethod))}{join}' '{join}{CaseEnum("c.Result", typeof(CrossmatchResult))}";
         var dateOfBirth = sqlServer ? "CONVERT(varchar(10), p.DateOfBirth, 23)" : "p.DateOfBirth";
         var activeTest = "td.Code = r.TestCode AND td.IsActive = 1 AND td.IsDraft = 0";
-        var discardedMonth = sqlServer ? "CONVERT(varchar(7), h.DiscardedUtc, 126)" : "substr(h.DiscardedUtc, 1, 7)";
-        var crossmatchMonth = sqlServer ? "CONVERT(varchar(7), c.PerformedUtc, 126)" : "substr(c.PerformedUtc, 1, 7)";
-        var transfusionMonth = sqlServer ? "CONVERT(varchar(7), t.StartUtc, 126)" : "substr(t.StartUtc, 1, 7)";
+        var discardedMonth = Month("h.DiscardedUtc", sqlServer);
+        var crossmatchMonth = Month("c.PerformedUtc", sqlServer);
+        var transfusionMonth = Month("t.StartUtc", sqlServer);
         // Specimens rejected before RejectedUtc was recorded fall back to their last modification time.
         var rejectedAt = "COALESCE(s.RejectedUtc, s.ModifiedUtc)";
-        var rejectedMonth = sqlServer ? $"CONVERT(varchar(7), {rejectedAt}, 126)" : $"substr({rejectedAt}, 1, 7)";
+        var rejectedMonth = Month(rejectedAt, sqlServer);
         var testName = sqlServer
             ? $"(SELECT TOP 1 td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC)"
             : $"(SELECT td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC LIMIT 1)";
@@ -260,7 +283,7 @@ public static class ReportViewSql
         string Minutes(string from, string to) => sqlServer
             ? $"DATEDIFF(minute, {from}, {to})"
             : $"CAST(ROUND((julianday({to}) - julianday({from})) * 1440) AS INTEGER)";
-        var verifiedMonth = sqlServer ? "CONVERT(varchar(7), r.VerifiedUtc, 126)" : "substr(r.VerifiedUtc, 1, 7)";
+        var verifiedMonth = Month("r.VerifiedUtc", sqlServer);
         yield return (ReportViewCatalog.TestTurnaround, $"""
             SELECT
                 r.VerifiedUtc AS verified_utc,
@@ -283,7 +306,7 @@ public static class ReportViewSql
             """);
 
         // Blood orders: first reservation and first issue per order; a unit is ready at the earlier of the two.
-        var orderedMonth = sqlServer ? "CONVERT(varchar(7), o.OrderedUtc, 126)" : "substr(o.OrderedUtc, 1, 7)";
+        var orderedMonth = Month("o.OrderedUtc", sqlServer);
         var firstReady = "CASE WHEN fr.FirstReservedUtc IS NULL THEN fi.FirstIssuedUtc WHEN fi.FirstIssuedUtc IS NULL OR fr.FirstReservedUtc <= fi.FirstIssuedUtc THEN fr.FirstReservedUtc ELSE fi.FirstIssuedUtc END";
         yield return (ReportViewCatalog.BloodOrderTurnaround, $"""
             SELECT

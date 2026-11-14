@@ -23776,3 +23776,17 @@ A search of every place that takes "today" (the remaining item from pass 69), th
 ### Tests
 
 - TEST-BB-1087. Full suite passed.
+
+## Iteration 795 — End-user testing pass 78: months in the SQL reporting views (2026-11-14)
+
+### How it was tested
+
+The reporting views behind SQL reports (the remaining item from pass 51), then the rebuilt views on the running system.
+
+### Found and fixed
+
+1. **UTC months in the views.** The views' month columns (discarded, activity, rejected, verified, ordered) were the UTC month, so a SQL report grouped a discard at 21:00 on 31 October Eastern under November, unlike the visual reports since pass 51. They now take the local month (SQLite: the localtime modifier; SQL Server: the server's Windows time zone). The views are rebuilt at every start. Retested live: rpt_discards uses local time and lists both discards under 2026-11.
+
+### Tests
+
+- TEST-BB-1088 (the view month matches the visual reports' month across month boundaries). Full suite passed.

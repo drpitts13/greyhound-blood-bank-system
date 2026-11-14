@@ -18,6 +18,19 @@ public class ReportServiceTests : IDisposable
 
     public void Dispose() => _factory.Dispose();
 
+    // End-user testing pass 78: the SQL report views' months are the local month too, as the visual reports' (pass 51).
+    [Fact]
+    public async Task ViewMonth_IsTheLocalMonth()
+    {
+        await using var db = _factory.Create();
+        foreach (var utc in new[] { new DateTime(2026, 11, 1, 3, 30, 0, DateTimeKind.Utc), new DateTime(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 30, 23, 30, 0, DateTimeKind.Utc) })
+        {
+            var stored = utc.ToString("yyyy-MM-dd HH:mm:ss.fffffff", System.Globalization.CultureInfo.InvariantCulture);
+            var month = await db.Database.SqlQueryRaw<string>($"SELECT {ReportViewSql.Month($"'{stored}'", sqlServer: false)} AS Value").SingleAsync();
+            Assert.Equal(EfReportSourceReader.MonthText(utc, TimeZoneInfo.Local), month);
+        }
+    }
+
     // End-user testing pass 51: a discard at 21:00 on 31 October Eastern counted in November.
     [Fact]
     public void MonthText_IsTheFacilityMonth()
