@@ -32,7 +32,8 @@ public sealed record EquipmentDto(
     DateTime? OutOfServiceUtc,
     string? OutOfServiceReason,
     string? OutOfServiceBy,
-    IReadOnlyList<EquipmentCheckStatusDto> Checks)
+    IReadOnlyList<EquipmentCheckStatusDto> Checks,
+    string? TestCodes = null)
 {
     public bool InService => IsActive && OutOfServiceUtc is null;
 
@@ -63,14 +64,14 @@ public sealed record EquipmentCheckDueDto(
     DateOnly? DueOn,
     string StatusText);
 
-public sealed record SaveEquipmentRequest(string Code, string Name, string Kind, string? Location, string? SerialNumber);
+public sealed record SaveEquipmentRequest(string Code, string Name, string Kind, string? Location, string? SerialNumber, string? TestCodes = null);
 
 public sealed record SaveEquipmentCheckRequest(string Name, int IntervalDays, string? Instructions);
 
 public sealed record RecordEquipmentCheckRequest(bool Passed, string? Note);
 
 /// <summary>Correct equipment details (the code, its asset tag, does not change); a reason is required (Cycle 712).</summary>
-public sealed record UpdateEquipmentRequest(string Name, string Kind, string? Location, string? SerialNumber, string? Reason);
+public sealed record UpdateEquipmentRequest(string Name, string Kind, string? Location, string? SerialNumber, string? Reason, string? TestCodes = null);
 
 /// <summary>Change a scheduled check (for example a new interval after an SOP revision); a reason is required (Cycle 712).</summary>
 public sealed record UpdateEquipmentCheckRequest(string Name, int IntervalDays, string? Instructions, string? Reason);
@@ -217,12 +218,13 @@ public sealed class EquipmentService
             Kind = request.Kind.Trim(),
             Location = Trimmed(request.Location),
             SerialNumber = Trimmed(request.SerialNumber),
+            TestCodes = EquipmentTestNotice.Normalize(request.TestCodes),
             IsActive = true
         };
         await _equipment.AddAsync(equipment, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         _audit.Record(AuditEventType.Create, nameof(Equipment), equipment.Id, null,
-            new { equipment.Code, equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber }, "Equipment registered.");
+            new { equipment.Code, equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber, equipment.TestCodes }, "Equipment registered.");
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<EquipmentDto>.Ok((await GetAsync(equipment.Id, ct))!);
     }
@@ -285,14 +287,15 @@ public sealed class EquipmentService
             return EvaluationResult<EquipmentDto>.Blocked(new RuleEvaluation(stops));
         }
 
-        var before = new { equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber };
+        var before = new { equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber, equipment.TestCodes };
         equipment.Name = request.Name.Trim();
         equipment.Kind = request.Kind.Trim();
         equipment.Location = Trimmed(request.Location);
         equipment.SerialNumber = Trimmed(request.SerialNumber);
+        equipment.TestCodes = EquipmentTestNotice.Normalize(request.TestCodes);
         _equipment.Update(equipment);
         _audit.Record(AuditEventType.Update, nameof(Equipment), equipment.Id, before,
-            new { equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber }, request.Reason!.Trim());
+            new { equipment.Name, equipment.Kind, equipment.Location, equipment.SerialNumber, equipment.TestCodes }, request.Reason!.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<EquipmentDto>.Ok((await GetAsync(id, ct))!);
     }
@@ -498,7 +501,8 @@ public sealed class EquipmentService
                         status.DueOn, status.NeedsAction, EquipmentCheckRule.Describe(status), latest?.PerformedUtc, latest?.PerformedBy,
                         latest?.Passed, latest?.Note);
                 })
-                .ToList());
+                .ToList(),
+            e.TestCodes);
 
     private static int Rank(string state) => state switch
     {

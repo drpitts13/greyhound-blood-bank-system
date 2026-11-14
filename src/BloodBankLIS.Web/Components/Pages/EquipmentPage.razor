@@ -152,6 +152,7 @@ else
                     </div>
                     <div class="field"><label>Location</label><input @bind="_newLocation" /></div>
                     <div class="field"><label>Serial number</label><input class="mono" @bind="_newSerial" /></div>
+                    <div class="field"><label>Used for tests</label><input class="mono" @bind="_newTests" placeholder="ABSC, XM" data-equipment-tests /></div>
                 </div>
                 <div class="flex gap" style="margin-top:.6rem;">
                     <button class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync" data-equipment-save>Add</button>
@@ -169,7 +170,7 @@ else
             {
                 <div class="bb-card" style="margin:.5rem 0;" data-equipment="@e.Code">
                     <div class="bb-card-title">
-                        <h4 style="margin:0;"><span class="mono">@e.Code</span> @e.Name <span class="muted">· @e.Kind@(e.Location is null ? "" : $" · {e.Location}")@(e.SerialNumber is null ? "" : $" · S/N {e.SerialNumber}")</span></h4>
+                        <h4 style="margin:0;"><span class="mono">@e.Code</span> @e.Name <span class="muted">· @e.Kind@(e.Location is null ? "" : $" · {e.Location}")@(e.SerialNumber is null ? "" : $" · S/N {e.SerialNumber}")@(e.TestCodes is null ? "" : $" · used for {e.TestCodes}")</span></h4>
                         <div class="flex gap">
                             @if (!e.IsActive)
                             {
@@ -249,6 +250,7 @@ else
                                 <div class="field"><label>Kind</label><input list="equipment-kinds" @bind="_editKind" /></div>
                                 <div class="field"><label>Location</label><input @bind="_editLocation" data-edit-location /></div>
                                 <div class="field"><label>Serial number</label><input class="mono" @bind="_editSerial" /></div>
+                                <div class="field"><label>Used for tests</label><input class="mono" @bind="_editTests" placeholder="ABSC, XM" data-equipment-edit-tests /></div>
                             </div>
                             <div class="field" style="margin-top:.4rem;"><label>Reason for the change</label><input @bind="_editReason" @bind:event="oninput" data-edit-reason /></div>
                             <div class="flex gap" style="margin-top:.4rem;">
@@ -414,6 +416,7 @@ else
     private string _newKind = "";
     private string? _newLocation;
     private string? _newSerial;
+    private string? _newTests;
 
     private long? _addingCheckTo;
     private string _checkName = "";
@@ -474,6 +477,7 @@ else
     private string _editKind = "";
     private string? _editLocation;
     private string? _editSerial;
+    private string? _editTests;
     private string? _editReason;
 
     private void BeginEdit(EquipmentDto equipment)
@@ -483,6 +487,7 @@ else
         _editKind = equipment.Kind;
         _editLocation = equipment.Location;
         _editSerial = equipment.SerialNumber;
+        _editTests = equipment.TestCodes;
         _editReason = null;
     }
 
@@ -494,7 +499,7 @@ else
         }
 
         _busy = true;
-        var r = await Api.UpdateEquipmentAsync(_editing.Id, new UpdateEquipmentRequest(_editName, _editKind, _editLocation, _editSerial, _editReason));
+        var r = await Api.UpdateEquipmentAsync(_editing.Id, new UpdateEquipmentRequest(_editName, _editKind, _editLocation, _editSerial, _editReason, _editTests));
         _feedback = r.ToFeedback($"{_editing.Code} updated.");
         _busy = false;
         if (r.Succeeded)
@@ -659,14 +664,14 @@ else
     private async Task CreateAsync()
     {
         _busy = true;
-        var r = await Api.CreateEquipmentAsync(new SaveEquipmentRequest(_newCode, _newName, _newKind, _newLocation, _newSerial));
+        var r = await Api.CreateEquipmentAsync(new SaveEquipmentRequest(_newCode, _newName, _newKind, _newLocation, _newSerial, _newTests));
         _feedback = r.ToFeedback("Equipment registered. Schedule the checks its SOP requires.");
         _busy = false;
         if (r.Succeeded)
         {
             _adding = false;
             _newCode = _newName = _newKind = "";
-            _newLocation = _newSerial = null;
+            _newLocation = _newSerial = _newTests = null;
             await LoadAsync();
             if (r.Value is not null)
             {

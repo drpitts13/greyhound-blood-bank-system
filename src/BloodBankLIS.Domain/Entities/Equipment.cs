@@ -21,6 +21,12 @@ public class Equipment : BaseEntity
 
     public string? SerialNumber { get; set; }
 
+    /// <summary>
+    /// The tests this equipment is used for (comma-separated codes, for example ABSC, XM), so the test worklist can say
+    /// when it is out of service or a check is overdue (end-user testing pass 74).
+    /// </summary>
+    public string? TestCodes { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     /// <summary>Set while the equipment must not be used; cleared when it is returned to service.</summary>

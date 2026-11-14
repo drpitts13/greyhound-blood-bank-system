@@ -299,6 +299,7 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "WardRequestsWaiting", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "WardRequestsWaiting" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "ReagentLotsQcDue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentLotsQcDue" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "ReagentQcUnreviewed", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentQcUnreviewed" INTEGER NOT NULL DEFAULT 0"""),
+        ("Equipment", "TestCodes", """ALTER TABLE "Equipment" ADD COLUMN "TestCodes" TEXT NULL"""),
         ("Deviations", "RootCause", """ALTER TABLE "Deviations" ADD COLUMN "RootCause" TEXT NULL"""),
         ("Deviations", "FdaReportability", """ALTER TABLE "Deviations" ADD COLUMN "FdaReportability" INTEGER NOT NULL DEFAULT 0"""),
         ("Deviations", "FdaReportedOn", """ALTER TABLE "Deviations" ADD COLUMN "FdaReportedOn" TEXT NULL"""),

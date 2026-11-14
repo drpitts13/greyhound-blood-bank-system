@@ -23712,3 +23712,21 @@ On the running system with seeded data: Deviations (three open: a unit on the wr
 ### Tests
 
 - TEST-BB-1084. Full suite passed.
+
+## Iteration 791 — End-user testing pass 74: equipment and the tests it serves (2026-11-14)
+
+### How it was tested
+
+On the running system with seeded data: Equipment (centrifuge check overdue 8 days, cell washer overdue 3 days, heat block out of service after a failed temperature check), then the test worklist.
+
+### Found and fixed
+
+1. **Nothing linked equipment to the tests it serves.** Reagent lots name their tests and are tied to the results, but equipment named none, so a crossmatch could be worked at a bench whose heat block was out of service and whose centrifuge check was overdue with nothing said at the worklist. Equipment now names the tests it is used for, and the test worklist warns when such equipment is out of service or has a check failed or overdue. It is a warning; blocking is the facility's procedure. The demo equipment is linked to example tests. Retested live: the worklist names CENT-01 (ABORH, XM), CW-01 (XM) and HB-01 (XM, out of service).
+
+### Remaining
+
+- Results do not yet record which equipment was used, as they record reagent lots.
+
+### Tests
+
+- TEST-BB-1085. Full suite passed.

@@ -12,6 +12,31 @@ public static partial class DatabaseSeeder
     /// block out of service after a failed check, so Equipment shows each state. The intervals are examples, not
     /// recommendations. Added once.
     /// </summary>
+    /// <summary>
+    /// Demo only, once on new and existing databases (end-user testing pass 74): the demo equipment names the tests it is
+    /// used for, so the test worklist can show the out-of-service heat block and the overdue centrifuge. Example links;
+    /// each facility sets its own.
+    /// </summary>
+    private static async Task EnsureEquipmentTestCodesDemoAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var demo = new Dictionary<string, string>
+        {
+            ["CENT-01"] = "ABORH, ABSC, XM, DAT",
+            ["CW-01"] = "ABSC, XM",
+            ["HB-01"] = "ABSC, XM"
+        };
+        var rows = await context.Equipment.Where(e => demo.Keys.Contains(e.Code) && e.TestCodes == null).ToListAsync(ct);
+        foreach (var row in rows)
+        {
+            row.TestCodes = demo[row.Code];
+        }
+
+        if (rows.Count > 0)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
     private static async Task EnsureEquipmentDemoAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (await context.Equipment.AnyAsync(ct))

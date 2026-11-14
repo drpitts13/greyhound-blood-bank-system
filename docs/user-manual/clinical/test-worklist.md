@@ -59,3 +59,5 @@ For a result from an instrument or the interface, **Source** also shows what cam
 After a result is saved, the next test opened is one still open on the same tube, else for the same patient, else the next row below, so a patient's tests (for example a reaction workup) are finished before the list moves on.
 
 **Save comment** is available only when the comment differs from the one saved; clearing it and saving says *Comment removed*.
+
+**Equipment needing attention.** When equipment used for a test on the list (Equipment › *Used for tests*) is out of service or has a check failed or overdue, a warning above the list names it, the tests and the problem. It does not block result entry.

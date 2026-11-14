@@ -2057,6 +2057,7 @@ public sealed class EquipmentConfiguration : IEntityTypeConfiguration<Equipment>
         b.Property(x => x.Kind).HasMaxLength(100).IsRequired();
         b.Property(x => x.Location).HasMaxLength(200);
         b.Property(x => x.SerialNumber).HasMaxLength(100);
+        b.Property(x => x.TestCodes).HasMaxLength(500);
         b.Property(x => x.OutOfServiceReason).HasMaxLength(500);
         b.Property(x => x.OutOfServiceBy).HasMaxLength(100);
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();

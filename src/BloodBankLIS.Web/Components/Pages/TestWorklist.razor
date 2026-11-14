@@ -20,6 +20,20 @@
         <a class="btn btn-secondary btn-sm" href="/reagents">Open Reagent QC</a>
     </div>
 }
+@if (EquipmentNotices.Count > 0)
+{
+    @* Pass 74: equipment the listed tests use that is out of service or overdue for a check. Information only. *@
+    <div class="alert alert-warning" data-equipment-notice>
+        <strong>Equipment for tests on this list needs attention</strong>
+        <ul style="margin:.35rem 0 .35rem 1.1rem;padding:0;">
+            @foreach (var line in EquipmentNotices)
+            {
+                <li><span class="mono">@line.EquipmentCode</span> @line.EquipmentName (@string.Join(", ", line.Tests)): @line.Problem</li>
+            }
+        </ul>
+        <a class="btn btn-secondary btn-sm" href="/equipment">Open Equipment</a>
+    </div>
+}
 <details class="bb-help">
     <summary>About this worklist</summary>
     <ul>
@@ -645,8 +659,16 @@
     // Facility policy can block patient resulting while reagent QC is overdue, failed, or unreviewed.
     private ReagentQcResultBlock? _qcBlock;
 
+    private List<EquipmentDto> _equipment = new();
+
+    private IReadOnlyList<EquipmentTestNotice.Line> EquipmentNotices =>
+        _equipment.Count == 0 ? [] : EquipmentTestNotice.For(_equipment, _items.Select(i => i.TestCode));
+
     private async Task LoadQcBlockAsync()
     {
+        var equipment = await Api.GetEquipmentAsync();
+        _equipment = equipment.Succeeded ? equipment.Value ?? new() : new();
+
         var policy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen);
         if (!policy.Succeeded || policy.Value?.Enabled != true)
         {

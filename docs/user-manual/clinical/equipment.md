@@ -47,3 +47,7 @@ An administrator (*admin.config.edit*) selects **Add equipment** and enters the 
 Every registration, scheduled check, record, and change of service is in the audit trail. Nothing is deleted.
 
 Due dates count the facility's days (configuration *Facility:TimeZone*, or the server's time zone): a daily check done in the evening is due the next day, and overdue the day after.
+
+## Equipment and the tests it is used for
+
+**Used for tests** names the tests a piece of equipment is used for (for example ABSC, XM), when it is added or edited (an edit asks for a reason and is audited). The test worklist then warns, above the list, when equipment used for a test on the list is out of service or has a check failed or overdue, naming the equipment, the tests and the problem, with a link to Equipment. It is a warning only: whether such results may be entered is your facility's procedure.
