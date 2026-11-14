@@ -51,3 +51,5 @@ Due dates count the facility's days (configuration *Facility:TimeZone*, or the s
 ## Equipment and the tests it is used for
 
 **Used for tests** names the tests a piece of equipment is used for (for example ABSC, XM), when it is added or edited (an edit asks for a reason and is audited). The test worklist then warns, above the list, when equipment used for a test on the list is out of service or has a check failed or overdue, naming the equipment, the tests and the problem, with a link to Equipment. It is a warning only: whether such results may be entered is your facility's procedure.
+
+**Recorded with each result.** A hand-entered result records the equipment used for its test (from *Used for tests*), as it records the reagent lots, with its condition then. If any of it was out of service or had a check failed or overdue, saving the result says so (the result is still saved). The test worklist shows the equipment under the result, marked *(out of service)* or *(check due)* where it applied. Instrument results record none: the instrument is the equipment.

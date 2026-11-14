@@ -160,6 +160,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<ReagentLot> ReagentLots => Set<ReagentLot>();
     public DbSet<ReagentDailyQc> ReagentDailyQcs => Set<ReagentDailyQc>();
     public DbSet<TestResultReagentLot> TestResultReagentLots => Set<TestResultReagentLot>();
+    public DbSet<TestResultEquipment> TestResultEquipment => Set<TestResultEquipment>();
     public DbSet<StorageTemperatureReading> StorageTemperatureReadings => Set<StorageTemperatureReading>();
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<DatabaseBackup> DatabaseBackups => Set<DatabaseBackup>();

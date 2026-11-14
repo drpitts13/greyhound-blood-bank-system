@@ -2291,6 +2291,21 @@ public sealed class InstrumentTestMappingConfiguration : IEntityTypeConfiguratio
     }
 }
 
+public sealed class TestResultEquipmentConfiguration : IEntityTypeConfiguration<TestResultEquipment>
+{
+    public void Configure(EntityTypeBuilder<TestResultEquipment> b)
+    {
+        b.ToTable("TestResultEquipment");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.EquipmentCode).HasMaxLength(50).IsRequired();
+        b.Property(e => e.Condition).HasMaxLength(500);
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => e.EquipmentId);
+        b.HasIndex(e => e.TestResultId);
+    }
+}
+
 public sealed class TestResultReagentLotConfiguration : IEntityTypeConfiguration<TestResultReagentLot>
 {
     public void Configure(EntityTypeBuilder<TestResultReagentLot> b)

@@ -1121,6 +1121,28 @@ public static class DevelopmentSqliteBootstrap
                 """, ct);
         }
 
+        if (!await TableExistsAsync(context, "TestResultEquipment", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "TestResultEquipment" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_TestResultEquipment" PRIMARY KEY AUTOINCREMENT,
+                    "TestResultId" INTEGER NOT NULL,
+                    "EquipmentId" INTEGER NOT NULL,
+                    "EquipmentCode" TEXT NOT NULL,
+                    "Condition" TEXT NULL,
+                    "RecordedUtc" TEXT NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                );
+                CREATE INDEX "IX_TestResultEquipment_EquipmentId" ON "TestResultEquipment" ("EquipmentId");
+                CREATE INDEX "IX_TestResultEquipment_TestResultId" ON "TestResultEquipment" ("TestResultId");
+                """, ct);
+        }
+
         if (!await TableExistsAsync(context, "StockParLevels", ct))
         {
             await context.Database.ExecuteSqlRawAsync(

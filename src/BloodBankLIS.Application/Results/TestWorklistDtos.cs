@@ -54,6 +54,8 @@ public sealed record TestWorkItemDto(
     bool ReactionWorkup = false,
     // Reagent lots recorded with the current result when it was entered by hand ("AHG AHG-24033").
     IReadOnlyList<string>? CurrentResultReagentLots = null,
+    // Equipment recorded with the current manual result (end-user testing pass 75).
+    IReadOnlyList<string>? CurrentResultEquipment = null,
     // A line added by a reflex rule: the verified result that added it ("ABSC Positive").
     string? ReflexFrom = null,
     // That result was later invalidated or corrected so it no longer matches: check whether the test is still needed.

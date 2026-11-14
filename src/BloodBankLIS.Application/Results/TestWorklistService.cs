@@ -31,6 +31,8 @@ public sealed class TestWorklistService
 
     private readonly Inventory.ReagentQcService? _reagentQc;
 
+    private readonly Inventory.EquipmentService? _equipmentService;
+
     public TestWorklistService(
         IRepository<Order> orders,
         IRepository<OrderLine> orderLines,
@@ -46,8 +48,10 @@ public sealed class TestWorklistService
         ElectronicCrossmatchEligibilityService? eligibility = null,
         IRepository<AntibodyIdentificationWorkup>? workups = null,
         FacilityPolicyService? policy = null,
-        Inventory.ReagentQcService? reagentQc = null)
+        Inventory.ReagentQcService? reagentQc = null,
+        Inventory.EquipmentService? equipment = null)
     {
+        _equipmentService = equipment;
         _reagentQc = reagentQc;
         _orders = orders;
         _orderLines = orderLines;
@@ -345,6 +349,18 @@ public sealed class TestWorklistService
             {
                 items = items.Select(i => i.CurrentResultId is long id && lots.TryGetValue(id, out var labels)
                     ? i with { CurrentResultReagentLots = labels }
+                    : i).ToList();
+            }
+        }
+
+        // Pass 75: and the equipment used, marked when it was out of service or due a check.
+        if (_equipmentService is not null)
+        {
+            var used = await _equipmentService.LabelsForResultsAsync(items.Where(i => i.CurrentResultId is not null).Select(i => i.CurrentResultId!.Value), ct);
+            if (used.Count > 0)
+            {
+                items = items.Select(i => i.CurrentResultId is long id && used.TryGetValue(id, out var labels)
+                    ? i with { CurrentResultEquipment = labels }
                     : i).ToList();
             }
         }

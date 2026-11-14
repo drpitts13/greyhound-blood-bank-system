@@ -23730,3 +23730,21 @@ On the running system with seeded data: Equipment (centrifuge check overdue 8 da
 ### Tests
 
 - TEST-BB-1085. Full suite passed.
+
+## Iteration 792 — End-user testing pass 75: equipment recorded with results (2026-11-14)
+
+### How it was tested
+
+After pass 74: whether a result says what equipment it was tested on; then the test worklist on the running system.
+
+### Found and fixed
+
+1. **A result did not say which equipment it was tested on.** Reagent lots are recorded with each hand-entered result so a failed lot can be traced to its results; equipment was not, so a heat block found out of range could not be traced to the crossmatches worked on it. A hand-entered result now records the equipment used for its test (from Used for tests) and its condition then, warns at save when any of it was out of service or due a check (the result is still saved), and the worklist shows it under the result. Instrument results record none.
+
+### Not done live
+
+- No result was entered live: the only manual results waiting are demo patients' ABO/Rh types and crossmatches, and a made-up type would mislead. The integration test covers recording, the warning and the labels; the worklist was retested live and loads.
+
+### Tests
+
+- TEST-BB-1086. Full suite passed.

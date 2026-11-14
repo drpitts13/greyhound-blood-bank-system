@@ -57,6 +57,23 @@ public class EquipmentCheck : BaseEntity
 }
 
 /// <summary>One time a check was performed: who, when, passed or failed, and what was seen or done.</summary>
+/// <summary>
+/// Equipment used for a manual result's test, recorded with the result (end-user testing pass 75), and its condition
+/// then: null when in service with no check needing action, else what was wrong.
+/// </summary>
+public class TestResultEquipment : BaseEntity
+{
+    public long TestResultId { get; set; }
+
+    public long EquipmentId { get; set; }
+
+    public string EquipmentCode { get; set; } = string.Empty;
+
+    public string? Condition { get; set; }
+
+    public DateTime RecordedUtc { get; set; }
+}
+
 public class EquipmentCheckRecord : BaseEntity
 {
     public long EquipmentCheckId { get; set; }

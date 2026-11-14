@@ -47,6 +47,47 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
             permissions: new FixedPermissionEvaluator(2),
             reagentQc: Qc(c));
 
+    private EquipmentService Equipment(BloodBankDbContext c) =>
+        new(new EfRepository<Equipment>(c), new EfRepository<EquipmentCheck>(c), new EfRepository<EquipmentCheckRecord>(c), c,
+            _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            resultEquipment: new EfRepository<TestResultEquipment>(c));
+
+    // End-user testing pass 75: a manual result records the equipment used for its test and its condition, warning when it
+    // was out of service; an instrument result records none.
+    [Fact]
+    public async Task ManualResult_RecordsEquipmentUsed_AndWarnsWhenOutOfService()
+    {
+        var now = _factory.Clock.UtcNow;
+        await using (var c = _factory.Create())
+        {
+            c.Equipment.AddRange(
+                new Equipment { Code = "EQ-OK", Name = "Centrifuge", Kind = "Centrifuge", TestCodes = "TREQ" },
+                new Equipment { Code = "EQ-DOWN", Name = "Heat block", Kind = "Heat block", TestCodes = "TREQ", OutOfServiceUtc = now.AddHours(-2), OutOfServiceReason = "Read 33.0 °C" },
+                new Equipment { Code = "EQ-OTHER", Name = "Irradiator", Kind = "Irradiator", TestCodes = "TROTHER" });
+            await c.SaveChangesAsync();
+        }
+
+        var specimenId = await SpecimenAsync("MRN-TRACE-EQ", "ACC-TRACE-EQ");
+        long manualId, instrumentId;
+        await using (var c = _factory.Create())
+        {
+            var service = new ResultService(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c), c,
+                _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+                patients: new EfRepository<Patient>(c), permissions: new FixedPermissionEvaluator(2), equipment: Equipment(c));
+            var manual = await service.EnterResultAsync(new EnterResultRequest(specimenId, "TREQ", "2+"));
+            Assert.True(manual.Succeeded, manual.Error);
+            Assert.Contains(manual.Warnings, w => w.Code == "RES-EQUIPMENT" && w.Message.Contains("EQ-DOWN") && w.Message.Contains("out of service"));
+            manualId = manual.Value!.Id;
+            var instrument = await service.EnterResultAsync(new EnterResultRequest(specimenId, "TREQ", "2+", Source: ResultSource.Instrument, SourceReference: "ECHO"));
+            instrumentId = instrument.Value!.Id;
+        }
+
+        await using var verify = _factory.Create();
+        var labels = await Equipment(verify).LabelsForResultsAsync([manualId, instrumentId]);
+        Assert.Equal(["EQ-DOWN (out of service)", "EQ-OK"], labels[manualId]);
+        Assert.False(labels.ContainsKey(instrumentId));
+    }
+
     private async Task<long> SpecimenAsync(string mrn, string accession)
     {
         await using var c = _factory.Create();

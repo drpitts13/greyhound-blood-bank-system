@@ -98,6 +98,61 @@ public sealed class EquipmentService
     /// </summary>
     private DateTime Local(DateTime utc) => _timeZone?.ToLocal(utc) ?? utc;
 
+    private readonly IRepository<TestResultEquipment>? _resultEquipment;
+
+    /// <summary>
+    /// Records the active equipment used for a manual result's test against it (saved with the caller's next save), with
+    /// its condition; returns a warning for each out of service or with a check needing action (end-user testing pass
+    /// 75). Nothing when no equipment names the test.
+    /// </summary>
+    public async Task<IReadOnlyList<RuleResult>> RecordInUseAsync(TestResult result, CancellationToken ct = default)
+    {
+        if (_resultEquipment is null || result.Id == 0)
+        {
+            return [];
+        }
+
+        var used = (await ListAsync(includeInactive: false, ct))
+            .Where(e => EquipmentTestNotice.Codes(e.TestCodes).Contains(result.TestCode.Trim().ToUpperInvariant()))
+            .ToList();
+        var warnings = new List<RuleResult>();
+        foreach (var line in EquipmentTestNotice.For(used, [result.TestCode]))
+        {
+            warnings.Add(RuleResult.Warning("RES-EQUIPMENT", $"{line.EquipmentCode} {line.EquipmentName}, used for {result.TestCode}, was {line.Problem}."));
+        }
+
+        var problems = EquipmentTestNotice.For(used, [result.TestCode]).ToDictionary(l => l.EquipmentCode, l => l.Problem);
+        foreach (var e in used)
+        {
+            await _resultEquipment.AddAsync(new TestResultEquipment
+            {
+                TestResultId = result.Id,
+                EquipmentId = e.Id,
+                EquipmentCode = e.Code,
+                Condition = problems.GetValueOrDefault(e.Code) is { } problem && problem.Length > 500 ? problem[..500] : problems.GetValueOrDefault(e.Code),
+                RecordedUtc = _clock.UtcNow
+            }, ct);
+        }
+
+        return warnings;
+    }
+
+    /// <summary>The recorded equipment of several results, as "CENT-01" or "HB-01 (out of service)", for result lists.</summary>
+    public async Task<IReadOnlyDictionary<long, IReadOnlyList<string>>> LabelsForResultsAsync(IEnumerable<long> resultIds, CancellationToken ct = default)
+    {
+        var ids = resultIds.Distinct().ToList();
+        if (_resultEquipment is null || ids.Count == 0)
+        {
+            return new Dictionary<long, IReadOnlyList<string>>();
+        }
+
+        return (await _resultEquipment.ListAsync(r => ids.Contains(r.TestResultId), ct))
+            .GroupBy(r => r.TestResultId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.OrderBy(r => r.EquipmentCode)
+                .Select(r => r.Condition is null ? r.EquipmentCode : $"{r.EquipmentCode} ({(r.Condition.StartsWith("out of service", StringComparison.Ordinal) ? "out of service" : "check due")})")
+                .ToList());
+    }
+
     public EquipmentService(
         IRepository<Equipment> equipment,
         IRepository<EquipmentCheck> checks,
@@ -106,8 +161,10 @@ public sealed class EquipmentService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IFacilityTimeZone? timeZone = null)
+        IFacilityTimeZone? timeZone = null,
+        IRepository<TestResultEquipment>? resultEquipment = null)
     {
+        _resultEquipment = resultEquipment;
         _timeZone = timeZone;
         _equipment = equipment;
         _checks = checks;

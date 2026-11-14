@@ -270,6 +270,10 @@
                             {
                                 <span class="sub" title="Reagent lots open for this test when the result was entered" data-worklist-lots>Lots: @string.Join(", ", lots)</span>
                             }
+                            @if (item.CurrentResultEquipment is { Count: > 0 } usedEquipment)
+                            {
+                                <span class="sub" title="Equipment used for this test when the result was entered" data-worklist-equipment>Equipment: @string.Join(", ", usedEquipment)</span>
+                            }
                         </td>
                         <td>
                             @if (IsRush(item.Priority))

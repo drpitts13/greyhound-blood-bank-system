@@ -1094,5 +1094,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1083 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-847 / FRS-BB-965 |
 | TEST-BB-1084 | I | `DeviationServiceTests.UpdateStatus_RecordsRootCauseAndFdaReportability` | URS-BB-848 / FRS-BB-966 |
 | TEST-BB-1085 | U | `EquipmentTestNoticeTests.For_NamesOutOfServiceAndOverdueEquipmentForListedTests` | URS-BB-849 / FRS-BB-967 |
+| TEST-BB-1086 | I | `ReagentLotTraceabilityTests.ManualResult_RecordsEquipmentUsed_AndWarnsWhenOutOfService` | URS-BB-850 / FRS-BB-968 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

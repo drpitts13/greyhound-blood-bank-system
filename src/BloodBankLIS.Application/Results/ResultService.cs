@@ -99,8 +99,10 @@ public sealed class ResultService
         CrossmatchAttachmentService? crossmatchAttachment = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
         ReagentQcService? reagentQc = null,
-        IResultReleasePublisher? releases = null)
+        IResultReleasePublisher? releases = null,
+        EquipmentService? equipment = null)
     {
+        _equipment = equipment;
         _ruleEngine = ruleEngine;
         _allocations = allocations;
         _policy = policy;
@@ -148,13 +150,23 @@ public sealed class ResultService
     /// </summary>
     private async Task<LotUse> RecordReagentLotsAsync(TestResult result, CancellationToken ct)
     {
-        if (_reagentQc is null || result.Source != ResultSource.Manual)
+        if (result.Source != ResultSource.Manual)
         {
             return LotUse.None;
         }
 
-        return await _reagentQc.RecordLotsInUseAsync(result, ct);
+        // Pass 75: the equipment used for the test is recorded with the lots, and named if it was out of service or due.
+        var equipmentWarnings = _equipment is null ? [] : await _equipment.RecordInUseAsync(result, ct);
+        if (_reagentQc is null)
+        {
+            return equipmentWarnings.Count == 0 ? LotUse.None : new LotUse([], equipmentWarnings);
+        }
+
+        var lots = await _reagentQc.RecordLotsInUseAsync(result, ct);
+        return equipmentWarnings.Count == 0 ? lots : lots with { Warnings = lots.Warnings.Concat(equipmentWarnings).ToList() };
     }
+
+    private readonly EquipmentService? _equipment;
 
     private async Task<RuleEvaluation?> ReagentResultGateAsync(CancellationToken ct)
     {
@@ -1736,11 +1748,9 @@ public sealed class ResultService
             newValue: new { replacement.Value, replacement.Status, NewVersion = replacement.Version, replacement.Source },
             reason: "Re-entry after invalidation.");
         await _unitOfWork.SaveChangesAsync(ct);
-        // The re-entry was tested again: record the lots open now.
-        if ((await RecordReagentLotsAsync(replacement, ct)).Recorded.Count > 0)
-        {
-            await _unitOfWork.SaveChangesAsync(ct);
-        }
+        // The re-entry was tested again: record the lots open now, and the equipment.
+        await RecordReagentLotsAsync(replacement, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<TestResult>.Ok(replacement);
     }
