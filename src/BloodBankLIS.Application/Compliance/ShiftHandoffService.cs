@@ -73,7 +73,9 @@ public sealed record ShiftHandoffDto(
     int EquipmentOutOfService = 0,
     int WardRequestsWaiting = 0,
     int ReagentLotsQcDue = 0,
-    int ReagentQcUnreviewed = 0)
+    int ReagentQcUnreviewed = 0,
+    int SecondAboRhDue = 0,
+    int SupervisorQueueOpen = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -99,6 +101,8 @@ public sealed record ShiftHandoffDto(
               (CoolersWithDifferences > 0 ? $", {CoolersWithDifferences} checked with differences" : "")
             : "") +
         (ReagentLotsQcDue > 0 ? $"; reagent QC to do {ReagentLotsQcDue} {(ReagentLotsQcDue == 1 ? "lot" : "lots")}" : "") +
+        (SecondAboRhDue > 0 ? $"; second ABO/Rh {SecondAboRhDue}" : "") +
+        (SupervisorQueueOpen > 0 ? $"; supervisor queue {SupervisorQueueOpen}" : "") +
         (ReagentQcUnreviewed > 0 ? $"; reagent QC to review {ReagentQcUnreviewed} {(ReagentQcUnreviewed == 1 ? "lot" : "lots")}" : "") +
         (WardRequestsWaiting > 0 ? $"; WARD WAITING FOR {WardRequestsWaiting} {(WardRequestsWaiting == 1 ? "UNIT" : "UNITS")}" : "") +
         (ReservationsLapsed > 0 ? $"; {ReservationsLapsed} past reservation" : "") +
@@ -153,7 +157,7 @@ public sealed record ShiftHandoffDto(
         h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen,
         h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull,
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
-        h.ReagentLotsQcDue, h.ReagentQcUnreviewed);
+        h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen);
 }
 
 /// <summary>
@@ -196,6 +200,7 @@ public sealed class ShiftHandoffService
     private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
     private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
     private readonly BloodBankLIS.Application.Inventory.EquipmentService? _equipment;
+    private readonly SupervisorQueueService? _supervisorQueue;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -229,9 +234,11 @@ public sealed class ShiftHandoffService
         IRepository<DowntimeEpisode>? outages = null,
         BloodBankLIS.Application.Issuing.FinalDispositionBoardService? dispositions = null,
         IRepository<AntibodyHistory>? antibodyHistory = null,
-        BloodBankLIS.Application.Inventory.EquipmentService? equipment = null)
+        BloodBankLIS.Application.Inventory.EquipmentService? equipment = null,
+        SupervisorQueueService? supervisorQueue = null)
     {
         _equipment = equipment;
+        _supervisorQueue = supervisorQueue;
         _dispositions = dispositions;
         _antibodyHistory = antibodyHistory;
         _hl7Messages = hl7Messages;
@@ -437,6 +444,10 @@ public sealed class ShiftHandoffService
             // End-user testing pass 70: the handoff named failed QC only; the day's QC still to do and QC to review carry over too.
             ReagentLotsQcDue = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Overdue).Select(w => w.LotId).Distinct().Count(),
             ReagentQcUnreviewed = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Unreviewed).Select(w => w.LotId).Distinct().Count(),
+            // Pass 71: on the dashboard, not yet in the handoff.
+            SecondAboRhDue = _issuing is null ? 0 : (await _issuing.ListPendingSecondAboAsync(ct)).Count,
+            SupervisorQueueOpen = _supervisorQueue is null ? 0
+                : await _supervisorQueue.ListAsync(ct) is { Succeeded: true, Value: { } queue } ? queue.Count : 0,
             NearExpiryUnits = nearExpiry.Count,
             NearExpiryReserved = nearExpiry.Count(u => u.IsReserved),
             CoolersInTransit = coolers.Count,
@@ -570,7 +581,9 @@ public sealed class ShiftHandoffService
         EquipmentOutOfService = row.EquipmentOutOfService,
         WardRequestsWaiting = row.WardRequestsWaiting,
         ReagentLotsQcDue = row.ReagentLotsQcDue,
-        ReagentQcUnreviewed = row.ReagentQcUnreviewed
+        ReagentQcUnreviewed = row.ReagentQcUnreviewed,
+        SecondAboRhDue = row.SecondAboRhDue,
+        SupervisorQueueOpen = row.SupervisorQueueOpen
     };
 
     /// <summary>

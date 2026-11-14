@@ -33,6 +33,9 @@ public static class ShiftHandoffItems
         Add(h.CriticalDeviations, "Critical deviation open", "/deviations", urgent: true);
         Add(h.ReagentLotsFailedQc, "Reagent QC failed", "/reagents", urgent: true,
             Note((h.ReagentResultsToReview, h.ReagentResultsToReview == 1 ? "result to review" : "results to review")));
+        // Pass 71: a red-cell issue waits on these (OCD rules unchanged); the supervisor's own list.
+        Add(h.SecondAboRhDue, "Second ABO/Rh", "/issuing?desk=second", detail: "needed before routine red-cell issue");
+        Add(h.SupervisorQueueOpen, "Supervisor queue", "/supervisor");
         // Pass 70: the day's QC the next shift has to run, and QC waiting for review.
         Add(h.ReagentLotsQcDue, "Reagent QC to do", "/reagents", detail: "no QC for today");
         Add(h.ReagentQcUnreviewed, "Reagent QC to review", "/reagents");

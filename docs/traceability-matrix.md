@@ -957,6 +957,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-843 / FRS-BB-961 | End-user testing pass 68: display text in local time | `ClinicalTimeText.cs`, lookup, timelines, supervisor queue | TEST-BB-1079 | U | |
 | URS-BB-844 / FRS-BB-962 | End-user testing pass 69: the facility day | the services named in FRS-BB-962 | TEST-BB-1080 | I | |
 | URS-BB-845 / FRS-BB-963 | End-user testing pass 70: reagent QC on the handoff | `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, `ShiftHandoff.cs`, migration | TEST-BB-1081 | U | |
+| URS-BB-846 / FRS-BB-964 | End-user testing pass 71: second ABO/Rh and supervisor queue on the handoff | `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, migration | TEST-BB-1082 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

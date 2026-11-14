@@ -31,3 +31,5 @@ The next shift should read the note before relying on the dashboard alone. The n
 **Requested by the ward** counts reserved units a ward has asked to be sent and that are not yet issued. It is listed with the urgent items and opens Ready to issue.
 
 The handoff also carries the day's reagent QC: **Reagent QC to do** (lots with no QC for today) and **Reagent QC to review** (QC recorded but not yet reviewed), each opening Reagent QC. Failed QC stays an urgent item of its own.
+
+It also carries **Second ABO/Rh** (patients waiting for a second determination before routine red-cell issue, opening that desk on Issue & Transfuse) and the **Supervisor queue** (opening it), as the dashboard does.

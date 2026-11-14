@@ -165,6 +165,11 @@ public class ShiftHandoff : BaseEntity
 
     public int ReagentQcUnreviewed { get; set; }
 
+    /// <summary>Patients waiting for a second ABO/Rh, and supervisor queue items (end-user testing pass 71).</summary>
+    public int SecondAboRhDue { get; set; }
+
+    public int SupervisorQueueOpen { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

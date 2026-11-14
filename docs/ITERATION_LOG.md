@@ -23666,3 +23666,17 @@ On the running system with seeded data: Shift handoff, its snapshot of open work
 ### Tests
 
 - TEST-BB-1081. Full suite passed.
+
+## Iteration 788 — End-user testing pass 71: the rest of the dashboard on the handoff (2026-11-14)
+
+### How it was tested
+
+Shift handoff against the dashboard, after pass 70.
+
+### Found and fixed
+
+1. **Second ABO/Rh and the supervisor queue did not carry over.** Both are on the dashboard (1 and 10) and were missing from the handoff. They are now items opening their screens and in the summary, and recorded handoffs keep the counts (migration 20270118000000). Retested live: "Second ABO/Rh: 1 (needed before routine red-cell issue)", "Supervisor queue: 10".
+
+### Tests
+
+- TEST-BB-1082. Full suite passed.

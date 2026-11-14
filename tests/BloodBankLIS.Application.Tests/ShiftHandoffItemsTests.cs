@@ -226,4 +226,16 @@ public class ShiftHandoffItemsTests
         Assert.Contains("reagent QC to do 7 lots", h.QueueSummary);
         Assert.Contains("reagent QC to review 1 lot", h.QueueSummary);
     }
+
+    // End-user testing pass 71: second ABO/Rh due and the supervisor queue are handed over, as on the dashboard.
+    [Fact]
+    public void SecondAboAndSupervisorQueue_AreHandedOver()
+    {
+        var h = Handoff() with { SecondAboRhDue = 1, SupervisorQueueOpen = 10 };
+        var abo = Assert.Single(ShiftHandoffItems.For(h), i => i.Label == "Second ABO/Rh");
+        Assert.Equal((1, "/issuing?desk=second"), (abo.Count, abo.Href));
+        Assert.Single(ShiftHandoffItems.For(h), i => i.Label == "Supervisor queue" && i.Count == 10 && i.Href == "/supervisor");
+        Assert.Contains("second ABO/Rh 1", h.QueueSummary);
+        Assert.Contains("supervisor queue 10", h.QueueSummary);
+    }
 }
