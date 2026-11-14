@@ -90,8 +90,8 @@ public static class Hl7AdtMapper
             TriggerEvent: message.TriggerEvent,
             VisitNumber: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterVisitNumber)),
             AccountNumber: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterAccountNumber)),
-            AdmitUtc: ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.EncounterAdmitUtc)),
-            DischargeUtc: ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.EncounterDischargeUtc)),
+            AdmitUtc: ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.EncounterAdmitUtc), map.TimestampZone),
+            DischargeUtc: ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.EncounterDischargeUtc), map.TimestampZone),
             CurrentLocation: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterCurrentLocation)),
             AttendingProviderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterAttendingProviderId)),
             AttendingProviderName: MapPersonName(message, map, InterfaceDataItemKeys.EncounterAttendingProviderName),
@@ -165,10 +165,10 @@ public static class Hl7AdtMapper
     /// <summary>
     /// An HL7 TS (YYYYMMDD[HHMM[SS[.S…]]][+/-ZZZZ]) as UTC. A stated offset is applied (end-user testing pass 62: it
     /// was ignored, along with the seconds, so "20261113070000-0500" was stored as 07:00 UTC instead of 12:00 UTC). A
-    /// time with no offset is taken as UTC, the interface's convention in both directions (outbound times are written
-    /// in UTC); whether an EHR's offset-less local times should be read in the facility time zone is OCD-088.
+    /// time with no offset is read by the interface's convention (OCD-088, decided option C): facility local when the
+    /// interface says so (<paramref name="localZone"/>), else UTC.
     /// </summary>
-    internal static DateTime? ParseHl7DateTime(string value)
+    internal static DateTime? ParseHl7DateTime(string value, TimeZoneInfo? localZone = null)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length < 8)
         {
@@ -212,7 +212,24 @@ public static class Hl7AdtMapper
             }
         }
 
-        return DateTime.SpecifyKind(offset is TimeSpan o ? local - o : local, DateTimeKind.Utc);
+        if (offset is TimeSpan o)
+        {
+            return DateTime.SpecifyKind(local - o, DateTimeKind.Utc);
+        }
+
+        // OCD-088 (option C): no offset reads as the interface's convention, facility local or UTC.
+        if (localZone is not null)
+        {
+            var unspecified = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+            while (localZone.IsInvalidTime(unspecified))
+            {
+                unspecified = unspecified.AddHours(1);
+            }
+
+            return TimeZoneInfo.ConvertTimeToUtc(unspecified, localZone);
+        }
+
+        return DateTime.SpecifyKind(local, DateTimeKind.Utc);
     }
 
     internal static string? MapPersonName(Hl7Message message, Hl7FieldMap map, string key)
@@ -251,7 +268,7 @@ public static class Hl7OrmMapper
             OrderingProviderName: Hl7AdtMapper.MapPersonName(message, map, InterfaceDataItemKeys.OrderProviderName),
             OrderingLocationCode: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderLocationCode)),
             Priority: MapPriority(map.Get(message, InterfaceDataItemKeys.OrderPriority)),
-            NeededByUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.OrderNeededBy)),
+            NeededByUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.OrderNeededBy), map.TimestampZone),
             ControlReason: NullIfEmpty(FirstNonEmpty(map.Get(message, InterfaceDataItemKeys.OrderControlReason), message.Get("ORC-16-1")).Trim()));
     }
 
@@ -383,8 +400,8 @@ public static class Hl7BpamMapper
             Mrn: Hl7PatientIdentifiers.Mrn(message, map),
             UnitNumber: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.UnitNumber)),
             Din: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.UnitDin)),
-            StartUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.TransfusionStartUtc)),
-            StopUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.TransfusionStopUtc)),
+            StartUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.TransfusionStartUtc), map.TimestampZone),
+            StopUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.TransfusionStopUtc), map.TimestampZone),
             VolumeTransfused: volume,
             Location: Hl7AdtMapper.NullIfEmpty(map.Get(message, InterfaceDataItemKeys.TransfusionLocation)),
             Transfusionist: Hl7AdtMapper.MapPersonName(message, map, InterfaceDataItemKeys.Transfusionist)

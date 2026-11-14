@@ -225,6 +225,12 @@ public sealed class DeviationService
             }
         }
 
+        var closeCheck = DeviationFdaReportRule.EvaluateClose(status, row.Severity, investigation?.FdaReportability ?? row.FdaReportability);
+        if (closeCheck.Severity == RuleSeverity.HardStop && row.Status != DeviationStatus.Closed)
+        {
+            return OperationResult<Deviation>.Fail(closeCheck.Message);
+        }
+
         var oldInvestigation = new { row.RootCause, row.FdaReportability, row.FdaReportedOn, row.FdaReportNumber };
         if (investigation is not null)
         {

@@ -23823,3 +23823,21 @@ On the running system with seeded data: Diane Kellerman's (MRN0004, anti-K) anti
 ### Tests
 
 - TEST-BB-1090. Full suite passed.
+
+## Iteration 798 — Open clinical decisions OCD-088, OCD-089 and OCD-090 decided (2026-11-14)
+
+### Decisions (product owner)
+
+1. **OCD-088, option C.** Each HL7 interface has a setting, *Times without a UTC offset*: Facility local time or UTC, for inbound and outbound. Facility local reads offset-less times in the facility zone and writes BPX-4, EVN-2, the DFT service date and the ORU verified time local with their offset. New interfaces default to Facility local; existing interfaces keep UTC by migration. A stated offset is always applied.
+2. **OCD-089, 84 days.** *Lookback: notify the physician within (days)* ships 84, for every lookback type; a database still at 0 (not set) moves to 84 once, with a configuration history entry. It no longer appears among the policies awaiting entry.
+3. **OCD-090, option B.** A Major or Critical deviation cannot be closed until its FDA reportability is determined (`DEV-FDA-CLOSE`), on the server and on the Update form. Minor deviations are unaffected.
+
+### Retested live
+
+- Lookback: the open notification from 2026-11-06 shows notify by 2027-01-29.
+- Deviations: Update on Major deviation #4 with status Closed and reportability Not determined disables Save and says why.
+- Administration › Interface setup › New interface shows *Times without a UTC offset*, defaulting to Facility local. The dev database has no interfaces, so the conversion itself was checked by tests.
+
+### Tests
+
+- TEST-BB-1091, TEST-BB-1092, TEST-BB-1093; three deviation tests that closed a Major deviation now record a determination first. Full suite passed.

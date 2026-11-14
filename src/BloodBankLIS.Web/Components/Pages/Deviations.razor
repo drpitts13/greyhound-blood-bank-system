@@ -223,8 +223,21 @@ else
     private IEnumerable<DeviationDto> VisibleRows => DeviationListView.Order(_showClosed ? _rows : _rows.Where(r => r.Status != DeviationStatus.Closed));
 
     // The server rule, shown before Save: closing needs a corrective action, and a recorded one is not blanked.
-    private RuleResult StatusCheck =>
-        DeviationStatusRule.Evaluate(_newStatus, _rows.FirstOrDefault(r => r.Id == _statusId)?.CorrectiveAction, _capa);
+    private RuleResult StatusCheck
+    {
+        get
+        {
+            var row = _rows.FirstOrDefault(r => r.Id == _statusId);
+            var status = DeviationStatusRule.Evaluate(_newStatus, row?.CorrectiveAction, _capa);
+            if (status.Severity == RuleSeverity.HardStop || row is null || row.Status == DeviationStatus.Closed)
+            {
+                return status;
+            }
+
+            // OCD-090 (decided, option B): Major and Critical need the FDA reportability decision to close.
+            return DeviationFdaReportRule.EvaluateClose(_newStatus, row.Severity, _fdaReportability);
+        }
+    }
 
     private static string SeverityClass(DeviationSeverity severity) => severity switch
     {

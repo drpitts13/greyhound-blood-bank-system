@@ -201,6 +201,30 @@ public class Hl7MapperTests
         Assert.Equal(new DateTime(2026, 11, 13, 7, 55, 0, DateTimeKind.Utc), data.StopUtc);
     }
 
+    // OCD-088 (decided 2026-11-14, option C): an interface set to facility local reads times without an offset in the
+    // facility zone and writes times local with their offset; a time with an offset is read with it either way.
+    [Fact]
+    public void FacilityLocalInterface_ReadsAndWritesLocalTimes()
+    {
+        var eastern = TimeZoneInfo.CreateCustomTimeZone("Test-5", TimeSpan.FromHours(-5), "Test-5", "Test-5");
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20261113120000||RAS^O17|C4L|P|2.5\r" +
+            "PID|1||MRN900^^^HOSP^MR||Blood^Pat\r" +
+            "PV1||I|4W Oncology\r" +
+            "RXA|0|1|20261113070000|20261113075500+0000|CODE^RBC|350||||12345^Nurse^Pat|||||W0001-00");
+        var map = Hl7FieldMap.Default(InterfaceType.Bpam, Hl7Direction.Inbound);
+        map.TimestampZone = eastern;
+
+        var data = Hl7BpamMapper.Map(message, map);
+        Assert.Equal(new DateTime(2026, 11, 13, 12, 0, 0, DateTimeKind.Utc), data.StartUtc);
+        Assert.Equal(new DateTime(2026, 11, 13, 7, 55, 0, DateTimeKind.Utc), data.StopUtc);
+
+        var outbound = Hl7FieldMap.Default(InterfaceType.Billing, Hl7Direction.Outbound);
+        Assert.Equal("20261113120000", outbound.FormatTimestamp(new DateTime(2026, 11, 13, 12, 0, 0, DateTimeKind.Utc)));
+        outbound.TimestampZone = eastern;
+        Assert.Equal("20261113070000-0500", outbound.FormatTimestamp(new DateTime(2026, 11, 13, 12, 0, 0, DateTimeKind.Utc)));
+    }
+
     [Fact]
     public void AdtMapper_TranslatesExternalSexBeforeMapSex()
     {

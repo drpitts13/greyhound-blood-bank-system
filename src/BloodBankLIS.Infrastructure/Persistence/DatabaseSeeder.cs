@@ -41,6 +41,7 @@ public static partial class DatabaseSeeder
         await EnsureUncrossmatchedIssuePoliciesAsync(context, cancellationToken);
         await EnsureAntibodyIdentificationPoliciesAsync(context, cancellationToken);
         await EnsureCatalogPoliciesStoredAsync(context, cancellationToken);
+        await EnsureLookbackNotifyDecidedAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
@@ -445,6 +446,39 @@ public static partial class DatabaseSeeder
             ChangedBy = "system",
             ChangedUtc = now
         }));
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// OCD-089 decided 2026-11-14: lookback notify-within is 84 days for every lookback type. A database that stored the
+    /// earlier "not set" (0) is moved to 84 once, with a configuration-history row; any other entered value is kept.
+    /// </summary>
+    private static async Task EnsureLookbackNotifyDecidedAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var row = await context.SystemSettings.FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.LookbackNotifyWithinDays, ct);
+        if (row is null || row.Value?.Trim() != "0"
+            || await context.ConfigurationChangeHistory.AnyAsync(h => h.EntityType == nameof(SystemSetting) && h.EntityId == row.Id
+                && h.ChangeReason != null && h.ChangeReason.StartsWith("OCD-089 decided"), ct))
+        {
+            return;
+        }
+
+        var before = row.Value;
+        row.Value = "84";
+        var definition = FacilityPolicyCatalog.All.First(d => d.Key == FacilityPolicyKeys.LookbackNotifyWithinDays);
+        row.Description = definition.Description;
+        context.ConfigurationChangeHistory.Add(new Domain.Audit.ConfigurationChangeHistory
+        {
+            EntityType = nameof(SystemSetting),
+            EntityId = row.Id,
+            Version = 2,
+            Action = ConfigChangeAction.Update,
+            OldValueJson = System.Text.Json.JsonSerializer.Serialize(new { row.Key, Value = before }),
+            NewValueJson = System.Text.Json.JsonSerializer.Serialize(new { row.Key, row.Value }),
+            ChangeReason = "OCD-089 decided 2026-11-14: notify the physician within 84 days, for every lookback type (was not set).",
+            ChangedBy = "system",
+            ChangedUtc = DateTime.UtcNow
+        });
         await context.SaveChangesAsync(ct);
     }
 

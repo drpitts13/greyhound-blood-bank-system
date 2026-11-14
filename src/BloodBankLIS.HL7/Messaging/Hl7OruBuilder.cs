@@ -70,7 +70,7 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.PatientEthnicity), translator.ToExternal(InterfaceDataItemKeys.PatientEthnicity, patient.Ethnicity))
             .Set("OBR-1", "1")
             .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), serviceCode ?? translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, result.TestCode))
-            .Set(map.Path(InterfaceDataItemKeys.ResultVerifiedUtc), translator.ToExternal(InterfaceDataItemKeys.ResultVerifiedUtc, (result.VerifiedUtc ?? nowUtc).ToString(Hl7MessageBuilder.Hl7TimestampFormat)))
+            .Set(map.Path(InterfaceDataItemKeys.ResultVerifiedUtc), translator.ToExternal(InterfaceDataItemKeys.ResultVerifiedUtc, map.FormatTimestamp(result.VerifiedUtc ?? nowUtc)))
             .Set("OBX-1", "1")
             .Set("OBX-2", ObxValueType(result))
             .Set(map.Path(InterfaceDataItemKeys.ResultObxIdentifier), translator.ToExternal(InterfaceDataItemKeys.ResultObxIdentifier, result.TestCode))

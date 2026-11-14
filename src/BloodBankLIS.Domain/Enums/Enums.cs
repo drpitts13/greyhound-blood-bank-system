@@ -1107,6 +1107,18 @@ public enum LookbackNotificationStatus
 /// Whether a deviation is reportable to the FDA as a biological product deviation report (21 CFR 606.171), as the
 /// quality reviewer determined it (end-user testing pass 73). Not determined until someone records it.
 /// </summary>
+/// <summary>
+/// How an HL7 interface reads a time with no UTC offset and writes its times (OCD-088, decided 2026-11-14, option C).
+/// A time that carries an offset is always read with it.
+/// </summary>
+public enum Hl7TimestampConvention
+{
+    /// <summary>Times without an offset are UTC; times are sent in UTC.</summary>
+    Utc = 0,
+    /// <summary>Times without an offset are the facility's local time; times are sent in local time with the offset.</summary>
+    FacilityLocal = 1
+}
+
 public enum DeviationFdaReportability
 {
     NotDetermined = 0,

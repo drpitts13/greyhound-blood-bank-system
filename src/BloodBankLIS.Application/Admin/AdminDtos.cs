@@ -586,7 +586,8 @@ public sealed record Hl7EndpointDto(
     string? MessageLoggingLevel,
     bool ReplayAllowed,
     int Version,
-    IReadOnlyList<InterfaceFieldMappingDto> FieldMappings);
+    IReadOnlyList<InterfaceFieldMappingDto> FieldMappings,
+    Hl7TimestampConvention TimestampConvention = Hl7TimestampConvention.FacilityLocal);
 
 public sealed record SaveHl7EndpointRequest(
     string Name,
@@ -611,7 +612,8 @@ public sealed record SaveHl7EndpointRequest(
     string? MessageLoggingLevel,
     bool ReplayAllowed,
     IReadOnlyList<InterfaceFieldMappingDto>? FieldMappings,
-    string? ChangeReason);
+    string? ChangeReason,
+    Hl7TimestampConvention TimestampConvention = Hl7TimestampConvention.FacilityLocal);
 
 public sealed record InterfaceValueTranslationDto(
     string InternalValue,

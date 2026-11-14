@@ -52,4 +52,4 @@ An order message (new order, cancel or discontinue) whose order number is alread
 
 ## Times in messages
 
-A time in a message may carry its UTC offset (for example 20261113070000-0500); the offset is applied. A time with no offset is read as UTC, and the times this system sends are in UTC. If your EHR sends local times without an offset, tell your interface analyst before go-live (OCD-088).
+A time in a message may carry its UTC offset (for example 20261113070000-0500); the offset is applied. How a time with no offset is read is set per interface in Administration › Interface setup › **Times without a UTC offset** (OCD-088): *Facility local time* reads it in the facility time zone and sends this system's times local with their offset (for example 20261113070000-0500); *UTC* reads and sends UTC. A new interface starts as Facility local; an interface set up before this setting keeps UTC until changed. Confirm with the EHR team what their system sends before go-live.

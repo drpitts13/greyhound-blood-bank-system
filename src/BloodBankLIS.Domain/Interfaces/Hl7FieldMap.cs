@@ -38,6 +38,28 @@ public sealed class Hl7FieldMap
 
     public Hl7Direction Direction { get; }
 
+    /// <summary>
+    /// The facility zone when this interface's times are local (OCD-088): times without an offset are read in it and
+    /// times are written in it with their offset. Null: UTC both ways (and for a message with no interface set up).
+    /// </summary>
+    public TimeZoneInfo? TimestampZone { get; set; }
+
+    /// <summary>A stored UTC time as this interface writes it: UTC "yyyyMMddHHmmss", or local with its offset.</summary>
+    public string FormatTimestamp(DateTime utc)
+    {
+        var u = utc.Kind == DateTimeKind.Local ? utc.ToUniversalTime() : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        if (TimestampZone is null)
+        {
+            return u.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        var local = TimeZoneInfo.ConvertTimeFromUtc(u, TimestampZone);
+        var offset = TimestampZone.GetUtcOffset(u);
+        var sign = offset < TimeSpan.Zero ? "-" : "+";
+        var abs = offset.Duration();
+        return local.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture) + $"{sign}{abs.Hours:00}{abs.Minutes:00}";
+    }
+
     /// <summary>Value translator applied after a path read. Defaults to a no-op.</summary>
     public InterfaceValueTranslator Translator { get; set; } = InterfaceValueTranslator.Empty;
 

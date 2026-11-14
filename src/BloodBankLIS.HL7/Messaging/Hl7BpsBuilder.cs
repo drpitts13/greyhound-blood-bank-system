@@ -75,7 +75,7 @@ public static class Hl7BpsBuilder
             .Set("BPX-2-2", dispensed ? "Dispensed to patient location" : "Returned unused")
             .Set("BPX-2-3", "HL70510")
             .Set("BPX-3", "F")
-            .Set("BPX-4", statusUtc.ToString(Hl7MessageBuilder.Hl7TimestampFormat))
+            .Set("BPX-4", map.FormatTimestamp(statusUtc))
             .Set("BPX-5", unit.Din ?? unit.UnitNumber)
             .Set("BPX-6-1", productCode)
             .Set("BPX-6-2", product?.Name)

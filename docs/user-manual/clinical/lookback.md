@@ -38,7 +38,7 @@ You need lookback permission. Other staff can see the clinical chart but cannot 
 
 ## How long a notification has waited
 
-The notifications still due show when each was opened and how long it has been open. When the medical director has set Facility Policies › Lookback › **Lookback: notify the physician within (days)**, each also shows its **Notify by** date, marked **Past** once it has gone; until then the column says *not set* (OCD-089). One value applies to every kind of lookback (a recipient, a facility the unit was shipped to, a recall), and the notifications listed by a DIN search show the same date. It is a reminder and blocks nothing.
+The notifications still due show when each was opened and how long it has been open. Each also shows its **Notify by** date, from Facility Policies › Lookback › **Lookback: notify the physician within (days)** (84 days, OCD-089), marked **Past** once it has gone; if the policy is set to 0 the column says *not set*. One value applies to every kind of lookback (a recipient, a facility the unit was shipped to, a recall), and the notifications listed by a DIN search show the same date. It is a reminder and blocks nothing.
 
 ## A unit with no DIN on record
 

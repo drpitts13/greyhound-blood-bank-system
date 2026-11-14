@@ -123,6 +123,14 @@
             <div class="flex gap" style="margin:.6rem 0;">
                 <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ReplayAllowed" /> Replay allowed</label>
             </div>
+            @* OCD-088 (decided, option C): each interface's time convention. *@
+            <div class="field" style="max-width:32rem;"><label>Times without a UTC offset</label>
+                <select @bind="_editing.TimestampConvention" data-endpoint-timestamp>
+                    <option value="@Hl7TimestampConvention.FacilityLocal">Facility local time (read and sent as local, sent with the offset)</option>
+                    <option value="@Hl7TimestampConvention.Utc">UTC (read and sent as UTC)</option>
+                </select>
+                <span class="sub">A time that carries its offset is always read with it. Confirm with the other system's team what it sends.</span>
+            </div>
         }
 
         @if (_tab == "vendor")
@@ -429,6 +437,7 @@
         public int? RetryDelaySeconds { get; set; }
         public string? MessageLoggingLevel { get; set; }
         public bool ReplayAllowed { get; set; } = true;
+        public Hl7TimestampConvention TimestampConvention { get; set; } = Hl7TimestampConvention.FacilityLocal;
         public List<MappingRow> Mappings { get; set; } = new();
 
         public static EditModel From(Hl7EndpointDto e) => new()
@@ -439,7 +448,7 @@
             Environment = e.Environment, SendingApplication = e.SendingApplication, SendingFacility = e.SendingFacility,
             ReceivingApplication = e.ReceivingApplication, ReceivingFacility = e.ReceivingFacility,
             AckTimeoutSeconds = e.AckTimeoutSeconds, MaxRetryCount = e.MaxRetryCount, RetryDelaySeconds = e.RetryDelaySeconds,
-            MessageLoggingLevel = e.MessageLoggingLevel, ReplayAllowed = e.ReplayAllowed,
+            MessageLoggingLevel = e.MessageLoggingLevel, ReplayAllowed = e.ReplayAllowed, TimestampConvention = e.TimestampConvention,
             Mappings = e.FieldMappings.Select(MappingRow.From).ToList()
         };
 
@@ -447,6 +456,6 @@
             Name, InterfaceType, Direction, Transport, Host, Port, Path, MessageTypes, MappingProfile, VendorCode,
             MappingMode, Environment, SendingApplication, SendingFacility, ReceivingApplication, ReceivingFacility,
             AckTimeoutSeconds, MaxRetryCount, RetryDelaySeconds, MessageLoggingLevel, ReplayAllowed,
-            Mappings.Select(m => m.ToDto()).ToList(), reason);
+            Mappings.Select(m => m.ToDto()).ToList(), reason, TimestampConvention);
     }
 }

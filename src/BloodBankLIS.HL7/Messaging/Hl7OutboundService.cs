@@ -36,6 +36,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
     private readonly IRepository<Encounter>? _encounters;
     private readonly InterfaceUnmappedValueService? _unmapped;
 
+    private readonly BloodBankLIS.Application.Abstractions.IFacilityTimeZone? _facilityZone;
+
     public Hl7OutboundService(
         IRepository<TestResult> results,
         IRepository<Patient> patients,
@@ -55,8 +57,10 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
         IRepository<TestDefinition>? testDefinitions = null,
         InterfaceValueSets? valueSets = null,
         InterfaceUnmappedValueService? unmapped = null,
-        IRepository<Encounter>? encounters = null)
+        IRepository<Encounter>? encounters = null,
+        BloodBankLIS.Application.Abstractions.IFacilityTimeZone? facilityZone = null)
     {
+        _facilityZone = facilityZone;
         _encounters = encounters;
         _valueSets = valueSets;
         _unmapped = unmapped;
@@ -344,7 +348,9 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultRele
             endpoint.FieldMappings = rows.ToList();
         }
 
-        return (Hl7FieldMap.From(endpoint), Hl7OutboundIdentity.From(endpoint), endpoint.Id);
+        var map = Hl7FieldMap.From(endpoint);
+        map.TimestampZone = endpoint.TimestampConvention == Hl7TimestampConvention.FacilityLocal ? _facilityZone?.Zone ?? TimeZoneInfo.Local : null;
+        return (map, Hl7OutboundIdentity.From(endpoint), endpoint.Id);
     }
 
     /// <summary>The interface's translations (its overrides over the global rows), a grouper before a test.</summary>

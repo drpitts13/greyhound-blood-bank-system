@@ -767,7 +767,8 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         var service = new DeviationService(new EfRepository<Deviation>(c), c, _factory.Clock, _factory.CurrentUser, audit);
         var created = await service.CreateAsync(new CreateDeviationRequest("QC miss", "Daily QC not documented", DeviationSeverity.Major, "TestResult", 1));
         Assert.True(created.Succeeded);
-        var updated = await service.UpdateStatusAsync(created.Value!.Id, DeviationStatus.Closed, "Retrained staff");
+        var updated = await service.UpdateStatusAsync(created.Value!.Id, DeviationStatus.Closed, "Retrained staff",
+            investigation: new DeviationInvestigationUpdate(null, DeviationFdaReportability.NotReportable, null, null));
         Assert.True(updated.Succeeded);
         Assert.Equal(DeviationStatus.Closed, updated.Value!.Status);
     }

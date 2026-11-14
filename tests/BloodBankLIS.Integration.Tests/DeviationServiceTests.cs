@@ -73,6 +73,25 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
             e => e.NewValueJson != null && e.NewValueJson.Contains("BPDR-2026-0001"));
     }
 
+    // OCD-090 (decided 2026-11-14, option B): a Major or Critical deviation cannot close until its FDA reportability is
+    // determined; once determined (here, in the same update) it closes; a Minor one closes without it.
+    [Fact]
+    public async Task Close_MajorOrCritical_NeedsReportabilityDetermined()
+    {
+        await using var context = _factory.Create();
+        var major = (await CreateService(context).CreateAsync(new CreateDeviationRequest($"Major {Guid.NewGuid():N}", "Wrong shelf", DeviationSeverity.Major))).Value!;
+        var refused = await CreateService(context).UpdateStatusAsync(major.Id, DeviationStatus.Closed, "Moved and checked");
+        Assert.False(refused.Succeeded);
+        Assert.Contains("FDA reportability is determined", refused.Error);
+
+        var closed = await CreateService(context).UpdateStatusAsync(major.Id, DeviationStatus.Closed, "Moved and checked",
+            investigation: new DeviationInvestigationUpdate("Shelved during count", DeviationFdaReportability.NotReportable, null, null));
+        Assert.True(closed.Succeeded, closed.Error);
+
+        var minor = (await CreateService(context).CreateAsync(new CreateDeviationRequest($"Minor {Guid.NewGuid():N}", "Label smudge", DeviationSeverity.Minor))).Value!;
+        Assert.True((await CreateService(context).UpdateStatusAsync(minor.Id, DeviationStatus.Closed, "Relabelled")).Succeeded);
+    }
+
     [Fact]
     public async Task UpdateStatus_WithoutDeviationManage_IsHardStopped()
     {
@@ -88,7 +107,7 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(DeviationStatus.Open, (await context.Deviations.FindAsync(created.Value.Id))!.Status);
 
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.DeviationManage))
-            .UpdateStatusAsync(created.Value.Id, DeviationStatus.Closed, "Retrained staff");
+            .UpdateStatusAsync(created.Value.Id, DeviationStatus.Closed, "Retrained staff", investigation: new DeviationInvestigationUpdate(null, DeviationFdaReportability.NotReportable, null, null));
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(DeviationStatus.Closed, allowed.Value!.Status);
     }
@@ -103,7 +122,7 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(created.Succeeded, created.Error);
 
         var updated = await CreateService(context).UpdateStatusAsync(
-            created.Value!.Id, DeviationStatus.Closed, "Retrained staff");
+            created.Value!.Id, DeviationStatus.Closed, "Retrained staff", investigation: new DeviationInvestigationUpdate(null, DeviationFdaReportability.NotReportable, null, null));
         Assert.True(updated.Succeeded, updated.Error);
 
         var events = context.AuditEvents.ToList();

@@ -58,6 +58,8 @@ public sealed class Hl7InboundProcessor
     private readonly IAuditWriter? _audit;
     private readonly BloodBankLIS.Application.Compliance.AlertService? _alerts;
 
+    private readonly BloodBankLIS.Application.Abstractions.IFacilityTimeZone? _facilityZone;
+
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
         IRepository<InterfaceErrorQueueItem> errors,
@@ -84,8 +86,10 @@ public sealed class Hl7InboundProcessor
         InterfaceDispenseRequestService? dispenseRequests = null,
         InterfaceValueSets? valueSets = null,
         InterfaceUnmappedValueService? unmapped = null,
-        BloodBankLIS.Application.Compliance.AlertService? alerts = null)
+        BloodBankLIS.Application.Compliance.AlertService? alerts = null,
+        BloodBankLIS.Application.Abstractions.IFacilityTimeZone? facilityZone = null)
     {
+        _facilityZone = facilityZone;
         _alerts = alerts;
         _valueSets = valueSets;
         _unmapped = unmapped;
@@ -1124,7 +1128,9 @@ public sealed class Hl7InboundProcessor
             endpoint.FieldMappings = rows.ToList();
         }
 
-        return (Hl7FieldMap.From(endpoint), endpoint.Id, endpoint.IsEnabled);
+        var map = Hl7FieldMap.From(endpoint);
+        map.TimestampZone = endpoint.TimestampConvention == Hl7TimestampConvention.FacilityLocal ? _facilityZone?.Zone ?? TimeZoneInfo.Local : null;
+        return (map, endpoint.Id, endpoint.IsEnabled);
     }
 
     /// <summary>The interface's translations (its overrides over the global rows), a grouper before a test.</summary>

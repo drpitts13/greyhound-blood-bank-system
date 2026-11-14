@@ -967,6 +967,9 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-853 / FRS-BB-971 | End-user testing pass 78: view months | `ReportViewSql.cs` | TEST-BB-1088 | I | |
 | URS-BB-854 / FRS-BB-972 | End-user testing pass 79: transfused-unit charge date and dedupe | `BillingService.cs`, `IssuingEndpoints.cs`, `InterfaceTransfusionService.cs` | TEST-BB-1089 | I | |
 | URS-BB-855 / FRS-BB-973 | End-user testing pass 80: antibody card facility | `AntibodyCard.razor`, `ReferenceEndpoints.cs`, appsettings | TEST-BB-1090 | U | |
+| URS-BB-856 / FRS-BB-974 | OCD-088 decided: interface time convention | `InterfaceEndpoint.cs`, `Hl7FieldMap.cs`, `Hl7Mappers.cs`, `Hl7InboundProcessor.cs`, `Hl7OutboundService.cs`, builders, `AdminHl7Endpoints.razor`, migration | TEST-BB-1091 | U | |
+| URS-BB-857 / FRS-BB-975 | OCD-089 decided: lookback notify within 84 days | `FacilityPolicyCatalog.cs`, `FacilityPolicyService.cs`, `DatabaseSeeder.cs` | TEST-BB-1092 | I | |
+| URS-BB-858 / FRS-BB-976 | OCD-090 decided: deviation close needs reportability | `DeviationFdaReportRule.cs`, `DeviationService.cs`, `Deviations.razor` | TEST-BB-1093 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

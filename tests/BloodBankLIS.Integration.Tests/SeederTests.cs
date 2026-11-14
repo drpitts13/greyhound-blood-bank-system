@@ -313,6 +313,34 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
     // with one unit missing, CLR-TRAUMA-1 not checked. Seeding again adds no more check rows.
     // TEST-BB-1025: seeded products carry the attributes their names state, so an irradiated requirement can be met by
     // "Red Blood Cells, Irradiated"; seeding again adds none twice (end-user testing pass 16).
+    // OCD-089 (decided 2026-11-14): lookback notify-within is 84 days; a database that stored "not set" (0) moves to 84
+    // once, with a configuration-history row; a value someone entered is kept.
+    [Fact]
+    public async Task Seed_LookbackNotifyWithin_NotSetBecomes84()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+            var row = await context.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.LookbackNotifyWithinDays);
+            row.Value = "0";
+            await context.SaveChangesAsync();
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using (var verify = _factory.Create())
+        {
+            var row = await verify.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.LookbackNotifyWithinDays);
+            Assert.Equal("84", row.Value);
+            Assert.True(await verify.ConfigurationChangeHistory.AnyAsync(h => h.EntityId == row.Id && h.ChangeReason!.StartsWith("OCD-089 decided")));
+            row.Value = "30";
+            await verify.SaveChangesAsync();
+            await DatabaseSeeder.SeedAsync(verify);
+            Assert.Equal("30", (await verify.SystemSettings.AsNoTracking().SingleAsync(s => s.Key == FacilityPolicyKeys.LookbackNotifyWithinDays)).Value);
+            row.Value = "84";
+            await verify.SaveChangesAsync();
+        }
+    }
+
     [Fact]
     public async Task Seed_ProductsCarryTheAttributesTheirNamesState()
     {
