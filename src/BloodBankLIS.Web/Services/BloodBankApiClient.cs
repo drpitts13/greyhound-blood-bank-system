@@ -955,6 +955,9 @@ public sealed class BloodBankApiClient
         SendAsync<ExceptionDefinitionDto>(HttpMethod.Get, $"api/reference/exceptions/{Uri.EscapeDataString(ruleCode)}", ct: ct);
 
     /// <summary>A yes/no facility policy from the bench-readable list.</summary>
+    public Task<ApiResult<FacilityIdentityDto>> GetFacilityIdentityAsync(CancellationToken ct = default) =>
+        SendAsync<FacilityIdentityDto>(HttpMethod.Get, "api/reference/facility", ct: ct);
+
     public Task<ApiResult<FacilityPolicyValueDto>> GetFacilityPolicyFlagAsync(string key, CancellationToken ct = default) =>
         SendAsync<FacilityPolicyValueDto>(HttpMethod.Get, $"api/reference/policies/{Uri.EscapeDataString(key)}", ct: ct);
 

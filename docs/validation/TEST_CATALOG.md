@@ -1098,5 +1098,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1087 | U | `LocalTimeDisplayTests.Today_IsNeverTheUtcDate` | URS-BB-852 / FRS-BB-970 |
 | TEST-BB-1088 | I | `ReportServiceTests.ViewMonth_IsTheLocalMonth` | URS-BB-853 / FRS-BB-971 |
 | TEST-BB-1089 | I | `Phase7BillingTests.CaptureForTransfusion_Completed_CreatesChargeFromCatalogAndRule` | URS-BB-854 / FRS-BB-972 |
+| TEST-BB-1090 | U | `AntibodyCardFacilityTests.Card_NamesTheBloodBank_OrSaysItIsNotConfigured`, `AntibodyCardFacilityTests.Card_WithoutFacility_SaysItIsNotConfigured` | URS-BB-855 / FRS-BB-973 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

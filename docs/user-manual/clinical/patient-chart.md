@@ -63,3 +63,5 @@ When a merge succeeds the merge panel closes and the chart says "Duplicate merge
 ## Possible duplicate chart
 
 When another chart may be the same person (the same name and date of birth, or the same identifier from another system), the chart says so at the top, links to it, and gives the blood bank history it holds (type and antibodies). If they are the same person, merge the charts before testing or issue so the history is in one place; if not, dismiss the pair on Possible duplicates and the warning goes.
+
+**The antibody card names the blood bank.** The card prints the blood bank's name and telephone, so another hospital knows whom to call to confirm the history. They come from the server settings *Facility:Name* and *Facility:Phone*; while either is missing, the screen says so above the card (the warning is not printed).

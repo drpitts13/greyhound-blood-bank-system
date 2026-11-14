@@ -57,14 +57,27 @@ else
             <div><strong>Requires:</strong> @string.Join("; ", _card.SpecialRequirements)</div>
         }
         <div class="warn">Show this card to the blood bank before any transfusion. A new sample is still required.</div>
+        @if (_facility?.Name is { } facilityName)
+        {
+            <div style="margin-top:1mm;" data-antibody-card-facility><strong>@facilityName</strong>@(_facility.Phone is { } phone ? $" · tel {phone}" : "")</div>
+        }
         <div class="muted" style="margin-top:1mm;">Issued @DateTime.Now.ToString("yyyy-MM-dd") by @Session.UserName</div>
     </div>
+    @if (_facility?.Name is null || _facility.Phone is null)
+    {
+        @* Pass 80: another hospital needs to know whom to call to confirm the history. *@
+        <div class="alert alert-warning no-print" data-antibody-card-no-facility>
+            The card does not name the blood bank @(_facility?.Name is null ? "or its telephone" : "telephone") to call: the facility's
+            name and telephone are not configured (Facility:Name and Facility:Phone in the server settings).
+        </div>
+    }
 }
 
 @code {
     [Parameter] public long PatientId { get; set; }
 
     private DowntimePatientRow? _card;
+    private FacilityIdentityDto? _facility;
     private Feedback? _fb;
     private bool _busy;
 
@@ -77,6 +90,7 @@ else
             return;
         }
 
+        _facility = (await Api.GetFacilityIdentityAsync()).Value;
         var r = await Api.GetAntibodyCardAsync(PatientId);
         if (r.Succeeded)
         {

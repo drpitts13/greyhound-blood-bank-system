@@ -23809,3 +23809,17 @@ On the running system with seeded data: Billing (10 charges to review) against t
 ### Tests
 
 - TEST-BB-1089 (extended). Full suite passed. Pages retested live.
+
+## Iteration 797 — End-user testing pass 80: the antibody card (2026-11-14)
+
+### How it was tested
+
+On the running system with seeded data: Diane Kellerman's (MRN0004, anti-K) antibody card from her chart.
+
+### Found and fixed
+
+1. **No blood bank on the card.** The card gave the type, anti-K and the K-negative requirement, but not which blood bank issued it or how to reach it, so a hospital receiving the patient could not confirm the history. The card now prints the blood bank's name and telephone from the server settings Facility:Name and Facility:Phone (blank by default, like Facility:TimeZone), and the screen warns when either is missing. Retested live: "HemoCore Demo Blood Bank · tel 555-0100 (demo)" (demo values in the development settings).
+
+### Tests
+
+- TEST-BB-1090. Full suite passed.

@@ -12,6 +12,12 @@ public sealed record ReceivePolicyDto(
 
 public sealed record FacilityPolicyValueDto(string Key, bool Enabled);
 
+/// <summary>
+/// The blood bank's name and telephone, from configuration (Facility:Name, Facility:Phone), for documents read outside
+/// it such as the patient's antibody card (end-user testing pass 80). Null when not configured.
+/// </summary>
+public sealed record FacilityIdentityDto(string? Name, string? Phone);
+
 public sealed record ProductTypeDto(
     long Id,
     string ProductCode,

@@ -860,3 +860,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-852 | No date default or check takes "today" from the UTC date. | P3 | FRS-BB-970 |
 | URS-BB-853 | Month columns in the SQL reporting views are local months. | P3 | FRS-BB-971 |
 | URS-BB-854 | A transfused-unit charge is dated when the transfusion happened, and a unit issue or transfusion is charged once per issue. | P2 | FRS-BB-972 |
+| URS-BB-855 | The antibody card names the issuing blood bank and its telephone. | P2 | FRS-BB-973 |

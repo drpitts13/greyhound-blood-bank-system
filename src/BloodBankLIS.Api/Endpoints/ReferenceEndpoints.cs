@@ -49,6 +49,13 @@ public static class ReferenceEndpoints
                 await policy.GetRequireReceiveTemperatureAsync(ct),
                 await policy.GetRequireReceiveVisualInspectionAsync(ct))));
 
+        // The blood bank's name and phone for documents a patient carries elsewhere (pass 80).
+        group.MapGet("/facility", (IConfiguration configuration) =>
+        {
+            static string? Value(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+            return Results.Ok(new FacilityIdentityDto(Value(configuration["Facility:Name"]), Value(configuration["Facility:Phone"])));
+        });
+
         // Bench pages need an exception's minimum override level to tell the user up front whether
         // they may override; the admin endpoint requires configuration access they do not have.
         group.MapGet("/exceptions/{ruleCode}", async (string ruleCode, ExceptionDefinitionAdminService svc, CancellationToken ct) =>

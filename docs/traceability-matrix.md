@@ -966,6 +966,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-852 / FRS-BB-970 | End-user testing pass 77: no UTC "today" | admin services and pages, ISBT parsers | TEST-BB-1087 | U | |
 | URS-BB-853 / FRS-BB-971 | End-user testing pass 78: view months | `ReportViewSql.cs` | TEST-BB-1088 | I | |
 | URS-BB-854 / FRS-BB-972 | End-user testing pass 79: transfused-unit charge date and dedupe | `BillingService.cs`, `IssuingEndpoints.cs`, `InterfaceTransfusionService.cs` | TEST-BB-1089 | I | |
+| URS-BB-855 / FRS-BB-973 | End-user testing pass 80: antibody card facility | `AntibodyCard.razor`, `ReferenceEndpoints.cs`, appsettings | TEST-BB-1090 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
