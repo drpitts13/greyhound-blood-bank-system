@@ -57,7 +57,7 @@ else
                 <datalist id="ship-containers">
                     @foreach (var c in _containers)
                     {
-                        <option value="@c"></option>
+                        <option value="@c.Code">@c.Name@(c.MinTemperatureC is null && c.MaxTemperatureC is null ? "" : $" ({c.MinTemperatureC:0.#} to {c.MaxTemperatureC:0.#} °C)")</option>
                     }
                 </datalist>
             </div>
@@ -74,6 +74,10 @@ else
                 <input @bind="_receivingContact" @bind:event="oninput" maxlength="@ShipOutRule.MaxContactLength" placeholder="Name and phone at the receiving blood bank" data-ship-contact />
             </div>
         </div>
+        @if (OutsideRange is { } outside)
+        {
+            <div class="alert alert-warning" style="margin-top:.4rem;" data-ship-temperature-range>@outside It is recorded with each unit shipped. Follow your shipping procedure.</div>
+        }
         <div class="form-row" style="align-items:flex-end;">
             <div class="field">
                 <label>Scan unit number</label>
@@ -197,7 +201,7 @@ else
         // Whoever is shipping usually packed it; change it if someone else did.
         _packedBy = Session.UserName ?? string.Empty;
         var containers = await Api.GetActiveTransportContainersAsync();
-        _containers = containers.Value?.Select(c => c.Code).ToList() ?? new();
+        _containers = containers.Value ?? new();
         await LoadHistoryAsync();
         if (!string.IsNullOrWhiteSpace(ShipmentQuery)
             && _shipments.FirstOrDefault(s => string.Equals(s.Reference?.Trim(), ShipmentQuery.Trim(), StringComparison.OrdinalIgnoreCase)) is { } found)
@@ -228,7 +232,12 @@ else
     private decimal? _temperatureC;
     private string _packedBy = string.Empty;
     private string _receivingContact = string.Empty;
-    private List<string> _containers = new();
+    private List<TransportContainerDto> _containers = new();
+
+    // Pass 82: the packing temperature against the chosen container's validated range (a warning, recorded on shipping).
+    private string? OutsideRange => _containers.FirstOrDefault(c => c.Code.Equals(_container.Trim(), StringComparison.OrdinalIgnoreCase)) is { } c
+        ? ShipOutRule.OutsideContainerRange(c.Code, c.MinTemperatureC, c.MaxTemperatureC, _temperatureC)
+        : null;
 
     private bool ReadyToScan => !string.IsNullOrWhiteSpace(_facility) && !string.IsNullOrWhiteSpace(_container)
         && _temperatureC is not null && !string.IsNullOrWhiteSpace(_packedBy) && !string.IsNullOrWhiteSpace(_receivingContact);

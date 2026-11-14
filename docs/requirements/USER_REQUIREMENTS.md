@@ -865,3 +865,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-857 | The lookback physician notification is due within 84 days of opening, for every lookback type (OCD-089). | P2 | FRS-BB-975 |
 | URS-BB-858 | A Major or Critical deviation cannot be closed without an FDA reportability determination (OCD-090). | P1 | FRS-BB-976 |
 | URS-BB-859 | Naming a device for a modification says when one of its equipment checks needs action. | P2 | FRS-BB-977 |
+| URS-BB-860 | A shipment's packing temperature outside the container's validated range is named and recorded with each unit shipped. | P2 | FRS-BB-978 |

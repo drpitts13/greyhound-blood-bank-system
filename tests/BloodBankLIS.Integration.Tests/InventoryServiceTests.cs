@@ -139,7 +139,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             allocations: new EfRepository<Allocation>(context),
             reactions: new EfRepository<ReactionInvestigation>(context),
             auditQuery: new AuditQuery(context),
-            temperatureReadings: new EfRepository<StorageTemperatureReading>(context));
+            temperatureReadings: new EfRepository<StorageTemperatureReading>(context),
+            transportContainers: new EfRepository<TransportContainer>(context));
     }
 
     /// <summary>A quarantined unit held for the given reason; optionally the remainder of a transfusion with an investigation.</summary>
@@ -1120,6 +1121,37 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var listed = (await service.ListShipmentsAsync()).Single(s => s.Facility == facility);
         Assert.Equal(("COOLER-7", (decimal?)3.5m, "tech-test", "J. Ruiz, 555-0142"),
             (listed.Container, listed.PackingTemperatureC, listed.PackedBy, listed.ReceivingContact));
+    }
+
+    // TEST-BB-1095 (end-user testing pass 82): a packing temperature outside the container's validated range ships the
+    // unit (a warning) and is recorded in the ship reason; inside the range nothing is added.
+    [Fact]
+    public async Task ShipOutByScan_OutsideTheContainerRange_IsRecorded()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        context.TransportContainers.Add(new TransportContainer { Code = $"RBC-{key}", Name = "Validated cooler", MinTemperatureC = 1m, MaxTemperatureC = 10m });
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+        async Task<long> InStock(string suffix)
+        {
+            var id = (await service.ReceiveUnitAsync(NewUnitRequest($"U-SHR{suffix}-{key}", productTypeId))).Unit!.Id;
+            (await context.BloodUnits.FindAsync(id))!.Status = UnitStatus.Available;
+            await context.SaveChangesAsync();
+            return id;
+        }
+
+        var warm = await InStock("A");
+        var cold = await InStock("B");
+        var facility = $"Range Hospital {key}";
+        var shipped = await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHRA-{key}", facility)) with { Container = $"rbc-{key}", PackingTemperatureC = 14m });
+        Assert.True(shipped.Succeeded, shipped.Error);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == warm
+            && a.Reason == $"Shipped to {facility}. Packing temperature 14 °C is outside the validated range of RBC-{key} (1 to 10 °C)."));
+
+        Assert.True((await service.ShipOutByScanAsync(Packed(new ShipOutByScanRequest($"U-SHRB-{key}", facility)) with { Container = $"RBC-{key}", PackingTemperatureC = 4m })).Succeeded);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodUnit) && a.EntityId == cold && a.Reason == $"Shipped to {facility}"));
     }
 
     // TEST-BB-600: recent shipments group units by facility and reference (or day without one), newest first, and the

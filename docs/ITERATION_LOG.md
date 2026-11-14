@@ -23863,3 +23863,21 @@ On Modify Products, unit W0001230009208 (O+ red cells, expiring 2026-12-02) was 
 ### Tests
 
 - TEST-BB-1094. Full suite passed.
+
+## Iteration 800 — End-user testing pass 82: shipping units and the container's range (2026-11-14)
+
+### How it was tested
+
+Inventory › Ship to facility: the shipment form, the container list and the recent shipments (SHIP-DEMO-01 to St. Mary's Hospital). A test-only transport container, TEST-ONLY-82, was added under Administration › Transport containers with a range of 1 to 10 °C and a reason saying it is not a validated range, used, then deactivated.
+
+### Found and fixed
+
+1. **A packing temperature outside the container's range said nothing.** An MTP pack already flags a temperature outside its container's validated range, but a shipment to another facility took 14 °C in a 1 to 10 °C container without a word, and kept nothing to say so. The container list now shows each container's range; a packing temperature outside it is named on the page, and each unit shipped records it in its ship reason (status history and audit). It does not block, as for MTP packs: the range and what to do are the facility's.
+
+### Retested live
+
+- Container test-only-82 and 14 °C: "Packing temperature 14 °C is outside the validated range of TEST-ONLY-82 (1 to 10 °C). It is recorded with each unit shipped. Follow your shipping procedure." No unit was shipped. The container was then deactivated.
+
+### Tests
+
+- TEST-BB-1095. Full suite passed.

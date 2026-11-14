@@ -84,8 +84,10 @@ public sealed class InventoryService
         IRepository<ReactionInvestigation>? reactions = null,
         IAuditQuery? auditQuery = null,
         IRepository<StorageTemperatureReading>? temperatureReadings = null,
-        IFacilityTimeZone? facilityTimeZone = null)
+        IFacilityTimeZone? facilityTimeZone = null,
+        IRepository<BloodBankLIS.Domain.Entities.Configuration.TransportContainer>? transportContainers = null)
     {
+        _transportContainers = transportContainers;
         _facilityTimeZone = facilityTimeZone;
         _temperatureReadings = temperatureReadings;
         _auditQuery = auditQuery;
@@ -253,6 +255,7 @@ public sealed class InventoryService
                 .ToHashSet();
 
     private readonly IRepository<StorageTemperatureReading>? _temperatureReadings;
+    private readonly IRepository<BloodBankLIS.Domain.Entities.Configuration.TransportContainer>? _transportContainers;
 
     /// <summary>
     /// Locations, among those given, whose latest readings are an excursion still going on (no in-range reading since),
@@ -2018,6 +2021,18 @@ public sealed class InventoryService
         var reference = string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference.Trim();
         var reason = $"Shipped to {facility}" + (reference is null ? "" : $" ({reference})")
             + (string.IsNullOrWhiteSpace(request.Note) ? "" : $": {request.Note.Trim()}");
+
+        // Pass 82: a packing temperature outside the container's validated range is recorded with the shipment.
+        if (_transportContainers is not null)
+        {
+            var containerCode = request.Container!.Trim().ToUpperInvariant();
+            var container = (await _transportContainers.ListAsync(c => c.Code == containerCode, ct)).FirstOrDefault();
+            if (container is not null
+                && ShipOutRule.OutsideContainerRange(container.Code, container.MinTemperatureC, container.MaxTemperatureC, request.PackingTemperatureC) is { } outside)
+            {
+                reason += $". {outside}";
+            }
+        }
         var fromStatus = unit.Status;
         unit.ShippedToFacility = facility;
         unit.ShippedUtc = now;

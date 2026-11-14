@@ -38,6 +38,28 @@ public static class ShipOutRule
     public const string DetailsCode = "INV-SHIP-DETAILS";
 
     /// <summary>
+    /// End-user testing pass 82: a packing temperature outside the container's validated range (Admin › Transport
+    /// Containers, the facility's own validation) is named, as on an MTP pack. Null when inside it or the container has no
+    /// range. A warning, recorded with the shipment: whether the unit may still ship is the facility's procedure.
+    /// </summary>
+    public static string? OutsideContainerRange(string containerCode, decimal? minC, decimal? maxC, decimal? temperatureC)
+    {
+        if (temperatureC is not decimal t || !((minC is decimal lo && t < lo) || (maxC is decimal hi && t > hi)))
+        {
+            return null;
+        }
+
+        var range = (minC, maxC) switch
+        {
+            (decimal lo2, decimal hi2) => $"{lo2:0.#} to {hi2:0.#} °C",
+            (decimal lo2, null) => $"at least {lo2:0.#} °C",
+            (_, decimal hi2) => $"at most {hi2:0.#} °C",
+            _ => string.Empty
+        };
+        return $"Packing temperature {t:0.#} °C is outside the validated range of {containerCode.Trim().ToUpperInvariant()} ({range}).";
+    }
+
+    /// <summary>
     /// OCD-072: the container, the packing temperature (°C), who packed it and the receiving contact are all required;
     /// the message names every one missing so the page can be completed in one go.
     /// </summary>
