@@ -304,6 +304,13 @@ public sealed class PrintService
             return OperationResult<PrintJob>.Fail($"Blood unit {unitId} not found.");
         }
 
+        // Pass 102: no label for a unit that has expired or is no longer in stock.
+        var labelCheck = ComponentLabelRule.Evaluate(unit.UnitNumber, unit.Status, unit.ExpiresUtc, _clock.UtcNow);
+        if (labelCheck.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<PrintJob>.Fail(labelCheck.Message);
+        }
+
         var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
         var model = new ComponentLabelModel(
             UnitNumber: unit.UnitNumber,
@@ -404,6 +411,17 @@ public sealed class PrintService
         if (original is null)
         {
             return OperationResult<PrintJob>.Fail($"Print job {printJobId} not found.");
+        }
+
+        // Pass 102: a component label is reprinted only while the unit is still in date and in stock.
+        if (original.JobType == PrintJobType.ProductLabel && original.ContextType == nameof(BloodUnit) && original.ContextId is long labelledId
+            && await _units.GetByIdAsync(labelledId, ct) is { } labelledUnit)
+        {
+            var labelCheck = ComponentLabelRule.Evaluate(labelledUnit.UnitNumber, labelledUnit.Status, labelledUnit.ExpiresUtc, _clock.UtcNow);
+            if (labelCheck.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<PrintJob>.Fail(labelCheck.Message);
+            }
         }
 
         // Re-render from the stored payload so the reprint matches what was printed.

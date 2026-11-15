@@ -24255,3 +24255,21 @@ Blood orders to prepare (in order), then Billing: the ten pending charges, read 
 ### Tests
 
 - TEST-BB-1115. Full suite passed.
+
+## Iteration 821 — End-user testing pass 102: labels for units not in use (2026-11-15)
+
+### How it was tested
+
+Printing: specimen labels, compatibility tags (only for an issued unit, as designed) and component labels.
+
+### Found and fixed
+
+1. **A component label printed for any unit.** The page picks from units on hand, but the service and the audited reprint printed an ISBT component label for a unit in any state: expired, discarded, transfused, shipped away. A fresh label on a unit that must not be used, or a reprint of an old label after the unit was discarded, is a labelling hazard. Printing and reprinting a component label are now refused for a unit that has expired or is no longer in stock, naming the unit and why; quarantined and held units can still be labelled.
+
+### Retested live
+
+- A component label for W0001230002002 (expired washed red cells) is refused, *W0001230002002 is Expired: a component label is not printed for a unit that is not in stock to use*, and no print job is created.
+
+### Tests
+
+- TEST-BB-1116. Full suite passed.

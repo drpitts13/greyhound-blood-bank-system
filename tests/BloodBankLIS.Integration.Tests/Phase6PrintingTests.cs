@@ -236,6 +236,32 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("W000011234567", reprint.Value.RenderedZpl);
     }
 
+    // TEST-BB-1116 (end-user testing pass 102): a component label prints and reprints while the unit is in stock and in
+    // date; once the unit is discarded neither a new label nor a reprint is printed, and an expired unit gets none.
+    [Fact]
+    public async Task ComponentLabel_NotForUnitsExpiredOrOutOfStock()
+    {
+        long unitId, expiredId;
+        await using (var setup = _factory.Create())
+        {
+            (unitId, _) = await CreateUnitAsync(setup, $"U-LBL-{Guid.NewGuid():N}"[..14]);
+            (expiredId, _) = await CreateUnitAsync(setup, $"U-LBX-{Guid.NewGuid():N}"[..14]);
+            (await setup.BloodUnits.FindAsync(expiredId))!.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var c = _factory.Create();
+        var printed = await Printing(c).PrintComponentLabelAsync(unitId, new PrintRequest());
+        Assert.True(printed.Succeeded, printed.Error);
+        Assert.True((await Printing(c).ReprintAsync(printed.Value!.Id, "Smudged")).Succeeded);
+
+        (await c.BloodUnits.FindAsync(unitId))!.Status = UnitStatus.Discarded;
+        await c.SaveChangesAsync();
+        Assert.Contains("is Discarded", (await Printing(c).PrintComponentLabelAsync(unitId, new PrintRequest())).Error);
+        Assert.Contains("is Discarded", (await Printing(c).ReprintAsync(printed.Value.Id, "Smudged")).Error);
+        Assert.Contains("expired", (await Printing(c).PrintComponentLabelAsync(expiredId, new PrintRequest())).Error);
+    }
+
     [Fact]
     public async Task Reprint_WithoutReason_IsRejected()
     {

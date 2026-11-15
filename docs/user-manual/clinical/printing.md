@@ -18,6 +18,10 @@ Confirm the identifiers on the preview before you send the job. The preview is a
 
 A compatibility tag printed at issue carries the patient, the unit, and the crossmatch information the layout includes. When facility policy requires the P-tag id before issue, scan that id on the issue form. Printing the tag and not scanning it does not satisfy the check.
 
+## Component labels for units not in use
+
+A component label is not printed, or reprinted, for a unit that has expired or is no longer in stock to use (expired, discarded, transfused, modified into another unit, shipped, returned to the supplier, transferred, or missing): the print is refused naming the unit and why. A quarantined or held unit can still be labelled, since labelling often comes before release.
+
 ## Reprint
 
 Reprint requires a reason and the reprint permission. The reason is audited. Reprint when the label is damaged or lost. Do not reprint onto a different specimen or unit. If the identifiers on the label are wrong, fix the record first, then print again, or reject the specimen and start over.
