@@ -1135,5 +1135,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1124 | I | `Phase5Hl7Tests.AdtDeath_IsRecorded_AndRaisedWithTheReservedUnits` | URS-BB-886 / FRS-BB-1004 |
 | TEST-BB-1125 | U | `PatientPickerLabelTests.PickerLabel_MarksADeceasedPatient` | URS-BB-887 / FRS-BB-1005 |
 | TEST-BB-1126 | U | `InstrumentQcSampleSummaryTests.Results_ReadEachResultRecord` | URS-BB-888 / FRS-BB-1006 |
+| TEST-BB-1127 | I | `MotherInfantTests.Infant_IsOfferedTheMothersAntigenNegativeRequirements` | URS-BB-889 / FRS-BB-1007 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -24399,3 +24399,21 @@ Instrument status and messages for the ImmuLINK Echo, and Reagent QC, with the s
 ### Tests
 
 - TEST-BB-1126. Full suite passed.
+
+## Iteration 829 — End-user testing pass 110: maternal antibodies on the infant's chart (2026-11-15)
+
+### How it was tested
+
+The mother/baby charts (the RhIG demo pair), the RhIG queue, and what the newborn's chart does with a maternal antibody; Utilization and the wastage report.
+
+### Found and fixed
+
+1. **A maternal antibody was a note on the infant's chart and nothing more.** The infant's chart said the mother had antibodies on record, but unit selection and issue for the infant knew nothing of them, so a K-positive unit could be chosen for the newborn of a mother with anti-K unless someone remembered to add a requirement by hand. Enforcing it automatically is a clinical policy (OCD-074 leaves neonatal policy to the medical director), so it stays the staff's decision, now in one step: the note offers **Add K-negative requirement** for each of the mother's clinically significant antibodies the infant is not already covered for; it adds an antigen-negative special requirement, reason *Maternal anti-K (mother MRN …)*, enforced at selection and issue. The development data had no mother with an antibody, so a demo pair is seeded: DEMO-MATAB, Lena (MRN0028, anti-K) and her newborn (MRN0029).
+
+### Retested live
+
+- After restart the seeder added MRN0028/MRN0029. Baby Boy Lena's chart read *The mother has anti-K on record…* with **Add K-negative requirement**; choosing it added *Antigen-negative (K)*, reason *Maternal anti-K (mother MRN MRN0028)*, to his special requirements (resolved to the catalog's antigen-negative definition) and the offer went away. The added requirement was then removed so the demo starts as seeded.
+
+### Tests
+
+- TEST-BB-1127. Full suite passed.

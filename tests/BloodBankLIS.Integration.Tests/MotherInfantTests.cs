@@ -32,6 +32,50 @@ public class MotherInfantTests
             audit: new AuditWriter(c, f.Clock, f.CurrentUser), currentUser: f.CurrentUser,
             mergeLedger: new EfRepository<PatientMerge>(c), mergeMoves: new EfRepository<PatientMergeMove>(c), clock: f.Clock);
 
+    // TEST-BB-1127: an infant's family lists the mother's clinically significant antibodies the infant has no antigen-negative
+    // cover for; a not clinically significant one is not listed; once the requirement is added, or the infant has the
+    // antibody too, it is no longer listed (end-user testing pass 110).
+    [Fact]
+    public async Task Infant_IsOfferedTheMothersAntigenNegativeRequirements()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var now = factory.Clock.UtcNow;
+        c.BloodAttributeDefinitions.AddRange(
+            new BloodAttributeDefinition { Code = "K", Name = "Kell", AntibodyName = "anti-K", IsClinicallySignificant = true, IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 },
+            new BloodAttributeDefinition { Code = "JKA", Name = "Kidd a", AntibodyName = "anti-Jka", IsClinicallySignificant = true, IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 },
+            new BloodAttributeDefinition { Code = "M", Name = "M", AntibodyName = "anti-M", IsClinicallySignificant = false, IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 });
+        var mother = new Patient { MedicalRecordNumber = "MRN-MOM-K", LastName = "Kell", FirstName = "Mom", DateOfBirth = new DateOnly(1990, 1, 1), Sex = Sex.Female };
+        var infant = new Patient { MedicalRecordNumber = "MRN-BABY-K", LastName = "Kell", FirstName = "Baby", DateOfBirth = new DateOnly(2026, 6, 1), Sex = Sex.Male };
+        c.Patients.AddRange(mother, infant);
+        await c.SaveChangesAsync();
+        infant.MotherPatientId = mother.Id;
+        foreach (var spec in new[] { "anti-K", "anti-Jka", "anti-M" })
+        {
+            c.AntibodyHistory.Add(new AntibodyHistory { PatientId = mother.Id, AntibodySpecificity = spec, IsActive = true });
+        }
+
+        await c.SaveChangesAsync();
+        PatientService Service() => new(new EfRepository<Patient>(c), c, factory.Clock,
+            new SpecimenService(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, factory.Clock, currentUser: factory.CurrentUser),
+            new AuditWriter(c, factory.Clock, factory.CurrentUser), factory.CurrentUser, null, new EfRepository<PatientIdentifier>(c),
+            bloodTypes: new EfRepository<PatientBloodTypeHistory>(c), antibodies: new EfRepository<AntibodyHistory>(c),
+            requirements: new EfRepository<SpecialTransfusionRequirement>(c), attributes: new EfRepository<BloodAttributeDefinition>(c));
+
+        var family = (await Service().GetFamilyAsync(infant.Id))!;
+        Assert.Equal([("JKA", "anti-Jka"), ("K", "anti-K")], family.MaternalAntigenNegative.Select(s => (s.AntigenCode, s.AntibodyName)));
+        Assert.Empty((await Service().GetFamilyAsync(mother.Id))!.MaternalAntigenNegative);
+
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = infant.Id, RequirementType = SpecialTransfusionRequirementType.AntigenNegative, AntigenCode = "K",
+            Reason = "Maternal anti-K", EffectiveUtc = now.AddMinutes(-1), IsActive = true
+        });
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = infant.Id, AntibodySpecificity = "anti-Jka", IsActive = true });
+        await c.SaveChangesAsync();
+        Assert.Empty((await Service().GetFamilyAsync(infant.Id))!.MaternalAntigenNegative);
+    }
+
     [Fact]
     public async Task Infant_IsLinkedToTheMother_AndTheLinkFollowsAMerge()
     {

@@ -34,6 +34,7 @@ public sealed class PatientService
     private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
     private readonly IRepository<AntibodyHistory>? _antibodies;
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
+    private readonly IRepository<BloodAttributeDefinition>? _attributes;
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<Encounter>? _encounters;
 
@@ -61,8 +62,10 @@ public sealed class PatientService
         FacilityPolicyService? policy = null,
         AlertService? alerts = null,
         IRepository<Specimen>? specimenRows = null,
-        IFacilityTimeZone? facilityTimeZone = null)
+        IFacilityTimeZone? facilityTimeZone = null,
+        IRepository<BloodAttributeDefinition>? attributes = null)
     {
+        _attributes = attributes;
         _facilityTimeZone = facilityTimeZone;
         _alerts = alerts;
         _specimenRows = specimenRows;
@@ -429,7 +432,59 @@ public sealed class PatientService
             PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
             types[p.Id].Where(t => t.IsCurrent && t.InvalidatedUtc is null).OrderByDescending(t => t.Id).Select(t => (RhType?)t.RhD).FirstOrDefault());
 
-        return new PatientFamilyDto(mother is null ? null : Member(mother), infants.Select(Member).ToList());
+        return new PatientFamilyDto(mother is null ? null : Member(mother), infants.Select(Member).ToList())
+        {
+            MaternalAntigenNegative = mother is null ? [] : await MaternalAntigenNegativeAsync(patient.Id, antibodies[mother.Id].ToList(), ct)
+        };
+    }
+
+    /// <summary>
+    /// Pass 110: the mother's clinically significant antibodies the infant has no antigen-negative cover for yet (no active
+    /// antigen-negative requirement for that antigen, and no such antibody of the infant's own).
+    /// </summary>
+    private async Task<IReadOnlyList<MaternalAntigenSuggestionDto>> MaternalAntigenNegativeAsync(
+        long infantId, IReadOnlyList<AntibodyHistory> motherAntibodies, CancellationToken ct)
+    {
+        if (_attributes is null || motherAntibodies.Count == 0)
+        {
+            return [];
+        }
+
+        var definitions = (await _attributes.ListAsync(d => d.IsActive, ct)).ToDictionary(d => d.Id);
+        var maternal = BloodBankLIS.Application.Compatibility.BloodAttributeCompatLoader.ClinicallySignificant(motherAntibodies, definitions);
+        if (maternal.Count == 0)
+        {
+            return [];
+        }
+
+        var now = _clock.UtcNow;
+        var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_requirements is not null)
+        {
+            foreach (var r in await _requirements.ListAsync(r => r.PatientId == infantId && r.IsActive && r.AntigenCode != null, ct))
+            {
+                if (r.EffectiveUtc <= now && (r.ExpiresUtc is null || r.ExpiresUtc > now))
+                {
+                    covered.Add(r.AntigenCode!.Trim());
+                }
+            }
+        }
+
+        if (_antibodies is not null)
+        {
+            var own = await _antibodies.ListAsync(a => a.PatientId == infantId, ct);
+            foreach (var a in BloodBankLIS.Application.Compatibility.BloodAttributeCompatLoader.ClinicallySignificant(own, definitions))
+            {
+                covered.Add(a.Code);
+            }
+        }
+
+        return maternal
+            .Where(a => !covered.Contains(a.Code))
+            .GroupBy(a => a.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new MaternalAntigenSuggestionDto(g.First().Code, g.First().AntibodyName))
+            .OrderBy(s => s.AntigenCode, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>Links the infant's chart to the mother's chart by her MRN (<see cref="MotherInfantLinkRule"/>); audited.</summary>

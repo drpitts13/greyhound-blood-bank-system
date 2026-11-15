@@ -56,7 +56,8 @@ else
         OnCancelEdit="() => _editingDemographics = false"
         OnMerge="MergeDuplicateAsync"
         OnCancelMerge="() => _showMerge = false"
-        OnUnmerge="UnmergeAsync" />
+        OnUnmerge="UnmergeAsync"
+        OnRequirementAdded="LoadAsync" />
 
     @* End-user testing pass 47: a second chart for the same person said nothing of the history on the first. *@
     @foreach (var dup in _possibleDuplicates)

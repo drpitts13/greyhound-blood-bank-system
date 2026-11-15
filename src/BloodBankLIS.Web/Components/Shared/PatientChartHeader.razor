@@ -127,6 +127,18 @@
             {
                 <div class="alert alert-info" style="margin-top:.4rem;" data-maternal-antibodies>
                     The mother has @string.Join(", ", antibodyMother.ActiveAntibodies) on record. Maternal antibodies can be present in the infant's blood.
+                    @if (family.MaternalAntigenNegative.Count > 0 && Session.Has(PermissionCodes.ImmunoRecord) && Patient.Status != PatientStatus.Merged)
+                    {
+                        @* Pass 110: the infant's antigen-negative cover is staff's to add; offered here in one step. *@
+                        <div class="flex gap" style="margin-top:.3rem;flex-wrap:wrap;" data-maternal-antigen-offer>
+                            @foreach (var suggestion in family.MaternalAntigenNegative)
+                            {
+                                <button type="button" class="btn btn-secondary btn-sm" disabled="@_familyBusy" data-maternal-antigen-add="@suggestion.AntigenCode"
+                                        title="Adds an antigen-negative special requirement to this infant, enforced at selection and issue; the reason names the mother's antibody"
+                                        @onclick="() => AddMaternalAntigenNegativeAsync(suggestion, antibodyMother)">Add @suggestion.AntigenCode-negative requirement</button>
+                            }
+                        </div>
+                    }
                 </div>
             }
             @if (_unlinking)
@@ -492,6 +504,26 @@ else if (ReactionNotice is not null)
             await LoadFamilyAsync();
         }
     }
+
+    /// <summary>Pass 110: adds the antigen-negative requirement for a maternal antibody, its reason naming the mother.</summary>
+    private async Task AddMaternalAntigenNegativeAsync(MaternalAntigenSuggestionDto suggestion, FamilyMemberDto mother)
+    {
+        _familyBusy = true;
+        var r = await Api.AddSpecialRequirementAsync(Patient.Id, new AddSpecialRequirementRequest(
+            SpecialTransfusionRequirementType.AntigenNegative,
+            $"Maternal {suggestion.AntibodyName} (mother MRN {mother.MedicalRecordNumber})",
+            suggestion.AntigenCode));
+        _familyBusy = false;
+        _familyFb = r.ToFeedback($"{suggestion.AntigenCode}-negative requirement added.");
+        if (r.Succeeded)
+        {
+            await LoadFamilyAsync();
+            await OnRequirementAdded.InvokeAsync();
+        }
+    }
+
+    /// <summary>Raised when a requirement was added from the header, so the chart reloads its requirements.</summary>
+    [Parameter] public EventCallback OnRequirementAdded { get; set; }
 
     private async Task UnlinkMotherAsync()
     {

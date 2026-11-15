@@ -61,7 +61,17 @@ public sealed record FamilyMemberDto(
     RhType? CurrentRh = null);
 
 /// <summary>The patient's linked mother (null when none) and the infants linked to this patient.</summary>
-public sealed record PatientFamilyDto(FamilyMemberDto? Mother, IReadOnlyList<FamilyMemberDto> Infants);
+public sealed record PatientFamilyDto(FamilyMemberDto? Mother, IReadOnlyList<FamilyMemberDto> Infants)
+{
+    /// <summary>
+    /// For an infant: the mother's clinically significant antibodies whose antigen-negative requirement the infant does
+    /// not have yet (end-user testing pass 110). Offered to staff to add; nothing is added or enforced by itself.
+    /// </summary>
+    public IReadOnlyList<MaternalAntigenSuggestionDto> MaternalAntigenNegative { get; init; } = [];
+}
+
+/// <summary>An antigen-negative requirement the infant could take from the mother's antibody ("K", "anti-K").</summary>
+public sealed record MaternalAntigenSuggestionDto(string AntigenCode, string AntibodyName);
 
 /// <summary>A unit still out that was issued under an MRN other than the chart's current one.</summary>
 public sealed record IssuedUnderEarlierIdentityDto(long IssueId, long BloodUnitId, string UnitNumber, string IssuedUnder, DateTime IssuedUtc, string? IssuedToLocation);

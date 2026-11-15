@@ -64,6 +64,12 @@ public sealed class BloodAttributeCompatLoader
             .Order(StringComparer.Ordinal)
             .ToList();
 
+    /// <summary>The clinically significant catalog antibodies among these (code and antibody name), as the gate reads them.</summary>
+    public static IReadOnlyList<BloodAttributeCompatibilityRule.AntibodyRef> ClinicallySignificant(
+        IReadOnlyList<AntibodyHistory> antibodies,
+        IReadOnlyDictionary<long, BloodAttributeDefinition> activeDefinitions) =>
+        BuildPatientAntibodies(antibodies, activeDefinitions);
+
     private static string AntigenOf(string antibodyName) =>
         antibodyName.StartsWith("anti-", StringComparison.OrdinalIgnoreCase) ? antibodyName[5..] : antibodyName;
 

@@ -1000,6 +1000,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-886 / FRS-BB-1004 | End-user testing pass 107: patient death from the EHR | `PatientDeathRule.cs`, `Hl7Mappers.cs`, `Hl7InboundProcessor.cs`, `PatientChartHeader.razor` | TEST-BB-1123, TEST-BB-1124 | U, I | |
 | URS-BB-887 / FRS-BB-1005 | End-user testing pass 108: deceased patient in list, pickers and issue form | `PatientDtos.cs`, `Patients.razor`, `Issuing.razor` | TEST-BB-1125 | U | |
 | URS-BB-888 / FRS-BB-1006 | End-user testing pass 109: instrument QC samples on Reagent QC | `InstrumentQcSampleSummary.cs`, `InstrumentEndpoints.cs`, `Reagents.razor`, `Instruments.razor` | TEST-BB-1126 | U | |
+| URS-BB-889 / FRS-BB-1007 | End-user testing pass 110: maternal antibody antigen-negative requirement offered on the infant chart | `PatientService.cs`, `PatientDtos.cs`, `PatientChartHeader.razor`, `DatabaseSeeder.MotherInfant.cs` | TEST-BB-1127 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
