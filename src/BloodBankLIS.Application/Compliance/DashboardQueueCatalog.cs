@@ -152,7 +152,8 @@ public static class DashboardQueueCatalog
         {
             AttentionNote(PendingTestAttentionRule.CountVerifyBeforeExpiry(items), "to verify before its specimen expires", "to verify before their specimens expire"),
             AttentionNote(TestWorklistView.Recollect(items).Count, "needs a new specimen", "need a new specimen"),
-            AttentionNote(TestWorklistView.RushOrdersWithoutSpecimen(items), "STAT/urgent order waiting for a specimen", "STAT/urgent orders waiting for a specimen")
+            AttentionNote(TestWorklistView.RushOrdersWithoutSpecimen(items), "STAT/urgent order waiting for a specimen", "STAT/urgent orders waiting for a specimen"),
+            AttentionNote(TestWorklistView.PastTurnaroundTarget(items), "STAT/urgent test past the turnaround target", "STAT/urgent tests past the turnaround target")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }

@@ -368,9 +368,22 @@ public sealed class TestWorklistService
             }
         }
 
+        // Pass 106: rush tests past the facility's turnaround target are marked and come first, the longest waiting first.
+        var turnaroundTarget = _policy is null ? 0 : await _policy.GetRushTestTurnaroundMinutesAsync(ct);
+        if (turnaroundTarget > 0)
+        {
+            var now = _clock.UtcNow;
+            items = items.Select(i => i with
+            {
+                TurnaroundNotice = RushTurnaroundRule.Notice(i.Priority, i.OrderedUtc, i.CurrentResultStatus, turnaroundTarget, now)
+            }).ToList();
+        }
+
         // Results that stop being verifiable when their specimen expires come right after rush work.
         return items
             .OrderBy(i => IsRush(i.Priority) ? 0 : 1)
+            .ThenBy(i => i.TurnaroundNotice is null ? 1 : 0)
+            .ThenBy(i => i.TurnaroundNotice is null ? DateTime.MinValue : i.OrderedUtc)
             .ThenBy(i => i.VerificationDeadlineNotice is null ? 1 : 0)
             .ThenBy(i => i.VerificationDeadlineNotice is null ? DateTime.MaxValue : i.SpecimenExpiresUtc ?? DateTime.MaxValue)
             .ThenByDescending(i => i.OrderedUtc)

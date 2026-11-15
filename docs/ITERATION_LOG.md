@@ -24327,3 +24327,21 @@ The newborn chart (Baby Girl Maya, linked to her mother), the RhIG queue, recall
 ### Tests
 
 - TEST-BB-1119, TEST-BB-1120. Full suite passed.
+
+## Iteration 825 — End-user testing pass 106: STAT turnaround target on the test worklist (2026-11-15)
+
+### How it was tested
+
+Blood orders to prepare and the Test Worklist with the seeded orders.
+
+### Found and fixed
+
+1. **Nothing showed how long STAT work had waited.** A STAT ABO/Rh and a STAT crossmatch ordered nine days ago looked the same on the worklist as one ordered minutes ago, and within rush work the newest sorted first, so the longest-waiting STAT test sat at the bottom of the rush rows. A turnaround report existed, but only after the fact. A facility setting, *STAT test turnaround target (minutes)*, shipped unset, now marks a STAT, urgent, emergency-release or massive transfusion test not yet verified that has waited longer (*Past the 60 min target: waiting 8 d 21 h*), lists those first among rush work, oldest first, and the Pending tests card counts them. The target is the facility's to set.
+
+### Retested live
+
+- With the target set to 60 minutes, the worklist led with Patricia Demo's crossmatch and Avery Demo-Special's ABO/Rh (waiting 8 d 21 h), then Marcus Febrile's reaction workup types; his routine crossmatch was not marked. The home card added *4 STAT/urgent tests past the turnaround target*. The target was then set back to 0.
+
+### Tests
+
+- TEST-BB-1121, TEST-BB-1122. Full suite passed.

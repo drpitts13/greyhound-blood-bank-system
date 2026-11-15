@@ -128,6 +128,10 @@ public sealed class FacilityPolicyService
     public Task<int> GetUnidentifiedReminderHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.UnidentifiedReminderHours, UnidentifiedPatientRule.DefaultReminderHours, ct);
 
+    /// <summary>STAT test turnaround target in minutes (pass 106); 0 = not set.</summary>
+    public Task<int> GetRushTestTurnaroundMinutesAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.RushTestTurnaroundMinutes, 0, ct);
+
     public Task<int> GetBloodOrderNeededBySoonMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, 0, ct);
 

@@ -169,6 +169,48 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(pending.Skip(1), item => item.Priority == OrderPriority.Routine);
     }
 
+    // TEST-BB-1122: with a STAT turnaround target set, a rush test waiting longer is marked and listed first among rush
+    // work, a newer one and routine work are not; with no target nothing is marked (end-user testing pass 106).
+    [Fact]
+    public async Task PendingWorklist_MarksRushTestsPastTheTurnaroundTarget()
+    {
+        await using var c = _factory.Create();
+        var (patient, encounter, location, _, _, _) = await SeedOrderWithTestAsync(c, testCode: "ABSC");
+        async Task<string> OrderAsync(OrderPriority priority, DateTime orderedUtc)
+        {
+            var number = $"ORD-TAT-{Guid.NewGuid():N}";
+            Assert.True((await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
+                encounter.Id, location.Id, number, [new OrderLineInputDto(OrderCategory.Test, "ABSC", null)],
+                priority, orderedUtc, null, OrderSource.Manual, null, null))).Succeeded);
+            return number;
+        }
+
+        var now = _factory.Clock.UtcNow;
+        var newStat = await OrderAsync(OrderPriority.Stat, now.AddMinutes(-10));
+        var oldStat = await OrderAsync(OrderPriority.Stat, now.AddMinutes(-135));
+        var oldRoutine = await OrderAsync(OrderPriority.Routine, now.AddHours(-6));
+
+        Assert.All(await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending), i => Assert.Null(i.TurnaroundNotice));
+
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.RushTestTurnaroundMinutes, Value = "60" };
+        c.SystemSettings.Add(setting);
+        await c.SaveChangesAsync();
+        try
+        {
+            var pending = await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending);
+            Assert.Equal(oldStat, pending[0].OrderNumber);
+            Assert.Equal("Past the 60 min target: waiting 2 h 15 min", pending[0].TurnaroundNotice);
+            Assert.Null(pending.Single(i => i.OrderNumber == newStat).TurnaroundNotice);
+            Assert.Null(pending.Single(i => i.OrderNumber == oldRoutine).TurnaroundNotice);
+            Assert.Equal(1, TestWorklistView.PastTurnaroundTarget(pending));
+        }
+        finally
+        {
+            c.SystemSettings.Remove(setting);
+            await c.SaveChangesAsync();
+        }
+    }
+
     [Fact]
     public async Task LinkSpecimen_EnablesWorklistForOrderTests()
     {

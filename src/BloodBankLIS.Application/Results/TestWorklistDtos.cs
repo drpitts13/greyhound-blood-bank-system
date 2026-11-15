@@ -71,6 +71,12 @@ public sealed record TestWorkItemDto(
     /// </summary>
     public bool SpecimenExpiredOnly { get; init; }
 
+    /// <summary>
+    /// A rush test not yet verified past the facility's turnaround target ("Past the 60 min target: waiting 2 h 15 min";
+    /// pass 106). Null when no target is set or it is within it.
+    /// </summary>
+    public string? TurnaroundNotice { get; init; }
+
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";
 
@@ -238,6 +244,10 @@ public static class TestWorklistView
     }
 
     /// <summary>Orders (not lines) at a rush priority that have no tube yet.</summary>
+    /// <summary>Rush tests past the facility's turnaround target (pass 106).</summary>
+    public static int PastTurnaroundTarget(IEnumerable<TestWorkItemDto> items) =>
+        items.Count(i => i.TurnaroundNotice is not null);
+
     public static int RushOrdersWithoutSpecimen(IEnumerable<TestWorkItemDto> items) =>
         NoSpecimen(items).Where(i => IsRush(i.Priority)).Select(i => i.OrderId).Distinct().Count();
 

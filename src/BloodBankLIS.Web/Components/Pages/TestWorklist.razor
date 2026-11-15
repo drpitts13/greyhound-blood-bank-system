@@ -285,6 +285,11 @@
                                 @item.Priority
                             }
                             <span class="sub nowrap">@item.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            @if (item.TurnaroundNotice is { } turnaround)
+                            {
+                                @* Pass 106: past the facility's STAT turnaround target. *@
+                                <span class="badge badge-red" data-worklist-over-target title="Ordered @item.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"); the target is set in Facility policies">@turnaround</span>
+                            }
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
                         <td class="right nowrap">
