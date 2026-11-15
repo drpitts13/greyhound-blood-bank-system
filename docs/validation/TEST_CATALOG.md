@@ -1160,5 +1160,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1149 | U | `OnScreenMessageTimeTests.OnScreenRuleMessages_UseLocalTime` | URS-BB-907 / FRS-BB-1025 |
 | TEST-BB-1150 | U | `OutboundMessageRouteTests.Carries` | URS-BB-908 / FRS-BB-1026 |
 | TEST-BB-1151 | I | `Hl7OutboundWaitingTests.ResultsInterfaceOnly_DoesNotTakeCharges` | URS-BB-908 / FRS-BB-1026 |
+| TEST-BB-1152 | I | `Hl7OutboundWaitingTests.DisabledInterface_StopsSending` | URS-BB-909 / FRS-BB-1027 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -131,6 +131,11 @@ public sealed class Hl7OutboundSender
         if (endpoint is null)
             return OperationResult<Hl7MessageLog>.Fail("No enabled outbound endpoint is configured.");
 
+        // Pass 130: a message queued for an interface that has since been disabled waits; disabling an interface stops
+        // sending (an EHR downtime, a feed taken out of use), as the waiting list already said.
+        if (!endpoint.IsEnabled)
+            return OperationResult<Hl7MessageLog>.Fail($"Interface '{endpoint.Name}' is disabled; the message waits until it is enabled.");
+
         if (RetriesExhausted(row.Direction, row.RetryCount, endpoint))
         {
             return OperationResult<Hl7MessageLog>.Fail(

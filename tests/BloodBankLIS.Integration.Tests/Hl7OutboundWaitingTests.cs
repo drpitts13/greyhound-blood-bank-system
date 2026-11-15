@@ -76,6 +76,44 @@ public class Hl7OutboundWaitingTests : IDisposable
         Assert.All(await Sender(c).ListWaitingAsync(), w => Assert.Equal(OutboundMessageWaitRule.NoInterface, w.Reason));
     }
 
+    // TEST-BB-1152: a message queued for an interface that is then disabled is not sent, by the batch or by Send; once
+    // enabled again it goes (end-user testing pass 130).
+    [Fact]
+    public async Task DisabledInterface_StopsSending()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "bblis-disabled-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            await using var c = _factory.Create();
+            var endpoint = new InterfaceEndpoint
+            {
+                Name = "EHR results", Direction = Hl7Direction.Outbound, InterfaceType = InterfaceType.Results,
+                Transport = InterfaceTransport.File, Path = folder, IsEnabled = false, MaxRetryCount = 3
+            };
+            c.InterfaceEndpoints.Add(endpoint);
+            await c.SaveChangesAsync();
+            var message = Outbound("HELD", Hl7MessageStatus.Received, TimeSpan.FromMinutes(1), type: "ORU^R01");
+            message.EndpointId = endpoint.Id;
+            c.Hl7Messages.Add(message);
+            await c.SaveChangesAsync();
+
+            Assert.Equal(0, await Sender(c).SendPendingAsync());
+            var refused = await Sender(c).SendOneAsync(message.Id);
+            Assert.False(refused.Succeeded);
+            Assert.Contains("is disabled", refused.Error);
+            Assert.Empty(Directory.GetFiles(folder, "*", SearchOption.AllDirectories));
+
+            endpoint.IsEnabled = true;
+            await c.SaveChangesAsync();
+            Assert.True((await Sender(c).SendOneAsync(message.Id)).Succeeded);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
     // TEST-BB-1151: with only a results interface (no message types listed), a queued result goes to it but a charge
     // waits for a billing interface instead of going to the results system (end-user testing pass 129).
     [Fact]

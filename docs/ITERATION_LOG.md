@@ -24772,3 +24772,21 @@ The HL7 outbound queue: the ten charges (DFT) waiting with no interface, the res
 ### Tests
 
 - TEST-BB-1150, TEST-BB-1151. Full suite passed.
+
+## Iteration 849 — End-user testing pass 130: a disabled interface still sending (2026-11-15)
+
+### How it was tested
+
+Following pass 129, what happens to messages queued for an interface that is then disabled, inbound and outbound.
+
+### Found and fixed
+
+1. **Disabling an outbound interface did not stop it sending.** A message queued for a named interface (every message queued once an interface exists) was sent by the scheduled batch and by **Send** even after the interface was disabled, for an EHR downtime or a feed taken out of use, although the waiting list already said such a message had no interface. Sending now refuses a disabled interface: the message waits, and **Send** says the interface is disabled, until it is enabled again. Inbound polling and listening already skipped disabled interfaces.
+
+### Retested live
+
+- No outbound interface exists in the development data; covered by TEST-BB-1152 (not sent while disabled, sent once enabled).
+
+### Tests
+
+- TEST-BB-1152. Full suite passed.
