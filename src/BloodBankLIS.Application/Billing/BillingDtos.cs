@@ -64,4 +64,11 @@ public sealed record BillingEventDto(
         e.ProcedureCode, e.RevenueCode, e.Modifier, e.Description, e.PerformingLocationCode,
         mrn, displayName, clinicalLabel, dftControlId,
         dftBlocksExport, dftBlockReason);
+
+    /// <summary>
+    /// For an issue charge: when the unit came back to the blood bank without being transfused (end-user testing pass
+    /// 101). Whether a returned unit is still billed is the facility's policy; the charge is flagged for review, not
+    /// cancelled.
+    /// </summary>
+    public DateTime? ReturnedUnusedUtc { get; init; }
 }

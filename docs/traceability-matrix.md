@@ -991,6 +991,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-877 / FRS-BB-995 | End-user testing pass 98: deviation owner and due date | `Deviation.cs`, `DeviationDueRule.cs`, `DeviationService.cs`, `DashboardQueueCatalog.cs`, `Deviations.razor`, `Home.razor`, migration | TEST-BB-1112 | U, I | |
 | URS-BB-878 / FRS-BB-996 | End-user testing pass 99: patient search by name as written and date of birth | `PatientDtos.cs`, `Patients.razor` | TEST-BB-1113 | U | |
 | URS-BB-879 / FRS-BB-997 | End-user testing pass 100: top-bar lookup by name and date of birth | `PatientSearchMatch.cs`, `UniversalLookupService.cs`, `PatientDtos.cs` | TEST-BB-1114 | I | |
+| URS-BB-880 / FRS-BB-998 | End-user testing pass 101: issue charges for units returned unused | `BillingDtos.cs`, `BillingService.cs`, `Billing.razor` | TEST-BB-1115 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -107,7 +107,13 @@
                             </td>
                             <td class="nowrap">@c.ServiceDateUtc.ToString("yyyy-MM-dd")</td>
                             <td class="right">@(c.Amount?.ToString("C") ?? "—")</td>
-                            <td><span class="@Ui.Badge(c.Status)">@Ui.EnumText(c.Status)</span></td>
+                            <td><span class="@Ui.Badge(c.Status)">@Ui.EnumText(c.Status)</span>
+                                @if (c.ReturnedUnusedUtc is DateTime back && c.Status != BillingEventStatus.Cancelled)
+                                {
+                                    @* Pass 101: the unit came back without a transfusion; billing it is the facility's policy. *@
+                                    <span class="badge badge-amber" data-billing-returned title="Check your policy for returned units before exporting, or cancel with a reason.">Returned unused @back.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                }
+                            </td>
                             @* Patient, test / unit, and DFT cells link to their records, so this column holds only the charge actions. *@
                             <td class="right nowrap">
                                 @if (c.Status == BillingEventStatus.Pending)

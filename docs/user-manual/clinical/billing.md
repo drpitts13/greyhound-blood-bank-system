@@ -16,6 +16,10 @@ Charges are captured when a result is verified, a unit is issued or transfused (
 
 Open the queue if you have billing review permission. Confirm the patient, the code, and the triggering event. Export sends the accepted batch. Export can stay blocked until the outbound DFT is accepted. If a row will not export, read the status rather than entering the charge in another system and exporting it here as well.
 
+## Units returned unused
+
+An issue charge whose unit came back to the blood bank without being transfused is marked **Returned unused** with the time it came back. The charge is not cancelled for you: whether a returned unit is still billed (an issue or handling fee) is your facility's policy. Check it before you export, and cancel with a reason if it should not be billed.
+
 ## Cancel
 
 Cancel requires a reason and the cancel permission. Cancel when the clinical event was reversed or charged in error, for example a result that was invalidated or an issue that was returned under your billing rules. Do not cancel a charge only because the dollar amount looks high. The amount comes from the charge master. An administrator changes the master. You document the reason for a cancellation.

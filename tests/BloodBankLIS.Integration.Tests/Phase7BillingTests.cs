@@ -26,7 +26,8 @@ public class Phase7BillingTests : IDisposable
         IRepository<Hl7MessageLog>? messages = null,
         FacilityPolicyService? policy = null,
         IRepository<OrderAction>? orderActions = null,
-        IRepository<ActionDefinition>? actionDefinitions = null) =>
+        IRepository<ActionDefinition>? actionDefinitions = null,
+        bool returns = false) =>
         new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
             new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
             new EfRepository<TestResult>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
@@ -37,7 +38,9 @@ public class Phase7BillingTests : IDisposable
             messages: messages,
             orderActions: orderActions,
             actionDefinitions: actionDefinitions,
-            policy: policy);
+            policy: policy,
+            returns: returns ? new EfRepository<Return>(c) : null,
+            transfusions: returns ? new EfRepository<TransfusionEvent>(c) : null);
 
     private async Task<long> SeedChargeCodeAsync(BloodBankDbContext c, string code, decimal amount)
     {
@@ -339,6 +342,35 @@ public class Phase7BillingTests : IDisposable
         Assert.Equal(BillingChargeSourceKind.Product, charge.SourceKind);
         Assert.Equal(250m, charge.Amount);
         Assert.Single(publisher.Published);
+    }
+
+    // TEST-BB-1115 (end-user testing pass 101): an issue charge whose unit came back without a transfusion is flagged
+    // returned unused in the review queue, not cancelled; one whose unit was not returned is not flagged.
+    [Fact]
+    public async Task IssueCharge_UnitReturnedUnused_IsFlaggedForReview()
+    {
+        long returnedIssue, keptIssue;
+        var code = $"RET-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, $"{code}A", code, 200m);
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, $"{code}B", $"{code}K", 200m);
+            returnedIssue = await CreateIssuedUnitAsync(setup, $"BILL-RET-{code}", $"{code}A", null);
+            keptIssue = await CreateIssuedUnitAsync(setup, $"BILL-KEEP-{code}", $"{code}B", null);
+        }
+
+        await using var c = _factory.Create();
+        Assert.True((await Billing(c).CaptureForIssueAsync(returnedIssue)).Succeeded);
+        Assert.True((await Billing(c).CaptureForIssueAsync(keptIssue)).Succeeded);
+        var issue = await c.Issues.SingleAsync(i => i.Id == returnedIssue);
+        var back = _factory.Clock.UtcNow.AddMinutes(20);
+        c.Returns.Add(new Return { IssueId = issue.Id, BloodProductId = issue.BloodProductId, ReturnedUtc = back, Reason = "Not needed" });
+        await c.SaveChangesAsync();
+
+        var queue = await Billing(c, returns: true).ListReviewQueueDtosAsync();
+        Assert.Equal(back, Assert.Single(queue, d => d.BillingCode == code && d.TriggerEntityId == returnedIssue).ReturnedUnusedUtc);
+        Assert.Null(Assert.Single(queue, d => d.BillingCode == $"{code}K" && d.TriggerEntityId == keptIssue).ReturnedUnusedUtc);
+        Assert.Equal(BillingEventStatus.Pending, Assert.Single(queue, d => d.BillingCode == code && d.TriggerEntityId == returnedIssue).Status);
     }
 
     [Fact]

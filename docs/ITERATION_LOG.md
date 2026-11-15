@@ -24237,3 +24237,21 @@ Following pass 99, the lookup in the top bar (any page): *Kline, Nora* and *nora
 ### Tests
 
 - TEST-BB-1114. Full suite passed.
+
+## Iteration 820 — End-user testing pass 101: charges for units that came back (2026-11-15)
+
+### How it was tested
+
+Blood orders to prepare (in order), then Billing: the ten pending charges, read as the charge reviewer before export.
+
+### Found and fixed
+
+1. **An issue charge stayed as it was when the unit came back unused.** The unit-issued charge is captured when a unit leaves the blood bank; if the unit was returned without being transfused, nothing on the review queue said so, and the charge exported like any other. The queue now marks such a charge **Returned unused** with the time it came back. It is not cancelled: billing a returned unit is the facility's policy, so the reviewer decides and cancels with a reason when it should not be billed.
+
+### Retested live
+
+- The queue's ten charges load with none marked, as neither issue charge in the development data was returned (both units were transfused); the marking is covered by the test.
+
+### Tests
+
+- TEST-BB-1115. Full suite passed.

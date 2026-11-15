@@ -1123,5 +1123,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1112 | U, I | `DashboardQueueCatalogTests.Deviations_ForManagers_CountOpenAndNameCritical`, `DeviationServiceTests.OwnerAndDueDate_AreKept` | URS-BB-877 / FRS-BB-995 |
 | TEST-BB-1113 | U | `PatientSearchTests.MatchesSearch_NameAsWritten_AndDateOfBirth` | URS-BB-878 / FRS-BB-996 |
 | TEST-BB-1114 | I | `UniversalLookupTests.NameAndDateOfBirth_FindTheOnePatient`, `PatientSearchTests.MatchesSearch_NameAsWritten_AndDateOfBirth` | URS-BB-879 / FRS-BB-997 |
+| TEST-BB-1115 | I | `Phase7BillingTests.IssueCharge_UnitReturnedUnused_IsFlaggedForReview` | URS-BB-880 / FRS-BB-998 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

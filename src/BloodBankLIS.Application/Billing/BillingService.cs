@@ -55,6 +55,9 @@ public sealed class BillingService
     private readonly IRepository<Hl7MessageLog>? _messages;
     private readonly FacilityPolicyService? _policy;
 
+    private readonly IRepository<Return>? _returns;
+    private readonly IRepository<TransfusionEvent>? _transfusions;
+
     public BillingService(
         IRepository<BillingEvent> events,
         IRepository<ChargeRule> rules,
@@ -77,8 +80,12 @@ public sealed class BillingService
         IRepository<OrderAction>? orderActions = null,
         IRepository<ActionDefinition>? actionDefinitions = null,
         IRepository<Order>? orders = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<Return>? returns = null,
+        IRepository<TransfusionEvent>? transfusions = null)
     {
+        _returns = returns;
+        _transfusions = transfusions;
         _events = events;
         _rules = rules;
         _codes = codes;
@@ -656,6 +663,21 @@ public sealed class BillingService
             ? new Dictionary<long, Issue>()
             : (await _issues.ListAsync(i => issueIds.Contains(i.Id), ct)).ToDictionary(i => i.Id);
 
+        // Pass 101: issue charges whose unit came back without a transfusion.
+        var returnedUnused = new Dictionary<long, DateTime>();
+        if (_returns is not null && _transfusions is not null && issueIds.Count > 0)
+        {
+            var transfused = (await _transfusions.ListAsync(t => issueIds.Contains(t.IssueId), ct)).Select(t => t.IssueId).ToHashSet();
+            foreach (var r in await _returns.ListAsync(r => issueIds.Contains(r.IssueId), ct))
+            {
+                if (!transfused.Contains(r.IssueId)
+                    && (!returnedUnused.TryGetValue(r.IssueId, out var earlier) || r.ReturnedUtc > earlier))
+                {
+                    returnedUnused[r.IssueId] = r.ReturnedUtc;
+                }
+            }
+        }
+
         var actionIds = queue
             .Where(e => e.TriggerEntityType == nameof(OrderAction))
             .Select(e => e.TriggerEntityId)
@@ -720,7 +742,12 @@ public sealed class BillingService
                 clinical,
                 message?.MessageControlId,
                 dftBlocksExport: dftGate.Severity == RuleSeverity.HardStop,
-                dftBlockReason: dftGate.Severity == RuleSeverity.HardStop ? dftGate.Message : null);
+                dftBlockReason: dftGate.Severity == RuleSeverity.HardStop ? dftGate.Message : null)
+            with
+            {
+                ReturnedUnusedUtc = e.TriggerType == BillingTriggerType.UnitIssued && e.TriggerEntityType == nameof(Issue)
+                    && returnedUnused.TryGetValue(e.TriggerEntityId, out var back) ? back : null
+            };
         }).ToList();
     }
 
