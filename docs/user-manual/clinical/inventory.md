@@ -21,6 +21,8 @@ routes:
 
 **Inventory** is the stock list. One board is open at a time: Search, Expected inbound, Retype, Near expiry, Quarantine, Discrepancy, Operational hold, Recalled, and Open deliveries. Search opens first. Search by unit number, product, blood type, status, or location. Without a status or unit number it lists the units still on a shelf (expired ones included, to discard); tick **Include units no longer in stock** to see issued, transfused, discarded, modified, and shipped units too. A unit number you type or scan, or a status you choose, finds any unit. Available units are the ones you can reserve. Quarantine, hold, missing, and damaged units stay out of routine selection until someone with release permission clears them.
 
+**Wrong storage.** A unit on a shelf (including an expired one not yet discarded) whose location does not take its component is marked **Wrong storage** in the search results, for example *FRIDGE-1 does not take platelets*, and a line above the results counts them. What a location takes is set in Administration › Inventory locations. Move the unit, or correct the location record, following your storage procedure.
+
 The row shows the storage location by name. A missing name falls back to the location code so you can still see where the unit was filed.
 
 ## Boards

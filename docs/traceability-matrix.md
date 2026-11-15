@@ -979,6 +979,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-865 / FRS-BB-983 | OCD-091 decided: back-entry on a since-expired specimen | `ExpiredSpecimenBackEntryRule.cs`, `ResultService.cs`, `CompatibilityService.cs`, `IssuingService.cs`, `TestWorklistService.cs`, `TestResultEntryPanel.razor`, migration | TEST-BB-1100 | U, I | |
 | URS-BB-866 / FRS-BB-984 | End-user testing pass 87: temperature readings due | `TemperatureReadingDueRule.cs`, `FacilityPolicyCatalog.cs`, `StorageTemperatureService.cs`, `StorageTemps.razor`, `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-1101 | U, I | |
 | URS-BB-867 / FRS-BB-985 | End-user testing pass 88: quarantine hold time and expiry on the supervisor queue | `QuarantineHoldText.cs`, `InventoryService.cs`, `BloodUnitDtos.cs`, `SupervisorQueueService.cs` | TEST-BB-1102 | I | |
+| URS-BB-868 / FRS-BB-986 | End-user testing pass 89: wrong storage on inventory search | `InventoryLocationPolicyRule.cs`, `ReferenceDtos.cs`, `Inventory.razor` | TEST-BB-1103 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -873,3 +873,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-865 | Results, crossmatches and issues done on paper while a specimen was acceptable can be entered after it expires, on the terms of OCD-091. | P1 | FRS-BB-983 |
 | URS-BB-866 | A storage location whose temperature reading is overdue under the facility's interval is shown and counted. | P2 | FRS-BB-984 |
 | URS-BB-867 | The supervisor queue says how long each quarantined unit has been held and when it expires, soonest to expire first. | P2 | FRS-BB-985 |
+| URS-BB-868 | Inventory search marks units stored where their location does not take the component. | P2 | FRS-BB-986 |

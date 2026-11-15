@@ -53,13 +53,24 @@ public sealed record InventoryLocationDto(
     bool AllowsRemoteIssue = false,
     bool AllowsElectronicIssue = true,
     bool RequiresSecondVerifier = false,
-    bool IsSatellite = false)
+    bool IsSatellite = false,
+    // Pass 89: the components the location takes, so a list can say when a unit is stored where it should not be.
+    bool AllowsRbc = true,
+    bool AllowsPlasma = true,
+    bool AllowsPlatelets = true,
+    bool AllowsCryo = true,
+    bool AllowsWholeBlood = true)
 {
     public string ChoiceLabel => StorageLocationLabel.ForPicker(Id, Code, Name);
 
+    /// <summary>"FRIDGE-1 does not take platelets" for a unit on this shelf whose component it does not take; else null.</summary>
+    public string? WrongStorageFor(UnitStatus status, ComponentClass component) =>
+        InventoryLocationPolicyRule.WrongStorage(status, Code, AllowsRbc, AllowsPlasma, AllowsPlatelets, AllowsCryo, AllowsWholeBlood, component);
+
     public static InventoryLocationDto From(InventoryLocation l) => new(
         l.Id, l.Code, l.Name, l.LocationType, l.IsActive,
-        l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite);
+        l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite,
+        l.AllowsRbc, l.AllowsPlasma, l.AllowsPlatelets, l.AllowsCryo, l.AllowsWholeBlood);
 }
 
 public sealed record BloodSupplierRefDto(long Id, string Code, string Name, string Registration, string DisplayName)

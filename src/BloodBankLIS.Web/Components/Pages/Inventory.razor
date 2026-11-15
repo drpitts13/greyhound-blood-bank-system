@@ -829,6 +829,12 @@
     }
     else
     {
+        @if (_units.Count(u => WrongStorage(u) is not null) is var misplaced and > 0)
+        {
+            <div class="alert alert-warning" data-wrong-storage-summary>
+                @misplaced @(misplaced == 1 ? "unit is" : "units are") stored where the location does not take the component (marked below). Move them, or correct the location record, following your storage procedure.
+            </div>
+        }
         <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Unit #</th><th>Product</th><th>Name</th><th>ABO/Rh</th><th>Expires</th><th>Status</th><th>Location</th><th></th></tr></thead>
@@ -857,7 +863,12 @@
                                 <span class="badge badge-amber">Overdue</span>
                             }
                         </td>
-                        <td>@LocationName(u.CurrentLocationId)</td>
+                        <td>@LocationName(u.CurrentLocationId)
+                            @if (WrongStorage(u) is { } wrong)
+                            {
+                                <span class="badge badge-red" data-wrong-storage>Wrong storage: @wrong</span>
+                            }
+                        </td>
                         <td class="right"><a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(u.Id)">Manage</a></td>
                     </tr>
                 }
@@ -1050,6 +1061,13 @@
 
     private string ProductName(long productTypeId) =>
         _productTypes.FirstOrDefault(t => t.Id == productTypeId)?.Name ?? "—";
+
+    // Pass 89: a unit on a shelf that does not take its component.
+    private string? WrongStorage(BloodUnitDto u) =>
+        u.CurrentLocationId is long id && _locations.FirstOrDefault(l => l.Id == id) is { } location
+        && _productTypes.FirstOrDefault(p => p.Id == u.ProductTypeId) is { } product
+            ? location.WrongStorageFor(u.Status, product.ComponentClass)
+            : null;
 
     private string LocationName(long? id) =>
         StorageLocationLabel.ForInventoryList(

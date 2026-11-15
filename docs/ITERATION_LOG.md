@@ -24017,3 +24017,25 @@ RhIG (the open evaluation for Noor, with the give-within setting not entered, al
 ### Tests
 
 - TEST-BB-1102. Full suite passed.
+
+## Iteration 808 — End-user testing pass 89: units on the wrong shelf (2026-11-14)
+
+### How it was tested
+
+Inventory search, all units, read against Administration › Inventory locations (what each location takes).
+
+### Found and fixed
+
+1. **Units stored where their location does not take them went unremarked.** Eight apheresis platelets (expired, not yet discarded) were recorded in FRIDGE-1, which does not take platelets, and a thawed plasma in FRIDGE-1, whose record does not take plasma; the search listed them like any other unit. Only a stock count of that location would have said so. The search now marks each such unit **Wrong storage** (*FRIDGE-1 does not take platelets*) and counts them above the results.
+
+### Retested live
+
+- The search counts 9 units and marks the eight platelets and W0001230001005-M01 in FRIDGE-1.
+
+### Noted
+
+- FRIDGE-1 in the development data was set up before refrigerators took thawed plasma by default, so its record still says it does not take plasma; that is the location's configuration, left as is.
+
+### Tests
+
+- TEST-BB-1103. Full suite passed.

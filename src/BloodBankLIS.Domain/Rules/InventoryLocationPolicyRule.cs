@@ -49,6 +49,30 @@ public static class InventoryLocationPolicyRule
             _ => true
         };
 
+    /// <summary>
+    /// A unit on a shelf that does not take its component, such as platelets in a red-cell refrigerator (end-user
+    /// testing pass 89: nine platelets sat in FRIDGE-1, which does not take platelets, and only a stock count would say so).
+    /// Null when the place takes it, or the unit is not on a shelf.
+    /// </summary>
+    public static string? WrongStorage(
+        UnitStatus status, string locationCode, bool allowsRbc, bool allowsPlasma, bool allowsPlatelets, bool allowsCryo,
+        bool allowsWholeBlood, ComponentClass component) =>
+        (StorageTemperatureRule.StoredStatuses.Contains(status) || status == UnitStatus.Expired)
+        && !AllowsComponent(allowsRbc, allowsPlasma, allowsPlatelets, allowsCryo, allowsWholeBlood, component)
+            ? $"{locationCode} does not take {ComponentWords(component)}"
+            : null;
+
+    public static string ComponentWords(ComponentClass component) => component switch
+    {
+        ComponentClass.RedBloodCells => "red cells",
+        ComponentClass.WholeBlood => "whole blood",
+        ComponentClass.Plasma => "plasma",
+        ComponentClass.Platelets => "platelets",
+        ComponentClass.Cryoprecipitate => "cryoprecipitate",
+        ComponentClass.Granulocytes => "granulocytes",
+        _ => "this component"
+    };
+
     public static IReadOnlyList<RuleResult> EvaluateTransfer(
         bool destinationKnown,
         bool destinationActive,
