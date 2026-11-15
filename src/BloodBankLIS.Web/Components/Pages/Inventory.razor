@@ -981,6 +981,7 @@
         _searchProductTypeId = ProductTypeId;
         _searchLocationId = LocationId;
         if (Enum.TryParse<AboGroup>(Abo, ignoreCase: true, out var abo)) _searchAbo = abo;
+        if (Enum.TryParse<RhType>(RhD, ignoreCase: true, out var rhD)) _searchRh = rhD;
         if (Enum.TryParse<UnitStatus>(Status, ignoreCase: true, out var status)) _searchStatus = status;
         await SearchAsync();
         await LoadExpectedAsync();
@@ -1005,6 +1006,10 @@
 
     [SupplyParameterFromQuery]
     public string? Abo { get; set; }
+
+    /// <summary>Rh(D) from a minimum stock row's on-hand link (pass 105).</summary>
+    [SupplyParameterFromQuery]
+    public string? RhD { get; set; }
 
     // The units stored at one location (for example after a temperature excursion).
     [SupplyParameterFromQuery]

@@ -533,7 +533,7 @@ public static class DashboardQueueCatalog
     public static (int Count, string? Note) LowStockCard(IEnumerable<MinimumStockRowDto> rows, int named = 3)
     {
         var shortages = rows.Where(r => r.Shortfall > 0)
-            .OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo)
+            .OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo).ThenBy(r => r.RhD)
             .ToList();
         if (shortages.Count == 0)
         {
@@ -541,7 +541,7 @@ public static class DashboardQueueCatalog
         }
 
         var names = shortages.Take(named)
-            .Select(r => $"{(string.IsNullOrWhiteSpace(r.ProductCode) ? $"Product {r.ProductTypeId}" : r.ProductCode)} {r.Abo?.ToString() ?? "any ABO"}: {r.OnHand} of {r.MinimumAvailable}"
+            .Select(r => $"{(string.IsNullOrWhiteSpace(r.ProductCode) ? $"Product {r.ProductTypeId}" : r.ProductCode)} {BloodBankLIS.Domain.Rules.MinimumStockRule.GroupText(r.Abo, r.RhD, "any ABO")}: {r.OnHand} of {r.MinimumAvailable}"
                 + (r.OnOrder > 0 ? $", {r.OnOrder} on order" + (r.OnOrderOverdue > 0 ? " (overdue)" : string.Empty) : string.Empty));
         var more = shortages.Count > named ? $" and {shortages.Count - named} more" : string.Empty;
         return (shortages.Count, string.Join("; ", names) + more);

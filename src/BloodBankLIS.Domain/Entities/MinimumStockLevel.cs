@@ -15,5 +15,11 @@ public class MinimumStockLevel : BaseEntity
 
     public AboGroup? Abo { get; set; }
 
+    /// <summary>
+    /// Optionally one Rh(D) type (end-user testing pass 105: minimums were by ABO only, so O negative, the stock kept
+    /// for emergencies and Rh-negative women, could not have a minimum of its own).
+    /// </summary>
+    public RhType? RhD { get; set; }
+
     public int MinimumAvailable { get; set; }
 }

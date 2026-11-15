@@ -25,9 +25,15 @@ public sealed record MinimumStockRowDto(
     public bool OpenOrdersExceedOnHand => MinimumStockRule.OpenOrdersExceedOnHand(OnHand, OpenOrders);
 
     public int StillToOrder => MinimumStockRule.StillToOrder(Shortfall, OnOrder);
+
+    /// <summary>One Rh(D) type, when the minimum is set for one (pass 105).</summary>
+    public RhType? RhD { get; init; }
+
+    /// <summary>"O Neg", "O", "Any".</summary>
+    public string GroupText => MinimumStockRule.GroupText(Abo, RhD);
 }
 
-public sealed record SaveMinimumStockRequest(long ProductTypeId, AboGroup? Abo, int MinimumAvailable);
+public sealed record SaveMinimumStockRequest(long ProductTypeId, AboGroup? Abo, int MinimumAvailable, RhType? RhD = null);
 
 public sealed class MinimumStockService
 {
@@ -73,10 +79,10 @@ public sealed class MinimumStockService
         var openOrders = await OpenOrderLinesByProductAsync(ct);
         var (onOrder, overdueOrderIds) = await SubmittedSupplierLinesAsync(ct);
         var rows = new List<MinimumStockRowDto>();
-        foreach (var level in levels.OrderBy(row => row.ProductTypeId).ThenBy(row => row.Abo))
+        foreach (var level in levels.OrderBy(row => row.ProductTypeId).ThenBy(row => row.Abo).ThenBy(row => row.RhD))
         {
             products.TryGetValue(level.ProductTypeId, out var product);
-            var onHand = await CountAvailableAsync(level.ProductTypeId, level.Abo, ct);
+            var onHand = await CountAvailableAsync(level.ProductTypeId, level.Abo, level.RhD, ct);
             rows.Add(new MinimumStockRowDto(
                 level.Id,
                 level.ProductTypeId,
@@ -87,14 +93,17 @@ public sealed class MinimumStockService
                 MinimumStockRule.Shortfall(onHand, level.MinimumAvailable),
                 openOrders.GetValueOrDefault(level.ProductTypeId),
                 onOrder.Where(l => Covers(level, l)).Sum(l => l.Quantity),
-                onOrder.Where(l => Covers(level, l) && overdueOrderIds.Contains(l.SupplierOrderId)).Sum(l => l.Quantity)));
+                onOrder.Where(l => Covers(level, l) && overdueOrderIds.Contains(l.SupplierOrderId)).Sum(l => l.Quantity))
+            {
+                RhD = level.RhD
+            });
         }
 
         return rows;
     }
 
     private static bool Covers(MinimumStockLevel level, SupplierOrderLine line) =>
-        line.ProductTypeId == level.ProductTypeId && (level.Abo is null || line.Abo == level.Abo);
+        MinimumStockRule.Covers(level.ProductTypeId, level.Abo, level.RhD, line.ProductTypeId, line.Abo, line.RhD);
 
     /// <summary>
     /// Lines of supplier orders that were submitted (sent) and not yet received or cancelled, and which of those orders
@@ -130,6 +139,11 @@ public sealed class MinimumStockService
             return OperationResult<MinimumStockRowDto>.Fail("Product and a minimum of zero or more are required.");
         }
 
+        if (request.RhD == RhType.Unknown || request.Abo == AboGroup.Unknown)
+        {
+            return OperationResult<MinimumStockRowDto>.Fail("Choose a blood group and Rh(D), or Any.");
+        }
+
         var product = await _products.GetByIdAsync(request.ProductTypeId, ct);
         if (product is null)
         {
@@ -137,8 +151,8 @@ public sealed class MinimumStockService
         }
 
         var existing = await _levels.FirstOrDefaultAsync(
-            row => row.ProductTypeId == request.ProductTypeId && row.Abo == request.Abo, ct);
-        var level = existing ?? new MinimumStockLevel { ProductTypeId = request.ProductTypeId, Abo = request.Abo };
+            row => row.ProductTypeId == request.ProductTypeId && row.Abo == request.Abo && row.RhD == request.RhD, ct);
+        var level = existing ?? new MinimumStockLevel { ProductTypeId = request.ProductTypeId, Abo = request.Abo, RhD = request.RhD };
         level.MinimumAvailable = request.MinimumAvailable;
         if (existing is null)
         {
@@ -146,7 +160,7 @@ public sealed class MinimumStockService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        var onHand = await CountAvailableAsync(level.ProductTypeId, level.Abo, ct);
+        var onHand = await CountAvailableAsync(level.ProductTypeId, level.Abo, level.RhD, ct);
         return OperationResult<MinimumStockRowDto>.Ok(new MinimumStockRowDto(
             level.Id,
             level.ProductTypeId,
@@ -154,7 +168,10 @@ public sealed class MinimumStockService
             level.Abo,
             onHand,
             level.MinimumAvailable,
-            MinimumStockRule.Shortfall(onHand, level.MinimumAvailable)));
+            MinimumStockRule.Shortfall(onHand, level.MinimumAvailable))
+        {
+            RhD = level.RhD
+        });
     }
 
     /// <summary>Active product order lines still Ordered or partly filled, on orders that are not closed, by product.</summary>
@@ -185,10 +202,10 @@ public sealed class MinimumStockService
             .ToDictionary(g => g.Key, g => g.Count());
     }
 
-    private async Task<int> CountAvailableAsync(long productTypeId, AboGroup? abo, CancellationToken ct)
+    private async Task<int> CountAvailableAsync(long productTypeId, AboGroup? abo, RhType? rhD, CancellationToken ct)
     {
         var units = await _inventory.SearchAsync(
-            new InventorySearchCriteria(Status: UnitStatus.Available, Abo: abo, ProductTypeId: productTypeId), ct);
+            new InventorySearchCriteria(Status: UnitStatus.Available, Abo: abo, RhD: rhD, ProductTypeId: productTypeId), ct);
         return units.Count;
     }
 }

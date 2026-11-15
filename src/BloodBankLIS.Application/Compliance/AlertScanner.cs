@@ -77,7 +77,7 @@ public sealed class AlertScanner
                 $"PAR:{row.MinimumStockId}", // Stored key prefix, kept so open alerts still match.
                 // Covered by orders still on time: information. Anything left to order, or a late order: a warning.
                 row.StillToOrder == 0 && row.OnOrderOverdue == 0 ? AlertSeverity.Info : AlertSeverity.Warning,
-                $"Below minimum stock: {row.ProductCode}{(row.Abo is null ? "" : $" group {row.Abo}")}",
+                $"Below minimum stock: {row.ProductCode}{(row.Abo is null && row.RhD is null ? "" : $" group {row.GroupText}")}",
                 ShortageMessage(row),
                 "/inventory/minimum-stock"))
             .ToList();

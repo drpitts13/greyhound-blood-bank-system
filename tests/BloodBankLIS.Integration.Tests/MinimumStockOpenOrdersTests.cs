@@ -73,4 +73,38 @@ public class MinimumStockOpenOrdersTests : IClassFixture<SqliteContextFactory>
         Assert.True(row.OpenOrdersExceedOnHand);
         Assert.Equal(0, row.Shortfall);
     }
+
+    // TEST-BB-1120: a minimum for O negative counts only O negative units, sits beside an O minimum for the same product,
+    // and refuses an Unknown Rh (end-user testing pass 105).
+    [Fact]
+    public async Task Minimum_ForORhNegative_CountsOnlyThoseUnits()
+    {
+        await using var c = _factory.Create();
+        var product = new ProductType { ProductCode = $"RBN-{Guid.NewGuid():N}"[..12], Name = "Red cells" };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        foreach (var rh in new[] { RhType.Negative, RhType.Positive, RhType.Positive })
+        {
+            c.BloodUnits.Add(new BloodUnit
+            {
+                UnitNumber = $"U-RBN-{Guid.NewGuid():N}"[..14], ProductTypeId = product.Id, Status = UnitStatus.Available,
+                Abo = AboGroup.O, RhD = rh, ExpiresUtc = _factory.Clock.UtcNow.AddDays(30)
+            });
+        }
+
+        await c.SaveChangesAsync();
+        var service = new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c);
+        var neg = await service.SaveAsync(new SaveMinimumStockRequest(product.Id, AboGroup.O, 4, RhType.Negative));
+        Assert.True(neg.Succeeded);
+        Assert.Equal(1, neg.Value!.OnHand);
+        Assert.Equal(3, neg.Value.Shortfall);
+        Assert.Equal("O Neg", neg.Value.GroupText);
+        Assert.True((await service.SaveAsync(new SaveMinimumStockRequest(product.Id, AboGroup.O, 2))).Succeeded);
+        Assert.False((await service.SaveAsync(new SaveMinimumStockRequest(product.Id, AboGroup.O, 2, RhType.Unknown))).Succeeded);
+
+        var rows = (await service.ListAsync()).Where(r => r.ProductTypeId == product.Id).ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(3, rows.Single(r => r.RhD is null).OnHand);
+        Assert.Equal(1, rows.Single(r => r.RhD == RhType.Negative).OnHand);
+    }
 }

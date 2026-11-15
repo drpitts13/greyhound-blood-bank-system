@@ -203,6 +203,7 @@ public sealed class SupplierOrderService
                 SupplierOrderId = order.Id,
                 ProductTypeId = row.ProductTypeId,
                 Abo = row.Abo,
+                RhD = row.RhD,
                 Quantity = Math.Min(row.StillToOrder, SupplierOrderRule.MaxLineQuantity)
             }, ct);
         }

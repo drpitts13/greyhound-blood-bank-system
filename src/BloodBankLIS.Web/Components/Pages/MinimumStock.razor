@@ -8,7 +8,7 @@
 <PageTitle>Minimum stock &middot; HemoCore</PageTitle>
 
 <h1>Minimum stock</h1>
-<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. <strong>Open orders</strong> counts product orders for that product still waiting for a unit (any ABO; each wants at least one). Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
+<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group, one Rh(D) type, or both (for example O negative). <strong>Open orders</strong> counts product orders for that product still waiting for a unit (any ABO; each wants at least one). Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
 <Outcome Value="_feedback" />
 
 <div class="bb-card">
@@ -31,15 +31,15 @@
         }
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th title="Units on submitted supplier orders that have not arrived">On order</th><th title="Open product orders for this product, any ABO, still waiting for a unit">Open orders</th><th></th></tr></thead>
+            <thead><tr><th>Product</th><th>Name</th><th>Group</th><th>On hand</th><th>Minimum</th><th>Short</th><th title="Units on submitted supplier orders that have not arrived">On order</th><th title="Open product orders for this product, any ABO, still waiting for a unit">Open orders</th><th></th></tr></thead>
             <tbody>
                 @* Shortages first, largest first, so what needs ordering is at the top. *@
-                @foreach (var row in _rows.OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo))
+                @foreach (var row in _rows.OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo).ThenBy(r => r.RhD))
                 {
                     <tr class="@(row.Shortfall > 0 ? "row-urgent" : null)">
                         <td class="mono">@row.ProductCode</td>
                         <td>@ProductName(row.ProductTypeId)</td>
-                        <td>@(row.Abo?.ToString() ?? "Any")</td>
+                        <td data-minimum-group>@row.GroupText</td>
                         <td><a href="@OnHandUrl(row)" title="Show these units in Inventory">@row.OnHand</a></td>
                         <td>@row.MinimumAvailable</td>
                         <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
@@ -104,6 +104,14 @@
                     }
                 </select>
             </div>
+            <div class="field">
+                <label>Rh(D)</label>
+                <select @bind="_rh" data-minimum-rh>
+                    <option value="">Any</option>
+                    <option value="@RhType.Negative">@Ui.EnumText(RhType.Negative)</option>
+                    <option value="@RhType.Positive">@Ui.EnumText(RhType.Positive)</option>
+                </select>
+            </div>
             <div class="field"><label>Minimum available</label><input type="number" min="0" @bind="_minimum" /></div>
         </div>
         <button class="btn btn-primary btn-sm" @onclick="SaveAsync">Save minimum</button>
@@ -115,11 +123,12 @@
 
     // The same search the board counts with (Available, product, ABO when set), so the number opens its units.
     private static string OnHandUrl(MinimumStockRowDto row) =>
-        $"/inventory?productTypeId={row.ProductTypeId}&status={UnitStatus.Available}" + (row.Abo is { } abo ? $"&abo={abo}" : "");
+        $"/inventory?productTypeId={row.ProductTypeId}&status={UnitStatus.Available}" + (row.Abo is { } abo ? $"&abo={abo}" : "") + (row.RhD is { } rh ? $"&rhD={rh}" : "");
     private List<ProductTypeDto> _products = new();
     private Feedback? _feedback;
     private long _productId;
     private string _abo = string.Empty;
+    private string _rh = string.Empty;
     private int _minimum = 1;
 
     protected override async Task OnInitializedAsync()
@@ -145,6 +154,7 @@
     {
         _productId = row.ProductTypeId;
         _abo = row.Abo?.ToString() ?? string.Empty;
+        _rh = row.RhD?.ToString() ?? string.Empty;
         _minimum = row.MinimumAvailable;
         await Js.ScrollIntoViewAsync("minimum-stock-form");
     }
@@ -152,7 +162,8 @@
     private async Task SaveAsync()
     {
         AboGroup? abo = Enum.TryParse<AboGroup>(_abo, out var parsed) ? parsed : null;
-        var saved = await Api.SaveMinimumStockAsync(new SaveMinimumStockRequest(_productId, abo, _minimum));
+        RhType? rh = Enum.TryParse<RhType>(_rh, out var parsedRh) ? parsedRh : null;
+        var saved = await Api.SaveMinimumStockAsync(new SaveMinimumStockRequest(_productId, abo, _minimum, rh));
         _feedback = saved.ToFeedback("Minimum saved.");
         if (saved.Succeeded) await ReloadAsync();
     }

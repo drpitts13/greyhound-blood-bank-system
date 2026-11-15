@@ -24309,3 +24309,21 @@ Equipment (checks overdue, an item out of service) and the chart's **Print summa
 ### Tests
 
 - TEST-BB-1118. Full suite passed.
+
+## Iteration 824 — End-user testing pass 105: minimum stock by Rh(D) (2026-11-15)
+
+### How it was tested
+
+The newborn chart (Baby Girl Maya, linked to her mother), the RhIG queue, recall on Lookback, and Minimum stock with the seeded levels.
+
+### Found and fixed
+
+1. **Minimum stock could not be set for O negative.** A level took a product and an ABO group only, so the seeded *RBC-LR O* row read 6 of 6 while every one of those units was O positive: the O negative red cells kept for emergencies and Rh-negative women had no minimum and no alert. A level can now name one Rh(D) type as well (or Rh only), counted against units of that type, matched to supplier order lines of that type, and named on the board (*Group* column), the dashboard card and the shortage alert ("O Neg"). Shortfall orders carry the Rh(D), and the on-hand number opens Inventory filtered by it.
+
+### Retested live
+
+- An RBC-LR O negative minimum of 4 showed *O Neg 0 of 4* beside *O 6 of 6*; the dashboard card read *RBC-LR O Neg: 0 of 4*; the on-hand link opened Inventory with Rh(D) Negative selected and no units. The test level was then removed.
+
+### Tests
+
+- TEST-BB-1119, TEST-BB-1120. Full suite passed.

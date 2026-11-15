@@ -889,3 +889,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-881 | A component label is not printed or reprinted for a unit that has expired or is no longer in stock. | P1 | FRS-BB-999 |
 | URS-BB-882 | The shift handoff hands over storage temperature (out of range, back in range to close, readings due) and overdue deviations. | P1 | FRS-BB-1000 |
 | URS-BB-883 | The downtime patient summary carries the patient's prior transfusion reactions and whether a workup is still open. | P1 | FRS-BB-1001 |
+| URS-BB-884 | A minimum stock level can be set for one Rh(D) type as well as one ABO group (for example O negative), counted, alerted and ordered for that group. | P1 | FRS-BB-1002 |

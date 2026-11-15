@@ -1127,5 +1127,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1116 | I | `Phase6PrintingTests.ComponentLabel_NotForUnitsExpiredOrOutOfStock` | URS-BB-881 / FRS-BB-999 |
 | TEST-BB-1117 | U | `ShiftHandoffItemsTests.StorageTemperature_AndOverdueDeviations_AreHandoffItems` | URS-BB-882 / FRS-BB-1000 |
 | TEST-BB-1118 | I | `DowntimePatientSummaryTests.Sheet_CarriesPriorReactions_AndAnOpenWorkup` | URS-BB-883 / FRS-BB-1001 |
+| TEST-BB-1119 | U | `MinimumStockRuleTests.GroupText_AndCovers_IncludeRh` | URS-BB-884 / FRS-BB-1002 |
+| TEST-BB-1120 | I | `MinimumStockOpenOrdersTests.Minimum_ForORhNegative_CountsOnlyThoseUnits` | URS-BB-884 / FRS-BB-1002 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
