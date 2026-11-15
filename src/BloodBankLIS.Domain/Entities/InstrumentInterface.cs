@@ -19,6 +19,13 @@ public class InstrumentInterface : BaseEntity
 
     public string? InterpretationAnalyteCodes { get; set; }
 
+    /// <summary>
+    /// The sample ID prefixes this instrument's QC samples carry (comma-separated, for example QC-, CTRL), so a daily QC
+    /// run is not taken for an unknown patient specimen (end-user testing pass 84). Blank: none; the IDs are the
+    /// facility's, from how its analyzer is set up.
+    /// </summary>
+    public string? QcSampleIdPrefixes { get; set; }
+
     public InstrumentConnection? Connection { get; set; }
 
     public ICollection<InstrumentFieldMapping> FieldMappings { get; set; } = new List<InstrumentFieldMapping>();

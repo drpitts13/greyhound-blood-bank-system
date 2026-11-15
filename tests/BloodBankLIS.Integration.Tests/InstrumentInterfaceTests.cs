@@ -280,6 +280,34 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(ResultSource.Instrument, (await PostedResultAsync(context, "ACC-INST-ANT", "ABORH")).Source);
     }
 
+    // TEST-BB-1097 (end-user testing pass 84): a result for a sample ID with none of the instrument's QC prefixes and no
+    // specimen fails, as before; once the prefix is saved on the instrument the same run is filed as a QC sample, accepted,
+    // not a failure, and nothing is posted.
+    [Fact]
+    public async Task QcSample_IsFiledAsQc_NotAFailure()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        var raw = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Screen", "QCT84-ABSC-POS", "", "QC", "Positive", "19000101", "U", 3)).RawMessage;
+
+        var before = await Processor(context).ProcessAsync(raw, iface.Id);
+        Assert.False(before.Accepted);
+        Assert.Equal(InstrumentMessageStatus.Failed, before.Log.Status);
+
+        var current = (await Admin(context).GetAsync(iface.Id))!;
+        var saved = await Admin(context).UpdateAsync(iface.Id, Request(current, "Echo QC sample IDs", current.Translations) with { QcSampleIdPrefixes = " qct84-; ctrl84 qct84- " });
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.Equal("QCT84-, CTRL84", saved.Value!.QcSampleIdPrefixes);
+
+        var after = await Processor(context).ProcessAsync(raw, iface.Id);
+        Assert.True(after.Accepted, string.Join("; ", after.Notes));
+        Assert.Equal(InstrumentMessageStatus.QualityControl, after.Log.Status);
+        Assert.Null(after.Log.ErrorDetail);
+        Assert.Contains(after.Notes, n => n.StartsWith("QC sample QCT84-ABSC-POS (Screen): not a patient specimen, not posted.", StringComparison.Ordinal));
+        Assert.False(await context.TestResults.AnyAsync(r => r.Specimen!.AccessionNumber == "QCT84-ABSC-POS"));
+    }
+
     // TEST-BB-1017: a result whose patient ID is not the specimen's patient is not posted and waits in failures; with the
     // right patient ID, or none, it posts (end-user testing pass 10).
     [Fact]
@@ -498,7 +526,7 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
 
     private static SaveInstrumentInterfaceRequest Request(InstrumentInterfaceDto dto, string reason, IEnumerable<InstrumentTranslationDto> translations) =>
         new(dto.Name, dto.Environment, reason, dto.Connection, dto.FieldMappings, translations.ToList(), dto.Rules,
-            dto.InterpretationMatch, dto.InterpretationAnalyteCodes);
+            dto.InterpretationMatch, dto.InterpretationAnalyteCodes, dto.QcSampleIdPrefixes);
 
     private InterfaceUnmappedValueService Unmapped(BloodBankDbContext context)
     {

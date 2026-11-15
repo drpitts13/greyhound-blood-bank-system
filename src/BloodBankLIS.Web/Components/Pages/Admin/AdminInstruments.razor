@@ -110,6 +110,12 @@
                     </div>
                 }
             </div>
+            @* Pass 84: the instrument's own QC samples, so a QC run is not taken for an unknown patient specimen. *@
+            <div class="field" style="max-width:36rem;">
+                <label>QC sample ID prefixes</label>
+                <input class="mono" @bind="_editing.QcSampleIdPrefixes" maxlength="200" placeholder="e.g. QC-, CTRL" data-instrument-qc-prefixes />
+                <span class="sub">Results for a sample ID starting with one of these are filed as QC samples: not posted to a patient and not failures. Use the IDs your analyzer gives its QC samples; record the QC itself under Reagent QC.</span>
+            </div>
             <p class="muted">
                 Map each data item to an ASTM locator such as <span class="mono">P.3</span> or
                 <span class="mono">R.4.1</span>.
@@ -595,6 +601,7 @@
         public InstrumentInterpretationMatch InterpretationMatch { get; set; } =
             InstrumentInterpretationMatch.AnalyteEqualsAssay;
         public string? InterpretationAnalyteCodes { get; set; }
+        public string? QcSampleIdPrefixes { get; set; }
         public List<FieldRow> FieldMappings { get; set; } = new();
         public List<XlatRow> Translations { get; set; } = new();
         public List<RuleRow> Rules { get; set; } = new();
@@ -608,6 +615,7 @@
             Port = dto.Connection.Port,
             InterpretationMatch = dto.InterpretationMatch,
             InterpretationAnalyteCodes = dto.InterpretationAnalyteCodes,
+            QcSampleIdPrefixes = dto.QcSampleIdPrefixes,
             FieldMappings = dto.FieldMappings.Select(m => new FieldRow { DataItemKey = m.DataItemKey, AstmPath = m.AstmPath, IsRequired = m.IsRequired }).ToList(),
             Translations = dto.Translations.Select(t => new XlatRow
             {
@@ -638,7 +646,8 @@
                     .ToList(),
                 Rules.Select(r => new InstrumentRuleDto(r.Name, r.ConditionExpression, r.ActionExpression, r.SortOrder, r.IsEnabled, r.StopOnMatch)).ToList(),
                 InterpretationMatch,
-                InterpretationAnalyteCodes);
+                InterpretationAnalyteCodes,
+                QcSampleIdPrefixes);
     }
 
     private sealed class FieldRow

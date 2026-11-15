@@ -123,14 +123,16 @@ public sealed class AstmInboundProcessor
             {
                 reply = await HandleQueryAsync(iface, message, log, notes, ct);
             }
-            else
+
+            var qcOnly = false;
+            if (message.Kind != InstrumentMessageKind.Query)
             {
-                await HandleResultsAsync(iface, message, log, notes, ct, releasedBy);
+                qcOnly = await HandleResultsAsync(iface, message, log, notes, ct, releasedBy);
             }
 
-            log.Status = string.IsNullOrWhiteSpace(log.ErrorDetail)
-                ? InstrumentMessageStatus.Processed
-                : InstrumentMessageStatus.Failed;
+            log.Status = !string.IsNullOrWhiteSpace(log.ErrorDetail)
+                ? InstrumentMessageStatus.Failed
+                : qcOnly ? InstrumentMessageStatus.QualityControl : InstrumentMessageStatus.Processed;
             log.ProcessedUtc = _clock.UtcNow;
         }
         catch (Exception ex)
@@ -142,7 +144,7 @@ public sealed class AstmInboundProcessor
         }
 
         await PersistLogAsync(log, ct);
-        return new AstmProcessOutcome(log.Status == InstrumentMessageStatus.Processed, log, reply, notes);
+        return new AstmProcessOutcome(log.Status is InstrumentMessageStatus.Processed or InstrumentMessageStatus.QualityControl, log, reply, notes);
     }
 
     private async Task PersistLogAsync(InstrumentMessageLog log, CancellationToken ct)
@@ -244,7 +246,8 @@ public sealed class AstmInboundProcessor
             reason: message.ResolutionNote);
     }
 
-    private async Task HandleResultsAsync(
+    /// <summary>Posts the results; true when every result was for the instrument's own QC samples (pass 84).</summary>
+    private async Task<bool> HandleResultsAsync(
         InstrumentInterface iface,
         AstmMessage message,
         InstrumentMessageLog log,
@@ -259,6 +262,7 @@ public sealed class AstmInboundProcessor
         // Error and flag codes act only once the instrument has error code translations (OCD-066); until then they are
         // read but, as before, do not change what posts.
         var checkErrors = translator.HasRows(InstrumentTranslationKeys.ErrorCode);
+        var qcSamples = 0;
 
         foreach (var group in groups)
         {
@@ -270,6 +274,14 @@ public sealed class AstmInboundProcessor
                             ?? group.Patient.GetField(3);
             log.SpecimenId ??= specimenId;
             log.PatientId ??= patientId;
+
+            // Pass 84: the instrument's own QC sample is not a patient specimen; it is filed as QC, not posted or failed.
+            if (InstrumentQcSample.IsQc(specimenId, iface.QcSampleIdPrefixes))
+            {
+                qcSamples++;
+                notes.Add($"QC sample {specimenId.Trim()} ({assayCode}): not a patient specimen, not posted. Record the QC under Reagent QC.");
+                continue;
+            }
 
             var orderCodes = await ResolveOrderTestCodesAsync(specimenId, ct);
             var appTest = translator.ToLocal(InstrumentTranslationKeys.ResultTestCode, assayCode, orderedTests: orderCodes);
@@ -447,6 +459,7 @@ public sealed class AstmInboundProcessor
 
         log.RuleTraceJson = JsonSerializer.Serialize(ruleTrace, JsonOptions);
         await RecordMissesAsync(translator, iface.Id, log, ct);
+        return groups.Count > 0 && qcSamples == groups.Count;
     }
 
     private async Task<string?> PatientMismatchAsync(string? specimenId, string? patientId, CancellationToken ct)

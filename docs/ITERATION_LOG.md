@@ -23900,3 +23900,21 @@ Inventory › Open deliveries, delivery PL-UAT-2 (American Red Cross) and its En
 ### Tests
 
 - TEST-BB-1096. Full suite passed.
+
+## Iteration 802 — End-user testing pass 84: the analyzer's daily QC run (2026-11-14)
+
+### How it was tested
+
+The Antibody ID worklist (the open workup on an expired specimen is already flagged), then the instrument simulator: a Screen result for sample QC-ABSC-POS, as an analyzer sends when its daily QC samples are run.
+
+### Found and fixed
+
+1. **The analyzer's QC run landed in the failures.** The QC sample's result was taken for a patient specimen, failed as "No specimen matched accession QC-ABSC-POS" and waited among the open instrument failures, as it would every morning, with the home card and the handoff counting it. Each instrument now has *QC sample ID prefixes* (Admin › Instruments › Configuration; shipped blank, since the IDs are the facility's): a result for a sample ID starting with one is filed as a QC sample, acknowledged, not posted to any patient and not a failure; the message list says *QC sample*. The QC itself is recorded under Reagent QC.
+
+### Retested live
+
+- The demo Echo's prefix was set to QC- with a change reason (development data, for the simulator). The same Screen run for QC-ABSC-POS then filed as *QC sample*, with no error and no result posted; replaying the earlier failed run filed it as QC and closed the failure.
+
+### Tests
+
+- TEST-BB-1097. Full suite passed.

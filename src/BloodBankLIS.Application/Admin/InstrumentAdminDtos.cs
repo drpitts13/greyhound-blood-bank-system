@@ -49,7 +49,8 @@ public sealed record InstrumentInterfaceDto(
     InstrumentConnectionDto Connection,
     IReadOnlyList<InstrumentFieldMappingDto> FieldMappings,
     IReadOnlyList<InstrumentTranslationDto> Translations,
-    IReadOnlyList<InstrumentRuleDto> Rules);
+    IReadOnlyList<InstrumentRuleDto> Rules,
+    string? QcSampleIdPrefixes = null);
 
 public sealed record SaveInstrumentInterfaceRequest(
     string Name,
@@ -60,7 +61,8 @@ public sealed record SaveInstrumentInterfaceRequest(
     IReadOnlyList<InstrumentTranslationDto>? Translations,
     IReadOnlyList<InstrumentRuleDto>? Rules,
     InstrumentInterpretationMatch InterpretationMatch = InstrumentInterpretationMatch.AnalyteEqualsAssay,
-    string? InterpretationAnalyteCodes = null);
+    string? InterpretationAnalyteCodes = null,
+    string? QcSampleIdPrefixes = null);
 
 public sealed record InstrumentStatusDto(
     long Id,

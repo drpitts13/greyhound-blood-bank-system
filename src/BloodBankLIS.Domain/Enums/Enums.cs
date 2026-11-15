@@ -1261,7 +1261,12 @@ public enum InstrumentMessageStatus
     Received = 0,
     Processed = 1,
     Failed = 2,
-    Replayed = 3
+    Replayed = 3,
+    /// <summary>
+    /// Results for the instrument's own QC samples (end-user testing pass 84): recognised by the instrument's QC sample ID
+    /// prefixes, not posted to any patient and not a failure.
+    /// </summary>
+    QualityControl = 4
 }
 
 /// <summary>High-level ASTM message kind derived from record types.</summary>

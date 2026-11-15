@@ -867,3 +867,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-859 | Naming a device for a modification says when one of its equipment checks needs action. | P2 | FRS-BB-977 |
 | URS-BB-860 | A shipment's packing temperature outside the container's validated range is named and recorded with each unit shipped. | P2 | FRS-BB-978 |
 | URS-BB-861 | A supplier delivery completed short of or over its packing list records why. | P2 | FRS-BB-979 |
+| URS-BB-862 | An instrument's own QC sample results are recognised and filed as QC, not as failures and not to a patient. | P2 | FRS-BB-980 |

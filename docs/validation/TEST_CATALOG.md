@@ -1105,5 +1105,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1094 | U | `EquipmentTestNoticeTests.ForDevice_NamesChecksNeedingAction` | URS-BB-859 / FRS-BB-977 |
 | TEST-BB-1095 | U, I | `ShipOutDetailsRuleTests.OutsideContainerRange_NamesTheRange`, `InventoryServiceTests.ShipOutByScan_OutsideTheContainerRange_IsRecorded` | URS-BB-860 / FRS-BB-978 |
 | TEST-BB-1096 | U, I | `DeliveryCompletionRuleTests.Evaluate_NeedsANoteOnlyWhenTheDeliveryDiffers`, `DeliveryServiceTests.Receive_RequiresOpenDeliveryLine_AndCountsUnits`, `DeliveryCompletionPageTests.ShortDelivery_NeedsANote_AndCompletedShowsIt`, `DeliveryCompletionPageTests.CompletedDelivery_ShowsTheDifferenceAndNote` | URS-BB-861 / FRS-BB-979 |
+| TEST-BB-1097 | U, I | `InstrumentQcSampleTests.IsQc_MatchesTheInstrumentsPrefixes`, `InstrumentInterfaceTests.QcSample_IsFiledAsQc_NotAFailure` | URS-BB-862 / FRS-BB-980 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

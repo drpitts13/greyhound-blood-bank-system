@@ -357,6 +357,7 @@ public sealed class InstrumentInterfaceAdminService : ConfigAdminServiceBase
         entity.InterpretationAnalyteCodes = string.IsNullOrWhiteSpace(req.InterpretationAnalyteCodes)
             ? null
             : req.InterpretationAnalyteCodes.Trim();
+        entity.QcSampleIdPrefixes = BloodBankLIS.Domain.Instruments.InstrumentQcSample.Normalize(req.QcSampleIdPrefixes);
     }
 
     private static ChildSet ToChildren(SaveInstrumentInterfaceRequest req)
@@ -439,7 +440,8 @@ public sealed class InstrumentInterfaceAdminService : ConfigAdminServiceBase
             children.Rules
                 .OrderBy(r => r.SortOrder)
                 .Select(r => new InstrumentRuleDto(r.Name, r.ConditionExpression, r.ActionExpression, r.SortOrder, r.IsEnabled, r.StopOnMatch))
-                .ToList());
+                .ToList(),
+            entity.QcSampleIdPrefixes);
     }
 
     private async Task<EvaluationResult<InstrumentInterfaceDto>?> RejectUnauthorizedAsync(

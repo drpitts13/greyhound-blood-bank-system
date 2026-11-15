@@ -135,7 +135,7 @@
                             </td>
                             <td>@msg.MessageKind</td>
                             <td>
-                                @msg.Status@(msg.ResolvedUtc is not null ? " · resolved" : "")
+                                @(msg.Status == InstrumentMessageStatus.QualityControl ? "QC sample" : msg.Status.ToString())@(msg.ResolvedUtc is not null ? " · resolved" : "")
                                 @if (msg.Held)
                                 {
                                     <span class="badge badge-amber" title="An instrument error code held this result: review it, then release it or re-run the sample" data-inst-held>Held</span>
