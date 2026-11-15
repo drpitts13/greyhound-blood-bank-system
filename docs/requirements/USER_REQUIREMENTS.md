@@ -875,3 +875,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-867 | The supervisor queue says how long each quarantined unit has been held and when it expires, soonest to expire first. | P2 | FRS-BB-985 |
 | URS-BB-868 | Inventory search marks units stored where their location does not take the component. | P2 | FRS-BB-986 |
 | URS-BB-869 | The supervisor queue says since when each missing or damaged unit has been so, longest first. | P3 | FRS-BB-987 |
+| URS-BB-870 | The unit picker does not count units not confirmed antigen-negative as compatible with the patient's antibodies. | P1 | FRS-BB-988 |

@@ -11,14 +11,14 @@ public class CrossmatchUnitOfferTests
     {
         var offer = CrossmatchUnitOffer.Build([1, 2], [2, 3, 4]);
         Assert.Equal(new long[] { 1, 2, 3, 4 }, offer.Ids!.OrderBy(i => i).ToArray());
-        Assert.Equal("2 units reserved for this patient, and 2 more compatible units in stock.", offer.Note);
+        Assert.Equal("2 units reserved for this patient, and 2 more units in stock of a compatible type.", offer.Note);
     }
 
     [Fact]
     public void Offer_Wording_ForOneAndNone()
     {
         Assert.Equal("1 unit reserved for this patient.", CrossmatchUnitOffer.Build([7], [7]).Note);
-        Assert.Equal("0 units reserved for this patient, and 1 more compatible unit in stock.", CrossmatchUnitOffer.Build([], [9]).Note);
+        Assert.Equal("0 units reserved for this patient, and 1 more unit in stock of a compatible type.", CrossmatchUnitOffer.Build([], [9]).Note);
         Assert.Empty(CrossmatchUnitOffer.Build([], []).Ids!);
     }
 

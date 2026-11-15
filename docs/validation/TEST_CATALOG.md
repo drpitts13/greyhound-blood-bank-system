@@ -1113,5 +1113,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1102 | I | `InventoryServiceTests.Quarantine_SaysHowLongHeld_AndWhenItExpires`, `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesQuarantineUnit` | URS-BB-867 / FRS-BB-985 |
 | TEST-BB-1103 | U | `WrongStorageRuleTests.WrongStorage_NamesAComponentTheShelfDoesNotTake` | URS-BB-868 / FRS-BB-986 |
 | TEST-BB-1104 | I | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesMissingUnit_UntilLocated` | URS-BB-869 / FRS-BB-987 |
+| TEST-BB-1105 | U | `CompatibleUnitSummaryTests.Note_CountsUnitsNotConfirmedAntigenNegativeApart`, `CrossmatchUnitOfferTests.Offer_IsReservedPlusCompatible_CountedOnce`, `CrossmatchUnitOfferTests.Offer_Wording_ForOneAndNone` | URS-BB-870 / FRS-BB-988 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

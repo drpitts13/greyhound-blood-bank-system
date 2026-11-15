@@ -21,7 +21,7 @@ public static class CrossmatchUnitOffer
         var more = compatible.Where(id => !reservedIds.Contains(id)).ToHashSet();
         var ids = reservedIds.Union(more).ToHashSet();
         var note = $"{Count(reservedIds.Count, "unit", "units")} reserved for this patient"
-            + (more.Count > 0 ? $", and {Count(more.Count, "more compatible unit", "more compatible units")} in stock." : ".");
+            + (more.Count > 0 ? $", and {Count(more.Count, "more unit", "more units")} in stock of a compatible type." : ".");
         return new Offer(ids, note);
     }
 

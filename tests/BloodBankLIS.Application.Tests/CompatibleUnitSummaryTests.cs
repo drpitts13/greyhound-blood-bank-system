@@ -18,4 +18,24 @@ public class CompatibleUnitSummaryTests
         Assert.StartsWith("1 available unit is compatible", CompatibleUnitSummary.Note([Unit(1, "Fresh Frozen Plasma")]));
         Assert.StartsWith("No available unit is compatible", CompatibleUnitSummary.Note([]));
     }
+
+    // TEST-BB-1105 (end-user testing pass 91): units not confirmed antigen-negative for the patient's antibodies are not
+    // counted as compatible with them; they are named apart, with why.
+    [Fact]
+    public void Note_CountsUnitsNotConfirmedAntigenNegativeApart()
+    {
+        CompatibleUnitDto Flagged(long id, string product, string flag) => Unit(id, product) with { AntigenNegFlag = flag };
+        const string untested = BloodBankLIS.Domain.Rules.BloodAttributeCompatibilityRule.UntestedFlag;
+        const string positive = BloodBankLIS.Domain.Rules.BloodAttributeCompatibilityRule.NotNegativeFlag;
+
+        Assert.Equal(
+            "2 available units are compatible with this patient's type, special requirements, and antibodies: 2 Fresh Frozen Plasma. "
+            + "2 more match the type and special requirements but are not confirmed antigen-negative for the patient's antibodies (not tested): 2 Red Blood Cells, Leukoreduced. "
+            + "Type them first, or reserve one only with an authorized override.",
+            CompatibleUnitSummary.Note([Unit(1, "Fresh Frozen Plasma"), Unit(2, "Fresh Frozen Plasma"),
+                Flagged(3, "Red Blood Cells, Leukoreduced", untested), Flagged(4, "Red Blood Cells, Leukoreduced", untested)]));
+        Assert.StartsWith("No available unit is confirmed compatible with this patient's antibodies. 1 more matches",
+            CompatibleUnitSummary.Note([Flagged(3, "Red Blood Cells, Leukoreduced", positive)]));
+        Assert.Contains("(1 not tested, 1 antigen-positive)", CompatibleUnitSummary.Note([Flagged(3, "RBC", untested), Flagged(4, "RBC", positive)]));
+    }
 }

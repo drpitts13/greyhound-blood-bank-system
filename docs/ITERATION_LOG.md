@@ -24057,3 +24057,21 @@ Baby Girl Maya (MRN0027, seven days old, linked to her mother MRN0025): the char
 ### Tests
 
 - TEST-BB-1104. Full suite passed.
+
+## Iteration 810 — End-user testing pass 91: units offered to a patient with anti-K (2026-11-14)
+
+### How it was tested
+
+Compatibility, for Kellerman, Diane (MRN0004, O+, anti-K identified): the Record crossmatch picker and the Allocate unit picker.
+
+### Found and fixed
+
+1. **Untyped red cells were counted as compatible with the patient's antibodies.** The Allocate note read "12 available units are compatible with this patient's type, special requirements, and antibodies: 6 Fresh Frozen Plasma, 6 Red Blood Cells, Leukoreduced", but none of the six red cells was typed for K; each carried the not-tested flag that makes reserving it need an override. The note now counts those apart: *6 available units are compatible …: 6 Fresh Frozen Plasma. 6 more match the type and special requirements but are not confirmed antigen-negative for the patient's antibodies (not tested): 6 Red Blood Cells, Leukoreduced. Type them first, or reserve one only with an authorized override.* The crossmatch picker's note, which deliberately offers untested units, now says "units in stock of a compatible type" instead of "compatible units".
+
+### Retested live
+
+- Both notes read as above for MRN0004.
+
+### Tests
+
+- TEST-BB-1105. Full suite passed.
