@@ -30,6 +30,12 @@ public class OrderLine : BaseEntity
 
     public long? ProductTypeId { get; set; }
 
+    /// <summary>
+    /// For a product line, the volume wanted in mL when less than a whole unit is ordered (an aliquot or syringe for a
+    /// neonate or child; end-user testing pass 118). Null: a whole unit.
+    /// </summary>
+    public int? RequestedVolumeMl { get; set; }
+
     public ProductType? ProductType { get; set; }
 
     public FulfillmentStatus? FulfillmentStatus { get; set; }

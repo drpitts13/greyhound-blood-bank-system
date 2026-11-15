@@ -52,4 +52,6 @@ When the facility turns on **Evaluate product orders against transfusion criteri
 
 When a product is ticked on **Add order**, a **units** box appears beside it (1 to 20). The order is saved with one product line per unit, so the blood order shows how many units are wanted and how many are still needed.
 
+For less than a whole unit (an aliquot or syringe for a neonate or child), enter the **mL each** beside the units, from 1 to 1000; leave it blank for whole units. Each line is saved with its volume, the order shows it after the product (*Red Blood Cells (15 mL)*), and Blood orders to prepare lists it the same way (*2 × Red Blood Cells (15 mL)*), so the bench knows to prepare an aliquot. The volume is what was asked for; dividing the unit is recorded on Modify products as usual.
+
 When the visit names a place that is not one ordering location, no ordering location is chosen for you: pick it from the list. **Order ABO/Rh** from Second ABO/Rh due opens the order with ABO/Rh ticked and **Accession a new specimen now** chosen, because the second type must come from a separately collected tube.

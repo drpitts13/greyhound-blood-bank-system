@@ -24544,3 +24544,21 @@ Compatibility, the stock count, the audit trail filters, specimen intake and the
 ### Tests
 
 - TEST-BB-1134, TEST-BB-1135. Full suite passed.
+
+## Iteration 837 — End-user testing pass 118: ordering a volume, not a whole unit (2026-11-15)
+
+### How it was tested
+
+Product orders on the chart and Blood orders to prepare, for a neonate or child who needs part of a unit.
+
+### Found and fixed
+
+1. **A product order could ask only for whole units.** A neonatal or pediatric order for 15 mL of red cells (an aliquot or syringe) had no way to say so: a product line carried a product and nothing else, so the bench saw *1 × Red Blood Cells* and learned the volume by phone. Add order now takes an optional **mL each** beside the units (1 to 1000; blank for whole units); the line keeps it, the order shows it (*Red Blood Cells, Leukoreduced (15 mL)*), and Blood orders to prepare lists it the same way. A volume out of range is refused.
+
+### Retested live
+
+- An order for Riley Demo-Multi asking 0 mL was refused (*A requested volume must be between 1 and 1000 mL.*); one asking 15 mL showed on Blood orders to prepare as *1 × Red Blood Cells, Leukoreduced (15 mL)* and on the chart's order as *Red Blood Cells, Leukoreduced (15 mL)*; ticking a product on Add order shows the *mL each* box. The test order was then removed.
+
+### Tests
+
+- TEST-BB-1136, TEST-BB-1137. Full suite passed.

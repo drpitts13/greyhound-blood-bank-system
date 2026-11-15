@@ -338,6 +338,12 @@ public sealed class OrderService
             return OperationResult<Order>.Fail(neededBy.Message);
         }
 
+        // Pass 118: a requested volume is a whole number of mL within range.
+        if (request.Lines.Select(l => RequestedVolumeRule.Validate(l.RequestedVolumeMl)).FirstOrDefault(m => m is not null) is { } volumeProblem)
+        {
+            return OperationResult<Order>.Fail(volumeProblem);
+        }
+
         var (orderingProviderId, orderingProviderName) = await ResolveOrderingProviderAsync(request.OrderingProviderId, ct);
         var productTypeMap = await LoadProductTypeMapAsync(ct);
         var lineInputs = OrderLineBuilder.WithCrossmatchLineIfNeeded(request.Lines, productTypeMap);
@@ -542,6 +548,11 @@ public sealed class OrderService
         if (editRule is not null)
         {
             return EvaluationResult<Order>.Fail(editRule.Message);
+        }
+
+        if (request.Lines.Select(l => RequestedVolumeRule.Validate(l.RequestedVolumeMl)).FirstOrDefault(m => m is not null) is { } editVolumeProblem)
+        {
+            return EvaluationResult<Order>.Fail(editVolumeProblem);
         }
 
         var encounter = await _encounters.GetByIdAsync(request.EncounterId, ct);
@@ -1081,12 +1092,18 @@ public sealed class OrderService
                     throw new InvalidOperationException($"Product type {input.ProductTypeId.Value} not found.");
                 }
 
+                if (RequestedVolumeRule.Validate(input.RequestedVolumeMl) is { } volumeProblem)
+                {
+                    throw new InvalidOperationException(volumeProblem);
+                }
+
                 lines.Add(new OrderLine
                 {
                     LineNumber = lineNumber++,
                     LineCategory = OrderCategory.Product,
                     LineName = productType.Name,
                     ProductTypeId = productType.Id,
+                    RequestedVolumeMl = input.RequestedVolumeMl,
                     OrderType = OrderType.Other,
                     FulfillmentStatus = FulfillmentStatus.Ordered
                 });

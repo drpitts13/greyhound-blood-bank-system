@@ -119,6 +119,11 @@ public class BloodOrderWorklistTests
 
         Lines(routineOrder, 3);
         Lines(statOrder, 2);
+        // TEST-BB-1137: a part unit asked for in mL is named with its volume (end-user testing pass 118).
+        foreach (var line in c.OrderLines.Local.Where(l => l.OrderId == statOrder.Id))
+        {
+            line.RequestedVolumeMl = 15;
+        }
         Lines(coveredOrder, 1);
         Lines(cancelledOrder, 2);
         var units = Enumerable.Range(1, 5).Select(i => new BloodUnit { UnitNumber = $"W-BO-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(20), Status = UnitStatus.Assigned }).ToList();
@@ -143,6 +148,7 @@ public class BloodOrderWorklistTests
         var statRow = rows[0];
         Assert.Equal((true, 2, 2, false, "Collect a specimen", $"/patients/{stat.Id}?tab=specimens&panel=specimen"),
             (statRow.Rush, statRow.Requested, statRow.Remaining, statRow.HasUsableSpecimen, statRow.NextStep, statRow.Href));
+        Assert.Equal("2 × Red Blood Cells (15 mL)", statRow.Products);
         var routineRow = rows[1];
         // TEST-BB-706: a reservation ended by the unit's expiry is named on its order, and a released one is not.
         Assert.Equal(["Unit W-BO-5 expired at 2026-05-30 11:00 UTC."], statRow.ExpiredReservations);

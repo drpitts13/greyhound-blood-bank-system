@@ -221,7 +221,7 @@ public sealed class BloodOrderWorklistService
             var tube = inTransit.GetValueOrDefault(order.PatientId)?
                 .FirstOrDefault(s => !OrderNeededByRule.ExpiresBeforeNeeded(s.ExpiresUtc, order.NeededByUtc, now))?.AccessionNumber;
             var products = string.Join(", ", group
-                .GroupBy(l => l.LineName, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(l => RequestedVolumeRule.Label(l.LineName, l.RequestedVolumeMl), StringComparer.OrdinalIgnoreCase)
                 .Select(g => $"{g.Count()} × {g.Key}"));
             rows.Add(new BloodOrderToPrepareDto(
                 order.Id, order.OrderNumber, order.PatientId,

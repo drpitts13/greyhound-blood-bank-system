@@ -62,7 +62,9 @@ public sealed record OrderLineInputDto(
     string? TestCode,
     long? ProductTypeId,
     // Set when the line comes from expanding a test grouper.
-    string? GrouperCode = null);
+    string? GrouperCode = null,
+    // Pass 118: for a product line, the volume wanted in mL (an aliquot); null for a whole unit.
+    int? RequestedVolumeMl = null);
 
 public sealed record OrderLineDto(
     long Id,
@@ -77,9 +79,15 @@ public sealed record OrderLineDto(
     string? Comment = null,
     string? GrouperCode = null)
 {
+    /// <summary>The volume asked for on a product line, in mL; null for a whole unit (pass 118).</summary>
+    public int? RequestedVolumeMl { get; init; }
+
     public static OrderLineDto From(OrderLine line) => new(
         line.Id, line.LineNumber, line.LineCategory, line.LineName, line.TestCode, line.OrderType,
-        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus, line.Comment, line.GrouperCode);
+        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus, line.Comment, line.GrouperCode)
+    {
+        RequestedVolumeMl = line.RequestedVolumeMl
+    };
 }
 
 public sealed record CreateOrderRequest(

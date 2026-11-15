@@ -131,6 +131,11 @@
                                             <input type="number" min="1" max="@MaxUnitsPerProduct" style="width:4.5rem;" value="@NewOrderProductUnits.GetValueOrDefault(pt.Id, 1)"
                                                    @onchange="e => SetUnits(pt.Id, e.Value)" data-order-units="@pt.Id" aria-label="Units of @pt.ChoiceLabel" />
                                             <span class="muted">units</span>
+                                            @* Pass 118: a part unit (aliquot) for a neonate or child. *@
+                                            <input type="number" min="1" max="@RequestedVolumeRule.MaxMl" style="width:5rem;" placeholder="whole"
+                                                   value="@(NewOrderProductVolumes.TryGetValue(pt.Id, out var ml) ? ml.ToString() : "")"
+                                                   @onchange="e => SetVolume(pt.Id, e.Value)" data-order-volume="@pt.Id" aria-label="mL of each @pt.ChoiceLabel" />
+                                            <span class="muted">mL each (blank for a whole unit)</span>
                                         </span>
                                     }
                                 </label>
@@ -306,7 +311,7 @@
                             <div class="muted" style="margin-bottom:.15rem;"><span class="mono">@o.OrderNumber</span> · @o.OrderCategory · @o.Source</div>
                             @foreach (var line in o.Lines)
                             {
-                                <div>@line.LineName <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
+                                <div>@RequestedVolumeRule.Label(line.LineName, line.RequestedVolumeMl) <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
                             }
                             @foreach (var action in o.Actions ?? [])
                             {
@@ -629,6 +634,21 @@
 
     /// <summary>Units wanted for each checked product (1 when not set); the parent builds that many product lines.</summary>
     [Parameter] public Dictionary<long, int> NewOrderProductUnits { get; set; } = [];
+
+    /// <summary>Pass 118: mL wanted of each unit of a product, when less than a whole unit; absent for a whole unit.</summary>
+    [Parameter] public Dictionary<long, int> NewOrderProductVolumes { get; set; } = [];
+
+    private void SetVolume(long productTypeId, object? value)
+    {
+        if (int.TryParse(value?.ToString(), out var ml) && ml > 0)
+        {
+            NewOrderProductVolumes[productTypeId] = Math.Min(ml, RequestedVolumeRule.MaxMl);
+        }
+        else
+        {
+            NewOrderProductVolumes.Remove(productTypeId);
+        }
+    }
 
     public const int MaxUnitsPerProduct = 20;
 
