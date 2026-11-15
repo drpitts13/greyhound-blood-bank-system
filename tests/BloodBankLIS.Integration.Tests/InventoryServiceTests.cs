@@ -2678,6 +2678,24 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             row => row.EventType == "Issue" && row.Summary == $"Issued to {who} · {namedCode.ToLowerInvariant()}");
     }
 
+    // TEST-BB-1130: a unit cannot be received or expected with an unknown ABO group or Rh(D); with both known it is
+    // (end-user testing pass 114: such a unit sat as available stock the issue check could never release).
+    [Fact]
+    public async Task Receive_RefusesAnUnknownType()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var expires = _factory.Clock.UtcNow.AddDays(10);
+        var unknownAbo = await service.ReceiveUnitAsync(NewUnitRequest("U-UNK-ABO", productTypeId, expires) with { Abo = AboGroup.Unknown });
+        Assert.False(unknownAbo.Succeeded);
+        Assert.Contains("unknown type", unknownAbo.Error);
+        Assert.False((await service.ReceiveUnitAsync(NewUnitRequest("U-UNK-RH", productTypeId, expires) with { RhD = RhType.Unknown })).Succeeded);
+        Assert.False((await service.ExpectUnitAsync(NewUnitRequest("U-UNK-ASN", productTypeId, expires) with { Abo = AboGroup.Unknown })).Succeeded);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber.StartsWith("U-UNK-")));
+        Assert.True((await service.ReceiveUnitAsync(NewUnitRequest("U-KNOWN-TYPE", productTypeId, expires))).Succeeded);
+    }
+
     [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {

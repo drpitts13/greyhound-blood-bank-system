@@ -697,6 +697,13 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Expiration date/time must be in the future.");
         }
 
+        // Pass 114: the label carries the group; a unit received as Unknown would sit as available stock the issue check
+        // can never release.
+        if (request.Abo == AboGroup.Unknown || request.RhD == RhType.Unknown)
+        {
+            return InventoryActionResult.Fail("Enter the ABO group and Rh(D) from the unit label; a unit cannot be received with an unknown type.");
+        }
+
         var productLookup = await _lookups.GetProductLookupAsync(ct);
         var productValidation = ProductCodeLookupValidator.Validate(
             request.Isbt128ProductCode,
@@ -835,6 +842,13 @@ public sealed class InventoryService
         if (request.ExpiresUtc <= _clock.UtcNow)
         {
             return InventoryActionResult.Fail("Expiration date/time must be in the future.");
+        }
+
+        // Pass 114: the label carries the group; a unit received as Unknown would sit as available stock the issue check
+        // can never release.
+        if (request.Abo == AboGroup.Unknown || request.RhD == RhType.Unknown)
+        {
+            return InventoryActionResult.Fail("Enter the ABO group and Rh(D) from the unit label; a unit cannot be received with an unknown type.");
         }
 
         var productLookup = await _lookups.GetProductLookupAsync(ct);

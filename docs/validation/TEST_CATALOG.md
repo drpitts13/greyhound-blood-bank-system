@@ -1138,5 +1138,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1127 | I | `MotherInfantTests.Infant_IsOfferedTheMothersAntigenNegativeRequirements` | URS-BB-889 / FRS-BB-1007 |
 | TEST-BB-1128 | U | `DashboardDueCountTests.ReactionsNote_SaysHowLongTheOldestHasBeenOpen` | URS-BB-891 / FRS-BB-1009 |
 | TEST-BB-1129 | I | `SupplierOrderTests.SpecialOrder_TakesAPatientSpecificLine` | URS-BB-892 / FRS-BB-1010 |
+| TEST-BB-1130 | I | `InventoryServiceTests.Receive_RefusesAnUnknownType` | URS-BB-893 / FRS-BB-1011 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

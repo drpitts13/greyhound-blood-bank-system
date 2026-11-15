@@ -898,3 +898,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-890 | Adding a maternal antigen-negative requirement from the infant's chart confirms it, and names reserved units that do not meet it. | P2 | FRS-BB-1008 |
 | URS-BB-891 | The reaction board shows when each reaction was reported and how long an investigation still due has been open; the home card names the oldest. | P2 | FRS-BB-1009 |
 | URS-BB-892 | A patient line on a supplier order shows what the patient's units must meet now, and an Unknown group or Rh cannot be ordered. | P1 | FRS-BB-1010 |
+| URS-BB-893 | A unit cannot be received or expected with an unknown ABO group or Rh(D). | P1 | FRS-BB-1011 |

@@ -24472,3 +24472,21 @@ Lookback, the HL7 result publishing path, and Supplier orders with the seeded sp
 ### Tests
 
 - TEST-BB-1129. Full suite passed.
+
+## Iteration 833 — End-user testing pass 114: no unit received with an unknown type (2026-11-15)
+
+### How it was tested
+
+Following pass 113's *Unknown* on supplier orders, every ABO and Rh choice in the application was reviewed for where *Unknown* makes no sense, and delivery receipt was tried.
+
+### Found and fixed
+
+1. **A unit could be received as ABO or Rh(D) *Unknown*.** The delivery receive form offered Unknown for both, and the service took it. Such a unit became available stock counted on Inventory and Minimum stock, but the issue check refuses an unknown ABO, so it could never go to a patient. Receiving or expecting a unit now needs its group and Rh from the label, and the receive choices no longer list Unknown. Searches (Inventory, *Any*), patient typing and retype entry, where Unknown has a meaning, are unchanged; the ISBT 128 scan path takes the type from the label.
+
+### Retested live
+
+- Delivery 3's receive form lists ABO *O, A, B, AB* and Rh(D) *Positive, Negative*. Posting a unit with ABO Unknown to the receive API returned *Enter the ABO group and Rh(D) from the unit label; a unit cannot be received with an unknown type.* and nothing was stored.
+
+### Tests
+
+- TEST-BB-1130. Full suite passed.
