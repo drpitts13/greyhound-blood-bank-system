@@ -33,6 +33,12 @@ public class Deviation : BaseEntity
 
     public string? FdaReportNumber { get; set; }
 
+    /// <summary>Who is responsible for the investigation and corrective action (end-user testing pass 98).</summary>
+    public string? AssignedTo { get; set; }
+
+    /// <summary>When the deviation is to be closed by, as the quality unit sets it; none is built in.</summary>
+    public DateOnly? DueOn { get; set; }
+
     public string ReportedBy { get; set; } = "system";
 
     public DateTime ReportedUtc { get; set; }

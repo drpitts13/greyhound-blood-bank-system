@@ -101,6 +101,17 @@ else
                                     {
                                         <span class="sub" data-corrective-action>Corrective action: @d.CorrectiveAction</span>
                                     }
+                                    @* Pass 98: who is working it and by when. *@
+                                    @if (d.AssignedTo is not null || d.DueOn is not null)
+                                    {
+                                        <span class="sub" data-deviation-owner>
+                                            @(d.AssignedTo is { } owner ? $"Assigned to {owner}" : "Not assigned")@(d.DueOn is DateOnly due ? $" · due {due:yyyy-MM-dd}" : "")
+                                            @if (d.IsOverdue(DateOnly.FromDateTime(DateTime.Now)))
+                                            {
+                                                <span class="badge badge-red" data-deviation-overdue>Overdue</span>
+                                            }
+                                        </span>
+                                    }
                                     @* Pass 73: the FDA reportability determination (BPDR, 21 CFR 606.171). *@
                                     <span class="sub" data-fda-reportability>
                                         @switch (d.FdaReportability)
@@ -173,6 +184,10 @@ else
                     <div class="muted">@_rows.FirstOrDefault(r => r.Id == _statusId)?.Description</div>
                     <div class="field" style="margin-top:.5rem;"><label>Status</label>
                         <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label>Assigned to</label><input @bind="_assignedTo" maxlength="@DeviationDueRule.MaxAssigneeLength" placeholder="Who is working it" data-deviation-assigned /></div>
+                        <div class="field"><label>Due</label><input type="date" @bind="_dueOn" data-deviation-due /></div>
                     </div>
                     <div class="field"><label>Root cause</label><textarea rows="2" @bind="_rootCause" @bind:event="oninput" placeholder="Why it happened, as investigated" data-deviation-root-cause></textarea></div>
                     <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa" @bind:event="oninput" placeholder="What was done, or why no action is needed"></textarea></div>
@@ -384,6 +399,8 @@ else
     }
 
     private string? _rootCause;
+    private string? _assignedTo;
+    private DateTime? _dueOn;
     private DeviationFdaReportability _fdaReportability;
     private DateTime? _fdaReportedOn;
     private string? _fdaReportNumber;
@@ -394,6 +411,8 @@ else
         _newStatus = d.Status;
         _capa = d.CorrectiveAction;
         _rootCause = d.RootCause;
+        _assignedTo = d.AssignedTo;
+        _dueOn = d.DueOn?.ToDateTime(TimeOnly.MinValue);
         _fdaReportability = d.FdaReportability;
         _fdaReportedOn = d.FdaReportedOn?.ToDateTime(TimeOnly.MinValue);
         _fdaReportNumber = d.FdaReportNumber;
@@ -404,7 +423,8 @@ else
         if (_statusId is null) return;
         _busy = true;
         var r = await Api.UpdateDeviationStatusAsync(_statusId.Value, _newStatus, _capa, investigation: new DeviationInvestigationUpdate(
-            _rootCause, _fdaReportability, _fdaReportedOn is DateTime on ? DateOnly.FromDateTime(on) : null, _fdaReportNumber));
+            _rootCause, _fdaReportability, _fdaReportedOn is DateTime on ? DateOnly.FromDateTime(on) : null, _fdaReportNumber,
+            _assignedTo ?? string.Empty, _dueOn is DateTime due ? DateOnly.FromDateTime(due) : null));
         _busy = false;
         _fb = r.ToFeedback("Deviation updated.");
         if (r.Succeeded)

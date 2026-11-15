@@ -24183,3 +24183,21 @@ Following pass 96, the instrument side: the Instruments page message list, read 
 ### Tests
 
 - TEST-BB-1111. Full suite passed.
+
+## Iteration 817 — End-user testing pass 98: who is working a deviation, and by when (2026-11-15)
+
+### How it was tested
+
+Deviations: the three open ones (a unit on the wrong shelf, open nine days; the FRIDGE-1 and OR-FRIDGE excursions), read as the quality unit's weekly review.
+
+### Found and fixed
+
+1. **Deviations had no owner or due date.** Each showed how long it had been open, but not who was investigating it or when it was to be closed, so a review could not tell an on-track deviation from a forgotten one. The Update form now records **Assigned to** and **Due** (the quality unit's date; none is set by itself); the list shows them, marks a deviation **Overdue** once its date has passed while it is open, and the home card names how many are overdue.
+
+### Retested live
+
+- The Update form of deviation #3 shows Assigned to and Due; it was cancelled, leaving the demo deviations without an owner or date.
+
+### Tests
+
+- TEST-BB-1112. Full suite passed.

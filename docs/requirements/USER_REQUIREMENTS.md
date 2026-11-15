@@ -882,3 +882,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-874 | The expired-units alert says how many of its units are still to remove and closes when none is. | P3 | FRS-BB-992 |
 | URS-BB-875 | The HL7 message log can be searched by patient, order, unit or control id and filtered by type, direction and status. | P2 | FRS-BB-993 |
 | URS-BB-876 | Instrument messages can be searched by specimen, patient id or message text, older ones included. | P2 | FRS-BB-994 |
+| URS-BB-877 | A deviation records its owner and due date, and overdue deviations are shown and counted. | P2 | FRS-BB-995 |

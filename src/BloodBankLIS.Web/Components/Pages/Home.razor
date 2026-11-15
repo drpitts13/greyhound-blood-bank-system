@@ -433,7 +433,7 @@
                     return (card.Key, null, null);
                 }
 
-                var (open, note) = DashboardQueueCatalog.DeviationsCard(result.Value);
+                var (open, note) = DashboardQueueCatalog.DeviationsCard(result.Value, DateOnly.FromDateTime(DateTime.Now));
                 return (card.Key, open, note);
             }
             case DashboardQueueCatalog.ExpiredOnShelf:

@@ -18,7 +18,10 @@ public sealed record DeviationInvestigationUpdate(
     string? RootCause,
     DeviationFdaReportability FdaReportability,
     DateOnly? FdaReportedOn,
-    string? FdaReportNumber);
+    string? FdaReportNumber,
+    // Pass 98: owner and due date; set as given (blank clears).
+    string? AssignedTo = null,
+    DateOnly? DueOn = null);
 
 public sealed record DeviationDto(
     long Id,
@@ -46,6 +49,12 @@ public sealed record DeviationDto(
     public DateOnly? FdaReportedOn { get; init; }
     public string? FdaReportNumber { get; init; }
 
+    /// <summary>Owner and due date (pass 98).</summary>
+    public string? AssignedTo { get; init; }
+    public DateOnly? DueOn { get; init; }
+
+    public bool IsOverdue(DateOnly today) => DeviationDueRule.IsOverdue(Status, DueOn, today);
+
     public static DeviationDto From(Deviation d) => new(
         d.Id, d.Title, d.Description, d.Severity, d.Status, d.ContextType, d.ContextId,
         d.CorrectiveAction, d.ReportedBy, d.ReportedUtc, d.ClosedBy, d.ClosedUtc)
@@ -53,7 +62,9 @@ public sealed record DeviationDto(
         RootCause = d.RootCause,
         FdaReportability = d.FdaReportability,
         FdaReportedOn = d.FdaReportedOn,
-        FdaReportNumber = d.FdaReportNumber
+        FdaReportNumber = d.FdaReportNumber,
+        AssignedTo = d.AssignedTo,
+        DueOn = d.DueOn
     };
 }
 
@@ -231,9 +242,16 @@ public sealed class DeviationService
             return OperationResult<Deviation>.Fail(closeCheck.Message);
         }
 
-        var oldInvestigation = new { row.RootCause, row.FdaReportability, row.FdaReportedOn, row.FdaReportNumber };
+        var oldInvestigation = new { row.RootCause, row.FdaReportability, row.FdaReportedOn, row.FdaReportNumber, row.AssignedTo, row.DueOn };
         if (investigation is not null)
         {
+            if (investigation.AssignedTo is { } assignee && assignee.Trim().Length > DeviationDueRule.MaxAssigneeLength)
+            {
+                return OperationResult<Deviation>.Fail($"The person assigned can be at most {DeviationDueRule.MaxAssigneeLength} characters.");
+            }
+
+            row.AssignedTo = string.IsNullOrWhiteSpace(investigation.AssignedTo) ? null : investigation.AssignedTo.Trim();
+            row.DueOn = investigation.DueOn;
             row.RootCause = string.IsNullOrWhiteSpace(investigation.RootCause) ? null : investigation.RootCause.Trim();
             row.FdaReportability = investigation.FdaReportability;
             row.FdaReportedOn = investigation.FdaReportability == DeviationFdaReportability.Reportable ? investigation.FdaReportedOn : null;
@@ -269,7 +287,7 @@ public sealed class DeviationService
             nameof(Deviation),
             row.Id,
             oldValue: new { Status = oldStatus, CorrectiveAction = oldAction, ClosedBy = oldClosedBy, ClosedUtc = oldClosedUtc, Investigation = oldInvestigation },
-            newValue: new { row.Status, row.CorrectiveAction, row.ClosedBy, row.ClosedUtc, Investigation = new { row.RootCause, row.FdaReportability, row.FdaReportedOn, row.FdaReportNumber } },
+            newValue: new { row.Status, row.CorrectiveAction, row.ClosedBy, row.ClosedUtc, Investigation = new { row.RootCause, row.FdaReportability, row.FdaReportedOn, row.FdaReportNumber, row.AssignedTo, row.DueOn } },
             reason: "Deviation status updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Deviation>.Ok(row);

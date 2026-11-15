@@ -28,6 +28,10 @@ A deviation opened by a temperature excursion shows its context as **Temperature
 
 The **Context** column names the related record: the unit number, the patient and MRN, the accession, or the location and reading of a temperature excursion.
 
+## Owner and due date
+
+**Update** records who the deviation is **Assigned to** and when it is **Due**, as your quality unit sets it; nothing sets a due date by itself. The list shows *Assigned to … · due …*, marked **Overdue** once the date has passed while the deviation is not closed, and the home card Open deviations names how many are overdue. Both are audited with the rest of the update.
+
 ## Root cause and FDA reportability
 
 **Update** also records the **root cause** and whether the deviation is **FDA reportable** as a biological product deviation report (BPDR, 21 CFR 606.171): *Not determined* (until someone decides), *Not reportable*, or *Reportable*, with the date it was reported to the FDA and the FDA report number. A report date is accepted only for a reportable deviation and not in the future. The list shows the root cause and the determination for each deviation. A **Major** or **Critical** deviation cannot be closed until its reportability is determined, Reportable or Not reportable (OCD-090): **Save** stays disabled for Closed and says why. A Minor deviation can close with *Not determined*.

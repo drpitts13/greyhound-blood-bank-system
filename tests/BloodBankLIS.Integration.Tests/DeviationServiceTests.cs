@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
@@ -90,6 +91,27 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
 
         var minor = (await CreateService(context).CreateAsync(new CreateDeviationRequest($"Minor {Guid.NewGuid():N}", "Label smudge", DeviationSeverity.Minor))).Value!;
         Assert.True((await CreateService(context).UpdateStatusAsync(minor.Id, DeviationStatus.Closed, "Relabelled")).Succeeded);
+    }
+
+    // TEST-BB-1112 (end-user testing pass 98): the owner and due date are kept and audited; blank clears the owner.
+    [Fact]
+    public async Task OwnerAndDueDate_AreKept()
+    {
+        await using var context = _factory.Create();
+        var row = (await CreateService(context).CreateAsync(new CreateDeviationRequest($"Owner {Guid.NewGuid():N}", "Wrong shelf", DeviationSeverity.Minor))).Value!;
+        var due = new DateOnly(2026, 11, 20);
+        var saved = await CreateService(context).UpdateStatusAsync(row.Id, DeviationStatus.UnderReview, null,
+            investigation: new DeviationInvestigationUpdate(null, DeviationFdaReportability.NotDetermined, null, null, " tech2 ", due));
+        Assert.True(saved.Succeeded, saved.Error);
+        var dto = DeviationDto.From((await context.Deviations.FindAsync(row.Id))!);
+        Assert.Equal(("tech2", (DateOnly?)due), (dto.AssignedTo, dto.DueOn));
+        Assert.True(dto.IsOverdue(due.AddDays(1)));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(Deviation) && a.EntityId == row.Id && a.NewValueJson!.Contains("tech2")));
+
+        var cleared = await CreateService(context).UpdateStatusAsync(row.Id, DeviationStatus.UnderReview, null,
+            investigation: new DeviationInvestigationUpdate(null, DeviationFdaReportability.NotDetermined, null, null, " ", null));
+        Assert.True(cleared.Succeeded, cleared.Error);
+        Assert.Null((await context.Deviations.AsNoTracking().SingleAsync(d => d.Id == row.Id)).AssignedTo);
     }
 
     [Fact]

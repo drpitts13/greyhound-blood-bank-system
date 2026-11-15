@@ -486,6 +486,15 @@ public class DashboardQueueCatalogTests
         Assert.Equal((3, "1 critical"), DashboardQueueCatalog.DeviationsCard([
             Row(DeviationSeverity.Critical, DeviationStatus.CorrectiveAction), Row(DeviationSeverity.Critical, DeviationStatus.Closed),
             Row(DeviationSeverity.Major, DeviationStatus.Open), Row(DeviationSeverity.Minor, DeviationStatus.Open)]));
+
+        // TEST-BB-1112 (pass 98): open deviations past their due date are named too; closed or undated ones are not.
+        var today = new DateOnly(2026, 11, 15);
+        Assert.Equal((3, "1 critical; 2 overdue"), DashboardQueueCatalog.DeviationsCard([
+            Row(DeviationSeverity.Critical, DeviationStatus.Open) with { DueOn = today.AddDays(-1) },
+            Row(DeviationSeverity.Major, DeviationStatus.Open) with { DueOn = today.AddDays(-3) },
+            Row(DeviationSeverity.Major, DeviationStatus.Open) with { DueOn = today },
+            Row(DeviationSeverity.Major, DeviationStatus.Closed) with { DueOn = today.AddDays(-9) }], today));
+        Assert.False(DeviationDueRule.IsOverdue(DeviationStatus.Open, null, today));
     }
 
     // TEST-BB-494: result-entry staff see Reagent QC on the bench, with failed and overdue QC named; review stays in the count.

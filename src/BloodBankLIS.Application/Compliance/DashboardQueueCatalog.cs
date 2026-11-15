@@ -469,10 +469,18 @@ public static class DashboardQueueCatalog
             : $"{recovered} back in range: close {(recovered == 1 ? "its deviation" : "their deviations")}");
     }
 
-    public static (int Count, string? Note) DeviationsCard(IEnumerable<DeviationDto> deviations)
+    public static (int Count, string? Note) DeviationsCard(IEnumerable<DeviationDto> deviations, DateOnly? today = null)
     {
         var open = deviations.Where(d => d.Status != DeviationStatus.Closed).ToList();
-        return (open.Count, AttentionNote(open.Count(d => d.Severity == DeviationSeverity.Critical), "critical", "critical"));
+        // Pass 98: and those past their due date.
+        var notes = new[]
+            {
+                AttentionNote(open.Count(d => d.Severity == DeviationSeverity.Critical), "critical", "critical"),
+                today is DateOnly day ? AttentionNote(open.Count(d => d.IsOverdue(day)), "overdue", "overdue") : null
+            }
+            .Where(n => n is not null)
+            .ToList();
+        return (open.Count, notes.Count == 0 ? null : string.Join("; ", notes));
     }
 
     /// <summary>
