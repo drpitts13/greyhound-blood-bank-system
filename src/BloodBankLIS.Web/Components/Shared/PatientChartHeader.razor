@@ -18,6 +18,11 @@
                 <span data-patient-ethnicity> &middot; @ethnicity</span>
             }
             &middot; <span class="badge @(Patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@Ui.EnumText(Patient.Status)</span>
+            @if (Patient.Deceased)
+            {
+                @* Pass 107: recorded by the EHR (PID-29/PID-30). *@
+                <span> &middot; </span><span class="badge badge-red" data-patient-deceased title="Recorded by the EHR. Release any units still reserved for the patient.">Deceased@(Patient.DeceasedUtc is DateTime died ? $" {died.ToLocalTime():yyyy-MM-dd HH:mm}" : "")</span>
+            }
             @if (!string.IsNullOrWhiteSpace(Patient.Comment))
             {
                 <span> &middot; @Patient.Comment</span>

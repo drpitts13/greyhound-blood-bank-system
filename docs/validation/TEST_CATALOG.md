@@ -1131,5 +1131,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1120 | I | `MinimumStockOpenOrdersTests.Minimum_ForORhNegative_CountsOnlyThoseUnits` | URS-BB-884 / FRS-BB-1002 |
 | TEST-BB-1121 | U | `RushTurnaroundRuleTests.Notice_OnlyForUnverifiedRushTestsPastASetTarget` | URS-BB-885 / FRS-BB-1003 |
 | TEST-BB-1122 | I | `TestWorklistTests.PendingWorklist_MarksRushTestsPastTheTurnaroundTarget` | URS-BB-885 / FRS-BB-1003 |
+| TEST-BB-1123 | U | `PatientDeathRuleTests.Indicator_ReadsPid30_ThenPid29` | URS-BB-886 / FRS-BB-1004 |
+| TEST-BB-1124 | I | `Phase5Hl7Tests.AdtDeath_IsRecorded_AndRaisedWithTheReservedUnits` | URS-BB-886 / FRS-BB-1004 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

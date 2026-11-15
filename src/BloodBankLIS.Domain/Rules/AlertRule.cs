@@ -37,6 +37,7 @@ public static class AlertRule
     public const string MtpStillOpen = "mtp-still-open";
     public const string DuplicateEhrOrder = "duplicate-ehr-order";
     public const string PatientIdentityChanged = "patient-identity-changed";
+    public const string PatientDeceased = "patient-deceased";
 
     /// <summary>
     /// The name the alerts help page uses for each source. A help test fails when a source has no name here
@@ -56,6 +57,7 @@ public static class AlertRule
         MtpStillOpen => "Massive transfusion protocol still open",
         DuplicateEhrOrder => "Duplicate test ordered by the EHR",
         PatientIdentityChanged => "Date of birth or sex changed by the EHR",
+        PatientDeceased => "Patient recorded as deceased by the EHR",
         _ => null
     };
 

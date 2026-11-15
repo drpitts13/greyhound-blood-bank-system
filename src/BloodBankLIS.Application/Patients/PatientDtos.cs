@@ -130,10 +130,18 @@ public sealed record PatientDto(
     // A weak D or partial D recorded for the patient (OCD-069).
     RhDVariant RhDVariant = RhDVariant.None)
 {
+    /// <summary>The patient's death as recorded (pass 107: from the EHR, PID-29/PID-30).</summary>
+    public bool Deceased { get; init; }
+    public DateTime? DeceasedUtc { get; init; }
+
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,
-        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity, Unidentified: p.Unidentified, RhDVariant: p.RhDVariant);
+        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity, Unidentified: p.Unidentified, RhDVariant: p.RhDVariant)
+    {
+        Deceased = p.Deceased,
+        DeceasedUtc = p.DeceasedUtc
+    };
 
     /// <summary>
     /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, where the patient is (the

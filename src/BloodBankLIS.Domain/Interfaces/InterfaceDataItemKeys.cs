@@ -13,6 +13,8 @@ public static class InterfaceDataItemKeys
     public const string PatientSex = "Patient.Sex";
     public const string PatientRace = "Patient.Race";
     public const string PatientEthnicity = "Patient.Ethnicity";
+    public const string PatientDeathDateTime = "Patient.DeathDateTime";
+    public const string PatientDeathIndicator = "Patient.DeathIndicator";
 
     public const string EncounterAccountNumber = "Encounter.AccountNumber";
     public const string EncounterVisitNumber = "Encounter.VisitNumber";

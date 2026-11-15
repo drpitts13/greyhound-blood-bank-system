@@ -43,7 +43,7 @@ public class AlertHelpCoverageTests
     public void ThePageCount_MatchesTheSources()
     {
         var count = Sources().Count;
-        var words = new[] { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve" };
+        var words = new[] { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen" };
         Assert.Contains($"Alerts come from {words[count]} places", AlertsPage());
     }
 }

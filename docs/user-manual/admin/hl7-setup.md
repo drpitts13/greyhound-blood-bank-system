@@ -30,3 +30,5 @@ Besides HL7 v2, the system offers a read-only FHIR R4 API at `/fhir` for the EHR
 - `/fhir/metadata` lists what the API supports.
 
 > Mother's identifier. For a newborn, the ADT feed can send the mother's MRN in PID-21 (data item **Mother's medical record number**). When the infant's chart has no mother linked and the mother is registered here, the charts are linked automatically and the acknowledgment says so. An unregistered mother, a link the checks refuse (for example a mother born after the infant), or a different mother already linked by staff only adds a note to the message; a link is never replaced by the feed.
+
+> Death. The ADT feed can send the date/time of death in PID-29 (data item **Date/time of death**) and the death indicator in PID-30 (**Death indicator**). Y, or a date/time alone, records the death on the chart (audited); the chart header shows **Deceased**, and the blood bank gets an alert naming any units still reserved for the patient. N clears a death recorded in error. An empty field changes nothing.

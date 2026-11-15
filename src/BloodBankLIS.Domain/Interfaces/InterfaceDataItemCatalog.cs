@@ -108,7 +108,9 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.EncounterAttendingProviderId, "Attending provider ID", "Attending provider identifier.", "PV1-7-1", false),
         new(InterfaceDataItemKeys.EncounterAttendingProviderName, "Attending provider name", "Attending provider name (XCN).", "PV1-7", false),
         new(InterfaceDataItemKeys.PatientPriorMrn, "Prior medical record number", "MRG prior patient identifier for ADT merge (A18/A40).", "MRG-1-1", false),
-        new(InterfaceDataItemKeys.PatientMotherMrn, "Mother's medical record number", "Mother's identifier for a newborn; links the infant's chart to the mother's.", "PID-21-1", false)
+        new(InterfaceDataItemKeys.PatientMotherMrn, "Mother's medical record number", "Mother's identifier for a newborn; links the infant's chart to the mother's.", "PID-21-1", false),
+        new(InterfaceDataItemKeys.PatientDeathDateTime, "Date/time of death", "When the patient died; records the death on the chart.", "PID-29", false),
+        new(InterfaceDataItemKeys.PatientDeathIndicator, "Death indicator", "Y records the patient's death on the chart; N clears it.", "PID-30", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Orders =

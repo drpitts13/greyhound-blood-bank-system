@@ -24345,3 +24345,21 @@ Blood orders to prepare and the Test Worklist with the seeded orders.
 ### Tests
 
 - TEST-BB-1121, TEST-BB-1122. Full suite passed.
+
+## Iteration 826 — End-user testing pass 107: patient death from the EHR (2026-11-15)
+
+### How it was tested
+
+The HL7 ADT handling (admit, update, visit cancel, merge, newborn's mother) against what an EHR feed sends, and the patient chart.
+
+### Found and fixed
+
+1. **A patient's death never reached the blood bank.** The chart has a deceased flag, but nothing set it: ADT PID-29 (date/time of death) and PID-30 (death indicator) were not read, the chart never showed it, and units crossmatched for the patient stayed reserved with no word to anyone. PID-30 Y, or a PID-29 time alone, now records the death on the chart (audited), the chart header shows **Deceased** with the time, and an alert names the units still reserved so they can be released; N clears a death recorded in error. Nothing is released or blocked automatically.
+
+### Retested live
+
+- Through the HL7 inbound endpoint, an ADT^A01 registered a test patient (TEST-DTH-107); an ADT^A08 with PID-29 and PID-30 Y was acknowledged *Death recorded on the chart*, the chart header showed **Deceased 2026-11-15 06:00**, and the alert *EHR recorded Testpass, Deathfeed (MRN TEST-DTH-107) as deceased* was raised (information: no unit reserved). A following PID-30 N was acknowledged *Death cleared on the chart* and the flag was cleared. The test patient and alert were then removed.
+
+### Tests
+
+- TEST-BB-1123, TEST-BB-1124. Full suite passed.

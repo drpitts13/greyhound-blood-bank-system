@@ -59,6 +59,8 @@ public sealed class Hl7InboundProcessor
     private readonly BloodBankLIS.Application.Compliance.AlertService? _alerts;
 
     private readonly BloodBankLIS.Application.Abstractions.IFacilityTimeZone? _facilityZone;
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<BloodUnit>? _units;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -87,8 +89,12 @@ public sealed class Hl7InboundProcessor
         InterfaceValueSets? valueSets = null,
         InterfaceUnmappedValueService? unmapped = null,
         BloodBankLIS.Application.Compliance.AlertService? alerts = null,
-        BloodBankLIS.Application.Abstractions.IFacilityTimeZone? facilityZone = null)
+        BloodBankLIS.Application.Abstractions.IFacilityTimeZone? facilityZone = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<BloodUnit>? units = null)
     {
+        _allocations = allocations;
+        _units = units;
         _facilityZone = facilityZone;
         _alerts = alerts;
         _valueSets = valueSets;
@@ -451,6 +457,8 @@ public sealed class Hl7InboundProcessor
         }
 
         var motherNote = await LinkMotherFromAdtAsync(patient, data, ct);
+        var deathNote = await ApplyDeathAsync(patient, data, ct);
+        motherNote = deathNote is null ? motherNote : motherNote is null ? deathNote : $"{motherNote} {deathNote}";
 
         var visitNote = await _encounters.UpsertVisitFromHl7Async(
             patient.Id,
@@ -597,6 +605,59 @@ public sealed class Hl7InboundProcessor
     /// When a stated name differs from the chart name, the previous display name
     /// is retained as <see cref="IdentityTokenType.PriorFullName"/>.
     /// </summary>
+    /// <summary>
+    /// See <see cref="PatientDeathRule"/> (pass 107): PID-30/PID-29 record or clear the patient's death on the chart,
+    /// audited; a recorded death is raised to the blood bank with the units still reserved for the patient.
+    /// </summary>
+    private async Task<string?> ApplyDeathAsync(Patient patient, Hl7PatientData data, CancellationToken ct)
+    {
+        if (data.Deceased is not bool deceased
+            || (deceased == patient.Deceased && (!deceased || data.DeceasedUtc is null || data.DeceasedUtc == patient.DeceasedUtc)))
+        {
+            return null;
+        }
+
+        var old = new { patient.Deceased, patient.DeceasedUtc };
+        var newlyDeceased = deceased && !patient.Deceased;
+        patient.Deceased = deceased;
+        patient.DeceasedUtc = deceased ? data.DeceasedUtc ?? patient.DeceasedUtc : null;
+        _patients.Update(patient);
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Patient),
+            patient.Id,
+            oldValue: old,
+            newValue: new { patient.Deceased, patient.DeceasedUtc },
+            reason: deceased ? $"Death recorded from ADT^{data.TriggerEvent} PID-29/PID-30." : $"Death cleared by ADT^{data.TriggerEvent} PID-30 = N.");
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        if (!deceased)
+        {
+            return "Death cleared on the chart (PID-30 N).";
+        }
+
+        var reserved = new List<string>();
+        if (_allocations is not null)
+        {
+            var unitIds = (await _allocations.ListAsync(a => a.PatientId == patient.Id && a.Status == AllocationStatus.Reserved, ct))
+                .Select(a => a.BloodProductId).ToList();
+            reserved = _units is null || unitIds.Count == 0
+                ? unitIds.Select(id => $"unit {id}").ToList()
+                : (await _units.ListAsync(u => unitIds.Contains(u.Id), ct)).Select(u => u.UnitNumber).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        if (newlyDeceased && _alerts is not null)
+        {
+            await _alerts.RaiseAsync(PatientDeathRule.Alert(
+                patient.Id, patient.MedicalRecordNumber, $"{patient.LastName}, {patient.FirstName}", patient.DeceasedUtc, reserved,
+                $"{_clock.UtcNow:yyyyMMddHHmmss}"), ct);
+        }
+
+        return reserved.Count == 0
+            ? "Death recorded on the chart."
+            : $"Death recorded on the chart; {reserved.Count} reserved {(reserved.Count == 1 ? "unit" : "units")} to release.";
+    }
+
     /// <summary>See <see cref="PatientIdentityChangeRule"/>: a changed date of birth or sex is raised to the blood bank.</summary>
     private async Task AlertIdentityChangeAsync(Patient patient, DateOnly oldBirth, Sex oldSex, CancellationToken ct)
     {

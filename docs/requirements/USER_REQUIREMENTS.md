@@ -891,3 +891,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-883 | The downtime patient summary carries the patient's prior transfusion reactions and whether a workup is still open. | P1 | FRS-BB-1001 |
 | URS-BB-884 | A minimum stock level can be set for one Rh(D) type as well as one ABO group (for example O negative), counted, alerted and ordered for that group. | P1 | FRS-BB-1002 |
 | URS-BB-885 | The test worklist marks STAT and urgent tests not yet verified that are past the facility's turnaround target, lists them first, and the home card counts them. | P1 | FRS-BB-1003 |
+| URS-BB-886 | A patient's death sent by the EHR (ADT PID-29/PID-30) is recorded on the chart and shown, and the blood bank is alerted with the units still reserved for the patient. | P1 | FRS-BB-1004 |

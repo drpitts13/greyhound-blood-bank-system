@@ -997,6 +997,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-883 / FRS-BB-1001 | End-user testing pass 104: prior reactions on the downtime patient summary | `DowntimePatientSummaryService.cs`, `DowntimePatients.razor` | TEST-BB-1118 | I | |
 | URS-BB-884 / FRS-BB-1002 | End-user testing pass 105: minimum stock by Rh(D) | `MinimumStockLevel.cs`, `MinimumStockRule.cs`, `MinimumStockService.cs`, `MinimumStock.razor`, migration | TEST-BB-1119, TEST-BB-1120 | U, I | |
 | URS-BB-885 / FRS-BB-1003 | End-user testing pass 106: STAT turnaround target on the test worklist | `RushTurnaroundRule.cs`, `TestWorklistService.cs`, `TestWorklist.razor`, `FacilityPolicyCatalog.cs` | TEST-BB-1121, TEST-BB-1122 | U, I | |
+| URS-BB-886 / FRS-BB-1004 | End-user testing pass 107: patient death from the EHR | `PatientDeathRule.cs`, `Hl7Mappers.cs`, `Hl7InboundProcessor.cs`, `PatientChartHeader.razor` | TEST-BB-1123, TEST-BB-1124 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

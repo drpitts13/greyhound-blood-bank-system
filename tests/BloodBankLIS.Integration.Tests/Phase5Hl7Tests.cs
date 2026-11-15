@@ -79,7 +79,9 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
                 new EfRepository<Allocation>(c), new EfRepository<Order>(c), new EfRepository<BloodUnit>(c),
                 _factory.Clock, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c),
             alerts: new AlertService(new EfRepository<Alert>(c), c, _factory.Clock, _factory.CurrentUser,
-                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)));
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)),
+            allocations: new EfRepository<Allocation>(c),
+            units: new EfRepository<BloodUnit>(c));
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -308,6 +310,61 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Contains("date of birth 1980-01-01 → 1980-01-10", alert.Message);
         Assert.Contains("ACC-IDC-1", alert.Message);
         Assert.Equal(new DateOnly(1980, 1, 10), (await verify.Patients.SingleAsync(p => p.Id == patientId)).DateOfBirth);
+    }
+
+    // TEST-BB-1124: an ADT with PID-30 Y and a PID-29 time records the death on the chart, audited, and raises a warning
+    // naming the unit still reserved; PID-30 N clears it; an ADT without either changes nothing (end-user testing pass 107).
+    [Fact]
+    public async Task AdtDeath_IsRecorded_AndRaisedWithTheReservedUnits()
+    {
+        long patientId;
+        await using (var setup = _factory.Create())
+        {
+            Assert.True((await Processor(setup).ProcessAsync(Adt("CTRL-DTH-1", "HL7-DTH", "Passed", "Pat"))).Accepted);
+            var patient = await setup.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-DTH");
+            Assert.False(patient.Deceased);
+            var product = new ProductType { ProductCode = "RBC-DTH", Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+            setup.ProductTypes.Add(product);
+            await setup.SaveChangesAsync();
+            var unit = new BloodUnit { UnitNumber = "U-DTH-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Crossmatched };
+            setup.BloodUnits.Add(unit);
+            await setup.SaveChangesAsync();
+            setup.Allocations.Add(new Allocation { BloodProductId = unit.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow, AllocatedBy = "tech" });
+            await setup.SaveChangesAsync();
+            patientId = patient.Id;
+        }
+
+        string Death(string control, string indicator, string? when) =>
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|" + control + "|P|2.5\r" +
+            "PID|1||HL7-DTH^^^HOSP^MR||Passed^Pat||19800101|M" + new string('|', 21) + (when ?? "") + "|" + indicator;
+
+        await using (var c = _factory.Create())
+        {
+            Assert.True((await Processor(c).ProcessAsync(Adt("CTRL-DTH-2", "HL7-DTH", "Passed", "Pat", "A08"))).Accepted);
+            Assert.False((await c.Patients.SingleAsync(p => p.Id == patientId)).Deceased);
+            var died = await Processor(c).ProcessAsync(Death("CTRL-DTH-3", "Y", "20260530100000"));
+            Assert.True(died.Accepted);
+            Assert.Contains("1 reserved unit to release", died.AckMessage);
+        }
+
+        await using (var verify = _factory.Create())
+        {
+            var patient = await verify.Patients.SingleAsync(p => p.Id == patientId);
+            Assert.True(patient.Deceased);
+            Assert.NotNull(patient.DeceasedUtc);
+            var alert = Assert.Single(await verify.Alerts.Where(a => a.Source == AlertRule.PatientDeceased && a.Key.StartsWith($"DECEASED:{patientId}:")).ToListAsync());
+            Assert.Equal(AlertSeverity.Warning, alert.Severity);
+            Assert.Contains("U-DTH-1", alert.Message);
+            Assert.True(await verify.AuditEvents.AnyAsync(e => e.EntityType == nameof(Patient) && e.EntityId == patientId && e.Reason!.StartsWith("Death recorded")));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.True((await Processor(c).ProcessAsync(Death("CTRL-DTH-4", "N", null))).Accepted);
+            var patient = await c.Patients.SingleAsync(p => p.Id == patientId);
+            Assert.False(patient.Deceased);
+            Assert.Null(patient.DeceasedUtc);
+        }
     }
 
     private static string AdtMerge(string controlId, string survivorMrn, string priorMrn, string last, string first) =>

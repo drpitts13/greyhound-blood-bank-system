@@ -30,7 +30,10 @@ public sealed record Hl7PatientData(
     // PID-3 repetitions other than the MRN (enterprise id, other facilities' numbers), kept as alternate identifiers.
     IReadOnlyList<Hl7PatientIdentifier>? OtherIdentifiers = null,
     // PID-21 Mother's Identifier, for a newborn: the mother's MRN.
-    string? MotherMrn = null);
+    string? MotherMrn = null,
+    // PID-30 / PID-29 (pass 107): true records the death, false clears it, null changes nothing.
+    bool? Deceased = null,
+    DateTime? DeceasedUtc = null);
 
 /// <summary>Order details extracted from an inbound ORM/OML message (ORC/OBR/PV1).</summary>
 public sealed record Hl7OrderData(
@@ -100,7 +103,11 @@ public static class Hl7AdtMapper
             Ethnicity: MapLocal(map, message, InterfaceDataItemKeys.PatientEthnicity, PatientDemographicCodes.NormalizeEthnicity),
             PatientClass: MapPatientClass(map, message),
             OtherIdentifiers: Hl7PatientIdentifiers.Others(message, map),
-            MotherMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientMotherMrn)));
+            MotherMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientMotherMrn)),
+            Deceased: PatientDeathRule.Indicator(
+                map.Get(message, InterfaceDataItemKeys.PatientDeathIndicator),
+                ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.PatientDeathDateTime), map.TimestampZone)),
+            DeceasedUtc: ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.PatientDeathDateTime), map.TimestampZone));
     }
 
     /// <summary>
