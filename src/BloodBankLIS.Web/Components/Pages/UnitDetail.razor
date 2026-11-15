@@ -21,7 +21,7 @@ else if (_unit is null)
 }
 else
 {
-    <UnitChartHeader Unit="_unit" ProductCode="@ProductCode(_unit)" ProductName="@ProductName(_unit.ProductTypeId)" LocationName="@LocationName(_unit.CurrentLocationId)" />
+    <UnitChartHeader Unit="_unit" ProductCode="@ProductCode(_unit)" ProductName="@ProductName(_unit.ProductTypeId)" LocationName="@StorageLocationLabel.WithStatus(_unit.Status, LocationName(_unit.CurrentLocationId))" />
     <UnitChartTabBar Current="@_tab" OnSelect="SelectTab" />
     @if (_issuedRow is { } issued)
     {
@@ -101,7 +101,7 @@ else
                 <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
                 <div class="field"><label>Expires</label><div class="nowrap">@_unit.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
                 <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.StatusLabel(_unit.Status)</span></div></div>
-                <div class="field"><label>Location</label><div>@LocationName(_unit.CurrentLocationId)</div></div>
+                <div class="field"><label>Location</label><div data-unit-location>@StorageLocationLabel.WithStatus(_unit.Status, LocationName(_unit.CurrentLocationId))</div></div>
                 <div class="field"><label>Volume</label><div>@(_unit.Volume is { } vol ? vol.ToString("0.###") : "—")</div></div>
                 <div class="field"><label>Supplier</label><div>@(_unit.SupplierLabel ?? "—")</div></div>
                 <div class="field"><label>Collection facility</label><div>@(string.IsNullOrWhiteSpace(_unit.CollectionFacility) ? "—" : _unit.CollectionFacility)</div></div>

@@ -910,3 +910,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-902 | A neonatal type is flagged when it disagrees with the type on file and cannot be verified by the person who entered it, as ABO/Rh is. | P1 | FRS-BB-1020 |
 | URS-BB-903 | Merging charts moves lookback notifications, massive transfusion activations and special-order lines to the surviving chart, and undoing it moves them back. | P1 | FRS-BB-1021 |
 | URS-BB-904 | A merge is refused while both charts have an active massive transfusion protocol. | P2 | FRS-BB-1022 |
+| URS-BB-905 | A unit that has left the blood bank is not shown as being in its last storage location. | P2 | FRS-BB-1023 |

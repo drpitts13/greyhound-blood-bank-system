@@ -872,7 +872,7 @@
                                 <span class="badge badge-amber">Overdue</span>
                             }
                         </td>
-                        <td>@LocationName(u.CurrentLocationId)
+                        <td>@StorageLocationLabel.WithStatus(u.Status, LocationName(u.CurrentLocationId))
                             @if (WrongStorage(u) is { } wrong)
                             {
                                 <span class="badge badge-red" data-wrong-storage>Wrong storage: @wrong</span>

@@ -14,6 +14,8 @@ routes:
 
 ![Unit chart](figures/unit-detail.png)
 
+**Location** is where the unit is stored. A unit that has left the blood bank (issued, transfusing, transfused, shipped out, returned to the supplier, discarded, missing, or used in a modification) reads *Not in storage (issued) · last stored at …*, so the last shelf is not taken for where the bag is now; for an issued unit, the issue line above gives where it went. Inventory lists units the same way.
+
 Open a unit from Inventory, from a delivery, or from a patient's product row. The header shows the facility unit number, product, ABO and Rh, expiration, and status.
 
 ## Tabs

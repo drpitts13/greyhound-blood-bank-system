@@ -24696,3 +24696,21 @@ Following pass 124, a merge where each chart has a massive transfusion protocol 
 ### Tests
 
 - TEST-BB-1146. Full suite passed.
+
+## Iteration 845 — End-user testing pass 126: an issued unit shown in the refrigerator (2026-11-15)
+
+### How it was tested
+
+Storage rules on move and receipt (both already enforced), then the unit chart and Inventory for units issued and in transit.
+
+### Found and fixed
+
+1. **An issued unit read as being in the refrigerator.** W0001230009101, issued to Morgan Demo-Massive and in transit to Trauma Bay 1, showed *Location: Main Blood Bank Refrigerator* on its chart and in Inventory: the location kept is where it was last stored, but read bare it sent anyone looking for the bag to the refrigerator. A unit that has left the bank (issued, transfusing, transfused, shipped, returned to the supplier, discarded, missing, or modified into new units) now reads *Not in storage (issued) · last stored at Main Blood Bank Refrigerator*; units in the bank read as before.
+
+### Retested live
+
+- W0001230009101's chart (header and identity) and Inventory filtered to Issued read *Not in storage (issued) · last stored at Main Blood Bank Refrigerator*; available units still read *Main Blood Bank Refrigerator*.
+
+### Tests
+
+- TEST-BB-1147. Full suite passed.

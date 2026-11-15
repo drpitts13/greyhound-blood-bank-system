@@ -1016,6 +1016,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-902 / FRS-BB-1020 | End-user testing pass 123: the neonatal type takes the ABO/Rh checks | `PatientTypingTestRule.cs`, `TestWorklistService.cs`, `TestWorklistDtos.cs`, `ResultService.cs` | TEST-BB-1143, TEST-BB-1144 | I, U | |
 | URS-BB-903 / FRS-BB-1021 | End-user testing pass 124: records that did not follow a merge | `PatientMergeService.cs` | TEST-BB-1145 | I | |
 | URS-BB-904 / FRS-BB-1022 | End-user testing pass 125: no merge into two active massive transfusion protocols | `PatientMergeService.cs` | TEST-BB-1146 | I | |
+| URS-BB-905 / FRS-BB-1023 | End-user testing pass 126: a unit out of the bank is not shown in its last location | `StorageLocationLabel.cs`, `UnitDetail.razor`, `Inventory.razor` | TEST-BB-1147 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
