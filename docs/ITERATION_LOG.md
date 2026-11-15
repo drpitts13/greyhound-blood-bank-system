@@ -24562,3 +24562,21 @@ Product orders on the chart and Blood orders to prepare, for a neonate or child 
 ### Tests
 
 - TEST-BB-1136, TEST-BB-1137. Full suite passed.
+
+## Iteration 838 — End-user testing pass 119: blood product orders from the EHR (2026-11-15)
+
+### How it was tested
+
+Following pass 118's ordered volume, the HL7 order path: what an ORM/OML from the EHR can create.
+
+### Found and fixed
+
+1. **A transfusion request could not arrive from the EHR.** The order interface created only test lines: an ORM for red cells was refused as an unknown test code, because the codes an order may carry were tests and groupers only. A blood product order, the basic request a transfusion service receives, had to be re-keyed. An order whose code is an active product code (and not a test or grouper) now creates a blood order: one product line per unit from TQ1-2, blank meaning one, or one line with the volume when TQ1-2 is in mL. A quantity that is not a whole number, other units, or too much goes to the error queue and nothing is created. Product codes are offered when translating order codes.
+
+### Retested live
+
+- Through the HL7 inbound endpoint, a test patient (TEST-PRD-119) was registered by ADT^A01; an ORM for RBC-LR, priority S, TQ1-2 *2^U*, and one with TQ1-2 *20^mL*, were acknowledged *created*; Blood orders to prepare listed *TEST-PRD-ORD1 Stat — 2 × Red Blood Cells, Leukoreduced* and *TEST-PRD-ORD2 — 1 × Red Blood Cells, Leukoreduced (20 mL)*. The test patient and orders were then removed.
+
+### Tests
+
+- TEST-BB-1138, TEST-BB-1139. Full suite passed.

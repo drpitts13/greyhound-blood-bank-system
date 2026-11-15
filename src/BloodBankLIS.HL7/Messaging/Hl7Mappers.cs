@@ -50,7 +50,10 @@ public sealed record Hl7OrderData(
     // TQ1-7 (or OBR-27-4) start date/time: when the order is needed.
     DateTime? NeededByUtc = null,
     // ORC-16: why the order was cancelled or discontinued (text, else code).
-    string? ControlReason = null);
+    string? ControlReason = null,
+    // TQ1-2: for a blood product order, how many units, or a volume in mL (pass 119).
+    string? Quantity = null,
+    string? QuantityUnits = null);
 
 /// <summary>Result details extracted from an inbound ORU message (PID/ORC/OBR/OBX).</summary>
 public sealed record Hl7ResultData(
@@ -276,7 +279,9 @@ public static class Hl7OrmMapper
             OrderingLocationCode: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderLocationCode)),
             Priority: MapPriority(map.Get(message, InterfaceDataItemKeys.OrderPriority)),
             NeededByUtc: Hl7AdtMapper.ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.OrderNeededBy), map.TimestampZone),
-            ControlReason: NullIfEmpty(FirstNonEmpty(map.Get(message, InterfaceDataItemKeys.OrderControlReason), message.Get("ORC-16-1")).Trim()));
+            ControlReason: NullIfEmpty(FirstNonEmpty(map.Get(message, InterfaceDataItemKeys.OrderControlReason), message.Get("ORC-16-1")).Trim()),
+            Quantity: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderQuantity)),
+            QuantityUnits: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderQuantityUnits)));
     }
 
     /// <summary>

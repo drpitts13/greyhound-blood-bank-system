@@ -81,7 +81,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             alerts: new AlertService(new EfRepository<Alert>(c), c, _factory.Clock, _factory.CurrentUser,
                 new AuditWriter(c, _factory.Clock, _factory.CurrentUser)),
             allocations: new EfRepository<Allocation>(c),
-            units: new EfRepository<BloodUnit>(c));
+            units: new EfRepository<BloodUnit>(c),
+            products: new EfRepository<ProductType>(c));
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -365,6 +366,45 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             Assert.False(patient.Deceased);
             Assert.Null(patient.DeceasedUtc);
         }
+    }
+
+    // TEST-BB-1139: an EHR order whose code is a blood product creates a blood order: one product line per unit from
+    // TQ1-2, or one line with the volume when TQ1-2 is in mL; a quantity that is not a whole number goes to the error
+    // queue and nothing is created (end-user testing pass 119).
+    [Fact]
+    public async Task OrmForABloodProduct_CreatesABloodOrder()
+    {
+        await using (var setup = _factory.Create())
+        {
+            if (!await setup.ProductTypes.AnyAsync(p => p.ProductCode == "RBC-HL7"))
+            {
+                setup.ProductTypes.Add(new ProductType { ProductCode = "RBC-HL7", Name = "Red cells by interface", ComponentClass = ComponentClass.RedBloodCells });
+                await setup.SaveChangesAsync();
+            }
+
+            Assert.True((await Processor(setup).ProcessAsync(Adt("CTRL-PRD-ADT", "HL7-PRD", "Prod", "Pat"))).Accepted);
+        }
+
+        string Product(string control, string placer, string quantity) =>
+            $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|{control}|P|2.5\r" +
+            "PID|1||HL7-PRD^^^HOSP^MR||Prod^Pat||19800101|M\r" +
+            $"ORC|NW|{placer}|||||||||||ICU-PRD\r" +
+            $"OBR|1|{placer}||RBC-HL7^Red cells\r" +
+            $"TQ1|1|{quantity}";
+
+        await using var c = _factory.Create();
+        var first = await Processor(c).ProcessAsync(Product("CTRL-PRD-1", "PLACER-PRD-1", "2^U"));
+        Assert.True(first.Accepted, first.Log.ErrorDetail);
+        Assert.True((await Processor(c).ProcessAsync(Product("CTRL-PRD-2", "PLACER-PRD-2", "15^mL"))).Accepted);
+        var bad = await Processor(c).ProcessAsync(Product("CTRL-PRD-3", "PLACER-PRD-3", "1.5^U"));
+        Assert.False(bad.Accepted);
+        Assert.Contains("not a whole number", bad.Log.ErrorDetail);
+
+        var units = await c.Orders.Include(o => o.Lines).SingleAsync(o => o.OrderNumber == "PLACER-PRD-1");
+        Assert.Equal(2, units.Lines.Count(l => l.LineCategory == OrderCategory.Product && l.RequestedVolumeMl == null));
+        var aliquot = await c.Orders.Include(o => o.Lines).SingleAsync(o => o.OrderNumber == "PLACER-PRD-2");
+        Assert.Equal(15, Assert.Single(aliquot.Lines, l => l.LineCategory == OrderCategory.Product).RequestedVolumeMl);
+        Assert.False(await c.Orders.AnyAsync(o => o.OrderNumber == "PLACER-PRD-3"));
     }
 
     private static string AdtMerge(string controlId, string survivorMrn, string priorMrn, string last, string first) =>

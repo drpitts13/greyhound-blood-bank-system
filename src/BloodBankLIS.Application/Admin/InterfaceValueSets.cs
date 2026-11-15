@@ -16,10 +16,13 @@ public sealed class InterfaceValueSets
     private readonly IRepository<TestDefinition> _tests;
     private readonly IRepository<TestGrouper> _groupers;
 
-    public InterfaceValueSets(IRepository<TestDefinition> tests, IRepository<TestGrouper> groupers)
+    private readonly IRepository<BloodBankLIS.Domain.Entities.ProductType>? _products;
+
+    public InterfaceValueSets(IRepository<TestDefinition> tests, IRepository<TestGrouper> groupers, IRepository<BloodBankLIS.Domain.Entities.ProductType>? products = null)
     {
         _tests = tests;
         _groupers = groupers;
+        _products = products;
     }
 
     public static bool IsProcedureKey(string key) =>
@@ -39,7 +42,11 @@ public sealed class InterfaceValueSets
             var tests = (await _tests.ListAsync(t => t.IsActive && !t.IsDraft, ct))
                 .OrderBy(t => t.Code)
                 .Select(t => new InterfaceLocalValueDto(t.Code, t.Name, "Test"));
-            return groupers.Concat(tests).ToList();
+            // Pass 119: an order from the EHR can be for a blood product (a transfusion request).
+            var products = key == InterfaceDataItemKeys.OrderTestCode && _products is not null
+                ? (await _products.ListAsync(p => p.IsActive, ct)).OrderBy(p => p.ProductCode).Select(p => new InterfaceLocalValueDto(p.ProductCode, p.Name, "Product")).ToList()
+                : [];
+            return groupers.Concat(tests).Concat(products).ToList();
         }
 
         return FixedValues(key) ?? [];

@@ -35,6 +35,8 @@ public static class InterfaceDataItemKeys
     public const string OrderLocationCode = "Order.OrderingLocationCode";
     public const string OrderPriority = "Order.Priority";
     public const string OrderNeededBy = "Order.NeededBy";
+    public const string OrderQuantity = "Order.Quantity";
+    public const string OrderQuantityUnits = "Order.QuantityUnits";
     public const string OrderControlReason = "Order.OrderControlReason";
 
     /// <summary>

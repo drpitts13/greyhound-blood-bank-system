@@ -61,6 +61,7 @@ public sealed class Hl7InboundProcessor
     private readonly BloodBankLIS.Application.Abstractions.IFacilityTimeZone? _facilityZone;
     private readonly IRepository<Allocation>? _allocations;
     private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<ProductType>? _products;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -91,8 +92,10 @@ public sealed class Hl7InboundProcessor
         BloodBankLIS.Application.Compliance.AlertService? alerts = null,
         BloodBankLIS.Application.Abstractions.IFacilityTimeZone? facilityZone = null,
         IRepository<Allocation>? allocations = null,
-        IRepository<BloodUnit>? units = null)
+        IRepository<BloodUnit>? units = null,
+        IRepository<ProductType>? products = null)
     {
+        _products = products;
         _allocations = allocations;
         _units = units;
         _facilityZone = facilityZone;
@@ -853,11 +856,31 @@ public sealed class Hl7InboundProcessor
                 throw new Hl7MappingException(TestCodeTranslationRule.UnknownOrderCodeMessage(data.TestCode.Trim()));
             }
         }
+        // Pass 119: a code that is a blood product (and not a test or grouper) is a transfusion request: product lines,
+        // one per unit, or one line for a volume in mL.
+        IReadOnlyList<OrderLineInputDto> lines = [new OrderLineInputDto(OrderCategory.Test, testCode, null)];
+        var product = _products is null ? null
+            : await _products.FirstOrDefaultAsync(p => p.IsActive && p.ProductCode.ToUpper() == testCode, ct);
+        var isTest = _valueSets is not null && (await _valueSets.ForAsync(InterfaceDataItemKeys.OrderTestCode, ct))
+            .Any(k => k.Kind is "Test" or "Grouper" && string.Equals(k.Value, testCode, StringComparison.OrdinalIgnoreCase));
+        if (product is not null && !isTest)
+        {
+            var (units, volumeMl, quantityError) = ProductOrderQuantityRule.Read(data.Quantity, data.QuantityUnits);
+            if (quantityError is not null)
+            {
+                throw new Hl7MappingException(quantityError);
+            }
+
+            lines = Enumerable.Range(0, units)
+                .Select(_ => new OrderLineInputDto(OrderCategory.Product, null, product.Id, RequestedVolumeMl: volumeMl))
+                .ToList();
+        }
+
         var createResult = await _ordersService.CreateFromHl7Async(patient.Id, new CreateOrderRequest(
             encounter.Id,
             location.Id,
             data.PlacerOrderId,
-            [new OrderLineInputDto(OrderCategory.Test, testCode, null)],
+            lines,
             data.Priority,
             _clock.UtcNow,
             provider?.Id,

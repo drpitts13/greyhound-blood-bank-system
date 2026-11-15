@@ -125,6 +125,8 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.OrderLocationCode, "Ordering location", "Ordering location code.", "ORC-13-1", false),
         new(InterfaceDataItemKeys.OrderPriority, "Order priority", "OBR priority, or the timing priority component when OBR-5 is empty.", "OBR-5", false),
         new(InterfaceDataItemKeys.OrderNeededBy, "Needed by", "When the order is needed: the timing start date/time (surgery start, scheduled transfusion).", "TQ1-7-1", false),
+        new(InterfaceDataItemKeys.OrderQuantity, "Quantity", "For a blood product order: how many units, or the volume when the units say mL.", "TQ1-2-1", false),
+        new(InterfaceDataItemKeys.OrderQuantityUnits, "Quantity units", "Units of the quantity: blank or units for whole units, mL for a volume.", "TQ1-2-2", false),
         new(InterfaceDataItemKeys.OrderControlReason, "Order control reason", "Why the order was cancelled or discontinued: the text (the code when there is no text).", "ORC-16-2", false)
     ];
 
