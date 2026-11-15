@@ -1114,5 +1114,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1103 | U | `WrongStorageRuleTests.WrongStorage_NamesAComponentTheShelfDoesNotTake` | URS-BB-868 / FRS-BB-986 |
 | TEST-BB-1104 | I | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesMissingUnit_UntilLocated` | URS-BB-869 / FRS-BB-987 |
 | TEST-BB-1105 | U | `CompatibleUnitSummaryTests.Note_CountsUnitsNotConfirmedAntigenNegativeApart`, `CrossmatchUnitOfferTests.Offer_IsReservedPlusCompatible_CountedOnce`, `CrossmatchUnitOfferTests.Offer_Wording_ForOneAndNone` | URS-BB-870 / FRS-BB-988 |
+| TEST-BB-1106 | I | `InventoryServiceTests.Search_AntigenNegative_FindsOnlyUnitsTypedNegative` | URS-BB-871 / FRS-BB-989 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

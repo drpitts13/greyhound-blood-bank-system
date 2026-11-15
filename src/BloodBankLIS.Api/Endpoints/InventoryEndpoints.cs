@@ -33,12 +33,13 @@ public static class InventoryEndpoints
             DateTime? expiringBeforeUtc,
             UnitStatus[]? statuses,
             bool? excludeIssuedAndTransfused,
+            string[]? antigenNegative,
             InventoryService service,
             CancellationToken ct) =>
         {
             var criteria = new InventorySearchCriteria(
                 unitNumber, status, abo, rh, productTypeId, locationId, expiringBeforeUtc, statuses,
-                excludeIssuedAndTransfused == true);
+                excludeIssuedAndTransfused == true, antigenNegative);
             var units = await service.SearchAsync(criteria, ct);
             return Results.Ok(units.Select(BloodUnitDto.From));
         });

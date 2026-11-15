@@ -808,6 +808,15 @@
         <div class="field"><label>Rh(D)</label>
             <select @bind="_searchRh"><option value="">Any</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>
         </div>
+        @* Pass 92: units typed negative for the antigens a patient's antibodies need (hold Ctrl to choose several). *@
+        <div class="field"><label>Antigen negative for</label>
+            <select multiple size="3" @bind="_searchAntigens" data-inventory-antigen-filter title="Hold Ctrl to choose several">
+                @foreach (var a in _antigens)
+                {
+                    <option value="@a.Code">@a.Code (@a.Name)</option>
+                }
+            </select>
+        </div>
         <div class="field">
             <label class="checkbox-item" style="margin-top:1.6rem;">
                 <input type="checkbox" @bind="_showIssuedTransfused" @bind:after="SearchAsync" />
@@ -906,6 +915,8 @@
     private long? _searchProductTypeId;
     private long? _searchLocationId;
     private RhType? _searchRh;
+    private string[] _searchAntigens = [];
+    private List<BloodAttributeListItemDto> _antigens = new();
 
     private List<OpenDeliveryDto> _openDeliveries = new();
     private UnitAppearance? _arrivalAppearance;
@@ -958,6 +969,7 @@
         _requireReceiveVerifier = policy.Succeeded && policy.Value?.RequireSecondVerifier == true;
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
+        _antigens = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         if (Session.Has(PermissionCodes.InventoryReceive))
         {
             await LoadOpenDeliveriesAsync();
@@ -1095,7 +1107,8 @@
             string.IsNullOrWhiteSpace(_searchUnit) ? null : _searchUnit, _searchStatus, _searchAbo, _searchRh,
             ProductTypeId: _searchProductTypeId,
             LocationId: _searchLocationId,
-            Statuses: InventorySearchScope.Statuses(_searchUnit, _searchStatus, _showIssuedTransfused));
+            Statuses: InventorySearchScope.Statuses(_searchUnit, _searchStatus, _showIssuedTransfused),
+            AntigenNegative: _searchAntigens.Length == 0 ? null : _searchAntigens);
         var r = await Api.SearchUnitsAsync(criteria);
         _loading = false;
         if (r.Succeeded) _units = r.Value!;

@@ -550,6 +550,10 @@ public sealed class BloodBankApiClient
         if (c.LocationId is not null) q.Add($"locationId={c.LocationId}");
         if (c.ExpiringBeforeUtc is not null) q.Add($"expiringBeforeUtc={Uri.EscapeDataString(c.ExpiringBeforeUtc.Value.ToString("o"))}");
         if (c.ExcludeIssuedAndTransfused) q.Add("excludeIssuedAndTransfused=true");
+        foreach (var code in c.AntigenNegative ?? [])
+        {
+            q.Add($"antigenNegative={Uri.EscapeDataString(code)}");
+        }
         var query = q.Count > 0 ? "?" + string.Join("&", q) : string.Empty;
         return SendAsync<List<BloodUnitDto>>(HttpMethod.Get, $"api/inventory/units{query}", ct: ct);
     }

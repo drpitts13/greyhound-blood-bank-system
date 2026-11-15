@@ -23,6 +23,8 @@ routes:
 
 **Wrong storage.** A unit on a shelf (including an expired one not yet discarded) whose location does not take its component is marked **Wrong storage** in the search results, for example *FRIDGE-1 does not take platelets*, and a line above the results counts them. What a location takes is set in Administration › Inventory locations. Move the unit, or correct the location record, following your storage procedure.
 
+**Antigen-negative units.** To find blood for a patient with antibodies, choose the antigens under **Antigen negative for** (hold Ctrl to choose several, for example K and E) and search: only units typed negative for every one of them are listed. A unit not typed for an antigen is left out; type candidate units first if none is found. Codes follow the blood attribute list, where C and c are different antigens.
+
 The row shows the storage location by name. A missing name falls back to the location code so you can still see where the unit was filed.
 
 ## Boards

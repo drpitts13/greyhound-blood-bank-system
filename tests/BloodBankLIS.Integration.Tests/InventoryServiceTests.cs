@@ -486,6 +486,32 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         return type.Id;
     }
 
+    // TEST-BB-1106 (end-user testing pass 92): searching for K-negative units finds only units typed K negative; a unit
+    // typed K positive, or not typed, is left out; without the filter all are found.
+    [Fact]
+    public async Task Search_AntigenNegative_FindsOnlyUnitsTypedNegative()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var kell = await EnsureAttributeDefinitionAsync(context);
+        async Task<long> Receive(string suffix) => (await service.ReceiveUnitAsync(NewUnitRequest($"U-AGN{suffix}-{key}", productTypeId))).Unit!.Id;
+        var negative = await Receive("A");
+        var positive = await Receive("B");
+        await Receive("C");
+        context.UnitBloodAttributes.AddRange(
+            new UnitBloodAttribute { BloodProductId = negative, BloodAttributeDefinitionId = kell, Result = AntigenResult.Negative },
+            new UnitBloodAttribute { BloodProductId = positive, BloodAttributeDefinitionId = kell, Result = AntigenResult.Positive });
+        await context.SaveChangesAsync();
+
+        var all = await service.SearchAsync(new InventorySearchCriteria(UnitNumber: key));
+        Assert.Equal(3, all.Count);
+        var kNegative = await service.SearchAsync(new InventorySearchCriteria(UnitNumber: key, AntigenNegative: ["K"]));
+        Assert.Equal([negative], kNegative.Select(u => u.Id));
+        Assert.Empty(await service.SearchAsync(new InventorySearchCriteria(UnitNumber: key, AntigenNegative: ["K", "E"])));
+    }
+
     private async Task<long> EnsureAttributeDefinitionAsync(BloodBankDbContext context)
     {
         var existing = await context.BloodAttributeDefinitions.FirstOrDefaultAsync(d => d.Code == "K");

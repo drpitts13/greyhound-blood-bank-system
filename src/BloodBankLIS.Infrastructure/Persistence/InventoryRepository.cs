@@ -102,6 +102,15 @@ public sealed class InventoryRepository : IInventoryRepository
             query = query.Where(u => u.Abo == criteria.Abo);
         }
 
+        // Pass 92: typed negative for each antigen asked for (codes are case-sensitive: C and c differ).
+        foreach (var code in (criteria.AntigenNegative ?? []).Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct())
+        {
+            query = query.Where(u => _context.UnitBloodAttributes.Any(a =>
+                a.BloodProductId == u.Id
+                && a.Result == AntigenResult.Negative
+                && _context.BloodAttributeDefinitions.Any(d => d.Id == a.BloodAttributeDefinitionId && d.Code == code)));
+        }
+
         if (criteria.RhD is not null)
         {
             query = query.Where(u => u.RhD == criteria.RhD);

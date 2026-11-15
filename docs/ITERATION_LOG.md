@@ -24075,3 +24075,21 @@ Compatibility, for Kellerman, Diane (MRN0004, O+, anti-K identified): the Record
 ### Tests
 
 - TEST-BB-1105. Full suite passed.
+
+## Iteration 811 — End-user testing pass 92: finding antigen-negative units (2026-11-14)
+
+### How it was tested
+
+Following pass 91: blood for Kellerman, Diane (anti-K). Inventory search, looking for K-negative red cells.
+
+### Found and fixed
+
+1. **Inventory could not be searched by antigen.** The search filters were unit number, status, product, location, ABO and Rh only, so finding K-negative units meant opening units one by one. A new filter, **Antigen negative for**, lists only units typed negative for every antigen chosen (several can be chosen, for example K and E); untyped units are left out.
+
+### Retested live
+
+- Choosing K lists W0001230000001 (O+ red cells, typed K negative, pending retype), the only K-negative unit in stock.
+
+### Tests
+
+- TEST-BB-1106. Full suite passed.
