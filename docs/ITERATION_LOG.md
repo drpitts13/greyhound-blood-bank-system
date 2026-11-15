@@ -24093,3 +24093,21 @@ Following pass 91: blood for Kellerman, Diane (anti-K). Inventory search, lookin
 ### Tests
 
 - TEST-BB-1106. Full suite passed.
+
+## Iteration 812 — End-user testing pass 93: reagent QC with more than one control (2026-11-15)
+
+### How it was tested
+
+Reagent QC: the worklist (seven lots due for 2026-11-15, unreviewed QC, results to review after anti-D's failed QC) and the daily QC entry, read as the morning QC of antisera and reagent cells.
+
+### Found and fixed
+
+1. **A reagent's QC was one reading a day.** Each QC row held one expected and one observed reaction, and any single row made the lot done for the day. Antisera and reagent cells are QC'd against a positive and a negative control (anti-A with A1 cells and with B cells), so a day with only the positive control read looked complete. Each reagent can now list its QC controls (from the package insert; none supplied); each reading names its control, Today's QC shows a row per control, the lot stays due until every control is read (*… has no QC for 2026-11-15 with B cells (negative)*), and a failure is tracked per control.
+
+### Retested live
+
+- With anti-A's controls set to *A1 cells (positive), B cells (negative)* in the development data, Today's QC showed two rows for lot AA-24117, one per control; the controls were then cleared, and the reagent's tests (ABORH) were unchanged. No QC reading was recorded.
+
+### Tests
+
+- TEST-BB-1107. Full suite passed.

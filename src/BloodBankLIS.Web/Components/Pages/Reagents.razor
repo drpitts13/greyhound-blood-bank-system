@@ -73,6 +73,9 @@
         <p class="muted" style="margin-top:0;">
             <strong>Used for tests</strong> lists the tests a reagent is used for (for example ABORH, ABSC). A manual result
             for one of them records the reagent's open lots, so a lot that fails QC can be traced to its results.
+            <strong>QC controls</strong> lists the controls the reagent's daily QC is run with, from its package insert
+            (for example <span class="mono">A1 cells (positive), B cells (negative)</span>); each then needs its reading every
+            day. Blank means one reading a day.
         </p>
         <div class="form-row">
             <div class="field"><label>Code</label><input @bind="_code" @bind:event="oninput" /></div>
@@ -84,7 +87,7 @@
         {
             <div class="table-scroll">
             <table class="bb" style="margin-top:1rem;" data-reagent-tests>
-                <thead><tr><th>Reagent</th><th>Used for tests</th><th></th></tr></thead>
+                <thead><tr><th>Reagent</th><th>Used for tests</th><th>QC controls</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var reagent in _reagents.Where(r => r.IsActive || _showRetired))
                     {
@@ -100,8 +103,19 @@
                                     @(reagent.TestCodes ?? "—")
                                 }
                             </td>
+                            <td>
+                                @if (reagent.IsActive)
+                                {
+                                    <input value="@(_editControls.GetValueOrDefault(reagent.Id, reagent.QcControls ?? ""))" @oninput="e => _editControls[reagent.Id] = e.Value?.ToString() ?? string.Empty" placeholder="none: one reading a day" data-reagent-controls-input="@reagent.Code" />
+                                }
+                                else
+                                {
+                                    @(reagent.QcControls ?? "—")
+                                }
+                            </td>
                             <td class="right nowrap">
-                                @if (_editTests.TryGetValue(reagent.Id, out var edited) && edited != (reagent.TestCodes ?? ""))
+                                @if ((_editTests.TryGetValue(reagent.Id, out var edited) && edited != (reagent.TestCodes ?? ""))
+                                     || (_editControls.TryGetValue(reagent.Id, out var editedControls) && editedControls != (reagent.QcControls ?? "")))
                                 {
                                     <button class="btn btn-secondary btn-sm" @onclick="() => SaveTestsAsync(reagent.Id)">Save</button>
                                 }
@@ -119,7 +133,7 @@
                         @if (_registerFor?.Id == reagent.Id)
                         {
                             <tr data-reagent-register-form>
-                                <td colspan="3">
+                                <td colspan="4">
                                     <div class="form-row">
                                         @if (_registerAction == RegisterAction.Rename)
                                         {
@@ -322,6 +336,18 @@
                     }
                 </select>
             </div>
+            @if (QcLotControls is { Count: > 0 } formControls)
+            {
+                <div class="field"><label>Control</label>
+                    <select @bind="_qcControl" data-qc-control>
+                        <option value="">Select</option>
+                        @foreach (var c in formControls)
+                        {
+                            <option value="@c">@c.Trim()</option>
+                        }
+                    </select>
+                </div>
+            }
             <div class="field"><label>Expected</label><input id="reagent-qc-expected" @bind="_expected" @bind:event="oninput" @bind:after="SyncPassedFromResults" />
                 @if (string.IsNullOrWhiteSpace(_expected) && LastExpected is { } lastExpected)
                 {
@@ -345,7 +371,7 @@
                 <p class="text-error" style="margin:0 0 .5rem;">Observed differs from expected. Recorded as failed unless you tick Passed.</p>
             }
         }
-        <button class="btn btn-primary btn-sm" disabled="@(_qcLotId == 0 || !ResultsCompared)" @onclick="RecordQcAsync">Record QC</button>
+        <button class="btn btn-primary btn-sm" disabled="@(_qcLotId == 0 || !ResultsCompared || (QcLotControls.Count > 0 && string.IsNullOrWhiteSpace(_qcControl)))" @onclick="RecordQcAsync">Record QC</button>
     </div>
 
     @* Daily QC for every open lot on one table (end-user testing, 2026-11-12: the morning QC was seven separate entries).
@@ -367,13 +393,14 @@
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Reagent</th><th>Lot</th><th>Expected</th><th>Observed</th><th>Result</th></tr></thead>
+                <thead><tr><th>Reagent</th><th>Lot</th><th>Control</th><th>Expected</th><th>Observed</th><th>Result</th></tr></thead>
                 <tbody>
                     @foreach (var row in QcRunRows)
                     {
-                        <tr data-qc-run-row="@row.LotNumber">
+                        <tr data-qc-run-row="@row.LotNumber" data-qc-run-control="@row.Control">
                             <td class="mono">@row.ReagentCode</td>
                             <td class="mono">@row.LotNumber</td>
+                            <td>@(row.Control ?? "—")</td>
                             @if (row.DoneToday)
                             {
                                 <td colspan="3"><span class="badge @(row.DonePassed ? "badge-green" : "badge-red")">@(row.DonePassed ? "Done today" : "Failed today")</span> <span class="muted">@row.DoneText</span></td>
@@ -436,7 +463,7 @@
                     {
                         <tr>
                             <td class="nowrap">@q.PerformedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@(q.ReagentCode ?? "—") <span class="mono">@q.LotNumber</span></td>
+                            <td>@(q.ReagentCode ?? "—") <span class="mono">@q.LotNumber</span>@if (q.Control is not null) { <span class="sub"> · @q.Control</span> }</td>
                             <td>@q.ExpectedResult</td>
                             <td>@q.ObservedResult</td>
                             <td><span class="badge @(q.Passed ? "badge-green" : "badge-red")">@(q.Passed ? "Passed" : "Failed")</span></td>
@@ -541,6 +568,13 @@
     private string _lotNumber = string.Empty;
     private DateTime _expiresLocal = DateTime.Now.Date.AddDays(30);
     private long _qcLotId;
+    private string _qcControl = string.Empty;
+
+    // Pass 93: the chosen lot's reagent's QC controls, if it has any.
+    private IReadOnlyList<string> QcLotControls =>
+        QcLots.FirstOrDefault(l => l.Id == _qcLotId) is { } qcLot && _reagents.FirstOrDefault(r => r.Id == qcLot.ReagentId) is { } qcReagent
+            ? qcReagent.Controls
+            : [];
     private string _expected = string.Empty;
     private string _observed = string.Empty;
     // Not passed until the results say so: a pre-ticked box let a mismatched QC be recorded as passed.
@@ -584,7 +618,9 @@
     private List<ReagentDailyQcDto> _recentQc = new();
 
     private string? LastExpected =>
-        QcLots.FirstOrDefault(l => l.Id == _qcLotId) is { } lot ? ReagentQcHistory.LastExpected(lot.ReagentId, _recentQc) : null;
+        QcLots.FirstOrDefault(l => l.Id == _qcLotId) is { } lot
+            ? ReagentQcHistory.LastExpected(lot.ReagentId, _recentQc, QcLotControls.Count > 0 ? _qcControl : null)
+            : null;
 
     private void UseLastExpected(string expected)
     {
@@ -626,16 +662,21 @@
 
     private string _testCodes = string.Empty;
     private readonly Dictionary<long, string> _editTests = new();
+    private readonly Dictionary<long, string> _editControls = new();
     private ReagentLotDto? _lookbackLot;
     private List<ReagentLotResultDto> _lookback = new();
 
     private async Task SaveTestsAsync(long reagentId)
     {
-        var saved = await Api.SetReagentTestsAsync(reagentId, _editTests.GetValueOrDefault(reagentId));
-        _feedback = saved.ToFeedback("Tests saved.");
+        var reagent = _reagents.FirstOrDefault(r => r.Id == reagentId);
+        var saved = await Api.SetReagentTestsAsync(reagentId,
+            _editTests.TryGetValue(reagentId, out var tests) ? tests : reagent?.TestCodes,
+            _editControls.TryGetValue(reagentId, out var controls) ? controls : reagent?.QcControls ?? string.Empty);
+        _feedback = saved.ToFeedback("Saved.");
         if (saved.Succeeded)
         {
             _editTests.Remove(reagentId);
+            _editControls.Remove(reagentId);
             await ReloadAsync();
         }
     }
@@ -726,6 +767,7 @@
     private sealed class QcRunRow
     {
         public long LotId { get; init; }
+        public string? Control { get; init; }
         public string ReagentCode { get; init; } = "";
         public string LotNumber { get; init; } = "";
         public string? LastExpected { get; init; }
@@ -753,14 +795,22 @@
             var rows = new List<QcRunRow>();
             foreach (var lot in open)
             {
-                var done = _recentQc.Where(q => q.ReagentLotId == lot.Id && q.PerformedUtc.ToLocalTime().Date == today).OrderByDescending(q => q.PerformedUtc).FirstOrDefault();
-                var existing = _qcRun.FirstOrDefault(r => r.LotId == lot.Id);
-                rows.Add(done is not null
-                    ? new QcRunRow { LotId = lot.Id, ReagentCode = lot.ReagentCode, LotNumber = lot.LotNumber, DoneToday = true, DonePassed = done.Passed,
-                        DoneText = $"{done.ObservedResult} ({(done.Passed ? "passed" : "failed")}) by {done.PerformedBy}" }
-                    : existing is { DoneToday: false } ? existing
-                    : new QcRunRow { LotId = lot.Id, ReagentCode = lot.ReagentCode, LotNumber = lot.LotNumber,
-                        LastExpected = ReagentQcHistory.LastExpected(lot.ReagentId, _recentQc) });
+                // Pass 93: one row per QC control when the reagent has controls.
+                var controls = _reagents.FirstOrDefault(r => r.Id == lot.ReagentId)?.Controls ?? [];
+                foreach (var control in controls.Count == 0 ? [null] : controls.Cast<string?>())
+                {
+                    var done = _recentQc
+                        .Where(q => q.ReagentLotId == lot.Id && q.PerformedUtc.ToLocalTime().Date == today
+                                    && (control is null || string.Equals(q.Control?.Trim(), control, StringComparison.OrdinalIgnoreCase)))
+                        .OrderByDescending(q => q.PerformedUtc).FirstOrDefault();
+                    var existing = _qcRun.FirstOrDefault(r => r.LotId == lot.Id && r.Control == control);
+                    rows.Add(done is not null
+                        ? new QcRunRow { LotId = lot.Id, Control = control, ReagentCode = lot.ReagentCode, LotNumber = lot.LotNumber, DoneToday = true, DonePassed = done.Passed,
+                            DoneText = $"{done.ObservedResult} ({(done.Passed ? "passed" : "failed")}) by {done.PerformedBy}" }
+                        : existing is { DoneToday: false } ? existing
+                        : new QcRunRow { LotId = lot.Id, Control = control, ReagentCode = lot.ReagentCode, LotNumber = lot.LotNumber,
+                            LastExpected = ReagentQcHistory.LastExpected(lot.ReagentId, _recentQc, control) });
+                }
             }
 
             _qcRun = rows;
@@ -788,10 +838,10 @@
         foreach (var row in _qcRun.Where(r => !r.DoneToday && r.Compared).ToList())
         {
             var passed = row.Result == "pass";
-            var saved = await Api.RecordReagentQcAsync(new RecordReagentQcRequest(row.LotId, row.Expected, row.Observed, passed));
+            var saved = await Api.RecordReagentQcAsync(new RecordReagentQcRequest(row.LotId, row.Expected, row.Observed, passed, row.Control));
             if (saved.Succeeded)
             {
-                (passed ? recorded : failed).Add($"{row.ReagentCode} {row.LotNumber}");
+                (passed ? recorded : failed).Add($"{row.ReagentCode} {row.LotNumber}" + (row.Control is null ? "" : $" ({row.Control})"));
             }
             else
             {
@@ -809,7 +859,8 @@
 
     private async Task RecordQcAsync()
     {
-        var saved = await Api.RecordReagentQcAsync(new RecordReagentQcRequest(_qcLotId, _expected, _observed, _passed));
+        var saved = await Api.RecordReagentQcAsync(new RecordReagentQcRequest(_qcLotId, _expected, _observed, _passed,
+            QcLotControls.Count > 0 ? _qcControl : null));
         _feedback = saved.ToFeedback(_passed ? "QC recorded as passed." : "QC recorded as failed.");
         if (saved.Succeeded)
         {

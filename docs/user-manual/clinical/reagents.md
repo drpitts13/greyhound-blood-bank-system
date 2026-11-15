@@ -30,6 +30,10 @@ This screen does not decide that a reagent is acceptable for a patient. It recor
 
 **Today's QC, all open lots** lists every received or open lot in date, one row each. Type Expected and Observed for each lot you test; Result reads Passed when they match and Failed when they differ, and you can change it. Expected starts blank, showing the last value recorded for that reagent; **Use last expected for blank rows** copies it into every blank row, to be checked against the package insert. **Record** saves every row with both results in one step and says which passed and which failed; rows left blank stay for later. A lot already done today shows *Done today* (or *Failed today*).
 
+## QC controls
+
+A reagent's QC is usually read against more than one control, for example anti-A with A1 cells (positive) and B cells (negative). List them in the reagent's **QC controls** (from the package insert, comma-separated). Each control then has its own row on **Today's QC**, the single form asks which control a reading is for, and the lot stays on the worklist until every control has its reading for the day (*Lot AA-24117 has no QC for 2026-11-15 with B cells (negative)*). A failure is kept per control (*QC failed with B cells (negative)*) until that control passes again. A reagent with no controls listed takes one reading a day, as before. The controls are your facility's; none is supplied.
+
 ## Correct a lot
 
 **Correct** on a received or open lot fixes its lot number or expiry when it was entered wrongly. Give the reason; the change is audited with the values before and after. Another received or open lot of the reagent with the same number is refused, and a closed lot is not corrected. A corrected expiry already past makes the lot expired, so it can only be closed. Results already recorded with the lot keep the number as it was; the lot's **Results** still lists them.

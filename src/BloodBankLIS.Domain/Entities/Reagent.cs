@@ -16,6 +16,12 @@ public class Reagent : BaseEntity
     /// these tests records this reagent's open lots, so a lot that later fails QC can be traced to its results.
     /// </summary>
     public string? TestCodes { get; set; }
+
+    /// <summary>
+    /// The controls the reagent's daily QC is run with, from the package insert (for example "A1 cells (positive),
+    /// B cells (negative)"), comma-separated; blank means one QC reading a day (end-user testing pass 93).
+    /// </summary>
+    public string? QcControls { get; set; }
 }
 
 /// <summary>
@@ -81,6 +87,9 @@ public class ReagentDailyQc : BaseEntity
     public string ExpectedResult { get; set; } = string.Empty;
 
     public string ObservedResult { get; set; } = string.Empty;
+
+    /// <summary>Which of the reagent's QC controls this reading is for, when it has any (pass 93).</summary>
+    public string? Control { get; set; }
 
     public bool Passed { get; set; }
 

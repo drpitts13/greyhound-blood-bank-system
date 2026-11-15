@@ -29,14 +29,17 @@ public readonly record struct ReagentQcLotFact(
     ReagentLotState State,
     DateTime ExpiresUtc,
     long ReagentId = 0,
-    string? ReagentCode = null);
+    string? ReagentCode = null,
+    // Pass 93: the reagent's QC controls; each needs its reading for the day.
+    IReadOnlyList<string>? Controls = null);
 
 public readonly record struct ReagentQcFact(
     long Id,
     long LotId,
     DateTime QcDateUtc,
     bool Passed,
-    string? ReviewedBy);
+    string? ReviewedBy,
+    string? Control = null);
 
 public readonly record struct ReagentQcWorkItem(string Kind, long LotId, long? QcId, string Message);
 
@@ -104,8 +107,25 @@ public static class ReagentQcWorklistRule
                     $"Lot {lot.LotNumber} {ReagentLotRule.ExpiryText(lot.ExpiresUtc, nowUtc)} (expires {lot.ExpiresUtc:yyyy-MM-dd}) and no later lot of {reagent} is received: receive the next lot."));
             }
 
-            var testedToday = qcRows.Any(row => row.LotId == lot.LotId && row.QcDateUtc.Date == today);
-            if (!testedToday)
+            var todays = qcRows.Where(row => row.LotId == lot.LotId && row.QcDateUtc.Date == today).ToList();
+            if (lot.Controls is { Count: > 0 } controls)
+            {
+                // Pass 93: every control of the reagent needs its reading for the day.
+                var missing = controls
+                    .Where(c => !todays.Any(row => string.Equals(row.Control?.Trim(), c, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                if (missing.Count > 0)
+                {
+                    items.Add(new ReagentQcWorkItem(
+                        Overdue,
+                        lot.LotId,
+                        null,
+                        missing.Count == controls.Count
+                            ? $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}."
+                            : $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd} with {string.Join(", ", missing)}."));
+                }
+            }
+            else if (todays.Count == 0)
             {
                 items.Add(new ReagentQcWorkItem(
                     Overdue,
@@ -117,14 +137,16 @@ public static class ReagentQcWorklistRule
 
         // A failure stands while it is the lot's latest QC and the lot is in use; a later pass or closing the lot ends it.
         var openLots = lots.Where(l => l.State != ReagentLotState.Closed).Select(l => l.LotId).ToHashSet();
+        // Pass 93: the latest reading of each control stands for that control.
         var latest = qcRows
-            .GroupBy(row => row.LotId)
+            .GroupBy(row => (row.LotId, Control: (row.Control ?? string.Empty).Trim().ToUpperInvariant()))
             .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.QcDateUtc).ThenByDescending(r => r.Id).First().Id);
         foreach (var row in qcRows)
         {
-            if (!row.Passed && openLots.Contains(row.LotId) && latest[row.LotId] == row.Id)
+            if (!row.Passed && openLots.Contains(row.LotId) && latest[(row.LotId, (row.Control ?? string.Empty).Trim().ToUpperInvariant())] == row.Id)
             {
-                items.Add(new ReagentQcWorkItem(Failed, row.LotId, row.Id, "QC failed."));
+                items.Add(new ReagentQcWorkItem(Failed, row.LotId, row.Id,
+                    string.IsNullOrWhiteSpace(row.Control) ? "QC failed." : $"QC failed with {row.Control.Trim()}."));
             }
 
             if (string.IsNullOrWhiteSpace(row.ReviewedBy))

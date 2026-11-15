@@ -18,6 +18,38 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
 
     public CompetitorGapWorkflowTests(SqliteContextFactory factory) => _factory = factory;
 
+    // TEST-BB-1107 (end-user testing pass 93): a reagent with QC controls needs a reading for each control every day; a
+    // reading must name one of them; the lot stays due naming the control still missing, and a failure names its control.
+    [Fact]
+    public async Task ReagentQc_WithControls_NeedsEachControlEachDay()
+    {
+        await using var context = _factory.Create();
+        var service = Qc(context, _factory.CurrentUser);
+        var code = $"AA{Guid.NewGuid():N}"[..10].ToUpperInvariant();
+        var reagent = (await service.SaveReagentAsync(new SaveReagentRequest(code, "Anti-A (controls test)"))).Value!;
+        var set = await service.SetReagentTestsAsync(reagent.Id, new SetReagentTestsRequest(null, " A1 cells (positive); B cells (negative) "));
+        Assert.True(set.Succeeded, set.Error);
+        Assert.Equal("A1 cells (positive), B cells (negative)", set.Value!.QcControls);
+        var lotNumber = $"L{Guid.NewGuid():N}"[..10];
+        var lot = (await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Id, lotNumber, _factory.Clock.UtcNow.AddDays(30)))).Value!;
+        await service.OpenLotAsync(lot.Id);
+
+        var unnamed = await service.RecordQcAsync(new RecordReagentQcRequest(lot.Id, "4+", "4+", true));
+        Assert.False(unnamed.Succeeded);
+        Assert.Contains("Choose which control", unnamed.Error);
+
+        var positive = await service.RecordQcAsync(new RecordReagentQcRequest(lot.Id, "4+", "4+", true, "a1 cells (positive)"));
+        Assert.True(positive.Succeeded, positive.Error);
+        Assert.Equal("A1 cells (positive)", positive.Value!.Control);
+        var due = Assert.Single(await service.ListWorkAsync(), w => w.LotId == lot.Id && w.Kind == ReagentQcWorklistRule.Overdue);
+        Assert.EndsWith("with B cells (negative).", due.Message);
+
+        Assert.True((await service.RecordQcAsync(new RecordReagentQcRequest(lot.Id, "0", "1+", false, "B cells (negative)"))).Succeeded);
+        var work = await service.ListWorkAsync();
+        Assert.DoesNotContain(work, w => w.LotId == lot.Id && w.Kind == ReagentQcWorklistRule.Overdue);
+        Assert.Equal("QC failed with B cells (negative).", Assert.Single(work, w => w.LotId == lot.Id && w.Kind == ReagentQcWorklistRule.Failed).Message);
+    }
+
     [Fact]
     public async Task ReagentQc_ReviewerMustDiffer_AndWorklistClearsAfterReview()
     {

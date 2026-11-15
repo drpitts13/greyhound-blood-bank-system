@@ -7,7 +7,10 @@ using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
 
-public sealed record ReagentDto(long Id, string Code, string Name, bool IsActive, string? TestCodes = null);
+public sealed record ReagentDto(long Id, string Code, string Name, bool IsActive, string? TestCodes = null, string? QcControls = null)
+{
+    public IReadOnlyList<string> Controls => ReagentQcControls.Parse(QcControls);
+}
 
 /// <summary>A result recorded as tested with a reagent lot (lot lookback).</summary>
 public sealed record ReagentLotResultDto(
@@ -31,7 +34,8 @@ public sealed record ReagentLotResultDto(
 /// <summary>A reagent lot recorded against a result.</summary>
 public sealed record ResultReagentLotDto(long ReagentLotId, string ReagentCode, string LotNumber, DateTime RecordedUtc);
 
-public sealed record SetReagentTestsRequest(string? TestCodes);
+// QcControls: null leaves the reagent's QC controls as they are; blank clears them (pass 93).
+public sealed record SetReagentTestsRequest(string? TestCodes, string? QcControls = null);
 
 public sealed record RenameReagentRequest(string Name, string? Reason);
 
@@ -69,7 +73,8 @@ public sealed record ReagentDailyQcDto(
     string? ReviewedBy,
     DateTime? ReviewedUtc,
     long? ReagentId = null,
-    string? ReagentCode = null);
+    string? ReagentCode = null,
+    string? Control = null);
 
 /// <summary>Helpers for the daily QC form.</summary>
 public static class ReagentQcHistory
@@ -78,8 +83,9 @@ public static class ReagentQcHistory
     /// The expected result most recently recorded for this reagent (any lot), to offer on the QC form. Only an offer:
     /// the package insert is the authority, so the form never fills it in by itself.
     /// </summary>
-    public static string? LastExpected(long reagentId, IEnumerable<ReagentDailyQcDto> history) =>
-        history.Where(q => q.ReagentId == reagentId && !string.IsNullOrWhiteSpace(q.ExpectedResult))
+    public static string? LastExpected(long reagentId, IEnumerable<ReagentDailyQcDto> history, string? control = null) =>
+        history.Where(q => q.ReagentId == reagentId && !string.IsNullOrWhiteSpace(q.ExpectedResult)
+                           && (control is null || string.Equals(q.Control?.Trim(), control.Trim(), StringComparison.OrdinalIgnoreCase)))
             .OrderByDescending(q => q.PerformedUtc)
             .ThenByDescending(q => q.Id)
             .Select(q => q.ExpectedResult.Trim())
@@ -116,7 +122,9 @@ public sealed record RecordReagentQcRequest(
     long ReagentLotId,
     string ExpectedResult,
     string ObservedResult,
-    bool Passed);
+    bool Passed,
+    // Pass 93: which of the reagent's QC controls the reading is for (required when it has controls).
+    string? Control = null);
 
 public sealed class ReagentQcService
 {
@@ -175,7 +183,7 @@ public sealed class ReagentQcService
         var rows = await _reagents.ListAsync(ct);
         return rows
             .OrderBy(r => r.Code)
-            .Select(r => new ReagentDto(r.Id, r.Code, r.Name, r.IsActive, r.TestCodes))
+            .Select(r => new ReagentDto(r.Id, r.Code, r.Name, r.IsActive, r.TestCodes, r.QcControls))
             .ToList();
     }
 
@@ -194,13 +202,23 @@ public sealed class ReagentQcService
             return OperationResult<ReagentDto>.Fail(unknown);
         }
 
-        var before = reagent.TestCodes;
+        if (request.QcControls is not null && request.QcControls.Trim().Length > ReagentQcControls.MaxLength)
+        {
+            return OperationResult<ReagentDto>.Fail($"The QC controls can be at most {ReagentQcControls.MaxLength} characters.");
+        }
+
+        var before = new { reagent.TestCodes, reagent.QcControls };
         reagent.TestCodes = ReagentLotUseRule.NormalizeTestCodes(request.TestCodes);
+        if (request.QcControls is not null)
+        {
+            reagent.QcControls = ReagentQcControls.Normalize(request.QcControls);
+        }
+
         _reagents.Update(reagent);
-        _audit.Record(AuditEventType.Update, nameof(Reagent), reagent.Id, new { TestCodes = before }, new { reagent.TestCodes },
-            "Tests the reagent is used for changed.");
+        _audit.Record(AuditEventType.Update, nameof(Reagent), reagent.Id, before, new { reagent.TestCodes, reagent.QcControls },
+            request.QcControls is null ? "Tests the reagent is used for changed." : "Tests the reagent is used for, or its QC controls, changed.");
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive, reagent.TestCodes));
+        return OperationResult<ReagentDto>.Ok(new ReagentDto(reagent.Id, reagent.Code, reagent.Name, reagent.IsActive, reagent.TestCodes, reagent.QcControls));
     }
 
     public async Task<OperationResult<ReagentDto>> RenameReagentAsync(long reagentId, RenameReagentRequest request, CancellationToken ct = default)
@@ -623,6 +641,16 @@ public sealed class ReagentQcService
             return OperationResult<ReagentDailyQcDto>.Fail(qcCheck.Message);
         }
 
+        // Pass 93: a reagent with QC controls takes each reading against one of them.
+        var reagentForQc = await _reagents.GetByIdAsync(lot.ReagentId, ct);
+        var controlCheck = ReagentQcControls.Evaluate(reagentForQc?.QcControls, request.Control);
+        if (controlCheck.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReagentDailyQcDto>.Fail(controlCheck.Message);
+        }
+
+        var control = ReagentQcControls.Match(reagentForQc?.QcControls, request.Control);
+
         var now = _clock.UtcNow;
         var row = new ReagentDailyQc
         {
@@ -631,6 +659,7 @@ public sealed class ReagentQcService
             QcDateUtc = LocalDay(now),
             ExpectedResult = request.ExpectedResult.Trim(),
             ObservedResult = request.ObservedResult.Trim(),
+            Control = control,
             Passed = request.Passed,
             PerformedBy = _currentUser.UserName,
             PerformedUtc = now
@@ -642,7 +671,7 @@ public sealed class ReagentQcService
             nameof(ReagentDailyQc),
             row.Id,
             null,
-            new { row.ExpectedResult, row.ObservedResult, row.Passed, row.PerformedBy },
+            new { row.ExpectedResult, row.ObservedResult, row.Control, row.Passed, row.PerformedBy },
             "Reagent QC recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReagentDailyQcDto>.Ok(ToDto(row, lot.LotNumber));
@@ -680,11 +709,12 @@ public sealed class ReagentQcService
     {
         var lots = await _lots.ListAsync(ct);
         var rows = await _qc.ListAsync(ct);
-        var reagentCodes = (await _reagents.ListAsync(ct)).ToDictionary(r => r.Id, r => r.Code);
+        var reagentRows = (await _reagents.ListAsync(ct)).ToDictionary(r => r.Id);
         var facts = lots
-            .Select(l => new ReagentQcLotFact(l.Id, l.LotNumber, l.State, l.ExpiresUtc, l.ReagentId, reagentCodes.GetValueOrDefault(l.ReagentId)))
+            .Select(l => new ReagentQcLotFact(l.Id, l.LotNumber, l.State, l.ExpiresUtc, l.ReagentId,
+                reagentRows.GetValueOrDefault(l.ReagentId)?.Code, ReagentQcControls.Parse(reagentRows.GetValueOrDefault(l.ReagentId)?.QcControls)))
             .ToList();
-        var qcFacts = rows.Select(q => new ReagentQcFact(q.Id, q.ReagentLotId, LocalDay(q.PerformedUtc), q.Passed, q.ReviewedBy)).ToList();
+        var qcFacts = rows.Select(q => new ReagentQcFact(q.Id, q.ReagentLotId, LocalDay(q.PerformedUtc), q.Passed, q.ReviewedBy, q.Control)).ToList();
         var lotNumbers = lots.ToDictionary(l => l.Id, l => l.LotNumber);
         var items = ReagentQcWorklistRule.Evaluate(facts, qcFacts, _clock.UtcNow, LocalDay(_clock.UtcNow))
             .Select(item => new ReagentQcWorkItemDto(
@@ -779,5 +809,5 @@ public sealed class ReagentQcService
 
     private static ReagentDailyQcDto ToDto(ReagentDailyQc row, string lotNumber) =>
         new(row.Id, row.ReagentLotId, lotNumber, row.QcDateUtc, row.ExpectedResult, row.ObservedResult,
-            row.Passed, row.PerformedBy, row.PerformedUtc, row.ReviewedBy, row.ReviewedUtc);
+            row.Passed, row.PerformedBy, row.PerformedUtc, row.ReviewedBy, row.ReviewedUtc, Control: row.Control);
 }

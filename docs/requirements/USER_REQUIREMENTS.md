@@ -877,3 +877,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-869 | The supervisor queue says since when each missing or damaged unit has been so, longest first. | P3 | FRS-BB-987 |
 | URS-BB-870 | The unit picker does not count units not confirmed antigen-negative as compatible with the patient's antibodies. | P1 | FRS-BB-988 |
 | URS-BB-871 | Inventory can be searched for units typed negative for chosen antigens. | P1 | FRS-BB-989 |
+| URS-BB-872 | Daily reagent QC records each of the reagent's controls, and a lot is due until every control is read. | P1 | FRS-BB-990 |
