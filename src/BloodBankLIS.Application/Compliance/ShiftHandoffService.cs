@@ -80,7 +80,10 @@ public sealed record ShiftHandoffDto(
     int TemperatureExcursionsOpen = 0,
     int TemperatureExcursionsToClose = 0,
     int TemperatureReadingsDue = 0,
-    int DeviationsOverdue = 0)
+    int DeviationsOverdue = 0,
+    // Pass 116: lookback recipient notifications still due.
+    int LookbackDue = 0,
+    int LookbackPastNotifyBy = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -130,6 +133,7 @@ public sealed record ShiftHandoffDto(
         (TemperatureExcursionsToClose > 0 ? $"; excursions back in range to close {TemperatureExcursionsToClose}" : "") +
         (TemperatureReadingsDue > 0 ? $"; temperature readings due {TemperatureReadingsDue}" : "") +
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" + (DeviationsOverdue > 0 ? $", {DeviationsOverdue} overdue" : "") : "") +
+        (LookbackDue > 0 ? $"; lookback notifications due {LookbackDue}" + (LookbackPastNotifyBy > 0 ? $", {LookbackPastNotifyBy} past notify-by" : "") : "") +
         (InstrumentFailuresOpen > 0
             ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
             : "") +
@@ -166,7 +170,8 @@ public sealed record ShiftHandoffDto(
         h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull,
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
         h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen,
-        h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue);
+        h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue,
+        h.LookbackDue, h.LookbackPastNotifyBy);
 }
 
 /// <summary>
@@ -194,6 +199,7 @@ public sealed class ShiftHandoffService
     // Read directly, like the other counts: whoever hands off sees open deviations without deviation.manage.
     private readonly IRepository<Deviation>? _deviations;
     private readonly BloodBankLIS.Application.Inventory.StorageTemperatureService? _storageTemperatures;
+    private readonly IRepository<LookbackNotification>? _lookback;
     // Read without admin.config.edit: minimum stock levels are configuration, the shortage is shift work.
     private readonly MinimumStockService? _minimumStock;
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
@@ -246,8 +252,10 @@ public sealed class ShiftHandoffService
         IRepository<AntibodyHistory>? antibodyHistory = null,
         BloodBankLIS.Application.Inventory.EquipmentService? equipment = null,
         SupervisorQueueService? supervisorQueue = null,
-        BloodBankLIS.Application.Inventory.StorageTemperatureService? storageTemperatures = null)
+        BloodBankLIS.Application.Inventory.StorageTemperatureService? storageTemperatures = null,
+        IRepository<LookbackNotification>? lookback = null)
     {
+        _lookback = lookback;
         _storageTemperatures = storageTemperatures;
         _equipment = equipment;
         _supervisorQueue = supervisorQueue;
@@ -413,6 +421,12 @@ public sealed class ShiftHandoffService
         // Pass 103: storage temperature for the next shift.
         var excursions = _storageTemperatures is null ? [] : await _storageTemperatures.ListOpenExcursionsAsync(ct);
         var locations = _storageTemperatures is null ? [] : await _storageTemperatures.ListLocationsAsync(ct);
+        // Pass 116: lookback recipient notifications still due, and those past the facility's notify-by date.
+        var lookbackDue = _lookback is null
+            ? []
+            : (await _lookback.ListAsync(n => n.Status == LookbackNotificationStatus.Pending || n.Status == LookbackNotificationStatus.Attempted, ct)).ToList();
+        var notifyWithinDays = _policy is null || lookbackDue.Count == 0 ? 84 : await _policy.GetLookbackNotifyWithinDaysAsync(ct);
+        var lookbackPast = lookbackDue.Count(n => LookbackNotifyRule.NotifyBy(n.CreatedUtc, notifyWithinDays, n.Status) is DateTime by && now > by);
         var facilityToday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(now, DateTimeKind.Utc), TimeZoneInfo.Local));
         var failedLots = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
         // Results still to review include a lot whose repeat QC has since passed (end-user testing pass 26).
@@ -505,7 +519,9 @@ public sealed class ShiftHandoffService
             TemperatureExcursionsOpen = excursions.Where(r => !r.BackInRange).Select(r => r.LocationId).Distinct().Count(),
             TemperatureExcursionsToClose = excursions.Where(r => r.BackInRange).Select(r => r.LocationId).Distinct().Count(),
             TemperatureReadingsDue = locations.Count(l => l.ReadingDue is not null),
-            DeviationsOverdue = openDeviations.Count(d => DeviationDueRule.IsOverdue(d.Status, d.DueOn, facilityToday))
+            DeviationsOverdue = openDeviations.Count(d => DeviationDueRule.IsOverdue(d.Status, d.DueOn, facilityToday)),
+            LookbackDue = lookbackDue.Count,
+            LookbackPastNotifyBy = lookbackPast
         };
     }
 
@@ -607,7 +623,9 @@ public sealed class ShiftHandoffService
         TemperatureExcursionsOpen = row.TemperatureExcursionsOpen,
         TemperatureExcursionsToClose = row.TemperatureExcursionsToClose,
         TemperatureReadingsDue = row.TemperatureReadingsDue,
-        DeviationsOverdue = row.DeviationsOverdue
+        DeviationsOverdue = row.DeviationsOverdue,
+        LookbackDue = row.LookbackDue,
+        LookbackPastNotifyBy = row.LookbackPastNotifyBy
     };
 
     /// <summary>

@@ -900,3 +900,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-892 | A patient line on a supplier order shows what the patient's units must meet now, and an Unknown group or Rh cannot be ordered. | P1 | FRS-BB-1010 |
 | URS-BB-893 | A unit cannot be received or expected with an unknown ABO group or Rh(D). | P1 | FRS-BB-1011 |
 | URS-BB-894 | The bedside can confirm the patient's consent to transfusion when starting or documenting a transfusion; the facility can require it. | P1 | FRS-BB-1012 |
+| URS-BB-895 | Lookback recipient notifications still due are a home card and a shift handoff item, naming those past notify-by. | P1 | FRS-BB-1013 |

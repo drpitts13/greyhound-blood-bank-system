@@ -42,13 +42,13 @@ public static class DashboardHome
     /// blocked from routine issue with no second ABO/Rh ordered.
     /// </summary>
     private static readonly string[] UrgencyOrder =
-        [TemperatureExcursions, Reactions, Retrospective, InTransit, SecondAbo, ReagentQc, EquipmentChecks, InstrumentFailures, Hl7Errors, Handoff, Deviations, RecalledToPull, ExpiredOnShelf, LowStock, NearExpiry, Disposition, Supervisor];
+        [TemperatureExcursions, Reactions, Retrospective, InTransit, SecondAbo, ReagentQc, EquipmentChecks, InstrumentFailures, Hl7Errors, Handoff, Deviations, LookbackDue, RecalledToPull, ExpiredOnShelf, LowStock, NearExpiry, Disposition, Supervisor];
 
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
         [WorkFocus.Bench] = [PendingSpecimens, PendingTests, ToVerify, BloodOrders, AntibodyWorkups, OutsideAntibodies, ReagentQc, EquipmentChecks, PanelLotsToReplace, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
         [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, OutageOpen, TemperatureReadingsDue],
-        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, OutsideAntibodies, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, Unidentified, OutageOpen, SettingsToEnter, PanelLotsToReplace, EquipmentChecks, TemperatureReadingsDue]
+        [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, OutsideAntibodies, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, LookbackDue, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, Unidentified, OutageOpen, SettingsToEnter, PanelLotsToReplace, EquipmentChecks, TemperatureReadingsDue]
     };
 
     public static IReadOnlyList<WorkFocus> Choices { get; } =

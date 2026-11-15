@@ -28,6 +28,8 @@ The next shift should read the note before relying on the dashboard alone. The n
 
 Storage temperature is handed over too: **Temperature out of range** (urgent) counts refrigerators, freezers or incubators still reading out of range, so the next shift checks the units stored there; **Excursions back in range** counts those back in range whose deviation is still open, to close; **Temperature readings due** counts locations whose reading is due under the facility's interval. **Open deviations** names how many are past their due date.
 
+**Lookback notifications** counts recipient notifications still due on Lookback, naming those past the notify-by date.
+
 ## Units a ward is waiting for
 
 **Requested by the ward** counts reserved units a ward has asked to be sent and that are not yet issued. It is listed with the urgent items and opens Ready to issue.

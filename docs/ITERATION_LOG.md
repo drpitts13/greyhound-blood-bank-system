@@ -24508,3 +24508,21 @@ The Antibody ID worklist, then the bedside checks on Issue & Transfuse against a
 ### Tests
 
 - TEST-BB-1131, TEST-BB-1132. Full suite passed.
+
+## Iteration 835 — End-user testing pass 116: lookback notifications on the home page and handoff (2026-11-15)
+
+### How it was tested
+
+The Shift handoff's counts and the home dashboard, compared with Lookback.
+
+### Found and fixed
+
+1. **A recipient notification due under a lookback was seen only by opening Lookback.** Lookback listed Patricia Demo's notification (pending, opened nine days ago, notify by 2027-01-29), but neither the home dashboard nor the shift handoff, which counts 26 queues, mentioned it. A home card, *Lookback notifications due*, now counts them for lookback staff and names any past the facility's notify-by date (bringing it under Needs attention), and the handoff hands them over with the same note, kept in its counts and summary.
+
+### Retested live
+
+- Home: *Lookback notifications due 1* (none past notify-by). Shift handoff: *Lookback notifications: 1*.
+
+### Tests
+
+- TEST-BB-1133. Full suite passed.

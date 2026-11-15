@@ -53,6 +53,7 @@ public static class DashboardQueueCatalog
     public const string SettingsToEnter = "settings-to-enter";
     public const string PanelLotsToReplace = "panel-lots";
     public const string EquipmentChecks = "equipment-checks";
+    public const string LookbackDue = "lookback-due";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -114,6 +115,8 @@ public static class DashboardQueueCatalog
         // Values an interface sent or received that no translation covered: whoever keeps the translation table fixes them.
         Add(cards, has(PermissionCodes.AdminHl7Manage) || has(PermissionCodes.AdminInstrumentsManage), UnmappedInterfaceValues, "Unmapped interface values", "/admin/hl7/translations?tab=unmapped");
         Add(cards, has(PermissionCodes.DeviationManage), Deviations, "Open deviations", "/deviations");
+        // Pass 116: recipient notifications for a lookback, a regulated follow-up seen only on Lookback before.
+        Add(cards, has(PermissionCodes.LookbackManage), LookbackDue, "Lookback notifications due", "/lookback");
         // Charts that may be one person split the ABO/Rh and antibody history: whoever merges charts reviews them.
         Add(cards, has(PermissionCodes.PatientMerge), PossibleDuplicates, "Possible duplicates", "/patients/duplicates");
         // Emergency charts registered without identification: merged into the identified chart once known.
@@ -419,6 +422,10 @@ public static class DashboardQueueCatalog
     /// The HL7 errors card note: how long the oldest unresolved error has waited (an order, result, or admission that has
     /// not reached its destination for that long). The card leads under Needs attention whenever it has errors.
     /// </summary>
+    /// <summary>The Lookback notifications card note: those past the facility's notify-by date (pass 116).</summary>
+    public static string? LookbackNote(IEnumerable<LookbackNotificationDto> due) =>
+        AttentionNote(due.Count(n => n.PastNotifyBy), "past notify-by", "past notify-by");
+
     public static string? OldestWaitingNote(IEnumerable<DateTime?> queuedUtc, DateTime nowUtc)
     {
         var oldest = queuedUtc.Where(t => t is not null).Min();

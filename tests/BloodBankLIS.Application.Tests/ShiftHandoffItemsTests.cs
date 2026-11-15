@@ -68,6 +68,25 @@ public class ShiftHandoffItemsTests
         Assert.Contains("deviations open 3, 1 overdue", handoff.QueueSummary);
     }
 
+    // TEST-BB-1133: lookback notifications still due are a handoff item linked to Lookback, naming those past notify-by,
+    // and in the summary line; the home card names those past notify-by and is for lookback staff only; none, no item
+    // (end-user testing pass 116).
+    [Fact]
+    public void LookbackNotifications_AreAHandoffItem_AndAHomeCard()
+    {
+        var handoff = Handoff() with { LookbackDue = 2, LookbackPastNotifyBy = 1 };
+        var item = Assert.Single(ShiftHandoffItems.For(handoff));
+        Assert.Equal(("Lookback notifications", 2, "/lookback", "1 past notify-by"), (item.Label, item.Count, item.Href, item.Detail));
+        Assert.Contains("lookback notifications due 2, 1 past notify-by", handoff.QueueSummary);
+        Assert.Empty(ShiftHandoffItems.For(Handoff()));
+
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.LookbackManage), c => c.Key == DashboardQueueCatalog.LookbackDue && c.Href == "/lookback");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.IssueCreate), c => c.Key == DashboardQueueCatalog.LookbackDue);
+        Assert.Null(DashboardQueueCatalog.LookbackNote([new LookbackNotificationDto(1, "W0000000000001", 1, 1, 1, BloodBankLIS.Domain.Enums.LookbackNotificationStatus.Pending, null, null, null, null)]));
+        Assert.Equal("1 past notify-by", DashboardQueueCatalog.LookbackNote(
+            [new LookbackNotificationDto(1, "W0000000000001", 1, 1, 1, BloodBankLIS.Domain.Enums.LookbackNotificationStatus.Pending, null, null, null, null) { PastNotifyBy = true }]));
+    }
+
     // TEST-BB-841: outbound HL7 messages not sent are a handoff item linked to the HL7 page and in the summary line;
     // none, no item.
     [Fact]

@@ -1141,5 +1141,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1130 | I | `InventoryServiceTests.Receive_RefusesAnUnknownType` | URS-BB-893 / FRS-BB-1011 |
 | TEST-BB-1131 | I | `Phase4IssuingTests.StartTransfusion_NeedsConsentConfirmation_WhenTheFacilityRequiresIt` | URS-BB-894 / FRS-BB-1012 |
 | TEST-BB-1132 | U | `TransfusionConsentRuleTests.Evaluate_BlocksOnlyWhenRequiredAndNotConfirmed` | URS-BB-894 / FRS-BB-1012 |
+| TEST-BB-1133 | U | `ShiftHandoffItemsTests.LookbackNotifications_AreAHandoffItem_AndAHomeCard` | URS-BB-895 / FRS-BB-1013 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

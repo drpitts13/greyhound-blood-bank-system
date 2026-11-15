@@ -169,6 +169,11 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Open deviations past their due date (pass 103).</summary>
     public int DeviationsOverdue { get; set; }
 
+    /// <summary>Lookback recipient notifications still due, and those past their notify-by date (pass 116).</summary>
+    public int LookbackDue { get; set; }
+
+    public int LookbackPastNotifyBy { get; set; }
+
     /// <summary>Units a ward has asked to be sent and not yet issued (end-user testing pass 21).</summary>
     public int WardRequestsWaiting { get; set; }
 

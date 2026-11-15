@@ -70,6 +70,8 @@ public static class ShiftHandoffItems
         Add(h.TemperatureExcursionsToClose, "Excursions back in range", "/storage-temps", detail: "close their deviations");
         Add(h.TemperatureReadingsDue, "Temperature readings due", "/storage-temps");
         Add(h.OpenDeviations, "Open deviations", "/deviations", detail: Note((h.DeviationsOverdue, "overdue")));
+        // Pass 116: recipients still to notify for a lookback.
+        Add(h.LookbackDue, "Lookback notifications", "/lookback", detail: Note((h.LookbackPastNotifyBy, "past notify-by")));
         Add(h.InstrumentFailuresOpen, "Instrument failures", "/instruments?show=open",
             detail: Note((h.InstrumentResultsHeld, "held for review")));
         Add(h.Hl7ErrorsOpen, "HL7 errors", "/hl7");
